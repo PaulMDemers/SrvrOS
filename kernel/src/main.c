@@ -613,6 +613,7 @@ void kmain(void) {
         xhci_print_boot_diagnostic();
     }
     bool guided_battery=cmdline_has_token(cmdline,"srvros.capture=battery-transitions");
+    bool smbus_battery=cmdline_has_token(cmdline,"srvros.capture=battery-smbus");
     bool query_battery=cmdline_has_token(cmdline,"srvros.capture=battery-query");
     bool controls_battery=cmdline_has_token(cmdline,"srvros.capture=battery-controls");
     bool app_files_battery=cmdline_has_token(cmdline,"srvros.capture=battery-app-files");
@@ -623,7 +624,7 @@ void kmain(void) {
     bool usb_write_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-write");
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
-    bool automatic_battery=query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_battery=smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
@@ -658,8 +659,8 @@ void kmain(void) {
                 workspace_parked?"yes":"NO",battery_prepared?"armed":"NO");
         }
         if(automatic_battery && battery_prepared && started && init_ready && timer_running) {
-            sampled=(query_battery?battery_query_diagnostic_run:controls_battery?battery_controls_diagnostic_run:app_files_battery?battery_app_files_diagnostic_run:load_battery?battery_load_diagnostic_run:text_battery?battery_text_diagnostic_run:desktop_battery?battery_desktop_diagnostic_run:filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
-            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",query_battery?"battery-query-capture":controls_battery?"battery-controls-capture":app_files_battery?"battery-app-files-capture":load_battery?"battery-load-capture":text_battery?"battery-text-capture":desktop_battery?"battery-desktop-capture":service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
+            sampled=(smbus_battery?battery_smbus_diagnostic_run:query_battery?battery_query_diagnostic_run:controls_battery?battery_controls_diagnostic_run:app_files_battery?battery_app_files_diagnostic_run:load_battery?battery_load_diagnostic_run:text_battery?battery_text_diagnostic_run:desktop_battery?battery_desktop_diagnostic_run:filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",smbus_battery?"battery-smbus-capture":query_battery?"battery-query-capture":controls_battery?"battery-controls-capture":app_files_battery?"battery-app-files-capture":load_battery?"battery-load-capture":text_battery?"battery-text-capture":desktop_battery?"battery-desktop-capture":service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
         }
         if(automatic_battery && return_on_failure) {
             if(filesystem_battery&&workspace_image_busy())(void)workspace_image_close();

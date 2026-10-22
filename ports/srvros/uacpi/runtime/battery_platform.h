@@ -37,6 +37,9 @@ struct battery_platform {
     void (*model_query_checkpoint)(uint8_t code);
     /* VM-only host-controller ownership study; native always leaves false. */
     bool model_smbus_queries;
+    /* Exact native binding or explicit disposable capture fixture only.
+     * Runtime additionally requires the opt-in capture and parked storage. */
+    bool smbus_capture_profile;
     enum battery_query_policy query_policy;
     uint64_t rsdp,facs;
     uint16_t original_control;

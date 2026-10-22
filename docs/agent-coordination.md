@@ -391,3 +391,22 @@ an explicit parked native capture, not ordinary battery startup or mounted Home.
 Pro PR19 `9ecf749` remains separate Wi-Fi work. Only the appended Makefile target
 is shared; preserve its independent targets and historical capture identities.
 Local validation replaces disabled Actions. No other device acceptance is implied.
+
+
+## Air native SMBus capture handoff (PR #46)
+
+Implementation `10a4cbe` adds the distinct v46 automatic `--battery-smbus`
+capture. Air7,2 release `a1451825851dc5f0` accepts 45 natural completion events,
+fresh generation 3, clean retirement and preserved USB/automatic Ubuntu return.
+No alarms occurred: acknowledgement and invalidation paths remain VM-tested only.
+Use the shared strict event/cache/retirement proof; missing final logs remain
+incomplete, and native capture ownership exists only with exact parked storage
+and the existing Air firmware/resource profile. Ordinary query10 dispatch,
+mounted Home and automatic battery startup remain unchanged/off.
+
+Consume the shared implementation before duplicating host-event handling. The
+next Air scope is sustained event and alarm/stop-race coverage with Text/file
+load in VM before another native coexistence trial. Pro PR19 `79132d6` remains
+independent Wi-Fi work and overlaps main/staging/tests; preserve both profiles
+and historical recipe identities. Actions remain disabled; all validation is
+local. No other machine's firmware or physical acceptance is implied.

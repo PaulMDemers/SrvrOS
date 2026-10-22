@@ -1,6 +1,44 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
+
+### Accepted parked SMBus completion capture (PR #46)
+
+Release `a1451825851dc5f0`, source `10a4cbe`, session
+`session-00065e7202038212-00` passed the automatic v46 native capture.
+The exact Air profile handled 45 natural query10 completion events (status 128)
+without entering `_Q10` AML, observed fresh generation 3, then masked sources,
+drained the worker, restored event enables and retired cleanly. All three SCI
+deliveries were handled, with zero unclaimed/in-flight interrupts; retirement
+reported heap/errors/denied all zero. The stopped cache was correctly nonfresh.
+
+No alarms occurred: native alarm acknowledgement, unknown senders and alarm-driven
+cache refresh remain unexercised; those paths have VM evidence only. This accepts
+bounded completion handling and sampling with parked storage, not gauge accuracy,
+mounted Home coexistence, ordinary startup or another machine's firmware.
+
+All 919 prior ordinary USB files remained identical; only the metadata sidecar
+changed and three matching logs were added. The filesystem image hash stayed
+unchanged. Offline fsck and independent allocation checks passed with zero leaks,
+bitmap mismatches or errors. The changed Ubuntu boot ID, consumed one-shot,
+Ubuntu default, EFI order and installed/independent recovery were verified.
+No reboot is armed. Installed current is `a1451825851dc5f0`; accepted desktop
+`b427b78f21644bd2` remains previous. The query-refusal payload is independently
+backed up. Accepted evidence and exact payload are hash-verified outside `build`
+at `~/.local/share/srvros/accepted-evidence/a1451825851dc5f0`.
+
+Full builds/core tests, both diagnostic kernels, 16 full-boot capture cases,
+five regressions and exact-stage refusal/save/return plus missing-workspace
+checks passed locally. All 16 disposable disks passed offline allocation/fsck.
+The 190-file validation archive is at
+`~/.local/share/srvros/local-validation/battery-native-smbus-10a4cbe30263`.
+Actions remain disabled. Base was `24fd5f4` (PR45); Pro PR19 `79132d6` retains
+independent Wi-Fi scope, with overlapping main/staging/tests to preserve.
+
+This bounded milestone is complete. Next: test sustained event handling and
+alarm/stop races with the existing Text/file workload in VM before proposing
+another native coexistence capture. Ordinary startup and mounted Home stay off;
+do not broaden the firmware/resource gates or infer physical alarm acceptance.
 
 ### Query10 host-controller event study (PR #45)
 

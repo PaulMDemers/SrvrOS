@@ -16,7 +16,7 @@ CASES={'unknown':48,'high':49,'os-darwin':50,'os-other':51,'notify-darwin':52,
 FATAL={'shared20':'query return receipt','shared21':'query return receipt',
        'transport':'query transport','disconnect':'EC disconnect','lock':'recovery resources retained'}
 
-def verify_image(raw,serial,positive):
+def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture'):
     image=ExfatFixture(raw)
     assert {n for n,_ in image.entries(image.chain(image.root))}=={'srvros-work','.srvros'}
     assert {n for n,_ in image.entries(image.read('srvros-work'))}=={'.workspace','anchor.txt','Logs'}
@@ -26,10 +26,10 @@ def verify_image(raw,serial,positive):
     folder='srvros-work/Logs/'+sessions[0]
     assert {n for n,_ in image.entries(image.read(folder))}=={'boot.log','session-a.log','exit.log'}
     saved=image.read(folder+'/exit.log')
-    if positive:assert check(saved,vm=True)==check(serial,vm=True)
+    if positive:assert checker(saved,vm=True)==checker(serial,vm=True)
     else:
         assert b'laptop-capture: completed=NO\n' in saved
-        assert b'battery-query-capture: returned=yes clean=NO;' in saved
+        assert capture+b': returned=yes clean=NO;' in saved
     paths={'/work':True}
     def walk(folder,depth=0):
         assert depth<5

@@ -3429,3 +3429,8 @@ build/tests/battery-query-receipt$(HOST_EXE): tools/test_battery_query_receipt.c
 test-core: test-battery-smbus-records
 test-battery-smbus-records:
 	$(PYTHON) tools/test_battery_smbus_records.py
+
+.PHONY: test-battery-native-smbus-records
+test-core: test-battery-native-smbus-records
+test-battery-native-smbus-records:
+	$(PYTHON) tools/test_battery_native_smbus_records.py

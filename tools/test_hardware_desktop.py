@@ -339,6 +339,26 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIn('collection: battery application-file completion missing or invalid',report['sessions'][0]['attention'])
 
+    def test_battery_smbus_collection(self):
+        from test_battery_native_smbus_records import PROOF
+        native=PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-smbus\n'
+            (folder/'boot.log').write_bytes(boot)
+            (folder/'exit.log').write_bytes(boot+native)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_smbus']['events'],3);self.assertFalse(item['attention'])
+            for bad in (boot,boot+PROOF,boot+native[:-1],boot+native+native,
+                        boot+native.replace(b'outcome=completed',b'outcome=not-exercised')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_smbus'])
+                self.assertIn('collection: native SMBus completion missing, invalid or not exercised',item['attention'])
+            self.assertIsNone(desktop.battery_smbus_result((boot+native).replace(b'srvros.capture=battery-smbus',b'srvros.capture=battery-smbus-other').decode()))
+
     def test_battery_query_collection(self):
         from test_battery_native_query_records import PROOF
         native=PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
