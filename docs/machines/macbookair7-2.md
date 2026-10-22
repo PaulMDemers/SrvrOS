@@ -2,6 +2,23 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active mounted-volume ownership work
+
+Base `3c47b50` (PR49). The Air agent is binding the VM battery session to the
+exact workspace mount lifetime, holding it across Start/Stop/restart and refusing
+unmount, scratch preparation or image conversion until all clients and the
+runtime retire. Scope: `workspace.c/.h`, workspace-image admission, battery
+runtime, host fixtures and the mounted-controls VM harness/receipt decoder.
+Next checkpoint: stale-token/remount and storage-failure tests, lifecycle VM
+cases and retained evidence. Native Home/startup remain OFF; installed
+`fda709928307b1b1`, previous `b427b78f21644bd2`, no pending reboot.
+
+Fetched main and inspected Pro PR19 `fdec140`: independent USB Wi-Fi scope;
+no workspace/battery ownership edits. Actions remain disabled. The UI already
+has cached percentage/AC text and System status/controls. Remaining delivery
+covers mounted file-work concurrency, native normal-return/desktop lifecycle,
+charging transition/gauge acceptance and finished everyday indicator behavior.
+
 ### Mounted-workspace lifecycle VM study (PR #49)
 
 Implementation `d223325`, base `598fe27` (PR48). The new explicit
