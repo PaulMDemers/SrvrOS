@@ -6,7 +6,7 @@
 #include "../kernel/src/process.c"
 static struct process *subject;
 static uint64_t tested;
-static unsigned hook;
+static unsigned hook,release_wakes;
 void *scheduler_current_user_context(void) { return subject; }
 void *scheduler_current_user_thread_context(void) { return NULL; }
 void fpu_init_state(struct fpu_state *p) { memset(p,0,sizeof(*p)); }
@@ -34,7 +34,9 @@ void pmm_free_frame_range(uint64_t address,uint64_t count) {
 void net_process_wake(struct process *p) { (void)p; }
 void keyboard_wake_waiters(void) {}
 void pty_wake(void) {}
-void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
+void scheduler_wake_all(struct scheduler_wait_queue *q) {
+    if(q==&process_wait_queue)release_wakes++;
+}
 int main(void) {
     tested=process_lifetime_create();assert(tested);
     assert(!process_lifetime_release(tested) && !process_lifetime_drain(tested));
@@ -69,7 +71,9 @@ int main(void) {
     assert(!process_lifetime_revoke(old) && !alloc_process_lifetime("stale",true,old));
     hook=1;root=alloc_process_lifetime("revoked-during-prepare",true,tested);assert(root && !hook);
     root->kernel_stack_physical=0x1000;root->kernel_stack_frames=1;hook=2;
+    unsigned before=release_wakes;
     release_process(root);assert(!hook && members(tested)==0 && process_lifetime_release(tested));
+    assert(release_wakes>before); /* Last release wakes a competing waitpid. */
     /* Bounded owner table and fail-closed token exhaustion. */
     uint64_t tokens[PROCESS_MAX_PROCESSES];
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) { tokens[i]=process_lifetime_create();assert(tokens[i]); }

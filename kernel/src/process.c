@@ -689,6 +689,9 @@ static void release_process(struct process *process) {
     struct process_lifetime *life=lifetime_find(token);
     if(life) life->members--;
     process_slots_busy[slot]=false;process_irq_restore(flags);
+    /* A competing waiter may have slept after another reaper claimed the
+     * zombie but before allocated was cleared. Publish target disappearance. */
+    scheduler_wake_all(&process_wait_queue);
 }
 
 static void release_process_runtime(struct process *process) {

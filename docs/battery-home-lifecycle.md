@@ -334,6 +334,7 @@ reused, and token exhaustion refuses new owners. Peak simultaneous membership
 is separate from lifetime app count, so sequential launches do not exhaust a
 historical PID array. Kernel waits and lifetime drain claim a zombie before
 preemptible destruction to prevent competing reapers from releasing it twice.
+Final removal wakes waiters that slept while the zombie was already claimed.
 
 The continuous VM System session uses this owner, drains clients before stopping
 the battery service, and releases its process token before releasing the exact
@@ -348,7 +349,8 @@ exhaustion. The full-boot `lifetimetest` fixture exercises real executable churn
 failed loads, synchronous/asynchronous spawn, `setsid`, exec and orphaned
 children/grandchildren; it drains the selected lifetime while leaving an unrelated
 process alive. `tools/process_lifetime_smoke.py` runs it twice and then runs the
-existing PTY regression. Periodic logs and shutdown during a real pending desktop
+existing PTY regression. Each pass also runs 16 pairs of competing waiters,
+requiring exactly one successful reap per child. Periodic logs and shutdown during a real pending desktop
 file write still need overlap coverage using this new lifetime owner before
 ordinary native desktop integration.
 

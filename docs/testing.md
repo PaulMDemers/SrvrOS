@@ -317,7 +317,8 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `process_lifetime_smoke.py`: disposable Q35 boot, two runs of the kernel
   `lifetimetest` command (256 sequential apps total), failed spawn, synchronous
   exec, orphaned descendants across `setsid`/exec/job groups, selected-lifetime
-  drain and unrelated-process survival, followed by the existing PTY fixture.
+  drain and unrelated-process survival, 32 competing waiter pairs with exactly
+  one successful reap per child, followed by the existing PTY fixture.
   `make test-process-lifetime` covers preparation/release races and stale owner
   tokens against the real kernel allocation paths. This does not accept native
   battery ownership or ordinary desktop startup.

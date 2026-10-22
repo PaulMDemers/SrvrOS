@@ -41,6 +41,7 @@ def main():
                     assert b'lifetime-test: PASS orphan exec setsid group-change descendants=2 unrelated=preserved drained=yes' in part
                     assert b'lifetime-test: failed root retired' in part and b'lifetime-test: churn retired' in part
                     assert b'lifetimeprobe: churn=128 failed-spawn=refused synchronous=2' in part
+                    assert b'lifetimeprobe: competing-waiters=16 one-winner=yes' in part
                     assert b'FAIL' not in part and b'exception:' not in part and b'\nsrv> ' in part
                 # Existing PTY/job-control and init reaping behavior stays intact.
                 before=len(output);serial.sendall(b'run /fat/bin/ptyprobe\n');end=time.monotonic()+60
@@ -50,7 +51,7 @@ def main():
                 qmp.call('screendump',{'filename':str(out/'screen.ppm')})
                 result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                         'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
-                        'iterations':2,'sequential_apps':256,'physical_acceptance':False,
+                        'iterations':2,'sequential_apps':256,'competing_waiter_pairs':32,'physical_acceptance':False,
                         'payload_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest()
                                           for p in (root/'build/kernel/srvros.elf',root/'build/initramfs.tar')}}
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
