@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Linux inventory captured; host build/core and baseline VM checks passed; physical tests pending**.
+Updated: 2026-10-22. State: **Native console and basic keyboard input accepted; USB persistence pending**.
 
 ## Identity and ownership
 
@@ -53,8 +53,8 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
 | Capability | State | Remaining work |
 | --- | --- | --- |
-| Boot/display | Not physically tested | Console boot and 1366×768 layout |
-| Keyboard | Not physically tested | Native enumeration and typing |
+| Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
+| Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | PID not admitted | Captured report/transport evidence before profile |
 | USB workspace | Prepared; offline checks pass | Physical save/read/unmount pending |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
@@ -85,17 +85,19 @@ Volatile state lives in `build/bringup/checkpoint.json`; logs in `build/review`.
 The 50-file inventory backup was hash-verified outside `build`, under
 `~/.local/share/srvros/evidence/macbookair6-1-bootstrap-2026-10-22`.
 The user authorized dependency installation using a machine-local sudo credential.
-No physical reboot has been requested or armed. Ubuntu remains recovery; there
-is no accepted SrvrOS payload to preserve yet. A physical trial requires this
-unit's exFAT workspace, exact-stage VM result and recorded recovery/run state.
+The first authorized one-shot returned to Ubuntu and was collected. No boot is
+armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
+console/basic-keyboard payload; its USB persistence is not accepted.
 
 ## Next actions
 
-1. Attach an exFAT USB workspace, identify its USB ancestry and UUID, and run
-   `tools/hardware_workspace.py --uuid <observed-uuid>` without formatting.
-2. Rehearse the exact v7 console stage, retain its artifacts and record the
-   first attended console/input trial before installing/arming it.
-3. Capture bounded topcase reports before proposing a separate Air6,1 profile;
+1. Verify native `workspace status` before another persistence attempt. At `srv>`,
+   use `write /work/srvros-work/console-keyboard-first.txt Air61-AaZz09` and
+   `cat /work/srvros-work/console-keyboard-first.txt`; monitor echo does not
+   interpret shell redirection. Require successful write/read and clean unmount.
+2. If using `workspace shell`, require the prompt ending in `$` before entering
+   shell syntax. Preserve any startup error if it stays at `srv>`.
+3. Capture bounded topcase reports before proposing an Air6,1 trackpad profile;
    keep backlight, audio, EC/SCI and network enablement independently scoped.
 
 ## First console trial prepared (2026-10-22)
@@ -126,3 +128,24 @@ Next is the attended console/keyboard trial, including a saved
 create automatic desktop session logs: retain photographs and user observations,
 verify the saved file and original-file hashes, and run offline filesystem checks
 before another trial. Physical keyboard, display and USB acceptance remain pending.
+
+## First native result (2026-10-22)
+
+Release `c35475f62f154f1e` reached a visible interactive console. The user reports
+normal built-in keyboard typing, many commands, Up/Down, Backspace and Enter.
+This accepts those checks only; Caps Lock, held repeat and desktop/trackpad
+behavior were not separately confirmed.
+
+The save test did not write a file: `>` and its filename were echoed literally,
+and cat could not read the result. This matches monitor echo semantics; the
+checklist did not require verification of shell entry. Workspace mount and shell
+entry remain unconfirmed, so this is not evidence of a filesystem-driver defect.
+The user then entered `reboot`. The monitor attempts to unmount an active
+workspace and flush storage before reset, but no explicit unmount observation
+was supplied. Ubuntu returned, its boot ID changed and the one-shot was consumed.
+
+Post-return read-only exFAT/allocation checks pass (107 files, 109 clusters,
+zero errors/leaks). All 102 original file hashes are unchanged, with no test file
+or additional session log. v7 has no automatic desktop log. Evidence is saved
+under the run's `physical-after` directory and copied to the durable backup.
+USB persistence remains open; no new candidate was installed or reboot armed.

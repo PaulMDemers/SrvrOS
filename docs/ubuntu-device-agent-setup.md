@@ -546,6 +546,15 @@ SrvrOS → Return to console, check `USB unmounted=yes`, then type `reboot` at t
 monitor. An unmount/write failure is not a successful exit. For a console
 workspace use `workspace sync`, `workspace unmount`, then `reboot`.
 
+The `srv>` monitor is not the userspace shell: `echo text > file` prints the
+redirection literally. After `workspace shell`, require a prompt ending in `$`
+before using shell redirection; if it stays at `srv>`, record the error and
+check `workspace status`. For a monitor-only save check on a writable workspace,
+use `write /work/srvros-work/console-test.txt test-text` followed by
+`cat /work/srvros-work/console-test.txt`, then sync/unmount as above. Use a fresh
+filename and verify its contents after returning to Ubuntu.
+
+
 On a halt, photograph the complete diagnostics before manually restarting. After
 Ubuntu returns, mount the same volume and reload its UUID/release from the local
 record. Collect before preparing another run:
