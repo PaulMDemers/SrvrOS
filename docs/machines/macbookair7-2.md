@@ -25,9 +25,14 @@ screen. Those incomplete captures remain separate from passing collections.
 The harness now retains UART/register/screen evidence when output stalls. The
 general serial transmit-timeout policy remains an open reliability issue.
 
-Integration follow-up: consume actual main `1b88c8a` (Air6,1 PR54/56/57/58),
-preserving that agent's measured profile and record; rerun build/core and relevant
-VM/file regressions. Pro PR19 `45db188` retains Wi-Fi work. Next battery scope is
+Integrated actual main `1b88c8a` (Air6,1 PR54/56/57/58), preserving that agent's
+measured profile and record. Source `05a50bc` passed full build/both kernels,
+the extended 1,680-event session (29 summaries), accepted Home capture, pending-write
+cancellation, full core and docs checks. Evidence is hash-verified outside `build`
+in `~/.local/share/srvros/local-validation/battery-continuous-05a50bc16bdf`
+(128 files, 13 compressed images verified by decompression). Directed and integrated
+payloads are retained separately, together with the incomplete UART-loss capture.
+Pro PR19 `45db188` retains Wi-Fi work. Next battery scope is
 an inherited kernel desktop lifetime identity, app churn/Terminal orphan handling
 and periodic logging overlap before ordinary startup or another native trial.
 See the [ownership follow-up](../battery-home-lifecycle.md#ordinary-desktop-ownership-follow-up).

@@ -350,3 +350,10 @@ output. Periodic and final summaries have one service-thread writer so a
 preempted owner cannot emit an older periodic snapshot after the final record.
 This ordering change is not a claim that the general UART transmit-timeout policy
 has been fixed; its channel-loss behavior remains a separate reliability issue.
+
+Local validation: `07c06da` passed all nine directed continuous-session cases.
+After integrating Air6,1 main `1b88c8a`, source `05a50bc` passed full build/both
+kernels, a repeated extended session (1,680 events across two lifetimes), accepted
+Home capture, pending-write cancellation, full core and documentation checks.
+This is VM/host evidence only. The prior native PR53 release remains installed;
+no ordinary startup or native continuous-service trial was enabled.
