@@ -314,6 +314,13 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
   `wait`, `jobs -l`, `%+` job references, foreground/background pipeline job
   control, `kill -0` probes, `%job` process-group kill, and Ctrl-C interruption
   of CPU-bound processes and pipelines with `status 130`.
+- `process_lifetime_smoke.py`: disposable Q35 boot, two runs of the kernel
+  `lifetimetest` command (256 sequential apps total), failed spawn, synchronous
+  exec, orphaned descendants across `setsid`/exec/job groups, selected-lifetime
+  drain and unrelated-process survival, followed by the existing PTY fixture.
+  `make test-process-lifetime` covers preparation/release races and stale owner
+  tokens against the real kernel allocation paths. This does not accept native
+  battery ownership or ordinary desktop startup.
 - `process_pressure.py`: repeated foreground execs, multi-stage pipelines, many
   concurrent background sleeps, `jobs -l`, `wait`, and a final pipeline pass. It
   fails on process-table, scheduler-thread, pipe, or pipeline-spawn exhaustion

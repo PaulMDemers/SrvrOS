@@ -49,6 +49,7 @@ def main():
                 part=bytes(output[before:]);assert b'ptyprobe: PASS' in part and b'FAIL' not in part and b'exited status=0' in part
                 qmp.call('screendump',{'filename':str(out/'screen.ppm')})
                 result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+                        'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                         'iterations':2,'sequential_apps':256,'physical_acceptance':False,
                         'payload_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest()
                                           for p in (root/'build/kernel/srvros.elf',root/'build/initramfs.tar')}}

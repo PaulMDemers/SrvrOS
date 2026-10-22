@@ -294,8 +294,7 @@ not coalesce device operations. Per-query attempt/time budgets and all setup,
 transaction, drain and shutdown deadlines remain intact.
 
 The fixed System/compositor pair can run beyond the diagnostic 110 seconds and
-512 events. It is not the ordinary app session: arbitrary app churn still needs
-a replacement for the diagnostic retained descendant history, and native continuous
+512 events. It is not the ordinary app session: arbitrary app integration still needs its ordinary session wrapper, and native continuous
 monitoring needs its own physical trial. No reboot/staging option selects this
 VM path. The user-space `--battery-monitor` flag only changes the fixed System
 client's lifetime; it cannot acquire a battery runtime capability on its own.
@@ -319,16 +318,39 @@ parents or scanning the original process group is insufficient: Terminal jobs
 can change process groups or create sessions, and a parent can exit between
 owner polls. The group's purpose is job control, not a permanent mount owner.
 
-Before general desktop integration, add a kernel-created lifetime identity that
-is installed before publishing the root as runnable and inherited by every
-spawn/fork, preserved through exec, job-control group changes and reparenting.
-It must not be assignable through a userspace group/session syscall. Bound live
-membership by process slots rather than retaining an unbounded PID history.
-Revoke admission at desktop exit, stop/reap all members, retire the battery owner,
-and only then release the mount. Test more than 64 sequential app launches,
-parent-before-child exit, job-control changes, failed spawn and shutdown during
-an asynchronous file write. This is a proposed next mechanism, not implemented
-or accepted behavior.
+The kernel now provides `process_lifetime_create/spawn/revoke/drain/status/release`.
+An owner token is installed during slot reservation, before loading or publishing
+the root as runnable. All existing process allocation paths inherit it; exec,
+job-control changes and orphan reaping preserve it. There is no userspace setter.
+`fork()` remains unsupported; a future implementation must inherit this identity.
+The CPU0 process manager serializes publication with short IRQ-masked sections.
+
+Membership includes reserved slots and final resource destruction, not just
+processes visible to `ps`. Revocation blocks new reservations. Already admitted
+loads remain counted; drain requests cancellation and reaps completed detached
+processes. The owner polls a bounded pass until `members==0`; only then can a
+revoked token be released. Timeouts retain ownership. A released token is never
+reused, and token exhaustion refuses new owners. Peak simultaneous membership
+is separate from lifetime app count, so sequential launches do not exhaust a
+historical PID array. Kernel waits and lifetime drain claim a zombie before
+preemptible destruction to prevent competing reapers from releasing it twice.
+
+The continuous VM System session uses this owner, drains clients before stopping
+the battery service, and releases its process token before releasing the exact
+Home mount hold. Its `descendants` diagnostic field now reports peak simultaneous
+membership. Native bounded diagnostic owners retain their existing implementation.
+The VM command still opens the fixed System client; it does not yet launch the
+ordinary arbitrary-app desktop. Ordinary startup remains unchanged.
+
+Host coverage exercises 512 sequential allocations, orphan/group/session changes,
+revocation during preparation and release, stale tokens, table limits and token
+exhaustion. The full-boot `lifetimetest` fixture exercises real executable churn,
+failed loads, synchronous/asynchronous spawn, `setsid`, exec and orphaned
+children/grandchildren; it drains the selected lifetime while leaving an unrelated
+process alive. `tools/process_lifetime_smoke.py` runs it twice and then runs the
+existing PTY regression. Periodic logs and shutdown during a real pending desktop
+file write still need overlap coverage using this new lifetime owner before
+ordinary native desktop integration.
 
 The boot desktop path in `kernel/src/main.c` currently calls
 `process_run_elf_args` directly and owns logging/unmount around it. Integrate a

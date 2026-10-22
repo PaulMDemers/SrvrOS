@@ -6,7 +6,7 @@ Updated: 2026-10-22. State: **active reference machine; partial device acceptanc
 
 Base `22fd266` (merged PR55), fetched before implementation. This block owns
 `kernel/src/process.c`, its kernel API, a monitor/VM lifetime fixture and focused
-process tests. Add an immutable kernel-created lifetime inherited at allocation,
+process tests, plus the continuous VM battery owner and its collector. Add an immutable kernel-created lifetime inherited at allocation,
 including processes still loading or releasing resources; revoke new admission
 before draining descendants. Prove sequential app churn, orphaned jobs and
 process-group/session changes without a retained history of PIDs. No userspace
