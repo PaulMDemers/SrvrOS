@@ -2525,3 +2525,15 @@ from ESP after full durable archive equality. Workspace preboot checks passed.
 Run/payload/VM/local evidence archived outside build in wifi-main-merge-285aa45.
 Next cold native run repeats the accepted sequence4/5/readback plan against
 main22fd266. No new radio registers or physical battery acceptance in this run.
+
+Merged-baseline native regression accepted, 2026-10-22: source285aa45
+(main22fd266), releasecb8cc153be25dac9, session00065e765bdc87af-00.
+Firmware/reset/identity/single-write/timing prerequisites passed; both MAC
+commands sent24/received16 with exact sequence4/5 replies. Status0, submitted2,
+completed2, ack_mask3, complete1, reads12; all four before/after readbacks match
+the accepted facb862 run and MAC remained0. Completion markers present.
+Collection/hashes archived in wifi-main-merge-285aa45/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery manifests verified;
+workspace clean155files/481clusters, zero allocation errors, unmounted.
+Run/checkpoint collected and unarmed. Remaining MAC/baseband initialization
+can now proceed on this merged baseline; RF/scan/connectivity remain pending.

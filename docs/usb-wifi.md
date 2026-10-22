@@ -791,3 +791,8 @@ to the workspace before returning to Ubuntu. RF and connectivity remain untested
 `make test-mt76-mac` is included in test-core. Independent wire fixtures, reply
 bit mutations, all14 operation failures, all16 authorization boundaries, stale
 batch replies, all four readback failures and enabled-MAC boundaries are tested.
+
+The same plan passed again after integration with main22fd266: source285aa45,
+releasecb8cc153be25dac9, session00065e765bdc87af-00. Both replies, all four
+readbacks, disabled-MAC boundaries and saved completion markers matched the
+prior run. This accepts the merged runtime for this bounded diagnostic only.
