@@ -1812,3 +1812,11 @@ event capture. Keep the endpoint quarantined, retain DMA, and never restart or
 retry the request. Host fault fixtures and exact-stage held VMs precede native
 test. Fetched main 961369b; only open PR remains #19. Prior integration/profile
 collision remains deferred; this does not change Air/battery or firmware gates.
+
+Stop-snapshot source `999cb37`, release `f617f5b921c5a71d`, passes build/xHCI
+host tests and docs. Fault cases cover stale command completion, wrong slot,
+command error/timeout, ineligible requests, one-shot execution and retained DMA.
+Exact GPT VM saves/unmounts and holds; missing-workspace VM holds with recovery
+instructions. Installed unarmed with Ubuntu default and accepted recovery intact.
+Offline checks remain clean (127 files, 439 clusters). Native result pending;
+this diagnostic does not claim a fix for the post-reset failure.
