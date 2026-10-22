@@ -4,8 +4,8 @@
 #include <srvros/apple_trackpad.h>
 
 static void put16(uint8_t *p,int value) { p[0]=(uint16_t)value; p[1]=(uint16_t)value>>8; }
-static void captured_frame(const char *key,struct apple_trackpad_frame *frame,size_t expected_length) {
-    FILE *file=fopen("tools/fixtures/apple-05ac-0291-capture.txt","rb");
+static void captured_frame(const char *path,const char *key,struct apple_trackpad_frame *frame,size_t expected_length) {
+    FILE *file=fopen(path,"rb");
     assert(file);
     char line[1024]; unsigned found=0;
     while (fgets(line,sizeof(line),file)) {
@@ -28,19 +28,36 @@ static void captured_frame(const char *key,struct apple_trackpad_frame *frame,si
 }
 static void physical_samples(void) {
     struct apple_trackpad_frame f;
-    captured_frame("sample_touch",&f,66);
+    captured_frame("tools/fixtures/apple-05ac-0291-capture.txt","sample_touch",&f,66);
     assert(f.count==1 && !f.button);
     assert(f.contacts[0].origin==65282 && f.contacts[0].x==-2635 && f.contacts[0].y==3858);
     assert(f.contacts[0].tool_major==1042 && f.contacts[0].tool_minor==865);
     assert(f.contacts[0].touch_major==69 && f.contacts[0].touch_minor==77);
-    captured_frame("sample_multi",&f,94);
+    captured_frame("tools/fixtures/apple-05ac-0291-capture.txt","sample_multi",&f,94);
     assert(f.count==2 && !f.button);
     assert(f.contacts[0].x==-2090 && f.contacts[0].y==5250 && f.contacts[0].touch_major==152);
     assert(f.contacts[1].origin==0 && f.contacts[1].x==-3171 && f.contacts[1].y==2769);
     assert(f.contacts[1].touch_major==27 && f.contacts[1].touch_minor==30);
-    captured_frame("sample_button",&f,66);
+    captured_frame("tools/fixtures/apple-05ac-0291-capture.txt","sample_button",&f,66);
     assert(f.count==1 && f.button);
     assert(f.contacts[0].x==-815 && f.contacts[0].y==2379 && f.contacts[0].touch_major==223);
+}
+static void air61_samples(void) {
+    struct apple_trackpad_frame f;
+    captured_frame("tools/fixtures/apple-05ac-0290-capture.txt","sample_touch",&f,66);
+    assert(f.count==1 && f.button==0);
+    assert(f.contacts[0].x==-3326 && f.contacts[0].y==2262);
+    assert(f.contacts[0].touch_major==151 && f.contacts[0].touch_minor==241);
+    captured_frame("tools/fixtures/apple-05ac-0290-capture.txt","sample_multi",&f,94);
+    assert(f.count==2 && f.button==0);
+    assert(f.contacts[0].x==-3867 && f.contacts[0].y==4702);
+    assert(f.contacts[0].touch_major==151 && f.contacts[0].touch_minor==235);
+    assert(f.contacts[1].x==-4083 && f.contacts[1].y==1342);
+    assert(f.contacts[1].touch_major==23 && f.contacts[1].touch_minor==34);
+    captured_frame("tools/fixtures/apple-05ac-0290-capture.txt","sample_button",&f,66);
+    assert(f.count==1 && f.button==1);
+    assert(f.contacts[0].x==-3043 && f.contacts[0].y==2161);
+    assert(f.contacts[0].touch_major==217 && f.contacts[0].touch_minor==278);
 }
 static void test_type2(void) {
     uint8_t b[30+28*APPLE_TRACKPAD_CONTACTS+1]={0};
@@ -93,6 +110,7 @@ int main(void) {
     assert(apple_trackpad_decode(NULL,38,&frame)==-1);
     assert(apple_trackpad_decode(p,38,NULL)==-1);
     physical_samples();
+    air61_samples();
     puts("apple-trackpad: PASS Type 2 synthetic and Type 3 framing, signed coordinates, contacts, release, bounds; physical capture fixtures");
     return 0;
 }

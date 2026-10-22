@@ -52,3 +52,9 @@ The Type 3/no-mode-switch selection follows Linux v6.12
 Host tests replay synthetic packets and transport failures through this PID's
 capture-only admission, and refuse other revisions, pointer/gesture modes and
 incorrect descriptors. This is not native packet or pointer acceptance.
+
+`apple-05ac-0290-capture.txt` contains only the touch/multi/button packet samples
+from MacBookAir6,1 run `77ab86681e27132d`, release `19eb394b28cbeef5` (October
+22, 2026). No device strings, serials or USB files are included. Native capture
+passed; these isolated frames verify Type 3 decoding, not pointer feel, motion
+direction, scrolling or drag trajectories.
