@@ -2,6 +2,19 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active native query admission policy
+
+Base `origin/main` `961369b` (PR #42). Add an exact Air7,2 query classifier after
+existing firmware/resource admission; reject unknown methods, GPU/power query80
+and query10's mutable OS-dependent SMBus branch before AML. Preserve the audited
+shared-write and notification/no-op classes; queryCF is bounded in both OS states.
+Replay this policy with synthetic AML in Q35, including both OS states and batch
+side effects. Native policy refusal stays terminal until a separately accepted
+native normal-return capture; mounted Home and startup remain off. Touched:
+battery runtime/native+VM bindings, query receipts, fixtures/tests and battery docs.
+Pro PR19 `65be2dd` is independent Wi-Fi work (separate Makefile targets only).
+No physical installation/reboot in this policy milestone.
+
 ### Returned-query failure study (PR #42)
 
 Base `origin/main` `065546f` (PR #41), final code `cbd04bd`. The explicit VM-only
