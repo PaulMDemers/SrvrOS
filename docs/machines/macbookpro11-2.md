@@ -1996,3 +1996,20 @@ The retry pattern above is evidence for the next direction, not a complete
 validated trace; repeat with the corrected parser before relying on exact values
 or accepting a recovery implementation. Raw capture lives in
 `~/.local/share/srvros/macbookpro11-2/linux-cold-1792696794998436335`.
+
+Corrected-parser Linux cold capture confirms the retry pattern on the same
+7.0.0-38-generic host, port1-1/address8→9. The first write6/0x800/value1
+has callback status-2/actual0 after303066 µs; identical resubmission follows
+10028 µs later and completes status0/actual4 in112 µs. The first read7/0x730
+has status-2/actual0 after305986 µs; retry after10024 µs completes in1065 µs
+with value1. These four records have matched completions and no tag-reuse
+ambiguity. Other early missing records are now explicitly marked instead of
+misattributed, so this remains a filtered, incomplete sequence rather than full
+wire evidence. The cancellation/retry observation is independently repeated.
+Archive: `~/.local/share/srvros/macbookpro11-2/linux-cold-1792697340613399648`,
+with source/tool digest, original capture, validated comparison and checksums.
+Linux default route recovered; no SrvrOS boot armed. Next bounded scope is safe
+EP0 timeout retirement and retry for these observed operations, including exact
+command ownership, stopped-ring dequeue advancement, late-event exclusion and
+retained DMA fault tests. Never simply clear quarantine or replay the reset.
+Native firmware acceptance remains pending.
