@@ -2321,3 +2321,17 @@ default, recoverye47dca3a6b30c6c1 and accepted resetbfa7235c397175da retained.
 Older queue payload4a47cd57ac90c504 removed from ESP only after archive equality
 verification. Native write reply pending; readiness needed for cold adapter
 power cycle. Results will save automatically; no photograph or commands needed.
+
+Native write-response run d8dca7885de3c61f/source63d7714/session00065e74d8311f56-00
+collected and inspected. Reset and strict identity exchange passed. Fixed
+CMD_RANDOM_WRITE sequence2, register1004=0 returned16bytes with words4a020008,
+00411004,00000000,4a020008 (cc13,residue1008). EP0 readbacks before and after were0;
+MAC remained disabled. Firmware/laptop completion markers present. This records
+one fixed write's response format, not a general write/table acceptance. The
+installed diagnostic correctly logs ack_validated=0; a strict command-specific
+validator and mutation tests are next before table execution.
+
+Collection and hashes archived in wifi-write-63d7714/native-collection. Ubuntu
+default, consumed one-shot and current/recovery manifests verified. Workspace
+unmounted and clean:145files,466clusters,zero leaks/mismatches/errors. Run record
+and checkpoint collected/unarmed. RF, receive/scan and connectivity remain pending.

@@ -659,3 +659,12 @@ framing has not been accepted. A completed capture accepts neither general MCU
 writes nor tables. Inspect the saved native response before defining a strict
 write-ACK validator. The v1–v4 profiles retain their previous commands. No RF,
 channel, PA, transmit-power or packet receive setup is added.
+
+Native v5 capture on the Pro11,2 Edimax adapter (source63d7714,
+released8dca7885de3c61f,session00065e74d8311f56-00) returned16bytes for the fixed
+1004=0 write: words4a020008,00411004,00000000,4a020008. The reply echoes the
+register/value with sequence2/event0/length8 and a repeated header trailer.
+EP0 before/after readbacks were0. Capture completed and post-return recovery and
+filesystem checks passed. This supplies a fixture for the next strict validator;
+the installed diagnostic still reports ack_validated=0. It does not establish
+multi-pair or arbitrary-register responses, table execution or RF readiness.
