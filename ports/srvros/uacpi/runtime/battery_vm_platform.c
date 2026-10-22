@@ -158,9 +158,20 @@ static void command(void *c,uint8_t v) {
          * injection validates correlation, not physical APIC delivery. */
         if(model.fault==20)__asm__ volatile("int $41":::"memory");
         uint8_t code=model.pending?0x20:0;bool again=model.fault==3;
-        if(model.fault>=41 && model.generation==2 && model.pending) {
+        if(model.fault>=41 && model.fault<=47 && model.generation==2 && model.pending) {
             code=model.fault==42?0x80:0xff;
             if((model.fault==43 || model.fault==44) && !model.query_batch++){code=0x20;again=true;}
+        }
+        if(model.fault>=48 && model.generation==2 && model.pending) {
+            if(model.fault==49)code=0x80;
+            else if(model.fault==50 || model.fault==51)code=0x10;
+            else if(model.fault==52 || model.fault==53) {
+                static const uint8_t sequence[]={0x40,0x5a,0xce,0xcf,0xd0,0xff};
+                unsigned i=model.query_batch++;
+                code=i<sizeof(sequence)?sequence[i]:0xff;again=i+1<sizeof(sequence);
+            } else if(model.fault==54 || model.fault==55) {
+                again=!model.query_batch++;code=again?(model.fault==54?0x20:0x21):0xff;
+            } else if(model.fault==48)code=0xff;
         }
         model.output=code;model.pending=again;
         model.obf=!(model.fault==46 && model.generation==2);
@@ -324,7 +335,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>47||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>56||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -351,7 +362,8 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
-    if(model.fault>=41)p->model_query_checkpoint=model_query_checkpoint;
+    if(model.fault>=48)p->query_policy=BATTERY_QUERY_AIR72;
+    if(model.fault>=41 && model.fault<=47)p->model_query_checkpoint=model_query_checkpoint;
     if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
     if(model.fault==37)p->model_owner_irq=model_owner_irq;
     if(model.fault>=33 && model.fault<=40) { p->model_event=model_event;p->model_query_refuse=model_query_refuse; }

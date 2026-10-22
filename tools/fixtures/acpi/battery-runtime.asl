@@ -60,12 +60,12 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                     }
                 }
             }
-#if BATTERY_FAULT == 42
+#if BATTERY_FAULT == 42 || BATTERY_FAULT == 49
             /* The study must refuse before entering this real, poisonous method. */
             Method (_Q80, 0) { FAIL = One }
 #endif
             Method (_Q20, 0) {
-#if BATTERY_FAULT == 44
+#if BATTERY_FAULT == 44 || BATTERY_FAULT >= 48
                 EACK = 7
 #endif
 #if BATTERY_FAULT == 5
@@ -73,6 +73,24 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
 #endif
                 If (STAT) { Notify (EC, 0x80) }
             }
+#if BATTERY_FAULT >= 48
+            // Sanitized behavioral fixture; not copied native firmware.
+#if BATTERY_FAULT == 51 || BATTERY_FAULT == 53
+            Name (OSYS, 0x07DC)
+#else
+            Name (OSYS, 0x2710)
+#endif
+            Method (_Q10, 0) {
+                If (OSYS == 0x2710) { Notify (EC, 0x80) }
+                Else { EACK = 7 }
+            }
+            Method (_Q21, 0) { EACK = 7; Notify (EC, 0x80) }
+            Method (_Q40, 0) { Notify (EC, 0x80) }
+            Method (_Q5A, 0) { Notify (EC, 0x80) }
+            Method (_QCE, 0) { }
+            Method (_QCF, 0) { If (OSYS != 0x2710) { Notify (EC, 0x80) } }
+            Method (_QD0, 0) { }
+#endif
             Device (SMB0) {
                 Name (_HID, "ACPI0001")
                 Name (_EC, 0x2010)
