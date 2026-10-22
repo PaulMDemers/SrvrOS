@@ -2354,3 +2354,12 @@ ACK validation. Two identical MAC_SYS_CTRL1004=0 pairs, sequence3; no additional
 registers/tables/RF. Capture bounded response words and disabled-MAC readbacks;
 do not presume a multi-pair echo contract. Main9ca1922 fetched, other machine
 scopes unchanged; touches MCU diagnostic, boot profile, tests and guides.
+
+Two-pair candidate sourcefe5c0a8/release101abba9feeb8cfa installed unarmed.
+Build, MCU/xHCI tests,55 boot-profile tests and docs passed. Exact-stage GPT
+saved-log/clean-filesystem/automatic-return VM and missing-workspace refusal
+passed. Durable archive wifi-pair-fe5c0a8 contains payload, receipts and run record.
+Workspace offline clean:145files/466clusters. Ubuntu default and known-good
+recoverye47dca3a6b30c6c1 preserved; prior single-write captured8dca7885de3c61f
+retained. Reset payloadbfa7235c397175da removed from ESP only after archive/hash
+verification. Cold hardware result pending; no multi-pair ACK or table acceptance.
