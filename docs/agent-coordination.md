@@ -464,3 +464,15 @@ controls during asynchronous file work are the next Air scope. No native boot
 recipe, firmware gate, accepted payload or sibling support changes here. Pro
 PR19 `3d51e4f` remains independent Wi-Fi work; preserve its tests/profiles. Local
 validation replaces disabled Actions, and no physical trial is armed.
+
+## October 22 mounted battery ownership handoff
+
+PR50 adds CPU0 workspace mount holds for the VM battery controls and SMBus/file
+studies. Keep the exact device/parent/mount lifetime pinned through client and
+runtime retirement; Start/Stop must not release the surrounding session's hold.
+Unmount and diagnostic conversion refuse while held, while regular file I/O
+remains available. A stale token cannot release a later session. This is not an
+I/O lock, native Home enablement or permission to reset mounted storage. Air
+retains the next controls-plus-asynchronous-file integration scope; see the
+[delivery plan](battery-home-lifecycle.md). Other machines should consume the
+shared primitive, not duplicate it or widen native firmware gates.

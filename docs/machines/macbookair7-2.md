@@ -2,22 +2,38 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active mounted-volume ownership work
+### Mounted-volume ownership (PR #50)
 
-Base `3c47b50` (PR49). The Air agent is binding the VM battery session to the
-exact workspace mount lifetime, holding it across Start/Stop/restart and refusing
-unmount, scratch preparation or image conversion until all clients and the
-runtime retire. Scope: `workspace.c/.h`, workspace-image admission, battery
-runtime, host fixtures and the mounted-controls VM harness/receipt decoder.
-Next checkpoint: stale-token/remount and storage-failure tests, lifecycle VM
-cases and retained evidence. Native Home/startup remain OFF; installed
-`fda709928307b1b1`, previous `b427b78f21644bd2`, no pending reboot.
+Implementation `5fe69fa`, base `3c47b50` (PR49). VM battery control and SMBus/file
+sessions now hold the exact workspace device, parent and mount generation until
+clients and runtime retire. Non-reused tokens reject stale release across
+Start/Stop/restart, separate sessions and unmount/remount. Unmount, scratch-file
+allocation and image conversion refuse while held; ordinary file I/O remains
+available. Host checks cover stale/duplicate tokens, identity mismatch, exhausted
+counters and storage failure; a retired owner can release unhealthy storage
+without bypassing the existing failed-sync/unmount policy.
 
-Fetched main and inspected Pro PR19 `fdec140`: independent USB Wi-Fi scope;
-no workspace/battery ownership edits. Actions remain disabled. The UI already
-has cached percentage/AC text and System status/controls. Remaining delivery
-covers mounted file-work concurrency, native normal-return/desktop lifecycle,
-charging transition/gauge acceptance and finished everyday indicator behavior.
+Seven directed controls cases passed: two sessions/four runtime lifetimes/eight
+requests, remount with distinct tokens, mouse Start/Stop/restart and active close,
+early cancellation, native/unmounted/profile refusal and contained uncertain
+acknowledgement. Clean cases preserve every disk byte and pass fsck/allocation;
+the fault retains ownership and makes no retirement/reset claim. The mounted
+SMBus/Text regression completed 60 presented edits and five file cycles/20 worker
+operations, 31 events/15 alarms and generation 30, then released its hold after
+all three descendants and runtime. Parked controls and the v47 parked-file
+VM regressions also pass. Full build, both diagnostic kernels, core/docs, strict receipt
+checks and the complete image write/flush/power-cut fault sweep passed locally.
+
+Evidence is retained outside `build` at
+`~/.local/share/srvros/local-validation/battery-workspace-hold-5fe69fa59d02`.
+No physical install/reboot; current `fda709928307b1b1`, previous
+`b427b78f21644bd2`, native Home/startup OFF. Pro PR19 `fdec140` has independent
+Wi-Fi scope. Actions remain disabled. Next: combine held System controls with
+actual asynchronous Text file operations/cancellation in the same VM session,
+then native mounted return/desktop ownership and charging-transition acceptance.
+The existing cached percentage/AC menu-bar label and System controls remain the
+UI foundation; the [delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator)
+tracks ordinary startup and the finished graphical indicator.
 
 ### Mounted-workspace lifecycle VM study (PR #49)
 
