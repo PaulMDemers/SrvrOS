@@ -1731,3 +1731,8 @@ manual recovery instructions. Photo/logs archived. Offline checks pass (121 file
 passes cold enumeration but does not establish repeatability or causation for the
 10 ms delay. Next: instrument preparation control request/completion failures;
 no further boot armed.
+
+Next scope: cache the exact firmware control setup packet, actual result, matched
+completion code/residue/stage and timeout, reporting after the attempt. Preserve
+all transfer guards, sequencing and timeout behavior; add fault regressions before
+staging another held diagnostic. Shared integration remains deferred as recorded.

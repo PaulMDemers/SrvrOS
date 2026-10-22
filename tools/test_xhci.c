@@ -1100,14 +1100,28 @@ static void test_wifi_firmware_control_guards(void) {
         assert(d.firmware.failed==(fault==4));
         if(!fault)assert(buffer[0]==0x20 && ring[0].parameter_high==0x00041004);
     }
-    reset_test();struct xhci_trb ring[64]={0},events[64]={0};
-    struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
-        .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true};
-    d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true};
-    xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
-    events[0]=control_event(0x9010,1,0);
-    assert(wifi_fw_reset(&d));assert(!wifi_fw_reset(&d) && d.ep0_enqueue==2);
-    assert(ring[0].parameter_low==0x00010140 && ring[0].parameter_high==0);
+    for(unsigned fault=0;fault<6;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},events[64]={0};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true};
+        d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(fault==1?0x9000:fault>=4?0x9990:0x9010,
+            fault==1||fault==2||fault>=4?6:1,fault==3?1:0);
+        if(fault==5)events[1]=control_event(0x9010,1,0);
+        bool ok=fault==0||fault==5;
+        assert(wifi_fw_reset(&d)==ok);
+        assert(!wifi_fw_reset(&d) && d.ep0_enqueue==2 && d.firmware.control_count==1);
+        assert(ring[0].parameter_low==0x00010140 && ring[0].parameter_high==0);
+        assert(d.firmware.control_request==1 && d.firmware.control_value==1);
+        assert(d.firmware.control_length==0 && d.firmware.control_index==0);
+        assert(d.firmware.control_ok==ok && d.firmware.control_actual==(ok?0:-1));
+        assert(d.firmware.control_timeout==(fault==4));
+        assert(d.firmware.control_cc==(fault==4?0u:fault==1||fault==2?6u:1u));
+        assert(d.firmware.control_stage==(fault==4?0u:fault==1?1u:3u));
+        assert(d.firmware.control_residue==(fault==3?1u:0u));
+        assert(d.ep0_quarantined==!ok && !freed);
+    }
     puts("xhci-firmware-control: PASS disabled-MAC-only write, register/ownership refusals, I/O quarantine and one-shot reset");
 }
 

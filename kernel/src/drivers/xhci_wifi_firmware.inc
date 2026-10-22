@@ -55,11 +55,22 @@ static bool configure_wifi_firmware(struct xhci_device *d) {
     if(firmware_command_failed)return false;
     f->configured=true;d->stage="wifi-firmware-endpoint";return true;
 }
+/* Cache diagnostic metadata only; no extra transfer, retry or poll logging. */
+static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet *setup,
+    uint64_t buffer,uint32_t length,bool in,int *actual) {
+    struct xhci_wifi_firmware *f=&d->firmware;
+    f->control_count++;f->control_type=setup->request_type;f->control_request=setup->request;
+    f->control_value=setup->value;f->control_index=setup->index;f->control_length=setup->length;
+    f->control_cc=f->control_residue=f->control_stage=0;f->control_timeout=false;
+    f->control_ok=control_transfer_internal(d,setup,buffer,length,in,actual);
+    f->control_actual=*actual;
+    return f->control_ok;
+}
 static bool wifi_fw_read(void *context,uint32_t address,uint32_t *value) {
     struct xhci_device *d=context;*value=0;
     if(!wifi_firmware_owned(d) || (address!=0x730 && address!=0x238 && address!=0x1004 && address!=0x9a8))return false;
     struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};int actual;
-    if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_firmware_fail(d);
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_firmware_fail(d);
     for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
     d->firmware.last_read_address=address;d->firmware.last_read_value=*value;d->firmware.read_count++;
     if(address==0x238){d->firmware.cfg=*value;d->firmware.cfg_valid=true;}
@@ -78,7 +89,7 @@ static bool wifi_fw_write(void *context,uint32_t address,uint32_t value) {
     if(!allowed)return false;
     for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=(uint8_t)(value>>(8*i));
     struct usb_setup_packet setup={.request_type=0x40,.request=6,.index=(uint16_t)address,.length=4};int actual;
-    if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual!=4)return wifi_firmware_fail(d);
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual!=4)return wifi_firmware_fail(d);
     if(address==0x9a8){f->phase=0;f->chunk++;f->descriptor_valid=false;}
     return true;
 }
@@ -87,7 +98,7 @@ static bool wifi_fw_reset(void *context) {
     if(!wifi_firmware_owned(d) || f->reset_seen || f->preparation.prepared || f->upload.attempted)return false;
     f->reset_seen=true;
     struct usb_setup_packet setup={.request_type=0x40,.request=1,.value=1};int actual;
-    if(!control_transfer_internal(d,&setup,0,0,false,&actual))return wifi_firmware_fail(d);
+    if(!wifi_fw_control(d,&setup,0,0,false,&actual))return wifi_firmware_fail(d);
     return true;
 }
 static bool wifi_fw_delay(void *context,uint32_t us) {
@@ -106,7 +117,7 @@ static bool wifi_fw_fce(void *context,uint32_t address,uint32_t value) {
           (f->phase==1 && address==0x234 && value==chunk.padded_bytes<<16)))return false;
     for(unsigned half=0;half<2;half++) {
         struct usb_setup_packet setup={.request_type=0x40,.request=0x42,.value=(uint16_t)(value>>(16*half)),.index=(uint16_t)(address+2*half)};int actual;
-        if(!control_transfer_internal(d,&setup,0,0,false,&actual))return wifi_firmware_fail(d);
+        if(!wifi_fw_control(d,&setup,0,0,false,&actual))return wifi_firmware_fail(d);
     }
     f->phase++;return true;
 }
@@ -140,7 +151,7 @@ static int wifi_fw_activate(void *context,const uint8_t *data,size_t size) {
         chunk.segment!=MT76_FW_IVB || data!=f->image+32 || size!=64)return -1;
     copy_bytes(d->descriptor_buffer,data,64);
     struct usb_setup_packet setup={.request_type=0x40,.request=1,.value=0x12,.length=64};int actual;
-    if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,64,false,&actual) || actual!=64){wifi_firmware_fail(d);return -1;}
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,64,false,&actual) || actual!=64){wifi_firmware_fail(d);return -1;}
     f->phase=4;return 64;
 }
 bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
@@ -170,6 +181,11 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
         }
         /* Report cached state after the attempt, without adding hardware reads or
          * logging inside readiness polling. This distinguishes refusal gates. */
+        console_printf("wifi-firmware-control: count=%u type=%x request=%x value=%x index=%x length=%u\nwifi-firmware-control-result: actual=%d ok=%u cc=%u residue=%u stage=%u timeout=%u\n",
+            (uint64_t)f->control_count,(uint64_t)f->control_type,(uint64_t)f->control_request,
+            (uint64_t)f->control_value,(uint64_t)f->control_index,(uint64_t)f->control_length,
+            (int64_t)f->control_actual,(uint64_t)f->control_ok,(uint64_t)f->control_cc,
+            (uint64_t)f->control_residue,(uint64_t)f->control_stage,(uint64_t)f->control_timeout);
         console_printf("wifi-firmware-progress: reads=%u last_register=%x last_value=%x prepared=%u reset=%u upload=%u\n",
             (uint64_t)f->read_count,(uint64_t)f->last_read_address,(uint64_t)f->last_read_value,
             (uint64_t)f->preparation.prepared,(uint64_t)f->reset_seen,(uint64_t)f->upload.attempted);

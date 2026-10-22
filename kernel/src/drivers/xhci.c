@@ -235,6 +235,11 @@ struct xhci_wifi_firmware {
     uint32_t remaining, cfg, descriptor;
     uint32_t last_read_address, last_read_value, read_count;
     unsigned phase, completion;
+    uint32_t control_count, control_cc, control_residue, control_stage;
+    uint16_t control_value, control_index, control_length;
+    uint8_t control_request, control_type;
+    int control_actual;
+    bool control_ok, control_timeout;
     bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
     struct mt76_prepare_session preparation;
     struct mt76_firmware_session upload;
@@ -1245,6 +1250,11 @@ static bool dispatch_strict_control(const struct xhci_trb *event) {
     if (strict_control.done || (pointer != strict_control.setup && (!strict_control.length || pointer != strict_control.data) &&
         pointer != strict_control.status)) return true;
     uint32_t cc = event->status >> 24, residue = event->status & 0xffffff;
+    if (strict_control.device->firmware.active) {
+        struct xhci_wifi_firmware *f=&strict_control.device->firmware;
+        f->control_cc=cc;f->control_residue=residue;
+        f->control_stage=pointer==strict_control.setup?1:pointer==strict_control.status?3:2;
+    }
     if (!(event->control & 4) && strict_control.data_in && pointer == strict_control.data &&
         cc == 13 && residue <= strict_control.length && !strict_control.short_seen) {
         strict_control.actual = strict_control.length - residue;
@@ -1274,6 +1284,7 @@ static int wait_control_exact(struct xhci_device *device) {
     }
     uint64_t flags = event_irq_save();
     device->ep0_quarantined = true;
+    if (device->firmware.active) device->firmware.control_timeout=true;
     strict_control.device = 0;
     event_irq_restore(flags);
     return -1;
