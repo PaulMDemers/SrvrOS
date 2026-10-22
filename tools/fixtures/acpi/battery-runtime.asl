@@ -3,6 +3,27 @@
 #endif
 DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
 {
+#if BATTERY_FAULT == 39
+    Method (HOLD, 0) {
+        If (Acquire (\_GL, 0xFFFF)) { Return (Zero) }
+        // The pinned interpreter caps each AML Sleep at 2000 ms.
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Release (\_GL)
+        Return (One)
+    }
+#endif
     Scope (\_SB) {
         Device (EC) {
             Name (_HID, EisaId ("PNP0C09"))
@@ -19,6 +40,10 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
             Method (_REG, 2) {
                 If (Arg0 == 3) {
                     If (Arg1) {
+#ifdef BATTERY_CONNECT_DELAY
+                        // Reproduce native setup latency without changing ownership.
+                        Sleep (2000); Sleep (2000)
+#endif
 #if BATTERY_FAULT == 1
                         FAIL = One
 #endif
@@ -29,6 +54,9 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                         EACK = One
                         Notify (EC, 0x80)
                     } Else {
+#if BATTERY_FAULT == 47 || BATTERY_FAULT == 60
+                        FAIL = One
+#endif
 #if BATTERY_FAULT == 6
                         Sleep (1000); Sleep (1000); Sleep (1000); Sleep (1000)
 #endif
@@ -36,15 +64,56 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                     }
                 }
             }
+#if BATTERY_FAULT == 42 || BATTERY_FAULT == 49
+            /* The study must refuse before entering this real, poisonous method. */
+            Method (_Q80, 0) { FAIL = One }
+#endif
             Method (_Q20, 0) {
+#if BATTERY_FAULT == 44 || BATTERY_FAULT >= 48
+                EACK = 7
+#endif
 #if BATTERY_FAULT == 5
                 Sleep (1000); Sleep (1000); Sleep (1000)
 #endif
                 If (STAT) { Notify (EC, 0x80) }
             }
+#if BATTERY_FAULT >= 48
+            // Sanitized behavioral fixture; not copied native firmware.
+#if BATTERY_FAULT == 51 || BATTERY_FAULT == 53 || BATTERY_FAULT == 64
+            Name (OSYS, 0x07DC)
+#else
+            Name (OSYS, 0x2710)
+#endif
+            Method (_Q10, 0) {
+#if BATTERY_FAULT >= 62
+                // Explicit model host ownership must never execute either branch.
+                FAIL = One
+#endif
+                If (OSYS == 0x2710) { Notify (EC, 0x80) }
+                Else { EACK = 7 }
+            }
+            Method (_Q21, 0) { EACK = 7; Notify (EC, 0x80) }
+            Method (_Q40, 0) { Notify (EC, 0x80) }
+            Method (_Q5A, 0) { Notify (EC, 0x80) }
+            Method (_QCE, 0) { }
+            Method (_QCF, 0) { If (OSYS != 0x2710) { Notify (EC, 0x80) } }
+            Method (_QD0, 0) { }
+#endif
             Device (SMB0) {
+#if BATTERY_FAULT == 74
+                Name (_GLK, One)
+#endif
+
+#if BATTERY_FAULT == 70
+                Name (_HID, "ACPI0005")
+#else
                 Name (_HID, "ACPI0001")
+#endif
+#if BATTERY_FAULT == 71
+                Name (_EC, 0x2011)
+#else
                 Name (_EC, 0x2010)
+#endif
                 Device (SBS0) { Name (_HID, "ACPI0002"); Name (_SBS, One) }
             }
         }

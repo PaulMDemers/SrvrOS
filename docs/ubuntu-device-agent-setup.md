@@ -32,7 +32,7 @@ git rev-parse HEAD
 git switch -c device/macbookpro11-2/bringup
 ```
 
-Use `macbookair7-1`, `macbookpro11-2`, `macbookpro11-3`, `macmini7-1`, or
+Use `macbookair6-1`, `macbookair7-1`, `macbookpro11-2`, `macbookpro11-3`, `macmini7-1`, or
 `macbookair7-2` as the machine slug. Distinguish multiple physical units with a
 local label. Do not run concurrent builds/staging from two agents in one checkout:
 `build/hardware-boot/latest`, generated images and many VM logs are shared paths.
@@ -461,6 +461,31 @@ save `completed=NO`, unmount and reset. Require a saved matching native identity
 before accepting the hardware read; neither capture completion nor VM refusal
 accepts Wi-Fi connectivity. See [USB Wi-Fi](usb-wifi.md).
 
+### Mounted Home battery boundary (Air diagnostic)
+
+After the parked battery/filesystem captures, the explicit v48 `--battery-home`
+profile keeps Home mounted under the battery owner's mount hold. It pauses
+periodic log writes, takes fresh samples and retires the service before saving
+and unmounting. It does not launch desktop apps or enable normal monitoring.
+Use `stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-home`, then the
+exact `--probe-check` and `--probe-check --probe-missing-workspace` rehearsals.
+No input is required. Normal return or handled refusal saves and returns to
+Ubuntu; uncertain live runtime state halts, with no filesystem cleanup/reset
+claim. The exact Air firmware gates remain in force; unsupported models refuse.
+Air7,2 release `71ab6b95892a9a8c` accepted this bounded no-client capture with
+fresh samples, clean retirement, unchanged unrelated files and automatic return.
+Desktop-session ownership and ordinary startup remain pending. See
+[Home lifecycle](battery-home-lifecycle.md) for proof and remaining acceptance.
+The subsequent v49 `--battery-home-session` capture adds explicit System-control
+lifetimes and Text file work with Home held. It requires a fresh dedicated
+`battery-study` directory as described in that guide, exact-stage VM validation,
+and its own physical acceptance. The ordinary desktop recipe is unchanged.
+Air7,2 release `fd6f6b9d397c339f` accepts the bounded v49 session with all five
+file cycles, three service lifetimes and clean retirement/automatic return.
+This does not enable normal startup or accept physical charging/gauge accuracy.
+Use the collector containing the `7f1438d` session-identity fix; earlier v49
+collection can mislabel the JSON session while leaving its saved logs intact.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,
@@ -538,6 +563,15 @@ Do the recorded tests; save screenshots with Command-Shift-3. Return through
 SrvrOS → Return to console, check `USB unmounted=yes`, then type `reboot` at the
 monitor. An unmount/write failure is not a successful exit. For a console
 workspace use `workspace sync`, `workspace unmount`, then `reboot`.
+
+The `srv>` monitor is not the userspace shell: `echo text > file` prints the
+redirection literally. After `workspace shell`, require a prompt ending in `$`
+before using shell redirection; if it stays at `srv>`, record the error and
+check `workspace status`. For a monitor-only save check on a writable workspace,
+use `write /work/srvros-work/console-test.txt test-text` followed by
+`cat /work/srvros-work/console-test.txt`, then sync/unmount as above. Use a fresh
+filename and verify its contents after returning to Ubuntu.
+
 
 For automatic diagnostics, use the default automatic-return recipe: results are
 logged to the workspace before sync/unmount and return to Ubuntu, including
@@ -705,3 +739,64 @@ collector requires exact editing and retirement proof, not merely a reboot.
 Follow the [battery capture contract](battery-service.md#native-automatic-text-capture-v41)
 and retain the accepted desktop recovery. Other models must retain their native
 refusal until independently matched and accepted.
+
+### Automatic battery Start/Stop study
+
+The captured Air7,2 can stage v44 with `--laptop-probe-volume <local-volume-id>
+--battery-controls`. Build the native battery kernel and matched userspace first,
+then follow the same exact-stage rehearsal, recovery preservation, run record and
+one-shot boot sequence. This is unattended: keep AC/USB connected and leave input
+alone. System starts, samples and stops twice; the outer workspace stays parked.
+The capture saves logs and returns automatically, including handled failures.
+A contained fault can return without final logs and must be recorded as incomplete.
+Collect the matching `battery_controls` proof and verify unchanged prior USB files
+and offline allocation before accepting the run. v44 does not replace or use the
+old disposable filesystem image. See the [control contract](battery-service.md#scoped-asynchronous-controls-in-development).
+Ordinary desktop battery startup and other models' native gates remain unchanged.
+
+
+### Automatic parked battery query capture
+
+The reference Air7,2 agent may stage `--laptop-probe-volume <this-host-volume-id>
+--battery-query` after building `acpi-battery-kernel`. This v45 profile requires
+an existing workspace and automatic return; it cannot be staged with hold-on-failure.
+Follow the normal exact-stage VM, recovery, saved run record, install and one-shot
+boot sequence above. No typing, AC change or other human action is required.
+It waits up to 30 seconds for a natural unsupported EC query while USB is parked,
+then retires and saves before returning. A no-event run is not exercised, not a
+pass. A contained fault may reset without a final report; collect and treat that
+as incomplete/failure. Require the collector's `battery_query` proof plus USB
+preservation/offline checks before physical acceptance. Ordinary startup remains
+off; other models must not reuse the Air firmware gate or acceptance.
+
+
+## Parked SMBus host event capture (Air7,2 v46)
+
+After the query-refusal baseline, the explicit `--battery-smbus` staging option
+adds bounded natural host-controller event handling while the outer USB volume
+is parked. See the [ownership and proof contract](battery-smbus-events.md#parked-native-capture-v46).
+It is automatic and has no human interaction. Use this unit's UUID, exact native
+stage refusal/save/return and missing-workspace VM checks, recovery copies and
+normal preflight/collection sequence. The collector's `battery_smbus` field must
+be present and valid; a quick reset or start log alone is not a pass. Physical
+gauge accuracy, mounted Home and ordinary startup remain separate acceptance.
+This profile adds no other machine's firmware gate or accepted capability.
+
+Air7,2 release `a1451825851dc5f0` accepted natural completion events, fresh
+sampling, clean retirement and saved automatic return with preserved files and
+clean offline allocation. No alarms occurred; do not count an absent alarm as
+acknowledgement or cache-invalidation acceptance. Keep event counts and physical
+accuracy limits in the machine record rather than promoting all VM cases to
+hardware passes.
+
+## Parked SMBus with Text/file activity (Air7,2 v47)
+
+The separate `--battery-smbus-files` recipe uses the native diagnostic kernel,
+automatic return, and a fresh exclusive `battery-fs.img`. Follow the image
+preparation, exact-stage and backup steps above; preserve the prior diagnostic
+image before replacing it. See the [ownership contract](battery-smbus-events.md#parked-smbustextfile-capture-v47).
+Collect `battery_smbus_files`, including `image_verified`, and independently
+check outer-file preservation, both filesystems/allocation, and Ubuntu recovery.
+A valid v46 receipt does not accept v47. No physical interaction is required;
+missing completion, interrupted work, event-limit failure or quick reset is not
+a pass. Ordinary mounted Home and automatic battery startup stay off.

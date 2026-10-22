@@ -70,8 +70,8 @@ enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *sessio
     const struct mt76_mcu_timing_io *io);
 /* Fixed MAC basics plan only: rates, RX filter and maximum frame length.
  * Two pairs per command, sequences4/5; requires completed timing initialization.
- * No caller-defined tables or TX/RX enable. Native response shape is inferred
- * from the accepted two-pair timing transaction and still needs hardware proof. */
+ * No caller-defined tables or TX/RX enable. Exact replies and register readbacks accepted on the captured Pro adapter
+ * in release190ab5353ae2f8b6; other identities remain unsupported. */
 #define MT76_MCU_MAC_BATCHES 2u
 struct mt76_mcu_mac {
     bool attempted, complete;

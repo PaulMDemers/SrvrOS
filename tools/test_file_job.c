@@ -38,6 +38,15 @@ int main(void) {
     assert(desk_file_job_start(&job,DESK_FILE_READ,"/fat/other",NULL,0,0,0)<0);
     response(0,"fragmented response",19);assert(finish()==1 && !job.busy && !job.broken);
     assert(!memcmp(job.incoming,"fragmented response",19));
+    reset();assert(!desk_file_job_start(&job,DESK_FILE_WRITE,"/fat/text","AA",2,0,0));
+    response(0,NULL,0);
+    int submit=0;for(int i=0;i<1000&&!submit;i++)submit=desk_file_job_submit(&job);
+    assert(submit==1 && job.busy && !reads && !received && sent==sizeof(job.request)+2);
+    assert(!memcmp(sent_bytes,&job.request,sizeof(job.request)) && !memcmp(sent_bytes+sizeof(job.request),"AA",2));
+    int old_writes=writes;assert(desk_file_job_submit(&job)==1 && writes==old_writes && !reads);
+    alive=0; /* The complete reply remains valid after worker exit. */
+    again=0;
+    assert(finish()==1&&!job.busy);
     reset();char data[2000];memset(data,'z',sizeof(data));
     assert(!desk_file_job_start(&job,DESK_FILE_WRITE,"/fat/text",data,sizeof(data),0,0));data[0]='x';
     assert(job.outgoing[0]=='z');

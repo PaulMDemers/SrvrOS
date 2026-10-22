@@ -1825,8 +1825,14 @@ static bool address_device(struct xhci_device *device) {
 }
 
 static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
-    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || (device->product_id!=0x0291 && device->product_id!=0x0262) ||
+    bool air61=device->product_id==0x0290;
+    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac ||
+        (!air61 && device->product_id!=0x0291 && device->product_id!=0x0262) ||
         device->speed!=1 || length<9 || length>PMM_FRAME_SIZE) return false;
+    /* Air6,1 native Type 3 capture 77ab86681e27132d validated contact/button
+     * reports. Keep admission bound to its observed revision/configuration;
+     * pointer/gestures still require an explicit boot option above. */
+    if (air61 && (device->device_bcd!=0x0171 || length!=84)) return false;
     bool pro=device->product_id==0x0262;
     bool interface=false,found=false;
     uint8_t interval=0;

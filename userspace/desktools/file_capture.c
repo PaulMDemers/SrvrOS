@@ -1,5 +1,6 @@
 /* Opt-in fixture only: exercise the real Text and file-worker paths. */
 #include "app.h"
+#include <srvros/desk_battery.h>
 #include <srvros/desk_log.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,7 +10,71 @@ static struct {
     uint64_t serial;
     char destination[DESK_FILE_PATH];
 } capture;
-static const char draft[]="/battery-test/fixture/text-draft.txt";
+static const char *root="/battery-test/fixture";
+static const char *storage="image";
+static char draft[DESK_FILE_PATH];
+static struct {
+    int enabled,cancel;
+    unsigned requests,waiting,submit;
+    uint64_t epoch,serial,deadline;
+} controls;
+void tool_file_capture_controls_enable(int cancel) { controls.enabled=1;controls.cancel=cancel; }
+static int control_request(struct tool *t,unsigned op) {
+    struct srv_battery_status status={0};struct srv_battery_control control={0};
+    if(controls.waiting || srv_battery_status(&status) || srv_battery_control(SRV_BATTERY_QUERY,0,&control))goto failed;
+    struct desk_battery_controls view=desk_battery_controls(&status,&control);
+    if(!(op==SRV_BATTERY_START?view.start:view.stop))goto failed;
+    if(srv_battery_control(op,status.epoch,&control) || control.pending!=op)goto failed;
+    controls.requests++;controls.waiting=op;controls.epoch=status.epoch;
+    controls.serial=control.serial;controls.deadline=srv_ticks()+1500;
+    desk_log("text-battery: request=%u serial=%llu epoch=%llu cycle=%u pending_file=%u file_op=%u submitted=%u\n",
+        op,(unsigned long long)control.serial,(unsigned long long)status.epoch,capture.cycles,
+        t->job.busy?1u:0u,t->job.busy?t->job.request.operation:0u,
+        t->job.busy && t->job.sent==sizeof(t->job.request)+t->job.request.length?1u:0u);
+    return 1;
+failed:t->window.failed=1;return 0;
+}
+int tool_file_capture_controls_tick(struct tool *t) {
+    if(!controls.enabled)return 1;
+    if(t->window.failed)return 0;
+    if(controls.submit) {
+        int sent=desk_file_job_submit(&t->job);
+        if(sent<0 || (uint64_t)srv_ticks()>controls.deadline)goto failed;
+        if(!sent)return 0;
+        unsigned op=controls.submit;controls.submit=0;
+        if(!control_request(t,op))return 0;
+        if(controls.cancel) {
+            desk_log("text-battery: cancel serial=%llu pending_file=1 submitted=1\n",(unsigned long long)controls.serial);
+            t->quit=1; /* Worker close lets an already accepted mutation finish. */
+        }
+        return 0;
+    }
+    struct srv_battery_status status={0};struct srv_battery_control control={0};
+    if(srv_battery_status(&status) || srv_battery_control(SRV_BATTERY_QUERY,0,&control))goto failed;
+    if(!controls.requests) {
+        if(!control.available)return 1; /* The session owner binds after spawn. */
+        (void)control_request(t,SRV_BATTERY_START);return 1;
+    }
+    if(!controls.waiting)return 1;
+    if((uint64_t)srv_ticks()>controls.deadline || control.result<0 || status.state==SRV_BATTERY_UNAVAILABLE || status.state==SRV_BATTERY_FAULTED)goto failed;
+    if(control.pending)return 1;
+    if(controls.waiting==SRV_BATTERY_START) {
+        if(status.state!=SRV_BATTERY_ACTIVE || !(status.flags&SRV_BATTERY_FRESH) || status.generation<2)return 1;
+        if(status.epoch!=controls.epoch+1)goto failed;
+    } else {
+        if(status.state!=SRV_BATTERY_STOPPED)return 1;
+        if(status.epoch!=controls.epoch || (status.flags&(SRV_BATTERY_FRESH|SRV_BATTERY_SAMPLING)))goto failed;
+    }
+    desk_log("text-battery: observed=%u serial=%llu epoch=%llu state=%u generation=%llu pending_file=%u\n",
+        controls.waiting,(unsigned long long)controls.serial,(unsigned long long)status.epoch,status.state,
+        (unsigned long long)status.generation,t->job.busy?1u:0u);
+    controls.waiting=0;return 1;
+failed:desk_log("text-battery: FAILED requests=%u waiting=%u\n",controls.requests,controls.waiting);t->window.failed=1;return 0;
+}
+void tool_file_capture_setup(int workspace) {
+    if(workspace) { root="/work/battery-study";storage="workspace"; }
+    snprintf(draft,sizeof(draft),"%s/text-draft.txt",root);
+}
 int tool_file_capture_busy(void) { return capture.phase!=0; }
 unsigned tool_file_capture_cycles(void) { return capture.cycles; }
 void tool_file_capture_begin(struct tool *t,uint64_t serial) {
@@ -17,12 +82,17 @@ void tool_file_capture_begin(struct tool *t,uint64_t serial) {
        serial!=(capture.cycles+1)*12 || t->body_text.length!=2 ||
        memcmp(t->body_text.data,"AA",2) || t->clip.mode) { t->window.failed=1;return; }
     capture.serial=serial;capture.phase=1;
-    snprintf(capture.destination,sizeof(capture.destination),"/battery-test/fixture/text-%u.txt",capture.cycles+1);
+    snprintf(capture.destination,sizeof(capture.destination),"%s/text-%u.txt",root,capture.cycles+1);
     /* Present intermediate progress without acknowledging the edit until its
      * saved, renamed and reopened document has been checked. */
     t->window.input_serial=serial-1;
     tool_text_save_path(t,draft);
     if(!t->job.busy) t->window.failed=1;
+    if(controls.enabled && !t->window.failed && capture.cycles<4) {
+        if(controls.waiting || controls.submit){t->window.failed=1;return;}
+        controls.submit=capture.cycles%2?SRV_BATTERY_START:SRV_BATTERY_STOP;
+        controls.deadline=srv_ticks()+1500;
+    }
 }
 void tool_file_capture_finish(struct tool *t,int result) {
     if(result<0 || t->job.response.status) { t->window.failed=1;return; }
@@ -55,6 +125,16 @@ void tool_file_capture_finish(struct tool *t,int result) {
     return;
 failed:t->window.failed=1;
 }
-void tool_file_capture_report(void) {
-    desk_log("text-files: cycles=%u pending=%u storage=image\n",capture.cycles,capture.phase);
+int tool_file_capture_report(void) {
+    desk_log("text-files: cycles=%u pending=%u storage=%s\n",capture.cycles,capture.phase,storage);
+    if(controls.enabled) {
+        struct srv_battery_status status={0};
+        int ok=!srv_battery_status(&status) && controls.requests==5 && !controls.waiting &&
+            status.state==SRV_BATTERY_ACTIVE && (status.flags&SRV_BATTERY_FRESH) &&
+            capture.cycles==5 && !capture.phase;
+        desk_log("text-battery: completed=%s requests=%u waiting=%u epoch=%llu state=%u; expected_owner=active\n",
+            ok?"yes":"NO",controls.requests,controls.waiting,(unsigned long long)status.epoch,status.state);
+        return ok;
+    }
+    return 1;
 }

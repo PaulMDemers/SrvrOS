@@ -44,6 +44,7 @@ static bool ansi_private;
 #define MAX_COLUMNS 512
 #define MAX_ROWS 256
 #define WRITE_BATCH 64
+#define LOG_RECORD_BATCH 1024
 static unsigned char cells[MAX_ROWS][MAX_COLUMNS];
 static uint16_t dirty_left[MAX_ROWS], dirty_right[MAX_ROWS];
 static uint32_t glyph_cache[SRV_FONT_COUNT][CELL_HEIGHT][CELL_WIDTH];
@@ -583,22 +584,29 @@ void console_init(struct limine_framebuffer *framebuffer) {
 
 void console_write_n(const char *s, size_t length) {
     while (length != 0) {
-        size_t count = length < WRITE_BATCH ? length : WRITE_BATCH;
+        /* Save one bounded record before any rendering or UART can yield.
+         * Long streams remain chunked; diagnostic records fit in this bound.
+         * Do not extend IRQ exclusion over framebuffer work or serial waits. */
+        size_t record = length < LOG_RECORD_BATCH ? length : LOG_RECORD_BATCH;
         uint64_t flags = console_irq_save();
-        bool visible = !framebuffer_console_muted;
-        bool mirror = serial_output;
-        for (size_t i = 0; i < count; i++) {
-            bootlog_putc(s[i]);
-            if (visible) framebuffer_putc(s[i]);
-        }
-        stats.bytes_received += count;
+        for (size_t i = 0; i < record; i++) bootlog_putc(s[i]);
         console_irq_restore(flags);
-        if (visible) console_request_present();
-        /* UART waits must not extend the text-model critical section. Serial
-         * preserves each byte atomically; concurrent writers can interleave. */
-        if (mirror) for (size_t i = 0; i < count; i++) serial_putc(s[i]);
-        s += count;
-        length -= count;
+        for (size_t offset = 0; offset < record;) {
+            size_t count = record - offset;
+            if (count > WRITE_BATCH) count = WRITE_BATCH;
+            flags = console_irq_save();
+            bool visible = !framebuffer_console_muted;
+            bool mirror = serial_output;
+            if (visible) for (size_t i = 0; i < count; i++) framebuffer_putc(s[offset+i]);
+            stats.bytes_received += count;
+            console_irq_restore(flags);
+            if (visible) console_request_present();
+            /* Live UART writers may interleave; saved records remain whole. */
+            if (mirror) for (size_t i = 0; i < count; i++) serial_putc(s[offset+i]);
+            offset += count;
+        }
+        s += record;
+        length -= record;
     }
 }
 
@@ -632,7 +640,7 @@ void console_write_dec(uint64_t value) {
     console_write_n(text, count);
 }
 
-struct format_buffer { char data[WRITE_BATCH]; size_t used; };
+struct format_buffer { char data[LOG_RECORD_BATCH]; size_t used; };
 static void format_emit(struct format_buffer *buffer, char c) {
     buffer->data[buffer->used++] = c;
     if (buffer->used == sizeof(buffer->data)) {

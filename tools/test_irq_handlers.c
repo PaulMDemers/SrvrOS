@@ -13,6 +13,35 @@ static void complete(void *p) {
     assert(!irq_handler_remove(own) && !irq_handler_register(9,claim,(void *)5));
     assert(!irq_handlers_dispatch(9));irq_handlers_complete(9);
 }
+static unsigned exits,exit_completions;
+static bool request_in_completion;
+static void exit_hook(void *p) {
+    assert(p==(void *)42 && !dispatch_depth && !completion_pending && !active_token && !deferred_exit.token);
+    assert(exit_completions==2);exits++;
+    /* Simulate work on another stack: registration/dispatch/removal can no
+     * longer be stranded behind this delivery's deferred bookkeeping. */
+    uint64_t t=irq_handler_register(10,claim,(void *)9);assert(t);
+    assert(irq_handlers_dispatch(10));irq_handlers_complete(10);irq_handlers_finish(10);
+    assert(irq_handler_remove(t));
+}
+static void request_exit(void) {
+    assert(!irq_handler_defer_exit(0,exit_hook,(void *)42));
+    assert(!irq_handler_defer_exit(own+100,exit_hook,(void *)42));
+    assert(!irq_handler_defer_exit(own,NULL,(void *)42));
+    assert(irq_handler_defer_exit(own,exit_hook,(void *)42));
+    assert(!irq_handler_defer_exit(own,exit_hook,(void *)42));
+    irq_handlers_finish(9);assert(!exits);
+}
+static bool deferred_handler(void *p) {
+    (void)p;if(!request_in_completion)request_exit();return false;
+}
+static void deferred_completion(void *p) {
+    if(p && request_in_completion)request_exit();
+    exit_completions++;irq_handlers_finish(9);assert(!exits);
+}
+static bool unobserved_handler(void *p) {
+    (void)p;assert(!irq_handler_defer_exit(own,exit_hook,NULL));return false;
+}
 int main(void) {
     for(unsigned i=0;i<16;i++)assert(!irq_handlers_dispatch(i));
     for(unsigned i=0;i<4;i++)assert(!irq_handler_register((unsigned[]){0,1,4,12}[i],claim,NULL));
@@ -41,6 +70,24 @@ int main(void) {
     irq_handlers_complete(9);assert(completed==2);
     assert(irq_handler_remove(own) && irq_handler_remove(other));
     irq_handlers_complete(9);assert(completed==2);
+    assert(!irq_handler_defer_exit(own,exit_hook,(void *)42));
+    own=irq_handler_register(9,unobserved_handler,NULL);assert(own);
+    irq_handlers_dispatch(9);assert(irq_handler_remove(own));
+    for(unsigned mode=0;mode<2;mode++) {
+        request_in_completion=mode;exits=exit_completions=0;
+        own=irq_handler_register_observed(9,deferred_handler,deferred_completion,(void *)1);
+        other=irq_handler_register_observed(9,claim,deferred_completion,NULL);assert(own && other);
+        assert(!irq_handlers_dispatch(9));
+        irq_handlers_finish(9);assert(!exits);
+        irq_handlers_complete(10);irq_handlers_finish(10);assert(!exits);
+        irq_handlers_complete(9);assert(exit_completions==2 && !exits);
+        assert(!irq_handler_remove(own) && !irq_handler_register(10,claim,NULL));
+        assert(!irq_handlers_dispatch(9));irq_handlers_finish(10);assert(!exits);
+        irq_handlers_finish(9);assert(exits==1);
+        irq_handlers_finish(9);irq_handlers_complete(9);assert(exits==1);
+        assert(irq_handler_remove(own) && irq_handler_remove(other));
+    }
+    puts("irq-exit: PASS token scope, one request, all-completions barrier, registry drained before hook, no repeat");
     next_token=UINT64_MAX;assert(!irq_handler_register(9,claim,NULL));
     puts("irq-handlers: PASS shared dispatch, duplicate/capacity/reserved-line refusal, mutation exclusion, stale tokens and teardown");
 }

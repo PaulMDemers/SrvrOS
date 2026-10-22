@@ -15,6 +15,8 @@
 #include <srvros/workspace.h>
 #include <uacpi/kernel_api.h>
 #include <uacpi/tables.h>
+#include <uacpi/uacpi.h>
+#include <uacpi/namespace.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
 static struct battery_platform *platform;
 static uint64_t dsdt;
@@ -23,8 +25,9 @@ static struct {
     uint16_t words[32];
     unsigned step,busy,fault,foreign_reads[2];
     uint64_t generation,commands;
-    unsigned ac_reads;
-    bool obf,pending,io_started,io_entered;
+    unsigned ac_reads,query_batch;
+    bool obf,pending,io_started,io_entered,irq_injected,target_armed,alarm_sent,ack_stall,stop_injected;
+    uint8_t injected_gpe;
 } model;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
@@ -146,7 +149,7 @@ static void interleave_io(void) {
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a&&p-a<=n&&s<=n-(p-a);}
 static bool equal(const void *a,const char *b,unsigned n){const char *p=a;for(unsigned i=0;i<n;i++)if(p[i]!=b[i])return false;return true;}
-static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2?2:0)|(model.obf?1:0)|(model.pending?32:0);}
+static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2||model.ack_stall?2:0)|(model.obf?1:0)|(model.pending?32:0);}
 static uint8_t read_data(void *c){(void)c;model.obf=false;return model.output;}
 static void command(void *c,uint8_t v) {
     (void)c;model.commands++;model.mode=v;model.step=0;
@@ -154,8 +157,66 @@ static void command(void *c,uint8_t v) {
         /* Observe real query-worker state at the transport boundary. Software
          * injection validates correlation, not physical APIC delivery. */
         if(model.fault==20)__asm__ volatile("int $41":::"memory");
-        model.output=model.pending?0x20:0;model.pending=model.fault==3;model.obf=true;
+        uint8_t code=model.pending?0x20:0;bool again=model.fault==3;
+        if(model.fault>=41 && model.fault<=47 && model.generation==2 && model.pending) {
+            code=model.fault==42?0x80:0xff;
+            if((model.fault==43 || model.fault==44) && !model.query_batch++){code=0x20;again=true;}
+        }
+        if(model.fault>=48 && model.generation==2 && model.pending) {
+            if(model.fault==49)code=0x80;
+            else if(model.fault==50 || model.fault==51)code=0x10;
+            else if(model.fault==52 || model.fault==53) {
+                static const uint8_t sequence[]={0x40,0x5a,0xce,0xcf,0xd0,0xff};
+                unsigned i=model.query_batch++;
+                code=i<sizeof(sequence)?sequence[i]:0xff;again=i+1<sizeof(sequence);
+            } else if(model.fault==54 || model.fault==55) {
+                again=!model.query_batch++;code=again?(model.fault==54?0x20:0x21):0xff;
+            } else if(model.fault==48)code=0xff;
+        }
+        if(model.fault==57 && model.pending)code=0x10;
+        if(model.fault==58){code=0;again=false;}
+        if((model.fault==59 || model.fault==60 || model.fault==61) && model.generation==2 && model.pending)code=0x10;
+        if(model.fault>=62 && model.pending) {
+            code=0x10;again=false;model.memory[0x21]=0x80;
+            if(((model.fault>=63 && model.fault<=69) || (model.fault==72 && model.generation>=2)) && !model.alarm_sent) {
+                model.alarm_sent=true;model.memory[0x21]=0xc0;
+                model.memory[0x45]=model.fault==65?0x60:0x16;
+                model.memory[0x46]=0x34;model.memory[0x47]=0x12;
+                if(model.fault==66)model.memory[0x20]=0x0b;
+                if(model.fault==67)model.memory[0x21]|=0x18;
+            }
+        }
+        if(model.fault>=76 && model.fault<=79 && model.pending && model.generation>=2 && !(model.generation%2)) {
+            model.memory[0x21]=0xc0;
+            model.memory[0x45]=(model.fault==76 && model.generation%4)?0x60:0x16;
+            model.memory[0x46]=0x34;model.memory[0x47]=0x12;
+        }
+        if((model.fault==80 || model.fault==81 || model.fault==83) && model.pending) {
+            unsigned batch=model.fault==80?15:32;
+            again=++model.query_batch<batch;
+        }
+        /* An acknowledged alarm followed by a refused query in one batch has
+         * effects: normal-return recovery must reject that receipt. */
+        if(model.fault==82 && model.pending) {
+            if(!model.query_batch++) {
+                code=0x10;again=true;model.memory[0x21]=0xc0;
+                model.memory[0x45]=0x16;model.memory[0x46]=0x34;model.memory[0x47]=0x12;
+            } else {code=0xff;again=false;}
+        }
+        if(model.fault==73){code=0;again=false;}
+        if(model.fault==75 && model.generation==2 && model.pending)code=0xff;
+        model.output=code;model.pending=again;
+        model.obf=!((model.fault==46 || model.fault==59) && model.generation==2);
     }
+}
+static void stop_during_alarm(bool acknowledgement) {
+    if(model.stop_injected || model.generation<4 || model.fault<77 || model.fault>82 ||
+       acknowledgement!=(model.fault>=78))return;
+    model.stop_injected=true;
+    bool synchronous=battery_service_stop(0);
+    struct battery_service_status s;battery_service_status(&s);
+    console_printf("battery-vm-smbus-stop: phase=%s generation=%u state=%u synchronous=%u\n",
+        acknowledgement?"ack":"read",model.generation,(uint64_t)s.state,(uint64_t)synchronous);
 }
 static void write_data(void *c,uint8_t v){
     (void)c;
@@ -163,13 +224,18 @@ static void write_data(void *c,uint8_t v){
         model.address=v;
         if(model.mode==0x80){
             if(v==0x20&&model.busy&&!--model.busy)model.memory[0x20]=0;
+            if(v==0x46)stop_during_alarm(false);
             model.output=model.memory[v];
             if(v==0x60&&model.fault==17&&model.generation==2&&model.ac_reads++)model.output^=2;
-            model.obf=true;
+            model.obf=!(model.fault==68 && v==0x46);
         }
         return;
     }
     model.memory[model.address]=v;
+    if(model.address==0x21) {
+        stop_during_alarm(true);
+        if(model.fault==69 || (model.fault==79 && model.stop_injected))model.ack_stall=true;
+    }
     if(model.address==0x20&&v==9&&model.memory[0x22]==0x16&&model.memory[0x23]<32){
         uint16_t word=model.words[model.memory[0x23]];model.memory[0x24]=word;model.memory[0x25]=word>>8;model.busy=2;
     }
@@ -194,16 +260,84 @@ static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
         model.foreign_status[i]&=~value;
     } else {
         if(model.fault==9&&i==1&&value==0)return;
+        if(model.fault==32&&model.generation==3&&i==0&&model.foreign_enable[0]&&value==0)return;
         if(model.fault==8&&i==1&&value==mask)return;
         model.foreign_enable[i]=value;
         if(value==mask)console_printf("battery-vm: foreign restored enable=%x pending=%x\n",(uint64_t)port,(uint64_t)model.foreign_status[i]);
     }
 }
+static bool model_irq_fault(void) {
+    if(model.generation!=3)return false;
+    if(model.fault>=36) { model.target_armed=true;return true; }
+    if(model.fault>=33) { model.irq_injected=true;model.injected_gpe=2; }
+    else model.foreign_enable[0]=0x40;
+    return true;
+}
+static bool model_event(uint16_t port,bool write,uint8_t *value) {
+    if(port!=0x620)return false;
+    if(write) { model.injected_gpe&=~*value;return false; } /* Also clear real W1C bits. */
+    *value=inb(port)|model.injected_gpe;return true;
+}
+static bool model_query_refuse(void) {
+    if(!model.irq_injected)return false;
+    /* Deliberately leave a callback spinlock unmatched. The returned-callback
+     * boundary must refuse it, even though the CPU0 lock is IRQ masking only. */
+    if(model.fault==35)(void)uacpi_kernel_lock_spinlock((void *)1);
+    return true;
+}
+static void target_irq(void) {
+    model.irq_injected=true;model.injected_gpe=2;
+    __asm__ volatile("int $41":::"memory");
+    console_write("battery-vm: ERROR target resumed after fault\n");
+}
+static void model_owner_irq(void) {
+    if(model.fault==37 && model.generation==3 && model.target_armed && !model.irq_injected)target_irq();
+}
+static void model_transfer_wait(void) {
+    if(model.fault==40 && model.generation==3 && !model.irq_injected) {
+        model.irq_injected=true;
+        console_write("battery-vm: partial EC transaction held\n");
+        uacpi_kernel_sleep(26000);
+    }
+}
+static void model_query_checkpoint(uint8_t code) {
+    if((model.fault==45 && code==0xff) || (model.fault==61 && code==0x10)) {
+        uacpi_u32 sequence;
+        if(uacpi_acquire_global_lock(100,&sequence)==UACPI_STATUS_OK)
+            console_write("battery-vm: query Global Lock retained\n");
+    }
+}
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
-    /* Active-service fault while the isolated filesystem caller keeps running.
-     * The 25-second operation deadline must reset without filesystem reentry. */
-    if(model.fault==27&&generation==3)uacpi_kernel_sleep(26000);
+    if(model.fault>=80)model.query_batch=0;
+    if(model.fault==38 && generation==3) {
+        uacpi_u32 seq;
+        if(uacpi_acquire_global_lock(100,&seq)==UACPI_STATUS_OK) {
+            console_write("battery-vm: API Global Lock held\n");
+            uacpi_kernel_sleep(26000);
+            (void)uacpi_release_global_lock(seq);
+        }
+    }
+    if(model.fault==39 && generation==3)(void)uacpi_execute_simple(NULL,"\\HOLD");
+    /* Active-service fault. Model 27 exercises an armed parked-workspace reset;
+     * model 28 retains a mounted workspace and must block that same reset. */
+    if(model.fault==29 && generation==3) {
+        /* Deliberately violate the adapter's no-storage contract. Quarantine
+         * must refuse a worker which owns I/O, preserving terminal containment. */
+        uint64_t flags=irq_save();bool entered=scheduler_io_begin();irq_restore(flags);
+        console_printf("battery-vm: worker storage owner=%s\n",entered?"yes":"NO");
+        uacpi_kernel_sleep(26000);
+        flags=irq_save();if(entered)scheduler_io_end();irq_restore(flags);
+    }
+    if(model.fault==36 && generation==3) {
+        uint64_t until=timer_monotonic_us()+5000000;
+        while(!model.target_armed && timer_monotonic_us()<until)uacpi_kernel_sleep(10);
+        if(model.target_armed)target_irq();
+    }
+    if((model.fault==31||model.fault==34) && generation==3) {
+        model_irq_fault();__asm__ volatile("int $41":::"memory");
+    }
+    if((model.fault==27||model.fault==28||model.fault==30||model.fault==32||model.fault==33||model.fault==35||model.fault==37)&&generation==3)uacpi_kernel_sleep(26000);
     /* Deliver a deliberately unclaimed SCI through the real dispatcher. This
      * verifies accounting without inventing hardware status or claiming it. */
     if(model.fault==20)__asm__ volatile("int $41":::"memory");
@@ -248,7 +382,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>27||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>83||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -275,6 +409,13 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
+    if(model.fault>=48)p->query_policy=BATTERY_QUERY_AIR72;
+    if(model.fault>=62){p->model_smbus_queries=true;p->smbus_capture_profile=true;}
+    if((model.fault>=41 && model.fault<=47) || model.fault==61)p->model_query_checkpoint=model_query_checkpoint;
+    if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
+    if(model.fault==37)p->model_owner_irq=model_owner_irq;
+    if(model.fault>=33 && model.fault<=40) { p->model_event=model_event;p->model_query_refuse=model_query_refuse; }
+    if(model.fault>=30 && model.fault<=40)p->model_irq_fault=model_irq_fault;
     if(model.fault>=13)p->model_sample_begin=model_sample_begin;
     if(model.fault==18||model.fault==19)p->model_setup_work=model_setup_work;
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;
@@ -293,3 +434,5 @@ bool battery_platform_io_map(uint64_t a,size_t n){(void)a;(void)n;return false;}
 bool battery_platform_io(uint64_t a,unsigned b,bool w,uint32_t *v){(void)a;(void)b;(void)w;(void)v;return false;}
 bool battery_platform_pci_open(uacpi_pci_address a,void **h){(void)a;(void)h;return false;}
 bool battery_platform_pci_read(void *h,size_t o,unsigned b,uint32_t *v){(void)h;(void)o;(void)b;(void)v;return false;}
+
+bool battery_platform_workspace_study_allowed(void) { return true; }

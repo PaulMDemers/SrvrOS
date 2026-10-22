@@ -339,8 +339,11 @@ manual recovery before the cold-start shutdown.
 Integration note: Pro calibration and Air app-file branches independently
 published v43. Verification now recognizes both exact historical recipes and
 requires identical config copies; it does not infer the mode from the host UUID.
-New calibration stages use v44, Air app-file stages retain v43, and historical
-installed payload bytes are unchanged. Firmware stages use the descriptive name.
+Main integration22fd266 also introduced battery controls under v44. New
+calibration stages now use `ram-usb-wifi-cal-v1`; battery app-file/control stages
+retain v43/v44. Verification accepts only the exact historical Wi-Fi or battery
+recipe for those old versions and still requires identical config copies.
+Installed payload bytes are unchanged. Firmware stages use their descriptive name.
 
 ### Cold-start prerequisite for the native upload diagnostic
 

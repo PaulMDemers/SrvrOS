@@ -2,6 +2,10 @@
  * snapshot probe and the desktop. CPU0 lifecycle owner and one EC/AML worker. */
 #include "battery_platform.h"
 #include "battery_transition.h"
+#include "battery_reset_policy.h"
+#include "battery_recovery_resources.h"
+#include "battery_query_receipt.h"
+#include "battery_event_accounting.h"
 #include "work_worker.h"
 #include "sci_owner.h"
 #include "sci_observe.h"
@@ -9,9 +13,11 @@
 #include "ec_query_rearm.h"
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_cache.h>
+#include <srvros/battery_control.h>
 #include <srvros/arch.h>
 #include <srvros/workspace.h>
 #include <srvros/workspace_image.h>
+#include <srvros/workspace_log.h>
 #include <srvros/usb_storage.h>
 #include <srvros/acpi.h>
 #include <srvros/console.h>
@@ -24,6 +30,8 @@
 #include <srvros/timer.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/context.h>
+#include <uacpi/internal/context.h>
+#include <uacpi/internal/types.h>
 #include <uacpi/namespace.h>
 #include <uacpi/osi.h>
 #include <uacpi/notify.h>
@@ -46,6 +54,10 @@ static struct {
     struct ec_transport transport;
     struct sbs_sampler sampler;
     struct ec_query_budget budget;
+    struct battery_event_accounting events;
+    uint64_t smbus_invalid_through;
+    bool smbus_refresh;
+    struct battery_query_receipt query_receipt;
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
     struct sci_observer sci_observer;
@@ -60,13 +72,54 @@ static struct {
 enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
 static bool auto_return;
+static bool recovery_study;
+static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbus_controls;
+static uint64_t smbus_workspace_hold;
+static bool mounted_home;
+/* Explicit VM-only continuous session, never selected by native startup. */
+static bool continuous_home;
+static uint64_t home_session_events;
+static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
+static struct battery_service_status smbus_files_snapshot;
+static struct block_device *query_capture_volume;
+static bool query_tracking(void) { return query_study || query_capture || mounted_home; }
+static bool capture_storage_parked(void) {
+    return query_capture && query_capture_volume && auto_return &&
+        workspace_parked_device()==query_capture_volume && !workspace_active() &&
+        !workspace_image_busy() && !scheduler_io_active();
+}
+static struct block_device *smbus_capture_volume;
+static bool smbus_capture_parked(void) {
+    return smbus_capture && smbus_capture_volume && auto_return &&
+        workspace_parked_device()==smbus_capture_volume && !workspace_active() &&
+        (smbus_files?workspace_image_ready():!workspace_image_busy() && !scheduler_io_active());
+}
+/* An explicit native diagnostic owns the mount through normal runtime return.
+ * This grants no fatal reset, general AML unwind, or desktop-startup capability. */
+static bool mounted_home_owned(void) {
+    return mounted_home && workspace_mount_hold_valid(smbus_workspace_hold) && !workspace_image_busy();
+}
+static bool native_query_return_scope(void) {
+    return runtime.platform.query_policy==BATTERY_QUERY_AIR72 &&
+        (capture_storage_parked() || (mounted_home_owned() && runtime.platform.smbus_capture_profile));
+}
+static bool smbus_owned(void) {
+    return (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&
+        (smbus_workspace_hold?workspace_mount_hold_valid(smbus_workspace_hold):!workspace_active())) ||
+        ((smbus_capture_parked() || mounted_home_owned()) && runtime.platform.smbus_capture_profile &&
+         runtime.platform.query_policy==BATTERY_QUERY_AIR72);
+}
+static struct {
+    bool study,pending,completed,callback_study,callback_active,callback_failed,target_study,target_pending,target_handoff;
+    uint64_t interrupted,peer,peer_complete,callback_entries,callback_faults,callback_locks,callback_depth;
+} recovery_irq;
 static struct {
     struct battery_cache cache;
     struct scheduler_wait_queue wake,progress;
     void *rsdp;
     struct limine_memmap_response *map;
     uint64_t identity;
-    bool running,stop;
+    bool running,stop,quarantined,finishing;
 } service;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
@@ -123,14 +176,17 @@ static void release_owner(void) {uint64_t f=irq_save();owner=OWNER_NONE;irq_rest
 /* CPU0 scheduling predicate, read with IRQs masked. Platform validation and
  * page-table setup finish before engaged. The audited service callbacks use
  * kernel mappings/serialized allocators and never VFS or user memory. Keep both
- * owner watchdog and worker runnable through teardown; other adapters and the
+ * owner watchdog and worker runnable through teardown and final owner bookkeeping;
+ * an explicit finishing phase keeps the owner eligible after close. A new
+ * lifetime clears that phase before admission. Other adapters and the
  * direct diagnostic retain ordinary-thread scheduling. See battery-service.md. */
 static bool service_io_ready(void *arg) {
-    (void)arg;return owner==OWNER_SERVICE && runtime.engaged && runtime.service_mode;
+    (void)arg;return owner==OWNER_SERVICE && runtime.service_mode &&
+        (runtime.engaged || service.finishing);
 }
 bool battery_diagnostic_auto_return(bool enabled) {
     uint64_t f=irq_save();
-    bool ok=!enabled||(!workspace_active()&&!scheduler_io_active());
+    bool ok=!enabled||battery_reset_allowed(true,workspace_active(),scheduler_io_active());
     if(ok)auto_return=enabled;
     irq_restore(f);return ok;
 }
@@ -154,16 +210,22 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
         service.cache.value.state=BATTERY_SERVICE_FAULTED;
         service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
     }
+    /* Recheck with scheduling excluded: arming while parked is not a lease on
+     * future filesystem ownership. Never try to flush from this fatal context. */
+    bool mounted=workspace_active(),io=scheduler_io_active();
+    bool reset=battery_reset_allowed(auto_return,mounted,io);
     mask_sources();
     sci_report("fault");
+    if(auto_return && !reset)
+        console_printf("battery-reset: BLOCKED workspace=%u io=%u; live storage retained\n",(uint64_t)mounted,(uint64_t)io);
     console_printf("battery: progress setup=%s setup_elapsed_us=%u worker=%u completed=%u in_flight=%u\n",
         runtime.setup_stage?runtime.setup_stage:"not-started",
         runtime.setup_started_us?timer_monotonic_us()-runtime.setup_started_us:0,
         runtime.worker.identity,runtime.worker.completed,runtime.worker.work.in_flight);
     console_printf("battery: %s %s errors=%u denied=%u heap=%u ec_phase=%u ec_error=%u queries=%u; live state retained\n",
-        auto_return?"FAILED":"HALTED",reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
+        reset?"FAILED":"HALTED",reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
         (uint64_t)runtime.transport.error,runtime.queries);
-    if(auto_return) {
+    if(reset) {
         console_write("battery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n");
         arch_reboot_unattended();
     }
@@ -185,19 +247,26 @@ static uint8_t event_read(void *ctx,uint16_t port) {
     (void)ctx;
     struct battery_event_ops *io=&runtime.platform.foreign_io;
     if(foreign_port(port)&&io->read)return io->read(io->ctx,port);
+    uint8_t value=0;
+    if(runtime.platform.model_event && runtime.platform.model_event(port,false,&value))return value;
     return inb(port);
 }
 static void event_write(void *ctx,uint16_t port,uint8_t value) {
     (void)ctx;
     struct battery_event_ops *io=&runtime.platform.foreign_io;
-    if(foreign_port(port)&&io->write)io->write(io->ctx,port,value);else outb(port,value);
+    if(foreign_port(port)&&io->write)io->write(io->ctx,port,value);
+    else if(!runtime.platform.model_event || !runtime.platform.model_event(port,true,&value))outb(port,value);
 }
 static const struct battery_event_ops event_ops={.read=event_read,.write=event_write};
-static void check_foreign_event(void) {
+static bool foreign_event_enabled(void) {
     for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
         const struct battery_event_hold *h=&runtime.platform.foreign_events[i];
-        if(h->active&&event_read(NULL,h->enable))unsafe("foreign event unexpectedly enabled");
+        if(h->active&&event_read(NULL,h->enable))return true;
     }
+    return false;
+}
+static void check_foreign_event(void) {
+    if(foreign_event_enabled())unsafe("foreign event unexpectedly enabled");
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t size){return size&&p>=a&&p-a<=n&&size<=n-(p-a);}
 static bool worker_context(void){uint64_t f=irq_save();bool ok=(f&(1ull<<9))&&runtime.worker.identity&&scheduler_current_thread_id()==runtime.worker.identity;irq_restore(f);return ok;}
@@ -266,8 +335,19 @@ uacpi_interrupt_state uacpi_kernel_disable_interrupts(void) { return irq_save();
 void uacpi_kernel_restore_interrupts(uacpi_interrupt_state flags) { irq_restore(flags); }
 uacpi_handle uacpi_kernel_create_spinlock(void) { return (void *)1; }
 void uacpi_kernel_free_spinlock(uacpi_handle handle) { (void)handle; }
-uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle handle) { (void)handle; return irq_save(); }
-void uacpi_kernel_unlock_spinlock(uacpi_handle handle, uacpi_cpu_flags flags) { (void)handle; irq_restore(flags); }
+uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle handle) {
+    (void)handle;uint64_t flags=irq_save();
+    if(recovery_irq.callback_active) { recovery_irq.callback_locks++;recovery_irq.callback_depth++; }
+    return flags;
+}
+void uacpi_kernel_unlock_spinlock(uacpi_handle handle, uacpi_cpu_flags flags) {
+    (void)handle;
+    if(recovery_irq.callback_active) {
+        if(!recovery_irq.callback_depth || (flags&(1ull<<9)))unsafe("callback lock balance");
+        recovery_irq.callback_depth--;
+    }
+    irq_restore(flags);
+}
 uacpi_handle uacpi_kernel_create_work_item(void) {
     struct acpi_work_item *item = uacpi_kernel_alloc(sizeof(*item));
     if (item) *item = (struct acpi_work_item){0};
@@ -304,12 +384,120 @@ static struct sci_controller_observation sci_controller_snapshot(void) {
     c.pic_masks=(uint16_t)inb(0x21)|((uint16_t)inb(0xa1)<<8);c.valid|=4;
     return c;
 }
+/* CPU0, IRQ exclusion held throughout mask verification and thread retention. */
+static bool sources_quiet(void) {
+    bool quiet=!inw(runtime.platform.events.resources.pm1_enable);
+    for(unsigned b=0;b<2;b++)for(unsigned i=0;i<runtime.platform.events.resources.gpe[b].bytes;i++)
+        if(event_read(NULL,runtime.platform.events.resources.gpe[b].enable+i))quiet=false;
+    uint32_t low=0,high=0;
+    return quiet && ioapic_read_gsi(runtime.sci.route.gsi,&low,&high) && (low&(1u<<16));
+}
+static void mark_quarantined(void) {
+    service.quarantined=true;service.stop=true;
+    service.cache.value.state=BATTERY_SERVICE_FAULTED;
+    service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
+    service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
+    scheduler_wake_all(&service.progress);
+}
+/* Read only the pinned interpreter's Global Lock and our serialized protocol
+ * state. A free hardware lock is an observation, never a firmware ownership lease.
+ * In particular global_lock_acquired does NOT cover AML Acquire(\_GL). */
+static void require_recovery_resources(void) {
+    struct battery_recovery_resources r={
+        .lease=runtime.lease,.ec_poisoned=runtime.transport.poisoned,.ec_phase=runtime.transport.phase,
+        .sampler_active=runtime.sampler.active,.sampler_waiting=runtime.sampler.waiting,
+        .smbus_busy=runtime.sampler.transaction.ec && (runtime.sampler.transaction.phase!=8 ||
+            runtime.sampler.transaction.pending || runtime.sampler.transaction.failed),
+        .global_api=g_uacpi_rt_ctx.global_lock_acquired,.global_pending=g_uacpi_rt_ctx.global_lock_pending
+    };
+    uacpi_mutex *mutex=g_uacpi_rt_ctx.global_lock_mutex;
+    uint64_t word=0;
+    if(runtime.ready && g_uacpi_rt_ctx.facs && mutex && mutex->handle &&
+       battery_platform_memory(&g_uacpi_rt_ctx.facs->global_lock,32,false,&word)) {
+        const struct kernel_semaphore *sem=mutex->handle;
+        r.known=true;r.facs_bits=word&3;
+        r.global_aml=mutex->depth || mutex->owner!=UACPI_THREAD_ID_NONE;
+        /* Covers acquisition/release windows before AML owner/API flags change. */
+        r.global_mutex_busy=sem->closed || sem->units!=1 || sem->waiters || sem->queue.waiters;
+    }
+    unsigned blocked=battery_recovery_blockers(r);
+    console_printf("battery-recovery-resources: known=%u lease=%u ec_phase=%u poison=%u sample=%u waiting=%u smbus=%u api=%u aml=%u mutex=%u pending=%u facs=%u blocked=%u\n",
+        (uint64_t)r.known,(uint64_t)r.lease,(uint64_t)r.ec_phase,(uint64_t)r.ec_poisoned,
+        (uint64_t)r.sampler_active,(uint64_t)r.sampler_waiting,(uint64_t)r.smbus_busy,
+        (uint64_t)r.global_api,(uint64_t)r.global_aml,(uint64_t)r.global_mutex_busy,
+        (uint64_t)r.global_pending,(uint64_t)r.facs_bits,(uint64_t)blocked);
+    if(blocked)unsafe("recovery resources retained");
+}
+static void report_quarantine(void) {
+    console_printf("battery-quarantine: owner=%u worker=%u io=%u heap=%u completed=%u; sources=masked retained=yes\n",
+        service.identity,runtime.worker.identity,(uint64_t)scheduler_io_active(),runtime.heap,runtime.worker.completed);
+}
+static void report_callback_proof(void) {
+    if(recovery_irq.callback_entries!=1 || recovery_irq.callback_faults!=1 || recovery_irq.callback_depth ||
+       !recovery_irq.callback_locks || !recovery_irq.callback_failed || runtime.query.pending)
+        unsafe("callback fixture proof");
+    console_printf("battery-recovery-callback: entries=1 faults=1 locks=%u depth=0 query_pending=0; returned=yes reason=query-admission\n",recovery_irq.callback_locks);
+}
+static __attribute__((noreturn)) void quarantine_irq_exit(void *context) {
+    (void)context;uint64_t flags=irq_save(),current=scheduler_current_thread_id();
+    bool is_owner=current==service.identity;
+    if((flags&(1ull<<9)) || !recovery_study || !recovery_irq.target_study || !recovery_irq.target_pending ||
+       !recovery_irq.completed || recovery_irq.pending || recovery_irq.callback_active || recovery_irq.callback_depth ||
+       recovery_irq.peer!=1 || recovery_irq.peer_complete!=1 || current!=recovery_irq.interrupted ||
+       (!is_owner && current!=runtime.worker.identity) || runtime.sci_counts[0].in_flight ||
+       runtime.sci_counts[1].in_flight || runtime.sci_counts[2].in_flight || !sources_quiet())
+        unsafe("IRQ exit recovery admission");
+    require_recovery_resources();
+    /* EOI and every registered completion have returned; the registry cleared
+     * its deferred state before entering this hook. Retain the interrupt frame
+     * with its service stack. Never IRET to the failed service or restore IF. */
+    if(!scheduler_quarantine_service_pair(current,is_owner?runtime.worker.identity:service.identity))
+        unsafe("IRQ exit quarantine admission");
+    mark_quarantined();recovery_irq.target_pending=false;recovery_irq.target_handoff=true;
+    report_quarantine();report_callback_proof();
+    console_printf("battery-recovery-target: interrupted=%u role=%s peer=1 completion=1 in_flight=0; exit=drained retained=yes\n",current,is_owner?"owner":"worker");
+    for(;;)scheduler_yield();
+}
+/* Entry guard or a reported failure after the uACPI callback has returned.
+ * Normally both targets must be noncurrent. The explicit target study instead
+ * defers retention of the interrupted stack until the dispatcher completes EOI
+ * and every completion callback. No nonlocal unwind or early scheduling. */
+static void quarantine_irq_pair(bool callback) {
+    uint64_t flags=irq_save();
+    if(!recovery_study || !recovery_irq.study || !battery_platform_workspace_study_allowed() ||
+       (flags&(1ull<<9)) || owner!=OWNER_SERVICE || !runtime.ready ||
+       runtime.sci_counts[0].in_flight || runtime.sci_counts[1].in_flight!=1 || runtime.sci_counts[2].in_flight)
+        unsafe("IRQ entry recovery admission");
+    mask_sources();
+    uint64_t current=scheduler_current_thread_id();
+    if(callback && recovery_irq.target_study && (current==service.identity || current==runtime.worker.identity)) {
+        if(!sources_quiet())unsafe("IRQ exit source mask");
+        recovery_irq.interrupted=current;recovery_irq.pending=true;recovery_irq.target_pending=true;
+        if(!irq_handler_defer_exit(runtime.sci.token,quarantine_irq_exit,NULL))unsafe("IRQ exit request refused");
+        return; /* Finish the bridge, dispatcher and all post-EOI observers first. */
+    }
+    require_recovery_resources();
+    if(!sources_quiet() || !scheduler_quarantine_noncurrent_services(service.identity,runtime.worker.identity))
+        unsafe(callback?"IRQ callback quarantine admission":"IRQ entry quarantine admission");
+    mark_quarantined();
+    recovery_irq.interrupted=scheduler_current_thread_id();recovery_irq.pending=true;
+}
 static bool irq_bridge(void *context) {
-    (void)context; runtime.interrupts++;
+    (void)context; if(service.quarantined)return false;
+    runtime.interrupts++;
     struct sci_counts *counts=&runtime.sci_counts[runtime.stopping?2:runtime.ready?1:0];
     if(counts->delivered!=UINT64_MAX)counts->delivered++;
     counts->in_flight++;
-    check_foreign_event();
+    if(foreign_event_enabled()) {
+        if(!recovery_irq.study)unsafe("foreign event unexpectedly enabled");
+        quarantine_irq_pair(false);
+        counts->in_flight--;
+        if(counts->unclaimed!=UINT64_MAX)counts->unclaimed++;
+        uint64_t now=timer_monotonic_us();
+        if(counts->unclaimed==1)counts->first_unclaimed_us=now;
+        counts->last_unclaimed_us=now;
+        return false; /* Unexpected foreign event is never claimed as ours. */
+    }
     bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
         runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
     if(observed) {
@@ -317,7 +505,17 @@ static bool irq_bridge(void *context) {
             runtime.sci_observer.current.at_us);
         sci_observe_controller(&runtime.sci_observer,false,sci_controller_snapshot());
     }
+    /* Recover only a reported query-admission failure after a normal return.
+     * Never jump over interpreter frames or release their resources here. */
+    recovery_irq.callback_active=recovery_irq.callback_study;
     bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
+    recovery_irq.callback_active=false;
+    if(recovery_irq.callback_study && recovery_irq.callback_depth)unsafe("callback lock balance");
+    if(recovery_irq.callback_failed) {
+        if(handled || !recovery_irq.callback_entries || !recovery_irq.callback_locks || runtime.query.pending)
+            unsafe("callback return proof");
+        quarantine_irq_pair(true);
+    }
     if(observed)sci_observe_controller(&runtime.sci_observer,true,sci_controller_snapshot());
     uint64_t finished_us=timer_monotonic_us();
     if(observed)sci_observe_end(&runtime.sci_observer,finished_us,handled,runtime.query_scheduled);
@@ -333,7 +531,10 @@ static bool irq_bridge(void *context) {
     return handled;
 }
 static void sci_after_eoi(void *context) {
-    (void)context;
+    (void)context;if(service.quarantined || recovery_irq.target_pending) {
+        if(recovery_irq.pending) { recovery_irq.pending=false;recovery_irq.completed=true; }
+        return;
+    }
     struct sci_controller_observation c=sci_controller_snapshot();
     sci_observe_post_eoi(&runtime.sci_observer,c,timer_monotonic_us(),runtime.query_scheduled);
 }
@@ -378,6 +579,7 @@ void uacpi_kernel_io_unmap(uacpi_handle h){uacpi_kernel_free(h);}
 static uacpi_status port_io(struct io_region *r,size_t o,unsigned bits,bool write,uint32_t *v) {
     if(!runtime.engaged||!r||!contains(0,r->size,o,bits/8))goto denied;
     uint64_t a=r->base+o;
+    if(write && query_tracking() && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
     if(write&&a==runtime.platform.ec.pm1_control&&bits==16&&runtime.worker.identity==scheduler_current_thread_id()) {
         uint64_t flags=irq_save();uint16_t before=inw(a);
         bool ok=acpi_event_io_global_release(&runtime.platform.events,a,bits,before,*v);
@@ -406,7 +608,7 @@ uacpi_status uacpi_kernel_io_write##B(uacpi_handle h,uacpi_size o,uacpi_u##B v){
 PORT(8) PORT(16) PORT(32)
 #define MEMORY(B) \
 uacpi_u##B uacpi_kernel_mmio_read##B(void *p){uint64_t v=0;if(!runtime.engaged||!battery_platform_memory(p,B,false,&v)){runtime.denied++;console_printf("battery: denied memory read ptr=%x width=%u\n",(uint64_t)(uintptr_t)p,(uint64_t)B);}return v;} \
-void uacpi_kernel_mmio_write##B(void *p,uacpi_u##B v){uint64_t n=v;if(!runtime.engaged||!battery_platform_memory(p,B,true,&n)){runtime.denied++;console_printf("battery: denied memory write ptr=%x width=%u value=%x\n",(uint64_t)(uintptr_t)p,(uint64_t)B,n);}}
+void uacpi_kernel_mmio_write##B(void *p,uacpi_u##B v){if(query_tracking()&&runtime.query_receipt.in_aml)runtime.query_receipt.effects++;uint64_t n=v;if(!runtime.engaged||!battery_platform_memory(p,B,true,&n)){runtime.denied++;console_printf("battery: denied memory write ptr=%x width=%u value=%x\n",(uint64_t)(uintptr_t)p,(uint64_t)B,n);}}
 MEMORY(8) MEMORY(16) MEMORY(32) MEMORY(64)
 uacpi_status uacpi_kernel_pci_device_open(uacpi_pci_address a,uacpi_handle *h){if(runtime.engaged&&battery_platform_pci_open(a,h))return UACPI_STATUS_OK;runtime.denied++;return UACPI_STATUS_DENIED;}
 void uacpi_kernel_pci_device_close(uacpi_handle h){(void)h;}
@@ -420,7 +622,13 @@ static bool transfer(bool write,uint8_t a,uint8_t *v,bool query) {
     bool ok=query?ec_transport_begin_query(&runtime.transport,timer_monotonic_us(),100000):
         ec_transport_begin(&runtime.transport,write,a,*v,timer_monotonic_us(),100000);
     int result=0;
-    for(unsigned polls=1;ok&&!result;polls++){result=ec_transport_poll(&runtime.transport,timer_monotonic_us());if(!result)pace(polls);}
+    for(unsigned polls=1;ok&&!result;polls++) {
+        result=ec_transport_poll(&runtime.transport,timer_monotonic_us());
+        if(!result) {
+            if(runtime.platform.model_transfer_wait)runtime.platform.model_transfer_wait();
+            pace(polls);
+        }
+    }
     if(result==1&&!write)*v=runtime.transport.result;
     runtime.lease=false;return ok&&result==1;
 }
@@ -432,6 +640,7 @@ static uacpi_status region_handler(uacpi_region_op op,uacpi_handle data) {
     if(op!=UACPI_REGION_OP_READ&&op!=UACPI_REGION_OP_WRITE)goto denied;
     uacpi_region_rw_data *r=data;
     if(r->handler_context!=&runtime||r->region_context!=&runtime||r->byte_width!=1||r->address>255)goto denied;
+    if(op==UACPI_REGION_OP_WRITE && query_tracking() && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
     uint8_t v=r->value;
     if(!transfer(op==UACPI_REGION_OP_WRITE,r->address,&v,false))goto denied;
     if(op==UACPI_REGION_OP_READ)r->value=v;return UACPI_STATUS_OK;
@@ -454,8 +663,19 @@ static bool contract(void) {
     if(uacpi_eval_simple(runtime.node,"_CRS",&object)||!object)return false;
     bool ok=!uacpi_object_get_buffer(object,&crs)&&acpi_ec_namespace_matches(&runtime.platform.ec,uid,gpe,crs.bytes,crs.length);
     uacpi_object_unref(object);
-    return ok&&!uacpi_eval_simple_integer(runtime.node,"SMB0._EC",&bank)&&bank==0x2010&&
+    ok=ok&&!uacpi_eval_simple_integer(runtime.node,"SMB0._EC",&bank)&&bank==0x2010&&
         !uacpi_eval_simple_integer(runtime.node,"SMB0.SBS0._SBS",&sbs)&&sbs==1;
+    if(ok && (smbus_study || smbus_capture)) {
+        object=NULL;uacpi_data_view id;
+        if(uacpi_eval_simple_string(runtime.node,"SMB0._HID",&object)||!object)return false;
+        ok=!uacpi_object_get_string(object,&id)&&id.length==9;
+        static const char expected[]="ACPI0001";
+        for(unsigned i=0;ok&&i<sizeof(expected);i++)ok=id.bytes[i]==(uint8_t)expected[i];
+        uacpi_object_unref(object);
+        gs=uacpi_eval_simple_integer(runtime.node,"SMB0._GLK",&glk);
+        ok=ok&&(gs==UACPI_STATUS_NOT_FOUND||(!gs&&!glk));
+    }
+    return ok;
 }
 static void setup_mark(const char *stage) {
     runtime.setup_stage=stage;
@@ -487,13 +707,28 @@ static void setup_work(void *ctx) {
 done:if(runtime.ok)setup_mark("complete");runtime.done=true;
 }
 static void query_work(void *ctx);
-static void queue_query(void) {
-    if(runtime.stopping||runtime.query_scheduled)return;
+static bool queue_query(void) {
+    if(recovery_irq.callback_failed)return false;
+    if(runtime.stopping||runtime.query_scheduled)return true;
     if(!ec_query_budget_begin(&runtime.budget,timer_monotonic_us(),128,2000000))unsafe("query budget begin");
+    if(query_tracking()) {
+        uint64_t sequence=runtime.query_receipt.sequence;
+        if(sequence==UINT64_MAX)unsafe("query receipt overflow");
+        runtime.query_receipt=(struct battery_query_receipt){.sequence=sequence+1,
+            .generation=runtime.sampler.sample.generation,
+            .policy=runtime.platform.query_policy?runtime.platform.query_policy:BATTERY_QUERY_MODEL};
+    }
     runtime.query_scheduled=true;
     sci_query_start(&runtime.query_observer,timer_monotonic_us());
-    if(uacpi_suspend_gpe(NULL,runtime.platform.ec.gpe)||uacpi_clear_gpe(NULL,runtime.platform.ec.gpe)||
-       !acpi_worker_enqueue(&runtime.worker,&runtime.query,UACPI_WORK_GPE_EXECUTION,query_work,NULL))unsafe("query admission");
+    if(uacpi_suspend_gpe(NULL,runtime.platform.ec.gpe)||uacpi_clear_gpe(NULL,runtime.platform.ec.gpe))unsafe("query admission");
+    bool refused=runtime.platform.model_query_refuse && runtime.platform.model_query_refuse();
+    if(refused || !acpi_worker_enqueue(&runtime.worker,&runtime.query,UACPI_WORK_GPE_EXECUTION,query_work,NULL)) {
+        if(!recovery_study || !recovery_irq.callback_study || !recovery_irq.callback_active ||
+           !battery_platform_workspace_study_allowed())unsafe("query admission");
+        recovery_irq.callback_failed=true;recovery_irq.callback_faults++;
+        return false;
+    }
+    return true;
 }
 static bool pending_query(void) {
     uacpi_event_info info=0;
@@ -510,7 +745,49 @@ static void rearm_resume(void *context) {
 static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *node,uacpi_u16 idx) {
     (void)ctx;(void)node;
     if(idx!=runtime.platform.ec.gpe)unsafe("wrong EC GPE");
-    queue_query();return UACPI_INTERRUPT_HANDLED;
+    if(recovery_irq.callback_active)recovery_irq.callback_entries++;
+    return queue_query()?UACPI_INTERRUPT_HANDLED:UACPI_INTERRUPT_NOT_HANDLED;
+}
+/* Explicit host-controller ownership in the disposable model, independent of
+ * AML OSYS. It never invokes or rewrites _Q10 and never nests sampler bank IO. */
+static void smbus_query_work(void) {
+    if(!smbus_owned() || !runtime.service_mode ||
+       runtime.sampler.active || runtime.sampler.waiting || runtime.lease ||
+       (runtime.sampler.transaction.ec && runtime.sampler.transaction.phase!=8))unsafe("SMBus event ownership");
+    if(!continuous_home && (smbus_capture || mounted_home) && runtime.events.totals.events>=((smbus_files || smbus_controls)?512u:128u))unsafe("SMBus capture event limit");
+    if(!continuous_home && mounted_home && smbus_controls && home_session_events>=512)unsafe("Home session event limit");
+    struct ec_smbus_event event={0};runtime.lease=true;
+    bool begun=ec_smbus_event_begin(&event,&runtime.transport,0x20,timer_monotonic_us());int result=0;
+    for(unsigned polls=1;begun&&!result;polls++) {
+        result=ec_smbus_event_poll(&event,timer_monotonic_us());if(!result)pace(polls);
+    }
+    runtime.lease=false;
+    if(query_tracking() && event.ack_attempted)runtime.query_receipt.effects++;
+    if(!begun || result!=1) {
+        console_printf("battery-smbus: FAILED phase=%u status=%u ack_attempted=%u acknowledged=%u\n",
+            (uint64_t)event.phase,(uint64_t)event.status,(uint64_t)event.ack_attempted,(uint64_t)event.acknowledged);
+        unsafe("SMBus event");
+    }
+    if(event.alarm && event.recognized) {
+        uint64_t f=irq_save();
+        runtime.smbus_invalid_through=runtime.sampler.sample.generation;
+        runtime.smbus_refresh=true;service.cache.last_attempt_ok=false;
+        struct battery_service_status invalidated;
+        battery_cache_read(&service.cache,timer_monotonic_us(),&invalidated);
+        scheduler_wake_all(&service.wake);irq_restore(f);
+        if(invalidated.flags&BATTERY_CACHE_FRESH)unsafe("SMBus cache invalidation");
+        if(!continuous_home)console_printf(compact_smbus_records()?"smbus-i:%u,%u,%u\n":"battery-smbus: invalidate generation=%u cached=%u valid=%u fresh=0\n",
+            runtime.smbus_invalid_through,invalidated.sample.generation,
+            (uint64_t)!!(invalidated.flags&BATTERY_CACHE_VALID));
+    }
+    uint64_t event_flags=irq_save();
+    if(mounted_home && smbus_controls && home_session_events!=UINT64_MAX)home_session_events++;
+    battery_event_record(&runtime.events,event.alarm,event.acknowledged,event.recognized);
+    irq_restore(event_flags);
+    if(!continuous_home)console_printf(compact_smbus_records()?"smbus-e:%u,%u,%u,%u,%u,%u,%u,%u\n":"battery-smbus: event=%u generation=%u status=%u alarm=%u address=%u data=%u acknowledged=%u refresh=%u; aml=0 serialized=1\n",
+        runtime.events.totals.events,runtime.sampler.sample.generation,(uint64_t)event.status,
+        (uint64_t)event.alarm,(uint64_t)event.address,(uint64_t)event.data,
+        (uint64_t)event.acknowledged,(uint64_t)(event.alarm&&event.recognized));
 }
 static void query_work(void *ctx) {
     (void)ctx;
@@ -521,15 +798,50 @@ static void query_work(void *ctx) {
     for(unsigned i=0;i<8;i++) {
         if(!ec_query_budget_take(&runtime.budget,timer_monotonic_us()))unsafe("query limit");
         uint8_t code=0;
+        if(query_tracking())runtime.query_receipt.transfer_done=false;
         query_phase(SCI_QUERY_TRANSFER);
         if(!transfer(false,0,&code,true))unsafe("query transport");
         uint64_t observed_flags=irq_save();
         runtime.query_observer.code=code;runtime.query_observer.code_valid=true;
         query_phase(code?SCI_QUERY_AML:SCI_QUERY_CHECK);irq_restore(observed_flags);
-        if(code) {
+        unsigned policy=runtime.platform.query_policy;
+        if(query_study && !policy)policy=BATTERY_QUERY_MODEL;
+        enum battery_query_class query_class=battery_query_classify(policy,code);
+        bool host_event=code==0x10 && smbus_owned();
+        bool rejected=!host_event && battery_query_rejected(query_class);
+        if(rejected) {
+            console_printf("battery-query-policy: policy=%u code=%u class=%u; dispatch=refused\n",
+                (uint64_t)policy,(uint64_t)code,(uint64_t)query_class);
+            /* Only an explicitly held native scope admits normal return. */
+            if(!query_study && !native_query_return_scope())unsafe("query policy");
+        }
+        if(query_tracking()) {
+            struct battery_query_receipt *r=&runtime.query_receipt;
+            r->code=code;r->transfer_done=true;
+            if(runtime.platform.model_query_checkpoint)runtime.platform.model_query_checkpoint(code);
+            if(code && rejected) {
+                if(!(query_study?battery_platform_workspace_study_allowed():native_query_return_scope()) || !runtime.service_mode ||
+                   owner!=OWNER_SERVICE || !runtime.ready || service.stop ||
+                   !ec_query_budget_finish(&runtime.budget,timer_monotonic_us()))unsafe("query refusal admission");
+                uint64_t f=irq_save();
+                r->refused=true;r->completed_before=runtime.worker.completed;
+                r->notifications_before=runtime.notifications;
+                /* No more queries or samples; already queued notifications must
+                 * still return through the normal worker completion path. */
+                mask_sources();runtime.query_scheduled=false;query_phase(SCI_QUERY_IDLE);
+                service.stop=true;service.cache.value.state=BATTERY_SERVICE_FAULTED;
+                service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
+                scheduler_wake_all(&service.wake);irq_restore(f);return;
+            }
+        }
+        if(host_event) { smbus_query_work();runtime.queries++; }
+        else if(code) {
+            if(query_tracking()){runtime.query_receipt.in_aml=true;runtime.query_receipt.aml_calls++;}
             const char hex[]="0123456789ABCDEF";char method[]="_Q00";method[2]=hex[code>>4];method[3]=hex[code&15];
             if(!runtime.transition_mode)console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
-            if(uacpi_execute_simple(runtime.node,method)||runtime.errors||runtime.denied)unsafe("query AML");runtime.queries++;
+            uacpi_status result=uacpi_execute_simple(runtime.node,method);
+            if(query_tracking()){runtime.query_receipt.in_aml=false;runtime.query_receipt.aml_returns++;}
+            if(result||runtime.errors||runtime.denied)unsafe("query AML");runtime.queries++;
         }
         query_phase(SCI_QUERY_CHECK);
         if(!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("query deadline");
@@ -581,15 +893,40 @@ static void disconnect_work(void *ctx) {
     runtime.region=false;runtime.ok=runtime.attached==runtime.detached;
 done:runtime.done=true;
 }
+/* Deliberately narrower than unsafe(): only the VM service owner detecting a
+ * sample deadline with IF set and no SCI callback in flight. IRQ-origin faults
+ * and all native paths retain terminal containment. No interpreter unwind. */
+static void quarantine_sample_deadline(void) {
+    uint64_t flags=irq_save();
+    if(!recovery_study || !battery_platform_workspace_study_allowed() ||
+       !(flags&(1ull<<9)) || owner!=OWNER_SERVICE || !runtime.ready ||
+       scheduler_current_thread_id()!=service.identity || !runtime.worker.identity ||
+       runtime.sci_counts[0].in_flight || runtime.sci_counts[1].in_flight || runtime.sci_counts[2].in_flight) {
+        irq_restore(flags);return;
+    }
+    mask_sources();
+    require_recovery_resources();
+    /* Once sources have changed, a refused quarantine is terminal. */
+    if(!sources_quiet() || !scheduler_quarantine_service_pair(service.identity,runtime.worker.identity))
+        unsafe("quarantine admission");
+    mark_quarantined();report_quarantine();
+    /* Quarantined slots are neither runnable nor reusable. Never restore IF on
+     * this stack; the selected storage owner/idle thread restores its own state. */
+    for(;;)scheduler_yield();
+}
 static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
     runtime.done=false;runtime.ok=false;
     if(!runtime.transition_mode||fn!=sample_work)console_printf("battery: phase=%s\n",phase);
     if(!acpi_worker_enqueue(&runtime.worker,&runtime.operation,UACPI_WORK_NOTIFICATION,fn,NULL))unsafe("operation admission");
     uint64_t deadline=timer_monotonic_us()+ms*1000;
     while(!acpi_worker_drain(&runtime.worker,50)) {
+        if(runtime.platform.model_owner_irq)runtime.platform.model_owner_irq();
         check_foreign_event();
         if(runtime.budget.active&&!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("independent query deadline");
-        if(timer_monotonic_us()>=deadline)unsafe("operation deadline");
+        if(timer_monotonic_us()>=deadline) {
+            if(fn==sample_work)quarantine_sample_deadline();
+            unsafe("operation deadline");
+        }
     }
     check_foreign_event();
     if(!runtime.done||!runtime.ok||runtime.errors||runtime.denied||runtime.transport.poisoned)unsafe(phase);
@@ -598,6 +935,15 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(runtime.engaged||!timer_reference_ready())return false;
     runtime=(typeof(runtime)){.transition_mode=transitions,.service_mode=service_mode};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
+    if(smbus_study && !runtime.platform.model_smbus_queries) {
+        console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
+    }
+    if((smbus_capture || mounted_home) && !smbus_owned()) {
+        console_write("battery-native-smbus: REFUSED captured controller profile\n");return false;
+    }
+    if(query_capture && runtime.platform.query_policy!=BATTERY_QUERY_AIR72) {
+        console_write("battery-native-query: REFUSED query policy profile\n");return false;
+    }
     struct sci_route route;uint32_t lo,hi;
     if(!sci_route_resolve(&route,runtime.platform.ec.sci,acpi_irq_override(runtime.platform.ec.sci))||
        !ioapic_read_gsi(route.gsi,&lo,&hi)||!(lo&(1u<<16))||(lo&((1u<<12)|(1u<<14)))) {
@@ -643,10 +989,40 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     sci_report("ready");
     return true;
 }
+/* Service-thread writer only. Copy on CPU0 with interrupts masked; emit outside that critical section.
+ * The worker remains responsible for every event/ack/invalidation, even when
+ * logging coalesces thousands of successful events into one status record. */
+static void continuous_events_report(bool final) {
+    if(!continuous_home)return;
+    struct battery_event_totals totals;uint64_t f=irq_save(),now=timer_monotonic_us();
+    bool emit=battery_event_take(&runtime.events,now,final,&totals);
+    uint64_t epoch=service.cache.value.epoch;irq_restore(f);
+    if(emit)console_printf("battery-monitor-events: epoch=%u at_us=%u events=%u alarms=%u acknowledgements=%u unknown=%u invalidations=%u saturated=%u final=%u\n",
+        epoch,now,totals.events,totals.alarms,totals.acknowledgements,totals.unknown,
+        totals.invalidations,(uint64_t)totals.saturated,(uint64_t)final);
+}
 static void runtime_close(void) {
     check_foreign_event();
     mask_sources();
     if(!acpi_worker_drain(&runtime.worker,3000))unsafe("pre-disconnect drain");
+    /* Stop can race an owned event. Check its lease after the masked worker
+     * has drained, not while a resumable EC transfer is still in flight. */
+    if(smbus_study) {
+        require_recovery_resources();
+    }
+    if(smbus_capture || mounted_home) {
+        uint64_t f=irq_save();
+        bool idle=acpi_work_idle(&runtime.worker.work) && !runtime.query.pending && !runtime.query_scheduled &&
+            !runtime.sci_counts[0].in_flight && !runtime.sci_counts[1].in_flight && !runtime.sci_counts[2].in_flight;
+        console_printf(mounted_home?"battery-home-return: idle=%u held=%u; sources_masked=%u\n":"battery-smbus-return: idle=%u parked=%u; sources_masked=%u\n",
+            (uint64_t)idle,(uint64_t)(mounted_home?mounted_home_owned():smbus_capture_parked()),(uint64_t)sources_quiet());
+        if(!idle || !smbus_owned() || !sources_quiet())unsafe("SMBus return boundary");
+        require_recovery_resources();irq_restore(f);
+    }
+    continuous_events_report(true);
+    if(smbus_controls)console_printf("battery-controls-events: epoch=%u events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u; drained=yes\n",
+        service.cache.value.epoch,runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,service.cache.value.sample.generation);
     if(uacpi_mask_gpe(NULL,runtime.platform.ec.gpe)||uacpi_uninstall_gpe_handler(NULL,runtime.platform.ec.gpe,gpe_handler))unsafe("GPE uninstall");runtime.gpe=false;
     operation(disconnect_work,3000,"EC disconnect");
     if(runtime.notify&&uacpi_uninstall_notify_handler(uacpi_namespace_root(),notify_handler))unsafe("Notify uninstall");
@@ -666,6 +1042,7 @@ static void runtime_close(void) {
         if(h->mask)console_printf("battery: foreign-event restored enable=%x original=%x protected_writes=%u\n",
             (uint64_t)h->enable,(uint64_t)h->original,h->protected_writes);
     }
+    if(owner==OWNER_SERVICE)service.finishing=true;
     runtime.engaged=false;
     sci_report("retired");
 }
@@ -674,10 +1051,28 @@ static void service_finish(enum battery_service_state state,enum battery_service
     uint64_t f=irq_save();
     service.cache.value.state=state;service.cache.value.error=error;
     service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
-    service.running=false;owner=OWNER_NONE;
+    service.running=false;service.finishing=false;owner=OWNER_NONE;
     scheduler_wake_all(&service.progress);
     irq_restore(f);
     /* Caller must return immediately: another start can now replace state. */
+}
+static void query_return_boundary(void) {
+    if(!(query_study?battery_platform_workspace_study_allowed():native_query_return_scope()) ||
+       owner!=OWNER_SERVICE || scheduler_current_thread_id()!=service.identity ||
+       !runtime.stopping || !service.stop || service.quarantined)unsafe("query return context");
+    if(!acpi_worker_drain(&runtime.worker,3000))unsafe("query return drain");
+    uint64_t f=irq_save();
+    const struct battery_query_receipt *r=&runtime.query_receipt;
+    bool idle=acpi_work_idle(&runtime.worker.work) && !runtime.query.pending &&
+        !runtime.query_scheduled && !runtime.budget.active && !runtime.errors && !runtime.denied &&
+        !runtime.sci_counts[0].in_flight && !runtime.sci_counts[1].in_flight && !runtime.sci_counts[2].in_flight;
+    console_printf("battery-query-return: sequence=%u generation=%u code=%u transfer=%u aml_calls=%u aml_returns=%u effects=%u completed_before=%u completed_after=%u notifications_before=%u notifications_after=%u idle=%u; refused=yes\n",
+        r->sequence,r->generation,(uint64_t)r->code,(uint64_t)r->transfer_done,r->aml_calls,r->aml_returns,r->effects,
+        r->completed_before,runtime.worker.completed,r->notifications_before,runtime.notifications,(uint64_t)idle);
+    if(!battery_query_returned(r,runtime.worker.completed,idle) || !sources_quiet() ||
+       (scheduler_io_active() && !scheduler_io_busy()))unsafe("query return receipt");
+    require_recovery_resources();
+    irq_restore(f);
 }
 static void service_main(void *arg) {
     (void)arg;
@@ -699,27 +1094,37 @@ static void service_main(void *arg) {
         irq_restore(f);
         if(expired)unsafe("independent query deadline");
         uint64_t now=timer_monotonic_us();
-        if(now>=next_sample) {
+        f=irq_save();bool refresh=runtime.smbus_refresh;runtime.smbus_refresh=false;irq_restore(f);
+        if(now>=next_sample || refresh) {
             operation(sample_work,25000,"sample");
+            if(runtime.query_receipt.refused)break;
             f=irq_save();
             service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
             /* A concurrent stop changes state to STOPPING, excluding late
              * publications while still permitting in-flight IO to retire. */
+            if(!(smbus_study || smbus_capture || mounted_home) || runtime.sampler.sample.generation>runtime.smbus_invalid_through)
             (void)battery_cache_publish(&service.cache,&runtime.sampler.sample,
                 runtime.ac_present,runtime.ac_coherent,runtime.ac_sampled_us,timer_monotonic_us());
             irq_restore(f);
             next_sample=timer_monotonic_us()+BATTERY_SERVICE_INTERVAL_US;
         }
+        /* One service-thread writer orders periodic and final records. A
+         * preempted session-owner snapshot must not appear after retirement. */
+        continuous_events_report(false);
         /* Retain the independent query watchdog while sleeping between polls.
          * The engaged owner/worker may run through storage service windows. */
         if(!scheduler_wait_timeout(&service.wake,stop_requested,NULL,timer_ticks()+5))
             timer_wait_ticks(1);
     }
+    bool query_failed=runtime.query_receipt.refused;
+    if(query_failed)query_return_boundary();
     runtime_close();
+    /* Force the study through post-close scheduling while unrelated I/O is owned. */
+    if(query_failed)scheduler_yield();
     console_printf("battery-service: retired epoch=%u attempts=%u rejected=%u queries=%u notifications=%u attached=%u detached=%u heap=0 errors=0 denied=0\n",
         service.cache.value.epoch,service.cache.value.attempts,service.cache.value.rejected,
         runtime.queries,runtime.notifications,runtime.attached,runtime.detached);
-    service_finish(BATTERY_SERVICE_STOPPED,service.cache.value.error);
+    service_finish(query_failed?BATTERY_SERVICE_FAULTED:BATTERY_SERVICE_STOPPED,service.cache.value.error);
 }
 bool battery_service_start(void *rsdp,struct limine_memmap_response *map) {
     uint64_t f=irq_save();
@@ -729,7 +1134,7 @@ bool battery_service_start(void *rsdp,struct limine_memmap_response *map) {
     }
     owner=OWNER_SERVICE;
     battery_cache_begin(&service.cache,service.cache.value.epoch+1);
-    service.stop=false;service.running=true;service.identity=0;service.rsdp=rsdp;service.map=map;
+    service.stop=false;service.finishing=false;service.running=true;service.identity=0;service.rsdp=rsdp;service.map=map;
     /* Wait queues retain sleepers from an earlier epoch until they wake. Do
      * not clear their masks when admitting a new lifetime. */
     bool ok=scheduler_spawn_io_service("battery-owner",service_main,NULL,service_io_ready);
@@ -740,10 +1145,10 @@ static bool service_retired(void *arg) {
     return !service.running||service.cache.value.epoch!=*(uint64_t *)arg;
 }
 bool battery_service_stop(uint64_t timeout_ms) {
-    if(timeout_ms>UINT64_MAX/1000)return false;
+    if(service.quarantined || timeout_ms>UINT64_MAX/1000)return false;
     uint64_t f=irq_save(),epoch=service.cache.value.epoch;
     if(!service.running){irq_restore(f);return true;}
-    service.stop=true;service.cache.value.state=BATTERY_SERVICE_STOPPING;
+    service.stop=true;if(!runtime.query_receipt.refused)service.cache.value.state=BATTERY_SERVICE_STOPPING;
     scheduler_wake_all(&service.wake);
     uint64_t caller=scheduler_current_thread_id();
     if(!timeout_ms||!(f&(1ull<<9))||caller==service.identity||caller==runtime.worker.identity){irq_restore(f);return false;}
@@ -766,6 +1171,28 @@ void battery_service_status(struct battery_service_status *out) {
     uint64_t f=irq_save();
     battery_cache_read(&service.cache,timer_monotonic_us(),out);
     irq_restore(f);
+}
+static struct battery_control_mailbox controls;
+int battery_control_request(uint64_t group,unsigned operation,uint64_t epoch,struct srv_battery_control *out) {
+    uint64_t f=irq_save();struct battery_service_status status;
+    battery_service_status(&status);
+    int result=battery_control_enqueue(&controls,group,operation,epoch,&status);
+    *out=battery_control_view(&controls,group,status.epoch);
+    irq_restore(f);return result;
+}
+/* Called only by the scoped session owner, outside syscalls and storage work. */
+static void controls_dispatch(void *rsdp,struct limine_memmap_response *map) {
+    uint64_t f=irq_save();unsigned op=battery_control_take(&controls);
+    uint64_t epoch=controls.expected_epoch,serial=controls.serial;irq_restore(f);
+    if(!op)return;
+    struct battery_service_status status;battery_service_status(&status);
+    int result=0;
+    if(status.epoch!=epoch)result=SRV_BATTERY_CONTROL_STALE;
+    else if(op==SRV_BATTERY_START) {
+        if(!battery_service_start(rsdp,map))result=SRV_BATTERY_CONTROL_FAILED;
+    } else (void)battery_service_stop(0);
+    f=irq_save();battery_control_complete(&controls,result);irq_restore(f);
+    console_printf("battery-control: dispatched serial=%u operation=%u epoch=%u result=%d\n",serial,(uint64_t)op,epoch,(int64_t)result);
 }
 static bool run_battery(void *rsdp,struct limine_memmap_response *map,bool transitions) {
     if(!claim_diagnostic())return false;
@@ -1103,15 +1530,38 @@ static bool desktop_children_stop(struct desktop_tree *t,bool kill) {
     }
     return !live;
 }
-static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text,bool filesystem,bool appfiles) {
+/* Explicit VM diagnostics exercise the storage boundary while the runtime is
+ * active. These refusals must precede even scratch-file allocation or sync. */
+static void mounted_study_guard(void) {
+    if(!workspace_mount_hold_valid(smbus_workspace_hold) || workspace_unmount() ||
+       workspace_scratch_prepare() || workspace_image_open() ||
+       !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("mounted workspace hold");
+    console_printf("battery-workspace-hold: guarded token=%u unmount=blocked scratch=blocked image=blocked\n",smbus_workspace_hold);
+}
+static bool mounted_study_acquire(void) {
+    if(smbus_workspace_hold)return false;
+    smbus_workspace_hold=workspace_mount_hold_acquire();
+    if(!smbus_workspace_hold)return false;
+    console_printf("battery-workspace-hold: acquired token=%u\n",smbus_workspace_hold);return true;
+}
+static void mounted_study_release(void) {
+    if(!workspace_mount_hold_release(smbus_workspace_hold))unsafe("mounted workspace release");
+    console_printf("battery-workspace-hold: released token=%u\n",smbus_workspace_hold);
+    smbus_workspace_hold=0;
+}
+static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text,bool filesystem,bool appfiles,bool workspace) {
     const char *failure="workspace mounted";
     struct battery_service_status before={0},after={0};
     uint64_t pid=0,status=UINT64_MAX,reads=0,busy=0,start=0,end=0;
     bool started=false,reaped=false,ok=false;
     uint64_t first_step=0,last_step=0,workload_end=0;
     struct desktop_tree tree={0};
-    if(workspace_active())goto done;
-    if(filesystem || appfiles) {
+    if(workspace) {
+        failure="workspace VM admission";
+        if(!battery_platform_workspace_study_allowed() || !workspace_active() || workspace_image_busy() ||
+           (smbus_study && !workspace_mount_hold_valid(smbus_workspace_hold)))goto done;
+    } else if(workspace_active())goto done;
+    if(filesystem || (appfiles && !workspace)) {
         failure="filesystem preparation";
         if(!workspace_image_ready() || !usb_read_prepare())goto done;
     }
@@ -1127,8 +1577,9 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
         }
         uacpi_kernel_sleep(10);
     }
+    if(workspace && smbus_study)mounted_study_guard();
     failure="desktop spawn";
-    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",appfiles?"--coexist-files":text?"--coexist-text":"--coexist-capture");
+    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",workspace?"--coexist-workspace":appfiles?"--coexist-files":text?"--coexist-text":"--coexist-capture");
     if(child<=0)goto done;
     pid=(uint64_t)child;tree.pids[tree.count++]=pid;start=timer_monotonic_us();
     if(process_group(pid)!=pid){failure="desktop process group";goto done;}
@@ -1178,13 +1629,24 @@ done:
             uacpi_kernel_sleep(10);
         }
     }
-    if(started&&!battery_service_stop(35000))unsafe("desktop service retirement");
-    if((filesystem || appfiles) && workspace_image_busy() && !workspace_image_close()) {ok=false;failure="filesystem retirement";}
+    if(started && smbus_files) {
+        battery_service_status(&smbus_files_snapshot);
+        console_printf("battery-native-smbus: snapshot generation=%u events=%u valid=%u fresh=%u\n",
+            smbus_files_snapshot.sample.generation,runtime.events.totals.events,
+            (uint64_t)!!(smbus_files_snapshot.flags&BATTERY_CACHE_VALID),
+            (uint64_t)!!(smbus_files_snapshot.flags&BATTERY_CACHE_FRESH));
+    }
+    if(started && !service.quarantined && !battery_service_stop(35000))unsafe("desktop service retirement");
+    if(service.quarantined) {
+        console_printf("battery-workspace: QUARANTINED descendants=%u; clients_retired=yes runtime_retired=NO\n",tree.count);return false;
+    }
+    if((filesystem || (appfiles && !workspace)) && workspace_image_busy() && !workspace_image_close()) {ok=false;failure="filesystem retirement";}
     /* Defer the saved start record until competing process/runtime writers stop. */
-    if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=%s\n",pid,before.epoch,before.sample.generation,start,appfiles?"image":"ram");
+    if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=%s\n",pid,before.epoch,before.sample.generation,start,workspace?"workspace":appfiles?"image":"ram");
     console_printf("battery-desktop: %s outcome=%s epoch=%u first_gen=%u last_gen=%u start_us=%u end_us=%u reads=%u busy_reads=%u process_status=%u; retired=yes\n",
         ok?"PASS":"FAIL",ok?"complete":failure,before.epoch,before.sample.generation,after.sample.generation,start,end,reads,busy,status);
-    if(appfiles)console_printf("battery-app-files: %s descendants=%u; retired=yes revoked=%s\n",ok?"PASS":"FAIL",tree.count,workspace_image_busy()?"NO":"yes");
+    if(workspace)console_printf("battery-workspace: %s descendants=%u; retired=yes mounted=%s\n",ok?"PASS":"FAIL",tree.count,workspace_active()?"yes":"NO");
+    else if(appfiles)console_printf("battery-app-files: %s descendants=%u; retired=yes revoked=%s\n",ok?"PASS":"FAIL",tree.count,workspace_image_busy()?"NO":"yes");
     if(filesystem) {
         if(ok) {
             console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u steps=%u max_step_us=%u slowest_step=%u profile=1; retired=yes revoked=yes\n",
@@ -1199,36 +1661,527 @@ done:
     }
     return ok;
 }
+/* Scope lasts for this desktop process group only. Explicit Home controls
+ * retain the accepted native mount boundary across every service lifetime.
+ * Cached reads never confer this capability, and no userspace owns firmware. */
+static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,bool workspace,unsigned files) {
+    if(workspace?((!mounted_home && !battery_platform_workspace_study_allowed()) || !workspace_mount_hold_valid(smbus_workspace_hold) || workspace_image_busy()):workspace_active())return false;
+    uint64_t f=irq_save();bool free=owner==OWNER_NONE && !controls.group;irq_restore(f);
+    if(!free)return false;
+    int64_t child=process_spawn_background_elf_args("/fat/bin/deskd",continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual");
+    if(child<=0)return false;
+    uint64_t pid=(uint64_t)child,status=UINT64_MAX,first_serial=controls.serial;
+    struct battery_service_status before;battery_service_status(&before);
+    struct desktop_tree tree={.pids={pid},.count=1};
+    f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
+    uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false,guarded=false;
+    if(bound && continuous_home) {
+        bool started=battery_service_start(rsdp,map);
+        console_printf("battery-monitor: auto_start=%u native=disabled\n",(uint64_t)started);
+    }
+    if(bound)for(;;) {
+        if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
+        desktop_tree_scan(&tree);controls_dispatch(rsdp,map);
+        if(workspace && !guarded) {
+            struct battery_service_status state;battery_service_status(&state);
+            if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {
+                mounted_study_guard();guarded=true;
+            }
+        }
+        if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
+        if(!continuous_home && timer_monotonic_us()>=deadline)break;
+        uacpi_kernel_sleep(10);
+    }
+    f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
+    battery_control_revoke(&controls);irq_restore(f);
+    if(!reaped)(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+    deadline=timer_monotonic_us()+5000000;
+    while(!desktop_children_stop(&tree,!ok) || !reaped) {
+        if(!reaped)reaped=process_wait(pid,&status,true)==(int64_t)pid;
+        if(timer_monotonic_us()>=deadline)unsafe("control clients retirement");
+        uacpi_kernel_sleep(10);
+    }
+    if(!battery_service_stop(35000))unsafe("control service retirement");
+    struct battery_service_status retired;battery_service_status(&retired);
+    ok=ok && !pending && tree.count==(files?3u:2u) && (automatic?requests==(files?5u:4u) && retired.epoch==before.epoch+(files?3u:2u) && retired.state==BATTERY_SERVICE_STOPPED:
+        retired.state==BATTERY_SERVICE_STOPPED || retired.state==BATTERY_SERVICE_DISABLED || retired.state==BATTERY_SERVICE_UNAVAILABLE || (continuous_home && retired.state==BATTERY_SERVICE_FAULTED));
+    console_printf("battery-controls: %s requests=%u descendants=%u epoch=%u; revoked=yes retired=yes\n",ok?"PASS":"FAIL",requests,(uint64_t)tree.count,retired.epoch);
+    return ok;
+}
+bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return controls_test(rsdp,map,true,false,0);
+}
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,false,false,false);
+    return desktop_test(rsdp,map,0,false,false,false,false);
 }
 bool battery_text_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true,false,false);
+    return desktop_test(rsdp,map,0,true,false,false,false);
 }
 bool battery_app_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true,false,true);
+    return desktop_test(rsdp,map,0,true,false,true,false);
 }
 bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true,true,false);
+    return desktop_test(rsdp,map,0,true,true,false,false);
+}
+static struct { bool active,done,ok,before,after;uint64_t start,end; } recovery_io;
+static bool recovery_peer_irq(void *arg) {
+    (void)arg;recovery_irq.peer++;
+    return false;
+}
+static void recovery_peer_complete(void *arg) {
+    (void)arg;
+    if(recovery_irq.completed && !recovery_irq.pending)recovery_irq.peer_complete++;
+}
+static void recovery_io_owner(void *arg) {
+    (void)arg;
+    uint64_t deadline=timer_monotonic_us()+15000000;
+    while(service.cache.value.sample.generation<2 || !(service.cache.value.flags&BATTERY_CACHE_SAMPLING)) {
+        if(timer_monotonic_us()>=deadline) { recovery_io.done=true;return; }
+        timer_wait_ticks(1);
+    }
+    uint64_t flags=irq_save();
+    if(!scheduler_io_begin()) { recovery_io.done=true;irq_restore(flags);return; }
+    recovery_io.active=true;recovery_io.start=timer_monotonic_us();
+    recovery_io.before=workspace_sync();
+    if(recovery_irq.study) {
+        /* The unrelated storage scope remains owned across IRQ recovery. The
+         * target study arms delivery on a battery stack; other studies interrupt
+         * this storage stack. The second registration proves every handler and
+         * completion runs; removal checks registry depth/pending bookkeeping. */
+        uint64_t identity=scheduler_current_thread_id(),token=0;
+        volatile uint64_t sentinel=0x735256524f534952ull;
+        if(!runtime.platform.model_irq_fault)unsafe("IRQ recovery fixture setup");
+        if(recovery_irq.target_study) {
+            token=irq_handler_register_observed(9,recovery_peer_irq,recovery_peer_complete,NULL);
+            if(!token)unsafe("IRQ recovery fixture registration");
+        }
+        uint64_t until=timer_monotonic_us()+5000000;
+        while(!runtime.platform.model_irq_fault()) {
+            if(timer_monotonic_us()>=until)unsafe("IRQ recovery fixture sample wait");
+            (void)scheduler_io_yield();__asm__ volatile("sti; hlt; cli":::"memory");
+        }
+        if(recovery_irq.target_study) {
+            while(!service.quarantined) {
+                if(timer_monotonic_us()>=until)unsafe("IRQ target handoff deadline");
+                (void)scheduler_io_yield();__asm__ volatile("sti; hlt; cli":::"memory");
+            }
+        } else {
+            token=irq_handler_register_observed(9,recovery_peer_irq,recovery_peer_complete,NULL);
+            if(!token)unsafe("IRQ recovery fixture registration");
+            __asm__ volatile("int $41":::"memory");
+        }
+        bool returned=sentinel==0x735256524f534952ull && scheduler_current_thread_id()==identity &&
+            scheduler_io_active() && !scheduler_io_busy() &&
+            recovery_irq.peer==1 && recovery_irq.peer_complete==1 && recovery_irq.completed &&
+            !recovery_irq.pending && !runtime.sci_counts[1].in_flight && irq_handler_remove(token);
+        if(!returned)unsafe("IRQ recovery return proof");
+        if(recovery_irq.target_study) {
+            if(!recovery_irq.target_handoff || recovery_irq.target_pending || recovery_irq.interrupted==identity)
+                unsafe("IRQ target handoff proof");
+            console_printf("battery-recovery-resume: storage=%u; scope=retained registry_released=yes\n",identity);
+        } else {
+            if(recovery_irq.interrupted!=identity)unsafe("IRQ interrupted identity proof");
+            report_quarantine();
+            if(recovery_irq.callback_study)report_callback_proof();
+            console_printf("battery-recovery-irq: interrupted=%u peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n",identity);
+        }
+    }
+    /* Hold one unrelated storage scope across the 25-second sample deadline.
+     * This models an admitted operation, not a claim of pending hardware DMA. */
+    while(timer_monotonic_us()-recovery_io.start<28000000) {
+        (void)scheduler_io_yield();
+        __asm__ volatile("sti; hlt; cli":::"memory");
+    }
+    recovery_io.after=workspace_sync();
+    recovery_io.end=timer_monotonic_us();
+    recovery_io.ok=recovery_io.before && recovery_io.after && service.quarantined;
+    recovery_io.active=false;recovery_io.done=true;
+    scheduler_io_end();irq_restore(flags);
+}
+static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *map,bool io,bool irq,bool callback,bool target) {
+    if(!battery_platform_workspace_study_allowed()) {
+        console_write("battery-recovery: REFUSED VM-only study\n");return;
+    }
+    if(!workspace_active() || owner!=OWNER_NONE) {
+        console_write("battery-recovery: REFUSED ownership\n");return;
+    }
+    recovery_irq=(typeof(recovery_irq)){.study=irq,.callback_study=callback,.target_study=target};
+    if(io) {
+        recovery_io=(typeof(recovery_io)){0};
+        if(!scheduler_spawn("battery-recovery-io",recovery_io_owner,NULL)) {
+            console_write("battery-recovery: REFUSED I/O fixture spawn\n");return;
+        }
+    }
+    recovery_study=true;
+    (void)desktop_test(rsdp,map,0,true,false,true,true);
+    recovery_study=false;
+    if(!service.quarantined)unsafe("recovery fixture did not quarantine");
+    if(io) {
+        if(!recovery_io.done || recovery_io.active || !recovery_io.ok)unsafe("recovery I/O owner proof");
+        console_printf("battery-recovery-io: before=%u after=%u elapsed_us=%u; owner_completed=yes\n",
+            (uint64_t)recovery_io.before,(uint64_t)recovery_io.after,recovery_io.end-recovery_io.start);
+    }
+    uint64_t completed=runtime.worker.completed,generation=service.cache.value.sample.generation;
+    uint64_t heap=runtime.heap,interrupts=runtime.interrupts,queries=runtime.queries;
+    scheduler_wake_all(&runtime.worker.ready);scheduler_wake_all(&runtime.worker.progress);
+    /* Cross the modeled worker's original 26-second sleep expiry and issue a
+     * late dispatcher delivery: neither may reenter the retained interpreter. */
+    timer_wait_ticks(300);
+    __asm__ volatile("int $41":::"memory");
+    bool held=scheduler_service_pair_quarantined(service.identity,runtime.worker.identity) &&
+        runtime.worker.completed==completed && service.cache.value.sample.generation==generation &&
+        runtime.heap==heap && runtime.interrupts==interrupts && runtime.queries==queries &&
+        service.cache.value.state==BATTERY_SERVICE_FAULTED && !battery_service_start(rsdp,map) && !battery_service_stop(0);
+    console_printf("battery-recovery: held=%s generation=%u completed=%u io=%u; restart=refused runtime_retired=NO\n",
+        held?"yes":"NO",generation,completed,(uint64_t)scheduler_io_active());
+    if(!held || scheduler_io_active())unsafe("recovery retention proof");
+    bool saved=workspace_log_start() && workspace_log_stop();
+    bool unmounted=saved && workspace_unmount();
+    console_printf("battery-recovery: saved=%s unmounted=%s; runtime_retired=NO\n",saved?"yes":"NO",unmounted?"yes":"NO");
+    if(!unmounted || !battery_reset_allowed(true,workspace_active(),scheduler_io_active()))unsafe("recovery storage drain");
+    console_write("battery-recovery: returning after storage drain; test outcome=contained-failure\n");
+    arch_reboot_unattended();
+}
+/* No artificial query or method substitution: only naturally scheduled QR_EC
+ * exchanges can exercise this capture. No storage/client work while engaged. */
+bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(query_study || query_capture || smbus_study || smbus_capture || owner!=OWNER_NONE || !auto_return ||
+       workspace_active() || workspace_image_busy() || scheduler_io_active() || !workspace_parked_device()) {
+        console_write("battery-native-query: REFUSED parked capture admission\n");return false;
+    }
+    query_capture=true;query_capture_volume=workspace_parked_device();
+    console_write("battery-native-query: waiting up to 30 seconds for a natural policy refusal; no input required\n");
+    if(!battery_service_start(rsdp,map)) {
+        query_capture=false;query_capture_volume=NULL;return false;
+    }
+    uint64_t until=timer_monotonic_us()+30000000;
+    while(service.running && timer_monotonic_us()<until)uacpi_kernel_sleep(10);
+    if(service.running && !battery_service_stop(10000))unsafe("capture stop deadline");
+    struct battery_service_status status;battery_service_status(&status);
+    bool clean=owner==OWNER_NONE && !runtime.engaged && !runtime.heap && !runtime.errors &&
+        !runtime.denied && !service.quarantined && capture_storage_parked();
+    bool exercised=clean && runtime.query_receipt.refused && runtime.worker.stopped &&
+        runtime.attached==runtime.detached && runtime.attached &&
+        status.state==BATTERY_SERVICE_FAULTED && status.error==BATTERY_SERVICE_CONTAINMENT &&
+        !(status.flags&BATTERY_CACHE_FRESH);
+    console_printf("battery-native-query: outcome=%s code=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
+        exercised?"returned-failure":"not-exercised",(uint64_t)runtime.query_receipt.code,
+        runtime.query_receipt.generation,(uint64_t)status.state,(uint64_t)status.error,
+        (uint64_t)!!(status.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(status.flags&BATTERY_CACHE_VALID),
+        clean?"yes":"NO",(uint64_t)capture_storage_parked());
+    if(!clean)unsafe("capture retirement proof");
+    query_capture=false;query_capture_volume=NULL;
+    return exercised;
+}
+/* Only the boot capture owns this capability. It cannot be enabled from a
+ * normal mounted desktop or through the VM study command. */
+bool battery_smbus_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(query_study || query_capture || smbus_study || smbus_capture || owner!=OWNER_NONE ||
+       !auto_return || workspace_active() || workspace_image_busy() || scheduler_io_active() || !workspace_parked_device()) {
+        console_write("battery-native-smbus: REFUSED parked capture admission\n");return false;
+    }
+    smbus_capture=true;smbus_capture_volume=workspace_parked_device();
+    console_write("battery-native-smbus: waiting up to 30 seconds for natural host events and fresh samples; no input required\n");
+    if(!battery_service_start(rsdp,map)) {smbus_capture=false;smbus_capture_volume=NULL;return false;}
+    uint64_t until=timer_monotonic_us()+30000000;struct battery_service_status snapshot={0};
+    bool observed=false;
+    while(service.running && timer_monotonic_us()<until) {
+        battery_service_status(&snapshot);
+        if(runtime.events.totals.events && snapshot.sample.generation>=3 && (snapshot.flags&BATTERY_CACHE_FRESH)) {observed=true;break;}
+        uacpi_kernel_sleep(10);
+    }
+    console_printf("battery-native-smbus: snapshot generation=%u events=%u valid=%u fresh=%u\n",
+        snapshot.sample.generation,runtime.events.totals.events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
+        (uint64_t)!!(snapshot.flags&BATTERY_CACHE_FRESH));
+    if(service.running && !battery_service_stop(10000))unsafe("SMBus capture stop deadline");
+    struct battery_service_status final;battery_service_status(&final);
+    bool clean=owner==OWNER_NONE && !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
+        !service.quarantined && smbus_capture_parked();
+    bool exercised=clean && observed && runtime.worker.stopped && runtime.attached &&
+        runtime.attached==runtime.detached && final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
+        runtime.events.totals.events && snapshot.sample.generation>runtime.smbus_invalid_through && !(final.flags&BATTERY_CACHE_FRESH);
+    console_printf("battery-native-smbus: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
+        exercised?"completed":"not-exercised",runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
+        (uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(final.flags&BATTERY_CACHE_VALID),
+        clean?"yes":"NO",(uint64_t)smbus_capture_parked());
+    if(!clean)unsafe("SMBus capture retirement proof");
+    smbus_capture=false;smbus_capture_volume=NULL;return exercised;
+}
+/* Explicit parked image capture only. The image view must stay bound to the
+ * exact parked volume while runtime IO is admitted; desktop_test retires every
+ * client, stops the service, then revokes the image before ordinary remount. */
+bool battery_smbus_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(query_study || query_capture || smbus_study || smbus_capture || owner!=OWNER_NONE ||
+       !auto_return || workspace_active() || !workspace_parked_device() ||
+       !workspace_image_ready() || scheduler_io_active()) {
+        console_write("battery-native-smbus: REFUSED parked image admission\n");return false;
+    }
+    smbus_capture=true;smbus_files=true;smbus_capture_volume=workspace_parked_device();
+    smbus_files_snapshot=(struct battery_service_status){0};
+    console_write("battery-smbus-files: begin limit=512 storage=image; aml=0 serialized=1\n");
+    bool complete=desktop_test(rsdp,map,0,true,false,true,false);
+    /* The image is revoked by desktop_test after runtime retirement. */
+    smbus_files=false;
+    struct battery_service_status final;battery_service_status(&final);
+    bool clean=owner==OWNER_NONE && !service.running && !runtime.engaged && !runtime.heap &&
+        !runtime.errors && !runtime.denied && !service.quarantined && smbus_capture_parked();
+    bool exercised=complete && clean && final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
+        (smbus_files_snapshot.flags&BATTERY_CACHE_FRESH) && runtime.events.totals.events &&
+        smbus_files_snapshot.sample.generation>runtime.smbus_invalid_through &&
+        !(final.flags&BATTERY_CACHE_FRESH);
+    console_printf("battery-native-smbus: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
+        exercised?"completed":"not-exercised",runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
+        (uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(final.flags&BATTERY_CACHE_VALID),
+        clean?"yes":"NO",(uint64_t)smbus_capture_parked());
+    if(!clean)unsafe("SMBus image retirement");
+    smbus_capture=false;smbus_capture_volume=NULL;return exercised;
+}
+/* Explicit full-runtime command, never ordinary startup. The same path is
+ * rehearsed with a disposable VM backend; native admission remains the exact
+ * captured Air profile. No clients or filesystem calls while runtime retires. */
+bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(mounted_home || query_study || query_capture || smbus_study || smbus_capture ||
+       owner!=OWNER_NONE || controls.group || service.running || service.quarantined ||
+       !workspace_active() || workspace_image_busy() || scheduler_io_active()) {
+        console_write("battery-home: REFUSED mounted ownership\n");return false;
+    }
+    if(!mounted_study_acquire()){console_write("battery-home: REFUSED mount hold\n");return false;}
+    mounted_home=true;
+    console_write("battery-home: begin limit=128 mounted=yes clients=0; startup=disabled\n");
+    bool started=battery_service_start(rsdp,map),observed=false,guarded=false;
+    uint64_t until=timer_monotonic_us()+30000000;
+    struct battery_service_status snapshot={0};
+    while(started && service.running && timer_monotonic_us()<until) {
+        if(!mounted_home_owned())unsafe("Home mount identity");
+        battery_service_status(&snapshot);
+        if(snapshot.state==BATTERY_SERVICE_ACTIVE && (snapshot.flags&BATTERY_CACHE_FRESH)) {
+            if(!guarded){mounted_study_guard();guarded=true;}
+            if(snapshot.sample.generation>=3 && runtime.events.totals.events){observed=true;break;}
+        }
+        uacpi_kernel_sleep(10);
+    }
+    console_printf("battery-home: snapshot generation=%u events=%u valid=%u fresh=%u\n",
+        snapshot.sample.generation,runtime.events.totals.events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
+        (uint64_t)!!(snapshot.flags&BATTERY_CACHE_FRESH));
+    if(!battery_service_stop(10000))unsafe("Home stop deadline");
+    struct battery_service_status final;battery_service_status(&final);
+    bool retired=owner==OWNER_NONE && !service.running && !service.quarantined &&
+        !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
+        runtime.attached==runtime.detached && (!runtime.attached || runtime.worker.stopped) &&
+        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && mounted_home_owned();
+    bool complete=started && observed && retired && runtime.attached &&
+        final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
+        snapshot.sample.generation>runtime.smbus_invalid_through;
+    const char *outcome=complete?"complete":runtime.query_receipt.refused?"query-refused":
+        final.state==BATTERY_SERVICE_UNAVAILABLE?"unavailable":"incomplete";
+    console_printf("battery-home: outcome=%s epoch=%u generation=%u events=%u alarms=%u acknowledgements=%u state=%u error=%u fresh=%u; retired=%s mounted=yes\n",
+        outcome,final.epoch,final.sample.generation,runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
+    if(!retired)unsafe("Home retirement proof");
+    mounted_study_release();mounted_home=false;
+    return complete;
+}
+/* Disposable model study: the command thread owns an unrelated storage scope
+ * while both battery threads return and retire. No desktop/client teardown is
+ * involved, and this does not claim physical keyboard or pending-DMA acceptance. */
+static void workspace_query_test(void *rsdp,struct limine_memmap_response *map) {
+    if(!battery_platform_workspace_study_allowed()) {
+        console_write("battery-query: REFUSED VM-only study\n");return;
+    }
+    if(!workspace_active() || workspace_image_busy() || owner!=OWNER_NONE) {
+        console_write("battery-query: REFUSED ownership\n");return;
+    }
+    query_study=true;
+    if(!battery_service_start(rsdp,map))unsafe("query study start");
+    uint64_t until=timer_monotonic_us()+15000000;
+    struct battery_service_status status;
+    do {
+        battery_service_status(&status);
+        if(status.state==BATTERY_SERVICE_ACTIVE && (status.flags&BATTERY_CACHE_FRESH))break;
+        if(!service.running || timer_monotonic_us()>=until)unsafe("query study startup");
+        uacpi_kernel_sleep(10);
+    } while(true);
+    uint64_t f=irq_save();bool entered=scheduler_io_begin();irq_restore(f);
+    if(!entered)unsafe("query study IO admission");
+    bool before=workspace_sync();
+    while(service.running) {
+        if(timer_monotonic_us()>=until)unsafe("query study retirement deadline");
+        uacpi_kernel_sleep(10);
+    }
+    bool after=workspace_sync();
+    f=irq_save();bool owns=scheduler_io_active()&&!scheduler_io_busy();scheduler_io_end();irq_restore(f);
+    battery_service_status(&status);
+    bool retired=owner==OWNER_NONE && runtime.worker.stopped && !runtime.engaged && !runtime.heap &&
+        !runtime.errors && !runtime.denied && !service.quarantined && runtime.query_receipt.refused &&
+        status.state==BATTERY_SERVICE_FAULTED && status.error==BATTERY_SERVICE_CONTAINMENT &&
+        !(status.flags&BATTERY_CACHE_FRESH) && (status.flags&BATTERY_CACHE_VALID) &&
+        runtime.attached==runtime.detached;
+    console_printf("battery-query: state=%u error=%u generation=%u fresh=%u before=%u after=%u io_owned=%u; retired=%s outcome=query-refused\n",
+        (uint64_t)status.state,(uint64_t)status.error,status.sample.generation,(uint64_t)!!(status.flags&BATTERY_CACHE_FRESH),
+        (uint64_t)before,(uint64_t)after,(uint64_t)owns,retired?"yes":"NO");
+    if(!retired || !before || !after || !owns)unsafe("query study proof");
+    query_study=false;
+    bool saved=workspace_log_start() && workspace_log_stop();
+    bool unmounted=saved && workspace_unmount();
+    console_printf("battery-query: saved=%s unmounted=%s; runtime_retired=yes\n",saved?"yes":"NO",unmounted?"yes":"NO");
+    if(!unmounted || !battery_reset_allowed(true,workspace_active(),scheduler_io_active()))unsafe("query storage drain");
+    console_write("battery-query: returning after storage drain; test outcome=returned-failure\n");
+    arch_reboot_unattended();
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
+static void smbus_test(void *rsdp,struct limine_memmap_response *map) {
+    if(!battery_platform_workspace_study_allowed() || smbus_study || owner!=OWNER_NONE ||
+       workspace_active() || workspace_image_busy() || scheduler_io_active()) {
+        console_write("battery-smbus-study: REFUSED VM-only idle study\n");return;
+    }
+    smbus_study=true;
+    if(!battery_service_start(rsdp,map))unsafe("SMBus study start");
+    uint64_t until=timer_monotonic_us()+20000000;struct battery_service_status status;
+    do {
+        battery_service_status(&status);
+        if(status.sample.generation>=3 && runtime.events.totals.events>=3 && (status.flags&BATTERY_CACHE_FRESH))break;
+        if(!service.running || timer_monotonic_us()>=until)unsafe("SMBus study deadline");
+        uacpi_kernel_sleep(10);
+    } while(true);
+    if(!battery_service_stop(10000))unsafe("SMBus study stop");
+    if(owner!=OWNER_NONE || runtime.engaged || runtime.heap || runtime.errors || runtime.denied ||
+       runtime.attached!=runtime.detached || !runtime.attached)unsafe("SMBus study retirement");
+    console_printf("battery-smbus-study: PASS events=%u alarms=%u acknowledgements=%u unknown=%u generation=%u; fresh_before_stop=1 retired=yes native=disabled\n",
+        runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,runtime.events.totals.unknown,status.sample.generation);
+    smbus_study=false;
+}
+/* VM-only mounted workspace study. Native refuses before platform activity;
+ * the same serialized event owner spans real Text/file clients and their stop. */
+static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) {
+    if(!battery_platform_workspace_study_allowed() || smbus_study || smbus_capture ||
+       query_study || query_capture || owner!=OWNER_NONE || !workspace_active() || workspace_image_busy()) {
+        console_write("battery-smbus-workspace: REFUSED VM-only mounted study\n");return;
+    }
+    if(!mounted_study_acquire()){console_write("battery-smbus-workspace: REFUSED mount hold\n");return;}
+    smbus_study=true;
+    bool complete=desktop_test(rsdp,map,0,true,false,true,true);
+    struct battery_service_status final;battery_service_status(&final);
+    bool retired=owner==OWNER_NONE && !service.running && !service.quarantined &&
+        !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
+        runtime.attached && runtime.attached==runtime.detached &&
+        final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
+        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && workspace_mount_hold_valid(smbus_workspace_hold);
+    console_printf("battery-smbus-workspace: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u; retired=%s native=disabled\n",
+        complete?"complete":"interrupted",runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,final.sample.generation,
+        (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
+    if(!retired)unsafe("SMBus workspace retirement");
+    mounted_study_release();
+    smbus_study=false;
+}
+/* The explicit Home command uses the same session owner as the VM study.
+ * Its capability is held through client retirement and every Start/Stop epoch;
+ * runtime_open still checks the exact native controller/firmware profile.
+ * No ordinary startup or fatal reset privilege is granted here. */
+static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,unsigned files,bool home,bool continuous) {
+    if((!home && !battery_platform_workspace_study_allowed()) || !workspace_active() || workspace_image_busy() ||
+       scheduler_io_active() || mounted_home || continuous_home || smbus_study || smbus_capture || query_study || query_capture ||
+       (continuous && (!home || !battery_platform_workspace_study_allowed())) ||
+       owner!=OWNER_NONE || controls.group || service.running || service.quarantined) {
+        console_write(home?"battery-workspace-controls: REFUSED explicit Home ownership\n":"battery-workspace-controls: REFUSED VM-only mounted study\n");return false;
+    }
+    if(!mounted_study_acquire()){console_write("battery-workspace-controls: REFUSED mount hold\n");return false;}
+    smbus_study=!home;mounted_home=home;smbus_controls=true;home_session_events=0;continuous_home=continuous;
+    console_printf("battery-workspace-controls: begin mounted=yes native=%s\n",home?"explicit":"disabled");
+    if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
+    if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
+    bool complete=controls_test(rsdp,map,automatic,true,files);
+    struct battery_service_status final;battery_service_status(&final);
+    bool retired=owner==OWNER_NONE && !controls.group && !service.running && !service.quarantined &&
+        !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
+        runtime.attached==runtime.detached && (!runtime.attached || runtime.worker.stopped) &&
+        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && workspace_mount_hold_valid(smbus_workspace_hold) && !workspace_image_busy();
+    console_printf("battery-workspace-controls: complete=%s epoch=%u state=%u; revoked=%s retired=%s mounted=%s native=%s\n",
+        complete?"yes":"NO",final.epoch,(uint64_t)final.state,controls.group?"NO":"yes",retired?"yes":"NO",workspace_active()?"yes":"NO",home?"explicit":"disabled");
+    if(!retired)unsafe("workspace controls retirement");
+    mounted_study_release();
+    smbus_controls=false;smbus_study=false;mounted_home=false;continuous_home=false;
+    return complete;
+}
+bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return workspace_controls_test(rsdp,map,true,1,true,false);
+}
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-home-monitor")) {
+        if(!battery_platform_workspace_study_allowed() || continuous_home) {
+            console_write("battery-home-monitor: REFUSED VM-only session\n");return;
+        }
+        (void)workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,
+            memmap_request.response,false,0,true,true);
+        return;
+    }
+
+    if(command_is(args,"battery-home-controls") || command_is(args,"battery-home-controls-manual") ||
+       command_is(args,"battery-home-controls-files") || command_is(args,"battery-home-controls-files-cancel")) {
+        unsigned files=command_is(args,"battery-home-controls-files-cancel")?2:command_is(args,"battery-home-controls-files")?1:0;
+        workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            files || command_is(args,"battery-home-controls"),files,true,false);return;
+    }
+    if(command_is(args,"battery-home")) {
+        (void)battery_home_diagnostic_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
+    }
+    if(command_is(args,"battery-workspace-controls") || command_is(args,"battery-workspace-controls-manual") ||
+       command_is(args,"battery-workspace-controls-files") || command_is(args,"battery-workspace-controls-files-cancel")) {
+        unsigned files=command_is(args,"battery-workspace-controls-files-cancel")?2:command_is(args,"battery-workspace-controls-files")?1:0;
+        workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            files || command_is(args,"battery-workspace-controls"),files,false,false);return;
+    }
+    if(command_is(args,"battery-smbus-workspace")) {
+        smbus_workspace_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
+    }
+    if(command_is(args,"battery-smbus-study")) {
+        smbus_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
+    }
+    if(command_is(args,"battery-workspace-query")) {
+        workspace_query_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
+    }
+    if(command_is(args,"battery-workspace-recovery") || command_is(args,"battery-workspace-recovery-io") || command_is(args,"battery-workspace-recovery-irq") || command_is(args,"battery-workspace-recovery-callback") || command_is(args,"battery-workspace-recovery-target")) {
+        bool target=command_is(args,"battery-workspace-recovery-target");
+        bool callback=target || command_is(args,"battery-workspace-recovery-callback");
+        bool irq=callback || command_is(args,"battery-workspace-recovery-irq");
+        workspace_recovery_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            irq || command_is(args,"battery-workspace-recovery-io"),irq,callback,target);return;
+    }
+    /* No native boot option or exported diagnostic entry point. The backend
+     * gate precedes all service/platform activity, including fault arming. */
+    if(command_is(args,"battery-workspace") || command_is(args,"battery-workspace-fault") || command_is(args,"battery-workspace-timeout")) {
+        if(!battery_platform_workspace_study_allowed()) {
+            console_write("battery-workspace: REFUSED VM-only study\n");return;
+        }
+        if(command_is(args,"battery-workspace-fault")) {
+            /* Model only: reproduce stale parked-time arming after mount. */
+            auto_return=true;
+        }
+        (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            command_is(args,"battery-workspace-timeout")?2:0,true,false,true,true);
+        auto_return=false;return;
+    }
+    if(command_is(args,"battery-controls") || command_is(args,"battery-controls-manual")) {
+        (void)controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,command_is(args,"battery-controls"),false,0);return;
+    }
     if(command_is(args,"battery-app-files") || command_is(args,"battery-app-files-timeout") || command_is(args,"battery-app-files-missing")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
-            command_is(args,"battery-app-files-timeout")?2:command_is(args,"battery-app-files-missing")?1:0,true,false,true);return;
+            command_is(args,"battery-app-files-timeout")?2:command_is(args,"battery-app-files-missing")?1:0,true,false,true,false);return;
     }
     bool desktop_load=command_is(args,"battery-text-load") || command_is(args,"battery-text-load-missing") ||
         command_is(args,"battery-text-load-timeout") || command_is(args,"battery-text-load-abort");
     if(desktop_load) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
             command_is(args,"battery-text-load-missing")?1:command_is(args,"battery-text-load-timeout")?2:
-            command_is(args,"battery-text-load-abort")?3:0,true,true,false);return;
+            command_is(args,"battery-text-load-abort")?3:0,true,true,false,false);return;
     }
     bool desktop_text=command_is(args,"battery-desktop-text") || command_is(args,"battery-desktop-text-missing") || command_is(args,"battery-desktop-text-timeout");
     if(desktop_text || command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
             (command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-text-missing"))?1:
-            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text,false,false);return;
+            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text,false,false,false);return;
     }
     if(command_is(args,"battery-filesystem-prepare")) {
         if(!workspace_image_open())console_write("workspace-image: preparation FAILED\n");

@@ -339,6 +339,125 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIn('collection: battery application-file completion missing or invalid',report['sessions'][0]['attention'])
 
+    def test_smbus_files_require_image_and_exact_recipe(self):
+        from test_battery_smbus_files_records import FILES_PROOF
+        from unittest.mock import patch
+        native=FILES_PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-smbus-files\n'
+            (folder/'boot.log').write_bytes(boot);(folder/'exit.log').write_bytes(boot+native)
+            with patch.object(desktop,'verify_battery_image',return_value='verified-fixture-hash') as verify:
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertTrue(item['battery_smbus_files']['image_verified']);self.assertFalse(item['attention'])
+                self.assertIsNone(item['battery_smbus'])
+                self.assertEqual(verify.call_args.args[3].__name__,'verify_app_image')
+            with patch.object(desktop,'verify_battery_image',side_effect=ValueError('wrong saved image')):
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_smbus_files']);self.assertIn('collection: wrong saved image',item['attention'])
+            (folder/'exit.log').write_bytes(boot+native.replace(b'smbus-e:1',b'smbus-e:2'))
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertTrue(report['sessions'][0]['attention'])
+            self.assertIsNone(desktop.battery_smbus_files_result((boot+native).replace(b'capture=battery-smbus-files',b'capture=battery-smbus-files-other').decode()))
+
+    def test_battery_smbus_collection(self):
+        from test_battery_native_smbus_records import PROOF
+        native=PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-smbus\n'
+            (folder/'boot.log').write_bytes(boot)
+            (folder/'exit.log').write_bytes(boot+native)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_smbus']['events'],3);self.assertFalse(item['attention'])
+            for bad in (boot,boot+PROOF,boot+native[:-1],boot+native+native,
+                        boot+native.replace(b'outcome=completed',b'outcome=not-exercised')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_smbus'])
+                self.assertIn('collection: native SMBus completion missing, invalid or not exercised',item['attention'])
+            self.assertIsNone(desktop.battery_smbus_result((boot+native).replace(b'srvros.capture=battery-smbus',b'srvros.capture=battery-smbus-other').decode()))
+
+    def test_battery_query_collection(self):
+        from test_battery_native_query_records import PROOF
+        native=PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-query\n'
+            (folder/'boot.log').write_bytes(boot)
+            (folder/'exit.log').write_bytes(boot+native)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_query']['code'],255);self.assertFalse(item['attention'])
+            for bad in (boot,boot+PROOF,boot+native[:-1],boot+native+native,
+                        boot+native.replace(b'outcome=returned-failure',b'outcome=not-exercised')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_query'])
+                self.assertIn('collection: native query return missing, invalid or not exercised',item['attention'])
+            self.assertIsNone(desktop.battery_query_result((boot+native).replace(b'srvros.capture=battery-query',b'srvros.capture=battery-query-other').decode()))
+
+    def test_home_session_collects_exact_work_files_and_native_proof(self):
+        from test_battery_control_files_records import fixture,home_fixture
+        native=home_fixture(fixture()).replace(b'enable=0x62f',b'enable=0x189c').replace(b'enable=0x62e',b'enable=0x189e')
+        boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-session\n'
+        before=b'laptop-capture: battery Home mounted=yes logging-paused=yes fault-reset=disabled\n'
+        after=b'battery-home-session-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\nlaptop-capture: completed=yes\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            study=mount/'battery-study';study.mkdir()
+            (study/'anchor.txt').write_bytes(b'Untouched ordinary workspace data\n')
+            for i in range(1,6):(study/f'text-{i}.txt').write_bytes(b'AA')
+            (folder/'boot.log').write_bytes(boot)
+            proof=boot+before+native+after
+            (folder/'exit.log').write_bytes(proof)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertTrue(item['battery_home_session']['files_verified']);self.assertFalse(item['attention'])
+            self.assertEqual(item['session'],folder.name)
+            self.assertEqual((out/item['session']/'exit.log').read_bytes(),proof)
+            backup=out/item['session']/'battery-home-session'
+            self.assertEqual((backup/'text-5.txt').read_bytes(),b'AA')
+            for bad in (proof.replace(b'held=1',b'held=0'),proof.replace(b'clean=yes',b'clean=NO'),
+                        proof.replace(b'complete=yes',b'complete=NO'),proof.replace(b'enable=0x189c',b'enable=0x62f'),
+                        proof+b'battery: HALTED bad\n',proof+b'battery: FAILED bad\n',proof[:-1]):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+                self.assertIsNone(report['sessions'][0]['battery_home_session'])
+            (folder/'exit.log').write_bytes(proof)
+            (study/'text-5.txt').write_bytes(b'AB')
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertIsNone(report['sessions'][0]['battery_home_session'])
+            self.assertTrue(report['sessions'][0]['attention'])
+            self.assertEqual(report['sessions'][0]['session'],folder.name)
+
+    def test_battery_controls_collection(self):
+        from test_battery_controls_records import BASE
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-controls\n'
+            tail=b'battery-controls-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+            (folder/'boot.log').write_bytes(boot)
+            (folder/'exit.log').write_bytes(boot+BASE+tail)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_controls']['lifetimes'],2);self.assertFalse(item['attention'])
+            for bad in (boot+tail,boot+BASE,boot+BASE+tail+tail,
+                        boot+BASE+tail+b'battery-ui: FAIL phase=2\n',
+                        boot+BASE+tail[:-1],boot+BASE+tail.replace(b'clean=yes',b'clean=NO')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_controls'])
+                self.assertIn('collection: battery controls completion missing or invalid',item['attention'])
+            self.assertIsNone(desktop.battery_controls_result((boot+BASE+tail).replace(b'srvros.capture=battery-controls',b'srvros.capture=battery-controls-other').decode()))
+
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'

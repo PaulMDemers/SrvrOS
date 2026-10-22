@@ -12,6 +12,7 @@ import tempfile
 import time
 
 from acpi_battery_smoke import check_sci_records
+from battery_fault_records import check_fault
 from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
 from displayd_resolution_smoke import build_iso, read_for
@@ -19,8 +20,8 @@ from serial_records import complete_lines
 from vm_sockets import connect_unix
 
 
-def check_capture(data, text=False, files=False):
-    storage=b'image' if files else b'ram'
+def check_capture(data, text=False, files=False, workspace=False):
+    storage=b'workspace' if workspace else b'image' if files else b'ram'
     """Require actual overlapping intervals and completed client presentations."""
     data=complete_lines(data)
     for prefix in (b'battery-desktop: started ',b'battery-desktop: PASS ',b'desktop-coexist: completed=',b'battery-service: retired '):
@@ -49,13 +50,13 @@ def check_capture(data, text=False, files=False):
     return dict(status='PASS',epoch=epoch,first_generation=first,last_generation=last,
                 start_us=begin,end_us=end,desktop_start_us=ustart,desktop_end_us=uend,
                 loops=loops,max_loop_gap_us=gap,generated=sent,presented=shown,frames=frames,
-                physical_input='not tested',storage='Exclusive filesystem image' if files else 'RAM only')
+                physical_input='not tested',storage='Mounted disposable workspace' if workspace else 'Exclusive filesystem image' if files else 'RAM only')
 
 
-def check_text_capture(data, injected=False, files=False):
-    storage=b'image' if files else b'ram'
+def check_text_capture(data, injected=False, files=False, workspace=False):
+    storage=b'workspace' if workspace else b'image' if files else b'ram'
     data=complete_lines(data)
-    result=check_capture(data,text=True,files=files)
+    result=check_capture(data,text=True,files=files,workspace=workspace)
     rows=re.findall(rb'^text-coexist: checkpoint serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
     assert len(rows)==5 and sum(line.startswith(b'text-coexist: checkpoint ') for line in data.splitlines())==5
     for i,row in enumerate(rows):
@@ -246,15 +247,17 @@ def main():
                     if ((b'battery-app-files:' if args.files else b'battery-text-load:') in lines if isolated else b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines) or b'battery: HALTED' in lines:break
                 output.extend(part);data=bytes(output if isolated else part)
                 if args.case=='runtime-fault':
-                    assert process.wait(timeout=5)==0,data
-                    assert b'desktop-coexist: ready ' in data and b'battery: FAILED operation deadline' in data,data
-                    assert b'contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable' in data,data
-                    assert b'battery-desktop: PASS' not in data and b'; retired=yes' not in data,data
+                    reset=check_fault(data,allow_io_halt=isolated)
+                    if reset:assert process.wait(timeout=5)==0,data
+                    else:
+                        assert process.poll() is None,data
+                        stop_process(process)
+                    assert b'desktop-coexist: ready ' in data and b'battery-desktop: PASS' not in data,data
                     if isolated:
                         from acpi_battery_smoke import verify_isolated_disk
                         assert stick.read_bytes()!=before_disk,'Runtime fault preceded all filesystem writes'
                         verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
-                    result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=True,final_report='unavailable')
+                    result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=reset,reset_blocked=not reset,final_report='unavailable')
                     (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
                     passed=True
                     print(json.dumps(result),flush=True)

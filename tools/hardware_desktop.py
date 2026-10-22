@@ -457,12 +457,57 @@ def battery_app_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_home_session_result(exit_text):
+    from battery_control_files_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-session'):return None
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def battery_home_result(exit_text):
+    from battery_home_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home'):return None
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def battery_smbus_files_result(exit_text):
+    from battery_native_smbus_records import check_files
+    if not battery_overlap_recipe(exit_text,'battery-smbus-files'):return None
+    try:return check_files(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def battery_smbus_result(exit_text):
+    from battery_native_smbus_records import check
+    if not battery_overlap_recipe(exit_text,'battery-smbus'):return None
+    try:return check(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def battery_query_result(exit_text):
+    from battery_native_query_records import check
+    if not battery_overlap_recipe(exit_text,'battery-query'):return None
+    try:return check(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def battery_controls_result(exit_text):
+    from serial_records import complete_lines
+    from battery_controls_smoke import check
+    if not battery_overlap_recipe(exit_text,'battery-controls'):return None
+    rows=complete_lines(exit_text.encode()).decode().splitlines()
+    if [r for r in rows if r.startswith('battery-controls-capture:')]!=['battery-controls-capture: returned=yes clean=yes; physical accuracy NOT_TESTED']:return None
+    try:return check(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
-                        "battery-app-files-capture: returned=yes clean=NO", "battery-app-files: FAIL", "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
+                        "battery-query-capture: returned=yes clean=NO", "battery-native-query: REFUSED", "battery-controls-capture: returned=yes clean=NO", "battery-controls: FAIL", "battery-ui: FAIL", "desktop-controls: completed=NO", "battery-app-files-capture: returned=yes clean=NO", "battery-app-files: FAIL", "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
                         "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
@@ -551,6 +596,46 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_session_proof=battery_home_session_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-session(?:\s|$)',text) and home_session_proof is None:
+            attention.append('collection: Home desktop-session completion missing, invalid or refused')
+        if home_session_proof:
+            try:
+                study=mount/'battery-study'
+                if study.is_symlink() or not study.is_dir():raise ValueError('Home session study directory missing or unsafe')
+                expected={'anchor.txt',*(f'text-{i}.txt' for i in range(1,6))}
+                if {p.name for p in study.iterdir()}!=expected:raise ValueError('Home session file set differs')
+                for filename in expected:
+                    p=study/filename;want=b'Untouched ordinary workspace data\n' if filename=='anchor.txt' else b'AA'
+                    if p.is_symlink() or not p.is_file() or p.stat().st_size!=len(want) or p.read_bytes()!=want:raise ValueError('Home session file content differs: '+filename)
+                    target=saved/'battery-home-session';target.mkdir(exist_ok=True)
+                    (target/filename).write_bytes(want)
+                    if (target/filename).read_bytes()!=want:raise OSError('Home session backup verification failed')
+                home_session_proof['files_verified']=True
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_session_proof=None
+        home_proof=battery_home_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home(?:\s|$)',text) and home_proof is None:
+            attention.append('collection: mounted Home battery completion missing, invalid or refused')
+        smbus_files_proof=battery_smbus_files_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-smbus-files' in text and smbus_files_proof is None:
+            attention.append('collection: SMBus Text/file completion missing or invalid')
+        if smbus_files_proof:
+            try:
+                from battery_desktop_smoke import verify_app_image
+                smbus_files_proof['image_sha256']=verify_battery_image(workspace,smbus_files_proof,saved,verify_app_image)
+                smbus_files_proof['image_verified']=True
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+                attention.append("collection: "+str(error));smbus_files_proof=None
+        smbus_proof=battery_smbus_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-smbus(?:\s|$)',text) and smbus_proof is None:
+            attention.append('collection: native SMBus completion missing, invalid or not exercised')
+        query_proof=battery_query_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-query' in text and query_proof is None:
+            attention.append('collection: native query return missing, invalid or not exercised')
+        controls_proof=battery_controls_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-controls' in text and controls_proof is None:
+            attention.append('collection: battery controls completion missing or invalid')
         app_files_proof=battery_app_files_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.capture=battery-app-files' in text and app_files_proof is None:
             attention.append('collection: battery application-file completion missing or invalid')
@@ -587,6 +672,8 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,
             "battery_text": text_proof,

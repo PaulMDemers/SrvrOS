@@ -149,8 +149,14 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
-    int file_capture=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files");
+    int controls_cancel=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files-cancel");
+    int controls_files=controls_cancel || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files"));
+    int workspace_capture=controls_files || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-workspace"));
+    if(controls_files)tool_file_capture_controls_enable(controls_cancel);
+    int file_capture=workspace_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files"));
+    if(file_capture)tool_file_capture_setup(workspace_capture);
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
+    int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
     unsigned captured=0;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_clipboard_init(&t->clip,t->clipboard);
@@ -167,7 +173,10 @@ int main(int argc,char **argv) {
     else if(t->role==DESK_APP_FILES) tool_files_init(t,argc>2?argv[2]:"");
     else if(t->role==DESK_APP_CALCULATOR) tool_calculator_init(t);
     else if(t->role==DESK_APP_SETTINGS) tool_settings_init(t);
-    else if(t->role==DESK_APP_SYSTEM) tool_system_init(t);
+    else if(t->role==DESK_APP_SYSTEM) {
+        tool_system_init(t);
+        if(argc==3 && !strcmp(argv[2],"--battery-controls")) {desk_tabs_select(&t->system_tabs,SYSTEM_SENSORS);tool_system_layout(t);desk_ui_layout_changed(&t->ui);}
+    }
     while(!t->quit && !t->window.failed && !t->window.closed) {
         if(t->role==DESK_APP_SETTINGS) tool_settings_tick(t);
         if(desk_clipboard_tick(&t->clip,srv_ticks())<0) tool_clipboard_result(t,-1);
@@ -232,7 +241,9 @@ int main(int argc,char **argv) {
                 if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
             }
         }
-        if(t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
+        int poll_file=!controls_files || tool_file_capture_controls_tick(t);
+        if(controls_cancel && t->quit)break;
+        if(poll_file && t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
             desk_log("desktools: file-result role=%s op=%u status=%u bytes=%u\n",roles[t->role-1],t->job.request.operation,t->job.response.status,t->job.response.length);
             if(file_capture && tool_file_capture_busy()) {
                 tool_file_capture_finish(t,result);
@@ -242,6 +253,7 @@ int main(int argc,char **argv) {
         } }
         if(t->closing && !t->job.busy && t->role!=DESK_APP_TEXT) t->quit=1;
         if(t->role==DESK_APP_SYSTEM) tool_system_refresh(t,0);
+        if(battery_capture)tool_battery_capture_tick(t);
         if(t->role==DESK_APP_TEXT && t->title_dirty && t->window.server) {
             const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:"Untitled";char title[88];
             snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
@@ -255,7 +267,7 @@ int main(int argc,char **argv) {
         for(unsigned i=0;i<captured;i++) capture_print("checkpoint",capture_states[i]);
         capture_print("final",capture_state(t,t->window.input_serial));
         desk_log("text-coexist: file_worker=%s checkpoints=%u\n",file_capture?(t->worker_ready?"enabled":"MISSING"):(t->worker_ready?"UNEXPECTED":"disabled"),captured);
-        if(file_capture) { tool_file_capture_report();if(tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
+        if(file_capture) { if(!tool_file_capture_report() || tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
     }
     free(t->body_history);
     if(t->worker_ready) desk_file_job_close(&t->job);

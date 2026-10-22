@@ -1,8 +1,811 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: application files and cached battery presentation accepted
+### Continuous service accounting: VM validation (PR #55)
+
+Compiled source `07c06da`, based on merged PR53 (`62067a1`), passed all nine
+continuous-session cases locally. The first lifetime handled 1,608 events beyond
+120 seconds between summaries; Stop/restart/close retired a second lifetime with
+72 events. Both lifetimes used 28 total bounded event-summary records. Alarms,
+early close, native/unmounted/profile refusal, normal-return query refusal,
+uncertain acknowledgement and effects preceding refusal passed their respective
+completion/containment checks. Clean cases preserved every workspace byte and
+passed offline allocation; fatal cases retained ownership without cleanup claims.
+
+The new `battery-home-monitor` command is VM-only. Native diagnostic limits and
+ordinary startup remain unchanged. Event telemetry is fixed-size and saturating,
+with periodic and final records emitted by the service thread. This preserves
+transport/query/shutdown deadlines; it does not validate native continuous
+monitoring, physical input latency, alarms or gauge accuracy.
+
+A development run lost its UART observation channel. A repeat captured
+`serial_ready=0`, an idle CPU and successful session retirement/monitor return on
+screen. Those incomplete captures remain separate from passing collections.
+The harness now retains UART/register/screen evidence when output stalls. The
+general serial transmit-timeout policy remains an open reliability issue.
+
+Integrated actual main `1b88c8a` (Air6,1 PR54/56/57/58), preserving that agent's
+measured profile and record. Source `05a50bc` passed full build/both kernels,
+the extended 1,680-event session (29 summaries), accepted Home capture, pending-write
+cancellation, full core and docs checks. Evidence is hash-verified outside `build`
+in `~/.local/share/srvros/local-validation/battery-continuous-05a50bc16bdf`
+(128 files, 13 compressed images verified by decompression). Directed and integrated
+payloads are retained separately, together with the incomplete UART-loss capture.
+Pro PR19 `45db188` retains Wi-Fi work. Next battery scope is
+an inherited kernel desktop lifetime identity, app churn/Terminal orphan handling
+and periodic logging overlap before ordinary startup or another native trial.
+See the [ownership follow-up](../battery-home-lifecycle.md#ordinary-desktop-ownership-follow-up).
+
+No physical run or reboot is armed. Current `fd6f6b9d397c339f` and previous
+`b427b78f21644bd2` remain the accepted PR53 payloads below. Actions remain disabled.
+
+### Explicit Home desktop battery session accepted (PR #53)
+
+Base `9ca1922` (PR52); compiled source `faf40ab`; collector correction `7f1438d`.
+Release `fd6f6b9d397c339f`, session `session-00065e752131c4aa-00`, passed the
+explicit v49 held-Home session: five Start/Stop requests, three clean service
+lifetimes, all 60 generated edits, five exact file cycles and 20 worker operations.
+The workload lasted 62.170 seconds, with file checkpoints taking 2.91–6.06 seconds.
+It handled 180 natural SMBus completion events and 12 SCI deliveries with zero
+unclaimed deliveries. No alarms occurred. Every lifetime returned masked/idle
+with the exact mount held, checked resources and restored foreign sources.
+Clients and runtime retired before the mount was released and logs saved.
+
+All 935 pre-existing non-metadata files remained unchanged, including the earlier
+failed study and disposable filesystem image. Exactly five `AA` files and three
+session logs were added; only `.srvros/meta` changed. Offline exFAT/allocation
+passed (944 files, zero leaks). Automatic Ubuntu return, consumed one-shot,
+Ubuntu default and EFI recovery were verified. Current is `fd6f6b9d397c339f`;
+previous remains `b427b78f21644bd2`. Evidence/payload and an independent recovery
+copy are hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/fd6f6b9d397c339f`. No reboot is armed.
+
+The collector initially reused a filename variable for the JSON session label.
+`7f1438d` fixes that host-only error and adds successful/rejected-collection
+identity checks; all 21 collector tests pass. Both collections are retained;
+the corrected report references identical raw log bytes and verified file backups.
+This did not change the physical payload or relax its completion predicate.
+
+The first v49 attempt (`63333d27f5e5c064`, source `b67d179`, session
+`session-00065e74e07682d9-00`) remains a failed workload: 24 generated/23 presented
+edits and two retired lifetimes. All 929 previous non-metadata files were preserved,
+and filesystem/recovery checks passed. Its 4.7-second diagnostic progress budget
+was reproduced in Q35 with four-second EC connections and throttled USB writes.
+The corrected study gives only control/file checkpoints 15.7 seconds and the
+whole workload up to 90 seconds. Normal input/client deadlines and the 110-second
+owner limit remain unchanged. The slow VM completed all five checkpoints in
+7.98–8.43 seconds each, all edits and three lifetimes in 79.70 seconds.
+Failed native evidence is retained outside `build`; it is not a pass.
+
+Validation remains local with Actions disabled. The original ownership code
+passed 15 directed cases and nine full boot/regression cases, including actual
+System mouse controls, cancellation and fault containment. The corrected payload
+passed full build/core, both kernels, normal and slow full-boot workloads, query
+and profile refusal, uncertain-ack containment, cancellation and the existing
+VM-only file workload. Exact-stage refusal/save/return and missing-volume return
+passed before installation. This accepts the explicit automatic workload, not
+physical input latency, native alarms, gauge accuracy or unlimited monitoring.
+
+Next: ordinary desktop-session ownership/startup, attended AC and charging/gauge
+checks, then the finished graphical indicator in the
+[delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
+Ordinary startup remains OFF. Pro PR19 `af779b0` retains Wi-Fi work and Air6,1
+PR54 `c8dc0a0` retains inventory/console bring-up; their own hardware results do
+not inherit the Air7,2 firmware gate or this acceptance.
+
+### Mounted Home battery boundary accepted (PR #52)
+
+Base `85d5cb7` (PR51); compiled implementation `7fac77d`; final validators
+`171b307`. Release `71ab6b95892a9a8c`, session
+`session-00065e7468b78060-00`, passed the explicit v48 mounted-Home diagnostic:
+fresh generation 3, 45 natural completion events, resource-checked runtime
+retirement, then release of the exact mount hold. Home stayed mounted throughout;
+periodic logging was paused and no desktop clients ran. No alarms occurred.
+
+All 925 existing non-metadata files remained unchanged, including the disposable
+filesystem image. Only workspace metadata changed; exactly three matching logs
+were added. Offline exFAT and allocation checks passed (929 files, no leaks).
+Automatic Ubuntu return, consumed one-shot, Ubuntu default and EFI recovery were
+verified. Current is `71ab6b95892a9a8c`; previous remains `b427b78f21644bd2`.
+Evidence and payload are hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/71ab6b95892a9a8c`. No reboot is armed.
+
+All 16 final local checks passed: eight command cases, four boot-flow cases,
+normal/cancel controls-file regressions, exact-stage refusal and missing-drive
+return. Full build, core/docs and corruption checks passed with Actions disabled.
+A controls/file regression exposed saved-log interleaving; bounded 1 KiB saved
+record appends now precede rendering/UART, whose render batches remain 64 bytes.
+Deterministic preemption tests cover the fix. Original rejected evidence remains
+in the local validation archive. Cancellation distinguishes reported incomplete
+exit from compositor termination during bounded close; neither is full workload
+completion.
+
+Next bounded scope: explicit native desktop-session ownership through System
+controls, asynchronous file work and shutdown, retaining the same exact Air
+profile and mount lifetime. Ordinary startup remains OFF. Physical charging/gauge
+accuracy and the finished indicator remain pending in the
+[delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
+Pro PR19 `92a1bbc` retains independent Wi-Fi work; preserve its main/staging and
+Makefile additions during integration. No sibling firmware acceptance is implied.
+
+### Controls during submitted Text jobs (PR #51)
+
+Implementation `23837b9`, base `fb96ace` (PR50). The explicit VM fixture sends
+Stop/Start/Stop/Start through the shared System control syscall only after each
+Text save request is completely transmitted to its file worker. The shared
+`desk_file_job_submit` helper separates bounded submission from reply consumption;
+ordinary polling retains its combined behavior.
+
+All six directed cases and three regressions passed locally. Normal completion
+proved five requests, three lifetimes, 60 edits, five file cycles/20 operations,
+26 synthetic events/10 alarms, exact saved contents and clean allocation. The
+last active service retired on session exit before releasing the mount hold.
+Cancellation after the first submitted write finished the accepted `AA` draft
+and retired all three descendants; its workload remains explicitly incomplete.
+Native/unmounted/profile refusal and uncertain-ack containment also passed.
+Actual System mouse controls and the sustained SMBus/Text workload passed as
+regressions. Full build, both diagnostic kernels, final core/docs and strict
+receipt-corruption checks passed; Actions remain disabled.
+
+Evidence is hash-verified outside `build` at
+`~/.local/share/srvros/local-validation/battery-control-files-23837b98fd45`.
+Pending application jobs do not prove active USB DMA or physical-input latency.
+Pro PR19 `77ba966` retains independent USB Wi-Fi scope. No native payload or
+reboot change: current `fda709928307b1b1`, previous `b427b78f21644bd2`.
+Native Home/startup remain OFF. Next: native mounted normal-return/refusal and
+desktop-session ownership, followed by physical charging transitions and the
+finished indicator in the [delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
+
+### Mounted-volume ownership (PR #50)
+
+Implementation `5fe69fa`, base `3c47b50` (PR49). VM battery control and SMBus/file
+sessions now hold the exact workspace device, parent and mount generation until
+clients and runtime retire. Non-reused tokens reject stale release across
+Start/Stop/restart, separate sessions and unmount/remount. Unmount, scratch-file
+allocation and image conversion refuse while held; ordinary file I/O remains
+available. Host checks cover stale/duplicate tokens, identity mismatch, exhausted
+counters and storage failure; a retired owner can release unhealthy storage
+without bypassing the existing failed-sync/unmount policy.
+
+Seven directed controls cases passed: two sessions/four runtime lifetimes/eight
+requests, remount with distinct tokens, mouse Start/Stop/restart and active close,
+early cancellation, native/unmounted/profile refusal and contained uncertain
+acknowledgement. Clean cases preserve every disk byte and pass fsck/allocation;
+the fault retains ownership and makes no retirement/reset claim. The mounted
+SMBus/Text regression completed 60 presented edits and five file cycles/20 worker
+operations, 31 events/15 alarms and generation 30, then released its hold after
+all three descendants and runtime. Parked controls and the v47 parked-file
+VM regressions also pass. Full build, both diagnostic kernels, core/docs, strict receipt
+checks and the complete image write/flush/power-cut fault sweep passed locally.
+
+Evidence is retained outside `build` at
+`~/.local/share/srvros/local-validation/battery-workspace-hold-5fe69fa59d02`.
+No physical install/reboot; current `fda709928307b1b1`, previous
+`b427b78f21644bd2`, native Home/startup OFF. Pro PR19 `fdec140` has independent
+Wi-Fi scope. Actions remain disabled. Next: combine held System controls with
+actual asynchronous Text file operations/cancellation in the same VM session,
+then native mounted return/desktop ownership and charging-transition acceptance.
+The existing cached percentage/AC menu-bar label and System controls remain the
+UI foundation; the [delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator)
+tracks ordinary startup and the finished graphical indicator.
+
+### Mounted-workspace lifecycle VM study (PR #49)
+
+Implementation `d223325`, base `598fe27` (PR48). The new explicit
+`battery-workspace-controls` diagnostic reuses System Start/Stop and its scoped
+mailbox while a disposable Home volume stays mounted. Two sessions completed
+four lifetimes/eight requests and handled 12 synthetic events/four acknowledged
+alarms, with epoch-specific drained resource receipts and final revocation.
+Mouse Start/Stop/restart followed by closing System while active also retired
+cleanly, as did early cancellation. All clean runs allowed a replacement
+compositor and preserved the entire volume byte for byte with offline
+fsck/allocation checks. No additional file-load or physical-input claim.
+
+Uncertain acknowledgement stayed halted with no runtime retirement, unmount or
+reset claim. Native invocation and unmounted admission refused before runtime;
+a VM without the controller profile returned unavailable and released the scope.
+All seven directed cases and four strict receipt-corruption tests passed. Full
+build, both diagnostic kernels, core/docs and four existing regressions passed:
+parked controls, v47 Text/file capture, v46 completion capture and query-refusal
+save/reset. Five saved-capture proof tests include UART interleaving versus
+corrupt saved evidence. Validation and retained disposable disks are archived
+outside `build` at
+`~/.local/share/srvros/local-validation/battery-workspace-controls-81d6fbdf3075`.
+The [Home lifecycle audit](../battery-home-lifecycle.md) records the exact
+remaining mounted-volume binding and refusal/cleanup requirements.
+
+The parked-file regression exposed UART interleaving in its harness: the saved
+boot-log proof was valid while serial writers split an event line. Follow-up
+`81d6fbd` strictly validates the atomic saved proof and matches its final summary
+to the retired UART output; reset/contents/allocation checks remain required.
+Corrupt saved evidence still fails. The original failure and disposable image
+are retained with the validation artifacts; this does not change runtime logging.
+
+No physical payload or recovery change; current `fda709928307b1b1`, previous
+`b427b78f21644bd2`, no pending run/reboot. Native Home/startup remain OFF. Pro PR19
+`3d51e4f` was inspected and retains independent Wi-Fi scope. Actions stay disabled.
+Next: bind lifetime ownership to the specific mounted volume, then combine
+explicit controls and asynchronous Text file activity in VM before native work.
+
+### Accepted parked SMBus/Text/file capture (PR #48)
+
+Release `fda709928307b1b1`, source `e6b4b03` (implementation `029e344`), session
+`session-00065e731a64ed84-00` completed the automatic v47 capture. The service diagnostic ran for 60.371
+seconds, including the 60.019-second desktop workload. It processed 345 natural
+completion events and refreshed the battery cache from generation 1 to 23. The real Text worker
+completed all 60 generated/presented edits, five file cycles and 20 operations;
+61 cached UI reads reached generation 23. All three descendants retired, followed
+by the battery service and exclusive image. The 23 SCI deliveries were handled,
+with zero unclaimed/in-flight interrupts; heap/errors/denied were zero at retirement.
+
+The outer Home filesystem stayed parked. Exact inner contents, inner/outer fsck
+and independent allocation checks passed. All 921 unrelated USB files remained
+identical; only `.srvros/meta` and the dedicated `battery-fs.img` changed, and
+three matching logs were added. No collector attention. The Ubuntu boot ID changed,
+the one-shot was consumed, and Ubuntu default/EFI order and recovery were verified.
+Current is `fda709928307b1b1`; accepted desktop `b427b78f21644bd2` remains previous.
+The accepted payload and evidence are independently hash-verified outside `build`
+at `~/.local/share/srvros/accepted-evidence/fda709928307b1b1`. No reboot is armed.
+
+No alarms occurred: native alarm acknowledgement/invalidation, gauge accuracy
+and physical-input latency remain untested by this automatic capture. This
+accepts bounded parked-image coexistence, not ordinary mounted Home, automatic
+battery startup or a sibling firmware profile. The short v46 limit stays 128;
+v47 caps the full minute at 512 and retains all compact event receipts.
+
+Local validation passed both diagnostic builds, all/core/docs, 50 staging tests,
+20 collector tests and strict proof corruption cases. Nine full-boot VM cases
+cover modeled native-rate completion, recurring alarms, Stop during read/ack,
+uncertain acknowledgement, event limit, no events and native/profile refusals.
+Positive cases verify saved proof, contents, metadata and both allocation graphs.
+Interrupted Stop runs remain incomplete; uncertain acknowledgement/event-limit
+runs reset without clean-retirement or saved-completion claims. The v46 capture
+and ordinary mounted Text/file regressions passed, as did exact staged native
+refusal/save/return and missing-workspace return. The local validation archive
+has 111 hash-verified files, including 22 round-trip-verified compressed disks:
+`~/.local/share/srvros/local-validation/battery-smbus-files-029e34478cdc`.
+
+Base `53a24a0` (PR47). Pro PR19 `c20917f` was inspected; its current Wi-Fi control
+retirement/capture edits do not overlap this implementation. Shared main/staging
+profiles must still be preserved during integration. Actions remain disabled.
+Next: audit lifecycle/storage ownership for explicitly controlled ordinary Home
+coexistence, with VM proof before native enablement. Home/startup remain OFF.
+
+### Completed VM SMBus/Text/file study (PR #47)
+
+Implementation `b1e80f0`, base `4ea10e1`. The VM-only mounted-workspace command
+reuses the real Text/file worker: both completion-only and mixed-alarm runs
+completed 60 generated/presented edits, five file cycles and 20 worker operations.
+The mixed run handled 31 events/15 acknowledged alarms: seven known senders
+invalidated the cache, eight unknown senders did not request refresh. Generation
+30 was fresh after the last invalidation at 28. Both runs retired all three
+clients and the service, launched a replacement compositor and passed exact
+filesystem contents/metadata, allocation and fsck checks.
+
+Directed Stop during alarm read and acknowledgement retired cleanly with a
+nonfresh stopped cache, while correctly reporting an interrupted workload.
+An uncertain acknowledgement remained halted without retirement or filesystem
+cleanup claims. Native command invocation refused before runtime activity.
+The initial read/Stop test caught the VM study checking idle resources before
+an in-flight event drained; the check now follows the existing masked worker
+drain, before disconnect. Native capture already used that ordering.
+
+Six strict-decoder tests reject missing/duplicate/torn receipts, invalid stop
+ordering, contradictory counts, false freshness and false completion. All six
+new VM cases passed. Both diagnostic builds, full build/core/documentation checks and three existing
+regressions passed: legacy late alarm, full-boot parked capture/save/reset and
+ordinary mounted Text/file workspace. The failed original fixture is retained
+with the passing results in the hash-verified archive outside `build`:
+`~/.local/share/srvros/local-validation/battery-smbus-workspace-b1e80f066271`. Pro PR19 `79132d6` remains separate
+Wi-Fi work; only independent Makefile test additions overlap.
+
+No physical stage, installed payload, reboot or hardware acceptance changed.
+Native alarms, mounted Home/startup and gauge accuracy remain unaccepted. Next:
+design an explicit parked, exclusive-image Text/file capture with sustained host
+events and a bounded event budget informed by the native completion rate; verify
+limit/stop failures in VM before a new physical trial.
+
+### Accepted parked SMBus completion capture (PR #46)
+
+Release `a1451825851dc5f0`, source `10a4cbe`, session
+`session-00065e7202038212-00` passed the automatic v46 native capture.
+The exact Air profile handled 45 natural query10 completion events (status 128)
+without entering `_Q10` AML, observed fresh generation 3, then masked sources,
+drained the worker, restored event enables and retired cleanly. All three SCI
+deliveries were handled, with zero unclaimed/in-flight interrupts; retirement
+reported heap/errors/denied all zero. The stopped cache was correctly nonfresh.
+
+No alarms occurred: native alarm acknowledgement, unknown senders and alarm-driven
+cache refresh remain unexercised; those paths have VM evidence only. This accepts
+bounded completion handling and sampling with parked storage, not gauge accuracy,
+mounted Home coexistence, ordinary startup or another machine's firmware.
+
+All 919 prior ordinary USB files remained identical; only the metadata sidecar
+changed and three matching logs were added. The filesystem image hash stayed
+unchanged. Offline fsck and independent allocation checks passed with zero leaks,
+bitmap mismatches or errors. The changed Ubuntu boot ID, consumed one-shot,
+Ubuntu default, EFI order and installed/independent recovery were verified.
+No reboot is armed. Installed current is `a1451825851dc5f0`; accepted desktop
+`b427b78f21644bd2` remains previous. The query-refusal payload is independently
+backed up. Accepted evidence and exact payload are hash-verified outside `build`
+at `~/.local/share/srvros/accepted-evidence/a1451825851dc5f0`.
+
+Full builds/core tests, both diagnostic kernels, 16 full-boot capture cases,
+five regressions and exact-stage refusal/save/return plus missing-workspace
+checks passed locally. All 16 disposable disks passed offline allocation/fsck.
+The 190-file validation archive is at
+`~/.local/share/srvros/local-validation/battery-native-smbus-10a4cbe30263`.
+Actions remain disabled. Base was `24fd5f4` (PR45); Pro PR19 `79132d6` retains
+independent Wi-Fi scope, with overlapping main/staging/tests to preserve.
+
+This bounded milestone is complete. Next: test sustained event handling and
+alarm/stop races with the existing Text/file workload in VM before proposing
+another native coexistence capture. Ordinary startup and mounted Home stay off;
+do not broaden the firmware/resource gates or infer physical alarm acceptance.
+
+### Query10 host-controller event study (PR #45)
+
+Base `origin/main` `40944e8` (PR44), implementation `1797e8a`. The explicit
+VM-only command owns SMBus controller events instead of selecting a mutable
+OSYS-dependent AML branch. Completion events do not write; alarms are captured
+before one acknowledgement, with serialized sampling and cache invalidation for
+known SBS senders. Uncertain protocol state retains terminal containment.
+See the [event ownership contract](../battery-smbus-events.md).
+
+All 13 focused Q35 cases pass, including both OS states, a later alarm invalidating
+cached generation 2 before fresh generation 3, uncertain acknowledgement, native
+command refusal and ordinary dispatch refusal. Both diagnostic builds, full core
+host tests and proof-parser corruption checks pass locally. Three existing VM
+regressions also pass: parked natural query refusal/save/reset, 60 generated Text
+edits plus five file cycles with continuing samples, and notification-return
+retirement. Actions stay disabled.
+No physical enablement or installed/recovery payload changes are included.
+The 63-file validation archive is hash-verified outside `build` at
+`~/.local/share/srvros/local-validation/battery-smbus-1797e8afb8e1`.
+
+Pro PR19 `9ecf749` retains independent Wi-Fi scope. Shared touched scope is the
+battery runtime/model, EC SMBus helper, fixtures, tests and an appended Makefile
+target. Native query10 still refuses; mounted Home and automatic startup stay off.
+Next: an explicit parked native host-controller capture with strict saved event,
+cache and retirement proof, exact-stage VM validation and recovery preserved.
+The firmware ownership review must precede any native capability grant; VM
+results do not authorize sibling profiles or general firmware bypass.
+
+### Accepted parked native query-return capture (PR #44)
+
+Release `a72409383258a4a0`, tested source `6f6381c`, session
+`session-00065e65247fca49-00` passed the automatic physical v45 capture.
+A natural query `0x10` arrived before the first sample and was refused before AML:
+sequence 1, generation 0, completed transport, zero method calls/effects, idle
+worker and no retained EC/SMBus/Global Lock resources. One SCI was handled with
+an observed return and complete controller snapshots. The owner disconnected the
+EC, restored foreign event enables and retired with heap/errors/denied all zero.
+The service remained faulted with an empty, nonfresh cache, as required.
+
+USB stayed parked during the runtime, then remounted for the final report.
+All 916 prior ordinary files remained identical; only the metadata sidecar changed
+and three matching session logs were added. Offline fsck and allocation checks
+passed with zero leaks/mismatches/errors. The changed Ubuntu boot ID, consumed
+one-shot, Ubuntu default, EFI order and installed/independent recovery were
+verified. No further reboot is armed. Accepted evidence and the exact payload are
+hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/a72409383258a4a0`; recovery remains
+`b427b78f21644bd2`, and the prior accepted controls payload remains backed up.
+
+Full builds/core host tests, strict proof/collector/staging tests, all 14 new
+full-boot VM cases and three existing workspace regressions passed locally.
+The latter include normal Text/file coexistence, legacy notification return and
+outside-scope refusal. Exact staged GRUB/native-profile refusal, save/unmount/reset
+and missing-workspace return passed. Local validation is archived under
+`~/.local/share/srvros/local-validation/battery-native-query-6f6381c5f0fc`.
+A local collection helper's desktop-exit requirement was corrected: this capture
+opens no desktop. The strict native query receipt required no relaxation.
+
+This accepts only natural predispatch refusal and orderly failed-service
+retirement with parked storage. It does not accept battery readings, ordinary
+mounted Home, automatic startup, arbitrary AML recovery or another model.
+Next: define query10 SMBus alert/notification ownership across both OS branches,
+with VM evidence before another native expansion. No query injection/substitution
+or widened firmware/register gate is authorized by this result.
+
+Base `origin/main` was `e946f5e`. Touched: battery runtime, main capture dispatch,
+staging/collector, VM fixtures, tests and guides. Pro PR19 at `43a1154` continues
+independent Wi-Fi work but still uses v44 for calibration, colliding with merged
+battery-controls. Integration must preserve historical exact recipes and use a
+unique identity for new Wi-Fi calibration stages. Do not modify another device's
+branch or infer its acceptance from this Air result.
+
+### Native query admission policy (PR #43)
+
+Base `origin/main` `961369b` (PR #42), tested code `33d4f9d`. The exact Air7,2
+adapter now classifies EC queries before AML dispatch, after the existing
+firmware/resource gate. Unknown codes and GPU/power query80 refuse before any
+method executes. Query10 also refuses in both OS states: shared GNVS OSYS can
+change between a Darwin check and AML's own read, and its other branch owns SMBus
+alert/mutex state. No snapshot, OSYS shadow or forced protocol cleanup is used.
+
+Query20/21 retain audited shared writes; 40/5a/cf are bounded notifications across
+all branches; ce/d0 are empty. At PR43 native refusal remained terminal with live state
+retained; PR44 now separately accepts the explicit parked capture above.
+This is a dispatch restriction, not native recovery acceptance or a new IO grant.
+Nine captured firmware table hashes, lengths and checksums were reverified.
+
+Ten directed VM cases passed: unknown/high/OS-state refusals, both OS variants of
+a five-method notification/no-op batch, shared20/shared21 effect refusals and
+ordinary-command high/OS refusal. Positive batches require exact live/saved
+policy/code/call/notification receipts, runtime retirement, automatic reset and
+offline filesystem/metadata/allocation checks. Outside-study refusals show zero
+interpreter errors/denied accesses, proving they stop before AML. Shared-write
+batches halt without claiming retirement or saved reports.
+
+The final 16-case matrix passed, including normal Text/file coexistence under the
+Air policy (60 generated edits, 20 file-worker operations, five cycles and three
+retired clients), legacy notification/effect/lock/refusal and I/O recovery checks.
+Full kernel builds and core host tests passed, including 512 hazard combinations,
+65,536 policy/code receipts and six parser tests; 418 documentation links passed.
+Evidence is hash-verified outside `build` in
+`~/.local/share/srvros/local-validation/battery-policy-33d4f9d`.
+
+Touched: battery runtime/native+VM bindings, query receipt/classifier, fixtures,
+host/VM proofs and documentation. Pro PR19 `4dfde33` is independent Wi-Fi work
+(separate Makefile targets only). No physical install/reboot, accepted payload,
+USB contents or recovery changed. Native mounted Home/startup remain off.
+Next: scoped native normal-return admission and an automatic parked-workspace
+capture with an explicit failed-service outcome, before ordinary Home acceptance.
+
+### Returned-query failure study (PR #42)
+
+Base `origin/main` `065546f` (PR #41), final code `cbd04bd`. The explicit VM-only
+query study now rejects unsupported queries after completed QR_EC and before AML
+starts. Whole-batch receipts track transport, normal method returns and attempted
+shared writes. The worker returns normally; the owner drains notifications and
+checks resources before ordinary disconnect, interpreter/worker retirement and
+foreign-event restoration. The cache stays faulted and stale. This is not native
+query policy, arbitrary AML recovery or external-state rollback.
+
+All ten query fixtures passed locally: unknown code, a present high-code method
+with a forbidden write, queued notification drain, earlier shared effect, real
+Global Lock hold, poisoned transport, failed disconnect, native admission refusal
+and both ordinary-command scope refusals. The first three retire cleanly, continue
+the unrelated storage scope, save failure logs, unmount and reset automatically;
+exact tree/metadata/allocation/fsck checks pass. The other fault paths halt without
+claiming retirement or saved reports; native refusal leaves the image unchanged.
+
+The first notification run exposed a scheduling gap after runtime close but before
+final owner bookkeeping. An explicit finishing phase now keeps that owner eligible
+through unrelated I/O until release, and clears before the next start. A forced
+post-close yield makes this regression deterministic. The initial failure is
+retained with the successful evidence outside `build`.
+
+The complete final-source matrix passed all 15 cases, including I/O watchdog,
+returned callback, interrupted worker and retained AML Global Lock regressions.
+Normal Text completed 60 generated edits, 20 worker operations and five file cycles,
+then retired three clients and passed offline filesystem/metadata/allocation checks.
+All kernel builds, full core host tests, 512 query hazard combinations, five proof
+parser tests and 415 documentation links passed. Evidence is hash-verified under
+`~/.local/share/srvros/local-validation/battery-query-cbd04bdd8590`.
+
+Touched: battery runtime/model fixture, pure query receipt, host/VM tests,
+Makefile and battery documentation. Pro PR #19 at `faed5b7` has only independent
+Makefile test additions in common. No native gate, installed payload, physical
+trial or reboot changed. Native mounted Home and automatic startup remain off.
+Next: define the exact captured-firmware/OS-state query policy, replay its refusal
+boundaries in VM, then prepare an automatic parked-workspace native capture.
+
+### Completed native AML side-effect audit
+
+Base `origin/main` `d49ef02` (PR #40). The
+[native side-effect map](../battery-native-aml-audit.md) covers the captured DSDT
+and all eight admitted SSDTs: loading, two `_INI` methods, EC connect/disconnect,
+all nine EC queries, notification delivery and status traversal. Raw tables match
+the prior SHA-256 manifest, lengths, checksums and every native fingerprint.
+Per-table iASL runs with peer externals completed; the unresolved guarded HDOS/HNOT
+references and failed multi-target disassembly are recorded as evidence limits.
+
+Startup writes shared OS/lid/AC state, graphics CLID, ECSS and two GPIO bits;
+disconnect does not roll those back. Query 80 reaches denied GPU/chipset controls.
+The next experiment is a structured query-admission failure after a completed
+QR_EC exchange, before unapproved AML begins, returning normally to the owner.
+It needs operation/effect receipts, drained callbacks, existing resource guards
+and proved orderly retirement in VM before a parked-workspace native capture.
+Partial initialization, shared writes, poisoned protocols and arbitrary AML faults
+remain outside that recovery scope. Native mounted Home and automatic startup
+remain off.
+
+Existing native-memory, recovery-resource, I/O-mask, EC and SMBus host checks
+passed; documentation links passed. This was a static/host audit, with no new VM
+or physical acceptance claim. Evidence is archived with verified hashes outside
+`build`. Pro PR #19 at `e871a1e8` remains independent Wi-Fi work with no edited-file
+overlap. No installed payload, USB contents, recovery or reboot state changed.
+
+### Resource audit and recovery admission (PR #40)
+
+Base `origin/main` `3c98c42` (PR #39), tested code `2cc02b2`. The
+[resource audit](../battery-resource-audit.md) distinguishes thread retention from
+firmware Global Lock ownership and unfinished EC/SMBus protocols. All three VM
+quarantine boundaries now require an idle external-resource snapshot. `_GLK=0`
+and a clear public API ownership flag are insufficient: AML ownership/depth,
+the underlying semaphore, firmware pending state and FACS bits are checked too.
+An active lease, partial/poisoned EC, active sampler or incomplete SMBus transaction
+refuses recovery. No lock is released or protocol reset by this check.
+
+Ten disposable VM cases passed. Actual public-API and AML `Acquire(\_GL)` holds
+both refused with FACS Owned set, an occupied semaphore and blocker mask 96.
+The AML case had API ownership clear, demonstrating why that flag alone is not
+sufficient. A pause after EC command submission refused with lease=1, phase=address
+and blocker mask 6. These are expected halts without quarantine, clean-storage or
+automatic-reset claims. An initial AML fixture used a sleep longer than the
+interpreter's two-second cap and correctly failed; the final fixture uses repeated
+bounded sleeps across the watchdog. Failed evidence is preserved separately.
+
+Watchdog/I/O, returned-callback, IRQ-entry and both interrupted-target recovery
+passed with zero blockers, retained-state proofs, both storage flushes, saved logs,
+unmount, automatic reset and offline filesystem checks. Native study admission
+still refused before platform access with the disposable volume unchanged. Normal
+Text passed 60 edits, 20 worker operations, five file cycles and clean retirement.
+All kernel builds, full core host tests, 2,048 resource-policy combinations,
+21 proof-parser tests and documentation links passed. Evidence is archived outside
+`build` with verified hashes; Actions remain disabled.
+
+No physical reboot, installed payload or firmware gate changed. Pro PR #19 at
+`67f62a4` shares only independent Makefile test additions, with no battery/runtime
+overlap. Next: map reachable native AML/NVS/SMI side effects and define which fault
+boundaries can reach resource-idle state through normal returns. A clear snapshot
+is not a firmware ownership lease or native recovery acceptance. Native mounted
+Home and automatic battery startup remain off.
+
+### Completed IRQ handoff (PR #39)
+
+Base `origin/main` `a1b9802` (PR #38), tested code `6c23fbd`. A token-bound
+terminal IRQ hook now runs after EOI, every completion callback and registry
+bookkeeping. The explicit VM battery study can retain an interrupted owner or
+worker without returning to that thread, then resume unrelated storage and save,
+unmount and reset. Touched: IRQ registry/dispatcher, scheduler contract, battery
+runtime/model, host/VM proofs and documentation. Pro PR #19 at `426f0cd` remains
+independent Wi-Fi work with no touched-file overlap. No hardware run or installed
+payload change occurred; native startup and mounted Home remain off.
+
+### Local terminal handoff results
+
+All ten disposable VM cases passed. Both new target cases balanced 12 callback
+spinlock acquisitions with no pending query. Worker 9 or owner 8 was interrupted;
+all shared handlers/completions finished before retaining the pair, and storage
+thread 7 resumed with its original scope and successful registry removal. Both
+flushes completed across a 28-second scope. Generation 2, completion 10 and 9,411
+bytes of interpreter heap remained held across wake attempts, sleep expiry and a
+late SCI. Three clients retired; saved failure logs matched serial, followed by
+unmount, automatic reset and clean exact-tree/metadata/allocation/fsck checks.
+The retained runtime is deliberately not reported as cleanly retired. No target
+resumed after the fault. Zero Text saves in these fixtures are not an input
+responsiveness or pending-DMA claim.
+
+Native study admission refused before platform access, leaving the disposable
+volume byte-identical. The older callback scope still halted for target
+interruption, unmatched callback locks and out-of-scope query refusal. Previous
+returned-callback, IRQ-entry and watchdog/I/O recovery passed. Normal Text passed
+60 edits, 20 worker operations, five file cycles and clean service retirement.
+All ordinary/native/VM builds, the full core host suite, 20 proof-parser tests and
+397 documentation links passed. Host IRQ tests prove token/request exclusions,
+EOI-before-completions-before-handoff ordering and fully released registry state.
+Evidence with verified hashes is retained outside `build`. Actions remain disabled.
+
+Next boundary: audit native firmware/EC/shared-resource ownership and the still
+terminal callback failures before enabling mounted Home with the battery service.
+This completes the interrupted-target VM milestone; it does not accept arbitrary
+interpreter faults, physical level-triggered SCI recovery or outstanding DMA.
+
+### Returned GPE callback failures (PR #38)
+
+Base `origin/main` `a35cd5e` (PR #37). Add VM-only structured propagation for
+EC query-admission failures from the raw GPE callback, allowing the actual uACPI
+SCI callback to return before retaining noncurrent battery threads. Check balanced
+callback spinlock calls, no queued query, IRQ completion and unrelated storage
+continuation. No nonlocal unwind or arbitrary exception recovery. Native startup
+and mounted Home remain off. Touched: battery runtime/model, disposable VM harness
+and proof-parser tests; no scheduler or upstream interpreter changes planned.
+Pro PR #19 at `10caff8` remains separate Wi-Fi work. No hardware run is pending.
+
+### Local callback recovery results
+
+Code `14d4b39` passed nine disposable VM cases. The modeled enqueue refusal ran
+through the real uACPI SCI/GPE/raw-handler call chain and returned normally with
+12 callback spinlock acquisitions balanced and no pending query work item. The
+interrupted storage thread 7 continued after battery threads 8/9 were retained;
+secondary handler, post-EOI completion, registry removal and both flushes passed.
+Generation 2, worker completion 10 and 9,411 bytes of interpreter heap remained
+held across sleep expiry, wake attempts and a late SCI. Three clients retired;
+saved failure logs matched serial, followed by unmount, automatic reset and clean
+exact-tree/metadata/allocation checks. Zero Text saves in this fixture are not
+an input responsiveness claim.
+
+Interrupting the battery worker, leaving a modeled callback spinlock unmatched,
+and triggering the fault outside the explicit callback scope each halted without
+false storage retirement. Native admission refused before firmware access with
+the disposable disk unchanged. Previous IRQ-entry recovery/refusal and watchdog
+recovery during a storage scope passed. Normal Text completed 60 edits, 20 worker
+operations and five file cycles with generations 1→25 and clean retirement.
+Ordinary/native/VM builds, full core host tests, 19 proof-parser tests and 397
+local documentation links passed. Evidence is retained outside `build` with
+verified hashes. Actions remain disabled; no physical payload or reboot changed.
+
+The new boundary covers enqueue refusal after successful GPE suspend/clear and a
+normal interpreter return. Other callback failures still halt; PR #39 above covers
+an explicit VM scope for IRQs interrupting a battery thread. Shared native
+firmware/resource ownership and physical SCI/DMA recovery remain unaccepted; native mounted Home and automatic startup stay off.
+
+### IRQ entry fault containment (PR #37)
+
+Base `origin/main` `07dfa77` (merged PR #36). Add a VM-only recovery boundary
+for the foreign-event guard at SCI callback entry when both battery threads are
+noncurrent. Preserve the interrupted task, return through dispatcher/EOI and
+completion callbacks, and verify an unrelated storage owner can finish before
+saving failure logs/unmounting. Deep interpreter callback faults and interrupts
+of a battery thread remain terminal; no stack unwinding is implied. Touched:
+scheduler retention API, battery runtime/model, host proofs and disposable VM
+harness. Pro PR #19 at `6fb3af5` remains independent USB Wi-Fi work. No physical
+trial, installed payload change or native admission expansion is planned.
+
+### Local IRQ entry recovery results
+
+Code `b2bc9c1` passed all seven disposable workspace cases. The injected SCI
+returned to storage thread 7 after retaining battery threads 8/9. The next handler
+and post-EOI completion ran once; registry removal succeeded, callback in-flight
+count returned to zero, and the original stack sentinel and I/O ownership survived.
+Both flushes completed across the 28-second scope. Three clients retired, the
+9,379-byte interpreter heap and generation 2/completion 10 stayed retained, and
+saved failure logs matched serial evidence. Unmount, automatic reset and offline
+exact-tree/metadata/allocation checks passed. The IRQ fixture completed zero Text
+saves and is not an input latency or pending-DMA acceptance test.
+
+Both unsafe recovery cases halted as required: interrupting a battery worker and
+refusing the source-mask write. Neither claimed storage retirement. Native backend
+admission was refused before firmware access with the disposable disk unchanged.
+Previous watchdog recovery with/without a separate I/O owner passed. Normal
+mounted Text passed 60 generated/presented edits, 20 worker operations, five file
+cycles, generations 1→25, three client retirements and clean service teardown.
+Full ordinary/native/VM builds, core host tests, 18 proof-parser tests and 397
+local documentation links passed. Actions remain disabled. Evidence is archived
+outside `build` with hashes; no laptop reboot or installed-payload change occurred.
+
+This completes the bounded IRQ entry guard. Deep interpreter callback faults,
+IRQs interrupting battery threads, native firmware/shared-resource ownership and
+physical level-triggered SCI recovery remain open. Native mounted Home and
+ordinary automatic battery startup stay off.
+
+### Owner-watchdog quarantine and workspace recovery (PR #36)
+
+Base `origin/main` `49ded19` (PR #35). Add a CPU0 kernel-service quarantine
+primitive that retains exact identities/stacks, excludes wakeup and reuse, and
+refuses to quarantine a storage owner. Exercise only the battery owner's sample
+deadline outside IRQ context in the disposable VM backend, followed by client
+retirement, saved failure evidence, workspace drain/unmount and automatic reset.
+Native enablement and IRQ-origin faults remain excluded. Touched: scheduler,
+battery runtime/VM fixtures, recovery harness and host tests. Pro PR #19
+`b884060` remains independent Wi-Fi work; no subsystem overlap beyond Makefile.
+No physical run is pending; installed/recovery payloads remain unchanged.
+
+### Local owner-watchdog recovery results
+
+Code `ff8ddb5` passed both disposable VM recovery cases. Each retained two service
+threads and 9,379 bytes of interpreter heap, left generation 2 and worker completion
+10 unchanged across the old sleep expiry, queue wakeups and a late SCI dispatch,
+and refused restart/stop. Three clients retired before saving boot/exit failure
+logs, normal unmount and automatic reset. Saved logs match serial evidence; the
+exact file tree, metadata, anchors and offline allocation checks pass. The normal
+recovery case retained three completed Text files. The I/O-owner case completed
+both flushes across a 28-second storage scope and had zero Text saves; it is an
+ownership/recovery proof, not a responsiveness or outstanding-DMA claim.
+
+The negative fixture gives the modeled battery worker a storage scope; quarantine
+refuses it and halts without a scheduling window or reset. No storage retirement
+is claimed in that case. Native recovery admission is refused before firmware access, with the whole
+disposable disk unchanged. The previous mounted-runtime fault still halts when
+the explicit recovery study is absent. Normal mounted Text and two repeated
+scoped-control sessions still retire cleanly. Full builds/core host checks,
+malformed-proof rejection and 397 documentation links pass locally; Actions OFF.
+Full core/normal regressions ran on `3c98771`; the final terminal-refusal change
+was rebuilt and checked with focused host tests and all three recovery fixtures.
+The scheduler tests cover stale/user/dead/idle/storage-owner refusal, atomicity,
+wait unlink, late wake/expiry, and no slot or stack reuse, including slot exhaustion.
+
+No installed or recovery payload changed; no physical test is armed. Native Home
+remains disabled. Next is fault handling inside IRQ callbacks and a shared
+lock/resource audit before any native recovery trial. IRQ-origin faults must not
+abandon an interrupted storage owner's stack or skip IRQ completion accounting.
+Ordinary startup remains off; these results do not accept native EC/SCI recovery.
+
+### Current scope: mounted workspace coexistence and reset admission (PR #35)
+
+Base `origin/main` `7d8c58d` (merged PR #34). First add a checked reset policy:
+arming while parked must not authorize a later immediate reset with ordinary
+workspace writes live. Exercise the mounted `/work` application-file path in a
+disposable VM while retaining existing model/resource and I/O eligibility gates.
+Native mounted-workspace trials stay disabled until failure handling can preserve
+storage ownership and return safely. Automatic battery startup remains off.
+Touched scope: battery reset policy/runtime, opt-in application-file workload and
+VM/host tests; workspace recovery design. Pro PR #19 at `bb0284b` remains separate
+Wi-Fi firmware work. No physical run is pending or armed.
+
+### Mounted workspace VM study (PR #35)
+
+Code `207a52a` adds a fatal reset interlock and a VM-only mounted `/work` study.
+The normal Q35 run passed 60 Text edits, 20 file-worker operations (five
+save/stat/rename/reopen cycles), battery generations 1→25 and 60 cached UI reads.
+All three clients and the service retired, a replacement compositor succeeded,
+and the workspace unmounted normally. Offline checks found the exact expected
+tree and metadata, untouched anchors, nine files, 15 allocated clusters and no
+leaks or allocation mismatches. These are VM results, not physical input latency
+or gauge-accuracy acceptance.
+
+Early desktop timeout retired clients/service and left the entire disk unchanged.
+The native backend refused the mounted-study command before firmware access and
+also left the disk unchanged. Injected runtime timeout with `/work` mounted
+blocked reset and retained live state; it did not claim clean storage retirement.
+The parked controls timeout still reset automatically. The prior exclusive-image
+Text workload passed unchanged. Full ordinary/native/VM builds, core host tests,
+malformed-proof rejection and 397 documentation links passed locally; Actions
+remain disabled. Fault regressions retain isolated-image recovery checks and
+accept a halt only with explicit current I/O-ownership evidence.
+
+No installed payload or recovery changed and no reboot is armed. Automatic
+battery startup remains off. Native mounted Home remains disabled until failed
+ACPI owner/worker and IRQ callbacks can be contained without stack reuse or
+wake-up resurrection, followed by safe storage drain, logging and automatic
+return. The next block is that recovery mechanism and its injected-fault tests;
+this VM study does not authorize skipping it.
+
+### Native scoped controls checkpoint (PR #34)
+
+Release `87524e9fe7788772`, source `134f0d6`, session
+`session-00065e5f9bef533b-00` completed the automatic v44 trial and returned to
+Ubuntu. System admitted and dispatched all four commands, reached fresh sample
+generation 2 in each of two lifetimes, and showed both stopped states. Both service
+lifetimes detached their handler with zero remaining runtime heap, errors or denied
+operations. Two clients retired and control admission was revoked. The desktop
+made five fresh cached reads. SCI handled four deliveries, with none unclaimed.
+
+All 913 prior data files were byte-identical, including the old filesystem image.
+Only workspace metadata changed and exactly three matching logs were added.
+Offline checks passed: 196 directories, 917 files, 1,700 allocated clusters, no
+leaks or mismatches. The new Ubuntu boot, consumed one-shot, default/EFI order and
+installed/independent recovery payloads were verified. Evidence and payload hashes
+were verified outside `build`; current `87524e9fe7788772`, desktop recovery
+`b427b78f21644bd2`, and former accepted `27c39e5404ab573b` remain recoverable.
+
+This accepts the automatic native System action/syscall/lifecycle path with the
+outer workspace parked. Actual pointer controls and active-window close passed in
+Q35; attended physical clicking, input latency, ordinary Home coexistence and gauge
+accuracy remain separate acceptance work. Automatic battery startup stays disabled.
+
+### Scoped control implementation and local validation (PR #34)
+
+System Sensors now has shared Start/Stop presentation backed by a separate bounded
+command syscall and an owner-scoped mailbox. Four requests drive two service
+lifetimes; pending requests, stale epochs and invalid transitions are rejected.
+Client exit revokes admission before owner-controlled service retirement. The
+ordinary kernel offers no control scope and automatic startup stays disabled.
+
+Local Q35 checks pass two complete automatic sessions in the same VM, actual
+pointer Start/Stop/restart and window-close while active, forced compositor exit,
+native platform refusal, and injected live-runtime deadline with automatic reset.
+A replacement compositor succeeds after every clean case. Full host core and
+ordinary/native/VM builds pass. The previous Text file-worker workload and ordinary
+desktop applications also pass, alongside staging/collector and documentation
+checks. The new v44 unattended capture parks the outer
+workspace and saves completion logs only after retirement; it neither opens nor
+rewrites the prior filesystem image. Exact-stage refusal/save/return rehearsal and
+the native trial passed; see the bounded acceptance above.
+
+Two exploratory fixture problems were retained and corrected: the automatic
+study originally stopped before the injected third-sample fault, and concurrent
+UART output split a short request record. Fault testing now leaves monitoring
+active. Completed VM cases validate the atomic in-memory boot-log records, the
+same source saved by hardware captures; strict proof checks were not relaxed.
+The initial manual fixture also now waits for scope availability and its first
+frame. Ordinary workspace coexistence and attended input/AC accuracy remain open.
+
+### Previous checkpoint: application files and cached battery presentation accepted
 
 Release `27c39e5404ab573b`, source `977a554` (PR #33), session
 `session-00065e5ed9440af5-00` passed the automatic v43 hardware trial and returned

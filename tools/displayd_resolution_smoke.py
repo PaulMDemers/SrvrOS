@@ -85,7 +85,7 @@ def make_limine_conf(width, height):
     )
 
 
-def build_iso(root, temp_dir, width, height, env, kernel_path=None, initramfs_path=None):
+def build_iso(root, temp_dir, width, height, env, kernel_path=None, initramfs_path=None, cmdline=None):
     source = os.path.join(root, "build", "iso_root")
     iso_root = os.path.join(temp_dir, f"iso_root_{width}x{height}")
     iso = os.path.join(temp_dir, f"srvros-{width}x{height}.iso")
@@ -97,6 +97,9 @@ def build_iso(root, temp_dir, width, height, env, kernel_path=None, initramfs_pa
     if initramfs_path is not None:
         shutil.copy2(initramfs_path, os.path.join(iso_root, "boot", "initramfs.tar"))
     conf = make_limine_conf(width, height)
+    if cmdline is not None:
+        if "\n" in cmdline or "\r" in cmdline:raise ValueError("Invalid kernel command line")
+        conf += f"    cmdline: {cmdline}\n"
     limine_conf = os.path.join(iso_root, "boot", "limine", "limine.conf")
     with open(limine_conf, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(conf)

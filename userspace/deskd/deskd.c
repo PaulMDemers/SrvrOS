@@ -267,7 +267,7 @@ static void spawn_client(struct session *s) {
 }
 /* Diagnostic Text uses either RAM only or its normal asynchronous file worker. */
 static void spawn_capture_text(struct session *s,int files) {
-    char *argv[]={"/fat/bin/desktools","text",files?"--coexist-files":"--coexist-capture",NULL};
+    char *argv[]={"/fat/bin/desktools","text",files==4?"--coexist-control-files-cancel":files==3?"--coexist-control-files":files==2?"--coexist-workspace":files?"--coexist-files":"--coexist-capture",NULL};
     char *env[]={"HOME=" DESK_RAM_HOME,"SRVROS_DESKTOP_HOME=" DESK_RAM_HOME,NULL};
     struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
         .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
@@ -1064,7 +1064,13 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
-    int coexist_files=argc==2 && !strcmp(argv[1],"--coexist-files");
+    int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
+    int control_manual=control_monitor || (argc==2 && !strcmp(argv[1],"--battery-controls-manual"));
+    int control_capture=control_manual || (argc==2 && !strcmp(argv[1],"--battery-controls"));
+    int control_files_cancel=argc==2 && !strcmp(argv[1],"--battery-control-files-cancel");
+    int control_files=control_files_cancel || (argc==2 && !strcmp(argv[1],"--battery-control-files"));
+    int coexist_workspace=control_files || (argc==2 && !strcmp(argv[1],"--coexist-workspace"));
+    int coexist_files=coexist_workspace || (argc==2 && !strcmp(argv[1],"--coexist-files"));
     int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
     int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
@@ -1077,7 +1083,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((idle_capture || coexist) && !explicit_scale) {
+    if((idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -1090,7 +1096,7 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.ram_text=coexist_text,.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+    struct session s={.ram_text=coexist_text || control_capture,.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1110,7 +1116,8 @@ int main(int argc,char **argv) {
     battery_update(&s,1);
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-    if(coexist_text) spawn_capture_text(&s,coexist_files);
+    if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
+    else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
@@ -1118,9 +1125,15 @@ int main(int argc,char **argv) {
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
      * font-toggle events are not physical keyboard input. */
-    if(coexist) strcpy(s.scene.notice,coexist_files?"Battery overlap: Text save/rename/reopen in test image. No input needed.":"Battery overlap: RAM only. No input needed; returns automatically.");
+    if(control_capture)strcpy(s.scene.notice,control_manual?"Battery controls: use Start/Stop in Sensors. Close System to finish.":"Battery controls: two automatic start/stop cycles. No input needed.");
+    if(coexist) strcpy(s.scene.notice,coexist_workspace?"VM study: Text saves to mounted workspace. No input needed.":coexist_files?"Battery overlap: Text save/rename/reopen in test image. No input needed.":"Battery overlap: RAM only. No input needed; returns automatically.");
     uint64_t coexist_begin=0,coexist_last=0,coexist_gap=0,coexist_loops=0;
     uint64_t coexist_next=0,coexist_sent=0,coexist_ack=0,coexist_frames=0;
+    /* The control/file fixture acknowledges every twelfth generated edit only
+     * after save/stat/rename/reopen and a concurrent service transition. These
+     * are workload checkpoints, not ordinary key-delivery acknowledgements.
+     * Keep the client/control/transport deadlines unchanged. */
+    uint64_t coexist_limit=control_files?90000000:60000000;
     int coexist_complete=0,coexist_script_done=0;
     uint64_t coexist_keys=0,coexist_key_ack=0;
     int idle_phase=0;
@@ -1143,6 +1156,10 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        if(control_capture) {
+            if(s.child_reaped) { if(s.child_reaped!=1 || s.child_errors)failed=1;break; }
+            if(!control_monitor && (uint64_t)srv_ticks()-start>10000){failed=1;break;}
+        }
         if(coexist) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(coexist_last && now-coexist_last>coexist_gap) coexist_gap=now-coexist_last;
@@ -1150,18 +1167,24 @@ int main(int argc,char **argv) {
             if(!coexist_begin) {
                 if(s.scene.windows[0].pixels && s.clients[0].generation) {
                     coexist_begin=now;coexist_next=now;coexist_frames=frames;
-                    desk_log("desktop-coexist: ready start_us=%llu storage=%s generated=%s\n",(unsigned long long)now,coexist_files?"image":"ram",coexist_text?"text-edit":"font-toggle");
+                    desk_log("desktop-coexist: ready start_us=%llu storage=%s generated=%s\n",(unsigned long long)now,coexist_workspace?"workspace":coexist_files?"image":"ram",coexist_text?"text-edit":"font-toggle");
                 } else if((uint64_t)srv_ticks()-start>=500) { failed=1;break; }
             } else if(!s.clients[0].pid || !s.scene.windows[0].pixels) { failed=1;break; }
-            if(coexist_begin && now>=coexist_next && coexist_sent==coexist_ack && now-coexist_begin<60000000 && (!coexist_text || coexist_sent<60)) {
+            if(coexist_begin && now>=coexist_next && coexist_sent==coexist_ack && now-coexist_begin<coexist_limit && (!coexist_text || coexist_sent<60)) {
                 struct desk_packet p=desk_packet_new(coexist_text?DESK_KEY:DESK_TEXT);p.value=12;p.input_serial=coexist_sent+1;
                 if(coexist_text) { struct srv_key_event key=capture_key(coexist_sent);memcpy(p.text,&key,sizeof(key));
                     queue_input(&s,0,p);coexist_sent++;coexist_next=now+700000;
                 } else if(desk_send(s.clients[0].pid,&p)==0) { coexist_sent++;coexist_next=now+1000000; }
             }
-            if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+4000000) { failed=1;break; }
+            uint64_t checkpoint_budget=control_files && coexist_sent && !(coexist_sent%12)?15000000:4000000;
+            if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+checkpoint_budget) {
+                desk_log("desktop-coexist: progress-timeout serial=%llu presented=%llu elapsed_us=%llu budget_us=%llu\n",
+                    (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,
+                    (unsigned long long)(now-coexist_next),(unsigned long long)checkpoint_budget);
+                failed=1;break;
+            }
         }
-        if(apps || coexist)battery_update(&s,0);
+        if(apps || coexist || control_capture)battery_update(&s,0);
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if (io_mode && !io_ready && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
             io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
@@ -1486,8 +1509,12 @@ int main(int argc,char **argv) {
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
         if (s.damage.count) frames++;
-        if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent)
+        if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent) {
+            if(control_files && coexist_sent!=coexist_ack && !(coexist_sent%12))
+                desk_log("desktop-coexist: file-checkpoint serial=%llu elapsed_us=%llu\n",
+                    (unsigned long long)coexist_sent,(unsigned long long)((uint64_t)srv_monotonic_us()-(coexist_next-700000)));
             coexist_ack=coexist_sent;
+        }
         if(coexist_text && !failed && s.damage.count && coexist_keys && s.clients[0].present_input==1000+coexist_keys)
             coexist_key_ack=coexist_keys;
         if(coexist_text && !coexist_script_done && coexist_ack==60) {
@@ -1495,7 +1522,8 @@ int main(int argc,char **argv) {
         }
         s.damage.count=0;
         if(apps && !failed) capture_tick(&s,pixels);
-        if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack) {
+        if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack &&
+           (!control_files || coexist_ack==60 || (uint64_t)srv_monotonic_us()-coexist_begin>=coexist_limit)) {
             coexist_complete=coexist_ack>=55 && frames-coexist_frames>=55 &&
                 (!coexist_text || (coexist_ack==60 && coexist_keys==coexist_key_ack));
             if(!coexist_complete) failed=1;
@@ -1577,18 +1605,19 @@ int main(int argc,char **argv) {
         }
         if (s.clients[i].pid) forget(&s,i);
     }
+    if(control_capture)desk_log("desktop-controls: completed=%s reaped=%u errors=%u cached_reads=%llu\n",!failed && s.child_reaped==1 && !s.child_errors?"yes":"NO",s.child_reaped,s.child_errors,(unsigned long long)s.battery_reads);
     if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;
     if(coexist)desk_log("desktop-battery: reads=%llu first_gen=%llu last_gen=%llu cached=yes\n",
         (unsigned long long)s.battery_reads,(unsigned long long)s.battery_first,(unsigned long long)s.battery_last);
     if(coexist_text) desk_log("desktop-text: generated=%llu presented=%llu keyboard_sent=%llu keyboard_presented=%llu storage=%s\n",
         (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,
-        (unsigned long long)coexist_keys,(unsigned long long)coexist_key_ack,coexist_files?"image":"ram");
+        (unsigned long long)coexist_keys,(unsigned long long)coexist_key_ack,coexist_workspace?"workspace":coexist_files?"image":"ram");
     if(coexist) {
         if(!coexist_complete) failed=1;
         desk_log("desktop-coexist: completed=%s start_us=%llu end_us=%llu loops=%llu max_gap_us=%llu generated=%llu presented=%llu frames=%llu storage=%s\n",
             failed?"NO":"yes",(unsigned long long)coexist_begin,(unsigned long long)coexist_end,
             (unsigned long long)coexist_loops,(unsigned long long)coexist_gap,
-            (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,(unsigned long long)(frames-coexist_frames),coexist_files?"image":"ram");
+            (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,(unsigned long long)(frames-coexist_frames),coexist_workspace?"workspace":coexist_files?"image":"ram");
     }
     if(apps) {
         if(s.preferences.dirty) desk_log("deskd: preferences were not fully saved (status=%u)\n",s.preferences.status);

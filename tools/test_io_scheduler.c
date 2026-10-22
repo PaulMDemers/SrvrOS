@@ -15,6 +15,7 @@ void fpu_init_state(struct fpu_state *state) {(void)state;}
 static void empty_worker(void *arg) {(void)arg;}
 
 uint64_t timer_monotonic_us(void) { return clock_us; }
+uint64_t timer_ticks(void) { return clock_us/10000; }
 uint64_t vmm_current_address_space(void) { return actual_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
 void vmm_switch_address_space(uint64_t space) { actual_space=space; }
@@ -123,6 +124,69 @@ int main(void) {
     assert(scheduler_spawn("reused",empty_worker,NULL) && threads[1].identity==3 && frees==1);
     current_thread=1;assert(scheduler_current_thread_id()==3);current_thread=0;
     next_identity=UINT64_MAX;assert(!scheduler_spawn("exhausted",empty_worker,NULL));
+    memset(threads,0,sizeof(threads));current_thread=3;idle_thread=1;next_identity=20;
+    threads[1]=(struct thread){.identity=2,.state=THREAD_READY,.io_eligible=idle_eligible};
+    threads[3]=(struct thread){.identity=10,.state=THREAD_RUNNING,.stack=fake_stack,.stack_physical=4096,.io_eligible=ready};
+    struct scheduler_wait_queue held_wait={.waiters=1ull<<4};
+    threads[4]=(struct thread){.identity=11,.state=THREAD_BLOCKED,.stack=fake_stack,.stack_physical=4096,.io_eligible=ready,
+        .blocked_queue=&held_wait,.blocked_deadline_ticks=1};
+    struct thread original[2]={threads[3],threads[4]};
+    assert(!scheduler_quarantine_service_pair(9,11));assert(!scheduler_quarantine_service_pair(10,10));
+    assert(!scheduler_quarantine_service_pair(10,2));assert(!scheduler_quarantine_service_pair(10,12));
+    switching=true;assert(!scheduler_quarantine_service_pair(10,11));switching=false;
+    threads[1].state=THREAD_BLOCKED;assert(!scheduler_quarantine_service_pair(10,11));threads[1].state=THREAD_READY;
+    threads[3].address_space=1;assert(!scheduler_quarantine_service_pair(10,11));threads[3]=original[0];
+    threads[3].user_context=(void *)1;assert(!scheduler_quarantine_service_pair(10,11));threads[3]=original[0];
+    threads[4].user_context=(void *)1;assert(!scheduler_quarantine_service_pair(10,11));threads[4]=original[1];
+    threads[4].state=THREAD_DEAD;assert(!scheduler_quarantine_service_pair(10,11));threads[4]=original[1];
+    io_depth=1;io_owner=4;assert(!scheduler_quarantine_service_pair(10,11));
+    io_owner=3;assert(!scheduler_quarantine_service_pair(10,11));
+    io_owner=5;threads[5]=(struct thread){.identity=12,.state=THREAD_READY};
+    assert(!memcmp(&threads[3],&original[0],sizeof(struct thread)) && !memcmp(&threads[4],&original[1],sizeof(struct thread)));
+    assert(scheduler_quarantine_service_pair(10,11));assert(io_depth==1 && io_owner==5);
+    assert(scheduler_service_pair_quarantined(10,11));assert(!scheduler_service_pair_quarantined(10,12));
+    assert(!held_wait.waiters && !threads[4].blocked_queue && !threads[4].blocked_deadline_ticks);
+    held_wait.waiters=1ull<<4;assert(!scheduler_wake_count(&held_wait,1) && !held_wait.waiters);
+    clock_us=20000;wake_expired_waits();assert(scheduler_service_pair_quarantined(10,11));
+    assert(next_ready_thread(3)==5);assert(!scheduler_quarantine_service_pair(10,11));
+    current_thread=5;scheduler_io_end();unsigned old_frees=frees;
+    assert(scheduler_spawn("after quarantine",empty_worker,NULL));assert(frees==old_frees);
+    assert(scheduler_service_pair_quarantined(10,11));
+    assert(threads[3].stack==original[0].stack && threads[4].stack==original[1].stack);
+    for(unsigned i=1;i<SCHEDULER_MAX_THREADS;i++)if(threads[i].state==THREAD_UNUSED)threads[i].state=THREAD_READY;
+    assert(!scheduler_spawn("must not reuse quarantine",empty_worker,NULL) && frees==old_frees);
+    assert(scheduler_service_pair_quarantined(10,11));
+
+    /* An IRQ entry guard may hold only noncurrent services. All rejection
+     * cases must leave the interrupted storage context and both targets intact. */
+    memset(threads,0,sizeof(threads));current_thread=5;idle_thread=1;
+    threads[1]=(struct thread){.identity=2,.state=THREAD_READY,.io_eligible=idle_eligible};
+    threads[3]=original[0];threads[3].state=THREAD_READY;threads[4]=original[1];
+    held_wait.waiters=1ull<<4;
+    threads[5]=(struct thread){.identity=12,.state=THREAD_RUNNING,.address_space=2,.user_context=(void *)2};
+    struct thread interrupted=threads[5],targets[2]={threads[3],threads[4]};
+    io_owner=5;io_depth=2;
+    assert(!scheduler_quarantine_noncurrent_services(10,12));
+    assert(!scheduler_quarantine_noncurrent_services(12,11));
+    assert(!scheduler_quarantine_noncurrent_services(10,10));
+    assert(!scheduler_quarantine_noncurrent_services(10,99));
+    assert(!scheduler_quarantine_noncurrent_services(2,11));
+    switching=true;assert(!scheduler_quarantine_noncurrent_services(10,11));switching=false;
+    threads[3].state=THREAD_RUNNING;assert(!scheduler_quarantine_noncurrent_services(10,11));threads[3]=targets[0];
+    threads[3].user_thread_context=(void *)1;assert(!scheduler_quarantine_noncurrent_services(10,11));threads[3]=targets[0];
+    threads[4].state=THREAD_DEAD;assert(!scheduler_quarantine_noncurrent_services(10,11));threads[4]=targets[1];
+    io_owner=3;assert(!scheduler_quarantine_noncurrent_services(10,11));
+    io_owner=4;assert(!scheduler_quarantine_noncurrent_services(10,11));io_owner=5;
+    assert(!memcmp(&threads[3],&targets[0],sizeof(struct thread)) && !memcmp(&threads[4],&targets[1],sizeof(struct thread)));
+    assert(held_wait.waiters==(1ull<<4));
+    assert(scheduler_quarantine_noncurrent_services(10,11));
+    assert(!memcmp(&threads[5],&interrupted,sizeof(struct thread)) && current_thread==5 && io_owner==5 && io_depth==2);
+    assert(scheduler_service_pair_quarantined(10,11) && !held_wait.waiters);
+    held_wait.waiters=(1ull<<3)|(1ull<<4);scheduler_wake_all(&held_wait);wake_expired_waits();
+    assert(scheduler_service_pair_quarantined(10,11) && next_ready_thread(5)==5);
+    assert(!scheduler_quarantine_noncurrent_services(10,11));
+    puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
+    puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }
 

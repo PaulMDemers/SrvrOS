@@ -170,9 +170,7 @@ static void sensors_refresh(struct tool *t,int force) {
     }
     if(t->thermal_valid && s.samples && now>=0 && (uint64_t)now>=s.sampled_us)
         snprintf(t->sensor_values[5],64,"%llu ms%s",(unsigned long long)(((uint64_t)now-s.sampled_us)/1000),t->thermal_fresh?"":" · stale");
-    struct srv_battery_status battery={0};
-    long battery_result=srv_battery_status(&battery);
-    struct desk_battery_view battery_view=desk_battery_view(battery_result?NULL:&battery);
+    struct desk_battery_view battery_view=desk_battery_view(&t->battery);
     snprintf(t->sensor_values[6],64,"%.63s",battery_view.detail);
     struct srv_smc_status fan={0};t->smc_fresh=0;
     if(!srv_smc_status(&fan) && fan.version==SRV_SMC_VERSION && fan.samples && now>=0 && (uint64_t)now>=fan.sampled_us) {
@@ -187,7 +185,23 @@ static void sensors_refresh(struct tool *t,int force) {
     desk_table_rows(&t->sensor_table,t->sensor_rows,9);
     if(force) desk_log("desktools: sensors-refresh valid=%d fresh=%d state=%u flags=%u samples=%llu\n",t->thermal_valid,t->thermal_fresh,s.state,s.flags,(unsigned long long)s.samples);
 }
+static void battery_refresh(struct tool *t,int force) {
+    uint64_t now=srv_ticks();if(!force && now-t->battery_refresh_tick<25)return;
+    t->battery_refresh_tick=now;
+    struct srv_battery_status value={0};struct srv_battery_control control={0};
+    if(srv_battery_status(&value))value=(struct srv_battery_status){0};
+    if(srv_battery_control(SRV_BATTERY_QUERY,0,&control))control=(struct srv_battery_control){0};
+    int changed=value.state!=t->battery.state || value.flags!=t->battery.flags || value.generation!=t->battery.generation ||
+        memcmp(&control,&t->battery_control,sizeof(control));
+    if(changed && control.available && (control.available!=t->battery_control.available || value.state!=t->battery.state || value.epoch!=t->battery.epoch || (value.generation!=t->battery.generation && value.generation<=2)))
+        desk_log("battery-ui: state=%u epoch=%llu generation=%llu pending=%u\n",value.state,(unsigned long long)value.epoch,(unsigned long long)value.generation,control.pending);
+    t->battery=value;t->battery_control=control;
+    struct desk_battery_view view=desk_battery_view(&value);
+    snprintf(t->sensor_values[6],64,"%.63s",view.detail);
+    if(changed) { tool_system_layout(t);t->window.dirty=1; }
+}
 void tool_system_refresh(struct tool *t,int force) {
+    battery_refresh(t,force);
     uint64_t now=srv_ticks();if(!force && (t->system_paused || now-t->refresh_tick<100)) return;
     int trace=force || now/1000!=t->refresh_tick/1000;t->refresh_tick=now;
     long index=0;int count=0;struct srv_process_info p;
@@ -220,6 +234,8 @@ void tool_system_init(struct tool *t) {
     desk_ui_add(&t->ui,SYSTEM_PAUSE,DESK_CONTROL_BUTTON,&t->buttons[0],"Pause");
     desk_ui_add(&t->ui,SYSTEM_REFRESH,DESK_CONTROL_BUTTON,&t->buttons[1],"Refresh");
     desk_ui_add(&t->ui,SYSTEM_DIAGNOSTICS,DESK_CONTROL_BUTTON,&t->buttons[2],"Diagnostics");
+    desk_ui_add(&t->ui,SYSTEM_BATTERY_START,DESK_CONTROL_BUTTON,&t->buttons[3],"Start monitoring");
+    desk_ui_add(&t->ui,SYSTEM_BATTERY_STOP,DESK_CONTROL_BUTTON,&t->buttons[4],"Stop monitoring");
     tool_system_refresh(t,1);desk_log("desktools: system-ready processes=%d total=%llu\n",t->process_count,(unsigned long long)t->system_memory.total_bytes);
 }
 void tool_system_layout(struct tool *t) {
@@ -229,7 +245,10 @@ void tool_system_layout(struct tool *t) {
     desk_button_configure(&t->buttons[2],w>=500?(struct desk_rect){w-324,18,116,28}:(struct desk_rect){0},w>=500);
     desk_tabs_configure(&t->system_tabs,(struct desk_rect){16,56,w-32,32},1);
     int page=desk_tabs_selected(&t->system_tabs),network=page==SYSTEM_NETWORK,devices=page==SYSTEM_DEVICES;
-    desk_table_configure(&t->sensor_table,page==SYSTEM_SENSORS?(struct desk_rect){16,132,w-32,h>206?h-206:0}:(struct desk_rect){0},page==SYSTEM_SENSORS);
+    desk_table_configure(&t->sensor_table,page==SYSTEM_SENSORS?(struct desk_rect){16,132,w-32,h>250?h-250:0}:(struct desk_rect){0},page==SYSTEM_SENSORS);
+    struct desk_battery_controls control=desk_battery_controls(&t->battery,&t->battery_control);
+    desk_button_configure(&t->buttons[3],page==SYSTEM_SENSORS?(struct desk_rect){16,h-104,164,28}:(struct desk_rect){0},page==SYSTEM_SENSORS && control.start);
+    desk_button_configure(&t->buttons[4],page==SYSTEM_SENSORS?(struct desk_rect){192,h-104,164,28}:(struct desk_rect){0},page==SYSTEM_SENSORS && control.stop);
     desk_table_configure(&t->device_table,devices?(struct desk_rect){16,132,w-32,h>206?h-206:0}:(struct desk_rect){0},devices);
     desk_table_configure(&t->table,page!=SYSTEM_PROCESSES?(struct desk_rect){0}:(struct desk_rect){16,158,w-32,h>232?h-232:0},page==SYSTEM_PROCESSES);
     desk_table_configure(&t->network_table,network?(struct desk_rect){16,132,w-32,h>176?h-176:0}:(struct desk_rect){0},network);
@@ -243,6 +262,16 @@ void tool_system_action(struct tool *t,struct desk_action a) {
     if(a.id==SYSTEM_TABS) {
         tool_system_layout(t);desk_ui_layout_changed(&t->ui);tool_system_refresh(t,1);
         desk_log("desktools: system-page=%s\n",desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?"network":desk_tabs_selected(&t->system_tabs)==SYSTEM_DEVICES?"devices":desk_tabs_selected(&t->system_tabs)==SYSTEM_SENSORS?"sensors":"processes");
+    }
+    if(a.id==SYSTEM_BATTERY_START || a.id==SYSTEM_BATTERY_STOP) {
+        struct desk_battery_controls view=desk_battery_controls(&t->battery,&t->battery_control);
+        unsigned op=a.id==SYSTEM_BATTERY_START?SRV_BATTERY_START:SRV_BATTERY_STOP;
+        if(!(op==SRV_BATTERY_START?view.start:view.stop))return;
+        long result=srv_battery_control(op,t->battery.epoch,&t->battery_control);
+        snprintf(t->battery_notice,sizeof(t->battery_notice),"%s",result==SRV_BATTERY_CONTROL_STALE?"Battery state changed. Try again.":
+            result==SRV_BATTERY_CONTROL_BUSY?"A battery request is already pending.":result?"Battery request was not accepted.":"");
+        tool_system_layout(t);t->window.dirty=1;
+        desk_log("battery-ui: request=%u result=%ld serial=%llu epoch=%llu\n",op,result,(unsigned long long)t->battery_control.serial,(unsigned long long)t->battery.epoch);
     }
     if(a.id==SYSTEM_DIAGNOSTICS) tool_launch(t,DESK_APP_NETWORK,"");
     if(a.id==SYSTEM_REFRESH) tool_system_refresh(t,1);
@@ -259,9 +288,9 @@ void tool_system_draw(struct tool *t,struct desk_canvas *c) {
         desk_label_draw(c,(struct desk_rect){16,98,c->width-32,26},theme->body,network_state(t),theme->text);return;
     }
     if(desk_tabs_selected(&t->system_tabs)==SYSTEM_SENSORS) {
-        const char *state=(t->thermal_fresh || t->smc_fresh)?"Sensors · updates every second":t->thermal_valid&&t->thermal.samples?"Sensor readings are stale":"No active sensor provider";
+        const char *state=(t->thermal_fresh || t->smc_fresh || desk_battery_view(&t->battery).fresh)?"Sensors · updates every second":t->thermal_valid&&t->thermal.samples?"Sensor readings are stale":"No active sensor provider";
         desk_label_draw(c,(struct desk_rect){16,98,c->width-32,26},theme->body,state,theme->text);
-        desk_label_draw(c,(struct desk_rect){16,c->height-64,c->width-32,24},theme->body,"Read-only readings. Fan and power management are not enabled.",theme->muted);return;
+        desk_label_draw(c,(struct desk_rect){16,c->height-64,c->width-32,24},theme->body,t->battery_notice[0]?t->battery_notice:desk_battery_controls(&t->battery,&t->battery_control).message,theme->muted);return;
     }
     char label[128];
     if(desk_tabs_selected(&t->system_tabs)==SYSTEM_DEVICES) {

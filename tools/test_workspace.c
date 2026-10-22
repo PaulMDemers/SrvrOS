@@ -77,6 +77,7 @@ bool process_has_open_vfs_prefix(const char *p) { assert(!strcmp(p,"/work"));ret
 int64_t process_file_sync_all(void) { return file_sync_ok?0:-1; }
 static void reset(void) {
     active=NULL;parked=NULL;failed=image_busy=false;scratch=(__typeof__(scratch)){0};memset(disks,0,sizeof(disks));
+    mount_generation=hold_serial=0;mount_hold=(__typeof__(mount_hold)){0};
     count=1;enables=disables=flushes=depth=raw_writes=invalidations=0;
     scratch_file=mismatch=false;extent_ok=raw_write_ok=raw_read_ok=true;
     disks[0].block_size=512;disks[0].read=raw_read;
@@ -86,6 +87,41 @@ static void reset(void) {
     marker=(struct vfs_node){.type=VFS_NODE_FILE,.size=sizeof(marker_text)-1};
 }
 int main(void) {
+    reset();assert(!workspace_mount_hold_acquire()&&!workspace_mount_held());
+    assert(!workspace_mount_hold_valid(0)&&!workspace_mount_hold_release(0));
+    assert(workspace_mount("37d8c5d0"));
+    foreign=true;assert(!workspace_mount_hold_acquire());foreign=false;
+    dirty=true;assert(!workspace_mount_hold_acquire());dirty=false;
+    uint64_t token=workspace_mount_hold_acquire();assert(token&&workspace_mount_held());
+    assert(workspace_mount_hold_valid(token)&&!workspace_mount_hold_acquire());
+    assert(!workspace_mount_hold_valid(token+1)&&!workspace_mount_hold_release(token+1));
+    assert(!workspace_unmount()&&!flushes&&!disables&&mounted);
+    assert(!workspace_scratch_prepare()&&!scratch_file&&!flushes&&!disables);
+    assert(!workspace_mount("37d8c5d0")&&workspace_mount_hold_valid(token));
+    assert(workspace_sync()&&flushes==1&&workspace_mount_hold_valid(token));
+    /* File-I/O activity does not invalidate a lifetime pin. */
+    foreign=true;assert(workspace_mount_hold_valid(token));foreign=false;
+    assert(workspace_mount_hold_release(token)&&!workspace_mount_held());
+    assert(!workspace_mount_hold_release(token)&&!workspace_mount_hold_valid(token));
+    uint64_t next=workspace_mount_hold_acquire();assert(next>token);
+    assert(!workspace_mount_hold_release(token)&&workspace_mount_hold_valid(next));
+    assert(workspace_mount_hold_release(next)&&workspace_unmount());
+    assert(workspace_mount("37d8c5d0"));token=workspace_mount_hold_acquire();assert(token>next);
+    assert(!workspace_mount_hold_valid(next)&&!workspace_mount_hold_release(next));
+    /* Fail closed on an unexpected mount identity change, even the same device
+     * pointer/UUID reused under a later mount. A mismatched release cannot unpin. */
+    mount_generation++;assert(!workspace_mount_hold_valid(token)&&!workspace_mount_hold_release(token));
+    assert(workspace_mount_held()&&!workspace_unmount());mount_generation--;
+    active=&disks[1];assert(!workspace_mount_hold_valid(token)&&!workspace_mount_hold_release(token));active=disks;
+    /* Storage failure must not trap a successfully retired owner forever. The
+     * ordinary failed-storage policy still refuses sync/unmount after release. */
+    flush_ok=false;assert(!workspace_sync()&&failed&&workspace_mount_hold_valid(token));
+    assert(workspace_mount_hold_release(token)&&!workspace_mount_held());
+    assert(!workspace_mount_hold_acquire()&&!workspace_unmount());
+    reset();assert(workspace_mount("37d8c5d0"));hold_serial=UINT64_MAX;
+    assert(!workspace_mount_hold_acquire()&&!workspace_mount_held());
+    assert(workspace_unmount());mount_generation=UINT64_MAX;
+    assert(!workspace_mount("37d8c5d0")&&!mounted);
     reset();image_busy=true;assert(!workspace_mount("37d8c5d0")&&!mounted&&!enables);
     reset();assert(!workspace_parked_device());workspace_boot("srvros.storage=ram");assert(!active && !enables);
     workspace_boot("srvros.workspace-volume=37d8c5d0 srvros.workspace-volume=37d8c5d0");assert(!active && !enables);
@@ -134,5 +170,5 @@ int main(void) {
         assert(!workspace_scratch_end()&&!scratch.open&&!scratch.write&&!scratch.flush);
         assert(!workspace_mount("37d8c5d0")&&!depth&&!disks[0].write);
     }
-    puts("workspace-host: PASS (UUID/marker/duplicate/dirty guards, I/O owner, busy files, flush failure, unmount/revoke)");
+    puts("workspace-host: PASS (mount identity/hold/release/stale tokens, UUID/marker/duplicate/dirty guards, I/O owner, busy files, flush failure, unmount/revoke)");
 }

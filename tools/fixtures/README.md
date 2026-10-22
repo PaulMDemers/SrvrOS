@@ -48,3 +48,19 @@ descriptors captured from the Pro's Edimax adapter, revision 0100, at high speed
 It contains no string descriptor values, serial number, MAC address or SSID.
 `test_wifi_usb_inventory.py` checks identity/topology refusal and truncation.
 This fixture establishes USB transport shape, not radio support.
+
+`apple-05ac-0290-config.bin` is the 84-byte configuration from MacBookAir6,1's
+privileged Linux inventory on 2026-10-22 (root port 5, revision 0171). Device
+descriptor and strings are excluded. It is byte-identical to the 0291 fixture:
+boot keyboard interface 1/EP82, raw trackpad interface 2/EP83, 64-byte packets.
+The Type 3/no-mode-switch selection follows Linux v6.12
+[Wellspring8 mapping](https://github.com/torvalds/linux/blob/v6.12/drivers/input/mouse/bcm5974.c).
+Host tests replay synthetic packets and transport failures through this PID's
+capture-only admission, and refuse other revisions, pointer/gesture modes and
+incorrect descriptors. This is not native packet or pointer acceptance.
+
+`apple-05ac-0290-capture.txt` contains only the touch/multi/button packet samples
+from MacBookAir6,1 run `77ab86681e27132d`, release `19eb394b28cbeef5` (October
+22, 2026). No device strings, serials or USB files are included. Native capture
+passed; these isolated frames verify Type 3 decoding, not pointer feel, motion
+direction, scrolling or drag trajectories.

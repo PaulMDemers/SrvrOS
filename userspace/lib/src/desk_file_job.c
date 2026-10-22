@@ -28,7 +28,7 @@ int desk_file_job_start(struct desk_file_job *j,unsigned operation,const char *p
     if(length) memcpy(j->outgoing,data,length);
     j->response=(struct desk_file_response){0};j->sent=j->received=0;j->busy=1;return 0;
 }
-int desk_file_job_poll(struct desk_file_job *j) {
+int desk_file_job_submit(struct desk_file_job *j) {
     if(j->broken) return -1;
     if(!j->busy) return 0;
     for(unsigned batch=0;batch<4 && j->sent<sizeof(j->request)+j->request.length;batch++) {
@@ -41,6 +41,15 @@ int desk_file_job_poll(struct desk_file_job *j) {
         if(n<=0 || (size_t)n>bytes) goto failed;
         j->sent+=n;
     }
+    /* A completed reply can outlive its worker. Let poll validate/drain it
+     * before declaring worker death, as it did before split submission. */
+    if(j->sent<sizeof(j->request)+j->request.length && j->pid && !desk_process_alive(j->pid))goto failed;
+    return j->sent==sizeof(j->request)+j->request.length;
+failed:j->busy=0;j->broken=1;return -1;
+}
+int desk_file_job_poll(struct desk_file_job *j) {
+    if(desk_file_job_submit(j)<0)return -1;
+    if(!j->busy)return 0;
     for(unsigned batch=0;batch<4;batch++) {
         void *data;size_t bytes;
         if(j->received<sizeof(j->response)) { data=(char *)&j->response+j->received;bytes=sizeof(j->response)-j->received; }

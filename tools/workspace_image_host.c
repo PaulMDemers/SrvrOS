@@ -12,7 +12,7 @@
 
 static int fd;
 static struct block_device disk;
-static bool mounted, parked, busy, foreign;
+static bool mounted, parked, busy, foreign, mount_held;
 static unsigned writes, flushes, depth, fail_write, crash_write, fail_flush;
 static unsigned fat_writes, reads;
 static uint64_t mock_us;
@@ -84,6 +84,7 @@ bool block_write(struct block_device *d,uint64_t o,const void *p,uint64_t n){
     return true;
 }
 bool workspace_active(void){return mounted;}
+bool workspace_mount_held(void){return mount_held;}
 struct block_device *workspace_parked_device(void){return parked&&!disk.write&&!disk.flush?&disk:NULL;}
 bool workspace_sync(void){return mounted&&fsync(fd)==0;}
 bool workspace_unmount(void){
@@ -102,6 +103,11 @@ int main(int argc,char **argv){
         close(fd);puts("image: refused without writes");return 0;
     }
     busy=true;assert(!workspace_image_open());busy=false;
+    mount_held=true;
+    unsigned held_reads=reads,held_writes=writes,held_flushes=flushes;
+    assert(!workspace_image_open() && mounted && !workspace_image_busy() &&
+        reads==held_reads && writes==held_writes && flushes==held_flushes);
+    mount_held=false;
     foreign=true;assert(!workspace_image_open());foreign=false;
     assert(workspace_image_open()&&workspace_image_ready()&&workspace_image_busy());
     assert(!workspace_image_open()&&!mounted&&!disk.write&&!disk.flush);

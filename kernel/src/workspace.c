@@ -15,6 +15,11 @@
 static struct block_device *active, *parked;
 static char active_uuid[9];
 static bool failed;
+static uint64_t mount_generation, hold_serial;
+static struct {
+    uint64_t token, generation;
+    struct block_device *volume, *parent;
+} mount_hold;
 static struct {
     bool open, poisoned;
     struct block_device *volume,*parent;
@@ -90,6 +95,49 @@ static bool marker_valid(const char uuid[9]) {
     return ok;
 }
 bool workspace_active(void) { return active != NULL; }
+/* Metadata only, CPU0. Unlike begin(), these never enter a storage scope or
+ * yield: a file worker may use the pinned mount concurrently with its owner. */
+static uint64_t hold_lock(void) {
+    uint64_t flags=0;
+#ifndef SRVROS_WORKSPACE_HOST_TEST
+    __asm__ volatile("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+#endif
+    return flags;
+}
+static void hold_unlock(uint64_t flags) {
+#ifndef SRVROS_WORKSPACE_HOST_TEST
+    if(flags&(1ull<<9))__asm__ volatile("sti" : : : "memory");
+#else
+    (void)flags;
+#endif
+}
+static bool hold_matches(uint64_t token) {
+    return token && token==mount_hold.token && active && active==mount_hold.volume &&
+        mount_generation==mount_hold.generation && block_parent(active)==mount_hold.parent;
+}
+uint64_t workspace_mount_hold_acquire(void) {
+    uint64_t flags=hold_lock(),token=0;
+    struct block_device *parent=block_parent(active);
+    if(!mount_hold.token && hold_serial!=UINT64_MAX && active && parent && !failed &&
+       !scheduler_io_active() && !workspace_image_busy() && !scratch.open && !scratch.poisoned &&
+       active->write && parent->write && parent->flush && exfat_is_writable("/work")) {
+        token=++hold_serial;
+        mount_hold.token=token;mount_hold.generation=mount_generation;
+        mount_hold.volume=active;mount_hold.parent=parent;
+    }
+    hold_unlock(flags);return token;
+}
+bool workspace_mount_hold_valid(uint64_t token) {
+    uint64_t flags=hold_lock();bool ok=hold_matches(token);hold_unlock(flags);return ok;
+}
+bool workspace_mount_hold_release(uint64_t token) {
+    uint64_t flags=hold_lock();bool ok=hold_matches(token);
+    if(ok){mount_hold.token=0;mount_hold.generation=0;mount_hold.volume=NULL;mount_hold.parent=NULL;}
+    hold_unlock(flags);return ok;
+}
+bool workspace_mount_held(void) {
+    uint64_t flags=hold_lock();bool held=mount_hold.token!=0;hold_unlock(flags);return held;
+}
 /* CPU0 diagnostic admission only; no mount or I/O side effects. The caller must
  * keep the workspace unmounted and must not enable writes during the lease. */
 struct block_device *workspace_parked_device(void) {
@@ -110,7 +158,7 @@ bool workspace_mount(const char *uuid) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
     bool ok = false;
-    if (workspace_image_busy() || scratch.open || scratch.poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
+    if (mount_hold.token || mount_generation==UINT64_MAX || workspace_image_busy() || scratch.open || scratch.poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
     struct block_device *device = find_volume(serial);
     struct block_device *parent = block_parent(device);
     if (!device || !parent || parent->write) {
@@ -126,6 +174,7 @@ bool workspace_mount(const char *uuid) {
         usb_storage_disable_volume_writes(device); exfat_unmount("/work"); goto out;
     }
     active = device; parked = NULL; failed = false;
+    mount_generation++;
     for (unsigned i = 0; i < 9; i++) active_uuid[i] = compact[i];
     console_write("workspace: ready at /work/srvros-work\n");
     console_write("workspace: type 'workspace shell' to open your saved environment\n");
@@ -154,6 +203,7 @@ bool workspace_unmount(void) {
     if (!begin(&scope)) { end(&scope); return false; }
     bool ok = false;
     if (!active) { console_write("workspace: not mounted\n"); goto out; }
+    if (mount_hold.token) { console_write("workspace: busy; mounted lifetime is held\n"); goto out; }
     if (process_has_open_vfs_prefix("/work")) { console_write("workspace: busy; close files first\n"); goto out; }
     if (!sync_locked()) goto out;
     if (!exfat_unmount("/work") || !usb_storage_disable_volume_writes(active)) {
@@ -171,7 +221,7 @@ bool workspace_scratch_prepare(void) {
     struct scope scope;
     if(!begin(&scope)){end(&scope);return false;}
     bool ok=false;
-    if(scratch.open||scratch.poisoned||!active||failed||process_has_open_vfs_prefix("/work"))goto out;
+    if(mount_hold.token||scratch.open||scratch.poisoned||!active||failed||process_has_open_vfs_prefix("/work"))goto out;
     char path[]="/work/srvros-work/battery-io-0000000000000000.bin";
     uint64_t nonce=timer_monotonic_us();
     for(unsigned i=0;i<16;i++)path[sizeof("/work/srvros-work/battery-io-")-1+i]="0123456789abcdef"[(nonce>>(60-i*4))&15];

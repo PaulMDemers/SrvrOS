@@ -2501,3 +2501,18 @@ Workspace clean153files/478clusters with zero allocation errors; unmounted.
 Run/checkpoint collected and unarmed. Next extend remaining MAC/baseband setup
 with bounded commands and register-specific readbacks. RF, scan, association
 and connectivity remain pending; this accepts only the fixed four-register plan.
+
+Active scope: consume main22fd266 (PR55 shared service/workspace lifecycle and
+Air6,1 input support) before extending Wi-Fi initialization. Preserve Pro MCU
+commands/tests and all upstream battery profiles; no Pro battery acceptance.
+Resolve overlapping boot profile numbers with a namespaced Wi-Fi calibration
+recipe and exact historical verification. Build/core tests and exact fw-v8 VM
+rehearsal precede any new hardware candidate. Current accepted native release
+190ab5353ae2f8b6 and recovery remain installed and unarmed.
+
+Merged baseline22fd266: full build/test-core,64 boot-profile tests and docs checks
+passed. All48 upstream laptop profile variants generate identical configs.
+Historical v43/v44 Wi-Fi recipes still verify exactly; new calibration uses
+wifi-cal-v1 to avoid battery profile collisions. PR60 process-lifetime work is
+separate and remains unmerged. Next rehearse/install firmwarev8 for a regression
+of the accepted MAC plan on this baseline before extending initialization.

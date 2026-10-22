@@ -2,7 +2,9 @@
 
 The kernel service builds on the bounded Air7,2 battery diagnostic. It is linked
 only into the separate full-runtime image. Ordinary desktop boot still returns
-the disabled stub; there is no userspace syscall or battery widget yet.
+the disabled stub. A versioned read-only userspace snapshot feeds the desktop
+and System battery display; scoped Start/Stop controls passed the parked-workspace
+trial. Mounted workspace support remains a VM-only study.
 See the [native runtime gate](native-ec-runtime.md) and
 [machine acceptance record](machines/macbookair7-2.md) for physical evidence.
 
@@ -33,15 +35,17 @@ epoch, so an already-retired lifetime is not confused with a new start. STOPPED
 is published only after worker, SCI, interpreter, ACPI mode and retained event
 restoration have completed. Unsafe live-runtime failures keep the existing
 containment and retain memory rather than claim successful retirement. An
-unattended capture resets the machine after containment; attended diagnostics
-retain the halt.
+armed unattended capture can reset only while the workspace is unmounted and no
+scheduler I/O scope is active at failure time. Otherwise it retains the halt.
+This current [reset interlock](#mounted-workspace-study-and-fatal-reset-admission)
+also applies to the earlier isolated-image recipes described below.
 
 ## Cached readings
 
 `battery_service_status` copies the snapshot with IRQs briefly masked and
 calculates its age. It never starts EC/AML work, waits for a sample, allocates or
-touches storage. This is a kernel contract; a later versioned userspace interface
-should expose deliberate fields rather than copying internal structs wholesale.
+touches storage. The v1 userspace snapshot exposes deliberate fields and units rather than
+copying internal structs or firmware data wholesale.
 
 Sampling starts two seconds after the previous operation completes. Firmware
 notifications remain serialized through the worker; they do not recursively
@@ -1034,3 +1038,324 @@ service/image teardown. SCI handled 23 deliveries with none unclaimed. Exact
 image contents/metadata, inner/outer allocation, other-file preservation and
 Ubuntu return passed. This accepts the isolated application path and cached view;
 it does not enable ordinary Home access, lifecycle UI or automatic startup.
+
+
+### Scoped asynchronous controls (in development)
+
+`SYS_BATTERY_CONTROL` is separate from cached status. Query returns a v1 control
+snapshot; Start/Stop enqueue one command and return immediately without allocation,
+firmware work or waiting. Admission requires the opt-in desktop process group and
+the observed battery epoch. Duplicate pending commands are busy; stale epochs and
+invalid lifecycle transitions are rejected. A successful enqueue means requested,
+not running or stopped. The kernel session owner dispatches commands to the existing
+service outside syscall/storage work. Starting can be cancelled by Stop; STOPPING
+retains ownership until the existing worker/SCI/AML teardown finishes.
+
+System's Sensors buttons use the shared state helper and remain disabled without
+a granted scope. Pending/starting/stopping/failure states remain visible, and
+control state refreshes even when other System tables are paused. Scope revocation
+precedes client retirement; late commands are rejected and unfinished runtime work
+is retired before the session owner returns. Closing a window does not free live
+firmware state. The outer workspace remains parked throughout this first study.
+
+`acpiruntime battery-controls` drives two lifetimes through the real System action,
+syscall and owner paths. `acpiruntime battery-controls-manual` exposes the same
+buttons for an attended bounded session; close System to end it. These commands
+require the separate runtime kernel and retain native platform gates. They do not
+enable automatic startup or ordinary workspace coexistence. VM evidence and native
+acceptance are recorded separately in the machine record.
+
+The v44 `hardware_boot.py stage --laptop-probe-volume <local-volume-id>
+--battery-controls` recipe runs the automatic study through the exact native
+kernel and matched userspace. Automatic return is mandatory; this profile takes
+no physical input. It parks the outer workspace, starts and stops twice through
+System, revokes control, retires both clients and the service, then remounts only
+to save the final logs and returns to Ubuntu. A contained runtime fault can reset
+without a final report; missing proof is incomplete evidence. Collection requires
+four accepted/dispatched requests, two fresh sample generations in each lifetime,
+two stopped states, balanced retirement, revoked scope and the exact return marker.
+The former disposable filesystem image is neither opened nor rewritten by v44.
+
+Local validation uses `tools/battery_controls_smoke.py` with `--case normal`,
+`manual`, `early-exit`, `refusal` and `runtime-fault`. Normal repeats the whole
+session in one VM to reject stale command/epoch reuse. Manual uses actual pointer
+clicks, then closes System while active; the owner must retire the live service.
+The runtime-fault case leaves monitoring running until the third-sample injected
+deadline and requires automatic reset without a claimed clean retirement.
+
+Air7,2 accepted the bounded automatic v44 path in release `87524e9fe7788772`,
+source `134f0d6`: four commands, two fresh lifetimes and stopped states, two retired
+clients, clean service teardown and revoked scope. SCI handled four deliveries
+without an unclaimed interrupt. All 913 prior data files stayed identical; only
+workspace metadata and three new logs changed. Offline allocation and Ubuntu
+return/recovery checks passed. This accepts the parked-workspace System action
+path; ordinary workspace coexistence and attended pointer/AC accuracy remain open.
+
+
+## Mounted workspace study and fatal reset admission
+
+The opt-in VM kernel provides `acpiruntime battery-workspace` for a disposable
+mounted `/work` study. It exercises the existing Text file worker against
+`/work/battery-study`, with 60 edits and five save/stat/rename/reopen cycles while
+cached battery samples continue. The workspace stays mounted until all three
+clients and the service retire. The native backend refuses this command before
+opening firmware resources; there is no native capture recipe or boot option.
+This is a prerequisite study, not ordinary desktop enablement or physical acceptance.
+
+`tools/battery_workspace_smoke.py` creates its own fresh exFAT image and never
+accepts a host disk path. Run it through `tools/host-env.sh` after building matched
+`all acpi-battery-kernel acpi-battery-vm-kernel` targets. Cases are `normal`,
+`timeout`, `refusal`, and `runtime-fault`. Completed cases use an atomic boot-log
+dump for strict proof checks, run a replacement compositor, unmount normally and
+verify the exact file tree, metadata identities, anchors, partition prefix and
+allocation graph offline. The fault case preserves the interrupted disposable
+disk and explicitly does **not** claim clean retirement.
+
+Contained-fault reset admission is now checked again with IRQs masked at the
+point of failure. Earlier arming while parked cannot authorize reset if an
+ordinary workspace is now mounted or a scheduler I/O scope is active. In either
+case the runtime masks its sources, reports `battery-reset: BLOCKED`, retains
+live state and halts. It does not reenter the filesystem to flush, free the live
+runtime or claim successful teardown. Parked, idle fault trials may still reset
+when armed. This also means an isolated-image fault during an active I/O scope
+must halt, even though earlier image trials allowed reset there.
+
+Ordinary native workspace enablement remains blocked on recoverable failure
+ownership: a failed ACPI owner/worker must be quarantined without stack reuse,
+queued-wakeup resurrection or freeing firmware-owned memory; the active storage
+owner must finish safely before logging/unmount/return. Fatal callbacks may run
+inside IRQ context, so merely killing a kernel thread is insufficient. A future
+change must prove these paths with injected faults before enabling mounted Home
+on hardware. Automatic battery startup remains off.
+
+
+## Owner-watchdog quarantine study
+
+The VM-only `acpiruntime battery-workspace-recovery` command adds a recoverable
+boundary for a sample deadline detected by the service owner. It requires IF set,
+the matching owner identity, a ready runtime, and zero SCI callbacks in flight.
+It masks and reads back all fixed/GPE enables and the SCI route before asking the
+scheduler to quarantine the owner and its worker. All native paths and other fatal paths outside the explicit IRQ entry study
+below retain the existing containment/reset interlock. This is **not** an
+exception escape mechanism from an IRQ or an arbitrary AML callback.
+
+The CPU0 scheduler primitive validates boot-lifetime identities and both kernel
+service contexts before any mutation. It refuses stale, idle, userspace, dead or
+storage-owner targets and requires an idle fallback. It unlinks waits, clears
+timeouts and scheduling eligibility, and assigns a distinct quarantined state.
+Neither thread is runnable, wakeable, dead nor reusable. Stacks, interpreter heap,
+queue entries, callback contexts and firmware resources remain retained until
+reboot; there is no resume or reclaim operation. The caller performs only final
+IRQ-masked accounting and yields without unwinding or restoring interrupts on
+its retained stack. The adapter must establish that shared resources needed by
+unrelated kernel services are not held by these threads.
+
+The battery cache reports FAULTED and retains the epoch; start and stop are
+refused. The study's ordinary owner waits for its three client descendants to
+retire, crosses the stuck worker's original sleep expiry, attempts queue wakeups
+and delivers a late SCI vector. It verifies unchanged worker completion, sample
+generation, heap, query and IRQ counters and retained scheduler identities.
+It then saves boot/exit logs through the ordinary workspace logger, unmounts,
+checks reset admission again and returns automatically. Logs explicitly say
+`runtime_retired=NO` and `test outcome=contained-failure`: successful containment
+is not successful service teardown.
+
+`battery-workspace-recovery-io` additionally runs an unrelated storage owner
+which holds its scheduler scope for 28 seconds around the 25-second sample
+deadline and flushes before and after quarantine. Ordinary recovery/logging
+cannot run until this owner releases its scope. This proves scheduler ownership
+and real flush continuation, not outstanding DMA or partially completed physical
+media transactions. File work can remain blocked for this whole fixture; its
+zero completed Text saves must not be reported as an interactive workload pass.
+
+Use `tools/battery_workspace_smoke.py --case recovery`, `recovery-io`, or
+`recovery-refusal` through the host environment. The additional
+`recovery-owner-refusal` case deliberately lets the modeled battery worker own
+a storage scope: quarantine must refuse and halt without restoring interrupts
+after source masking, saving a false completion or resetting active storage. The harness accepts only its own
+disposable image, requires automatic reset after successful containment, checks
+the saved failure log against serial evidence, and verifies the exact file tree,
+metadata, unchanged anchors and allocation graph offline. Remaining native
+prerequisites include IRQ-origin fault handling, shared-lock/resource audits and
+fault injection around real device operations. Automatic startup remains off.
+
+### VM IRQ entry containment
+
+`acpiruntime battery-workspace-recovery-irq` extends the disposable workspace
+study to the foreign-enable guard at SCI callback entry. It does not recover
+arbitrary faults inside the interpreter callback. The native backend refuses the
+command before platform access; ordinary desktop startup remains unchanged.
+
+With IRQs masked on CPU0, the guard verifies source masks and retains both
+noncurrent battery service threads. Neither can be the interrupted thread or a
+storage owner. It returns unclaimed through the normal IRQ registry, dispatcher
+EOI and completion callbacks; the interrupted stack continues normally. Retained
+threads cannot run, wake, reuse their slots or release interpreter allocations.
+The service stays faulted until reset. Failure to verify masks or retain the pair
+is terminal without restoring IRQs or attempting storage cleanup.
+
+Run `tools/battery_workspace_smoke.py --case recovery-irq` through
+`tools/host-env.sh`; the negative cases are `recovery-irq-target-refusal`,
+`recovery-irq-mask-refusal` and `recovery-irq-refusal` (native admission).
+The VM fixture injects a software SCI on an unrelated storage owner's stack. A
+second handler and completion callback prove continued dispatch; successful
+removal after return checks registry pending/depth accounting. A stack sentinel,
+current identity and I/O ownership must survive. Both flushes, retained state
+across the old sleep deadline, saved failure logs, ordinary unmount and automatic
+reset are checked. This exercises the real software dispatcher/EOI path, not a
+physical level-triggered SCI or outstanding device DMA. Negative fixtures inject
+on the battery worker itself or refuse an enable-mask write; neither may resume
+or claim clean retirement. The previous watchdog recovery remains separately
+covered.
+
+Remaining boundaries: deep uACPI callback faults, IRQs interrupting a battery
+thread, native shared locks/firmware resources and physical level-triggered
+behavior. Do not promote this study to native mounted Home or automatic startup.
+
+The shared-resource check for this boundary is deliberately limited to CPU0 and
+the modeled sample sleep. The runtime allocator and spinlock adapter serialize
+with IRQ masking; this entry guard calls neither the allocator nor uACPI. The
+worker's sleep semaphore, interpreter-owned semaphores, work items and heap remain
+allocated with their stacks. Quarantine removes scheduler wait membership without
+pretending to decrement semaphore waiter counts or complete outstanding work.
+Normal storage uses none of those interpreter objects. The SCI token/context
+stays registered, but later deliveries bypass the retained interpreter. Source
+mask verification and scheduler retention occur in one IRQ-excluded interval.
+These observations support the disposable fixture; they do not prove that an
+arbitrary native AML callback holds no firmware Global Lock, EC transaction or
+other shared resource required by unrelated hardware. Those cases still need
+explicit ownership evidence and injected-fault coverage.
+
+### Returned GPE callback failures
+
+The VM-only `battery-workspace-recovery-callback` study exercises an actual
+uACPI SCI → GPE-dispatch → raw EC handler call chain. A modeled EC status bit
+causes entry through the interpreter; the queue-admission fault occurs after
+GPE suspend/clear. The raw handler returns NOT_HANDLED on the reported enqueue
+failure, and uACPI returns normally to the bridge. Only then does the bridge
+mask sources and retain the noncurrent service pair. No upstream interpreter
+code or stack unwinding mechanism is changed.
+
+Callback-scoped spinlock accounting must balance on return, the failed query
+must not be pending in the worker queue, and the interpreter must return
+unclaimed. The existing same-stack storage, secondary handler, post-EOI,
+registry removal, retained-state and saved-filesystem proofs still apply. A
+leaked modeled spinlock, interrupted battery worker, or use outside the explicit
+callback recovery scope remains terminal. Native command admission is refused
+before platform access. These VM hooks are null in the native backend.
+
+This covers a known enqueue refusal with a normal return path. GPE suspend/clear
+failures, query-budget failures, unexpected indices, arbitrary interpreter
+exceptions/nonreturning callbacks and native firmware lock ownership remain
+outside this boundary. Runtime state, including the interrupted sample and query
+budget, is retained until reboot; no clean service retirement is claimed.
+
+Run `tools/battery_workspace_smoke.py --case recovery-callback` through the host
+environment. Refusal fixtures: `recovery-callback-target-refusal`,
+`recovery-callback-lock-refusal`, `recovery-callback-outside-scope`, and
+`recovery-callback-refusal` (native admission). This is software SCI dispatch in
+a disposable Q35 image, not physical level-triggered SCI or DMA acceptance.
+
+
+### Terminal handoff after completed IRQ delivery
+
+The VM-only `battery-workspace-recovery-target` study extends the returned-query
+admission failure to an IRQ interrupting the battery owner or worker itself.
+The bridge requests a token-bound IRQ exit hook and returns normally. The
+architecture dispatcher sends EOI, runs every registered completion and clears
+all registry bookkeeping before invoking that hook with interrupts masked.
+Only then may the hook retain both battery threads and switch permanently away
+from the interrupted stack. The interrupt frame and its saved FPU state remain
+with that retained stack; the failed service never returns through IRET.
+
+`irq_handler_defer_exit` accepts one request per delivery, only from that token's
+handler or completion, and only for a registration with a completion callback.
+Registration changes and redispatch remain excluded until `irq_handlers_finish`
+consumes the request. This is an explicit terminal boundary, not a general work
+queue or automatic resource cleanup. The CPU0 scheduler retention rules still
+reject user threads, the idle thread, a storage owner and invalid peer states.
+Native study admission remains disabled.
+
+Run `tools/battery_workspace_smoke.py --case recovery-target-worker` and
+`--case recovery-target-owner` through the host environment; native refusal is
+`--case recovery-target-refusal`. The disposable fixture arms delivery only after
+an unrelated storage owner has registered a second handler and completion. Proof
+records must identify the interrupted battery role, drained callbacks, balanced
+callback locks, a separate resumed storage identity and successful registry
+removal. Existing retained-state, both-flush, saved-log, unmount/reset and offline
+filesystem checks also apply. Returning to the failed target is a test failure.
+The older callback study still refuses target interruption without this scope.
+This does not accept native firmware locks, physical level-triggered SCI recovery,
+outstanding hardware DMA, or arbitrary nonreturning interpreter faults.
+
+
+### Recovery resource admission
+
+The [firmware resource audit](battery-resource-audit.md) distinguishes retained
+CPU state from an unfinished EC/SMBus protocol or firmware Global Lock. Every VM
+quarantine path now requires an observed idle protocol and unowned/nonpending
+Global Lock, including the AML and underlying semaphore paths. The snapshot only
+refuses unsafe recovery; it grants no native admission and performs no cleanup.
+Native mounted Home and ordinary automatic startup remain disabled. The
+[native AML side-effect map](battery-native-aml-audit.md) identifies startup's
+shared writes, all nine captured EC queries and the absence of rollback in
+`_REG(3,0)`. The explicit `battery-workspace-query` VM study now exercises returned
+query-admission failure with whole-batch effect receipts and orderly failed-service
+retirement. It grants no native recovery or mounted Home admission. Native resource gates
+remain unchanged; use the audit guide for the case matrix and remaining work.
+
+
+### Air query admission
+
+The exact Air7,2 adapter now selects the captured-firmware query policy before
+any query method executes. Unknown codes, GPU/power query80 and query10's mutable
+OS-dependent SMBus path are refused before AML. Native refusal remains terminal
+outside the explicit parked query capture described below.
+Query20/21 retain their audited shared writes, so they do not qualify as effect-free
+recovery batches. QueryCF is bounded under both OS states. See the
+[native policy and VM replay](battery-native-aml-audit.md#exact-air72-dispatch-policy)
+for the full table, evidence and remaining parked-workspace acceptance. No new
+register/firmware admission, ordinary startup or mounted Home support is enabled.
+
+
+### Parked native query-return capture (v45)
+
+`hardware_boot.py stage --laptop-probe-volume <local-volume-id> --battery-query`
+selects the native battery kernel and an unattended capture. It parks the exact
+workspace device before starting the service, with no filesystem/image I/O during
+the runtime. Only the existing exact Air7,2 firmware/resource profile and native
+query policy qualify. No QR_EC value is injected, substituted or requested outside
+the normal event path. The capture waits at most 30 seconds for natural refusal.
+
+A rejected query can return normally only after completed transport, zero attempted
+shared writes in that batch, equal AML call/return counts, drained notifications,
+idle work and the existing resource proof. The owner performs ordinary disconnect,
+worker/interpreter retirement, ACPI-mode/event restoration and heap cleanup before
+the workspace can remount. Rejection before the first sample is valid with an
+empty, nonfresh cache; it does not manufacture a battery reading. The resulting
+service is explicitly faulted. Partial effects, retained locks, poisoned transport
+or failed disconnect retain the existing parked-media fault reset, with missing
+final evidence treated as failure.
+
+`battery-native-query: outcome=returned-failure` is the scoped success receipt.
+No rejected event within the window yields `outcome=not-exercised`, clean=NO and
+completed=NO: save it and return to Ubuntu, but do not accept the feature. Both
+handled outcomes return automatically; no user input is requested. The collector
+requires exact native restored-event addresses plus ordered transport, resource,
+retirement and capture receipts. VM evidence uses separate synthetic addresses.
+This does not enable automatic battery startup, mounted Home or sibling models.
+
+`tools/battery_native_query_smoke.py` exercises the actual boot capture path with
+disposable exFAT media: unknown/high/OS-state refusal, drained notifications in
+both OS states, pre-sample rejection, no event, shared effects, retained lock,
+poisoned transport, failed disconnect and native-kernel platform refusal. Clean
+cases compare live/saved proofs and check exact tree, metadata, allocation and fsck.
+Air7,2 release `a72409383258a4a0` (source `6f6381c`, PR #44) physically accepted
+this narrow path. A natural query10 was refused before the first sample: completed
+transport, zero AML calls/effects, drained idle worker, resource proof, ordinary
+disconnect and retirement, restored foreign enables, zero heap/errors/denied. The
+cache remained empty, faulted and nonfresh. Three matching logs were saved after
+remount; 916 prior files stayed identical apart from the metadata sidecar. Offline
+fsck/allocation and Ubuntu return/default/recovery checks passed. This establishes
+safe predispatch failure handling, not support for query10, battery readings or
+mounted Home. The [machine record](machines/macbookair7-2.md) owns the exact evidence.

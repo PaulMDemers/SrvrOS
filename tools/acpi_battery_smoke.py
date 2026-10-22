@@ -15,6 +15,7 @@ from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
 from vm_sockets import connect_unix
 from serial_records import complete_lines
+from battery_fault_records import check_fault
 
 
 
@@ -284,10 +285,12 @@ def main():
                     assert all(tuple(map(int,c))==(7,41,9) for c in controllers),controllers
 
                     if auto_deadline:
-                        assert b'battery: FAILED operation deadline' in part,bytes(part)
-                        assert b'returning to Ubuntu without live-runtime cleanup' in part,bytes(part)
-                        assert b'battery-service-test: PASS' not in part and b'battery: HALTED' not in part,bytes(part)
-                        assert process.wait(timeout=10)==0
+                        reset=check_fault(part,allow_io_halt=isolated or scratch or readonly)
+                        assert b'battery-service-test: PASS' not in part,bytes(part)
+                        if reset:assert process.wait(timeout=10)==0
+                        else:
+                            assert process.poll() is None
+                            stop_process(process)
                         if readonly:
                             assert hashlib.sha256(stick.read_bytes()).hexdigest()==before_hash
                             with stick.open('rb') as stream:stream.seek(2048*512);volume.write_bytes(stream.read())
@@ -298,7 +301,7 @@ def main():
                             verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
                         if scratch:
                             verify_scratch_disk(stick,before_disk,scratch_offset,scratch_path,volume,out,None)
-                        print('acpi-battery: PASS '+args.case+' (contained fault resets; VM only)')
+                        print('acpi-battery: PASS '+args.case+(' (contained fault resets; VM only)' if reset else ' (I/O interlock blocks reset; VM only)'))
                         return
                     if service and args.case!='service-query-deadline':
                         assert b'battery-service-test: PASS' in part and b'battery-service-test: FAIL' not in part,bytes(part)

@@ -176,4 +176,149 @@ class ApplicationFileRecords(unittest.TestCase):
             with self.assertRaises(AssertionError):check_files_capture(FILES.replace(line,b'',1))
             with self.assertRaises(AssertionError):check_files_capture(FILES+line)
 
+WORKSPACE=b''.join(r for r in FILES.splitlines(keepends=True) if not r.startswith((b'workspace-image:',b'battery-app-files:'))).replace(b'storage=image',b'storage=workspace')
+WORKSPACE+=b'battery-workspace: PASS descendants=3; retired=yes mounted=yes\n'
+
+class MountedWorkspaceRecords(unittest.TestCase):
+    def test_complete_and_not_native_acceptance(self):
+        from battery_workspace_smoke import check
+        self.assertEqual(check(WORKSPACE)['worker_operations'],20)
+        with self.assertRaises(AssertionError):check_files_capture(WORKSPACE)
+        with self.assertRaises(AssertionError):check(FILES)
+        prefix=b'laptop-capture: boot options=srvros.capture=battery-app-files srvros.capture-failure=reboot\n'
+        suffix=b'battery-app-files-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+        self.assertIsNone(battery_app_files_result((prefix+WORKSPACE+suffix).decode()))
+
+    def test_missing_corrupt_or_false_retirement(self):
+        from battery_workspace_smoke import check
+        for before,after in ((b'mounted=yes',b'mounted=NO'),(b'descendants=3',b'descendants=2'),
+                             (b'storage=workspace',b'storage=image'),(b'cycles=5',b'cycles=4'),
+                             (b'pending=0',b'pending=1'),(b'status=0',b'status=1'),(b'hex=4141',b'hex=4142')):
+            with self.subTest(before=before):
+                with self.assertRaises(AssertionError):check(WORKSPACE.replace(before,after))
+        for prefix in (b'battery-workspace:',b'text-files:',b'desktools: file-result',b'desktop-battery:'):
+            row=next(r for r in WORKSPACE.splitlines(keepends=True) if r.startswith(prefix))
+            with self.assertRaises(AssertionError):check(WORKSPACE.replace(row,b'',1))
+            with self.assertRaises(AssertionError):check(WORKSPACE+row)
+        for extra in (b'workspace: unmounted',b'battery-reset: BLOCKED',b'workspace-image: prepared'):
+            with self.assertRaises(AssertionError):check(WORKSPACE+extra+b'\n')
+
+class FaultResetRecords(unittest.TestCase):
+    def test_current_storage_ownership(self):
+        from battery_fault_records import check_fault
+        reset=b'battery: FAILED operation deadline\nbattery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n'
+        self.assertTrue(check_fault(reset))
+        with self.assertRaises(AssertionError):check_fault(reset,workspace=True)
+        for mounted,io in ((0,0),(0,1),(1,0),(1,1)):
+            blocked=f'battery-reset: BLOCKED workspace={mounted} io={io}; live storage retained\nbattery: HALTED operation deadline\n'.encode()
+            if mounted or io:
+                self.assertFalse(check_fault(blocked,workspace=bool(mounted),allow_io_halt=True))
+                if io and not mounted:
+                    with self.assertRaises(AssertionError):check_fault(blocked)
+                for extra in (reset,b'battery-service: retired epoch=1\n',b'battery-desktop: PASS; retired=yes\n',blocked):
+                    with self.assertRaises(AssertionError):check_fault(blocked+extra,workspace=bool(mounted),allow_io_halt=True)
+            else:
+                with self.assertRaises(AssertionError):check_fault(blocked,allow_io_halt=True)
+
+RECOVERY=b'''battery-recovery-resources: known=1 lease=0 ec_phase=6 poison=0 sample=0 waiting=0 smbus=0 api=0 aml=0 mutex=0 pending=0 facs=0 blocked=0
+battery-quarantine: owner=7 worker=8 io=0 heap=9000 completed=10; sources=masked retained=yes
+battery-workspace: QUARANTINED descendants=3; clients_retired=yes runtime_retired=NO
+battery-recovery: held=yes generation=2 completed=10 io=0; restart=refused runtime_retired=NO
+'''
+
+class RecoveryRecords(unittest.TestCase):
+    def test_retained_failure_is_not_clean_retirement(self):
+        from battery_workspace_smoke import check_recovery
+        self.assertFalse(check_recovery(RECOVERY)['runtime_retired'])
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        self.assertEqual(check_recovery(io)['io_at_quarantine'],1)
+        for old,new in ((b'owner=7',b'owner=8'),(b'heap=9000',b'heap=0'),(b'held=yes',b'held=NO'),
+                        (b'generation=2',b'generation=3'),(b'descendants=3',b'descendants=2'),
+                        (b'clients_retired=yes',b'clients_retired=NO'),(b'restart=refused',b'restart=allowed'),
+                        (b'worker=8 io=0',b'worker=8 io=1'),(b'io=0; restart',b'io=1; restart')):
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_recovery(RECOVERY.replace(old,new))
+        for row in RECOVERY.splitlines(keepends=True):
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY.replace(row,b''))
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY+row)
+        for extra in (b'battery: HALTED',b'battery: FAILED',b'battery-service: retired ',b'battery-desktop: PASS',b'battery-quarantine: partial'):
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY+extra+b'\n')
+        for old,new in ((b'before=1',b'before=0'),(b'after=1',b'after=0'),(b'28000100',b'100'),(b'owner_completed=yes',b'owner_completed=NO')):
+            with self.assertRaises(AssertionError):check_recovery(io.replace(old,new))
+
+    def test_irq_return_proof(self):
+        from battery_workspace_smoke import check_recovery
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        row=b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n'
+        self.assertTrue(check_recovery(io+row)['irq_entry_recovered'])
+        self.assertFalse(check_recovery(io)['irq_entry_recovered'])
+        for old,new in ((b'interrupted=6',b'interrupted=0'),(b'interrupted=6',b'interrupted=7'),
+                        (b'interrupted=6',b'interrupted=8'),(b'peer=1',b'peer=0'),
+                        (b'completion=1',b'completion=0'),(b'in_flight=0',b'in_flight=1'),
+                        (b'returned=yes',b'returned=NO'),(b'registry_released=yes',b'registry_released=NO'),
+                        (b'claim=unclaimed',b'claim=handled')):
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_recovery(io+row.replace(old,new))
+        with self.assertRaises(AssertionError):check_recovery(io+row+row)
+        with self.assertRaises(AssertionError):check_recovery(RECOVERY+row)
+
+    def test_callback_return_proof(self):
+        from battery_workspace_smoke import check_recovery
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        irq=b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n'
+        row=b'battery-recovery-callback: entries=1 faults=1 locks=5 depth=0 query_pending=0; returned=yes reason=query-admission\n'
+        result=check_recovery(io+irq+row)
+        self.assertTrue(result['irq_callback_recovered']);self.assertFalse(result['irq_entry_recovered'])
+        self.assertEqual(result['callback_lock_calls'],5)
+        for old,new in ((b'entries=1',b'entries=0'),(b'faults=1',b'faults=2'),(b'locks=5',b'locks=0'),
+                        (b'depth=0',b'depth=1'),(b'query_pending=0',b'query_pending=1'),
+                        (b'returned=yes',b'returned=NO'),(b'reason=query-admission',b'reason=other')):
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_recovery(io+irq+row.replace(old,new))
+        with self.assertRaises(AssertionError):check_recovery(io+irq+row+row)
+        with self.assertRaises(AssertionError):check_recovery(io+row)
+
+    def test_irq_target_handoff_proof(self):
+        from battery_workspace_smoke import check_recovery
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        callback=b'battery-recovery-callback: entries=1 faults=1 locks=5 depth=0 query_pending=0; returned=yes reason=query-admission\n'
+        resume=b'battery-recovery-resume: storage=6; scope=retained registry_released=yes\n'
+        for identity,role in ((7,'owner'),(8,'worker')):
+            target=f'battery-recovery-target: interrupted={identity} role={role} peer=1 completion=1 in_flight=0; exit=drained retained=yes\n'.encode()
+            good=io+callback+target+resume;result=check_recovery(good)
+            self.assertTrue(result['irq_target_recovered']);self.assertEqual(result['target_role'],role)
+            self.assertEqual(result['resumed_storage'],6)
+            self.assertFalse(result['irq_entry_recovered']);self.assertFalse(result['irq_callback_recovered'])
+            for row in (callback,target,resume):
+                with self.assertRaises(AssertionError):check_recovery(good.replace(row,b''))
+                with self.assertRaises(AssertionError):check_recovery(good+row)
+            for old,new in ((f'interrupted={identity}'.encode(),b'interrupted=6'),
+                            (b'role='+role.encode(),b'role='+('worker' if role=='owner' else 'owner').encode()),
+                            (b'peer=1',b'peer=0'),(b'completion=1',b'completion=0'),
+                            (b'in_flight=0',b'in_flight=1'),(b'exit=drained',b'exit=pending'),
+                            (b'storage=6',b'storage=0'),(b'storage=6',b'storage=7'),(b'storage=6',b'storage=8'),
+                            (b'scope=retained',b'scope=lost'),(b'registry_released=yes',b'registry_released=NO')):
+                with self.subTest(role=role,old=old):
+                    with self.assertRaises(AssertionError):check_recovery(good.replace(old,new))
+            for extra in (b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n',
+                          b'battery-vm: ERROR target resumed after fault\n'):
+                with self.assertRaises(AssertionError):check_recovery(good+extra)
+
+    def test_resource_admission_records(self):
+        from battery_workspace_smoke import check_recovery,check_resource_refusal
+        fields=['known=1','lease=0','ec_phase=6','poison=0','sample=0','waiting=0','smbus=0',
+                'api=0','aml=0','mutex=0','pending=0','facs=0','blocked=0']
+        for field in fields:
+            new=field.split('=')[0]+'='+('0' if field=='known=1' else '1')
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY.replace(field.encode(),new.encode(),1))
+        for case,vals in (('api',(0,6,1,0,1,2,96)),('aml',(0,6,0,1,1,2,96)),('ec',(1,2,0,0,0,0,6))):
+            lease,phase,api,aml,mutex,facs,blocked=vals
+            row=f'battery-recovery-resources: known=1 lease={lease} ec_phase={phase} poison=0 sample=0 waiting=0 smbus=0 api={api} aml={aml} mutex={mutex} pending=0 facs={facs} blocked={blocked}\n'.encode()
+            halt=b'battery: HALTED recovery resources retained errors=0; live state retained\n'
+            name='recovery-resource-'+case
+            self.assertEqual(check_resource_refusal(row+halt,name)['resource_blockers'],blocked)
+            for bad in (halt,row,row+row+halt,row+halt+halt,row.replace(b'known=1',b'known=0')+halt,
+                        row+halt+b'battery-quarantine: false success\n',row+halt+b'battery-recovery: saved=yes\n'):
+                with self.assertRaises(AssertionError):check_resource_refusal(bad,name)
+
 if __name__=='__main__':unittest.main()

@@ -633,9 +633,10 @@ static void test_pro_trackpad(const char *fixture) {
     puts("pro-trackpad: PASS exact interface/DCI, keyboard preservation, feature read/modify/write and failures");
 }
 
-static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
+static void test_trackpad(const char *fixture,bool pointer,bool gestures,uint16_t product) {
     xhci_set_trackpad_gestures(false);
     xhci_set_trackpad_pointer(false); pointer_injected=0;pointer_canceled=0;
+    tap_injected=0;test_pointer_options=0;
     reset_test();
     uint8_t descriptor[84];
     FILE *file=fopen(fixture,"rb"); assert(file);
@@ -644,18 +645,27 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     uint8_t buffer[APPLE_TRACKPAD_REPORT_MAX];
     struct xhci_trb ring[64]={0};
     struct xhci_device *d=&xhci.devices[0];
-    *d=(struct xhci_device){.present=true,.slot_id=1,.vendor_id=0x05ac,.product_id=0x0291,.speed=1,
+    *d=(struct xhci_device){.present=true,.slot_id=1,.vendor_id=0x05ac,.product_id=product,.device_bcd=0x0171,.speed=1,
         .descriptor_buffer=descriptor,.input_context=input,.output_context=output,
         .hid_keyboard=true,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=keyboard,
         .interrupt_pending=true,.interrupt_trb=0xa000};
     xhci_set_trackpad_capture(false); assert(!parse_trackpad_config(d,84));
     xhci_set_trackpad_capture(!pointer); xhci_set_trackpad_pointer(pointer); xhci_set_trackpad_gestures(gestures);
     for (unsigned n=0;n<84;n++) assert(!parse_trackpad_config(d,n));
-    d->product_id=0x0292; assert(!parse_trackpad_config(d,84)); d->product_id=0x0291;
+    d->product_id=0x0292; assert(!parse_trackpad_config(d,84)); d->product_id=product;
+    if (product==0x0290) {
+        d->device_bcd=0x0170; assert(!parse_trackpad_config(d,84)); d->device_bcd=0x0171;
+        d->vendor_id=0x1234; assert(!parse_trackpad_config(d,84)); d->vendor_id=0x05ac;
+        d->speed=3; assert(!parse_trackpad_config(d,84)); d->speed=1;
+        descriptor[81]=32; assert(!parse_trackpad_config(d,84)); descriptor[81]=64;
+        descriptor[83]=2; assert(!parse_trackpad_config(d,84)); descriptor[83]=1;
+        assert(!pointer_injected);
+    }
     descriptor[62]=1; assert(!parse_trackpad_config(d,84)); descriptor[62]=0; /* alternate */
     descriptor[79]=0x82; assert(!parse_trackpad_config(d,84)); descriptor[79]=0x83;
     assert(parse_trackpad_config(d,84));
     assert(d->trackpad.candidate && d->trackpad.dci==7 && d->trackpad.interval==1);
+    assert(d->trackpad.report_type==3 && enable_trackpad_mode(d)); /* No EP0 mode write. */
     struct xhci_trackpad_endpoint *t=&d->trackpad;
     t->ring_phys=0xb000; t->ring=ring; t->buffer=buffer; t->buffer_phys=0xc000; t->cycle=true;
     for (unsigned wide=0;wide<2;wide++) {
@@ -1825,7 +1835,7 @@ static void test_wifi_mcu_transport(void) {
 }
 
 int main(int argc, char **argv) {
-    assert(argc == 3);
+    assert(argc == 4);
     test_wifi_radio_binding();
     test_wifi_mcu_queue_order();
     test_wifi_mcu_write_probe();
@@ -1859,8 +1869,12 @@ int main(int argc, char **argv) {
     test_keyboard_context(argv[1], 1, 5, 64);
     test_keyboard_context(argv[2], 0, 7, 10);
     test_pro_trackpad(argv[2]);
-    test_trackpad(argv[1],false,false);
-    test_trackpad(argv[1],true,false);
-    test_trackpad(argv[1],true,true);
+    test_trackpad(argv[1],false,false,0x0291);
+    test_keyboard_context(argv[3],1,5,64);
+    test_trackpad(argv[3],false,false,0x0290);
+    test_trackpad(argv[3],true,false,0x0290);
+    test_trackpad(argv[3],true,true,0x0290);
+    test_trackpad(argv[1],true,false,0x0291);
+    test_trackpad(argv[1],true,true,0x0291);
     puts("xhci-host-test: PASS (delayed root ports, reset handshake/timeouts, scratchpads, ownership, Apple HID, BOT descriptors/contexts, HID/bulk demultiplexing, quarantine, short packets)");
 }

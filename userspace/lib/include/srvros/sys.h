@@ -8,6 +8,8 @@
 #include <srvros/smc_abi.h>
 #include <srvros/scheduler_abi.h>
 #include <srvros/battery_abi.h>
+#include <srvros/battery_control_abi.h>
+long srv_battery_control(unsigned operation,uint64_t expected_epoch,struct srv_battery_control *out);
 long srv_battery_status(struct srv_battery_status *out);
 
 #include <srvros/syscall_numbers.h>

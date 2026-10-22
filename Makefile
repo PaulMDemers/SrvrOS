@@ -1891,7 +1891,7 @@ hardware-smoke: hardware-stage test-core
 
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
-	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin
+	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
 build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
@@ -2263,6 +2263,7 @@ build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_
 test-core: test-trackpad-capture
 test-trackpad-capture: build/tests/trackpad-capture-host$(HOST_EXE)
 	$<
+	$(PYTHON) tools/test_trackpad_capture_smoke.py
 build/tests/trackpad-capture-host$(HOST_EXE): tools/test_trackpad_capture.c kernel/src/trackpad_test.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
@@ -3424,7 +3425,7 @@ build/tests/mt76-prepare-host$(HOST_EXE): tools/test_mt76_prepare.c kernel/src/d
 test-core: test-battery-view
 test-battery-view: build/tests/battery-view$(HOST_EXE)
 	$<
-build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h
+build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c userspace/widgets/src/battery.c -o $@
 
@@ -3461,3 +3462,66 @@ test-mt76-mac: build/tests/mt76-mac-host$(HOST_EXE)
 build/tests/mt76-mac-host$(HOST_EXE): tools/test_mt76_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_mac.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-battery-control
+test-core: test-battery-control
+test-battery-control: build/tests/battery-control$(HOST_EXE)
+	$<
+build/tests/battery-control$(HOST_EXE): tools/test_battery_control.c kernel/src/drivers/battery_control_policy.c kernel/include/srvros/battery_control.h kernel/include/srvros/battery_service.h shared/include/srvros/battery_control_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_battery_control.c kernel/src/drivers/battery_control_policy.c -o $@
+
+.PHONY: test-battery-controls-records
+test-core: test-battery-controls-records
+test-battery-controls-records:
+	$(PYTHON) tools/test_battery_controls_records.py
+	$(PYTHON) tools/test_battery_workspace_controls_records.py
+	$(PYTHON) tools/test_battery_control_files_records.py
+	$(PYTHON) tools/test_battery_home_records.py
+
+.PHONY: test-battery-reset-policy
+test-core: test-battery-reset-policy
+test-battery-reset-policy: build/tests/battery-reset-policy$(HOST_EXE)
+	$<
+build/tests/battery-reset-policy$(HOST_EXE): tools/test_battery_reset_policy.c ports/srvros/uacpi/runtime/battery_reset_policy.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-recovery-resources
+test-core: test-battery-recovery-resources
+test-battery-recovery-resources: build/tests/battery-recovery-resources$(HOST_EXE)
+	$<
+build/tests/battery-recovery-resources$(HOST_EXE): tools/test_battery_recovery_resources.c ports/srvros/uacpi/runtime/battery_recovery_resources.h kernel/include/srvros/ec_transport.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-battery-query
+test-core: test-battery-query
+test-battery-query: build/tests/battery-query-receipt$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_battery_query_records.py
+	$(PYTHON) tools/test_battery_native_query_records.py
+build/tests/battery-query-receipt$(HOST_EXE): tools/test_battery_query_receipt.c ports/srvros/uacpi/runtime/battery_query_receipt.h ports/srvros/uacpi/runtime/battery_query_policy.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-smbus-records
+test-core: test-battery-smbus-records
+test-battery-smbus-records:
+	$(PYTHON) tools/test_battery_smbus_records.py
+
+.PHONY: test-battery-native-smbus-records
+test-core: test-battery-native-smbus-records
+test-battery-native-smbus-records:
+	$(PYTHON) tools/test_battery_native_smbus_records.py
+	$(PYTHON) tools/test_battery_smbus_workspace_records.py
+	$(PYTHON) tools/test_battery_smbus_files_records.py
+
+.PHONY: test-battery-event-accounting
+test-core: test-battery-event-accounting
+test-battery-event-accounting: build/tests/battery-event-accounting$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_battery_monitor_records.py
+build/tests/battery-event-accounting$(HOST_EXE): tools/test_battery_event_accounting.c ports/srvros/uacpi/runtime/battery_event_accounting.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

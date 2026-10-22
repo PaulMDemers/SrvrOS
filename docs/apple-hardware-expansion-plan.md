@@ -5,10 +5,15 @@ MacBookAir7,2 (A1466). Add these four model identifiers as planned targets,
 not as machines already supported. Enclosure numbers below are the user's
 target descriptions; driver selection must use observed devices and firmware.
 
+MacBookAir6,1 joined local bring-up on 2026-10-22. Its
+[unit record](machines/macbookair6-1.md) owns captured configuration and
+validation; the original four-target plan below remains historical planning.
+
 ## Target matrix
 
 | Target | Published baseline / working expectation | First additional work | Status |
 | --- | --- | --- | --- |
+| MacBookAir6,1 | Locally captured i5-4260U, Intel `8086:0a26`, 1366x768 panel, AHCI flash, `05ac:0290` topcase | Validate baseline and console/input; capture reports before new trackpad, audio or firmware profiles | Linux inventory captured; physical tests pending |
 | MacBookAir7,1 / A1465 | Early 2015 11-inch Air; HD Graphics 6000, 1366x768 panel, PCIe flash | Compare input descriptors and firmware with 7,2; fit every app/checklist to the smaller display; verify backlight, audio and battery resources | Inventory pending |
 | MacBookPro11,2 / A1398 | Late 2013 or Mid 2014 15-inch Retina family; plan for integrated Iris Pro graphics, verify actual PCI inventory | 2880x1800 framebuffer performance and UI scaling; topcase report format; HDA routes; backlight and multiple sensor/fan channels | Inventory pending |
 | MacBookPro11,3 / A1398 | Same Retina generations; plan for Iris Pro plus GeForce GT 750M, verify actual PCI inventory | Identify firmware-selected display GPU, GMUX resources and display/audio dependencies; preserve the working boot display before considering switching | Inventory pending |
