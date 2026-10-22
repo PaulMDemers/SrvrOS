@@ -721,3 +721,12 @@ baseline cannot prove that particular write executed. Reply words remain raw
 capture (`ack_validated=0`) until the distinct native body is inspected; this
 trial must distinguish first/last entry before a general validator is proposed.
 No ordinary table executor or radio startup is enabled by this profile.
+
+Native v7 source607ad4f/release201acb491eb09532/session00065e753e794b20-00
+confirmed the first entry is echoed for this two-entry transaction: response
+words4a030008,00411100,33a41010,4a030008 (IN16 after OUT24). Independent EP0
+readbacks changed XIFS1100 from33a4100a to33a41010 and BKOFF1104 from214 to209.
+Both writes therefore have changed-value evidence; the response alone does not
+prove the second write. MAC remained0, strict prerequisites and capture passed,
+and post-return recovery/filesystem checks were clean. Use this exact fixture
+for strict validation; larger batches and other register classes remain untested.

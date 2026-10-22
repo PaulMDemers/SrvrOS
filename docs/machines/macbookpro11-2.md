@@ -2392,3 +2392,17 @@ wifi-timing-607ad4f contains payload, receipts and run record. Workspace offline
 clean:147files/469clusters. Ubuntu default/recoverye47dca3a6b30c6c1 and prior
 pair capture101abba9feeb8cfa retained. Oldd8dca7885de3c61f removed from ESP only
 after equality with durable archive. Native distinct response/readbacks pending.
+
+Native timing source607ad4f/release201acb491eb09532/session00065e753e794b20-00:
+accepted exact two-entry transaction with independent changed readbacks. OUT24
+returned IN16, words4a030008,00411100,33a41010,4a030008: first entry echoed.
+XIFS1100 changed33a4100a->33a41010; BKOFF1104 changed214->209. readback_ok1,
+changed0/1 both1. Reset, identity and strict single-write ACK passed; MAC stayed0
+before/after. Firmware/laptop completed=yes. No larger-batch, general table or
+RF acceptance follows; installed pair ACK remains capture-only (validated0).
+Next: strict timing reply validator and bounded table completion with readbacks.
+
+Collection/hashes archived in wifi-timing-607ad4f/native-collection. Ubuntu
+default, consumed one-shot and current/recovery manifests verified. Workspace
+unmounted, clean149files/472clusters,zero leaks/mismatches/errors. Run/checkpoint
+collected and unarmed. Receive/scan/association/connectivity remain pending.
