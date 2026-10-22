@@ -2,6 +2,16 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active query10 alert ownership work
+
+Base `origin/main` `40944e8` (PR44); Pro PR19 `9ecf749` retains independent Wi-Fi
+scope. Audit both captured query10 branches and replay SMBus alert ownership,
+notification delivery and sampler serialization in disposable VM fixtures before
+changing native dispatch. Touched scope: battery runtime/model, EC SMBus helpers,
+fixtures and focused tests/docs as needed. Keep native query10 refusal, parked
+capture, firmware/register gates and installed/recovery payloads unchanged until
+the complete ownership contract is proved. No ordinary Home/startup admission.
+
 ### Accepted parked native query-return capture (PR #44)
 
 Release `a72409383258a4a0`, tested source `6f6381c`, session
