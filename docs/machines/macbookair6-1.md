@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Native console and basic keyboard input accepted; USB persistence pending**.
+Updated: 2026-10-22. State: **Native console, basic keyboard input and bounded USB persistence accepted**.
 
 ## Identity and ownership
 
@@ -56,7 +56,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | PID not admitted | Captured report/transport evidence before profile |
-| USB workspace | Prepared; offline checks pass | Physical save/read/unmount pending |
+| USB workspace | Bounded monitor write/read and persistence accepted | Desktop/sustained I/O and hotplug not accepted |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
 | Brightness | Not tested | Exact firmware/register evidence |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
@@ -87,18 +87,15 @@ The 50-file inventory backup was hash-verified outside `build`, under
 The user authorized dependency installation using a machine-local sudo credential.
 The first authorized one-shot returned to Ubuntu and was collected. No boot is
 armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
-console/basic-keyboard payload; its USB persistence is not accepted.
+console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Next actions
 
-1. Verify native `workspace status` before another persistence attempt. At `srv>`,
-   use `write /work/srvros-work/console-keyboard-first.txt Air61-AaZz09` and
-   `cat /work/srvros-work/console-keyboard-first.txt`; monitor echo does not
-   interpret shell redirection. Require successful write/read and clean unmount.
-2. If using `workspace shell`, require the prompt ending in `$` before entering
-   shell syntax. Preserve any startup error if it stays at `srv>`.
-3. Capture bounded topcase reports before proposing an Air6,1 trackpad profile;
-   keep backlight, audio, EC/SCI and network enablement independently scoped.
+1. Preserve accepted release `c35475f62f154f1e` and the collected USB test file.
+2. Plan bounded topcase report capture before an Air6,1 trackpad profile; native
+   pointer/gesture support remains unaccepted. Coordinate any shared xHCI work.
+3. Scope desktop, backlight, audio and EC/SCI enablement independently. Rebuild
+   and rehearse any new candidate while retaining the accepted console payload.
 
 ## First console trial prepared (2026-10-22)
 
@@ -172,3 +169,24 @@ a hash-verified copy survives outside `build`. Preserve the first trial evidence
 Ubuntu remains default, no one-shot is armed, and this preparation does not
 claim USB persistence acceptance. Collect exact bytes, prior-file preservation,
 user observations and offline checks after return before another trial.
+
+## USB write physical acceptance (2026-10-22)
+
+The user reports that USB-write-02 went smoothly on unchanged release
+`c35475f62f154f1e` (source `b31f743`). After Ubuntu return, `usb02.txt` contains
+exactly `Air61-USB-write-02`: 18 bytes without a newline. All 108 pre-test file
+hashes are preserved. The only added files are the test result and SrvrOS's
+`.srvros/meta` metadata file. Offline fsck reports 18 directories/110 files;
+independent allocation checking reports 113 clusters, zero leaks, mismatches
+or errors. Ubuntu default is verified and the one-shot is consumed.
+
+This accepts the bounded monitor write/read, sync/unmount workflow and persisted
+result on this unit. Workflow observations are user-reported; exact bytes, file
+preservation and filesystem health were independently collected. v7 has no
+automatic console session log. It does not accept desktop I/O, sustained loads,
+hotplug, trackpad or other providers.
+
+Evidence is under the USB-write-02 run's `physical-after` directory, with a
+hash-verified copy outside `build`. Retain the accepted payload as recovery for
+future trials. No new boot is armed. Main `62067a1` was fetched at collection;
+this evidence applies to the recorded installed source, not the newer baseline.
