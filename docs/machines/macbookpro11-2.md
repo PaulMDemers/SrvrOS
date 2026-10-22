@@ -1950,3 +1950,26 @@ one-shot and installed/current recovery verified. Offline checks pass: 135 files
 451 clusters, no leaks/mismatches/errors. No next boot armed. Next compare the
 working Linux cold initialization sequence with SrvrOS before another speculative
 hardware trial; preserve the live Linux network connection during investigation.
+
+Next scope: Linux cold-initialization evidence, not another kernel candidate.
+Fetched main 4ea10e1 (Air SMBus capture); only PR19 remains open. Compare the
+actual adapter's control setup/payload/status/timing via bounded usbmon capture.
+Linux source agrees on reset request1/value1, 5–6 ms delay and FCE write6/0x800;
+its earlier WLAN disable/enable sequence and vendor retries need native evidence.
+Add a host capture tool and parser fixtures; filter to initialization registers,
+exclude bulk/network payloads, preserve the current network until an announced
+physical replug. No driver unbind/reset or reboot as part of preparation.
+
+Source review confirms the captured v6.18 Linux path first calls
+`mt76x0_chip_onoff(false,false)`, waits for MAC, then enables WLAN during hardware
+initialization. Its register transport allows up to ten attempts, with 5–10 ms
+between failed 300 ms requests. SrvrOS intentionally quarantines after one
+uncertain request. Neither difference is yet proven causal; do not add blind
+retries or GPIO/RF writes. The new `tools/mt76_linux_capture.py` records only
+selected initialization-register control URBs and reset, correlates completion
+status/timing, and persists only addresses verified on this adapter's port.
+Bulk/network payloads are excluded. Four parser fixtures and a 30-second passive
+Ubuntu smoke run passed; no device reset or network disruption was performed.
+A user-operated 10-second unplug/replug in Ubuntu is next; capture survives the
+brief network loss locally. This observes host requests, not physical USB wire
+handshakes. No new SrvrOS boot is staged or armed.
