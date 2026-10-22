@@ -6,6 +6,7 @@
 #include <string.h>
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
+void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
 static struct process first, second;
 static uint8_t frames[2048][4096];
 static unsigned allocated;

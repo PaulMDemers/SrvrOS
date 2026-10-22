@@ -44,6 +44,18 @@ def check_rollups(data, epochs):
     return rows
 
 
+def check_lifetime(data):
+    acquired=list(re.finditer(rb'^battery-desktop-lifetime: acquired token=(\d+) root=(\d+)\r?$',data,re.M))
+    drained=list(re.finditer(rb'^battery-desktop-lifetime: drained token=(\d+) members=0 peak=2 revoked=yes\r?$',data,re.M))
+    released=list(re.finditer(rb'^battery-desktop-lifetime: released token=(\d+) runtime_retired=yes\r?$',data,re.M))
+    assert len(acquired)==len(drained)==len(released)==1
+    a,d,r=acquired[0],drained[0],released[0]
+    assert int(a[1])>0 and a[1]==d[1]==r[1] and a.end()<d.start()<d.end()<r.start()
+    assert r.end()<data.index(b'battery-workspace-hold: released ')
+    retire=list(re.finditer(rb'^battery-service: retired .*$',data,re.M))
+    if retire:assert retire[-1].end()<r.start()
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=('normal','alarm','early-exit','refusal','unmounted-refusal','profile-refusal','query-refusal','runtime-fault','effect-refusal'),default='normal')
@@ -132,6 +144,7 @@ def main():
                         assert b'; revoked=yes retired=yes' in data
                         assert b'retired=yes mounted=yes native=explicit' in data
                         check_hold(data,False if unavailable else None,automatic_start=True)
+                        check_lifetime(data)
                         epochs=2 if args.case in ('normal','alarm') else 0 if unavailable else 1
                         check_home_returns(data,epochs,refused=args.case=='query-refusal',continuous=True)
                         if args.case in ('normal','alarm'):

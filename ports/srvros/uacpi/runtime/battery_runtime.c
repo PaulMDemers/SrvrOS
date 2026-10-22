@@ -1668,8 +1668,16 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(workspace?((!mounted_home && !battery_platform_workspace_study_allowed()) || !workspace_mount_hold_valid(smbus_workspace_hold) || workspace_image_busy()):workspace_active())return false;
     uint64_t f=irq_save();bool free=owner==OWNER_NONE && !controls.group;irq_restore(f);
     if(!free)return false;
-    int64_t child=process_spawn_background_elf_args("/fat/bin/deskd",continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual");
-    if(child<=0)return false;
+    uint64_t lifetime=continuous_home?process_lifetime_create():0;
+    if(continuous_home && !lifetime)return false;
+    const char *arguments=continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
+        process_spawn_background_elf_args("/fat/bin/deskd",arguments);
+    if(child<=0) {
+        if(lifetime && (!process_lifetime_revoke(lifetime) || !process_lifetime_release(lifetime)))unsafe("desktop failed spawn ownership");
+        return false;
+    }
+    if(lifetime)console_printf("battery-desktop-lifetime: acquired token=%u root=%u\n",lifetime,(uint64_t)child);
     uint64_t pid=(uint64_t)child,status=UINT64_MAX,first_serial=controls.serial;
     struct battery_service_status before;battery_service_status(&before);
     struct desktop_tree tree={.pids={pid},.count=1};
@@ -1681,7 +1689,8 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     }
     if(bound)for(;;) {
         if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
-        desktop_tree_scan(&tree);controls_dispatch(rsdp,map);
+        if(!lifetime)desktop_tree_scan(&tree);
+        controls_dispatch(rsdp,map);
         if(workspace && !guarded) {
             struct battery_service_status state;battery_service_status(&state);
             if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {
@@ -1694,18 +1703,37 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     }
     f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
     battery_control_revoke(&controls);irq_restore(f);
-    if(!reaped)(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
     deadline=timer_monotonic_us()+5000000;
-    while(!desktop_children_stop(&tree,!ok) || !reaped) {
-        if(!reaped)reaped=process_wait(pid,&status,true)==(int64_t)pid;
-        if(timer_monotonic_us()>=deadline)unsafe("control clients retirement");
-        uacpi_kernel_sleep(10);
+    uint64_t descendants=tree.count;
+    if(lifetime) {
+        if(!process_lifetime_revoke(lifetime))unsafe("desktop lifetime revocation");
+        struct process_lifetime_status state;
+        for(;;) {
+            if(!process_lifetime_drain(lifetime) || !process_lifetime_status(lifetime,&state))unsafe("desktop lifetime lookup");
+            if(!state.members)break;
+            if(timer_monotonic_us()>=deadline)unsafe("desktop lifetime retirement");
+            uacpi_kernel_sleep(10);
+        }
+        descendants=state.peak;
+        console_printf("battery-desktop-lifetime: drained token=%u members=0 peak=%u revoked=yes\n",lifetime,descendants);
+    } else {
+        if(!reaped)(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+        while(!desktop_children_stop(&tree,!ok) || !reaped) {
+            if(!reaped)reaped=process_wait(pid,&status,true)==(int64_t)pid;
+            if(timer_monotonic_us()>=deadline)unsafe("control clients retirement");
+            uacpi_kernel_sleep(10);
+        }
+        descendants=tree.count;
     }
     if(!battery_service_stop(35000))unsafe("control service retirement");
+    if(lifetime) {
+        if(!process_lifetime_release(lifetime))unsafe("desktop lifetime release");
+        console_printf("battery-desktop-lifetime: released token=%u runtime_retired=yes\n",lifetime);
+    }
     struct battery_service_status retired;battery_service_status(&retired);
-    ok=ok && !pending && tree.count==(files?3u:2u) && (automatic?requests==(files?5u:4u) && retired.epoch==before.epoch+(files?3u:2u) && retired.state==BATTERY_SERVICE_STOPPED:
+    ok=ok && !pending && descendants==(files?3u:2u) && (automatic?requests==(files?5u:4u) && retired.epoch==before.epoch+(files?3u:2u) && retired.state==BATTERY_SERVICE_STOPPED:
         retired.state==BATTERY_SERVICE_STOPPED || retired.state==BATTERY_SERVICE_DISABLED || retired.state==BATTERY_SERVICE_UNAVAILABLE || (continuous_home && retired.state==BATTERY_SERVICE_FAULTED));
-    console_printf("battery-controls: %s requests=%u descendants=%u epoch=%u; revoked=yes retired=yes\n",ok?"PASS":"FAIL",requests,(uint64_t)tree.count,retired.epoch);
+    console_printf("battery-controls: %s requests=%u descendants=%u epoch=%u; revoked=yes retired=yes\n",ok?"PASS":"FAIL",requests,descendants,retired.epoch);
     return ok;
 }
 bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
