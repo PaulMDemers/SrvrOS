@@ -702,3 +702,22 @@ Capture and recovery/filesystem checks passed. This does not identify whether
 the body reflects the first or last pair, nor independently confirm two distinct
 writes. General table completion needs a distinguishing response/readback test;
 do not infer a full-table echo validator from this fixture.
+
+### Distinct timing-pair diagnostic
+
+Firmwarev7 (`--wifi-timing-probe`, requiring v6's flags) replaces the duplicate
+pair with two fixed timing-register initial values: XIFS_TIME_CFG1100=33a41010
+and BKOFF_SLOT_CFG1104=209, as specified in Linuxv6.18 mt76x02_regs.h and
+mt76x0/initvals_init.h. No table source is imported. It runs only after prepared
+reset, strict identity/single-write ACK and MAC_SYS_CTRL=0. Sequence3 carries
+both pairs. It does not set MAC TX/RX enable, RF, PA or transmit-power registers.
+
+A separate read-only EP0 binding permits only1100/1104 during this diagnostic.
+It captures each value before the command and reads both afterward, requiring
+the fixed target values. All-ones reads, transport errors and lost ownership
+fail; no retries or reclamation follow uncertain DMA. Before/after MAC reads
+must remain0. `changed0/1` records whether each baseline differed: equality at
+baseline cannot prove that particular write executed. Reply words remain raw
+capture (`ack_validated=0`) until the distinct native body is inspected; this
+trial must distinguish first/last entry before a general validator is proposed.
+No ordinary table executor or radio startup is enabled by this profile.

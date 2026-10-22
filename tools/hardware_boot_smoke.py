@@ -151,7 +151,7 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-")))
+    wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-")))
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))

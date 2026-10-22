@@ -180,27 +180,44 @@ static bool wifi_mcu_capture_write(struct xhci_device *d) {
     return true; /* Fixed disabled-MAC write only; no table acceptance. */
 }
 
-/* Probe multi-pair framing without changing register scope or enabling MAC. */
-static int wifi_mcu_write_pair(struct xhci_device *d,int *sent) {
+/* Fixed duplicate-MAC or opt-in timing pairs; neither enables MAC. */
+static int wifi_mcu_write_pair(struct xhci_device *d,int *sent,bool timing) {
     struct xhci_wifi_firmware *f=&d->firmware;
     struct xhci_wifi_mcu *m=&f->mcu;
     *sent=-1;
     if(!wifi_mcu_owned(d) || !m->configured || m->pending ||
         !m->identity_validated || !f->radio_reset.prepared || !m->write_validated ||
-        !m->write_attempted || m->pair_attempted)return -1;
+        !m->write_attempted || m->pair_attempted || (timing && !m->timing_active))return -1;
     m->pair_attempted=true;
-    const struct mt76_mcu_register_pair pairs[2]={{0x1004,0},{0x1004,0}};
+    const struct mt76_mcu_register_pair pairs[2]={
+        {timing?0x1100u:0x1004u,timing?0x33a41010u:0u},
+        {timing?0x1104u:0x1004u,timing?0x209u:0u}};
     size_t bytes=mt76_mcu_register_packet(true,3,pairs,2,f->buffer,MT76_MCU_PACKET_MAX);
     if(!bytes)return -1;
     *sent=wifi_mcu_bulk(d,false,bytes);
     if(*sent!=(int)bytes)return -1;
     return wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
 }
-static bool wifi_mcu_capture_pair(struct xhci_device *d) {
+/* Read-only binding restricted to this timing diagnostic and exact offsets. */
+static bool wifi_mcu_timing_read(struct xhci_device *d,uint32_t address,uint32_t *value) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(!value || !wifi_mcu_owned(d) || !m->timing_active || !m->write_validated ||
+        m->pending || (address!=0x1100 && address!=0x1104))return false;
+    struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    int actual=0;*value=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
+    for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    return *value!=UINT32_MAX;
+}
+static bool wifi_mcu_capture_pair(struct xhci_device *d,bool timing) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     uint32_t before=~0u,after=~0u;int sent=-1,received=-1;
     bool disabled=wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&before) && before==0;
-    if(disabled)received=wifi_mcu_write_pair(d,&sent);
+    uint32_t prior[2]={~0u,~0u},readback[2]={~0u,~0u};bool readbacks=!timing;
+    m->timing_active=timing;
+    if(timing)disabled=disabled && wifi_mcu_timing_read(d,0x1100,&prior[0]) &&
+        wifi_mcu_timing_read(d,0x1104,&prior[1]);
+    if(disabled)received=wifi_mcu_write_pair(d,&sent,timing);
     struct mt76_mcu_response r={0};
     bool decoded=received>=0 && mt76_mcu_decode(m->buffer,(size_t)received,&r);
     if(received>0 && received<=64)for(unsigned n=0;n<(unsigned)received/4;n++) {
@@ -215,11 +232,20 @@ static bool wifi_mcu_capture_pair(struct xhci_device *d) {
         (uint64_t)r.sequence,(uint64_t)r.event,(uint64_t)r.reported_length,
         (uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)before,(uint64_t)after,
         (uint64_t)disabled,(uint64_t)observed);
-    if(!observed || !disabled)return wifi_mcu_fail(d);
+    if(timing) {
+        readbacks=disabled && wifi_mcu_timing_read(d,0x1100,&readback[0]) &&
+            wifi_mcu_timing_read(d,0x1104,&readback[1]) &&
+            readback[0]==0x33a41010 && readback[1]==0x209;
+        console_printf("wifi-mcu-timing: before0=%x before1=%x after0=%x after1=%x readback_ok=%u changed0=%u changed1=%u\n",
+            (uint64_t)prior[0],(uint64_t)prior[1],(uint64_t)readback[0],(uint64_t)readback[1],
+            (uint64_t)readbacks,(uint64_t)(prior[0]!=readback[0]),(uint64_t)(prior[1]!=readback[1]));
+    }
+    m->timing_active=false;
+    if(!observed || !disabled || !readbacks)return wifi_mcu_fail(d);
     return true; /* Captured evidence only, no multi-pair ACK acceptance yet. */
 }
 
-static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe) {
+static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool timing) {
     unsigned found=0;bool saved=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];struct xhci_wifi_firmware *f=&d->firmware;
@@ -253,16 +279,18 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe) {
         else {
             m->identity_validated=true;
             if(write_probe && !wifi_mcu_capture_write(d))saved=false;
-            else if(pair_probe && !wifi_mcu_capture_pair(d))saved=false;
+            else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
         }
         f->active=false;
     }
     return found && saved;
 }
 
-bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false,false,false); }
-bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true,false,false); }
+bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false,false,false,false); }
+bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true,false,false,false); }
 
-bool xhci_wifi_capture_write_probe(void) { return wifi_capture_mcu(true,true,false); }
+bool xhci_wifi_capture_write_probe(void) { return wifi_capture_mcu(true,true,false,false); }
 
-bool xhci_wifi_capture_pair_probe(void) { return wifi_capture_mcu(true,true,true); }
+bool xhci_wifi_capture_pair_probe(void) { return wifi_capture_mcu(true,true,true,false); }
+
+bool xhci_wifi_capture_timing_probe(void) { return wifi_capture_mcu(true,true,true,true); }

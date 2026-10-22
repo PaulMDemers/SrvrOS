@@ -280,6 +280,17 @@ class InstallTests(unittest.TestCase):
                     'srvros.wifi-write-probe=1 srvros.wifi-pair-probe=1'))
         with self.assertRaises(ValueError):boot.stage(wifi_pair_probe=True)
 
+    def test_wifi_timing_probe_profile(self):
+        for suffix in ('', '-auto-return'):
+            v6='ram-usb-wifi-fw-v6-laptop-probe-37d8c5d0'+suffix
+            v7=v6.replace('v6','v7')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v7))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v7),
+                boot.limine_config('0123456789abcdef',v6).replace(
+                    'srvros.wifi-pair-probe=1',
+                    'srvros.wifi-pair-probe=1 srvros.wifi-timing-probe=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_timing_probe=True)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-v44-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

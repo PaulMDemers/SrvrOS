@@ -2377,3 +2377,9 @@ Matching collection archived in wifi-pair-fe5c0a8/native-collection. Ubuntu defa
 consumed one-shot and current/recovery manifests verified. Workspace unmounted,
 clean147files/469clusters,zero leaks/mismatches/errors. Run/checkpoint collected
 and unarmed. No RF, receive, scan or connectivity acceptance.
+
+Active scope: v7 distinct timing-pair diagnostic, XIFS1100=33a41010 and
+BKOFF1104=209 from Linuxv6.18 initialization/register definitions. Require strict
+single-write ACK and disabled MAC; capture before/after EP0 values independently
+of MCU reply. No RF/PA/power tables or TX/RX enable. Existing profiles retained.
+Main9ca1922 fetched; other Air scopes inspected separately from this USB work.
