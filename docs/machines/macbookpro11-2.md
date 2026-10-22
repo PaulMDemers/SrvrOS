@@ -2034,3 +2034,20 @@ Installed unarmed; Ubuntu default and accepted recovery verified; offline checks
 pass (135 files, 451 clusters). Native acceptance pending. Next attended cold
 shutdown requires Wi-Fi unplugged10 seconds while off, reconnected before power
 on; workspace stays connected. Results save and return automatically, no photos.
+
+
+Native bounded-retry trial `b7f7fb1c357d7ff5`, session
+`00065e7310c09789-00`: **firmware upload and MCU readiness accepted** for the
+captured Edimax7392:a711 revision0100, ASIC76100002/MAC76502000. Recovery
+attempts2/successful2/mask3; preparation/reset/upload complete; result0, chunks6,
+mac_disabled1, quarantined0. Final MAC0x1004 read returns0x20 with exact status
+completion; firmware and laptop capture both completed=yes. This validates the
+bounded recovery path on this run, not Wi-Fi RF/network connectivity. No radio,
+scan, association, authentication or IP acceptance is implied.
+
+Logs, exact payload, run record and checksums retained outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-retry-122fcda`. Ubuntu default, consumed
+one-shot, current payload and accepted desktop recoverye47dca3a6b30c6c1 verified.
+Offline checks pass:137 files,454 clusters,zero leaks/mismatches/errors. No new
+boot armed. Next phase: interpret captured calibration/regulatory data and add
+bounded radio/receive initialization before scan, then authentication and IP.

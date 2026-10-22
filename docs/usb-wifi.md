@@ -3,7 +3,10 @@
 Initial scope, October 21: `7392:a711` revision `0100`, Edimax EW-7711MAC,
 attached to MacBookPro11,2. Linux binds `mt76x0u`; SrvrOS currently has no Wi-Fi
 radio driver, association/authentication service or Wi-Fi configuration UI.
-Ethernet support is preserved. No physical SrvrOS Wi-Fi result is claimed.
+Ethernet support is preserved. Native identity, logical calibration capture and
+firmware upload/readiness are accepted for the captured adapter; radio operation
+and Wi-Fi connectivity remain unimplemented/unaccepted. See the latest milestone
+at the end of this guide.
 
 ## Captured baseline
 
@@ -49,8 +52,8 @@ advertised capabilities are not SrvrOS support or permission to transmit.
 
 Each step needs fixtures and bounded fault tests before a native trial. Generic
 QEMU USB Ethernet coverage does not emulate this radio. The next implementation
-checkpoint is a documented vendor-control/firmware contract and read-only native
-identity diagnostic; inventory-only groundwork does not need a reboot.
+checkpoint is calibrated radio initialization and receive/scan support; identity
+and firmware readiness now have native evidence for this exact adapter.
 
 ## Implemented identity diagnostic (native register read accepted)
 
@@ -392,8 +395,9 @@ stopped output-context snapshot. `wifi-firmware-td` lists submitted stage TRBs;
 `wifi-firmware-stop` records exact-command success, endpoint state/dequeue and
 the first late or stopped transfer event. Interpret the dequeue only after a
 successful stop with state 3; a snapshot does not prove why the device stalled.
-A failed command blocks later controller commands. The failed request remains
-failed and quarantined: no retry, endpoint restart or DMA reuse is performed.
+A failed command blocks later controller commands. Most failures remain
+quarantined. The bounded recovery below permits one retry for each of two
+observed operations after verified retirement; no old DMA is reused.
 
 ### Explicit MAC-startup comparison
 
@@ -403,10 +407,35 @@ The v2 kernel opt-in allows one 0x1004=0x2c write before MCU reset, matching
 [Linux v6.18 firmware preparation](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c).
 This temporarily enables MAC TX/RX. After FCE preparation it writes and verifies
 0x20 before allowing upload; the final readiness check still requires disabled
-MAC. No channel/RF configuration or network frames are submitted. This is an
-unaccepted comparison trial, not proof that disabled MAC caused the timeout.
+MAC. No channel/RF configuration or network frames are submitted. v2 is included
+in the accepted readiness run below; that does not prove the startup value was
+necessary or that disabled MAC caused the earlier timeout.
 The transport requires the opt-in, preparation ownership, no prior reset/upload
-and a single startup write. Failed/uncertain I/O is never retried: MAC startup
-may remain enabled until physical power-off. The held-screen recovery procedure
-therefore remains required. Cached `wifi-firmware-mac-startup` records requested
+and a single startup write. Only the two operations described below may retry
+after verified retirement. Other failures can leave MAC startup enabled until
+power-off. Default stages save diagnostics and return automatically; photos
+are not required when matching logs are available. Cached
+`wifi-firmware-mac-startup` records requested
 and written state; these flags do not prove restoration or readiness.
+
+### Native firmware readiness accepted (October 22)
+
+MacBookPro11,2 release `b7f7fb1c357d7ff5` (source `122fcda`) completed the
+captured Edimax firmware trial: result0, six chunks, MAC disabled, no quarantine,
+and both capture completion markers yes. Two bounded recoveries succeeded.
+The exact session and recovery checks are in the
+[machine record](machines/macbookpro11-2.md). This accepts firmware loading and
+MCU readiness only; it does not accept RF, scanning, association or connectivity.
+
+Two Linux cold captures showed cancellation near300 ms followed by a successful
+retry about10 ms later for the first FCE write0x800=1 and post-IVB ready read0x730.
+SrvrOS permits one retry per operation only after exact Stop Endpoint completion,
+state3 and a stopped data TRB with four bytes remaining. Exact Set TR Dequeue
+completion and context readback switch EP0 to a fresh ring/buffer; retired DMA
+remains allocated, excluding late events by address. A10 ms delay precedes the
+single retry. Command/allocation/delay uncertainty or another failure quarantines;
+reset, bulk upload and other writes are never blindly replayed. Saved
+`wifi-firmware-recovery` reports attempts/successful/mask. Successful recovery
+alone is not firmware acceptance: require the final result/chunks/MAC/quarantine
+and completion markers. Next work is calibrated radio initialization and
+receive/scan support, followed by station authentication and IP integration.
