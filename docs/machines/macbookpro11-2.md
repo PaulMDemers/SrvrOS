@@ -2021,3 +2021,16 @@ Set TR Dequeue completion. Retain old/new DMA allocations on every failure;
 never reuse retired transfer addresses. Delay10 ms, retry once, quarantine on
 any uncertainty. Add fault/late-event fixtures and saved recovery diagnostics.
 Fetched main53a24a0; Air PR48 covers sustained SMBus/Text, outside this scope.
+
+Bounded-retry source `122fcda`, release `b7f7fb1c357d7ff5`, passes build/docs
+and xHCI host fixtures. Tests cover fresh ring/buffer and copied OUT/zeroed IN,
+exact Set Dequeue command failure/wrong-slot/timeout/context refusal, allocation
+and delay failure, identity/phase/stop-evidence gates, one-shot limits, and full
+write/read timeout→stop→dequeue→retry paths with stale old-TD events and a second
+failure. All DMA stays allocated; no stale completion can retire a fresh-address
+TD. Saved recovery diagnostics include attempts/successful/mask and ring/buffer.
+Exact GPT saved-log automatic return and missing-workspace return VMs pass.
+Installed unarmed; Ubuntu default and accepted recovery verified; offline checks
+pass (135 files, 451 clusters). Native acceptance pending. Next attended cold
+shutdown requires Wi-Fi unplugged10 seconds while off, reconnected before power
+on; workspace stays connected. Results save and return automatically, no photos.
