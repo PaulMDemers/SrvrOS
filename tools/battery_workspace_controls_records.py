@@ -31,9 +31,20 @@ def check(data, serial_base=0, epoch_base=0):
     end=f'battery-workspace-controls: complete=yes epoch={epoch_base+2} state=4; revoked=yes retired=yes mounted=yes native=disabled'.encode()
     assert data.count(b'battery-workspace-controls:')==2 and data.count(begin)==data.count(end)==1
     assert data.index(begin)<data.index(b'battery-ui: request=')<data.index(end)
+    total,alarm_total=check_events(data,epoch_base,2)
+    result.pop('physical_acceptance',None)
+    result.update(events=total,alarms=alarm_total,mounted_lifetimes=2,mount_token=token,native_acceptance='disabled')
+    return result
+
+
+def check_events(data, epoch_base=0, epochs=2):
+    data=complete_lines(data.replace(b'\r\n',b'\n'))
     summaries=re.findall(rb'^battery-controls-events: epoch=(\d+) events=(\d+) alarms=(\d+) acknowledgements=(\d+) unknown=(\d+) invalid_through=(\d+) generation=(\d+); drained=yes$',data,re.M)
-    assert len(summaries)==data.count(b'battery-controls-events:')==2
+    assert len(summaries)==data.count(b'battery-controls-events:')==epochs
     retired=list(re.finditer(rb'^battery-service: retired epoch=(\d+) .*$',data,re.M))
+    assert len(retired)==data.count(b'battery-service: retired ')==epochs
+    for row in retired:
+        assert re.fullmatch(rb'battery-service: retired epoch=\d+ attempts=\d+ rejected=0 queries=\d+ notifications=\d+ attached=1 detached=1 heap=0 errors=0 denied=0',row[0])
     previous=0;total=0;alarm_total=0
     for offset,(summary,retirement) in enumerate(zip(summaries,retired),1):
         epoch,events,alarms,acks,unknown,invalid,generation=map(int,summary)
@@ -61,9 +72,7 @@ def check(data, serial_base=0, epoch_base=0):
         assert part.rindex(b'battery-smbus: event=')<part.index(resources)<part.index(b'battery-controls-events:')
         total+=events;alarm_total+=alarms
     assert data.count(b'battery-smbus: event=')==total
-    assert data.count(b'battery-recovery-resources:')==2
+    assert data.count(b'battery-recovery-resources:')==epochs
     for bad in (b'battery: HALTED',b'battery: FAILED',b'battery-smbus: FAILED',b'workspace: unmounted',b'battery-query-policy:'):
         assert bad not in data
-    result.pop('physical_acceptance',None)
-    result.update(events=total,alarms=alarm_total,mounted_lifetimes=2,mount_token=token,native_acceptance='disabled')
-    return result
+    return total,alarm_total

@@ -149,7 +149,10 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
-    int workspace_capture=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-workspace");
+    int controls_cancel=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files-cancel");
+    int controls_files=controls_cancel || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files"));
+    int workspace_capture=controls_files || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-workspace"));
+    if(controls_files)tool_file_capture_controls_enable(controls_cancel);
     int file_capture=workspace_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files"));
     if(file_capture)tool_file_capture_setup(workspace_capture);
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
@@ -238,7 +241,9 @@ int main(int argc,char **argv) {
                 if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
             }
         }
-        if(t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
+        int poll_file=!controls_files || tool_file_capture_controls_tick(t);
+        if(controls_cancel && t->quit)break;
+        if(poll_file && t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
             desk_log("desktools: file-result role=%s op=%u status=%u bytes=%u\n",roles[t->role-1],t->job.request.operation,t->job.response.status,t->job.response.length);
             if(file_capture && tool_file_capture_busy()) {
                 tool_file_capture_finish(t,result);
@@ -262,7 +267,7 @@ int main(int argc,char **argv) {
         for(unsigned i=0;i<captured;i++) capture_print("checkpoint",capture_states[i]);
         capture_print("final",capture_state(t,t->window.input_serial));
         desk_log("text-coexist: file_worker=%s checkpoints=%u\n",file_capture?(t->worker_ready?"enabled":"MISSING"):(t->worker_ready?"UNEXPECTED":"disabled"),captured);
-        if(file_capture) { tool_file_capture_report();if(tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
+        if(file_capture) { if(!tool_file_capture_report() || tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
     }
     free(t->body_history);
     if(t->worker_ready) desk_file_job_close(&t->job);

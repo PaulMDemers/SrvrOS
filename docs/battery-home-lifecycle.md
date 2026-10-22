@@ -71,12 +71,45 @@ file workload or physical-input/gauge result. Prior Text/file overlap evidence
 remains separate. Raw VM logs, screenshots and disposable images stay in ignored
 local evidence. Nothing installs a new native payload or arms a reboot.
 
+## Controls during submitted Text jobs
+
+The explicit VM-only `acpiruntime battery-workspace-controls-files` fixture uses
+the same scoped userspace control syscall as System. It starts monitoring, then
+issues Stop/Start/Stop/Start during the first four asynchronous Text save jobs.
+Each request must be completely transmitted to the ordinary file worker before
+the battery action is enqueued. Reply consumption and battery-state observation
+continue independently. The shared `desk_file_job_submit` helper advances the
+bounded nonblocking write side without consuming a reply; existing callers keep
+using `desk_file_job_poll`, which combines submission and reply validation.
+
+The fixture performs 60 edits and five save/stat/rename/reopen cycles over one
+minute. Its third battery lifetime stays active until session exit, where the
+owner revokes controls, retires descendants and the service, then releases the
+mount hold. These requests originate in the explicit Text fixture; the separate
+System-button test remains the evidence for UI dispatch. A submitted but
+unconsumed application job is not proof that USB DMA is active at that instant.
+
+`battery-workspace-controls-files-cancel` exits after the first write has been
+submitted and Stop enqueued. Its application workload is incomplete, even when
+client/runtime cleanup succeeds. Offline checks permit only an absent draft or
+a prefix of the two-byte draft, preserve both anchors and require clean allocation
+and consistent metadata. Unsupported/native admission must leave the disk
+unchanged. Uncertain runtime acknowledgement retains live ownership and halts
+without attempting mounted-storage cleanup.
+
+Run `tools/host-env.sh python3 tools/battery_control_files_smoke.py --case normal`;
+other cases are `cancel`, `profile-refusal`, `refusal`, `unmounted-refusal` and
+`runtime-fault`. The harness accepts no physical disk path. Strict receipts bind
+control serials/epochs, submitted writes, three service retirements, event drains,
+application/file progress and final mount release. Raw logs/disks stay local.
+
 ## Next implementation boundary
 
-Combine the held mailbox lifecycle with actual asynchronous Text file operations,
-including Start/Stop/restart, cancellation and refusal. Keep native admission disabled until that ownership and
-normal-return proof is reviewable. A passing VM controller fixture does not widen
-Air firmware/register gates or accept another machine's EC/SCI ownership.
+Establish native mounted normal-return/refusal and desktop-session ownership
+before ordinary startup enablement. Preserve the same file/client and mount
+lifetimes through cancellation and degraded service. A passing VM controller
+fixture does not widen Air firmware/register gates or accept another machine's
+EC/SCI ownership.
 
 ## Delivery through the desktop indicator
 
@@ -95,8 +128,8 @@ startup enablement or a finished graphical indicator.
 
 The remaining delivery sequence is:
 
-1. Prove mounted controls and real asynchronous file work together, including
-   cancellation, close, restart and volume release. Preserve per-session ownership.
+1. Retain the VM combined-control/file proof above through native integration:
+   submitted jobs, cancellation, active-service close and mount release.
 2. Establish the native mounted normal-return/refusal path and bounded event
    behavior without weakening terminal-fault storage containment. Integrate a
    desktop-session service owner; enable normal startup only after acceptance.

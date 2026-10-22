@@ -176,9 +176,11 @@ void tool_files_action(struct tool *tool,struct desk_action action);
 void tool_files_finish(struct tool *tool,int result);
 void tool_launch(struct tool *tool,int application,const char *path);
 void tool_file_capture_setup(int workspace);
+void tool_file_capture_controls_enable(int cancel);
+int tool_file_capture_controls_tick(struct tool *);
 int tool_file_capture_busy(void);
 unsigned tool_file_capture_cycles(void);
 void tool_file_capture_begin(struct tool *,uint64_t);
 void tool_file_capture_finish(struct tool *,int);
-void tool_file_capture_report(void);
+int tool_file_capture_report(void);
 #endif

@@ -6,6 +6,8 @@ Updated: 2026-10-22. State: **active reference machine; partial device acceptanc
 
 Base `fb96ace` (PR50). Scope: the explicit mounted VM battery-control diagnostic,
 Text/file capture, compositor capture-mode selection and strict host/VM evidence.
+The shared file-job API gains bounded submission without reply consumption;
+ordinary polling retains its existing combined behavior.
 The Text fixture will use the existing scoped control syscall during pending
 asynchronous saves, stop/restart across file cycles, and leave monitoring active
 for session-exit retirement. Test normal completion, cancellation during file

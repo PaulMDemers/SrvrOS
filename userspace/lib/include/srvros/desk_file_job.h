@@ -14,6 +14,9 @@ struct desk_file_job {
 int desk_file_job_init(struct desk_file_job *job);
 int desk_file_job_start(struct desk_file_job *job,unsigned operation,const char *path,
     const void *data,size_t length,unsigned flags,uint32_t expected_crc);
+/* Advance request transmission without consuming a reply. 1 fully sent,
+ * 0 pending/idle, -1 failure. The job stays busy until poll accepts its reply. */
+int desk_file_job_submit(struct desk_file_job *job);
 /* 1 completed response, 0 pending/idle, -1 worker or protocol failure. */
 int desk_file_job_poll(struct desk_file_job *job);
 void desk_file_job_close(struct desk_file_job *job);
