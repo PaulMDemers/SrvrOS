@@ -56,7 +56,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Not physically tested | Console boot and 1366×768 layout |
 | Keyboard | Not physically tested | Native enumeration and typing |
 | Trackpad/gestures | PID not admitted | Captured report/transport evidence before profile |
-| USB workspace | No USB storage attached | Select this unit's exFAT partition and UUID |
+| USB workspace | Prepared; offline checks pass | Physical save/read/unmount pending |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
 | Brightness | Not tested | Exact firmware/register evidence |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
@@ -97,3 +97,32 @@ unit's exFAT workspace, exact-stage VM result and recorded recovery/run state.
    first attended console/input trial before installing/arming it.
 3. Capture bounded topcase reports before proposing a separate Air6,1 profile;
    keep backlight, audio, EC/SCI and network enablement independently scoped.
+
+## First console trial prepared (2026-10-22)
+
+Consumed merged main `9ca1922` (PR #52) into clean device source `b31f743`.
+PR #53 at `b67d179` continues Air battery desktop ownership; PR #19 at
+`2de825f` remains Pro Wi-Fi work. No device gates changed locally.
+
+Rebuilt ISO/USB/core checks and all 51 staging tests pass. Exact v7 console
+release `c35475f62f154f1e` passes GRUB chainload, RAM filesystem, USB keyboard,
+case/Caps/repeat and renderbench rehearsal. This console harness does not attach
+a workspace disk; its default MBR field does not validate this physical GPT USB.
+
+The attached approximately 57.6 GiB exFAT partition on GPT USB storage is now
+prepared without formatting. All 102 pre-existing file hashes are unchanged;
+workspace starters and a console checklist add five files. Both pre/post
+read-only fsck and independent allocation checks pass, with zero leaks or errors.
+The selected UUID, paths and file hashes remain in the ignored local run record.
+
+Installed current is `c35475f62f154f1e`, with no previous SrvrOS release.
+Ubuntu default and GRUB syntax are verified; no one-shot is armed and no reboot
+has occurred. Payload and trial evidence have a hash-verified backup outside
+`build`; this is a VM-tested candidate, not physically accepted recovery.
+Run record: `build/native-desktop-trials/c35475f62f154f1e/run.json`.
+
+Next is the attended console/keyboard trial, including a saved
+`console-keyboard-first.txt`, clean sync/unmount and Ubuntu return. v7 does not
+create automatic desktop session logs: retain photographs and user observations,
+verify the saved file and original-file hashes, and run offline filesystem checks
+before another trial. Physical keyboard, display and USB acceptance remain pending.
