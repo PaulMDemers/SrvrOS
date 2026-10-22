@@ -75,6 +75,23 @@ static int wifi_mcu_bulk(struct xhci_device *d,bool in,size_t size) {
     }
     wifi_mcu_fail(d);return -1;
 }
+static int wifi_mcu_read_identity(struct xhci_device *d,int *queue_sent,int *read_sent) {
+    struct xhci_wifi_firmware *f=&d->firmware;
+    *queue_sent=-1;*read_sent=-1;
+    if(!wifi_mcu_owned(d) || !f->mcu.configured || f->mcu.pending)return -1;
+    size_t bytes=mt76_mcu_select_response_queue(f->buffer,MT76_MCU_PACKET_MAX);
+    if(!bytes)return -1;
+    *queue_sent=wifi_mcu_bulk(d,false,bytes);
+    if(*queue_sent!=(int)bytes)return -1;
+    /* Same OUT ring guarantees queue selection precedes this read. */
+    const uint8_t payload[8]={0x00,0x10,0x41,0,0,0,0,0};
+    bytes=mt76_mcu_encode(10,1,payload,sizeof payload,f->buffer,MT76_MCU_PACKET_MAX);
+    if(!bytes)return -1;
+    *read_sent=wifi_mcu_bulk(d,false,bytes);
+    if(*read_sent!=(int)bytes)return -1;
+    return wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+}
+
 bool xhci_wifi_capture_mcu(void) {
     unsigned found=0;bool saved=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
@@ -84,15 +101,12 @@ bool xhci_wifi_capture_mcu(void) {
         found++;
         if(!wifi_firmware_enabled || !f->ready || f->active || m->attempted){saved=false;continue;}
         m->attempted=true;f->active=true;
-        uint32_t mac=0;int sent=-1,received=-1;struct mt76_mcu_response r={0};
+        uint32_t mac=0;int sent=-1,received=-1,queue_sent=-1;struct mt76_mcu_response r={0};
         bool disabled=wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&mac) && mac==0x20;
         if(disabled && configure_wifi_mcu(d)) {
-            /* CMD_RANDOM_READ, WLAN base0x410000 + MAC_CSR0(0x1000), zero value. */
-            const uint8_t payload[8]={0x00,0x10,0x41,0,0,0,0,0};
-            size_t bytes=mt76_mcu_encode(10,1,payload,sizeof payload,f->buffer,MT76_MCU_PACKET_MAX);
-            if(bytes)sent=wifi_mcu_bulk(d,false,bytes);
-            if(sent==(int)bytes && bytes)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+            received=wifi_mcu_read_identity(d,&queue_sent,&sent);
         }
+        console_printf("wifi-mcu-queue: sent=%d expected=16 reply_requested=0\n",(int64_t)queue_sent);
         bool decoded=received>=0 && mt76_mcu_decode(m->buffer,(size_t)received,&r);
         uint32_t words[4]={0};
         if(received>=0)for(unsigned n=0;n<4 && (int)(n*4+4)<=received;n++)

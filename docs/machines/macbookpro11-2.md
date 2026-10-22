@@ -2179,3 +2179,15 @@ setup. This is a candidate explanation for a successful OUT without an IN reply,
 not yet proven. Next bounded change: explicit queue-selection setup with sequence0
 (no expected reply), then the existing read-only command; preserve ordinary
 command sequence guards and native MAC-disable checks. No new trial installed.
+
+Next scope: add fixed Q_SELECT(1) command with sequence0/no expected reply before
+one-shot MCU random read, preserving ordinary command sequence1–15 validation.
+Extend host tests for wire bytes and ordered transport failures; retain firmwarev3
+capture semantics and disabled-MAC checks. Main85d5cb7 fetched; battery work remains
+separate. Native evidence remains prior IN timeout; this candidate is not accepted.
+
+Fixed no-reply Q_SELECT packet added before read; generic sequence0 remains
+refused. Full build, MCU codec, xHCI and52 staging regressions pass. New host
+coverage verifies exact setup bytes, capacity refusal and ordered setup/read/IN
+submission stopping after failure at each step, with DMA retention. Preparing
+exact-stage VM checks; native response acceptance remains pending.

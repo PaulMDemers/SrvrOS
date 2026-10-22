@@ -30,6 +30,13 @@ int main(void) {
     assert(!mt76_mcu_encode(1,1,NULL,8,wire,sizeof(wire)));
     assert(!mt76_mcu_encode(1,1,q,0,wire,sizeof(wire)));
     assert(!mt76_mcu_encode(1,1,q,8,NULL,sizeof(wire)));
+    const uint8_t queue_expected[]={8,0,0x10,0x50,1,0,0,0,1,0,0,0,0,0,0,0};
+    assert(mt76_mcu_select_response_queue(wire,sizeof(wire))==16);
+    assert(!memcmp(wire,queue_expected,16));
+    memset(wire,0xcc,sizeof wire);
+    assert(!mt76_mcu_select_response_queue(wire,15));
+    for(size_t i=0;i<sizeof wire;i++)assert(wire[i]==0xcc);
+    assert(!mt76_mcu_select_response_queue(NULL,16));
     uint8_t reply[1025]={0x34,0x12,0xa7,0xff};
     struct mt76_mcu_response r;
     assert(mt76_mcu_decode(reply,8,&r));

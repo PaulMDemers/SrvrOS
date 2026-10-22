@@ -17,6 +17,14 @@ size_t mt76_mcu_encode(uint8_t command, uint8_t sequence,
     return total;
 }
 
+size_t mt76_mcu_select_response_queue(uint8_t *out, size_t capacity) {
+    /* CMD_FUN_SET_OP=1, Q_SELECT=1, queue=1. Keep generic seq0 refused. */
+    static const uint8_t packet[16]={8,0,0x10,0x50,1,0,0,0,1,0,0,0,0,0,0,0};
+    if(!out || capacity<sizeof packet)return 0;
+    for(size_t i=0;i<sizeof packet;i++)out[i]=packet[i];
+    return sizeof packet;
+}
+
 bool mt76_mcu_decode(const uint8_t *data, size_t length,
     struct mt76_mcu_response *out) {
     if (!data || !out || length < 8 || length > MT76_MCU_RESPONSE_MAX) return false;

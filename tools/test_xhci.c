@@ -1409,6 +1409,39 @@ static void test_wifi_recovery(void) {
     puts("xhci-wifi-recovery: PASS fresh DMA, exact dequeue, faults, bounded retry and stale-event exclusion");
 }
 
+static void test_wifi_mcu_queue_order(void) {
+    for(unsigned fault=0;fault<4;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb out[64]={0},in[64]={0},events[64]={0};
+        uint8_t tx[200]={0},rx[1024]={0};
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000}};
+        struct xhci_wifi_firmware *f=&d->firmware;
+        *f=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .buffer=tx,.buffer_phys=0x10000,
+            .ep={.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16}};
+        f->mcu=(struct xhci_wifi_mcu){.configured=true,.buffer=rx,.buffer_phys=0x20000,
+            .response={.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        for(unsigned n=0;n<3;n++) {
+            events[n]=control_event(n==2?0xb000:0x9000+16*n,n==2?13:1,n==2?1008:0);
+            events[n].control=(32u<<10)|(1u<<24)|((n==2?11u:16u)<<16)|1;
+        }
+        if(fault)events[fault-1].status=6u<<24;
+        int queued,sent;int got=wifi_mcu_read_identity(d,&queued,&sent);
+        assert(queued==(fault==1?-1:16));
+        assert(sent==(fault==1 || fault==2?-1:16));
+        assert(got==(fault?-1:16));assert(!freed);
+        assert(f->ep.enqueue==(fault==1?1u:2u));
+        assert(f->mcu.response.enqueue==(fault==1 || fault==2?0u:1u));
+        if(fault)assert(f->failed && f->mcu.failed && d->ep0_quarantined);
+        if(fault==1)assert(tx[2]==0x10 && tx[4]==1 && tx[8]==1);
+        else assert(tx[2]==0xa1 && tx[4]==0 && tx[5]==0x10 && tx[6]==0x41);
+    }
+    puts("xhci-mcu-queue: PASS ordered no-reply selection/read/response and stop on each failure");
+}
+
 static void test_wifi_mcu_transport(void) {
     for(unsigned in=0;in<2;in++)for(unsigned fault=0;fault<9;fault++) {
         reset_test();test_time=0;test_time_step=1000;
@@ -1469,6 +1502,7 @@ static void test_wifi_mcu_transport(void) {
 
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_wifi_mcu_queue_order();
     test_wifi_mcu_transport();
     test_wifi_recovery();
     test_firmware_immediate_data();

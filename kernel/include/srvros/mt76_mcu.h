@@ -13,6 +13,9 @@
  * zero is deliberately unsupported. No radio state changes occur here. */
 size_t mt76_mcu_encode(uint8_t command, uint8_t sequence,
     const uint8_t *payload, size_t length, uint8_t *out, size_t capacity);
+/* Fixed Q_SELECT=1,value=1,sequence=0: route replies; no reply requested.
+ * This is the only no-reply command this diagnostic exposes. */
+size_t mt76_mcu_select_response_queue(uint8_t *out, size_t capacity);
 struct mt76_mcu_response {
     uint8_t sequence, event;
     uint16_t reported_length;

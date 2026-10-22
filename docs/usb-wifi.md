@@ -550,3 +550,11 @@ intentional: capturing a matching-sequence response does not validate its event,
 length/body contract, RF state or networking. Transport failure makes the capture
 incomplete; normal automatic-return behavior is retained. Older firmwarev1/v2
 profiles are unchanged. No ordinary desktop startup invokes this diagnostic.
+
+The MCU diagnostic now sends fixed Q_SELECT=1,value1 with sequence0 before the
+read command. Linuxv6.18 sends this setup without requesting a reply; ordinary
+commands continue to reject sequence0. Both requests use the same ordered OUT
+ring, and failure of selection stops the trial before the register read or IN
+submission. `wifi-mcu-queue` records selection transfer completion, which alone
+is not proof of firmware processing. This addresses the missing setup identified
+after the first native MCU response timeout; native confirmation is pending.
