@@ -208,3 +208,6 @@ allocation graphs and automatic Ubuntu return verified. All 23 SCI deliveries
 were handled, none unclaimed. No alarms occurred, so alarm acknowledgement and
 invalidation retain VM-only evidence. Ordinary mounted Home/startup stay off;
 physical-input latency and gauge accuracy are outside this automatic capture.
+
+The [mounted Home lifecycle audit](battery-home-lifecycle.md) covers the separate
+VM-only System Start/Stop study and prerequisites for ordinary workspace admission.

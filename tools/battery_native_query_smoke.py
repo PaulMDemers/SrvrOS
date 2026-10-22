@@ -16,7 +16,14 @@ CASES={'unknown':48,'high':49,'os-darwin':50,'os-other':51,'notify-darwin':52,
 FATAL={'shared20':'query return receipt','shared21':'query return receipt',
        'transport':'query transport','disconnect':'EC disconnect','lock':'recovery resources retained'}
 
-def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture',image_checker=None):
+def verify_capture_proof(saved,serial,checker,compare_serial=True):
+    # Saved boot-log records are atomic; concurrent UART mirrors may interleave.
+    # Always parse saved evidence strictly, even when it is the sole proof source.
+    proof=checker(saved,vm=True)
+    if compare_serial:assert proof==checker(serial,vm=True)
+    return proof
+
+def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture',image_checker=None,compare_serial=True):
     image=ExfatFixture(raw)
     assert {n for n,_ in image.entries(image.chain(image.root))}=={'srvros-work','.srvros'}
     assert {n for n,_ in image.entries(image.read('srvros-work'))}==({'.workspace','anchor.txt','Logs','battery-fs.img'} if image_checker else {'.workspace','anchor.txt','Logs'})
@@ -27,7 +34,7 @@ def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-captu
     folder='srvros-work/Logs/'+sessions[0]
     assert {n for n,_ in image.entries(image.read(folder))}=={'boot.log','session-a.log','exit.log'}
     saved=image.read(folder+'/exit.log')
-    if positive:assert checker(saved,vm=True)==checker(serial,vm=True)
+    if positive:verify_capture_proof(saved,serial,checker,compare_serial)
     else:
         assert b'laptop-capture: completed=NO\n' in saved
         assert capture+b': returned=yes clean=NO;' in saved
