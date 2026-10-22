@@ -2125,7 +2125,7 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     bool complete=logging && controls_test(rsdp,map,automatic,true,files);
     if(desktop_home) {
         if(!workspace_log_quiesce(5000))unsafe("desktop logger retirement");
-        bool saved=workspace_log_stop();
+        bool saved=logging && workspace_log_stop();
         console_printf("battery-home-desktop: logger_retired=yes final_saved=%s\n",saved?"yes":"NO");
         complete=complete && saved;
     }

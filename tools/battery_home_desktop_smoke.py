@@ -90,7 +90,9 @@ def main():
                         # submitted and no reply has been consumed by the app.
                         output.extend(read_for(serial,.1));consumed=len(output);pending_at=consumed
                         shortcut('ctrl-s');wait(b'desktools: file-submitted role=text op=2')
+                        qmp.call('stop');output.extend(read_for(serial,.1))
                         assert b'file-result role=text op=2' not in output[pending_at:]
+                        qmp.call('cont')
                         result['exit_with_submitted_save']=True
                     shortcut('ctrl-alt-esc');wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
                     data=bytes(output)
@@ -112,6 +114,8 @@ def main():
                 elif args.case!='runtime-fault':
                     final=ExfatFixture(disk[2048*512:]);assert final.read('srvros-work/.workspace')==MARKER and final.read('srvros-work/anchor.txt')==ANCHOR
                     assert final.read('srvros-work/desktop-proof.txt')==(b'Ordinary Home desktop. Pending save.' if args.case=='cancel' else b'Ordinary Home desktop.')
+                    assert {n for n,_ in final.entries(final.chain(final.root))}=={'srvros-work','.srvros'}
+                    assert {n for n,_ in final.entries(final.read('srvros-work'))}=={'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}
                     assert final.read('srvros-work/terminal-proof.txt')==b'terminal-proof\n'
                     assert final.read('srvros-work/orphan-proof.txt')==b'lifetimeprobe: orphan setsid exec grandchild started\n'
                     sessions=list(final.entries(final.read('srvros-work/Logs')));assert len(sessions)==1
