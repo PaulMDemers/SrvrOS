@@ -1820,3 +1820,15 @@ Exact GPT VM saves/unmounts and holds; missing-workspace VM holds with recovery
 instructions. Installed unarmed with Ubuntu default and accepted recovery intact.
 Offline checks remain clean (127 files, 439 clusters). Native result pending;
 this diagnostic does not claim a fix for the post-reset failure.
+
+Native stop-snapshot trial `f617f5b921c5a71d`, session
+`00065e64dd39e82b-00`, again times out at request13/FCE write0x800 after
+300003 µs. Stop Endpoint completed successfully: state=3, dequeue=0x1eb381,
+stopped transfer event cc26 at 0x1eb380 with residue4. Submitted setup/data/status
+addresses were 0x1eb370/0x1eb380/0x1eb390. This locates the outstanding transfer
+at the OUT data stage with its full four-byte payload remaining; it does not
+establish the cause or prove a particular USB handshake on the wire. Clock
+readiness passed; preparation/upload failed, zero chunks, quarantine retained.
+Photo/logs archived, consumed one-shot/Ubuntu default/recovery verified. Offline
+filesystem/allocation checks pass. Next compare post-reset OUT handling and
+adapter initialization requirements; no next boot armed.
