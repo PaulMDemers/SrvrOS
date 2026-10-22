@@ -2,6 +2,19 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active desktop-session ownership block
+
+Base `9ca1922` (PR52). Add explicit native held-Home desktop session commands
+using the existing System control mailbox, descendant retirement and real Text
+file worker. Preserve exact profile admission and return proof across repeated
+Start/Stop and active-service session exit; uncertain effects retain the mount.
+Touch battery runtime, disposable VM harness/strict evidence and current guides.
+Keep ordinary startup and installed payload unchanged until the combined session
+has its own exact-stage and native acceptance. Pro PR19 `92a1bbc` remains
+independent Wi-Fi work; no overlapping controller implementation is planned.
+Next checkpoint: VM normal/manual/cancel, platform/profile refusal and live-fault
+containment, including file preservation and replacement compositor.
+
 ### Mounted Home battery boundary accepted (PR #52)
 
 Base `85d5cb7` (PR51); compiled implementation `7fac77d`; final validators
