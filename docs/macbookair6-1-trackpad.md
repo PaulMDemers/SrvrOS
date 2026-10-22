@@ -9,7 +9,9 @@ interface 2/EP83, full-speed, 64-byte packet, interval 1 for the trackpad.
 Linux v6.12's [bcm5974 source](https://github.com/torvalds/linux/blob/v6.12/drivers/input/mouse/bcm5974.c)
 identifies 0290 as Wellspring8 ANSI, uses Type 3 and requires no mode switch.
 The existing bounded Type 3 decoder can therefore be exercised without a new
-feature-control write. Native packet evidence is still required.
+feature-control write. Native packet evidence was collected in run `77ab86681e27132d`; see the
+[unit acceptance record](machines/macbookair6-1.md). Pointer calibration and
+desktop behavior remain untested.
 
 Admission requires this PID/revision and explicit capture-only mode. Pointer,
 gestures, other revisions, and mismatched endpoint descriptors refuse. Existing
