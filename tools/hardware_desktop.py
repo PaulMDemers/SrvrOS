@@ -457,6 +457,13 @@ def battery_app_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_home_result(exit_text):
+    from battery_home_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home'):return None
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def battery_smbus_files_result(exit_text):
     from battery_native_smbus_records import check_files
     if not battery_overlap_recipe(exit_text,'battery-smbus-files'):return None
@@ -582,6 +589,9 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_proof=battery_home_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home(?:\s|$)',text) and home_proof is None:
+            attention.append('collection: mounted Home battery completion missing, invalid or refused')
         smbus_files_proof=battery_smbus_files_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.capture=battery-smbus-files' in text and smbus_files_proof is None:
             attention.append('collection: SMBus Text/file completion missing or invalid')
@@ -637,7 +647,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

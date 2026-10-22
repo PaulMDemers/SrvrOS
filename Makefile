@@ -3400,6 +3400,7 @@ test-battery-controls-records:
 	$(PYTHON) tools/test_battery_controls_records.py
 	$(PYTHON) tools/test_battery_workspace_controls_records.py
 	$(PYTHON) tools/test_battery_control_files_records.py
+	$(PYTHON) tools/test_battery_home_records.py
 
 .PHONY: test-battery-reset-policy
 test-core: test-battery-reset-policy

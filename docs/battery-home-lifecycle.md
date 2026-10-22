@@ -4,7 +4,7 @@ The Air's accepted v47 capture runs the real Text file worker alongside native
 SMBus completion events, but its outer workspace is parked. An exclusive image
 lease bounds which storage can change. Ordinary mounted Home removes that bound:
 apps, settings and logging can retain open files or asynchronous work. Native
-Home monitoring and automatic startup remain disabled.
+Home monitoring and automatic startup remain disabled outside the explicit diagnostic.
 
 ## Ownership audit
 
@@ -103,10 +103,54 @@ other cases are `cancel`, `profile-refusal`, `refusal`, `unmounted-refusal` and
 control serials/epochs, submitted writes, three service retirements, event drains,
 application/file progress and final mount release. Raw logs/disks stay local.
 
+## Explicit mounted native return boundary
+
+The full diagnostic kernel now exposes `acpiruntime battery-home`. It acquires
+the exact mounted-volume hold and starts the existing gated battery service,
+without launching clients or changing ordinary startup. The native backend still
+requires the captured Air7,2 firmware/resources and host-controller profile; the
+same path can be rehearsed with the disposable Q35 backend. Unsupported platforms
+return unavailable before runtime engagement. Unmounted or conflicting ownership
+refuses before acquiring a hold.
+
+The diagnostic waits at most 30 seconds for fresh generation 3 and host events,
+with a 128-event ceiling. It checks unmount/image/scratch guards while active.
+On completion it masks sources, drains queries and worker, verifies resources,
+retires the service and only then releases the mount hold. The volume remains
+mounted for the caller's subsequent save/unmount. No filesystem operation occurs
+inside runtime cleanup, and the diagnostic itself does not reboot.
+
+A policy-refused query may return only after a complete EC transfer and normal
+worker return, with no incomplete AML or attempted effects in that query batch.
+Its cache becomes non-fresh and its outcome is `query-refused`, not completion.
+An acknowledged alarm followed by a refused query in the same batch cannot use
+that return path. Transport/ack uncertainty, deadline or resource failure retains
+runtime and mount ownership; fatal reset is still blocked with mounted storage.
+This scope does not grant recovery from arbitrary AML or enable normal desktop
+monitoring. Physical native acceptance remains pending.
+
+`tools/host-env.sh python3 tools/battery_home_smoke.py --case normal` uses only a
+disposable disk. Additional cases: `alarm`, `query-refusal`, `native-refusal`,
+`unmounted-refusal`, `profile-refusal`, `runtime-fault`, and `effect-refusal`.
+Clean cases require exact byte preservation, a replacement compositor, unmount,
+fsck and independent allocation checks. Fault cases require visible containment
+without retirement/release/reset claims; the VM host terminates them.
+
+For the unattended hardware capture, stage the distinct v48 recipe with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_UUID --battery-home`,
+then rehearse the exact payload with `tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check`
+and its `--probe-missing-workspace` variant. It uses the full native diagnostic
+kernel, pauses periodic logging while keeping Home mounted, and disarms fatal
+reset. After normal return it saves the final log, unmounts and returns to Ubuntu
+without input. Handled unavailable/query-refusal results return as failed or
+incomplete evidence; a live uncertain runtime still halts. The collector accepts
+only complete, held, drained, retired evidence and never promotes a missing log
+or a clean platform refusal into a native pass. Ordinary profiles are unchanged.
+
 ## Next implementation boundary
 
-Establish native mounted normal-return/refusal and desktop-session ownership
-before ordinary startup enablement. Preserve the same file/client and mount
+Validate the explicit native mounted-return boundary on hardware, then establish
+desktop-session ownership before ordinary startup enablement. Preserve the same file/client and mount
 lifetimes through cancellation and degraded service. A passing VM controller
 fixture does not widen Air firmware/register gates or accept another machine's
 EC/SCI ownership.
