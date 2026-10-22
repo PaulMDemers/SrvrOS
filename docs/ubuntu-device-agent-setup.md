@@ -539,9 +539,14 @@ SrvrOS → Return to console, check `USB unmounted=yes`, then type `reboot` at t
 monitor. An unmount/write failure is not a successful exit. For a console
 workspace use `workspace sync`, `workspace unmount`, then `reboot`.
 
-On a halt, photograph the complete diagnostics before manually restarting. After
-Ubuntu returns, mount the same volume and reload its UUID/release from the local
-record. Collect before preparing another run:
+For automatic diagnostics, use the default automatic-return recipe: results are
+logged to the workspace before sync/unmount and return to Ubuntu, including
+handled diagnostic failures. Do not require photographs when matching saved
+logs contain the needed evidence. Reserve an explicitly attended hold for a
+specific evidence gap, such as failure before persistent logging starts. Missing
+or incomplete logs remain incomplete evidence, never a pass. After Ubuntu
+returns, mount the same volume and reload its UUID/release from the local record.
+Collect and inspect the matching session before preparing another run:
 
 ```sh
 python3 tools/hardware_desktop.py --uuid "$SRVROS_USB_UUID" \

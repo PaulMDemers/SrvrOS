@@ -1865,3 +1865,16 @@ consumed one-shot and installed/current recovery payloads verified. Offline
 checks pass: 131 files, 445 clusters, zero leaks/mismatches/errors. Next inspect
 post-reset USB OUT transaction handling; no new boot armed or firmware readiness
 accepted.
+
+Workflow correction after the MAC-startup trial: the saved matching exit log
+already includes control timeout, submitted TRBs, Stop Endpoint result, startup
+flags and failure markers. Photos are redundant for this handled failure. Future
+Wi-Fi trials use the existing default `-auto-return` recipe (omit
+`--hold-on-failure`), save/unmount and return to Ubuntu automatically. Collect
+and inspect the matching release/session on return; missing or incomplete logs
+remain incomplete evidence. No routine photo request. Cold adapter power cycling
+may still require the previously announced physical action. The installed held
+recipe is unchanged and unarmed; apply automatic return when staging the next
+candidate and verify that exact stage in the VM before installation. This is a
+workflow/documentation change only. Fetched main remains e946f5e; open Air PR44
+concerns battery query refusal with parked USB, outside this workflow change.
