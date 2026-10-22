@@ -207,8 +207,8 @@ Local configuration is byte-identical to the Air7,2 fixture. Linux v6.12
 0x83/Type 3 and explicitly requires no mode switch. This supports a bounded
 raw capture; it does not accept native reports or pointer behavior.
 
-The trackpad VM harness will gain explicit staged-release and GPT rehearsal so
-the actual capture recipe can be checked before installation. Shared edits are
+The trackpad VM harness now verifies the exact staged release on disposable
+GPT media before installation. Shared edits are
 limited to xHCI admission/tests, the fixture/Makefile argument and capture VM
 harness; Pro PR #19 remains independent Wi-Fi/xHCI work. Preserve its transport
 changes when later integrating. No other agent is messaged or scheduled.
@@ -217,3 +217,19 @@ Retain `c35475f62f154f1e` as accepted previous/recovery when installing the new
 capture. The legacy v10 trial displays gesture/typing instructions and saves a
 CRC-checked report/completion marker, then HALTS for manual restart; it does
 not return automatically. Prepare only; boot when the user is ready.
+
+
+Capture run `77ab86681e27132d`, release `19eb394b28cbeef5`, is prepared from
+clean source `e2c660336914ce3bd412492b167bb5cfaff106bf`. Build/core/xHCI,
+110 hardware-tool tests, capture-harness unit tests, exact-stage GPT rehearsal
+and generic MBR regression passed. Both VM reports correctly retain incomplete
+physical coverage; neither VM supplies Apple hardware acceptance.
+
+Installed current is this capture; previous is accepted `c35475f62f154f1e`.
+Physical USB UUID `6ADA-85BB` has the unconsumed request, 111 pre-test file hashes,
+and passing offline fsck/allocation checks (114 clusters, zero errors/leaks).
+Run evidence is in `build/trackpad-tests/77ab86681e27132d/`, with a durable copy
+outside build. Ubuntu remains default and no one-shot reboot is armed. At the
+next authorized reboot, record `launch.json` and arm the already installed
+current entry without reinstalling/promoting an unaccepted recovery payload.
+Native trackpad capture and pointer/gesture acceptance remain pending.
