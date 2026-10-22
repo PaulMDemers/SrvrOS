@@ -2,6 +2,19 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active parked native query-return capture
+
+Base `origin/main` `e946f5e` (PR #43). Add explicit v45 battery-query capture with
+workspace parked, native query admission unchanged, natural unsupported-event
+refusal through normal worker return and resource-checked retirement. Never inject
+or rewrite a QR_EC value. A bounded no-event run records not-exercised and returns.
+Save/remount only after clean retirement; retain automatic parked-fault reset and
+Ubuntu recovery. Test native-style Q35 cases plus exact-stage native refusal before
+installing the automatic Air run. Touched: battery runtime, capture/stage/collector,
+VM fixtures and tests, guides/unit record. Pro PR19 `4dfde33` has shared staging
+files for independent Wi-Fi profiles; preserve its v39 flags and contract when
+integrating. No native Home/startup or sibling firmware admission.
+
 ### Native query admission policy (PR #43)
 
 Base `origin/main` `961369b` (PR #42), tested code `33d4f9d`. The exact Air7,2
