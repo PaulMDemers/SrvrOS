@@ -50,6 +50,9 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                         EACK = One
                         Notify (EC, 0x80)
                     } Else {
+#if BATTERY_FAULT == 47
+                        FAIL = One
+#endif
 #if BATTERY_FAULT == 6
                         Sleep (1000); Sleep (1000); Sleep (1000); Sleep (1000)
 #endif
@@ -58,6 +61,9 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                 }
             }
             Method (_Q20, 0) {
+#if BATTERY_FAULT == 44
+                EACK = 7
+#endif
 #if BATTERY_FAULT == 5
                 Sleep (1000); Sleep (1000); Sleep (1000)
 #endif

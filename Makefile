@@ -3414,3 +3414,12 @@ test-battery-recovery-resources: build/tests/battery-recovery-resources$(HOST_EX
 build/tests/battery-recovery-resources$(HOST_EXE): tools/test_battery_recovery_resources.c ports/srvros/uacpi/runtime/battery_recovery_resources.h kernel/include/srvros/ec_transport.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-battery-query
+test-core: test-battery-query
+test-battery-query: build/tests/battery-query-receipt$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_battery_query_records.py
+build/tests/battery-query-receipt$(HOST_EXE): tools/test_battery_query_receipt.c ports/srvros/uacpi/runtime/battery_query_receipt.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
