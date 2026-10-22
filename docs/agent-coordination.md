@@ -338,3 +338,21 @@ firmware/OS-state admission policy before another parked-workspace native captur
 Pro PR #19 at `faed5b7` retains independent Wi-Fi scope; only separate Makefile
 test targets overlap. Local tests replace disabled Actions. No hardware acceptance
 or installed payload changed in this milestone.
+
+
+## Air query-policy handoff (PR #43)
+
+The exact captured Air7,2 binding now selects a shared predispatch classifier.
+It refuses unknown methods, GPU/power query80 and query10's mutable OS-dependent
+SMBus branch before AML. Do not re-enable query10 based on one or two Darwin
+snapshots: OSYS is shared firmware state. QueryCF is bounded in both branches;
+query20/21 remain explicitly shared-write methods. See the
+[full native policy](battery-native-aml-audit.md#exact-air72-dispatch-policy).
+
+The same classifier is replayed in synthetic Q35 fixtures, including both OS
+states and refusal after shared effects. Native refusal is still terminal; the
+VM normal-return proof does not grant native recovery, sibling firmware access,
+mounted Home or automatic startup. The installed Air release is unchanged.
+Next Air work is scoped native normal-return admission followed by an automatic
+parked-workspace capture. Pro PR19 retains independent Wi-Fi scope; preserve its
+separate Makefile targets. Actions remain disabled and validation stays local.

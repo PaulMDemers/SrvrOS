@@ -1301,5 +1301,17 @@ Native mounted Home and ordinary automatic startup remain disabled. The
 shared writes, all nine captured EC queries and the absence of rollback in
 `_REG(3,0)`. The explicit `battery-workspace-query` VM study now exercises returned
 query-admission failure with whole-batch effect receipts and orderly failed-service
-retirement. It grants no native recovery or mounted Home admission. Native gates
+retirement. It grants no native recovery or mounted Home admission. Native resource gates
 remain unchanged; use the audit guide for the case matrix and remaining work.
+
+
+### Air query admission
+
+The exact Air7,2 adapter now selects the captured-firmware query policy before
+any query method executes. Unknown codes, GPU/power query80 and query10's mutable
+OS-dependent SMBus path are refused before AML; native refusal remains terminal.
+Query20/21 retain their audited shared writes, so they do not qualify as effect-free
+recovery batches. QueryCF is bounded under both OS states. See the
+[native policy and VM replay](battery-native-aml-audit.md#exact-air72-dispatch-policy)
+for the full table, evidence and remaining parked-workspace acceptance. No new
+register/firmware admission, ordinary startup or mounted Home support is enabled.
