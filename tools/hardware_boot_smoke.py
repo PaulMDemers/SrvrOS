@@ -250,6 +250,9 @@ def main():
                             time.sleep(2)
                             assert process.poll() is None and "laptop-capture: returning" not in text
                         assert "laptop-capture: saved=NO unmounted=NO" in text
+                        if wifi_firmware and not auto_return:
+                            assert "wifi-held: logging=0" in text
+                            assert "Hold the power button until off" in text
                         print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if auto_return else "halts without reboot"))
                         return
                     if keyboard_capture:
@@ -287,6 +290,14 @@ def main():
                             assert "laptop-capture: returning" not in text
                             from desktop_foundation_smoke import QMP
                             ui=QMP(qmp_path);ui.call("quit");process.wait(timeout=10)
+                    elif wifi_firmware and not auto_return:
+                        text=wait_for(serial,lambda s:"laptop-capture: HALTED" in s,process,args.boot_wait)
+                        assert "laptop-capture: saved=yes unmounted=yes" in text
+                        assert "wifi-held: logging=1" in text
+                        assert "Hold the power button until off" in text
+                        assert "laptop-capture: returning" not in text and process.poll() is None
+                        from desktop_foundation_smoke import QMP
+                        ui=QMP(qmp_path);ui.call("quit");process.wait(timeout=10)
                     else:
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
@@ -400,7 +411,7 @@ def main():
                         "probe":True,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
-                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
+                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP

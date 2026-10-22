@@ -1703,3 +1703,9 @@ Installed/recovery manifests, Ubuntu default and consumed one-shot verify. Offli
 filesystem/allocation checks pass: 119 files, 427 clusters, no errors. Evidence
 and checkpoint archived. Next: prepare a visible failure-screen diagnostic so
 missing-workspace/early failures can be photographed; no further boot is armed.
+
+Next bounded scope: allow the existing firmware profile without auto-return via
+explicit hold-on-failure, preserving all prior recipes. Add a visible prerequisite
+summary and power-button recovery instructions after failed capture/save/unmount.
+Extend exact-image VM checks to require a live halted guest both with and without
+the workspace. No USB hardware or firmware gates change in this diagnostic.

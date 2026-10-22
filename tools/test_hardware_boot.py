@@ -217,7 +217,10 @@ class InstallTests(unittest.TestCase):
         self.assertIn('srvros.capture-failure=reboot',config)
         self.assertNotIn('srvros.capture=battery',config)
         with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root)
-        with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root,laptop_probe_volume='37d8c5d0',hold_on_failure=True)
+        held=boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        self.assertIn('srvros.capture=wifi-firmware',held)
+        self.assertNotIn('srvros.capture-failure=reboot',held)
+        self.assertEqual(config,held.replace('srvros.usb-wifi=probe','srvros.usb-wifi=probe srvros.capture-failure=reboot'))
         for other in ('wifi_capture','wifi_calibration','battery_app_files','battery_load'):
             with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root,laptop_probe_volume='37d8c5d0',**{other:True})
 

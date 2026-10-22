@@ -173,7 +173,7 @@ def verify(directory):
 
 
 def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None):
-    if (wifi_capture or wifi_calibration or wifi_firmware_package) and hold_on_failure:
+    if (wifi_capture or wifi_calibration) and hold_on_failure:
         raise ValueError("Wi-Fi capture requires automatic return")
     if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files) and hold_on_failure:
         raise ValueError("USB overlap requires automatic checkpoint/return")
