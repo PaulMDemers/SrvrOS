@@ -797,7 +797,7 @@ releasecb8cc153be25dac9, session00065e765bdc87af-00. Both replies, all four
 readbacks, disabled-MAC boundaries and saved completion markers matched the
 prior run. This accepts the merged runtime for this bounded diagnostic only.
 
-### Fixed frame-format setup (native trial pending)
+### Fixed frame-format setup (accepted on captured Pro adapter)
 
 Firmwarev9 (`--wifi-mac-format`, requiring `--wifi-mac-basics`) adds two fixed
 commands after completed basics. Sequence6 disables TSO0250 and header
@@ -807,8 +807,11 @@ The shared private two-batch engine exposes only separate fixed-plan entry
 points; callers cannot supply tables, addresses, values or sequences.
 
 Each batch requires MAC0, baseline reads, one exact command, an exact16-byte
-first-entry reply, both target readbacks and MAC0 afterward. The new reply shape
-is provisional until native evidence confirms sequences6/7. Native admission
+first-entry reply, both target readbacks and MAC0 afterward. Native sequence6/7
+replies and all four readbacks passed in release54d6def400fd2a6c, source7713556,
+session00065e76901356a1-00. Both sent24/received16; status0, submitted2,
+completed2, ack_mask3, reads12 and MAC0. Registers0250/0260 remained0,
+1410 changed100->1ff and150c changed0->3. Native admission
 requires accepted timing and completed basics, including both prior ACKs.
 Only1004/0250/0260/1410/150c reads are admitted in this phase. Ordered submissions
 burn each sequence before transfer; failures retain/quarantine DMA and prevent

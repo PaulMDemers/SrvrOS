@@ -2560,3 +2560,15 @@ Workspace preboot checks clean. Payload/run/VM/local evidence archived outside
 build in wifi-mac-format-7713556. Next cold trial accepts only exact seq6/7
 replies, all four target readbacks, MAC0 boundaries and saved completion.
 Physical frame-format acceptance remains pending; RF/connectivity untested.
+
+Native frame-format initialization accepted, 2026-10-22: source7713556,
+release54d6def400fd2a6c, session00065e76901356a1-00. All prior prerequisites
+passed. Sequence6/7 each sent24/received16 with exact first-entry replies;
+status0, submitted2, attempted2/completed2, ack_mask3, complete1, reads12.
+MAC before/after0. Readbacks0250 0->0,0260 0->0,1410 100->1ff,150c 0->3.
+Firmware and laptop completion markers present. Full matching collection and
+hashes archived in wifi-mac-format-7713556/native-collection. Ubuntu default,
+consumed one-shot and current/recovery manifests verified; workspace unmounted
+and clean157files/484clusters with zero allocation errors. Run/checkpoint
+collected and unarmed. Next extend remaining MAC/baseband initialization;
+RF, scanning, association and network connectivity remain pending.

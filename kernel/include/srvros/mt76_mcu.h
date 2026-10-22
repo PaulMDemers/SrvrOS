@@ -87,7 +87,8 @@ enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *sessi
     const struct mt76_mcu_timing_io *io);
 /* Fixed frame-format plan: 0250=0,0260=0,1410=1ff,150c=3, sequences6/7.
  * Same one-attempt and IO rules; caller must require completed MAC basics and
- * unused sequences6/7. Exact first-entry reply contract is pending native proof.
+ * unused sequences6/7. Exact replies/readbacks accepted on the captured adapter
+ * in release54d6def400fd2a6c; other identities remain unsupported.
  * No arbitrary addresses/values or MAC enable, RF, power or key writes. */
 size_t mt76_mcu_format_packet(unsigned batch,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_format_reply(unsigned batch,const uint8_t *data,size_t length);
