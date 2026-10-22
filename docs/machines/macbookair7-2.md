@@ -2,6 +2,18 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active mounted-workspace lifecycle study
+
+Base `598fe27` (PR48); Pro PR19 `3d51e4f` inspected, independent Wi-Fi work.
+Add a VM-only System Start/Stop study with Home mounted and serialized SMBus
+host events. Exercise repeated lifetimes, owner cleanup after window close,
+early cancellation, unsupported/native refusal and uncertain-event containment.
+Touched: battery runtime diagnostic admission, controls VM harness and strict
+proof tests/docs. Reuse the existing mailbox and UI; no ordinary desktop, native
+firmware/profile, reset-interlock or mounted-Home enablement changes. The test
+checks mounted-volume preservation, not new concurrent file-load acceptance.
+Physical payload/recovery stay unchanged; no reboot planned for this block.
+
 ### Accepted parked SMBus/Text/file capture (PR #48)
 
 Release `fda709928307b1b1`, source `e6b4b03` (implementation `029e344`), session
