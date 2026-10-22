@@ -32,7 +32,7 @@ git rev-parse HEAD
 git switch -c device/macbookpro11-2/bringup
 ```
 
-Use `macbookair7-1`, `macbookpro11-2`, `macbookpro11-3`, `macmini7-1`, or
+Use `macbookair6-1`, `macbookair7-1`, `macbookpro11-2`, `macbookpro11-3`, `macmini7-1`, or
 `macbookair7-2` as the machine slug. Distinguish multiple physical units with a
 local label. Do not run concurrent builds/staging from two agents in one checkout:
 `build/hardware-boot/latest`, generated images and many VM logs are shared paths.
@@ -554,6 +554,15 @@ Do the recorded tests; save screenshots with Command-Shift-3. Return through
 SrvrOS → Return to console, check `USB unmounted=yes`, then type `reboot` at the
 monitor. An unmount/write failure is not a successful exit. For a console
 workspace use `workspace sync`, `workspace unmount`, then `reboot`.
+
+The `srv>` monitor is not the userspace shell: `echo text > file` prints the
+redirection literally. After `workspace shell`, require a prompt ending in `$`
+before using shell redirection; if it stays at `srv>`, record the error and
+check `workspace status`. For a monitor-only save check on a writable workspace,
+use `write /work/srvros-work/console-test.txt test-text` followed by
+`cat /work/srvros-work/console-test.txt`, then sync/unmount as above. Use a fresh
+filename and verify its contents after returning to Ubuntu.
+
 
 On a halt, photograph the complete diagnostics before manually restarting. After
 Ubuntu returns, mount the same volume and reload its UUID/release from the local
