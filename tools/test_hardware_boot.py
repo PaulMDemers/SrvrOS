@@ -668,6 +668,20 @@ class InstallTests(unittest.TestCase):
         self.assertIn('srvros.trackpad=gestures',cfg)
         self.assertNotIn('srvros.trackpad=pointer',cfg)
         with self.assertRaises(ValueError): boot.stage(gestures=True)
+    def test_tap_typing_profile(self):
+        version='ram-usb-v50-trackpad-37d8c5d0-0123456789abcdef'
+        release=self.payload('tap-typing',version)
+        path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text());manifest['config_version']=version
+        path.write_text(json.dumps(manifest))
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.trackpad=gestures',cfg)
+        self.assertIn('srvros.trackpad-policy=0123456789abcdef',cfg)
+        self.assertNotIn('srvros.desktop-io=',cfg)
+        boot.verify(self.stage/release)
+        for args in ({}, {'desktop_io':True,'trackpad_run':'0123456789abcdef'}):
+            with self.assertRaises(ValueError): boot.stage(tap_typing=True,**args)
+
     def test_pointer_profile(self):
         version='ram-usb-v11-trackpad-37d8c5d0-0123456789abcdef'
         release=self.payload('pointer',version)

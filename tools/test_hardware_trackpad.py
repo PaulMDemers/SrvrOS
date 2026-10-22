@@ -43,6 +43,20 @@ class CaptureTests(unittest.TestCase):
         payload=data[:data.index(b'crc32=')].replace(b'gesture_scroll_events=12',b'gesture_scroll_events=0')
         altered=payload+f"crc32={binascii.crc32(payload)&0xffffffff}\ncomplete={self.metadata['run']}\n".encode()
         with self.assertRaises(ValueError): capture.validate_result(metadata,altered,self.completion(altered))
+    def test_tap_typing_coverage(self):
+        metadata=dict(self.metadata,pointer=True,gestures=True,tap_typing=True)
+        with self.assertRaises(ValueError): capture.validate_result(metadata,self.data,self.completion(self.data))
+        data=subprocess.check_output([str(capture.boot.ROOT/'build/tests/trackpad-capture-host'),'--dump-policy'])
+        self.assertEqual(capture.validate_result(metadata,data,self.completion(data))['tap_typing_trial'],'EXERCISED')
+        for old,new in ((b'tap_primary=2',b'tap_primary=0'),(b'gesture_typing_suppressed=3',b'gesture_typing_suppressed=0'),(b'input_policy_options=14',b'input_policy_options=0')):
+            payload=data[:data.index(b'crc32=')].replace(old,new)
+            def seal(body):
+                return body+f"crc32={binascii.crc32(body)&0xffffffff}\ncomplete={self.metadata['run']}\n".encode()
+            altered=seal(payload)
+            with self.assertRaises(ValueError): capture.validate_result(metadata,altered,self.completion(altered))
+            altered=seal(payload.replace(b'tap_typing_trial=EXERCISED',b'tap_typing_trial=INCOMPLETE'))
+            self.assertEqual(capture.validate_result(metadata,altered,self.completion(altered))['tap_typing_trial'],'INCOMPLETE')
+
     def test_physical_pointer_trial(self):
         fixtures=capture.boot.ROOT/'tools/fixtures'
         fields=capture.validate_result(

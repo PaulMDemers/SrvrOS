@@ -12,11 +12,13 @@
 #include <srvros/mouse.h>
 #include <srvros/latency.h>
 #include <stddef.h>
+#include <srvros/pointer_config.h>
 
 static char report[8192];
 static unsigned used;
 static bool overflow;
-static bool measure_io;
+static bool measure_io,measure_policy;
+static unsigned policy_options;
 static struct latency_stats io_stats;
 static bool equal(const char *a,const char *b) {
     while (*a && *a==*b) { a++; b++; }
@@ -122,6 +124,14 @@ static void build_report(const char *run,const char *release,const struct xhci_t
             field("gesture_trial",exercised && s->scroll_events?"EXERCISED":"INCOMPLETE");
         }
     }
+    if(measure_policy) {
+        number("input_policy_options",policy_options);
+        bool exercised=s->pointer_enabled && s->gestures_enabled && coverage(s,keyboard) &&
+            desktop_exit==0 && s->pointer_motion && s->pointer_buttons>=2 &&
+            !s->pointer_cancels && !s->pointer_queue_overflows &&
+            s->scroll_events && s->tap_primary && s->typing_suppressed && policy_options==14;
+        field("tap_typing_trial",exercised?"EXERCISED":"INCOMPLETE");
+    }
     if(measure_io) {
         number("io_clock",io_stats.enabled);
         number("io_owner_count",io_stats.io_owner.count);
@@ -142,6 +152,13 @@ static void build_report(const char *run,const char *release,const struct xhci_t
 static void screen(const char *run,const struct xhci_trackpad_capture *s,const char *input) {
     console_clear();
     console_write("SrvrOS physical trackpad capture\n\n");
+    if (measure_policy) {
+        console_write("TAP / TYPING CHECKS: taps and typing suppression enabled\n");
+        console_write("Tap lightly with one finger, lift; repeat WITHOUT pressing the click.\n");
+        console_write("Optional: tap with two fingers, then lift both.\n");
+        console_printf("Primary taps=%u secondary taps=%u typing-filter frames=%u\n\n",
+            s->tap_primary,s->tap_secondary,s->typing_suppressed);
+    }
     if (s->gestures_enabled) {
         console_write("LIVE FILTER CHECKS - no timer; take your time\n");
         console_write("1. Hold A while brushing the pad lightly WITHOUT pressing it.\n");
@@ -175,7 +192,8 @@ static void screen(const char *run,const struct xhci_trackpad_capture *s,const c
     console_printf("Malformed=%u transport errors=%u\nTyped: %s\n",s->malformed,s->errors,input);
     console_sync();
 }
-static void capture(const char *run,const char *release,bool desktop_io) {
+static void capture(const char *run,const char *release,bool desktop_io,bool policy) {
+    measure_policy=policy;policy_options=0;
     measure_io=false; io_stats=(struct latency_stats){0};
     char request_path[80],result_path[80],done_path[80],request[64]; unsigned n=0;
     path(request_path,run,".req"); path(result_path,run,".txt"); path(done_path,run,".done");
@@ -199,13 +217,20 @@ static void capture(const char *run,const char *release,bool desktop_io) {
         while (mouse_scan(&stale)) {}
         console_write("trackpad-test: starting desktop; Escape returns to capture checks\n");
         char args[64]; unsigned arglen=0;
-        append(args,&arglen,desktop_io?"--io-test ":snapshot.gestures_enabled?"--gesture-test":"--trackpad-test");
+        append(args,&arglen,desktop_io?"--io-test ":policy?"--tap-typing-test":snapshot.gestures_enabled?"--gesture-test":"--trackpad-test");
         if (desktop_io) append(args,&arglen,run);
         if(desktop_io) { measure_io=true; latency_reset(); }
         desktop_exit=process_run_elf_args("/fat/bin/deskd",args)?0:-1;
         if(desktop_io) { latency_snapshot(&io_stats); latency_stop(); }
         while (keyboard_scan_char(&c)) {}
         xhci_trackpad_snapshot(&snapshot);
+    }
+    /* Compositor cleanup deliberately restores default options. This attended
+     * policy trial owns console input next and must explicitly restore them. */
+    if(policy) {
+        mouse_trackpad_settings(3,SRV_POINTER_TAPS|SRV_POINTER_DISABLE_WHILE_TYPING);
+        unsigned speed;mouse_trackpad_get_settings(&speed,&policy_options);
+        console_write("trackpad-test: tap/typing console options=14\n");
     }
     screen(run,&snapshot,input);
     console_write("trackpad-test: ready for gestures\n");
@@ -232,6 +257,7 @@ static void capture(const char *run,const char *release,bool desktop_io) {
     xhci_trackpad_snapshot(&snapshot);
     dropped=keyboard_dropped_count()-dropped;
     build_report(run,release,&snapshot,input,before,dropped,timer_monotonic_us()-start,desktop_exit);
+    if(policy) mouse_trackpad_settings(3,0);
     bool saved=!overflow && exfat_write_file(result_path,(const uint8_t *)report,used) &&
         workspace_sync() && file_equals(result_path,report,used);
     if (saved) {
@@ -266,7 +292,12 @@ void trackpad_test_boot(const char *cmdline) {
     else {
         char io_run[17]; int io=option(cmdline,"srvros.desktop-io=",io_run);
         if (io<0 || (io && !equal(run,io_run))) console_write("trackpad-test: invalid desktop I/O identity\n");
-        else capture(run,release,io==1);
+        else {
+            char policy_run[17]; int policy=option(cmdline,"srvros.trackpad-policy=",policy_run);
+            if(policy<0 || (policy && (io || !equal(run,policy_run))))
+                console_write("trackpad-test: invalid tap/typing identity\n");
+            else capture(run,release,io==1,policy==1);
+        }
     }
     console_write("trackpad-test: HALTED - photograph if needed; restart manually\n");
     console_sync();

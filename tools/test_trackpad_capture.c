@@ -27,7 +27,22 @@ int main(int argc,char **argv) {
     s.gestures_enabled=true; s.scroll_events=12;
     build_report("0123456789abcdef","fedcba9876543210",&s,"AaZz09",10,0,1000,0);
     assert(strstr(report,"gesture_trial=EXERCISED\n"));
+    if (argc>1 && strcmp(argv[1],"--dump-policy")!=0) { fwrite(report,1,used,stdout); return 0; }
+    measure_policy=true;policy_options=14;s.tap_primary=2;s.typing_suppressed=3;
+    build_report("0123456789abcdef","fedcba9876543210",&s,"AaZz09",10,0,1000,0);
+    assert(strstr(report,"tap_typing_trial=EXERCISED\n"));
     if (argc>1) { fwrite(report,1,used,stdout); return 0; }
+    s.tap_primary=0;
+    build_report("0123456789abcdef","fedcba9876543210",&s,"AaZz09",10,0,1000,0);
+    assert(strstr(report,"tap_typing_trial=INCOMPLETE\n"));
+    s.tap_primary=2;s.typing_suppressed=0;
+    build_report("0123456789abcdef","fedcba9876543210",&s,"AaZz09",10,0,1000,0);
+    assert(strstr(report,"tap_typing_trial=INCOMPLETE\n"));
+    s.typing_suppressed=3;policy_options=0;
+    build_report("0123456789abcdef","fedcba9876543210",&s,"AaZz09",10,0,1000,0);
+    assert(strstr(report,"tap_typing_trial=INCOMPLETE\n"));
+    measure_policy=false;
+
     s.scroll_events=0;
     build_report("0123456789abcdef","fedcba9876543210",&s,"AaZz09",10,0,1000,0);
     assert(strstr(report,"gesture_trial=INCOMPLETE\n"));
