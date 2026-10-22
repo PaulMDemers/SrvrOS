@@ -2,17 +2,43 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active mounted-workspace lifecycle study
+### Mounted-workspace lifecycle VM study (PR #49)
 
-Base `598fe27` (PR48); Pro PR19 `3d51e4f` inspected, independent Wi-Fi work.
-Add a VM-only System Start/Stop study with Home mounted and serialized SMBus
-host events. Exercise repeated lifetimes, owner cleanup after window close,
-early cancellation, unsupported/native refusal and uncertain-event containment.
-Touched: battery runtime diagnostic admission, controls VM harness and strict
-proof tests/docs. Reuse the existing mailbox and UI; no ordinary desktop, native
-firmware/profile, reset-interlock or mounted-Home enablement changes. The test
-checks mounted-volume preservation, not new concurrent file-load acceptance.
-Physical payload/recovery stay unchanged; no reboot planned for this block.
+Implementation `d223325`, base `598fe27` (PR48). The new explicit
+`battery-workspace-controls` diagnostic reuses System Start/Stop and its scoped
+mailbox while a disposable Home volume stays mounted. Two sessions completed
+four lifetimes/eight requests and handled 12 synthetic events/four acknowledged
+alarms, with epoch-specific drained resource receipts and final revocation.
+Mouse Start/Stop/restart followed by closing System while active also retired
+cleanly, as did early cancellation. All clean runs allowed a replacement
+compositor and preserved the entire volume byte for byte with offline
+fsck/allocation checks. No additional file-load or physical-input claim.
+
+Uncertain acknowledgement stayed halted with no runtime retirement, unmount or
+reset claim. Native invocation and unmounted admission refused before runtime;
+a VM without the controller profile returned unavailable and released the scope.
+All seven directed cases and four strict receipt-corruption tests passed. Full
+build, both diagnostic kernels, core/docs and four existing regressions passed:
+parked controls, v47 Text/file capture, v46 completion capture and query-refusal
+save/reset. Five saved-capture proof tests include UART interleaving versus
+corrupt saved evidence. Validation and retained disposable disks are archived
+outside `build` at
+`~/.local/share/srvros/local-validation/battery-workspace-controls-81d6fbdf3075`.
+The [Home lifecycle audit](../battery-home-lifecycle.md) records the exact
+remaining mounted-volume binding and refusal/cleanup requirements.
+
+The parked-file regression exposed UART interleaving in its harness: the saved
+boot-log proof was valid while serial writers split an event line. Follow-up
+`81d6fbd` strictly validates the atomic saved proof and matches its final summary
+to the retired UART output; reset/contents/allocation checks remain required.
+Corrupt saved evidence still fails. The original failure and disposable image
+are retained with the validation artifacts; this does not change runtime logging.
+
+No physical payload or recovery change; current `fda709928307b1b1`, previous
+`b427b78f21644bd2`, no pending run/reboot. Native Home/startup remain OFF. Pro PR19
+`3d51e4f` was inspected and retains independent Wi-Fi scope. Actions stay disabled.
+Next: bind lifetime ownership to the specific mounted volume, then combine
+explicit controls and asynchronous Text file activity in VM before native work.
 
 ### Accepted parked SMBus/Text/file capture (PR #48)
 

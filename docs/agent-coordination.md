@@ -446,3 +446,21 @@ lifecycle/storage ownership for explicit Home coexistence, VM first. Pro PR19
 integrating shared main/staging changes. No sibling acceptance is implied.
 All validation ran locally with Actions disabled. Evidence/payload backups are
 hash-verified outside `build`; no physical trial is armed after this closeout.
+
+
+## Mounted Home control lifecycle study (PR #49)
+
+Air implementation `d223325` reuses the System mailbox/UI in the explicit,
+VM-only `battery-workspace-controls` command. Repeated sessions exercise four
+lifetimes with SMBus events; manual Start/Stop/restart, active-window close and
+early cancellation retire cleanly. Native/unmounted/profile refusal and uncertain
+acknowledgement are covered. A live uncertain event remains halted with mounted
+storage; do not replace this with forced flush/unmount/reset to make a test pass.
+Clean runs preserve the complete disposable volume and permit a new compositor.
+
+Consume the [Home lifecycle audit](battery-home-lifecycle.md) and epoch-correlated
+proof before expanding native admission. Mounted-volume identity/revocation and
+controls during asynchronous file work are the next Air scope. No native boot
+recipe, firmware gate, accepted payload or sibling support changes here. Pro
+PR19 `3d51e4f` remains independent Wi-Fi work; preserve its tests/profiles. Local
+validation replaces disabled Actions, and no physical trial is armed.
