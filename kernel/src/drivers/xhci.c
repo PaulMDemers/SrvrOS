@@ -238,6 +238,9 @@ struct xhci_wifi_mcu {
     bool identity_validated, write_attempted, write_validated, pair_attempted, timing_active;
     struct mt76_mcu_timing timing;
     int timing_sent;
+    struct mt76_mcu_mac mac;
+    unsigned mac_submitted;
+    bool mac_active;
 };
 
 struct xhci_wifi_firmware {

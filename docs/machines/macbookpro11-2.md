@@ -2463,3 +2463,15 @@ ASan/UBSan and docs checks passed. Not yet bound to native xHCI or accepted on
 hardware; installed0c12150fc75d830c remains unchanged and no reboot is armed.
 Next bind this fixed plan after accepted timing with exact packet/read allowlists,
 then stage and rehearse the candidate before native acceptance.
+
+Active scope: opt-in firmwarev8 binding of fixed MAC basics after accepted timing.
+Exact sequence4/5 packets only, one submission each in order, four-register/ MAC0
+read allowlist and prior timing completion required. Local transport/boot tests,
+exact-stage rehearsal and preserved recovery precede native test. Main1454cb7
+fetched, integration remains598fe27; no battery or sibling gates modified.
+
+Native binding implemented; build, MAC/MCU/xHCI host suites, 57 boot-profile
+tests and docs checks passed. Transport tests cover ordered submissions,
+prior-batch completion, exact packet mutations, read scope, stale events and
+retained-DMA quarantine. Preparing firmwarev8 exact-stage VM and hardware trial;
+new register responses/readbacks are still physically unaccepted.

@@ -758,7 +758,7 @@ reset, strict identity/single-write prerequisites and capture completion passed;
 post-return recovery/filesystem checks were clean. This accepts this exact
 two-register engine on the captured adapter, not larger tables or RF readiness.
 
-### Fixed MAC basics engine (host-tested, native binding pending)
+### Fixed MAC basics engine (native trial pending)
 
 `mt76_mcu_apply_mac_basics` defines exactly two two-pair commands after timing
 initialization: sequence4 sets legacy basic rate1408=13f and HT basic rate140c=4003;
@@ -774,8 +774,13 @@ before the next batch; the session cannot be reused. Authorization is checked
 before each I/O and before completing each batch. The transport must enforce
 pinned identity/firmware, accepted timing and exclusive unused sequences4/5.
 The shape of these new replies is inferred from the accepted timing pair; it
-is not yet a native acceptance result for these registers. This engine is not
-connected to the installed hardware diagnostic.
+is not yet a native acceptance result for these registers. The opt-in fw-v8
+diagnostic (`--wifi-mac-basics`, requiring `--wifi-timing-probe`) binds this
+engine after accepted timing initialization. Its xHCI transport enforces the
+five read offsets, exact packets, sequential unused submissions and completion
+of each prior batch before submitting the next. Failed transfers quarantine
+the session and retain DMA storage. It logs both replies and all four readbacks
+to the workspace before returning to Ubuntu. RF and connectivity remain untested.
 
 `make test-mt76-mac` is included in test-core. Independent wire fixtures, reply
 bit mutations, all14 operation failures, all16 authorization boundaries, stale
