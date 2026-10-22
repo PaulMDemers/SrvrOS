@@ -20,7 +20,7 @@ int main(int argc,char **argv) {
         }
         CHECK(srv_spawn_bg("/fat/bin/no-such-lifetime-program")<0);
         CHECK(srv_spawn_args("/fat/bin/lifetimeprobe","--status17")==17);
-        CHECK(srv_spawn_args_redirect("/fat/bin/lifetimeprobe","--status17",NULL,0)==17);
+        CHECK(srv_spawn_args_redirect("/fat/bin/lifetimeprobe","--status17","/fat/lifetime-test.txt",0)==17);
         puts("lifetimeprobe: churn=128 failed-spawn=refused synchronous=2");return 0;
     }
     if(!strcmp(argv[1],"--orphan")) {

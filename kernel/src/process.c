@@ -310,7 +310,7 @@ static bool process_slots_busy[PROCESS_MAX_PROCESSES];
 /* CPU0 process management: short IRQ-masked publication, preemptible loading
  * and destruction. Members include reservations and final resource release. */
 struct process_lifetime {
-    uint64_t token, members;
+    uint64_t token, members, peak;
     bool revoked, root_reserved;
 };
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
@@ -606,7 +606,7 @@ bool process_lifetime_status(uint64_t token,struct process_lifetime_status *out)
     if (!out || process_current()) return false;
     uint64_t flags=process_irq_save();
     struct process_lifetime *life=lifetime_find(token);
-    if (life) *out=(struct process_lifetime_status){.members=life->members,.revoked=life->revoked};
+    if (life) *out=(struct process_lifetime_status){.members=life->members,.peak=life->peak,.revoked=life->revoked};
     process_irq_restore(flags);return life!=NULL;
 }
 
@@ -630,7 +630,10 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
         if(!processes[i].allocated && !process_slots_busy[i]) {
             slot=i;process_slots_busy[i]=true;pid=next_pid++;
             if(!next_pid) next_pid=1;
-            if(life) { life->members++;if(root_token)life->root_reserved=true; }
+            if(life) {
+                life->members++;if(life->members>life->peak)life->peak=life->members;
+                if(root_token)life->root_reserved=true;
+            }
             break;
         }
     }

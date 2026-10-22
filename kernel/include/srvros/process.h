@@ -99,7 +99,7 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
  * token, inherited by all spawn paths; exec/job control do not change it.
  * CPU0 only, matching process management. Members include preparation/release.
  * Revoke, drain until members==0, then release. A timeout is not retirement. */
-struct process_lifetime_status { uint64_t members; bool revoked; };
+struct process_lifetime_status { uint64_t members, peak; bool revoked; };
 uint64_t process_lifetime_create(void);
 int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args);
 bool process_lifetime_revoke(uint64_t token);
