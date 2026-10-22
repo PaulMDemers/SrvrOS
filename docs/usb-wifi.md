@@ -558,3 +558,11 @@ ring, and failure of selection stops the trial before the register read or IN
 submission. `wifi-mcu-queue` records selection transfer completion, which alone
 is not proof of firmware processing. This addresses the missing setup identified
 after the first native MCU response timeout; native confirmation is pending.
+
+The Pro11,2 queue-selection trial (source456922b, release4a47cd57ac90c504)
+received a16-byte response after both16-byte OUT transfers. Observed response:
+header4a010008,address00411000,value76502000,trailer4a010008; decoded sequence1,
+event0,length8. xHCI short-packet completion13 with1008 bytes residue from a1024
+byte IN request is consistent with those16 received bytes. Final MAC-disable
+check and saved capture completed successfully. This is bounded exchange evidence
+only; strict native body/trailer validation and RF initialization remain pending.

@@ -2200,3 +2200,19 @@ e47dca3a6b30c6c1 retained; prior MCU trial8e87dabf5c918f1c retained. Accepted fi
 payloadb7f7fb1c357d7ff5 removed from ESP only after exact archive verification;
 its durable payload/evidence remains available. Await attended cold adapter cycle,
 then collect matching session before further work. No photos or commands needed.
+
+Native queue-selection trial4a47cd57ac90c504, source456922b, session
+00065e74311ea511-00: firmware result0/chunks6; Q_SELECT OUT16; random-read OUT16;
+IN16,sequence1,event0,reported-length8,cc13,residue1008. Reply words are
+4a010008/00411000/76502000/4a010008: requested WLAN MAC_CSR0 address and expected
+chipset value, with repeated header trailer. Final MAC-disable check passes,
+failed0, capture completed=yes. This accepts the observed one-shot queue/read
+exchange on this adapter, not sustained MCU service or RF/network functionality.
+The native logger still reports validated=0: strict command-specific response
+validation is the next implementation step, using this evidence plus negative
+length/event/address/value/trailer fixtures.
+
+Matching collection archived under wifi-queue-456922b/native-collection. Ubuntu
+default, consumed one-shot and installed/current recovery manifests verified.
+Offline workspace clean:141files,460clusters,zero leaks/mismatches/errors. Run
+record and checkpoint collected/unarmed; no new physical trial prepared.
