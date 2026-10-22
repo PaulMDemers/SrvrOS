@@ -68,6 +68,23 @@ enum mt76_mcu_timing_status {
  * No RF, power, channel, TX/RX enable or arbitrary table inputs. */
 enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *session,
     const struct mt76_mcu_timing_io *io);
+/* Fixed MAC basics plan only: rates, RX filter and maximum frame length.
+ * Two pairs per command, sequences4/5; requires completed timing initialization.
+ * No caller-defined tables or TX/RX enable. Native response shape is inferred
+ * from the accepted two-pair timing transaction and still needs hardware proof. */
+#define MT76_MCU_MAC_BATCHES 2u
+struct mt76_mcu_mac {
+    bool attempted, complete;
+    unsigned batches_attempted, batches_completed, ack_mask, reads;
+    uint32_t before[4], after[4], mac_before, mac_after;
+    int received;
+};
+size_t mt76_mcu_mac_packet(unsigned batch, uint8_t *out, size_t capacity);
+bool mt76_mcu_validate_mac_reply(unsigned batch, const uint8_t *data, size_t length);
+/* Same callback obligations as timing IO, plus proven timing completion and
+ * exclusive unused sequences4/5. No retries after any attempted operation. */
+enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *session,
+    const struct mt76_mcu_timing_io *io);
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

@@ -2446,3 +2446,20 @@ Workspace unmounted and clean151files/475clusters,zero leaks/mismatches/errors.
 Run/checkpoint collected and unarmed. Next expand MAC/baseband initialization
 with bounded commands and register-specific readback policies; RF/scan/network
 connectivity remain pending.
+
+Active scope: fixed MAC basics engine after accepted timing, two pairs per
+command with sequences4/5. Targets legacy basic rate1408=13f, HT basic
+rate140c=4003 (model final value), RX filter1400=17f97, maximum length1018=a1fff,
+from Linuxv6.18 register/init definitions. No TX/RX enable, RF, PA/power or key
+writes. Require exact first-entry ACK plus per-register readbacks and MAC0 at
+each batch boundary. Pure engine/tests first; native binding remains separately
+gated until validated. Main1454cb7 fetched/inspected; integration still598fe27.
+
+Fixed four-register MAC basics engine implemented, with separate sequence4/5
+packets, exact first-entry replies, per-register readbacks and MAC0 boundaries.
+Host tests passed for all operation failures/authorization boundaries, reply
+mutations, stale batch replies and each readback mismatch. Build, MCU/xHCI,
+ASan/UBSan and docs checks passed. Not yet bound to native xHCI or accepted on
+hardware; installed0c12150fc75d830c remains unchanged and no reboot is armed.
+Next bind this fixed plan after accepted timing with exact packet/read allowlists,
+then stage and rehearse the candidate before native acceptance.

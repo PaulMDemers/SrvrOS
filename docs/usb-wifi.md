@@ -757,3 +757,26 @@ Both timing registers changed to the exact targets and MAC stayed0. Firmware,
 reset, strict identity/single-write prerequisites and capture completion passed;
 post-return recovery/filesystem checks were clean. This accepts this exact
 two-register engine on the captured adapter, not larger tables or RF readiness.
+
+### Fixed MAC basics engine (host-tested, native binding pending)
+
+`mt76_mcu_apply_mac_basics` defines exactly two two-pair commands after timing
+initialization: sequence4 sets legacy basic rate1408=13f and HT basic rate140c=4003;
+sequence5 sets RX filter1400=17f97 and maximum length1018=a1fff. Numeric settings
+come from Linuxv6.18 register/initialization definitions; the HT rate uses the
+model's final setting. No caller-supplied addresses, values, batches or sequences
+are accepted, and no RF/power/key or MAC TX/RX enable writes are included.
+
+Every batch checks MAC0, records both baselines, sends once, validates an exact
+16-byte first-entry echo with its distinct sequence, and reads back both targets
+and MAC0. Acknowledgement alone never accepts the second register. Failure stops
+before the next batch; the session cannot be reused. Authorization is checked
+before each I/O and before completing each batch. The transport must enforce
+pinned identity/firmware, accepted timing and exclusive unused sequences4/5.
+The shape of these new replies is inferred from the accepted timing pair; it
+is not yet a native acceptance result for these registers. This engine is not
+connected to the installed hardware diagnostic.
+
+`make test-mt76-mac` is included in test-core. Independent wire fixtures, reply
+bit mutations, all14 operation failures, all16 authorization boundaries, stale
+batch replies, all four readback failures and enabled-MAC boundaries are tested.

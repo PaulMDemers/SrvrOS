@@ -130,6 +130,68 @@ enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *s,
 #undef TIMING_READ
 }
 
+/* Numeric register settings from Linux v6.18 mt76x02_regs.h and mt76x0
+ * initialization: use final model HT rate setting, not the common intermediate.
+ * These four configuration registers do not enable MAC transmit/receive. */
+static const struct mt76_mcu_register_pair mac_basics[4]={
+    {0x1408,0x13f},{0x140c,0x4003},{0x1400,0x17f97},{0x1018,0xa1fff}
+};
+size_t mt76_mcu_mac_packet(unsigned batch,uint8_t *out,size_t capacity) {
+    if(batch>=MT76_MCU_MAC_BATCHES)return 0;
+    return mt76_mcu_register_packet(true,(uint8_t)(4+batch),mac_basics+2*batch,2,out,capacity);
+}
+bool mt76_mcu_validate_mac_reply(unsigned batch,const uint8_t *data,size_t length) {
+    if(batch>=MT76_MCU_MAC_BATCHES || !data || length!=16)return false;
+    uint32_t header=0x4a000008u|((4+batch)<<16);
+    const uint32_t words[4]={header,0x410000u+mac_basics[2*batch].address,
+        mac_basics[2*batch].value,header};
+    for(unsigned i=0;i<16;i++)if(data[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return false;
+    return true;
+}
+static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value) {
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->reads++;
+    if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+    return *value==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
+}
+enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) {
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)
+        return MT76_TIMING_REFUSED;
+    *s=(struct mt76_mcu_mac){.attempted=true,.received=-1};
+    enum mt76_mcu_timing_status status;
+#define MAC_READ(address,value) do { status=mac_read(s,io,address,value); if(status!=MT76_TIMING_OK)return status; } while(0)
+    for(unsigned batch=0;batch<MT76_MCU_MAC_BATCHES;batch++) {
+        MAC_READ(0x1004,&s->mac_before);
+        if(s->mac_before)return MT76_TIMING_STATE;
+        for(unsigned n=0;n<2;n++) {
+            unsigned i=2*batch+n;
+            MAC_READ(mac_basics[i].address,&s->before[i]);
+        }
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint8_t packet[24],reply[MT76_MCU_RESPONSE_MAX];
+        size_t length=mt76_mcu_mac_packet(batch,packet,sizeof packet);
+        if(length!=sizeof packet)return MT76_TIMING_STATE;
+        s->batches_attempted++;
+        s->received=io->exchange(io->context,packet,length,reply,sizeof reply);
+        if(s->received<0)return MT76_TIMING_IO;
+        if(!mt76_mcu_validate_mac_reply(batch,reply,(size_t)s->received))return MT76_TIMING_REPLY;
+        s->ack_mask|=1u<<batch;
+        for(unsigned n=0;n<2;n++) {
+            unsigned i=2*batch+n;
+            MAC_READ(mac_basics[i].address,&s->after[i]);
+            if(s->after[i]!=mac_basics[i].value)return MT76_TIMING_STATE;
+        }
+        MAC_READ(0x1004,&s->mac_after);
+        if(s->mac_after)return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        s->batches_completed++;
+    }
+    s->complete=true;return MT76_TIMING_OK;
+#undef MAC_READ
+}
+
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;
     s->pending = ++s->issued;
