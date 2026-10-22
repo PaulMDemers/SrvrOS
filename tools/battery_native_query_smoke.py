@@ -23,13 +23,23 @@ def verify_capture_proof(saved,serial,checker,compare_serial=True):
     if compare_serial:assert proof==checker(serial,vm=True)
     return proof
 
-def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture',image_checker=None,compare_serial=True):
+def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture',image_checker=None,compare_serial=True,study=None):
     image=ExfatFixture(raw)
-    assert {n for n,_ in image.entries(image.chain(image.root))}=={'srvros-work','.srvros'}
+    assert {n for n,_ in image.entries(image.chain(image.root))}==({'srvros-work','.srvros','battery-study'} if study else {'srvros-work','.srvros'})
     assert {n for n,_ in image.entries(image.read('srvros-work'))}==({'.workspace','anchor.txt','Logs','battery-fs.img'} if image_checker else {'.workspace','anchor.txt','Logs'})
     assert image.read('srvros-work/.workspace')==MARKER
     assert image.read('srvros-work/anchor.txt')==ANCHOR
     if image_checker:image_checker(image.read('srvros-work/battery-fs.img'))
+    if study:
+        names={n for n,_ in image.entries(image.read('battery-study'))}
+        assert image.read('battery-study/anchor.txt')==ANCHOR
+        if study=='complete':
+            assert names=={'anchor.txt',*(f'text-{i}.txt' for i in range(1,6))}
+            for i in range(1,6):assert image.read(f'battery-study/text-{i}.txt')==b'AA'
+        elif study=='incomplete':
+            assert names in ({'anchor.txt'},{'anchor.txt','text-draft.txt'})
+            if 'text-draft.txt' in names:assert image.read('battery-study/text-draft.txt') in (b'',b'A',b'AA')
+        else:assert study=='untouched' and names=={'anchor.txt'}
     sessions=[n for n,_ in image.entries(image.read('srvros-work/Logs'))];assert len(sessions)==1
     folder='srvros-work/Logs/'+sessions[0]
     assert {n for n,_ in image.entries(image.read(folder))}=={'boot.log','session-a.log','exit.log'}

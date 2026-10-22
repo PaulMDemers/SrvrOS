@@ -9,16 +9,19 @@ from serial_records import complete_lines
 from vm_sockets import connect_unix
 from battery_desktop_smoke import chord
 
-from battery_workspace_controls_records import check,check_hold
+from battery_workspace_controls_records import check,check_hold,check_events,check_home_returns
 from exfat_test_image import ExfatFixture,check_clean_image
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=('normal','manual','early-exit','refusal','unmounted-refusal','profile-refusal','runtime-fault'),default='normal')
+    parser.add_argument('--home',action='store_true',help='Exercise the explicit native Home session with disposable fixtures')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('battery-workspace-controls-'+args.case);out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/(('battery-home-controls-' if args.home else 'battery-workspace-controls-')+args.case);out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True)
     output=bytearray();result={}
+    mode=b'explicit' if args.home else b'disabled'
+    unavailable=args.case=='profile-refusal' or (args.home and args.case=='refusal')
     with tempfile.TemporaryDirectory(prefix='srvros-battery-controls-') as folder:
         tmp=Path(folder)
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('79' if args.case=='runtime-fault' else '15' if args.case=='profile-refusal' else '76')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
@@ -62,7 +65,7 @@ def main():
                     serial.sendall(b'echo '+begin+b'\n');marker=bytearray();due=time.monotonic()+5
                     while b'srv> ' not in marker and time.monotonic()<due:marker.extend(read_for(serial,.1))
                     assert begin in marker and b'srv> ' in marker;output.extend(marker)
-                    serial.sendall(b'acpiruntime battery-workspace-controls-manual\n' if args.case in ('manual','runtime-fault') else b'acpiruntime battery-workspace-controls\n');data=bytearray();deadline=time.monotonic()+125;interrupted=False;shot=False;manual_phase=0;pointer=[24,56]
+                    serial.sendall(b'acpiruntime '+(b'battery-home-controls' if args.home else b'battery-workspace-controls')+(b'-manual' if args.case in ('manual','runtime-fault') else b'')+b'\n');data=bytearray();deadline=time.monotonic()+125;interrupted=False;shot=False;manual_phase=0;pointer=[24,56]
                     def click(x,y):
                         qmp.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
                         qmp.mouse(0,0,1);qmp.mouse(0,0,0)
@@ -101,9 +104,9 @@ def main():
                         starts=list(re.finditer(rb'^'+begin+rb'\r?\n',snapshot,re.M));assert len(starts)==1
                         data=bytes(snapshot[starts[0].end():])
                         (out/f'trial-{trial}.boot.log').write_bytes(data)
-                    if args.case=='normal':results.append(check(data,trial*4,trial*2))
+                    if args.case=='normal':results.append(check(data,trial*4,trial*2,home=args.home))
                     elif args.case=='manual':
-                        assert b'battery-workspace-controls: complete=yes epoch=2 state=4; revoked=yes retired=yes mounted=yes native=disabled' in data
+                        assert b'battery-workspace-controls: complete=yes epoch=2 state=4; revoked=yes retired=yes mounted=yes native='+mode in data
                         assert manual_phase==4
                         assert b'battery-controls: PASS requests=3 descendants=2 epoch=2; revoked=yes retired=yes' in data
                         assert len(re.findall(rb'battery-ui: request=[12] result=0',data))==3
@@ -120,19 +123,25 @@ def main():
                         assert b'battery-workspace-hold: acquired token=1' in data
                         assert b'battery-workspace-hold: released' not in data
                         result=dict(status='PASS',expected='live fault contained; no clean retirement claimed',automatic_reset=False,storage_retirement='NOT claimed')
-                    elif args.case in ('refusal','unmounted-refusal'):
-                        assert b'battery-workspace-controls: REFUSED VM-only mounted study' in data
+                    elif args.case=='unmounted-refusal' or (args.case=='refusal' and not args.home):
+                        assert b'battery-workspace-controls: REFUSED '+(b'explicit Home ownership' if args.home else b'VM-only mounted study') in data
                         assert b'battery-service:' not in data and b'battery-native:' not in data and b'battery-control: dispatched' not in data
                         result=dict(status='PASS',expected=args.case,runtime_started=False)
                     else:
                         assert b'battery-controls: FAIL' in data and b'revoked=yes retired=yes' in data
                         assert b'battery-controls: PASS' not in data
-                        assert b'battery-workspace-controls: complete=NO' in data and b'retired=yes mounted=yes native=disabled' in data
+                        assert b'battery-workspace-controls: complete=NO' in data and b'retired=yes mounted=yes native='+mode in data
                         if args.case=='early-exit':assert b'battery-service: retired epoch=1' in data
-                        if args.case=='profile-refusal':assert b'battery-smbus-study: REFUSED model ownership profile' in data and b'battery-smbus: event=' not in data
+                        if unavailable:
+                            reason=(b'battery: REFUSED platform/resource ownership preflight' if args.case=='refusal' else b'battery-native-smbus: REFUSED captured controller profile') if args.home else b'battery-smbus-study: REFUSED model ownership profile'
+                            assert reason in data and b'battery-smbus: event=' not in data
                         result=dict(status='PASS',expected=args.case,scope_revoked=True)
-                    if args.case in ('manual','early-exit','profile-refusal'):
-                        result['mount_token']=check_hold(data,True if args.case=='manual' else False if args.case=='profile-refusal' else None)
+                    if args.case in ('manual','early-exit') or unavailable:
+                        result['mount_token']=check_hold(data,True if args.case=='manual' else False if unavailable else None)
+                    if args.home and args.case in ('manual','early-exit','profile-refusal','refusal'):
+                        epochs=2 if args.case=='manual' else 1 if args.case=='early-exit' else 0
+                        check_home_returns(data,epochs)
+                        if args.case=='manual':check_events(data,0,2)
                 if args.case=='normal':
                     assert [r['mount_token'] for r in results]==[1,2]
                     result=dict(status='PASS',runs=results,remount_new_lifetime=True)
@@ -154,7 +163,7 @@ def main():
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result.update(unchanged_disk=True,offline_allocation='PASS')
-                result.update(kernel_sha256=hashlib.sha256(kernel.read_bytes()).hexdigest(),initramfs_sha256=hashlib.sha256((root/'build/initramfs.tar').read_bytes()).hexdigest(),native_acceptance='disabled')
+                result.update(kernel_sha256=hashlib.sha256(kernel.read_bytes()).hexdigest(),initramfs_sha256=hashlib.sha256((root/'build/initramfs.tar').read_bytes()).hexdigest(),native_acceptance='pending' if args.home else 'disabled')
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 if not (out/'serial.log').exists() or len(output)>=(out/'serial.log').stat().st_size:(out/'serial.log').write_bytes(output)

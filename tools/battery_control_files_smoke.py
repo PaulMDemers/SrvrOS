@@ -42,9 +42,11 @@ def verify_cancel(data):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--case',choices=('normal','cancel','refusal','unmounted-refusal','profile-refusal','runtime-fault'),default='normal')
+    p.add_argument('--case',choices=('normal','cancel','refusal','unmounted-refusal','profile-refusal','runtime-fault','query-refusal','effect-refusal'),default='normal')
+    p.add_argument('--home',action='store_true',help='Exercise the explicit native Home admission path with disposable fixtures')
     args=p.parse_args();root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('battery-control-files-'+args.case);out.mkdir(parents=True,exist_ok=True)
+    assert args.home or args.case not in ('query-refusal','effect-refusal')
+    out=root/'build/review'/(('battery-home-control-files-' if args.home else 'battery-control-files-')+args.case);out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-control-files-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -56,7 +58,7 @@ def main():
         fixture.add_directory_files('battery-study',{'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as f:f.write(mbr);f.seek(2048*512);f.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(79 if args.case=='runtime-fault' else 15 if args.case=='profile-refusal' else 76)+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(82 if args.case=='effect-refusal' else 75 if args.case=='query-refusal' else 79 if args.case=='runtime-fault' else 15 if args.case=='profile-refusal' else 76)+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='refusal' else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
@@ -80,32 +82,32 @@ def main():
                 if args.case!='unmounted-refusal':
                     serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo CONTROL_FILES_BEGIN\n');wait_for(b'\nCONTROL_FILES_BEGIN\r\n')
-                serial.sendall(b'acpiruntime battery-workspace-controls-files'+(b'-cancel' if args.case=='cancel' else b'')+b'\n')
-                if args.case=='runtime-fault':
-                    data=wait_for(b'battery: HALTED SMBus event ',40);output.extend(read_for(serial,1))
+                serial.sendall((b'acpiruntime battery-home-controls-files' if args.home else b'acpiruntime battery-workspace-controls-files')+(b'-cancel' if args.case=='cancel' else b'')+b'\n')
+                if args.case in ('runtime-fault','effect-refusal'):
+                    data=wait_for(b'battery: HALTED '+(b'query return receipt ' if args.case=='effect-refusal' else b'SMBus event '),40);output.extend(read_for(serial,1))
                     assert process.poll() is None
                     assert b'battery-workspace-hold: acquired token=1' in data
                     for bad in (b'battery-workspace-hold: released',b'battery-service: retired',b'workspace: unmounted',b'battery-workspace-controls: complete='):assert bad not in data
-                    result=dict(status='PASS',expected='uncertain acknowledgement retained; no cleanup/reset claim',native_acceptance=False)
+                    result=dict(status='PASS',expected='effects/uncertain runtime retained; no cleanup/reset claim',native_acceptance=False)
                 else:
-                    wait_for(b'battery-workspace-controls: REFUSED' if args.case in ('refusal','unmounted-refusal') else b'battery-workspace-hold: released token=1',125)
+                    wait_for(b'battery-workspace-controls: REFUSED' if args.case=='unmounted-refusal' or (args.case=='refusal' and not args.home) else b'battery-workspace-hold: released token=1',125)
                     serial.sendall(b'dmesg 65536\necho CONTROL_FILES_END\n');snapshot=wait_for(b'\nCONTROL_FILES_END\r\n')
                     starts=list(re.finditer(rb'^CONTROL_FILES_BEGIN\r?\n',snapshot,re.M));assert len(starts)==1
                     data=snapshot[starts[0].end():];(out/'boot.log').write_bytes(data)
-                    result=check(data,args.case)
+                    result=check(data,args.case,home=args.home)
                     serial.sendall(b'run /fat/bin/deskd --smoke\n');wait_for(b'deskd: exited ')
                     if args.case!='unmounted-refusal':
                         serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')
                     stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                     data=disk[2048*512:];volume.write_bytes(data)
                     if args.case=='normal':verify_disk(data,True)
-                    elif args.case=='cancel':result['cancelled_draft_hex']=verify_cancel(data)
+                    elif args.case in ('cancel','query-refusal'):result['incomplete_draft_hex']=verify_cancel(data)
                     else:assert data==bytes(fixture.data),'Refused trial changed workspace bytes'
                     (out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result.update(replacement_compositor='PASS',unmount='PASS' if args.case!='unmounted-refusal' else 'not mounted',offline_allocation='PASS')
-                result.update(kernel_sha256=hashlib.sha256(kernel.read_bytes()).hexdigest(),initramfs_sha256=hashlib.sha256((root/'build/initramfs.tar').read_bytes()).hexdigest())
+                result.update(explicit_home=args.home,kernel_sha256=hashlib.sha256(kernel.read_bytes()).hexdigest(),initramfs_sha256=hashlib.sha256((root/'build/initramfs.tar').read_bytes()).hexdigest())
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result),flush=True)
             finally:
                 (out/'serial.log').write_bytes(output);stop_process(process)

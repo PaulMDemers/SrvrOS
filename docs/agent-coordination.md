@@ -513,3 +513,48 @@ output are not promised atomicity. Local tests include deterministic competing
 writers and all 16 final VM/capture/regression checks; Actions remain disabled.
 Pro PR19 `92a1bbc` retains independent Wi-Fi scope; preserve both main/staging
 profiles and Makefile tests. No other machine's acceptance changes.
+
+
+## Explicit Home desktop owner (PR #53)
+
+Implementation `0a670c8` reuses the System mailbox and descendant-retirement
+owner for an explicit held-Home session, including submitted Text saves and
+active-service close. Preserve the exact mount across every Start/Stop epoch,
+revoke controls before client teardown, then retire runtime before release.
+The native profile stays exact and ordinary startup stays OFF. Compact event
+records share the existing decoder and the explicit session has a 512-event
+aggregate limit; do not infer unlimited desktop monitoring from this diagnostic.
+
+Fifteen directed ownership cases and nine final boot/regression cases pass in
+local VMs. The v49 automatic profile saves/returns on completed or handled failed
+sessions; uncertain live ownership still halts. Expected Text failure is distinct
+from a kernel runtime failure. A refused query can coincide with a submitted
+first save, requiring valid incomplete-draft preservation, not an untouched disk
+or a completed workload. Native acceptance remains pending. Pro PR19 `92a1bbc`
+retains independent Wi-Fi work; preserve its main/staging profiles and tests.
+
+The first v49 native session (`63333d27f5e5c064`) returned a **failed** workload
+after the compositor's diagnostic progress timeout, with clean runtime retirement
+and preserved existing files. A disposable VM reproduced the early stop with
+four-second EC connections and throttled USB writes. The correction gives only
+generated control/file checkpoints a 15.7-second wait and the study 90 seconds;
+normal desktop input/client deadlines and the 110-second owner limit stay intact.
+The slow regression completes all 60 edits and five exact file cycles, including
+7.98–8.43-second checkpoints. This remains VM evidence pending the native retry.
+Pro PR19 `fe5c0a8` and Air6,1 PR54 `953103b` were inspected; their Wi-Fi and
+inventory/setup scopes do not overlap this compositor diagnostic correction.
+
+The retry `fd6f6b9d397c339f` (compiled `faf40ab`, collector `7f1438d`) accepts
+the explicit session on Air7,2: five requests, three lifetimes, 60 edits/five file
+cycles, 180 natural events, 12 handled/zero unclaimed SCI deliveries and clean
+retirement with Home held. No alarms occurred. All previous non-metadata files
+are preserved, allocation is clean and automatic Ubuntu recovery is verified.
+The host collector's filename loop no longer overwrites its JSON session label;
+both original and corrected collections retain identical raw logs. Reuse that
+fix when collecting v49. Original failed native evidence remains separate.
+
+Next Air scope is ordinary desktop ownership/startup and bounded continuous
+service accounting, followed by attended AC/gauge checks and the final indicator.
+Normal startup remains OFF until that integration is validated. Pro PR19
+`af779b0` and Air6,1 PR54 `c8dc0a0` remain separate Wi-Fi and console/inventory
+work; do not copy the Air7,2 firmware gate or acceptance onto those models.

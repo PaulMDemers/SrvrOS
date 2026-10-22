@@ -61,6 +61,21 @@ def check_files(data,vm=False):
     assert raw.count(b'battery-smbus-files:')==1
     assert b'battery-smbus-files: begin limit=512 storage=image; aml=0 serialized=1\n' in raw
     assert b'battery-smbus: event=' not in raw and b'battery-smbus: invalidate ' not in raw
+    expanded=expand_compact_records(raw)
+    result=check(expanded,vm,files=True)
+    workload=check_files_capture(raw)
+    assert result['fresh_generation']>=workload['last_generation']
+    assert raw.index(b'battery-smbus-files: begin ')<raw.index(b'smbus-e:')<raw.index(b'battery-native-smbus: snapshot ')
+    assert raw.index(b'workspace-image: prepared ')<raw.index(b'battery-smbus-files: begin ')
+    assert raw.index(b'battery-service: retired ')<raw.index(b'workspace-image: revoked clean=yes')<raw.index(b'battery-native-smbus: outcome=')
+    assert raw.index(b'desktop-coexist: completed=')<raw.index(b'battery-native-smbus: snapshot ')
+    result.update(workload);result['scope']='parked SMBus events with Text and exclusive filesystem image'
+    return result
+
+
+def expand_compact_records(raw):
+    """Decode every compact event; reject mixed, malformed or partial records."""
+    assert b'battery-smbus: event=' not in raw and b'battery-smbus: invalidate ' not in raw
     # Compact wire records preserve every event in the bounded saved-log tail.
     # Reject malformed/partial records rather than silently dropping evidence.
     lines=[]
@@ -72,13 +87,4 @@ def check_files(data,vm=False):
             m=re.fullmatch(rb'smbus-i:(\d+),(\d+),([01])',line);assert m
             line=b'battery-smbus: invalidate generation=%s cached=%s valid=%s fresh=0'%m.groups()
         lines.append(line)
-    expanded=b'\n'.join(lines)+b'\n'
-    result=check(expanded,vm,files=True)
-    workload=check_files_capture(raw)
-    assert result['fresh_generation']>=workload['last_generation']
-    assert raw.index(b'battery-smbus-files: begin ')<raw.index(b'smbus-e:')<raw.index(b'battery-native-smbus: snapshot ')
-    assert raw.index(b'workspace-image: prepared ')<raw.index(b'battery-smbus-files: begin ')
-    assert raw.index(b'battery-service: retired ')<raw.index(b'workspace-image: revoked clean=yes')<raw.index(b'battery-native-smbus: outcome=')
-    assert raw.index(b'desktop-coexist: completed=')<raw.index(b'battery-native-smbus: snapshot ')
-    result.update(workload);result['scope']='parked SMBus events with Text and exclusive filesystem image'
-    return result
+    return b'\n'.join(lines)+b'\n'

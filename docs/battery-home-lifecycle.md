@@ -5,16 +5,20 @@ SMBus completion events, but its outer workspace is parked. An exclusive image
 lease bounds which storage can change. Ordinary mounted Home removes that bound:
 apps, settings and logging can retain open files or asynchronous work. Native
 Home monitoring and automatic startup remain disabled outside the explicit diagnostic.
+The later v49 held-Home desktop session is now physically accepted on Air7,2:
+release `fd6f6b9d397c339f` completed three service lifetimes, all 60 generated
+edits and five exact file cycles, then retired before saving and unmounting.
+See the [machine record](machines/macbookair7-2.md) for native scope and limits.
 
 ## Ownership audit
 
 | Boundary | Existing behavior | Requirement before native Home enablement |
 | --- | --- | --- |
 | Start/Stop request | Process-group mailbox; syscalls only enqueue, session owner dispatches | Retain scoped admission, epoch checks and revocation before client teardown |
-| Mounted storage | VM SMBus/control studies hold the exact mounted device, parent and generation; native capture binds the parked device | Preserve the hold across file-worker activity and release only after owner retirement |
-| Controller events | Exact native profile owns query10 only inside the parked capture; serialized with sampling | Preserve profile, bank serialization and per-transaction/query bounds in a distinct mounted scope |
+| Mounted storage | Explicit mounted diagnostics hold the exact device, parent and generation; parked captures retain their separate image lease | Preserve the hold across file-worker activity and release only after owner retirement |
+| Controller events | Exact native profile owns query10 inside explicit parked or held-Home captures; serialized with sampling | Preserve profile, bank serialization and per-transaction/query bounds in a distinct mounted scope |
 | Stop | Mask sources, drain worker, verify resources, disconnect, then retire owner | Prove the same ordering across UI restart/cancel and file-worker activity |
-| Query refusal | Normal-return native refusal is scoped to parked capture; other unsafe queries are terminal | Prove a mounted return path before enabling it; no general AML unwind assumption |
+| Query refusal | Effect-free normal-return refusal is scoped to parked or held-Home ownership; other unsafe queries are terminal | Retain the checked mounted return across desktop lifetimes; no general AML unwind assumption |
 | Fatal failure | Reset is blocked with mounted Home or active storage I/O; no filesystem calls from the fatal context | Keep containment; never flush/unmount uncertain state to force automatic recovery |
 | Session exit | Revoke mailbox, retire all descendants, stop service, release storage after ownership ends | Preserve all clients and open-file lifetimes, including early exit |
 
@@ -190,12 +194,14 @@ startup enablement or a finished graphical indicator.
 
 The remaining delivery sequence is:
 
-1. Retain the VM combined-control/file proof above through native integration:
-   submitted jobs, cancellation, active-service close and mount release.
-2. Extend the accepted explicit native mounted boundary to a desktop-session
-   service owner, preserving terminal-fault storage containment. Normal completion
-   has native evidence; query refusal and uncertain-event cases retain VM evidence.
-   Enable normal startup only after desktop-session acceptance.
+1. Integrate the accepted explicit Home session owner into ordinary desktop
+   startup and exit, preserving descendant/mount lifetime and terminal-fault
+   containment. The bounded v49 workload has native acceptance; cancellation,
+   query refusal and uncertain-event cases retain their directed VM evidence.
+2. Replace diagnostic duration/event ceilings with bounded continuous-service
+   accounting and logging before enabling normal startup. Validate service
+   unavailable/failed states, Start/Stop/restart, session shutdown and file work;
+   do not turn the 512-event study into unlimited monitoring by deleting its guard.
 3. Validate real AC plug/unplug, charging/discharging, fresh-to-stale transitions,
    percentage plausibility and session shutdown with Home mounted. Announce any
    required human action before the corresponding hardware boot. An automatic
@@ -209,3 +215,61 @@ The remaining delivery sequence is:
 
 Battery readout completion does not include suspend/resume, CPU power policy,
 fan control or sibling-model enablement. Those retain separate acceptance gates.
+
+## Explicit Home desktop sessions
+
+The full diagnostic kernel also exposes `acpiruntime battery-home-controls`,
+`battery-home-controls-manual`, `battery-home-controls-files` and
+`battery-home-controls-files-cancel`. These reuse the existing System control
+mailbox and desktop process-group owner. The exact mounted volume is held across
+Start/Stop/restart and released only after every descendant and runtime retires.
+A cached battery read or a control syscall from an unrelated process cannot
+acquire this ownership. Native admission still requires the captured Air profile.
+These commands do not change ordinary startup or install a hardware payload.
+
+The session has the existing 110-second outer deadline and a 512-event ceiling
+across the whole session, matching the bounded file-work duration. Every normal
+retirement checks a masked, idle controller with its mount still held before
+resource verification and disconnect. A clean refused query leaves a failed
+session; uncertain transport or effects retain ownership and halt. No reset or
+filesystem cleanup occurs from that fault context.
+
+Rehearse the same explicit path on disposable Q35 with
+`tools/host-env.sh python3 tools/battery_workspace_controls_smoke.py --home`
+and `tools/host-env.sh python3 tools/battery_control_files_smoke.py --home`.
+The original commands without `--home` retain their VM-only admission. System
+mouse controls, active close, new mount generations, submitted Text file jobs,
+cancellation, unavailable profiles and uncertain acknowledgement each require
+separate receipts. Compact records retain every event in the bounded saved log.
+Strict Home evidence adds a masked/idle/held return and
+foreign-event restoration for every service lifetime. VM evidence does not
+accept physical input latency, charging accuracy or another model's firmware.
+
+The distinct v49 `--battery-home-session` boot profile automates the combined
+Text/file session. Prepare a dedicated `/battery-study` directory on the USB
+volume containing only `anchor.txt` with `Untouched ordinary workspace data`
+and a final newline. The test creates five `text-N.txt` files, each containing
+`AA`; do not point it at an existing work directory. Record the pre-run file
+hashes after preparation. Logging pauses while Home remains mounted; final
+receipts are saved after client/runtime retirement and before unmount/return.
+The collector checks both the native session proof and exact study-file contents.
+This recipe requires its own exact-stage rehearsal and physical acceptance.
+Air7,2 release `fd6f6b9d397c339f` passed that acceptance with 180 natural completion
+events, no alarms and clean retirement/filesystem/Ubuntu return. Ordinary desktop
+startup, physical input latency and charging/gauge accuracy remain pending.
+
+The generated control/file study acknowledges each twelfth edit only after the
+save/stat/rename/reopen checkpoint. Native release `63333d27f5e5c064` failed the
+old 4.7-second checkpoint wait while the second service lifetime and file work
+were still progressing; it retired safely and preserved existing files. This
+is a failed workload, not acceptance. The diagnostic now budgets 15.7 seconds
+for these checkpoints, retaining 4.7 seconds for other generated edits and all
+ordinary desktop input/client deadlines. It allows up to 90 seconds to finish
+all 60 edits, with the existing 110-second owner deadline unchanged. Completion
+still requires every file cycle and at least one minute of activity.
+
+`battery_home_session_capture_smoke.py --slow-connect --slow-storage` adds four
+seconds to each fixture connection and throttles disposable USB writes. Its
+receipt must prove a file checkpoint exceeded the old budget, all five exact
+files, resource-checked retirement and saved automatic return. These injected
+latencies are VM regression evidence, not a measurement of native disk speed.

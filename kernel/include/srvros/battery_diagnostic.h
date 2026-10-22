@@ -21,5 +21,6 @@ bool battery_smbus_files_diagnostic_run(void *rsdp,struct limine_memmap_response
 bool battery_smbus_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
+bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 #endif

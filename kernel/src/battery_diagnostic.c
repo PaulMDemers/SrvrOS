@@ -78,3 +78,7 @@ __attribute__((weak)) bool battery_smbus_files_diagnostic_run(void *rsdp,struct 
 __attribute__((weak)) bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return battery_diagnostic_run(rsdp,map);
 }
+
+__attribute__((weak)) bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    (void)rsdp;(void)map;console_write("battery-home-session: unavailable in this kernel\n");return false;
+}

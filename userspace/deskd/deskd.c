@@ -1128,6 +1128,11 @@ int main(int argc,char **argv) {
     if(coexist) strcpy(s.scene.notice,coexist_workspace?"VM study: Text saves to mounted workspace. No input needed.":coexist_files?"Battery overlap: Text save/rename/reopen in test image. No input needed.":"Battery overlap: RAM only. No input needed; returns automatically.");
     uint64_t coexist_begin=0,coexist_last=0,coexist_gap=0,coexist_loops=0;
     uint64_t coexist_next=0,coexist_sent=0,coexist_ack=0,coexist_frames=0;
+    /* The control/file fixture acknowledges every twelfth generated edit only
+     * after save/stat/rename/reopen and a concurrent service transition. These
+     * are workload checkpoints, not ordinary key-delivery acknowledgements.
+     * Keep the client/control/transport deadlines unchanged. */
+    uint64_t coexist_limit=control_files?90000000:60000000;
     int coexist_complete=0,coexist_script_done=0;
     uint64_t coexist_keys=0,coexist_key_ack=0;
     int idle_phase=0;
@@ -1164,13 +1169,19 @@ int main(int argc,char **argv) {
                     desk_log("desktop-coexist: ready start_us=%llu storage=%s generated=%s\n",(unsigned long long)now,coexist_workspace?"workspace":coexist_files?"image":"ram",coexist_text?"text-edit":"font-toggle");
                 } else if((uint64_t)srv_ticks()-start>=500) { failed=1;break; }
             } else if(!s.clients[0].pid || !s.scene.windows[0].pixels) { failed=1;break; }
-            if(coexist_begin && now>=coexist_next && coexist_sent==coexist_ack && now-coexist_begin<60000000 && (!coexist_text || coexist_sent<60)) {
+            if(coexist_begin && now>=coexist_next && coexist_sent==coexist_ack && now-coexist_begin<coexist_limit && (!coexist_text || coexist_sent<60)) {
                 struct desk_packet p=desk_packet_new(coexist_text?DESK_KEY:DESK_TEXT);p.value=12;p.input_serial=coexist_sent+1;
                 if(coexist_text) { struct srv_key_event key=capture_key(coexist_sent);memcpy(p.text,&key,sizeof(key));
                     queue_input(&s,0,p);coexist_sent++;coexist_next=now+700000;
                 } else if(desk_send(s.clients[0].pid,&p)==0) { coexist_sent++;coexist_next=now+1000000; }
             }
-            if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+4000000) { failed=1;break; }
+            uint64_t checkpoint_budget=control_files && coexist_sent && !(coexist_sent%12)?15000000:4000000;
+            if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+checkpoint_budget) {
+                desk_log("desktop-coexist: progress-timeout serial=%llu presented=%llu elapsed_us=%llu budget_us=%llu\n",
+                    (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,
+                    (unsigned long long)(now-coexist_next),(unsigned long long)checkpoint_budget);
+                failed=1;break;
+            }
         }
         if(apps || coexist || control_capture)battery_update(&s,0);
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
@@ -1497,8 +1508,12 @@ int main(int argc,char **argv) {
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
         if (s.damage.count) frames++;
-        if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent)
+        if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent) {
+            if(control_files && coexist_sent!=coexist_ack && !(coexist_sent%12))
+                desk_log("desktop-coexist: file-checkpoint serial=%llu elapsed_us=%llu\n",
+                    (unsigned long long)coexist_sent,(unsigned long long)((uint64_t)srv_monotonic_us()-(coexist_next-700000)));
             coexist_ack=coexist_sent;
+        }
         if(coexist_text && !failed && s.damage.count && coexist_keys && s.clients[0].present_input==1000+coexist_keys)
             coexist_key_ack=coexist_keys;
         if(coexist_text && !coexist_script_done && coexist_ack==60) {
@@ -1506,7 +1521,8 @@ int main(int argc,char **argv) {
         }
         s.damage.count=0;
         if(apps && !failed) capture_tick(&s,pixels);
-        if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack) {
+        if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack &&
+           (!control_files || coexist_ack==60 || (uint64_t)srv_monotonic_us()-coexist_begin>=coexist_limit)) {
             coexist_complete=coexist_ack>=55 && frames-coexist_frames>=55 &&
                 (!coexist_text || (coexist_ack==60 && coexist_keys==coexist_key_ack));
             if(!coexist_complete) failed=1;

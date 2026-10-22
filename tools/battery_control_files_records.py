@@ -1,7 +1,8 @@
 """Strict combined control/file evidence. Pending jobs are not USB DMA proof."""
 import re
 from serial_records import complete_lines
-from battery_workspace_controls_records import check_hold,check_events
+from battery_native_smbus_records import expand_compact_records
+from battery_workspace_controls_records import check_hold,check_events,check_home_returns,check_home_refusal
 
 
 def rows(data,prefix,pattern):
@@ -10,18 +11,23 @@ def rows(data,prefix,pattern):
     return matches
 
 
-def check(data,case='normal'):
-    assert case in ('normal','cancel','refusal','unmounted-refusal','profile-refusal')
+def check(data,case='normal',home=False,vm=True):
+    assert case in ('normal','cancel','refusal','unmounted-refusal','profile-refusal','query-refusal')
     data=complete_lines(data.replace(b'\r\n',b'\n'))
-    if case in ('refusal','unmounted-refusal'):
-        assert data.count(b'battery-workspace-controls: REFUSED VM-only mounted study')==1
+    if home:data=expand_compact_records(data)
+    if case=='unmounted-refusal' or (case=='refusal' and not home):
+        refusal=b'explicit Home ownership' if home else b'VM-only mounted study'
+        assert data.count(b'battery-workspace-controls: REFUSED '+refusal)==1
         for bad in (b'battery-workspace-hold:',b'battery-service:',b'text-battery:',b'battery-control: dispatched'):assert bad not in data
         return dict(status='PASS',expected=case,runtime_started=False)
-    token=check_hold(data,False if case=='profile-refusal' else True);assert token==1
+    assert case!='query-refusal' or home
+    unavailable=case=='profile-refusal' or (home and case=='refusal')
+    mode=b'explicit' if home else b'disabled'
+    token=check_hold(data,False if unavailable else True);assert token==1
     assert data.count(b'battery-workspace-controls:')==2
-    assert data.count(b'battery-workspace-controls: begin mounted=yes native=disabled\n')==1
-    assert data.count(b'battery-control-files: begin pending-application-jobs=yes native=disabled')==1
-    outcome=rows(data,b'battery-workspace-controls: complete=',rb'battery-workspace-controls: complete=(yes|NO) epoch=(\d+) state=(\d+); revoked=yes retired=yes mounted=yes native=disabled')
+    assert data.count(b'battery-workspace-controls: begin mounted=yes native='+mode+b'\n')==1
+    assert data.count(b'battery-control-files: begin pending-application-jobs=yes native='+mode)==1
+    outcome=rows(data,b'battery-workspace-controls: complete=',rb'battery-workspace-controls: complete=(yes|NO) epoch=(\d+) state=(\d+); revoked=yes retired=yes mounted=yes native='+mode)
     assert len(outcome)==1
     controls=rows(data,b'battery-controls:',rb'battery-controls: (PASS|FAIL) requests=(\d+) descendants=3 epoch=(\d+); revoked=yes retired=yes')
     assert len(controls)==1
@@ -40,13 +46,27 @@ def check(data,case='normal'):
         assert generation>=2
     assert len(observed)<=len(requests)
     for bad in (b'battery: HALTED',b'workspace: unmounted',b'workspace-image:',b'battery-smbus: FAILED'):assert bad not in data
-    if case=='profile-refusal':
+    if unavailable:
         assert len(requests)==len(dispatch)==1 and not observed
-        assert b'battery-smbus-study: REFUSED model ownership profile' in data
+        reason=(b'battery: REFUSED platform/resource ownership preflight' if case=='refusal' else b'battery-native-smbus: REFUSED captured controller profile') if home else b'battery-smbus-study: REFUSED model ownership profile'
+        assert reason in data
+        if home:check_home_returns(data,0)
         assert outcome==[(b'NO',b'1',b'5')] and controls==[(b'FAIL',b'1',b'1')]
         assert b'desktools: file-result' not in data and b'battery-smbus: event=' not in data
         return dict(status='PASS',expected=case,scope_released=True)
-    events,alarms=check_events(data,0,1 if case=='cancel' else 3)
+    if case=='query-refusal':
+        assert requests==expected[:1] and len(dispatch)==1 and len(observed)<=1
+        assert outcome==[(b'NO',b'1',b'6')] and controls==[(b'FAIL',b'1',b'1')]
+        assert b'text-battery: completed=NO' in data
+        assert b'desktools: file-result' not in data and b'text-battery: completed=yes' not in data
+        assert data.count(b'text-files: cycles=0 pending=1 storage=workspace')==1
+        child=rows(data,b'deskd: child-exit ',rb'deskd: child-exit pid=([1-9][0-9]*) status=(1|143) tick=(\d+)')
+        assert len(child)==1
+        assert child[0][1]==b'143' or b'desktools: exited role=text failure=1' in data
+        events,alarms=check_home_refusal(data)
+        return dict(status='PASS',expected='failed session after normal refused-query return',workload_complete=False,events=events,alarms=alarms,scope_released=True,native_acceptance=False)
+    events,alarms=check_events(data,0,1 if case=='cancel' else 3,vm=vm)
+    if home:check_home_returns(data,1 if case=='cancel' else 3,vm=vm)
     if case=='cancel':
         assert len(requests)==2 and len(dispatch) in (1,2) and len(observed)==1
         assert data.count(b'text-battery: cancel serial=2 pending_file=1 submitted=1')==1
@@ -88,3 +108,23 @@ def check(data,case='normal'):
     assert len(ui)==1 and int(ui[0][0])>=10 and min(map(int,ui[0][1:]))>=1
     assert data.index(b'text-battery: completed=yes')<data.index(b'battery-service: retired epoch=3')<data.index(b'battery-workspace-hold: released')
     return dict(status='PASS',requests=5,lifetimes=3,submitted_job_requests=4,worker_operations=20,file_cycles=5,edits=60,events=events,alarms=alarms,final_active_owner_retired=True,mount_token=token,physical_input='not tested',usb_dma_overlap='not claimed',native_acceptance=False)
+
+
+def check_capture(data,vm=False,case="normal"):
+    data=complete_lines(data.replace(b'\r\n',b'\n'))
+    assert b'retired=NO' not in data
+    for bad in (b'battery: HALTED',b'battery: FAILED',b'laptop-capture: saved=NO'):
+        assert not any(row.startswith(bad) for row in data.splitlines())
+    # Check the session before ordinary final-log storage/unmount receipts.
+    end=data.index(b'battery-workspace-hold: released')
+    end=data.index(b'\n',end)+1
+    result=check(data[:end],case=case,home=True,vm=vm)
+    required=(b'laptop-capture: battery Home mounted=yes logging-paused=yes fault-reset=disabled',
+              b'battery-home-session-capture: returned=yes clean='+ (b'yes' if case=='normal' else b'NO') +b'; physical accuracy NOT_TESTED',
+              b'laptop-capture: completed='+ (b'yes' if case=='normal' else b'NO'))
+    for row in required:assert data.splitlines().count(row)==1
+    assert data.index(required[0])<data.index(b'battery-workspace-hold: acquired')<end<=data.index(required[1])<data.index(required[2])
+    assert b'laptop-capture: battery media ' not in data
+    result.update(scope='explicit held Home session with controls and Text file work',physical_accuracy='not tested')
+    result.pop('native_acceptance',None)
+    return result
