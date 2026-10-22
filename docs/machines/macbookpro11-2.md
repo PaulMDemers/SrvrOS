@@ -1742,3 +1742,14 @@ and xHCI regressions including reset setup/status errors, residue, timeout, stal
 completion followed by success, no retry and retained DMA. Exact GPT VM saves
 logs/unmounts and stays halted; missing-workspace also stays halted. Control
 sequence, deadlines and refusal rules are unchanged. Native result pending.
+
+Native control-detail release `dfd7ab3b39432e73`, session
+`00065e639cbb404d-00`, locates the failure at control request 9: type=0x40,
+request=6, value=0, index=0x800, length=4 (FCE enable write). actual=-1,
+cc=0, stage=0, timeout=1: no matched completion. The prior reset completed and
+its delay returned successfully, since the sequence reached this subsequent
+write. Firmware upload remains unattempted (zero chunks); quarantine retained.
+Photo/logs archived; Ubuntu/recovery/consumed one-shot verified. Offline checks
+pass: 123 files, 433 clusters, zero errors. Next investigate reset recovery timing
+and EP0 state before the first FCE write, without blind retries or weakening
+completion checks. No next boot armed.
