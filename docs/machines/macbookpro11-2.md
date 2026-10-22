@@ -2537,3 +2537,16 @@ Ubuntu default, consumed one-shot and installed/recovery manifests verified;
 workspace clean155files/481clusters, zero allocation errors, unmounted.
 Run/checkpoint collected and unarmed. Remaining MAC/baseband initialization
 can now proceed on this merged baseline; RF/scan/connectivity remain pending.
+
+Active scope: fixed MAC frame-format plan after accepted basics. Disable TSO
+0250=0 and header translation0260=0, then set HT control1410=1ff and PN padding
+150c=3 using distinct sequences6/7. Values follow captured Linuxv6.18 model
+initialization; no RF/power/key or TX/RX enable writes. Require accepted basics,
+exact packets/replies, per-register readback and MAC0 boundaries. Native response
+shape remains pending for these commands. Main340f566 inspected (process lifetime
+work); this independent MCU step uses physically accepted integration22fd266.
+
+Frame-format engine/native binding implemented with fixed seq6/7 and separate
+phase ownership; prior basics must be complete. Build, basics/format/MCU/xHCI
+tests,65 boot-profile tests, ASan/UBSan format tests and docs checks passed.
+Firmwarev9 rehearsal is next; native replies/readbacks remain pending.

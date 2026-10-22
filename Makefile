@@ -3525,3 +3525,11 @@ test-battery-event-accounting: build/tests/battery-event-accounting$(HOST_EXE)
 build/tests/battery-event-accounting$(HOST_EXE): tools/test_battery_event_accounting.c ports/srvros/uacpi/runtime/battery_event_accounting.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-mt76-format
+test-core: test-mt76-format
+test-mt76-format: build/tests/mt76-format-host$(HOST_EXE)
+	$<
+build/tests/mt76-format-host$(HOST_EXE): tools/test_mt76_format.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_format.c kernel/src/drivers/mt76_mcu.c -o $@

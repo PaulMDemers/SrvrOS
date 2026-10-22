@@ -85,6 +85,14 @@ bool mt76_mcu_validate_mac_reply(unsigned batch, const uint8_t *data, size_t len
  * exclusive unused sequences4/5. No retries after any attempted operation. */
 enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
+/* Fixed frame-format plan: 0250=0,0260=0,1410=1ff,150c=3, sequences6/7.
+ * Same one-attempt and IO rules; caller must require completed MAC basics and
+ * unused sequences6/7. Exact first-entry reply contract is pending native proof.
+ * No arbitrary addresses/values or MAC enable, RF, power or key writes. */
+size_t mt76_mcu_format_packet(unsigned batch,uint8_t *out,size_t capacity);
+bool mt76_mcu_validate_format_reply(unsigned batch,const uint8_t *data,size_t length);
+enum mt76_mcu_timing_status mt76_mcu_apply_mac_format(struct mt76_mcu_mac *session,
+    const struct mt76_mcu_timing_io *io);
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

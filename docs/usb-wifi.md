@@ -796,3 +796,28 @@ The same plan passed again after integration with main22fd266: source285aa45,
 releasecb8cc153be25dac9, session00065e765bdc87af-00. Both replies, all four
 readbacks, disabled-MAC boundaries and saved completion markers matched the
 prior run. This accepts the merged runtime for this bounded diagnostic only.
+
+### Fixed frame-format setup (native trial pending)
+
+Firmwarev9 (`--wifi-mac-format`, requiring `--wifi-mac-basics`) adds two fixed
+commands after completed basics. Sequence6 disables TSO0250 and header
+translation0260 with zero writes; sequence7 sets HT control1410=1ff and PN
+padding150c=3. Numeric settings follow Linuxv6.18 model initialization.
+The shared private two-batch engine exposes only separate fixed-plan entry
+points; callers cannot supply tables, addresses, values or sequences.
+
+Each batch requires MAC0, baseline reads, one exact command, an exact16-byte
+first-entry reply, both target readbacks and MAC0 afterward. The new reply shape
+is provisional until native evidence confirms sequences6/7. Native admission
+requires accepted timing and completed basics, including both prior ACKs.
+Only1004/0250/0260/1410/150c reads are admitted in this phase. Ordered submissions
+burn each sequence before transfer; failures retain/quarantine DMA and prevent
+retry. No RF/power/key or TX/RX enable writes are added. Logs record each reply,
+all readbacks and completion before automatic Ubuntu return.
+
+`make test-mt76-format` covers independent wire fixtures, reply bit mutations,
+all14 operation failures,16 authorization boundaries, stale replies, four
+readback mismatches, enabled-MAC boundaries and refused retry. Existing basics
+tests cover the shared engine's original plan. Native transport tests additionally
+cover missing basics prerequisites, packet mutation, scoped reads, ordering,
+stale completions and failure quarantine.

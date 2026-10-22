@@ -239,6 +239,9 @@ struct xhci_wifi_mcu {
     struct mt76_mcu_timing timing;
     int timing_sent;
     struct mt76_mcu_mac mac;
+    struct mt76_mcu_mac format;
+    unsigned format_submitted;
+    bool format_active;
     unsigned mac_submitted;
     bool mac_active;
 };

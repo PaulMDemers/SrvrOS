@@ -136,17 +136,35 @@ enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *s,
 static const struct mt76_mcu_register_pair mac_basics[4]={
     {0x1408,0x13f},{0x140c,0x4003},{0x1400,0x17f97},{0x1018,0xa1fff}
 };
-size_t mt76_mcu_mac_packet(unsigned batch,uint8_t *out,size_t capacity) {
+/* Frame representation only: disable hardware offloads before any data path.
+ * Numeric settings from Linux v6.18 MT7610 model register definitions. */
+static const struct mt76_mcu_register_pair mac_format[4]={
+    {0x0250,0},{0x0260,0},{0x1410,0x1ff},{0x150c,3}
+};
+static size_t fixed_mac_packet(const struct mt76_mcu_register_pair *plan,
+    unsigned sequence,unsigned batch,uint8_t *out,size_t capacity) {
     if(batch>=MT76_MCU_MAC_BATCHES)return 0;
-    return mt76_mcu_register_packet(true,(uint8_t)(4+batch),mac_basics+2*batch,2,out,capacity);
+    return mt76_mcu_register_packet(true,(uint8_t)(sequence+batch),plan+2*batch,2,out,capacity);
 }
-bool mt76_mcu_validate_mac_reply(unsigned batch,const uint8_t *data,size_t length) {
+static bool fixed_mac_reply(const struct mt76_mcu_register_pair *plan,
+    unsigned sequence,unsigned batch,const uint8_t *data,size_t length) {
     if(batch>=MT76_MCU_MAC_BATCHES || !data || length!=16)return false;
-    uint32_t header=0x4a000008u|((4+batch)<<16);
-    const uint32_t words[4]={header,0x410000u+mac_basics[2*batch].address,
-        mac_basics[2*batch].value,header};
+    uint32_t header=0x4a000008u|((sequence+batch)<<16);
+    const uint32_t words[4]={header,0x410000u+plan[2*batch].address,plan[2*batch].value,header};
     for(unsigned i=0;i<16;i++)if(data[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return false;
     return true;
+}
+size_t mt76_mcu_mac_packet(unsigned batch,uint8_t *out,size_t capacity) {
+    return fixed_mac_packet(mac_basics,4,batch,out,capacity);
+}
+bool mt76_mcu_validate_mac_reply(unsigned batch,const uint8_t *data,size_t length) {
+    return fixed_mac_reply(mac_basics,4,batch,data,length);
+}
+size_t mt76_mcu_format_packet(unsigned batch,uint8_t *out,size_t capacity) {
+    return fixed_mac_packet(mac_format,6,batch,out,capacity);
+}
+bool mt76_mcu_validate_format_reply(unsigned batch,const uint8_t *data,size_t length) {
+    return fixed_mac_reply(mac_format,6,batch,data,length);
 }
 static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value) {
@@ -155,8 +173,8 @@ static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     if(!io->read(io->context,address,value))return MT76_TIMING_IO;
     return *value==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
 }
-enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) {
+static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io,const struct mt76_mcu_register_pair *plan,unsigned sequence) {
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)
         return MT76_TIMING_REFUSED;
     *s=(struct mt76_mcu_mac){.attempted=true,.received=-1};
@@ -167,21 +185,21 @@ enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
         if(s->mac_before)return MT76_TIMING_STATE;
         for(unsigned n=0;n<2;n++) {
             unsigned i=2*batch+n;
-            MAC_READ(mac_basics[i].address,&s->before[i]);
+            MAC_READ(plan[i].address,&s->before[i]);
         }
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
         uint8_t packet[24],reply[MT76_MCU_RESPONSE_MAX];
-        size_t length=mt76_mcu_mac_packet(batch,packet,sizeof packet);
+        size_t length=fixed_mac_packet(plan,sequence,batch,packet,sizeof packet);
         if(length!=sizeof packet)return MT76_TIMING_STATE;
         s->batches_attempted++;
         s->received=io->exchange(io->context,packet,length,reply,sizeof reply);
         if(s->received<0)return MT76_TIMING_IO;
-        if(!mt76_mcu_validate_mac_reply(batch,reply,(size_t)s->received))return MT76_TIMING_REPLY;
+        if(!fixed_mac_reply(plan,sequence,batch,reply,(size_t)s->received))return MT76_TIMING_REPLY;
         s->ack_mask|=1u<<batch;
         for(unsigned n=0;n<2;n++) {
             unsigned i=2*batch+n;
-            MAC_READ(mac_basics[i].address,&s->after[i]);
-            if(s->after[i]!=mac_basics[i].value)return MT76_TIMING_STATE;
+            MAC_READ(plan[i].address,&s->after[i]);
+            if(s->after[i]!=plan[i].value)return MT76_TIMING_STATE;
         }
         MAC_READ(0x1004,&s->mac_after);
         if(s->mac_after)return MT76_TIMING_STATE;
@@ -191,6 +209,11 @@ enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
     s->complete=true;return MT76_TIMING_OK;
 #undef MAC_READ
 }
+
+enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_basics,4); }
+enum mt76_mcu_timing_status mt76_mcu_apply_mac_format(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_format,6); }
 
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;
