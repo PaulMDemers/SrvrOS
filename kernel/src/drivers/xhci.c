@@ -235,7 +235,7 @@ struct xhci_wifi_mcu {
     uint32_t remaining, requested, completion;
     uint8_t dci;
     bool attempted, configured, pending, done, failed;
-    bool identity_validated, write_attempted;
+    bool identity_validated, write_attempted, write_validated, pair_attempted;
 };
 
 struct xhci_wifi_firmware {

@@ -676,3 +676,20 @@ single-bit mutations, every other four-bit sequence (including consistent
 header/trailer mutations), other registers, truncated/extended lengths and null
 buffers. The installed63d7714 diagnostic remains the historical capture version;
 source validation is not yet a new physical acceptance result.
+
+### Two-pair response capture
+
+Firmwarev6 adds `--wifi-pair-probe` after the v5 prerequisites. It first requires
+the strict single-write ACK and a disabled-MAC readback, then sends sequence3
+with two identical MAC_SYS_CTRL1004=0 pairs. This introduces no new register or
+value. The helper requires live ownership, prepared reset, validated identity,
+attempted and validated single write, and no pending/previous pair attempt.
+OUT24 must complete exactly before one bounded IN; failures quarantine without
+retry or DMA reclamation. The diagnostic reads MAC_SYS_CTRL again and requires0.
+
+At most16 response words are logged. `observed=1` only means a bounded sequence3,
+event0 response was captured; `ack_validated=0` preserves the distinction between
+captured evidence and an accepted multi-pair completion contract. No native
+response length/body is assumed. This does not execute initialization tables or
+enable RF, receive, transmit, channel or power settings. Earlier profiles remain
+unchanged apart from v5's now-strict single-write ACK validation.

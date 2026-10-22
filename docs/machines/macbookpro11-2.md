@@ -2348,3 +2348,9 @@ length/address rejection, MCU ASan/UBSan, build and xHCI tests passed. This is
 source/host validation; installedd8dca7885de3c61f is unchanged. No reboot armed.
 Next table work must define bounded chunks, address/value policy and completion
 contracts without assuming the single-pair echo proves multi-pair behavior.
+
+Active scope: firmwarev6 two-pair MCU response capture, after strict single-write
+ACK validation. Two identical MAC_SYS_CTRL1004=0 pairs, sequence3; no additional
+registers/tables/RF. Capture bounded response words and disabled-MAC readbacks;
+do not presume a multi-pair echo contract. Main9ca1922 fetched, other machine
+scopes unchanged; touches MCU diagnostic, boot profile, tests and guides.

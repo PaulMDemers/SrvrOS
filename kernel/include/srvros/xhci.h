@@ -41,6 +41,7 @@ bool xhci_wifi_capture_mcu(void);
 /* Opt-in MAC/BBP reset followed by strict MCU identity-read capture. */
 bool xhci_wifi_capture_radio_reset(void);
 bool xhci_wifi_capture_write_probe(void);
+bool xhci_wifi_capture_pair_probe(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);
