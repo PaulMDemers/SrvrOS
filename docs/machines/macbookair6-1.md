@@ -149,3 +149,26 @@ zero errors/leaks). All 102 original file hashes are unchanged, with no test fil
 or additional session log. v7 has no automatic desktop log. Evidence is saved
 under the run's `physical-after` directory and copied to the durable backup.
 USB persistence remains open; no new candidate was installed or reboot armed.
+
+## USB write follow-up prepared (2026-10-22)
+
+The next attended trial reuses installed release `c35475f62f154f1e` unchanged;
+its exact VM receipt and installed/durable payload hashes were reverified.
+No rebuild or reinstall is needed for this command-only correction. Main remains
+`9ca1922`; other machines' battery/Wi-Fi work is independent of this trial.
+
+Use monitor `workspace status` first and require the selected UUID with
+`state=ready`. Then `write /work/srvros-work/usb02.txt Air61-USB-write-02`,
+`cat /work/srvros-work/usb02.txt`, `workspace sync`, `workspace unmount`, and
+`reboot` after successful unmount. Expected output file is exactly 18 bytes,
+without a newline. If the workspace is absent, capture status/block/xHCI evidence
+rather than treating this as a write test. The local checklist includes an
+explicit mount of this unit's UUID when needed.
+
+The new result file is absent; 108 existing file hashes (including the new
+checklist) form the pre-run baseline. Offline fsck/allocation checks pass.
+Run record and checklist: `build/native-desktop-trials/c35475f62f154f1e-usb-write-02/`;
+a hash-verified copy survives outside `build`. Preserve the first trial evidence.
+Ubuntu remains default, no one-shot is armed, and this preparation does not
+claim USB persistence acceptance. Collect exact bytes, prior-file preservation,
+user observations and offline checks after return before another trial.
