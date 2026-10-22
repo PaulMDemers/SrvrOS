@@ -605,12 +605,12 @@ def collect(mount, volume, output):
                 if study.is_symlink() or not study.is_dir():raise ValueError('Home session study directory missing or unsafe')
                 expected={'anchor.txt',*(f'text-{i}.txt' for i in range(1,6))}
                 if {p.name for p in study.iterdir()}!=expected:raise ValueError('Home session file set differs')
-                for name in expected:
-                    p=study/name;want=b'Untouched ordinary workspace data\n' if name=='anchor.txt' else b'AA'
-                    if p.is_symlink() or not p.is_file() or p.stat().st_size!=len(want) or p.read_bytes()!=want:raise ValueError('Home session file content differs: '+name)
+                for filename in expected:
+                    p=study/filename;want=b'Untouched ordinary workspace data\n' if filename=='anchor.txt' else b'AA'
+                    if p.is_symlink() or not p.is_file() or p.stat().st_size!=len(want) or p.read_bytes()!=want:raise ValueError('Home session file content differs: '+filename)
                     target=saved/'battery-home-session';target.mkdir(exist_ok=True)
-                    (target/name).write_bytes(want)
-                    if (target/name).read_bytes()!=want:raise OSError('Home session backup verification failed')
+                    (target/filename).write_bytes(want)
+                    if (target/filename).read_bytes()!=want:raise OSError('Home session backup verification failed')
                 home_session_proof['files_verified']=True
             except (OSError,ValueError) as error:
                 attention.append('collection: '+str(error));home_session_proof=None

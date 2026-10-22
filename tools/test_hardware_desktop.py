@@ -420,7 +420,9 @@ class CollectionTests(unittest.TestCase):
             (folder/'exit.log').write_bytes(proof)
             out,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
             self.assertTrue(item['battery_home_session']['files_verified']);self.assertFalse(item['attention'])
-            backup=out/folder.name/'battery-home-session'
+            self.assertEqual(item['session'],folder.name)
+            self.assertEqual((out/item['session']/'exit.log').read_bytes(),proof)
+            backup=out/item['session']/'battery-home-session'
             self.assertEqual((backup/'text-5.txt').read_bytes(),b'AA')
             for bad in (proof.replace(b'held=1',b'held=0'),proof.replace(b'clean=yes',b'clean=NO'),
                         proof.replace(b'complete=yes',b'complete=NO'),proof.replace(b'enable=0x189c',b'enable=0x62f'),
@@ -433,6 +435,7 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIsNone(report['sessions'][0]['battery_home_session'])
             self.assertTrue(report['sessions'][0]['attention'])
+            self.assertEqual(report['sessions'][0]['session'],folder.name)
 
     def test_battery_controls_collection(self):
         from test_battery_controls_records import BASE
