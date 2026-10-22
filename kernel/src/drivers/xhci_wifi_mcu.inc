@@ -115,13 +115,13 @@ bool xhci_wifi_capture_mcu(void) {
         console_printf("wifi-mcu-reply: word0=%x word1=%x word2=%x word3=%x\n",
             (uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3]);
         disabled=disabled && wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&mac) && mac==0x20;
-        /* Evidence only; no speculative body-length/event assumptions promoted. */
-        console_printf("wifi-mcu-capture: slot=%u sent=%d received=%d decoded=%u sequence=%u event=%u reported_length=%u cc=%u residue=%u mac_disabled=%u failed=%u validated=0\n",
+        bool validated=decoded && mt76_mcu_validate_identity_reply(m->buffer,(size_t)received);
+        console_printf("wifi-mcu-capture: slot=%u sent=%d received=%d decoded=%u sequence=%u event=%u reported_length=%u cc=%u residue=%u mac_disabled=%u failed=%u validated=%u\n",
             (uint64_t)d->slot_id,(int64_t)sent,(int64_t)received,(uint64_t)decoded,
             (uint64_t)r.sequence,(uint64_t)r.event,(uint64_t)r.reported_length,
-            (uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)disabled,(uint64_t)m->failed);
-        /* A response is not MCU acceptance, even if sequence matches. */
-        if(!decoded || r.sequence!=1 || !disabled){wifi_mcu_fail(d);saved=false;}
+            (uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)disabled,(uint64_t)m->failed,(uint64_t)validated);
+        /* Only this identity-read exchange is validated; RF remains untested. */
+        if(!validated || !disabled){wifi_mcu_fail(d);saved=false;}
         f->active=false;
     }
     return found && saved;

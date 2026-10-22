@@ -38,6 +38,19 @@ bool mt76_mcu_decode(const uint8_t *data, size_t length,
     return true;
 }
 
+bool mt76_mcu_validate_identity_reply(const uint8_t *data, size_t length) {
+    /* Native session00065e74311ea511-00, firmware pinned by the caller.
+     * Header includes seq1,event0,length8 and captured port/type fields.
+     * Trailer repeats the header; accepting only a matching seq is insufficient. */
+    static const uint8_t expected[16]={
+        0x08,0x00,0x01,0x4a, 0x00,0x10,0x41,0x00,
+        0x00,0x20,0x50,0x76, 0x08,0x00,0x01,0x4a
+    };
+    if(!data || length!=sizeof expected)return false;
+    for(size_t i=0;i<sizeof expected;i++)if(data[i]!=expected[i])return false;
+    return true;
+}
+
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;
     s->pending = ++s->issued;

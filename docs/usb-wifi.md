@@ -566,3 +566,13 @@ event0,length8. xHCI short-packet completion13 with1008 bytes residue from a1024
 byte IN request is consistent with those16 received bytes. Final MAC-disable
 check and saved capture completed successfully. This is bounded exchange evidence
 only; strict native body/trailer validation and RF initialization remain pending.
+
+Strict identity-reply validation now requires the complete observed16-byte
+response, including header flags,sequence1,event0,length8,address00411000,
+value76502000 and matching trailer. It is deliberately specific to this pinned
+one-shot diagnostic; other commands/identities need their own contracts.
+Malformed lengths, unknown header bits, wrong values and even internally
+consistent stale sequences refuse. The diagnostic reports validated=1 only for
+that exact reply, and still requires the final disabled-MAC check for success.
+This validates no RF state or general MCU service. The installed historical
+queue-selection trial retains its original validated=0 behavior.

@@ -25,6 +25,10 @@ struct mt76_mcu_response {
  * against the native observed response contract before accepting it. */
 bool mt76_mcu_decode(const uint8_t *data, size_t length,
     struct mt76_mcu_response *out);
+/* Exact native contract for the one-shot sequence1 MAC_CSR0 read on the
+ * captured MT7610 adapter. Requires the observed header/address/value/trailer;
+ * never use this as validation for arbitrary MCU commands or other identities. */
+bool mt76_mcu_validate_identity_reply(const uint8_t *data, size_t length);
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

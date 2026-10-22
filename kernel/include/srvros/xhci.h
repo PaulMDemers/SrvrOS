@@ -35,7 +35,8 @@ void xhci_set_wifi_firmware_enabled(bool enabled);
 void xhci_set_wifi_mac_startup(bool enabled);
 bool xhci_wifi_capture_firmware(const uint8_t *image, uint64_t size);
 /* One-shot read-only MCU transport diagnostic after successful firmware capture.
- * Success means a response was saved, not validated MCU/RF operation. */
+ * Success validates the captured identity-read reply and disabled MAC only;
+ * it does not validate other MCU operations or RF functionality. */
 bool xhci_wifi_capture_mcu(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);

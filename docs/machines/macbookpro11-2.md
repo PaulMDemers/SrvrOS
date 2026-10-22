@@ -2216,3 +2216,19 @@ Matching collection archived under wifi-queue-456922b/native-collection. Ubuntu
 default, consumed one-shot and installed/current recovery manifests verified.
 Offline workspace clean:141files,460clusters,zero leaks/mismatches/errors. Run
 record and checkpoint collected/unarmed; no new physical trial prepared.
+
+Next bounded scope: strict validation of the native one-shot MCU identity reply
+captured in session00065e74311ea511-00. Match exact16-byte envelope,sequence1,
+event0,length8,register00411000,value76502000 and repeated header trailer. This
+contract is specific to the captured diagnostic, not a generic MCU response
+parser. Add truncation/extension and every-bit mutation tests, then require the
+validator in the diagnostic. Main85d5cb7 inspected; no battery overlap, no new
+radio writes or physical boot in this validation step.
+
+Strict one-shot reply validator implemented and required by diagnostic success.
+Host replay of the archived native response passes. All128 single-bit mutations,
+truncated/extended lengths and a consistent stale sequence refuse; ASan/UBSan,
+full build, MCU and xHCI regressions pass. This is host validation against native
+evidence; the new validator has not itself been physically booted. Installed
+release4a47cd57ac90c504 remains unchanged and unarmed. Next scope is bounded native
+radio initialization using per-operation completion contracts; no RF acceptance.
