@@ -42,3 +42,13 @@ interface 2 is boot mouse/trackpad. The shared host test verifies keyboard
 selection, both endpoint context sizes and poll length against this fixture as
 well as the Air fixture. This passes on the existing driver; it does not explain
 the reported native keyboard failure or accept physical transport/reports.
+
+`apple-05ac-0290-config.bin` is the 84-byte configuration from MacBookAir6,1's
+privileged Linux inventory on 2026-10-22 (root port 5, revision 0171). Device
+descriptor and strings are excluded. It is byte-identical to the 0291 fixture:
+boot keyboard interface 1/EP82, raw trackpad interface 2/EP83, 64-byte packets.
+The Type 3/no-mode-switch selection follows Linux v6.12
+[Wellspring8 mapping](https://github.com/torvalds/linux/blob/v6.12/drivers/input/mouse/bcm5974.c).
+Host tests replay synthetic packets and transport failures through this PID's
+capture-only admission, and refuse other revisions, pointer/gesture modes and
+incorrect descriptors. This is not native packet or pointer acceptance.

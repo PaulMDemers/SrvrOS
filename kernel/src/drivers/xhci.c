@@ -1478,8 +1478,15 @@ static bool address_device(struct xhci_device *device) {
 }
 
 static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
-    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || (device->product_id!=0x0291 && device->product_id!=0x0262) ||
+    bool air61=device->product_id==0x0290;
+    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac ||
+        (!air61 && device->product_id!=0x0291 && device->product_id!=0x0262) ||
         device->speed!=1 || length<9 || length>PMM_FRAME_SIZE) return false;
+    /* Captured Air6,1 Wellspring8 ANSI: same Type 3 endpoint layout, but native
+     * reports are not accepted yet. Admit only the explicit raw-capture mode
+     * and observed revision; ordinary pointer/gestures must remain unavailable. */
+    if (air61 && (device->device_bcd!=0x0171 || length!=84 || !trackpad_capture ||
+                  trackpad_pointer_enabled || trackpad_gestures)) return false;
     bool pro=device->product_id==0x0262;
     bool interface=false,found=false;
     uint8_t interval=0;

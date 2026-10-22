@@ -190,3 +190,46 @@ Evidence is under the USB-write-02 run's `physical-after` directory, with a
 hash-verified copy outside `build`. Retain the accepted payload as recovery for
 future trials. No new boot is armed. Main `62067a1` was fetched at collection;
 this evidence applies to the recorded installed source, not the newer baseline.
+
+## Active trackpad capture bootstrap (2026-10-22)
+
+See the [capture workflow](../macbookair6-1-trackpad.md) for exact commands,
+VM limits and the attended halt/restart contract.
+
+Owner branch `device/macbookair6-1/trackpad-capture`, base `443dbfa` (main with
+PR #54 merged). Bounded scope: captured `05ac:0290` revision `0171`, capture-only
+Type 3 endpoint admission, sanitized configuration fixture and xHCI refusal/
+transport tests. Pointer/gesture startup remains refused for this new PID until
+native reports are collected. No EC/SMC/audio/backlight gates change.
+
+Local configuration is byte-identical to the Air7,2 fixture. Linux v6.12
+`drivers/input/mouse/bcm5974.c` identifies PID 0290 as Wellspring8 ANSI, endpoint
+0x83/Type 3 and explicitly requires no mode switch. This supports a bounded
+raw capture; it does not accept native reports or pointer behavior.
+
+The trackpad VM harness now verifies the exact staged release on disposable
+GPT media before installation. Shared edits are
+limited to xHCI admission/tests, the fixture/Makefile argument and capture VM
+harness; Pro PR #19 remains independent Wi-Fi/xHCI work. Preserve its transport
+changes when later integrating. No other agent is messaged or scheduled.
+
+Retain `c35475f62f154f1e` as accepted previous/recovery when installing the new
+capture. The legacy v10 trial displays gesture/typing instructions and saves a
+CRC-checked report/completion marker, then HALTS for manual restart; it does
+not return automatically. Prepare only; boot when the user is ready.
+
+
+Capture run `77ab86681e27132d`, release `19eb394b28cbeef5`, is prepared from
+clean source `e2c660336914ce3bd412492b167bb5cfaff106bf`. Build/core/xHCI,
+110 hardware-tool tests, capture-harness unit tests, exact-stage GPT rehearsal
+and generic MBR regression passed. Both VM reports correctly retain incomplete
+physical coverage; neither VM supplies Apple hardware acceptance.
+
+Installed current is this capture; previous is accepted `c35475f62f154f1e`.
+Physical USB UUID `6ADA-85BB` has the unconsumed request, 111 pre-test file hashes,
+and passing offline fsck/allocation checks (114 clusters, zero errors/leaks).
+Run evidence is in `build/trackpad-tests/77ab86681e27132d/`, with a durable copy
+outside build. Ubuntu remains default and no one-shot reboot is armed. At the
+next authorized reboot, record `launch.json` and arm the already installed
+current entry without reinstalling/promoting an unaccepted recovery payload.
+Native trackpad capture and pointer/gesture acceptance remain pending.

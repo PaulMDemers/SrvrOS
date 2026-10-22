@@ -1891,7 +1891,7 @@ hardware-smoke: hardware-stage test-core
 
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
-	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin
+	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
 build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
@@ -2263,6 +2263,7 @@ build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_
 test-core: test-trackpad-capture
 test-trackpad-capture: build/tests/trackpad-capture-host$(HOST_EXE)
 	$<
+	$(PYTHON) tools/test_trackpad_capture_smoke.py
 build/tests/trackpad-capture-host$(HOST_EXE): tools/test_trackpad_capture.c kernel/src/trackpad_test.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
