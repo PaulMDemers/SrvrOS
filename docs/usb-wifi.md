@@ -324,6 +324,15 @@ The existing automatic capture saves diagnostics and returns to Ubuntu; rehearse
 with `tools/hardware_boot_smoke.py --probe-check --workspace-table gpt` first.
 Native readiness has not yet been accepted.
 
+For attended investigation of missing logs, add `--hold-on-failure`. This selects
+that profile without `-auto-return`; existing recipes remain unchanged. Failed
+capture or save/unmount stays on screen with a cached prerequisite summary and
+instructions to photograph it, hold the power button until off, then power on
+for Ubuntu. Success still returns automatically. Rehearse both `--probe-check
+--workspace-table gpt` and `--probe-check --probe-missing-workspace`; the held
+fixtures require a live halted guest, not a reset. Confirm the user is ready for
+manual recovery before the cold-start shutdown.
+
 Integration note: Pro calibration and Air app-file branches independently
 published v43. Verification now recognizes both exact historical recipes and
 requires identical config copies; it does not infer the mode from the host UUID.

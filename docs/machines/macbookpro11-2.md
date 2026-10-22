@@ -1709,3 +1709,12 @@ explicit hold-on-failure, preserving all prior recipes. Add a visible prerequisi
 summary and power-button recovery instructions after failed capture/save/unmount.
 Extend exact-image VM checks to require a live halted guest both with and without
 the workspace. No USB hardware or firmware gates change in this diagnostic.
+
+Held diagnostic source `835f2e9`, release `d18b0b2574ed8501`, passes build,
+50 profile tests and docs. Exact GPT VM saves/unmounts and remains halted on
+absent-radio failure; missing-workspace VM also remains halted with logging=0
+and manual recovery instructions. Installed with Ubuntu default, known-good
+previous recovery and preboot filesystem/allocation checks verified. Prior
+`56b0d84701bc99ff` was removed from EFI only after durable archive verification.
+Run record/evidence are archived; no reboot armed. Await attended cold-start
+readiness; on failure photograph the screen before manual power-button recovery.
