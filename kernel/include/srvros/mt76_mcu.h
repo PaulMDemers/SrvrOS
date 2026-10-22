@@ -16,6 +16,17 @@ size_t mt76_mcu_encode(uint8_t command, uint8_t sequence,
 /* Fixed Q_SELECT=1,value=1,sequence=0: route replies; no reply requested.
  * This is the only no-reply command this diagnostic exposes. */
 size_t mt76_mcu_select_response_queue(uint8_t *out, size_t capacity);
+#define MT76_MCU_REGISTER_PAIRS_MAX 24u
+struct mt76_mcu_register_pair { uint32_t address, value; };
+/* Pure packet builder for WLAN register offsets [0,0x3ffc], aligned to4.
+ * Emits CMD_RANDOM_WRITE=12 or CMD_RANDOM_READ=10 with base0x410000.
+ * Each read pair must have value0. Input/output must not overlap.
+ * All pairs are validated before output changes. This is NOT an address/value
+ * allowlist: native callers must authorize the exact table and current phase.
+ * Sequence0/no-ack and implicit chunking are intentionally unsupported. */
+size_t mt76_mcu_register_packet(bool write, uint8_t sequence,
+    const struct mt76_mcu_register_pair *pairs, size_t count,
+    uint8_t *out, size_t capacity);
 struct mt76_mcu_response {
     uint8_t sequence, event;
     uint16_t reported_length;

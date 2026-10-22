@@ -25,6 +25,25 @@ size_t mt76_mcu_select_response_queue(uint8_t *out, size_t capacity) {
     return sizeof packet;
 }
 
+size_t mt76_mcu_register_packet(bool write, uint8_t sequence,
+    const struct mt76_mcu_register_pair *pairs, size_t count,
+    uint8_t *out, size_t capacity) {
+    if(!pairs || !out || !count || count>MT76_MCU_REGISTER_PAIRS_MAX ||
+        !sequence || sequence>15 || capacity<count*8u+8u)return 0;
+    for(size_t i=0;i<count;i++)
+        if(pairs[i].address>0x3ffcu || (pairs[i].address&3u) ||
+            (!write && pairs[i].value))return 0;
+    uint8_t payload[MT76_MCU_PAYLOAD_MAX];
+    for(size_t i=0;i<count;i++) {
+        uint32_t address=0x410000u+pairs[i].address;
+        for(size_t b=0;b<4;b++) {
+            payload[8*i+b]=(uint8_t)(address>>(8*b));
+            payload[8*i+4+b]=(uint8_t)(pairs[i].value>>(8*b));
+        }
+    }
+    return mt76_mcu_encode(write?12:10,sequence,payload,count*8u,out,capacity);
+}
+
 bool mt76_mcu_decode(const uint8_t *data, size_t length,
     struct mt76_mcu_response *out) {
     if (!data || !out || length < 8 || length > MT76_MCU_RESPONSE_MAX) return false;

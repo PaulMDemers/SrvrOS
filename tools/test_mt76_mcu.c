@@ -23,8 +23,53 @@ static void test_native_identity_reply(void) {
     assert(!mt76_mcu_validate_identity_reply(native,16));
 }
 
+static void test_register_packets(void) {
+    struct mt76_mcu_register_pair pairs[25];uint8_t out[202];
+    for(size_t i=0;i<25;i++)pairs[i]=(struct mt76_mcu_register_pair){(uint32_t)(4*i),0x12345678u+(uint32_t)i};
+    for(size_t count=1;count<=24;count++) {
+        memset(out,0xcc,sizeof out);
+        size_t length=8*count+8;
+        assert(mt76_mcu_register_packet(true,15,pairs,count,out+1,length)==length);
+        assert(out[0]==0xcc && out[length+1]==0xcc);
+        assert(out[1]==8*count && out[2]==0 && out[3]==0xcf && out[4]==0x50);
+        for(size_t i=0;i<count;i++) {
+            const uint8_t *p=out+5+8*i;
+            assert(p[0]==4*i && p[1]==0 && p[2]==0x41 && p[3]==0);
+            assert(p[4]==0x78+i && p[5]==0x56 && p[6]==0x34 && p[7]==0x12);
+        }
+        for(size_t i=length-3;i<=length;i++)assert(out[i]==0);
+    }
+    const struct mt76_mcu_register_pair read={0x1000,0};
+    const uint8_t native_request[16]={8,0,0xa1,0x50,0,0x10,0x41,0,0,0,0,0,0,0,0,0};
+    assert(mt76_mcu_register_packet(false,1,&read,1,out,sizeof out)==16);
+    assert(!memcmp(out,native_request,16));
+    for(unsigned fault=0;fault<10;fault++) {
+        struct mt76_mcu_register_pair invalid[25];memcpy(invalid,pairs,sizeof pairs);
+        size_t count=24,capacity=sizeof out;uint8_t seq=1;bool write=true;
+        if(fault==0)count=0;
+        if(fault==1)count=25;
+        if(fault==2)count=SIZE_MAX;
+        if(fault==3)capacity=199;
+        if(fault==4)seq=0;
+        if(fault==5)seq=16;
+        if(fault==6)invalid[23].address=0x4000;
+        if(fault==7)invalid[23].address=UINT32_MAX;
+        if(fault==8)invalid[23].address=3;
+        if(fault==9)write=false;
+        memset(out,0xcc,sizeof out);
+        assert(!mt76_mcu_register_packet(write,seq,invalid,count,out,capacity));
+        for(size_t i=0;i<sizeof out;i++)assert(out[i]==0xcc);
+    }
+    const struct mt76_mcu_register_pair last={0x3ffc,0};
+    assert(mt76_mcu_register_packet(true,1,&last,1,out,sizeof out)==16);
+    assert(out[4]==0xfc && out[5]==0x3f && out[6]==0x41 && out[7]==0);
+    assert(!mt76_mcu_register_packet(true,1,NULL,1,out,sizeof out));
+    assert(!mt76_mcu_register_packet(true,1,pairs,1,NULL,sizeof out));
+}
+
 int main(void) {
     test_native_identity_reply();
+    test_register_packets();
     uint8_t payload[193], wire[202];
     memset(payload, 0xab, sizeof(payload));
     /* Independently specified Q_SELECT(1,1), command1, sequence3. */

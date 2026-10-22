@@ -85,8 +85,8 @@ static int wifi_mcu_read_identity(struct xhci_device *d,int *queue_sent,int *rea
     *queue_sent=wifi_mcu_bulk(d,false,bytes);
     if(*queue_sent!=(int)bytes)return -1;
     /* Same OUT ring guarantees queue selection precedes this read. */
-    const uint8_t payload[8]={0x00,0x10,0x41,0,0,0,0,0};
-    bytes=mt76_mcu_encode(10,1,payload,sizeof payload,f->buffer,MT76_MCU_PACKET_MAX);
+    const struct mt76_mcu_register_pair identity_read={0x1000,0};
+    bytes=mt76_mcu_register_packet(false,1,&identity_read,1,f->buffer,MT76_MCU_PACKET_MAX);
     if(!bytes)return -1;
     *read_sent=wifi_mcu_bulk(d,false,bytes);
     if(*read_sent!=(int)bytes)return -1;

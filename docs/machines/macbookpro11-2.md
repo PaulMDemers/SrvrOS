@@ -2286,3 +2286,20 @@ default, consumed one-shot and current/recovery manifests verified. Offline
 workspace clean:143files,463clusters,zero leaks/mismatches/errors. Run record and
 checkpoint collected/unarmed. Next: bounded MAC/baseband table initialization
 with command-specific completions, then calibrated RF/receive setup.
+
+Next scope: bounded MCU register-pair packet encoder before MAC/baseband tables.
+Linuxv6.18 tables include PA and TX-power entries; do not treat them as uniformly
+receive-only. Implement at most24 aligned WLAN register pairs per command, with
+nonzero response sequence and atomic input validation. No table authorization or
+native writes added. First native write diagnostic must establish acknowledgement
+format with a disabled-MAC write before table execution. Main9ca1922 fetched and
+inspected (battery/Home changes include shared staging/main); integration remains
+598fe27 and profile reconciliation is deferred, not silently overwritten.
+
+
+Register-pair prerequisite implemented: one bounded1–24-pair read/write packet,
+complete validation before output, no implicit chunking or no-ACK writes. The
+existing native identity read uses the shared builder with identical wire bytes.
+Build, MCU/radio/xHCI host tests and MCU ASan/UBSan passed. No candidate installed
+or reboot armed for this pure encoding change; native write acknowledgement and
+MAC/baseband table execution remain pending.

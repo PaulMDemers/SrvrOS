@@ -619,3 +619,25 @@ with9reads,2writes and200000us hold; firmware identity reply passed strict
 validation afterward and final MAC_SYS_CTRL remained0. Saved capture completed,
 return/recovery and offline allocation checks passed. This establishes the reset
 prerequisite and firmware survival only; MAC/BBP tables and RF remain pending.
+
+
+### Bounded register-pair encoding
+
+`mt76_mcu_register_packet` builds one random-read or random-write command from
+1–24 WLAN register pairs. It validates every aligned offset (0..0x3ffc), the
+nonzero sequence and output capacity before changing the output. Read values
+must be zero. Each pair carries base0x410000 plus the offset and its little-endian
+value; the packet retains the existing MCU header and zero trailer. The native
+identity read now uses this builder and matches its previous16-byte wire fixture.
+
+This is an encoder, not a native write authorization or table executor. No MAC,
+BBP, RF or power table is sent. Linuxv6.18 initialization tables include PA and
+transmit-power settings, so later execution needs an explicit register/value and
+phase policy. The first native write trial must establish a command-specific
+acknowledgement with the MAC disabled before any table is allowed. Multi-packet
+sequencing, response validation and table provenance remain pending.
+
+Host tests cover all supported pair counts, exact wire bytes, buffer canaries,
+maximum offsets, oversized counts, invalid sequences/addresses, short capacity
+and unchanged output on rejection. Build, MCU/radio/xHCI tests and MCU ASan/UBSan
+checks passed; these checks do not establish native write acceptance.
