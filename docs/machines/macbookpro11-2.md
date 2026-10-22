@@ -2151,3 +2151,14 @@ check must remain0x20. Full build/xHCI regressions and52 staging tests pass,
 including new endpoint configuration, wrong slot/DCI/pointer, event errors,
 residue, allocation failure and unready-firmware refusal. No native acceptance
 or radio enablement claimed. Stage/VM checks precede any physical installation.
+
+MCU transport sourcec588228, release8e87dabf5c918f1c, staged and installed unarmed.
+Exact GPT saved-log/automatic-return VM and missing-workspace return VM pass;
+Ubuntu default, pinned descriptor, model, workspace0E53-5900 and retained recovery
+e47dca3a6b30c6c1 verified. Offline workspace fsck/allocation checks pass. Candidate,
+receipts and run record archived outside build under wifi-mcu-c588228. Accepted
+firmware payloadb7f7fb1c357d7ff5 remains retained; only the archive-verified older
+825373ebb599fa0d payload was removed for space. Await attended cold adapter cycle:
+shutdown, unplug Wi-Fi10 seconds, reconnect then power on, leave workspace drive
+connected. Logs save and return automatically; no photo or commands required.
+After return collect matching session first; MCU response/RF acceptance pending.
