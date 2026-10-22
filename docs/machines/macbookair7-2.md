@@ -7,7 +7,8 @@ Updated: 2026-10-22. State: **active reference machine; partial device acceptanc
 Base `340f566` (merged PR60). This agent is extending the explicit VM battery
 session to the normal arbitrary-app desktop, Home-backed file jobs and periodic
 workspace logging. Touched subsystems: battery runtime session ownership,
-workspace logger retirement, desktop mode admission, VM harnesses and these
+workspace logger retirement, serial TX-timeout recovery (VM serial loss reproduced),
+desktop mode admission, VM harnesses and these
 guides. Depends on PR60's inherited process lifetime; no sibling firmware gates
 or USB networking changes. Pro PR19 `301a640` remains separate.
 

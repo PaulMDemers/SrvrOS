@@ -12,13 +12,13 @@ from battery_workspace_smoke import ANCHOR, MARKER
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','profile-refusal','runtime-fault','refusal'),default='normal')
+    parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-home-desktop-'+args.case);out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-home-apps-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
-        fault={'normal':83,'profile-refusal':15,'runtime-fault':79,'refusal':83}[args.case]
+        fault={'normal':83,'cancel':83,'profile-refusal':15,'runtime-fault':79,'refusal':83}[args.case]
         (tmp/'battery.asl').write_text(f'#define BATTERY_FAULT {fault}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         with volume.open('wb') as f:f.truncate(128*1024*1024)
@@ -53,6 +53,7 @@ def main():
                     mapping={' ':('spc',False),'/':('slash',False),'.':('dot',False),'-':('minus',False),'\n':('ret',False),'>':('dot',True)}
                     for c in text:
                         key,shift=mapping.get(c,(c.lower(),c.isupper()));qmp.key(key,shift)
+                        output.extend(read_for(serial,.001))
                 def launch(name,marker):
                     shortcut('meta_l-spc');type_text(name);qmp.key('ret');wait(marker)
                 wait(b'\nsrv> ')
@@ -77,10 +78,20 @@ def main():
                     time.sleep(2)
                     # A real shell job changes session and execs, then leaves two
                     # descendants alive after its original parent returns.
-                    type_text('/fat/bin/lifetimeprobe --orphan\n');time.sleep(2)
+                    type_text('/fat/bin/lifetimeprobe --orphan > /work/srvros-work/orphan-proof.txt\n');time.sleep(2)
                     # Two distinct periodic writes while the desktop is live.
                     wait(b'workspace-log: snapshot=session-b.log',60)
                     qmp.call('screendump',{'filename':str(out/'desktop.ppm')})
+                    if args.case=='cancel':
+                        shortcut('meta_l-spc');type_text('Text window');qmp.key('ret');time.sleep(.5)
+                        shortcut('ctrl-end');type_text(' Pending save.')
+                        qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':40})
+                        # Discard earlier receipts, then exit while a new save is
+                        # submitted and no reply has been consumed by the app.
+                        output.extend(read_for(serial,.1));consumed=len(output);pending_at=consumed
+                        shortcut('ctrl-s');wait(b'desktools: file-submitted role=text op=2')
+                        assert b'file-result role=text op=2' not in output[pending_at:]
+                        result['exit_with_submitted_save']=True
                     shortcut('ctrl-alt-esc');wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
                     data=bytes(output)
                     acquired=re.search(rb'battery-desktop-lifetime: acquired token=(\d+) root=(\d+)',data)
@@ -90,14 +101,19 @@ def main():
                     assert acquired.end()<drained.start()<released.start()<data.index(b'battery-home-desktop: logger_retired=yes final_saved=yes')<data.index(b'battery-workspace-hold: released')
                     assert b'battery-controls: PASS' in data and b'logger_retired=yes final_saved=NO' not in data
                     result['peak_members']=int(drained[2])
+                    if args.case!='profile-refusal':
+                        events=re.findall(rb'battery-monitor-events: epoch=1 .* events=(\d+).* final=1',data)
+                        assert len(events)==1 and int(events[0])>=64
+                        result['battery_events']=int(events[0])
                 if args.case!='runtime-fault':
                     serial.sendall(b'workspace unmount\n');wait(b'workspace: unmounted; USB writes disabled');wait(b'\nsrv> ')
                 stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                 if args.case=='refusal':assert disk[2048*512:]==bytes(fixture.data)
                 elif args.case!='runtime-fault':
                     final=ExfatFixture(disk[2048*512:]);assert final.read('srvros-work/.workspace')==MARKER and final.read('srvros-work/anchor.txt')==ANCHOR
-                    assert final.read('srvros-work/desktop-proof.txt')==b'Ordinary Home desktop.'
+                    assert final.read('srvros-work/desktop-proof.txt')==(b'Ordinary Home desktop. Pending save.' if args.case=='cancel' else b'Ordinary Home desktop.')
                     assert final.read('srvros-work/terminal-proof.txt')==b'terminal-proof\n'
+                    assert final.read('srvros-work/orphan-proof.txt')==b'lifetimeprobe: orphan setsid exec grandchild started\n'
                     sessions=list(final.entries(final.read('srvros-work/Logs')));assert len(sessions)==1
                     folder='srvros-work/Logs/'+sessions[0][0];names={n for n,_ in final.entries(final.read(folder))}
                     assert names=={'boot.log','session-a.log','session-b.log','exit.log'}
@@ -118,6 +134,9 @@ def main():
                     try:
                         qmp.call('screendump',{'filename':str(out/'failure.ppm')})
                         (out/'failure-registers.txt').write_text(str(qmp.call('human-monitor-command',{'command-line':'info registers'})))
+                        symbols=subprocess.check_output(['nm','-a',str(kernel)],text=True)
+                        uart=re.search(r'^([0-9a-f]+) [a-zA-Z] serial_ready$',symbols,re.M)
+                        if uart:(out/'failure-uart.txt').write_text(str(qmp.call('human-monitor-command',{'command-line':'x /1bx 0x'+uart[1]})))
                     except Exception:pass
                 (out/'serial.log').write_bytes(output);stop_process(process);(out/'last-workspace.img').write_bytes(stick.read_bytes())
 
