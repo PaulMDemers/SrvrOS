@@ -2,6 +2,17 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: completed-IRQ terminal handoff
+
+Base `origin/main` `a1b9802` (PR #38). Add a token-bound deferred IRQ exit hook
+that runs only after EOI, every completion callback and registry bookkeeping.
+Use it in an explicit VM battery study to retain an interrupted owner or worker
+without returning to that thread, then resume an unrelated storage owner and
+save/unmount/reset normally. Touched: IRQ registry/dispatcher, scheduler contract,
+battery runtime/model and host/VM proofs. Native startup and mounted Home remain
+off. Pro PR #19 at `10caff8` is separate Wi-Fi work; no overlap expected. No
+physical run, installed payload change or automatic hardware test is planned.
+
 ### Returned GPE callback failures (PR #38)
 
 Base `origin/main` `a35cd5e` (PR #37). Add VM-only structured propagation for
