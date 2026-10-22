@@ -48,4 +48,29 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(r['frequency_offset_decoded'],0)
             self.assertEqual(r['temperature_offset_decoded'],-10)
 
+    def test_power_channel_mapping(self):
+        for offset,value in ((0x52,1),(0x53,2),(0x5f,14),(0x78,36),(0x7a,40),
+                             (0x7b,44),(0x99,61),(0x9a,63)):
+            self.data[offset]=value
+        t=audit(self.data,0)['transmit_calibration']
+        rows={r['channel']:r for r in t['channels']}
+        for ch,value in ((1,1),(2,2),(14,14),(36,36),(40,40),(44,44),(161,61),(165,63)):
+            self.assertEqual(rows[ch]['calibration_units'],value)
+        self.assertIsNone(rows[177]['calibration_units'])
+        self.assertFalse(t['values_are_dbm'])
+        self.assertTrue(all(not r['transmit_authorized'] for r in rows.values()))
+    def test_power_missing_invalid_and_tssi(self):
+        self.data[0x78]=64
+        rows={r['channel']:r for r in audit(self.data,0)['transmit_calibration']['channels']}
+        self.assertIsNone(rows[36]['calibration_units'])
+        self.data[0x78]=255
+        rows={r['channel']:r for r in audit(self.data,1<<7)['transmit_calibration']['channels']}
+        self.assertIn('unmapped',rows[36]['reason'])
+        self.data[0x37]|=0x20
+        self.assertTrue(all(r['calibration_units'] is None for r in audit(self.data,0)['transmit_calibration']['channels']))
+    def test_signed_rate_offsets(self):
+        self.data[0x120:0x124]=bytes((31,32,63,255))
+        rates=audit(self.data,0)['transmit_calibration']['rate_groups']['5ghz']['ofdm']
+        self.assertEqual([r['signed_six_bit_offset'] for r in rates],[31,-32,-1,None])
+
 if __name__ == '__main__':unittest.main()

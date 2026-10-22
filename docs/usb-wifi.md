@@ -458,3 +458,27 @@ not a country/channel policy or proof of usable bands on the finished product.
 Per-channel transmit power, physical usage-map validation and regulatory policy
 remain separate prerequisites. These offline results do not accept native RF
 initialization or scanning and need no reboot.
+
+### Transmit calibration and channel constraints
+
+The offline audit now decodes the non-TSSI 20MHz channel table and signed
+six-bit rate offsets from the same pinned Linux EEPROM interpretation. It
+reports chipset calibration units, not dBm/EIRP. Invalid or unmapped bytes stay
+unknown; TSSI and wide-channel interpretation remain unsupported. Rate-table
+entries describe the EEPROM groups (paired rates except VHT8/9), not a final
+hardware power table.
+
+The captured adapter has values5 on2GHz channels1–14; 5GHz values17–20 through
+channel165. Channels169/173 have invalid calibration bytes and177 lies beyond
+the decoded map; no fallback makes them eligible. The saved Linux PHY snapshot
+also supplies separate disabled, radar/DFS and no-IR restrictions. A populated
+EEPROM entry alone never overrides these restrictions or establishes a country.
+
+Initial radio work must keep calibration separate from channel policy: require
+an explicitly confirmed country, a dated authoritative regulatory rule set,
+verified device capabilities and valid calibration. Keep transmit disabled until
+these are integrated with hardware power/range validation. Initial bring-up will
+exclude DFS, no-IR, unsupported bandwidths and channels with missing calibration;
+active scanning must not precede this gate. Linux's current domain is only a
+local observation, not automatic country selection for SrvrOS. Native receive,
+scan and transmit remain pending.

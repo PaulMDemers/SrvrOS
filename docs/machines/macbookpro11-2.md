@@ -2071,3 +2071,22 @@ missing/unmapped fields and band-hint separation. No radio registers changed;
 firmware readiness remains accepted, RF/scanning pending. Next: per-channel power
 and regulatory constraints, then a bounded native receive initialization path.
 No reboot armed for this offline work.
+
+Next bounded scope: offline 20MHz per-channel transmit calibration and signed
+per-rate offsets for the captured non-TSSI layout, preserving unmapped/invalid
+entries as unknown. EEPROM values are chipset calibration units, not dBm limits.
+Compare against this adapter's Linux channel flags; disabled/no-IR/DFS channels
+cannot become active-scan candidates merely because calibration exists. Country
+confirmation is pending; Linux's current US setting is evidence, not user locale.
+Main remains598fe27; only PR19 open. No hardware writes or reboot in this step.
+
+Offline non-TSSI 20MHz power audit completed against the accepted logical image.
+Values are5 for2GHz1–14 and17–20 across5GHz36–165; these are calibration units,
+not dBm. Channels169/173 are invalid and177 outside the decoded map. Signed rate
+offsets decoded without promoting erased/unmapped data. Eight audit tests pass,
+covering channel/byte mapping, signed endpoints, invalid/missing data and TSSI
+refusal. Linux PHY/regulatory snapshots saved locally; current Linux domainUS is
+not treated as user country confirmation. Country question remains pending.
+No regulatory policy applied, radio writes performed or reboot armed. Next work
+is a country-scoped policy and bounded native receive initialization; firmware
+readiness remains accepted, radio/network functionality remains pending.

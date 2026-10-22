@@ -57,6 +57,56 @@ def receive_calibration(data, unmapped, nic0, nic1):
     }
 
 
+CHANNELS_20MHZ = tuple(range(1, 15)) + tuple(range(36, 65, 4)) + tuple(range(100, 145, 4)) + tuple(range(149, 178, 4))
+POWER_GROUPS = ((2,0),(4,2),(6,4),(8,6),(10,8),(12,10),(14,12),
+                (38,0),(44,2),(48,4),(54,6),(60,8),(64,10),(102,12),
+                (108,14),(112,16),(118,18),(124,20),(128,22),(134,24),
+                (140,26),(151,28),(157,30),(161,32),(167,34),(171,36),(175,38))
+
+
+def transmit_calibration(data, unmapped, nic1):
+    """Offline 20MHz/non-TSSI interpretation, never an EIRP or channel grant."""
+    def byte(offset):
+        return None if unmapped & (1 << (offset // 16)) else data[offset]
+    channels = []
+    for channel in CHANNELS_20MHZ:
+        group = next(((upper,off) for upper,off in POWER_GROUPS if channel <= upper), None)
+        row = dict(channel=channel, width_mhz=20, offset=None, raw=None,
+                   calibration_units=None, reason=None, transmit_authorized=False)
+        if nic1 & (1 << 13):
+            row['reason'] = 'TSSI target-power interpretation not implemented'
+        elif group is None:
+            row['reason'] = 'outside captured-layout channel map; no fallback authorization'
+        else:
+            upper, off = group
+            offset = (0x52 if channel <= 14 else 0x78) + off + (channel == upper)
+            raw = byte(offset)
+            row.update(offset=hex(offset), raw=raw)
+            if raw is None:
+                row['reason'] = 'unmapped calibration block'
+            elif raw > 63:
+                row['reason'] = 'invalid power byte; Linux fallback is not validated calibration'
+            else:
+                row['calibration_units'] = raw
+        channels.append(row)
+    rates = {}
+    # Each byte contains a signed six-bit rate offset; EEPROM bytes 0xff
+    # are not silently converted into an accepted -1 calibration value.
+    for band, groups in {'2ghz': {'cck':(0xde,2),'ofdm':(0xe0,4),'ht':(0xe4,4)},
+                         '5ghz': {'ofdm':(0x120,4),'ht':(0x124,4),'vht8_9':(0x12c,2)}}.items():
+        rates[band] = {}
+        for name, (start, count) in groups.items():
+            items = []
+            for offset in range(start, start+count):
+                raw = byte(offset)
+                value = None if raw is None or raw == 255 else (raw & 63) - (64 if raw & 32 else 0)
+                items.append(dict(offset=hex(offset), raw=raw, signed_six_bit_offset=value))
+            rates[band][name] = items
+    return dict(mode='20MHz non-TSSI audit only', channels=channels, rate_groups=rates,
+                values_are_dbm=False, regulatory_policy_applied=False,
+                hardware_programming_validated=False, transmit_authorized=False)
+
+
 def audit(data, unmapped):
     if len(data) != 512 or not 0 <= unmapped <= 0xffffffff:
         raise ValueError('expected 512 bytes and a 32-bit unmapped mask')
@@ -81,7 +131,8 @@ def audit(data, unmapped):
             'frequency_raw': frequency & 255, 'unmapped_blocks': unmapped.bit_count(),
             'radio_authorized': False,
             'receive_calibration': receive_calibration(data, unmapped, nic0, nic1),
-            'remaining': ['physical usage-map validation', 'per-channel transmit power decoding', 'native receive calibration validation',
+            'transmit_calibration': transmit_calibration(data, unmapped, nic1),
+            'remaining': ['physical usage-map validation', 'transmit power hardware validation and TSSI/wide-channel decoding', 'native receive calibration validation',
                           'regulatory channel policy', 'firmware readiness evidence (separate native trial)']}
 
 
