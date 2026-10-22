@@ -30,8 +30,8 @@ def staged_capture(release):
     source=staged_boot.STAGE/release
     manifest=staged_boot.verify(source)
     match=staged_boot.TRACKPAD_RE.fullmatch(manifest['config_version'])
-    if not match or not manifest['config_version'].startswith('ram-usb-v10-'):
-        raise ValueError('Exact capture rehearsal requires a capture-only v10 stage')
+    if not match or not manifest['config_version'].startswith(('ram-usb-v10-', 'ram-usb-v11-', 'ram-usb-v12-')):
+        raise ValueError('Exact rehearsal requires a v10 capture, v11 pointer or v12 gesture stage')
     return source,manifest,match[1],match[2]
 
 
@@ -62,7 +62,7 @@ def main():
     parser.add_argument('--io-rounds',type=int,default=16,choices=range(16,129),metavar='16..128')
     parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
-    parser.add_argument('--release',help='verify and boot this exact capture-only v10 stage through GRUB')
+    parser.add_argument('--release',help='verify and boot this exact v10/v11/v12 stage through GRUB')
     parser.add_argument('--workspace-table',choices=('mbr','gpt'),default='mbr')
     args=parser.parse_args()
     args.gestures |= args.desktop_io
@@ -72,8 +72,10 @@ def main():
     run='0123456789abcdef'; release='fedcba9876543210';stage=None
     if args.release:
         if args.pointer or args.gestures or args.desktop_io:
-            parser.error('--release is capture-only; no pointer/gesture/desktop options')
+            parser.error('--release infers its profile; omit pointer/gesture/desktop options')
         stage,manifest,stage_uuid,run=staged_capture(args.release);release=args.release
+        args.gestures=manifest['config_version'].startswith('ram-usb-v12-')
+        args.pointer=args.gestures or manifest['config_version'].startswith('ram-usb-v11-')
         logs=root/'build/review'/f'trackpad-stage-{release}';logs.mkdir(parents=True,exist_ok=True)
     receipt=logs/'trackpad-result.json';receipt.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix='srvros-trackpad-') as directory:
@@ -264,6 +266,9 @@ def main():
     receipt.write_text(json.dumps({'status':'PASS','release':release,'run':run,
         'manifest_sha256':staged_boot.digest(stage/'manifest.json') if stage else None,
         'exact_stage':bool(stage),'workspace_table':args.workspace_table,
+        'pointer':args.pointer,'gestures':args.gestures,
+        'desktop_exit':fields.get('desktop_exit'),'pointer_trial':fields.get('pointer_trial'),
+        'gesture_trial':fields.get('gesture_trial'),
         'report_status':fields['status'],'saved':True,'unmounted':True,
         'replay_refused':True,'readonly_refused':True,'halted':True,
         'physical_acceptance':'pending'},indent=2)+'\n')

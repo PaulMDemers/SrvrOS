@@ -539,6 +539,7 @@ static void test_pro_trackpad(const char *fixture) {
 static void test_trackpad(const char *fixture,bool pointer,bool gestures,uint16_t product) {
     xhci_set_trackpad_gestures(false);
     xhci_set_trackpad_pointer(false); pointer_injected=0;pointer_canceled=0;
+    tap_injected=0;test_pointer_options=0;
     reset_test();
     uint8_t descriptor[84];
     FILE *file=fopen(fixture,"rb"); assert(file);
@@ -556,15 +557,9 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures,uint16_
     for (unsigned n=0;n<84;n++) assert(!parse_trackpad_config(d,n));
     d->product_id=0x0292; assert(!parse_trackpad_config(d,84)); d->product_id=product;
     if (product==0x0290) {
-        assert(!pointer && !gestures);
         d->device_bcd=0x0170; assert(!parse_trackpad_config(d,84)); d->device_bcd=0x0171;
         d->vendor_id=0x1234; assert(!parse_trackpad_config(d,84)); d->vendor_id=0x05ac;
         d->speed=3; assert(!parse_trackpad_config(d,84)); d->speed=1;
-        xhci_set_trackpad_pointer(true); assert(!parse_trackpad_config(d,84));
-        xhci_set_trackpad_capture(false); assert(!parse_trackpad_config(d,84));
-        xhci_set_trackpad_capture(true); xhci_set_trackpad_pointer(false);
-        xhci_set_trackpad_gestures(true); assert(!parse_trackpad_config(d,84));
-        xhci_set_trackpad_gestures(false);
         descriptor[81]=32; assert(!parse_trackpad_config(d,84)); descriptor[81]=64;
         descriptor[83]=2; assert(!parse_trackpad_config(d,84)); descriptor[83]=1;
         assert(!pointer_injected);
@@ -862,6 +857,8 @@ int main(int argc, char **argv) {
     test_trackpad(argv[1],false,false,0x0291);
     test_keyboard_context(argv[3],1,5,64);
     test_trackpad(argv[3],false,false,0x0290);
+    test_trackpad(argv[3],true,false,0x0290);
+    test_trackpad(argv[3],true,true,0x0290);
     test_trackpad(argv[1],true,false,0x0291);
     test_trackpad(argv[1],true,true,0x0291);
     puts("xhci-host-test: PASS (delayed root ports, reset handshake/timeouts, scratchpads, ownership, Apple HID, BOT descriptors/contexts, HID/bulk demultiplexing, quarantine, short packets)");
