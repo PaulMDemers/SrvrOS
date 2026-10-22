@@ -815,3 +815,23 @@ read-only transport and its actual worker, including failure invalidation.
 AML and SBS host tests do not establish live
 EC ownership. All VM storage is disposable. The staged GRUB/EFI desktop check
 should follow the build before installing a hardware candidate.
+
+
+## Ordinary Home desktop lifetime (disposable VM)
+
+Build both battery kernels and userspace before running these sequentially:
+
+```sh
+tools/host-env.sh make -j2 all acpi-battery-kernel acpi-battery-vm-kernel test-core
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case normal
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case cancel
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case profile-refusal
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case runtime-fault
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case refusal
+```
+
+The normal apps use a disposable exFAT Home with periodic logging and the inherited
+process lifetime. Saved Text, Terminal and orphan receipts, logger files, drain
+ordering and offline allocation are checked. Runtime-fault success means expected
+containment with live ownership retained, not clean shutdown or filesystem
+acceptance. Results do not accept native continuous monitoring or battery accuracy.

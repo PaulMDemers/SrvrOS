@@ -32,9 +32,12 @@ int main(void) {
     serial_putc('\n'); assert(writes==3 && output[1]=='\r' && output[2]=='\n');
     irq_enabled=false; unsigned old=enables; serial_putc('b'); assert(!irq_enabled && enables==old && writes==4);
     irq_enabled=true; attempts=0; ready_after=100;
-    serial_putc('x'); assert(attempts==10 && writes==4 && !serial_ready && irq_enabled);
-    serial_putc('y'); assert(attempts==10);
-    serial_ready=true; rx_input="ed -s\r"; char c;
+    serial_putc('x'); assert(attempts==10 && writes==4 && serial_ready && tx_stalled && irq_enabled);
+    serial_putc('y'); assert(attempts==11 && writes==4 && tx_stalled);
+    ready_after=0;serial_putc('z');assert(writes==5 && output[4]=='z' && !tx_stalled);
+    attempts=0;ready_after=100;serial_putc('x');assert(tx_stalled && serial_ready);
+    /* RX remains live while TX is stalled, without a fresh init/probe. */
+    rx_input="ed -s\r"; char c;
     for(unsigned i=0;i<6;i++) {
         assert(serial_try_read_char(&c) && c=="ed -s\n"[i] && irq_enabled);
     }

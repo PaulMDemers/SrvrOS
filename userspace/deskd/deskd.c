@@ -1076,7 +1076,8 @@ int main(int argc,char **argv) {
     int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
-    int apps=idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
+    int home_apps=argc==2 && !strcmp(argv[1],"--home-apps");
+    int apps=home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -1097,7 +1098,7 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.ram_text=coexist_text || control_capture,.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+    struct session s={.ram_text=coexist_text || control_capture,.home=(hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1118,7 +1119,7 @@ int main(int argc,char **argv) {
         desk_log("deskd: tap/typing options=14\n");
     }
     desk_damage_init(&s.damage,width,height);
-    if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
+    if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture || home_apps)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }
     battery_update(&s,1);
     global_menu_rebuild(&s);

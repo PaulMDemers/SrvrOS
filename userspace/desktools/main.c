@@ -157,7 +157,7 @@ int main(int argc,char **argv) {
     if(file_capture)tool_file_capture_setup(workspace_capture);
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
     int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
-    unsigned captured=0;
+    unsigned captured=0;uint64_t logged_job=0;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
@@ -243,7 +243,16 @@ int main(int argc,char **argv) {
         }
         int poll_file=!controls_files || tool_file_capture_controls_tick(t);
         if(controls_cancel && t->quit)break;
-        if(poll_file && t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
+        if(poll_file && t->job.busy) {
+            /* Observe admission before reading a reply: a submitted job may
+             * outlive its window and must remain owned during session exit. */
+            int submitted=desk_file_job_submit(&t->job);
+            if(submitted>0 && logged_job!=t->job.request.id) {
+                logged_job=t->job.request.id;
+                desk_log("desktools: file-submitted role=%s op=%u id=%llu worker=%llu\n",roles[t->role-1],t->job.request.operation,
+                    (unsigned long long)logged_job,(unsigned long long)t->job.pid);
+            }
+            int result=submitted<0?-1:submitted>0?desk_file_job_poll(&t->job):0;if(result) {
             desk_log("desktools: file-result role=%s op=%u status=%u bytes=%u\n",roles[t->role-1],t->job.request.operation,t->job.response.status,t->job.response.length);
             if(file_capture && tool_file_capture_busy()) {
                 tool_file_capture_finish(t,result);

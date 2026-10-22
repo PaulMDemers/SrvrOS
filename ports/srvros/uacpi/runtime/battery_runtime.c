@@ -77,7 +77,7 @@ static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbu
 static uint64_t smbus_workspace_hold;
 static bool mounted_home;
 /* Explicit VM-only continuous session, never selected by native startup. */
-static bool continuous_home;
+static bool continuous_home, desktop_home;
 static uint64_t home_session_events;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
@@ -1670,7 +1670,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!free)return false;
     uint64_t lifetime=continuous_home?process_lifetime_create():0;
     if(continuous_home && !lifetime)return false;
-    const char *arguments=continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    const char *arguments=desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
     int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
         process_spawn_background_elf_args("/fat/bin/deskd",arguments);
     if(child<=0) {
@@ -1731,7 +1731,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
         console_printf("battery-desktop-lifetime: released token=%u runtime_retired=yes\n",lifetime);
     }
     struct battery_service_status retired;battery_service_status(&retired);
-    ok=ok && !pending && descendants==(files?3u:2u) && (automatic?requests==(files?5u:4u) && retired.epoch==before.epoch+(files?3u:2u) && retired.state==BATTERY_SERVICE_STOPPED:
+    ok=ok && !pending && (desktop_home?descendants>=2:descendants==(files?3u:2u)) && (automatic?requests==(files?5u:4u) && retired.epoch==before.epoch+(files?3u:2u) && retired.state==BATTERY_SERVICE_STOPPED:
         retired.state==BATTERY_SERVICE_STOPPED || retired.state==BATTERY_SERVICE_DISABLED || retired.state==BATTERY_SERVICE_UNAVAILABLE || (continuous_home && retired.state==BATTERY_SERVICE_FAULTED));
     console_printf("battery-controls: %s requests=%u descendants=%u epoch=%u; revoked=yes retired=yes\n",ok?"PASS":"FAIL",requests,descendants,retired.epoch);
     return ok;
@@ -2120,7 +2120,15 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     console_printf("battery-workspace-controls: begin mounted=yes native=%s\n",home?"explicit":"disabled");
     if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
     if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
-    bool complete=controls_test(rsdp,map,automatic,true,files);
+    bool logging=!desktop_home || workspace_log_start();
+    if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=disabled\n",logging?"started":"FAILED");
+    bool complete=logging && controls_test(rsdp,map,automatic,true,files);
+    if(desktop_home) {
+        if(!workspace_log_quiesce(5000))unsafe("desktop logger retirement");
+        bool saved=logging && workspace_log_stop();
+        console_printf("battery-home-desktop: logger_retired=yes final_saved=%s\n",saved?"yes":"NO");
+        complete=complete && saved;
+    }
     struct battery_service_status final;battery_service_status(&final);
     bool retired=owner==OWNER_NONE && !controls.group && !service.running && !service.quarantined &&
         !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
@@ -2137,6 +2145,16 @@ bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_respons
     return workspace_controls_test(rsdp,map,true,1,true,false);
 }
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-home-desktop")) {
+        if(!battery_platform_workspace_study_allowed() || desktop_home || continuous_home || workspace_log_active()) {
+            console_write("battery-home-desktop: REFUSED VM-only idle logger session\n");return;
+        }
+        desktop_home=true;
+        (void)workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,
+            memmap_request.response,false,0,true,true);
+        desktop_home=false;
+        return;
+    }
     if(command_is(args,"battery-home-monitor")) {
         if(!battery_platform_workspace_study_allowed() || continuous_home) {
             console_write("battery-home-monitor: REFUSED VM-only session\n");return;

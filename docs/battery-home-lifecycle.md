@@ -294,8 +294,8 @@ not coalesce device operations. Per-query attempt/time budgets and all setup,
 transaction, drain and shutdown deadlines remain intact.
 
 The fixed System/compositor pair can run beyond the diagnostic 110 seconds and
-512 events. It is not the ordinary app session: arbitrary app integration still needs its ordinary session wrapper, and native continuous
-monitoring needs its own physical trial. No reboot/staging option selects this
+512 events. The ordinary app session has a separate VM command described below; native continuous
+monitoring still needs its own physical trial. No reboot/staging option selects this
 VM path. The user-space `--battery-monitor` flag only changes the fixed System
 client's lifetime; it cannot acquire a battery runtime capability on its own.
 
@@ -340,8 +340,8 @@ The continuous VM System session uses this owner, drains clients before stopping
 the battery service, and releases its process token before releasing the exact
 Home mount hold. Its `descendants` diagnostic field now reports peak simultaneous
 membership. Native bounded diagnostic owners retain their existing implementation.
-The VM command still opens the fixed System client; it does not yet launch the
-ordinary arbitrary-app desktop. Ordinary startup remains unchanged.
+The monitor command still opens the fixed System client. The separate
+`battery-home-desktop` command opens ordinary apps. Ordinary startup remains unchanged.
 
 Host coverage exercises 512 sequential allocations, orphan/group/session changes,
 revocation during preparation and release, stale tokens, table limits and token
@@ -350,17 +350,17 @@ failed loads, synchronous/asynchronous spawn, `setsid`, exec and orphaned
 children/grandchildren; it drains the selected lifetime while leaving an unrelated
 process alive. `tools/process_lifetime_smoke.py` runs it twice and then runs the
 existing PTY regression. Each pass also runs 16 pairs of competing waiters,
-requiring exactly one successful reap per child. Periodic logs and shutdown during a real pending desktop
-file write still need overlap coverage using this new lifetime owner before
-ordinary native desktop integration.
+requiring exactly one successful reap per child. The ordinary Home VM session
+below adds periodic logging and shutdown with a submitted file write under this
+new owner. Native integration still requires physical evidence.
 
 The boot desktop path in `kernel/src/main.c` currently calls
 `process_run_elf_args` directly and owns logging/unmount around it. Integrate a
 session wrapper there only after the membership policy is proven. It must let
 unavailable battery hardware leave the desktop usable, preserve ordinary
 cached-only status reads, and retain mounted storage on uncertain ownership.
-Periodic workspace logging also needs explicit overlap validation: the accepted
-native v49 trial paused it. Finish that VM coverage before adding a native
+Periodic workspace logging now has VM overlap coverage below; the accepted
+native v49 trial paused it, so physical overlap acceptance remains pending. Finish that VM coverage before adding a native
 continuous-session recipe or changing the default startup path.
 
 During the VM rehearsal, one development payload lost its serial channel while
@@ -372,8 +372,8 @@ runs remain incomplete evidence; they do not satisfy filesystem collection.
 The harness now captures registers, UART availability and a screenshot on stalled
 output. Periodic and final summaries have one service-thread writer so a
 preempted owner cannot emit an older periodic snapshot after the final record.
-This ordering change is not a claim that the general UART transmit-timeout policy
-has been fixed; its channel-loss behavior remains a separate reliability issue.
+That ordering change did not fix the general UART transmit-timeout policy.
+The later ordinary Home work below adds bounded TX recovery while preserving RX.
 
 Local validation: `07c06da` passed all nine directed continuous-session cases.
 After integrating Air6,1 main `1b88c8a`, source `05a50bc` passed full build/both
@@ -390,3 +390,49 @@ than proof of ordinary logging/file overlap. Exact payloads and 99 evidence file
 are verified outside `build` in
 `~/.local/share/srvros/local-validation/process-lifetime-8ea35fde079a`.
 No native payload was installed and no physical acceptance was claimed.
+
+
+### Ordinary Home apps and periodic logs (VM only)
+
+`acpiruntime battery-home-desktop` admits only the disposable VM backend and an
+idle logger. It pins Home, starts periodic workspace snapshots and launches
+`deskd --home-apps` using the inherited kernel process lifetime. This is the
+normal launcher, Text, Files and Terminal with workspace Home/preferences, not
+the fixed System control fixture. Battery service starts once; apps only read
+cached state unless explicitly granted the existing scoped control capability.
+Unavailable battery hardware must leave the ordinary desktop usable.
+
+Exit revokes the control capability and process reservations, drains all lifetime
+members (including orphan jobs and file workers), stops battery work, then
+quiesces the periodic logger and saves its exit snapshot. Only after these steps
+and the runtime resource checks can the exact Home hold be released. A logger
+quiescence timeout retains the write and mount; it never fabricates completion.
+The final snapshot uses the existing bounded storage operations. The command
+returns to the monitor with Home still mounted, for inspection or explicit unmount.
+Native boot admission and `main.c`'s desktop startup path are unchanged.
+
+`tools/battery_home_desktop_smoke.py` uses a fresh disposable USB image. It opens
+apps through the launcher, saves Text and Terminal output, leaves session-changing
+Terminal descendants alive, checks periodic and final snapshots, then checks
+retirement ordering and offline filesystem allocation. The cancellation case
+requests desktop exit after a save is submitted and before its result is received.
+A submitted request proves outstanding app work, not physical USB DMA timing.
+Native refusal and uncertain-runtime cases must not claim clean cleanup.
+
+This workload reproduced permanent UART loss after a bounded TX spin timeout
+while desktop/battery/logging continued. TX timeout now preserves RX and uses a
+single readiness check per later byte while stalled; readiness resumes output.
+The timed-out bytes can still be lost: complete persisted logs and explicit
+completion records remain necessary evidence. Host fixtures check TX recovery,
+RX during the stall, bounded polling and preservation of the caller's IRQ state.
+
+
+Source `4351910` passed the full build, both battery kernels, full core suite,
+documentation checks and all five ordinary Home VM cases. Normal and submitted-save
+exit peaked at ten members, retired all members and processed 424/552 battery events; the unavailable
+profile remained usable with eleven peak members. Clean cases verified exact saved
+files, alternating and final logs, retirement ordering and offline allocation.
+The inherited-process/PTY, continuous alarm/restart and older bounded Home cancel
+regressions also passed. Durable evidence is under
+`~/.local/share/srvros/local-validation/home-desktop-43519102297f`.
+These checks do not enable or accept ordinary native startup.
