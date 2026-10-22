@@ -161,21 +161,22 @@ static bool wifi_mcu_capture_write(struct xhci_device *d) {
     struct mt76_mcu_response r={0};
     bool decoded=received>=0 && mt76_mcu_decode(m->buffer,(size_t)received,&r);
     /* Capture only a bounded command response, not network data. No radio RX
-     * has been enabled. Unknown framing is evidence, not a validated ACK. */
+     * has been enabled. Only the exact captured fixed-write reply is accepted. */
     if(received>0 && received<=64)for(unsigned n=0;n<(unsigned)received/4;n++) {
         uint32_t word=0;
         for(unsigned b=0;b<4;b++)word|=(uint32_t)m->buffer[4*n+b]<<(8*b);
         console_printf("wifi-mcu-write-word: index=%u value=%x\n",(uint64_t)n,(uint64_t)word);
     }
     bool observed=decoded && received<=64 && !(received&3) && r.sequence==2 && r.event==0;
+    bool validated=received>=0 && mt76_mcu_validate_disabled_write_reply(m->buffer,(size_t)received);
     disabled=disabled && wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&after) && after==0;
-    console_printf("wifi-mcu-write-capture: attempted=%u sent=%d received=%d decoded=%u sequence=%u event=%u reported_length=%u cc=%u residue=%u before=%x after=%x mac_disabled=%u observed=%u ack_validated=0\n",
+    console_printf("wifi-mcu-write-capture: attempted=%u sent=%d received=%d decoded=%u sequence=%u event=%u reported_length=%u cc=%u residue=%u before=%x after=%x mac_disabled=%u observed=%u ack_validated=%u\n",
         (uint64_t)m->write_attempted,(int64_t)sent,(int64_t)received,(uint64_t)decoded,
         (uint64_t)r.sequence,(uint64_t)r.event,(uint64_t)r.reported_length,
         (uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)before,(uint64_t)after,
-        (uint64_t)disabled,(uint64_t)observed);
-    if(!observed || !disabled)return wifi_mcu_fail(d);
-    return true; /* Diagnostic collected; ACK contract still awaits inspection. */
+        (uint64_t)disabled,(uint64_t)observed,(uint64_t)validated);
+    if(!validated || !disabled)return wifi_mcu_fail(d);
+    return true; /* Fixed disabled-MAC write only; no table acceptance. */
 }
 
 static bool wifi_capture_mcu(bool reset,bool write_probe) {

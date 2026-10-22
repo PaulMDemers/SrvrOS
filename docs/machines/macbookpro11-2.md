@@ -2335,3 +2335,16 @@ Collection and hashes archived in wifi-write-63d7714/native-collection. Ubuntu
 default, consumed one-shot and current/recovery manifests verified. Workspace
 unmounted and clean:145files,466clusters,zero leaks/mismatches/errors. Run record
 and checkpoint collected/unarmed. RF, receive/scan and connectivity remain pending.
+
+Active scope: strict validator for the fixed sequence2 MAC_SYS_CTRL=0 MCU reply
+captured in session00065e74d8311f56-00, host mutation tests and diagnostic wiring.
+Touches mt76 MCU codec, xHCI diagnostic, tests and these guides; no table or RF
+writes. Main9ca1922 remains integration target; remote Air scopes inspected.
+Native validator acceptance is pending; replay validates the saved fixture only.
+
+Strict fixed-write ACK validator implemented and wired into v5 completion.
+Saved native16-byte response replay,128 single-bit mutations, stale sequences,
+length/address rejection, MCU ASan/UBSan, build and xHCI tests passed. This is
+source/host validation; installedd8dca7885de3c61f is unchanged. No reboot armed.
+Next table work must define bounded chunks, address/value policy and completion
+contracts without assuming the single-pair echo proves multi-pair behavior.

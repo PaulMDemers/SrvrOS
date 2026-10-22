@@ -654,10 +654,10 @@ are no retries or DMA reclamation on uncertainty.
 
 The log records at most16 response words, transfer status, decoded sequence/event
 and an EP0 MAC readback that must remain0. `observed=1` means a bounded response
-with sequence2/event0 was collected; `ack_validated=0` explicitly means its full
-framing has not been accepted. A completed capture accepts neither general MCU
-writes nor tables. Inspect the saved native response before defining a strict
-write-ACK validator. The v1–v4 profiles retain their previous commands. No RF,
+with sequence2/event0 was collected; `ack_validated=1` now requires the exact16-byte native fixed-write fixture,
+including the header, address, zero value and repeated header trailer. A completed capture accepts neither general MCU
+writes nor tables. The strict validator applies only to this sequence2 disabled-MAC write; it
+does not validate arbitrary registers or multi-pair responses. The v1–v4 profiles retain their previous commands. No RF,
 channel, PA, transmit-power or packet receive setup is added.
 
 Native v5 capture on the Pro11,2 Edimax adapter (source63d7714,
@@ -668,3 +668,11 @@ EP0 before/after readbacks were0. Capture completed and post-return recovery and
 filesystem checks passed. This supplies a fixture for the next strict validator;
 the installed diagnostic still reports ack_validated=0. It does not establish
 multi-pair or arbitrary-register responses, table execution or RF readiness.
+
+
+The current source now requires `mt76_mcu_validate_disabled_write_reply` before
+completing v5. Its fixture is the native response above. Host tests reject all128
+single-bit mutations, every other four-bit sequence (including consistent
+header/trailer mutations), other registers, truncated/extended lengths and null
+buffers. The installed63d7714 diagnostic remains the historical capture version;
+source validation is not yet a new physical acceptance result.

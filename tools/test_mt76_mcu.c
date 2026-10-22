@@ -23,6 +23,31 @@ static void test_native_identity_reply(void) {
     assert(!mt76_mcu_validate_identity_reply(native,16));
 }
 
+static void test_native_disabled_write_reply(void) {
+    const uint32_t words[]={0x4a020008,0x00411004,0x00000000,0x4a020008};
+    uint8_t native[17]={0};
+    for(size_t i=0;i<4;i++)for(size_t b=0;b<4;b++)native[4*i+b]=(uint8_t)(words[i]>>(8*b));
+    assert(mt76_mcu_validate_disabled_write_reply(native,16));
+    assert(!mt76_mcu_validate_identity_reply(native,16));
+    assert(!mt76_mcu_validate_disabled_write_reply(NULL,16));
+    for(size_t n=0;n<16;n++)assert(!mt76_mcu_validate_disabled_write_reply(native,n));
+    assert(!mt76_mcu_validate_disabled_write_reply(native,17));
+    assert(!mt76_mcu_validate_disabled_write_reply(native,SIZE_MAX));
+    for(size_t i=0;i<16;i++)for(unsigned bit=0;bit<8;bit++) {
+        native[i]^=(uint8_t)(1u<<bit);
+        assert(!mt76_mcu_validate_disabled_write_reply(native,16));
+        native[i]^=(uint8_t)(1u<<bit);
+    }
+    /* Consistent framing cannot authorize a stale/different command. */
+    for(unsigned seq=0;seq<16;seq++) {
+        native[2]=native[14]=(uint8_t)seq;
+        assert(mt76_mcu_validate_disabled_write_reply(native,16)==(seq==2));
+    }
+    native[2]=native[14]=2;
+    native[4]=0; /* Other register with a valid header/trailer. */
+    assert(!mt76_mcu_validate_disabled_write_reply(native,16));
+}
+
 static void test_register_packets(void) {
     struct mt76_mcu_register_pair pairs[25];uint8_t out[202];
     for(size_t i=0;i<25;i++)pairs[i]=(struct mt76_mcu_register_pair){(uint32_t)(4*i),0x12345678u+(uint32_t)i};
@@ -69,6 +94,7 @@ static void test_register_packets(void) {
 
 int main(void) {
     test_native_identity_reply();
+    test_native_disabled_write_reply();
     test_register_packets();
     uint8_t payload[193], wire[202];
     memset(payload, 0xab, sizeof(payload));

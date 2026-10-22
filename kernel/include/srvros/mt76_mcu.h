@@ -40,6 +40,9 @@ bool mt76_mcu_decode(const uint8_t *data, size_t length,
  * captured MT7610 adapter. Requires the observed header/address/value/trailer;
  * never use this as validation for arbitrary MCU commands or other identities. */
 bool mt76_mcu_validate_identity_reply(const uint8_t *data, size_t length);
+/* Exact native contract for the fixed sequence2 MAC_SYS_CTRL=0 write.
+ * Not a general register-write or multi-pair acknowledgement validator. */
+bool mt76_mcu_validate_disabled_write_reply(const uint8_t *data, size_t length);
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */
