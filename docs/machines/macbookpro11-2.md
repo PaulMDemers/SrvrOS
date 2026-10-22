@@ -2406,3 +2406,20 @@ Collection/hashes archived in wifi-timing-607ad4f/native-collection. Ubuntu
 default, consumed one-shot and current/recovery manifests verified. Workspace
 unmounted, clean149files/472clusters,zero leaks/mismatches/errors. Run/checkpoint
 collected and unarmed. Receive/scan/association/connectivity remain pending.
+
+Active scope: bounded timing initialization engine for the accepted exact pair,
+strict sequence3 first-entry ACK plus independent readbacks and disabled-MAC
+checks. No general table/register authorization or RF expansion. Main62067a1
+fetched; shared battery/main/staging changes inspected, integration still598fe27.
+Touches mt76 MCU engine, xHCI timing binding, tests and guides. Native evidence
+is session00065e753e794b20-00; new engine acceptance remains pending.
+
+Bounded timing initialization implemented: exact two-entry packet, strict
+first-entry ACK, both independent readbacks and MAC0 before/after. One attempt
+per session, authorization before every I/O and completion; failure quarantines
+through xHCI with no retry. v7 now uses this engine; v6 remains capture-only.
+Host checks passed: build, MCU/xHCI, per-operation failure/cancellation,
+second-readback mismatch despite valid ACK, enabled MAC refusal,128 reply-bit
+mutations,192 submitted-packet mutations, ASan/UBSan, native reply replay and docs.
+No new physical acceptance: installed201acb491eb09532 is unchanged and no boot
+is armed. General MAC/BBP tables, larger batches and RF remain pending.

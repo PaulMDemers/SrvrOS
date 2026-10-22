@@ -209,15 +209,50 @@ static bool wifi_mcu_timing_read(struct xhci_device *d,uint32_t address,uint32_t
     for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
     return *value!=UINT32_MAX;
 }
+static bool wifi_timing_owned(void *context) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    return wifi_mcu_owned(d) && m->timing_active && !m->pending &&
+        m->identity_validated && m->write_validated && d->firmware.radio_reset.prepared;
+}
+static bool wifi_timing_read(void *context,uint32_t address,uint32_t *value) {
+    struct xhci_device *d=context;
+    if(!wifi_timing_owned(d))return false;
+    return address==0x1004?wifi_fw_read(d,address,value):wifi_mcu_timing_read(d,address,value);
+}
+static int wifi_timing_exchange(void *context,const uint8_t *packet,size_t length,
+    uint8_t *reply,size_t capacity) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    static const uint8_t allowed[24]={16,0,0xc3,0x50,0,0x11,0x41,0,
+        0x10,0x10,0xa4,0x33,4,0x11,0x41,0,9,2,0,0,0,0,0,0};
+    if(!wifi_timing_owned(d) || !packet || !reply || length!=sizeof allowed ||
+        capacity<MT76_MCU_RESPONSE_MAX)return -1;
+    for(size_t i=0;i<length;i++)if(packet[i]!=allowed[i])return -1;
+    int received=wifi_mcu_write_pair(d,&m->timing_sent,true);
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
+}
+static bool wifi_mcu_initialize_timing(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    m->timing_active=true;m->timing_sent=-1;
+    const struct mt76_mcu_timing_io io={d,wifi_timing_owned,wifi_timing_read,wifi_timing_exchange};
+    enum mt76_mcu_timing_status status=mt76_mcu_apply_timing(&m->timing,&io);
+    m->timing_active=false;
+    struct mt76_mcu_timing *s=&m->timing;
+    console_printf("wifi-timing-init: status=%u attempted=%u write_attempted=%u sent=%d received=%d ack_validated=%u complete=%u reads=%u mac_before=%x mac_after=%x before0=%x before1=%x after0=%x after1=%x\n",
+        (uint64_t)status,(uint64_t)s->attempted,(uint64_t)s->write_attempted,
+        (int64_t)m->timing_sent,(int64_t)s->received,(uint64_t)s->ack_validated,
+        (uint64_t)s->complete,(uint64_t)s->reads,(uint64_t)s->mac_before,(uint64_t)s->mac_after,
+        (uint64_t)s->before[0],(uint64_t)s->before[1],(uint64_t)s->after[0],(uint64_t)s->after[1]);
+    if(status!=MT76_TIMING_OK)return wifi_mcu_fail(d);
+    return true;
+}
 static bool wifi_mcu_capture_pair(struct xhci_device *d,bool timing) {
+    if(timing)return wifi_mcu_initialize_timing(d);
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     uint32_t before=~0u,after=~0u;int sent=-1,received=-1;
     bool disabled=wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&before) && before==0;
-    uint32_t prior[2]={~0u,~0u},readback[2]={~0u,~0u};bool readbacks=!timing;
-    m->timing_active=timing;
-    if(timing)disabled=disabled && wifi_mcu_timing_read(d,0x1100,&prior[0]) &&
-        wifi_mcu_timing_read(d,0x1104,&prior[1]);
-    if(disabled)received=wifi_mcu_write_pair(d,&sent,timing);
+    if(disabled)received=wifi_mcu_write_pair(d,&sent,false);
     struct mt76_mcu_response r={0};
     bool decoded=received>=0 && mt76_mcu_decode(m->buffer,(size_t)received,&r);
     if(received>0 && received<=64)for(unsigned n=0;n<(unsigned)received/4;n++) {
@@ -232,16 +267,7 @@ static bool wifi_mcu_capture_pair(struct xhci_device *d,bool timing) {
         (uint64_t)r.sequence,(uint64_t)r.event,(uint64_t)r.reported_length,
         (uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)before,(uint64_t)after,
         (uint64_t)disabled,(uint64_t)observed);
-    if(timing) {
-        readbacks=disabled && wifi_mcu_timing_read(d,0x1100,&readback[0]) &&
-            wifi_mcu_timing_read(d,0x1104,&readback[1]) &&
-            readback[0]==0x33a41010 && readback[1]==0x209;
-        console_printf("wifi-mcu-timing: before0=%x before1=%x after0=%x after1=%x readback_ok=%u changed0=%u changed1=%u\n",
-            (uint64_t)prior[0],(uint64_t)prior[1],(uint64_t)readback[0],(uint64_t)readback[1],
-            (uint64_t)readbacks,(uint64_t)(prior[0]!=readback[0]),(uint64_t)(prior[1]!=readback[1]));
-    }
-    m->timing_active=false;
-    if(!observed || !disabled || !readbacks)return wifi_mcu_fail(d);
+    if(!observed || !disabled)return wifi_mcu_fail(d);
     return true; /* Captured evidence only, no multi-pair ACK acceptance yet. */
 }
 

@@ -82,6 +82,54 @@ bool mt76_mcu_validate_disabled_write_reply(const uint8_t *data, size_t length) 
     return true;
 }
 
+bool mt76_mcu_validate_timing_reply(const uint8_t *data, size_t length) {
+    /* Native session00065e753e794b20-00: first entry echoed; both values
+     * independently read back. ACK alone cannot accept the second write. */
+    static const uint8_t expected[16]={
+        8,0,3,0x4a, 0,0x11,0x41,0, 0x10,0x10,0xa4,0x33, 8,0,3,0x4a
+    };
+    if(!data || length!=sizeof expected)return false;
+    for(size_t i=0;i<sizeof expected;i++)if(data[i]!=expected[i])return false;
+    return true;
+}
+static enum mt76_mcu_timing_status timing_read(struct mt76_mcu_timing *s,
+    const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value) {
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->reads++;
+    if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+    return *value==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
+}
+enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *s,
+    const struct mt76_mcu_timing_io *io) {
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)
+        return MT76_TIMING_REFUSED;
+    *s=(struct mt76_mcu_timing){.attempted=true,.received=-1};
+    enum mt76_mcu_timing_status status;
+#define TIMING_READ(address,value) do { status=timing_read(s,io,address,value); if(status!=MT76_TIMING_OK)return status; } while(0)
+    TIMING_READ(0x1004,&s->mac_before);
+    if(s->mac_before)return MT76_TIMING_STATE;
+    TIMING_READ(0x1100,&s->before[0]);
+    TIMING_READ(0x1104,&s->before[1]);
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    const struct mt76_mcu_register_pair pairs[2]={{0x1100,0x33a41010},{0x1104,0x209}};
+    uint8_t packet[24],reply[MT76_MCU_RESPONSE_MAX];
+    size_t length=mt76_mcu_register_packet(true,3,pairs,2,packet,sizeof packet);
+    if(length!=sizeof packet)return MT76_TIMING_STATE;
+    s->write_attempted=true;
+    s->received=io->exchange(io->context,packet,length,reply,sizeof reply);
+    if(s->received<0)return MT76_TIMING_IO;
+    s->ack_validated=mt76_mcu_validate_timing_reply(reply,(size_t)s->received);
+    if(!s->ack_validated)return MT76_TIMING_REPLY;
+    TIMING_READ(0x1100,&s->after[0]);
+    TIMING_READ(0x1104,&s->after[1]);
+    TIMING_READ(0x1004,&s->mac_after);
+    if(s->after[0]!=pairs[0].value || s->after[1]!=pairs[1].value || s->mac_after)
+        return MT76_TIMING_STATE;
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+#undef TIMING_READ
+}
+
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;
     s->pending = ++s->issued;

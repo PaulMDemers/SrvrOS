@@ -48,6 +48,75 @@ static void test_native_disabled_write_reply(void) {
     assert(!mt76_mcu_validate_disabled_write_reply(native,16));
 }
 
+static const uint8_t timing_reply[16]={8,0,3,0x4a,0,0x11,0x41,0,0x10,0x10,0xa4,0x33,8,0,3,0x4a};
+struct timing_fake { unsigned ops,fail,auth,deny,writes; bool bad_ack,bad_second,enabled,missing,enabled_after; };
+static bool timing_authorize(void *context) {
+    struct timing_fake *f=context;return ++f->auth!=f->deny;
+}
+static bool timing_read_fake(void *context,uint32_t address,uint32_t *value) {
+    struct timing_fake *f=context;
+    const uint32_t order[]={0x1004,0x1100,0x1104,0,0x1100,0x1104,0x1004};
+    assert(f->ops<7 && address==order[f->ops]);
+    if(++f->ops==f->fail)return false;
+    if(f->missing){*value=UINT32_MAX;return true;}
+    if(address==0x1004)*value=f->enabled || (f->writes && f->enabled_after)?12:0;
+    else if(address==0x1100)*value=f->writes?0x33a41010:0x33a4100a;
+    else *value=f->writes && !f->bad_second?0x209:0x214;
+    return true;
+}
+static int timing_exchange_fake(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity) {
+    struct timing_fake *f=context;
+    const uint8_t expected[24]={16,0,0xc3,0x50,0,0x11,0x41,0,0x10,0x10,0xa4,0x33,4,0x11,0x41,0,9,2,0,0,0,0,0,0};
+    assert(f->ops==3 && length==24 && capacity>=16 && !memcmp(packet,expected,24));
+    if(++f->ops==f->fail)return -1;
+    f->writes++;memcpy(reply,timing_reply,16);
+    if(f->bad_ack)reply[4]^=4;
+    return 16;
+}
+static enum mt76_mcu_timing_status timing_run(struct timing_fake *f,struct mt76_mcu_timing *s) {
+    const struct mt76_mcu_timing_io io={f,timing_authorize,timing_read_fake,timing_exchange_fake};
+    return mt76_mcu_apply_timing(s,&io);
+}
+static void test_timing_initialization(void) {
+    uint8_t reply[17]={0};memcpy(reply,timing_reply,16);
+    assert(mt76_mcu_validate_timing_reply(reply,16));
+    assert(!mt76_mcu_validate_timing_reply(NULL,16));
+    for(size_t n=0;n<18;n++)if(n!=16)assert(!mt76_mcu_validate_timing_reply(reply,n));
+    assert(!mt76_mcu_validate_timing_reply(reply,SIZE_MAX));
+    for(unsigned i=0;i<16;i++)for(unsigned bit=0;bit<8;bit++) {
+        reply[i]^=1u<<bit;assert(!mt76_mcu_validate_timing_reply(reply,16));reply[i]^=1u<<bit;
+    }
+    for(unsigned seq=0;seq<16;seq++) {
+        reply[2]=reply[14]=seq;
+        assert(mt76_mcu_validate_timing_reply(reply,16)==(seq==3));
+    }
+    struct timing_fake f={0};struct mt76_mcu_timing s={0};
+    assert(timing_run(&f,&s)==MT76_TIMING_OK && s.complete && s.ack_validated);
+    assert(s.reads==6 && f.ops==7 && f.writes==1 && s.received==16);
+    assert(timing_run(&f,&s)==MT76_TIMING_REFUSED && f.ops==7);
+    for(unsigned fail=1;fail<=7;fail++) {
+        f=(struct timing_fake){.fail=fail};s=(struct mt76_mcu_timing){0};
+        assert(timing_run(&f,&s)==MT76_TIMING_IO && !s.complete && f.ops==fail);
+        assert(timing_run(&f,&s)==MT76_TIMING_REFUSED && f.ops==fail);
+    }
+    for(unsigned deny=1;deny<=8;deny++) {
+        f=(struct timing_fake){.deny=deny};s=(struct mt76_mcu_timing){0};
+        assert(timing_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.ops==deny-1);
+    }
+    f=(struct timing_fake){.bad_ack=true};s=(struct mt76_mcu_timing){0};
+    assert(timing_run(&f,&s)==MT76_TIMING_REPLY && f.ops==4 && !s.complete);
+    f=(struct timing_fake){.bad_second=true};s=(struct mt76_mcu_timing){0};
+    assert(timing_run(&f,&s)==MT76_TIMING_STATE && s.ack_validated && !s.complete);
+    f=(struct timing_fake){.enabled=true};s=(struct mt76_mcu_timing){0};
+    assert(timing_run(&f,&s)==MT76_TIMING_STATE && !f.writes);
+    f=(struct timing_fake){.missing=true};s=(struct mt76_mcu_timing){0};
+    assert(timing_run(&f,&s)==MT76_TIMING_STATE && !f.writes);
+    f=(struct timing_fake){.enabled_after=true};s=(struct mt76_mcu_timing){0};
+    assert(timing_run(&f,&s)==MT76_TIMING_STATE && !s.complete);
+    assert(mt76_mcu_apply_timing(NULL,NULL)==MT76_TIMING_REFUSED);
+    puts("mt76 timing init: PASS exact ACK, all operation failures, cancellation, readback and disabled-MAC gates");
+}
+
 static void test_register_packets(void) {
     struct mt76_mcu_register_pair pairs[25];uint8_t out[202];
     for(size_t i=0;i<25;i++)pairs[i]=(struct mt76_mcu_register_pair){(uint32_t)(4*i),0x12345678u+(uint32_t)i};
@@ -96,6 +165,7 @@ int main(void) {
     test_native_identity_reply();
     test_native_disabled_write_reply();
     test_register_packets();
+    test_timing_initialization();
     uint8_t payload[193], wire[202];
     memset(payload, 0xab, sizeof(payload));
     /* Independently specified Q_SELECT(1,1), command1, sequence3. */

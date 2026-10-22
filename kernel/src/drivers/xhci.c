@@ -236,6 +236,8 @@ struct xhci_wifi_mcu {
     uint8_t dci;
     bool attempted, configured, pending, done, failed;
     bool identity_validated, write_attempted, write_validated, pair_attempted, timing_active;
+    struct mt76_mcu_timing timing;
+    int timing_sent;
 };
 
 struct xhci_wifi_firmware {

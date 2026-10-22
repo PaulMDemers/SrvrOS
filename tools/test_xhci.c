@@ -1645,6 +1645,29 @@ static void test_wifi_timing_reads(void) {
     puts("xhci-timing-read: PASS exact offsets/read request, phase/ownership gates and transfer failure quarantine");
 }
 
+static void test_wifi_timing_exchange_refusal(void) {
+    reset_test();
+    struct xhci_device d={.present=true,.slot_id=1,.wifi_probe_ok=true,
+        .wifi_identity={0x76100002,0x76502000}};
+    d.firmware=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+        .radio_reset={.prepared=true},.mcu={.timing_active=true,.configured=true,
+        .identity_validated=true,.write_validated=true,.write_attempted=true}};
+    uint8_t packet[24]={16,0,0xc3,0x50,0,0x11,0x41,0,0x10,0x10,0xa4,0x33,
+        4,0x11,0x41,0,9,2,0,0,0,0,0,0},reply[1024];
+    for(unsigned i=0;i<24;i++)for(unsigned bit=0;bit<8;bit++) {
+        packet[i]^=1u<<bit;
+        assert(wifi_timing_exchange(&d,packet,24,reply,1024)==-1);
+        assert(!d.firmware.mcu.pair_attempted);
+        packet[i]^=1u<<bit;
+    }
+    assert(wifi_timing_exchange(&d,packet,23,reply,1024)==-1);
+    assert(wifi_timing_exchange(&d,packet,24,reply,1023)==-1);
+    assert(wifi_timing_exchange(&d,NULL,24,reply,1024)==-1);
+    assert(wifi_timing_exchange(&d,packet,24,NULL,1024)==-1);
+    assert(!d.firmware.mcu.pair_attempted && !freed);
+    puts("xhci-timing-exchange: PASS exact packet enforcement and no submission on malformed input");
+}
+
 static void test_wifi_mcu_transport(void) {
     for(unsigned in=0;in<2;in++)for(unsigned fault=0;fault<9;fault++) {
         reset_test();test_time=0;test_time_step=1000;
@@ -1711,6 +1734,7 @@ int main(int argc, char **argv) {
     test_wifi_mcu_pair_probe();
     test_wifi_mcu_timing_probe();
     test_wifi_timing_reads();
+    test_wifi_timing_exchange_refusal();
     test_wifi_mcu_transport();
     test_wifi_recovery();
     test_firmware_immediate_data();

@@ -43,6 +43,31 @@ bool mt76_mcu_validate_identity_reply(const uint8_t *data, size_t length);
 /* Exact native contract for the fixed sequence2 MAC_SYS_CTRL=0 write.
  * Not a general register-write or multi-pair acknowledgement validator. */
 bool mt76_mcu_validate_disabled_write_reply(const uint8_t *data, size_t length);
+/* Exact sequence3 reply for the two-entry timing fixture, not other tables. */
+bool mt76_mcu_validate_timing_reply(const uint8_t *data, size_t length);
+struct mt76_mcu_timing_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*read)(void *context, uint32_t address, uint32_t *value);
+    int (*exchange)(void *context, const uint8_t *packet, size_t length,
+        uint8_t *reply, size_t capacity);
+};
+struct mt76_mcu_timing {
+    bool attempted, write_attempted, ack_validated, complete;
+    uint32_t before[2], after[2], mac_before, mac_after, reads;
+    int received;
+};
+enum mt76_mcu_timing_status {
+    MT76_TIMING_OK, MT76_TIMING_REFUSED, MT76_TIMING_IO,
+    MT76_TIMING_CANCELLED, MT76_TIMING_STATE, MT76_TIMING_REPLY
+};
+/* Fixed 1100=33a41010,1104=209, sequence3 only. authorize must pin native
+ * identity/firmware, prepared reset, strict seq1/2 replies and exclusive live
+ * transport. Callbacks bound waits and retain/quarantine uncertain DMA.
+ * One attempt per hardware lifecycle, including failure; never reset to retry.
+ * No RF, power, channel, TX/RX enable or arbitrary table inputs. */
+enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *session,
+    const struct mt76_mcu_timing_io *io);
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

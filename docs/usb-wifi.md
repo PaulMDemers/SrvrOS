@@ -705,7 +705,7 @@ do not infer a full-table echo validator from this fixture.
 
 ### Distinct timing-pair diagnostic
 
-Firmwarev7 (`--wifi-timing-probe`, requiring v6's flags) replaces the duplicate
+The initial firmwarev7 capture (`--wifi-timing-probe`, requiring v6's flags) replaces the duplicate
 pair with two fixed timing-register initial values: XIFS_TIME_CFG1100=33a41010
 and BKOFF_SLOT_CFG1104=209, as specified in Linuxv6.18 mt76x02_regs.h and
 mt76x0/initvals_init.h. No table source is imported. It runs only after prepared
@@ -730,3 +730,23 @@ Both writes therefore have changed-value evidence; the response alone does not
 prove the second write. MAC remained0, strict prerequisites and capture passed,
 and post-return recovery/filesystem checks were clean. Use this exact fixture
 for strict validation; larger batches and other register classes remain untested.
+
+### Bounded timing initialization
+
+`mt76_mcu_apply_timing` promotes only the accepted two-entry timing transaction
+into an initialization step. It accepts no caller-supplied table, addresses,
+values or sequence. After checking MAC_SYS_CTRL=0 and capturing both baselines,
+it issues the exact sequence3 packet once. It requires the native16-byte
+first-entry reply, then independently reads both target values and MAC_SYS_CTRL.
+Only matching readbacks and a disabled MAC allow `complete=true`. Authorization
+is checked before every operation and again before completion; callbacks must
+pin identity, firmware, reset and strict earlier replies, bound waits and retain
+uncertain DMA. A failed attempt cannot be retried by reusing the session.
+
+The v7 xHCI binding restricts the exchange to the exact24-byte timing packet and
+uses the existing bounded transport. `wifi-timing-init` records status, attempts,
+ACK validation, completion, read counts and before/after values. Failure stops
+and quarantines the device. The earlier v6 duplicate-pair capture remains a
+capture-only profile. This is not a general MAC/BBP table executor or radio
+readiness: larger batches and additional register classes require their own
+completion and readback policy.
