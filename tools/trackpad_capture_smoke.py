@@ -2,6 +2,9 @@
 """Exercise capture persistence/refusal paths with disposable USB media, not Apple hardware."""
 import argparse
 import hashlib
+import json
+import binascii
+import uuid as uuidlib
 from pathlib import Path
 import socket
 import struct
@@ -13,9 +16,43 @@ import threading
 from exfat_test_image import ExfatFixture, check_clean_image
 from usb_storage_smoke import make_iso
 from uefi_usb_smoke import default_ovmf_path
+import hardware_boot as staged_boot
+from hardware_boot_smoke import make_disk
+from mk_usb_image import gpt_entry, gpt_header
 from hardware_trackpad import validate_result
 from desktop_foundation_smoke import QMP
 from desktop_io_result import validate as validate_io, validate_timing, validate_text, text_gate, validate_timeline
+
+
+def staged_capture(release):
+    if not staged_boot.RELEASE_RE.fullmatch(release):
+        raise ValueError('Invalid staged release ID')
+    source=staged_boot.STAGE/release
+    manifest=staged_boot.verify(source)
+    match=staged_boot.TRACKPAD_RE.fullmatch(manifest['config_version'])
+    if not match or not manifest['config_version'].startswith('ram-usb-v10-'):
+        raise ValueError('Exact capture rehearsal requires a capture-only v10 stage')
+    return source,manifest,match[1],match[2]
+
+
+def workspace_disk(path,data,table):
+    mbr=bytearray(512);mbr[450]=7
+    struct.pack_into('<II',mbr,454,2048,len(data)//512);mbr[510:]=b'\x55\xaa'
+    with path.open('wb') as stream:
+        if table=='gpt':
+            last=2048+len(data)//512-1;backup=last+33
+            entries=bytearray(128*128)
+            entries[:128]=gpt_entry(uuidlib.UUID('ebd0a0a2-b9e5-4433-87c0-68b6b72699c7'),
+                uuidlib.uuid4(),2048,last,'Workspace')
+            crc=binascii.crc32(entries)&0xffffffff;guid=uuidlib.uuid4()
+            mbr[450]=0xee;struct.pack_into('<II',mbr,454,1,0xffffffff)
+            stream.write(mbr);stream.write(gpt_header(1,backup,34,last,2,128,crc,guid));stream.write(entries)
+            stream.seek(2048*512);stream.write(data);stream.write(entries)
+            stream.write(gpt_header(backup,1,34,last,backup-32,128,crc,guid))
+        elif table=='mbr':
+            stream.write(mbr);stream.seek(2048*512);stream.write(data)
+        else:
+            raise ValueError('Unsupported workspace table')
 
 
 def main():
@@ -25,34 +62,52 @@ def main():
     parser.add_argument('--io-rounds',type=int,default=16,choices=range(16,129),metavar='16..128')
     parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
+    parser.add_argument('--release',help='verify and boot this exact capture-only v10 stage through GRUB')
+    parser.add_argument('--workspace-table',choices=('mbr','gpt'),default='mbr')
     args=parser.parse_args()
     args.gestures |= args.desktop_io
     args.pointer |= args.gestures
     root=Path(__file__).resolve().parents[1]
     logs=root/((f'build/review/desktop-io-trial-{args.io_rounds}' if args.io_rounds>16 else 'build/review/desktop-io-trial') if args.desktop_io else 'build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
-    run='0123456789abcdef'; release='fedcba9876543210'
+    run='0123456789abcdef'; release='fedcba9876543210';stage=None
+    if args.release:
+        if args.pointer or args.gestures or args.desktop_io:
+            parser.error('--release is capture-only; no pointer/gesture/desktop options')
+        stage,manifest,stage_uuid,run=staged_capture(args.release);release=args.release
+        logs=root/'build/review'/f'trackpad-stage-{release}';logs.mkdir(parents=True,exist_ok=True)
+    receipt=logs/'trackpad-result.json';receipt.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix='srvros-trackpad-') as directory:
         temp=Path(directory); volume=temp/'volume.img'; disk=temp/'usb.img'
         with volume.open('wb') as f: f.truncate(128*1024*1024)
         subprocess.run(['/usr/sbin/mkfs.exfat','-c','128K',str(volume)],check=True,stdout=subprocess.DEVNULL)
+        if stage:
+            subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+stage_uuid,str(volume)],check=True,stdout=subprocess.DEVNULL)
         fixture=ExfatFixture(volume.read_bytes()); uuid=f'{fixture.u32(100):08x}'
         fixture.add_directory_files('srvros-work',{
             '.workspace':f'SRVROS-WORKSPACE-V1 {uuid}\n'.encode(),
             f'trackpad-{run}.req':f'SRVROS-TRACKPAD-V1 {run}\n'.encode()})
         initial=bytes(fixture.data)
         volume.write_bytes(initial); print(check_clean_image(volume),end='')
-        def reset():
-            mbr=bytearray(512); mbr[450]=7
-            struct.pack_into('<II',mbr,454,2048,len(initial)//512); mbr[510:]=b'\x55\xaa'
-            with disk.open('wb') as f: f.write(mbr); f.seek(2048*512); f.write(initial)
+        def reset(): workspace_disk(disk,initial,args.workspace_table)
         reset()
-        iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad={"gestures" if args.gestures else "pointer" if args.pointer else "capture"}'
-            f' srvros.trackpad-run={run} srvros.trackpad-release={release}'+(f' srvros.desktop-io={run}' if args.desktop_io else ''))
+        if stage:
+            cfg=temp/'grub.cfg';cfg.write_text(staged_boot.grub_config('5352-5652',release))
+            subprocess.run(['grub-script-check',str(cfg)],check=True)
+            loader=temp/'BOOTX64.EFI'
+            subprocess.run(['grub-mkstandalone','-O','x86_64-efi','--locales=','--fonts=',
+                '--modules=part_gpt fat chain search search_fs_uuid normal serial terminal',
+                '-o',str(loader),f'boot/grub/grub.cfg={cfg}'],check=True)
+            esp=temp/'esp.img';make_disk(esp,loader,stage,release)
+            boot_media=['-drive',f'format=raw,file={esp}']
+        else:
+            iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad={"gestures" if args.gestures else "pointer" if args.pointer else "capture"}'
+                f' srvros.trackpad-run={run} srvros.trackpad-release={release}'+(f' srvros.desktop-io={run}' if args.desktop_io else ''))
+            boot_media=['-cdrom',str(iso),'-boot','d']
         def boot(label,interactive=False,readonly=False):
             sockpath=temp/'serial.sock'; sockpath.unlink(missing_ok=True)
             qmppath=temp/'qmp'; qmppath.unlink(missing_ok=True)
             command=[args.qemu,'-M','q35','-m','512M','-drive',f'if=pflash,format=raw,readonly=on,file={default_ovmf_path()}',
-                '-cdrom',str(iso),'-boot','d','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
+                *boot_media,'-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
                 '-drive',f'if=none,id=stick,format=raw,file={disk}'+(',readonly=on' if readonly else ''),
                 '-device','usb-storage,drive=stick,bus=xhci.0','-serial',f'unix:{sockpath},server=on,wait=on',
                 '-display','none','-monitor','none','-no-reboot','-qmp',f'unix:{qmppath},server=on,wait=off']
@@ -164,7 +219,7 @@ def main():
             return data
         output=boot('capture',True)
         assert b'USB unmounted: yes' in output and b'SAVE_FAILED' not in output
-        volume.write_bytes(disk.read_bytes()[2048*512:])
+        volume.write_bytes(disk.read_bytes()[2048*512:2048*512+len(initial)])
         print(check_clean_image(volume),end='')
         saved=ExfatFixture(volume.read_bytes())
         report=saved.read(f'srvros-work/trackpad-{run}.txt')
@@ -204,6 +259,14 @@ def main():
         output=boot('read-only',readonly=True)
         assert b'request consumption/flush FAILED' in output and b'ready for gestures' not in output
         assert hashlib.sha256(disk.read_bytes()).digest()==before
+    if stage:
+        assert staged_boot.verify(stage)==manifest, 'Stage changed during rehearsal'
+    receipt.write_text(json.dumps({'status':'PASS','release':release,'run':run,
+        'manifest_sha256':staged_boot.digest(stage/'manifest.json') if stage else None,
+        'exact_stage':bool(stage),'workspace_table':args.workspace_table,
+        'report_status':fields['status'],'saved':True,'unmounted':True,
+        'replay_refused':True,'readonly_refused':True,'halted':True,
+        'physical_acceptance':'pending'},indent=2)+'\n')
     print('trackpad-capture-smoke: PASS interactive input, durable CRC report, clean exFAT, incomplete hardware coverage, replay/read-only refusal, halt')
 
 

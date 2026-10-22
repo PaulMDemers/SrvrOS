@@ -193,6 +193,9 @@ this evidence applies to the recorded installed source, not the newer baseline.
 
 ## Active trackpad capture bootstrap (2026-10-22)
 
+See the [capture workflow](../macbookair6-1-trackpad.md) for exact commands,
+VM limits and the attended halt/restart contract.
+
 Owner branch `device/macbookair6-1/trackpad-capture`, base `443dbfa` (main with
 PR #54 merged). Bounded scope: captured `05ac:0290` revision `0171`, capture-only
 Type 3 endpoint admission, sanitized configuration fixture and xHCI refusal/
