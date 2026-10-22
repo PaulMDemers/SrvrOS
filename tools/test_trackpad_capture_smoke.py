@@ -14,7 +14,7 @@ class CaptureHarnessTests(unittest.TestCase):
             source,got,volume,run=smoke.staged_capture(release)
             self.assertEqual((got,volume,run),(manifest,'1234abcd','fedcba9876543210'))
             verify.assert_called_once_with(source)
-            for version in (11,12):
+            for version in (11,12,50):
                 manifest['config_version']=f'ram-usb-v{version}-trackpad-1234abcd-fedcba9876543210'
                 self.assertEqual(smoke.staged_capture(release)[2:],('1234abcd','fedcba9876543210'))
             for version in ('ram-usb-v13-trackpad-1234abcd-fedcba9876543210','ram-usb-v7-workspace-1234abcd'):

@@ -1080,6 +1080,7 @@ int main(int argc,char **argv) {
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
+    int tap_typing=argc==2 && strcmp(argv[1],"--tap-typing-test")==0;
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
@@ -1108,8 +1109,14 @@ int main(int argc,char **argv) {
     desk_ui_window_focus(&s.scene.calendar_ui,0);
     if((apps || coexist_text) && gui_keyboard_mode(1)!=0) { gfx_console_mute(0);return 1; }
     if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,width,height); return 1; }
-    s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
+    s.scene.trackpad_trial=tap_typing?4:io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
+    if(tap_typing) {
+        if(gui_pointer_config(3,SRV_POINTER_TAPS|SRV_POINTER_DISABLE_WHILE_TYPING)!=0) {
+            gfx_console_mute(0);desk_pixels_free(pixels,width,height);return 1;
+        }
+        desk_log("deskd: tap/typing options=14\n");
+    }
     desk_damage_init(&s.damage,width,height);
     if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }

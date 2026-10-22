@@ -26,7 +26,7 @@ AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37)-desktop-([0-9a-f]{8})")
-TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
+TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
 def digest(path):
@@ -99,10 +99,11 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith("ram-usb-v37-"): cmdline += " srvros.usb-network=ecm"
     elif trackpad:
         volume, run = trackpad.groups()
-        mode="gestures" if version.startswith(("ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
+        mode="gestures" if version.startswith(("ram-usb-v50-","ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={volume} srvros.trackpad={mode} "
                    f"srvros.trackpad-run={run} srvros.trackpad-release={release}")
         if version.startswith(("ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")): cmdline += f" srvros.desktop-io={run}"
+        if version.startswith("ram-usb-v50-"): cmdline += f" srvros.trackpad-policy={run}"
     elif autotest:
         volume, run = autotest.groups()
         cmdline = (f"srvros.storage=ram srvros.autotest-volume={volume} "
@@ -158,7 +159,7 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, tap_typing=False):
     if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session) and hold_on_failure:
         raise ValueError("USB overlap requires automatic checkpoint/return")
     if hold_on_failure and laptop_probe_volume is None:
@@ -181,7 +182,9 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Idle/AML capture requires a laptop probe volume")
     if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture,battery_capture,battery_transitions,battery_service,battery_usb_read,battery_usb_write,battery_filesystem,battery_desktop,battery_text,battery_load,battery_app_files,battery_controls,battery_query,battery_smbus,battery_smbus_files,battery_home,battery_home_session,keyboard_capture,cpu_load_capture)))>1:
         raise ValueError("Idle and AML captures are separate profiles")
-    gestures=gestures or desktop_io
+    if tap_typing and (desktop_io or trackpad_run is None):
+        raise ValueError("Tap/typing trial requires its own trackpad run")
+    gestures=gestures or desktop_io or tap_typing
     pointer=pointer or gestures
     if pointer and trackpad_run is None:
         raise ValueError("Pointer trial requires a trackpad run")
@@ -197,7 +200,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
     if trackpad_run is not None:
-        version = f"ram-usb-v{16 if desktop_io else 12 if gestures else 11 if pointer else 10}-trackpad-{workspace_volume}-{trackpad_run}"
+        version = f"ram-usb-v{50 if tap_typing else 16 if desktop_io else 12 if gestures else 11 if pointer else 10}-trackpad-{workspace_volume}-{trackpad_run}"
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
