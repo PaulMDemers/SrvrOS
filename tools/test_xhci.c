@@ -5,10 +5,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #define SRVROS_XHCI_TEST_MMIO
 static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
+struct xhci_device;
+static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
+
+/* Model a controller inspecting setup before software gives it ownership. */
+static void xhci_test_control_publish(struct xhci_device *d, uint64_t phys, bool cycle) {
+    unsigned i=(phys-d->ep0_ring_phys)/16;
+    assert((d->ep0_ring[i].control & 1) != cycle);
+    unsigned stages=(d->ep0_ring[i].control & (3u<<16)) ? 3 : 2;
+    for(unsigned n=1;n<stages;n++) {
+        if(++i==63) { assert((d->ep0_ring[i].control & 1)==cycle); i=0; cycle=!cycle; }
+        assert((d->ep0_ring[i].control & 1)==cycle);
+        assert(((d->ep0_ring[i].control>>10)&63)==(n==stages-1 ? XHCI_TRB_TYPE_STATUS_STAGE : XHCI_TRB_TYPE_DATA_STAGE));
+    }
+}
 
 static _Alignas(4096) uint8_t pool[5 * 1024 * 1024];
 static uint64_t pool_used;
@@ -1256,8 +1271,28 @@ static void test_wifi_firmware_transport(void) {
     puts("xhci-firmware: PASS dedicated bulk completion/residue/ED/timeout quarantine, ownership and exact FCE halfword requests");
 }
 
+static void test_control_publication(void) {
+    for(unsigned cycle=0;cycle<2;cycle++) for(unsigned first=0;first<63;first++)
+    for(unsigned kind=0;kind<3;kind++) {
+        reset_test();
+        struct xhci_trb ring[64]={0}, events[64]={0};
+        struct xhci_device d={.slot_id=1,.ep0_ring=ring,.ep0_ring_phys=0x9000,
+            .ep0_enqueue=first,.ep0_cycle=cycle};
+        xhci.db_base=0x1000; xhci.rt_base=0x2000;
+        xhci.event_ring=events; xhci.event_cycle=true;
+        unsigned last=(first+(kind?2:1))%63;
+        events[0]=control_event(0x9000+last*16,1,0);
+        struct usb_setup_packet req={.request_type=kind==2?0xc0:0x40,.request=6,.length=kind?4:0};
+        int actual=-1;
+        assert(control_transfer_internal(&d,&req,0xa000,req.length,kind==2,&actual));
+        assert(actual==req.length);
+        assert((ring[first].control&1)==cycle);
+    }
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_control_publication();
     test_wifi_firmware_stop();
     test_wifi_firmware_control_guards();
     test_wifi_firmware_configuration();

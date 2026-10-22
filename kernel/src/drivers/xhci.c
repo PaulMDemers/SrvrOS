@@ -1171,11 +1171,11 @@ static bool submit_command(uint32_t type, uint32_t flags, uint64_t *slot_out) {
     return submit_command_trb(&trb, type, slot_out);
 }
 
-static uint64_t ring_push(struct xhci_trb *ring,
+static uint64_t ring_push_owned(struct xhci_trb *ring,
     uint64_t ring_phys,
     uint64_t *enqueue,
     bool *cycle,
-    const struct xhci_trb *source) {
+    const struct xhci_trb *source, bool defer) {
     uint64_t index = *enqueue;
     if (index >= XHCI_TRB_COUNT - 1) {
         index = 0;
@@ -1184,7 +1184,7 @@ static uint64_t ring_push(struct xhci_trb *ring,
 
     uint64_t trb_phys = ring_phys + index * sizeof(struct xhci_trb);
     struct xhci_trb trb = *source;
-    trb.control = (trb.control & ~1u) | (*cycle ? 1u : 0u);
+    trb.control = (trb.control & ~1u) | ((*cycle != defer) ? 1u : 0u);
     copy_trb(&ring[index], &trb);
     *enqueue = index + 1;
     if (*enqueue == XHCI_TRB_COUNT - 1) {
@@ -1193,6 +1193,22 @@ static uint64_t ring_push(struct xhci_trb *ring,
         *cycle = !*cycle;
     }
     return trb_phys;
+}
+
+static uint64_t ring_push(struct xhci_trb *ring, uint64_t ring_phys,
+    uint64_t *enqueue, bool *cycle, const struct xhci_trb *source) {
+    return ring_push_owned(ring, ring_phys, enqueue, cycle, source, false);
+}
+
+static void control_publish(struct xhci_device *device, uint64_t setup_phys, bool cycle) {
+    struct xhci_trb *first = &device->ep0_ring[(setup_phys-device->ep0_ring_phys)/sizeof(struct xhci_trb)];
+#ifdef SRVROS_XHCI_TEST_MMIO
+    xhci_test_control_publish(device, setup_phys, cycle);
+#endif
+    /* Keep setup unavailable until every stage and its completion owner exist.
+     * Preserve the starting cycle even when data/status cross the Link TRB. */
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    __atomic_store_n(&first->control, (first->control & ~1u) | (cycle ? 1u : 0u), __ATOMIC_RELEASE);
 }
 
 static bool wait_transfer_completion(uint8_t slot_id,
@@ -1338,11 +1354,12 @@ static bool control_transfer_internal(struct xhci_device *device,
             XHCI_TRB_IDT |
             (length == 0 ? XHCI_SETUP_TRT_NONE : (data_in ? XHCI_SETUP_TRT_IN : XHCI_SETUP_TRT_OUT)),
     };
-    uint64_t setup_phys = ring_push(device->ep0_ring,
+    bool setup_cycle = device->ep0_cycle;
+    uint64_t setup_phys = ring_push_owned(device->ep0_ring,
         device->ep0_ring_phys,
         &device->ep0_enqueue,
         &device->ep0_cycle,
-        &setup_trb);
+        &setup_trb, true);
 
     uint64_t data_phys = 0;
     if (length != 0) {
@@ -1385,6 +1402,7 @@ static bool control_transfer_internal(struct xhci_device *device,
         strict_control.status = status_phys; strict_control.length = length;
         strict_control.actual = length; strict_control.data_in = data_in;
         strict_control.short_seen = false; strict_control.done = false;
+        control_publish(device, setup_phys, setup_cycle);
         db_write32(device->slot_id, 1);
         event_irq_restore(submit_flags);
         *actual = wait_control_exact(device);
@@ -1392,6 +1410,7 @@ static bool control_transfer_internal(struct xhci_device *device,
         device->control_success++;
         return true;
     }
+    control_publish(device, setup_phys, setup_cycle);
     db_write32(device->slot_id, 1);
     event_irq_restore(submit_flags);
     uint64_t completion = 0;

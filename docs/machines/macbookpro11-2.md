@@ -1878,3 +1878,13 @@ recipe is unchanged and unarmed; apply automatic return when staging the next
 candidate and verify that exact stage in the VM before installation. This is a
 workflow/documentation change only. Fetched main remains e946f5e; open Air PR44
 concerns battery query refusal with parked USB, outside this workflow change.
+
+Next bounded scope (2026-10-22): xHCI EP0 transaction publication. Current code
+publishes the setup cycle before building data/status; Linux queues setup with
+inverse ownership and publishes only after the whole transfer is ready. Fix this
+ordering with regression coverage for both cycles and ring wrap, leaving device
+initialization and retry policy unchanged. This is a correctness issue, not yet
+an established cause of the native stall. Files: xhci.c and host fixtures; then
+exact-stage automatic-return VM checks and a cold native trial. Fetched main
+24fd5f4 (Air SMBus ownership proof); only PR19 remains open. Integration profile
+collision stays deferred; no shared battery changes.
