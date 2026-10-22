@@ -2,6 +2,17 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: firmware resource audit and recovery admission
+
+Base `origin/main` `3c98c42` (PR #39). Audit EC/SMBus, firmware Global Lock,
+interpreter locks and retained event ownership. Add a conservative resource
+snapshot gate to the existing VM recovery boundaries and exercise real held-lock
+and partial-EC refusal fixtures. Native mounted Home and automatic startup remain
+off; this work cannot establish firmware independence from VM evidence. Touched:
+battery runtime/model, a pure admission policy, host/VM tests and current guides.
+Pro PR #19 `426f0cd` remains independent Wi-Fi work. No hardware reboot or payload
+change is planned. Next checkpoint: audit, local validation and reviewable merge.
+
 ### Completed IRQ handoff (PR #39)
 
 Base `origin/main` `a1b9802` (PR #38), tested code `6c23fbd`. A token-bound
