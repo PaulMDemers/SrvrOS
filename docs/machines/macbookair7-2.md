@@ -2,6 +2,50 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Accepted parked SMBus/Text/file capture (PR #48)
+
+Release `fda709928307b1b1`, source `e6b4b03` (implementation `029e344`), session
+`session-00065e731a64ed84-00` completed the automatic v47 capture. The service diagnostic ran for 60.371
+seconds, including the 60.019-second desktop workload. It processed 345 natural
+completion events and refreshed the battery cache from generation 1 to 23. The real Text worker
+completed all 60 generated/presented edits, five file cycles and 20 operations;
+61 cached UI reads reached generation 23. All three descendants retired, followed
+by the battery service and exclusive image. The 23 SCI deliveries were handled,
+with zero unclaimed/in-flight interrupts; heap/errors/denied were zero at retirement.
+
+The outer Home filesystem stayed parked. Exact inner contents, inner/outer fsck
+and independent allocation checks passed. All 921 unrelated USB files remained
+identical; only `.srvros/meta` and the dedicated `battery-fs.img` changed, and
+three matching logs were added. No collector attention. The Ubuntu boot ID changed,
+the one-shot was consumed, and Ubuntu default/EFI order and recovery were verified.
+Current is `fda709928307b1b1`; accepted desktop `b427b78f21644bd2` remains previous.
+The accepted payload and evidence are independently hash-verified outside `build`
+at `~/.local/share/srvros/accepted-evidence/fda709928307b1b1`. No reboot is armed.
+
+No alarms occurred: native alarm acknowledgement/invalidation, gauge accuracy
+and physical-input latency remain untested by this automatic capture. This
+accepts bounded parked-image coexistence, not ordinary mounted Home, automatic
+battery startup or a sibling firmware profile. The short v46 limit stays 128;
+v47 caps the full minute at 512 and retains all compact event receipts.
+
+Local validation passed both diagnostic builds, all/core/docs, 50 staging tests,
+20 collector tests and strict proof corruption cases. Nine full-boot VM cases
+cover modeled native-rate completion, recurring alarms, Stop during read/ack,
+uncertain acknowledgement, event limit, no events and native/profile refusals.
+Positive cases verify saved proof, contents, metadata and both allocation graphs.
+Interrupted Stop runs remain incomplete; uncertain acknowledgement/event-limit
+runs reset without clean-retirement or saved-completion claims. The v46 capture
+and ordinary mounted Text/file regressions passed, as did exact staged native
+refusal/save/return and missing-workspace return. The local validation archive
+has 111 hash-verified files, including 22 round-trip-verified compressed disks:
+`~/.local/share/srvros/local-validation/battery-smbus-files-029e34478cdc`.
+
+Base `53a24a0` (PR47). Pro PR19 `c20917f` was inspected; its current Wi-Fi control
+retirement/capture edits do not overlap this implementation. Shared main/staging
+profiles must still be preserved during integration. Actions remain disabled.
+Next: audit lifecycle/storage ownership for explicitly controlled ordinary Home
+coexistence, with VM proof before native enablement. Home/startup remain OFF.
+
 ### Completed VM SMBus/Text/file study (PR #47)
 
 Implementation `b1e80f0`, base `4ea10e1`. The VM-only mounted-workspace command

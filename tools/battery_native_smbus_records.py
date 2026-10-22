@@ -2,7 +2,7 @@
 import re
 from serial_records import complete_lines
 
-def check(data,vm=False):
+def check(data,vm=False,files=False):
     data=complete_lines(data.replace(b'\r\n',b'\n'))
     def one(prefix,pattern):
         rows=[r for r in data.splitlines() if r.startswith(prefix)]
@@ -11,7 +11,7 @@ def check(data,vm=False):
         return tuple(map(int,match.groups()))
     one(b'laptop-capture: battery media ',rb'laptop-capture: battery media parked=yes fault-reset=armed')
     rows=re.findall(rb'^battery-smbus: event=(\d+) generation=(\d+) status=(\d+) alarm=([01]) address=(\d+) data=(\d+) acknowledged=([01]) refresh=([01]); aml=0 serialized=1$',data,re.M)
-    assert len(rows)==data.count(b'battery-smbus: event=') and 0<len(rows)<=128
+    assert len(rows)==data.count(b'battery-smbus: event=') and 0<len(rows)<=(512 if files else 128)
     rows=[tuple(map(int,r)) for r in rows]
     events,alarms,acks,unknown,invalid,gen=one(b'battery-native-smbus: outcome=',rb'battery-native-smbus: outcome=completed events=(\d+) alarms=(\d+) acknowledgements=(\d+) unknown=(\d+) invalid_through=(\d+) generation=(\d+) state=4 error=0 fresh=0 valid=1; retired=yes parked=1')
     snap,seen=one(b'battery-native-smbus: snapshot ',rb'battery-native-smbus: snapshot generation=(\d+) events=(\d+) valid=1 fresh=1')
@@ -41,9 +41,10 @@ def check(data,vm=False):
     restored=re.findall(rb'^battery: foreign-event restored enable=0x([0-9a-f]+) original=0x([0-9a-f]+) protected_writes=(\d+)$',data,re.M)
     assert len(restored)==data.count(b'battery: foreign-event restored ')==2
     assert {(int(p,16),int(v,16)) for p,v,_ in restored}==({(0x62f,0x40),(0x62e,4)} if vm else {(0x189c,0x40),(0x189e,4)})
-    one(b'battery-smbus-capture:',rb'battery-smbus-capture: returned=yes clean=yes; physical accuracy NOT_TESTED')
+    marker=b'battery-smbus-files-capture:' if files else b'battery-smbus-capture:'
+    one(marker,re.escape(marker)+rb' returned=yes clean=yes; physical accuracy NOT_TESTED')
     one(b'laptop-capture: completed=',rb'laptop-capture: completed=yes')
-    order=[b'laptop-capture: battery media ',b'battery-smbus: event=',b'battery-native-smbus: snapshot ',b'battery-smbus-return:',b'battery-recovery-resources:',b'battery-service: retired ',b'battery-native-smbus: outcome=',b'battery-smbus-capture:',b'laptop-capture: completed=']
+    order=[b'laptop-capture: battery media ',b'battery-smbus: event=',b'battery-native-smbus: snapshot ',b'battery-smbus-return:',b'battery-recovery-resources:',b'battery-service: retired ',b'battery-native-smbus: outcome=',marker,b'laptop-capture: completed=']
     offsets=[data.index(p) for p in order];assert offsets==sorted(offsets)
     for m in re.finditer(rb'^battery: foreign-event restored ',data,re.M):assert offsets[4]<m.start()<offsets[5]
     # Every event is complete before the masked return proof, including events
@@ -52,3 +53,32 @@ def check(data,vm=False):
     for bad in (b'battery: HALTED',b'battery: FAILED',b'battery-smbus: FAILED',b'battery-query-policy:',b'battery-quarantine:',b'outcome=not-exercised',b'retired=NO'):
         assert bad not in data
     return dict(status='PASS',events=events,alarms=alarms,acknowledgements=acks,unknown=unknown,generation=gen,fresh_generation=snap,runtime_retired=True,scope='parked natural SMBus events',physical_accuracy='not tested')
+
+
+def check_files(data,vm=False):
+    from battery_desktop_smoke import check_files_capture
+    raw=complete_lines(data.replace(b'\r\n',b'\n'))
+    assert raw.count(b'battery-smbus-files:')==1
+    assert b'battery-smbus-files: begin limit=512 storage=image; aml=0 serialized=1\n' in raw
+    assert b'battery-smbus: event=' not in raw and b'battery-smbus: invalidate ' not in raw
+    # Compact wire records preserve every event in the bounded saved-log tail.
+    # Reject malformed/partial records rather than silently dropping evidence.
+    lines=[]
+    for line in raw.splitlines():
+        if line.startswith(b'smbus-e:'):
+            m=re.fullmatch(rb'smbus-e:(\d+),(\d+),(\d+),([01]),(\d+),(\d+),([01]),([01])',line);assert m
+            line=(b'battery-smbus: event=%s generation=%s status=%s alarm=%s address=%s data=%s acknowledged=%s refresh=%s; aml=0 serialized=1'%m.groups())
+        elif line.startswith(b'smbus-i:'):
+            m=re.fullmatch(rb'smbus-i:(\d+),(\d+),([01])',line);assert m
+            line=b'battery-smbus: invalidate generation=%s cached=%s valid=%s fresh=0'%m.groups()
+        lines.append(line)
+    expanded=b'\n'.join(lines)+b'\n'
+    result=check(expanded,vm,files=True)
+    workload=check_files_capture(raw)
+    assert result['fresh_generation']>=workload['last_generation']
+    assert raw.index(b'battery-smbus-files: begin ')<raw.index(b'smbus-e:')<raw.index(b'battery-native-smbus: snapshot ')
+    assert raw.index(b'workspace-image: prepared ')<raw.index(b'battery-smbus-files: begin ')
+    assert raw.index(b'battery-service: retired ')<raw.index(b'workspace-image: revoked clean=yes')<raw.index(b'battery-native-smbus: outcome=')
+    assert raw.index(b'desktop-coexist: completed=')<raw.index(b'battery-native-smbus: snapshot ')
+    result.update(workload);result['scope']='parked SMBus events with Text and exclusive filesystem image'
+    return result

@@ -740,3 +740,15 @@ clean offline allocation. No alarms occurred; do not count an absent alarm as
 acknowledgement or cache-invalidation acceptance. Keep event counts and physical
 accuracy limits in the machine record rather than promoting all VM cases to
 hardware passes.
+
+## Parked SMBus with Text/file activity (Air7,2 v47)
+
+The separate `--battery-smbus-files` recipe uses the native diagnostic kernel,
+automatic return, and a fresh exclusive `battery-fs.img`. Follow the image
+preparation, exact-stage and backup steps above; preserve the prior diagnostic
+image before replacing it. See the [ownership contract](battery-smbus-events.md#parked-smbustextfile-capture-v47).
+Collect `battery_smbus_files`, including `image_verified`, and independently
+check outer-file preservation, both filesystems/allocation, and Ubuntu recovery.
+A valid v46 receipt does not accept v47. No physical interaction is required;
+missing completion, interrupted work, event-limit failure or quick reset is not
+a pass. Ordinary mounted Home and automatic battery startup stay off.

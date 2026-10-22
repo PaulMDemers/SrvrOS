@@ -339,6 +339,29 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIn('collection: battery application-file completion missing or invalid',report['sessions'][0]['attention'])
 
+    def test_smbus_files_require_image_and_exact_recipe(self):
+        from test_battery_smbus_files_records import FILES_PROOF
+        from unittest.mock import patch
+        native=FILES_PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-smbus-files\n'
+            (folder/'boot.log').write_bytes(boot);(folder/'exit.log').write_bytes(boot+native)
+            with patch.object(desktop,'verify_battery_image',return_value='verified-fixture-hash') as verify:
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertTrue(item['battery_smbus_files']['image_verified']);self.assertFalse(item['attention'])
+                self.assertIsNone(item['battery_smbus'])
+                self.assertEqual(verify.call_args.args[3].__name__,'verify_app_image')
+            with patch.object(desktop,'verify_battery_image',side_effect=ValueError('wrong saved image')):
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_smbus_files']);self.assertIn('collection: wrong saved image',item['attention'])
+            (folder/'exit.log').write_bytes(boot+native.replace(b'smbus-e:1',b'smbus-e:2'))
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertTrue(report['sessions'][0]['attention'])
+            self.assertIsNone(desktop.battery_smbus_files_result((boot+native).replace(b'capture=battery-smbus-files',b'capture=battery-smbus-files-other').decode()))
+
     def test_battery_smbus_collection(self):
         from test_battery_native_smbus_records import PROOF
         native=PROOF.replace(b'0000062f',b'0000189c').replace(b'0000062e',b'0000189e')
