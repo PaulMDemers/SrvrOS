@@ -235,6 +235,18 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(trial,original.replace("srvros.usb-wifi=probe","srvros.usb-wifi=probe srvros.wifi-mac-startup=1"))
         with self.assertRaises(ValueError):boot.stage(wifi_mac_startup=True,laptop_probe_volume="37d8c5d0")
 
+    def test_wifi_mcu_profile(self):
+        for suffix in ('', '-auto-return'):
+            v2='ram-usb-wifi-fw-v2-laptop-probe-37d8c5d0'+suffix
+            v3=v2.replace('v2','v3')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v3))
+            old=boot.limine_config('0123456789abcdef',v2)
+            new=boot.limine_config('0123456789abcdef',v3)
+            self.assertEqual(new,old.replace('srvros.wifi-mac-startup=1',
+                'srvros.wifi-mac-startup=1 srvros.wifi-mcu-probe=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mcu_probe=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_mcu_probe=True,wifi_firmware_package=self.root)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-v44-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

@@ -5,6 +5,7 @@
 #include <srvros/usb_ecm.h>
 #include <srvros/mt76_probe.h>
 #include <srvros/mt76_bringup.h>
+#include <srvros/mt76_mcu.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -226,7 +227,18 @@ struct xhci_trackpad_endpoint {
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
 
+struct xhci_wifi_mcu {
+    struct xhci_bulk_endpoint response;
+    uint64_t buffer_phys, trb;
+    uint8_t *buffer;
+    uint32_t remaining, requested, completion;
+    uint8_t dci;
+    bool attempted, configured, pending, done, failed;
+};
+
 struct xhci_wifi_firmware {
+    bool ready;
+    struct xhci_wifi_mcu mcu;
     struct xhci_bulk_endpoint ep;
     uint64_t allocation, buffer_phys, scratch_phys, trb;
     uint8_t *buffer, *scratch;
@@ -436,6 +448,7 @@ static bool wifi_firmware_enabled, firmware_command_exact, firmware_command_fail
 void xhci_set_wifi_firmware_enabled(bool enabled) { wifi_firmware_enabled=enabled; }
 static bool configure_wifi_firmware(struct xhci_device *d);
 static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
+static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event);
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -2191,6 +2204,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    if(wifi_mcu_event(device,event)) return;
     if(wifi_firmware_event(device,event)) return;
     if(network_event(device,dci,pointer,completion,remaining)) return;
     struct xhci_trackpad_endpoint *t=&device->trackpad;
@@ -3213,3 +3227,4 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
 }
 
 #include "xhci_wifi_firmware.inc"
+#include "xhci_wifi_mcu.inc"

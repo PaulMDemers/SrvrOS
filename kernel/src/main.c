@@ -660,6 +660,8 @@ void kmain(void) {
                 const struct initramfs_file *firmware=initramfs_find("/firmware/mt7610e.bin");
                 sampled=started && init_ready && timer_running && sampled &&
                     xhci_wifi_capture_firmware(firmware?firmware->data:0,firmware?firmware->size:0);
+                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mcu-probe=1"))
+                    sampled=xhci_wifi_capture_mcu();
                 console_printf("wifi-firmware-capture: completed=%s; RF and connectivity NOT_TESTED\n",sampled?"yes":"NO");
             }
             if(automatic_wifi_calibration) {

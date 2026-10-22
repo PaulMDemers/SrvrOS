@@ -2134,3 +2134,20 @@ native command transport and saved response evidence, before RF initialization.
 No payload installed, USB adapter disturbed or reboot armed by this work.
 Full kernel build and existing preparation/upload/bring-up/xHCI regressions pass;
 documentation link checks pass. Native evidence remains firmware readiness only.
+
+Next scope: connect a one-shot MCU read diagnostic to xHCI for the captured
+Edimax descriptor. Reuse the retired firmware OUT endpoint, add a separate
+command-response IN endpoint/ring/buffer, and read only MAC_CSR0 through firmware.
+Require accepted firmware completion and disabled MAC; retain all DMA on failure.
+Record bounded transfer status and decoded response without accepting RF/network.
+Main3c47b50 inspected; Air branch5fe69fa remains battery work. No concurrent
+staging or physical run. Boot-profile integration follows transport tests.
+
+One-shot MCU xHCI transport implemented behind firmwarev3 opt-in. Fixed random
+read of MAC_CSR0 only; separate IN0x85/DCI11 response ring, existing OUT8 ring,
+500ms waits, exact transfer ownership, short-IN bounds and retained DMA on every
+failure. Saved header/first16bytes are evidence only (validated=0); final EP0 MAC
+check must remain0x20. Full build/xHCI regressions and52 staging tests pass,
+including new endpoint configuration, wrong slot/DCI/pointer, event errors,
+residue, allocation failure and unready-firmware refusal. No native acceptance
+or radio enablement claimed. Stage/VM checks precede any physical installation.

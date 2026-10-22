@@ -1409,8 +1409,67 @@ static void test_wifi_recovery(void) {
     puts("xhci-wifi-recovery: PASS fresh DMA, exact dequeue, faults, bounded retry and stale-event exclusion");
 }
 
+static void test_wifi_mcu_transport(void) {
+    for(unsigned in=0;in<2;in++)for(unsigned fault=0;fault<9;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[1024]={0};
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000}};
+        struct xhci_wifi_firmware *f=&d->firmware;
+        *f=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .buffer=buffer,.buffer_phys=0x10000,
+            .ep={.ring=ring,.ring_phys=0x9000,.cycle=true,.dci=16}};
+        f->mcu=(struct xhci_wifi_mcu){.configured=true,.buffer=buffer,.buffer_phys=0x10000,
+            .response={.ring=ring,.ring_phys=0x9000,.cycle=true,.dci=11}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9000,1,0);
+        events[0].control=(32u<<10)|(1u<<24)|((in?11u:16u)<<16)|1;
+        if(fault==1)events[0].status=(13u<<24)|8;
+        if(fault==2)events[0].status=(1u<<24)|33;
+        if(fault==3)events[0].control|=4;
+        if(fault==4)events[0].parameter_low=0x9010;
+        if(fault==5)events[0].control=(32u<<10)|(2u<<24)|((in?11u:16u)<<16)|1;
+        if(fault==6)f->ready=false;
+        if(fault==7)events[0].status=6u<<24;
+        if(fault==8)events[0].control=(32u<<10)|(1u<<24)|(9u<<16)|1;
+        int expected=fault==0?32:(fault==1 && in?24:-1);
+        assert(wifi_mcu_bulk(d,in,32)==expected);
+        assert(!freed);
+        if(expected<0 && fault!=6) {
+            assert(f->mcu.failed && f->failed && d->ep0_quarantined);
+            assert(wifi_mcu_bulk(d,in,32)==-1);
+        }
+        if(fault==6)assert(!f->mcu.pending && !f->mcu.failed);
+    }
+    for(unsigned fault=0;fault<5;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        uint8_t input[4096]={0},output[4096]={0};struct xhci_trb commands[64]={0},events[64]={0};
+        struct xhci_device d={.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000},.input_context=input,
+            .input_context_phys=(uintptr_t)input,.output_context=output};
+        d.firmware=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        xhci.command_ring=commands;xhci.command_ring_phys=0xa000;xhci.command_cycle=true;
+        events[0]=(struct xhci_trb){.parameter_low=0xa000,.status=(fault==1?6u:1u)<<24,
+            .control=(XHCI_TRB_TYPE_COMMAND_COMPLETION<<10)|((fault==2?2u:1u)<<24)|1};
+        if(fault==3)fail_after=1;
+        if(fault==4)d.wifi_identity.mac++;
+        assert(configure_wifi_mcu(&d)==!fault);
+        assert(!freed);
+        if(!fault) {
+            assert(context_read32(input,0,1)==(1u|(1u<<11)));
+            assert(context_read32(input,12,1)==((3u<<1)|(6u<<3)|(512u<<16)));
+            assert((context_read32(input,1,0)>>27)==16);
+            assert(!configure_wifi_mcu(&d));
+        }
+    }
+    puts("xhci-mcu: PASS endpoint configuration, bounded IN/OUT, short packets, stale events, quarantine and DMA retention");
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_wifi_mcu_transport();
     test_wifi_recovery();
     test_firmware_immediate_data();
     test_control_publication();

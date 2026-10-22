@@ -1893,9 +1893,9 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_mcu.c -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)

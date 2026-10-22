@@ -532,3 +532,21 @@ tables and calibration/power programming remain pending.
 lengths and padding, capacity refusal, malformed response bounds, sequence
 exhaustion, stale completion and poisoned-session behavior, plus the offline
 country/channel policy. Both targets participate in `test-core`.
+
+### One-shot native MCU transport capture
+
+Firmware profilev3 (`--wifi-mcu-probe`, requiring `--wifi-mac-startup` and the
+pinned firmware package) adds one CMD_RANDOM_READ of WLAN MAC_CSR0 after successful
+firmware upload and a disabled-MAC check. It reuses the retired OUT8 ring and adds
+an isolated bulk IN0x85/DCI11 ring and buffer, matching the captured descriptor.
+Exact TRB/DCI completion, bounded500ms monotonic waits, short-IN residue bounds,
+command slot checks and permanent uncertainty quarantine protect this diagnostic.
+All DMA allocations remain retained, including failed configuration/timeout.
+
+The first16 response bytes and decoded header fields go into the existing saved
+workspace log. They contain this fixed register-read reply, not received wireless
+packets. A second EP0 read checks that MAC remains disabled. `validated=0` is
+intentional: capturing a matching-sequence response does not validate its event,
+length/body contract, RF state or networking. Transport failure makes the capture
+incomplete; normal automatic-return behavior is retained. Older firmwarev1/v2
+profiles are unchanged. No ordinary desktop startup invokes this diagnostic.

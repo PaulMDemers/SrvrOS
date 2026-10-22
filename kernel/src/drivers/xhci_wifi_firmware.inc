@@ -318,6 +318,7 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
         if(status!=MT76_UPLOAD_OK || !disabled){wifi_firmware_fail(d);success=false;}
         console_printf("wifi-firmware: slot=%u result=%u chunks=%u mac_disabled=%u quarantined=%u\n",
             (uint64_t)d->slot_id,(uint64_t)status,(uint64_t)f->chunk,(uint64_t)disabled,(uint64_t)f->failed);
+        f->ready=status==MT76_UPLOAD_OK && disabled && !f->failed;
         f->active=false;
     }
     return found && success;
