@@ -2,6 +2,18 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active returned-query failure study
+
+Base `origin/main` `065546f` (PR #41). Implement a VM-only query admission
+boundary after QR_EC completes, with operation/effect receipts, normal worker
+return, queued notification drain and orderly failed-service retirement. Add
+negative VM cases for shared effects, retained lock, transport and disconnect
+failure; preserve native refusal and existing recovery/Text regressions.
+Touched: battery runtime/platform fixture, pure query policy, VM/host tests,
+Makefile and battery documentation. Pro PR #19 at `faed5b7` has only independent
+Makefile test additions in common. No scheduler, native gate, installed payload,
+physical test or reboot changes planned. Native mounted Home/startup remain off.
+
 ### Completed native AML side-effect audit
 
 Base `origin/main` `d49ef02` (PR #40). The
