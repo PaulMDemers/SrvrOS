@@ -198,3 +198,13 @@ acknowledgement, event-limit failure, native/profile refusal. Exact staged nativ
 refusal/save/reset and missing-workspace return precede a hardware install.
 The earlier native completion-only acceptance does not accept this new overlap
 or real alarms; those require their own matching hardware receipt.
+
+
+Air7,2 accepted v47 release `fda709928307b1b1` on October 22: 345 natural
+completion events, fresh generation 23, 60 generated edits and five real Text
+file-worker cycles over a minute. All clients/runtime retired before image
+revocation; saved proof, exact inner contents, other-file preservation, both
+allocation graphs and automatic Ubuntu return verified. All 23 SCI deliveries
+were handled, none unclaimed. No alarms occurred, so alarm acknowledgement and
+invalidation retain VM-only evidence. Ordinary mounted Home/startup stay off;
+physical-input latency and gauge accuracy are outside this automatic capture.

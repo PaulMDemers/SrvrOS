@@ -426,3 +426,23 @@ No native boot recipe or profile changed. The next Air scope is a parked
 exclusive-image coexistence capture with a measured event budget, first in VM.
 Native Home/startup stays off. Pro PR19 `79132d6` remains independent Wi-Fi work;
 shared scope is only separate Makefile test additions. Actions remain disabled.
+
+
+## Air sustained parked SMBus/Text/file handoff (PR #48)
+
+Implementation `029e344` adds v47 `--battery-smbus-files`, reusing the real Text
+worker and exclusive filesystem image while the outer workspace remains parked.
+Air7,2 release `fda709928307b1b1` accepts 345 natural completion events, fresh
+cache generation 23, 60 edits/five file cycles, clean retirement, exact contents
+and file preservation, both allocation graphs, and automatic Ubuntu return.
+The short v46 capture remains unchanged. Reuse the strict combined proof and
+compact event receipts; do not accept an incomplete workload or quick reset.
+
+Native alarms did not occur and remain VM-tested only. The native owner still
+requires the exact captured Air firmware/resources and parked image lease.
+Ordinary mounted Home and automatic startup are OFF. Next Air scope is auditing
+lifecycle/storage ownership for explicit Home coexistence, VM first. Pro PR19
+`c20917f` retains independent Wi-Fi work; preserve its profiles and tests when
+integrating shared main/staging changes. No sibling acceptance is implied.
+All validation ran locally with Actions disabled. Evidence/payload backups are
+hash-verified outside `build`; no physical trial is armed after this closeout.
