@@ -306,3 +306,17 @@ control contract before designing another battery UI. Ordinary Home coexistence
 is the next Air checkpoint. Pro PR #19 at `c6ad8e9` consumed PR #33 and retains its
 separate Wi-Fi firmware capture; preserve that profile when integrating main and
 staging changes. Fetch the actual merged baseline and rerun local affected tests.
+
+
+## Air native recovery audit handoff
+
+The [native AML map](battery-native-aml-audit.md), based on PR #40 `d49ef02`,
+identifies shared GNVS/graphics/GPIO startup writes, non-rollback disconnect and
+query 80's denied GPU/chipset path. Do not broaden native gates or infer safe
+recovery from an idle EC/Global Lock snapshot alone. The Air's next bounded scope
+is structured query-admission failure after completed QR_EC and before unapproved
+AML, with operation/effect receipts and orderly retirement tested in VM first.
+Native mounted Home and automatic startup remain off. Pro PR #19 at `e871a1e8`
+is independent Wi-Fi work; this audit has no code overlap. Raw firmware stays
+machine-local. Other agents should consume the contracts, not copy Air firmware
+fingerprints or acceptance.
