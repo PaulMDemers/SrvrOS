@@ -989,7 +989,7 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     sci_report("ready");
     return true;
 }
-/* Copy only on CPU0 with interrupts masked; emit outside that critical section.
+/* Service-thread writer only. Copy on CPU0 with interrupts masked; emit outside that critical section.
  * The worker remains responsible for every event/ack/invalidation, even when
  * logging coalesces thousands of successful events into one status record. */
 static void continuous_events_report(bool final) {
@@ -1108,6 +1108,9 @@ static void service_main(void *arg) {
             irq_restore(f);
             next_sample=timer_monotonic_us()+BATTERY_SERVICE_INTERVAL_US;
         }
+        /* One service-thread writer orders periodic and final records. A
+         * preempted session-owner snapshot must not appear after retirement. */
+        continuous_events_report(false);
         /* Retain the independent query watchdog while sleeping between polls.
          * The engaged owner/worker may run through storage service windows. */
         if(!scheduler_wait_timeout(&service.wake,stop_requested,NULL,timer_ticks()+5))
@@ -1679,7 +1682,6 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(bound)for(;;) {
         if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
         desktop_tree_scan(&tree);controls_dispatch(rsdp,map);
-        continuous_events_report(false);
         if(workspace && !guarded) {
             struct battery_service_status state;battery_service_status(&state);
             if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {

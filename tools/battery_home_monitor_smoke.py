@@ -66,6 +66,11 @@ def main():
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as f:f.write(mbr);f.seek(2048*512);f.write(fixture.data)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='refusal' else 'vm.elf')
+        symbols=subprocess.check_output(['nm','-a',str(kernel)],text=True)
+        uart=re.search(r'^([0-9a-f]+) [a-zA-Z] serial_ready$',symbols,re.M)
+        assert uart
+        def inspect_uart(qmp):
+            return qmp.call('human-monitor-command',{'command-line':'x /1bx 0x'+uart[1]})
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
              '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
@@ -82,12 +87,17 @@ def main():
                     serial.sendall(b'workspace mount 51525354\n');mounted=bytearray();due=time.monotonic()+15
                     while b'workspace: ready at /work/srvros-work' not in mounted and time.monotonic()<due:mounted.extend(read_for(serial,.1))
                     output.extend(mounted);assert b'workspace: ready at /work/srvros-work' in mounted
-                serial.sendall(b'acpiruntime battery-home-monitor\n');data=bytearray();begin=time.monotonic();phase=0;pointer=[24,56]
+                serial.sendall(b'acpiruntime battery-home-monitor\n');data=bytearray();begin=time.monotonic();phase=0;pointer=[24,56];last_size=0;last_progress=begin;inspected=False
                 def click(x,y):
                     qmp.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
                     qmp.mouse(0,0,1);qmp.mouse(0,0,0)
                 while time.monotonic()-begin<(600 if args.case=="normal" else 180):
                     data.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output+data)
+                    if len(data)!=last_size:last_size=len(data);last_progress=time.monotonic()
+                    if not inspected and time.monotonic()-last_progress>15:
+                        (out/'stalled-registers.txt').write_text(str(qmp.call('human-monitor-command',{'command-line':'info registers'})))
+                        (out/'stalled-uart.txt').write_text(str(inspect_uart(qmp)))
+                        qmp.call('screendump',{'filename':str(out/'stalled.ppm')});inspected=True
                     if fatal and b'battery: HALTED' in data:break
                     if args.case in ('normal','alarm'):
                         times=[int(n) for n in re.findall(rb'battery-monitor-events: epoch=1 at_us=(\d+)',data)]
@@ -152,6 +162,11 @@ def main():
                 result.update(kernel_sha256=hashlib.sha256(kernel.read_bytes()).hexdigest(),initramfs_sha256=hashlib.sha256((root/'build/initramfs.tar').read_bytes()).hexdigest())
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
+                if not (out/'result.json').exists() and process.poll() is None:
+                    try:
+                        (out/'failure-registers.txt').write_text(str(qmp.call('human-monitor-command',{'command-line':'info registers'})))
+                        qmp.call('screendump',{'filename':str(out/'failure.ppm')})
+                    except Exception as error:(out/'failure-inspection.txt').write_text(repr(error))
                 (out/'serial.log').write_bytes(output);stop_process(process);(out/'last-workspace.img').write_bytes(stick.read_bytes())
 
 if __name__=='__main__':main()
