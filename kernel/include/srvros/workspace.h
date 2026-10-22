@@ -6,6 +6,16 @@ bool workspace_mount(const char *uuid);
 bool workspace_sync(void);
 bool workspace_unmount(void);
 bool workspace_active(void);
+/* CPU0 mounted-lifetime pin, not an I/O lock or permission to access raw blocks.
+ * One owner; acquisition requires a healthy mount and no active I/O scope.
+ * A nonzero token binds this volume/parent and mount generation. It prevents
+ * unmount/conversion but permits ordinary file I/O and sync. Tokens never reuse.
+ * The owner must retire all dependent activity before release. Storage health
+ * failure does not invalidate the identity or prevent orderly owner release. */
+uint64_t workspace_mount_hold_acquire(void);
+bool workspace_mount_hold_valid(uint64_t token);
+bool workspace_mount_hold_release(uint64_t token);
+bool workspace_mount_held(void);
 /* Last successfully validated/unmounted device, only while all writes remain
  * revoked. CPU0 diagnostic caller must retain this state throughout use. */
 struct block_device;

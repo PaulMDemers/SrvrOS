@@ -113,7 +113,7 @@ bool workspace_image_open(void) {
     bool ok = false;
     struct block_device *volume, *parent;
     uint64_t offset, raw;
-    if (workspace_image_busy() || !workspace_active() || vfs_lookup("/battery-test") ||
+    if (workspace_image_busy() || workspace_mount_held() || !workspace_active() || vfs_lookup("/battery-test") ||
         process_has_open_vfs_prefix("/work") ||
         !workspace_sync() ||
         !exfat_exclusive_range(WORKSPACE_IMAGE_PATH, WORKSPACE_IMAGE_BYTES, &volume, &offset) ||
