@@ -1901,3 +1901,19 @@ Native result pending: no claim this fixes the stall. Next cold adapter trial
 requires unplugging Wi-Fi for 10 seconds while off, reconnecting and powering
 on; leave workspace connected. Logs replace photos. Installed unarmed pending
 user readiness for that physical step.
+
+Native EP0 publication trial `5edf8b73bf8f8662`, session
+`00065e71f460e55a-00`, saved a complete matching exit log without a photo.
+The change did not resolve the stall: request13/write6/index0x800/length4 times
+out after 300003 µs. Stop Endpoint succeeds with state3, dequeue0x1eb381,
+event0x1eb380, cc26/residue4; submitted setup/data/status remain
+0x1eb370/0x1eb380/0x1eb390. MAC startup and clock prerequisite passed, reset
+completed, preparation/upload did not; zero chunks and quarantine retained.
+Firmware readiness and RF/connectivity remain unaccepted. The saved snapshot
+locates the outstanding OUT data stage but does not establish a wire handshake
+or its cause. Evidence archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-publication-2389909`. One-shot consumed,
+Ubuntu default/current/recovery payloads verified; offline filesystem/allocation
+checks pass (133 files, 448 clusters, no leaks/mismatches/errors). No next boot
+armed. Next compare the small OUT data-stage representation and Linux's working
+control sequence; avoid treating this ordering fix as a native Wi-Fi fix.
