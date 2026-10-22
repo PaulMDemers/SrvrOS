@@ -2,6 +2,17 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active VM SMBus/Text/file study
+
+Base `4ea10e1` (PR46), Pro PR19 `79132d6` inspected. Extend the existing
+mounted disposable workspace study with sustained completion/known/unknown
+alarms and deterministic stop-during-read/acknowledgement fixtures. Touched:
+VM platform, battery diagnostic command, workspace harness/proof tests and docs.
+Reuse the actual Text/file worker and retirement checks. No native profile,
+boot recipe, installed payload or hardware acceptance change is planned.
+Next checkpoint: complete local build/core and directed VM matrix, preserve
+exact source/evidence, then integrate the bounded study.
+
 ### Accepted parked SMBus completion capture (PR #46)
 
 Release `a1451825851dc5f0`, source `10a4cbe`, session
