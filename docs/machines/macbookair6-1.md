@@ -341,3 +341,24 @@ preferences; no driver policy or firmware changes. PR #60 owns descendant
 lifetime work (possible nearby desktop edits); keep this change limited to trial
 startup. PR #19 Wi-Fi is independent. Prepare/merge/install unarmed and retain
 accepted console recovery; native tap/typing acceptance awaits this new run.
+
+Candidate v50 run `4eb6e6e65525268d`, release `f8e370a084725baa`, uses clean
+implementation `1977c8b7e8eb333197886340d66d9db4ec3a0ced`. Build/core, focused
+pointer/desktop/capture suites and 112 hardware-tool tests passed. Exact-stage
+GPT rehearsal passed desktop option setup/exit, console option restoration,
+CRC report/unmount, replay/read-only refusal and halt. Its tap/typing result
+correctly remains `INCOMPLETE` without Apple input. Desktop and console screens
+were visually inspected. No physical tap/typing acceptance yet.
+
+Physical USB UUID `6ADA-85BB` has an unconsumed request and 117 pre-test hashes;
+offline fsck is clean (117 files), allocation has 120 clusters and zero errors
+or leaks. Preserve console recovery `c35475f62f154f1e` and the durable accepted
+v12 payload/evidence `e20382a7c8acbfe2`. Trial instructions are in the
+[current guide](../macbookair6-1-trackpad.md#tap-to-click-and-typing-suppression-trial-v50).
+
+Legacy gesture/MBR regression also passed. Installed current is v50; previous
+remains console recovery via `--keep-previous`. Installed hashes, Ubuntu default
+and GRUB syntax verified; one-shot is empty. Run/checklist and exact VM evidence
+have hash-verified durable backups under release `f8e370a084725baa`. At readiness
+save `launch.json` and arm the already installed entry without reinstalling.
+Collect run `4eb6e6e65525268d` first after manual restart.
