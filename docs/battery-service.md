@@ -1255,3 +1255,35 @@ environment. Refusal fixtures: `recovery-callback-target-refusal`,
 `recovery-callback-lock-refusal`, `recovery-callback-outside-scope`, and
 `recovery-callback-refusal` (native admission). This is software SCI dispatch in
 a disposable Q35 image, not physical level-triggered SCI or DMA acceptance.
+
+
+### Terminal handoff after completed IRQ delivery
+
+The VM-only `battery-workspace-recovery-target` study extends the returned-query
+admission failure to an IRQ interrupting the battery owner or worker itself.
+The bridge requests a token-bound IRQ exit hook and returns normally. The
+architecture dispatcher sends EOI, runs every registered completion and clears
+all registry bookkeeping before invoking that hook with interrupts masked.
+Only then may the hook retain both battery threads and switch permanently away
+from the interrupted stack. The interrupt frame and its saved FPU state remain
+with that retained stack; the failed service never returns through IRET.
+
+`irq_handler_defer_exit` accepts one request per delivery, only from that token's
+handler or completion, and only for a registration with a completion callback.
+Registration changes and redispatch remain excluded until `irq_handlers_finish`
+consumes the request. This is an explicit terminal boundary, not a general work
+queue or automatic resource cleanup. The CPU0 scheduler retention rules still
+reject user threads, the idle thread, a storage owner and invalid peer states.
+Native study admission remains disabled.
+
+Run `tools/battery_workspace_smoke.py --case recovery-target-worker` and
+`--case recovery-target-owner` through the host environment; native refusal is
+`--case recovery-target-refusal`. The disposable fixture arms delivery only after
+an unrelated storage owner has registered a second handler and completion. Proof
+records must identify the interrupted battery role, drained callbacks, balanced
+callback locks, a separate resumed storage identity and successful registry
+removal. Existing retained-state, both-flush, saved-log, unmount/reset and offline
+filesystem checks also apply. Returning to the failed target is a test failure.
+The older callback study still refuses target interruption without this scope.
+This does not accept native firmware locks, physical level-triggered SCI recovery,
+outstanding hardware DMA, or arbitrary nonreturning interpreter faults.

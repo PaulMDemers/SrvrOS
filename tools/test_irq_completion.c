@@ -21,6 +21,14 @@ void serial_handle_irq(void){}
 void mouse_handle_irq(void){}
 uint8_t e1000_irq_line(void){return 255;}
 bool e1000_handle_interrupt(void){return false;}
+static uint64_t exit_token;
+static void terminal(void *p) {
+    assert(p==(void *)42 && !dispatch_depth && !completion_pending && !deferred_exit.token);
+    mark(8);assert(irq_handler_remove(exit_token));
+}
+static bool exit_request(void *p) {
+    (void)p;mark(1);assert(irq_handler_defer_exit(exit_token,terminal,(void *)42));return true;
+}
 static bool handler(void *p){mark(1);return p!=0;}
 static void after(void *p){(void)p;mark(5);}
 int main(void){
@@ -34,6 +42,12 @@ int main(void){
         assert(irq_handler_remove(token));
         irq_handlers_complete(9);assert(order[count-1]==5);
     }
+    exit_token=irq_handler_register_observed(9,exit_request,after,NULL);
+    uint64_t peer=irq_handler_register_observed(9,handler,after,(void *)1);assert(exit_token && peer);
+    count=0;irq_dispatch(41);
+    unsigned drained[]={1,1,2,3,4,5,5,8};assert(count==8);
+    for(unsigned i=0;i<count;i++)assert(order[i]==drained[i]);
+    assert(irq_handler_remove(peer));
     count=0;irq_dispatch(255);assert(!count);
-    puts("irq-completion: PASS handler/result, original PIC then LAPIC EOI, exactly one observer, removal and invalid vector");
+    puts("irq-completion: PASS handler/result, original PIC then LAPIC EOI, all observers before terminal hook, removal and invalid vector");
 }

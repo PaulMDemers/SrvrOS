@@ -65,7 +65,7 @@ static enum runtime_owner owner;
 static bool auto_return;
 static bool recovery_study;
 static struct {
-    bool study,pending,completed,callback_study,callback_active,callback_failed;
+    bool study,pending,completed,callback_study,callback_active,callback_failed,target_study,target_pending,target_handoff;
     uint64_t interrupted,peer,peer_complete,callback_entries,callback_faults,callback_locks,callback_depth;
 } recovery_irq;
 static struct {
@@ -355,9 +355,35 @@ static void report_quarantine(void) {
     console_printf("battery-quarantine: owner=%u worker=%u io=%u heap=%u completed=%u; sources=masked retained=yes\n",
         service.identity,runtime.worker.identity,(uint64_t)scheduler_io_active(),runtime.heap,runtime.worker.completed);
 }
+static void report_callback_proof(void) {
+    if(recovery_irq.callback_entries!=1 || recovery_irq.callback_faults!=1 || recovery_irq.callback_depth ||
+       !recovery_irq.callback_locks || !recovery_irq.callback_failed || runtime.query.pending)
+        unsafe("callback fixture proof");
+    console_printf("battery-recovery-callback: entries=1 faults=1 locks=%u depth=0 query_pending=0; returned=yes reason=query-admission\n",recovery_irq.callback_locks);
+}
+static __attribute__((noreturn)) void quarantine_irq_exit(void *context) {
+    (void)context;uint64_t flags=irq_save(),current=scheduler_current_thread_id();
+    bool is_owner=current==service.identity;
+    if((flags&(1ull<<9)) || !recovery_study || !recovery_irq.target_study || !recovery_irq.target_pending ||
+       !recovery_irq.completed || recovery_irq.pending || recovery_irq.callback_active || recovery_irq.callback_depth ||
+       recovery_irq.peer!=1 || recovery_irq.peer_complete!=1 || current!=recovery_irq.interrupted ||
+       (!is_owner && current!=runtime.worker.identity) || runtime.sci_counts[0].in_flight ||
+       runtime.sci_counts[1].in_flight || runtime.sci_counts[2].in_flight || !sources_quiet())
+        unsafe("IRQ exit recovery admission");
+    /* EOI and every registered completion have returned; the registry cleared
+     * its deferred state before entering this hook. Retain the interrupt frame
+     * with its service stack. Never IRET to the failed service or restore IF. */
+    if(!scheduler_quarantine_service_pair(current,is_owner?runtime.worker.identity:service.identity))
+        unsafe("IRQ exit quarantine admission");
+    mark_quarantined();recovery_irq.target_pending=false;recovery_irq.target_handoff=true;
+    report_quarantine();report_callback_proof();
+    console_printf("battery-recovery-target: interrupted=%u role=%s peer=1 completion=1 in_flight=0; exit=drained retained=yes\n",current,is_owner?"owner":"worker");
+    for(;;)scheduler_yield();
+}
 /* Entry guard or a reported failure after the uACPI callback has returned.
- * Both targets must be noncurrent: no abandoning an interrupted target stack,
- * no nonlocal unwind, no scheduling before the dispatcher completes its EOI. */
+ * Normally both targets must be noncurrent. The explicit target study instead
+ * defers retention of the interrupted stack until the dispatcher completes EOI
+ * and every completion callback. No nonlocal unwind or early scheduling. */
 static void quarantine_irq_pair(bool callback) {
     uint64_t flags=irq_save();
     if(!recovery_study || !recovery_irq.study || !battery_platform_workspace_study_allowed() ||
@@ -365,6 +391,13 @@ static void quarantine_irq_pair(bool callback) {
        runtime.sci_counts[0].in_flight || runtime.sci_counts[1].in_flight!=1 || runtime.sci_counts[2].in_flight)
         unsafe("IRQ entry recovery admission");
     mask_sources();
+    uint64_t current=scheduler_current_thread_id();
+    if(callback && recovery_irq.target_study && (current==service.identity || current==runtime.worker.identity)) {
+        if(!sources_quiet())unsafe("IRQ exit source mask");
+        recovery_irq.interrupted=current;recovery_irq.pending=true;recovery_irq.target_pending=true;
+        if(!irq_handler_defer_exit(runtime.sci.token,quarantine_irq_exit,NULL))unsafe("IRQ exit request refused");
+        return; /* Finish the bridge, dispatcher and all post-EOI observers first. */
+    }
     if(!sources_quiet() || !scheduler_quarantine_noncurrent_services(service.identity,runtime.worker.identity))
         unsafe(callback?"IRQ callback quarantine admission":"IRQ entry quarantine admission");
     mark_quarantined();
@@ -419,7 +452,7 @@ static bool irq_bridge(void *context) {
     return handled;
 }
 static void sci_after_eoi(void *context) {
-    (void)context;if(service.quarantined) {
+    (void)context;if(service.quarantined || recovery_irq.target_pending) {
         if(recovery_irq.pending) { recovery_irq.pending=false;recovery_irq.completed=true; }
         return;
     }
@@ -705,6 +738,7 @@ static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
     if(!acpi_worker_enqueue(&runtime.worker,&runtime.operation,UACPI_WORK_NOTIFICATION,fn,NULL))unsafe("operation admission");
     uint64_t deadline=timer_monotonic_us()+ms*1000;
     while(!acpi_worker_drain(&runtime.worker,50)) {
+        if(runtime.platform.model_owner_irq)runtime.platform.model_owner_irq();
         check_foreign_event();
         if(runtime.budget.active&&!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("independent query deadline");
         if(timer_monotonic_us()>=deadline) {
@@ -1420,33 +1454,47 @@ static void recovery_io_owner(void *arg) {
     recovery_io.active=true;recovery_io.start=timer_monotonic_us();
     recovery_io.before=workspace_sync();
     if(recovery_irq.study) {
-        /* Enter on the unrelated storage owner's actual stack, with IF masked.
-         * The second registration proves dispatch continues and completion runs;
-         * removal after IRET also checks registry depth/pending bookkeeping. */
-        uint64_t identity=scheduler_current_thread_id();
+        /* The unrelated storage scope remains owned across IRQ recovery. The
+         * target study arms delivery on a battery stack; other studies interrupt
+         * this storage stack. The second registration proves every handler and
+         * completion runs; removal checks registry depth/pending bookkeeping. */
+        uint64_t identity=scheduler_current_thread_id(),token=0;
         volatile uint64_t sentinel=0x735256524f534952ull;
         if(!runtime.platform.model_irq_fault)unsafe("IRQ recovery fixture setup");
+        if(recovery_irq.target_study) {
+            token=irq_handler_register_observed(9,recovery_peer_irq,recovery_peer_complete,NULL);
+            if(!token)unsafe("IRQ recovery fixture registration");
+        }
         uint64_t until=timer_monotonic_us()+5000000;
         while(!runtime.platform.model_irq_fault()) {
             if(timer_monotonic_us()>=until)unsafe("IRQ recovery fixture sample wait");
             (void)scheduler_io_yield();__asm__ volatile("sti; hlt; cli":::"memory");
         }
-        uint64_t token=irq_handler_register_observed(9,recovery_peer_irq,recovery_peer_complete,NULL);
-        if(!token)unsafe("IRQ recovery fixture registration");
-        __asm__ volatile("int $41":::"memory");
+        if(recovery_irq.target_study) {
+            while(!service.quarantined) {
+                if(timer_monotonic_us()>=until)unsafe("IRQ target handoff deadline");
+                (void)scheduler_io_yield();__asm__ volatile("sti; hlt; cli":::"memory");
+            }
+        } else {
+            token=irq_handler_register_observed(9,recovery_peer_irq,recovery_peer_complete,NULL);
+            if(!token)unsafe("IRQ recovery fixture registration");
+            __asm__ volatile("int $41":::"memory");
+        }
         bool returned=sentinel==0x735256524f534952ull && scheduler_current_thread_id()==identity &&
-            recovery_irq.interrupted==identity && scheduler_io_active() && !scheduler_io_busy() &&
+            scheduler_io_active() && !scheduler_io_busy() &&
             recovery_irq.peer==1 && recovery_irq.peer_complete==1 && recovery_irq.completed &&
             !recovery_irq.pending && !runtime.sci_counts[1].in_flight && irq_handler_remove(token);
         if(!returned)unsafe("IRQ recovery return proof");
-        report_quarantine();
-        if(recovery_irq.callback_study) {
-            if(recovery_irq.callback_entries!=1 || recovery_irq.callback_faults!=1 || recovery_irq.callback_depth ||
-               !recovery_irq.callback_locks || !recovery_irq.callback_failed || runtime.query.pending)
-                unsafe("callback fixture proof");
-            console_printf("battery-recovery-callback: entries=1 faults=1 locks=%u depth=0 query_pending=0; returned=yes reason=query-admission\n",recovery_irq.callback_locks);
+        if(recovery_irq.target_study) {
+            if(!recovery_irq.target_handoff || recovery_irq.target_pending || recovery_irq.interrupted==identity)
+                unsafe("IRQ target handoff proof");
+            console_printf("battery-recovery-resume: storage=%u; scope=retained registry_released=yes\n",identity);
+        } else {
+            if(recovery_irq.interrupted!=identity)unsafe("IRQ interrupted identity proof");
+            report_quarantine();
+            if(recovery_irq.callback_study)report_callback_proof();
+            console_printf("battery-recovery-irq: interrupted=%u peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n",identity);
         }
-        console_printf("battery-recovery-irq: interrupted=%u peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n",identity);
     }
     /* Hold one unrelated storage scope across the 25-second sample deadline.
      * This models an admitted operation, not a claim of pending hardware DMA. */
@@ -1460,14 +1508,14 @@ static void recovery_io_owner(void *arg) {
     recovery_io.active=false;recovery_io.done=true;
     scheduler_io_end();irq_restore(flags);
 }
-static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *map,bool io,bool irq,bool callback) {
+static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *map,bool io,bool irq,bool callback,bool target) {
     if(!battery_platform_workspace_study_allowed()) {
         console_write("battery-recovery: REFUSED VM-only study\n");return;
     }
     if(!workspace_active() || owner!=OWNER_NONE) {
         console_write("battery-recovery: REFUSED ownership\n");return;
     }
-    recovery_irq=(typeof(recovery_irq)){.study=irq,.callback_study=callback};
+    recovery_irq=(typeof(recovery_irq)){.study=irq,.callback_study=callback,.target_study=target};
     if(io) {
         recovery_io=(typeof(recovery_io)){0};
         if(!scheduler_spawn("battery-recovery-io",recovery_io_owner,NULL)) {
@@ -1506,11 +1554,12 @@ static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *ma
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
-    if(command_is(args,"battery-workspace-recovery") || command_is(args,"battery-workspace-recovery-io") || command_is(args,"battery-workspace-recovery-irq") || command_is(args,"battery-workspace-recovery-callback")) {
-        bool callback=command_is(args,"battery-workspace-recovery-callback");
+    if(command_is(args,"battery-workspace-recovery") || command_is(args,"battery-workspace-recovery-io") || command_is(args,"battery-workspace-recovery-irq") || command_is(args,"battery-workspace-recovery-callback") || command_is(args,"battery-workspace-recovery-target")) {
+        bool target=command_is(args,"battery-workspace-recovery-target");
+        bool callback=target || command_is(args,"battery-workspace-recovery-callback");
         bool irq=callback || command_is(args,"battery-workspace-recovery-irq");
         workspace_recovery_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
-            irq || command_is(args,"battery-workspace-recovery-io"),irq,callback);return;
+            irq || command_is(args,"battery-workspace-recovery-io"),irq,callback,target);return;
     }
     /* No native boot option or exported diagnostic entry point. The backend
      * gate precedes all service/platform activity, including fault arming. */

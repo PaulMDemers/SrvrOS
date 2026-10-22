@@ -121,6 +121,7 @@ void irq_dispatch(uint64_t vector) {
 
     irq_send_eoi(irq);
     irq_handlers_complete(irq);
+    irq_handlers_finish(irq);
 }
 
 void irq0_legacy_dispatch(void) {

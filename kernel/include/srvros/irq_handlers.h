@@ -19,4 +19,17 @@ bool irq_handler_remove(uint64_t token);
  * delivery excludes registry mutation/reentrant dispatch until completion. */
 bool irq_handlers_dispatch(uint8_t line);
 void irq_handlers_complete(uint8_t line);
+/* CPU0 fatal handoff, not a general work queue. Only the currently executing
+ * observed handler/completion may request its own nonzero token, once per IRQ.
+ * The callback/context stay valid until finish; removal and redispatch remain
+ * excluded. The hook runs with IRQs masked after EOI, all completion callbacks
+ * and all registry state have drained. It may return, or retain the interrupted
+ * kernel stack and switch permanently after independently proving safe ownership.
+ * No callback unwind, source masking, resource cleanup or scheduler action is
+ * implicit. A failed request must not be treated as successful containment. */
+bool irq_handler_defer_exit(uint64_t token,irq_completion_fn,void *context);
+/* Architecture IRQ tail only, after EOI and complete, with IRQs still masked.
+ * Clears the pending request before invoking it, so a nonreturning hook cannot
+ * strand registry state. Wrong line, early/reentrant calls and IF set refuse. */
+void irq_handlers_finish(uint8_t line);
 #endif

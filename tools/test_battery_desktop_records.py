@@ -277,4 +277,30 @@ class RecoveryRecords(unittest.TestCase):
         with self.assertRaises(AssertionError):check_recovery(io+irq+row+row)
         with self.assertRaises(AssertionError):check_recovery(io+row)
 
+    def test_irq_target_handoff_proof(self):
+        from battery_workspace_smoke import check_recovery
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        callback=b'battery-recovery-callback: entries=1 faults=1 locks=5 depth=0 query_pending=0; returned=yes reason=query-admission\n'
+        resume=b'battery-recovery-resume: storage=6; scope=retained registry_released=yes\n'
+        for identity,role in ((7,'owner'),(8,'worker')):
+            target=f'battery-recovery-target: interrupted={identity} role={role} peer=1 completion=1 in_flight=0; exit=drained retained=yes\n'.encode()
+            good=io+callback+target+resume;result=check_recovery(good)
+            self.assertTrue(result['irq_target_recovered']);self.assertEqual(result['target_role'],role)
+            self.assertEqual(result['resumed_storage'],6)
+            self.assertFalse(result['irq_entry_recovered']);self.assertFalse(result['irq_callback_recovered'])
+            for row in (callback,target,resume):
+                with self.assertRaises(AssertionError):check_recovery(good.replace(row,b''))
+                with self.assertRaises(AssertionError):check_recovery(good+row)
+            for old,new in ((f'interrupted={identity}'.encode(),b'interrupted=6'),
+                            (b'role='+role.encode(),b'role='+('worker' if role=='owner' else 'owner').encode()),
+                            (b'peer=1',b'peer=0'),(b'completion=1',b'completion=0'),
+                            (b'in_flight=0',b'in_flight=1'),(b'exit=drained',b'exit=pending'),
+                            (b'storage=6',b'storage=0'),(b'storage=6',b'storage=7'),(b'storage=6',b'storage=8'),
+                            (b'scope=retained',b'scope=lost'),(b'registry_released=yes',b'registry_released=NO')):
+                with self.subTest(role=role,old=old):
+                    with self.assertRaises(AssertionError):check_recovery(good.replace(old,new))
+            for extra in (b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n',
+                          b'battery-vm: ERROR target resumed after fault\n'):
+                with self.assertRaises(AssertionError):check_recovery(good+extra)
+
 if __name__=='__main__':unittest.main()
