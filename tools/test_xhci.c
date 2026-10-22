@@ -1409,6 +1409,42 @@ static void test_wifi_recovery(void) {
     puts("xhci-wifi-recovery: PASS fresh DMA, exact dequeue, faults, bounded retry and stale-event exclusion");
 }
 
+static void test_wifi_radio_binding(void) {
+    for(unsigned release=0;release<2;release++)for(unsigned fault=0;fault<10;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+        struct xhci_device d={.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000},.ep0_ring=ring,.ep0_ring_phys=0x9000,
+            .ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        d.firmware=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .radio_reset_active=true,.radio_reset_writes=release,
+            .radio_reset={.attempted=true,.reset_attempted=true,.writes=release+1,.delay_us=release?200000:0}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,fault==8?6:1,0);
+        uint32_t address=0x1004,value=release?0:3;
+        if(fault==1)d.firmware.radio_reset_active=false;
+        if(fault==2)d.firmware.ready=false;
+        if(fault==3)value=0x0c;
+        if(fault==4)address=0x1000;
+        if(fault==5)d.firmware.radio_reset.writes++;
+        if(fault==6)d.firmware.mcu.configured=true;
+        if(fault==7)d.firmware.radio_reset.reset_attempted=false;
+        if(fault==9) { d.firmware.radio_reset_writes=1;d.firmware.radio_reset.writes=2;
+            d.firmware.radio_reset.delay_us=199999;value=0; }
+        assert(wifi_radio_write(&d,address,value)==!fault);
+        assert(!freed);
+        if(!fault) {
+            assert(buffer[0]==value && d.firmware.radio_reset_writes==release+1);
+            assert(!wifi_radio_write(&d,address,value));
+        }
+        if(fault && fault!=8)assert(d.ep0_enqueue==0);
+        if(fault==8)assert(d.ep0_quarantined && d.firmware.failed);
+        uint32_t ignored;
+        assert(!wifi_radio_read(&d,0x80,&ignored));
+    }
+    puts("xhci-radio-reset: PASS ordered restricted writes, ownership/phase gates and transfer-failure quarantine");
+}
+
 static void test_wifi_mcu_queue_order(void) {
     for(unsigned fault=0;fault<4;fault++) {
         reset_test();test_time=0;test_time_step=1000;
@@ -1502,6 +1538,7 @@ static void test_wifi_mcu_transport(void) {
 
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_wifi_radio_binding();
     test_wifi_mcu_queue_order();
     test_wifi_mcu_transport();
     test_wifi_recovery();

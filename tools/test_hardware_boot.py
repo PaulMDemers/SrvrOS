@@ -247,6 +247,17 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.stage(wifi_mcu_probe=True)
         with self.assertRaises(ValueError):boot.stage(wifi_mcu_probe=True,wifi_firmware_package=self.root)
 
+    def test_wifi_radio_reset_profile(self):
+        for suffix in ('', '-auto-return'):
+            v3='ram-usb-wifi-fw-v3-laptop-probe-37d8c5d0'+suffix
+            v4=v3.replace('v3','v4')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v4))
+            old=boot.limine_config('0123456789abcdef',v3)
+            new=boot.limine_config('0123456789abcdef',v4)
+            self.assertEqual(new,old.replace('srvros.wifi-mcu-probe=1',
+                'srvros.wifi-mcu-probe=1 srvros.wifi-radio-reset=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_radio_reset=True)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-v44-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

@@ -597,3 +597,18 @@ means only this reset prerequisite completed, not that the radio is operational.
 `make test-mt76-radio` (included in test-core) covers the successful order/hold,
 every operation failing, ownership loss, busy timeout, all-ones registers,
 initial enabled MAC, failed reset release and repeated-attempt refusal.
+
+Firmware profilev4 adds `--wifi-radio-reset` (requires MCU probe, MAC-startup and
+pinned firmware package). After upload it runs the reset prerequisite through a
+separate xHCI binding, then selects the response queue and performs the strict
+identity read. The binding permits only reads1000/1004/0208/1200 and ordered
+MAC_SYS_CTRL writes3 then0, with a minimum200ms hold before release. It refuses
+outside the active reset phase or after MCU response endpoint configuration.
+Existing firmware write permissions are unchanged. Reset or I/O failure stops
+and quarantines the device; no retry or DMA free follows uncertainty.
+
+`wifi-radio-reset` logs status, reset/release/prepared flags, operation counts,
+delay and last register/value. Success additionally requires the exact observed
+MCU reply and final MAC_SYS_CTRL=0 (v3 still requires0x20). No RF/channel/power
+tables or receive operation are enabled. Older profile recipes remain unchanged;
+v4 uses the existing saved-log automatic-return workflow.

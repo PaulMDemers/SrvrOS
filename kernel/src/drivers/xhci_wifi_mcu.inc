@@ -1,4 +1,5 @@
-/* One diagnostic only: MCU random read of MAC_CSR0, never RF or register writes.
+/* One-shot MCU identity diagnostic, optionally preceded by guarded MAC/BBP
+ * reset. No RF, channel, power-table or transmitter-enable writes.
  * No timeout recovery/retry and no DMA reclamation in this path. */
 static bool wifi_mcu_fail(struct xhci_device *d) {
     d->firmware.mcu.failed=true;
@@ -92,7 +93,52 @@ static int wifi_mcu_read_identity(struct xhci_device *d,int *queue_sent,int *rea
     return wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
 }
 
-bool xhci_wifi_capture_mcu(void) {
+static bool wifi_radio_owned(void *context) {
+    struct xhci_device *d=context;
+    return wifi_mcu_owned(d) && d->firmware.radio_reset_active &&
+        !d->firmware.mcu.pending && !d->firmware.mcu.configured;
+}
+static bool wifi_radio_read(void *context,uint32_t address,uint32_t *value) {
+    struct xhci_device *d=context;
+    if(!value || !wifi_radio_owned(d) ||
+        (address!=0x1000 && address!=0x1004 && address!=0x208 && address!=0x1200))return false;
+    struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    int actual=0;*value=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
+    for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    return true;
+}
+static bool wifi_radio_write(void *context,uint32_t address,uint32_t value) {
+    struct xhci_device *d=context;struct xhci_wifi_firmware *f=&d->firmware;
+    if(!wifi_radio_owned(d) || address!=0x1004 || !f->radio_reset.reset_attempted ||
+        f->radio_reset_writes>=2 || f->radio_reset.writes!=f->radio_reset_writes+1 ||
+        value!=(f->radio_reset_writes?0u:3u) ||
+        (f->radio_reset_writes && f->radio_reset.delay_us<200000))return false;
+    for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=(uint8_t)(value>>(8*i));
+    struct usb_setup_packet setup={.request_type=0x40,.request=6,.index=0x1004,.length=4};int actual=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual!=4)return wifi_mcu_fail(d);
+    f->radio_reset_writes++;return true;
+}
+static bool wifi_radio_delay(void *context,uint32_t us) {
+    return wifi_radio_owned(context) && (us==1000 || us==5000) && timer_delay_us(us);
+}
+static bool wifi_radio_reset(struct xhci_device *d) {
+    struct xhci_wifi_firmware *f=&d->firmware;
+    if(!wifi_mcu_owned(d) || f->radio_reset.attempted || f->mcu.configured)return false;
+    f->radio_reset_active=true;
+    const struct mt76_radio_io io={{d,wifi_radio_read,wifi_radio_write,wifi_radio_delay},wifi_radio_owned};
+    enum mt76_radio_status status=mt76_radio_prepare_reset(&f->radio_reset,&io,&d->wifi_identity);
+    f->radio_reset_active=false;
+    console_printf("wifi-radio-reset: result=%u attempted=%u reset_attempted=%u released=%u prepared=%u reads=%u writes=%u hold_us=%u last_register=%x last_value=%x\n",
+        (uint64_t)status,(uint64_t)f->radio_reset.attempted,(uint64_t)f->radio_reset.reset_attempted,
+        (uint64_t)f->radio_reset.reset_released,(uint64_t)f->radio_reset.prepared,
+        (uint64_t)f->radio_reset.reads,(uint64_t)f->radio_reset.writes,(uint64_t)f->radio_reset.delay_us,
+        (uint64_t)f->radio_reset.last_address,(uint64_t)f->radio_reset.last_value);
+    if(status!=MT76_RADIO_OK)return wifi_mcu_fail(d);
+    return true;
+}
+
+static bool wifi_capture_mcu(bool reset) {
     unsigned found=0;bool saved=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];struct xhci_wifi_firmware *f=&d->firmware;
@@ -103,6 +149,7 @@ bool xhci_wifi_capture_mcu(void) {
         m->attempted=true;f->active=true;
         uint32_t mac=0;int sent=-1,received=-1,queue_sent=-1;struct mt76_mcu_response r={0};
         bool disabled=wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&mac) && mac==0x20;
+        if(disabled && reset)disabled=wifi_radio_reset(d);
         if(disabled && configure_wifi_mcu(d)) {
             received=wifi_mcu_read_identity(d,&queue_sent,&sent);
         }
@@ -114,7 +161,7 @@ bool xhci_wifi_capture_mcu(void) {
         /* Fixed register-read reply only, never packet/credential capture. */
         console_printf("wifi-mcu-reply: word0=%x word1=%x word2=%x word3=%x\n",
             (uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3]);
-        disabled=disabled && wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&mac) && mac==0x20;
+        disabled=disabled && wifi_mcu_owned(d) && wifi_fw_read(d,0x1004,&mac) && mac==(reset?0u:0x20u);
         bool validated=decoded && mt76_mcu_validate_identity_reply(m->buffer,(size_t)received);
         console_printf("wifi-mcu-capture: slot=%u sent=%d received=%d decoded=%u sequence=%u event=%u reported_length=%u cc=%u residue=%u mac_disabled=%u failed=%u validated=%u\n",
             (uint64_t)d->slot_id,(int64_t)sent,(int64_t)received,(uint64_t)decoded,
@@ -126,3 +173,6 @@ bool xhci_wifi_capture_mcu(void) {
     }
     return found && saved;
 }
+
+bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false); }
+bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true); }

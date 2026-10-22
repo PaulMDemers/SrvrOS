@@ -6,6 +6,7 @@
 #include <srvros/mt76_probe.h>
 #include <srvros/mt76_bringup.h>
 #include <srvros/mt76_mcu.h>
+#include <srvros/mt76_radio.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -237,7 +238,9 @@ struct xhci_wifi_mcu {
 };
 
 struct xhci_wifi_firmware {
-    bool ready;
+    bool ready, radio_reset_active;
+    unsigned radio_reset_writes;
+    struct mt76_radio_prepare radio_reset;
     struct xhci_wifi_mcu mcu;
     struct xhci_bulk_endpoint ep;
     uint64_t allocation, buffer_phys, scratch_phys, trb;

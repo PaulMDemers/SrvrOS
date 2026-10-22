@@ -2248,3 +2248,17 @@ and no write sets TX/RX bits. No xHCI binding or physical execution added yet;
 installed release remains4a47cd57ac90c504, reboot unarmed. Next connect this engine
 to a separately guarded native capture, then verify reset/MCU survival before
 loading MAC/BBP/RF tables. Calibration/power enforcement remains required for TX.
+
+Next scope: firmwarev4 opt-in native MAC/BBP reset capture, before the existing
+queue-selection/strict identity-read exchange. Bind only reset-engine register
+reads and ordered MAC_SYS_CTRL writes3 then0; never widen firmware write gates.
+Require exclusive prepared firmware transport; final MAC must be0 after reset.
+Preserve v1/v2/v3 recipes and automatic saved-log return. Host binding/profile
+checks and exact-stage VMs precede installation; cold trial requires readiness.
+Main85d5cb7 remains fetched baseline; Air changes remain separate.
+
+Reset binding build and host checks pass, including exact ordered write values,
+phase/identity/ownership refusals, early-release refusal and USB failure
+quarantine.53 staging tests pass and documentation links check clean. New reset
+engine and strict native reply validator are included in v4; hardware acceptance
+remains pending. Preparing stage/VM checks before installation.
