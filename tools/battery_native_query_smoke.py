@@ -16,12 +16,13 @@ CASES={'unknown':48,'high':49,'os-darwin':50,'os-other':51,'notify-darwin':52,
 FATAL={'shared20':'query return receipt','shared21':'query return receipt',
        'transport':'query transport','disconnect':'EC disconnect','lock':'recovery resources retained'}
 
-def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture'):
+def verify_image(raw,serial,positive,checker=check,capture=b'battery-query-capture',image_checker=None):
     image=ExfatFixture(raw)
     assert {n for n,_ in image.entries(image.chain(image.root))}=={'srvros-work','.srvros'}
-    assert {n for n,_ in image.entries(image.read('srvros-work'))}=={'.workspace','anchor.txt','Logs'}
+    assert {n for n,_ in image.entries(image.read('srvros-work'))}==({'.workspace','anchor.txt','Logs','battery-fs.img'} if image_checker else {'.workspace','anchor.txt','Logs'})
     assert image.read('srvros-work/.workspace')==MARKER
     assert image.read('srvros-work/anchor.txt')==ANCHOR
+    if image_checker:image_checker(image.read('srvros-work/battery-fs.img'))
     sessions=[n for n,_ in image.entries(image.read('srvros-work/Logs'))];assert len(sessions)==1
     folder='srvros-work/Logs/'+sessions[0]
     assert {n for n,_ in image.entries(image.read(folder))}=={'boot.log','session-a.log','exit.log'}

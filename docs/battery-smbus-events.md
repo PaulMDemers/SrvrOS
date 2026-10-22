@@ -163,3 +163,38 @@ matching the native capture's existing ordering. It still precedes disconnect;
 an uncertain transfer still fails rather than being cleared for teardown.
 The strict `battery_smbus_workspace_records.py` decoder distinguishes interruption
 from a complete workload and correlates counts, invalidation and stop ordering.
+
+## Parked SMBus/Text/file capture (v47)
+
+`--battery-smbus-files --laptop-probe-volume <this-unit-uuid>` is a separate,
+automatic native diagnostic. It uses the existing exclusive `battery-fs.img`
+view and real Text file worker; the outer Home filesystem remains unmounted.
+Host-event ownership requires that exact parked device and a ready, unpoisoned
+image lease throughout runtime activity. Clients retire first, then the battery
+service drains and retires, then the image is revoked before remount/save/reset.
+This does not admit ordinary mounted Home or automatic service startup.
+
+The short v46 capture retains its 128-event limit. v47 caps the full workload at
+512 events, retaining the independent per-drain query and transfer deadlines.
+The accepted short native run observed 45 events across three samples; the VM
+replays batches of 15 per sample with the full one-minute Text/file workload.
+An excessive 32-event batch fixture must hit the capture limit rather than run
+unbounded. The event limit is containment, not evidence that all hardware events
+will fit; exceeding it produces an incomplete/failed trial.
+
+Compact `smbus-e` and `smbus-i` records retain every event and invalidation within
+the saved-log budget. Their decoder expands the strict v46 proof and also requires
+the complete Text/file overlap, exact final image contents, fresh cache beyond
+all invalidations, masked retirement, clean image revocation and saved completion.
+Missing, torn or contradictory records fail collection. Stop during read/ack is
+an interrupted workload, even if clean retirement allows a saved failure report.
+A poisoned/uncertain event keeps the existing fault-reset interlock: no filesystem
+cleanup from a live fault context, and no success inferred from a quick return.
+
+Use a fresh disposable image, preserve its previous contents locally, and validate
+both nested and outer filesystems/allocation on return. Full-boot Q35 fixtures
+cover normal native-rate batches, recurring mixed alarms, Stop read/ack, uncertain
+acknowledgement, event-limit failure, native/profile refusal. Exact staged native
+refusal/save/reset and missing-workspace return precede a hardware install.
+The earlier native completion-only acceptance does not accept this new overlap
+or real alarms; those require their own matching hardware receipt.

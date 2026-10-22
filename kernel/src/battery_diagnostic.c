@@ -70,3 +70,7 @@ __attribute__((weak)) bool battery_query_diagnostic_run(void *rsdp,struct limine
 __attribute__((weak)) bool battery_smbus_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return battery_diagnostic_run(rsdp,map);
 }
+
+__attribute__((weak)) bool battery_smbus_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}
