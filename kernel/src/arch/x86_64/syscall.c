@@ -352,7 +352,7 @@ static int64_t syscall_random(void *buffer, uint64_t length, uint64_t flags) {
 static int64_t console_write_user(const char *buffer, uint64_t length) {
     uint64_t written = 0;
     while (written < length) {
-        char chunk[256];
+        char chunk[1024]; /* Match the bounded saved-console record size. */
         uint64_t count = length - written;
         if (count > sizeof(chunk)) count = sizeof(chunk);
         if (!copy_from_user(chunk, buffer + written, count)) return written ? (int64_t)written : -1;

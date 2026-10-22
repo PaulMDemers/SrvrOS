@@ -2,6 +2,41 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Mounted Home battery boundary accepted (PR #52)
+
+Base `85d5cb7` (PR51); compiled implementation `7fac77d`; final validators
+`171b307`. Release `71ab6b95892a9a8c`, session
+`session-00065e7468b78060-00`, passed the explicit v48 mounted-Home diagnostic:
+fresh generation 3, 45 natural completion events, resource-checked runtime
+retirement, then release of the exact mount hold. Home stayed mounted throughout;
+periodic logging was paused and no desktop clients ran. No alarms occurred.
+
+All 925 existing non-metadata files remained unchanged, including the disposable
+filesystem image. Only workspace metadata changed; exactly three matching logs
+were added. Offline exFAT and allocation checks passed (929 files, no leaks).
+Automatic Ubuntu return, consumed one-shot, Ubuntu default and EFI recovery were
+verified. Current is `71ab6b95892a9a8c`; previous remains `b427b78f21644bd2`.
+Evidence and payload are hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/71ab6b95892a9a8c`. No reboot is armed.
+
+All 16 final local checks passed: eight command cases, four boot-flow cases,
+normal/cancel controls-file regressions, exact-stage refusal and missing-drive
+return. Full build, core/docs and corruption checks passed with Actions disabled.
+A controls/file regression exposed saved-log interleaving; bounded 1 KiB saved
+record appends now precede rendering/UART, whose render batches remain 64 bytes.
+Deterministic preemption tests cover the fix. Original rejected evidence remains
+in the local validation archive. Cancellation distinguishes reported incomplete
+exit from compositor termination during bounded close; neither is full workload
+completion.
+
+Next bounded scope: explicit native desktop-session ownership through System
+controls, asynchronous file work and shutdown, retaining the same exact Air
+profile and mount lifetime. Ordinary startup remains OFF. Physical charging/gauge
+accuracy and the finished indicator remain pending in the
+[delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
+Pro PR19 `92a1bbc` retains independent Wi-Fi work; preserve its main/staging and
+Makefile additions during integration. No sibling firmware acceptance is implied.
+
 ### Controls during submitted Text jobs (PR #51)
 
 Implementation `23837b9`, base `fb96ace` (PR50). The explicit VM fixture sends

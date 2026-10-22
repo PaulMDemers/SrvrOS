@@ -14,11 +14,13 @@ static void test_irq_restore(uint64_t f) { if (f & 512) test_irqs=true; }
 #include "../kernel/src/console.c"
 
 static char serial_log[65536];
-static size_t serial_count;
+static size_t serial_count, saved_count;
+static char saved_log[65536];
+static bool inject_record;
 static workqueue_fn queued;
 static bool queue_full;
-void bootlog_putc(char c) { (void)c; }
-void serial_putc(char c) { assert(test_irqs == expected_serial_irqs); assert(serial_count < sizeof(serial_log)); serial_log[serial_count++] = c; }
+void bootlog_putc(char c) { assert(!test_irqs); assert(saved_count < sizeof(saved_log)); saved_log[saved_count++] = c; }
+void serial_putc(char c) { if(inject_record) { inject_record=false; console_write("peer record\n"); } assert(test_irqs == expected_serial_irqs); assert(serial_count < sizeof(serial_log)); serial_log[serial_count++] = c; }
 bool workqueue_schedule_io_safe(workqueue_fn fn, void *arg) {
     assert(arg == NULL);
     if (queue_full) return false;
@@ -35,7 +37,7 @@ static struct limine_framebuffer frame;
 static void setup(bool deferred) {
     for (unsigned i = 0; i < sizeof(storage)/sizeof(storage[0]); i++) storage[i] = 0x12345678;
     test_irqs = expected_serial_irqs = true;
-    serial_count = 0; queued = NULL; queue_full = false;
+    serial_count = saved_count = 0; inject_record=false; queued = NULL; queue_full = false;
     frame = (struct limine_framebuffer){.address=storage+1, .width=W, .height=H, .pitch=STRIDE*4,
         .bpp=32, .memory_model=LIMINE_FRAMEBUFFER_RGB,
         .red_mask_size=8, .red_mask_shift=16, .green_mask_size=8, .green_mask_shift=8, .blue_mask_size=8};
@@ -171,7 +173,25 @@ static void test_scaled_blit(void) {
     assert(!console_blit_rgb_scaled(0,0,2,2,NULL,3,2));
     assert(!memcmp(before,storage,sizeof(before)));check_guards();
 }
+static void test_saved_record_interleaving(void) {
+    char body[701];memset(body,'x',700);body[700]=0;
+    setup(true);console_set_framebuffer_muted(true);
+    inject_record=true;
+    console_printf("owner %s end\n",body);
+    char expected[800];int n=snprintf(expected,sizeof(expected),"owner %s end\npeer record\n",body);
+    assert(saved_count==(size_t)n && !memcmp(saved_log,expected,saved_count));
+    assert(!memcmp(serial_log,"peer record\nowner ",18));
+    setup(true);console_set_framebuffer_muted(true);
+    char stream[LOG_RECORD_BATCH+17];memset(stream,'z',sizeof(stream));
+    inject_record=true;console_write_n(stream,sizeof(stream));
+    assert(saved_count==sizeof(stream)+12);
+    assert(!memcmp(saved_log,stream,LOG_RECORD_BATCH));
+    assert(!memcmp(saved_log+LOG_RECORD_BATCH,"peer record\n",12));
+    assert(!memcmp(saved_log+LOG_RECORD_BATCH+12,stream+LOG_RECORD_BATCH,17));
+    assert(serial_count==sizeof(stream)+12 && test_irqs);
+}
 int main(void) {
+    test_saved_record_interleaving();
     test_scaled_blit();
     test_serial_irq_state();
     test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output();

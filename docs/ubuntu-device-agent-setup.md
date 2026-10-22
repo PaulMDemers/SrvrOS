@@ -452,6 +452,22 @@ for an explicitly attended diagnostic. Existing installed recipes keep their
 original behavior; restage to obtain automatic failure return. The guided v32
 AC transition trial remains attended and must be announced in advance.
 
+### Mounted Home battery boundary (Air diagnostic)
+
+After the parked battery/filesystem captures, the explicit v48 `--battery-home`
+profile keeps Home mounted under the battery owner's mount hold. It pauses
+periodic log writes, takes fresh samples and retires the service before saving
+and unmounting. It does not launch desktop apps or enable normal monitoring.
+Use `stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-home`, then the
+exact `--probe-check` and `--probe-check --probe-missing-workspace` rehearsals.
+No input is required. Normal return or handled refusal saves and returns to
+Ubuntu; uncertain live runtime state halts, with no filesystem cleanup/reset
+claim. The exact Air firmware gates remain in force; unsupported models refuse.
+Air7,2 release `71ab6b95892a9a8c` accepted this bounded no-client capture with
+fresh samples, clean retirement, unchanged unrelated files and automatic return.
+Desktop-session ownership and ordinary startup remain pending. See
+[Home lifecycle](battery-home-lifecycle.md) for proof and remaining acceptance.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,
