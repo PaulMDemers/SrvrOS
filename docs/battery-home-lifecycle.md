@@ -131,7 +131,8 @@ An acknowledged alarm followed by a refused query in the same batch cannot use
 that return path. Transport/ack uncertainty, deadline or resource failure retains
 runtime and mount ownership; fatal reset is still blocked with mounted storage.
 This scope does not grant recovery from arbitrary AML or enable normal desktop
-monitoring. Physical native acceptance remains pending.
+monitoring. The explicit no-client native boundary is accepted below; ordinary
+startup and desktop-session ownership remain pending.
 
 `tools/host-env.sh python3 tools/battery_home_smoke.py --case normal` uses only a
 disposable disk. Additional cases: `alarm`, `query-refusal`, `native-refusal`,
@@ -159,8 +160,15 @@ or a clean platform refusal into a native pass. Ordinary profiles are unchanged.
 
 ## Next implementation boundary
 
-Validate the explicit native mounted-return boundary on hardware, then establish
-desktop-session ownership before ordinary startup enablement. Preserve the same file/client and mount
+Air7,2 release `71ab6b95892a9a8c` (compiled `7fac77d`) passed the explicit
+mounted-return boundary: fresh generation 3, 45 natural completion events,
+resource-checked retirement, mount release, three saved logs and automatic Ubuntu
+return. All 925 pre-existing non-metadata files were unchanged; offline exFAT and
+allocation checks passed. No desktop clients ran, periodic logging was paused,
+and no native alarms occurred. This accepts the bounded mounted owner, not
+concurrent desktop I/O or physical charging/gauge accuracy.
+
+Next establish desktop-session ownership before ordinary startup enablement. Preserve the same file/client and mount
 lifetimes through cancellation and degraded service. A passing VM controller
 fixture does not widen Air firmware/register gates or accept another machine's
 EC/SCI ownership.
@@ -184,9 +192,10 @@ The remaining delivery sequence is:
 
 1. Retain the VM combined-control/file proof above through native integration:
    submitted jobs, cancellation, active-service close and mount release.
-2. Establish the native mounted normal-return/refusal path and bounded event
-   behavior without weakening terminal-fault storage containment. Integrate a
-   desktop-session service owner; enable normal startup only after acceptance.
+2. Extend the accepted explicit native mounted boundary to a desktop-session
+   service owner, preserving terminal-fault storage containment. Normal completion
+   has native evidence; query refusal and uncertain-event cases retain VM evidence.
+   Enable normal startup only after desktop-session acceptance.
 3. Validate real AC plug/unplug, charging/discharging, fresh-to-stale transitions,
    percentage plausibility and session shutdown with Home mounted. Announce any
    required human action before the corresponding hardware boot. An automatic

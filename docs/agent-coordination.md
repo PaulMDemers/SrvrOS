@@ -494,3 +494,22 @@ Next Air scope is native mounted normal-return/refusal and desktop-session
 ownership; ordinary startup stays OFF. Native profiles and accepted payloads
 are unchanged. Pro PR19 `77ba966` remains independent Wi-Fi work. Consume the
 shared submission/ownership helpers before adding another transport or lifecycle.
+
+
+## Air mounted Home boundary handoff (PR #52)
+
+Compiled `7fac77d`, validators `171b307`, release `71ab6b95892a9a8c` now accept
+explicit native Home ownership with no desktop clients: generation 3, 45 natural
+completion events, checked retirement, mount release and clean save/unmount/Ubuntu
+return. All unrelated files are preserved and offline allocation is clean. Native
+alarms were not observed. Ordinary startup remains OFF; next Air scope is native
+desktop-session ownership with System controls and asynchronous file work.
+
+Reuse the held-mount normal-return boundary; do not broaden firmware gates or
+reset a live uncertain runtime. Shared console logging now appends bounded 1 KiB
+records before rendering/UART to avoid interleaved saved diagnostic receipts.
+Rendering remains in 64-byte batches. Arbitrarily long streams and live serial
+output are not promised atomicity. Local tests include deterministic competing
+writers and all 16 final VM/capture/regression checks; Actions remain disabled.
+Pro PR19 `92a1bbc` retains independent Wi-Fi scope; preserve both main/staging
+profiles and Makefile tests. No other machine's acceptance changes.

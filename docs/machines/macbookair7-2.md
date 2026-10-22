@@ -2,25 +2,40 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active native mounted-return boundary
+### Mounted Home battery boundary accepted (PR #52)
 
-Base `85d5cb7` (PR51). Scope: an explicit mounted-Home battery diagnostic in the
-full runtime, held mount identity, normal completion and query-refusal retirement,
-disposable VM evidence, and an unattended v48 capture/save/return profile. Reuse the exact Air controller profile and query
-receipts; do not broaden firmware/register admission or enable ordinary startup.
-A mounted terminal failure retains storage/runtime and cannot reset. No desktop
-client integration in this first boundary; the owner must return cleanly before
-we attach the desktop session. Test fresh samples, refused query, unavailable
-profile, unmounted admission and uncertain effects/transport with exact disk
-preservation. Pro PR19 `77ba966` remains independent USB Wi-Fi work. Installed
-current/recovery remain `fda709928307b1b1` / `b427b78f21644bd2`; no reboot armed.
+Base `85d5cb7` (PR51); compiled implementation `7fac77d`; final validators
+`171b307`. Release `71ab6b95892a9a8c`, session
+`session-00065e7468b78060-00`, passed the explicit v48 mounted-Home diagnostic:
+fresh generation 3, 45 natural completion events, resource-checked runtime
+retirement, then release of the exact mount hold. Home stayed mounted throughout;
+periodic logging was paused and no desktop clients ran. No alarms occurred.
 
-The final controls/file regression exposed saved-log interleaving: a complete
-file-result record could appear inside a 64-byte fragment of a longer SCI record.
-Scope now includes bounded console-record atomicity, separate from framebuffer
-and UART batching, plus a deterministic host interleaving regression. The failed
-log remains local evidence; no missing record is accepted or reconstructed.
-Pro PR19 advanced to `89f8098` with independent MCU queue selection, no overlap.
+All 925 existing non-metadata files remained unchanged, including the disposable
+filesystem image. Only workspace metadata changed; exactly three matching logs
+were added. Offline exFAT and allocation checks passed (929 files, no leaks).
+Automatic Ubuntu return, consumed one-shot, Ubuntu default and EFI recovery were
+verified. Current is `71ab6b95892a9a8c`; previous remains `b427b78f21644bd2`.
+Evidence and payload are hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/71ab6b95892a9a8c`. No reboot is armed.
+
+All 16 final local checks passed: eight command cases, four boot-flow cases,
+normal/cancel controls-file regressions, exact-stage refusal and missing-drive
+return. Full build, core/docs and corruption checks passed with Actions disabled.
+A controls/file regression exposed saved-log interleaving; bounded 1 KiB saved
+record appends now precede rendering/UART, whose render batches remain 64 bytes.
+Deterministic preemption tests cover the fix. Original rejected evidence remains
+in the local validation archive. Cancellation distinguishes reported incomplete
+exit from compositor termination during bounded close; neither is full workload
+completion.
+
+Next bounded scope: explicit native desktop-session ownership through System
+controls, asynchronous file work and shutdown, retaining the same exact Air
+profile and mount lifetime. Ordinary startup remains OFF. Physical charging/gauge
+accuracy and the finished indicator remain pending in the
+[delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
+Pro PR19 `92a1bbc` retains independent Wi-Fi work; preserve its main/staging and
+Makefile additions during integration. No sibling firmware acceptance is implied.
 
 ### Controls during submitted Text jobs (PR #51)
 

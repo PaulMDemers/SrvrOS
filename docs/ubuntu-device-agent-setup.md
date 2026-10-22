@@ -463,7 +463,10 @@ exact `--probe-check` and `--probe-check --probe-missing-workspace` rehearsals.
 No input is required. Normal return or handled refusal saves and returns to
 Ubuntu; uncertain live runtime state halts, with no filesystem cleanup/reset
 claim. The exact Air firmware gates remain in force; unsupported models refuse.
-See [Home lifecycle](battery-home-lifecycle.md) for proof and remaining acceptance.
+Air7,2 release `71ab6b95892a9a8c` accepted this bounded no-client capture with
+fresh samples, clean retirement, unchanged unrelated files and automatic return.
+Desktop-session ownership and ordinary startup remain pending. See
+[Home lifecycle](battery-home-lifecycle.md) for proof and remaining acceptance.
 
 ## 6. Install alongside Ubuntu and select one boot
 
