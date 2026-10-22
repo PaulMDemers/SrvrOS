@@ -2,15 +2,33 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active query10 alert ownership work
+### Query10 host-controller event study (PR #45)
 
-Base `origin/main` `40944e8` (PR44); Pro PR19 `9ecf749` retains independent Wi-Fi
-scope. Audit both captured query10 branches and replay SMBus alert ownership,
-notification delivery and sampler serialization in disposable VM fixtures before
-changing native dispatch. Touched scope: battery runtime/model, EC SMBus helpers,
-fixtures and focused tests/docs as needed. Keep native query10 refusal, parked
-capture, firmware/register gates and installed/recovery payloads unchanged until
-the complete ownership contract is proved. No ordinary Home/startup admission.
+Base `origin/main` `40944e8` (PR44), implementation `1797e8a`. The explicit
+VM-only command owns SMBus controller events instead of selecting a mutable
+OSYS-dependent AML branch. Completion events do not write; alarms are captured
+before one acknowledgement, with serialized sampling and cache invalidation for
+known SBS senders. Uncertain protocol state retains terminal containment.
+See the [event ownership contract](../battery-smbus-events.md).
+
+All 13 focused Q35 cases pass, including both OS states, a later alarm invalidating
+cached generation 2 before fresh generation 3, uncertain acknowledgement, native
+command refusal and ordinary dispatch refusal. Both diagnostic builds, full core
+host tests and proof-parser corruption checks pass locally. Three existing VM
+regressions also pass: parked natural query refusal/save/reset, 60 generated Text
+edits plus five file cycles with continuing samples, and notification-return
+retirement. Actions stay disabled.
+No physical enablement or installed/recovery payload changes are included.
+The 63-file validation archive is hash-verified outside `build` at
+`~/.local/share/srvros/local-validation/battery-smbus-1797e8afb8e1`.
+
+Pro PR19 `9ecf749` retains independent Wi-Fi scope. Shared touched scope is the
+battery runtime/model, EC SMBus helper, fixtures, tests and an appended Makefile
+target. Native query10 still refuses; mounted Home and automatic startup stay off.
+Next: an explicit parked native host-controller capture with strict saved event,
+cache and retirement proof, exact-stage VM validation and recovery preserved.
+The firmware ownership review must precede any native capability grant; VM
+results do not authorize sibling profiles or general firmware bypass.
 
 ### Accepted parked native query-return capture (PR #44)
 

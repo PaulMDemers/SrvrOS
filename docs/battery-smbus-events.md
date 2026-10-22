@@ -1,6 +1,6 @@
 # EC SMBus event ownership study
 
-Status: VM study; native query10 remains refused. This extends the
+Status: VM-tested study (`1797e8a`); native query10 remains refused. This extends the
 [native AML audit](battery-native-aml-audit.md) and existing cached battery
 service. It does not enable mounted Home coexistence or ordinary startup.
 
@@ -60,7 +60,13 @@ clock rollback and deadlines. The VM harness is
 `tools/battery_smbus_smoke.py`; it uses disposable Q35 firmware and no host disk.
 It checks completion-only events, both OS branches, unknown senders, busy/error
 status, partial reads, uncertain acknowledgements and invalid descriptors.
-Native-command and ordinary-dispatch refusal are separate regressions.
+The later-alarm case checks cached generation 2 becoming nonfresh and being
+replaced by fresh generation 3. Native-command and ordinary-dispatch refusal are
+separate regressions. All 13 cases passed on `1797e8a`, along with both diagnostic
+builds, the full host core suite and proof-parser corruption tests. These fixtures
+do not exhaust every possible scheduler/firmware interleaving. Three existing VM
+regressions also passed: parked refusal/save/reset, Text/file/cache coexistence
+and notification-return retirement.
 
 The physical Air's accepted result is still parked query10 **refusal**, release
 `a72409383258a4a0`. No SMBus event handling is physically accepted. Before a native

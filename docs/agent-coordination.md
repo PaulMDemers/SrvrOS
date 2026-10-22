@@ -377,3 +377,17 @@ must preserve both historical exact recipes and give new Wi-Fi calibration stage
 a descriptive, unique identity (as its firmware recipe already does). Do not
 reinterpret an installed v44 payload or discard either profile. The Air query
 profile uses v45; no Pro branch or installed payload is modified here.
+
+
+## Air SMBus event study handoff (PR #45)
+
+Air implementation `1797e8a` adds a VM-only host-controller query10 owner. Consume
+the [event contract](battery-smbus-events.md) before duplicating SMBus alarm
+handling: complete the EC transaction, serialize the bank, capture the alarm
+before acknowledging, and invalidate cached data without recursively sampling.
+The two synthetic OS branches deliberately reject AML entry. Native query10
+classification and installed capture remain unchanged; the next Air scope is
+an explicit parked native capture, not ordinary battery startup or mounted Home.
+Pro PR19 `9ecf749` remains separate Wi-Fi work. Only the appended Makefile target
+is shared; preserve its independent targets and historical capture identities.
+Local validation replaces disabled Actions. No other device acceptance is implied.
