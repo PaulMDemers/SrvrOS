@@ -1,6 +1,7 @@
 # EC SMBus event ownership study
 
-Status: VM-tested study (`1797e8a`); native query10 remains refused. This extends the
+Status: VM-tested study (`1797e8a`); separate native capture implemented,
+physical acceptance pending. Ordinary native query10 remains refused. This extends the
 [native AML audit](battery-native-aml-audit.md) and existing cached battery
 service. It does not enable mounted Home coexistence or ordinary startup.
 
@@ -16,7 +17,8 @@ The explicit VM command `acpiruntime battery-smbus-study` instead claims the
 host-controller event in the OS. It never executes or rewrites `_Q10`, spoofs
 OSYS, or synthesizes an AML battery notification. Both synthetic OS branches
 contain a forbidden operation in `_Q10`, so accidental dispatch fails the test.
-The native backend cannot grant the VM capability. Its existing predispatch
+The native backend cannot grant the VM study capability. A distinct explicit
+parked capture capability is described below. Its existing predispatch
 classifier and parked refusal capture remain unchanged.
 
 ACPI defines query delivery after protocol completion, separate completion and
@@ -69,8 +71,55 @@ regressions also passed: parked refusal/save/reset, Text/file/cache coexistence
 and notification-return retirement.
 
 The physical Air's accepted result is still parked query10 **refusal**, release
-`a72409383258a4a0`. No SMBus event handling is physically accepted. Before a native
-trial: review firmware/OS controller ownership, extend the explicit capture and
-strict saved proof, validate its exact stage in VM, preserve recovery and park
-outer storage. Only after a dedicated native result should mounted Home or
+`a72409383258a4a0`. No SMBus event handling is physically accepted. The v46 implementation below
+provides the reviewed ownership/capture boundary; exact-stage validation and
+physical acceptance remain separate from the original VM study. Only after a dedicated native result should mounted Home or
 ordinary startup be considered. Other models need their own captured profiles.
+
+## Parked native capture (v46, physical acceptance pending)
+
+The explicit `--battery-smbus --laptop-probe-volume <this-unit-uuid>` recipe uses
+`srvros.capture=battery-smbus`. It requires automatic return, pauses logging and
+unmounts the outer workspace before claiming the controller. The separate VM
+study command still refuses in the native kernel. Ordinary query dispatch still
+refuses query10; only this capture can use the new profile capability.
+
+The native capability is supplied only after the existing exact Air DSDT/eight
+SSDT, PCI, NVS, EC and event-resource checks. No fingerprints, register gates or
+sibling identities were widened. The runtime also checks the host `_HID`, `_EC`,
+SBS interface and absent/zero EC and SMBus `_GLK`. The captured table has no
+`_GLK` request. AML SMBus helpers share SMTX, run only on the runtime worker, and
+cannot interleave a sampler or event operation. The capture adopts the host
+interface directly in either OSYS state; it neither uses AML `_BST`/BSSW nor
+pretends that SMB0's OS-dependent `_STA` remains constant. No firmware method is
+patched, and no battery notification or EC query is injected on the laptop.
+
+This is an explicit ownership choice for the bounded diagnostic, not a general
+ACPI device-enumeration rule. Known alarms invalidate the direct SBS cache; the
+payload is recorded without changing firmware-private battery state. Unknown
+senders remain distinguishable. Other rejected queries still take the existing
+contained fault reset path, with no claim that unknown AML can safely execute.
+
+The capture waits at most 30 seconds for at least one natural controller event
+and a fresh sample at generation 3 or later. It then stops, masks sources, drains
+the worker, checks idle transport/interpreter resources, disconnects and restores
+the existing event enables. It allows at most 128 recorded events. The final
+receipt correlates event/alarm/ack counts, cache invalidation, a fresh pre-stop
+observation and nonfresh stopped cache. A late alarm invalidating that observation
+makes the run incomplete rather than silently accepting stale data.
+
+After clean retirement, the ordinary capture path remounts, saves, flushes,
+unmounts and reboots to Ubuntu. No-event/profile refusal is saved as incomplete.
+A poisoned protocol or unsafe teardown resets while storage is parked, without
+attempting filesystem writes from the fault context. Such a run can have only
+its start logs; missing completion is failure/incomplete, never a pass. No human
+interaction is required, and the capture does not intentionally halt for a photo.
+
+`tools/battery_native_smbus_smoke.py` exercises the actual boot/capture/save/reset
+path on disposable Q35 storage. `battery_native_smbus_records.py` is shared with
+the Ubuntu collector; it rejects wrong native/VM resource identities, missing,
+duplicate, torn or inconsistent records and false freshness/retirement claims.
+Use exact-stage `hardware_boot_smoke.py --probe-check`, including its missing
+workspace case, before installation. Keep the accepted desktop recovery and
+prior parked-refusal payload independently backed up. Collect the matching
+session, verify prior files and offline exFAT allocation before another run.

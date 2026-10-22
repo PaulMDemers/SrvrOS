@@ -71,13 +71,24 @@ enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
 static bool auto_return;
 static bool recovery_study;
-static bool query_study,query_capture,smbus_study;
+static bool query_study,query_capture,smbus_study,smbus_capture;
 static struct block_device *query_capture_volume;
 static bool query_tracking(void) { return query_study || query_capture; }
 static bool capture_storage_parked(void) {
     return query_capture && query_capture_volume && auto_return &&
         workspace_parked_device()==query_capture_volume && !workspace_active() &&
         !workspace_image_busy() && !scheduler_io_active();
+}
+static struct block_device *smbus_capture_volume;
+static bool smbus_capture_parked(void) {
+    return smbus_capture && smbus_capture_volume && auto_return &&
+        workspace_parked_device()==smbus_capture_volume && !workspace_active() &&
+        !workspace_image_busy() && !scheduler_io_active();
+}
+static bool smbus_owned(void) {
+    return (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed()) ||
+        (smbus_capture_parked() && runtime.platform.smbus_capture_profile &&
+         runtime.platform.query_policy==BATTERY_QUERY_AIR72);
 }
 static struct {
     bool study,pending,completed,callback_study,callback_active,callback_failed,target_study,target_pending,target_handoff;
@@ -635,7 +646,7 @@ static bool contract(void) {
     uacpi_object_unref(object);
     ok=ok&&!uacpi_eval_simple_integer(runtime.node,"SMB0._EC",&bank)&&bank==0x2010&&
         !uacpi_eval_simple_integer(runtime.node,"SMB0.SBS0._SBS",&sbs)&&sbs==1;
-    if(ok && smbus_study) {
+    if(ok && (smbus_study || smbus_capture)) {
         object=NULL;uacpi_data_view id;
         if(uacpi_eval_simple_string(runtime.node,"SMB0._HID",&object)||!object)return false;
         ok=!uacpi_object_get_string(object,&id)&&id.length==9;
@@ -721,10 +732,10 @@ static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *no
 /* Explicit host-controller ownership in the disposable model, independent of
  * AML OSYS. It never invokes or rewrites _Q10 and never nests sampler bank IO. */
 static void smbus_query_work(void) {
-    if(!smbus_study || !battery_platform_workspace_study_allowed() ||
-       !runtime.platform.model_smbus_queries || !runtime.service_mode ||
+    if(!smbus_owned() || !runtime.service_mode ||
        runtime.sampler.active || runtime.sampler.waiting || runtime.lease ||
        (runtime.sampler.transaction.ec && runtime.sampler.transaction.phase!=8))unsafe("SMBus event ownership");
+    if(smbus_capture && runtime.smbus_events>=128)unsafe("SMBus capture event limit");
     struct ec_smbus_event event={0};runtime.lease=true;
     bool begun=ec_smbus_event_begin(&event,&runtime.transport,0x20,timer_monotonic_us());int result=0;
     for(unsigned polls=1;begun&&!result;polls++) {
@@ -774,8 +785,7 @@ static void query_work(void *ctx) {
         unsigned policy=runtime.platform.query_policy;
         if(query_study && !policy)policy=BATTERY_QUERY_MODEL;
         enum battery_query_class query_class=battery_query_classify(policy,code);
-        bool host_event=code==0x10 && smbus_study && runtime.platform.model_smbus_queries &&
-            battery_platform_workspace_study_allowed();
+        bool host_event=code==0x10 && smbus_owned();
         bool rejected=!host_event && battery_query_rejected(query_class);
         if(rejected) {
             console_printf("battery-query-policy: policy=%u code=%u class=%u; dispatch=refused\n",
@@ -906,6 +916,9 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
     }
+    if(smbus_capture && !smbus_owned()) {
+        console_write("battery-native-smbus: REFUSED captured controller profile\n");return false;
+    }
     if(query_capture && runtime.platform.query_policy!=BATTERY_QUERY_AIR72) {
         console_write("battery-native-query: REFUSED query policy profile\n");return false;
     }
@@ -958,6 +971,15 @@ static void runtime_close(void) {
     check_foreign_event();
     mask_sources();
     if(!acpi_worker_drain(&runtime.worker,3000))unsafe("pre-disconnect drain");
+    if(smbus_capture) {
+        uint64_t f=irq_save();
+        bool idle=acpi_work_idle(&runtime.worker.work) && !runtime.query.pending && !runtime.query_scheduled &&
+            !runtime.sci_counts[0].in_flight && !runtime.sci_counts[1].in_flight && !runtime.sci_counts[2].in_flight;
+        console_printf("battery-smbus-return: idle=%u parked=%u; sources_masked=%u\n",
+            (uint64_t)idle,(uint64_t)smbus_capture_parked(),(uint64_t)sources_quiet());
+        if(!idle || !smbus_owned() || !sources_quiet())unsafe("SMBus return boundary");
+        require_recovery_resources();irq_restore(f);
+    }
     if(uacpi_mask_gpe(NULL,runtime.platform.ec.gpe)||uacpi_uninstall_gpe_handler(NULL,runtime.platform.ec.gpe,gpe_handler))unsafe("GPE uninstall");runtime.gpe=false;
     operation(disconnect_work,3000,"EC disconnect");
     if(runtime.notify&&uacpi_uninstall_notify_handler(uacpi_namespace_root(),notify_handler))unsafe("Notify uninstall");
@@ -1037,7 +1059,7 @@ static void service_main(void *arg) {
             service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
             /* A concurrent stop changes state to STOPPING, excluding late
              * publications while still permitting in-flight IO to retire. */
-            if(!smbus_study || runtime.sampler.sample.generation>runtime.smbus_invalid_through)
+            if(!(smbus_study || smbus_capture) || runtime.sampler.sample.generation>runtime.smbus_invalid_through)
             (void)battery_cache_publish(&service.cache,&runtime.sampler.sample,
                 runtime.ac_present,runtime.ac_coherent,runtime.ac_sampled_us,timer_monotonic_us());
             irq_restore(f);
@@ -1738,7 +1760,7 @@ static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *ma
 /* No artificial query or method substitution: only naturally scheduled QR_EC
  * exchanges can exercise this capture. No storage/client work while engaged. */
 bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    if(query_study || query_capture || owner!=OWNER_NONE || !auto_return ||
+    if(query_study || query_capture || smbus_study || smbus_capture || owner!=OWNER_NONE || !auto_return ||
        workspace_active() || workspace_image_busy() || scheduler_io_active() || !workspace_parked_device()) {
         console_write("battery-native-query: REFUSED parked capture admission\n");return false;
     }
@@ -1765,6 +1787,41 @@ bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map)
     if(!clean)unsafe("capture retirement proof");
     query_capture=false;query_capture_volume=NULL;
     return exercised;
+}
+/* Only the boot capture owns this capability. It cannot be enabled from a
+ * normal mounted desktop or through the VM study command. */
+bool battery_smbus_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(query_study || query_capture || smbus_study || smbus_capture || owner!=OWNER_NONE ||
+       !auto_return || workspace_active() || workspace_image_busy() || scheduler_io_active() || !workspace_parked_device()) {
+        console_write("battery-native-smbus: REFUSED parked capture admission\n");return false;
+    }
+    smbus_capture=true;smbus_capture_volume=workspace_parked_device();
+    console_write("battery-native-smbus: waiting up to 30 seconds for natural host events and fresh samples; no input required\n");
+    if(!battery_service_start(rsdp,map)) {smbus_capture=false;smbus_capture_volume=NULL;return false;}
+    uint64_t until=timer_monotonic_us()+30000000;struct battery_service_status snapshot={0};
+    bool observed=false;
+    while(service.running && timer_monotonic_us()<until) {
+        battery_service_status(&snapshot);
+        if(runtime.smbus_events && snapshot.sample.generation>=3 && (snapshot.flags&BATTERY_CACHE_FRESH)) {observed=true;break;}
+        uacpi_kernel_sleep(10);
+    }
+    console_printf("battery-native-smbus: snapshot generation=%u events=%u valid=%u fresh=%u\n",
+        snapshot.sample.generation,runtime.smbus_events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
+        (uint64_t)!!(snapshot.flags&BATTERY_CACHE_FRESH));
+    if(service.running && !battery_service_stop(10000))unsafe("SMBus capture stop deadline");
+    struct battery_service_status final;battery_service_status(&final);
+    bool clean=owner==OWNER_NONE && !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
+        !service.quarantined && smbus_capture_parked();
+    bool exercised=clean && observed && runtime.worker.stopped && runtime.attached &&
+        runtime.attached==runtime.detached && final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
+        runtime.smbus_events && snapshot.sample.generation>runtime.smbus_invalid_through && !(final.flags&BATTERY_CACHE_FRESH);
+    console_printf("battery-native-smbus: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
+        exercised?"completed":"not-exercised",runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
+        runtime.smbus_unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
+        (uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(final.flags&BATTERY_CACHE_VALID),
+        clean?"yes":"NO",(uint64_t)smbus_capture_parked());
+    if(!clean)unsafe("SMBus capture retirement proof");
+    smbus_capture=false;smbus_capture_volume=NULL;return exercised;
 }
 /* Disposable model study: the command thread owns an unrelated storage scope
  * while both battery threads return and retire. No desktop/client teardown is

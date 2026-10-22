@@ -175,7 +175,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     p->foreign_events[1]=(struct battery_event_hold){.status=0x188e,.enable=0x189e,.mask=4,.original=enabled[14]};
     if(ec&3)return refuse("ec-busy",ec,0);
     p->io=(struct ec_io){p,ec_status,ec_read,ec_command,ec_write};
-    p->query_policy=BATTERY_QUERY_AIR72;platform=p;
+    p->query_policy=BATTERY_QUERY_AIR72;p->smbus_capture_profile=true;platform=p;
     console_printf("battery-native: matched Air7,2 EC=%x/%x SCI=%u GPE=%x IGDM=%x mode=%u; foreign GPE66/GPE72 retained\n",
         (uint64_t)p->ec.data,(uint64_t)p->ec.command,(uint64_t)p->ec.sci,(uint64_t)p->ec.gpe,igdm,(uint64_t)(p->original_control&1));
     for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {

@@ -186,6 +186,8 @@ static void command(void *c,uint8_t v) {
                 if(model.fault==67)model.memory[0x21]|=0x18;
             }
         }
+        if(model.fault==73){code=0;again=false;}
+        if(model.fault==75 && model.generation==2 && model.pending)code=0xff;
         model.output=code;model.pending=again;
         model.obf=!((model.fault==46 || model.fault==59) && model.generation==2);
     }
@@ -349,7 +351,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>72||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>75||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -377,7 +379,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
     if(model.fault>=48)p->query_policy=BATTERY_QUERY_AIR72;
-    if(model.fault>=62)p->model_smbus_queries=true;
+    if(model.fault>=62){p->model_smbus_queries=true;p->smbus_capture_profile=true;}
     if((model.fault>=41 && model.fault<=47) || model.fault==61)p->model_query_checkpoint=model_query_checkpoint;
     if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
     if(model.fault==37)p->model_owner_irq=model_owner_irq;

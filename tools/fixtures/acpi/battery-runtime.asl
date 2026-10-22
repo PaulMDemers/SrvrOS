@@ -96,6 +96,10 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
             Method (_QD0, 0) { }
 #endif
             Device (SMB0) {
+#if BATTERY_FAULT == 74
+                Name (_GLK, One)
+#endif
+
 #if BATTERY_FAULT == 70
                 Name (_HID, "ACPI0005")
 #else
