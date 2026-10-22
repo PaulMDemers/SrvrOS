@@ -1888,3 +1888,16 @@ an established cause of the native stall. Files: xhci.c and host fixtures; then
 exact-stage automatic-return VM checks and a cold native trial. Fetched main
 24fd5f4 (Air SMBus ownership proof); only PR19 remains open. Integration profile
 collision stays deferred; no shared battery changes.
+
+EP0 publication candidate source `2389909`, release `5edf8b73bf8f8662`,
+passes build/docs and xHCI host tests. Publication checks cover both cycles,
+every ring start position, IN/OUT/no-data and existing strict completion/fault
+fixtures. Setup remains inverse-cycle until all stages and the exact completion
+owner exist; an ordered control store then releases ownership before doorbell.
+Exact GPT VM saves and verifies log bytes, unmounts and resets; missing workspace
+returns without starting the probe. Installed with automatic failure return,
+Ubuntu default and accepted recovery intact; offline workspace checks pass.
+Native result pending: no claim this fixes the stall. Next cold adapter trial
+requires unplugging Wi-Fi for 10 seconds while off, reconnecting and powering
+on; leave workspace connected. Logs replace photos. Installed unarmed pending
+user readiness for that physical step.
