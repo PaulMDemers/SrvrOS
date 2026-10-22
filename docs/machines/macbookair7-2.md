@@ -2,6 +2,26 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active scope: continuous service accounting (VM only)
+
+Base `62067a1` (merged PR53). Build a VM-only continuous held-Home System session
+using the accepted mount/control/runtime retirement path. Replace per-event log
+traffic with bounded periodic summaries and saturating telemetry, and exercise
+more than 512 events and 110 seconds plus Stop/restart, unavailable and uncertain
+acknowledgement cases. Preserve every transaction/query/retirement deadline and
+all native diagnostic limits. Ordinary/native startup remains disabled.
+
+Files: battery runtime/accounting policy, disposable VM platform, directed host
+and VM tests, this record and the Home lifecycle guide. No main/staging, hardware
+profile, storage or input changes are planned. The fixed diagnostic descendant
+history is not suitable for arbitrary app churn; ordinary desktop ownership is
+the next separate boundary, not implicitly enabled by this study.
+
+Fetched main `62067a1`; Pro PR19 `b1eb404` remains USB Wi-Fi; Air6,1 PR54
+`946a91a` remains console/keyboard/workspace bring-up. No overlap in these runtime
+files. Tests run locally with Actions disabled. No new physical run or reboot
+is armed; installed/recovery payloads remain the accepted PR53 checkpoint.
+
 ### Explicit Home desktop battery session accepted (PR #53)
 
 Base `9ca1922` (PR52); compiled source `faf40ab`; collector correction `7f1438d`.
