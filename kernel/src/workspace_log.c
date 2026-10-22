@@ -124,6 +124,18 @@ bool workspace_log_start(void) {
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }
+bool workspace_log_active(void) { return enabled || busy; }
+bool workspace_log_quiesce(uint64_t timeout_ms) {
+    enabled=false;scheduler_wake_all(&wake);
+    /* Saturate, and round up at the kernel's 100Hz tick rate. */
+    uint64_t now=timer_ticks(),ticks=timeout_ms/10+(timeout_ms%10!=0);
+    uint64_t end=ticks>UINT64_MAX-now?UINT64_MAX:now+ticks;
+    while(busy) {
+        if(timer_ticks()>=end)return false;
+        scheduler_wait_timeout(&wake,idle,NULL,end);
+    }
+    return true;
+}
 bool workspace_log_stop(void) {
     enabled=false;scheduler_wake_all(&wake);
     while(busy) scheduler_wait(&wake,idle,NULL);

@@ -26,7 +26,7 @@ bool scheduler_io_begin(void) { assert(!depth);depth=1;return true; }
 void scheduler_io_end(void) { assert(depth==1);depth=0; }
 bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg) { (void)name;(void)fn;(void)arg;return true; }
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;return fn(arg); }
-bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { (void)end;return scheduler_wait(q,fn,arg); }
+bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { bool ready=scheduler_wait(q,fn,arg);if(!ready)ticks=end;return ready; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 void scheduler_snapshot(struct scheduler_stats *out) { assert(!depth);*out=(struct scheduler_stats){100,90,200,50}; }
 uint64_t timer_ticks(void) { return ticks; }
@@ -59,5 +59,10 @@ int main(void) {
     corrupt=true;before=flushes;assert(!save("session-a.log") && flushes==before);corrupt=false;
     sync_ok=false;assert(!save("session-b.log"));sync_ok=true;
     assert(workspace_log_stop());mounted=false;assert(!workspace_log_stop());
+    busy=true;enabled=true;unsigned saved=writes;
+    assert(workspace_log_active() && !workspace_log_quiesce(0));
+    assert(!enabled && busy && writes==saved);
+    assert(!workspace_log_quiesce(11) && busy && writes==saved);
+    busy=false;assert(workspace_log_quiesce(0) && !workspace_log_active());
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }
