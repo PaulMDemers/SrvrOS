@@ -1753,3 +1753,9 @@ Photo/logs archived; Ubuntu/recovery/consumed one-shot verified. Offline checks
 pass: 123 files, 433 clusters, zero errors. Next investigate reset recovery timing
 and EP0 state before the first FCE write, without blind retries or weakening
 completion checks. No next boot armed.
+
+Next scope: firmware-only EP0 waits use a measured 300 ms deadline (the pinned
+Linux mt76 vendor timeout), retaining a bounded stalled-clock fallback and no
+retry. Existing generic control waits and reset delay remain unchanged. Cache
+request elapsed time and controller-owned EP0 state/dequeue after the wait to
+diagnose post-reset timeout; no endpoint recovery or new device writes.

@@ -409,8 +409,16 @@ void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint
 }
 static uint64_t test_time, test_time_step=1000, complete_at;
 static struct xhci_device *complete_device;
+static bool complete_control;
 uint64_t timer_monotonic_us(void) {
     test_time+=test_time_step;
+    if(complete_control && test_time>=complete_at && strict_control.device) {
+        uint64_t ptr=strict_control.status;
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
+            .parameter_low=(uint32_t)ptr,.parameter_high=ptr>>32,.status=1u<<24,
+            .control=(32u<<10)|((uint32_t)strict_control.device->slot_id<<24)|(1u<<16)|(xhci.event_cycle?1u:0u)};
+        complete_control=false;
+    }
     if(complete_device && test_time>=complete_at && complete_device->bulk_pending) {
         struct xhci_device *d=complete_device;
         xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
@@ -1100,27 +1108,35 @@ static void test_wifi_firmware_control_guards(void) {
         assert(d.firmware.failed==(fault==4));
         if(!fault)assert(buffer[0]==0x20 && ring[0].parameter_high==0x00041004);
     }
-    for(unsigned fault=0;fault<6;fault++) {
-        reset_test();struct xhci_trb ring[64]={0},events[64]={0};
+    for(unsigned fault=0;fault<8;fault++) {
+        reset_test();test_time=0;test_time_step=fault==7?0:1000;complete_control=fault==6;complete_at=250000;
+        struct xhci_trb ring[64]={0},events[64]={0};uint8_t output[4096]={0};
         struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
-            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true};
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.output_context=output};
+        context_write32(output,1,0,1);context_write32(output,1,2,0x9031);
         d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true};
         xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
         events[0]=control_event(fault==1?0x9000:fault>=4?0x9990:0x9010,
             fault==1||fault==2||fault>=4?6:1,fault==3?1:0);
         if(fault==5)events[1]=control_event(0x9010,1,0);
-        bool ok=fault==0||fault==5;
+        bool ok=fault==0||fault==5||fault==6;
         assert(wifi_fw_reset(&d)==ok);
         assert(!wifi_fw_reset(&d) && d.ep0_enqueue==2 && d.firmware.control_count==1);
         assert(ring[0].parameter_low==0x00010140 && ring[0].parameter_high==0);
         assert(d.firmware.control_request==1 && d.firmware.control_value==1);
         assert(d.firmware.control_length==0 && d.firmware.control_index==0);
         assert(d.firmware.control_ok==ok && d.firmware.control_actual==(ok?0:-1));
-        assert(d.firmware.control_timeout==(fault==4));
-        assert(d.firmware.control_cc==(fault==4?0u:fault==1||fault==2?6u:1u));
-        assert(d.firmware.control_stage==(fault==4?0u:fault==1?1u:3u));
+        assert(d.firmware.control_timeout==(fault==4||fault==7));
+        assert(d.firmware.control_cc==(fault==4||fault==7?0u:fault==1||fault==2?6u:1u));
+        assert(d.firmware.control_stage==(fault==4||fault==7?0u:fault==1?1u:3u));
         assert(d.firmware.control_residue==(fault==3?1u:0u));
         assert(d.ep0_quarantined==!ok && !freed);
+        assert(d.firmware.control_ep_state==1 && d.firmware.control_dequeue==0x9031);
+        assert(context_read32(output,1,2)==0x9031);
+        if(fault==4)assert(d.firmware.control_elapsed_us>=300000);
+        if(fault==6)assert(d.firmware.control_elapsed_us>=249000 && d.firmware.control_elapsed_us<300000);
+        if(fault==7)assert(d.firmware.control_elapsed_us==0);
+        test_time_step=1000;complete_control=false;
     }
     puts("xhci-firmware-control: PASS disabled-MAC-only write, register/ownership refusals, I/O quarantine and one-shot reset");
 }

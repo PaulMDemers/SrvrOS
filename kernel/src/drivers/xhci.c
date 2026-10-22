@@ -240,6 +240,8 @@ struct xhci_wifi_firmware {
     uint8_t control_request, control_type;
     int control_actual;
     bool control_ok, control_timeout;
+    uint64_t control_elapsed_us, control_dequeue;
+    uint32_t control_ep_state;
     bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
     struct mt76_prepare_session preparation;
     struct mt76_firmware_session upload;
@@ -1270,7 +1272,9 @@ static bool dispatch_strict_control(const struct xhci_trb *event) {
 }
 
 static int wait_control_exact(struct xhci_device *device) {
-    for (uint64_t i = 0; i < XHCI_TRANSFER_TIMEOUT; ++i) {
+    bool timed=device->firmware.active;
+    uint64_t start=timed?timer_monotonic_us():0,clock_at=start,stalled=0;
+    for (uint64_t i = 0; timed || i < XHCI_TRANSFER_TIMEOUT; ++i) {
         uint64_t flags = event_irq_save();
         struct xhci_trb event;
         if (!strict_control.done && poll_event(&event)) dispatch_transfer_event(&event);
@@ -1278,9 +1282,18 @@ static int wait_control_exact(struct xhci_device *device) {
             int actual = strict_control.actual;
             strict_control.device = 0;
             event_irq_restore(flags);
+            if(timed)device->firmware.control_elapsed_us=timer_monotonic_us()-start;
             return actual;
         }
         event_irq_restore(flags);
+        if(timed && (i&255)==0) {
+            uint64_t now=timer_monotonic_us();
+            device->firmware.control_elapsed_us=now-start;
+            if(now-start>=300000)break;
+            stalled=now==clock_at?stalled+256:0;clock_at=now;
+            if(stalled>=XHCI_TRANSFER_TIMEOUT)break;
+        }
+        if(timed)__asm__ volatile("pause");
     }
     uint64_t flags = event_irq_save();
     device->ep0_quarantined = true;

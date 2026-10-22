@@ -62,8 +62,14 @@ static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet 
     f->control_count++;f->control_type=setup->request_type;f->control_request=setup->request;
     f->control_value=setup->value;f->control_index=setup->index;f->control_length=setup->length;
     f->control_cc=f->control_residue=f->control_stage=0;f->control_timeout=false;
+    f->control_elapsed_us=0;f->control_ep_state=0;f->control_dequeue=0;
     f->control_ok=control_transfer_internal(d,setup,buffer,length,in,actual);
     f->control_actual=*actual;
+    if(d->output_context) {
+        f->control_ep_state=context_read32(d->output_context,1,0)&7;
+        f->control_dequeue=context_read32(d->output_context,1,2)|
+            ((uint64_t)context_read32(d->output_context,1,3)<<32);
+    }
     return f->control_ok;
 }
 static bool wifi_fw_read(void *context,uint32_t address,uint32_t *value) {
@@ -186,6 +192,8 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
             (uint64_t)f->control_value,(uint64_t)f->control_index,(uint64_t)f->control_length,
             (int64_t)f->control_actual,(uint64_t)f->control_ok,(uint64_t)f->control_cc,
             (uint64_t)f->control_residue,(uint64_t)f->control_stage,(uint64_t)f->control_timeout);
+        console_printf("wifi-firmware-endpoint: elapsed_us=%u state=%u dequeue=%x\n",
+            f->control_elapsed_us,(uint64_t)f->control_ep_state,f->control_dequeue);
         console_printf("wifi-firmware-progress: reads=%u last_register=%x last_value=%x prepared=%u reset=%u upload=%u\n",
             (uint64_t)f->read_count,(uint64_t)f->last_read_address,(uint64_t)f->last_read_value,
             (uint64_t)f->preparation.prepared,(uint64_t)f->reset_seen,(uint64_t)f->upload.attempted);
