@@ -75,12 +75,16 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
             }
 #if BATTERY_FAULT >= 48
             // Sanitized behavioral fixture; not copied native firmware.
-#if BATTERY_FAULT == 51 || BATTERY_FAULT == 53
+#if BATTERY_FAULT == 51 || BATTERY_FAULT == 53 || BATTERY_FAULT == 64
             Name (OSYS, 0x07DC)
 #else
             Name (OSYS, 0x2710)
 #endif
             Method (_Q10, 0) {
+#if BATTERY_FAULT >= 62
+                // Explicit model host ownership must never execute either branch.
+                FAIL = One
+#endif
                 If (OSYS == 0x2710) { Notify (EC, 0x80) }
                 Else { EACK = 7 }
             }
@@ -92,8 +96,16 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
             Method (_QD0, 0) { }
 #endif
             Device (SMB0) {
+#if BATTERY_FAULT == 70
+                Name (_HID, "ACPI0005")
+#else
                 Name (_HID, "ACPI0001")
+#endif
+#if BATTERY_FAULT == 71
+                Name (_EC, 0x2011)
+#else
                 Name (_EC, 0x2010)
+#endif
                 Device (SBS0) { Name (_HID, "ACPI0002"); Name (_SBS, One) }
             }
         }

@@ -53,6 +53,8 @@ static struct {
     struct ec_transport transport;
     struct sbs_sampler sampler;
     struct ec_query_budget budget;
+    uint64_t smbus_events,smbus_alarms,smbus_acks,smbus_unknown,smbus_invalid_through;
+    bool smbus_refresh;
     struct battery_query_receipt query_receipt;
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
@@ -69,7 +71,7 @@ enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
 static bool auto_return;
 static bool recovery_study;
-static bool query_study,query_capture;
+static bool query_study,query_capture,smbus_study;
 static struct block_device *query_capture_volume;
 static bool query_tracking(void) { return query_study || query_capture; }
 static bool capture_storage_parked(void) {
@@ -631,8 +633,19 @@ static bool contract(void) {
     if(uacpi_eval_simple(runtime.node,"_CRS",&object)||!object)return false;
     bool ok=!uacpi_object_get_buffer(object,&crs)&&acpi_ec_namespace_matches(&runtime.platform.ec,uid,gpe,crs.bytes,crs.length);
     uacpi_object_unref(object);
-    return ok&&!uacpi_eval_simple_integer(runtime.node,"SMB0._EC",&bank)&&bank==0x2010&&
+    ok=ok&&!uacpi_eval_simple_integer(runtime.node,"SMB0._EC",&bank)&&bank==0x2010&&
         !uacpi_eval_simple_integer(runtime.node,"SMB0.SBS0._SBS",&sbs)&&sbs==1;
+    if(ok && smbus_study) {
+        object=NULL;uacpi_data_view id;
+        if(uacpi_eval_simple_string(runtime.node,"SMB0._HID",&object)||!object)return false;
+        ok=!uacpi_object_get_string(object,&id)&&id.length==9;
+        static const char expected[]="ACPI0001";
+        for(unsigned i=0;ok&&i<sizeof(expected);i++)ok=id.bytes[i]==(uint8_t)expected[i];
+        uacpi_object_unref(object);
+        gs=uacpi_eval_simple_integer(runtime.node,"SMB0._GLK",&glk);
+        ok=ok&&(gs==UACPI_STATUS_NOT_FOUND||(!gs&&!glk));
+    }
+    return ok;
 }
 static void setup_mark(const char *stage) {
     runtime.setup_stage=stage;
@@ -705,6 +718,44 @@ static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *no
     if(recovery_irq.callback_active)recovery_irq.callback_entries++;
     return queue_query()?UACPI_INTERRUPT_HANDLED:UACPI_INTERRUPT_NOT_HANDLED;
 }
+/* Explicit host-controller ownership in the disposable model, independent of
+ * AML OSYS. It never invokes or rewrites _Q10 and never nests sampler bank IO. */
+static void smbus_query_work(void) {
+    if(!smbus_study || !battery_platform_workspace_study_allowed() ||
+       !runtime.platform.model_smbus_queries || !runtime.service_mode ||
+       runtime.sampler.active || runtime.sampler.waiting || runtime.lease ||
+       (runtime.sampler.transaction.ec && runtime.sampler.transaction.phase!=8))unsafe("SMBus event ownership");
+    struct ec_smbus_event event={0};runtime.lease=true;
+    bool begun=ec_smbus_event_begin(&event,&runtime.transport,0x20,timer_monotonic_us());int result=0;
+    for(unsigned polls=1;begun&&!result;polls++) {
+        result=ec_smbus_event_poll(&event,timer_monotonic_us());if(!result)pace(polls);
+    }
+    runtime.lease=false;
+    if(query_tracking() && event.ack_attempted)runtime.query_receipt.effects++;
+    if(!begun || result!=1) {
+        console_printf("battery-smbus: FAILED phase=%u status=%u ack_attempted=%u acknowledged=%u\n",
+            (uint64_t)event.phase,(uint64_t)event.status,(uint64_t)event.ack_attempted,(uint64_t)event.acknowledged);
+        unsafe("SMBus event");
+    }
+    runtime.smbus_events++;runtime.smbus_alarms+=event.alarm;runtime.smbus_acks+=event.acknowledged;
+    runtime.smbus_unknown+=event.alarm&&!event.recognized;
+    if(event.alarm && event.recognized) {
+        uint64_t f=irq_save();
+        runtime.smbus_invalid_through=runtime.sampler.sample.generation;
+        runtime.smbus_refresh=true;service.cache.last_attempt_ok=false;
+        struct battery_service_status invalidated;
+        battery_cache_read(&service.cache,timer_monotonic_us(),&invalidated);
+        scheduler_wake_all(&service.wake);irq_restore(f);
+        if(invalidated.flags&BATTERY_CACHE_FRESH)unsafe("SMBus cache invalidation");
+        console_printf("battery-smbus: invalidate generation=%u cached=%u valid=%u fresh=0\n",
+            runtime.smbus_invalid_through,invalidated.sample.generation,
+            (uint64_t)!!(invalidated.flags&BATTERY_CACHE_VALID));
+    }
+    console_printf("battery-smbus: event=%u generation=%u status=%u alarm=%u address=%u data=%u acknowledged=%u refresh=%u; aml=0 serialized=1\n",
+        runtime.smbus_events,runtime.sampler.sample.generation,(uint64_t)event.status,
+        (uint64_t)event.alarm,(uint64_t)event.address,(uint64_t)event.data,
+        (uint64_t)event.acknowledged,(uint64_t)(event.alarm&&event.recognized));
+}
 static void query_work(void *ctx) {
     (void)ctx;
     if(!worker_context()||runtime.lease)unsafe("query ownership");
@@ -723,7 +774,9 @@ static void query_work(void *ctx) {
         unsigned policy=runtime.platform.query_policy;
         if(query_study && !policy)policy=BATTERY_QUERY_MODEL;
         enum battery_query_class query_class=battery_query_classify(policy,code);
-        bool rejected=battery_query_rejected(query_class);
+        bool host_event=code==0x10 && smbus_study && runtime.platform.model_smbus_queries &&
+            battery_platform_workspace_study_allowed();
+        bool rejected=!host_event && battery_query_rejected(query_class);
         if(rejected) {
             console_printf("battery-query-policy: policy=%u code=%u class=%u; dispatch=refused\n",
                 (uint64_t)policy,(uint64_t)code,(uint64_t)query_class);
@@ -749,7 +802,8 @@ static void query_work(void *ctx) {
                 scheduler_wake_all(&service.wake);irq_restore(f);return;
             }
         }
-        if(code) {
+        if(host_event) { smbus_query_work();runtime.queries++; }
+        else if(code) {
             if(query_tracking()){runtime.query_receipt.in_aml=true;runtime.query_receipt.aml_calls++;}
             const char hex[]="0123456789ABCDEF";char method[]="_Q00";method[2]=hex[code>>4];method[3]=hex[code&15];
             if(!runtime.transition_mode)console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
@@ -849,6 +903,9 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(runtime.engaged||!timer_reference_ready())return false;
     runtime=(typeof(runtime)){.transition_mode=transitions,.service_mode=service_mode};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
+    if(smbus_study && !runtime.platform.model_smbus_queries) {
+        console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
+    }
     if(query_capture && runtime.platform.query_policy!=BATTERY_QUERY_AIR72) {
         console_write("battery-native-query: REFUSED query policy profile\n");return false;
     }
@@ -972,13 +1029,15 @@ static void service_main(void *arg) {
         irq_restore(f);
         if(expired)unsafe("independent query deadline");
         uint64_t now=timer_monotonic_us();
-        if(now>=next_sample) {
+        f=irq_save();bool refresh=runtime.smbus_refresh;runtime.smbus_refresh=false;irq_restore(f);
+        if(now>=next_sample || refresh) {
             operation(sample_work,25000,"sample");
             if(runtime.query_receipt.refused)break;
             f=irq_save();
             service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
             /* A concurrent stop changes state to STOPPING, excluding late
              * publications while still permitting in-flight IO to retire. */
+            if(!smbus_study || runtime.sampler.sample.generation>runtime.smbus_invalid_through)
             (void)battery_cache_publish(&service.cache,&runtime.sampler.sample,
                 runtime.ac_present,runtime.ac_coherent,runtime.ac_sampled_us,timer_monotonic_us());
             irq_restore(f);
@@ -991,6 +1050,7 @@ static void service_main(void *arg) {
     }
     bool query_failed=runtime.query_receipt.refused;
     if(query_failed)query_return_boundary();
+    if(smbus_study)require_recovery_resources();
     runtime_close();
     /* Force the study through post-close scheduling while unrelated I/O is owned. */
     if(query_failed)scheduler_yield();
@@ -1754,7 +1814,31 @@ static void workspace_query_test(void *rsdp,struct limine_memmap_response *map) 
     arch_reboot_unattended();
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
+static void smbus_test(void *rsdp,struct limine_memmap_response *map) {
+    if(!battery_platform_workspace_study_allowed() || smbus_study || owner!=OWNER_NONE ||
+       workspace_active() || workspace_image_busy() || scheduler_io_active()) {
+        console_write("battery-smbus-study: REFUSED VM-only idle study\n");return;
+    }
+    smbus_study=true;
+    if(!battery_service_start(rsdp,map))unsafe("SMBus study start");
+    uint64_t until=timer_monotonic_us()+20000000;struct battery_service_status status;
+    do {
+        battery_service_status(&status);
+        if(status.sample.generation>=3 && runtime.smbus_events>=3 && (status.flags&BATTERY_CACHE_FRESH))break;
+        if(!service.running || timer_monotonic_us()>=until)unsafe("SMBus study deadline");
+        uacpi_kernel_sleep(10);
+    } while(true);
+    if(!battery_service_stop(10000))unsafe("SMBus study stop");
+    if(owner!=OWNER_NONE || runtime.engaged || runtime.heap || runtime.errors || runtime.denied ||
+       runtime.attached!=runtime.detached || !runtime.attached)unsafe("SMBus study retirement");
+    console_printf("battery-smbus-study: PASS events=%u alarms=%u acknowledgements=%u unknown=%u generation=%u; fresh_before_stop=1 retired=yes native=disabled\n",
+        runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,runtime.smbus_unknown,status.sample.generation);
+    smbus_study=false;
+}
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-smbus-study")) {
+        smbus_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
+    }
     if(command_is(args,"battery-workspace-query")) {
         workspace_query_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
     }

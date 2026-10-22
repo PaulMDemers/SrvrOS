@@ -3424,3 +3424,8 @@ test-battery-query: build/tests/battery-query-receipt$(HOST_EXE)
 build/tests/battery-query-receipt$(HOST_EXE): tools/test_battery_query_receipt.c ports/srvros/uacpi/runtime/battery_query_receipt.h ports/srvros/uacpi/runtime/battery_query_policy.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-smbus-records
+test-core: test-battery-smbus-records
+test-battery-smbus-records:
+	$(PYTHON) tools/test_battery_smbus_records.py
