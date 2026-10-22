@@ -2383,3 +2383,12 @@ BKOFF1104=209 from Linuxv6.18 initialization/register definitions. Require stric
 single-write ACK and disabled MAC; capture before/after EP0 values independently
 of MCU reply. No RF/PA/power tables or TX/RX enable. Existing profiles retained.
 Main9ca1922 fetched; other Air scopes inspected separately from this USB work.
+
+Distinct timing candidate source607ad4f/release201acb491eb09532 installed unarmed.
+Build, MCU/xHCI tests (including fixed timing packet and scoped read binding),
+56 boot-profile tests and docs passed. Exact-stage GPT saved-log/clean-filesystem/
+automatic-return VM and missing-workspace refusal passed. Durable archive
+wifi-timing-607ad4f contains payload, receipts and run record. Workspace offline
+clean:147files/469clusters. Ubuntu default/recoverye47dca3a6b30c6c1 and prior
+pair capture101abba9feeb8cfa retained. Oldd8dca7885de3c61f removed from ESP only
+after equality with durable archive. Native distinct response/readbacks pending.
