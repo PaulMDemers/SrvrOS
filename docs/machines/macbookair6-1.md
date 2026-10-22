@@ -329,3 +329,15 @@ backup outside build under release `e20382a7c8acbfe2`.
 Ubuntu default and installed payloads are verified, one-shot consumed. Current
 remains the accepted bounded v12 trial; previous console/USB recovery remains
 `c35475f62f154f1e`. No new test or reboot is prepared.
+
+## Active tap/typing trial (2026-10-22)
+
+Base `c6a9170`, owner `device/macbookair6-1/tap-typing`. v12 study startup leaves
+pointer options zero and compositor cleanup resets them: its zero tap/typing
+counters do not establish a device failure. Add explicit v50 tap/typing profile,
+study-only option setup and console restoration, coverage reporting/validation,
+exact-stage VM and focused host checks. Preserve old recipes and ordinary app
+preferences; no driver policy or firmware changes. PR #60 owns descendant
+lifetime work (possible nearby desktop edits); keep this change limited to trial
+startup. PR #19 Wi-Fi is independent. Prepare/merge/install unarmed and retain
+accepted console recovery; native tap/typing acceptance awaits this new run.
