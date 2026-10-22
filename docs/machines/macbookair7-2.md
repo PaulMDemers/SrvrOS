@@ -2,6 +2,21 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active: inherited desktop process lifetime (VM/host only)
+
+Base `22fd266` (merged PR55), fetched before implementation. This block owns
+`kernel/src/process.c`, its kernel API, a monitor/VM lifetime fixture and focused
+process tests. Add an immutable kernel-created lifetime inherited at allocation,
+including processes still loading or releasing resources; revoke new admission
+before draining descendants. Prove sequential app churn, orphaned jobs and
+process-group/session changes without a retained history of PIDs. No userspace
+lifetime assignment API, ordinary startup change or native battery enablement.
+
+Pro PR19 `45db188` remains USB Wi-Fi; Air6,1's captured profile/record is preserved.
+Next checkpoint is reviewed kernel ownership plus host/full-boot VM evidence,
+then use that owner in a continuous desktop with periodic logging and file work.
+Installed current/previous payloads below remain unchanged; no reboot is armed.
+
 ### Continuous service accounting: VM validation (PR #55)
 
 Compiled source `07c06da`, based on merged PR53 (`62067a1`), passed all nine
