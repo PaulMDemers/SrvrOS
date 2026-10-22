@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Native console, basic keyboard input and bounded USB persistence accepted**.
+Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture accepted; desktop pointer trial prepared**.
 
 ## Identity and ownership
 
@@ -275,3 +275,22 @@ firmware changes or USB workload expansion. PR #19's Wi-Fi/xHCI work and PR #55'
 battery work remain independent. Prepare an attended v12 desktop/scrolling trial,
 run host and exact-stage GPT checks, preserve console recovery, self-merge and
 install unarmed. Physical movement/click/drag/scroll acceptance awaits this run.
+
+
+Prepared run `e0d4f2a9d906c9b5`, release `e20382a7c8acbfe2`, from clean source
+`ecb028c497246dec48be6bb0f0efa345afa37dc4`. Native sample decoding, xHCI tests
+in all three modes, pointer/desktop/capture suites, full build/core and 110
+hardware-tool tests passed. Exact v12 GPT VM rehearsal passed desktop startup/
+exit, CRC report persistence/unmount, replay/read-only refusal and halt. Its
+pointer/gesture coverage correctly remains incomplete without Apple hardware.
+The rendered desktop trial was inspected.
+
+Installed current is the v12 trial; `--keep-previous` retains accepted recovery
+`c35475f62f154f1e`. Captured v10 payload/evidence also survives outside build.
+Physical USB UUID `6ADA-85BB` has an unconsumed request and 114 pre-test hashes;
+offline fsck is clean, allocation 117 clusters with zero errors/leaks.
+Run/checklist evidence under `build/trackpad-tests/e0d4f2a9d906c9b5/` and exact
+VM evidence have hash-verified durable backups. Ubuntu remains default and the
+one-shot is empty. At readiness, save `launch.json` and arm the installed entry
+without reinstalling. After manual restart collect this exact run first.
+No physical pointer/click/drag/scroll acceptance is claimed yet.
