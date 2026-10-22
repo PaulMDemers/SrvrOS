@@ -2191,3 +2191,12 @@ refused. Full build, MCU codec, xHCI and52 staging regressions pass. New host
 coverage verifies exact setup bytes, capacity refusal and ordered setup/read/IN
 submission stopping after failure at each step, with DMA retention. Preparing
 exact-stage VM checks; native response acceptance remains pending.
+
+Queue-selection source456922b release4a47cd57ac90c504 installed unarmed. Exact
+GPT saved-log/automatic-return and missing-workspace VMs pass; offline workspace
+checks and Ubuntu/current/recovery verification pass. Durable archive:
+~/.local/share/srvros/macbookpro11-2/wifi-queue-456922b. Known-good desktop recovery
+e47dca3a6b30c6c1 retained; prior MCU trial8e87dabf5c918f1c retained. Accepted firmware
+payloadb7f7fb1c357d7ff5 removed from ESP only after exact archive verification;
+its durable payload/evidence remains available. Await attended cold adapter cycle,
+then collect matching session before further work. No photos or commands needed.
