@@ -130,10 +130,11 @@ be added without a shared-resource owner.
 
 ## All captured EC query methods
 
-Outside the explicit VM study, every nonzero QR_EC response constructs `_Qxx`
-and calls `uacpi_execute_simple`. Missing methods and errors remain terminal.
-The study adds a model-only predispatch policy and whole-batch effect receipt;
-there is no native method-class admission yet. QR_EC itself consumes a controller
+The native adapter now selects the exact Air7,2 predispatch policy after its
+existing firmware/resource checks. The older VM fixtures retain unrestricted
+dispatch unless they explicitly select a policy. Allowed nonzero QR_EC responses
+construct `_Qxx` and call `uacpi_execute_simple`; errors remain terminal. The study
+adds whole-batch receipts and a normal-return boundary, still VM-only. QR_EC itself consumes a controller
 query; declining its AML method cannot be described as replaying or undoing it.
 
 | Code | Intended Darwin behavior | Other effects / exclusion |
@@ -148,7 +149,7 @@ query; declining its AML method cannot be described as replaying or undoing it.
 | `cf` | No action under Darwin | Non-Darwin path notifies sleep button |
 | `d0` | Empty body | QR_EC has still occurred |
 
-The denial of query `80` is intentional containment under today's gates. This
+The predispatch refusal of query `80` is intentional containment under today's gates. This
 review did not reproduce that query on hardware and does not claim it caused a
 previous failure. Supporting it needs an explicit GPU/power ownership decision,
 not a wider address allowlist. Notification delivery is asynchronous; normal
@@ -169,8 +170,9 @@ Before enabling that path:
 1. Record operation kind/generation, query code, AML entry/normal return and
    whether shared writes or unsupported access occurred. Distinguish “not begun,”
    “completed,” and “uncertain”; a zero resource snapshot cannot replace this.
-2. Establish an exact native method/OS-state policy. Unknown methods and `80`
-   must be refused before AML execution, with an explicit failed-service outcome.
+2. Use the exact Air7,2 method/OS-state policy below. Unknown methods, `10` and
+   `80` are refused before AML execution; native refusal remains terminal until
+   its normal-return path is separately accepted.
    Do not silently ignore them or rewrite their code to a benign query.
 3. Require a healthy completed EC exchange, no lease/SMBus/sampler activity,
    no pending query/callback, no service/storage-owner confusion and all existing
@@ -216,8 +218,8 @@ recovery or ordinary desktop battery startup.
 
 `acpiruntime battery-workspace-query` admits only the disposable VM backend and
 requires a mounted workspace with no image lease or existing battery owner.
-The native backend refuses before platform access. The model admits `_Q20` only;
-this is deliberately **not** the nine-method native firmware policy above.
+The native backend refuses before platform access. The original model policy admits `_Q20` only. The additional Air-policy fixtures
+select the exact classifier below, while remaining synthetic VM firmware.
 
 A receipt spans the whole query batch, including reschedules. It records sequence,
 sample generation, last query code, completed transport, AML calls/normal returns,
@@ -278,6 +280,58 @@ ordinary command reaches the write and halts. The harness terminates those dispo
 and preserves their disks as interrupted evidence. Native admission refusal must
 leave the image byte-identical. This does not change physical test return policy.
 
-Next native prerequisites remain an exact firmware/OS-state query policy and
-an automatic parked-workspace capture prepared through the normal staging and
-recovery process. Native mounted Home and automatic startup remain off.
+Next native prerequisites are a scoped normal-return admission and an automatic
+parked-workspace capture prepared through the normal staging and recovery process. Native mounted Home and automatic startup remain off.
+
+
+## Exact Air7,2 dispatch policy
+
+[battery_query_policy.h](../ports/srvros/uacpi/runtime/battery_query_policy.h)
+classifies the captured firmware's complete reachable branches. The native adapter
+sets `BATTERY_QUERY_AIR72` only after its existing exact DSDT, eight SSDTs, PCI,
+NVS, EC and event-resource checks. No fingerprint or register permission changes.
+The predicate itself grants neither mapping nor firmware ownership.
+
+| Codes (hex) | Class | Dispatch |
+| --- | --- | --- |
+| `00` | No query | No method |
+| `20`, `21` | Shared writes | Existing audited methods permitted; no rollback claim |
+| `40`, `5a`, `cf` | Notification-only | Permitted; current callbacks only count delivery |
+| `ce`, `d0` | Empty | Permitted |
+| `10` | OS-dependent external protocol | Refused in every OS state |
+| `80` | GPU/power policy | Refused before any CPU notifications or GPU access |
+| All other nonzero values | Unknown | Refused before method lookup |
+
+`OSDW` reads shared GNVS `OSYS==0x2710`. A pre-call snapshot, even two equal reads,
+cannot prove that query10 will take the Darwin branch: firmware can change it
+before AML reads it. Its other branch takes SMTX and reads/writes SMBus alert state.
+Rather than shadowing OSYS or bypassing firmware AML, this policy refuses query10
+in both states. Supporting it requires a separate ownership/semantic decision.
+QueryCF is different: both branches are bounded (no-op or notification), so neither
+requires a stable Darwin assumption. Query20/21's shared writes are explicitly
+classified; a later refusal in that batch cannot claim the zero-effects boundary.
+
+The diagnostic line `battery-query-policy: policy=2 code=... class=...;
+dispatch=refused` precedes containment. Class 4 is unknown, 5 is OS-dependent,
+6 is GPU/power policy; invalid policy identifiers fail closed. Native refusals
+currently halt with live state retained, before AML entry. They do not return
+normally, save success reports or enable mounted Home. The previously installed
+accepted release is unchanged. Native normal-return admission needs a separate
+parked-workspace trial, including the capture's explicit failed-service outcome.
+
+The Q35 backend can replay this same classifier with sanitized behavioral AML;
+it does not impersonate the native firmware/profile gate. Cases `policy-unknown`,
+`policy-high`, `policy-os-darwin`, `policy-os-other` reject before any method effect.
+`policy-notify-darwin` and `policy-notify-other` execute 40/5a/ce/cf/d0 before
+unknown refusal: five normal method returns, respectively two/three notifications.
+`policy-shared20` and `policy-shared21` execute a shared write before refusal and
+must halt, never claim clean retirement. `policy-outside-high` and
+`policy-outside-os` prove the ordinary command halts before AML rather than using
+the explicit study's return path. `policy-normal` exercises ordinary Text/file
+coexistence with repeated shared-write query20 calls and normal stop.
+
+Run these `tools/battery_workspace_smoke.py --case <case>` commands sequentially
+through `tools/host-env.sh`, after rebuilding both battery kernels and matched
+userspace. Positive study cases require exact policy/code/call/notification
+receipts in serial and saved logs, ordinary retirement, automatic VM reset and
+offline tree/metadata/allocation/fsck checks. A VM pass is not native acceptance.

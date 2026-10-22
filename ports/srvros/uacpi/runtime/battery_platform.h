@@ -1,6 +1,7 @@
 #ifndef SRVROS_BATTERY_PLATFORM_H
 #define SRVROS_BATTERY_PLATFORM_H
 #include "event_io.h"
+#include "battery_query_policy.h"
 #include "battery_event_hold.h"
 #include <srvros/ec_transport.h>
 #include <srvros/aml_probe.h>
@@ -34,6 +35,7 @@ struct battery_platform {
     void (*model_transfer_wait)(void);
     /* VM-only fault at the completed query exchange boundary; native NULL. */
     void (*model_query_checkpoint)(uint8_t code);
+    enum battery_query_policy query_policy;
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

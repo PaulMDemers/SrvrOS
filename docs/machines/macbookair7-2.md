@@ -2,6 +2,44 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Native query admission policy (PR #43)
+
+Base `origin/main` `961369b` (PR #42), tested code `33d4f9d`. The exact Air7,2
+adapter now classifies EC queries before AML dispatch, after the existing
+firmware/resource gate. Unknown codes and GPU/power query80 refuse before any
+method executes. Query10 also refuses in both OS states: shared GNVS OSYS can
+change between a Darwin check and AML's own read, and its other branch owns SMBus
+alert/mutex state. No snapshot, OSYS shadow or forced protocol cleanup is used.
+
+Query20/21 retain audited shared writes; 40/5a/cf are bounded notifications across
+all branches; ce/d0 are empty. The native refusal remains terminal with live state
+retained. The normal-return path is still restricted to the explicit VM study.
+This is a dispatch restriction, not native recovery acceptance or a new IO grant.
+Nine captured firmware table hashes, lengths and checksums were reverified.
+
+Ten directed VM cases passed: unknown/high/OS-state refusals, both OS variants of
+a five-method notification/no-op batch, shared20/shared21 effect refusals and
+ordinary-command high/OS refusal. Positive batches require exact live/saved
+policy/code/call/notification receipts, runtime retirement, automatic reset and
+offline filesystem/metadata/allocation checks. Outside-study refusals show zero
+interpreter errors/denied accesses, proving they stop before AML. Shared-write
+batches halt without claiming retirement or saved reports.
+
+The final 16-case matrix passed, including normal Text/file coexistence under the
+Air policy (60 generated edits, 20 file-worker operations, five cycles and three
+retired clients), legacy notification/effect/lock/refusal and I/O recovery checks.
+Full kernel builds and core host tests passed, including 512 hazard combinations,
+65,536 policy/code receipts and six parser tests; 418 documentation links passed.
+Evidence is hash-verified outside `build` in
+`~/.local/share/srvros/local-validation/battery-policy-33d4f9d`.
+
+Touched: battery runtime/native+VM bindings, query receipt/classifier, fixtures,
+host/VM proofs and documentation. Pro PR19 `4dfde33` is independent Wi-Fi work
+(separate Makefile targets only). No physical install/reboot, accepted payload,
+USB contents or recovery changed. Native mounted Home/startup remain off.
+Next: scoped native normal-return admission and an automatic parked-workspace
+capture with an explicit failed-service outcome, before ordinary Home acceptance.
+
 ### Returned-query failure study (PR #42)
 
 Base `origin/main` `065546f` (PR #41), final code `cbd04bd`. The explicit VM-only

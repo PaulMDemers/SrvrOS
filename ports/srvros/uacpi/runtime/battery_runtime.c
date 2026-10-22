@@ -665,7 +665,8 @@ static bool queue_query(void) {
         uint64_t sequence=runtime.query_receipt.sequence;
         if(sequence==UINT64_MAX)unsafe("query receipt overflow");
         runtime.query_receipt=(struct battery_query_receipt){.sequence=sequence+1,
-            .generation=runtime.sampler.sample.generation};
+            .generation=runtime.sampler.sample.generation,
+            .policy=runtime.platform.query_policy?runtime.platform.query_policy:BATTERY_QUERY_MODEL};
     }
     runtime.query_scheduled=true;
     sci_query_start(&runtime.query_observer,timer_monotonic_us());
@@ -712,11 +713,22 @@ static void query_work(void *ctx) {
         uint64_t observed_flags=irq_save();
         runtime.query_observer.code=code;runtime.query_observer.code_valid=true;
         query_phase(code?SCI_QUERY_AML:SCI_QUERY_CHECK);irq_restore(observed_flags);
+        unsigned policy=runtime.platform.query_policy;
+        if(query_study && !policy)policy=BATTERY_QUERY_MODEL;
+        enum battery_query_class query_class=battery_query_classify(policy,code);
+        bool rejected=battery_query_rejected(query_class);
+        if(rejected) {
+            console_printf("battery-query-policy: policy=%u code=%u class=%u; dispatch=refused\n",
+                (uint64_t)policy,(uint64_t)code,(uint64_t)query_class);
+            /* Native has no normal-return admission yet. Reject before AML,
+             * retaining the established terminal containment behavior. */
+            if(!query_study)unsafe("query policy");
+        }
         if(query_study) {
             struct battery_query_receipt *r=&runtime.query_receipt;
             r->code=code;r->transfer_done=true;
             if(runtime.platform.model_query_checkpoint)runtime.platform.model_query_checkpoint(code);
-            if(code && !battery_query_model_admits(code)) {
+            if(code && rejected) {
                 if(!battery_platform_workspace_study_allowed() || !runtime.service_mode ||
                    owner!=OWNER_SERVICE || !runtime.ready || service.stop ||
                    !ec_query_budget_finish(&runtime.budget,timer_monotonic_us()))unsafe("query refusal admission");

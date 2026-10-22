@@ -18,6 +18,20 @@ from vm_sockets import connect_unix
 
 ANCHOR=b'Untouched ordinary workspace data\n'
 MARKER=b'SRVROS-WORKSPACE-V1 51525354\n'
+POLICY_FAULTS={'policy-unknown':48,'policy-high':49,'policy-os-darwin':50,
+    'policy-os-other':51,'policy-notify-darwin':52,'policy-notify-other':53,
+    'policy-shared20':54,'policy-shared21':55,'policy-normal':56,
+    'policy-outside-high':49,'policy-outside-os':50}
+# Exact accepted live/saved receipts: code, AML calls, delivered notifications, policy.
+QUERY_EXPECTED={'query-unknown':(255,0,0,1),'query-high':(128,0,0,1),'query-notify':(255,1,1,1),
+    'policy-unknown':(255,0,0,2),'policy-high':(128,0,0,2),
+    'policy-os-darwin':(16,0,0,2),'policy-os-other':(16,0,0,2),
+    'policy-notify-darwin':(255,5,2,2),'policy-notify-other':(255,5,3,2)}
+QUERY_HALTS={'query-effects':b'query return receipt','query-lock':b'recovery resources retained',
+    'query-transport':b'query transport','query-disconnect':b'EC disconnect',
+    'query-outside':b'query AML','query-high-outside':b'query AML',
+    'policy-shared20':b'query return receipt','policy-shared21':b'query return receipt',
+    'policy-outside-high':b'query policy','policy-outside-os':b'query policy'}
 
 
 def check(data):
@@ -175,7 +189,7 @@ def verify_recovery(data,serial,query=False):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside','query-high-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
+    parser.add_argument('--case',choices=(*POLICY_FAULTS,'query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside','query-high-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
@@ -195,6 +209,7 @@ def main():
                 'recovery-callback-outside-scope':33,'recovery-irq-mask-refusal':32,
                 'recovery-irq-target-refusal':31,'recovery-irq':30,'recovery-irq-refusal':30,
                 'recovery-owner-refusal':29,'runtime-fault':28,'recovery':28,'recovery-io':28,'recovery-refusal':28}
+        faults.update(POLICY_FAULTS)
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(faults.get(args.case,15))+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('query-refusal','refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else 'vm.elf')
@@ -220,27 +235,29 @@ def main():
                 assert b'srv> ' in output
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
-                command=b'battery-workspace'+(b'-query' if args.case.startswith('query-') and args.case not in ('query-outside','query-high-outside') else b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                command=b'battery-workspace'+(b'-query' if (args.case.startswith('query-') or args.case in POLICY_FAULTS) and args.case not in ('query-outside','query-high-outside','policy-outside-high','policy-outside-os','policy-normal') else b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
                 serial.sendall(b'acpiruntime '+command+b'\n')
-                if args.case in ('query-unknown','query-high','query-notify'):
+                if args.case in QUERY_EXPECTED:
                     data=wait_for(b'battery-query: returning after storage drain; test outcome=returned-failure',45)
                     assert process.wait(timeout=10)==0
                     disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                     volume.write_bytes(disk[2048*512:]);result=verify_recovery(volume.read_bytes(),data,query=True)
-                    assert result['code']==(128 if args.case=='query-high' else 255)
-                    assert result['notifications_drained']==int(args.case=='query-notify')
+                    assert tuple(result[k] for k in ('code','aml_calls','notifications_drained','policy'))==QUERY_EXPECTED[args.case]
                     (out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result.update(automatic_reset=True,offline_allocation='PASS')
                     (out/'workspace.exfat').write_bytes(volume.read_bytes())
-                elif args.case in ('query-effects','query-lock','query-transport','query-disconnect','query-outside','query-high-outside'):
-                    reason={'query-effects':b'query return receipt','query-lock':b'recovery resources retained',
-                            'query-transport':b'query transport','query-disconnect':b'EC disconnect','query-outside':b'query AML','query-high-outside':b'query AML'}[args.case]
+                elif args.case in QUERY_HALTS:
+                    reason=QUERY_HALTS[args.case]
                     data=wait_for(b'battery: HALTED '+reason,45)
                     for forbidden in (b'battery-service: retired ',b'battery-query: saved=',b'battery-query: returning',b'battery-quarantine:',b'battery-query: state=',b'contained fault; returning'):
                         assert forbidden not in data
-                    if args.case=='query-effects':assert b'effects=1 ' in data and b'aml_calls=1 aml_returns=1' in data
+                    if args.case in ('query-effects','policy-shared20','policy-shared21'):assert b'effects=1 ' in data and b'aml_calls=1 aml_returns=1' in data
+                    if args.case.startswith('policy-outside-'):
+                        assert b' errors=0 denied=0 ' in data and b'battery-query-return:' not in data
+                        expected=(128,6) if args.case.endswith('high') else (16,5)
+                        assert f'battery-query-policy: policy=2 code={expected[0]} class={expected[1]}; dispatch=refused'.encode() in data
                     if args.case=='query-lock':assert b'api=1 aml=0 mutex=1 pending=0 facs=2 blocked=96' in data
                     output.extend(read_for(serial,1));assert process.poll() is None
                     stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
@@ -311,7 +328,7 @@ def main():
                     snapshot=wait_for(b'\nWORKSPACE_STUDY_END\r\n',15)
                     starts=list(re.finditer(rb'^WORKSPACE_STUDY_BEGIN\r?\n',snapshot,re.M));assert len(starts)==1
                     data=snapshot[starts[0].end():];(out/'boot.log').write_bytes(data)
-                    if args.case=='normal':result=check(data)
+                    if args.case in ('normal','policy-normal'):result=check(data)
                     elif args.case in ('refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal'):
                         assert (b'battery-recovery: REFUSED VM-only study' if args.case in ('recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else b'battery-workspace: REFUSED VM-only study') in data
                         assert b'battery-service:' not in data and b'battery-native:' not in data
@@ -324,8 +341,8 @@ def main():
                     serial.sendall(b'run /fat/bin/deskd --smoke\n');wait_for(b'deskd: exited ')
                     serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')
                     stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
-                    volume.write_bytes(disk[2048*512:]);verify_disk(volume.read_bytes(),args.case=='normal')
-                    if args.case!='normal':assert volume.read_bytes()==bytes(fixture.data),'Read-only trial changed disk bytes'
+                    volume.write_bytes(disk[2048*512:]);verify_disk(volume.read_bytes(),args.case in ('normal','policy-normal'))
+                    if args.case not in ('normal','policy-normal'):assert volume.read_bytes()==bytes(fixture.data),'Read-only trial changed disk bytes'
                     (out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0

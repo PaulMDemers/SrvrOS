@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include "../ports/srvros/uacpi/runtime/battery_query_receipt.h"
 int main(void) {
-    for(unsigned code=0;code<256;code++)assert(battery_query_model_admits(code)==(code==32));
-    struct battery_query_receipt r={.sequence=1,.generation=2,.code=255,.refused=true,
+    for(unsigned code=0;code<256;code++)assert((battery_query_classify(BATTERY_QUERY_MODEL,code)==BATTERY_QUERY_NOTIFY)==(code==32));
+    struct battery_query_receipt r={.sequence=1,.generation=2,.code=255,.policy=BATTERY_QUERY_MODEL,.refused=true,
         .transfer_done=true,.completed_before=9};
     assert(battery_query_returned(&r,10,true));
     assert(!battery_query_returned(NULL,10,true));
@@ -26,5 +26,20 @@ int main(void) {
     assert(battery_query_returned(&r,10,true));
     r.effects=1;assert(!battery_query_returned(&r,10,true));
     r.effects=0;r.completed_before=UINT64_MAX;assert(!battery_query_returned(&r,0,true));
-    puts("battery-query-receipt: PASS exact VM admission, 512 hazards, completed callback and whole-batch effects");
+    r.completed_before=9;
+    for(unsigned policy=0;policy<256;policy++)for(unsigned code=0;code<256;code++) {
+        r.policy=policy;r.code=code;
+        bool denied=code && (policy==BATTERY_QUERY_MODEL ? code!=32 :
+            policy==BATTERY_QUERY_AIR72 && code!=0x20 && code!=0x21 && code!=0x40 &&
+            code!=0x5a && code!=0xce && code!=0xcf && code!=0xd0);
+        assert(battery_query_returned(&r,10,true)==denied);
+    }
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0x10)==BATTERY_QUERY_OS_BRANCH);
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0x80)==BATTERY_QUERY_DEVICE_POLICY);
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0x20)==BATTERY_QUERY_SHARED);
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0x21)==BATTERY_QUERY_SHARED);
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0xcf)==BATTERY_QUERY_NOTIFY);
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0xce)==BATTERY_QUERY_EMPTY);
+    assert(battery_query_classify(BATTERY_QUERY_AIR72,0xd0)==BATTERY_QUERY_EMPTY);
+    puts("battery-query-receipt: PASS exact VM admission, 512 hazards, 65536 policy/code receipts, completed callback and whole-batch effects");
 }
