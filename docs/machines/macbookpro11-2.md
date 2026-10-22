@@ -1766,3 +1766,13 @@ endpoint snapshot and no mutation/retry after uncertainty. Exact GPT saved-log
 and missing-workspace held VMs pass. This measures the timeout and endpoint
 state; it does not yet establish why the device stops responding after reset.
 Native validation pending; recovery and the held-failure workflow are retained.
+
+Native measured-deadline trial `20ffa06db0f23758`, session
+`00065e63bd3755b9-00`, still times out on request9/write6/index0x800/length4
+with no matched completion. elapsed_us=300001, endpoint state=1, cached output
+dequeue=0x1eb001. Do not infer live ring progress solely from that context snapshot.
+Reset completed, preparation failed and upload remained unattempted; no firmware
+acceptance. Photo/logs archived, recovery/default/consumed one-shot verified.
+Offline checks pass: 125 files, 436 clusters, no errors. Next investigate device
+reset behavior and transport state rather than simply increasing the timeout.
+No further boot armed.
