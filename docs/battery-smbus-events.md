@@ -134,3 +134,32 @@ Use exact-stage `hardware_boot_smoke.py --probe-check`, including its missing
 workspace case, before installation. Keep the accepted desktop recovery and
 prior parked-refusal payload independently backed up. Collect the matching
 session, verify prior files and offline exFAT allocation before another run.
+
+## Mounted workspace and stop-race VM study
+
+The explicit `acpiruntime battery-smbus-workspace` command is disposable-VM-only;
+the native kernel refuses it before platform activity. It reuses the mounted
+workspace/Text file-worker diagnostic for a minute of actual generated edits,
+save/open operations and cached battery UI reads while the same serialized
+controller owner handles events. This grants no native mounted Home capability.
+
+`tools/battery_workspace_smoke.py` adds completion-only and recurring known/unknown
+alarm cases. Known alarms must invalidate the cache and require a later fresh
+generation; unknown senders are acknowledged without requesting refresh. The
+normal result requires all 60 edits, five exact file cycles, retired descendants,
+a replacement compositor and offline tree/metadata/allocation/fsck checks.
+
+Two model fixtures request nonblocking Stop from an in-flight alarm read or
+acknowledgement. Their expected workload outcome is **interrupted**, even when
+the worker finishes the transaction and retires cleanly. The stopped cache must
+remain nonfresh and cannot publish after Stop. A third fixture stalls the
+acknowledgement handshake: it must remain contained with no retirement, completed
+workload or filesystem-cleanup claim. These injections exist only in the VM
+platform, not in native firmware or production input paths.
+
+The first read/Stop test exposed a premature resource check in the earlier
+VM study. Resource inspection now occurs after masking and bounded worker drain,
+matching the native capture's existing ordering. It still precedes disconnect;
+an uncertain transfer still fails rather than being cleared for teardown.
+The strict `battery_smbus_workspace_records.py` decoder distinguishes interruption
+from a complete workload and correlates counts, invalidation and stop ordering.

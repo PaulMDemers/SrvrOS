@@ -971,6 +971,9 @@ static void runtime_close(void) {
     check_foreign_event();
     mask_sources();
     if(!acpi_worker_drain(&runtime.worker,3000))unsafe("pre-disconnect drain");
+    /* Stop can race an owned event. Check its lease after the masked worker
+     * has drained, not while a resumable EC transfer is still in flight. */
+    if(smbus_study)require_recovery_resources();
     if(smbus_capture) {
         uint64_t f=irq_save();
         bool idle=acpi_work_idle(&runtime.worker.work) && !runtime.query.pending && !runtime.query_scheduled &&
@@ -1072,7 +1075,6 @@ static void service_main(void *arg) {
     }
     bool query_failed=runtime.query_receipt.refused;
     if(query_failed)query_return_boundary();
-    if(smbus_study)require_recovery_resources();
     runtime_close();
     /* Force the study through post-close scheduling while unrelated I/O is owned. */
     if(query_failed)scheduler_yield();
@@ -1892,7 +1894,32 @@ static void smbus_test(void *rsdp,struct limine_memmap_response *map) {
         runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,runtime.smbus_unknown,status.sample.generation);
     smbus_study=false;
 }
+/* VM-only mounted workspace study. Native refuses before platform activity;
+ * the same serialized event owner spans real Text/file clients and their stop. */
+static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) {
+    if(!battery_platform_workspace_study_allowed() || smbus_study || smbus_capture ||
+       query_study || query_capture || owner!=OWNER_NONE || !workspace_active() || workspace_image_busy()) {
+        console_write("battery-smbus-workspace: REFUSED VM-only mounted study\n");return;
+    }
+    smbus_study=true;
+    bool complete=desktop_test(rsdp,map,0,true,false,true,true);
+    struct battery_service_status final;battery_service_status(&final);
+    bool retired=owner==OWNER_NONE && !service.running && !service.quarantined &&
+        !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
+        runtime.attached && runtime.attached==runtime.detached &&
+        final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
+        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING));
+    console_printf("battery-smbus-workspace: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u; retired=%s native=disabled\n",
+        complete?"complete":"interrupted",runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
+        runtime.smbus_unknown,runtime.smbus_invalid_through,final.sample.generation,
+        (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
+    if(!retired)unsafe("SMBus workspace retirement");
+    smbus_study=false;
+}
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-smbus-workspace")) {
+        smbus_workspace_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
+    }
     if(command_is(args,"battery-smbus-study")) {
         smbus_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
     }

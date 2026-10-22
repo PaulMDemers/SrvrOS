@@ -3434,3 +3434,4 @@ test-battery-smbus-records:
 test-core: test-battery-native-smbus-records
 test-battery-native-smbus-records:
 	$(PYTHON) tools/test_battery_native_smbus_records.py
+	$(PYTHON) tools/test_battery_smbus_workspace_records.py
