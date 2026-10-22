@@ -82,7 +82,7 @@ def main():
             result.update(outcome='contained fault reset',runtime_retired=False,offline_allocation='PASS')
         else:
             if positive:
-                result.update(checker(data,vm=True))
+                if not args.files:result.update(checker(data,vm=True))
             elif args.case in ('profile-refusal','no-event','stop-read','stop-ack'):
                 assert b'outcome=not-exercised' in data
                 if args.case in ('profile-refusal','no-event'):assert b'battery-smbus: event=' not in data and b'smbus-e:' not in data
@@ -99,7 +99,14 @@ def main():
             def inner_check(raw):
                 if positive or args.case=='no-event':verify_app_image(raw)
                 else:assert raw==original_inner,'Incomplete early trial changed inner image'
-            (out/'exit.log').write_bytes(verify_image(volume.read_bytes(),data,positive,checker=checker,capture=capture,image_checker=inner_check if args.files else None))
+            saved=verify_image(volume.read_bytes(),data,positive,checker=checker,capture=capture,
+                               image_checker=inner_check if args.files else None,compare_serial=not args.files)
+            (out/'exit.log').write_bytes(saved)
+            if positive and args.files:
+                result.update(checker(saved,vm=True));result['proof_source']='atomic saved boot log'
+                # Final summary prints after all competing clients have retired.
+                summary=next(r for r in saved.splitlines() if r.startswith(b'battery-native-smbus: outcome='))
+                assert data.replace(b'\r\n',b'\n').splitlines().count(summary)==1
             if args.files:
                 inner.write_bytes(ExfatFixture(volume.read_bytes()).read('srvros-work/battery-fs.img'))
                 (out/'inner-fsck.txt').write_text(check_clean_image(inner))

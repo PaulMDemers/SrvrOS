@@ -1,5 +1,6 @@
 import re,unittest
 from battery_native_smbus_records import check_files
+from battery_native_query_smoke import verify_capture_proof
 from test_battery_native_smbus_records import PROOF
 from test_battery_desktop_records import FILES
 
@@ -19,6 +20,13 @@ class Proof(unittest.TestCase):
     def test_full_proof(self):
         result=check_files(FILES_PROOF,vm=True)
         self.assertEqual((result['events'],result['file_cycles'],result['generated']),(3,5,60))
+    def test_saved_proof_survives_only_uart_interleaving(self):
+        interleaved=FILES_PROOF.replace(b'smbus-e:2,',b'smbus-desktop log\ne:2,')
+        self.assertEqual(verify_capture_proof(FILES_PROOF,interleaved,check_files,False)['events'],3)
+        with self.assertRaises(AssertionError):verify_capture_proof(FILES_PROOF,interleaved,check_files)
+        for saved in (interleaved,FILES_PROOF[:-1],FILES_PROOF.replace(b'completed=yes',b'completed=NO')):
+            with self.assertRaises(AssertionError):verify_capture_proof(saved,FILES_PROOF,check_files,False)
+
     def test_compact_and_retirement_corruption(self):
         for old,new in ((b'smbus-e:1,0',b'smbus-e:1,100'),(b'smbus-i:2,2,1',b'smbus-i:2,2,0'),
                         (b'limit=512',b'limit=1024'),(b'hex=4141',b'hex=4142'),
