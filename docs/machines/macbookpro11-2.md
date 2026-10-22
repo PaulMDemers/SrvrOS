@@ -1850,3 +1850,18 @@ GPT saved-log and missing-workspace held VMs pass. Installed unarmed; Ubuntu
 default/recovery verified; offline checks clean (129 files, 442 clusters).
 Native result pending. Next attended cold trial compares the post-reset FCE
 write with the upstream MAC startup value; no firmware readiness accepted.
+
+Native MAC-startup comparison `c18a4380b3f08235`, session
+`00065e653266c290-00`, confirms requested=1/written=1 but still times out
+at request13/FCE write0x800 after 300000 µs. Stop Endpoint succeeds: state=3,
+dequeue=0x1eb381, stopped event at data TRB 0x1eb380, cc26/residue4. The full
+four-byte OUT payload remains outstanding, as in v1; MAC startup did not resolve
+the failure. The initial MAC readback passed before reset; restoration to 0x20
+was not reached. Preparation/upload remain incomplete, zero chunks, quarantine
+retained; RF/connectivity not tested. This does not prove a particular USB wire
+handshake or establish the cause. Matching logs/photo/run record archived in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-75ea093`. Ubuntu default,
+consumed one-shot and installed/current recovery payloads verified. Offline
+checks pass: 131 files, 445 clusters, zero leaks/mismatches/errors. Next inspect
+post-reset USB OUT transaction handling; no new boot armed or firmware readiness
+accepted.
