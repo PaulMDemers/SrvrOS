@@ -2432,3 +2432,17 @@ passed. Ubuntu default/recoverye47dca3a6b30c6c1 and prior timing capture201acb49
 retained; obsolete101abba9feeb8cfa removed only after durable archive equality.
 Next hardware acceptance requires wifi-timing-init status0, ack_validated1,
 complete1, reads6, both target readbacks and MAC0 before/after. Native pending.
+
+Native timing engine accepted: source48879c2/release0c12150fc75d830c/
+session00065e7570e64246-00. wifi-timing-init status0,attempted1,write_attempted1,
+sent24,received16,ack_validated1,complete1,reads6. MAC before/after0; XIFS changed
+33a4100a->33a41010 and BKOFF214->209. Firmware/reset/strict identity/single-write
+prerequisites passed and firmware/laptop completed=yes. This accepts the exact
+bounded two-register initialization only, not full MAC/BBP tables or RF.
+
+Matching collection/hashes archived in wifi-timing-engine-48879c2/native-collection.
+Ubuntu default, consumed one-shot and current/recovery manifests verified.
+Workspace unmounted and clean151files/475clusters,zero leaks/mismatches/errors.
+Run/checkpoint collected and unarmed. Next expand MAC/baseband initialization
+with bounded commands and register-specific readback policies; RF/scan/network
+connectivity remain pending.

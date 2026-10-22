@@ -750,3 +750,10 @@ and quarantines the device. The earlier v6 duplicate-pair capture remains a
 capture-only profile. This is not a general MAC/BBP table executor or radio
 readiness: larger batches and additional register classes require their own
 completion and readback policy.
+
+Native bounded-engine acceptance: source48879c2/release0c12150fc75d830c/
+session00065e7570e64246-00. status0,ack_validated1,complete1,reads6; OUT24/IN16.
+Both timing registers changed to the exact targets and MAC stayed0. Firmware,
+reset, strict identity/single-write prerequisites and capture completion passed;
+post-return recovery/filesystem checks were clean. This accepts this exact
+two-register engine on the captured adapter, not larger tables or RF readiness.
