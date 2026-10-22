@@ -1296,4 +1296,8 @@ CPU state from an unfinished EC/SMBus protocol or firmware Global Lock. Every VM
 quarantine path now requires an observed idle protocol and unowned/nonpending
 Global Lock, including the AML and underlying semaphore paths. The snapshot only
 refuses unsafe recovery; it grants no native admission and performs no cleanup.
-Native mounted Home and ordinary automatic startup remain disabled.
+Native mounted Home and ordinary automatic startup remain disabled. The
+[native AML side-effect map](battery-native-aml-audit.md) identifies startup's
+shared writes, all nine captured EC queries and the absence of rollback in
+`_REG(3,0)`. It selects a returned query-admission failure for the next VM study;
+it does not grant native recovery or mounted Home admission.

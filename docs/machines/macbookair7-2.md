@@ -2,6 +2,32 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Completed native AML side-effect audit
+
+Base `origin/main` `d49ef02` (PR #40). The
+[native side-effect map](../battery-native-aml-audit.md) covers the captured DSDT
+and all eight admitted SSDTs: loading, two `_INI` methods, EC connect/disconnect,
+all nine EC queries, notification delivery and status traversal. Raw tables match
+the prior SHA-256 manifest, lengths, checksums and every native fingerprint.
+Per-table iASL runs with peer externals completed; the unresolved guarded HDOS/HNOT
+references and failed multi-target disassembly are recorded as evidence limits.
+
+Startup writes shared OS/lid/AC state, graphics CLID, ECSS and two GPIO bits;
+disconnect does not roll those back. Query 80 reaches denied GPU/chipset controls.
+The next experiment is a structured query-admission failure after a completed
+QR_EC exchange, before unapproved AML begins, returning normally to the owner.
+It needs operation/effect receipts, drained callbacks, existing resource guards
+and proved orderly retirement in VM before a parked-workspace native capture.
+Partial initialization, shared writes, poisoned protocols and arbitrary AML faults
+remain outside that recovery scope. Native mounted Home and automatic startup
+remain off.
+
+Existing native-memory, recovery-resource, I/O-mask, EC and SMBus host checks
+passed; documentation links passed. This was a static/host audit, with no new VM
+or physical acceptance claim. Evidence is archived with verified hashes outside
+`build`. Pro PR #19 at `e871a1e8` remains independent Wi-Fi work with no edited-file
+overlap. No installed payload, USB contents, recovery or reboot state changed.
+
 ### Resource audit and recovery admission (PR #40)
 
 Base `origin/main` `3c98c42` (PR #39), tested code `2cc02b2`. The
