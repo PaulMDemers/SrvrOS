@@ -1841,3 +1841,12 @@ or network frames. Files: preparation/transport, main opt-in, staging/VM recipes
 and host tests. Fetched main e946f5e; only PR #19 open, Air scope battery query
 receipt work. Integration profile collision remains deferred. Native proof is
 required; MAC startup may remain enabled on failed I/O until physical power-off.
+
+MAC-startup comparison source `75ea093`, v2 release `c18a4380b3f08235`,
+passes build, preparation/xHCI fault fixtures, 51 staging tests and docs. The
+fixtures preserve v1, require explicit one-shot startup ownership, verify final
+disable before preparation succeeds, and fail closed on each operation. Exact
+GPT saved-log and missing-workspace held VMs pass. Installed unarmed; Ubuntu
+default/recovery verified; offline checks clean (129 files, 442 clusters).
+Native result pending. Next attended cold trial compares the post-reset FCE
+write with the upstream MAC startup value; no firmware readiness accepted.

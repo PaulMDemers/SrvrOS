@@ -276,8 +276,8 @@ sets TX/RX enable bits. This diagnostic preparation uses `0x20` and checks the
 readback before reset and after preparation. Nonmatching readback refuses the
 trial. This is a proposed disabled-MAC readiness path, not physically accepted
 firmware compatibility. Native integration must preserve exclusive endpoint/DMA
-ownership and check MAC state after firmware activation as well. Neither the
-preparation helper nor upload helper has a native startup caller yet.
+ownership and check MAC state after firmware activation as well. The explicit
+native firmware-readiness caller is described below.
 See the pinned [MAC control bits](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
 and [upstream preparation sequence](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c).
 
