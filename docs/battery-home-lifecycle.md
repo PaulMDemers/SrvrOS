@@ -132,9 +132,15 @@ monitoring. Physical native acceptance remains pending.
 `tools/host-env.sh python3 tools/battery_home_smoke.py --case normal` uses only a
 disposable disk. Additional cases: `alarm`, `query-refusal`, `native-refusal`,
 `unmounted-refusal`, `profile-refusal`, `runtime-fault`, and `effect-refusal`.
-Clean cases require exact byte preservation, a replacement compositor, unmount,
+Clean command cases require exact byte preservation, a replacement compositor, unmount,
 fsck and independent allocation checks. Fault cases require visible containment
 without retirement/release/reset claims; the VM host terminates them.
+
+The boot-flow fixture `tools/battery_home_capture_smoke.py` covers `completion`,
+`alarm`, `query-refusal` and `uncertain-ack`. It verifies the actual capture path,
+three saved logs, exact tree/metadata and allocation, automatic return for clean
+outcomes, and visible halt without storage cleanup for uncertain ownership.
+Saved records remain authoritative when concurrent UART writers interleave.
 
 For the unattended hardware capture, stage the distinct v48 recipe with
 `python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_UUID --battery-home`,

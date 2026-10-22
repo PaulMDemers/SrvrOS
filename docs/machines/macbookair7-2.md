@@ -15,6 +15,13 @@ profile, unmounted admission and uncertain effects/transport with exact disk
 preservation. Pro PR19 `77ba966` remains independent USB Wi-Fi work. Installed
 current/recovery remain `fda709928307b1b1` / `b427b78f21644bd2`; no reboot armed.
 
+The final controls/file regression exposed saved-log interleaving: a complete
+file-result record could appear inside a 64-byte fragment of a longer SCI record.
+Scope now includes bounded console-record atomicity, separate from framebuffer
+and UART batching, plus a deterministic host interleaving regression. The failed
+log remains local evidence; no missing record is accepted or reconstructed.
+Pro PR19 advanced to `89f8098` with independent MCU queue selection, no overlap.
+
 ### Controls during submitted Text jobs (PR #51)
 
 Implementation `23837b9`, base `fb96ace` (PR50). The explicit VM fixture sends
