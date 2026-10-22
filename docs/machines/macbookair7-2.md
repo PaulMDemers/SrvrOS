@@ -2,6 +2,22 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active controls with asynchronous file work
+
+Base `fb96ace` (PR50). Scope: the explicit mounted VM battery-control diagnostic,
+Text/file capture, compositor capture-mode selection and strict host/VM evidence.
+The Text fixture will use the existing scoped control syscall during pending
+asynchronous saves, stop/restart across file cycles, and leave monitoring active
+for session-exit retirement. Test normal completion, cancellation during file
+work, unavailable/native admission and fault containment. Pending application
+jobs are not proof of active USB DMA; keep those claims distinct.
+
+Fetched main and inspected Pro PR19 `77ba966`: USB Wi-Fi MCU/capture work, no
+battery/Text ownership overlap. Native Home/startup and installed recovery stay
+unchanged (`fda709928307b1b1`, previous `b427b78f21644bd2`); no reboot pending.
+Actions stay disabled; validation runs locally. Next checkpoint is combined
+lifecycle/file receipts and exact disposable-volume contents/allocation checks.
+
 ### Mounted-volume ownership (PR #50)
 
 Implementation `5fe69fa`, base `3c47b50` (PR49). VM battery control and SMBus/file
