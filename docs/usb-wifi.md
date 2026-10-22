@@ -394,3 +394,19 @@ the first late or stopped transfer event. Interpret the dequeue only after a
 successful stop with state 3; a snapshot does not prove why the device stalled.
 A failed command blocks later controller commands. The failed request remains
 failed and quarantined: no retry, endpoint restart or DMA reuse is performed.
+
+### Explicit MAC-startup comparison
+
+Add `--wifi-mac-startup` to the firmware-package staging command to select the
+separate `ram-usb-wifi-fw-v2` recipe. v1 and its command line remain unchanged.
+The v2 kernel opt-in allows one 0x1004=0x2c write before MCU reset, matching
+[Linux v6.18 firmware preparation](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c).
+This temporarily enables MAC TX/RX. After FCE preparation it writes and verifies
+0x20 before allowing upload; the final readiness check still requires disabled
+MAC. No channel/RF configuration or network frames are submitted. This is an
+unaccepted comparison trial, not proof that disabled MAC caused the timeout.
+The transport requires the opt-in, preparation ownership, no prior reset/upload
+and a single startup write. Failed/uncertain I/O is never retried: MAC startup
+may remain enabled until physical power-off. The held-screen recovery procedure
+therefore remains required. Cached `wifi-firmware-mac-startup` records requested
+and written state; these flags do not prove restoration or readiness.

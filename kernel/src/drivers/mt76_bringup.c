@@ -179,12 +179,13 @@ enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *sessi
     if (!clock_ready) return MT76_UPLOAD_TIMEOUT;
     if (!r->read(r->context,0x238,&value)) return MT76_UPLOAD_IO;
     if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
+    uint32_t startup_mac=session->mac_startup?0x2cu:0x20u;
     if (!r->write(r->context,0x238,0x00c00000) ||
-        !r->write(r->context,0x1004,0x20) ||
+        !r->write(r->context,0x1004,startup_mac) ||
         !r->read(r->context,0x1004,&value)) return MT76_UPLOAD_IO;
-    /* Upstream uses 0x2c, which enables MAC TX/RX. This diagnostic deliberately
-     * holds both disabled; firmware compatibility must be tested natively. */
-    if (value!=0x20) return MT76_UPLOAD_REFUSED;
+    /* v1 keeps TX/RX disabled. Explicit v2 tests the upstream startup value;
+     * restore disabled MAC before any upload. Never retry an uncertain write. */
+    if (value!=startup_mac) return MT76_UPLOAD_REFUSED;
     if (
         !r->read(r->context,0x238,&value)) return MT76_UPLOAD_IO;
     if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
@@ -200,6 +201,7 @@ enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *sessi
     if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
     if (!r->write(r->context,0x238,value|(1u<<16)) ||
         !r->write(r->context,0x238,value&~(1u<<16))) return MT76_UPLOAD_IO;
+    if (session->mac_startup && !r->write(r->context,0x1004,0x20)) return MT76_UPLOAD_IO;
     if (!r->read(r->context,0x1004,&value)) return MT76_UPLOAD_IO;
     if (value!=0x20) return MT76_UPLOAD_REFUSED;
     session->prepared=true;

@@ -126,6 +126,9 @@ static bool wifi_fw_write(void *context,uint32_t address,uint32_t value) {
     bool allowed=(address==0x1004 && value==0x20) || (address==0x800 && value==1) ||
         (address==0x9a0 && value==0x400230) || (address==0x9a4 && value==1) ||
         (address==0x9c4 && value==0x44) || (address==0xa6c && value==3);
+    if(address==0x1004 && value==0x2c)allowed=wifi_mac_startup && f->preparation.mac_startup &&
+        f->preparation.attempted && !f->preparation.prepared && !f->reset_seen &&
+        !f->upload.attempted && !f->mac_startup_written;
     if(address==0x80)allowed=f->wlan_valid && !f->wlan_written &&
         f->wlan_before!=0xffffffffu && !(f->wlan_before&0xcu) && value==(f->wlan_before|3u);
     if(address==0x238)allowed=value==0xc00000 || (f->cfg_valid &&
@@ -136,6 +139,7 @@ static bool wifi_fw_write(void *context,uint32_t address,uint32_t value) {
     struct usb_setup_packet setup={.request_type=0x40,.request=6,.index=(uint16_t)address,.length=4};int actual;
     if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual!=4)return wifi_firmware_fail(d);
     if(address==0x80)f->wlan_written=true;
+    if(address==0x1004 && value==0x2c)f->mac_startup_written=true;
     if(address==0x9a8){f->phase=0;f->chunk++;f->descriptor_valid=false;}
     return true;
 }
@@ -211,6 +215,7 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
         found++;
         if(f->attempted || !f->configured || f->failed || d->ep0_quarantined){success=false;continue;}
         f->attempted=true;f->active=true;f->image=image;f->image_size=size;
+        f->preparation.mac_startup=wifi_mac_startup;
         struct mt76_prepare_io prep={{d,wifi_fw_read,wifi_fw_write,wifi_fw_delay},wifi_fw_reset};
         enum mt76_upload_status status=mt76_prepare_firmware(&f->preparation,&prep,&d->wifi_identity);
         if(status==MT76_UPLOAD_OK) {
@@ -239,6 +244,8 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
         console_printf("wifi-firmware-stop: attempted=%u ok=%u state=%u dequeue=%x event=%x cc=%u residue=%u\n",
             (uint64_t)f->stop_attempted,(uint64_t)f->stop_ok,(uint64_t)f->stop_state,
             f->stop_dequeue,f->stop_event_pointer,(uint64_t)f->stop_event_cc,(uint64_t)f->stop_event_residue);
+        console_printf("wifi-firmware-mac-startup: requested=%u written=%u\n",
+            (uint64_t)f->preparation.mac_startup,(uint64_t)f->mac_startup_written);
         console_printf("wifi-firmware-clock: before=%x after=%x cmb=%x written=%u\n",
             (uint64_t)f->wlan_before,(uint64_t)f->wlan_after,(uint64_t)f->cmb,(uint64_t)f->wlan_written);
         console_printf("wifi-firmware-progress: reads=%u last_register=%x last_value=%x prepared=%u reset=%u upload=%u\n",

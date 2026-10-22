@@ -111,7 +111,7 @@ void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
 void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
 
 static void reset_test(void) {
-    firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=false;
+    firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=wifi_mac_startup=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
     memset(registers, 0, sizeof(registers));
@@ -1139,6 +1139,21 @@ static void test_wifi_firmware_stop(void) {
 }
 
 static void test_wifi_firmware_control_guards(void) {
+    for(unsigned fault=0;fault<7;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true,
+            .preparation={.mac_startup=fault!=2,.attempted=fault!=3},.reset_seen=fault==4,.mac_startup_written=fault==5};
+        wifi_mac_startup=fault!=1;
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,fault==6?6:1,0);
+        assert(wifi_fw_write(&d,0x1004,0x2c)==!fault);
+        assert(d.ep0_enqueue==(fault==0||fault==6?3u:0u));
+        if(!fault)assert(d.firmware.mac_startup_written && !wifi_fw_write(&d,0x1004,0x2c));
+        assert(!freed);
+    }
+
     for(unsigned fault=0;fault<7;fault++) {
         reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
         struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},

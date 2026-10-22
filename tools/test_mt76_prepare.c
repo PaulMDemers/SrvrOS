@@ -8,7 +8,7 @@ static const struct op expected[]={
  {'w',0x800,1},{'w',0x9a0,0x400230},{'w',0x9a4,1},{'w',0x9c4,0x44},
  {'w',0xa6c,3},{'r',0x238,0xc00020},{'w',0x238,0xc10020},{'w',0x238,0xc00020},{'r',0x1004,0x20}
 };
-struct fake {unsigned calls,fail,bad_read;uint32_t bad_value;bool clock_wait;};
+struct fake {unsigned calls,fail,bad_read;uint32_t bad_value;bool clock_wait,startup;};
 static bool operation(struct fake *f,char kind,uint32_t address,uint32_t *value) {
  unsigned i=f->calls++;
  if(f->clock_wait && i>=5) {
@@ -16,10 +16,16 @@ static bool operation(struct fake *f,char kind,uint32_t address,uint32_t *value)
   if(kind=='r')*value=0;
   return f->calls!=f->fail;
  }
+ if(f->startup && i==22) {
+  assert(kind=='w' && address==0x1004 && *value==0x20);
+  return f->calls!=f->fail;
+ }
+ if(f->startup && i>22)i--;
  assert(i<sizeof expected/sizeof expected[0]);
  assert(kind==expected[i].kind && address==expected[i].address);
- if(kind=='w')assert(*value==expected[i].value);
- if(kind=='r')*value=f->bad_read==i+1?f->bad_value:expected[i].value;
+ uint32_t v=f->startup && (i==8 || i==9)?0x2c:expected[i].value;
+ if(kind=='w')assert(*value==v);
+ if(kind=='r')*value=f->bad_read==f->calls?f->bad_value:v;
  return f->calls!=f->fail;
 }
 static bool readreg(void *p,uint32_t a,uint32_t *v){return operation(p,'r',a,v);}
@@ -65,5 +71,16 @@ int main(void) {
  assert(run(&f,&s)==MT76_UPLOAD_REFUSED && f.calls==205);
  f=(struct fake){.clock_wait=true,.fail=7};s=(struct mt76_prepare_session){0};
  assert(run(&f,&s)==MT76_UPLOAD_CANCELLED && !s.prepared && f.calls==7);
+ for(unsigned fail=0;fail<=24;fail++) {
+  f=(struct fake){.startup=true,.fail=fail};s=(struct mt76_prepare_session){.mac_startup=true};
+  assert(run(&f,&s)==(fail?MT76_UPLOAD_IO:MT76_UPLOAD_OK) || (fail && !s.prepared));
+  assert(f.calls==(fail?fail:24) && s.prepared==!fail);
+  assert(run(&f,&s)==MT76_UPLOAD_REFUSED);
+ }
+ for(unsigned call=10;call<=24;call+=14) {
+  f=(struct fake){.startup=true,.bad_read=call,.bad_value=call==10?0x20:0x2c};
+  s=(struct mt76_prepare_session){.mac_startup=true};
+  assert(run(&f,&s)==MT76_UPLOAD_REFUSED && !s.prepared && f.calls==call);
+ }
  puts("mt76-prepare: PASS exact reset/DMA ordering, every-operation failure, no retry, already-running/unreadable/busy refusal");
 }

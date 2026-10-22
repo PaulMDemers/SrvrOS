@@ -1832,3 +1832,12 @@ readiness passed; preparation/upload failed, zero chunks, quarantine retained.
 Photo/logs archived, consumed one-shot/Ubuntu default/recovery verified. Offline
 filesystem/allocation checks pass. Next compare post-reset OUT handling and
 adapter initialization requirements; no next boot armed.
+
+Next scope: separate opt-in wifi-fw-v2 MAC-startup trial. Linux v6.18 writes
+MAC control 0x2c before MCU reset; v1 deliberately used 0x20. v2 tests that
+startup prerequisite, restores/verifies 0x20 after FCE setup before upload, and
+retains exact device/firmware gates and quarantine. No channel/RF configuration
+or network frames. Files: preparation/transport, main opt-in, staging/VM recipes
+and host tests. Fetched main e946f5e; only PR #19 open, Air scope battery query
+receipt work. Integration profile collision remains deferred. Native proof is
+required; MAC startup may remain enabled on failed I/O until physical power-off.

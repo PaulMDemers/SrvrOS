@@ -63,9 +63,11 @@ enum mt76_upload_status mt76_upload_firmware(struct mt76_firmware_session *sessi
     const uint8_t *image, size_t size, uint8_t *scratch, size_t capacity);
 /* One-shot preparation; caller must own the device and validate firmware
  * before invoking. Reset callback is vendor device-mode 1, no data stage.
- * No RF register writes. A failure leaves prepared=false and must quarantine
+ * mac_startup explicitly selects temporary upstream MAC TX/RX enable, followed
+ * by verified disable before prepared=true. No RF register writes.
+ * A failure leaves prepared=false and must quarantine
  * the native transport; repeating preparation requires physical recovery. */
-struct mt76_prepare_session { bool attempted, prepared; };
+struct mt76_prepare_session { bool attempted, prepared, mac_startup; };
 struct mt76_prepare_io {
     struct mt76_register_io registers;
     bool (*reset)(void *);

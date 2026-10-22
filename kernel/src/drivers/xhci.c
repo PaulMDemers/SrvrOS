@@ -234,7 +234,7 @@ struct xhci_wifi_firmware {
     size_t image_size, chunk;
     uint32_t remaining, cfg, descriptor;
     uint32_t wlan_before, wlan_after, cmb;
-    bool wlan_valid, wlan_written;
+    bool wlan_valid, wlan_written, mac_startup_written;
     uint32_t last_read_address, last_read_value, read_count;
     unsigned phase, completion;
     uint32_t control_count, control_cc, control_residue, control_stage;
@@ -428,6 +428,8 @@ static bool trackpad_capture,trackpad_pointer_enabled,trackpad_gestures;
 void xhci_set_trackpad_gestures(bool enabled) { trackpad_gestures=enabled; }
 void xhci_set_trackpad_pointer(bool enabled) { trackpad_pointer_enabled=enabled; }
 void xhci_set_trackpad_capture(bool enabled) { trackpad_capture=enabled; }
+static bool wifi_mac_startup;
+void xhci_set_wifi_mac_startup(bool enabled) { wifi_mac_startup=enabled; }
 static bool wifi_firmware_enabled, firmware_command_exact, firmware_command_failed;
 void xhci_set_wifi_firmware_enabled(bool enabled) { wifi_firmware_enabled=enabled; }
 static bool configure_wifi_firmware(struct xhci_device *d);

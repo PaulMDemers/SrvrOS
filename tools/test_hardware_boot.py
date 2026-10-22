@@ -224,6 +224,17 @@ class InstallTests(unittest.TestCase):
         for other in ('wifi_capture','wifi_calibration','battery_app_files','battery_load'):
             with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root,laptop_probe_volume='37d8c5d0',**{other:True})
 
+    def test_wifi_mac_startup_profile(self):
+        old="ram-usb-wifi-fw-v1-laptop-probe-37d8c5d0"
+        for suffix in ("", "-auto-return"):
+            v2=old.replace("v1","v2")+suffix
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v2))
+            original=boot.limine_config("0123456789abcdef",old+suffix)
+            trial=boot.limine_config("0123456789abcdef",v2)
+            self.assertNotIn("srvros.wifi-mac-startup=1",original)
+            self.assertEqual(trial,original.replace("srvros.usb-wifi=probe","srvros.usb-wifi=probe srvros.wifi-mac-startup=1"))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_startup=True,laptop_probe_volume="37d8c5d0")
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-v44-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
