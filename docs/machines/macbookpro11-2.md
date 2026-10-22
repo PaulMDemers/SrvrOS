@@ -2423,3 +2423,12 @@ second-readback mismatch despite valid ACK, enabled MAC refusal,128 reply-bit
 mutations,192 submitted-packet mutations, ASan/UBSan, native reply replay and docs.
 No new physical acceptance: installed201acb491eb09532 is unchanged and no boot
 is armed. General MAC/BBP tables, larger batches and RF remain pending.
+
+Timing-engine source48879c2/release0c12150fc75d830c installed unarmed. Exact-stage
+GPT saved-log/clean-filesystem/automatic-return VM and missing-workspace refusal
+passed. Prior build/MCU/xHCI/fault/sanitizer/native-replay checks are archived with
+payload and run record in wifi-timing-engine-48879c2. Workspace offline checks
+passed. Ubuntu default/recoverye47dca3a6b30c6c1 and prior timing capture201acb491eb09532
+retained; obsolete101abba9feeb8cfa removed only after durable archive equality.
+Next hardware acceptance requires wifi-timing-init status0, ack_validated1,
+complete1, reads6, both target readbacks and MAC0 before/after. Native pending.
