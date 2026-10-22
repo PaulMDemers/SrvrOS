@@ -693,3 +693,12 @@ captured evidence and an accepted multi-pair completion contract. No native
 response length/body is assumed. This does not execute initialization tables or
 enable RF, receive, transmit, channel or power settings. Earlier profiles remain
 unchanged apart from v5's now-strict single-write ACK validation.
+
+Native v6 observation (sourcefe5c0a8,release101abba9feeb8cfa,
+session00065e751cdb49ed-00): strict single-write validation passed. Two identical
+1004=0 pairs produced a16-byte response, not a24-byte full echo: words4a030008,
+00411004,00000000,4a030008. Sequence3/event0/reported length8; MAC readbacks0.
+Capture and recovery/filesystem checks passed. This does not identify whether
+the body reflects the first or last pair, nor independently confirm two distinct
+writes. General table completion needs a distinguishing response/readback test;
+do not infer a full-table echo validator from this fixture.

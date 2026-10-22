@@ -2363,3 +2363,17 @@ Workspace offline clean:145files/466clusters. Ubuntu default and known-good
 recoverye47dca3a6b30c6c1 preserved; prior single-write captured8dca7885de3c61f
 retained. Reset payloadbfa7235c397175da removed from ESP only after archive/hash
 verification. Cold hardware result pending; no multi-pair ACK or table acceptance.
+
+Native v6 sourcefe5c0a8/release101abba9feeb8cfa/session00065e751cdb49ed-00:
+strict single-write ACK accepted (ack_validated1), reset/identity prerequisites
+passed. Duplicate two-pair OUT24 returned IN16, words4a030008,00411004,00000000,
+4a030008; sequence3/event0/length8, cc13/residue1008. MAC before/after0. Capture
+completed. This proves a bounded response to this duplicate-pair diagnostic,
+not that arbitrary pairs are echoed or independently verified. Since both pairs
+were identical, first-versus-last echo cannot be determined. Next establish a
+distinguishing response/readback contract before initialization table execution.
+
+Matching collection archived in wifi-pair-fe5c0a8/native-collection. Ubuntu default,
+consumed one-shot and current/recovery manifests verified. Workspace unmounted,
+clean147files/469clusters,zero leaks/mismatches/errors. Run/checkpoint collected
+and unarmed. No RF, receive, scan or connectivity acceptance.
