@@ -1776,3 +1776,12 @@ acceptance. Photo/logs archived, recovery/default/consumed one-shot verified.
 Offline checks pass: 125 files, 436 clusters, no errors. Next investigate device
 reset behavior and transport state rather than simply increasing the timeout.
 No further boot armed.
+
+Next bounded scope: add the missing MT7610 WLAN/clock enable prerequisite before
+MCU reset, based on Linux v6.18 mt76x0_chip_onoff/set_wlan_state. Preserve GPIO
+and antenna bits, refuse asserted reset/unreadable state, verify enable readback
+and bounded crystal/PLL readiness. Keep MAC TX/RX disabled and existing quarantine.
+Files: mt76 preparation engine, native xHCI allowlist/diagnostics, host fixtures.
+Fetched main 065546f (Air battery audit); no open competing PR besides #19.
+Integration remains deferred for the recorded immutable-profile collision.
+Native evidence is required; no further boot armed.

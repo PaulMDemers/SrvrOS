@@ -1095,6 +1095,23 @@ static void test_wifi_firmware_configuration(void) {
 }
 
 static void test_wifi_firmware_control_guards(void) {
+    for(unsigned fault=0;fault<7;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true,
+            .wlan_valid=fault!=1,.wlan_before=fault==2?0xffffffffu:fault==3?0x5a120004:0x5a120000,.wlan_written=fault==4};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,fault==6?6:1,0);
+        assert(wifi_fw_write(&d,0x80,fault==5?0x5b120003:0x5a120003)==!fault);
+        assert(d.ep0_enqueue==(fault==0||fault==6?3u:0u));
+        if(!fault) {
+            assert(ring[0].parameter_high==0x00040080 && buffer[0]==3 && buffer[3]==0x5a);
+            assert(!wifi_fw_write(&d,0x80,0x5a120003) && d.ep0_enqueue==3);
+        }
+        assert(!freed);
+    }
+
     for(unsigned fault=0;fault<5;fault++) {
         reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
         struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},

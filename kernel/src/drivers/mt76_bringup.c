@@ -158,6 +158,25 @@ enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *sessi
     /* Refuse an already running or unreadable MCU instead of taking it over. */
     if (!r->read(r->context,0x730,&value)) return MT76_UPLOAD_IO;
     if (value==0xffffffffu || (value&1)) return MT76_UPLOAD_REFUSED;
+    /* Linux v6.18 mt76x0_set_wlan_state enables the WLAN block and clock
+     * before firmware reset. Preserve board GPIO/antenna selection; do not
+     * replay its optional RF/GPIO reset sequence. MAC TX/RX stays disabled. */
+    if (!r->read(r->context,0x80,&value)) return MT76_UPLOAD_IO;
+    if (value==0xffffffffu || (value&0xcu)) return MT76_UPLOAD_REFUSED;
+    uint32_t enabled=value|3u;
+    if (!r->write(r->context,0x80,enabled)) return MT76_UPLOAD_IO;
+    if (!r->delay(r->context,20)) return MT76_UPLOAD_CANCELLED;
+    if (!r->read(r->context,0x80,&value)) return MT76_UPLOAD_IO;
+    /* GPIO input bits can change independently of this write. */
+    if (value==0xffffffffu || ((value^enabled)&~0xff00u)) return MT76_UPLOAD_REFUSED;
+    bool clock_ready=false;
+    for (unsigned poll=0;poll<100;poll++) {
+        if (!r->read(r->context,0x20,&value)) return MT76_UPLOAD_IO;
+        if (value==0xffffffffu) return MT76_UPLOAD_REFUSED;
+        if ((value&0xc00000u)==0xc00000u) { clock_ready=true;break; }
+        if (!r->delay(r->context,20)) return MT76_UPLOAD_CANCELLED;
+    }
+    if (!clock_ready) return MT76_UPLOAD_TIMEOUT;
     if (!r->read(r->context,0x238,&value)) return MT76_UPLOAD_IO;
     if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
     if (!r->write(r->context,0x238,0x00c00000) ||

@@ -233,6 +233,8 @@ struct xhci_wifi_firmware {
     const uint8_t *image;
     size_t image_size, chunk;
     uint32_t remaining, cfg, descriptor;
+    uint32_t wlan_before, wlan_after, cmb;
+    bool wlan_valid, wlan_written;
     uint32_t last_read_address, last_read_value, read_count;
     unsigned phase, completion;
     uint32_t control_count, control_cc, control_residue, control_stage;

@@ -377,3 +377,12 @@ fallback. Generic control waits remain unchanged. There is no automatic retry
 or endpoint reset. `wifi-firmware-endpoint` records elapsed microseconds and the
 controller-owned EP0 state/dequeue after the wait. The MCU reset delay remains
 5 ms on the independent ACPI PM timer; timing changes require native validation.
+
+The cold-start preparation now enables WLAN and its clock (0x80 bits 0–1),
+preserving GPIO and antenna selection. It refuses an unreadable register or
+asserted reset bits, checks readback (allowing live GPIO input changes), and
+bounds crystal/PLL readiness checks at 100 polls with 20 µs spacing. This follows
+the prerequisite in [Linux v6.18 chip initialization](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/init.c),
+without replaying its optional GPIO/RF reset. MAC TX/RX remains disabled.
+`wifi-firmware-clock` reports cached before/after WLAN and final CMB state.
+Host verification does not accept native clock or firmware readiness.

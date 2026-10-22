@@ -74,11 +74,16 @@ static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet 
 }
 static bool wifi_fw_read(void *context,uint32_t address,uint32_t *value) {
     struct xhci_device *d=context;*value=0;
-    if(!wifi_firmware_owned(d) || (address!=0x730 && address!=0x238 && address!=0x1004 && address!=0x9a8))return false;
+    if(!wifi_firmware_owned(d) || (address!=0x80 && address!=0x20 && address!=0x730 && address!=0x238 && address!=0x1004 && address!=0x9a8))return false;
     struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};int actual;
     if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_firmware_fail(d);
     for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
     d->firmware.last_read_address=address;d->firmware.last_read_value=*value;d->firmware.read_count++;
+    if(address==0x80){
+        if(!d->firmware.wlan_written){d->firmware.wlan_before=*value;d->firmware.wlan_valid=true;}
+        else d->firmware.wlan_after=*value;
+    }
+    if(address==0x20)d->firmware.cmb=*value;
     if(address==0x238){d->firmware.cfg=*value;d->firmware.cfg_valid=true;}
     if(address==0x9a8){d->firmware.descriptor=*value;d->firmware.descriptor_valid=true;}
     return true;
@@ -89,6 +94,8 @@ static bool wifi_fw_write(void *context,uint32_t address,uint32_t value) {
     bool allowed=(address==0x1004 && value==0x20) || (address==0x800 && value==1) ||
         (address==0x9a0 && value==0x400230) || (address==0x9a4 && value==1) ||
         (address==0x9c4 && value==0x44) || (address==0xa6c && value==3);
+    if(address==0x80)allowed=f->wlan_valid && !f->wlan_written &&
+        f->wlan_before!=0xffffffffu && !(f->wlan_before&0xcu) && value==(f->wlan_before|3u);
     if(address==0x238)allowed=value==0xc00000 || (f->cfg_valid &&
         (value==(f->cfg|0xc00020) || value==(f->cfg|0x10000) || value==(f->cfg&~0x10000u)) && !(value&0xc0000000u));
     if(address==0x9a8)allowed=f->phase==3 && f->descriptor_valid && value==f->descriptor+1;
@@ -96,6 +103,7 @@ static bool wifi_fw_write(void *context,uint32_t address,uint32_t value) {
     for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=(uint8_t)(value>>(8*i));
     struct usb_setup_packet setup={.request_type=0x40,.request=6,.index=(uint16_t)address,.length=4};int actual;
     if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual!=4)return wifi_firmware_fail(d);
+    if(address==0x80)f->wlan_written=true;
     if(address==0x9a8){f->phase=0;f->chunk++;f->descriptor_valid=false;}
     return true;
 }
@@ -194,6 +202,8 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
             (uint64_t)f->control_residue,(uint64_t)f->control_stage,(uint64_t)f->control_timeout);
         console_printf("wifi-firmware-endpoint: elapsed_us=%u state=%u dequeue=%x\n",
             f->control_elapsed_us,(uint64_t)f->control_ep_state,f->control_dequeue);
+        console_printf("wifi-firmware-clock: before=%x after=%x cmb=%x written=%u\n",
+            (uint64_t)f->wlan_before,(uint64_t)f->wlan_after,(uint64_t)f->cmb,(uint64_t)f->wlan_written);
         console_printf("wifi-firmware-progress: reads=%u last_register=%x last_value=%x prepared=%u reset=%u upload=%u\n",
             (uint64_t)f->read_count,(uint64_t)f->last_read_address,(uint64_t)f->last_read_value,
             (uint64_t)f->preparation.prepared,(uint64_t)f->reset_seen,(uint64_t)f->upload.attempted);
