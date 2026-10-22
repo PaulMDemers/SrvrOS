@@ -309,3 +309,44 @@ alarms, early exit, native/unmounted/profile refusal, effect-free query refusal,
 uncertain acknowledgement and effects preceding a refused query. Fatal cases
 must retain the mount/runtime without cleanup or reset claims. VM results do not
 accept physical alarms, gauge accuracy, continuous native startup or input latency.
+
+### Ordinary desktop ownership follow-up
+
+The current diagnostic `desktop_tree` retains historical PIDs in a
+`PROCESS_MAX_PROCESSES` array. That bounds diagnostic memory, but a desktop that
+opens/closes enough apps would eventually exhaust it. Simply pruning reaped
+parents or scanning the original process group is insufficient: Terminal jobs
+can change process groups or create sessions, and a parent can exit between
+owner polls. The group's purpose is job control, not a permanent mount owner.
+
+Before general desktop integration, add a kernel-created lifetime identity that
+is installed before publishing the root as runnable and inherited by every
+spawn/fork, preserved through exec, job-control group changes and reparenting.
+It must not be assignable through a userspace group/session syscall. Bound live
+membership by process slots rather than retaining an unbounded PID history.
+Revoke admission at desktop exit, stop/reap all members, retire the battery owner,
+and only then release the mount. Test more than 64 sequential app launches,
+parent-before-child exit, job-control changes, failed spawn and shutdown during
+an asynchronous file write. This is a proposed next mechanism, not implemented
+or accepted behavior.
+
+The boot desktop path in `kernel/src/main.c` currently calls
+`process_run_elf_args` directly and owns logging/unmount around it. Integrate a
+session wrapper there only after the membership policy is proven. It must let
+unavailable battery hardware leave the desktop usable, preserve ordinary
+cached-only status reads, and retain mounted storage on uncertain ownership.
+Periodic workspace logging also needs explicit overlap validation: the accepted
+native v49 trial paused it. Finish that VM coverage before adding a native
+continuous-session recipe or changing the default startup path.
+
+During the VM rehearsal, one development payload lost its serial channel while
+printing retirement logs. A repeated run retained CPU/UART/screen evidence:
+`serial_ready` was zero, the CPU was in the scheduler idle worker, and the screen
+showed successful retirement, mount release and the monitor prompt. This was
+lost host-observation transport, not proof of a stuck battery owner. The timed-out
+runs remain incomplete evidence; they do not satisfy filesystem collection.
+The harness now captures registers, UART availability and a screenshot on stalled
+output. Periodic and final summaries have one service-thread writer so a
+preempted owner cannot emit an older periodic snapshot after the final record.
+This ordering change is not a claim that the general UART transmit-timeout policy
+has been fixed; its channel-loss behavior remains a separate reliability issue.
