@@ -5,6 +5,7 @@
 #include "battery_reset_policy.h"
 #include "battery_recovery_resources.h"
 #include "battery_query_receipt.h"
+#include "battery_event_accounting.h"
 #include "work_worker.h"
 #include "sci_owner.h"
 #include "sci_observe.h"
@@ -53,7 +54,8 @@ static struct {
     struct ec_transport transport;
     struct sbs_sampler sampler;
     struct ec_query_budget budget;
-    uint64_t smbus_events,smbus_alarms,smbus_acks,smbus_unknown,smbus_invalid_through;
+    struct battery_event_accounting events;
+    uint64_t smbus_invalid_through;
     bool smbus_refresh;
     struct battery_query_receipt query_receipt;
     uacpi_namespace_node *node,*handler_node;
@@ -74,6 +76,8 @@ static bool recovery_study;
 static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbus_controls;
 static uint64_t smbus_workspace_hold;
 static bool mounted_home;
+/* Explicit VM-only continuous session, never selected by native startup. */
+static bool continuous_home;
 static uint64_t home_session_events;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
@@ -750,8 +754,8 @@ static void smbus_query_work(void) {
     if(!smbus_owned() || !runtime.service_mode ||
        runtime.sampler.active || runtime.sampler.waiting || runtime.lease ||
        (runtime.sampler.transaction.ec && runtime.sampler.transaction.phase!=8))unsafe("SMBus event ownership");
-    if((smbus_capture || mounted_home) && runtime.smbus_events>=((smbus_files || smbus_controls)?512u:128u))unsafe("SMBus capture event limit");
-    if(mounted_home && smbus_controls && home_session_events>=512)unsafe("Home session event limit");
+    if(!continuous_home && (smbus_capture || mounted_home) && runtime.events.totals.events>=((smbus_files || smbus_controls)?512u:128u))unsafe("SMBus capture event limit");
+    if(!continuous_home && mounted_home && smbus_controls && home_session_events>=512)unsafe("Home session event limit");
     struct ec_smbus_event event={0};runtime.lease=true;
     bool begun=ec_smbus_event_begin(&event,&runtime.transport,0x20,timer_monotonic_us());int result=0;
     for(unsigned polls=1;begun&&!result;polls++) {
@@ -764,9 +768,6 @@ static void smbus_query_work(void) {
             (uint64_t)event.phase,(uint64_t)event.status,(uint64_t)event.ack_attempted,(uint64_t)event.acknowledged);
         unsafe("SMBus event");
     }
-    if(mounted_home && smbus_controls)home_session_events++;
-    runtime.smbus_events++;runtime.smbus_alarms+=event.alarm;runtime.smbus_acks+=event.acknowledged;
-    runtime.smbus_unknown+=event.alarm&&!event.recognized;
     if(event.alarm && event.recognized) {
         uint64_t f=irq_save();
         runtime.smbus_invalid_through=runtime.sampler.sample.generation;
@@ -775,12 +776,16 @@ static void smbus_query_work(void) {
         battery_cache_read(&service.cache,timer_monotonic_us(),&invalidated);
         scheduler_wake_all(&service.wake);irq_restore(f);
         if(invalidated.flags&BATTERY_CACHE_FRESH)unsafe("SMBus cache invalidation");
-        console_printf(compact_smbus_records()?"smbus-i:%u,%u,%u\n":"battery-smbus: invalidate generation=%u cached=%u valid=%u fresh=0\n",
+        if(!continuous_home)console_printf(compact_smbus_records()?"smbus-i:%u,%u,%u\n":"battery-smbus: invalidate generation=%u cached=%u valid=%u fresh=0\n",
             runtime.smbus_invalid_through,invalidated.sample.generation,
             (uint64_t)!!(invalidated.flags&BATTERY_CACHE_VALID));
     }
-    console_printf(compact_smbus_records()?"smbus-e:%u,%u,%u,%u,%u,%u,%u,%u\n":"battery-smbus: event=%u generation=%u status=%u alarm=%u address=%u data=%u acknowledged=%u refresh=%u; aml=0 serialized=1\n",
-        runtime.smbus_events,runtime.sampler.sample.generation,(uint64_t)event.status,
+    uint64_t event_flags=irq_save();
+    if(mounted_home && smbus_controls && home_session_events!=UINT64_MAX)home_session_events++;
+    battery_event_record(&runtime.events,event.alarm,event.acknowledged,event.recognized);
+    irq_restore(event_flags);
+    if(!continuous_home)console_printf(compact_smbus_records()?"smbus-e:%u,%u,%u,%u,%u,%u,%u,%u\n":"battery-smbus: event=%u generation=%u status=%u alarm=%u address=%u data=%u acknowledged=%u refresh=%u; aml=0 serialized=1\n",
+        runtime.events.totals.events,runtime.sampler.sample.generation,(uint64_t)event.status,
         (uint64_t)event.alarm,(uint64_t)event.address,(uint64_t)event.data,
         (uint64_t)event.acknowledged,(uint64_t)(event.alarm&&event.recognized));
 }
@@ -984,6 +989,18 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     sci_report("ready");
     return true;
 }
+/* Copy only on CPU0 with interrupts masked; emit outside that critical section.
+ * The worker remains responsible for every event/ack/invalidation, even when
+ * logging coalesces thousands of successful events into one status record. */
+static void continuous_events_report(bool final) {
+    if(!continuous_home)return;
+    struct battery_event_totals totals;uint64_t f=irq_save(),now=timer_monotonic_us();
+    bool emit=battery_event_take(&runtime.events,now,final,&totals);
+    uint64_t epoch=service.cache.value.epoch;irq_restore(f);
+    if(emit)console_printf("battery-monitor-events: epoch=%u at_us=%u events=%u alarms=%u acknowledgements=%u unknown=%u invalidations=%u saturated=%u final=%u\n",
+        epoch,now,totals.events,totals.alarms,totals.acknowledgements,totals.unknown,
+        totals.invalidations,(uint64_t)totals.saturated,(uint64_t)final);
+}
 static void runtime_close(void) {
     check_foreign_event();
     mask_sources();
@@ -1002,9 +1019,10 @@ static void runtime_close(void) {
         if(!idle || !smbus_owned() || !sources_quiet())unsafe("SMBus return boundary");
         require_recovery_resources();irq_restore(f);
     }
+    continuous_events_report(true);
     if(smbus_controls)console_printf("battery-controls-events: epoch=%u events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u; drained=yes\n",
-        service.cache.value.epoch,runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
-        runtime.smbus_unknown,runtime.smbus_invalid_through,service.cache.value.sample.generation);
+        service.cache.value.epoch,runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,service.cache.value.sample.generation);
     if(uacpi_mask_gpe(NULL,runtime.platform.ec.gpe)||uacpi_uninstall_gpe_handler(NULL,runtime.platform.ec.gpe,gpe_handler))unsafe("GPE uninstall");runtime.gpe=false;
     operation(disconnect_work,3000,"EC disconnect");
     if(runtime.notify&&uacpi_uninstall_notify_handler(uacpi_namespace_root(),notify_handler))unsafe("Notify uninstall");
@@ -1611,7 +1629,7 @@ done:
     if(started && smbus_files) {
         battery_service_status(&smbus_files_snapshot);
         console_printf("battery-native-smbus: snapshot generation=%u events=%u valid=%u fresh=%u\n",
-            smbus_files_snapshot.sample.generation,runtime.smbus_events,
+            smbus_files_snapshot.sample.generation,runtime.events.totals.events,
             (uint64_t)!!(smbus_files_snapshot.flags&BATTERY_CACHE_VALID),
             (uint64_t)!!(smbus_files_snapshot.flags&BATTERY_CACHE_FRESH));
     }
@@ -1647,16 +1665,21 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(workspace?((!mounted_home && !battery_platform_workspace_study_allowed()) || !workspace_mount_hold_valid(smbus_workspace_hold) || workspace_image_busy()):workspace_active())return false;
     uint64_t f=irq_save();bool free=owner==OWNER_NONE && !controls.group;irq_restore(f);
     if(!free)return false;
-    int64_t child=process_spawn_background_elf_args("/fat/bin/deskd",files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual");
+    int64_t child=process_spawn_background_elf_args("/fat/bin/deskd",continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual");
     if(child<=0)return false;
     uint64_t pid=(uint64_t)child,status=UINT64_MAX,first_serial=controls.serial;
     struct battery_service_status before;battery_service_status(&before);
     struct desktop_tree tree={.pids={pid},.count=1};
     f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
     uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false,guarded=false;
+    if(bound && continuous_home) {
+        bool started=battery_service_start(rsdp,map);
+        console_printf("battery-monitor: auto_start=%u native=disabled\n",(uint64_t)started);
+    }
     if(bound)for(;;) {
         if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
         desktop_tree_scan(&tree);controls_dispatch(rsdp,map);
+        continuous_events_report(false);
         if(workspace && !guarded) {
             struct battery_service_status state;battery_service_status(&state);
             if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {
@@ -1664,7 +1687,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
             }
         }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
-        if(timer_monotonic_us()>=deadline)break;
+        if(!continuous_home && timer_monotonic_us()>=deadline)break;
         uacpi_kernel_sleep(10);
     }
     f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
@@ -1679,7 +1702,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!battery_service_stop(35000))unsafe("control service retirement");
     struct battery_service_status retired;battery_service_status(&retired);
     ok=ok && !pending && tree.count==(files?3u:2u) && (automatic?requests==(files?5u:4u) && retired.epoch==before.epoch+(files?3u:2u) && retired.state==BATTERY_SERVICE_STOPPED:
-        retired.state==BATTERY_SERVICE_STOPPED || retired.state==BATTERY_SERVICE_DISABLED || retired.state==BATTERY_SERVICE_UNAVAILABLE);
+        retired.state==BATTERY_SERVICE_STOPPED || retired.state==BATTERY_SERVICE_DISABLED || retired.state==BATTERY_SERVICE_UNAVAILABLE || (continuous_home && retired.state==BATTERY_SERVICE_FAULTED));
     console_printf("battery-controls: %s requests=%u descendants=%u epoch=%u; revoked=yes retired=yes\n",ok?"PASS":"FAIL",requests,(uint64_t)tree.count,retired.epoch);
     return ok;
 }
@@ -1862,11 +1885,11 @@ bool battery_smbus_diagnostic_run(void *rsdp,struct limine_memmap_response *map)
     bool observed=false;
     while(service.running && timer_monotonic_us()<until) {
         battery_service_status(&snapshot);
-        if(runtime.smbus_events && snapshot.sample.generation>=3 && (snapshot.flags&BATTERY_CACHE_FRESH)) {observed=true;break;}
+        if(runtime.events.totals.events && snapshot.sample.generation>=3 && (snapshot.flags&BATTERY_CACHE_FRESH)) {observed=true;break;}
         uacpi_kernel_sleep(10);
     }
     console_printf("battery-native-smbus: snapshot generation=%u events=%u valid=%u fresh=%u\n",
-        snapshot.sample.generation,runtime.smbus_events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
+        snapshot.sample.generation,runtime.events.totals.events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
         (uint64_t)!!(snapshot.flags&BATTERY_CACHE_FRESH));
     if(service.running && !battery_service_stop(10000))unsafe("SMBus capture stop deadline");
     struct battery_service_status final;battery_service_status(&final);
@@ -1874,10 +1897,10 @@ bool battery_smbus_diagnostic_run(void *rsdp,struct limine_memmap_response *map)
         !service.quarantined && smbus_capture_parked();
     bool exercised=clean && observed && runtime.worker.stopped && runtime.attached &&
         runtime.attached==runtime.detached && final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
-        runtime.smbus_events && snapshot.sample.generation>runtime.smbus_invalid_through && !(final.flags&BATTERY_CACHE_FRESH);
+        runtime.events.totals.events && snapshot.sample.generation>runtime.smbus_invalid_through && !(final.flags&BATTERY_CACHE_FRESH);
     console_printf("battery-native-smbus: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
-        exercised?"completed":"not-exercised",runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
-        runtime.smbus_unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
+        exercised?"completed":"not-exercised",runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
         (uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(final.flags&BATTERY_CACHE_VALID),
         clean?"yes":"NO",(uint64_t)smbus_capture_parked());
     if(!clean)unsafe("SMBus capture retirement proof");
@@ -1902,12 +1925,12 @@ bool battery_smbus_files_diagnostic_run(void *rsdp,struct limine_memmap_response
     bool clean=owner==OWNER_NONE && !service.running && !runtime.engaged && !runtime.heap &&
         !runtime.errors && !runtime.denied && !service.quarantined && smbus_capture_parked();
     bool exercised=complete && clean && final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
-        (smbus_files_snapshot.flags&BATTERY_CACHE_FRESH) && runtime.smbus_events &&
+        (smbus_files_snapshot.flags&BATTERY_CACHE_FRESH) && runtime.events.totals.events &&
         smbus_files_snapshot.sample.generation>runtime.smbus_invalid_through &&
         !(final.flags&BATTERY_CACHE_FRESH);
     console_printf("battery-native-smbus: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
-        exercised?"completed":"not-exercised",runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
-        runtime.smbus_unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
+        exercised?"completed":"not-exercised",runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,final.sample.generation,(uint64_t)final.state,(uint64_t)final.error,
         (uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(final.flags&BATTERY_CACHE_VALID),
         clean?"yes":"NO",(uint64_t)smbus_capture_parked());
     if(!clean)unsafe("SMBus image retirement");
@@ -1933,12 +1956,12 @@ bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map) 
         battery_service_status(&snapshot);
         if(snapshot.state==BATTERY_SERVICE_ACTIVE && (snapshot.flags&BATTERY_CACHE_FRESH)) {
             if(!guarded){mounted_study_guard();guarded=true;}
-            if(snapshot.sample.generation>=3 && runtime.smbus_events){observed=true;break;}
+            if(snapshot.sample.generation>=3 && runtime.events.totals.events){observed=true;break;}
         }
         uacpi_kernel_sleep(10);
     }
     console_printf("battery-home: snapshot generation=%u events=%u valid=%u fresh=%u\n",
-        snapshot.sample.generation,runtime.smbus_events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
+        snapshot.sample.generation,runtime.events.totals.events,(uint64_t)!!(snapshot.flags&BATTERY_CACHE_VALID),
         (uint64_t)!!(snapshot.flags&BATTERY_CACHE_FRESH));
     if(!battery_service_stop(10000))unsafe("Home stop deadline");
     struct battery_service_status final;battery_service_status(&final);
@@ -1952,7 +1975,7 @@ bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map) 
     const char *outcome=complete?"complete":runtime.query_receipt.refused?"query-refused":
         final.state==BATTERY_SERVICE_UNAVAILABLE?"unavailable":"incomplete";
     console_printf("battery-home: outcome=%s epoch=%u generation=%u events=%u alarms=%u acknowledgements=%u state=%u error=%u fresh=%u; retired=%s mounted=yes\n",
-        outcome,final.epoch,final.sample.generation,runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
+        outcome,final.epoch,final.sample.generation,runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
         (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
     if(!retired)unsafe("Home retirement proof");
     mounted_study_release();mounted_home=false;
@@ -2016,7 +2039,7 @@ static void smbus_test(void *rsdp,struct limine_memmap_response *map) {
     uint64_t until=timer_monotonic_us()+20000000;struct battery_service_status status;
     do {
         battery_service_status(&status);
-        if(status.sample.generation>=3 && runtime.smbus_events>=3 && (status.flags&BATTERY_CACHE_FRESH))break;
+        if(status.sample.generation>=3 && runtime.events.totals.events>=3 && (status.flags&BATTERY_CACHE_FRESH))break;
         if(!service.running || timer_monotonic_us()>=until)unsafe("SMBus study deadline");
         uacpi_kernel_sleep(10);
     } while(true);
@@ -2024,7 +2047,7 @@ static void smbus_test(void *rsdp,struct limine_memmap_response *map) {
     if(owner!=OWNER_NONE || runtime.engaged || runtime.heap || runtime.errors || runtime.denied ||
        runtime.attached!=runtime.detached || !runtime.attached)unsafe("SMBus study retirement");
     console_printf("battery-smbus-study: PASS events=%u alarms=%u acknowledgements=%u unknown=%u generation=%u; fresh_before_stop=1 retired=yes native=disabled\n",
-        runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,runtime.smbus_unknown,status.sample.generation);
+        runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,runtime.events.totals.unknown,status.sample.generation);
     smbus_study=false;
 }
 /* VM-only mounted workspace study. Native refuses before platform activity;
@@ -2044,8 +2067,8 @@ static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) 
         final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
         !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && workspace_mount_hold_valid(smbus_workspace_hold);
     console_printf("battery-smbus-workspace: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u; retired=%s native=disabled\n",
-        complete?"complete":"interrupted",runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
-        runtime.smbus_unknown,runtime.smbus_invalid_through,final.sample.generation,
+        complete?"complete":"interrupted",runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
+        runtime.events.totals.unknown,runtime.smbus_invalid_through,final.sample.generation,
         (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
     if(!retired)unsafe("SMBus workspace retirement");
     mounted_study_release();
@@ -2055,16 +2078,17 @@ static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) 
  * Its capability is held through client retirement and every Start/Stop epoch;
  * runtime_open still checks the exact native controller/firmware profile.
  * No ordinary startup or fatal reset privilege is granted here. */
-static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,unsigned files,bool home) {
+static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,unsigned files,bool home,bool continuous) {
     if((!home && !battery_platform_workspace_study_allowed()) || !workspace_active() || workspace_image_busy() ||
-       scheduler_io_active() || mounted_home || smbus_study || smbus_capture || query_study || query_capture ||
+       scheduler_io_active() || mounted_home || continuous_home || smbus_study || smbus_capture || query_study || query_capture ||
+       (continuous && (!home || !battery_platform_workspace_study_allowed())) ||
        owner!=OWNER_NONE || controls.group || service.running || service.quarantined) {
         console_write(home?"battery-workspace-controls: REFUSED explicit Home ownership\n":"battery-workspace-controls: REFUSED VM-only mounted study\n");return false;
     }
     if(!mounted_study_acquire()){console_write("battery-workspace-controls: REFUSED mount hold\n");return false;}
-    smbus_study=!home;mounted_home=home;smbus_controls=true;home_session_events=0;
+    smbus_study=!home;mounted_home=home;smbus_controls=true;home_session_events=0;continuous_home=continuous;
     console_printf("battery-workspace-controls: begin mounted=yes native=%s\n",home?"explicit":"disabled");
-    if(home)console_write("battery-home-session: limit=512 per_session=yes startup=disabled\n");
+    if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
     if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
     bool complete=controls_test(rsdp,map,automatic,true,files);
     struct battery_service_status final;battery_service_status(&final);
@@ -2076,18 +2100,27 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
         complete?"yes":"NO",final.epoch,(uint64_t)final.state,controls.group?"NO":"yes",retired?"yes":"NO",workspace_active()?"yes":"NO",home?"explicit":"disabled");
     if(!retired)unsafe("workspace controls retirement");
     mounted_study_release();
-    smbus_controls=false;smbus_study=false;mounted_home=false;
+    smbus_controls=false;smbus_study=false;mounted_home=false;continuous_home=false;
     return complete;
 }
 bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return workspace_controls_test(rsdp,map,true,1,true);
+    return workspace_controls_test(rsdp,map,true,1,true,false);
 }
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-home-monitor")) {
+        if(!battery_platform_workspace_study_allowed() || continuous_home) {
+            console_write("battery-home-monitor: REFUSED VM-only session\n");return;
+        }
+        (void)workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,
+            memmap_request.response,false,0,true,true);
+        return;
+    }
+
     if(command_is(args,"battery-home-controls") || command_is(args,"battery-home-controls-manual") ||
        command_is(args,"battery-home-controls-files") || command_is(args,"battery-home-controls-files-cancel")) {
         unsigned files=command_is(args,"battery-home-controls-files-cancel")?2:command_is(args,"battery-home-controls-files")?1:0;
         workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
-            files || command_is(args,"battery-home-controls"),files,true);return;
+            files || command_is(args,"battery-home-controls"),files,true,false);return;
     }
     if(command_is(args,"battery-home")) {
         (void)battery_home_diagnostic_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;
@@ -2096,7 +2129,7 @@ void acpi_runtime_test_command(const char *args) {
        command_is(args,"battery-workspace-controls-files") || command_is(args,"battery-workspace-controls-files-cancel")) {
         unsigned files=command_is(args,"battery-workspace-controls-files-cancel")?2:command_is(args,"battery-workspace-controls-files")?1:0;
         workspace_controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
-            files || command_is(args,"battery-workspace-controls"),files,false);return;
+            files || command_is(args,"battery-workspace-controls"),files,false,false);return;
     }
     if(command_is(args,"battery-smbus-workspace")) {
         smbus_workspace_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);return;

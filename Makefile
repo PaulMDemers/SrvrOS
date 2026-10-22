@@ -3439,3 +3439,12 @@ test-battery-native-smbus-records:
 	$(PYTHON) tools/test_battery_native_smbus_records.py
 	$(PYTHON) tools/test_battery_smbus_workspace_records.py
 	$(PYTHON) tools/test_battery_smbus_files_records.py
+
+.PHONY: test-battery-event-accounting
+test-core: test-battery-event-accounting
+test-battery-event-accounting: build/tests/battery-event-accounting$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_battery_monitor_records.py
+build/tests/battery-event-accounting$(HOST_EXE): tools/test_battery_event_accounting.c ports/srvros/uacpi/runtime/battery_event_accounting.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

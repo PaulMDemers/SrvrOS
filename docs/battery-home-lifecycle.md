@@ -273,3 +273,39 @@ seconds to each fixture connection and throttles disposable USB writes. Its
 receipt must prove a file checkpoint exceeded the old budget, all five exact
 files, resource-checked retirement and saved automatic return. These injected
 latencies are VM regression evidence, not a measurement of native disk speed.
+
+## Continuous accounting rehearsal (VM only)
+
+`acpiruntime battery-home-monitor` is a separate disposable-VM session. The native
+backend refuses the command before acquiring the mount or starting the runtime.
+It acquires the same exact Home hold, opens System, starts the service once, and
+retains the scoped Start/Stop controls until System closes. Client teardown,
+runtime retirement and hold release still follow the accepted ordering. Normal
+startup and existing native diagnostic event/time limits are unchanged.
+
+The rehearsal replaces successful per-event records with fixed-size cumulative
+telemetry: events, alarms, acknowledgements, unknown alarms and cache invalidations.
+Counters saturate with an explicit saturation flag; they are not ownership tokens
+or admission limits. CPU0 serializes updates and snapshots. Dirty summaries emit
+at most once per five seconds per lifetime, without catch-up bursts, plus a final
+snapshot after masking/draining. Failure records remain immediate. Every event
+still executes its transport acknowledgement and cache policy; log coalescing does
+not coalesce device operations. Per-query attempt/time budgets and all setup,
+transaction, drain and shutdown deadlines remain intact.
+
+The fixed System/compositor pair can run beyond the diagnostic 110 seconds and
+512 events. It is not the ordinary app session: arbitrary app churn still needs
+a replacement for the diagnostic retained descendant history, and native continuous
+monitoring needs its own physical trial. No reboot/staging option selects this
+VM path. The user-space `--battery-monitor` flag only changes the fixed System
+client's lifetime; it cannot acquire a battery runtime capability on its own.
+
+Run `tools/host-env.sh python3 tools/battery_home_monitor_smoke.py --case normal`.
+The disposable model supplies 32 completion events per sample and the harness
+keeps the first lifetime open for over two minutes before mouse Stop/Start and
+close. It verifies counts, summary spacing, runtime retirement, replacement
+compositor, byte-identical workspace and offline allocation. Other cases cover
+alarms, early exit, native/unmounted/profile refusal, effect-free query refusal,
+uncertain acknowledgement and effects preceding a refused query. Fatal cases
+must retain the mount/runtime without cleanup or reset claims. VM results do not
+accept physical alarms, gauge accuracy, continuous native startup or input latency.
