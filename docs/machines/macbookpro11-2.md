@@ -1718,3 +1718,16 @@ previous recovery and preboot filesystem/allocation checks verified. Prior
 `56b0d84701bc99ff` was removed from EFI only after durable archive verification.
 Run record/evidence are archived; no reboot armed. Await attended cold-start
 readiness; on failure photograph the screen before manual power-button recovery.
+
+Held native trial `d18b0b2574ed8501`, session `00065e637e1d2a93-00`,
+successfully enumerated the adapter, read expected ASIC/MAC identity and configured
+the firmware endpoint. Preparation made four reads, last 0x238=0x00c00000,
+then failed with result=2 (I/O), reset_seen=1, prepared=0, upload=0, chunks=0,
+quarantined=1. reset_seen means attempted, not completed: the reset request or
+subsequent setup writes still need exact operation diagnostics. No firmware
+upload accepted. The photographed held screen shows saved/unmounted success and
+manual recovery instructions. Photo/logs archived. Offline checks pass (121 files,
+430 clusters, zero errors); Ubuntu/recovery/consumed one-shot verified. This run
+passes cold enumeration but does not establish repeatability or causation for the
+10 ms delay. Next: instrument preparation control request/completion failures;
+no further boot armed.
