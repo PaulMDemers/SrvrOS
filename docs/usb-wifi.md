@@ -363,3 +363,10 @@ before requesting descriptors, consistent with the settling delay in
 Host coverage checks the interval across MFINDEX wrap, stalled-clock quarantine
 and failed address commands. This fixes a missing recovery interval; whether it
 resolves this adapter's cold-start timeout still requires native acceptance.
+
+Firmware control diagnostics cache the last submitted setup packet and matched
+EP0 completion without extra reads or retries. `wifi-firmware-control` identifies
+type/request/value/index/length; `wifi-firmware-control-result` reports actual
+length, success, completion code, residue, stage (1 setup, 2 data, 3 status, 0 no
+matched event) and timeout. Unrelated/stale event pointers do not populate these
+fields. A reset-attempt flag alone never proves reset completion.

@@ -1736,3 +1736,9 @@ Next scope: cache the exact firmware control setup packet, actual result, matche
 completion code/residue/stage and timeout, reporting after the attempt. Preserve
 all transfer guards, sequencing and timeout behavior; add fault regressions before
 staging another held diagnostic. Shared integration remains deferred as recorded.
+
+Control-detail candidate `ab82b8f`, release `dfd7ab3b39432e73`, passes build
+and xHCI regressions including reset setup/status errors, residue, timeout, stale
+completion followed by success, no retry and retained DMA. Exact GPT VM saves
+logs/unmounts and stays halted; missing-workspace also stays halted. Control
+sequence, deadlines and refusal rules are unchanged. Native result pending.
