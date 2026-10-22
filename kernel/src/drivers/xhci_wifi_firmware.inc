@@ -239,6 +239,7 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
             (uint64_t)f->control_residue,(uint64_t)f->control_stage,(uint64_t)f->control_timeout);
         console_printf("wifi-firmware-endpoint: elapsed_us=%u state=%u dequeue=%x\n",
             f->control_elapsed_us,(uint64_t)f->control_ep_state,f->control_dequeue);
+        console_printf("wifi-firmware-data: immediate=%u\n", (uint64_t)f->control_idt);
         console_printf("wifi-firmware-td: setup=%x data=%x status=%x\n",
             f->control_setup,f->control_data,f->control_status);
         console_printf("wifi-firmware-stop: attempted=%u ok=%u state=%u dequeue=%x event=%x cc=%u residue=%u\n",

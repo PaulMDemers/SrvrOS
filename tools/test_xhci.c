@@ -1160,10 +1160,12 @@ static void test_wifi_firmware_control_guards(void) {
             .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
         d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true,
             .preparation={.mac_startup=fault!=2,.attempted=fault!=3},.reset_seen=fault==4,.mac_startup_written=fault==5};
+        d.ep0_max_packet=64;
         wifi_mac_startup=fault!=1;
         xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
         events[0]=control_event(0x9020,fault==6?6:1,0);
         assert(wifi_fw_write(&d,0x1004,0x2c)==!fault);
+        if(!fault)assert(d.firmware.control_idt && (ring[1].control & XHCI_TRB_IDT) && ring[1].parameter_low==0x2c && !ring[1].parameter_high);
         assert(d.ep0_enqueue==(fault==0||fault==6?3u:0u));
         if(!fault)assert(d.firmware.mac_startup_written && !wifi_fw_write(&d,0x1004,0x2c));
         assert(!freed);
@@ -1290,8 +1292,35 @@ static void test_control_publication(void) {
     }
 }
 
+static void test_firmware_immediate_data(void) {
+    for(unsigned fault=0;fault<12;fault++) {
+        uint8_t bytes[8]={0x12,0x34,0x80,0xff,0xaa,0xbb,0xcc,0xdd};
+        struct xhci_device d={.descriptor_buffer=bytes,.descriptor_buffer_phys=0x12340000,.ep0_max_packet=64};
+        d.firmware.active=true; d.firmware.configured=true;
+        struct usb_setup_packet req={.request_type=0x40,.request=6,.length=4};
+        uint64_t phys=d.descriptor_buffer_phys; unsigned length=4; bool in=false;
+        if(fault==1)d.firmware.active=false;
+        if(fault==2)d.firmware.configured=false;
+        if(fault==3)d.descriptor_buffer=NULL;
+        if(fault==4)phys++;
+        if(fault==5)d.ep0_max_packet=4;
+        if(fault==6)in=true;
+        if(fault==7)length=64;
+        if(fault==8)req.length=0;
+        if(fault==9)req.request_type=0xc0;
+        if(fault==10)req.request=1;
+        if(fault==11)phys=d.descriptor_buffer_phys=0;
+        struct xhci_trb t={.parameter_low=0x12340000,.parameter_high=1,.status=4,.control=XHCI_TRB_TYPE_DATA_STAGE<<10};
+        struct xhci_trb before=t;
+        assert(firmware_immediate_data(&d,&req,phys,length,in,&t)==!fault);
+        if(fault)assert(!memcmp(&t,&before,sizeof(t)));
+        else assert(t.parameter_low==0xff803412 && !t.parameter_high && t.status==4 && t.control==((XHCI_TRB_TYPE_DATA_STAGE<<10)|XHCI_TRB_IDT));
+    }
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_firmware_immediate_data();
     test_control_publication();
     test_wifi_firmware_stop();
     test_wifi_firmware_control_guards();

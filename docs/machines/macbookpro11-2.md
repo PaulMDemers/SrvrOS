@@ -1917,3 +1917,11 @@ Ubuntu default/current/recovery payloads verified; offline filesystem/allocation
 checks pass (133 files, 448 clusters, no leaks/mismatches/errors). No next boot
 armed. Next compare the small OUT data-stage representation and Linux's working
 control sequence; avoid treating this ordering fix as a native Wi-Fi fix.
+
+Next scope: compare immediate-data encoding for the firmware probe's four-byte
+vendor OUT writes with Linux xHCI. Restrict the change to the active configured
+Wi-Fi firmware owner and its descriptor buffer; keep IN, no-data, IVB and other
+devices unchanged. Preserve exact completion, publication ordering and timeout
+quarantine. Add a saved encoding flag and boundary/payload host tests, then
+build and verify automatic-return stage. This is not a proven native fix.
+Main remains 24fd5f4; Air PR46 covers SMBus/parked storage, outside this scope.

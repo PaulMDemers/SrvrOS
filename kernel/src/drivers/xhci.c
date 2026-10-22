@@ -234,7 +234,7 @@ struct xhci_wifi_firmware {
     size_t image_size, chunk;
     uint32_t remaining, cfg, descriptor;
     uint32_t wlan_before, wlan_after, cmb;
-    bool wlan_valid, wlan_written, mac_startup_written;
+    bool wlan_valid, wlan_written, mac_startup_written, control_idt;
     uint32_t last_read_address, last_read_value, read_count;
     unsigned phase, completion;
     uint32_t control_count, control_cc, control_residue, control_stage;
@@ -1327,6 +1327,21 @@ static int wait_control_exact(struct xhci_device *device) {
     return -1;
 }
 
+static bool firmware_immediate_data(const struct xhci_device *d,
+    const struct usb_setup_packet *setup, uint64_t buffer_phys,
+    uint32_t length, bool data_in, struct xhci_trb *trb) {
+    if (!d->firmware.active || !d->firmware.configured || !d->descriptor_buffer ||
+        !buffer_phys || buffer_phys != d->descriptor_buffer_phys ||
+        d->ep0_max_packet < 8 || data_in || length != 4 || setup->length != 4 ||
+        setup->request_type != 0x40 || setup->request != 6) return false;
+    uint32_t value=0;
+    for(unsigned i=0;i<4;i++) value |= (uint32_t)d->descriptor_buffer[i] << (8*i);
+    trb->parameter_low=value;
+    trb->parameter_high=0;
+    trb->control |= XHCI_TRB_IDT;
+    return true;
+}
+
 static bool control_transfer_internal(struct xhci_device *device,
     const struct usb_setup_packet *setup,
     uint64_t buffer_phys,
@@ -1361,6 +1376,7 @@ static bool control_transfer_internal(struct xhci_device *device,
         &device->ep0_cycle,
         &setup_trb, true);
 
+    bool data_idt = false;
     uint64_t data_phys = 0;
     if (length != 0) {
         struct xhci_trb data_trb = {
@@ -1370,6 +1386,7 @@ static bool control_transfer_internal(struct xhci_device *device,
             .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) |
                 (data_in ? XHCI_DATA_DIR_IN : 0) | (actual && data_in ? XHCI_TRB_ISP : 0),
         };
+        data_idt = firmware_immediate_data(device, setup, buffer_phys, length, data_in, &data_trb);
         data_phys = ring_push(device->ep0_ring,
             device->ep0_ring_phys,
             &device->ep0_enqueue,
@@ -1393,6 +1410,7 @@ static bool control_transfer_internal(struct xhci_device *device,
 
     if (actual) {
         if(device->firmware.active) {
+            device->firmware.control_idt=data_idt;
             device->firmware.control_setup=setup_phys;
             device->firmware.control_data=data_phys;
             device->firmware.control_status=status_phys;
