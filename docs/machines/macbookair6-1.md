@@ -233,3 +233,33 @@ outside build. Ubuntu remains default and no one-shot reboot is armed. At the
 next authorized reboot, record `launch.json` and arm the already installed
 current entry without reinstalling/promoting an unaccepted recovery payload.
 Native trackpad capture and pointer/gesture acceptance remain pending.
+
+
+## Native trackpad capture accepted (2026-10-22)
+
+Evidence-only follow-up on main `1454cb7`, branch
+`device/macbookair6-1/trackpad-evidence`; no shared driver changes. Open battery
+PR #55 and Wi-Fi PR #19 remain independent scopes.
+
+The user reports run `77ab86681e27132d` appeared to pass. Collection of release
+`19eb394b28cbeef5` (clean source `e2c6603`) validates report CRC/completion and
+changed Ubuntu boot ID. Result: `CAPTURED`, 279 reports, 265 contact reports,
+maximum two contacts, 45 button reports, eight lifts, zero malformed reports
+or driver errors. Keyboard typed `AaZz09`, passed and dropped zero reports.
+Native samples include touch, multi-contact and button packets.
+
+All 109 unrelated pre-test files retain their hashes. The request contains the
+expected `STARTED` marker; `.srvros/meta` was updated. Only report/completion
+files were added. Offline fsck is clean (113 files); allocation reports 116
+clusters, zero leaks, FAT/bitmap mismatches or errors. Persistence is verified;
+on-screen unmount/halt observations remain covered by the user's overall
+success report, not explicit fields in this v1 capture format.
+
+Evidence and completion marker are in `build/trackpad-tests/77ab86681e27132d/`,
+with a hash-verified durable copy under this release's existing evidence folder.
+Ubuntu default and both installed payloads are verified; the one-shot is
+consumed. Console/USB recovery `c35475f62f154f1e` remains previous. No new boot
+is armed. This accepts bounded raw capture and keyboard coexistence. Desktop
+pointer calibration, click/drag, scrolling and sustained operation remain
+untested; normal pointer/gesture admission remains disabled for this PID.
+The next milestone is a separate bounded desktop pointer trial.
