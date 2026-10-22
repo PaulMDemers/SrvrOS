@@ -51,10 +51,18 @@ def check(data,case='normal'):
         assert len(requests)==2 and len(dispatch) in (1,2) and len(observed)==1
         assert data.count(b'text-battery: cancel serial=2 pending_file=1 submitted=1')==1
         assert outcome==[(b'NO',b'1',b'4')] and controls==[(b'FAIL',b'2',b'1')]
-        assert b'text-battery: completed=NO' in data and b'desktools: exited role=text failure=1' in data
+        assert b'text-battery: completed=NO' in data
+        # Cancellation can exhaust the compositor's bounded close grace while
+        # Text releases its surface. Require an explicit child termination
+        # receipt rather than assuming the final userspace log always ran.
+        exits=rows(data,b'desktools: exited role=text',rb'desktools: exited role=text failure=(1)')
+        child=rows(data,b'deskd: child-exit ',rb'deskd: child-exit pid=([1-9][0-9]*) status=(1|143) tick=(\d+)')
+        assert len(child)==1 and len(exits)<=1
+        assert child[0][1]==b'143' or exits==[b'1']
+        exit_mode='terminated during bounded close' if child[0][1]==b'143' else 'reported incomplete exit'
         assert b'text-files: cycles=0 pending=1 storage=workspace' in data
         assert b'desktools: file-result' not in data
-        return dict(status='PASS',expected='cancelled after submitting first write and Stop',events=events,alarms=alarms,clients_retired=3,scope_released=True)
+        return dict(status='PASS',expected='cancelled after submitting first write and Stop',events=events,alarms=alarms,clients_retired=3,scope_released=True,client_exit=exit_mode)
     assert requests==expected and len(dispatch)==len(observed)==5
     assert outcome==[(b'yes',b'3',b'4')] and controls==[(b'PASS',b'5',b'3')]
     assert data.count(b'text-battery: completed=yes requests=5 waiting=0 epoch=3 state=2; expected_owner=active')==1

@@ -4,7 +4,7 @@ The Air's accepted v47 capture runs the real Text file worker alongside native
 SMBus completion events, but its outer workspace is parked. An exclusive image
 lease bounds which storage can change. Ordinary mounted Home removes that bound:
 apps, settings and logging can retain open files or asynchronous work. Native
-Home monitoring and automatic startup remain disabled.
+Home monitoring and automatic startup remain disabled outside the explicit diagnostic.
 
 ## Ownership audit
 
@@ -91,7 +91,11 @@ unconsumed application job is not proof that USB DMA is active at that instant.
 
 `battery-workspace-controls-files-cancel` exits after the first write has been
 submitted and Stop enqueued. Its application workload is incomplete, even when
-client/runtime cleanup succeeds. Offline checks permit only an absent draft or
+client/runtime cleanup succeeds. The compositor may terminate Text after its
+bounded close grace expires; require its explicit child-exit status plus all
+owner/worker retirement receipts and report that separately from a graceful
+reported exit. Never require or infer a final userspace log after termination.
+Offline checks permit only an absent draft or
 a prefix of the two-byte draft, preserve both anchors and require clean allocation
 and consistent metadata. Unsupported/native admission must leave the disk
 unchanged. Uncertain runtime acknowledgement retains live ownership and halts
@@ -103,10 +107,68 @@ other cases are `cancel`, `profile-refusal`, `refusal`, `unmounted-refusal` and
 control serials/epochs, submitted writes, three service retirements, event drains,
 application/file progress and final mount release. Raw logs/disks stay local.
 
+## Explicit mounted native return boundary
+
+The full diagnostic kernel now exposes `acpiruntime battery-home`. It acquires
+the exact mounted-volume hold and starts the existing gated battery service,
+without launching clients or changing ordinary startup. The native backend still
+requires the captured Air7,2 firmware/resources and host-controller profile; the
+same path can be rehearsed with the disposable Q35 backend. Unsupported platforms
+return unavailable before runtime engagement. Unmounted or conflicting ownership
+refuses before acquiring a hold.
+
+The diagnostic waits at most 30 seconds for fresh generation 3 and host events,
+with a 128-event ceiling. It checks unmount/image/scratch guards while active.
+On completion it masks sources, drains queries and worker, verifies resources,
+retires the service and only then releases the mount hold. The volume remains
+mounted for the caller's subsequent save/unmount. No filesystem operation occurs
+inside runtime cleanup, and the diagnostic itself does not reboot.
+
+A policy-refused query may return only after a complete EC transfer and normal
+worker return, with no incomplete AML or attempted effects in that query batch.
+Its cache becomes non-fresh and its outcome is `query-refused`, not completion.
+An acknowledged alarm followed by a refused query in the same batch cannot use
+that return path. Transport/ack uncertainty, deadline or resource failure retains
+runtime and mount ownership; fatal reset is still blocked with mounted storage.
+This scope does not grant recovery from arbitrary AML or enable normal desktop
+monitoring. The explicit no-client native boundary is accepted below; ordinary
+startup and desktop-session ownership remain pending.
+
+`tools/host-env.sh python3 tools/battery_home_smoke.py --case normal` uses only a
+disposable disk. Additional cases: `alarm`, `query-refusal`, `native-refusal`,
+`unmounted-refusal`, `profile-refusal`, `runtime-fault`, and `effect-refusal`.
+Clean command cases require exact byte preservation, a replacement compositor, unmount,
+fsck and independent allocation checks. Fault cases require visible containment
+without retirement/release/reset claims; the VM host terminates them.
+
+The boot-flow fixture `tools/battery_home_capture_smoke.py` covers `completion`,
+`alarm`, `query-refusal` and `uncertain-ack`. It verifies the actual capture path,
+three saved logs, exact tree/metadata and allocation, automatic return for clean
+outcomes, and visible halt without storage cleanup for uncertain ownership.
+Saved records remain authoritative when concurrent UART writers interleave.
+
+For the unattended hardware capture, stage the distinct v48 recipe with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_UUID --battery-home`,
+then rehearse the exact payload with `tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check`
+and its `--probe-missing-workspace` variant. It uses the full native diagnostic
+kernel, pauses periodic logging while keeping Home mounted, and disarms fatal
+reset. After normal return it saves the final log, unmounts and returns to Ubuntu
+without input. Handled unavailable/query-refusal results return as failed or
+incomplete evidence; a live uncertain runtime still halts. The collector accepts
+only complete, held, drained, retired evidence and never promotes a missing log
+or a clean platform refusal into a native pass. Ordinary profiles are unchanged.
+
 ## Next implementation boundary
 
-Establish native mounted normal-return/refusal and desktop-session ownership
-before ordinary startup enablement. Preserve the same file/client and mount
+Air7,2 release `71ab6b95892a9a8c` (compiled `7fac77d`) passed the explicit
+mounted-return boundary: fresh generation 3, 45 natural completion events,
+resource-checked retirement, mount release, three saved logs and automatic Ubuntu
+return. All 925 pre-existing non-metadata files were unchanged; offline exFAT and
+allocation checks passed. No desktop clients ran, periodic logging was paused,
+and no native alarms occurred. This accepts the bounded mounted owner, not
+concurrent desktop I/O or physical charging/gauge accuracy.
+
+Next establish desktop-session ownership before ordinary startup enablement. Preserve the same file/client and mount
 lifetimes through cancellation and degraded service. A passing VM controller
 fixture does not widen Air firmware/register gates or accept another machine's
 EC/SCI ownership.
@@ -130,9 +192,10 @@ The remaining delivery sequence is:
 
 1. Retain the VM combined-control/file proof above through native integration:
    submitted jobs, cancellation, active-service close and mount release.
-2. Establish the native mounted normal-return/refusal path and bounded event
-   behavior without weakening terminal-fault storage containment. Integrate a
-   desktop-session service owner; enable normal startup only after acceptance.
+2. Extend the accepted explicit native mounted boundary to a desktop-session
+   service owner, preserving terminal-fault storage containment. Normal completion
+   has native evidence; query refusal and uncertain-event cases retain VM evidence.
+   Enable normal startup only after desktop-session acceptance.
 3. Validate real AC plug/unplug, charging/discharging, fresh-to-stale transitions,
    percentage plausibility and session shutdown with Home mounted. Announce any
    required human action before the corresponding hardware boot. An automatic
