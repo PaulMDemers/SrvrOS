@@ -2,6 +2,20 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active scope: ordinary Home desktop lifetime (VM only)
+
+Base `340f566` (merged PR60). This agent is extending the explicit VM battery
+session to the normal arbitrary-app desktop, Home-backed file jobs and periodic
+workspace logging. Touched subsystems: battery runtime session ownership,
+workspace logger retirement, desktop mode admission, VM harnesses and these
+guides. Depends on PR60's inherited process lifetime; no sibling firmware gates
+or USB networking changes. Pro PR19 `301a640` remains separate.
+
+The trial must revoke/drain every app descendant, stop battery work and drain
+logging before releasing the exact mount. A deadline retains ownership. Native
+ordinary startup and installed payloads remain unchanged; no reboot is armed.
+Actions stay disabled; validation is local.
+
 ### Inherited desktop lifetime: VM/host validation (PR #60)
 
 Source `8ea35fd` integrates main `50b14fe` (Air6,1 PR59/61). A kernel-created
