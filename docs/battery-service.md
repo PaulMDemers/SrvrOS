@@ -1299,5 +1299,7 @@ refuses unsafe recovery; it grants no native admission and performs no cleanup.
 Native mounted Home and ordinary automatic startup remain disabled. The
 [native AML side-effect map](battery-native-aml-audit.md) identifies startup's
 shared writes, all nine captured EC queries and the absence of rollback in
-`_REG(3,0)`. It selects a returned query-admission failure for the next VM study;
-it does not grant native recovery or mounted Home admission.
+`_REG(3,0)`. The explicit `battery-workspace-query` VM study now exercises returned
+query-admission failure with whole-batch effect receipts and orderly failed-service
+retirement. It grants no native recovery or mounted Home admission. Native gates
+remain unchanged; use the audit guide for the case matrix and remaining work.

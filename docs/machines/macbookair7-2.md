@@ -2,17 +2,44 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active returned-query failure study
+### Returned-query failure study (PR #42)
 
-Base `origin/main` `065546f` (PR #41). Implement a VM-only query admission
-boundary after QR_EC completes, with operation/effect receipts, normal worker
-return, queued notification drain and orderly failed-service retirement. Add
-negative VM cases for shared effects, retained lock, transport and disconnect
-failure; preserve native refusal and existing recovery/Text regressions.
-Touched: battery runtime/platform fixture, pure query policy, VM/host tests,
+Base `origin/main` `065546f` (PR #41), final code `cbd04bd`. The explicit VM-only
+query study now rejects unsupported queries after completed QR_EC and before AML
+starts. Whole-batch receipts track transport, normal method returns and attempted
+shared writes. The worker returns normally; the owner drains notifications and
+checks resources before ordinary disconnect, interpreter/worker retirement and
+foreign-event restoration. The cache stays faulted and stale. This is not native
+query policy, arbitrary AML recovery or external-state rollback.
+
+All ten query fixtures passed locally: unknown code, a present high-code method
+with a forbidden write, queued notification drain, earlier shared effect, real
+Global Lock hold, poisoned transport, failed disconnect, native admission refusal
+and both ordinary-command scope refusals. The first three retire cleanly, continue
+the unrelated storage scope, save failure logs, unmount and reset automatically;
+exact tree/metadata/allocation/fsck checks pass. The other fault paths halt without
+claiming retirement or saved reports; native refusal leaves the image unchanged.
+
+The first notification run exposed a scheduling gap after runtime close but before
+final owner bookkeeping. An explicit finishing phase now keeps that owner eligible
+through unrelated I/O until release, and clears before the next start. A forced
+post-close yield makes this regression deterministic. The initial failure is
+retained with the successful evidence outside `build`.
+
+The complete final-source matrix passed all 15 cases, including I/O watchdog,
+returned callback, interrupted worker and retained AML Global Lock regressions.
+Normal Text completed 60 generated edits, 20 worker operations and five file cycles,
+then retired three clients and passed offline filesystem/metadata/allocation checks.
+All kernel builds, full core host tests, 512 query hazard combinations, five proof
+parser tests and 415 documentation links passed. Evidence is hash-verified under
+`~/.local/share/srvros/local-validation/battery-query-cbd04bdd8590`.
+
+Touched: battery runtime/model fixture, pure query receipt, host/VM tests,
 Makefile and battery documentation. Pro PR #19 at `faed5b7` has only independent
-Makefile test additions in common. No scheduler, native gate, installed payload,
-physical test or reboot changes planned. Native mounted Home/startup remain off.
+Makefile test additions in common. No native gate, installed payload, physical
+trial or reboot changed. Native mounted Home and automatic startup remain off.
+Next: define the exact captured-firmware/OS-state query policy, replay its refusal
+boundaries in VM, then prepare an automatic parked-workspace native capture.
 
 ### Completed native AML side-effect audit
 
