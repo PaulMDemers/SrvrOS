@@ -2162,3 +2162,20 @@ firmware payloadb7f7fb1c357d7ff5 remains retained; only the archive-verified old
 shutdown, unplug Wi-Fi10 seconds, reconnect then power on, leave workspace drive
 connected. Logs save and return automatically; no photo or commands required.
 After return collect matching session first; MCU response/RF acceptance pending.
+
+Native MCU trial8e87dabf5c918f1c session00065e73f7f56ce9-00 collected: firmware
+readiness passes again (result0,chunks6,MAC0x20,recovery2/2). MCU OUT completes16
+bytes; IN times out with received=-1,cc0,decoded0,failed1. Diagnostic completed=NO;
+no MCU response or RF acceptance. Final mac_disabled0 denotes an unperformed
+post-timeout read after quarantine, not an observed enabled MAC. Matching logs
+archived under wifi-mcu-c588228/native-collection. Ubuntu default, consumed
+one-shot and current/recovery manifests verified. Offline workspace clean:
+139files,457clusters,zero leaks/mismatches/errors. Reboot unarmed.
+
+Reference follow-up: Linuxv6.18 mt76x0_init_hardware sends functionQ_SELECT=1,
+value1 before ordinary MCU operations; mt76x02_mcu_function_select deliberately
+uses no response for Q_SELECT. Our one-shot diagnostic omitted that routing
+setup. This is a candidate explanation for a successful OUT without an IN reply,
+not yet proven. Next bounded change: explicit queue-selection setup with sequence0
+(no expected reply), then the existing read-only command; preserve ordinary
+command sequence guards and native MAC-disable checks. No new trial installed.
