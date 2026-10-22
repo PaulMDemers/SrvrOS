@@ -2232,3 +2232,19 @@ full build, MCU and xHCI regressions pass. This is host validation against nativ
 evidence; the new validator has not itself been physically booted. Installed
 release4a47cd57ac90c504 remains unchanged and unarmed. Next scope is bounded native
 radio initialization using per-operation completion contracts; no RF acceptance.
+
+Next scope: bounded MAC/BBP reset preparation engine, following the captured
+MT7610 identity and Linuxv6.18 initialization order. Require firmware ownership,
+idle WPDMA/MAC and disabled MAC before asserting CSR/BBP reset; bound the200ms
+hold and verify reset release. No RF table, channel, power or TX-enable writes.
+Host fault coverage before xHCI/native wiring. Main85d5cb7 remains integration
+head inspected; Air battery scope separate. Installed payload unchanged.
+
+MAC/BBP reset prerequisite engine completed with exact identity/disabled-state
+checks, bounded idle polls,200ms cancellable reset hold, release readback and
+post-reset idle checks. Full build, MCU and new reset tests pass; reset tests
+also pass ASan/UBSan. Every operation failure stops, every later retry refuses,
+and no write sets TX/RX bits. No xHCI binding or physical execution added yet;
+installed release remains4a47cd57ac90c504, reboot unarmed. Next connect this engine
+to a separately guarded native capture, then verify reset/MCU survival before
+loading MAC/BBP/RF tables. Calibration/power enforcement remains required for TX.

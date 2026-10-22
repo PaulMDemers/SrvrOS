@@ -576,3 +576,24 @@ consistent stale sequences refuse. The diagnostic reports validated=1 only for
 that exact reply, and still requires the final disabled-MAC check for success.
 This validates no RF state or general MCU service. The installed historical
 queue-selection trial retains its original validated=0 behavior.
+
+### MAC/baseband reset prerequisite engine
+
+`mt76_radio_prepare_reset` implements only the bounded reset prerequisite, following
+Linuxv6.18 `mt76x0_init_hardware`/`mt76x0_reset_csr_bbp` ordering. It requires the
+captured identity, live transport authorization before each operation, a matching
+MAC_CSR0, disabled MAC0x20, and idle DMA/MAC. Idle polls have at most101 reads and
+100 one-millisecond delays. Reset writes are limited to MAC_SYS_CTRL values3 and0;
+TX/RX enable bits remain clear. The200ms reset hold uses40 bounded five-millisecond
+delays with cancellation checks. Release and idle state must then verify.
+
+Each session attempts at most once; uncertainty stops immediately. A failure can
+leave reset asserted, so callers must not retry by clearing the session. The
+future xHCI binding must preserve transport quarantine and hardware-lifecycle
+ownership. This module is host-tested but not yet called by a native diagnostic.
+It programs no MAC/baseband tables, RF, channel or transmit power. `prepared`
+means only this reset prerequisite completed, not that the radio is operational.
+
+`make test-mt76-radio` (included in test-core) covers the successful order/hold,
+every operation failing, ownership loss, busy timeout, all-ones registers,
+initial enabled MAC, failed reset release and repeated-attempt refusal.

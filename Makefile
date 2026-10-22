@@ -3445,3 +3445,11 @@ test-mt76-mcu: build/tests/mt76-mcu-host$(HOST_EXE)
 build/tests/mt76-mcu-host$(HOST_EXE): tools/test_mt76_mcu.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_mcu.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-radio
+test-core: test-mt76-radio
+test-mt76-radio: build/tests/mt76-radio-host$(HOST_EXE)
+	$<
+build/tests/mt76-radio-host$(HOST_EXE): tools/test_mt76_radio.c kernel/src/drivers/mt76_radio.c kernel/include/srvros/mt76_radio.h kernel/include/srvros/mt76_bringup.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_radio.c kernel/src/drivers/mt76_radio.c -o $@
