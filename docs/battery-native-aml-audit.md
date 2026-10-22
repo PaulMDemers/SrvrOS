@@ -134,7 +134,8 @@ The native adapter now selects the exact Air7,2 predispatch policy after its
 existing firmware/resource checks. The older VM fixtures retain unrestricted
 dispatch unless they explicitly select a policy. Allowed nonzero QR_EC responses
 construct `_Qxx` and call `uacpi_execute_simple`; errors remain terminal. The study
-adds whole-batch receipts and a normal-return boundary, still VM-only. QR_EC itself consumes a controller
+adds whole-batch receipts and a normal-return boundary. PR44 also accepts that
+boundary in the explicit parked Air capture described below. QR_EC itself consumes a controller
 query; declining its AML method cannot be described as replaying or undoing it.
 
 | Code | Intended Darwin behavior | Other effects / exclusion |
@@ -171,8 +172,8 @@ Before enabling that path:
    whether shared writes or unsupported access occurred. Distinguish “not begun,”
    “completed,” and “uncertain”; a zero resource snapshot cannot replace this.
 2. Use the exact Air7,2 method/OS-state policy below. Unknown methods, `10` and
-   `80` are refused before AML execution; native refusal remains terminal until
-   its normal-return path is separately accepted.
+   `80` are refused before AML execution; native refusal remains terminal outside
+   the separately accepted parked capture.
    Do not silently ignore them or rewrite their code to a benign query.
 3. Require a healthy completed EC exchange, no lease/SMBus/sampler activity,
    no pending query/callback, no service/storage-owner confusion and all existing
@@ -318,7 +319,10 @@ retain terminal containment outside the explicit v45 parked-workspace capture.
 That capture admits normal worker return only with the whole-batch/resource proof,
 then closes the runtime before saving its explicit failed-service outcome. See the
 [parked capture contract](battery-service.md#parked-native-query-return-capture-v45).
-Physical acceptance is pending; mounted Home and startup remain disabled.
+Air7,2 release `a72409383258a4a0` accepted natural query10 refusal before the first
+sample, resource-checked retirement and saved evidence after USB remount. The empty
+cache stayed faulted/nonfresh. Query10 support, mounted Home and startup remain
+disabled; this result does not accept executing either query10 branch.
 
 The Q35 backend can replay this same classifier with sanitized behavioral AML;
 it does not impersonate the native firmware/profile gate. Cases `policy-unknown`,

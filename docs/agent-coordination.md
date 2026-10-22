@@ -358,15 +358,20 @@ parked-workspace capture. Pro PR19 retains independent Wi-Fi scope; preserve its
 separate Makefile targets. Actions remain disabled and validation stays local.
 
 
-## Active Air parked capture integration
+## Air parked capture integration (PR #44)
 
 The Air branch adds v45 `--battery-query`, a bounded natural query-refusal capture,
 with exact parked-device admission and normal retirement before remount/save/reset.
-Native firmware/register gates are unchanged; physical acceptance remains pending.
+Native firmware/register gates are unchanged. Air7,2 release `a72409383258a4a0`
+(source `6f6381c`) now accepts natural query10 predispatch refusal, resource-checked
+retirement and saved evidence after remount, with all prior files preserved and
+clean offline allocation/Ubuntu recovery checks. It accepts no battery reading,
+mounted Home, automatic startup or other machine. Next Air scope is query10
+protocol/notification ownership across both OS branches, starting in VM.
 Shared changes touch battery runtime, main capture dispatch, staging/collector,
 VM fixtures and tests. Local validation replaces disabled Actions.
 
-PR19 at `20edb22` now also edits main/staging/tests and uses v44 for Wi-Fi
+PR19 at `43a1154` also edits main/staging/tests and uses v44 for Wi-Fi
 calibration, colliding with the already merged battery-controls v44. Integration
 must preserve both historical exact recipes and give new Wi-Fi calibration stages
 a descriptive, unique identity (as its firmware recipe already does). Do not

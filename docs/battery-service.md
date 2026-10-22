@@ -1350,4 +1350,12 @@ disposable exFAT media: unknown/high/OS-state refusal, drained notifications in
 both OS states, pre-sample rejection, no event, shared effects, retained lock,
 poisoned transport, failed disconnect and native-kernel platform refusal. Clean
 cases compare live/saved proofs and check exact tree, metadata, allocation and fsck.
-Physical acceptance remains pending until the matching Air session is collected.
+Air7,2 release `a72409383258a4a0` (source `6f6381c`, PR #44) physically accepted
+this narrow path. A natural query10 was refused before the first sample: completed
+transport, zero AML calls/effects, drained idle worker, resource proof, ordinary
+disconnect and retirement, restored foreign enables, zero heap/errors/denied. The
+cache remained empty, faulted and nonfresh. Three matching logs were saved after
+remount; 916 prior files stayed identical apart from the metadata sidecar. Offline
+fsck/allocation and Ubuntu return/default/recovery checks passed. This establishes
+safe predispatch failure handling, not support for query10, battery readings or
+mounted Home. The [machine record](machines/macbookair7-2.md) owns the exact evidence.

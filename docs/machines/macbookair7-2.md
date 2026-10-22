@@ -2,30 +2,49 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active parked native query-return capture
+### Accepted parked native query-return capture (PR #44)
 
-Base `origin/main` `e946f5e` (PR #43). Add explicit v45 battery-query capture with
-workspace parked, native query admission unchanged, natural unsupported-event
-refusal through normal worker return and resource-checked retirement. Never inject
-or rewrite a QR_EC value. A bounded no-event run records not-exercised and returns.
-Save/remount only after clean retirement; retain automatic parked-fault reset and
-Ubuntu recovery. Test native-style Q35 cases plus exact-stage native refusal before
-installing the automatic Air run. Touched: battery runtime, capture/stage/collector,
-VM fixtures and tests, guides/unit record. Pro PR19 `20edb22` has shared main/staging/tests for independent Wi-Fi
-profiles, including a v44 collision with merged battery-controls. Preserve both
-historical recipes and give future Wi-Fi calibration a unique identity; see the
-coordination guide. No native Home/startup or sibling firmware admission.
+Release `a72409383258a4a0`, tested source `6f6381c`, session
+`session-00065e65247fca49-00` passed the automatic physical v45 capture.
+A natural query `0x10` arrived before the first sample and was refused before AML:
+sequence 1, generation 0, completed transport, zero method calls/effects, idle
+worker and no retained EC/SMBus/Global Lock resources. One SCI was handled with
+an observed return and complete controller snapshots. The owner disconnected the
+EC, restored foreign event enables and retired with heap/errors/denied all zero.
+The service remained faulted with an empty, nonfresh cache, as required.
 
-The implementation and complete 14-case boot-capture matrix pass locally:
-unknown/high/both OS states, both notification batches, generation-zero refusal,
-no-event timeout, shared20/21 effects, poisoned transport, failed disconnect,
-retained Global Lock and native-profile refusal. Successful retirement produces
-identical live/saved proofs plus clean exact tree/metadata/allocation/fsck checks.
-No-event saves a negative result; unsafe faults reset with no false final proof.
-Full kernel builds/core host tests pass; new proof and collector/staging tests
-pass. Physical install and exact-stage rehearsal are pending. Native acceptance
-must come from the matching run; the installed PR34 controls payload is unchanged
-at this source checkpoint.
+USB stayed parked during the runtime, then remounted for the final report.
+All 916 prior ordinary files remained identical; only the metadata sidecar changed
+and three matching session logs were added. Offline fsck and allocation checks
+passed with zero leaks/mismatches/errors. The changed Ubuntu boot ID, consumed
+one-shot, Ubuntu default, EFI order and installed/independent recovery were
+verified. No further reboot is armed. Accepted evidence and the exact payload are
+hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/a72409383258a4a0`; recovery remains
+`b427b78f21644bd2`, and the prior accepted controls payload remains backed up.
+
+Full builds/core host tests, strict proof/collector/staging tests, all 14 new
+full-boot VM cases and three existing workspace regressions passed locally.
+The latter include normal Text/file coexistence, legacy notification return and
+outside-scope refusal. Exact staged GRUB/native-profile refusal, save/unmount/reset
+and missing-workspace return passed. Local validation is archived under
+`~/.local/share/srvros/local-validation/battery-native-query-6f6381c5f0fc`.
+A local collection helper's desktop-exit requirement was corrected: this capture
+opens no desktop. The strict native query receipt required no relaxation.
+
+This accepts only natural predispatch refusal and orderly failed-service
+retirement with parked storage. It does not accept battery readings, ordinary
+mounted Home, automatic startup, arbitrary AML recovery or another model.
+Next: define query10 SMBus alert/notification ownership across both OS branches,
+with VM evidence before another native expansion. No query injection/substitution
+or widened firmware/register gate is authorized by this result.
+
+Base `origin/main` was `e946f5e`. Touched: battery runtime, main capture dispatch,
+staging/collector, VM fixtures, tests and guides. Pro PR19 at `43a1154` continues
+independent Wi-Fi work but still uses v44 for calibration, colliding with merged
+battery-controls. Integration must preserve historical exact recipes and use a
+unique identity for new Wi-Fi calibration stages. Do not modify another device's
+branch or infer its acceptance from this Air result.
 
 ### Native query admission policy (PR #43)
 
@@ -37,8 +56,8 @@ change between a Darwin check and AML's own read, and its other branch owns SMBu
 alert/mutex state. No snapshot, OSYS shadow or forced protocol cleanup is used.
 
 Query20/21 retain audited shared writes; 40/5a/cf are bounded notifications across
-all branches; ce/d0 are empty. The native refusal remains terminal with live state
-retained. The normal-return path is still restricted to the explicit VM study.
+all branches; ce/d0 are empty. At PR43 native refusal remained terminal with live state
+retained; PR44 now separately accepts the explicit parked capture above.
 This is a dispatch restriction, not native recovery acceptance or a new IO grant.
 Nine captured firmware table hashes, lengths and checksums were reverified.
 
