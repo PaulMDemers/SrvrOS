@@ -17,5 +17,6 @@ bool battery_usb_read_diagnostic_run(void *rsdp,struct limine_memmap_response *m
 bool battery_diagnostic_auto_return(bool enabled);
 bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_app_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
+bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 #endif

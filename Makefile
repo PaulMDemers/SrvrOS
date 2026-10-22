@@ -3420,6 +3420,7 @@ test-core: test-battery-query
 test-battery-query: build/tests/battery-query-receipt$(HOST_EXE)
 	$<
 	$(PYTHON) tools/test_battery_query_records.py
+	$(PYTHON) tools/test_battery_native_query_records.py
 build/tests/battery-query-receipt$(HOST_EXE): tools/test_battery_query_receipt.c ports/srvros/uacpi/runtime/battery_query_receipt.h ports/srvros/uacpi/runtime/battery_query_policy.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

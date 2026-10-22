@@ -41,5 +41,8 @@ int main(void) {
     assert(battery_query_classify(BATTERY_QUERY_AIR72,0xcf)==BATTERY_QUERY_NOTIFY);
     assert(battery_query_classify(BATTERY_QUERY_AIR72,0xce)==BATTERY_QUERY_EMPTY);
     assert(battery_query_classify(BATTERY_QUERY_AIR72,0xd0)==BATTERY_QUERY_EMPTY);
+    r.policy=BATTERY_QUERY_AIR72;r.generation=0;r.code=0x10;
+    assert(battery_query_returned(&r,10,true));
+    r.code=0;assert(!battery_query_returned(&r,10,true));
     puts("battery-query-receipt: PASS exact VM admission, 512 hazards, 65536 policy/code receipts, completed callback and whole-batch effects");
 }

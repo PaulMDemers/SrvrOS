@@ -50,7 +50,7 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                         EACK = One
                         Notify (EC, 0x80)
                     } Else {
-#if BATTERY_FAULT == 47
+#if BATTERY_FAULT == 47 || BATTERY_FAULT == 60
                         FAIL = One
 #endif
 #if BATTERY_FAULT == 6

@@ -62,3 +62,7 @@ __attribute__((weak)) int battery_control_request(uint64_t group,unsigned operat
 __attribute__((weak)) bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return battery_diagnostic_run(rsdp,map);
 }
+
+__attribute__((weak)) bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}
