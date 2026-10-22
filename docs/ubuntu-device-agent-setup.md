@@ -726,10 +726,17 @@ off; other models must not reuse the Air firmware gate or acceptance.
 
 After the query-refusal baseline, the explicit `--battery-smbus` staging option
 adds bounded natural host-controller event handling while the outer USB volume
-is parked. See the [ownership and proof contract](battery-smbus-events.md#parked-native-capture-v46-physical-acceptance-pending).
+is parked. See the [ownership and proof contract](battery-smbus-events.md#parked-native-capture-v46).
 It is automatic and has no human interaction. Use this unit's UUID, exact native
 stage refusal/save/return and missing-workspace VM checks, recovery copies and
 normal preflight/collection sequence. The collector's `battery_smbus` field must
 be present and valid; a quick reset or start log alone is not a pass. Physical
 gauge accuracy, mounted Home and ordinary startup remain separate acceptance.
 This profile adds no other machine's firmware gate or accepted capability.
+
+Air7,2 release `a1451825851dc5f0` accepted natural completion events, fresh
+sampling, clean retirement and saved automatic return with preserved files and
+clean offline allocation. No alarms occurred; do not count an absent alarm as
+acknowledgement or cache-invalidation acceptance. Keep event counts and physical
+accuracy limits in the machine record rather than promoting all VM cases to
+hardware passes.

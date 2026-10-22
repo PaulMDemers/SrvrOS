@@ -1,7 +1,7 @@
 # EC SMBus event ownership study
 
-Status: VM-tested study (`1797e8a`); separate native capture implemented,
-physical acceptance pending. Ordinary native query10 remains refused. This extends the
+Status: VM-tested study (`1797e8a`); bounded native completion capture accepted
+on Air7,2 (`10a4cbe`, release `a1451825851dc5f0`). Native alarms remain unexercised. Ordinary native query10 remains refused. This extends the
 [native AML audit](battery-native-aml-audit.md) and existing cached battery
 service. It does not enable mounted Home coexistence or ordinary startup.
 
@@ -70,13 +70,24 @@ do not exhaust every possible scheduler/firmware interleaving. Three existing VM
 regressions also passed: parked refusal/save/reset, Text/file/cache coexistence
 and notification-return retirement.
 
-The physical Air's accepted result is still parked query10 **refusal**, release
-`a72409383258a4a0`. No SMBus event handling is physically accepted. The v46 implementation below
-provides the reviewed ownership/capture boundary; exact-stage validation and
-physical acceptance remain separate from the original VM study. Only after a dedicated native result should mounted Home or
-ordinary startup be considered. Other models need their own captured profiles.
+The physical Air accepted v46 release `a1451825851dc5f0`, source `10a4cbe`,
+session `session-00065e7202038212-00`: 45 natural completion events, fresh
+generation 3, three handled/zero unclaimed SCI deliveries, resource-checked
+retirement and automatic Ubuntu return. No alarms occurred, so acknowledgement
+and alarm-triggered refresh are still VM-only evidence. All prior ordinary USB
+files were preserved; offline fsck/allocation and recovery checks passed. This
+supersedes the earlier query10-refusal result only for the explicit capture.
+Mounted Home, ordinary startup and physical gauge accuracy remain unaccepted.
+Other models need their own captured profiles.
 
-## Parked native capture (v46, physical acceptance pending)
+The implementation passed both diagnostic builds, full host core tests, 16
+full-boot Q35 cases and five regressions, including no-event/descriptor refusal,
+late alarms and uncertain acknowledgements. All 16 disposable disks passed
+independent allocation/fsck checks. Exact native stage refusal/save/reset and
+missing-workspace return also passed. See the [Air record](machines/macbookair7-2.md)
+for durable evidence locations and the next bounded scope.
+
+## Parked native capture (v46)
 
 The explicit `--battery-smbus --laptop-probe-volume <this-unit-uuid>` recipe uses
 `srvros.capture=battery-smbus`. It requires automatic return, pauses logging and
