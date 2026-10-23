@@ -725,3 +725,15 @@ Evidence has a hash-verified backup outside build. One-shot is empty and USB
 unmounted; recovery remains verified. Next is an exact Air6,1 brightness provider
 preserving observed mode/period, with an attended visible adjustment trial.
 No new boot is staged or armed.
+
+## Brightness control scope (2026-10-23)
+
+Base `83a3f59`, branch `device/macbookair6-1/brightness-control`. Bind an explicit
+Air6,1 profile only behind the existing captured GPU/PCH/DSDT gate and observed
+CPU control 0, PCH control c0000000, period2777. Reuse bounded 5–100% duty writes,
+readback verification and drift quarantine. Discovery must leave the panel alone.
+Prepare a brightness-only unscaled desktop v56 via basic+brightness staging;
+no audio, EC/AML, battery or other optional service. Scope: backlight/profile,
+probe binding, staging/VM tests and this unit's docs. PR #76 reserves v55 for
+combined services; preserve that separate work when integrating shared staging.
+PR #19 remains Pro Wi-Fi work. Native visible adjustment remains unaccepted.
