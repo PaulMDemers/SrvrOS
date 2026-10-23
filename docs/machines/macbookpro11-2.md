@@ -3643,3 +3643,21 @@ No BBP-table or RF enable; unrelated PBF/DMA/power settings remain deferred.
 Touch MCU/xHCI/main/staging/tests; retain integration base22fd266. Fetched
 main2e2eb2b (PR88 taps, PR97 Air6,1); PR99 log capacity and PR98 battery SMBus
 have separate active scope. No overlapping Wi-Fi implementation found.
+
+### 2026-10-23 — v35 common MAC policy candidate installed, unarmed
+
+Source `78f1944`, release `ee842dc8bcc56669`. Build, compact/xHCI host tests,
+ASan/UBSan, 91 boot-profile tests and docs checks passed. Exact-stage GPT VM saved
+diagnostics, passed offline checks and reset; missing-workspace VM returned
+without probing. Collector fixture success and eight failure mutations passed.
+Hardware acceptance pending for the four-register group; v34 prerequisites remain
+strict and are rechecked first.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved; accepted route
+`c929ce1b090b820d` retained. Raw inventory payload removed from ESP only after
+byte comparison with its durable archive. UUID0E53-5900 clean207files/559clusters,
+no allocation errors, unmounted. No one-shot armed. Run/collector:
+`build/bringup/wifi-mac-policy/run.json`, `build/bringup/collect_wifi_mac_policy_return.py`.
+Durable payload/evidence/helpers: `~/.local/share/srvros/macbookpro11-2/wifi-mac-policy-78f1944/`.
+Next: readiness-confirmed cold adapter power cycle, automatic capture/return,
+then collect matching session before any new run. RF/connectivity NOT_TESTED.
