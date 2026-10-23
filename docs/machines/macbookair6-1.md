@@ -679,3 +679,27 @@ This closes the focused completed-workload rerun refusal and speed/acceleration
 persistence checks on this unit. It does not expand acceptance to every preference,
 concurrent script starts, optional hardware services or other Mac models. No
 new boot is staged or armed; both focused runs are collected.
+
+## Read-only brightness capture ready (2026-10-23)
+
+Implementation/source `a0f148a`, release `142dd83ded3d2da4`, run
+`b1bf2459dd0cd1f9`: exact GPU `0a26`, PCH `9c43`, 31,777-byte DSDT fingerprint
+`af9a47bc352dc6bf` admits only the read-only PWM capture. Current Ubuntu DSDT
+matches the inventory bytes. No EC/AML access, writable PWM mapping or provider
+binding is admitted on this profile. Native mode/period evidence is still pending.
+
+Full build/USB image and core suite pass, as do backlight tests, 58 staging tests
+and captured-firmware positive/negative tests (wrong chipset, length, checksum
+and checksum-correct modification refused). Exact-stage GPT v19 VM saves logs,
+checks retained file bytes and clean exFAT, then resets; the missing-workspace
+case returns without starting the probe. This is recovery-path validation, not
+native PWM acceptance. Docs and diff checks pass.
+
+Installed unarmed with console recovery `c35475f62f154f1e` retained; accepted
+desktop `db7ce82008f4b9a6` remains installed and independently backed up. One
+superseded EFI payload (`9ddea14869c9ed6f`) was removed only after verifying its
+complete independent backup. Ubuntu default and empty one-shot verified.
+All 170 USB files are recorded; offline fsck/allocation pass (249 clusters,
+zero leaks/mismatches/errors). Payload and run evidence are preserved outside
+build. This next boot is unattended: leave USB attached, allow automatic Ubuntu
+return, then collect before any write-enabled brightness implementation.
