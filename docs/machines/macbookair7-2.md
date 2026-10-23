@@ -2,6 +2,28 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: bounded log retention and creation headroom
+
+PR88 is merged as `2e2eb2b`; tap feel is accepted by the tester, with its missing
+native receipt retained as incomplete evidence. Integrated source `4100371`
+passed full build/core/docs, Terminal guest and exact EFI/audio/GPT rehearsal
+(release `eaa2de0f69629a27`). That VM artifact was not installed.
+
+The authorized capacity follow-up uses `device/macbookair7-2/log-capacity`, based
+on actual main `2e2eb2b`. Scope: mounted/offline node-table preflight, bounded
+verified Ubuntu log archival, kernel logger admission and visible trial refusal,
+host/VM tests and current guides. Pro PR19 owns separate Wi-Fi work; no device
+profiles or firmware gates change. Publish storage changes separately from tap
+work. Keep accepted `9aa8dbf6fbda8252` recovery and Ubuntu default.
+
+Verified archival moved 22 older completed sessions (70 files) to
+`~/.local/share/srvros/log-archives/20261023-capacity-recovery` before deleting only
+those verified USB copies. The newest 32 sessions, incomplete/unknown sessions,
+user documents and other files were preserved; all 953 remaining files are
+byte-for-byte unchanged. The mounted scan has 953 files, 200 directories and
+70 usable file slots after metadata reserve. Offline checks follow before any
+physical run. Original incomplete evidence remains archived independently.
+
 ### Current result: tap feel accepted; logging capacity follow-up
 
 Returned settling trial `95db354d397095b4` (source `c619cdd`): the tester says
