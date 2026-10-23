@@ -2,6 +2,17 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active scope: opt-in ordinary Home battery startup
+
+Base `80b567a` (including Air6,1 PR #68). This block connects the accepted
+continuous owner to an explicitly requested ordinary Home desktop session,
+including unavailable/stale presentation and clean exit/restart. Shared scope:
+battery runtime/session entry, boot/monitor dispatch, staging and VM lifecycle
+coverage. Existing exact firmware/resource gates and default-off behavior stay
+in place. Air6,1 v53 basic desktop and Pro PR #19 (`b816acd`) Wi-Fi profiles
+remain separate and must be preserved. Native acceptance is pending; no physical
+run is armed. Tests run locally because Actions are disabled.
+
 ### Guided Home AC/indicator transitions accepted (PR #66)
 
 Release `c06f94a5893a402d`, staged source `1dcf202`, compiled/tested source
