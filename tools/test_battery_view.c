@@ -63,5 +63,29 @@ int main(void) {
     cache.value.state=BATTERY_SERVICE_UNAVAILABLE;
     battery_cache_read(&cache,8000200,&cached);s=battery_snapshot(&cached);
     assert(!desk_battery_view(&s).fresh && !strcmp(desk_battery_view(&s).label,"Battery —"));
+    /* Real cache-derived presentation plus alert thresholds, stale/failed read
+     * suppression, hysteresis and a critical escalation without repeated polls. */
+    struct desk_battery_alert alert={0};
+    s=(struct srv_battery_status){.version=SRV_BATTERY_VERSION,.size=sizeof(s),
+        .state=SRV_BATTERY_ACTIVE,.flags=SRV_BATTERY_VALID|SRV_BATTERY_FRESH,
+        .valid=SRV_BATTERY_SOC_VALID,.soc=20};
+    assert(desk_battery_alert_update(&alert,&s)==1);
+    for(int i=0;i<100;i++)assert(!desk_battery_alert_update(&alert,&s));
+    s.soc=21;assert(!desk_battery_alert_update(&alert,&s));
+    s.soc=20;assert(!desk_battery_alert_update(&alert,&s));
+    s.soc=5;assert(desk_battery_alert_update(&alert,&s)==2);
+    assert(!desk_battery_alert_update(&alert,&s));
+    s.flags|=SRV_BATTERY_STALE|SRV_BATTERY_AC_PRESENT;
+    assert(!desk_battery_alert_update(&alert,&s) && alert.warned==2);
+    assert(!desk_battery_alert_update(&alert,NULL) && alert.warned==2);
+    s.flags=SRV_BATTERY_VALID|SRV_BATTERY_FRESH;s.soc=10;
+    assert(!desk_battery_alert_update(&alert,&s));
+    s.soc=11;assert(!desk_battery_alert_update(&alert,&s) && alert.warned==1);
+    s.soc=5;assert(desk_battery_alert_update(&alert,&s)==2);
+    s.soc=26;assert(!desk_battery_alert_update(&alert,&s) && !alert.warned);
+    s.soc=20;assert(desk_battery_alert_update(&alert,&s)==1);
+    s.flags|=SRV_BATTERY_AC_PRESENT;assert(!desk_battery_alert_update(&alert,&s) && !alert.warned);
+    s.flags&=~SRV_BATTERY_AC_PRESENT;s.soc=4;assert(desk_battery_alert_update(&alert,&s)==2);
+    s.state=SRV_BATTERY_STOPPED;assert(!desk_battery_alert_update(&alert,&s) && alert.warned==2);
     puts("battery-view: PASS cached ABI, disabled/stopping, freshness, validity and charge presentation");
 }

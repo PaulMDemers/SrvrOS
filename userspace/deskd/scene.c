@@ -156,6 +156,9 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
 struct desk_rect desktop_clock_rect(int width,const char *clock) {
     int text=desk_text_width(&desk_font_16,clock);return (struct desk_rect){width-text-24,0,text+24,44};
 }
+struct desk_rect desktop_battery_rect(int width,const char *clock) {
+    struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-238,0,140,44};
+}
 struct desk_rect desktop_alert_rect(int width,const char *clock) {
     struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-94,0,90,44};
 }

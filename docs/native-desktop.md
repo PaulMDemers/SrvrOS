@@ -13,7 +13,13 @@ battery runtime and `desktop battery` after mounting Home. **Ctrl+Alt+Esc**
 returns to the monitor after app, battery and log cleanup; Home stays mounted
 for reopening. Default `deskd` startup does not start firmware work. See
 [ordinary Home startup](battery-home-lifecycle.md#opt-in-ordinary-home-startup)
-for the v54 boot profile and validation limits.
+for the v54 boot profile and validation limits. Click the battery label to open
+System. Fresh discharging readings at 20% and 5% add low-charge notifications
+without stealing focus; stale/unavailable readings do not trigger alerts.
+Fresh AC power or recovery above 25% rearms the low warning; recovery above 10%
+rearms the critical warning. Notifications do not automatically suspend or power
+off the machine. The combined v55 provider profile is described in the
+[device parity ledger](device-parity.md).
 
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes

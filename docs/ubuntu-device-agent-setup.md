@@ -260,10 +260,19 @@ battery runtime first and validate the exact stage with
 `battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage RELEASE`.
 It starts ordinary apps with no capture timer or automatic reboot. Exit with
 Ctrl+Alt+Esc, reopen with `desktop battery`, or use monitor `reboot` for a flushed,
-unmounted return. Its native acceptance remains pending; default startup stays
-off and sibling profiles do not inherit Air7,2 ownership. Follow the
+unmounted return. This path is physically accepted on the recorded Air7,2
+release; default startup stays off and siblings do not inherit its ownership. Follow the
 [session contract](battery-home-lifecycle.md#opt-in-ordinary-home-startup) and
 existing recovery/run-record steps before a hardware trial.
+
+The v55 combined profile adds `--desktop-services` to `--desktop-battery`.
+It enables the existing brightness, HDA, read-only CPU/SMC and ECM providers,
+without scaling or an isolated AML probe. Use `--services` with the ordinary
+battery VM harness, including its exact-stage run. Combined physical acceptance
+is pending; see [device parity](device-parity.md) for provider evidence and the
+attended checklist. Unsupported providers stay unavailable. Boot-scoped device
+workers remain available after desktop exit; app PCM, battery ownership and
+session logging retire before the Home hold releases.
 
 For a bounded unattended idle sample after the basic workspace is accepted:
 

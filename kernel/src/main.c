@@ -731,6 +731,12 @@ void kmain(void) {
     trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
     if (cmdline_has_token(cmdline, "srvros.desktop=session")) {
+        console_printf("desktop-session: providers brightness=%u audio=%u thermal=%u smc=%u ethernet=%u; kernel services persist across desktop exit\n",
+            (uint64_t)cmdline_has_token(cmdline,"srvros.laptop-services=brightness"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.audio=hda"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.sensors=cpu"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.smc=read-only"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
         if(cmdline_has_token(cmdline,"srvros.battery=on"))desktop_battery_session_run();
         else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
     } else if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
