@@ -449,3 +449,14 @@ completion under `build/trackpad-tests/cd54ca6d8f2cd4fb/` have a hash-verified
 durable backup under release `ab0bea06acccc443`. Installed payloads and Ubuntu
 default are verified; one-shot consumed. Current remains this accepted bounded
 trial, previous remains console recovery `c35475f62f154f1e`. No new boot prepared.
+
+## Full desktop/USB session preparation (2026-10-22)
+
+Base `208423f`, branch `device/macbookair6-1/desktop-session`. Bounded objective:
+full workspace desktop with an attended, finite Terminal copy/sync/readback job
+while using Text, Files, window management and settings. Scope: additive v53
+input-only desktop staging, shared fixture/verification helper, exact-stage VM
+coverage and this unit's checklist. No kernel, driver or app behavior changes.
+PR #66 owns v52 AC/battery capture; PR #19 owns Wi-Fi. Their separate recipes
+and native gates remain unchanged. Prior highlight run is collected. Preserve
+console recovery `c35475f62f154f1e`; install unarmed after exact-stage validation.
