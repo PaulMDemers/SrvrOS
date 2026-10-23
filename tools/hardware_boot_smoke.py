@@ -544,7 +544,7 @@ def main():
                                          "pwd > /missing-pwd-dir/out", "echo $? > terminal-pwd-status.txt"):
                         time.sleep(.5);type_text(command_text);ui.key("ret")
                     if device_checks:
-                        type_text("dhcp > device-dhcp.txt");ui.key("ret")
+                        type_text("sh -c dhcp > device-dhcp.txt");ui.key("ret")
                         wait_for(serial,lambda s:"net: dhcp ipv4=10.0.2.15" in s,process,30)
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"workspace-terminal.ppm")})
