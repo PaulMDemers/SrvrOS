@@ -1108,3 +1108,13 @@ RXC4 stayed0; RXC5 changed71550400->f977c4ec; RXC7 changed0->90;
 TXO8 stayed0. All earlier phases,40 register readbacks and both completion
 markers passed; MAC0 and CORE0f000f200 preserved. Identifiers14..15 remain
 unused. Remaining baseband initialization, RF and connectivity are pending.
+
+### TXBE0/4/6/8 extension (native acceptance pending)
+
+Firmware v21 (`--wifi-txbe-start`, requiring `--wifi-rxc-tail`) adds phase10
+at sequence14: fixed offsets2700/2710/2718/2720 receive0/4/0/14.
+One40-byte command requires ten prior phases, exact16-byte reply, four
+independent readbacks and MAC/CORE guards. Prior profiles retain limits.
+No RF enable or identifier recycling. Host fixtures cover eleven fixed
+packets, allowlists, failures/cancellation and ownership/quarantine;
+77 boot-profile tests pass. Hardware acceptance remains pending.

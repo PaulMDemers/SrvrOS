@@ -121,10 +121,10 @@ bool mt76_mcu_validate_bbp_batch_reply(unsigned batch,const uint8_t *data,size_t
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_batch(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
 
-/* Ten fixed four-pair plans, sequences4..13; no caller-supplied tables.
- * First nine accepted in release7d6ccc2fe96d530c; phase9 native pending.
+/* Eleven fixed four-pair plans, sequences4..14; no caller-supplied tables.
+ * First ten accepted in release492306b5fccc17b9; phase10 native pending.
  * Transport enforces phase order, prior completion and readiness before phase2. */
-#define MT76_MCU_COMPACT_PHASES 10u
+#define MT76_MCU_COMPACT_PHASES 11u
 bool mt76_mcu_compact_read_allowed(unsigned phase,uint32_t address);
 size_t mt76_mcu_compact_packet(unsigned phase,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_compact_reply(unsigned phase,const uint8_t *data,size_t length);

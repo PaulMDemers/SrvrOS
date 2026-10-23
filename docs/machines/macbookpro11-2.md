@@ -2967,3 +2967,12 @@ Workspace clean:179files/517clusters, zero leaks/allocation mismatches,
 unmounted. Run/checkpoint collected and unarmed. Remaining TXBE/RXFE/RXO
 and other baseband settings pending; identifiers14..15 unused. Further
 expansion must respect sequence exhaustion. RF/connectivity not accepted.
+
+Active scope: phase10 TXBE0/4/6/8 at sequence14, fixed offsets
+2700/2710/2718/2720 and values0/4/0/14 from pinned Linuxv6.18 MT7610
+initialization. Require ten previous phases and MAC/CORE guards; v21 limit11,
+prior limits unchanged. Touch MCU plan, xHCI limits, capture/profile/tests.
+Fetched mainf5e1525; PR69 opt-in Home battery startup and PR74 Air6,1
+evidence inspected. Default battery remains off; those desktop paths are
+independent of this isolated capture. Retain integrated base22fd266. Preserve
+shared desktop recipes on future integration. No RF or identifier recycling.

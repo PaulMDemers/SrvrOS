@@ -450,6 +450,17 @@ class InstallTests(unittest.TestCase):
                     'srvros.wifi-rxc-start=1 srvros.wifi-rxc-tail=1'))
         with self.assertRaises(ValueError):boot.stage(wifi_rxc_tail=True)
 
+    def test_wifi_txbe_start_profile(self):
+        for suffix in ('', '-auto-return'):
+            v20='ram-usb-wifi-fw-v20-laptop-probe-37d8c5d0'+suffix
+            v21=v20.replace('v20','v21')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v21))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v21),
+                boot.limine_config('0123456789abcdef',v20).replace(
+                    'srvros.wifi-rxc-tail=1',
+                    'srvros.wifi-rxc-tail=1 srvros.wifi-txbe-start=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_start=True)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-wifi-cal-v1-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
