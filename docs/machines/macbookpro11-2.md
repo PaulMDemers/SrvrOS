@@ -3584,3 +3584,12 @@ Collector verified exact transfer/order/value/guard evidence and no table writes
 Native logs and comparison.json archived in wifi-mac-raw-139f82c outside build.
 Ubuntu default, consumed one-shot and installed/recovery hashes verified; workspace
 clean205files/556clusters, zero allocation errors, unmounted. No reboot armed.
+
+Active scope: bounded FCE/WMM initialization after accepted MAC phases0/1 and
+clock/readiness. Captured080c=03ff0233 ->03ff0223 clears only bit4;0230=41040
+->41201 replaces low10 bits with201, preserving the rest. Reference init.c
+performs these operations in this order. Captured EXT_CCA already has f000 set.
+Exact initial-value gates, unused seq6 two-pair packet, strict ACK/readbacks and
+MAC0/COREf000f200 boundaries; no subsequent BBP table writes. Defer PBF/WPDMA,
+RF/power/PA/LDO changes. Touch MCU/xHCI/main/staging/tests; current base22fd266,
+fetched main9488193 (Air6,1 HPTC) remains separate. Native behavior pending.

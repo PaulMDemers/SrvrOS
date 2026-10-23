@@ -252,6 +252,8 @@ struct xhci_wifi_mcu {
     struct mt76_clock_probe clock;
     bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
     struct mt76_mac_snapshot mac_snapshot;
+    bool mac_route_mode,mac_route_active,mac_route_submitted;
+    struct mt76_mcu_mac mac_route;
     unsigned table_submitted;
     struct mt76_bbp_table table;
     bool txbe_access_active, txbe_access_submitted, txbe_direct_mode, txbe_direct_submitted;

@@ -1616,3 +1616,22 @@ USB read logs completion, actual length, residue and timeout. Target all-ones
 values are counted as unvalidated observations; transport failures and incorrect
 ASIC76502000/MAC0/COREf000f200 guards still stop capture. Completion is not register
 acceptance. v32 retains its strict all-ones refusal and subsequent BBP workflow.
+
+### Bounded MAC routing trial (v34; native result pending)
+
+`--wifi-mac-route` requires `--wifi-bbp-table` prerequisites, excludes raw and
+strict snapshot modes, and ends before any baseband-table submission. After
+compact MAC phases 0/1, the accepted clock sequence and read-only BBP readiness,
+it applies the Linux v7.0 `mt76x0_init_mac_registers` FCE/WMM operations in their
+reference order: clear FCE_L2_STUFF bit 4 at `080c`, then replace WMM_CTRL's low
+10 bits at `0230` with `201`. The fixed pair preserves unrelated bits from this
+unit's v33 capture. Native submission requires exact starting values `03ff0233`
+and `00041040`; a different initial state refuses the write.
+
+One 24-byte MCU command (sequence 6) requests `03ff0223` and `00041201`. Exact
+ACK framing, both readbacks, and initial/final MAC-disabled and CORE guards are
+required. There is no retry. This diagnostic adapts the reference EP0 operations
+to the existing bounded MCU write engine; it does not claim full reference MAC
+initialization equivalence. No new PBF, DMA, power, RF or MAC-enable operation is
+introduced. Native acceptance and wireless connectivity remain untested until
+matching saved evidence is collected.

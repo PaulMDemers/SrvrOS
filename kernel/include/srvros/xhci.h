@@ -69,6 +69,7 @@ bool xhci_wifi_capture_clock_pair(void);
 bool xhci_wifi_capture_bbp_table(void);
 bool xhci_wifi_capture_mac_snapshot(void);
 bool xhci_wifi_capture_mac_raw(void);
+bool xhci_wifi_capture_mac_route(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

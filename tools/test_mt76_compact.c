@@ -358,7 +358,47 @@ static void test_mac_raw(void){
  puts("MAC raw: PASS all read/cancel faults, repeated identity/guard failures, all-ones observations and no exchange callback");
 }
 
+struct route_fake {unsigned op,auth,fail,deny,bad,ones;};
+static bool route_auth(void *p){struct route_fake *f=p;return ++f->auth!=f->deny;}
+static bool route_read(void *p,uint32_t a,uint32_t *v){
+ struct route_fake *f=p;
+ const uint32_t addresses[]={0x1004,0x2000,0x080c,0x0230,0,0x080c,0x0230,0x1004,0x2000};
+ const uint32_t values[]={0,0xf000f200,0x03ff0233,0x41040,0,0x03ff0223,0x41201,0,0xf000f200};
+ assert(f->op<9 && a==addresses[f->op]);*v=values[f->op];f->op++;
+ if(f->bad==f->op)*v^=1;
+ if(f->ones==f->op)*v=UINT32_MAX;
+ return f->fail!=f->op;
+}
+static int route_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t cap){
+ struct route_fake *f=p;const uint8_t expected[]={0x10,0,0xc6,0x50,0x0c,0x08,0x41,0,0x23,0x02,0xff,0x03,0x30,0x02,0x41,0,0x01,0x12,0x04,0,0,0,0,0};
+ assert(f->op==4 && n==24 && cap>=16 && !memcmp(data,expected,24));f->op++;
+ if(f->fail==f->op)return -1;
+ word(reply,0x4a060008);word(reply+4,0x41080c);word(reply+8,0x03ff0223);word(reply+12,0x4a060008);
+ if(f->bad==5)reply[2]^=1;
+ return 16;
+}
+static void test_mac_route(void){
+ for(unsigned fail=0;fail<=9;fail++)for(unsigned deny=0;deny<=10;deny++){
+  struct route_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,route_auth,route_read,route_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_route_apply(&s,&io);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==8 && s.ack_mask==1 && s.batches_completed==1 && f.op==9 && f.auth==10);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_route_apply(&s,&io)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bad=1;bad<=9;bad++)if(bad!=3 && bad!=4){
+  struct route_fake f={.bad=bad};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,route_auth,route_read,route_exchange};
+  assert(mt76_mac_route_apply(&s,&io)==(bad==5?MT76_TIMING_REPLY:MT76_TIMING_STATE));assert(!s.complete);
+ }
+ for(unsigned ones=1;ones<=9;ones++)if(ones!=5){
+  struct route_fake f={.ones=ones};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,route_auth,route_read,route_exchange};
+  assert(mt76_mac_route_apply(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ puts("MAC route: PASS exact ordered 24-byte packet, eight reads, all failures/cancellation, reply and target guards");
+}
+
 int main(void){
+ test_mac_route();
  test_mac_raw();
  test_mac_snapshot();
  test_full_table();

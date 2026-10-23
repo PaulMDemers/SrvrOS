@@ -588,6 +588,16 @@ class InstallTests(unittest.TestCase):
         for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock','wifi_clock_direct'):
             with self.assertRaises(ValueError):boot.stage(wifi_clock_pair=True,wifi_txbe_start=True,**{conflict:True})
 
+    def test_wifi_mac_route_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v34-laptop-probe-0e535900-auto-return')
+        self.assertIn('srvros.wifi-mac-route=1',cfg)
+        self.assertIn('srvros.wifi-bbp-table=1',cfg)
+        for flag in ('mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_route=True)
+        for conflict in ('wifi_mac_raw','wifi_mac_snapshot'):
+            with self.assertRaises(ValueError):boot.stage(wifi_mac_route=True,wifi_bbp_table=True,**{conflict:True})
+
     def test_wifi_mac_raw_profile(self):
         cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v33-laptop-probe-0e535900-auto-return')
         self.assertIn('srvros.wifi-mac-raw=1',cfg)

@@ -742,3 +742,11 @@ enum mt76_mcu_timing_status mt76_mac_raw_capture(struct mt76_mac_snapshot *s,
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Captured 080c=03ff0233,0230=41040: clear bit4, then replace low10 bits with201. */
+static const struct mt76_mcu_register_pair mac_route_plan[2]={{0x080c,0x03ff0223},{0x0230,0x00041201}};
+size_t mt76_mac_route_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,6,mac_route_plan,2,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_route_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_route_plan,6,true,2,2);}
