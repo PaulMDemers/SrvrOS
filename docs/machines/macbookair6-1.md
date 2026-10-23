@@ -1175,3 +1175,26 @@ with a 128-event ceiling. Photograph any failure during the 30-second display.
 Automatic Ubuntu return should follow; missing final evidence remains failure
 or incomplete. Collect this release and verify retirement and all prior files
 before another trial. No reboot is armed.
+
+## Short SMBus native return accepted (2026-10-23)
+
+Closeout scope from main `5d195a9`: record this unit's returned v62 evidence;
+no shared runtime or admission changes. Release `bfde0423543f20d0`, source
+`63bc06f`, session `00065e89a7794b63-00` passes the native SMBus receipt validator.
+Fresh generation 3, 45 completion events, three handled/zero unclaimed SCI
+deliveries, three sample attempts/zero rejected and balanced 1/1 attach/detach
+prove this bounded capture. Heap/errors/denied are zero; controller/resource
+retirement and foreign-mask restoration are recorded. A complete exit log and
+completed marker were saved. No alarms or acknowledgement writes occurred.
+
+Accept short parked battery sampling and clean retirement with AC connected.
+Gauge accuracy, alarms, AC transitions, sustained operation and desktop battery
+monitoring remain open; ordinary startup stays off. Next recommended work is a
+bounded attended AC unplug/reconnect capture with Air6,1 admission/query audit.
+
+All 205 previous files remain, with expected metadata change and three new logs.
+Offline fsck/allocation pass: 208 files, 387 clusters, zero leaks/mismatches/errors.
+Ubuntu returned with consumed one-shot; current/recovery hashes and default pass.
+Current stays `bfde0423543f20d0`, recovery `c35475f62f154f1e`. USB is unmounted;
+no reboot is armed. Matching logs, validation and return state are backed up
+outside build before another trial.
