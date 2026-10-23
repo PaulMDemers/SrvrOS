@@ -2,6 +2,43 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Explicit continuous Home desktop capture accepted (PR #63)
+
+Release `8666698f5e5d4ed5`, staged source `182ee78`, compiled/tested source
+`42d074f` on main `105dffd`, passed the automatic v51 trial on this Air.
+The followup commit only corrects a VM fault-test assertion; compiled payloads
+are unchanged. Session `session-00065e76fefc7bdc-00` recorded 201.276 seconds,
+74 samples (generation 1 through 74), 1,110 battery events and 74 handled SCI
+interrupts with zero unclaimed interrupts. All five inherited process members
+retired before battery ownership, logging and the mount were released.
+
+The ordinary Home desktop kept Text open for a measured 179.994 seconds.
+During that interval, 13,332 of 18,000 sampled ticks were idle (74.1%); it presented
+three frames and wrote 305,184 framebuffer bytes. This is one idle workload,
+not a physical key-latency, battery-life or power measurement. The saved
+1440x900 screenshot shows the global indicator displaying `AC · 97%`; this
+confirms rendering, not gauge accuracy or AC transition behavior.
+
+Four logs and one screenshot were saved. All 943 pre-existing data files stayed
+unchanged; only expected filesystem metadata changed. Offline fsck and allocation
+validation passed with zero leaks, bitmap mismatches or errors. Ubuntu returned,
+the one-shot entry was consumed, and default boot/EFI/recovery were verified.
+The accepted payload and evidence survive build cleanup under
+`~/.local/share/srvros/known-good/8666698f5e5d4ed5` and
+`~/.local/share/srvros/accepted-evidence/8666698f5e5d4ed5`.
+
+Local full build/both diagnostic kernels, full core and docs passed. The actual
+Q35 boot capture passed completion, clean profile/query refusal and retained
+uncertain-ack ownership, plus pending-save exit and continuous alarm/restart
+regressions. Exact-stage native refusal and missing-workspace return passed.
+Actions remain disabled. Pro PR19 `acd4ae7` remains separate Wi-Fi work;
+its later integration must preserve both sets of boot-staging/main changes.
+
+No reboot is armed. Next: attended AC unplug/replug and gauge/indicator acceptance,
+then ordinary native startup integration. The explicit capture has physical
+continuity acceptance; arbitrary interactive app workloads and accuracy remain
+separate. Native startup stays OFF; sibling profiles are unchanged.
+
 ### Ordinary Home desktop lifetime: VM/host validation (PR #62)
 
 Source `4351910`, based on main `340f566`, connects the inherited lifetime to

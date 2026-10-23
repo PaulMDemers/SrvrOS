@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import subprocess
+import struct
 import tempfile
 from pathlib import Path
 import hardware_test as host
@@ -457,6 +458,27 @@ def battery_app_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_home_desktop_result(exit_text):
+    from battery_home_desktop_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-desktop'):return None
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def verify_home_desktop_screenshot(workspace, text, saved):
+    """Copy only the exact, bounded screenshot named by this completed session."""
+    rows=re.findall(r'^deskd: screenshot saved status=0 path=/work/srvros-work/Screenshots/(Screen-[A-Za-z0-9-]+\.bmp)$',text,re.M)
+    captures=re.findall(r'^deskd: screenshot captured path=/work/srvros-work/Screenshots/(Screen-[A-Za-z0-9-]+\.bmp) width=(\d+) height=(\d+)$',text,re.M)
+    if len(rows)!=1 or len(captures)!=1 or captures[0][0]!=rows[0]:raise ValueError('Home desktop screenshot receipt missing or ambiguous')
+    folder=workspace/'Screenshots';image=folder/rows[0]
+    if folder.is_symlink() or image.is_symlink() or not image.is_file() or not 54<image.stat().st_size<=8*1024*1024+54:raise ValueError('Home desktop screenshot missing or unsafe')
+    data=image.read_bytes();width,height=map(int,captures[0][1:])
+    if len(data)!=54+width*height*4 or data[:2]!=b'BM' or struct.unpack_from('<I',data,2)[0]!=len(data) or struct.unpack_from('<IIiiHHI',data,10)!=(54,40,width,height,1,32,0):raise ValueError('Home desktop screenshot invalid')
+    copy=saved/rows[0];copy.write_bytes(data)
+    if copy.read_bytes()!=data:raise OSError('Home desktop screenshot copy verification failed')
+    return dict(name=rows[0],width=width,height=height,sha256=hashlib.sha256(data).hexdigest())
+
+
 def battery_home_session_result(exit_text):
     from battery_control_files_records import check_capture
     if not battery_overlap_recipe(exit_text,'battery-home-session'):return None
@@ -596,6 +618,15 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_desktop_proof=battery_home_desktop_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-desktop(?:\s|$)',text) and home_desktop_proof is None:
+            attention.append('collection: continuous Home desktop completion missing, invalid or refused')
+        if home_desktop_proof:
+            try:
+                if set(payload)!=set(FILES):raise ValueError('Home desktop periodic logs missing')
+                home_desktop_proof['screenshot']=verify_home_desktop_screenshot(workspace,payload['exit.log'].decode('utf-8',errors='replace'),saved)
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_desktop_proof=None
         home_session_proof=battery_home_session_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-home-session(?:\s|$)',text) and home_session_proof is None:
             attention.append('collection: Home desktop-session completion missing, invalid or refused')
@@ -672,7 +703,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

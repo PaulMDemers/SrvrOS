@@ -1073,7 +1073,8 @@ int main(int argc,char **argv) {
     int coexist_files=coexist_workspace || (argc==2 && !strcmp(argv[1],"--coexist-files"));
     int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
-    int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
+    int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
+    int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int home_apps=argc==2 && !strcmp(argv[1],"--home-apps");
@@ -1544,13 +1545,13 @@ int main(int argc,char **argv) {
                 if(!s.clients[0].generation) { if(now-start>=3000) failed=1; }
                 else if(srv_scheduler_status(&idle_before) || idle_before.version!=SRV_SCHEDULER_VERSION) failed=1;
                 else {
-                    idle_phase=1;idle_deadline=now+6000;idle_frames=frames;idle_bytes=bytes;
-                    desk_log("desktop-idle: measuring 60 seconds with Text open; no user input required\n");
+                    idle_phase=1;idle_deadline=now+(battery_idle?18000:6000);idle_frames=frames;idle_bytes=bytes;
+                    desk_log("desktop-idle: measuring %u seconds with Text open; no user input required\n",battery_idle?180:60);
                 }
             } else if(idle_phase==1 && now>=idle_deadline) {
                 struct srv_scheduler_status after={0};
                 if(srv_scheduler_status(&after) || after.version!=SRV_SCHEDULER_VERSION ||
-                   after.monotonic_us<idle_before.monotonic_us+59000000 ||
+                   after.monotonic_us<idle_before.monotonic_us+(battery_idle?179000000:59000000) ||
                    after.sampled_ticks<=idle_before.sampled_ticks || after.idle_ticks<idle_before.idle_ticks ||
                    after.idle_ticks-idle_before.idle_ticks>after.sampled_ticks-idle_before.sampled_ticks ||
                    after.switches<idle_before.switches || after.preemptions<idle_before.preemptions) failed=1;

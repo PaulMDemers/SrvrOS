@@ -402,6 +402,32 @@ class CollectionTests(unittest.TestCase):
                 self.assertIn('collection: native query return missing, invalid or not exercised',item['attention'])
             self.assertIsNone(desktop.battery_query_result((boot+native).replace(b'srvros.capture=battery-query',b'srvros.capture=battery-query-other').decode()))
 
+    def test_continuous_home_desktop_collection_requires_saved_screenshot(self):
+        import struct
+        from test_battery_home_desktop_records import fixture
+        native=fixture().replace(b'0x62f',b'0x189c').replace(b'0x62e',b'0x189e')
+        boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-desktop\n'
+        shot=(b'deskd: screenshot captured path=/work/srvros-work/Screenshots/Screen-1-2-3.bmp width=2 height=2\n'
+              b'deskd: screenshot saved status=0 path=/work/srvros-work/Screenshots/Screen-1-2-3.bmp\n')
+        proof=boot+native.replace(b'desktop-idle: completed=',shot+b'desktop-idle: completed=')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);work=root/'usb/srvros-work';folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for name in desktop.FILES:(folder/name).write_bytes(proof if name=='exit.log' else boot)
+            images=work/'Screenshots';images.mkdir();image=images/'Screen-1-2-3.bmp'
+            bmp=bytearray(70);bmp[:2]=b'BM';struct.pack_into('<I',bmp,2,70);struct.pack_into('<IIiiHHI',bmp,10,54,40,2,2,1,32,0);image.write_bytes(bmp)
+            out,report=desktop.collect(root/'usb','37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_home_desktop']['screenshot']['width'],2);self.assertFalse(item['attention'])
+            self.assertEqual((out/item['session']/image.name).read_bytes(),bmp)
+            for bad in (proof.replace(b'clean=yes',b'clean=NO'),proof.replace(b'0x189c',b'0x62f'),proof.replace(shot,b''),proof+shot,proof.replace(b'Screen-1-2-3.bmp',b'../private.bmp')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
+            (folder/'exit.log').write_bytes(proof)
+            image.write_bytes(bmp[:-1])
+            _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
+            image.unlink();image.symlink_to(folder/'boot.log')
+            _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
+
     def test_home_session_collects_exact_work_files_and_native_proof(self):
         from test_battery_control_files_records import fixture,home_fixture
         native=home_fixture(fixture()).replace(b'enable=0x62f',b'enable=0x189c').replace(b'enable=0x62e',b'enable=0x189e')
