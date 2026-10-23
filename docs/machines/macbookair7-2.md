@@ -2,6 +2,17 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active scope: attended Home AC/indicator transitions
+
+Based on main `14f17d2` (PR63), this agent owns the explicit v52 guided desktop
+capture: AC baseline, unplug/discharge and reconnect, with fresh-sample checks,
+on-screen prompts and three saved screenshots. Shared scope is the desktop
+capture state machine, existing continuous battery owner, staging and collectors.
+Ordinary startup stays disabled; native resource/profile gates stay unchanged.
+Pro PR19 `acd4ae7` is Wi-Fi; Air6,1 tap feedback is separate input work. Preserve
+both agents' boot-profile additions during integration. VM/host tests precede
+an attended native boot; the human must be told the unplug/reconnect steps first.
+
 ### Explicit continuous Home desktop capture accepted (PR #63)
 
 Release `8666698f5e5d4ed5`, staged source `182ee78`, compiled/tested source
