@@ -2,6 +2,22 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: filesystem scale beyond fixed desktop-era tables
+
+Branch `device/macbookair7-2/filesystem-scale`, base main `249bb97`. Own bounded
+scope: demand-allocated stable exFAT file/directory slots and VFS nodes, direct
+VFS enumeration, memory admission before disk mutation, reusable deleted slots,
+metadata buffer scaling, thousands-of-files/failure/remount regressions and the
+host/VM/native workflow. Refresh status/parity docs from the recorded Air evidence.
+Pro PR19 `b7afc57` remains Wi-Fi; Air6,1 PR101 `0b78ced` owns parked AC captures.
+No device profiles, firmware ownership, window budget or on-disk format changes.
+
+Keep installed `a39bb31d4031693a`, accepted recovery `9aa8dbf6fbda8252`, Ubuntu
+default and all USB evidence. No physical test is armed. Disposable fixtures must
+cross the old 1024-file/256-directory/4096-VFS-node boundaries and cover allocation
+failure before an automated native round. Implementation limits remain bounded;
+this does not promise arbitrary filesystem size or power-loss durability.
+
 ### Current checkpoint: bounded capacity recovery milestone complete
 
 Native release `a39bb31d4031693a` (source `2c68476`), request
