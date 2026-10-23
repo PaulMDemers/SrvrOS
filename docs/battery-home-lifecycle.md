@@ -482,3 +482,41 @@ Prior data and offline allocation checks passed. The screenshot shows `AC · 97%
 AC transitions and physical gauge accuracy still need attended acceptance.
 See the [machine record](machines/macbookair7-2.md) for source/session identities,
 validation and durable evidence. This does not enable ordinary startup.
+
+## Guided Home AC transitions (v52)
+
+`--battery-home-transitions` is a separate attended capture using the same held
+Home and inherited desktop lifetime as v51. Ordinary native startup remains off.
+Tell the tester before reboot: keep USB connected throughout, start with AC
+connected, unplug only at the second on-screen prompt, and reconnect only at the
+third. No keyboard input is required. Each instruction waits up to 120 seconds.
+
+The desktop reads the cached battery ABI once per second. Each phase requires
+three consecutive, distinct fresh generations in one epoch, with valid SOC,
+voltage, current and capacity. AC phases require AC present and nonnegative
+current; the unplugged phase requires AC absent and negative current. Duplicate
+cache reads do not advance progress; stale, invalid or skipped samples reset the
+streak. Epoch or timestamp regression fails the trial. Three phase receipts
+record the raw values and actual global indicator label.
+
+After each phase, the ordinary screenshot worker must save and verify its BMP
+before the next instruction appears. Its deadline is 30 seconds. The owner has
+a separate 480-second watchdog; existing process/runtime/logger retirement
+bounds are unchanged. On success, or a timeout with safely retired ownership,
+the capture saves logs, unmounts and returns to Ubuntu automatically. Uncertain
+live controller ownership still halts without attempting unsafe storage cleanup.
+A missed prompt is an incomplete trial, never a pass.
+
+Run `tools/host-env.sh python3 tools/battery_home_desktop_capture_smoke.py --transitions`
+for the disposable VM's automatic AC/discharge/AC sequence. Add `--case no-transition`
+to verify a missed unplug times out and returns safely; profile/query refusal and
+uncertain-ack cases remain available. Host tests exercise duplicate/stale samples,
+phase ordering and missing/corrupt screenshot collection. The physical collector
+requires all four logs and three distinct, verified screenshots in addition to
+the existing owner/resource retirement receipts. Bind them to the exact staged
+release/new session and check prior files and offline allocation after return.
+
+The VM supplies synthetic transitions. Native AC transition behavior requires
+the attended test; neither proves calibrated capacity, remaining runtime or
+battery health. Suspend/resume, thermal policy and ordinary startup are separate
+milestones. No firmware/resource gate changes are part of this capture.

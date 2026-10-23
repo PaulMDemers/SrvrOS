@@ -816,3 +816,28 @@ The reference Air7,2 accepted v51 release `8666698f5e5d4ed5` with a complete
 201-second native session, periodic/final logs, screenshot and clean filesystem
 retirement. This accepts the explicit automatic workload on that unit only;
 ordinary startup, attended AC transitions and gauge accuracy remain separate.
+
+### Attended Home AC transition capture
+
+For the next battery/indicator checkpoint, stage
+`python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_VOLUME --battery-home-transitions`.
+This is v52, separate from v51's unattended idle capture. Validate the host and
+VM transition/refusal cases, then rehearse the exact native stage with
+`tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check` and
+`--probe-check --probe-missing-workspace`. Preserve recovery and save the normal
+run record before install/one-shot reboot.
+
+**Tell the user this test needs AC unplug/reconnect before triggering reboot.**
+Keep the designated USB connected throughout. Start on AC; follow the desktop's
+three prompts (connected, unplugged, reconnected). Each phase waits for three
+fresh readings, saves a screenshot, then advances. Each prompt has a two-minute
+limit; no 15-second photo window is involved. Successful or safely retired
+incomplete trials return to Ubuntu automatically. Uncertain live ownership
+retains the mount and halts visibly.
+
+Collect the matching new session first. Require `battery_home_transitions` proof,
+all four logs and all three verified screenshots, source/release identity,
+retirement order, prior-file preservation and offline filesystem/allocation
+checks. A missing image or timeout is incomplete evidence. The saved indicator
+and AC/current changes establish transition behavior only, not calibrated gauge
+accuracy. See the [v52 contract](battery-home-lifecycle.md#guided-home-ac-transitions-v52).

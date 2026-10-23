@@ -465,18 +465,29 @@ def battery_home_desktop_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
-def verify_home_desktop_screenshot(workspace, text, saved):
+def verify_home_desktop_screenshot(workspace, text, saved, count=1):
     """Copy only the exact, bounded screenshot named by this completed session."""
     rows=re.findall(r'^deskd: screenshot saved status=0 path=/work/srvros-work/Screenshots/(Screen-[A-Za-z0-9-]+\.bmp)$',text,re.M)
     captures=re.findall(r'^deskd: screenshot captured path=/work/srvros-work/Screenshots/(Screen-[A-Za-z0-9-]+\.bmp) width=(\d+) height=(\d+)$',text,re.M)
-    if len(rows)!=1 or len(captures)!=1 or captures[0][0]!=rows[0]:raise ValueError('Home desktop screenshot receipt missing or ambiguous')
-    folder=workspace/'Screenshots';image=folder/rows[0]
-    if folder.is_symlink() or image.is_symlink() or not image.is_file() or not 54<image.stat().st_size<=8*1024*1024+54:raise ValueError('Home desktop screenshot missing or unsafe')
-    data=image.read_bytes();width,height=map(int,captures[0][1:])
-    if len(data)!=54+width*height*4 or data[:2]!=b'BM' or struct.unpack_from('<I',data,2)[0]!=len(data) or struct.unpack_from('<IIiiHHI',data,10)!=(54,40,width,height,1,32,0):raise ValueError('Home desktop screenshot invalid')
-    copy=saved/rows[0];copy.write_bytes(data)
-    if copy.read_bytes()!=data:raise OSError('Home desktop screenshot copy verification failed')
-    return dict(name=rows[0],width=width,height=height,sha256=hashlib.sha256(data).hexdigest())
+    if len(rows)!=count or len(captures)!=count or len(set(rows))!=count or [r[0] for r in captures]!=rows:raise ValueError('Home desktop screenshot receipt missing or ambiguous')
+    result=[]
+    for name,(_,w,h) in zip(rows,captures):
+        folder=workspace/'Screenshots';image=folder/name
+        if folder.is_symlink() or image.is_symlink() or not image.is_file() or not 54<image.stat().st_size<=8*1024*1024+54:raise ValueError('Home desktop screenshot missing or unsafe')
+        data=image.read_bytes();width,height=int(w),int(h)
+        if len(data)!=54+width*height*4 or data[:2]!=b'BM' or struct.unpack_from('<I',data,2)[0]!=len(data) or struct.unpack_from('<IIiiHHI',data,10)!=(54,40,width,height,1,32,0):raise ValueError('Home desktop screenshot invalid')
+        copy=saved/name;copy.write_bytes(data)
+        if copy.read_bytes()!=data:raise OSError('Home desktop screenshot copy verification failed')
+        result.append(dict(name=name,width=width,height=height,sha256=hashlib.sha256(data).hexdigest()))
+    return result[0] if count==1 else result
+
+
+
+def battery_home_transitions_result(exit_text):
+    from battery_home_desktop_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-transitions'):return None
+    try:return check_capture(exit_text.encode(),transitions=True)
+    except (AssertionError,ValueError):return None
 
 
 def battery_home_session_result(exit_text):
@@ -618,6 +629,15 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_transitions_proof=battery_home_transitions_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-transitions(?:\s|$)',text) and home_transitions_proof is None:
+            attention.append('collection: guided Home AC transitions missing, invalid or incomplete')
+        if home_transitions_proof:
+            try:
+                if set(payload)!=set(FILES):raise ValueError('Home transition periodic logs missing')
+                home_transitions_proof['screenshots']=verify_home_desktop_screenshot(workspace,payload['exit.log'].decode('utf-8',errors='replace'),saved,3)
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_transitions_proof=None
         home_desktop_proof=battery_home_desktop_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-home-desktop(?:\s|$)',text) and home_desktop_proof is None:
             attention.append('collection: continuous Home desktop completion missing, invalid or refused')
@@ -703,7 +723,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

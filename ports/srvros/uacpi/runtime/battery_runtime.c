@@ -77,7 +77,7 @@ static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbu
 static uint64_t smbus_workspace_hold;
 static bool mounted_home;
 /* Continuous sessions are explicit: VM command or bounded native boot capture. */
-static bool continuous_home, desktop_home, desktop_capture;
+static bool continuous_home, desktop_home, desktop_capture, desktop_transitions;
 static uint64_t home_session_events;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
@@ -1670,7 +1670,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!free)return false;
     uint64_t lifetime=continuous_home?process_lifetime_create():0;
     if(continuous_home && !lifetime)return false;
-    const char *arguments=desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    const char *arguments=desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
     int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
         process_spawn_background_elf_args("/fat/bin/deskd",arguments);
     if(child<=0) {
@@ -1705,7 +1705,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
                 if(!first_generation)first_generation=state.sample.generation;
                 last_generation=state.sample.generation;
             }
-            if(timer_monotonic_us()-capture_start>=240000000)break;
+            if(timer_monotonic_us()-capture_start>=(desktop_transitions?480000000ull:240000000ull))break;
         }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
@@ -1713,9 +1713,9 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     }
     if(desktop_capture) {
         uint64_t elapsed=timer_monotonic_us()-capture_start;
-        ok=ok && elapsed>=175000000 && first_generation && last_generation>=first_generation+30;
-        console_printf("battery-home-desktop-sample: first_gen=%u last_gen=%u elapsed_us=%u complete=%s\n",
-            first_generation,last_generation,elapsed,ok?"yes":"NO");
+        ok=ok && (desktop_transitions || elapsed>=175000000) && first_generation && last_generation>=first_generation+(desktop_transitions?8:30);
+        console_printf("%s: first_gen=%u last_gen=%u elapsed_us=%u complete=%s\n",
+            desktop_transitions?"battery-home-transitions-sample":"battery-home-desktop-sample",first_generation,last_generation,elapsed,ok?"yes":"NO");
     }
     f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
     battery_control_revoke(&controls);irq_restore(f);
@@ -2159,17 +2159,24 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     smbus_controls=false;smbus_study=false;mounted_home=false;continuous_home=false;
     return complete;
 }
-bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+static bool home_desktop_capture_run(void *rsdp,struct limine_memmap_response *map,bool transitions) {
     if(desktop_home || desktop_capture || continuous_home || !workspace_log_active())return false;
     /* Only the explicit boot capture calls this. runtime_open still enforces
      * the captured native EC/SMBus/firmware profile. Fatal mounted ownership
      * cannot use automatic reset; the outer capture owns the final log. */
     if(!battery_diagnostic_auto_return(false))return false;
-    desktop_home=desktop_capture=true;
-    console_write("battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none\n");
+    desktop_home=desktop_capture=true;desktop_transitions=transitions;
+    if(transitions)console_write("battery-home-transitions-capture: begin phases=3 watchdog_seconds=480 startup=disabled input=AC-unplug-reconnect\n");
+    else console_write("battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none\n");
     bool ok=workspace_controls_test(rsdp,map,false,0,true,true);
-    desktop_home=desktop_capture=false;
+    desktop_home=desktop_capture=desktop_transitions=false;
     return ok;
+}
+bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return home_desktop_capture_run(rsdp,map,false);
+}
+bool battery_home_transitions_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return home_desktop_capture_run(rsdp,map,true);
 }
 bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return workspace_controls_test(rsdp,map,true,1,true,false);

@@ -10,12 +10,14 @@ from exfat_test_image import ExfatFixture,check_clean_image
 from vm_sockets import connect_unix
 from battery_home_desktop_records import check_capture
 
-CASES={'completion':83,'profile-refusal':15,'uncertain-ack':79,'query-refusal':75}
+CASES={'completion':83,'profile-refusal':15,'uncertain-ack':79,'query-refusal':75,'no-transition':83}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=CASES,default='completion');args=parser.parse_args()
-    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-desktop-capture-'+args.case)
+    parser.add_argument('--case',choices=CASES,default='completion')
+    parser.add_argument('--transitions',action='store_true');args=parser.parse_args()
+    assert args.transitions or args.case!='no-transition'
+    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-'+('transitions' if args.transitions else 'desktop')+'-capture-'+args.case)
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-desktop-capture-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -25,10 +27,11 @@ def main():
         fixture=ExfatFixture(volume.read_bytes());fixture.add_directory_files('srvros-work',{'.workspace':MARKER,'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text(f'#define BATTERY_FAULT {CASES[args.case]}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(f'#define BATTERY_FAULT {84 if args.transitions and args.case=="completion" else CASES[args.case]}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery/vm.elf';initramfs=root/'build/initramfs.tar'
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-desktop srvros.capture-failure=reboot'
+        if args.transitions:cmdline=cmdline.replace('battery-home-desktop','battery-home-transitions')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline=cmdline)
         fatal=args.case=='uncertain-ack'
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
@@ -45,7 +48,7 @@ def main():
                     if fatal and b'battery: HALTED ' in output:break
                 output.extend(read_for(serial,.1));data=bytes(output)
                 assert (process.poll() is None if fatal else process.poll()==0),data[-6000:]
-                result=dict(status='PASS',case=args.case,native_acceptance=False)
+                result=dict(status='PASS',case=args.case,transitions=args.transitions,native_acceptance=False)
                 if fatal:
                     assert re.search(rb'^battery: HALTED (?:SMBus event [^\r\n]*|sample errors=0 denied=0 heap=[1-9]\d* ec_phase=7 ec_error=1 queries=1); live state retained\r?$',data,re.M)
                     for forbidden in (b'battery-workspace-hold: released',b'battery-service: retired ',b'laptop-capture: completed=',b'laptop-capture: returning',b'workspace: unmounted'):
@@ -59,7 +62,7 @@ def main():
                     assert final.read('srvros-work/.workspace')==MARKER and final.read('srvros-work/anchor.txt')==ANCHOR
                     assert {n for n,_ in final.entries(final.chain(final.root))}=={'srvros-work','.srvros'}
                     expected={'.workspace','anchor.txt','Logs'}
-                    if args.case=='completion':expected.add('Screenshots')
+                    if args.case in ('completion','no-transition'):expected.add('Screenshots')
                     assert {n for n,_ in final.entries(final.read('srvros-work'))}==expected
                     sessions=list(final.entries(final.read('srvros-work/Logs')));assert len(sessions)==1
                     path='srvros-work/Logs/'+sessions[0][0];logs={n for n,_ in final.entries(final.read(path))}
@@ -67,16 +70,20 @@ def main():
                     saved=final.read(path+'/exit.log');(out/'exit.log').write_bytes(saved)
                     if args.case=='completion':
                         assert logs=={'boot.log','exit.log','session-a.log','session-b.log'}
-                        result.update(check_capture(saved,vm=True))
-                        shots=list(final.entries(final.read('srvros-work/Screenshots')));assert len(shots)==1
-                        bmp=final.read('srvros-work/Screenshots/'+shots[0][0]);assert bmp[:2]==b'BM'
-                        assert struct.unpack_from('<ii',bmp,18)==(1280,800)
-                        (out/'desktop.bmp').write_bytes(bmp)
+                        result.update(check_capture(saved,vm=True,transitions=args.transitions))
+                        shots=list(final.entries(final.read('srvros-work/Screenshots')));assert len(shots)==(3 if args.transitions else 1)
+                        for index,(name,_) in enumerate(shots):
+                            bmp=final.read('srvros-work/Screenshots/'+name);assert bmp[:2]==b'BM'
+                            assert struct.unpack_from('<ii',bmp,18)==(1280,800)
+                            (out/f'desktop-{index}.bmp').write_bytes(bmp)
                     else:
-                        assert b'battery-home-desktop-capture: returned=yes clean=NO' in saved
+                        assert (b'battery-home-transitions-capture' if args.transitions else b'battery-home-desktop-capture')+b': returned=yes clean=NO' in saved
                         assert b'laptop-capture: completed=NO' in saved and b'battery-controls: PASS' not in saved
                         assert b'battery-home-desktop: logger_retired=yes final_deferred=yes' in saved
                         assert saved.index(b'battery-desktop-lifetime: drained')<saved.index(b'battery-desktop-lifetime: released')<saved.index(b'battery-workspace-hold: released')
+                    if args.case=='no-transition':
+                        assert b'desktop-ac: timeout-or-invalid phase=1' in saved
+                        assert len(list(final.entries(final.read('srvros-work/Screenshots'))))==1
                     volume.write_bytes(disk[2048*512:]);(out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
