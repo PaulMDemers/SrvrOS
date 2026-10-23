@@ -737,3 +737,26 @@ no audio, EC/AML, battery or other optional service. Scope: backlight/profile,
 probe binding, staging/VM tests and this unit's docs. PR #76 reserves v55 for
 combined services; preserve that separate work when integrating shared staging.
 PR #19 remains Pro Wi-Fi work. Native visible adjustment remains unaccepted.
+
+### Attended brightness control ready
+
+Clean source `1cc5f82`, release `59086591e526632b`, run `19da744d205e2b2c`
+implements explicit Air6,1 control using the native captured period2777. The
+existing exact GPU/PCH/DSDT gate is retained. Discovery leaves duty unchanged;
+requests are bounded 5–100%, preserve mode/period and verify readback. Any mode,
+period or readback mismatch disables the provider. Read-only capture stays read-only.
+
+Full build/USB image, core and desktop suites, all-profile backlight tests,
+captured-firmware tests and 59 staging tests pass. Exact-stage GPT v56 VM passes
+two boots, Settings/preferences, Text saves, screenshots, diagnostic collection
+and clean unmounts. Unsupported Q35 brightness remains unavailable. These tests
+do not establish visible native adjustment. Docs/diff checks pass.
+
+Installed unarmed, console recovery retained, accepted desktop and prior capture
+backups verified. Superseded EFI payload `19eb394b28cbeef5` was removed only after
+verifying its independent backup. All 172 existing USB files are recorded;
+offline fsck/allocation pass (252 clusters, zero issues). Payload/run evidence
+is backed up outside build. Follow the attended brightness guide: inspect the
+initial level without a startup change; try 50/25/75/100/5 then50, confirm visible
+changes and responsive input, reopen Settings, screenshot and return manually.
+No battery/EC/AML/audio/network/sensor service is enabled. Native acceptance pending.
