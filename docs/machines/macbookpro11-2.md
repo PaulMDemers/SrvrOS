@@ -2686,3 +2686,13 @@ need explicit batching/session design before exceeding sequence15.
 AGC validation: full build, all fixed MCU/MAC/baseband engines, xHCI
 prerequisite/transport/read-scope/quarantine fixtures, ASan/UBSan, 69 boot
 profiles and documentation checks pass. Physical acceptance remains pending.
+
+Initial AGC trial installed: source56bf5da, releaseb245ac895a7d9396. Exact-stage
+GPT save/return and missing-workspace refusal/return VM checks pass. Workspace
+fsck/allocation clean; Ubuntu default and desktop recoverye47dca3a6b30c6c1
+retained, accepted CORE/IBI/AGC0 release1874caf6830abdc0 retained. Earlier CORE
+release5f7b66b688f803cb removed from ESP only after full durable archive equality.
+Run record build/bringup/wifi-bbp-agc/run.json; payload, VM receipts and prepared
+collector archived in ~/.local/share/srvros/macbookpro11-2/wifi-bbp-agc-56bf5da.
+Unarmed, awaiting cold-trial readiness. Collect the matching session first on
+return. Native acceptance pending; no RF/scan/connectivity test included.
