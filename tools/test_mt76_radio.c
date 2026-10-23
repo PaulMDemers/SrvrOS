@@ -27,7 +27,46 @@ static enum mt76_radio_status run(struct fake *f,struct mt76_radio_prepare *s) {
     const struct mt76_identity identity={0x76100002,0x76502000};
     return mt76_radio_prepare_reset(s,&io,&identity);
 }
+
+struct clock_fake {unsigned reads,writes,auth,deny,fail_read,bad_read;bool fail_write;uint32_t bad;};
+static bool clock_auth(void *p){struct clock_fake *f=p;return ++f->auth!=f->deny;}
+static bool clock_read_fake(void *p,uint32_t reg,uint32_t *value){
+ struct clock_fake *f=p;const uint32_t addresses[]={0x1004,0x1200,0x400,0x400,0x1004,0x1200};
+ assert(f->reads<6 && reg==addresses[f->reads]);f->reads++;
+ *value=reg==0x400?(f->writes?0x80c00:0x80000):0;
+ if(f->bad_read==f->reads)*value=f->bad;
+ return f->reads!=f->fail_read;
+}
+static bool clock_write_fake(void *p,uint32_t reg,uint32_t value){
+ struct clock_fake *f=p;assert(reg==0x400 && value==0x80c00 && f->reads==3 && !f->writes);
+ f->writes++;return !f->fail_write;
+}
+static enum mt76_radio_status clock_run(struct clock_fake *f,struct mt76_clock_probe *s){
+ const struct mt76_clock_io io={{f,clock_auth,clock_read_fake},clock_write_fake};return mt76_clock_enable(s,&io);
+}
+static void test_clock(void){
+ struct clock_fake f={0};struct mt76_clock_probe s={0};
+ assert(clock_run(&f,&s)==MT76_RADIO_OK && s.complete && s.written && s.write_attempted && s.reads==6 && f.writes==1 && f.auth==8);
+ assert(s.pbf_before==0x80000 && s.pbf_after==0x80c00 && !s.mac_before && !s.mac_after);
+ assert(clock_run(&f,&s)==MT76_RADIO_REFUSED && f.writes==1);
+ for(unsigned n=1;n<=6;n++){
+  f=(struct clock_fake){.fail_read=n};s=(struct mt76_clock_probe){0};assert(clock_run(&f,&s)==MT76_RADIO_IO && !s.complete && f.writes==(n>3));
+  f=(struct clock_fake){.bad_read=n,.bad=UINT32_MAX};s=(struct mt76_clock_probe){0};assert(clock_run(&f,&s)==MT76_RADIO_STATE && !s.complete);
+ }
+ for(unsigned n=1;n<=8;n++){
+  f=(struct clock_fake){.deny=n};s=(struct mt76_clock_probe){0};assert(clock_run(&f,&s)==MT76_RADIO_CANCELLED && !s.complete);
+ }
+ for(unsigned n=1;n<=6;n++){
+  f=(struct clock_fake){.bad_read=n,.bad=n==3?0x80c00:n==4?0x80000:1};s=(struct mt76_clock_probe){0};
+  assert(clock_run(&f,&s)==MT76_RADIO_STATE && !s.complete && f.writes==(n>3));
+ }
+ f=(struct clock_fake){.fail_write=true};s=(struct mt76_clock_probe){0};assert(clock_run(&f,&s)==MT76_RADIO_IO && s.write_attempted && !s.written && f.reads==3);
+ assert(clock_run(&f,&s)==MT76_RADIO_REFUSED);
+ assert(mt76_clock_enable(NULL,NULL)==MT76_RADIO_REFUSED);
+ puts("mt76 clock: PASS exact baseline/transition, every failure/cancel boundary, no retry, disabled/idle MAC");
+}
 int main(void) {
+    test_clock();
     struct fake f={.ctrl=0x20};struct mt76_radio_prepare s={0};
     assert(run(&f,&s)==MT76_RADIO_OK);
     assert(s.prepared && s.reset_released && f.writes==2 && s.delay_us==200000 && f.ctrl==0);

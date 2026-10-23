@@ -2671,6 +2671,58 @@ static void test_wifi_txbe_direct(void) {
  }
  puts("xhci TXBE direct: PASS fixed zero payload, exclusive ownership, no retry, control error quarantine");
 }
+
+static void test_wifi_clock(void) {
+ for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<26;fault++) {
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device d;compact_fixture(&d,2);struct xhci_wifi_mcu *m=&d.firmware.mcu;
+  m->compact_limit=11;m->compact_active=false;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;m->bbp=(struct mt76_bbp_probe){0};
+  m->clock_mode=true;m->clock_active=true;
+  m->clock=(struct mt76_clock_probe){.attempted=true,.write_attempted=true,.reads=3,.pbf_before=0x80000};
+  d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_cycle=true;d.descriptor_buffer=buffer;d.descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  events[0]=control_event(0x9020,fault==25?6:1,0);
+  if(fault==1)m->clock_mode=false;
+  if(fault==2)m->clock_active=false;
+  if(fault==3)m->compact_active=true;
+  if(fault==4)m->compact_limit=12;
+  if(fault==5)m->compact_next=3;
+  if(fault==6)m->compact[2].attempted=true;
+  if(fault==7)m->compact_submitted[2]=1;
+  if(fault==8)m->bbp.attempted=true;
+  if(fault==9)m->pending=true;
+  if(fault==10)m->timing.ack_validated=false;
+  if(fault==11)m->compact[1].complete=false;
+  if(fault==12)m->identity_validated=false;
+  if(fault==13)m->write_validated=false;
+  if(fault==14)d.firmware.radio_reset.prepared=false;
+  if(fault==15)m->configured=false;
+  if(write){
+   if(fault==16)m->clock_submitted=true;
+   if(fault==17)m->clock.attempted=false;
+   if(fault==18)m->clock.write_attempted=false;
+   if(fault==19)m->clock.written=true;
+   if(fault==20)m->clock.complete=true;
+   if(fault==21)m->clock.reads=2;
+   if(fault==22)m->clock.mac_before=4;
+   if(fault==23)m->clock.status_before=1;
+   if(fault==24)m->clock.pbf_before=0x80c00;
+   if(!fault){assert(!wifi_clock_write(&d,0x401,0x80c00));assert(!wifi_clock_write(&d,0x400,0x80000));}
+   assert(wifi_clock_write(&d,0x400,0x80c00)==(!fault));
+   if(!fault){assert(buffer[0]==0 && buffer[1]==12 && buffer[2]==8 && buffer[3]==0);assert(!wifi_clock_write(&d,0x400,0x80c00));}
+  }else{
+   if(fault>=16 && fault<=24)continue;
+   uint32_t value;
+   if(!fault)assert(!wifi_clock_read(&d,0x2728,&value));
+   assert(wifi_clock_read(&d,0x400,&value)==(!fault));
+  }
+  if(fault==25)assert(d.ep0_quarantined && d.firmware.failed);
+  else if(fault)assert(!d.ep0_enqueue);
+  else assert(d.firmware.control_index==0x400 && d.firmware.control_type==(write?0x40:0xc0) && d.firmware.control_request==(write?6:7) && d.firmware.control_length==4);
+ }
+ puts("xhci clock: PASS exact control transfer, completed-phase ownership, one write and quarantine");
+}
 static void test_wifi_bbp_reads(void) {
     const uint32_t addresses[]={0x1004,0x1200,0x0400,0x2000};
     for(unsigned reg=0;reg<4;reg++)for(unsigned fault=0;fault<13;fault++) {
@@ -2789,6 +2841,7 @@ int main(int argc, char **argv) {
     test_wifi_compact_binding();
     test_wifi_compact_reads();
     test_wifi_txbe_observe();
+    test_wifi_clock();
     test_wifi_txbe_direct();
     test_wifi_txbe_access_reads();
     test_wifi_txbe_access_binding();

@@ -36,4 +36,16 @@ struct mt76_bbp_probe {
 };
 enum mt76_radio_status mt76_bbp_probe_ready(struct mt76_bbp_probe *session,
     const struct mt76_bbp_io *io);
+/* Explicit captured PBF/MAC clock transition, never a general register writer. */
+struct mt76_clock_io {
+    struct mt76_bbp_io reads;
+    bool (*write)(void *context,uint32_t address,uint32_t value);
+};
+struct mt76_clock_probe {
+    bool attempted,write_attempted,written,complete;
+    unsigned reads;
+    uint32_t mac_before,status_before,pbf_before,pbf_after,mac_after,status_after;
+};
+enum mt76_radio_status mt76_clock_enable(struct mt76_clock_probe *s,
+    const struct mt76_clock_io *io);
 #endif

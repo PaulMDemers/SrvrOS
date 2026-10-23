@@ -3253,3 +3253,9 @@ pending. No installed payload changed; currentacaea56aaa88d52f and recovery
 e47dca3a6b30c6c1 retained, no reboot armed. Maind2d56a6 and PR83 attended-device
 scope inspected; integrated base22fd266 unchanged. Shared implementation scope
 would be MCU/xHCI/main/profile/tests; current change is audit documentation only.
+
+Active implementation scope: opt-in PBF/MAC clock prerequisite before compact
+phase2, followed by the existing read-only TXBE10 comparison. Exact baseline,
+fixed one-time EP0 write and readback, MAC disabled/idle before and after;
+no TXBE write or change to historical profiles. Radio/MCU/xHCI/main/staging/tests.
+Fetched maind2d56a6; PR83 remains attended acceptance. Actual base22fd266.

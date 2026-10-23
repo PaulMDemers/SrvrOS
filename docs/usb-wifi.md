@@ -1418,3 +1418,22 @@ and saves evidence. Implementation/native validation remain pending. No RF
 transmit/receive enable, other MAC-table expansion or startup change is accepted.
 The local `txbe-prerequisite-audit` receipt checks source ordering, bit arithmetic
 and five exact native logs; it is not a hardware trial.
+
+### Explicit clock prerequisite implementation (native pending)
+
+Firmware v28 (`--wifi-clock`, requiring TXBE start and excluding all TXBE
+alternatives) adds one guarded clock transition between compact phases1 and2.
+The pure engine reads MAC_SYS_CTRL, MAC_STATUS and PBF_SYS_CTRL, requires MAC0,
+idle status and exact PBF80000, then writes0400=80c00 once. Exact PBF readback
+and disabled/idle MAC checks must pass before baseband readiness is attempted.
+The readiness receipt must also retain80c00. No MCU sequence is consumed by
+this control transfer. Phases2..10 retain their existing CORE and target guards,
+then the v26 read-only MCU/EP0 comparison uses sequence15. TXBE10 is not written.
+
+`wifi-clock` records attempted/write_attempted/submitted/written/complete,
+six reads and all before/after values. Failed or uncertain operations retain
+single-attempt state and native transport quarantine. The fixed-value callback
+is separate from the generic firmware writer and admits only completed MAC
+phases0/1 with no baseband attempt yet. Historical profiles do not enable it.
+This tests the prerequisite and subsequent observations; a pass would not
+retroactively accept the failed TXBE write tests or enable RF connectivity.
