@@ -158,6 +158,7 @@ def main():
     cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
+    battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
     power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
     auto_return=manifest["config_version"].endswith("-auto-return")
     battery_home_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v52-"))
@@ -318,7 +319,8 @@ def main():
                     else:
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
-                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
+                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -346,7 +348,7 @@ def main():
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
                         if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture):
-                            assert b"laptop-probe: unsupported chipset" in contents
+                            assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
                             assert b"input-usb: dev slot=" in contents

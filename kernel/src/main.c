@@ -637,7 +637,8 @@ void kmain(void) {
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
-    if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
+    if(automatic_probe && cmdline_has_token(cmdline,"srvros.battery-preflight=air61")) laptop_battery_preflight();
+    else if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);

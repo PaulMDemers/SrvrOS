@@ -3473,3 +3473,11 @@ test-desktop-battery-trial: build/tests/desktop-battery-trial$(HOST_EXE)
 build/tests/desktop-battery-trial$(HOST_EXE): tools/test_desktop_battery_trial.c userspace/deskd/battery_trial.h shared/include/srvros/battery_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
+
+.PHONY: test-battery-preflight
+test-core: test-battery-preflight
+test-battery-preflight: build/tests/battery-preflight-host$(HOST_EXE)
+	$<
+build/tests/battery-preflight-host$(HOST_EXE): tools/test_battery_preflight.c kernel/src/drivers/laptop_probe.c kernel/include/srvros/laptop_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_battery_preflight.c -o $@

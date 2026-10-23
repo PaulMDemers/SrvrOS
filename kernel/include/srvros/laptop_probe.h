@@ -10,6 +10,8 @@ bool laptop_firmware_match(const uint8_t *dsdt,size_t size);
 bool laptop_pro_display_match(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t size);
 bool laptop_air61_display_match(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t size);
 struct laptop_backlight laptop_backlight_decode(uint32_t cpu_control,uint32_t cpu_duty,uint32_t pch_control,uint32_t pch_duty);
+bool laptop_air61_power_resources(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t dn,const uint8_t *ecdt,size_t en,const uint8_t *fadt,size_t fn);
+void laptop_battery_preflight(void); /* Passive PM1/GPE/EC status only; no EC data reads. */
 void laptop_probe(void); /* Read-only, opt-in; no EC commands, AML or PWM writes. */
 void laptop_brightness_init(void); /* Opt-in provider discovery; no brightness write. */
 #endif

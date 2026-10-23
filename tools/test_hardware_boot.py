@@ -256,6 +256,28 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(manifest['config_version'],'ram-usb-v22-desktop-37d8c5d0')
         self.assertNotIn('srvros.aml=',(self.stage/staged/'limine.conf').read_text())
 
+    def test_air61_battery_preflight(self):
+        version="ram-usb-v60-laptop-probe-6ada85bb-auto-return"
+        release=self.payload("preflight",version)
+        path=self.stage/release/"manifest.json"
+        m=json.loads(path.read_text());m["config_version"]=version;path.write_text(json.dumps(m))
+        boot.install(release)
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.battery-preflight=air61',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        self.assertIn('srvros.laptop-services=probe-autoreboot',cfg)
+        for forbidden in ('srvros.aml=', 'srvros.battery=on', 'srvros.capture=battery', 'srvros.audio=', 'srvros.smc=', 'srvros.desktop='):
+            self.assertNotIn(forbidden,cfg)
+        for option in ('battery_capture','desktop_basic','idle_capture','aml_capture','power_telemetry','keyboard_capture','cpu_load_capture','battery_home','desktop_device_checks'):
+            with self.assertRaises(ValueError):
+                boot.stage(laptop_probe_volume='6ada85bb',battery_preflight=True,**{option:True})
+        with self.assertRaises(ValueError): boot.stage(battery_preflight=True)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(laptop_probe_volume='6ada85bb',battery_preflight=True)
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
     def test_automatic_laptop_probe_profile(self):
         version="ram-usb-v19-laptop-probe-37d8c5d0"
         release=self.payload("probe",version)
