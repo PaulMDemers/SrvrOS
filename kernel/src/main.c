@@ -666,7 +666,9 @@ void kmain(void) {
                 const struct initramfs_file *firmware=initramfs_find("/firmware/mt7610e.bin");
                 sampled=started && init_ready && timer_running && sampled &&
                     xhci_wifi_capture_firmware(firmware?firmware->data:0,firmware?firmware->size:0);
-                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mac-format=1"))
+                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-ready=1"))
+                    sampled=xhci_wifi_capture_bbp_ready();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mac-format=1"))
                     sampled=xhci_wifi_capture_mac_format();
                 else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mac-basics=1"))
                     sampled=xhci_wifi_capture_mac_basics();

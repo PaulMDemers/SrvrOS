@@ -329,6 +329,17 @@ class InstallTests(unittest.TestCase):
                     'srvros.wifi-mac-basics=1 srvros.wifi-mac-format=1'))
         with self.assertRaises(ValueError):boot.stage(wifi_mac_format=True)
 
+    def test_wifi_bbp_ready_profile(self):
+        for suffix in ('', '-auto-return'):
+            v9='ram-usb-wifi-fw-v9-laptop-probe-37d8c5d0'+suffix
+            v10=v9.replace('v9','v10')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v10))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v10),
+                boot.limine_config('0123456789abcdef',v9).replace(
+                    'srvros.wifi-mac-format=1',
+                    'srvros.wifi-mac-format=1 srvros.wifi-bbp-ready=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_ready=True)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-wifi-cal-v1-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

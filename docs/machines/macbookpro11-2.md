@@ -2572,3 +2572,15 @@ consumed one-shot and current/recovery manifests verified; workspace unmounted
 and clean157files/484clusters with zero allocation errors. Run/checkpoint
 collected and unarmed. Next extend remaining MAC/baseband initialization;
 RF, scanning, association and network connectivity remain pending.
+
+Active scope: read-only baseband prerequisite capture after accepted frame format.
+Read MAC control/status, PBF clock control and BBP CORE0 (2000); bound zero-core
+polling to20 reads, reject all-ones and require MAC disabled/idle before/after.
+No write callback or new MCU sequences. Baseband readiness follows Linuxv6.18
+mt76x0/phy.c; it does not accept baseband tables or RF. Main105dffd fetched and
+inspected (Air lifecycle work); independent capture uses accepted base22fd266.
+
+Read-only BBP engine/native binding implemented. Build, BBP/basics/format/MCU/
+xHCI tests,66 boot-profile tests, BBP ASan/UBSan and docs passed. Native gate
+requires completed frame format and admits only four reads. Firmwarev10
+rehearsal follows; CORE0 value/readiness and clock observations remain pending.

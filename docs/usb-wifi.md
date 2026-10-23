@@ -824,3 +824,28 @@ readback mismatches, enabled-MAC boundaries and refused retry. Existing basics
 tests cover the shared engine's original plan. Native transport tests additionally
 cover missing basics prerequisites, packet mutation, scoped reads, ordering,
 stale completions and failure quarantine.
+
+### Read-only baseband readiness (native trial pending)
+
+Firmwarev10 (`--wifi-bbp-ready`, requiring `--wifi-mac-format`) checks the
+baseband prerequisite after all accepted MCU setup phases. It requires MAC
+control1004=0 and idle status1200 bits0/1 clear, records PBF control0400, and
+reads BBP CORE0 at2000 at most20 times while zero. Any all-ones read is refused.
+A responding nonzero core is followed by repeated disabled/idle MAC checks and
+a final ownership check. PBF is recorded only, not accepted as a complete clock
+configuration. This does not initialize baseband tables or RF.
+
+The readiness register/condition follows the
+[Linuxv6.18 MT7610 PHY driver](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c).
+The independent engine has no write callback, caller-defined read list or MCU
+commands. USB reads use the existing bounded exact-length EP0 path. Transport
+errors quarantine retained DMA. Failed sessions cannot be reused. Successful
+first-read readiness takes6 reads;20 zero core reads terminate with timeout
+after23 total reads. Native core value and readiness remain unaccepted until
+the saved capture confirms them.
+
+`make test-mt76-bbp` exercises exact read ordering, each I/O failure and all-ones
+result, every authorization boundary, all20 successful polling positions,
+timeout/cancellation and disabled/idle MAC boundaries. Native tests cover the
+four-offset allowlist, completed frame-format prerequisite, stale events and
+transport failure quarantine.

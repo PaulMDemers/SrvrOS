@@ -68,3 +68,35 @@ enum mt76_radio_status mt76_radio_prepare_reset(struct mt76_radio_prepare *s,
     s->prepared=true;
     return MT76_RADIO_OK;
 }
+
+static enum mt76_radio_status bbp_read(struct mt76_bbp_probe *s,
+    const struct mt76_bbp_io *io,uint32_t address,uint32_t *value) {
+    if(!io->authorize(io->context))return MT76_RADIO_CANCELLED;
+    s->reads++;
+    if(!io->read(io->context,address,value))return MT76_RADIO_IO;
+    return *value==UINT32_MAX?MT76_RADIO_STATE:MT76_RADIO_OK;
+}
+enum mt76_radio_status mt76_bbp_probe_ready(struct mt76_bbp_probe *s,
+    const struct mt76_bbp_io *io) {
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_RADIO_REFUSED;
+    *s=(struct mt76_bbp_probe){.attempted=true};
+    CHECK(bbp_read(s,io,0x1004,&s->mac_before));
+    if(s->mac_before)return MT76_RADIO_STATE;
+    CHECK(bbp_read(s,io,0x1200,&s->status_before));
+    if(s->status_before&3)return MT76_RADIO_STATE;
+    CHECK(bbp_read(s,io,0x0400,&s->pbf));
+    for(unsigned n=0;n<20;n++) {
+        s->core_reads++;
+        CHECK(bbp_read(s,io,0x2000,&s->core));
+        if(s->core)break;
+    }
+    if(!s->core)return MT76_RADIO_TIMEOUT;
+    CHECK(bbp_read(s,io,0x1004,&s->mac_after));
+    if(s->mac_after)return MT76_RADIO_STATE;
+    CHECK(bbp_read(s,io,0x1200,&s->status_after));
+    if(s->status_after&3)return MT76_RADIO_STATE;
+    if(!io->authorize(io->context))return MT76_RADIO_CANCELLED;
+    s->complete=true;return MT76_RADIO_OK;
+}
+
+#undef CHECK

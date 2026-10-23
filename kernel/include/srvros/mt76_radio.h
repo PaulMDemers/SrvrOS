@@ -21,4 +21,19 @@ struct mt76_radio_prepare {
 };
 enum mt76_radio_status mt76_radio_prepare_reset(struct mt76_radio_prepare *session,
     const struct mt76_radio_io *io, const struct mt76_identity *identity);
+/* Read-only BBP prerequisite; caller pins completed frame-format setup and
+ * exclusive live transport. No writes, RF activation or arbitrary reads.
+ * At most20 CORE0 reads; every callback is authorized and transport-bounded. */
+struct mt76_bbp_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*read)(void *context,uint32_t address,uint32_t *value);
+};
+struct mt76_bbp_probe {
+    bool attempted, complete;
+    unsigned reads, core_reads;
+    uint32_t mac_before,mac_after,status_before,status_after,pbf,core;
+};
+enum mt76_radio_status mt76_bbp_probe_ready(struct mt76_bbp_probe *session,
+    const struct mt76_bbp_io *io);
 #endif

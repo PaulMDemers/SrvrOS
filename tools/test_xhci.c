@@ -1877,6 +1877,42 @@ static void test_wifi_format_reads(void) {
     puts("xhci-format-read: PASS exact read scope and failure quarantine");
 }
 
+static void test_wifi_bbp_reads(void) {
+    const uint32_t addresses[]={0x1004,0x1200,0x0400,0x2000};
+    for(unsigned reg=0;reg<4;reg++)for(unsigned fault=0;fault<13;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+        struct xhci_device d={.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000},.ep0_ring=ring,.ep0_ring_phys=0x9000,
+            .ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        d.firmware=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .radio_reset={.prepared=true},.mcu={.configured=true,.bbp_active=true,
+            .format={.complete=true,.ack_mask=3,.batches_completed=2},.mac={.complete=true},
+            .identity_validated=true,.write_validated=true,.timing={.complete=true}}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,fault==4?6:1,0);
+        uint32_t address=addresses[reg],value;
+        if(fault==1)d.firmware.mcu.bbp_active=false;
+        if(fault==2)d.firmware.mcu.pending=true;
+        if(fault==3)address=0x2004;
+        if(fault==5)d.firmware.mcu.format.complete=false;
+        if(fault==6)d.firmware.mcu.format.ack_mask=1;
+        if(fault==7)d.firmware.mcu.format.batches_completed=1;
+        if(fault==8)d.firmware.mcu.mac.complete=false;
+        if(fault==9)d.firmware.mcu.timing.complete=false;
+        if(fault==10)d.firmware.active=false;
+        if(fault==11)d.wifi_identity.mac=0;
+        if(fault==12)events[0].parameter_low+=16;
+        assert(wifi_bbp_read(&d,address,&value)==!fault);
+        assert(!freed);
+        if(!fault)assert(d.firmware.control_type==0xc0 && d.firmware.control_request==7 &&
+            d.firmware.control_index==address && d.firmware.control_length==4);
+        if(fault && fault!=4 && fault!=12)assert(d.ep0_enqueue==0);
+        if(fault==4 || fault==12)assert(d.ep0_quarantined && d.firmware.failed);
+    }
+    puts("xhci-bbp-read: PASS exact offsets, prior phase completion, ownership, stale events and quarantine");
+}
+
 static void test_wifi_mcu_transport(void) {
     for(unsigned in=0;in<2;in++)for(unsigned fault=0;fault<9;fault++) {
         reset_test();test_time=0;test_time_step=1000;
@@ -1948,6 +1984,7 @@ int main(int argc, char **argv) {
     test_wifi_mac_reads();
     test_wifi_format_binding();
     test_wifi_format_reads();
+    test_wifi_bbp_reads();
     test_wifi_mcu_transport();
     test_wifi_recovery();
     test_firmware_immediate_data();

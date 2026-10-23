@@ -3533,3 +3533,11 @@ test-mt76-format: build/tests/mt76-format-host$(HOST_EXE)
 build/tests/mt76-format-host$(HOST_EXE): tools/test_mt76_format.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_format.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bbp
+test-core: test-mt76-bbp
+test-mt76-bbp: build/tests/mt76-bbp-host$(HOST_EXE)
+	$<
+build/tests/mt76-bbp-host$(HOST_EXE): tools/test_mt76_bbp.c kernel/src/drivers/mt76_radio.c kernel/include/srvros/mt76_radio.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bbp.c kernel/src/drivers/mt76_radio.c -o $@
