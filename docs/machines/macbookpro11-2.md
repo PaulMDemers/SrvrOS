@@ -3358,3 +3358,16 @@ reuse or RF enable. Touch MCU/xHCI/main/staging/tests; depend on accepted v28
 clock setup and retain historical profiles. No reboot armed.
 Fetched mainf310923 (Air6,1 telemetry acceptance); open PR90 passive battery
 preflight and PR88 gestures are separate scopes. Actual integrated base22fd266.
+
+Clock-enabled ordered-pair candidate source `0754633`, release
+`29504434a7bc5aa6` installed unarmed. Build, radio/MCU/MAC/compact/xHCI tests,
+compact ASan/UBSan, 86 boot-profile tests and documentation checks passed.
+The collector accepts synthetic pair completion and rejects15 corrupt/conflicting
+receipts. Exact-stage GPT VM saved/unmounted/reset; missing-workspace VM returned
+without starting the probe. Payload, receipts, helpers and run record archived
+outside build in wifi-clock-pair-0754633. Failed clock-direct19f40e64c606d997
+and desktop recoverye47dca3a6b30c6c1 retained. Accepted clock67f92f9c2a4d9365
+removed from ESP only after complete archived-payload equality verification.
+Workspace clean:197files/544clusters, zero allocation errors; unmounted.
+Ubuntu remains default. Await cold adapter power cycle; collect the exact new
+session first on return. No reboot armed or native ordered-pair acceptance yet.
