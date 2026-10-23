@@ -2584,3 +2584,13 @@ Read-only BBP engine/native binding implemented. Build, BBP/basics/format/MCU/
 xHCI tests,66 boot-profile tests, BBP ASan/UBSan and docs passed. Native gate
 requires completed frame format and admits only four reads. Firmwarev10
 rehearsal follows; CORE0 value/readiness and clock observations remain pending.
+
+BBP readiness candidate installed unarmed: source6e0bd27,
+release6df00376834c37fd, firmwarev10. Exact GPT save/unmount/return and
+missing-workspace VM checks passed. Ubuntu default, accepted frame-format
+54d6def400fd2a6c and desktop recoverye47dca3a6b30c6c1 retained. Prior merged
+cb8cc153be25dac9 removed from ESP only after durable archive equality.
+Workspace preboot checks clean. Payload/run/VM/local evidence archived outside
+build in wifi-bbp-ready-6e0bd27. Next cold trial checks responding CORE0 and
+disabled/idle MAC before/after; PBF value is observation only. Baseband table
+initialization and RF/connectivity remain unaccepted.
