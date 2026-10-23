@@ -102,6 +102,12 @@ size_t mt76_mcu_bbp_packet(unsigned batch,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_bbp_reply(unsigned batch,const uint8_t *data,size_t length);
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_core(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
+/* Fixed CORE42/44, IBI11 and AGC0 plan; native acceptance pending. */
+size_t mt76_mcu_bbp_front_packet(unsigned batch,uint8_t *out,size_t capacity);
+bool mt76_mcu_validate_bbp_front_reply(unsigned batch,const uint8_t *data,size_t length);
+enum mt76_mcu_timing_status mt76_mcu_apply_bbp_front(struct mt76_mcu_mac *session,
+    const struct mt76_mcu_timing_io *io);
+
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

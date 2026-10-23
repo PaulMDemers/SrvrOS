@@ -2637,3 +2637,16 @@ installed payload and desktop recovery verified. Workspace unmounted; clean
 161files/490clusters with zero leaked allocations or bitmap mismatches.
 Run/checkpoint collected and unarmed. Next scope is remaining bounded baseband
 configuration; RF, scanning, association and connectivity remain pending.
+
+Active scope: finish CORE42/44 and initialize IBI11/AGC0 with fixed values
+0/0/0fde8081/00021400 at20a8/20b0/212c/2300, sequences10/11. Reuse the
+bounded MCU engine with captured CORE identity and disabled-MAC guards,
+requiring completed native CORE setup. Touch MCU/xHCI, isolated capture/profile
+and tests only; no RF or transmit enable. Main105dffd inspected unchanged;
+Air PR63 at182ee78 adds independent battery capture (shared profile/main files,
+separate recipe). Retain integration22fd266 and preserve both scopes.
+
+Validation for BBP front: full build, fixed-plan/per-operation failure tests,
+xHCI prerequisites and transport quarantine, prior MCU/MAC/CORE/readiness
+regressions, ASan/UBSan, 68 boot profiles and documentation checks pass.
+Native acceptance remains pending.

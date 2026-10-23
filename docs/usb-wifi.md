@@ -874,3 +874,24 @@ CORE1 changed0->2, CORE4/24 remained0, CORE32 changed40030001->4003000a.
 CORE0 remainedf000f200 and MAC remained disabled. Both capture completion
 markers were saved. This accepts only these four settings; remaining baseband
 configuration, RF, scanning and connectivity are still pending.
+
+### Remaining CORE and initial IBI/AGC setup (native pending)
+
+Firmware v12 (`--wifi-bbp-front`, requiring `--wifi-bbp-core`) adds fixed
+sequences10/11 after completed CORE setup: CORE42/44 at20a8/20b0 are zero,
+IBI11 at212c is0fde8081 and AGC0 at2300 is00021400. Numeric settings follow
+the Linux v6.18 MT7610 initial register table. This is initial baseband
+configuration, not a selected/calibrated channel or radio enable.
+
+The private two-command engine requires disabled MAC and captured CORE0
+f000f200 before/after each batch, exact first-entry replies and all target
+readbacks. Native admission requires completed earlier CORE setup with both
+ACKs/batches, in addition to the prior phases. It permits only these four
+target reads plus MAC/CORE0; arbitrary packets and retries are refused. Failed
+transfers retain DMA and quarantine the session. Logs save both replies and
+readbacks before automatic return. RF, power and connectivity remain pending.
+
+`make test-mt76-bbp-front` covers independent wire fixtures, every reply bit
+mutation, all18 I/O failures and20 authorization boundaries, stale replies,
+readback/identity/MAC mismatches and retry refusal. xHCI tests add prerequisite
+refusals, packet mutation, ordered submissions, read scope and DMA quarantine.

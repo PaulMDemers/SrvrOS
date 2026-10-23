@@ -244,6 +244,9 @@ struct xhci_wifi_mcu {
     bool format_active;
     struct mt76_bbp_probe bbp;
     bool bbp_active;
+    struct mt76_mcu_mac bbp_front;
+    unsigned bbp_front_submitted;
+    bool bbp_front_active;
     struct mt76_mcu_mac bbp_setup;
     unsigned bbp_setup_submitted;
     bool bbp_setup_active;
