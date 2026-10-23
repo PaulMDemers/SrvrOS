@@ -12,6 +12,8 @@ Ubuntu remains the default and the console recovery payload is retained.
    This is a real shell with a `$` prompt, not the `srv>` monitor. The job prints
    60 rounds and takes at least two minutes. Keep that Terminal open.
 2. While the counter advances, open Text (Command-Space, `Text new app`, Enter).
+   Confirm the saved files appear in Open. Navigate Up, double-click
+   `srvros-work` to return, and reopen a saved text file.
    Type a few paragraphs, select text, scroll, move/resize the window and switch
    focus. Use taps and physical clicks. Save with Ctrl-S as the fresh trial's
    `notes-<run>.txt` in Home, reopen it and add/save a second line.
@@ -21,7 +23,8 @@ Ubuntu remains the default and the console recovery payload is retained.
    confirm the value. The ordinary preference defaults apply: tap-to-click on,
    Disable while typing off unless explicitly selected. Test suppression only
    after selecting that checkbox; this trial does not force the v50 policy.
-4. Wait for `USB SESSION COMPLETE`. An error, a stopped counter or an absent
+4. Wait for `USB SESSION COMPLETE`. Run the same command once more: it must
+   print `REFUSED existing session` without starting another round. An error, a stopped counter or an absent
    completion is incomplete/failed evidence. Do not close Terminal during the job.
    Save Text, take a screenshot with Command-Shift-3, then use F10, End, Enter
    (the desktop menu's Return to console action).
@@ -29,7 +32,9 @@ Ubuntu remains the default and the console recovery payload is retained.
    Type `reboot` at `srv>` to return to Ubuntu. Photograph any failure instead
    of calling it a pass. No automatic reboot or timed desktop exit is used.
 
-The workload makes a fresh run directory and refuses repeat invocation. It copies
+The workload checks for an existing run before creating its directory and refuses
+repeat invocation. SrvrOS mkdir alone is not a freshness check. Run only one
+instance at a time; this shell preflight is not an atomic concurrent-job lock. It copies
 and synchronizes 1 MiB, renames it, compares the readback and records the round,
 60 times with two-second pacing. It preserves the final payload, all round numbers
 and a completion record. File work runs in Terminal's process tree while the
@@ -43,6 +48,8 @@ Run `tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check --wo
 on that exact stage. The VM uses a disposable USB volume and the same generated
 workload; it checks full app saves during the job, exact retained bytes, logs,
 clean filesystem/unmount and preference persistence across a fresh VM boot.
+The v53 fixture includes duplicate persisted file IDs; it requires unique repaired
+IDs, picker Home reentry/saved-file reopen and refusal of active/completed retries.
 
 Generate a fresh 16-hex run with `tools/desktop_session_workload.py`'s `files(run)`
 and save its two inputs exclusively in this unit's prepared USB Home. Record all
