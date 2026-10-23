@@ -48,6 +48,7 @@ bool xhci_wifi_capture_mac_format(void);
 bool xhci_wifi_capture_bbp_ready(void);
 bool xhci_wifi_capture_bbp_core(void);
 bool xhci_wifi_capture_bbp_front(void);
+bool xhci_wifi_capture_bbp_agc(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

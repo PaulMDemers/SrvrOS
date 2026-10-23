@@ -2673,3 +2673,16 @@ one-shot, installed payload and desktop recovery verified. Workspace unmounted;
 clean163files/493clusters with zero leaked allocations or bitmap mismatches.
 Run/checkpoint collected and unarmed. Next: remaining AGC/baseband initialization,
 then RF/scan/association/connectivity, which remain untested.
+
+Active scope: fixed initial AGC1/2/15/22 at2304/2308/233c/2358, values
+3/003a6464/88a28cb8/1e21, sequences12/13. Require completed prior IBI/AGC0
+setup, captured CORE identity and disabled MAC before/after each batch. Touch
+MCU/xHCI, isolated main/staging recipe and tests. RF remains disabled. Fetched
+main14f17d2 (PR63 battery capture) and PR64 Type feedback; neither adds Wi-Fi
+dependencies. Retain physically accepted integration22fd266 for this trial.
+The 4-bit command sequence space is not wrapped; larger remaining plans will
+need explicit batching/session design before exceeding sequence15.
+
+AGC validation: full build, all fixed MCU/MAC/baseband engines, xHCI
+prerequisite/transport/read-scope/quarantine fixtures, ASan/UBSan, 69 boot
+profiles and documentation checks pass. Physical acceptance remains pending.

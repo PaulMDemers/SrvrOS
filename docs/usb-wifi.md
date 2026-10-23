@@ -903,3 +903,22 @@ IBI11 changed0->0fde8081 and AGC0 changed7400->21400. CORE0 stayedf000f200
 and MAC stayed disabled. Prior setup regressions and both capture completion
 markers passed. This accepts only the specified settings; remaining AGC/baseband
 configuration, RF, scanning, association and connectivity are still pending.
+
+### Initial AGC settings (native pending)
+
+Firmware v13 (`--wifi-bbp-agc`, requiring `--wifi-bbp-front`) adds two fixed
+commands, sequences12/13, for AGC1/2/15/22 at2304/2308/233c/2358. Values are
+3/003a6464/88a28cb8/1e21 from the Linux v6.18 MT7610 initial register table.
+Admission requires completed earlier CORE/IBI/AGC0 phases and both ACKs. Each
+batch verifies disabled MAC and captured CORE0 identity before and after, an
+exact first-entry reply and both target readbacks. No RF or MAC-enable write
+is included; channel-specific overrides and calibration remain pending.
+
+The native read allowlist contains only those four targets plus MAC/CORE0.
+Malformed packets, out-of-order batches and retries are refused; transfer
+failure quarantines retained DMA. `make test-mt76-bbp-agc` covers fixed wire
+fixtures, reply mutations, all18 I/O failures, all20 ownership boundaries,
+stale replies, target mismatches and MAC/CORE guards. xHCI fixtures exercise
+all prerequisite refusals, bounded transfers, exact reads and quarantine.
+Command sequence identifiers are not wrapped; expanding initialization beyond
+sequence15 requires a separately validated batching/session design.

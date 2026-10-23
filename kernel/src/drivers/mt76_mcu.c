@@ -150,6 +150,10 @@ static const struct mt76_mcu_register_pair bbp_core[4]={
 static const struct mt76_mcu_register_pair bbp_front[4]={
     {0x20a8,0},{0x20b0,0},{0x212c,0x0fde8081},{0x2300,0x00021400}
 };
+/* First AGC settings after CORE/IBI; numeric Linux v6.18 MT7610 settings. */
+static const struct mt76_mcu_register_pair bbp_agc[4]={
+    {0x2304,3},{0x2308,0x003a6464},{0x233c,0x88a28cb8},{0x2358,0x1e21}
+};
 static size_t fixed_mac_packet(const struct mt76_mcu_register_pair *plan,
     unsigned sequence,unsigned batch,uint8_t *out,size_t capacity) {
     if(batch>=MT76_MCU_MAC_BATCHES)return 0;
@@ -186,6 +190,12 @@ size_t mt76_mcu_bbp_front_packet(unsigned batch,uint8_t *out,size_t capacity) {
 }
 bool mt76_mcu_validate_bbp_front_reply(unsigned batch,const uint8_t *data,size_t length) {
     return fixed_mac_reply(bbp_front,10,batch,data,length);
+}
+size_t mt76_mcu_bbp_agc_packet(unsigned batch,uint8_t *out,size_t capacity) {
+    return fixed_mac_packet(bbp_agc,12,batch,out,capacity);
+}
+bool mt76_mcu_validate_bbp_agc_reply(unsigned batch,const uint8_t *data,size_t length) {
+    return fixed_mac_reply(bbp_agc,12,batch,data,length);
 }
 static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value) {
@@ -249,6 +259,9 @@ enum mt76_mcu_timing_status mt76_mcu_apply_bbp_core(struct mt76_mcu_mac *s,
 
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_front(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_front,10,true); }
+
+enum mt76_mcu_timing_status mt76_mcu_apply_bbp_agc(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_agc,12,true); }
 
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;
