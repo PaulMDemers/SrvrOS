@@ -2801,3 +2801,13 @@ integration22fd266. No RF or sequence reuse; native added settings pending.
 AGC extension validation: full build, six-phase fixed engine and prior
 regressions, native xHCI phase/limit/read-scope/transport checks, ASan/UBSan,
 72 boot profiles and docs checks pass. Native phase5 acceptance pending.
+
+AGC23..26 trial installed: sourcec9a84ec, release8bf9cd874ed0f02d. Exact-stage
+GPT save/return and missing-workspace refusal/return VM checks pass. Workspace
+fsck/allocation clean; Ubuntu default and desktop recoverye47dca3a6b30c6c1
+retained; accepted consolidatede459728ba57fea08 retained. Older batching
+b3eaadb9ad679dbb removed only after full durable archive equality. Run record
+build/bringup/wifi-agc-more/run.json; payload/receipts and six-phase collector
+archived in ~/.local/share/srvros/macbookpro11-2/wifi-agc-more-c9a84ec. Unarmed
+awaiting cold-trial readiness. Collect matching session first after return;
+new phase native acceptance pending. RF/connectivity remain untested.
