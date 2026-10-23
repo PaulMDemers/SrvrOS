@@ -16,6 +16,16 @@ static void check(struct desk_terminal *p) {
     assert(p->top<=p->bottom && p->bottom<p->rows && p->param_count<=16 && p->reply_size<=DESK_TERM_REPLY);
 }
 int main(void) {
+    init(8,3);
+    char paste[]="alpha\r\nbeta\ngamma\r\t\xc3\xa9\n";
+    const char expected[]="alpha beta gamma \t\xc3\xa9 ";
+    size_t pasted=desk_terminal_paste_normalize(&t,paste,sizeof(paste)-1);
+    assert(pasted==sizeof(expected)-1 && !memcmp(paste,expected,pasted));
+    assert(!desk_terminal_paste_normalize(&t,paste,0));
+    char bracketed[]="alpha\r\nbeta\n";
+    t.bracketed_paste=1;
+    assert(desk_terminal_paste_normalize(&t,bracketed,sizeof(bracketed)-1)==sizeof(bracketed)-1);
+    assert(!memcmp(bracketed,"alpha\r\nbeta\n",sizeof(bracketed)));
     init(8,3);feed("abcdefgh");assert(t.x==7 && t.y==0 && t.wrap_pending);
     feed("I");row(0,"abcdefgh");row(1,"I");assert(lines[0].wrapped);
     feed("\rX\n\rthird\n\rlast");assert(t.history==1);row(0,"X");row(1,"third");row(2,"last");
