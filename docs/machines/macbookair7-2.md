@@ -1,6 +1,17 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
+
+### Attended v54 trial preparation (2026-10-23)
+
+Preparing tested release `fc5b73b074db7884` for ordinary Home app/save/exit/reopen
+acceptance. Main `58b354f` was inspected and merged; it adds only Air6,1 evidence,
+so staged binaries remain unchanged. PR71 (`9c0b09c`) owns imported file identities
+and PR19 (`d4f8be5`) owns Wi-Fi; neither is included in this candidate. Read-only
+USB metadata inspection found no duplicate IDs within Home; existing cross-path
+collisions are retained as evidence rather than repaired for this trial. Scope
+is this unit's run records, recovery checks, installation and collection. Human
+app use is required. See the local checkpoint for actual armed/returned state.
 
 ### Ordinary Home battery startup: locally validated (PR #69)
 
