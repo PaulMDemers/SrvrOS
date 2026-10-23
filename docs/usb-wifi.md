@@ -1369,3 +1369,22 @@ with the MCU result. Completion additionally requires that value to be zero.
 `wifi-txbe-direct` records attempted/submitted/written. Nonzero or disagreeing
 readbacks remain failed captures with saved evidence. This test does not retry
 the earlier MCU write, accept phase11, reuse a sequence, or enable RF.
+
+Native v27 readback failed: source `e821968`, release `acaea56aaa88d52f`,
+session `00065e87a87d976c-00`. The single EP0 index2728 zero transfer completed
+with actual4, followed by the exact sequence15 MCU read reply returning37fff.
+All eleven prerequisite phases/44 readbacks passed. The comparison reported
+status4, attempted1, request_attempted1, submitted1, reply_validated1, complete0;
+control attempted/submitted/written1 denotes completed transport, not a zero
+register value. Each observation stage completed64 reads/eight samples.
+TXBE10 stayed37fff before3106897..3108802us and after3109221..3115210us;
+the MCU value matched all eight post-write EP0 samples. TXBE9/12/13 stayed0,
+and every MAC0/COREf000f200 boundary held. Both capture completion markers NO.
+
+The same unchanged value after MCU and direct EP0 zero writes makes an MCU-only
+write-path defect less likely. This still does not prove that TXBE10 is read-only,
+that writes are ignored, or that the current initialization prerequisites are
+sufficient. Next audit register semantics and prerequisite ordering before
+selecting another trial; retain the strict failed checks and keep RF disabled.
+Evidence archived in `wifi-txbe-direct-e821968/failed-native-collection` outside
+build. No initialization acceptance follows from transport completion.

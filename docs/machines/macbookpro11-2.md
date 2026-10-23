@@ -3222,3 +3222,18 @@ retained. Failed v25f8b4b41d736bd4e2 removed from ESP only after full archived
 payload equality verification. Workspace clean:191files/535clusters, zero
 allocation errors; unmounted. Ubuntu default and no reboot armed. Await cold
 adapter power cycle; collect the matching new session first on return.
+
+Native direct TXBE10 zero-write readback failed: sourcee821968,
+releaseacaea56aaa88d52f, session00065e87a87d976c-00. EP0 index2728 zero transfer
+completed actual4; sequence15 MCU read returned37fff with exact framing/address.
+Eleven prerequisite phases/44 readbacks passed. Comparison status4 complete0,
+reply_validated1; both stages64 reads/eight samples. Before3106897..3108802us
+and after3109221..3115210us, TXBE10 stayed37fff; MCU matched all eight post-write
+samples. TXBE9/12/13 remained0, all MAC0/COREf000f200 boundaries held. Both
+capture completion markers NO. A second write path reproduced the mismatch;
+transport completion does not accept the register write. Next audit semantics
+and initialization prerequisites; no relaxed gate, RF or phase11 acceptance.
+Evidence archived outside build in wifi-txbe-direct-e821968/failed-native-collection.
+Ubuntu default, consumed one-shot and installed/recovery hashes verified.
+Workspace clean:193files/538clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected with failure recorded; no reboot armed.
