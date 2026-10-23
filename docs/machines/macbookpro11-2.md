@@ -3813,3 +3813,20 @@ accepted v37 policy. Reference relative order1364/1368/1374/1378, requested
 02002084. Exact starts, sequence8 four-pair packet/ACK, twelve reads and final
 MAC0/COREf000f200. No PBF/DMA/RF changes or BBP-table writes. Touch MCU/xHCI/main/
 staging/tests; base22fd266, fetched maind7ed773; PR102 filesystem scaling separate.
+
+### 2026-10-23 — v38 CCK/OFDM/GF candidate installed, unarmed
+
+Source `1947345`, release `89ee4a2fc2121ce2`. Build, compact/xHCI tests,
+ASan/UBSan, 94 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native protection-group acceptance pending.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v37
+`678a8d195cc57e83` retained; v36 observation removed from ESP only after full
+comparison with its durable archive. UUID0E53-5900 clean213files/568clusters,
+no allocation errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-protect/run.json`, `build/bringup/collect_wifi_mac_protect_return.py`.
+Durable payload/evidence: `~/.local/share/srvros/macbookpro11-2/wifi-mac-protect-1947345/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return, then
+collect matching session. RF/connectivity NOT_TESTED.
