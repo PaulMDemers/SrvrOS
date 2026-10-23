@@ -2,6 +2,33 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Ordinary Home v54 physically accepted (2026-10-23)
+
+Release `fc5b73b074db7884` returned to Ubuntu. The two screenshot-matched sessions
+`session-00065e84a072f3e3-00` and `session-00065e84a5ba22cc-00` record distinct
+inherited lifetimes, with eight and five peak members. Both drain to zero and
+retire the battery runtime with one attach/detach, zero retained heap, errors or
+denied operations. There were 29 and 14 sample attempts, no rejected samples,
+and 29 and 24 handled SCI deliveries with zero unclaimed. The second boot log
+also verifies the first session's logger completion and Home hold release.
+
+Both saved screenshots show `AC · 96%`: Text first reports the document saved
+and verified, then opened with identical contents after the desktop restart.
+The document and screenshots are backed up; all prior non-metadata files are
+unchanged. Offline fsck and independent allocation pass: 972 files, 2,002 allocated
+clusters, zero leaks/mismatches/errors. Ubuntu default, consumed one-shot and
+installed recovery are verified; USB is unmounted. Current is `fc5b73b074db7884`,
+previous remains `b427b78f21644bd2`. No reboot is armed.
+
+An additional earlier same-release session is retained separately; it is not
+substituted for the paired save/reopen evidence. Final logger/mount release is
+after the final exit snapshot. The tester confirmed normal app/input behavior and return using monitor
+`reboot`, completing this scoped physical acceptance. Evidence and payloads survive
+build cleanup under `~/.local/share/srvros/accepted-evidence/fc5b73b074db7884`
+and `~/.local/share/srvros/known-good/fc5b73b074db7884`. Main `bd1e834` was fetched and inspected: PR71 file identities and PR73
+preference trial tooling are now merged upstream, but are not part of this
+physical candidate. Integration and affected local regressions remain next.
+
 ### Attended v54 trial preparation (2026-10-23)
 
 Preparing tested release `fc5b73b074db7884` for ordinary Home app/save/exit/reopen
