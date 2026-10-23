@@ -16,6 +16,25 @@ network parity needs an adapter and its own trial. Installed accepted v54 and
 Ubuntu recovery stay unchanged while host/VM work proceeds. Low-charge UX will
 reuse the cached ABI, with no firmware calls from UI paths.
 
+### Integrated v55 candidate: local checks passed
+
+PR76 implements the combined profile and cached battery notices. Build, both
+runtime kernels, full core suite and documentation checks pass at `7ab571f`.
+Combined normal/save/reopen, pending-save exit, unavailable battery and the
+unchanged ordinary profile pass disposable VMs. A real emulated HDA stream plays
+1,152,000 bytes with zero reported underruns while the battery model handles
+680 events; the desktop lifetime peaks at ten members. Final cached checkpoints
+show no retained PCM owner/queue, a ready audio provider, unavailable gated CPU/
+SMC providers and clean battery/app retirement after both sessions. A follow-up
+harness assertion checks final snapshots rather than accepting an earlier boot
+sample; replay against all four combined runs passes and rejects a retained owner.
+
+Host UI tests cover 20%/5% warnings, hysteresis, stale/unavailable suppression,
+notification routing without focus theft and clicking the battery label to open
+System. These are synthetic tests, not a physical low-charge or calibration
+claim. Exact staged EFI rehearsal and an attended combined Air trial are next.
+Installed accepted v54 and recovery remain unchanged; no reboot is armed.
+
 ### Ordinary Home v54 physically accepted (2026-10-23)
 
 Release `fc5b73b074db7884` returned to Ubuntu. The two screenshot-matched sessions

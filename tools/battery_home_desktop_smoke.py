@@ -10,6 +10,21 @@ from exfat_test_image import ExfatFixture, check_clean_image
 from battery_workspace_smoke import ANCHOR
 
 
+def service_snapshot(data,audio):
+    """Check final cached provider/PCM state, never an earlier boot snapshot."""
+    result={}
+    for provider in ('smc','thermal','audio','pcm'):
+        rows=re.findall(rb'workspace-devices: '+provider.encode()+rb'_state=[^\r\n]*',data)
+        assert rows,'missing '+provider+' checkpoint'
+        fields={k.decode():int(v) for k,v in re.findall(rb'(\w+)=(\d+)(?= |$)',rows[-1])}
+        result[provider]=fields
+    assert result['smc']['smc_state']==result['thermal']['thermal_state']==1
+    assert result['audio']['audio_state']==(2 if audio else 1)
+    pcm=result['pcm']
+    assert pcm['owner']==0 and pcm['queued']==0 and pcm['pcm_state']==(4 if audio else 0),pcm
+    return result
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal','missing-workspace','runtime-missing','opt-out','clock-missing'),default='normal')
@@ -164,10 +179,7 @@ def main():
                     result['peak_members']=int(drained[2])
                     if args.services:
                         assert b'desktop-session: providers brightness=1 audio=1 thermal=1 smc=1 ethernet=1' in data
-                        for provider in ('smc','thermal'):
-                            assert ('workspace-devices: '+provider+'_state=1').encode() in data
-                        assert ('workspace-devices: audio_state='+('2' if args.audio else '1')).encode() in data
-                        assert b'workspace-devices: pcm_state=0 owner=0' in data
+                        result['providers_at_exit']=service_snapshot(data,args.audio)
                         result['sensors_unavailable']=True
                         result['audio_ready']=args.audio
                         result['pcm_owner_retired']=True
@@ -188,6 +200,7 @@ def main():
                     assert bytes(output).count(b'battery-workspace-hold: released')==2
                     assert bytes(output).count(b'battery-home-desktop: logger_retired=yes final_saved=yes')==2
                     result['restarted']=True
+                    if args.services:result['providers_after_reopen']=service_snapshot(bytes(output),args.audio)
                 if args.case not in ('runtime-fault','missing-workspace'):
                     serial.sendall(b'workspace unmount\n');wait(b'workspace: unmounted; USB writes disabled');wait(b'\nsrv> ')
                 if stage:
