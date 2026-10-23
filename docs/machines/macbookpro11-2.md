@@ -2986,3 +2986,17 @@ and collector archived outside build in wifi-txbe-start-56e1f4a. Accepted
 7d6ccc2fe96d530c removed from ESP only after archive equality verification.
 Workspace clean before install:179files/517clusters, zero allocation errors,
 unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
+
+TXBE0/4/6/8 accepted on captured adapter: source56e1f4a,
+release6477738b1d3cf7d5, session00065e85c7b7d806-00. Phase10 sequence14
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. TXBE0 stayed0; TXBE4 changed0->4; TXBE6 changed1->0;
+TXBE8 changed4014->14. CORE0 stayedf000f200 and MAC0. All prior phases,
+firmware/reset/identity/timing, readiness ordering,44 register readbacks
+and both completion markers passed. Evidence archived outside build in
+wifi-txbe-start-56e1f4a/native-collection. Ubuntu default, consumed one-shot
+and installed candidate/desktop recovery verified. Workspace clean:
+181files/520clusters, zero leaks/allocation mismatches, unmounted.
+Run/checkpoint collected and unarmed. Remaining TXBE/RXFE/RXO settings
+pending; identifier15 remains unused. Further expansion must address
+sequence exhaustion without recycling identifiers. RF/connectivity pending.

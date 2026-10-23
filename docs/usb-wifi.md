@@ -1109,7 +1109,7 @@ TXO8 stayed0. All earlier phases,40 register readbacks and both completion
 markers passed; MAC0 and CORE0f000f200 preserved. Identifiers14..15 remain
 unused. Remaining baseband initialization, RF and connectivity are pending.
 
-### TXBE0/4/6/8 extension (native acceptance pending)
+### TXBE0/4/6/8 extension (accepted on captured Pro adapter)
 
 Firmware v21 (`--wifi-txbe-start`, requiring `--wifi-rxc-tail`) adds phase10
 at sequence14: fixed offsets2700/2710/2718/2720 receive0/4/0/14.
@@ -1118,3 +1118,11 @@ independent readbacks and MAC/CORE guards. Prior profiles retain limits.
 No RF enable or identifier recycling. Host fixtures cover eleven fixed
 packets, allowlists, failures/cancellation and ownership/quarantine;
 77 boot-profile tests pass. Hardware acceptance remains pending.
+
+Native source56e1f4a / release6477738b1d3cf7d5,
+session00065e85c7b7d806-00 passed phase10 at sequence14: sent40/received16,
+exact reply, status0, one submission/completion, ack_mask1 and12 reads.
+TXBE0 stayed0; TXBE4 changed0->4; TXBE6 changed1->0; TXBE8 changed4014->14.
+All prior phases,44 register readbacks and both completion markers passed;
+MAC0 and CORE0f000f200 preserved. Identifier15 remains unused. Remaining
+baseband initialization, RF and connectivity are pending.
