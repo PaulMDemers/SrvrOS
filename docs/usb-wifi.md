@@ -1211,7 +1211,7 @@ unwritten. This separates the first write's effect from the failed batch without
 recycling a sequence or weakening v22 checks. A TXBE10 change would identify an
 effect associated with TXBE9 in this setup, not automatically establish counter
 semantics; stability would leave the TXBE10 write itself for a later isolated
-trial. This comparison is a design only, not an implemented or installed profile.
+trial. The v24 implementation below now supplies this comparison; native evidence is pending.
 
 ### Isolated TXBE9 comparison (native pending)
 

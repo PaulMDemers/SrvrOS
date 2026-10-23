@@ -3090,3 +3090,14 @@ eight guarded samples on either side of one sequence15 write. No writes to
 TXBE10/12/13, no identifier reuse, no v22 gate changes. Touch MCU/xHCI,
 main capture, staging and tests. Mainab99517/PR76 inspected in preceding audit;
 actual integrated base22fd266. Shared Air desktop profiles stay separate.
+
+TXBE9-only comparison sourcef1785c6 / releaseb3a29375623082db installed
+unarmed. Build, MCU/compact/xHCI tests, sanitizer,80 boot-profile tests and docs
+checks pass. Collector validated with synthetic16 samples and12 rejection
+fixtures. Exact-stage GPT VM saved/unmounted/reset; missing-workspace VM returned
+without probing. Payload/receipts/run/collector archived outside build in
+wifi-txbe-first-f1785c6. Accepted observation70e0236472c320bc and desktop
+recoverye47dca3a6b30c6c1 retained. Failed9cc1888913aa7ff5 removed from ESP only
+after archive equality verification. Workspace clean:185files/526clusters,
+zero leaks/mismatches/errors; unmounted. Ubuntu default, no reboot armed.
+Native result pending cold adapter power cycle; collect matching session first.
