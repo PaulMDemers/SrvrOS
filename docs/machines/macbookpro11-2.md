@@ -3612,3 +3612,24 @@ collector: `build/bringup/collect_wifi_mac_route_return.py`. Payload, evidence a
 helpers: `~/.local/share/srvros/macbookpro11-2/wifi-mac-route-7cc6fe3/`.
 Next: user-ready cold adapter power cycle, automatic capture/return, then collect
 matching session before further changes. RF/connectivity remains NOT_TESTED.
+
+
+### 2026-10-23 — v34 native FCE/WMM trial passed
+
+Collected release `c929ce1b090b820d` / source `7cc6fe3`, new session
+`00065e89795928b3-00`. The strict prepared collector passed: sequence6 sent24,
+received16, cc13/residue1008; exact four-word ACK; status0, complete1, eight reads,
+one submitted/completed batch and ack_mask1. FCE `03ff0233 -> 03ff0223` and WMM
+`00041040 -> 00041201` both matched. MAC0 and COREf000f200 remained unchanged at
+both boundaries. Firmware/reset/timing, compact0/1, clocks and readiness passed.
+Both capture completion markers were present; no BBP table/raw/snapshot ran.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Workspace fsck clean (207 files), allocation check passed (559 clusters, no leaks
+or mismatches), then left unmounted. Full collection and result/checkpoint are
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-route-7cc6fe3/` with
+checksums. Local collection: `build/bringup/wifi-mac-route/collection/collection-5pta14ud`.
+No reboot armed. Acceptance is limited to these two MAC register operations;
+RF/connectivity and the earlier four BBP mismatches remain unresolved. Next work:
+review remaining reference MAC initialization prerequisites against the v33 raw
+inventory, then select a bounded addition before repeating full baseband setup.

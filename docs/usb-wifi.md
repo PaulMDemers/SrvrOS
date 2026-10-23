@@ -1617,7 +1617,7 @@ values are counted as unvalidated observations; transport failures and incorrect
 ASIC76502000/MAC0/COREf000f200 guards still stop capture. Completion is not register
 acceptance. v32 retains its strict all-ones refusal and subsequent BBP workflow.
 
-### Bounded MAC routing trial (v34; native result pending)
+### Bounded MAC routing trial (v34; Pro11,2 readbacks accepted)
 
 `--wifi-mac-route` requires `--wifi-bbp-table` prerequisites, excludes raw and
 strict snapshot modes, and ends before any baseband-table submission. After
@@ -1633,5 +1633,8 @@ ACK framing, both readbacks, and initial/final MAC-disabled and CORE guards are
 required. There is no retry. This diagnostic adapts the reference EP0 operations
 to the existing bounded MCU write engine; it does not claim full reference MAC
 initialization equivalence. No new PBF, DMA, power, RF or MAC-enable operation is
-introduced. Native acceptance and wireless connectivity remain untested until
-matching saved evidence is collected.
+introduced. On 2026-10-23, Pro11,2 release `c929ce1b090b820d`, session
+`00065e89795928b3-00`, passed the exact ACK, eight reads, both target changes and
+MAC0/COREf000f200 boundaries. Both completion markers were saved; no BBP table
+ran. This accepts the bounded FCE/WMM operation on this unit. It does not resolve
+the earlier baseband mismatches or accept RF/connectivity.
