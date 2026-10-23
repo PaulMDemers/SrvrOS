@@ -65,7 +65,6 @@ static bool air61_display_probe(bool brightness) {
         if(p->device_id==0x9c43 && p->class_code==6 && p->subclass==1) pch=p->device_id;
     }
     if(!display) return false;
-    if(brightness) { console_write("air61-backlight: provider not admitted; no register access\n");return true; }
     size_t n;const uint8_t *d=find("DSDT",&n);
     if(!laptop_air61_display_match(display->device_id,pch,d,n)) {
         console_write("air61-backlight: identity mismatch; no register access\n");return true;
@@ -76,7 +75,7 @@ static bool air61_display_probe(bool brightness) {
     if(!base || base>0x000ffffffff00000ull || !(pci_read_config16(display,4)&2)) return true;
     const uint64_t va=0xffffc001f3100000ull;
     if(!vmm_map_page(va,base+0x48000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE) ||
-       !vmm_map_page(va+4096,base+0xc8000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) {
+       !vmm_map_page(va+4096,base+0xc8000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(brightness?VMM_PAGE_WRITABLE:0))) {
         console_write("air61-backlight: mapping unavailable\n");return true;
     }
     uint32_t cpu=*(volatile uint32_t *)(va+0x250),cd=*(volatile uint32_t *)(va+0x254);
@@ -84,7 +83,10 @@ static bool air61_display_probe(bool brightness) {
     struct laptop_backlight b=laptop_backlight_decode(cpu,cd,pchctl,pd);
     console_printf("air61-backlight: read-only cpu_ctl=%x cpu_duty=%x pch_ctl=%x pch_duty=%x mode=%u duty=%u period=%u\n",
         (uint64_t)cpu,(uint64_t)cd,(uint64_t)pchctl,(uint64_t)pd,(uint64_t)b.mode,(uint64_t)b.duty,(uint64_t)b.period);
-    console_write("air61-backlight: no PWM writes, provider binding or EC access\n");
+    if(brightness) {
+        bool ready=backlight_bind_profile((struct backlight_io){(void *)(uintptr_t)va,pwm_read,pwm_write},BACKLIGHT_AIR6_1);
+        console_printf("backlight: Air6,1 provider=%s initial_percent=%u; panel unchanged\n",ready?"ready":"unavailable",ready?(uint64_t)backlight_percent(0):0);
+    } else console_write("air61-backlight: no PWM writes, provider binding or EC access\n");
     return true;
 }
 static void inspect(bool brightness) {
