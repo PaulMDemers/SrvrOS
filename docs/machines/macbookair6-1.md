@@ -91,12 +91,14 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Audio trial closeout against fetched integration `b99bb5b`; documentation and
-local evidence only. The installed/tested v57 remains compiled `8f3656a`, not
-the newer combined-services baseline. Record successful basic speaker listening,
-completed tones/WAV, cancellation and clean USB/Ubuntu return. Preserve the
-accepted payload and console recovery. Headphone routing, detailed channel balance
-and sustained playback remain separate future checks; no new reboot is armed.
+Base `d3875c7`, branch `device/macbookair6-1/audio-endurance`. Prepare a
+headphone-routing and five one-minute playback trial using accepted v57 release
+`0533c0dfc63d104f` (compiled `8f3656a`). Scope is this unit's test documentation
+and a generated WAV on its USB workspace; no driver, recipe or shared script
+changes. PR #83 owns the shared attended device-check script/v58 on Air7,2;
+PR #19 owns Pro Wi-Fi. Reuse the existing audio fixture and waveform checker,
+without duplicating those scopes. Rehearse the accepted exact payload and a
+five-minute PCM VM soak, preserve recovery, then leave the physical test unarmed.
 
 ## First console trial prepared (2026-10-22)
 
@@ -818,3 +820,28 @@ session logs. Offline exFAT and allocation checks pass: 184 files, 267 clusters,
 zero leaks/mismatches/errors. Ubuntu return, empty one-shot, installed/recovery
 hashes and the independent payload backup are verified. Full return evidence is
 retained outside `build`; no new boot test is armed.
+
+## Headphone/extended playback ready (2026-10-23)
+
+The next attended trial reuses accepted release `0533c0dfc63d104f`, compiled
+`8f3656a`. No payload or hardware gate changed. Run `5a302d248eee397a` in local
+`build/audio/extended-20261023` has the headphone/extended checklist and a
+verified 60-second stereo WAV in USB Home's `audio-extended` directory. All 184
+existing files are preserved; the new baseline has 185 files. Offline exFAT and
+allocation checks pass: 356 clusters, no leaks/mismatches/errors.
+
+Targeted HDA, audio service/stream, WAV conversion and Settings host tests pass.
+The existing PCM VM harness completed five one-minute plays with zero guest
+underruns, exact recorded samples (maximum error zero), distinct stereo and USB
+input retained. Actual guest kernel/initramfs hashes match the accepted release;
+the newer harness checkout is recorded separately, not claimed as compiled code.
+The exact v57 GPT VM additionally passed two desktop sessions, GUI save/reopen,
+preferences, tone/WAV capture, durable logs and clean unmounts. These results do
+not accept physical headphones or extended native playback.
+
+Use the [extended checklist](../macbookair6-1-audio.md) to check manual headphone
+routing, jack indication, left/right isolation, five full one-minute plays,
+Stop/recovery and return to speakers. Console recovery `c35475f62f154f1e`
+remains previous; Ubuntu stays default. No reboot is armed. On return identify
+new sessions against this run's preboot hashes: the release ID is deliberately
+the same as the earlier accepted speaker trial. Preserve the prior trial evidence.
