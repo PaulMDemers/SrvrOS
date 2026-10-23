@@ -224,6 +224,9 @@ def main():
             if basic_desktop:
                 from desktop_session_workload import files as session_files
                 files.update(session_files(session_run))
+                files.update({"collision-a.txt":b"saved alpha\n", "collision-b.txt":b"saved beta\n"})
+                metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t50000\t33188\t1\t0\t0\t100\t200\t300\n" for name in ("collision-a.txt","collision-b.txt"))
+                fixture.add_directory_files(".srvros",{"meta":metadata.encode()})
             fixture.add_directory_files("srvros-work",files)
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
@@ -519,8 +522,19 @@ def main():
                     shortcut("ctrl-s")
                     wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
                     wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                    if basic_desktop:
+                        before=len(serial.read_text(errors="replace"));shortcut("ctrl-o")
+                        wait_for(serial,lambda s:"picker ready mode=1" in s[before:],process,30)
+                        before=len(serial.read_text(errors="replace"));shortcut("alt-up")
+                        wait_for(serial,lambda s:"picker ready mode=1" in s[before:],process,30)
+                        before=len(serial.read_text(errors="replace"));type_text("srvros-work");ui.key("ret")
+                        wait_for(serial,lambda s:"picker ready mode=1" in s[before:],process,30)
+                        before=len(serial.read_text(errors="replace"));type_text("untitled");ui.key("ret")
+                        wait_for(serial,lambda s:"file-result role=text op=1 status=0" in s[before:],process,30)
                     shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
                     wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                    if basic_desktop:
+                        time.sleep(.7);type_text(f"sh /work/srvros-work/session-{session_run}.sh; echo $? > replay-active.txt");ui.key("ret")
                     for command_text in ("pwd > terminal-home.txt", "pwd >> terminal-home.txt",
                                          "pwd > /missing-pwd-dir/out", "echo $? > terminal-pwd-status.txt"):
                         time.sleep(.5);type_text(command_text);ui.key("ret")
@@ -553,6 +567,13 @@ def main():
                     if basic_desktop:
                         from desktop_session_workload import verify as verify_session
                         session_proof=verify_session(lambda name:stored.read("srvros-work/"+name),session_run)
+                        assert stored.read("srvros-work/replay-active.txt")==b"1\n"
+                        metadata=stored.read(".srvros/meta").decode().splitlines()[1:]
+                        ids=[int(row.split("\t")[1]) for row in metadata if row]
+                        assert all(ids) and len(ids)==len(set(ids)), "Persisted file IDs collide"
+                        assert stored.read("srvros-work/collision-a.txt")==b"saved alpha\n"
+                        assert stored.read("srvros-work/collision-b.txt")==b"saved beta\n"
+                        session_proof.update(picker_reopen=True,home_reentry=True,unique_ids=True,active_replay_refused=True)
                         boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log")
                         assert b"laptop-probe:" not in boot_log and b"aml-probe:" not in boot_log
                     else:
@@ -721,6 +742,13 @@ def main():
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
                     workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-")))
+                    if basic_desktop:
+                        ui.call("human-monitor-command",{"command-line":"sendkey meta_l-spc"});time.sleep(.3)
+                        type_text("terminal new app");ui.key("ret")
+                        wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                        time.sleep(.7)
+                        type_text(f"sh /work/srvros-work/session-{session_run}.sh; echo $? > replay-complete.txt; exit");ui.key("ret")
+                        wait_for(serial,lambda s:"deskterm: shell exited status=0" in s,process,30)
                     for keys in ("f10","end","ret"):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
@@ -728,6 +756,10 @@ def main():
                     stored=verify_workspace(stick,volume,1)
                     assert stored.read("srvros-work/Untitled.txt")==b"Laptop trial AaZz09 saved on USB."
                     assert stored.read(shot_path.removeprefix("/work/"))==shot_bytes
+                    if basic_desktop:
+                        verify_session(lambda name:stored.read("srvros-work/"+name),session_run)
+                        assert stored.read("srvros-work/replay-complete.txt")==b"1\n"
+                        session_proof["completed_replay_refused"]=True
                     second_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1]
                     assert second_session!=first_session
                     from hardware_desktop import collect, FILES

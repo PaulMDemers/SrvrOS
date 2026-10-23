@@ -9,9 +9,10 @@ def files(run):
     if not re.fullmatch(r'[0-9a-f]{16}', run):
         raise ValueError('Expected a fresh 16-hex run identity')
     stem = 'session-' + run
-    # Exclusive directory admission prevents a repeated invocation from replacing evidence.
+    # Refuse an existing run before mkdir: SrvrOS mkdir accepts existing directories.
     commands = [
         'cd /work/srvros-work || exit 1',
+        f'if test -e {stem}; then echo REFUSED existing session; exit 1; fi',
         f'mkdir {stem} || exit 1',
         f'cd {stem} || exit 1',
         'echo USB session running - keep this Terminal open',
