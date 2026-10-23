@@ -1043,3 +1043,30 @@ and progress during the 30-second pause before automatic Ubuntu return. This is
 another diagnostic attempt, not battery acceptance; a failure outside the
 instrumented path can still reset without a report. Collect the matching session
 before any further trial, and retain missing completion as incomplete/failure.
+
+## Failure-display native return (2026-10-23)
+
+Release `b9a2d264ad3a0dd2` (compiled `453e063`), session
+`00065e8929e2f258-00`, has boot/session-a logs but no final report. The user's
+photo now identifies terminal containment during `namespace-initialize`:
+`denied map address=0xfed1c000 bytes=16384`, operation region `\RCRB`, while
+executing `\_SB.PCI0.LPCB.HPET._STA`. The screen shows errors=4, denied=1,
+EC phase=6/error=0, queries=0, no SCI deliveries, worker completed=2/in-flight=0,
+and the photograph prompt before automatic reset. It confirms the diagnostic
+screen is visible on this unit; exact physical pause duration is not measured.
+Battery sampling and clean retirement remain unaccepted.
+
+The captured DSDT's HPET `_STA` reads HPAE in the DWORD at RCRB+`3404`
+(`fed1f404`). The original connected replay already explicitly allowed and
+logged this read with value `80`; the earlier claim that HPTC AML access was
+unneeded was an audit-summary/native-policy mistake. The Air6,1 gate currently
+excludes both the opaque RCRB mapping and that exact DWORD read. Next scope is
+to admit only the captured read, test width/address/write refusals and replay
+initialization; do not permit arbitrary RCRB accesses or writes. No code gate
+has been widened in this closeout.
+
+All 201 prior USB files remain; only `.srvros/meta` changed and two matching
+logs were added. Offline exFAT/allocation pass: 203 files, 380 clusters, zero
+leaks/mismatches/errors. Installed and independent payload/recovery hashes pass;
+Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
+are retained outside build. No reboot is armed.

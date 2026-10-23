@@ -104,7 +104,7 @@ Connected offline initialization used those private memory/PCI snapshots and a
 pass initialization, allowed queries and detach: zero errors/denials/leaks.
 Initialization writes 14 private memory bytes in total, plus ECSS zero at EC
 `10`; reads of EC `60` obtain lid/AC bits. Allowed-query replays add six memory
-writes. These traces are models, not native battery samples or live ownership.
+writes. The replay also reads the HPTC DWORD at `fed1f404` (value `80`), which was mistakenly omitted from the initial native permission list. These traces are models, not native battery samples or live ownership.
 
 | Domain | Air6,1 native permission |
 | --- | --- |
@@ -114,7 +114,7 @@ writes. These traces are models, not native battery samples or live ownership.
 | AML EC | Byte read only at `60`; byte write only zero to ECSS `10` |
 | SMBus | Existing serialized SBS read-word sampler at bank `20`; no charge/control writes |
 | AML PCI | SMBus DWORD `20`; HDAU vendor bytes 0/1; LPC routing bytes `60..63`, `68..6b`; no PCI writes |
-| AML GPIO / chipset MMIO | Denied: the Air6,1 connected audit requires no GPIO or HPTC AML access |
+| AML GPIO / chipset MMIO | Current native policy denies both. The audit did require a read-only HPTC DWORD at `fed1f404`; its omission is the first native initialization failure (see return below). |
 | Query dispatch | `_Q20`, `_Q21`, `_Q40`, `_Q5A` only; zero means no query |
 
 `_Q10` has a shared SMBus-writing non-Darwin branch and is refused even though
@@ -184,3 +184,30 @@ EC cleanup, scheduler yield or resumed worker during the pause. The pause uses
 300 interrupt-independent 100 ms clock waits; a failed clock wait ends it early.
 Successful samples and cleanly returned refusals use the existing saved logs.
 A reset outside this containment path may still have no visible diagnostic.
+
+## Failure-display native return (2026-10-23)
+
+Release `b9a2d264ad3a0dd2` (compiled `453e063`), session
+`00065e8929e2f258-00`, has boot/session-a logs but no final report. The user's
+photo now identifies terminal containment during `namespace-initialize`:
+`denied map address=0xfed1c000 bytes=16384`, operation region `\RCRB`, while
+executing `\_SB.PCI0.LPCB.HPET._STA`. The screen shows errors=4, denied=1,
+EC phase=6/error=0, queries=0, no SCI deliveries, worker completed=2/in-flight=0,
+and the photograph prompt before automatic reset. It confirms the diagnostic
+screen is visible on this unit; exact physical pause duration is not measured.
+Battery sampling and clean retirement remain unaccepted.
+
+The captured DSDT's HPET `_STA` reads HPAE in the DWORD at RCRB+`3404`
+(`fed1f404`). The original connected replay already explicitly allowed and
+logged this read with value `80`; the earlier claim that HPTC AML access was
+unneeded was an audit-summary/native-policy mistake. The Air6,1 gate currently
+excludes both the opaque RCRB mapping and that exact DWORD read. Next scope is
+to admit only the captured read, test width/address/write refusals and replay
+initialization; do not permit arbitrary RCRB accesses or writes. No code gate
+has been widened in this closeout.
+
+All 201 prior USB files remain; only `.srvros/meta` changed and two matching
+logs were added. Offline exFAT/allocation pass: 203 files, 380 clusters, zero
+leaks/mismatches/errors. Installed and independent payload/recovery hashes pass;
+Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
+are retained outside build. No reboot is armed.
