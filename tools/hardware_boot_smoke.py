@@ -148,7 +148,7 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-"))):
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-"))):
         parser.error("--audio-check requires an audio-enabled desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
@@ -206,7 +206,8 @@ def main():
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
-        if network_desktop:
+        device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
+        if network_desktop or device_checks:
             command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
@@ -512,7 +513,7 @@ def main():
                         return
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
-                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
+                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
                     if basic_desktop:
                         shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
                         wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
@@ -542,6 +543,9 @@ def main():
                     for command_text in ("pwd > terminal-home.txt", "pwd >> terminal-home.txt",
                                          "pwd > /missing-pwd-dir/out", "echo $? > terminal-pwd-status.txt"):
                         time.sleep(.5);type_text(command_text);ui.key("ret")
+                    if device_checks:
+                        type_text("sh -c dhcp > device-dhcp.txt");ui.key("ret")
+                        wait_for(serial,lambda s:"net: dhcp ipv4=10.0.2.15" in s,process,30)
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"workspace-terminal.ppm")})
                     type_text("exit");ui.key("ret")
@@ -564,6 +568,9 @@ def main():
                     assert stored.read("srvros-work/Untitled.txt")==b"Laptop trial AaZz09 saved on USB."
                     assert stored.read("srvros-work/terminal-home.txt")==b"/work/srvros-work\n"*2
                     assert stored.read("srvros-work/terminal-pwd-status.txt")==b"1\n"
+                    if device_checks:
+                        assert b"dhcp: 10.0.2.15" in stored.read("srvros-work/device-dhcp.txt")
+                        assert "net: provider=usb-ecm" in serial.read_text(errors="replace")
                     shot_bytes=stored.read(shot_path.removeprefix("/work/"))
                     assert shot_bytes[:2]==b"BM" and len(shot_bytes)==54+1280*800*4
                     assert struct.unpack_from("<II",shot_bytes,18)==(1280,800)
@@ -585,7 +592,7 @@ def main():
                     assert b"deskd: exited" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
                     if args.audio_check:
                         assert b"workspace-devices: audio_state=2" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
-                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-")):
+                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-")):
                         boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log").decode()
                         assert "smc: state=1" in boot_log and "thermal: state=1" in boot_log
                         if manifest["config_version"].startswith("ram-usb-v21-"):
@@ -745,7 +752,7 @@ def main():
                 try:
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
-                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
+                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
                     if basic_desktop:
                         ui.call("human-monitor-command",{"command-line":"sendkey meta_l-spc"});time.sleep(.3)
                         type_text("terminal new app");ui.key("ret")
@@ -783,7 +790,7 @@ def main():
                     destination,report=collect(recovered,desktop[1],logs/"desktop-collections")
                     assert len(report["sessions"])==2
                     assert all(item["exit_snapshot_present"] and item["desktop_exit_seen"] and not item["attention"] for item in report["sessions"])
-                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-")):
+                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-")):
                         for session in report["sessions"]:
                             devices=session["devices"]
                             assert set(devices)=={"audio","thermal","smc","pcm"}
@@ -799,7 +806,7 @@ def main():
                     except subprocess.TimeoutExpired: process.kill();process.wait()
     (logs/"hardware-grub-result.json").write_text(json.dumps({
         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-        "desktop":args.desktop_check,"desktop_session_workload":session_proof if basic_desktop else None,"audio":args.audio_check,
+        "desktop":args.desktop_check,"device_checks":device_checks,"desktop_session_workload":session_proof if basic_desktop else None,"audio":args.audio_check,
         "audio_codec_timer":args.audio_codec_timer if args.audio_check else None,
         "console":args.console_check,"kernel":args.kernel_check,
         "workspace_table":args.workspace_table,"responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"

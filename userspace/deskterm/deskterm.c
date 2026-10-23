@@ -116,14 +116,18 @@ static void clipboard_result(int result) {
         unsigned c=(unsigned char)app.clipboard_store[i];
         if((c<32 && c!='\n' && c!='\r' && c!='\t') || c==127) { status("Paste was not sent: the text contains control characters.");return; }
     }
-    unsigned size=app.clipboard.length,bracket=app.screen.bracketed_paste;
+    unsigned multiline=0;
+    for(unsigned i=0;i<app.clipboard.length;i++)
+        if(app.clipboard_store[i]=='\r' || app.clipboard_store[i]=='\n') multiline=1;
+    unsigned bracket=app.screen.bracketed_paste;
+    unsigned size=desk_terminal_paste_normalize(&app.screen,app.clipboard_store,app.clipboard.length);
     if(size+12*bracket>INPUT_BYTES-app.input_size || app.exited || app.master<0) {
         status("The input queue is full or the session has ended. Paste was not sent.");return;
     }
     if(bracket) enqueue("\033[200~",6);
     enqueue(app.clipboard_store,size);
     if(bracket) enqueue("\033[201~",6);
-    desk_terminal_view_follow(&app.view);status("Clipboard text pasted.");desk_log("deskterm: clipboard pasted bytes=%u\n",size);
+    desk_terminal_view_follow(&app.view);status(multiline && !bracket ? "Pasted as one line. Press Enter to submit." : "Clipboard text pasted.");desk_log("deskterm: clipboard pasted bytes=%u single_line=%u\n",size,multiline && !bracket);
 }
 static void toolbar_action(struct desk_action a) {
     if(a.flags&DESK_WIDGET_REDRAW) app.window.dirty=1;

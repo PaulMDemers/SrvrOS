@@ -108,6 +108,25 @@ class InstallTests(unittest.TestCase):
         for bad in ('../bad','',run+'0'):
             with self.assertRaises(ValueError): files(bad)
 
+    def test_device_check_profile(self):
+        version='ram-usb-v58-desktop-37d8c5d0'
+        self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
+        cfg=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.desktop=trial','srvros.desktop-check=devices','srvros.usb-network=ecm','srvros.audio=hda','srvros.laptop-services=brightness','srvros.sensors=cpu','srvros.smc=read-only'):
+            self.assertIn(token,cfg)
+        for option in ('battery','aml','desktop-scale'):
+            self.assertNotIn('srvros.'+option+'=',cfg)
+        for legacy in ('22','37'):
+            self.assertNotIn('srvros.desktop-check=',boot.limine_config('0123456789abcdef',f'ram-usb-v{legacy}-desktop-37d8c5d0'))
+        for kwargs in ({}, {'desktop_volume':'37d8c5d0','desktop_scale':2}, {'desktop_volume':'37d8c5d0','desktop_battery':True}):
+            with self.assertRaises(ValueError): boot.stage(desktop_device_checks=True,**kwargs)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(desktop_volume='37d8c5d0',desktop_device_checks=True)
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'kernel/srvros.elf')
+
     def test_basic_desktop_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v53-desktop-6ada85bb")
         self.assertIn('srvros.desktop-release=0123456789abcdef',cfg)

@@ -21,10 +21,11 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--soak-seconds',type=int,default=0)
     parser.add_argument('--second-usb',action='store_true',help='Also enumerate an inactive ECM adapter on a separate network')
+    parser.add_argument('--device-checks',action='store_true',help='Exercise attended script gates with explicit synthetic observations, EOF and replay refusal')
     args=parser.parse_args()
     if not 0<=args.soak_seconds<=3600:parser.error('soak duration must be 0..3600 seconds')
     root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('usb-ecm-multiple' if args.second_usb else 'usb-ecm-soak' if args.soak_seconds else 'usb-ecm');out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('usb-ecm-device-checks' if args.device_checks else 'usb-ecm-multiple' if args.second_usb else 'usb-ecm-soak' if args.soak_seconds else 'usb-ecm');out.mkdir(parents=True,exist_ok=True)
     original=boot.make_limine_conf
     boot.make_limine_conf=lambda w,h:original(w,h)+'    cmdline: srvros.usb-network=ecm\n'
     output=b'';consumed=0
@@ -112,6 +113,37 @@ def main():
                     serial.sendall(b'\n')
                     wait(b'Then type reboot and press Enter. There is no timer.',60)
                     wait(b' $ ')
+                    if args.device_checks:
+                        serial.sendall(f'sh /fat/share/examples/device-checks.sh localhost 10.0.2.2 {http.server_port}\n'.encode())
+                        gates=[
+                            (b'Return here and press Enter for the left-only', b'\n'),
+                            (b'Describe speaker channels and clarity', b'vm-speakers-skipped\n'),
+                            (b'Keep volume at 10 percent. Speakers must stay silent.', b'\n'),
+                            (b'Describe left/right/both, jack detection', b'vm-headphones-skipped\n'),
+                            (b'Then press Enter here to replay', b'\n'),
+                            (b'Describe volume, Stop/recovery', b'vm-controls-skipped\n'),
+                        ]
+                        for marker,answer in gates:
+                            wait(marker,40);serial.sendall(answer)
+                        wait(b'UNPLUG the Ethernet cable ONLY, then press Enter here.')
+                        time.sleep(2);q.call('set_link',{'name':'usbnet','up':False});serial.sendall(b'\n')
+                        wait(b'RECONNECT the Ethernet cable, then press Enter here.',60)
+                        time.sleep(2);q.call('set_link',{'name':'usbnet','up':True});serial.sendall(b'\n')
+                        for marker,answer in [
+                            (b'Optionally run DNS example.com',b'vm-network-ui-skipped\n'),
+                            (b'Describe physical secondary press',b'vm-press-skipped tap-skipped\n'),
+                            (b'Describe primary drag',b'vm-drag-skipped cancel-skipped\n'),
+                            (b'Leave the screenshot notification',b'\n')]:
+                            wait(marker,60);serial.sendall(answer)
+                        wait(b'Checks recorded. Completion is NOT a pass');wait(b' $ ')
+                        command_line('sh /fat/share/examples/device-checks.sh')
+                        start=len(output);command_line('echo replay-status=$?')
+                        assert b'replay-status=1' in output[start:]
+                        command_line('mkdir /fat/device-eof')
+                        command_line('touch /fat/device-empty.txt')
+                        command_line('HOME=/fat/device-eof sh /fat/share/examples/device-checks.sh < /fat/device-empty.txt')
+                        start=len(output);command_line('echo checklist-eof-status=$?')
+                        assert b'checklist-eof-status=1' in output[start:]
                     command_line('touch /fat/network-empty.txt')
                     command_line("sh -c 'read EOF_GATE' < /fat/network-empty.txt")
                     start=len(output);command_line('echo eof-status=$?')
@@ -200,6 +232,19 @@ def main():
                     (out/name).write_bytes(report)
                 assert b'disconnected-dhcp-status=1' in fixture.read('network-down.txt')
                 assert fixture.read('network-trial.txt')==b'started\ncompleted\n'
+                if args.device_checks:
+                    assert fixture.read('device-checks/sequence.txt')==b'started\ncompleted\n'
+                    observed=fixture.read('device-checks/observations.txt')
+                    for marker in (b'vm-speakers-skipped',b'vm-headphones-skipped',b'vm-controls-skipped',b'vm-network-ui-skipped',b'vm-press-skipped tap-skipped',b'vm-drag-skipped cancel-skipped'):assert marker in observed
+                    assert fixture.read('device-eof/device-checks/sequence.txt')==b'started\n'
+                    for name in ('network-before.txt','network-after.txt'):
+                        report=fixture.read('device-checks/'+name)
+                        for marker in (b'dhcp-status=0',b'dns-status=0',b'http-status=0',body):assert marker in report
+                    assert b'disconnected-dhcp-status=1' in fixture.read('device-checks/network-down.txt')
+                    for name in ('sequence.txt','observations.txt','network-before.txt','network-down.txt','network-after.txt','speakers.txt','headphones.txt','headphone-stop.txt'):
+                        (out/('device-'+name)).write_bytes(fixture.read('device-checks/'+name))
+                    print('device-checks: PASS guest prompts/reports, nested cable checks, EOF and replay refusal; human audio/gesture acceptance NOT TESTED')
+
 
     finally:
         stop.set();worker.join(timeout=2);udp.close()

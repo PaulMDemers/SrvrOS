@@ -2,6 +2,86 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: close device acceptance; refine two-finger tap timing
+
+Trackpad-only release `4414f888007a8407` (compiled `b1486c6`, staged `d510c39`)
+returned and was collected from session `session-00065e87d79869ca-00`.
+Saved observations explicitly confirm physical secondary click and secondary tap;
+the user reports that tap requires nearly simultaneous finger contact. The prompted
+primary drag/steering, post-scroll suppression and Sketch Escape checks are recorded
+as "All worked properly". The screenshot shows those observations and the separate
+final prompt, and `sequence.txt` contains started/completed. Accept these scoped
+gesture checks while retaining the tap timing usability issue. Hardware transport
+fault cancellation remains synthetic evidence, not accepted by Sketch Escape.
+
+The matching session has clean desktop retirement, an exit snapshot and no collector
+attention. All earlier files, including audio/network reports, are unchanged; only
+expected `.srvros/meta` changed. Offline fsck and allocation pass: 1006 files,
+2121 clusters, zero leaks/mismatches/errors. Ubuntu default, consumed one-shot and
+installed/recovery hashes pass. Current remains `4414f888007a8407`; previous
+`9aa8dbf6fbda8252` retains the accepted battery desktop. USB is unmounted and no
+reboot is armed. Raw collection, observations and screenshot survive build cleanup
+under `~/.local/share/srvros/pending-trials/4414f888007a8407/returned`; scoped
+acceptance is in `~/.local/share/srvros/accepted-evidence/4414f888007a8407`.
+
+PR83 closes the guided-checklist/paste correction with the existing local build,
+core, terminal guest and exact EFI/audio/GPT validation. Main `df44fa0` was fetched,
+inspected and merged: Air6,1 headphone/Stop acceptance documentation only. Pro PR19
+`e66c665` owns an opt-in PBF/MAC clock prerequisite candidate; native comparison
+is pending and earlier TXBE write failures remain failures. No Wi-Fi code is copied.
+Next bounded work touches only trackpad tap policy, host regressions and current
+documentation: relax contact arrival/release timing without changing physical
+click ownership, displacement/scroll suppression, model gates or installed payload.
+
+### October 23 audio/network round (collected)
+
+Collected release `b6306e33e9590538` / v58 (source `2ae5e7a`) after the
+October 23 attended round. The tester reports normal operation. Speaker and
+headphone observations each say success; both six-second files completed with
+zero underruns. The Stop replay exited 1 with an empty queue and no owner;
+the user recorded successful audio controls. HDA remained ready with no error,
+five test requests completed, and the jack was connected at final exit. Audible
+channel/isolation acceptance is based on the prompted tester observations;
+final unplug/speaker recovery is not independently established by that snapshot.
+
+The exact `0b95:1790` rev0200 adapter passed native DHCP, DNS and HTTP 200 both
+before and after cable removal. The disconnected report showed link down and
+DHCP failure. Network Utility's DNS query also completed. Live System link-down
+refresh was not captured (saved refreshes show link up), so retain that narrow
+visual check separately. This does not establish USB hot-unplug recovery.
+
+A 138-byte pasted Network Utility report supplied newline-delimited answers to
+the remaining reads. The script completed normally, but the secondary-input and
+drag-cancel fields contain network report lines; **trackpad acceptance is not
+established**. The follow-up added Terminal paste normalization when bracketed
+paste is not enabled, host/guest regressions, and a trackpad-only attended script.
+Touched scope: deskterm, reusable terminal helper/tests, shell read overflow handling, checklist packaging/Help
+and this unit's documentation. No device/firmware gates change. PR83 owns this
+work; Pro PR19 retains Wi-Fi ownership. Main `d2d56a6` adds Air6,1 audio evidence
+and endurance instructions and is merged here; it adds no new driver code.
+
+Session `session-00065e8778243499-00` matches the release, has an exit snapshot,
+clean desktop retirement and no collector attention. All prior data was retained;
+only expected `.srvros/meta` changed. Offline fsck and allocation passed (999
+files, 2073 clusters, zero leaks/mismatches). Ubuntu default, consumed one-shot
+and recovery were verified. At collection, current was `b6306e33e9590538`, previous accepted
+battery desktop is `9aa8dbf6fbda8252`. USB is unmounted and no reboot is armed.
+Raw reports and run records are retained outside build under
+`~/.local/share/srvros/pending-trials/b6306e33e9590538/returned`; validation is in
+`~/.local/share/srvros/validation/device-checks-b6306e33e9590538`.
+
+The trackpad-only follow-up was installed as `4414f888007a8407` (compiled
+`b1486c6`, staged documentation head `d510c39`), retaining `9aa8dbf6fbda8252` as
+previous recovery. No reboot is armed. Full build/core/docs, host paste/checklist
+cases, guest multiline paste across consecutive reads, oversized-read draining,
+trackpad script reports and the exact EFI/audio/GPT save/reopen rehearsal passed.
+Help's first screen shows the trackpad-only command. The initial VM observations were explicitly marked skipped; native results follow above. Before
+installation the existing USB passed fsck/allocation with all 999 files/2073
+clusters and no leaks. Earlier device reports are included in the pre-run hashes.
+Validation, payload and run/collector survive cleanup under
+`~/.local/share/srvros/validation/trackpad-followup-4414f888007a8407` and
+`~/.local/share/srvros/pending-trials/4414f888007a8407`.
+
 ### Integrated v55 desktop physically accepted (2026-10-23)
 
 Release `9aa8dbf6fbda8252` (compiled `7ab571f`, staged `d5bb51d`) passed the
@@ -41,9 +121,10 @@ survive cleanup under `~/.local/share/srvros/known-good/9aa8dbf6fbda8252` and
 PR76 combines existing brightness, HDA, read-only CPU/SMC and CDC ECM discovery
 with ordinary battery-owned Home. It adds cached 20%/5% warnings and battery-label
 access to System, without firmware I/O in UI paths or new native model gates.
-No Air network adapter is attached: Ethernet acceptance remains separate.
-Headphones/channel isolation, targeted secondary click/cancellation, physical
-low-charge alerts, calibration, battery life and suspend remain open.
+An Air network adapter is now attached; Ethernet acceptance remains separate.
+The October 23 rounds above close prompted headphone/channel and secondary-click/
+app-cancellation checks. Physical low-charge alerts, calibration, battery life and
+suspend remain open; secondary tap timing still needs refinement.
 
 The full build/both runtime kernels/core/docs and combined normal, PCM playback,
 pending-save cancellation, unavailable battery and legacy ordinary VM cases

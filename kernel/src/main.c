@@ -746,7 +746,9 @@ void kmain(void) {
             console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
             console_printf("desktop-trial: boot options=%s\n",cmdline);
             (void)workspace_log_start();
-            bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm");
+            /* Device checks retain ECM but start Help; legacy network trials keep their script. */
+            bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm") &&
+                !cmdline_has_token(cmdline,"srvros.desktop-check=devices");
             bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
             bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
                 (scaled?"--network-trial --scale=2":"--network-trial") :
