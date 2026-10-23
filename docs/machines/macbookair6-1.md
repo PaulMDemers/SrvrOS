@@ -655,3 +655,21 @@ verified durable backups. Ubuntu default/recovery are intact; one-shot is empty.
 Refusal and saved preference bytes are physically verified; restoration remains
 pending this second boot. Newly merged PR #69 is not part of this installed
 release; do not widen the trial to its battery startup behavior.
+
+### Preference restoration physically accepted (2026-10-23)
+
+Phase 2 `3559ab3a5aab1fb8` returned on unchanged release `db7ce82008f4b9a6`.
+New matching session `session-00065e84cfa28c9c-00` has its exit snapshot and
+desktop exit, with no collector attention. The user confirms settings persisted;
+the saved screenshot shows Trackpad speed 5 of 5 and acceleration unchecked.
+`desktop.conf` is byte-identical to phase 1, and the earlier refusal receipts and
+completed workload still verify. All 165 preboot files are preserved except the
+expected metadata update. New files are the four session logs and screenshot.
+Offline fsck is clean (170 files); allocation passes with 249 clusters and zero
+leaks/mismatches/errors. Evidence and screenshot have a hash-verified durable
+backup outside build. One-shot is empty, USB unmounted, and recovery verified.
+
+This closes the focused completed-workload rerun refusal and speed/acceleration
+persistence checks on this unit. It does not expand acceptance to every preference,
+concurrent script starts, optional hardware services or other Mac models. No
+new boot is staged or armed; both focused runs are collected.
