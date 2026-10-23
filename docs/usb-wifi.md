@@ -1388,3 +1388,33 @@ sufficient. Next audit register semantics and prerequisite ordering before
 selecting another trial; retain the strict failed checks and keep RF disabled.
 Evidence archived in `wifi-txbe-direct-e821968/failed-native-collection` outside
 build. No initialization acceptance follows from transport completion.
+
+### PBF/MAC clock prerequisite discrepancy
+
+The post-v27 ordering audit found a concrete omitted prerequisite. Linux v6.18
+[initialization ordering](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+runs MAC register setup before baseband setup and identifies SYS_CTRL bits11:10
+as PBF/MAC clock enables. Its
+[MAC table](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h)
+sets PBF_SYS_CTRL (local0400) to00080c00. Our current compact setup never writes
+0400; the readiness probe records PBF but does not require those clock bits.
+
+All five saved v23 through v27 diagnostic sessions report PBF00080000 at readiness,
+with MAC_SYS_CTRL0. The difference is exactly0c00, bits11:10; reset bits4:0 remain
+zero in both values. The CORE readiness value and successful register readbacks
+therefore do not establish that these clocks were enabled. This is a plausible
+missing prerequisite, not proof of the cause of TXBE10's nonzero readback.
+The partial MAC initialization also omits other reference settings; do not claim
+full Linux sequence equivalence or bulk-import power/RF settings as a shortcut.
+
+Next bounded scope: an explicit clock prerequisite diagnostic before compact
+phase2/baseband readiness, after the two accepted MAC phases. Require the exact
+captured PBF baseline80000 and disabled/idle MAC, write only80c00 once through
+EP0, verify exact readback and disabled/idle MAC, then continue existing guarded
+phases and the read-only TXBE10 MCU/EP0 comparison. This isolates the prerequisite
+without another TXBE10 write or relaxing a failed write check. Reuse no MCU
+identifier and retain the current CORE guards; any changed prerequisite fails
+and saves evidence. Implementation/native validation remain pending. No RF
+transmit/receive enable, other MAC-table expansion or startup change is accepted.
+The local `txbe-prerequisite-audit` receipt checks source ordering, bit arithmetic
+and five exact native logs; it is not a hardware trial.

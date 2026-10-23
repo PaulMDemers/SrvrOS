@@ -3237,3 +3237,19 @@ Evidence archived outside build in wifi-txbe-direct-e821968/failed-native-collec
 Ubuntu default, consumed one-shot and installed/recovery hashes verified.
 Workspace clean:193files/538clusters, zero leaks/mismatches/errors; unmounted.
 Run/checkpoint collected with failure recorded; no reboot armed.
+
+Post-v27 prerequisite audit found missing PBF/MAC clock setup: Linux v6.18
+sets0400=80c00 before baseband initialization; current code only observes this
+register. Five native v23..v27 readiness receipts consistently show80000,
+missing bits11:10 (0c00), with MAC_SYS_CTRL0. Existing CORE readiness does not
+establish clock enablement. Receipt/script/source and log hashes archived in
+txbe-prerequisite-audit; reference ordering and all five receipts verified.
+Causality remains unproven and other MAC-table omissions remain separate.
+Selected next scope: exact80000->80c00 EP0 transition after MAC phases0/1,
+before baseband readiness, with disabled/idle MAC checks, one attempt and exact
+readback; then existing guarded phases and read-only TXBE10 comparison. No new
+TXBE write, MCU sequence reuse, relaxed CORE gate or RF enable. Implementation
+pending. No installed payload changed; currentacaea56aaa88d52f and recovery
+e47dca3a6b30c6c1 retained, no reboot armed. Maind2d56a6 and PR83 attended-device
+scope inspected; integrated base22fd266 unchanged. Shared implementation scope
+would be MCU/xHCI/main/profile/tests; current change is audit documentation only.
