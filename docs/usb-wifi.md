@@ -1248,7 +1248,7 @@ succeeded or failed. Keep the original v22 mismatch unaccepted. Next comparison:
 TXBE10-only zero write at unused sequence15 after phases0..10, leaving TXBE9
 unchanged, with guarded before/after samples. No new trial is installed or armed.
 
-### Isolated TXBE10 comparison (native pending)
+### Isolated TXBE10 comparison (native readback failed)
 
 Firmware v25 (`--wifi-txbe-second`, requiring `--wifi-txbe-start`, excluding
 next/observe/first alternatives) repeats the eleven accepted phases, records
@@ -1264,3 +1264,25 @@ All fully guarded samples are logged even if final readback verification fails;
 a nonzero TXBE10 yields failed completion, never silently accepted status.
 Both alternatives retain their own exact packet/reply/readback tests. Results
 save and return automatically; RF/connectivity and the v22 quartet stay unaccepted.
+
+Native source `c96e810`, release `f8b4b41d736bd4e2`, session
+`00065e87382297d7-00` completed collection but failed the strict readback check.
+All eleven prerequisite phases and 44 readbacks passed. The isolated sequence15
+command sent16/received16 with the exact expected reply and ACK validated.
+The result was status4, attempted1, write_attempted1, submitted1, complete0;
+both before/after stages completed64 reads and eight fully guarded samples.
+TXBE10 stayed `0x37fff` in all sixteen samples, before at2867128..2873127us
+and after at2873493..2875377us. TXBE9/12/13 stayed zero; MAC0 and
+COREf000f200 held at every boundary. Both capture completion markers were NO.
+
+Together with v24, this shows that the TXBE9-only write changed the observed
+TXBE10 value, whereas a TXBE10-only zero write produced no observed change in
+this window. A matching MCU reply does not establish a zero register readback.
+This does not yet distinguish register semantics from a write/access-path issue.
+Next audit that distinction before choosing another hardware trial; retain the
+strict failure and do not enable the rest of phase11 or RF on this evidence.
+Raw logs and run receipts are archived outside build in
+`wifi-txbe-second-c96e810/failed-native-collection`. Automatic Ubuntu recovery,
+consumed one-shot, payload hashes and retained desktop recovery were verified.
+Offline workspace checks passed:189 files/532 clusters, zero leaks, allocation
+mismatches or errors. Workspace unmounted; no reboot armed.

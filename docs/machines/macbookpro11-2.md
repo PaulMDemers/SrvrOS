@@ -3138,3 +3138,20 @@ retained. Observation70e0236472c320bc removed from ESP only after archive equali
 verification. Workspace clean:187files/529clusters, zero allocation errors;
 unmounted. Ubuntu default, no reboot armed. Await cold adapter power cycle;
 collect matching session first and preserve failed readbacks as failures.
+
+TXBE10-only comparison collected with a failed readback: sourcec96e810,
+releasef8b4b41d736bd4e2, session00065e87382297d7-00. All eleven compact
+phases/44 readbacks passed; sequence15 sent16/received16 with exact reply and
+ACK1, but status4 complete0. Both stages completed64 reads/eight samples.
+TXBE10 remained37fff before2867128..2873127us and after2873493..2875377us;
+TXBE9/12/13 stayed0, all MAC0/COREf000f200 boundaries held. Both capture
+completion markers NO. Unlike the TXBE9-only comparison, this isolated zero
+write produced no observed TXBE10 change. Register semantics versus write/access
+behavior remains unresolved; no relaxed gate or further initialization accepted.
+Next scope is auditing that distinction before selecting another hardware trial.
+No shared source changes in this collection. RF/connectivity not tested.
+Evidence and failure-specific collector archived outside build in
+wifi-txbe-second-c96e810/failed-native-collection. Ubuntu default, consumed
+one-shot, installed payload and desktop recovery hashes verified. Workspace
+clean:189files/532clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected with failure recorded and no reboot armed.
