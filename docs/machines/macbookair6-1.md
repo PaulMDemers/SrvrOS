@@ -399,3 +399,13 @@ activation, scrollbar capture, focus, drag/resize, client/server cleanup and
 console return/relaunch. Host pixel regression verifies the fast-tap highlight
 and its expiry. Logs: `build/review/air61-feedback-{build,host,compositor}.log`.
 No new hardware stage or installation was made; v50 remains installed unarmed.
+
+## Highlight verification preparation (2026-10-22)
+
+Base `52ef3ea`, branch `device/macbookair6-1/highlight-trial`: prepare a fresh
+v50 request with merged Type study feedback fix. No implementation changes;
+recheck build/host regression and exact-stage GPT VM, retain console recovery,
+install unarmed. Primary objective: light taps on Text size visibly highlight
+once, activate once, then restore; compare physical clicks and check repeated
+taps/cancel/resize do not leave the highlight stuck. Tap/typing checks remain
+enabled. PR #19 Wi-Fi remains independent. Prior run is collected and archived.
