@@ -1072,3 +1072,13 @@ and TXC0 stayed00280403. All earlier phases,32 register readbacks and
 both completion markers passed; MAC0 and CORE0f000f200 preserved.
 This accepts these initial settings only, leaving identifiers12..15 unused.
 Remaining TXC/RXC/baseband initialization, RF and connectivity are pending.
+
+### TXC1 and RXC1/2/3 extension (native acceptance pending)
+
+Firmware v19 (`--wifi-rxc-start`, requiring `--wifi-agc-tail`) adds phase8
+at sequence12: fixed offsets2404/2504/2508/250c receive0/12/11/5.
+The40-byte command requires all eight prior phases, exact16-byte reply,
+four independent readbacks and disabled MAC/captured CORE guards. Prior
+profiles retain their limits. No RF enable or command identifier recycling.
+Host fixtures cover nine fixed packets, read allowlists, failure/cancellation
+and ownership/quarantine paths.75 boot-profile tests pass.

@@ -168,10 +168,13 @@ static const struct mt76_mcu_register_pair agc_next[4]={
 static const struct mt76_mcu_register_pair agc_tail[4]={
     {0x23e4,0x1010},{0x23ec,0xbaa20e96},{0x23fc,1},{0x2400,0x00280403}
 };
+static const struct mt76_mcu_register_pair rxc_start[4]={
+    {0x2404,0},{0x2504,0x12},{0x2508,0x11},{0x250c,5}
+};
 static const struct mt76_mcu_register_pair *compact_plan(unsigned phase) {
     switch(phase) {
     case 0:return mac_basics;case 1:return mac_format;case 2:return bbp_core;
-    case 3:return bbp_front;case 4:return bbp_batch;case 5:return agc_more;case 6:return agc_next;case 7:return agc_tail;default:return 0;
+    case 3:return bbp_front;case 4:return bbp_batch;case 5:return agc_more;case 6:return agc_next;case 7:return agc_tail;case 8:return rxc_start;default:return 0;
     }
 }
 bool mt76_mcu_compact_read_allowed(unsigned phase,uint32_t address) {

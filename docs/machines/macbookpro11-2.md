@@ -2903,3 +2903,12 @@ Workspace clean:175files/511clusters, zero leaks/allocation mismatches,
 unmounted. Run/checkpoint collected and unarmed. Next remaining TXC/RXC
 and other baseband initialization; identifiers12..15 unused. RF, scanning
 and connectivity remain pending; no sequence recycling accepted.
+
+Active scope: phase8 TXC1 and RXC1/2/3 at sequence12, fixed offsets
+2404/2504/2508/250c and values0/12/11/5 from pinned Linuxv6.18 MT7610
+initialization. Require all eight accepted phases and MAC/CORE boundaries;
+v19 limit9, prior limits unchanged. Touch MCU plan, xHCI limits, capture,
+profile/tests. Fetched mainbd1e834; PR73 workload refusal evidence and
+ordinary desktop VM changes inspected, independent of Wi-Fi probe path.
+Air PR69 remains battery scope. Actual integrated base remains22fd266.
+No RF/connectivity or sequence recycling in this trial.
