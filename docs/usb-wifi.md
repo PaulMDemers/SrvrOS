@@ -1639,7 +1639,7 @@ MAC0/COREf000f200 boundaries. Both completion markers were saved; no BBP table
 ran. This accepts the bounded FCE/WMM operation on this unit. It does not resolve
 the earlier baseband mismatches or accept RF/connectivity.
 
-### Bounded MAC policy group (v35; native result pending)
+### Bounded MAC policy group (v35; first native readback failed)
 
 `--wifi-mac-policy` requires the v34 route prerequisites and appends one fixed
 40-byte sequence7 command for common-table TX_LINK (`1350=1020`), TX_TIMEOUT
@@ -1650,3 +1650,13 @@ Twelve reads cover MAC/CORE boundaries and all four before/after values; the
 firmware ACK and each readback must match. No retry, full BBP table, RF enable,
 or new PBF/DMA/power setting is included. This is a bounded subset of Linux
 v7.0 common_mac_reg_table, not complete reference-order initialization.
+
+On 2026-10-23 Pro11,2 release `ee842dc8bcc56669`, session
+`00065e89a75cfd3a-00`, completed v34 routing but failed the first policy readback.
+The 40-byte sequence7 command received the exact 16-byte ACK, including the
+requested first value `1020`. TX_LINK read `007f1020` after starting at `007f0020`,
+rather than the required `00001020`. Status4 stopped at read7 with ack_mask1;
+the other three after-values and final MAC/CORE guards were not read. Their zero
+summary fields are unpopulated state, not hardware observations. Both capture
+markers report NO. This is a failed strict comparison; retained upper bits need
+reference/field-semantics investigation before changing the acceptance rule.

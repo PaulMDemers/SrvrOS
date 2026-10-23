@@ -3661,3 +3661,26 @@ no allocation errors, unmounted. No one-shot armed. Run/collector:
 Durable payload/evidence/helpers: `~/.local/share/srvros/macbookpro11-2/wifi-mac-policy-78f1944/`.
 Next: readiness-confirmed cold adapter power cycle, automatic capture/return,
 then collect matching session before any new run. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v35 failed TX_LINK strict readback
+
+Collected release `ee842dc8bcc56669`, source `78f1944`, session
+`00065e89a75cfd3a-00`. Firmware/reset/timing, compact0/1, clock/readiness and v34
+FCE/WMM passed. Policy sequence7 sent40/received16, cc13/residue1008, exact ACK
+including first requested value1020. Native state: status4, attempted1,
+submitted1, complete0, reads7, batches_attempted1/completed0, ack_mask1.
+TX_LINK1350 before007f0020, requested00001020, observed007f1020. Upper bits
+remained set; no cause inferred. Other three target writes were submitted but
+their readbacks and final MAC/CORE guards were not reached. Zero fields are not
+observations. Both capture completion markers NO; RF/connectivity NOT_TESTED.
+
+Prepared success collector remains unchanged. Separate failure collector
+`build/bringup/collect_wifi_mac_policy_failure.py` verifies this exact failure
+and recovery state. Full matching collection archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-policy-78f1944/failed-native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean209files/562clusters, zero leaks/mismatches, unmounted. Run and
+checkpoint marked collected failure, no reboot armed. Next: inspect TX_LINK
+field semantics/reference behavior before relaxing exact readback or testing
+another write; remaining policy registers are unobserved.
