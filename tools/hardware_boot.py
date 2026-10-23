@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|59)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -101,9 +101,10 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith("ram-usb-v37-"): cmdline += " srvros.usb-network=ecm"
         if version.startswith("ram-usb-v53-"):
             cmdline += f" srvros.desktop-release={release}"
-        if version.startswith(("ram-usb-v56-","ram-usb-v57-")):
+        if version.startswith(("ram-usb-v56-","ram-usb-v57-","ram-usb-v59-")):
             cmdline += f" srvros.desktop-release={release} srvros.laptop-services=brightness"
-        if version.startswith("ram-usb-v57-"): cmdline += " srvros.audio=hda"
+        if version.startswith(("ram-usb-v57-","ram-usb-v59-")): cmdline += " srvros.audio=hda"
+        if version.startswith("ram-usb-v59-"): cmdline += " srvros.sensors=cpu srvros.smc=read-only"
         if version.startswith(("ram-usb-v54-","ram-usb-v55-")):
             cmdline = cmdline.replace("srvros.desktop=trial", "srvros.desktop=session")
             cmdline += f" srvros.desktop-release={release} srvros.battery=on"
@@ -182,12 +183,12 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Laptop services require the explicit ordinary battery desktop profile")
     if desktop_battery and (desktop_volume is None or desktop_basic or desktop_scale != 1 or desktop_brightness or desktop_audio or desktop_sensors or desktop_network):
         raise ValueError("Battery desktop requires its own unscaled Home profile")
-    if desktop_basic and (desktop_volume is None or desktop_scale != 1 or desktop_sensors or desktop_network):
-        raise ValueError("Basic desktop requires an unscaled volume; only explicit brightness/audio are optional")
+    if desktop_basic and (desktop_volume is None or desktop_scale != 1 or desktop_network):
+        raise ValueError("Basic desktop requires an unscaled volume; only explicit brightness/audio/sensors are optional")
     if desktop_network and not desktop_sensors:
         raise ValueError("desktop network requires the scaled sensor/audio profile")
     if desktop_sensors and not desktop_audio:
-        raise ValueError("desktop sensors require the scaled audio/brightness profile")
+        raise ValueError("desktop sensors require the explicit audio/brightness profile")
     if desktop_audio and not desktop_brightness:
         raise ValueError("desktop audio requires explicit brightness profile")
     if desktop_brightness and ((desktop_scale!=2 and not desktop_basic) or desktop_volume is None):
@@ -222,7 +223,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v{55 if desktop_services else 54 if desktop_battery else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
+        version = f"ram-usb-v{55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
@@ -424,9 +425,9 @@ def main():
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     parser.add_argument("--release", help="install this exact staged release")
     parser.add_argument("--keep-previous", action="store_true", help="retain the verified existing recovery entry during install")
-    parser.add_argument("--desktop-basic",action="store_true",help="unscaled desktop/input; optional --desktop-brightness and --desktop-audio")
+    parser.add_argument("--desktop-basic",action="store_true",help="unscaled desktop/input; optional --desktop-brightness, --desktop-audio and --desktop-sensors")
     parser.add_argument("--desktop-network",action="store_true",help="enable ECM on the scaled sensor desktop")
-    parser.add_argument("--desktop-sensors",action="store_true",help="enable read-only CPU and fan telemetry in the scaled audio desktop")
+    parser.add_argument("--desktop-sensors",action="store_true",help="enable read-only CPU and fan telemetry in the explicit audio desktop")
     parser.add_argument("--desktop-audio",action="store_true",help="enable HDA in the explicit brightness trial")
     parser.add_argument("--desktop-brightness",action="store_true",help="enable brightness only in the scaled desktop trial")
     parser.add_argument("--desktop-scale",type=int,choices=(1,2),default=1,help="explicit desktop integer scale")

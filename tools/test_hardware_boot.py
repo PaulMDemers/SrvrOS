@@ -146,7 +146,7 @@ class InstallTests(unittest.TestCase):
             self.assertIn(token,cfg)
         for option in ('aml','smc','power','capture','sensors','usb-network','battery','desktop-scale'):
             self.assertNotIn('srvros.'+option+'=',cfg)
-        for kwargs in ({'desktop_scale':2},{'desktop_sensors':True},{'desktop_battery':True}):
+        for kwargs in ({'desktop_scale':2},{'desktop_network':True},{'desktop_battery':True}):
             with self.assertRaises(ValueError):
                 boot.stage(desktop_volume='6ada85bb',desktop_basic=True,desktop_brightness=True,desktop_audio=True,**kwargs)
         with self.assertRaises(ValueError):
@@ -155,6 +155,25 @@ class InstallTests(unittest.TestCase):
             path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
         with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
             release=boot.stage(desktop_volume='6ada85bb',desktop_basic=True,desktop_brightness=True,desktop_audio=True)
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_basic_sensors_profile(self):
+        version='ram-usb-v59-desktop-6ada85bb'
+        self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
+        cfg=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.sensors=cpu','srvros.smc=read-only','srvros.audio=hda','srvros.laptop-services=brightness','srvros.desktop=trial'):
+            self.assertIn(token,cfg)
+        for option in ('aml','power','capture','usb-network','battery','desktop-scale'):
+            self.assertNotIn('srvros.'+option+'=',cfg)
+        for kwargs in ({'desktop_scale':2},{'desktop_network':True},{'desktop_battery':True}):
+            with self.assertRaises(ValueError):
+                boot.stage(desktop_volume='6ada85bb',desktop_basic=True,desktop_brightness=True,desktop_audio=True,desktop_sensors=True,**kwargs)
+        with self.assertRaises(ValueError):
+            boot.stage(desktop_volume='6ada85bb',desktop_basic=True,desktop_brightness=True,desktop_sensors=True)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(desktop_volume='6ada85bb',desktop_basic=True,desktop_brightness=True,desktop_audio=True,desktop_sensors=True)
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
 
     def test_battery_desktop_profile(self):

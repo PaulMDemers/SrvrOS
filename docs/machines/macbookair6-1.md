@@ -59,7 +59,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
-| Temperature/fan | Linux inventory only | Native read-only profile evidence |
+| Temperature/fan | Exact CPU/one-fan read-only profile implemented; native acceptance pending | Live System/Sensors freshness and desktop/audio coexistence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
