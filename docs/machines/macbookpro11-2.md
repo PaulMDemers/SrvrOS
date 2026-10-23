@@ -2935,3 +2935,11 @@ and installed candidate/desktop recovery verified. Workspace clean:
 177files/514clusters, zero leaks/allocation mismatches, unmounted.
 Run/checkpoint collected and unarmed. Next remaining RXC/baseband settings
 using identifiers13..15; no sequence reuse, RF or connectivity acceptance.
+
+Active scope: phase9 RXC4/5/7 and TXO8 at sequence13, fixed offsets
+2510/2514/251c/2620 and values0/f977c4ec/90/0 from pinned Linuxv6.18
+MT7610 initialization. Require nine prior phases and MAC/CORE boundaries;
+v20 limit10, earlier limits preserved. Touch MCU plan, xHCI limits,
+capture/profile/tests. Refetched mainbd1e834 unchanged; Air PR69 battery
+and Air6,1 desktop evidence remain separate. Actual integrated base22fd266.
+No RF, connectivity or command identifier recycling. Native result pending.

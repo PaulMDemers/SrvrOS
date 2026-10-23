@@ -2314,12 +2314,12 @@ static void compact_fixture(struct xhci_device *d,unsigned phase) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     *m=(struct xhci_wifi_mcu){.configured=true,.identity_validated=true,.write_validated=true,
         .timing={.complete=true,.ack_validated=true},.compact_mode=true,.compact_active=true,
-        .compact_limit=9,.compact_next=phase,.bbp={.complete=true,.core=0xf000f200}};
+        .compact_limit=10,.compact_next=phase,.bbp={.complete=true,.core=0xf000f200}};
     for(unsigned n=0;n<phase;n++) {m->compact[n]=(struct mt76_mcu_mac){.complete=true,.ack_mask=1,.batches_completed=1};m->compact_submitted[n]=1;}
     m->compact[phase]=(struct mt76_mcu_mac){.attempted=true,.batches_attempted=1};
 }
 static void test_wifi_compact_binding(void) {
-    for(unsigned phase=0;phase<9;phase++)for(unsigned fault=0;fault<28;fault++) {
+    for(unsigned phase=0;phase<10;phase++)for(unsigned fault=0;fault<28;fault++) {
         if((fault==11 || fault==12) && phase<2)continue;
         if(fault>=13 && fault<=16 && !phase)continue;
         if(fault==27 && phase<5)continue;
@@ -2341,7 +2341,7 @@ static void test_wifi_compact_binding(void) {
         if(fault==7)f->active=false;
         if(fault==8)m->compact_mode=false;
         if(fault==9)m->compact_active=false;
-        if(fault==10)m->compact_next=9;
+        if(fault==10)m->compact_next=10;
         if(fault==11)m->bbp.complete=false;
         if(fault==12)m->bbp.core=0;
         if(fault==13)m->compact[phase-1].complete=false;
@@ -2357,9 +2357,9 @@ static void test_wifi_compact_binding(void) {
         if(fault==23)events[1].status=6u<<24;
         if(fault==24)events[1].parameter_low+=16;
         if(fault==25)m->compact_limit=0;
-        if(fault==26)m->compact_limit=10;
+        if(fault==26)m->compact_limit=11;
         if(fault==27)m->compact_limit=phase;
-        if(!fault && phase<8)m->compact_limit=phase<5?5:phase+1; /* Preserve the accepted five-phase profile. */
+        if(!fault && phase<9)m->compact_limit=phase<5?5:phase+1; /* Preserve the accepted five-phase profile. */
         assert(mt76_mcu_compact_packet(phase,packet,40)==40);
         if(!fault){
             for(unsigned i=0;i<40;i++)for(unsigned bit=0;bit<8;bit++){
@@ -2379,11 +2379,11 @@ static void test_wifi_compact_binding(void) {
     reset_test();struct xhci_device d;compact_fixture(&d,2);d.firmware.mcu.bbp_active=true;
     assert(wifi_bbp_owned(&d));d.firmware.mcu.compact[0].ack_mask=0;assert(!wifi_bbp_owned(&d));
     d.firmware.mcu.compact[0].ack_mask=1;d.firmware.mcu.compact_next=3;assert(!wifi_bbp_owned(&d));
-    puts("xhci-compact-binding: PASS nine phases, prerequisite/prefix/readiness guards, exact packets, no retry and quarantine");
+    puts("xhci-compact-binding: PASS ten phases, prerequisite/prefix/readiness guards, exact packets, no retry and quarantine");
 }
 static void test_wifi_compact_reads(void) {
-    const uint32_t addresses[9][6]={{0x1004,0x1408,0x140c,0x1400,0x1018,0x1100},{0x1004,0x250,0x260,0x1410,0x150c,0x2000},{0x1004,0x2004,0x2010,0x2060,0x2080,0x2000},{0x1004,0x20a8,0x20b0,0x212c,0x2300,0x2000},{0x1004,0x233c,0x2358,0x2304,0x2308,0x2000},{0x1004,0x235c,0x2360,0x2364,0x2368,0x2000},{0x1004,0x2384,0x2388,0x2394,0x23a4,0x2000},{0x1004,0x23e4,0x23ec,0x23fc,0x2400,0x2000},{0x1004,0x2404,0x2504,0x2508,0x250c,0x2000}};
-    for(unsigned phase=0;phase<9;phase++)for(unsigned n=0;n<6;n++)for(unsigned fault=0;fault<4;fault++) {
+    const uint32_t addresses[10][6]={{0x1004,0x1408,0x140c,0x1400,0x1018,0x1100},{0x1004,0x250,0x260,0x1410,0x150c,0x2000},{0x1004,0x2004,0x2010,0x2060,0x2080,0x2000},{0x1004,0x20a8,0x20b0,0x212c,0x2300,0x2000},{0x1004,0x233c,0x2358,0x2304,0x2308,0x2000},{0x1004,0x235c,0x2360,0x2364,0x2368,0x2000},{0x1004,0x2384,0x2388,0x2394,0x23a4,0x2000},{0x1004,0x23e4,0x23ec,0x23fc,0x2400,0x2000},{0x1004,0x2404,0x2504,0x2508,0x250c,0x2000},{0x1004,0x2510,0x2514,0x251c,0x2620,0x2000}};
+    for(unsigned phase=0;phase<10;phase++)for(unsigned n=0;n<6;n++)for(unsigned fault=0;fault<4;fault++) {
         reset_test();test_time=0;test_time_step=1000;
         struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};struct xhci_device d;compact_fixture(&d,phase);
         d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_cycle=true;d.descriptor_buffer=buffer;d.descriptor_buffer_phys=(uintptr_t)buffer;
