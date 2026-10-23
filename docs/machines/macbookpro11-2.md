@@ -2775,3 +2775,16 @@ build/bringup/wifi-compact/run.json; payload/receipts and strict five-phase
 collector archived in ~/.local/share/srvros/macbookpro11-2/wifi-compact-1b9bf8e.
 Unarmed awaiting cold-trial readiness. Collect matching session first after
 return; consolidated native acceptance pending. RF/connectivity remain untested.
+
+Consolidated initialization native acceptance (2026-10-23): source1b9bf8e,
+releasee459728ba57fea08, session00065e7a55ca88f1-00 passed all five40-byte
+commands, exact sequence4..8 replies, status0 and one completion/ACK per phase.
+Reads10/10/12/12/12 and all20 baselines/readbacks matched expectations; BBP
+readiness occurred between phases1/2, CORE0 stayedf000f200 in phases2..4 and
+MAC stayed0. Old phase log families absent; prior firmware/reset/identity/write/
+timing checks and both completion markers passed. Logs/hashes archived outside
+build in wifi-compact-1b9bf8e/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+169files/502clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
+collected and unarmed. Next add remaining baseband settings using unused command
+identifiers9..15; no sequence recycling or RF/connectivity acceptance.

@@ -966,7 +966,7 @@ This accepts the fixed four-pair command on this adapter, not arbitrary batch
 sizes, command types, sequence reuse or RF/connectivity. Consolidating setup
 with this width is the next step toward freeing command identifiers.
 
-### Consolidated initialization (native pending)
+### Consolidated initialization (accepted on captured Pro adapter)
 
 Firmware v15 (`--wifi-compact`, requiring the batching recipe) replaces the
 older per-phase paths with five fixed four-pair commands at sequences4..8.
@@ -990,4 +990,14 @@ plans, exhaustive register allowlists, reply-bit mutations, every I/O failure
 and ownership boundary, readback/MAC/CORE faults and refused retry. Native
 transport fixtures cover every phase's prerequisites, prior completion, BBP
 readiness, packet mutation, read scopes, short buffers, stale events and
-failure quarantine. Hardware acceptance remains pending.
+failure quarantine. Native acceptance is recorded below.
+
+Native source1b9bf8e / releasee459728ba57fea08, session00065e7a55ca88f1-00
+passed all five40-byte commands and exact16-byte replies at sequences4..8.
+Each phase completed once with ack_mask1; reads were10/10/12/12/12. All20
+baselines/readbacks matched the prior native values. Read-only BBP readiness
+completed between phases1/2, CORE0 stayedf000f200 during phases2..4, and MAC
+remained0. Old per-phase log families were absent. Both completion markers
+were saved. This accepts consolidation of these settings on the captured
+adapter, leaving command identifiers9..15 unused; it does not accept remaining
+baseband settings, sequence recycling, RF, scanning or connectivity.
