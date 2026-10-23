@@ -161,6 +161,12 @@ size_t mt76_txbe_first_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_txbe_first_apply(struct mt76_txbe_first *s,
     const struct mt76_mcu_timing_io *io);
 
+/* Alternative, mutually exclusive lifecycle: TXBE10=0 at sequence15,
+ * requiring TXBE9=0 before/after. Same bounded samples and no-retry rules. */
+size_t mt76_txbe_second_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_txbe_second_apply(struct mt76_txbe_first *s,
+    const struct mt76_mcu_timing_io *io);
+
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

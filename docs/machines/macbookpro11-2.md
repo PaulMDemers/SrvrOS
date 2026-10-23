@@ -3116,3 +3116,13 @@ Evidence archived outside build in wifi-txbe-first-f1785c6/native-collection.
 Ubuntu default, consumed one-shot, installed payload/recovery verified. Workspace
 clean:187files/529clusters, zero leaks/mismatches/errors; unmounted. Run/checkpoint
 collected and unarmed. No further trial installed; RF/connectivity not tested.
+
+Active scope: TXBE10-only zero write after phases0..10, sequence15 once,
+TXBE9 required0 before/after, guarded samples and strict zero readback. No
+phase11 quartet or retry. MCU/xHCI/main/staging/tests; integrated base22fd266.
+Previous mainab99517/PR76 audit remains the coordination baseline. Native pending.
+Fetched mainb99bb5b: merged PR76 Home services/battery UI and Air6,1 audio
+changes inspected. They do not change this isolated Wi-Fi transport. PR83 owns
+attended audio/Ethernet/secondary-input acceptance. Preserve desktop v55/56/57
+and service dispatch on future integration; retain actual base22fd266 for this
+comparison against the accepted captures.

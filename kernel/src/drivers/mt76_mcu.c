@@ -395,3 +395,32 @@ enum mt76_mcu_timing_status mt76_txbe_first_apply(struct mt76_txbe_first *s,
     for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++)if(s->after.values[n][2]!=0x20000000)return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Isolate TXBE10 with TXBE9 held at its captured zero baseline. */
+size_t mt76_txbe_second_packet(uint8_t *out,size_t capacity) {
+    const struct mt76_mcu_register_pair pair={0x2728,0};
+    return mt76_mcu_register_packet(true,15,&pair,1,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_txbe_second_apply(struct mt76_txbe_first *s,
+    const struct mt76_mcu_timing_io *io) {
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    const struct mt76_txbe_io read_io={io->context,io->authorize,io->read};
+    enum mt76_mcu_timing_status status=mt76_txbe_observe(&s->before,&read_io);
+    if(status!=MT76_TIMING_OK)return status;
+    for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++)if(s->before.values[n][2]!=0)return MT76_TIMING_STATE;
+    uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+    if(mt76_txbe_second_packet(packet,sizeof packet)!=sizeof packet)return MT76_TIMING_REFUSED;
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->write_attempted=true;
+    s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);
+    if(s->received<0)return MT76_TIMING_IO;
+    const uint32_t words[4]={0x4a0f0008,0x412728,0,0x4a0f0008};
+    if(s->received!=16)return MT76_TIMING_REPLY;
+    for(unsigned i=0;i<16;i++)if(reply[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return MT76_TIMING_REPLY;
+    s->ack_validated=true;
+    status=mt76_txbe_observe(&s->after,&read_io);
+    if(status!=MT76_TIMING_OK)return status;
+    for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++)if((s->after.values[n][2]!=0 || s->after.values[n][3]!=0))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}

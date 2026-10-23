@@ -2489,13 +2489,13 @@ static void test_wifi_txbe_first_reads(void) {
 }
 
 static void test_wifi_txbe_first_binding(void) {
- for(unsigned fault=0;fault<18;fault++) {
+ for(unsigned second=0;second<2;second++)for(unsigned fault=0;fault<18;fault++) {
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb out[64]={0},in[64]={0},events[64]={0};
   uint8_t tx[200]={0},rx[1024]={0},packet[16],reply[1024];
   struct xhci_device *d=&xhci.devices[0];compact_fixture(d,11);
   struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
-  m->compact_active=false;m->compact_limit=11;m->compact[11]=(struct mt76_mcu_mac){0};m->txbe_first_active=true;
+  m->compact_active=false;m->compact_limit=11;m->compact[11]=(struct mt76_mcu_mac){0};m->txbe_first_active=true;m->txbe_second_mode=second;
   m->txbe_first=(struct mt76_txbe_first){.attempted=true,.write_attempted=true,.before={.attempted=true,.complete=true,.reads=64,.samples=8}};
   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
   m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
@@ -2518,7 +2518,7 @@ static void test_wifi_txbe_first_binding(void) {
   if(fault==15)events[0].status=6u<<24;
   if(fault==16)events[1].status=6u<<24;
   if(fault==17)events[1].parameter_low+=16;
-  assert(mt76_txbe_first_packet(packet,16)==16);
+  assert((second?mt76_txbe_second_packet(packet,16):mt76_txbe_first_packet(packet,16))==16);
   if(!fault){
    for(unsigned i=0;i<16;i++)for(unsigned b=0;b<8;b++){
     packet[i]^=1u<<b;assert(wifi_txbe_first_exchange(d,packet,16,reply,1024)==-1);packet[i]^=1u<<b;

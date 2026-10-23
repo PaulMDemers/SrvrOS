@@ -1247,3 +1247,20 @@ it does not establish TXBE10 semantics or prove that the original TXBE10 write
 succeeded or failed. Keep the original v22 mismatch unaccepted. Next comparison:
 TXBE10-only zero write at unused sequence15 after phases0..10, leaving TXBE9
 unchanged, with guarded before/after samples. No new trial is installed or armed.
+
+### Isolated TXBE10 comparison (native pending)
+
+Firmware v25 (`--wifi-txbe-second`, requiring `--wifi-txbe-start`, excluding
+next/observe/first alternatives) repeats the eleven accepted phases, records
+eight guarded samples, then writes only2728=0 once at sequence15. TXBE9 must
+be zero in every baseline sample before submission. The exact expected reply
+is4a0f0008/00412728/0/4a0f0008. Eight subsequent samples must retain TXBE9=0
+and read TXBE10=0. Both sets require MAC0/COREf000f200 boundaries,128 total
+reads, and single-attempt ownership. No TXBE9/12/13 writes or sequence reuse.
+
+This uses the same bounded `wifi-txbe-first-*` receipt family as v24, with an
+explicit `wifi-txbe-target: register=10` marker and distinct boot flag/profile.
+All fully guarded samples are logged even if final readback verification fails;
+a nonzero TXBE10 yields failed completion, never silently accepted status.
+Both alternatives retain their own exact packet/reply/readback tests. Results
+save and return automatically; RF/connectivity and the v22 quartet stay unaccepted.
