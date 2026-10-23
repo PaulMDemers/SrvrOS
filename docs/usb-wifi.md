@@ -1479,3 +1479,38 @@ mismatch in this sequence. This does not establish register semantics or exclude
 other missing initialization prerequisites. Preserve the exact zero-readback
 requirement and these failed results; audit remaining setup and reference behavior
 before selecting another trial. No RF or connectivity acceptance follows.
+
+### Same-adapter Linux readback and remaining initialization audit
+
+A read-only capture on the same 7392:a711 adapter under Ubuntu kernel
+7.0.0-38-generic returned TXBE10=0 in all eight samples. TXBE9 was20000000,
+PBF80c00, COREf000f200 and MAC_SYS_CTRL0c; TXBE12/13 were0. MAC_STATUS was
+0 except one sample at2. This was a running Linux driver, not the disabled-MAC
+initialization state used by SrvrOS, so it does not prove immediate write
+readback or explain the register's semantics.
+
+The capture used the driver's debugfs selector and read `regval`, then restored
+the original selector. It neither wrote device registers nor reset/unbound the
+adapter. Upstream v7.0 [debugfs](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/debugfs.c)
+and [mt76x02 binding](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_debugfs.c)
+confirm this access pattern; exact Ubuntu downstream source equivalence was not
+established. No network credentials or packet contents were captured.
+
+The v6.18 and v7.0 numeric common-MAC, chip-MAC and baseband initialization
+tables are identical. Both put TXBE9=20000000 immediately before TXBE10=0.
+The [reference initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+also has MAC-table settings and EXT_CCA/FCE/WMM updates absent from our compact
+sequence. The audit inventories those omissions; they are not evidence that
+any particular omitted write causes the mismatch. Do not import power/RF
+settings indiscriminately.
+
+The comparison matrix leaves one small combination untested: accepted clocks
+plus the reference TXBE9-then-TXBE10 order. v22 wrote both without enabled
+PBF/MAC clocks; v29 enabled clocks but deliberately kept TXBE9 zero. v24 showed
+that writing TXBE9 alone changed TXBE10's observed value, without establishing
+why. Next bounded scope is that combination, with MAC still disabled, original
+phase guards and exact target readbacks. Preserve all earlier failures; do not
+weaken the zero-readback condition based on a Linux steady-state observation.
+The local `txbe-linux-audit` script verifies eight samples, six historical trial
+receipts, table identity, addresses and ordering; raw evidence is archived outside
+build. No new candidate was installed for this audit.

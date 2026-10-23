@@ -3331,3 +3331,21 @@ verified. Workspace clean:197files/544clusters, zero leaks/mismatches/errors;
 unmounted. Run/checkpoint collected as failed and unarmed. Fetched main36dbc3d
 (Air6,1 telemetry); PR88 two-finger tap scope is separate. Actual integrated
 base22fd266 retained; no new candidate or reboot armed.
+
+
+Post-v29 audit captured eight read-only Linux observations from this exact
+7392:a711 adapter through mt76x0u debugfs. Kernel7.0.0-38-generic: TXBE10=0,
+TXBE9=20000000, PBF80c00, COREf000f200, MAC0c; TXBE12/13zero. MAC_STATUS0
+except one2. Selector restored; no register write, reset, unbind or connection
+change. Fully running Linux is not equivalent to SrvrOS disabled initialization.
+Numeric v6.18/v7.0 MAC/BBP tables match; TXBE9 precedes TXBE10. Additional
+MAC-table/EXT_CCA/FCE/WMM setup remains absent, with causality unproven.
+
+Next bounded implementation: accepted clocks plus TXBE9=20000000 followed by
+TXBE10=0, retaining disabled MAC and strict readback. v22 lacks clocks; v29
+keeps TXBE9zero, so neither tests this combination. Historical failures stand.
+Audit script checks eight Linux observations and six native trials; script,
+source hashes and raw receipt archived outside build in txbe-linux-audit-9d22c95.
+Current19f40e64c606d997/recoverye47dca3a6b30c6c1 unchanged; no reboot armed.
+Fetched main36dbc3d and inspected separate PR88 gesture scope. Integrated
+base22fd266 unchanged; this work changes audit documentation only.
