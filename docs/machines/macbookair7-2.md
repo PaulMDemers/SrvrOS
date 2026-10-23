@@ -4,6 +4,17 @@ Updated: 2026-10-23. State: **active reference machine; partial device acceptanc
 
 ### Active scope: close device acceptance; refine two-finger tap timing
 
+Preparing the authorized short diagnostic round: `tap-diagnostics.sh` creates
+fresh Home/tap-diagnostics reports and asks for 20 natural two-finger taps,
+Escape between attempts and keyboard-only return to Terminal. New Help-first
+instructions, image dependency/packaging and host/guest script checks accompany
+the already tested rejection counters. Prior gesture/audio/network reports stay
+intact; no additional threshold, DHCP or device-profile changes are part of this
+trial. Base remains `f310923`; fetched main `d5491c0` adds the distinct Air6,1
+passive battery preflight and will be consumed separately after this capture.
+Pro PR19 `21c3117` owns an installed, unaccepted TXBE9/TXBE10 ordered-pair trial;
+its xHCI changes are not copied into this pointer diagnostics candidate.
+
 Returned `8e70766e16933891`, session `session-00065e883cb81885-00`: tap timing
 remains **unaccepted**. The saved response says "It triggers about 1 in 3 attempts";
 other input regressions say "All good". Do not merge PR88 as a completed fix.

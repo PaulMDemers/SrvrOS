@@ -113,3 +113,10 @@ notes, although both screenshots were captured while connected. This script
 only reads interface state; it does not acquire a DHCP lease. To test Internet
 connectivity, run `dhcp` first and inspect its result, then DNS/ping/HTTP. A cable
 link alone does not configure an address, router or DNS server.
+
+For the focused rejection capture run `sh /fat/share/examples/tap-diagnostics.sh`.
+It creates Home/tap-diagnostics without changing earlier reports. Move the pointer
+once to empty desktop, make 20 natural two-finger taps with full lift, Escape and
+a short pause after each attempt, then Alt-Tab back to Terminal to record the
+menu count. Avoid unrelated gestures. Exit normally so the session's xHCI summary
+is saved. Prompt completion and aggregate rejection counts alone are not a pass.

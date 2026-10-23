@@ -18,7 +18,7 @@ class DeviceChecks(unittest.TestCase):
         self.bin.mkdir()
         examples = self.root / 'share/examples'
         examples.mkdir(parents=True)
-        for name in ('device-checks.sh', 'network-trial.sh', 'trackpad-checks.sh', 'tap-checks.sh'):
+        for name in ('device-checks.sh', 'network-trial.sh', 'trackpad-checks.sh', 'tap-checks.sh', 'tap-diagnostics.sh'):
             text = (ROOT / 'userspace/examples' / name).read_text()
             (examples / name).write_text(text.replace('/fat', str(self.root)))
         (examples / 'network-check.sh').write_text('echo dhcp-status=0\necho dns-status=0\necho http-status=0\necho HTTP-fixture\n')
@@ -78,6 +78,27 @@ class DeviceChecks(unittest.TestCase):
         for name in ('network-before.txt','network-down.txt','network-after.txt'):
             self.assertIn('link=up',(report/name).read_text()) # Stub, not physical state.
         self.assertIn('Completion is NOT a pass',r.stdout)
+
+    def test_tap_diagnostics_partial_sample_and_replay_refusal(self):
+        self.script=self.script.with_name('tap-diagnostics.sh')
+        original=self.home/'tap-checks';original.mkdir()
+        (original/'observations.txt').write_text('earlier evidence\n')
+        self.assertNotEqual(self.run_checks('7 of 20\n').returncode,0)
+        report=self.home/'tap-diagnostics'
+        self.assertEqual((report/'sequence.txt').read_text(),'started\n')
+        self.assertEqual((report/'observations.txt').read_text(),'two-finger-sample: 7 of 20\n')
+        self.assertNotEqual(self.run_checks('20 of 20\n\n').returncode,0)
+        self.assertEqual((report/'observations.txt').read_text(),'two-finger-sample: 7 of 20\n')
+        self.assertEqual((original/'observations.txt').read_text(),'earlier evidence\n')
+
+    def test_tap_diagnostics_completion_does_not_claim_success(self):
+        self.script=self.script.with_name('tap-diagnostics.sh')
+        r=self.run_checks('0 of 20\n\n')
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        report=self.home/'tap-diagnostics'
+        self.assertEqual((report/'sequence.txt').read_text(),'started\ncompleted\n')
+        self.assertEqual((report/'observations.txt').read_text(),'two-finger-sample: 0 of 20\n')
+        self.assertIn('completion is NOT acceptance',r.stdout)
 
     def test_eof_never_completes(self):
         result = self.run_checks('')
