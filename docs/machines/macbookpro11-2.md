@@ -3259,3 +3259,16 @@ phase2, followed by the existing read-only TXBE10 comparison. Exact baseline,
 fixed one-time EP0 write and readback, MAC disabled/idle before and after;
 no TXBE write or change to historical profiles. Radio/MCU/xHCI/main/staging/tests.
 Fetched maind2d56a6; PR83 remains attended acceptance. Actual base22fd266.
+
+Clock prerequisite candidate source1b3e323 / release67f92f9c2a4d9365 installed
+unarmed. Build, radio/compact/MCU/xHCI tests, ASan/UBSan,84 profile tests and docs
+checks pass. Collector accepts synthetic clock/read agreement and rejects17
+corrupted, missing or out-of-order receipts. Exact-stage GPT VM saved/unmounted/
+reset; missing-workspace VM returned without starting the probe. Payload,
+receipts, run record and collector archived outside build in wifi-clock-1b3e323.
+Failed direct-writeacaea56aaa88d52f and desktop recoverye47dca3a6b30c6c1 retained.
+Accepted read comparisoneb362bcf6da9fdfb removed from ESP only after full archived
+payload equality verification. Workspace clean:193files/538clusters, zero
+allocation errors; unmounted. Ubuntu default, no reboot armed. Native clock
+transition and subsequent comparison await a cold adapter power cycle; collect
+matching session first after return. Existing TXBE write failures remain failures.
