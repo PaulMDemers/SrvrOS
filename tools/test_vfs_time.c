@@ -44,5 +44,30 @@ int main(void) {
     assert(vfs_register_file_with_metadata("/imported",3,NULL,read_test,NULL,&persisted));
     assert(vfs_lookup("/imported")->metadata.mtime==2000);
     wall=-1;assert(vfs_register_directory("/unknown"));assert(!vfs_lookup("/unknown")->metadata.ctime);
+    /* Persisted IDs can collide with files imported from Linux or with another
+     * persisted record. Attributes survive; aliases must never reach a picker. */
+    vfs_set_metadata_changed_callback(NULL);
+    struct vfs_metadata saved = file->metadata;
+    saved.inode = early->metadata.inode;
+    assert(vfs_set_metadata("/test", &saved));
+    assert(file->metadata.inode != early->metadata.inode);
+    assert(file->metadata.mode == saved.mode && file->metadata.mtime == saved.mtime);
+    assert(vfs_register_directory_with_metadata("/collision-dir", &saved));
+    assert(vfs_register_file_with_metadata("/collision-file",3,NULL,read_test,NULL,&saved));
+    assert(vfs_register_directory_with_metadata("/collision-dir", &saved));
+    assert(vfs_register_file_with_metadata("/collision-file",3,NULL,read_test,NULL,&saved));
+    saved.inode = 100000;
+    assert(vfs_set_metadata("/test", &saved) && file->metadata.inode == 100000);
+    assert(vfs_set_metadata("/test", &saved) && file->metadata.inode == 100000);
+    assert(vfs_register_directory("/after-import"));
+    assert(vfs_lookup("/after-import")->metadata.inode > 100000);
+    saved.inode = UINT64_MAX;
+    assert(vfs_set_metadata("/test", &saved));
+    assert(vfs_register_directory("/after-wrap"));
+    saved.inode = 0;assert(vfs_set_metadata("/test", &saved));
+    for(uint64_t i=0;i<vfs_count();i++) {
+        const struct vfs_node *a=vfs_node_at(i);assert(a && a->metadata.inode);
+        for(uint64_t j=0;j<i;j++) assert(a->metadata.inode!=vfs_node_at(j)->metadata.inode);
+    }
     puts("vfs-time: PASS boot root/parent directories, conflicting paths, UTC create/read/write/change timestamps, explicit utime, imported metadata and unavailable-clock sentinel");
 }
