@@ -2853,3 +2853,19 @@ or allocation mismatches, then unmounted. Collection archived as
 wifi-agc-next-b3e4ee1/incomplete-return-collection; run/checkpoint now
 returned/unarmed. Await boot observation to distinguish an early boot or
 workspace discovery failure from a skipped test before scheduling a retry.
+
+AGC33/34/37/41 retry accepted on this captured adapter: sourceb3e4ee1,
+releaseff59ebda5a2483ae, session00065e8394ee6855-00. User observed SrvrOS
+start and return automatically. Phase6 sequence10 sent40/received16 with
+exact first-entry reply, status0, one submission/completion, ack_mask1 and
+12 reads. AGC33 changed003c->3238; AGC34 stayed000a0c0c; AGC37 stayed
+2121262c; AGC41 changed2727303a->38383e45. CORE0 stayedf000f200 and
+MAC stayed0. All preceding six phases, firmware/reset/identity/timing,
+readiness ordering,28 register readbacks and both completion markers passed.
+Collection archived outside build in wifi-agc-next-b3e4ee1/native-collection.
+Ubuntu default, consumed one-shot and candidate/desktop recovery verified.
+Workspace clean:173files/508clusters, zero leaks/allocation mismatches,
+unmounted. Run/checkpoint collected and unarmed. First attempt remains
+incomplete with no saved session; its cause is unknown. Next remaining
+AGC/baseband settings using unused identifiers11..15; no RF/connectivity
+acceptance and no sequence recycling.

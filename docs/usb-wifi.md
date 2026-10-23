@@ -1029,7 +1029,7 @@ CORE0 stayedf000f200 and MAC0. All earlier phases, readiness ordering and both
 completion markers passed. This accepts these four initial values only;
 remaining AGC/baseband settings, RF and connectivity remain pending.
 
-### AGC33/34/37/41 extension (native acceptance pending)
+### AGC33/34/37/41 extension (accepted on captured Pro adapter)
 
 Firmware v17 (`--wifi-agc-next`, requiring `--wifi-agc-more`) adds phase6
 at sequence10. Fixed addresses2384/2388/2394/23a4 receive
@@ -1042,3 +1042,13 @@ Host checks cover all seven packet/reply fixtures, allowlists, I/O and
 authorization failures, readback guards and xHCI ownership/quarantine.
 The host fixture correctly distinguishes baseline reads from post-command
 readbacks; sanitizer checks pass. All73 boot-profile tests pass.
+
+Native retry sourceb3e4ee1 / releaseff59ebda5a2483ae,
+session00065e8394ee6855-00 passed phase6 at sequence10: sent40/received16,
+exact reply, status0, one submission/completion, ack_mask1 and12 reads.
+AGC33 changed003c->3238, AGC34 stayed000a0c0c, AGC37 stayed2121262c,
+and AGC41 changed2727303a->38383e45. All preceding phases and both
+completion markers passed; MAC remained0 and CORE0 remainedf000f200.
+The first attempt saved no session and remains incomplete; the retry accepts
+these initial settings only. Remaining baseband settings, RF, scanning and
+connectivity remain pending. Identifiers11..15 remain unused.
