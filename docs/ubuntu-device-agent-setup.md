@@ -253,8 +253,8 @@ For the captured MacBookAir6,1, use `--desktop-volume "$SRVROS_USB_UUID"
 attended audio trial. It keeps the unscaled desktop and exact brightness profile,
 adding only analog HDA. The codec subsystem/revision/pin defaults are independently
 gated. Battery/AML and other optional laptop services remain off. See the
-[Air6,1 listening checklist](macbookair6-1-audio.md); basic speaker playback is
-accepted, with headphones and sustained playback pending.
+[Air6,1 listening checklist](macbookair6-1-audio.md); bounded speaker/headphone playback is
+accepted, with full native endurance still incomplete.
 Use `--desktop-check --audio-check --workspace-table gpt` for its exact-stage VM.
 
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
