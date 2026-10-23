@@ -7,6 +7,20 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Visual feedback must survive a press/release pair drained in one receive
+ * batch. It never holds the logical button or delays activation. Start the
+ * ten-tick (~100 ms) pulse after the compositor releases the highlighted frame. */
+struct button_feedback { uint64_t serial,until; int active; };
+static void feedback_commit(struct button_feedback *f,uint64_t serial) {
+    if(f->active && !f->serial) f->serial=serial;
+}
+static void feedback_release(struct button_feedback *f,uint64_t serial,uint64_t now) {
+    if(f->active && f->serial==serial && !f->until) f->until=now+10;
+}
+static int feedback_expire(struct button_feedback *f,uint64_t now) {
+    if(!f->active || !f->until || now<f->until) return 0;
+    *f=(struct button_feedback){0};return 1;
+}
 #define STUDY_LINES 48
 static void layout(struct desk_scrollbar *bar,struct desk_button *button,int width,int height) {
     desk_scrollbar_configure(bar,(struct desk_rect){width-30,94,18,height-202},
@@ -20,7 +34,7 @@ static struct desk_widget_event pointer_event(const struct desk_packet *p) {
         .pressed=(p->value&DESK_POINTER_PRESS)!=0};
 }
 static void draw(struct desk_canvas *c,const char *input,int large,
-                 const struct desk_scrollbar *bar,const struct desk_button *button) {
+                 const struct desk_scrollbar *bar,const struct desk_button *button,int feedback) {
     const struct desk_theme *theme=&desk_theme_quiet;
     int offset=bar->offset;
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},theme->surface);
@@ -50,7 +64,9 @@ static void draw(struct desk_canvas *c,const char *input,int large,
     c->clip=clip;
     char status[64]; snprintf(status,sizeof(status),"Scroll %d / %d",offset,desk_scrollbar_limit(bar));
     desk_label_draw(c,(struct desk_rect){24,c->height-30,c->width-164,24},theme->body,status,theme->muted);
-    desk_button_draw(c,button,"Text size",theme);
+    struct desk_button visual=*button;
+    if(feedback && visual.enabled) visual.armed=visual.inside=1;
+    desk_button_draw(c,&visual,"Text size",theme);
 }
 int main(int argc,char **argv) {
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
@@ -67,6 +83,7 @@ int main(int argc,char **argv) {
     int dirty=0,large=0,failed=0,quit=0;
     struct desk_scrollbar scrollbar={0};
     struct desk_button size_button={0};
+    struct button_feedback feedback={0};
     while (!quit) {
         for (int n=0;n<32;n++) {
             uint64_t source; struct desk_packet p;
@@ -80,17 +97,25 @@ int main(int argc,char **argv) {
             if (p.type==DESK_CONFIGURE && p.generation>configure.generation &&
                 p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) {
                 configure=p;
+                feedback=(struct button_feedback){0};
                 struct desk_widget_event cancel={.type=DESK_WIDGET_CANCEL};
                 desk_scrollbar_event(&scrollbar,cancel); desk_button_event(&size_button,cancel);
                 last=srv_ticks();
             } else if (p.type==DESK_RELEASE && p.surface==surface && p.serial==pending &&
-                       p.generation==pending_gen) { pending=0; last=srv_ticks(); }
+                       p.generation==pending_gen) {
+                feedback_release(&feedback,p.serial,srv_ticks());
+                pending=0; last=srv_ticks();
+            }
             else if (p.type==DESK_POINTER && height && p.generation==generation &&
                      configure.generation==generation) {
                 struct desk_widget_event event=pointer_event(&p);
                 unsigned scroll=desk_scrollbar_event(&scrollbar,event);
                 unsigned button=desk_button_event(&size_button,event);
+                if(event.type==DESK_WIDGET_CANCEL && feedback.active) {
+                    feedback=(struct button_feedback){0};button|=DESK_WIDGET_REDRAW;
+                }
                 if (button&DESK_WIDGET_ACTIVATED) {
+                    feedback=(struct button_feedback){.active=1};
                     large=!large;
                     button|=DESK_WIDGET_REDRAW;
                     desk_log("deskclient: text-size=%d\n",large?20:16);
@@ -119,6 +144,10 @@ int main(int argc,char **argv) {
             }
         }
         if (quit) break;
+        if(feedback_expire(&feedback,srv_ticks())) {
+            if(!dirty && !pending) last=srv_ticks();
+            dirty=1;
+        }
         if (!pending && configure.generation>generation) {
             uint64_t next_surface=0;
             if (gui_surface_create(configure.width,configure.height,DESK_SURFACE_STREAM,&next_surface)!=0) {
@@ -131,12 +160,12 @@ int main(int argc,char **argv) {
         if (dirty && !pending && surface) {
             struct desk_canvas c;
             desk_canvas_init(&c,pixels,width,height,width);
-            draw(&c,input,large,&scrollbar,&size_button);
+            draw(&c,input,large,&scrollbar,&size_button,feedback.active);
             struct desk_packet p=desk_packet_new(DESK_COMMIT);
             p.input_serial=input_serial; p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height;
             if (gui_surface_blit(surface,0,0,width,height,pixels,width)!=0) { failed=1; break; }
             if (desk_send(server,&p)==0) {
-                pending=++serial; pending_gen=generation; dirty=0; last=srv_ticks(); frames++;
+                pending=++serial; feedback_commit(&feedback,pending); pending_gen=generation; dirty=0; last=srv_ticks(); frames++;
             }
         }
         if ((!server || pending || dirty) && (uint64_t)srv_ticks()-last>500) { failed=1; break; }
