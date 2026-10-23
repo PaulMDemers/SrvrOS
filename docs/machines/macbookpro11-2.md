@@ -3011,3 +3011,14 @@ exact-profile PWM capture and preference evidence inspected; PR76 owns
 Home services/cached battery UI. No Wi-Fi overlap; retain base22fd266.
 No RF or identifier recycling. Remaining setup needs validated wider batches
 or a proven-drained new session before more commands can be added.
+
+TXBE9/10/12/13 candidate source5d5488c / release9cc1888913aa7ff5
+installed unarmed. Build, compact/MCU/xHCI host tests, sanitizer,78 boot-profile
+tests and docs checks pass, including identifier exhaustion refusal. Exact-stage
+GPT VM saved/unmounted/reset; missing-workspace VM returned without probing.
+Payload, receipts, run record and collector archived outside build in
+wifi-txbe-next-5d5488c. Accepted6477738b1d3cf7d5 and desktop recovery
+e47dca3a6b30c6c1 retained. Obsolete492306b5fccc17b9 removed from ESP
+only after archive equality verification. Workspace clean before install:
+181files/520clusters, zero allocation errors, unmounted. Native acceptance
+pending cold adapter power cycle; Ubuntu remains default.
