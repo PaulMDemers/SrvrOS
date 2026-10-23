@@ -1198,3 +1198,13 @@ Ubuntu returned with consumed one-shot; current/recovery hashes and default pass
 Current stays `bfde0423543f20d0`, recovery `c35475f62f154f1e`. USB is unmounted;
 no reboot is armed. Matching logs, validation and return state are backed up
 outside build before another trial.
+
+## Attended parked AC transition scope (2026-10-23)
+
+From main `249bb97`, this unit owns the next bounded Air6,1 attended AC
+transition capture: shared battery capture consumer/admission, boot recipe,
+collector and directed host/VM tests. Reuse the accepted serialized service and
+host-event owner with USB parked; keep ordinary/Home/file ownership disabled.
+Audit captured AC query effects and retain exact firmware/access gates. PR99 log
+capacity guards are consumed; Pro PR19 remains independent Wi-Fi work. Prepare
+and validate before an attended unplug/reconnect trial; no reboot is armed.
