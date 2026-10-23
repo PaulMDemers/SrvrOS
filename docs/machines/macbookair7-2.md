@@ -4,14 +4,27 @@ Updated: 2026-10-22. State: **active reference machine; partial device acceptanc
 
 ### Active scope: attended Home AC/indicator transitions
 
-Based on main `14f17d2` (PR63), this agent owns the explicit v52 guided desktop
+Based on main `52ef3ea` (including PR63/64), this agent owns the explicit v52 guided desktop
 capture: AC baseline, unplug/discharge and reconnect, with fresh-sample checks,
 on-screen prompts and three saved screenshots. Shared scope is the desktop
 capture state machine, existing continuous battery owner, staging and collectors.
 Ordinary startup stays disabled; native resource/profile gates stay unchanged.
-Pro PR19 `acd4ae7` is Wi-Fi; Air6,1 tap feedback is separate input work. Preserve
+Pro PR19 `6ce15ef` is Wi-Fi; Air6,1 tap feedback from PR64 is integrated. Preserve
 both agents' boot-profile additions during integration. VM/host tests precede
 an attended native boot; the human must be told the unplug/reconnect steps first.
+
+Source `91df3d8` passed the full local build, both battery kernels, core suite
+and 450 documentation links. All five guided Q35 cases passed: AC/battery/AC
+with three screenshots, missed-unplug timeout with automatic return, clean
+profile/query refusals, and uncertain-ack containment. The three-minute v51 idle
+capture, pending-save desktop exit and continuous alarm/Stop/restart regressions
+also passed. The VM uses synthetic readings; native transitions remain pending.
+
+[PR #66](https://github.com/PaulMDemers/SrvrOS/pull/66) contains this checkpoint.
+The next physical run is attended: keep USB attached, start on AC, unplug at
+prompt 2, reconnect at prompt 3. Each phase saves before advancing; safe completion
+or timeout returns to Ubuntu automatically. Exact-stage rehearsal and local
+recovery/run records are required before reboot. Ordinary startup remains OFF.
 
 ### Explicit continuous Home desktop capture accepted (PR #63)
 
