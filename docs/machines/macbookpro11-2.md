@@ -3408,3 +3408,14 @@ Audit and proposed unsent packet fixtures archived in txbe-state-audit-e829cf1
 outside build. Current29504434a7bc5aa6/recoverye47dca3a6b30c6c1 unchanged;
 no reboot armed. Fetched main9bbc3b9 (Air6,1 preflight return), inspected separate
 PR88 tap diagnostics; actual integrated base22fd266 retained. Documentation only.
+
+Active scope: implement the separate full-BBP observation diagnostic with fixed
+24/24/10 entry packets, seq0/0/6 and only final ACK. Snapshot all58 targets with
+MAC0/COREf000f200 boundaries; mismatches are reported separately from completed
+capture and never imply accepted Wi-Fi initialization. No RF/MAC enable. Touch
+MCU/xHCI/main/staging/tests; reuse accepted reset/timing/MAC/clock prerequisites.
+
+Implementation uses only MAC phases0/1 before clocks/readiness, then three full-table
+commands and124 reads. Latest fetched main9bbc3b9 remains outside actual base22fd266.
+PR92 Air6,1 battery sampling and PR88 tap diagnostics are separate active scopes.
+Local packet/collector/sanitizer checks pass; exact-stage validation pending.

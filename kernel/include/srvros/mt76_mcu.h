@@ -197,4 +197,17 @@ enum mt76_mcu_timing_status mt76_txbe_direct_apply(struct mt76_txbe_access *s,
 size_t mt76_mcu_clock_pair_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_mcu_apply_clock_pair(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io);
+#define MT76_BBP_TABLE_ENTRIES 58
+struct mt76_bbp_table {
+    bool attempted, complete, ack_validated;
+    unsigned reads, chunks_attempted, chunks_completed, mismatches;
+    uint32_t before[MT76_BBP_TABLE_ENTRIES], after[MT76_BBP_TABLE_ENTRIES];
+    uint32_t mac[4], core[4];
+};
+uint32_t mt76_bbp_table_address(unsigned index);
+uint32_t mt76_bbp_table_value(unsigned index);
+bool mt76_bbp_table_read_allowed(uint32_t address);
+size_t mt76_bbp_table_packet(unsigned chunk,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_bbp_table_capture(struct mt76_bbp_table *s,
+    const struct mt76_mcu_timing_io *io);
 #endif

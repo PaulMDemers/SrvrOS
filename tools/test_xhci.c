@@ -2689,12 +2689,60 @@ static void test_wifi_txbe_direct(void) {
  puts("xhci TXBE direct: PASS fixed zero payload, exclusive ownership, no retry, control error quarantine");
 }
 
+static void test_wifi_full_table(void){
+ for(unsigned chunk=0;chunk<3;chunk++)for(unsigned fault=0;fault<23;fault++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[200],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->table=(struct mt76_bbp_table){.attempted=true,.reads=62,.chunks_attempted=chunk+1,.chunks_completed=chunk};m->table_submitted=chunk;
+  f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+  m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+  if(fault==1)m->table_mode=false;
+  if(fault==2)m->table_active=false;
+  if(fault==3)m->clock.complete=false;
+  if(fault==4)m->clock.written=false;
+  if(fault==5)m->clock_submitted=false;
+  if(fault==6)m->clock.pbf_after=0x80000;
+  if(fault==7)m->bbp.pbf=0x80000;
+  if(fault==8)m->compact_limit=11;
+  if(fault==9)m->compact_next=3;
+  if(fault==10)m->compact[1].complete=false;
+  if(fault==11)m->pending=true;
+  if(fault==12)m->timing.ack_validated=false;
+  if(fault==13)m->table.reads=61;
+  if(fault==14)m->table.chunks_attempted++;
+  if(fault==15)m->table.chunks_completed++;
+  if(fault==16)m->table.ack_validated=true;
+  if(fault==17)m->table.complete=true;
+  if(fault==18)m->table.attempted=false;
+  if(fault==19)m->clock_active=true;
+  if(fault==20)m->compact[2].attempted=true;
+  if(fault==21)events[0].status=6u<<24;
+  if(fault==22){if(chunk<2)continue;events[1].status=6u<<24;}
+  size_t length=mt76_bbp_table_packet(chunk,packet,sizeof packet);
+  if(!fault){
+   uint32_t value;assert(!wifi_table_read(d,0x1000,&value));
+   for(unsigned i=0;i<length;i++)for(unsigned bit=0;bit<8;bit++){packet[i]^=1u<<bit;assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==-1);packet[i]^=1u<<bit;}
+   assert(wifi_table_exchange(d,packet,length-1,reply,sizeof reply)==-1);
+  }
+  assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==(fault?-1:chunk<2?0:16));
+  if(!fault){assert(!memcmp(tx,packet,length) && m->table_submitted==chunk+1);assert(m->response.enqueue==(chunk==2?1u:0u));assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==-1);}
+  else if(fault>=21)assert(m->table_submitted==chunk+1 && f->failed && d->ep0_quarantined);
+  else assert(!f->ep.enqueue && !m->response.enqueue);
+ }
+ puts("xhci full BBP: PASS exact fixed chunks, no response for first chunks, ownership, no retry and quarantine");
+}
+
 static void test_wifi_clock(void) {
- for(unsigned pair=0;pair<2;pair++) for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<26;fault++) {
+ for(unsigned pair=0;pair<3;pair++) for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<26;fault++) {
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
   struct xhci_device d;compact_fixture(&d,2);struct xhci_wifi_mcu *m=&d.firmware.mcu;
-  m->clock_pair_mode=pair;m->compact_limit=pair?12:11;m->compact_active=false;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;m->bbp=(struct mt76_bbp_probe){0};
+  m->table_mode=pair==2;m->clock_pair_mode=pair==1;m->compact_limit=pair==2?2:pair?12:11;m->compact_active=false;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;m->bbp=(struct mt76_bbp_probe){0};
   m->clock_mode=true;m->clock_active=true;
   m->clock=(struct mt76_clock_probe){.attempted=true,.write_attempted=true,.reads=3,.pbf_before=0x80000};
   d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_cycle=true;d.descriptor_buffer=buffer;d.descriptor_buffer_phys=(uintptr_t)buffer;
@@ -2858,6 +2906,7 @@ int main(int argc, char **argv) {
     test_wifi_compact_binding();
     test_wifi_compact_reads();
     test_wifi_txbe_observe();
+    test_wifi_full_table();
     test_wifi_clock();
     test_wifi_txbe_direct();
     test_wifi_txbe_access_reads();

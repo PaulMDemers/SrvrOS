@@ -509,3 +509,122 @@ enum mt76_mcu_timing_status mt76_mcu_apply_clock_pair(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io) {
     return apply_fixed_mac(s,io,txbe_next,15,true,2,2);
 }
+
+/* Linux v7.0 numeric BBP initialization values; explicit observation only. */
+static const struct mt76_mcu_register_pair full_bbp[MT76_BBP_TABLE_ENTRIES]={
+    {0x2004,0x2},
+    {0x2010,0x0},
+    {0x2060,0x0},
+    {0x2080,0x4003000a},
+    {0x20a8,0x0},
+    {0x20b0,0x0},
+    {0x212c,0xfde8081},
+    {0x2300,0x21400},
+    {0x2304,0x3},
+    {0x2308,0x3a6464},
+    {0x233c,0x88a28cb8},
+    {0x2358,0x1e21},
+    {0x235c,0x272c},
+    {0x2360,0x2f3a},
+    {0x2364,0x8000005a},
+    {0x2368,0x7c2005},
+    {0x2384,0x3238},
+    {0x2388,0xa0c0c},
+    {0x2394,0x2121262c},
+    {0x23a4,0x38383e45},
+    {0x23e4,0x1010},
+    {0x23ec,0xbaa20e96},
+    {0x23fc,0x1},
+    {0x2400,0x280403},
+    {0x2404,0x0},
+    {0x2504,0x12},
+    {0x2508,0x11},
+    {0x250c,0x5},
+    {0x2510,0x0},
+    {0x2514,0xf977c4ec},
+    {0x251c,0x90},
+    {0x2620,0x0},
+    {0x2700,0x0},
+    {0x2710,0x4},
+    {0x2718,0x0},
+    {0x2720,0x14},
+    {0x2724,0x20000000},
+    {0x2728,0x0},
+    {0x2730,0x0},
+    {0x2734,0x0},
+    {0x2738,0x0},
+    {0x273c,0x0},
+    {0x2740,0x0},
+    {0x2744,0x0},
+    {0x2804,0x8800},
+    {0x280c,0x0},
+    {0x2810,0x0},
+    {0x2934,0x192},
+    {0x2938,0x60612},
+    {0x293c,0xc8321b18},
+    {0x2940,0x1e},
+    {0x2944,0x0},
+    {0x2948,0xcc00a993},
+    {0x294c,0xb9cb9cb9},
+    {0x2950,0x26c00057},
+    {0x2954,0x1},
+    {0x2960,0x6},
+    {0x2970,0x3f},
+};
+uint32_t mt76_bbp_table_address(unsigned i){return i<MT76_BBP_TABLE_ENTRIES?full_bbp[i].address:UINT32_MAX;}
+uint32_t mt76_bbp_table_value(unsigned i){return i<MT76_BBP_TABLE_ENTRIES?full_bbp[i].value:UINT32_MAX;}
+bool mt76_bbp_table_read_allowed(uint32_t address){
+    if(address==0x1004 || address==0x2000)return true;
+    for(unsigned i=0;i<MT76_BBP_TABLE_ENTRIES;i++)if(full_bbp[i].address==address)return true;
+    return false;
+}
+size_t mt76_bbp_table_packet(unsigned chunk,uint8_t *out,size_t capacity){
+    if(chunk>=3 || !out)return 0;
+    unsigned start=24*chunk,count=chunk==2?10:24,bytes=count*8+8;
+    if(capacity<bytes)return 0;
+    uint32_t header=0x50c00000u|((chunk==2?6u:0u)<<16)|(count*8);
+    for(unsigned i=0;i<bytes;i++)out[i]=0;
+    for(unsigned i=0;i<4;i++)out[i]=(uint8_t)(header>>(8*i));
+    for(unsigned n=0;n<count;n++)for(unsigned i=0;i<4;i++){
+        out[4+8*n+i]=(uint8_t)((0x410000+full_bbp[start+n].address)>>(8*i));
+        out[8+8*n+i]=(uint8_t)(full_bbp[start+n].value>>(8*i));
+    }
+    return bytes;
+}
+static enum mt76_mcu_timing_status table_read(struct mt76_bbp_table *s,
+    const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value){
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+    s->reads++;return *value==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
+}
+enum mt76_mcu_timing_status mt76_bbp_table_capture(struct mt76_bbp_table *s,
+    const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    s->attempted=true;enum mt76_mcu_timing_status status;
+#define TABLE_READ(a,v) do{status=table_read(s,io,a,v);if(status!=MT76_TIMING_OK)return status;}while(0)
+    for(unsigned stage=0;stage<2;stage++){
+        TABLE_READ(0x1004,&s->mac[stage*2]);if(s->mac[stage*2])return MT76_TIMING_STATE;
+        TABLE_READ(0x2000,&s->core[stage*2]);if(s->core[stage*2]!=0xf000f200)return MT76_TIMING_STATE;
+        for(unsigned i=0;i<MT76_BBP_TABLE_ENTRIES;i++)TABLE_READ(full_bbp[i].address,stage?&s->after[i]:&s->before[i]);
+        TABLE_READ(0x1004,&s->mac[stage*2+1]);if(s->mac[stage*2+1])return MT76_TIMING_STATE;
+        TABLE_READ(0x2000,&s->core[stage*2+1]);if(s->core[stage*2+1]!=0xf000f200)return MT76_TIMING_STATE;
+        if(!stage)for(unsigned chunk=0;chunk<3;chunk++){
+            if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+            uint8_t packet[200],reply[MT76_MCU_RESPONSE_MAX];size_t length=mt76_bbp_table_packet(chunk,packet,sizeof packet);
+            s->chunks_attempted++;int received=io->exchange(io->context,packet,length,reply,sizeof reply);
+            if(received<0)return MT76_TIMING_IO;
+            if(chunk<2){if(received!=0)return MT76_TIMING_REPLY;}
+            else{
+                if(received!=16)return MT76_TIMING_REPLY;
+                const uint32_t words[]={0x4a060008,0x412938,0x60612,0x4a060008};
+                for(unsigned i=0;i<16;i++)if(reply[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return MT76_TIMING_REPLY;
+                s->ack_validated=true;
+            }
+            s->chunks_completed++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    for(unsigned i=0;i<MT76_BBP_TABLE_ENTRIES;i++)if(s->after[i]!=full_bbp[i].value)s->mismatches++;
+    s->complete=true;return MT76_TIMING_OK;
+#undef TABLE_READ
+}

@@ -635,7 +635,7 @@ static bool wifi_compact_prefix(struct xhci_wifi_mcu *m,unsigned count) {
 static bool wifi_compact_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     unsigned phase=m->compact_next;
-    return (!m->clock_pair_mode || (m->clock_mode && m->compact_limit==12 && (phase<2 || (m->clock.complete && m->clock.written && m->clock_submitted && !m->clock_active && m->clock.pbf_after==0x80c00 && m->bbp.pbf==0x80c00)))) && (m->compact_limit>=5 && m->compact_limit<=12) && phase<m->compact_limit &&
+    return (!m->clock_pair_mode || (m->clock_mode && m->compact_limit==12 && (phase<2 || (m->clock.complete && m->clock.written && m->clock_submitted && !m->clock_active && m->clock.pbf_after==0x80c00 && m->bbp.pbf==0x80c00)))) && ((m->compact_limit>=5 && m->compact_limit<=12) || (m->table_mode && m->compact_limit==2)) && phase<m->compact_limit &&
         phase<MT76_MCU_COMPACT_PHASES && m->compact_mode && m->compact_active &&
         wifi_mcu_owned(d) && m->configured && !m->pending &&
         m->identity_validated && m->write_validated && m->timing.complete &&
@@ -896,10 +896,58 @@ static bool wifi_mcu_txbe_access(struct xhci_device *d,bool direct) {
     return true;
 }
 
+static bool wifi_table_owned(void *context){
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    return m->table_mode && m->table_active && wifi_mcu_owned(d) && m->configured && !m->pending &&
+        m->compact_mode && !m->compact_active && m->compact_limit==2 && m->compact_next==2 && wifi_compact_prefix(m,2) &&
+        !m->compact[2].attempted && !m->compact_submitted[2] &&
+        m->clock_mode && m->clock.complete && m->clock.written && m->clock_submitted && !m->clock_active && m->clock.pbf_after==0x80c00 &&
+        m->bbp.complete && m->bbp.core==0xf000f200 && m->bbp.pbf==0x80c00 &&
+        m->identity_validated && m->write_validated && m->timing.complete && m->timing.ack_validated && d->firmware.radio_reset.prepared;
+}
+static bool wifi_table_read(void *context,uint32_t address,uint32_t *value){
+    struct xhci_device *d=context;
+    if(!value || !wifi_table_owned(d) || !mt76_bbp_table_read_allowed(address))return false;
+    struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};int actual=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
+    *value=0;for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    return true;
+}
+static int wifi_table_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_bbp_table *s=&m->table;
+    unsigned chunk=m->table_submitted;uint8_t allowed[200];
+    if(!wifi_table_owned(d) || !packet || !reply || capacity<MT76_MCU_RESPONSE_MAX || chunk>=3 ||
+        !s->attempted || s->complete || s->ack_validated || s->reads!=62 || s->chunks_attempted!=chunk+1 || s->chunks_completed!=chunk ||
+        length!=mt76_bbp_table_packet(chunk,allowed,sizeof allowed))return -1;
+    for(unsigned i=0;i<length;i++)if(packet[i]!=allowed[i])return -1;
+    m->table_submitted++;
+    for(unsigned i=0;i<length;i++)d->firmware.buffer[i]=packet[i];
+    int sent=wifi_mcu_bulk(d,false,length),received=-1;
+    if(sent==(int)length)received=chunk<2?0:wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    console_printf("wifi-bbp-table-command: chunk=%u sequence=%u sent=%d received=%d cc=%u residue=%u\n",(uint64_t)chunk,(uint64_t)(chunk==2?6:0),(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining);
+    if(received>0 && received<=64)for(unsigned n=0;n<(unsigned)received/4;n++){
+        uint32_t word=0;for(unsigned i=0;i<4;i++)word|=(uint32_t)m->buffer[4*n+i]<<(8*i);
+        console_printf("wifi-bbp-table-word: index=%u value=%x\n",(uint64_t)n,(uint64_t)word);
+    }
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
+}
+static bool wifi_mcu_table_capture(struct xhci_device *d){
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_bbp_table *s=&m->table;
+    m->table_active=true;
+    const struct mt76_mcu_timing_io io={d,wifi_table_owned,wifi_table_read,wifi_table_exchange};
+    enum mt76_mcu_timing_status status=mt76_bbp_table_capture(s,&io);m->table_active=false;
+    console_printf("wifi-bbp-table: status=%u attempted=%u complete=%u reads=%u attempted_chunks=%u submitted=%u completed_chunks=%u ack_validated=%u mismatches=%u register_acceptance=NOT_TESTED\n",(uint64_t)status,(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->reads,(uint64_t)s->chunks_attempted,(uint64_t)m->table_submitted,(uint64_t)s->chunks_completed,(uint64_t)s->ack_validated,(uint64_t)s->mismatches);
+    for(unsigned i=0;i<4;i++)console_printf("wifi-bbp-table-guard: index=%u mac=%x core=%x\n",(uint64_t)i,(uint64_t)s->mac[i],(uint64_t)s->core[i]);
+    for(unsigned i=0;i<MT76_BBP_TABLE_ENTRIES;i++)console_printf("wifi-bbp-table-value: index=%u address=%x expected=%x before=%x after=%x\n",(uint64_t)i,(uint64_t)mt76_bbp_table_address(i),(uint64_t)mt76_bbp_table_value(i),(uint64_t)s->before[i],(uint64_t)s->after[i]);
+    return status==MT76_TIMING_OK?true:wifi_mcu_fail(d);
+}
+
 static bool wifi_clock_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return m->clock_mode && m->clock_active && m->compact_mode && !m->compact_active &&
-        (m->compact_limit==11 || (m->clock_pair_mode && m->compact_limit==12)) && m->compact_next==2 && wifi_compact_prefix(m,2) &&
+        (m->compact_limit==11 || (m->clock_pair_mode && m->compact_limit==12) || (m->table_mode && m->compact_limit==2)) && m->compact_next==2 && wifi_compact_prefix(m,2) &&
         !m->compact[2].attempted && !m->compact_submitted[2] && !m->bbp.attempted &&
         wifi_mcu_owned(d) && m->configured && !m->pending && m->identity_validated &&
         m->write_validated && m->timing.complete && m->timing.ack_validated && d->firmware.radio_reset.prepared;
@@ -971,7 +1019,7 @@ static bool wifi_mcu_probe_bbp(struct xhci_device *d) {
 
 static bool wifi_mcu_initialize_compact(struct xhci_device *d,unsigned limit,bool clocks) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
-    if(m->compact_mode || m->compact_next || (limit<5 || limit>12))return wifi_mcu_fail(d);
+    if(m->compact_mode || m->compact_next || ((limit<5 && !(m->table_mode && limit==2)) || limit>12))return wifi_mcu_fail(d);
     m->compact_mode=true;m->compact_limit=limit;m->clock_mode=clocks;
     for(unsigned phase=0;phase<limit;phase++) {
         if(phase==2 && clocks && !wifi_mcu_clock_enable(d))return false;
@@ -1018,8 +1066,9 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             if(write_probe && !wifi_mcu_capture_write(d))saved=false;
             else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
             else if(compact) {
-                m->clock_pair_mode=observe==8;
-                if(!wifi_mcu_initialize_compact(d,5+agc_steps,(observe==6 || observe==7 || observe==8)))saved=false;
+                m->clock_pair_mode=observe==8;m->table_mode=observe==9;
+                if(!wifi_mcu_initialize_compact(d,observe==9?2:5+agc_steps,(observe==6 || observe==7 || observe==8 || observe==9)))saved=false;
+                else if(observe==9){if(!wifi_mcu_clock_enable(d) || !wifi_mcu_probe_bbp(d) || m->bbp.pbf!=0x80c00 || !wifi_mcu_table_capture(d))saved=false;}
                 else if(observe==4 || observe==5 || observe==6 || observe==7) { if(!wifi_mcu_txbe_access(d,observe==5 || observe==7))saved=false; }
                 else if(observe==2 || observe==3) { if(!wifi_mcu_txbe_first(d,observe==3))saved=false; }
                 else if(observe==1 && !wifi_mcu_observe_txbe(d))saved=false;
@@ -1091,3 +1140,5 @@ bool xhci_wifi_capture_clock(void) { return wifi_capture_mcu(true,true,true,true
 bool xhci_wifi_capture_clock_direct(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,7); }
 
 bool xhci_wifi_capture_clock_pair(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,7,8); }
+
+bool xhci_wifi_capture_bbp_table(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,9); }

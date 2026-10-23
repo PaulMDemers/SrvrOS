@@ -1578,3 +1578,17 @@ The `txbe-state-audit` receipt checks source boundaries, all58 entries, two Linu
 snapshots and the v30 failure. It includes proposed200/200/88-byte packet fixtures
 with sequence0/0/6, archived outside build; these packets have not been sent to
 hardware. No new kernel/profile or boot payload was installed during this audit.
+
+### Full-table observation implementation (native pending)
+
+Firmware v31 (`--wifi-bbp-table`) explicitly runs reset/identity/timing, the two
+accepted MAC phases, clock setup and BBP readiness before the fixed58-entry
+table. Three fixed packets200/200/88 bytes use sequence0/0/6; only the final
+packet reads an MCU acknowledgement. The generic register builder still refuses
+sequence0. All58 targets are sampled before and after, with four MAC0/COREf000f200
+boundaries (124 reads). Transport, ownership, all-ones reads, malformed ACKs and
+guard failures stop the capture. Target mismatches are counted and saved without
+being classified as accepted initialization. The summary explicitly states
+`register_acceptance=NOT_TESTED`, including when every observed target matches.
+No compact BBP phases or other TXBE experiment runs alongside this profile.
+Historical strict checks remain unchanged; no RF calibration/channel/MAC enable.

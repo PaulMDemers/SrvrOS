@@ -250,6 +250,9 @@ struct xhci_wifi_mcu {
     bool txbe_observe_active, txbe_first_active, txbe_first_submitted, txbe_second_mode;
     bool clock_mode,clock_active,clock_submitted,clock_pair_mode;
     struct mt76_clock_probe clock;
+    bool table_mode,table_active;
+    unsigned table_submitted;
+    struct mt76_bbp_table table;
     bool txbe_access_active, txbe_access_submitted, txbe_direct_mode, txbe_direct_submitted;
     struct mt76_txbe_access txbe_access;
     uint64_t txbe_access_us[2][MT76_TXBE_SAMPLES];
