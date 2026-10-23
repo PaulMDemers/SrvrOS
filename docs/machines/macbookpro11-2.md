@@ -3765,3 +3765,22 @@ same-adapter Linux evidence), other three exact requested values, all12 reads an
 final MAC0/COREf000f200. No ignored-bit mask; reject every other LINK value.
 Preserve v35 strict and v36 observation modes. Touch MCU/xHCI/main/staging/tests.
 Actual base22fd266; fetched maind753051 includes Air6,1 AC work, separate scope.
+
+### 2026-10-23 — v37 exact policy candidate installed, unarmed
+
+Source `c0ee877`, release `678a8d195cc57e83`. Build, compact/xHCI tests,
+ASan/UBSan, 93 boot-profile tests and docs checks passed. Tests reject every
+readback/final-guard bit mutation and retain IO/cancellation/no-retry behavior.
+Collector rejects128 target-bit mutations and six invalid capture variants.
+Exact-stage GPT VM saved diagnostics and returned with clean filesystem checks;
+missing-workspace VM returned without probing. Native validation pending.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Complete v36
+`76e71b07371c6185` retained; failed v35 removed from ESP only after comparison with
+its durable archive. UUID0E53-5900 clean211files/565clusters, no allocation errors,
+unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-policy-validate/run.json`,
+`build/bringup/collect_wifi_policy_validate_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-validate-c0ee877/`.
+Next: readiness-confirmed cold adapter power cycle and automatic capture/return,
+then collect matching session. RF/connectivity NOT_TESTED.
