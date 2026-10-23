@@ -2256,7 +2256,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
@@ -3464,3 +3464,11 @@ LIFETIMEPROBE_OBJ := build/userspace/lifetimeprobe/lifetimeprobe.c.o
 $(USER_LIFETIMEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) -o $@
 -include $(LIFETIMEPROBE_OBJ:.o=.d)
+
+.PHONY: test-desktop-battery-trial
+test-core: test-desktop-battery-trial
+test-desktop-battery-trial: build/tests/desktop-battery-trial$(HOST_EXE)
+	$<
+build/tests/desktop-battery-trial$(HOST_EXE): tools/test_desktop_battery_trial.c userspace/deskd/battery_trial.h shared/include/srvros/battery_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
