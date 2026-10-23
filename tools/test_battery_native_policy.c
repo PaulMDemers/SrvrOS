@@ -20,6 +20,15 @@ int main(void) {
         for(unsigned mode=0;mode<2;mode++)
             assert(battery_native_gpe_admit(byte,enabled,mode)==
                 (!enabled||(!mode&&((byte==12&&enabled==0x40)||(byte==14&&enabled==4)))));
+    /* Exercise every byte of RCRB and crossing boundaries, all supported and
+     * unsupported widths, and every write, independently of NVS permission. */
+    const unsigned hwidths[]={0,1,8,16,24,32,64,128};
+    for(int off=-8;off<0x4008;off++)for(unsigned w=0;w<8;w++){
+        uint64_t a=0xfed1c000ull+off;
+        assert(battery_native_hptc_allowed(a,0xfed1f404,hwidths[w],false)==(off==0x3404&&hwidths[w]==32));
+        assert(!battery_native_hptc_allowed(a,0xfed1f404,hwidths[w],true));
+    }
+    assert(!battery_native_hptc_allowed(UINT64_MAX,0xfed1f404,32,false));
     uint64_t ig=0x8ad03190,fa=0x8ad10000;
     const unsigned widths[]={0,1,8,16,24,32,64,128};
     for(unsigned region=0;region<4;region++) {

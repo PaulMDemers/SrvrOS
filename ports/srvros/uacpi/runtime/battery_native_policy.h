@@ -25,6 +25,12 @@ static inline bool battery_native_gpe_admit(unsigned byte,uint8_t enabled,uint16
 static inline bool battery_native_contains(uint64_t b,uint64_t n,uint64_t a,uint64_t s) {
     return s&&a>=b&&a-b<=n&&s<=n-(a-b);
 }
+/* RCRB is an opaque AML mapping. Only this captured HPTC DWORD may be read;
+ * accepting the region mapping does not authorize its other registers. */
+static inline bool battery_native_hptc_allowed(uint64_t pointer,uint64_t hptc,
+    unsigned bits,bool write) {
+    return pointer==hptc && bits==32 && !write;
+}
 /* Shared by native mapping and read policy; writes remain independently gated. */
 static inline bool battery_native_nvs_contains(uint64_t igdm,uint64_t address,uint64_t bytes) {
     return battery_native_contains(BATTERY_GNVS,BATTERY_GNVS_BYTES,address,bytes)||

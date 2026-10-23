@@ -1070,3 +1070,41 @@ logs were added. Offline exFAT/allocation pass: 203 files, 380 clusters, zero
 leaks/mismatches/errors. Installed and independent payload/recovery hashes pass;
 Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
 are retained outside build. No reboot is armed.
+
+## HPTC correction scope (2026-10-23)
+
+Based on main `6e608b0`, this unit owns the native HPTC read correction in
+`battery_native_platform.c` and the shared pure predicate/profile tests.
+Open PR88 input timing and PR19 Wi-Fi were inspected; no overlapping battery
+scope was found. Admit the opaque captured RCRB region and only a 32-bit read
+at HPTC `fed1f404`, already sanity-checked by native admission. All other MMIO,
+widths and writes remain denied. Air7,2 retains its existing equivalent policy;
+GPIO stays denied for Air6,1. Re-run connected captures, host/VM checks and an
+exact staged five-sample trial with the existing 30-second failure display.
+
+## HPTC correction candidate ready (2026-10-23)
+
+Release `15f29b76df51bab0`, clean compiled source `9316f8a`, uses the captured
+HPTC DWORD read with the existing exact firmware/resource admission and bounded
+five-sample owner. Native sampling remains pending. GPIO, other chipset accesses
+and writes remain denied; the 30-second terminal failure display is retained.
+
+Full build/USB image, native/VM binaries, core/desktop suites, 65 staging tests
+and docs checks pass. Both compiled policy profiles exercise every RCRB byte,
+width and write refusal; the Air6,1 platform test checks mapping boundaries,
+actual memory-access refusal and captured table mutations. Connected replay in
+all four modeled lid/AC states initializes with zero errors/denials/leaks and
+reads only HPTC `fed1f404` for chipset MMIO. Removing that snapshot permission
+reproduces the HPET initialization failure. Q35 normal sampling and denied-access
+containment pass; exact staged GPT VM refuses nonmatching native hardware,
+saves logs, cleanly unmounts and returns. These are not physical acceptance.
+
+The 203-file USB baseline and offline allocation pass (380 clusters, zero
+leaks/mismatches/errors). Candidate/recovery hashes and Ubuntu default are
+verified; no one-shot is armed. Console recovery `c35475f62f154f1e`, accepted
+desktop telemetry `eee15036f4172920` and passive preflight remain installed.
+Failed superseded `674c597b082f2494` was removed from EFI after verifying its
+independent backup. New payload/run evidence is retained outside build.
+Leave AC and USB connected; photograph any failure during the 30-second pause.
+Collect the matching session and verify completion/retirement and USB integrity
+before another trial. Missing final logs remain failure/incomplete evidence.

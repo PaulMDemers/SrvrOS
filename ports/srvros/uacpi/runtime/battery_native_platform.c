@@ -218,9 +218,7 @@ void *battery_platform_map(uint64_t a,size_t n) {
     if(contains(platform->rsdp,36,a,n)||contains(platform->facs,64,a,n)||
        battery_native_nvs_contains(igdm,a,n))return pmm_phys_to_virt(a);
     /* Mapping is an opaque base: only the HPTC DWORD can actually be read. */
-#ifndef SRVROS_BATTERY_AIR61
     if(contains(0xfed1c000,0x4000,a,n))return (void *)(HPTC_VA-0x3000+(a-0xfed1c000));
-#endif
     for(uint64_t i=0;i<acpi_table_count();i++) {
         const struct acpi_table_info *t=acpi_table_at(i);
         if(contains(t->physical_address,t->length,a,n))return pmm_phys_to_virt(a);
@@ -231,9 +229,7 @@ bool battery_platform_memory(void *ptr,unsigned bits,bool write,uint64_t *v) {
     if(!platform||!v||!(bits==8||bits==16||bits==32||bits==64))return false;
     uint64_t a=(uintptr_t)ptr-pmm_hhdm_offset();
     bool allowed=battery_native_memory_allowed(igdm,platform->facs,a,bits,write,*v)
-#ifndef SRVROS_BATTERY_AIR61
-        || (!write&&(uintptr_t)ptr==HPTC_VA+0x404&&bits==32)
-#endif
+        || battery_native_hptc_allowed((uintptr_t)ptr,HPTC_VA+0x404,bits,write)
         ;
     if(!allowed)return false;
 #define MEM(B,T) if(bits==B){if(write)*(volatile T *)ptr=*v;else *v=*(volatile T *)ptr;}
