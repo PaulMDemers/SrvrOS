@@ -461,7 +461,7 @@ PR #66 owns v52 AC/battery capture; PR #19 owns Wi-Fi. Their separate recipes
 and native gates remain unchanged. Prior highlight run is collected. Preserve
 console recovery `c35475f62f154f1e`; install unarmed after exact-stage validation.
 
-The new [full desktop session checklist](../macbookair6-1-desktop-session.md)
+The initial [full desktop session checklist](../macbookair6-1-desktop-session.md)
 uses v53 release `306174ddfec763ef`, clean source `f8a498a`; VM tooling finalized
 at `819acd0`. Build, desktop host suite, staging/collector tests (56 installer
 checks, 22 collector checks) and docs pass. Exact-stage GPT VM passes 60 one-MiB
@@ -485,3 +485,15 @@ USB SESSION COMPLETE, save a screenshot, return to console and require clean
 log save/unmount before `reboot`. On return collect the matching new desktop
 session and verify workload/notes/preferences/prior files and both offline checks
 before staging another run. The preparation leaves reboot unarmed.
+
+MR #66 landed during preparation; consumed merged main `ddf4ebf` and retained
+both the v52 battery recipe and v53 basic desktop recipe. Combined source
+`f689b7c` rebuilds successfully; 57 staging/installer tests, 23 collector tests,
+the desktop suite and battery control/transition regressions pass. Initial
+release `306174ddfec763ef` is superseded by `9ddea14869c9ed6f`; the same unstarted
+USB run and inputs remain valid. Final exact-stage GPT rehearsal passes all 60 rounds, concurrent app saves,
+retained bytes, two clean exits/unmounts and fresh-boot preference persistence.
+The rebuilt release is installed unarmed with console recovery retained; installed
+hashes, Ubuntu default and empty one-shot are verified. Final payload and trial
+backups are hash-verified outside build under `9ddea14869c9ed6f`. The run command,
+checklist and physical acceptance scope above are unchanged.
