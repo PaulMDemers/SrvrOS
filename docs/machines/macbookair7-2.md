@@ -13,11 +13,26 @@ local fixtures and power documentation. No CPU policy, firmware gates or suspend
 changes. Pro PR19 `26a283b` retains USB Wi-Fi ownership; its xHCI/main/staging
 changes are outside this first diagnostic block. Actions remain disabled.
 
-Installed current/recovery and filesystem acceptance below remain unchanged.
-No physical run is armed. Native energy comparison is pending; VM CPU usage
-and scheduler ticks are not energy measurements. Before reboot, retain an exact
-stage rehearsal and matching host/device-state record; collect before changing
-polling behavior.
+[PR106](https://github.com/PaulMDemers/SrvrOS/pull/106), implementation `7e0d8b9`,
+adds per-lifetime timeout/queue wake counters and strict covered-window collection.
+Full build/core/docs and 25 desktop collector tests pass locally. The ordinary
+networked VM idles, accepts USB keyboard input and saves the exact typed bytes.
+Exact EFI/GPT power stage `dc7c0eaea0dca69b` completes desktop capture, screenshot,
+save/unmount/reset; unavailable VM power remains null. Six complete worker
+snapshots cover 50.258 seconds, with no partial lifetimes. A missing-workspace
+rehearsal returns automatically without starting measurement. VM polling counts
+are not physical energy or native input acceptance.
+
+The next native run uses that unchanged v26 automatic recipe with the new
+accounting. No input is required; keep AC and the attached USB devices unchanged.
+It measures Text idle for one minute, saves diagnostics and returns to Ubuntu.
+The ordinary Home battery owner is excluded; this is an attribution baseline,
+not an energy improvement or ordinary battery-service efficiency claim. Preserve
+accepted recovery `9aa8dbf6fbda8252`, record native brightness/device state and
+collect matching evidence before changing polling. Local run/arming state is in
+`build/power-idle-20261023/checkpoint.json`; payload/evidence backups survive
+build cleanup under the unit's local application-data directory. Native baseline
+and repeated matched comparison remain pending.
 
 ### Previous checkpoint: filesystem scale milestone complete
 
