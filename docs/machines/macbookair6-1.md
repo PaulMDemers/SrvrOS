@@ -577,3 +577,28 @@ zero leaks/mismatches/errors. Console recovery `c35475f62f154f1e`, installed has
 Ubuntu default and empty one-shot are verified. Payload/trial evidence has a
 hash-verified durable copy outside build under the new release. Physical fix
 acceptance is pending; collect this fresh run before another trial.
+
+## File identity fix physical result (2026-10-23)
+
+Run `f48940182e6911a0`, release `db7ce82008f4b9a6` (clean source `78e285a`,
+merged PR #71), returned to Ubuntu. Matching session
+`session-00065e82d1e50247-00` has its exit snapshot and desktop exit with no
+collector attention. The user reports the file issues resolved during this run.
+All 172 persisted metadata IDs are nonzero and unique, including repair of the
+previous collisions. Two new text files persist. All 141 preboot file hashes
+are unchanged except the expected `.srvros/meta` repair/update.
+
+The workload verifies exactly rounds 1–60 once, 62,914,560 bytes copied, exact
+final readback and completion marker. Offline fsck is clean (150 files), and
+allocation traversal passes with 187 clusters and zero leaks, mismatches or
+errors. This accepts the reported file-listing/save/navigation fix and the
+bounded concurrent USB workload on this unit. Physical rerun refusal and
+preference persistence are not independently captured; their VM evidence remains
+valid but this report does not promote them to physical acceptance. No screenshot
+was saved. Broader gesture/session and optional device coverage remains open.
+
+Raw collection, changed/new files, hash report and offline checks are preserved
+under the run directory and hash-verified durable evidence outside build at
+`~/.local/share/srvros/evidence/db7ce82008f4b9a6/trial`. Run/launch records are
+returned-collected; GRUB one-shot is empty and USB is unmounted. No new trial
+is staged or armed. Next work should choose a bounded remaining acceptance scope.
