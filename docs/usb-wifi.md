@@ -1712,7 +1712,7 @@ markers were saved. This accepts this bounded four-register operation on the
 captured7392:a711 adapter, not other adapters, remaining initialization or RF/
 connectivity. v35's historical failure and v36's observation evidence remain.
 
-### CCK/OFDM/GF protection group (v38; native result pending)
+### CCK/OFDM/GF protection group (v38; Pro11,2 native passed)
 
 `--wifi-mac-protect` requires v37 exact policy validation. It appends one fixed
 sequence8, 40-byte command for CCK1364=07f40003, OFDM1368=07f42004,
@@ -1722,3 +1722,10 @@ are required before submission. Exact ACK, twelve reads, all four after-values
 and initial/final MAC0/COREf000f200 must pass. No retry, PBF/DMA/power change,
 RF enable or subsequent BBP table is introduced. This is a bounded table subset,
 not a claim of complete reference-order initialization or wireless connectivity.
+
+Pro11,2 release `89ee4a2fc2121ce2`, session `00065e8a54a2695f-00`, passed on
+2026-10-23: exact sequence8 ACK, all12 reads, captured starts and all four target
+values matched. Initial/final MAC0/COREf000f200 and the earlier exact policy
+validation passed; both capture completion markers were saved. This accepts the
+bounded CCK/OFDM/GF group on captured7392:a711. Other protection settings, remaining
+MAC/BBP setup and RF/connectivity remain outside this acceptance.

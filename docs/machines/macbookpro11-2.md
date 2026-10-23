@@ -3830,3 +3830,23 @@ no allocation errors, unmounted; no one-shot armed. Run/collector:
 Durable payload/evidence: `~/.local/share/srvros/macbookpro11-2/wifi-mac-protect-1947345/`.
 Next: readiness-confirmed cold adapter cycle, automatic capture/return, then
 collect matching session. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v38 protection group passed natively
+
+Collected release `89ee4a2fc2121ce2`, source `1947345`, new session
+`00065e8a54a2695f-00`. Firmware/reset/timing, compact0/1, clock/readiness,
+FCE/WMM and exact v37 policy passed. Protection sequence8 sent40/received16,
+cc13/residue1008, exact ACK; status0 complete1 reads12, one batch completed,
+ack_mask1. Exact before->after: CCK00100003->07f40003, OFDM00200003->07f42004,
+GF20_01002004->01742004, GF40_02002084->03f42084. Initial/final MAC0 and
+COREf000f200 verified. Both capture completion markers yes; no BBP table ran.
+Acceptance limited to this bounded protection group on captured7392:a711;
+remaining initialization and RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint archived
+with hashes under `~/.local/share/srvros/macbookpro11-2/wifi-mac-protect-1947345/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean215files/571clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: select the remaining MAC/protection settings from the reference
+inventory before revisiting full baseband initialization.
