@@ -16,15 +16,27 @@ Prior files are unchanged apart from metadata; offline fsck/allocation pass
 consumed. USB is unmounted. Review is retained outside build at
 `~/.local/share/srvros/reviewed-evidence/efc90fce7ae6849d`.
 
-Next bounded work: increase only secondary-tap displacement allowance from 64 to
+Candidate `95db354d397095b4` / v58, source `c619cdd`, implements the bounded
+follow-up: increase only secondary-tap displacement allowance from 64 to
 128 native Manhattan units (4 to 8 unaccelerated base pixels), retaining all time
-limits and primary-tap limits. Test boundary/contact-order/lift/scroll arbitration.
-Correct the checklist to dismiss only visible menus so failed attempts do not
+limits and primary-tap limits. Boundary/contact-order/lift/scroll arbitration tests pass.
+The corrected checklist dismisses only visible menus so failed attempts do not
 send Escape into Terminal's read; use fresh Home/tap-diagnostics-v2 reports.
 Touched subsystems: pointer policy/tests, trial script/Help/VM checks, current docs.
 Main `90a1db8` was fetched/inspected: separate Air6,1 battery runtime work; this
 focused change retains actual base `f310923`. Pro PR19 `5735a13` records separate
 validated full-table Wi-Fi candidate; no sibling driver/firmware gates are copied.
+
+Full build/core/docs, pointer/mouse/ABI, xHCI, eight host checklist tests, actual
+Terminal guest script execution and exact EFI/audio/GPT save/reopen all pass.
+The corrected Help page was visually reviewed. Source is committed and shared;
+PR88 stays draft pending native taps and unwanted-menu/scroll acceptance.
+Validation/payload evidence survives cleanup at
+`~/.local/share/srvros/validation/tap-settling-trial-95db354d397095b4`.
+The candidate is staged only: installed remains `efc90fce7ae6849d`, previous
+`9aa8dbf6fbda8252`; no reboot is armed. Next trial must use fresh
+Home/tap-diagnostics-v2, retain current accepted recovery, and record the exact
+install/one-shot state before any attended reboot.
 
 ### Earlier diagnostic preparation (returned above)
 
