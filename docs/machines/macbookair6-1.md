@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Brightness read-only bring-up next.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Read-only native PWM capture accepted; brightness writes pending.**
 
 ## Initial inventory (2026-10-22)
 
@@ -58,7 +58,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
-| Brightness | Exact hardware inventoried; read-only capture being prepared | Native PWM capture, then gated provider and visible adjustment |
+| Brightness | Exact-gated native read-only PWM capture accepted | Gated write provider and attended visible adjustment |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
@@ -703,3 +703,25 @@ All 170 USB files are recorded; offline fsck/allocation pass (249 clusters,
 zero leaks/mismatches/errors). Payload and run evidence are preserved outside
 build. This next boot is unattended: leave USB attached, allow automatic Ubuntu
 return, then collect before any write-enabled brightness implementation.
+
+
+## Native PWM capture result (2026-10-23)
+
+Run `b1bf2459dd0cd1f9`, release `142dd83ded3d2da4`, session
+`session-00065e85df9c8068-00` returned to Ubuntu with matching boot/exit logs,
+`completed=yes` and no collector attention. Exact Air6,1 admission succeeded:
+CPU control/duty `0/0`, PCH control `c0000000`, PCH duty `0ad904cc`;
+decoded mode 2 (PCH override), period 2777, duty 1228 (about 44% duty).
+The capture explicitly records no PWM writes, provider binding or EC access.
+This accepts read-only access, not panel adjustment or calibrated luminance.
+
+All 170 prior file hashes match except expected metadata update; only two
+session logs are new. Offline fsck is clean (172 files), allocation passes with
+252 clusters and zero leaks/mismatches/errors. Final saved/unmounted console
+messages are emitted after logging stops and are not present in the saved exit
+snapshot; retained logs, returned host state and offline integrity are recorded
+separately rather than claiming those console messages were captured.
+Evidence has a hash-verified backup outside build. One-shot is empty and USB
+unmounted; recovery remains verified. Next is an exact Air6,1 brightness provider
+preserving observed mode/period, with an attended visible adjustment trial.
+No new boot is staged or armed.
