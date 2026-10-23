@@ -40,7 +40,7 @@ struct battery_platform {
     /* Exact native binding or explicit disposable capture fixture only.
      * Runtime additionally requires the opt-in capture and parked storage. */
     bool smbus_capture_profile;
-    bool bounded_samples_only; /* First Air6,1 trial: parked USB, no service/transition entry. */
+    bool bounded_samples_only; /* Air6,1: only parked five-sample or short SMBus capture entry. */
     enum battery_query_policy query_policy;
     uint64_t rsdp,facs;
     uint16_t original_control;

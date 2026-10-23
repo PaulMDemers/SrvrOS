@@ -376,6 +376,15 @@ service and transition entry. Keep AC connected; collect matching retirement
 and file-integrity evidence after automatic return. It does not widen Air7,2's
 native profile or ordinary startup. See the same Air6,1 audit below.
 
+For its query10 follow-up, use **v62** `--battery-air61 --battery-smbus`
+with the unit's `--laptop-probe-volume`. This short parked capture uses the
+existing host-event owner: at least one natural event and fresh generation 3,
+a 30-second window and 128-event cap. It never dispatches AML `_Q10`; ordinary
+service/Home/image/transition entry remains denied. Keep AC/USB connected and
+photograph a failure during the 30-second terminal pause. Require the shared
+SMBus event/cache/retirement proof and filesystem checks on return. Native
+Air6,1 event acceptance is pending; see its audit and machine record.
+
 Air6,1 starts with the separate passive **v60** `--battery-preflight` profile
 on `--laptop-probe-volume`. It records exact-gated PM1/GPE/EC status only, saves
 logs and returns automatically. It does not admit the Air7,2 runtime or sample

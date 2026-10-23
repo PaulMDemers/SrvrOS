@@ -1,7 +1,8 @@
 # MacBookAir6,1 battery/AC bring-up
 
 Live SrvrOS battery/AC telemetry remains physically unaccepted; the isolated
-five-sample runtime candidate is described below. Ordinary startup stays off. The first v60 boot captured
+five-sample runtime and short SMBus capture profiles are described below.
+Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
@@ -237,3 +238,38 @@ logs added. Offline exFAT/allocation pass: 205 files, 383 clusters, zero leaks,
 bitmap mismatches or errors. Payload/recovery hashes and Ubuntu default pass;
 Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
 are backed up outside build. No reboot is armed.
+
+## Air6,1 short host-event capture audit (v62)
+
+The captured DSDT explicitly defines SMB0 `ACPI0001`, `_EC=2010`, SBS0
+`ACPI0002` and `_SBS=1`, with no EC/SMB0 Global Lock request. The native contract
+checks host ID, bank/query, SBS interface and absent/zero locks before use. Its
+ECOR fields place SPTR/SSTS at `20/21`, SADR/SCMD at `22/23`, the data buffer at
+`24`, and alarm address/data at `45/46/47`. `_Q10`'s non-Darwin branch confirms
+alarm bit `40`, shifted address and zero-status acknowledgement. The same exact
+DSDT/eight-SSDT/resource gates remain required. This is independently captured
+Air6,1 evidence, not inheritance of Air7,2 physical acceptance.
+
+v62 (`--battery-air61 --battery-smbus --laptop-probe-volume <unit-uuid>`) uses
+the existing short event capture and strict collector proof. It waits at most
+30 seconds for a natural event and fresh generation 3 or later, with a 128-event
+cap. The owner requires automatic recovery, the exact parked volume, no mounted
+workspace, image lease or active storage I/O. Five-sample v61 remains separate;
+ordinary service, Home, transitions and file coexistence stay refused on Air6,1.
+
+Query10 is handled directly by the existing OS event helper, never AML `_Q10`.
+Completion-only/spurious events read idle protocol/status without writing. An
+alarm copies address and both data bytes, rechecks idle protocol and unchanged
+status, then acknowledges with the sole zero write to SSTS. Known senders 9–11
+invalidate the cache and require a newer sample; unknown senders remain explicit.
+No charge-control commands or AML bank permissions are added. Errors/reserved
+status, races, partial reads and uncertain acknowledgement retain containment.
+The single worker serializes sampler/event operations, with existing transfer,
+query and one-second event deadlines. The source/worker/resource retirement
+proof must pass before remounting USB to save logs.
+
+A separate disposable Air6,1-policy VM binary exercises this admission without
+native hardware, including alarms in both OS branches, wrong descriptors and
+unsafe event handling. Native alarms, accuracy, sustained monitoring and AC
+transitions remain unaccepted. On failure, photograph the existing 30-second
+screen; missing final completion is not a pass.

@@ -51,7 +51,12 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                         Sleep (1000); Sleep (1000); Sleep (1000); Sleep (1000)
                         Sleep (1000); Sleep (1000); Sleep (1000)
 #endif
+#ifdef BATTERY_AIR61
+                        // Captured Air6,1 _REG writes only ECSS zero.
+                        EACK = Zero
+#else
                         EACK = One
+#endif
                         Notify (EC, 0x80)
                     } Else {
 #if BATTERY_FAULT == 47 || BATTERY_FAULT == 60
