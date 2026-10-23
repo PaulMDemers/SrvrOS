@@ -3485,3 +3485,15 @@ Fetched mainb17b80e (PR93 Air6,1 bounded battery return) and inspected PR88 tap
 scope; neither is incorporated into the actual22fd266 base for this experiment.
 The snapshot candidate adds no shared battery/input changes. Local staging88
 cases and initial build/controller/MCU checks pass; final tests/VM pending.
+
+MAC prerequisite snapshot installed: source `f3ba99c`, release
+`b7a5985c12609971`, firmware profile v32. Build, MCU/xHCI fault/refusal/ownership
+regressions,88 staging tests, ASan/UBSan, collector success/seven mutations and
+docs checks pass. Exact-stage GPT absent-radio save/unmount/reset and
+missing-workspace automatic return VM checks pass. Physical acceptance pending.
+Candidate, VM receipts, collector/fixture and test logs archived outside build in
+wifi-mac-snapshot-f3ba99c; run record saved. Ubuntu default and recovery
+e47dca3a6b30c6c1 verified. Workspace201files/550clusters, zero allocation errors,
+clean fsck and unmounted. No boot armed; await cold adapter cycle. On return,
+collect the matching new session first, requiring complete63-value inventory and
+67 reads before interpreting the unchanged full-BBP observations.
