@@ -1134,3 +1134,44 @@ logs added. Offline exFAT/allocation pass: 205 files, 383 clusters, zero leaks,
 bitmap mismatches or errors. Payload/recovery hashes and Ubuntu default pass;
 Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
 are backed up outside build. No reboot is armed.
+
+## Short SMBus capture scope (2026-10-23)
+
+Based on main `eeca0e8`, this unit owns bounded Air6,1 host-event admission in
+shared battery runtime/platform, v62 staging and directed host/VM tests.
+Air7,2 PR88 input timing and Pro11,2 PR19 Wi-Fi remain independent scopes.
+Reuse the existing serialized SMBus event/service/retirement mechanisms with
+exact Air6,1 firmware gates. Admit only the automatic short parked capture;
+retain v61 query refusal and reject mounted Home, image/files and ordinary
+service. No AML `_Q10` dispatch or general EC register permissions are added.
+
+## Short SMBus candidate ready (2026-10-23)
+
+Release `bfde0423543f20d0`, clean compiled source `63bc06f`, uses the v62
+short parked host-event capture. Main `2e2eb2b` / PR88 tap diagnostics was
+integrated without conflicts; Pro PR19 remains separate Wi-Fi work. Native
+battery sampling and runtime retirement remain unaccepted pending this trial.
+
+Full build/USB image, core/desktop suites, 66 staging tests and 476 local docs
+links pass. Seventeen Air6,1-policy VM cases cover completion, both OS branches'
+alarms, unknown/late events, controller errors/timeouts, descriptor and query
+refusals, old-profile refusal, no-event and native refusal. Each has clean offline
+allocation; successful cases verify saved receipts and retirement. Air7,2
+completion regression passes. After integration the full suites and Air6,1
+completion were repeated. The exact staged EFI/GPT VM refuses nonmatching
+hardware, saves logs, unmounts and returns. Captured-table replay has zero
+errors/denials/leaks. These are modeled evidence, not native acceptance.
+
+The 205-file USB baseline is unchanged; offline exFAT/allocation pass with
+383 clusters and zero leaks/mismatches/errors. Payload/recovery hashes, Ubuntu
+default and empty one-shot are verified. Console recovery `c35475f62f154f1e`,
+accepted desktop telemetry `eee15036f4172920` and passive preflight remain.
+Superseded failed `b9a2d264ad3a0dd2` was removed from EFI only after its independent
+backup was verified. New payload/run/VM evidence is backed up outside build.
+
+Keep AC and USB connected; no input is required. The capture waits up to
+30 seconds for a natural SMBus event and fresh sample generation 3 or later,
+with a 128-event ceiling. Photograph any failure during the 30-second display.
+Automatic Ubuntu return should follow; missing final evidence remains failure
+or incomplete. Collect this release and verify retirement and all prior files
+before another trial. No reboot is armed.

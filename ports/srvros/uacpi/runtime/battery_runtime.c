@@ -106,8 +106,14 @@ static bool native_query_return_scope(void) {
     return runtime.platform.query_policy==BATTERY_QUERY_AIR72 &&
         (capture_storage_parked() || (mounted_home_owned() && runtime.platform.smbus_capture_profile));
 }
+static bool air61_smbus_owned(void) {
+    return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
+        runtime.platform.smbus_capture_profile && battery_bounded_capture_entry(runtime.transition_mode,
+        runtime.service_mode,owner==OWNER_SERVICE,smbus_capture&&!smbus_files&&!smbus_controls&&!mounted_home&&!smbus_study,
+        auto_return,smbus_capture_parked(),workspace_active(),workspace_image_busy(),scheduler_io_active());
+}
 static bool smbus_owned(void) {
-    return (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&
+    return air61_smbus_owned() || (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&
         (smbus_workspace_hold?workspace_mount_hold_valid(smbus_workspace_hold):!workspace_active())) ||
         ((smbus_capture_parked() || mounted_home_owned()) && runtime.platform.smbus_capture_profile &&
          runtime.platform.query_policy==BATTERY_QUERY_AIR72);
@@ -947,9 +953,9 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(runtime.engaged||!timer_reference_ready())return false;
     runtime=(typeof(runtime)){.transition_mode=transitions,.service_mode=service_mode};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
-    if(runtime.platform.bounded_samples_only && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
+    if(runtime.platform.bounded_samples_only && !air61_smbus_owned() && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
        workspace_parked_device()!=NULL,workspace_active(),workspace_image_busy(),scheduler_io_active())) {
-        console_write("battery: REFUSED bounded profile requires parked automatic five-sample diagnostic\n");return false;
+        console_write("battery: REFUSED bounded profile requires parked automatic sampling or short SMBus capture\n");return false;
     }
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;

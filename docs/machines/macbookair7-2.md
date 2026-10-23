@@ -2,29 +2,39 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: bounded log retention and creation headroom
+### Current checkpoint: capacity recovery accepted; integration closeout
 
-PR88 is merged as `2e2eb2b`; tap feel is accepted by the tester, with its missing
-native receipt retained as incomplete evidence. Integrated source `4100371`
-passed full build/core/docs, Terminal guest and exact EFI/audio/GPT rehearsal
-(release `eaa2de0f69629a27`). That VM artifact was not installed.
+Native release `a39bb31d4031693a` (source `2c68476`), request
+`cda6574dd2dedfa8`, returned with a valid complete CRC-protected PASS report.
+Write/flush/read, file operations and shell/editor save/remount/reopen pass;
+all expected file trees verify independently in Ubuntu. There are 25 new test
+files, no missing files and no unexpected modifications: only the request and
+filesystem metadata changed. Offline fsck passes (979 files, 205 directories),
+and independent traversal finds 2165 allocated clusters, no leaks or mismatches.
+This accepts one automated persistence round, not physical gestures or battery.
 
-The authorized capacity follow-up uses `device/macbookair7-2/log-capacity`, based
-on actual main `2e2eb2b`. Scope: mounted/offline node-table preflight, bounded
-verified Ubuntu log archival, kernel logger admission and visible trial refusal,
-host/VM tests and current guides. Pro PR19 owns separate Wi-Fi work; no device
-profiles or firmware gates change. Publish storage changes separately from tap
-work. Keep accepted `9aa8dbf6fbda8252` recovery and Ubuntu default.
+Ubuntu default and consumed one-shot pass. Installed current remains
+`a39bb31d4031693a`; accepted previous remains `9aa8dbf6fbda8252`. USB is unmounted,
+no reboot is armed, and returned evidence is preserved outside build at
+`~/.local/share/srvros/pending-trials/a39bb31d4031693a/returned`.
 
-Verified archival moved 22 older completed sessions (70 files) to
-`~/.local/share/srvros/log-archives/20261023-capacity-recovery` before deleting only
-those verified USB copies. The newest 32 sessions, incomplete/unknown sessions,
-user documents and other files were preserved; all 953 remaining files are
-byte-for-byte unchanged. The mounted scan has 953 files, 200 directories and
-70 usable file slots after metadata reserve. Offline checks follow before any
-physical run. Original incomplete evidence remains archived independently.
+PR88 tap work is merged; the user's subjective tap feel is accepted, while its
+missing full native receipt remains incomplete. PR99 closes the independent
+logging-capacity follow-up. Actual main `5d195a9` adds Air6,1 PR98's separately
+gated SMBus capture; integration preserves both Makefile targets and v62 profile.
+Pro PR19 `1b98c71` remains separate Wi-Fi work. No sibling acceptance is inferred.
+The next step is local merged-source validation, evidence archival and PR99 merge.
 
-### Capacity implementation and local validation (PR #99)
+Verified archival previously moved 22 completed old sessions (70 files) to
+`~/.local/share/srvros/log-archives/20261023-capacity-recovery` before pruning
+only their verified USB copies. All other 953 files were unchanged. Newest 32,
+incomplete/unknown sessions and user documents were preserved. After this test,
+44 file slots remain after metadata reserve: enough for the 32-file logger
+admission, but the conservative 64-file automated-test preflight will refuse
+another round until additional space is deliberately recovered. No further
+cleanup or trial is scheduled as part of this closeout.
+
+### Capacity implementation and pre-boot validation (PR #99)
 
 Source `2c68476` adds independent file/directory admission before session creation,
 visible attended-trial refusal, mounted preparation checks and an offline real
@@ -60,7 +70,7 @@ PR98 `7a1b014` is a distinct bounded SMBus capture. Both touch some shared guide
 and harness files; preserve their separate profiles when integrating. This work
 adds no device/firmware gates. Actions stay disabled; all validation is local.
 
-### Current result: tap feel accepted; logging capacity follow-up
+### Earlier tap acceptance and capacity diagnosis
 
 Returned settling trial `95db354d397095b4` (source `c619cdd`): the tester says
 "it's dialed in well enough now". Accept the subjective tap feel and stop further

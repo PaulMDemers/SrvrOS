@@ -3520,3 +3520,12 @@ build/tests/battery-failure-display$(HOST_EXE): tools/test_battery_failure_displ
 test-core: test-log-archive
 test-log-archive:
 	$(PYTHON) tools/test_hardware_log_archive.py
+
+.PHONY: acpi-air61-battery-vm-kernel
+acpi-air61-battery-vm-kernel: build/acpi-air61-battery/vm.elf
+build/acpi-air61-battery/vm.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-air61-battery/battery_vm_platform.o kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-air61-battery/battery_vm_platform.o: ports/srvros/uacpi/runtime/battery_vm_platform.c $(ZIG) $(UACPI_HEADERS) $(KERNEL_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -DSRVROS_BATTERY_AIR61 -c $< -o $@
+-include build/acpi-air61-battery/battery_vm_platform.d
