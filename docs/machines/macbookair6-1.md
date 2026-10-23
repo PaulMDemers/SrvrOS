@@ -91,12 +91,14 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Audio trial closeout against fetched integration `b99bb5b`; documentation and
-local evidence only. The installed/tested v57 remains compiled `8f3656a`, not
-the newer combined-services baseline. Record successful basic speaker listening,
-completed tones/WAV, cancellation and clean USB/Ubuntu return. Preserve the
-accepted payload and console recovery. Headphone routing, detailed channel balance
-and sustained playback remain separate future checks; no new reboot is armed.
+Base `d3875c7`, branch `device/macbookair6-1/audio-endurance`. Prepare a
+headphone-routing and five one-minute playback trial using accepted v57 release
+`0533c0dfc63d104f` (compiled `8f3656a`). Scope is this unit's test documentation
+and a generated WAV on its USB workspace; no driver, recipe or shared script
+changes. PR #83 owns the shared attended device-check script/v58 on Air7,2;
+PR #19 owns Pro Wi-Fi. Reuse the existing audio fixture and waveform checker,
+without duplicating those scopes. Rehearse the accepted exact payload and a
+five-minute PCM VM soak, preserve recovery, then leave the physical test unarmed.
 
 ## First console trial prepared (2026-10-22)
 
