@@ -536,3 +536,100 @@ identity restoration while retaining strict listing validation; make the workloa
 explicitly refuse an existing run directory. Its current `mkdir ... || exit 1`
 guard is insufficient because SrvrOS mkdir succeeds for existing directories.
 Preserve the interrupted and restarted evidence instead of rewriting round logs.
+
+## Identity and workload retry fix scope (2026-10-23)
+
+Base `58b354f`, branch `device/macbookair6-1/file-identities`. Fix duplicate VFS
+identities during metadata import/registration, preserving permissions/times and
+strict picker validation. Add collision/allocator regressions and a disposable
+VM fixture with duplicate persisted IDs, saved-file reopen and Home reentry.
+Fix the shell workload's existing-directory guard and exercise refusal without
+changing retained round evidence. Scope: VFS metadata, workload/rehearsal tools,
+tests and this unit's guide. PR #69 owns opt-in battery session startup; PR #19
+owns Wi-Fi. Neither owns VFS identity restoration. Prior native run is collected;
+retain its evidence and console recovery. Prepare a fresh v53 trial only after
+host tests and exact-stage VM pass, install unarmed, then merge under existing
+authorization. No firmware/profile gates are widened.
+
+The VFS now remaps imported zero/colliding IDs to unused live IDs across the
+whole node table; unique requested IDs and all other metadata fields are retained.
+Registration and metadata restoration share the rule; allocation skips used IDs
+and handles wraparound. The picker retains strict duplicate checks. The host
+regression fails against the old implementation at the collision assertion and
+passes on the fix, including file/directory import, repeated updates, zero and
+maximum IDs, wraparound and retained mode/time. Core and desktop suites pass.
+
+Exact-stage v53 GPT VM passes on release `db7ce82008f4b9a6`, clean source
+`78e285a`: seeded duplicate persisted IDs become unique, saved Text files reopen,
+Home Up/reentry works, all 60 copy/sync/readback rounds verify, and retries during
+the active workload and after a fresh boot return nonzero without changing the
+round log or final payload. Preferences, session logs and two clean unmounts pass.
+The guard explicitly tests directory existence before mkdir; it is a sequential
+rerun guard, not an atomic concurrent-job lock. Run one instance at a time.
+
+Fresh native run `f48940182e6911a0` is installed unarmed. Command:
+`sh session-f48940182e6911a0.sh`. Follow the updated full desktop checklist,
+including visible file listings, Up/double-click Home reentry, saved-file reopen
+and a second invocation that must print REFUSED without another round. Prior
+metadata/evidence remains untouched on USB so mount-time repair is exercised.
+There are 141 pre-boot hashes; fsck is clean and allocation has 169 clusters with
+zero leaks/mismatches/errors. Console recovery `c35475f62f154f1e`, installed hashes,
+Ubuntu default and empty one-shot are verified. Payload/trial evidence has a
+hash-verified durable copy outside build under the new release. Physical fix
+acceptance is pending; collect this fresh run before another trial.
+
+## File identity fix physical result (2026-10-23)
+
+Run `f48940182e6911a0`, release `db7ce82008f4b9a6` (clean source `78e285a`,
+merged PR #71), returned to Ubuntu. Matching session
+`session-00065e82d1e50247-00` has its exit snapshot and desktop exit with no
+collector attention. The user reports the file issues resolved during this run.
+All 172 persisted metadata IDs are nonzero and unique, including repair of the
+previous collisions. Two new text files persist. All 141 preboot file hashes
+are unchanged except the expected `.srvros/meta` repair/update.
+
+The workload verifies exactly rounds 1–60 once, 62,914,560 bytes copied, exact
+final readback and completion marker. Offline fsck is clean (150 files), and
+allocation traversal passes with 187 clusters and zero leaks, mismatches or
+errors. This accepts the reported file-listing/save/navigation fix and the
+bounded concurrent USB workload on this unit. Physical rerun refusal and
+preference persistence are not independently captured; their VM evidence remains
+valid but this report does not promote them to physical acceptance. No screenshot
+was saved. Broader gesture/session and optional device coverage remains open.
+
+Raw collection, changed/new files, hash report and offline checks are preserved
+under the run directory and hash-verified durable evidence outside build at
+`~/.local/share/srvros/evidence/db7ce82008f4b9a6/trial`. Run/launch records are
+returned-collected; GRUB one-shot is empty and USB is unmounted. No new trial
+is staged or armed. Next work should choose a bounded remaining acceptance scope.
+
+## Rerun refusal and preference persistence scope (2026-10-23)
+
+Base `5089172`, branch `device/macbookair6-1/rerun-preferences`. Prepare a focused
+attended follow-up using accepted release `db7ce82008f4b9a6` and the completed
+`f48940182e6911a0` workload. Preserve that workload; capture refusal stdout and
+exit status and compare its retained files with pre-test reference bytes. Save
+pointer speed 5/acceleration off through Settings, check reopening, then collect
+before a second boot verifies restoration. Scope is workload evidence helper,
+VM rehearsal and this unit's guide/record; no OS or firmware gate changes.
+PR #69 battery startup and PR #19 Wi-Fi remain separate. Re-run exact-stage GPT
+VM before readiness; retain Ubuntu default and console recovery. No reboot yet.
+
+Focused phase-1 run `359e52fa68fe19bf` is ready, installed-unarmed, reusing
+unchanged accepted release `db7ce82008f4b9a6` (OS source `78e285a`). Preparation
+helper/VM code `8441c88`, regression `b925cc3`: 57 staging tests, refusal preflight
+and collector regression, Settings/preferences host tests and docs checks pass.
+The exact-stage GPT VM passes two boots, saved preferences, the new refusal
+stdout/status/comparison receipt, 60 exact rounds, and two clean unmounts.
+Two initial fixture-construction attempts failed before boot because nested
+names are unsupported by the image builder; the final fixture uses flat names.
+
+Native command: `sh refusal-359e52fa68fe19bf.sh`. It checks completed workload
+`f48940182e6911a0`; require REFUSAL VERIFIED, then set Settings speed 5 and
+acceleration off, wait for ready and reopen Settings. Return to Ubuntu for
+collection before the separate restoration boot. All 150 prior files are
+preserved; seven fresh inputs bring the preboot count to 157. Offline checks
+pass (201 clusters, zero leaks/mismatches/errors). Installed payload and console
+recovery hashes, Ubuntu default and empty one-shot are verified. Local run and
+VM receipts are backed up outside build under the release's
+`refusal-preferences/359e52fa68fe19bf` directory. Physical acceptance is pending.

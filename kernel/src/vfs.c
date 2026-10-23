@@ -50,6 +50,29 @@ static bool executable_default_path(const char *path) {
         streq(path, "/echo");
 }
 
+/* Persisted metadata and freshly imported files share one live identity space.
+ * Never let an imported ID alias another node (including a different mount).
+ * The bounded node table guarantees a free nonzero ID even after wraparound. */
+static bool inode_in_use(uint64_t inode, const struct vfs_node *self) {
+    for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
+        if (nodes[i].used && &nodes[i] != self && nodes[i].metadata.inode == inode) return true;
+    }
+    return false;
+}
+
+static uint64_t allocate_inode(void) {
+    while (!next_inode || inode_in_use(next_inode, NULL)) next_inode++;
+    return next_inode++;
+}
+
+static struct vfs_metadata import_metadata(const struct vfs_metadata *metadata,
+    const struct vfs_node *self) {
+    struct vfs_metadata result = *metadata;
+    if (!result.inode || inode_in_use(result.inode, self)) result.inode = allocate_inode();
+    if (result.inode >= next_inode) next_inode = result.inode + 1;
+    return result;
+}
+
 static struct vfs_metadata default_metadata(const char *path, enum vfs_node_type type) {
     uint64_t now = metadata_time();
     uint64_t permissions = type == VFS_NODE_DIRECTORY ? 0755 : 0644;
@@ -57,7 +80,7 @@ static struct vfs_metadata default_metadata(const char *path, enum vfs_node_type
         permissions = 0755;
     }
     return (struct vfs_metadata) {
-        .inode = next_inode++,
+        .inode = allocate_inode(),
         .mode = (type == VFS_NODE_DIRECTORY ? VFS_MODE_IFDIR : VFS_MODE_IFREG) | permissions,
         .nlink = type == VFS_NODE_DIRECTORY ? 2 : 1,
         .uid = 0,
@@ -131,7 +154,7 @@ bool vfs_register_directory_with_metadata(const char *path, const struct vfs_met
     for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
         if (nodes[i].used && streq(nodes[i].path, path)) {
             if (metadata != NULL) {
-                nodes[i].metadata = *metadata;
+                nodes[i].metadata = import_metadata(metadata, &nodes[i]);
             }
             return true;
         }
@@ -148,7 +171,7 @@ bool vfs_register_directory_with_metadata(const char *path, const struct vfs_met
                 .path = path,
                 .type = VFS_NODE_DIRECTORY,
                 .size = 0,
-                .metadata = metadata != NULL ? *metadata : default_metadata(path, VFS_NODE_DIRECTORY),
+                .metadata = metadata != NULL ? import_metadata(metadata, NULL) : default_metadata(path, VFS_NODE_DIRECTORY),
                 .private_data = NULL,
                 .read_all = NULL,
                 .release_data = NULL,
@@ -188,7 +211,7 @@ bool vfs_register_file_with_metadata(const char *path,
         existing->read_all = read_all;
         existing->release_data = release_data;
         if (metadata != NULL) {
-            existing->metadata = *metadata;
+            existing->metadata = import_metadata(metadata, existing);
         }
         return true;
     }
@@ -204,7 +227,7 @@ bool vfs_register_file_with_metadata(const char *path,
                 .path = path,
                 .type = VFS_NODE_FILE,
                 .size = size,
-                .metadata = metadata != NULL ? *metadata : default_metadata(path, VFS_NODE_FILE),
+                .metadata = metadata != NULL ? import_metadata(metadata, NULL) : default_metadata(path, VFS_NODE_FILE),
                 .private_data = private_data,
                 .read_all = read_all,
                 .release_data = release_data,
@@ -363,10 +386,7 @@ bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
     if (node == NULL || metadata == NULL) {
         return false;
     }
-    node->metadata = *metadata;
-    if (node->metadata.inode >= next_inode) {
-        next_inode = node->metadata.inode + 1;
-    }
+    node->metadata = import_metadata(metadata, node);
     return true;
 }
 
