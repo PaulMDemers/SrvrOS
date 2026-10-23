@@ -3562,3 +3562,25 @@ settings is accepted. Archive outside build: wifi-mac-raw-139f82c, with payload,
 VM receipts, collector/fixture and tests. Saved run record; Ubuntu default and
 known-good e47dca3a6b30c6c1 recovery verified. Workspace203files/553clusters clean,
 unmounted. No boot armed; await cold Wi-Fi cycle, then collect exact session first.
+
+Native v33 raw capture complete: source `139f82c`, release `2d2630e3bbbbe8d8`,
+session `00065e894bcf6265-00`. All70 ordered control transfers report ok1 actual4
+cc1 residue0 timeout0. Initial/final ASIC76502000, MAC0 and COREf000f200 match;
+all63 target values captured.1030 returnedffffffff on both reads (all_ones2).
+Both completion markers yes. No BBP table command ran. This accepts the bounded
+observation workflow, not register initialization, reset semantics or connectivity.
+It supports repeated returned data rather than an observed USB transfer error;
+no claim of independent bus-analyzer validation follows. v32 remains incomplete.
+
+Comparison:16 of60 final reference MAC table values match,44 differ. Additional
+controls: EXT_CCA141c=ffe4, FCE_L2_STUFF080c=3ff0233, WMM_CTRL0230=41040.
+PBF_CFG0404=3fdc1cf5 and WPDMA0208=40000050 retain the earlier observed differences.
+The inventory is now complete. Next select and audit a bounded MAC transport/
+format prerequisite initialization set, using the captured starting state and
+reference ordering, before returning to BBP comparison. No causal explanation of
+TXBE10 follows yet; do not blindly enable omitted power/PA/LDO settings or RF.
+
+Collector verified exact transfer/order/value/guard evidence and no table writes.
+Native logs and comparison.json archived in wifi-mac-raw-139f82c outside build.
+Ubuntu default, consumed one-shot and installed/recovery hashes verified; workspace
+clean205files/556clusters, zero allocation errors, unmounted. No reboot armed.
