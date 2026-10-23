@@ -31,6 +31,7 @@ def main():
         uuid='51525354';stage=None;manifest=None
         if args.stage:
             import hardware_boot as boot
+            assert boot.RELEASE_RE.fullmatch(args.stage),'invalid staged release'
             stage=boot.STAGE/args.stage;manifest=boot.verify(stage)
             assert manifest['config_version'].startswith('ram-usb-v54-desktop-')
             uuid=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1]
@@ -48,8 +49,26 @@ def main():
         if stage:
             kernel=stage/'srvros.elf';initramfs=stage/'initramfs.tar'
             cmdline=re.search(r'^\s*cmdline: (.+)$',(stage/'limine.conf').read_text(),re.M)[1]
-        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
-        cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
+        if stage:
+            # Rehearse the installed GRUB -> staged Limine path, not an ISO
+            # rebuilt around the payload. Only the disposable ESP UUID differs.
+            from hardware_boot_smoke import make_disk
+            from uefi_usb_smoke import default_ovmf_path
+            cfg=tmp/'grub.cfg'
+            cfg.write_text('serial --unit=0 --speed=115200\nterminal_output console serial\n'
+                           'echo SRVROS_GRUB_CHAINLOAD_TEST\nset default=srvros-current\n'+boot.grub_config('5352-5652',args.stage))
+            subprocess.run(['grub-script-check',str(cfg)],check=True)
+            loader=tmp/'BOOTX64.EFI'
+            subprocess.run(['grub-mkstandalone','-O','x86_64-efi','--locales=','--fonts=',
+                            '--modules=part_gpt fat chain search search_fs_uuid normal serial terminal',
+                            '-o',str(loader),'boot/grub/grub.cfg='+str(cfg)],check=True)
+            esp=tmp/'esp.img';make_disk(esp,loader,stage,args.stage)
+            boot_args=['-drive',f'if=pflash,format=raw,readonly=on,file={default_ovmf_path()}',
+                       '-drive',f'format=raw,file={esp}']
+        else:
+            iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
+            boot_args=['-cdrom',iso,'-boot','d']
+        cmd=['qemu-system-x86_64','-M','q35','-m','512M',*boot_args,'-nic','none',
              '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
              '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot',
              '-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
@@ -85,6 +104,7 @@ def main():
                     wait(b'\nsrv> ')
                     serial.sendall(b'workspace mount 51525354\n');wait(b'workspace: ready at /work/srvros-work');wait(b'\nsrv> ')
                     serial.sendall(b'acpiruntime battery-home-desktop\n')
+                if stage:assert b'SRVROS_GRUB_CHAINLOAD_TEST' in output
                 result={'case':args.case,'boot_session':args.boot_session,'stage':args.stage,'physical_acceptance':False}
                 if entry_refusal:
                     result['entry_refused']=True
@@ -150,6 +170,11 @@ def main():
                     result['restarted']=True
                 if args.case not in ('runtime-fault','missing-workspace'):
                     serial.sendall(b'workspace unmount\n');wait(b'workspace: unmounted; USB writes disabled');wait(b'\nsrv> ')
+                if stage:
+                    serial.sendall(b'reboot\n');assert process.wait(timeout=30)==0
+                    output.extend(read_for(serial,.1));result['monitor_reboot']=True
+                    result['manifest_sha256']=hashlib.sha256((stage/'manifest.json').read_bytes()).hexdigest()
+                    result['boot_path']='GRUB -> staged Limine -> native kernel'
                 stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                 if entry_refusal or (args.case=='refusal' and not args.boot_session):assert disk[2048*512:]==bytes(fixture.data)
                 elif args.case!='runtime-fault':
