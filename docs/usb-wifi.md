@@ -852,7 +852,7 @@ timeout/cancellation and disabled/idle MAC boundaries. Native tests cover the
 four-offset allowlist, completed frame-format prerequisite, stale events and
 transport failure quarantine.
 
-### Fixed BBP CORE setup (native pending)
+### Fixed BBP CORE setup (accepted on captured Pro adapter)
 
 Firmware v11 (`--wifi-bbp-core`, requiring `--wifi-bbp-ready`) adds two
 fixed commands, sequences 8/9, for CORE1/4/24/32 at 2004/2010/2060/2080:
@@ -867,4 +867,10 @@ all 18 I/O failures, 20 authorization boundaries, stale replies, target
 mismatches, MAC/core guards and refused retry. Native transport fixtures
 cover prerequisites, exact packets and read scope, ordering, stale events
 and quarantine. Full build, these tests, earlier MCU/MAC/readiness regressions,
-ASan/UBSan and all 67 boot-profile tests pass. Hardware acceptance is pending.
+ASan/UBSan and all 67 boot-profile tests pass. Native release5f7b66b688f803cb,
+source23b97f2, session00065e76e3fff75c-00 passed both commands: sent24/received16,
+exact sequence8/9 replies, status0, submitted2/completed2, ack_mask3 and16 reads.
+CORE1 changed0->2, CORE4/24 remained0, CORE32 changed40030001->4003000a.
+CORE0 remainedf000f200 and MAC remained disabled. Both capture completion
+markers were saved. This accepts only these four settings; remaining baseband
+configuration, RF, scanning and connectivity are still pending.

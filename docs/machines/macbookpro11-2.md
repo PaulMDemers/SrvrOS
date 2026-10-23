@@ -2625,3 +2625,15 @@ format54d6def400fd2a6c removed only after full durable-archive equality checks.
 Run record: build/bringup/wifi-bbp-core/run.json; durable evidence/payload in
 ~/.local/share/srvros/macbookpro11-2/wifi-bbp-core-23b97f2. Await cold-trial
 readiness; collect the matching session first after return. RF remains untested.
+
+BBP CORE native acceptance (2026-10-22): source23b97f2, release5f7b66b688f803cb,
+session00065e76e3fff75c-00 passed exact sequence8/9 replies, both24-byte commands
+and16-byte responses, status0/submitted2/completed2/ack_mask3/reads16.
+CORE1 changed0->2, CORE4/24 stayed0, CORE32 changed40030001->4003000a;
+CORE0 stayedf000f200 and MAC stayed0. All prior setup regressions and both
+capture completion markers passed. Evidence and hashes archived outside build
+in wifi-bbp-core-23b97f2/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+161files/490clusters with zero leaked allocations or bitmap mismatches.
+Run/checkpoint collected and unarmed. Next scope is remaining bounded baseband
+configuration; RF, scanning, association and connectivity remain pending.
