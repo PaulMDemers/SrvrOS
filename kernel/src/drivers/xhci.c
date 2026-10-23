@@ -255,6 +255,8 @@ struct xhci_wifi_mcu {
     bool mac_route_mode,mac_route_active,mac_route_submitted;
     bool mac_policy_mode,mac_policy_active,mac_policy_submitted;
     struct mt76_mcu_mac mac_policy;
+    bool mac_policy_observe;
+    uint32_t mac_policy_mismatch;
     struct mt76_mcu_mac mac_route;
     unsigned table_submitted;
     struct mt76_bbp_table table;

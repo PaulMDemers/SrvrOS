@@ -71,6 +71,7 @@ bool xhci_wifi_capture_mac_snapshot(void);
 bool xhci_wifi_capture_mac_raw(void);
 bool xhci_wifi_capture_mac_route(void);
 bool xhci_wifi_capture_mac_policy(void);
+bool xhci_wifi_capture_mac_policy_observe(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

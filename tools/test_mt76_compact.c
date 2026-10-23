@@ -436,7 +436,45 @@ static void test_mac_policy(void){
  puts("MAC policy: PASS exact ordered 40-byte packet, twelve reads, all failures/cancellation, reply and target guards");
 }
 
+static void test_mac_policy_observe(void){
+ for(unsigned fail=0;fail<=13;fail++)for(unsigned deny=0;deny<=14;deny++){
+  struct policy_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};uint32_t mask=0;
+  const struct mt76_mcu_timing_io io={&f,policy_auth,policy_read,policy_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_policy_observe(&s,&io,&mask);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==12 && s.ack_mask==1 && s.batches_completed==1 && f.op==13 && f.auth==14);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_policy_observe(&s,&io,&mask)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bad=1;bad<=13;bad++)if((bad<3 || bad>6)){
+  struct policy_fake f={.bad=bad};struct mt76_mcu_mac s={0};uint32_t mask=0;const struct mt76_mcu_timing_io io={&f,policy_auth,policy_read,policy_exchange};
+  if(bad>=8 && bad<=11){assert(mt76_mac_policy_observe(&s,&io,&mask)==MT76_TIMING_OK);assert(s.complete && s.reads==12 && mask==(1u<<(bad-8)));}
+  else {assert(mt76_mac_policy_observe(&s,&io,&mask)==(bad==7?MT76_TIMING_REPLY:MT76_TIMING_STATE));assert(!s.complete);}
+ }
+ for(unsigned ones=1;ones<=13;ones++)if(ones!=7){
+  struct policy_fake f={.ones=ones};struct mt76_mcu_mac s={0};uint32_t mask=0;const struct mt76_mcu_timing_io io={&f,policy_auth,policy_read,policy_exchange};
+  assert(mt76_mac_policy_observe(&s,&io,&mask)==MT76_TIMING_STATE && !s.complete);
+ }
+ puts("MAC policy observation: PASS exact ordered 40-byte packet, twelve reads, all failures/cancellation, reply and target guards");
+}
+
+struct observe_fake {struct policy_fake base;unsigned mask;};
+static bool observe_read(void *p,uint32_t a,uint32_t *v){
+ struct observe_fake *f=p;bool ok=policy_read(&f->base,a,v);
+ if(f->base.op>=8 && f->base.op<=11 && (f->mask&(1u<<(f->base.op-8))))*v^=0x7f0000;
+ return ok;
+}
+static void test_policy_mismatch_masks(void){
+ for(unsigned mask=0;mask<16;mask++){
+  struct observe_fake f={.mask=mask};struct mt76_mcu_mac s={0};uint32_t actual=99;
+  const struct mt76_mcu_timing_io io={&f,policy_auth,observe_read,policy_exchange};
+  assert(mt76_mac_policy_observe(&s,&io,&actual)==MT76_TIMING_OK);
+  assert(s.complete && s.reads==12 && actual==mask && s.mac_after==0 && s.core_after==0xf000f200);
+ }
+}
+
 int main(void){
+ test_mac_policy_observe();
+ test_policy_mismatch_masks();
  test_mac_policy();
  test_mac_route();
  test_mac_raw();

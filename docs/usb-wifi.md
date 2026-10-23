@@ -1669,3 +1669,15 @@ remains recorded; no check was relaxed. Live timeout and AUTO_RSP values differ
 from the initialization table because the reference driver can change ACK timeout
 and preamble selection at runtime. Next capture should observe every submitted
 policy target and final guards before deciding field-specific validation rules.
+
+### Policy observation capture (v36; native result pending)
+
+`--wifi-mac-policy-observe` requires v35 policy prerequisites. It submits exactly
+the same four-register sequence7 command after accepted routing, with the same
+captured initial-value gates and exact ACK validation. A separate observation
+engine records all four target readbacks and a mismatch bitmask, then requires
+MAC0/COREf000f200 final guards. Ordinary target inequality does not stop this
+capture. Transport, authorization, all-ones, malformed ACK and guard failures
+still stop it. There is no retry or subsequent BBP table. Completion means that
+observations were collected; `register_acceptance=NOT_TESTED` is explicit even
+when the mismatch mask is zero. v35 retains its strict first-mismatch failure.

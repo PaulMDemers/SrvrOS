@@ -3708,3 +3708,11 @@ report mismatches without aborting solely on a target value, and explicitly keep
 register acceptance NOT_TESTED. Preserve v35 strict behavior. No new image
 installed or reboot armed. Fetched main249bb97 (log capacity), PR101 AC transitions
 separate; actual source integration base remains22fd266.
+
+Active scope 2026-10-23: v36 policy observation, unchanged four-pair sequence7
+command and initial-value gates after accepted FCE/WMM. Separate MCU entry point
+collects all target readbacks despite ordinary mismatch, reports mismatch mask,
+and requires final MAC/CORE guards. IO/cancellation/all-ones/ACK/ownership failures
+still fail. No register acceptance or subsequent BBP writes; preserve v35 strict
+behavior. Touch MCU/xHCI/main/staging/tests. Source base22fd266, fetched main249bb97;
+PR101 AC transitions separate, no overlapping Wi-Fi implementation.
