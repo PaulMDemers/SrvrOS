@@ -1,7 +1,8 @@
 # MacBookAir6,1 battery/AC bring-up
 
 Live SrvrOS battery/AC telemetry remains physically unaccepted; the isolated
-five-sample runtime candidate is described below. Ordinary startup stays off. The first v60 boot captured
+five-sample runtime and short SMBus capture profiles are described below.
+Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
