@@ -582,3 +582,15 @@ log lifetimes and allocation. The runtime-fault case must retain ownership and
 halt; it cannot count as a clean exit. The older command-only fixture remains
 VM-only. These checks do not establish native v54 acceptance; follow the device
 setup guide's exact-stage, recovery and run-record sequence before hardware use.
+
+
+Air7,2 release `fc5b73b074db7884` (source `a37ef21`) passed the attended ordinary
+Home trial on October 23. Two sessions saved/reopened a real Text document and
+showed `AC · 96%` in screenshots. Both inherited lifetimes and native runtimes
+retired cleanly; the tester confirmed normal input/apps and monitor reboot.
+Prior data stayed unchanged and offline allocation/recovery checks passed.
+The first logger/mount release is recorded in the second boot log; the final
+release follows its exit snapshot and is not claimed as a persisted receipt.
+This accepts ordinary opt-in startup, the cached indicator and exit/reopen on
+this unit. Default startup remains off. Calibration, battery life, suspend and
+sibling firmware remain outside this result. See the [machine record](machines/macbookair7-2.md).

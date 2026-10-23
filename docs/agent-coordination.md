@@ -566,6 +566,6 @@ mounted Home owner. It adds boot/monitor entry, lifecycle regressions and exact
 EFI staging; default boot remains off and native firmware/resource gates do not
 change. Consume the shared owner and cached indicator instead of adding another
 battery startup path. Unsupported profiles keep apps usable; absent clock or
-blocking context refuses entry before ownership. Local validation passed;
-physical v54 acceptance remains pending in the Air record. Preserve Air6,1 v53
-basic desktop and Pro PR19 Wi-Fi recipes when integrating the shared staging files.
+blocking context refuses entry before ownership. Local validation and the
+attended Air7,2 v54 save/exit/reopen trial passed; see the Air record for exact
+source, sessions and acceptance limits. Preserve Air6,1 v53 basic desktop and Pro PR19 Wi-Fi recipes when integrating the shared staging files.

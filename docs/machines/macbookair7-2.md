@@ -27,7 +27,11 @@ after the final exit snapshot. The tester confirmed normal app/input behavior an
 build cleanup under `~/.local/share/srvros/accepted-evidence/fc5b73b074db7884`
 and `~/.local/share/srvros/known-good/fc5b73b074db7884`. Main `bd1e834` was fetched and inspected: PR71 file identities and PR73
 preference trial tooling are now merged upstream, but are not part of this
-physical candidate. Integration and affected local regressions remain next.
+physical candidate. Main was subsequently merged at `bda091c`; full build/both runtime kernels,
+core/docs, workload regressions and normal/cancel/profile-refusal ordinary Home
+VMs passed locally. Integration evidence is archived outside build. These later
+file-identity changes are VM/host validated here; physical acceptance above
+remains tied to the installed `fc5b73b074db7884` payload.
 
 ### Attended v54 trial preparation (2026-10-23)
 
@@ -68,11 +72,10 @@ percentage. Screenshots show fresh and unavailable labels in the appropriate VMs
 
 Evidence and payloads are retained outside `build` under
 `~/.local/share/srvros/local-validation/home-session-a37ef21549f9`.
-This is host/VM validation, not physical v54 acceptance. Installed current
-`c06f94a5893a402d` and previous `b427b78f21644bd2` are unchanged; USB is unmounted
-and no reboot is armed. Next: attended ordinary Home app/save/exit/reopen trial,
-then merge PR #69 after matching native collection. Gauge calibration, battery
-life and sibling hardware remain separate. Actions remain disabled.
+These checks were host/VM evidence; the subsequent attended acceptance is
+recorded above. Before that trial, installed current was `c06f94a5893a402d` and
+previous was `b427b78f21644bd2`. Gauge calibration, battery life and sibling
+hardware remain separate. Actions remain disabled.
 
 ### Guided Home AC/indicator transitions accepted (PR #66)
 
