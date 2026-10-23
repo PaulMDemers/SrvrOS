@@ -635,7 +635,7 @@ static bool wifi_compact_prefix(struct xhci_wifi_mcu *m,unsigned count) {
 static bool wifi_compact_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     unsigned phase=m->compact_next;
-    return (m->compact_limit>=5 && m->compact_limit<=11) && phase<m->compact_limit &&
+    return (m->compact_limit>=5 && m->compact_limit<=12) && phase<m->compact_limit &&
         phase<MT76_MCU_COMPACT_PHASES && m->compact_mode && m->compact_active &&
         wifi_mcu_owned(d) && m->configured && !m->pending &&
         m->identity_validated && m->write_validated && m->timing.complete &&
@@ -731,7 +731,7 @@ static bool wifi_mcu_probe_bbp(struct xhci_device *d) {
 
 static bool wifi_mcu_initialize_compact(struct xhci_device *d,unsigned limit) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
-    if(m->compact_mode || m->compact_next || (limit<5 || limit>11))return wifi_mcu_fail(d);
+    if(m->compact_mode || m->compact_next || (limit<5 || limit>12))return wifi_mcu_fail(d);
     m->compact_mode=true;m->compact_limit=limit;
     for(unsigned phase=0;phase<limit;phase++) {
         if(phase==2 && !wifi_mcu_probe_bbp(d))return false;
@@ -825,3 +825,5 @@ bool xhci_wifi_capture_rxc_start(void) { return wifi_capture_mcu(true,true,true,
 bool xhci_wifi_capture_rxc_tail(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,5); }
 
 bool xhci_wifi_capture_txbe_start(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6); }
+
+bool xhci_wifi_capture_txbe_next(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,7); }

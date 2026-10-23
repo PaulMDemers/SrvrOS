@@ -3000,3 +3000,14 @@ and installed candidate/desktop recovery verified. Workspace clean:
 Run/checkpoint collected and unarmed. Remaining TXBE/RXFE/RXO settings
 pending; identifier15 remains unused. Further expansion must address
 sequence exhaustion without recycling identifiers. RF/connectivity pending.
+
+Active scope: phase11 TXBE9/10/12/13 at sequence15, fixed offsets
+2724/2728/2730/2734 and values20000000/0/0/0 from pinned Linuxv6.18
+MT7610 initialization. Require eleven prior phases and MAC/CORE guards;
+v22 limit12, prior limits unchanged. This exhausts identifiers: compile-time
+plan bound and runtime refusal forbid phase12/sequence16. Touch fixed MCU
+plan, xHCI limits, capture/profile/tests. Fetched maind3670fe: Air6,1
+exact-profile PWM capture and preference evidence inspected; PR76 owns
+Home services/cached battery UI. No Wi-Fi overlap; retain base22fd266.
+No RF or identifier recycling. Remaining setup needs validated wider batches
+or a proven-drained new session before more commands can be added.

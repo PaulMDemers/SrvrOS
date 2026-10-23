@@ -1126,3 +1126,17 @@ TXBE0 stayed0; TXBE4 changed0->4; TXBE6 changed1->0; TXBE8 changed4014->14.
 All prior phases,44 register readbacks and both completion markers passed;
 MAC0 and CORE0f000f200 preserved. Identifier15 remains unused. Remaining
 baseband initialization, RF and connectivity are pending.
+
+### TXBE9/10/12/13 extension (native acceptance pending)
+
+Firmware v22 (`--wifi-txbe-next`, requiring `--wifi-txbe-start`) adds phase11
+at sequence15: fixed offsets2724/2728/2730/2734 receive20000000/0/0/0.
+One40-byte command requires eleven previous phases, exact16-byte reply,
+four independent readbacks and MAC/CORE guards. This reaches the last
+identifier: a compile-time plan bound and runtime phase12 refusal prohibit
+wrapping to sequence0. Session codec exhaustion tests also refuse a16th
+command. Prior profiles retain limits. No RF enable or identifier recycling.
+Host fixtures cover twelve packets, allowlists, failures/cancellation and
+ownership/quarantine;78 boot-profile tests pass. Hardware result pending.
+Remaining initialization will require independently validated larger batches
+or a proven-drained transport session, not simply clearing sequence state.
