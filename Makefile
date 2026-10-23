@@ -3507,3 +3507,11 @@ test-air61-battery-profile: build/tests/air61-battery-profile$(HOST_EXE)
 build/tests/air61-battery-profile$(HOST_EXE): tools/test_air61_battery_profile.c ports/srvros/uacpi/runtime/battery_native_platform.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-battery-failure-display
+test-core: test-battery-failure-display
+test-battery-failure-display: build/tests/battery-failure-display$(HOST_EXE)
+	$<
+build/tests/battery-failure-display$(HOST_EXE): tools/test_battery_failure_display.c ports/srvros/uacpi/runtime/battery_failure_display.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

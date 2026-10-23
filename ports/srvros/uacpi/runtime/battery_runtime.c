@@ -4,6 +4,7 @@
 #include "battery_platform.h"
 #include "battery_transition.h"
 #include "battery_reset_policy.h"
+#include "battery_failure_display.h"
 #include "battery_recovery_resources.h"
 #include "battery_query_receipt.h"
 #include "battery_event_accounting.h"
@@ -217,6 +218,8 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     bool mounted=workspace_active(),io=scheduler_io_active();
     bool reset=battery_reset_allowed(auto_return,mounted,io);
     mask_sources();
+    /* The interrupted presenter cannot resume after terminal containment. */
+    console_emergency();
     sci_report("fault");
     if(auto_return && !reset)
         console_printf("battery-reset: BLOCKED workspace=%u io=%u; live storage retained\n",(uint64_t)mounted,(uint64_t)io);
@@ -229,6 +232,11 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
         (uint64_t)runtime.transport.error,runtime.queries);
     if(reset) {
         console_write("battery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n");
+        console_write("battery-failure-display: photograph the reason and progress above; USB stays parked; reset in 30 seconds\n");
+        uint64_t display_start=timer_monotonic_us();
+        unsigned slices=battery_failure_display_wait(timer_delay_us);
+        console_printf("battery-failure-display: slices=%u elapsed_us=%u clock_ok=%u; resetting\n",
+            (uint64_t)slices,timer_monotonic_us()-display_start,(uint64_t)(slices==300));
         arch_reboot_unattended();
     }
     console_sync();__asm__ volatile("cli":::"memory");halt_forever();

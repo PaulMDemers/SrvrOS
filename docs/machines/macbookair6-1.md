@@ -994,7 +994,7 @@ receipt. The collector flags the missing exit. Saved `boot.log` and
 `session-a.log` end immediately before the unattended battery probe; they do
 not establish entry, sampling, retirement or the cause of the interruption.
 This trial is incomplete/failed acceptance, not a native battery pass.
-Whether recovery was automatic or manual awaits the user's observation.
+The user confirms automatic recovery; the screen reset too quickly to capture.
 
 All 199 prior USB files remain; only `.srvros/meta` changed and the two matching
 logs were added. Offline exFAT and allocation checks pass: 201 files, 377 clusters,
@@ -1006,3 +1006,15 @@ Next work is to locate the stopping point using the screen observation and
 bounded diagnostics while keeping USB parked during uncertain EC/SCI ownership.
 Do not widen firmware permissions or enable desktop battery startup based on
 this result. The existing host/VM passes remain regression evidence only.
+
+## Failure-display follow-up scope (2026-10-23)
+
+Based on main `b17b80e`, this unit owns a bounded terminal failure display in
+shared `battery_runtime.c`, its small delay helper and host/VM tests. Other open
+work (Air7,2 PR88 input timing, Pro11,2 PR19 Wi-Fi) was inspected; no overlapping
+battery-runtime scope was found. Automatic contained faults retain the existing
+storage interlock and interrupt/source masking, enter the emergency console,
+show reason/setup/worker/EC details for 30 seconds, then reset. Clock failure
+shortens the pause through the existing per-delay iteration bound. Mounted/I/O
+faults still halt. No firmware permissions or successful sampling path change.
+Next checkpoint: host/VM validation and a new exact staged Air6,1 trial.
