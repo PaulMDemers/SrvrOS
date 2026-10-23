@@ -2,7 +2,7 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: capacity recovery accepted; integration closeout
+### Current checkpoint: bounded capacity recovery milestone complete
 
 Native release `a39bb31d4031693a` (source `2c68476`), request
 `cda6574dd2dedfa8`, returned with a valid complete CRC-protected PASS report.
@@ -23,7 +23,14 @@ missing full native receipt remains incomplete. PR99 closes the independent
 logging-capacity follow-up. Actual main `5d195a9` adds Air6,1 PR98's separately
 gated SMBus capture; integration preserves both Makefile targets and v62 profile.
 Pro PR19 `1b98c71` remains separate Wi-Fi work. No sibling acceptance is inferred.
-The next step is local merged-source validation, evidence archival and PR99 merge.
+Final integrated source `1e78461` passed full build/core/docs and exact EFI/GPT
+capacity refusal plus desktop/audio/save/reopen. The ordinary payload is byte-identical
+to already rehearsed `c4f6502fdd232e6c`; no integration payload was installed.
+Receipts survive build cleanup at
+`~/.local/share/srvros/validation/log-capacity-integration-1e78461`. PR99 carries
+the completed change for the shared baseline. No further test is required for
+this bounded milestone. Larger filesystem limits and archival of other kinds
+of evidence remain separate work.
 
 Verified archival previously moved 22 completed old sessions (70 files) to
 `~/.local/share/srvros/log-archives/20261023-capacity-recovery` before pruning
