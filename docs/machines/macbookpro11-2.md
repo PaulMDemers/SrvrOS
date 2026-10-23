@@ -3371,3 +3371,21 @@ removed from ESP only after complete archived-payload equality verification.
 Workspace clean:197files/544clusters, zero allocation errors; unmounted.
 Ubuntu remains default. Await cold adapter power cycle; collect the exact new
 session first on return. No reboot armed or native ordered-pair acceptance yet.
+
+
+Native clock-enabled ordered pair failed: source `0754633`, release
+`29504434a7bc5aa6`, session `00065e8878bfdf27-00`. Clock80000->80c00 and
+readiness passed; phases0..10/44 target readbacks passed. Phase11 sequence15
+sent24 received16 exact first-pair ACK. TXBE9 before0 after20000000; TXBE10
+before37fff after38e30 instead of0. Status4 ack1 batches_completed0 complete0
+reads6. Final MAC/CORE guards not reached; their zero fields are not evidence.
+Both completion markers NO. Next investigate remaining initialization/state
+differences from Linux; no relaxed gate or TXBE12/13/RF acceptance.
+
+Failure archived outside build in wifi-clock-pair-0754633/failed-native-collection.
+Separate failure collector verifies this receipt; unchanged success checker rejects
+it. Ubuntu default, consumed one-shot and installed/recovery hashes verified.
+Workspace clean:199files/547clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected as failed, no reboot armed. Fetched maind5491c0
+(Air6,1 battery preflight); PR88 tap diagnostics remains separate. Actual
+integrated base22fd266 unchanged; no new candidate installed.

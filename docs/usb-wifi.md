@@ -1515,7 +1515,7 @@ The local `txbe-linux-audit` script verifies eight samples, six historical trial
 receipts, table identity, addresses and ordering; raw evidence is archived outside
 build. No new candidate was installed for this audit.
 
-### Clock-enabled ordered pair diagnostic (native pending)
+### Clock-enabled ordered pair diagnostic (native readback failed)
 
 Firmware v30 (`--wifi-clock-pair`, requiring TXBE start and excluding all other
 TXBE alternatives) performs accepted compact phases0..10 with the clock
@@ -1526,3 +1526,21 @@ MAC0/COREf000f200 before/after must match. The old quartet profile is unchanged.
 TXBE12/13 are not written; no MCU identifier wraps or gets reused. The native
 binding refuses a 40-byte quartet, missing clock completion or unrelated target
 reads. Failure remains failure and is saved for collection after automatic return.
+
+Native v30 source `0754633`, release `29504434a7bc5aa6`, session
+`00065e8878bfdf27-00` failed at TXBE10. Accepted clock transition and readiness
+passed, as did phases0..10 and all44 target readbacks. Sequence15 sent24,
+received16 with exact first-pair acknowledgement. TXBE9 changed0->20000000;
+TXBE10 changed37fff->38e30 instead of zero. Phase11 reported status4,
+ack_mask1, batches_completed0, complete0 and reads6. The final MAC/CORE reads
+were not reached; their zero-initialized log fields are not observations.
+Both capture completion markers were NO. Failed results saved, unmounted and
+returned to Ubuntu; offline filesystem/allocation checks passed.
+
+The reference pair plus enabled clocks still reproduces the nonzero readback.
+It matches the TXBE10 value observed after TXBE9 in the earlier unclocked
+comparison, but does not establish register semantics or the cause. Linux's
+fully initialized, TX/RX-enabled zero observation remains a different state.
+Next investigate remaining initialization/state differences before another
+candidate; retain exact readback checks and all historical failures. TXBE12/13
+were not written, and RF/connectivity remain untested.
