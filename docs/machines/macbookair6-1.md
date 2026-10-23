@@ -1275,3 +1275,37 @@ or ordinary battery startup. PR102 filesystem scale and PR19 Wi-Fi remain
 independent; use this main baseline without importing either active change.
 Prepare a fresh disposable USB image, exact-stage checks and retained recovery
 before native acceptance. No reboot is armed.
+
+## Bounded battery/file candidate ready (2026-10-23)
+
+Release `fc1d1f4c45d30252`, clean source `cac24ef`, uses the v64 Air6,1
+exclusive-image capture. It preserves exact firmware/AML permissions and the
+512-event ceiling. Ordinary mounted Home and desktop battery startup remain off;
+physical battery/file coexistence is pending this trial.
+
+Full build/USB image, native/model kernels, core/desktop suites, 68 staging tests,
+24 collector tests, five strict file-receipt tests and exhaustive admission
+checks pass. Eight directed Air6,1 file VMs pass: full completion, recurring
+alarms, Stop during read/ack, uncertain acknowledgement containment, event limit,
+profile refusal and native refusal. Completion gives 60 edits/five file cycles
+and generation 25; recurring alarms complete with 15 acknowledgements and fresh
+generation 30. Both images and unrelated files verify. Three regressions pass:
+Air6,1 short capture/AC transitions and Air7,2 file capture. Exact staged EFI/GPT
+refuses unsupported native hardware, saves, unmounts and returns; missing USB
+also returns without starting the probe.
+
+The fresh 16 MiB image is the only added USB file. All 211 prior files are
+preserved; 212-file preboot baseline verifies. Offline fsck/allocation and
+headroom pass: 519 clusters, zero leaks/mismatches/errors. Installed candidate,
+recovery and independent payload hashes pass; Ubuntu is default and one-shot
+is empty. Console recovery `c35475f62f154f1e`, accepted AC capture
+`321ba9c91e681a4c`, short sampling and desktop telemetry remain retained.
+Superseded brightness-only EFI payload `59086591e526632b` was removed only after
+its complete independent backup was verified. Run/payload/VM evidence is saved
+outside build. USB is unmounted and no reboot is armed.
+
+Keep AC and USB connected; no input or charger changes are required. Expect
+60 automatic edits and five Text save/open cycles, then saved Ubuntu return.
+Photograph any fault. On return collect this release before further work and
+verify its complete receipt, exact inner image, all other files and both
+allocation graphs. A quick return alone is not acceptance.
