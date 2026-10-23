@@ -1,6 +1,9 @@
 #include <limine.h>
 #include <srvros/desktop_session.h>
 #include <srvros/console.h>
+#include <srvros/timer.h>
+#include <srvros/arch.h>
+#include <srvros/scheduler.h>
 #include <srvros/exfat.h>
 #include <srvros/workspace.h>
 extern volatile struct limine_rsdp_request rsdp_request;
@@ -14,6 +17,13 @@ __attribute__((weak)) bool battery_home_desktop_session_run(void *rsdp,struct li
 bool desktop_battery_session_run(void) {
     if(!workspace_active() || !exfat_is_writable("/work")) {
         console_write("desktop-session: REFUSED mount a writable Home workspace first\n");
+        return false;
+    }
+    uint64_t flags=irq_save();
+    bool can_wait=(flags&(1ull<<9)) && scheduler_current_thread_id() && timer_reference_ready();
+    irq_restore(flags);
+    if(!can_wait) {
+        console_write("desktop-session: REFUSED blocking context/reference clock unavailable\n");
         return false;
     }
     console_write("desktop-session: requested battery=on; Ctrl+Alt+Esc returns to monitor\n");

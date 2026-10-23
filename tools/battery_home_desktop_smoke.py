@@ -12,11 +12,11 @@ from battery_workspace_smoke import ANCHOR
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal','missing-workspace','runtime-missing','opt-out'),default='normal')
+    parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal','missing-workspace','runtime-missing','opt-out','clock-missing'),default='normal')
     parser.add_argument('--boot-session',action='store_true',help='exercise ordinary opt-in boot, then reopen from monitor')
     parser.add_argument('--stage',help='exact v54 native stage; requires --boot-session --case profile-refusal on Q35')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
-    entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out')
+    entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if entry_refusal and not args.boot_session:parser.error('entry refusal cases require --boot-session')
     if args.stage and (not args.boot_session or args.case!='profile-refusal'):parser.error('stage requires --boot-session --case profile-refusal')
     out=root/'build/review'/('battery-home-desktop-'+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case);out.mkdir(parents=True,exist_ok=True)
@@ -68,8 +68,9 @@ def main():
         else:
             iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
             boot_args=['-cdrom',iso,'-boot','d']
-        cmd=['qemu-system-x86_64','-M','q35','-m','512M',*boot_args,'-nic','none',
-             '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
+        cmd=['qemu-system-x86_64','-M','q35','-m','2G' if stage else '512M',*boot_args,'-nic','none',
+             *([] if stage or args.case=='clock-missing' else ['-acpitable',f'file={tmp}/battery.aml']),
+             *(['-no-acpi'] if args.case=='clock-missing' else []),'-serial',f'unix:{tmp}/serial,server=on,wait=off',
              '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot',
              '-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
              '-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0']
