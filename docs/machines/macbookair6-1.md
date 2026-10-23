@@ -820,3 +820,28 @@ session logs. Offline exFAT and allocation checks pass: 184 files, 267 clusters,
 zero leaks/mismatches/errors. Ubuntu return, empty one-shot, installed/recovery
 hashes and the independent payload backup are verified. Full return evidence is
 retained outside `build`; no new boot test is armed.
+
+## Headphone/extended playback ready (2026-10-23)
+
+The next attended trial reuses accepted release `0533c0dfc63d104f`, compiled
+`8f3656a`. No payload or hardware gate changed. Run `5a302d248eee397a` in local
+`build/audio/extended-20261023` has the headphone/extended checklist and a
+verified 60-second stereo WAV in USB Home's `audio-extended` directory. All 184
+existing files are preserved; the new baseline has 185 files. Offline exFAT and
+allocation checks pass: 356 clusters, no leaks/mismatches/errors.
+
+Targeted HDA, audio service/stream, WAV conversion and Settings host tests pass.
+The existing PCM VM harness completed five one-minute plays with zero guest
+underruns, exact recorded samples (maximum error zero), distinct stereo and USB
+input retained. Actual guest kernel/initramfs hashes match the accepted release;
+the newer harness checkout is recorded separately, not claimed as compiled code.
+The exact v57 GPT VM additionally passed two desktop sessions, GUI save/reopen,
+preferences, tone/WAV capture, durable logs and clean unmounts. These results do
+not accept physical headphones or extended native playback.
+
+Use the [extended checklist](../macbookair6-1-audio.md) to check manual headphone
+routing, jack indication, left/right isolation, five full one-minute plays,
+Stop/recovery and return to speakers. Console recovery `c35475f62f154f1e`
+remains previous; Ubuntu stays default. No reboot is armed. On return identify
+new sessions against this run's preboot hashes: the release ID is deliberately
+the same as the earlier accepted speaker trial. Preserve the prior trial evidence.
