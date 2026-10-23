@@ -3419,3 +3419,15 @@ Implementation uses only MAC phases0/1 before clocks/readiness, then three full-
 commands and124 reads. Latest fetched main9bbc3b9 remains outside actual base22fd266.
 PR92 Air6,1 battery sampling and PR88 tap diagnostics are separate active scopes.
 Local packet/collector/sanitizer checks pass; exact-stage validation pending.
+
+Full-table observation candidate installed: source `eb832da`, release
+`4316c9963cb7ae6a`, firmware profile v31. Host build, MCU/compact/radio/MAC/xHCI
+regressions, 87 staging tests, sanitizer fault coverage, independent488-byte
+packet comparison and collector mismatch/rejection fixtures pass. Exact-stage
+GPT absent-radio save/unmount/reset and missing-workspace return VM checks pass.
+Physical table results remain pending; capture completion will not accept register
+values or RF/connectivity. Candidate and evidence archived outside build in
+wifi-bbp-table-eb832da. Previous known-good desktope47dca3a6b30c6c1 retained;
+Ubuntu default unchanged. Workspace preflight fsck/allocation clean, unmounted.
+Run record and strict observation collector ready. No one-shot armed; await cold
+adapter power cycle, then collect matching session before further changes.
