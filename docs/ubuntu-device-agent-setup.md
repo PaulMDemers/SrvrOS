@@ -254,6 +254,17 @@ Do not re-enable that probe in routine desktop startup. The separate v19
 `--laptop-probe-volume` profile is a bounded preflight capture; it is not the
 isolated AML interpreter diagnostic.
 
+The separate v54 **ordinary Home battery session** is an explicit opt-in:
+`--desktop-volume "$SRVROS_USB_UUID" --desktop-battery`. Build the full native
+battery runtime first and validate the exact stage with
+`battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage RELEASE`.
+It starts ordinary apps with no capture timer or automatic reboot. Exit with
+Ctrl+Alt+Esc, reopen with `desktop battery`, or use monitor `reboot` for a flushed,
+unmounted return. Its native acceptance remains pending; default startup stays
+off and sibling profiles do not inherit Air7,2 ownership. Follow the
+[session contract](battery-home-lifecycle.md#opt-in-ordinary-home-startup) and
+existing recovery/run-record steps before a hardware trial.
+
 For a bounded unattended idle sample after the basic workspace is accepted:
 
 ```sh
