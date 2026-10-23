@@ -1,6 +1,7 @@
 #ifndef SRVROS_BATTERY_TRANSITION_H
 #define SRVROS_BATTERY_TRANSITION_H
 #include <srvros/sbs_sample.h>
+#include <srvros/battery_service.h>
 #define BATTERY_TRANSITION_PHASES 3u
 #define BATTERY_TRANSITION_STABLE 3u
 #define BATTERY_TRANSITION_WAIT_US 120000000ull
@@ -32,5 +33,26 @@ static inline int battery_transition_step(struct battery_transition *t,
         t->phase++;t->stable=0;t->phase_started=now;
     }
     return t->phase==BATTERY_TRANSITION_PHASES?1:0;
+}
+/* Cached service consumer: a rejected/missed generation resets stability rather
+ * than counting an old reading twice. Timeout also advances without samples. */
+static inline int battery_transition_cached_step(struct battery_transition *t,
+    const struct battery_service_status *s,uint64_t now) {
+    if(t->failed)return -1;
+    if(t->phase==BATTERY_TRANSITION_PHASES)return 1;
+    if(now<t->last_now || now<t->phase_started ||
+       now-t->phase_started>=BATTERY_TRANSITION_WAIT_US) {t->failed=true;return -1;}
+    t->last_now=now;
+    if(!(s->flags&BATTERY_CACHE_FRESH)) {
+        t->stable=0;t->first_generation=t->first_us=0;return 0;
+    }
+    if(s->sample.generation==t->last_generation)return 0;
+    if(s->sample.generation<t->last_generation) {t->failed=true;return -1;}
+    if(s->sample.generation!=t->last_generation+1) {
+        t->stable=0;t->first_generation=t->first_us=0;
+        t->last_generation=s->sample.generation-1;
+    }
+    return battery_transition_step(t,&s->sample,!!(s->flags&BATTERY_CACHE_AC_PRESENT),
+        true,s->ac_sampled_us,now);
 }
 #endif

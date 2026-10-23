@@ -1198,3 +1198,46 @@ Ubuntu returned with consumed one-shot; current/recovery hashes and default pass
 Current stays `bfde0423543f20d0`, recovery `c35475f62f154f1e`. USB is unmounted;
 no reboot is armed. Matching logs, validation and return state are backed up
 outside build before another trial.
+
+## Attended parked AC transition scope (2026-10-23)
+
+From main `249bb97`, this unit owns the next bounded Air6,1 attended AC
+transition capture: shared battery capture consumer/admission, boot recipe,
+collector and directed host/VM tests. Reuse the accepted serialized service and
+host-event owner with USB parked; keep ordinary/Home/file ownership disabled.
+Audit captured AC query effects and retain exact firmware/access gates. PR99 log
+capacity guards are consumed; Pro PR19 remains independent Wi-Fi work. Prepare
+and validate before an attended unplug/reconnect trial; no reboot is armed.
+
+## Attended AC candidate ready (2026-10-23)
+
+Release `321ba9c91e681a4c`, clean source `95c5219`, prepares v63 with the existing
+parked SMBus service and exact Air6,1 firmware/access gates. It requires three
+coherent fresh samples in each connected/disconnected/reconnected phase, with a
+120-second deadline per phase and 4096-event ceiling. No native AC-transition
+acceptance is claimed yet; ordinary battery startup remains off.
+
+Full build/core/desktop, 67 staging tests, 24 collector checks, transition/cache
+and malformed receipt tests pass. Captured `_Q21`/`_PSR` replay in all four lid/AC
+states initializes/disconnects with zero errors/denials/leaks. Seven directed VM
+cases pass: normal transitions, mid-read incoherence, alarm refresh, unsupported
+query containment, profile refusal, native refusal and a real 120-second phase
+timeout. Short Air6,1 and Air7,2 capture regressions pass. An earlier alarm fixture
+reconnected before three fresh readings and correctly saved an incomplete result;
+its receipt and clean filesystem evidence are retained separately. The adjusted
+fixture completes after post-alarm stabilization. Exact staged EFI/GPT refuses
+nonmatching native hardware, saves, unmounts and returns automatically.
+
+The 208-file USB baseline is unchanged; fsck/allocation pass with 387 clusters
+and zero leaks/mismatches/errors. Candidate and recovery hashes, Ubuntu default
+and empty one-shot pass. Console recovery `c35475f62f154f1e`, accepted short
+capture `bfde0423543f20d0`, desktop telemetry and passive preflight are retained.
+Superseded failed HPTC trial `15f29b76df51bab0` was removed from EFI after its
+independent backup was verified. Payload, run and validation evidence are saved
+outside build. No reboot is armed.
+
+Start with AC connected. Wait for UNPLUG AC, unplug only the charger, then wait
+for RECONNECT AC and reconnect it. USB stays connected throughout. Prompts repeat
+every five seconds. Completion or phase timeout saves and returns to Ubuntu;
+photograph any fault during the 30-second pause. Collect the matching transition
+receipt and verify runtime retirement and USB integrity before another run.

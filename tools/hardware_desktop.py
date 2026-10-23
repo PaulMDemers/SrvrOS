@@ -511,6 +511,13 @@ def battery_smbus_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_smbus_transitions_result(exit_text):
+    from battery_smbus_transition_records import check
+    if not battery_overlap_recipe(exit_text,'battery-smbus-transitions'):return None
+    try:return check(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def battery_smbus_result(exit_text):
     from battery_native_smbus_records import check
     if not battery_overlap_recipe(exit_text,'battery-smbus'):return None
@@ -690,6 +697,9 @@ def collect(mount, volume, output):
                 smbus_files_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));smbus_files_proof=None
+        smbus_transitions_proof=battery_smbus_transitions_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-smbus-transitions' in text and smbus_transitions_proof is None:
+            attention.append('collection: parked AC transitions missing, invalid or incomplete')
         smbus_proof=battery_smbus_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-smbus(?:\s|$)',text) and smbus_proof is None:
             attention.append('collection: native SMBus completion missing, invalid or not exercised')
@@ -739,7 +749,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_smbus_transitions":smbus_transitions_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

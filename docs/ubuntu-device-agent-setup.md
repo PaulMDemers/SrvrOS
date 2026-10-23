@@ -434,7 +434,18 @@ a 30-second window and 128-event cap. It never dispatches AML `_Q10`; ordinary
 service/Home/image/transition entry remains denied. Keep AC/USB connected and
 photograph a failure during the 30-second terminal pause. Require the shared
 SMBus event/cache/retirement proof and filesystem checks on return. Native
-Air6,1 event acceptance is pending; see its audit and machine record.
+Air6,1 short completion-event sampling/retirement is accepted; alarms and AC
+transitions remain separate. See its audit and machine record.
+
+For the attended **v63** AC trial, stage `--battery-air61 --battery-transitions`
+with the unit's laptop probe volume and native Air6,1 kernel. Rehearse the exact
+stage, preserve recovery and save the run record before boot. **Tell the user to
+start with AC connected, unplug only when UNPLUG AC appears, then reconnect when
+RECONNECT AC appears; USB stays connected throughout.** Each phase requires three
+coherent readings within 120 seconds. The parked service has a 4096-event cap;
+timeout saves an incomplete result and returns automatically. Faults retain the
+30-second photo/reset path. Require the matching `battery_smbus_transitions`
+receipt after return; ordinary desktop battery startup stays off.
 
 Air6,1 starts with the separate passive **v60** `--battery-preflight` profile
 on `--laptop-probe-volume`. It records exact-gated PM1/GPE/EC status only, saves

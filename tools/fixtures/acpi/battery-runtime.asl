@@ -97,7 +97,13 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                 If (OSYS == 0x2710) { Notify (EC, 0x80) }
                 Else { EACK = 7 }
             }
+#ifdef BATTERY_AIR61
+            // Sanitized AC read/notification; native _Q21's NVS/PNOT effects
+            // are checked separately against the captured tables.
+            Method (_Q21, 0) { If (STAT) { Notify (EC, 0x80) } }
+#else
             Method (_Q21, 0) { EACK = 7; Notify (EC, 0x80) }
+#endif
             Method (_Q40, 0) { Notify (EC, 0x80) }
             Method (_Q5A, 0) { Notify (EC, 0x80) }
             Method (_QCE, 0) { }
