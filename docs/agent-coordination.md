@@ -558,3 +558,14 @@ service accounting, followed by attended AC/gauge checks and the final indicator
 Normal startup remains OFF until that integration is validated. Pro PR19
 `af779b0` and Air6,1 PR54 `c8dc0a0` remain separate Wi-Fi and console/inventory
 work; do not copy the Air7,2 firmware gate or acceptance onto those models.
+
+## Ordinary Home battery integration (PR #69)
+
+Air7,2's opt-in v54 ordinary session reuses the accepted inherited desktop and
+mounted Home owner. It adds boot/monitor entry, lifecycle regressions and exact
+EFI staging; default boot remains off and native firmware/resource gates do not
+change. Consume the shared owner and cached indicator instead of adding another
+battery startup path. Unsupported profiles keep apps usable; absent clock or
+blocking context refuses entry before ownership. Local validation passed;
+physical v54 acceptance remains pending in the Air record. Preserve Air6,1 v53
+basic desktop and Pro PR19 Wi-Fi recipes when integrating the shared staging files.

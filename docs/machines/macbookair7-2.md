@@ -2,16 +2,39 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active scope: opt-in ordinary Home battery startup
+### Ordinary Home battery startup: locally validated (PR #69)
 
-Base `80b567a` (including Air6,1 PR #68). This block connects the accepted
-continuous owner to an explicitly requested ordinary Home desktop session,
-including unavailable/stale presentation and clean exit/restart. Shared scope:
-battery runtime/session entry, boot/monitor dispatch, staging and VM lifecycle
-coverage. Existing exact firmware/resource gates and default-off behavior stay
-in place. Air6,1 v53 basic desktop and Pro PR #19 (`b816acd`) Wi-Fi profiles
-remain separate and must be preserved. Native acceptance is pending; no physical
-run is armed. Tests run locally because Actions are disabled.
+Base `80b567a` includes Air6,1 PR #68. The distinct v54 `--desktop-battery`
+profile opens ordinary Home apps with continuous battery monitoring, no capture
+timer and no forced exit. Ctrl+Alt+Esc drains inherited apps, stops the service,
+finishes logging and releases the mount hold. Home stays mounted; `desktop battery`
+reopens the session. Default startup remains off and exact native gates remain
+unchanged. Air6,1 v53 and Pro PR #19 (`b816acd`) are preserved.
+
+The core/build/docs suite and ordinary boot matrix passed on `538c2e9`: normal
+files/orphan jobs, pending-save exit, unavailable profile, native refusal with
+usable apps, missing Home/runtime/opt-in, uncertain acknowledgement containment,
+legacy command refusal and System alarm/Stop/restart. An initial EFI fixture
+had no reference clock and exposed unsafe session entry before blocking was
+possible. The entry now refuses before ownership when clock/context prerequisites
+are missing. Full build/core passed again on `e1ee996`; `a37ef21` changes only
+the VM fixture command. Missing-clock and normal/reopen checks then passed.
+
+Exact stage `fc5b73b074db7884` (source `a37ef21`) passed GRUB → staged Limine →
+native kernel on disposable Q35 EFI. The expected native profile refusal kept
+Text, Files and Terminal usable; two distinct inherited lifetimes and logs retired,
+files/allocation were verified, and monitor reboot completed. The first lifetime
+peaked at eleven members. The shared cache-to-ABI-to-view test covers expiry,
+rejected AC coherence, recovery and unavailable presentation without a stale
+percentage. Screenshots show fresh and unavailable labels in the appropriate VMs.
+
+Evidence and payloads are retained outside `build` under
+`~/.local/share/srvros/local-validation/home-session-a37ef21549f9`.
+This is host/VM validation, not physical v54 acceptance. Installed current
+`c06f94a5893a402d` and previous `b427b78f21644bd2` are unchanged; USB is unmounted
+and no reboot is armed. Next: attended ordinary Home app/save/exit/reopen trial,
+then merge PR #69 after matching native collection. Gauge calibration, battery
+life and sibling hardware remain separate. Actions remain disabled.
 
 ### Guided Home AC/indicator transitions accepted (PR #66)
 

@@ -554,7 +554,8 @@ mounts the UUID-selected Home volume. It enables gestures but no unrelated audio
 brightness, network, sensor or optional AML probe. This profile is separate from
 Air6,1's v53 basic desktop; it does not establish a sibling battery profile.
 The full-runtime kernel is required. Missing/unwritable Home or a runtime-less
-kernel refuses session entry and returns to the monitor.
+kernel refuses session entry and returns to the monitor. Missing reference clock
+or blocking context also refuses before any lifetime, logger or mount hold is acquired.
 
 Use **Ctrl+Alt+Esc** to exit. The owner revokes controls, drains the inherited app
 lifetime (including orphan jobs), stops battery work, finishes logging and then
@@ -569,7 +570,7 @@ VM validation uses disposable disks only:
 ```sh
 tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session
 # Repeat with --case cancel, profile-refusal, refusal, or runtime-fault.
-# Admission checks: --case missing-workspace, runtime-missing, or opt-out.
+# Admission checks: --case missing-workspace, runtime-missing, opt-out, or clock-missing.
 # Exact staged native payload on Q35 must keep apps usable with battery unavailable:
 tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage RELEASE
 ```
