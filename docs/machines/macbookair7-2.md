@@ -2,6 +2,17 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active scope: explicit native continuous Home capture
+
+Base `105dffd` (PR62). This agent is adding an unattended three-minute ordinary
+Home desktop capture, with periodic logging, a saved screenshot and inherited
+process ownership. Touched subsystems: explicit battery capture admission/lifecycle,
+desktop idle capture, boot staging/VM checks and collectors. Depends on PR62;
+Pro PR19 `cd2f274` stays separate Wi-Fi work. No sibling profile widening or
+ordinary native startup activation. Validate local/VM and exact staged native
+refusal before installing. The physical run will return automatically after clean
+retirement; uncertain live ownership still halts. No human input is required.
+
 ### Ordinary Home desktop lifetime: VM/host validation (PR #62)
 
 Source `4351910`, based on main `340f566`, connects the inherited lifetime to
