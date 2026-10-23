@@ -1730,7 +1730,7 @@ validation passed; both capture completion markers were saved. This accepts the
 bounded CCK/OFDM/GF group on captured7392:a711. Other protection settings, remaining
 MAC/BBP setup and RF/connectivity remain outside this acceptance.
 
-### Mixed-mode/TXOP/RTS group (v39; native result pending)
+### Mixed-mode/TXOP/RTS group (v39; Pro11,2 native passed)
 
 `--wifi-mac-contention` requires accepted v38 protection prerequisites. One fixed
 sequence9, 40-byte command writes MM20_136c=01742004, MM40_1370=03f42084,
@@ -1739,3 +1739,10 @@ Captured starting values00402004/00802084/0400243f/00ffff07 are mandatory before
 submission. Exact ACK, all four target readbacks and MAC0/COREf000f200 boundaries
 are required (twelve reads). No retry, RF enable, PBF/DMA/power change or BBP table
 follows. Acceptance remains specific to captured7392:a711 and this bounded group.
+
+Pro11,2 release `2cfc6b033353005e`, session `00065e8a97cf1e48-00`, passed on
+2026-10-23: exact sequence9 ACK, all12 reads, expected starts and target values,
+and initial/final MAC0/COREf000f200. Both capture completion markers were saved,
+with all preceding bounded initialization checks passing. This accepts this group
+on captured7392:a711; remaining MAC/BBP initialization and RF/connectivity are
+outside its scope.

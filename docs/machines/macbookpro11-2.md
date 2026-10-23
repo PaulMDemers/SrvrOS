@@ -3875,3 +3875,23 @@ errors, unmounted; no one-shot armed. Run/collector:
 `~/.local/share/srvros/macbookpro11-2/wifi-mac-contention-d4c5fbc/`.
 Next: readiness-confirmed cold adapter cycle, automatic capture/return and
 collection of matching session. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v39 mixed-mode/TXOP/RTS passed natively
+
+Collected release `2cfc6b033353005e`, source `d4c5fbc`, new session
+`00065e8a97cf1e48-00`. Firmware/reset/timing, compact0/1, clock/readiness,
+FCE/WMM, exact policy and CCK/OFDM/GF protection all passed. Sequence9
+sent40/received16 cc13/residue1008, exact ACK; status0 complete1 reads12,
+one batch completed, ack_mask1. MM20_00402004->01742004,
+MM40_00802084->03f42084, TXOP0400243f->0000583f, RTS00ffff07->00ffff20.
+Initial/final MAC0 and COREf000f200 verified. Both capture markers yes; no BBP
+table ran. Acceptance is limited to this bounded group on captured7392:a711;
+remaining initialization and RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-contention-d4c5fbc/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean217files/574clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: select remaining reference MAC prerequisites against the captured
+inventory before revisiting full baseband initialization.
