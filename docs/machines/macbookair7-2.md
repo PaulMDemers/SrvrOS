@@ -16,6 +16,19 @@ network parity needs an adapter and its own trial. Installed accepted v54 and
 Ubuntu recovery stay unchanged while host/VM work proceeds. Low-charge UX will
 reuse the cached ABI, with no firmware calls from UI paths.
 
+### Integrated v55 hardware trial prepared
+
+Candidate `9aa8dbf6fbda8252` (compiled `7ab571f`, staged `d5bb51d`, test-only
+follow-up) passes the exact GRUB/staged Limine/native-kernel EFI run with HDA
+playback, unavailable native battery on Q35, two retired lifetimes, verified
+files/allocation and monitor reboot. The 71-file validation archive and payload
+are retained outside build. Model/USB/AC/default boot/EFI/recovery and offline
+filesystem/allocation preflights pass. Candidate is installed; accepted v54 and
+previous desktop recovery remain retained. See local run/checkpoint for reboot
+state. This attended trial needs listening, input/brightness/sensor/AC checks
+and save/exit/reopen; there is no automatic timer. Combined physical acceptance
+and PR76 merge remain pending. No Air Ethernet adapter is attached.
+
 ### Integrated v55 candidate: local checks passed
 
 PR76 implements the combined profile and cached battery notices. Build, both
