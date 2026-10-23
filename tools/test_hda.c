@@ -12,7 +12,7 @@ struct model {
     uint8_t pin_control[32], stream[32], coefficient_index;
     unsigned writes, mutations, gpio_writes, pauses, completed, power_delay;
     bool reset_stuck, command_stuck, stop_stuck, frozen_clock, wrong_response, bad_connection;
-    bool bad_bass, bad_pin, bad_revision;
+    bool bad_bass, bad_pin, bad_revision, firmware_pins, mixed_pins;
     bool stale_cleared, run_tagged, no_pcm, no_stereo, unplugged;
 };
 static uint32_t get(struct model *m,unsigned off,unsigned n) { uint32_t v=0;memcpy(&v,m->reg+off,n);return v; }
@@ -37,6 +37,9 @@ static uint32_t response(struct model *m,uint32_t cmd) {
     }
     if(op==0xf20) return m->subsystem;
     if(op==0xf02) return m->bad_connection||(m->bad_bass&&node==0x13)?7:(node==0x12?3:node==0x13?4:2);
+    if(op==0xf1c && m->subsystem==0x106b7100) return m->bad_pin?0:
+        node==0x12?(m->firmware_pins?0x90100110:0x90170011):
+        (m->firmware_pins||m->mixed_pins?0x002b4020:0x032b401f);
     if(op==0xf1c) return m->bad_pin?0:node==0x12?0x90100110:node==0x13?0x90100112:0x002b4020;
     if(op==0xf15) return m->gpio_data;
     if(op==0xf16) return m->gpio_mask;
@@ -158,6 +161,37 @@ int main(void) {
         if(fault==4)m.subsystem=0x106b6c00;
         assert(hda_core_reset(&h,io(&m)));
         assert(!hda_codec_discover(&c,&h,fault==5?HDA_AIR7_2:HDA_PRO11_2) && m.mutations==0);
+    }
+    init(&m);m.vendor=0x10134208;m.subsystem=0x106b7100;
+    assert(hda_core_reset(&h,io(&m)) && hda_codec_discover(&c,&h,HDA_AIR6_1));
+    assert(c.routes==2 && c.muted && m.pin_control[0x12]==0x40 && m.pin_control[0x10]==0);
+    assert(m.stream[3]==0x10 && m.stream[2]==0 && m.gpio_data==0x21);
+    assert(m.gpio_mask==0x31 && m.gpio_direction==0x31);
+    assert(m.coefficient[0x33]==1 && m.coefficient[0x34]==0x1c01);
+    assert(m.amp[3]==0xb0ff && hda_codec_mute(&c,false) && m.amp[3]==0xb07f);
+    assert(hda_codec_route(&c,HDA_HEADPHONES) && c.muted);
+    assert(m.pin_control[0x12]==0 && m.pin_control[0x10]==0xc0 && m.gpio_data==0x20);
+    assert(m.stream[2]==0x10 && m.stream[3]==0 && m.amp[3]==0xb0ff);
+    assert(hda_codec_mute(&c,false) && m.amp[2]==0xb07f && m.amp[0x10]==0xb042);
+    assert(hda_codec_route(&c,HDA_SPEAKERS) && c.muted && m.gpio_data==0x21);
+    /* No writes to the unused DACs/pins, despite their raw speaker defaults. */
+    assert(m.stream[4]==0 && m.stream[5]==0 && m.pin_control[0x11]==0 && m.pin_control[0x13]==0 && m.pin_control[0x14]==0);
+    init(&m);m.vendor=0x10134208;m.subsystem=0x106b7100;m.firmware_pins=true;
+    assert(hda_core_reset(&h,io(&m)) && hda_codec_discover(&c,&h,HDA_AIR6_1));
+    assert(c.routes==2 && c.muted && m.stream[3]==0x10 && m.gpio_data==0x21);
+    for(unsigned fault=0;fault<10;fault++) {
+        init(&m);m.vendor=0x10134208;m.subsystem=0x106b7100;
+        if(fault==0)m.bad_connection=true;
+        if(fault==1)m.bad_pin=true;
+        if(fault==2)m.bad_revision=true;
+        if(fault==3)m.subsystem=0x106b7200;
+        if(fault==4)m.subsystem=0x106b7e00;
+        if(fault==5)m.no_pcm=true;
+        if(fault==6)m.no_stereo=true;
+        if(fault==9)m.mixed_pins=true;
+        assert(hda_core_reset(&h,io(&m)));
+        enum hda_profile p=fault==7?HDA_AIR7_2:fault==8?HDA_PRO11_2:HDA_AIR6_1;
+        assert(!hda_codec_discover(&c,&h,p) && m.mutations==0);
     }
     init(&m);m.reset_stuck=true;assert(!hda_core_reset(&h,io(&m))&&h.error==HDA_RESET_TIMEOUT);
     init(&m);m.frozen_clock=true;assert(!hda_core_reset(&h,io(&m))&&m.pauses<=2000000);
