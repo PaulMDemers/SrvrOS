@@ -520,3 +520,13 @@ The VM supplies synthetic transitions. Native AC transition behavior requires
 the attended test; neither proves calibrated capacity, remaining runtime or
 battery health. Suspend/resume, thermal policy and ordinary startup are separate
 milestones. No firmware/resource gate changes are part of this capture.
+
+
+Air7,2 v52 release `c06f94a5893a402d` passed the attended AC/battery/AC sequence:
+three screenshots, 61.111 seconds, 339 events, two acknowledged alarms and
+51 handled/zero unclaimed SCI interrupts, followed by clean lifetime/runtime
+retirement, verified logs, unchanged prior data and clean offline allocation.
+This accepts the explicit native transition/indicator path. Ordinary native
+startup and calibrated gauge accuracy remain separate milestones. See the
+[machine record](machines/macbookair7-2.md) for source/session identities and
+why Ubuntu's absolute SOC differs from the relative SOC displayed here.

@@ -1359,3 +1359,21 @@ remount; 916 prior files stayed identical apart from the metadata sidecar. Offli
 fsck/allocation and Ubuntu return/default/recovery checks passed. This establishes
 safe predispatch failure handling, not support for query10, battery readings or
 mounted Home. The [machine record](machines/macbookair7-2.md) owns the exact evidence.
+
+
+## Percentage convention
+
+The service exposes the battery's **relative state of charge** (SBS command
+`0x0d`) directly when valid; it does not recompute percentage from capacity
+snapshots or substitute absolute SOC (`0x0e`). The [SBS 1.1 specification,
+sections 5.1.14–15](https://sbs-forum.org/specs/sbdat110.pdf) defines relative SOC
+against current full-charge capacity, and absolute SOC against original design
+capacity. Calibration and rounding can also differ from a ratio of separate
+capacity reads. Do not force one OS's displayed percentage to match another
+without checking its source register.
+
+On the reference Air's accepted v52 transition trial, SrvrOS displayed 97%
+and Ubuntu displayed 85%. Ubuntu's installed `acpi-sbs` reader table was verified
+to request `0x0e`, consistent with [Linux's SBS driver](https://raw.githubusercontent.com/torvalds/linux/master/drivers/acpi/sbs.c).
+The post-return remaining/full capacity values matched across OSes. This explains
+the comparison; it does not establish calibrated accuracy or battery health.

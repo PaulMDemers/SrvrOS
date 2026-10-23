@@ -2,29 +2,45 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active scope: attended Home AC/indicator transitions
+### Guided Home AC/indicator transitions accepted (PR #66)
 
-Based on main `52ef3ea` (including PR63/64), this agent owns the explicit v52 guided desktop
-capture: AC baseline, unplug/discharge and reconnect, with fresh-sample checks,
-on-screen prompts and three saved screenshots. Shared scope is the desktop
-capture state machine, existing continuous battery owner, staging and collectors.
-Ordinary startup stays disabled; native resource/profile gates stay unchanged.
-Pro PR19 `6ce15ef` is Wi-Fi; Air6,1 tap feedback from PR64 is integrated. Preserve
-both agents' boot-profile additions during integration. VM/host tests precede
-an attended native boot; the human must be told the unplug/reconnect steps first.
+Release `c06f94a5893a402d`, staged source `1dcf202`, compiled/tested source
+`91df3d8` on main `52ef3ea`, passed the attended v52 trial on this Air.
+Session `session-00065e77908a58e7-00` recorded 61.111 seconds, generation 1→23,
+339 events and two acknowledged battery alarms. All 51 SCI interrupts were
+handled, with zero unclaimed interrupts. All five inherited process members
+retired before battery ownership, logging and the mount were released.
 
-Source `91df3d8` passed the full local build, both battery kernels, core suite
-and 450 documentation links. All five guided Q35 cases passed: AC/battery/AC
-with three screenshots, missed-unplug timeout with automatic return, clean
-profile/query refusals, and uncertain-ack containment. The three-minute v51 idle
-capture, pending-save desktop exit and continuous alarm/Stop/restart regressions
-also passed. The VM uses synthetic readings; native transitions remain pending.
+Three consecutive fresh readings accepted each AC/battery/AC phase. Saved
+1440x900 screenshots show `AC · 97%`, `97%`, then `AC · 97%`; unplugged current
+was −1.467 A and reconnected current was zero. Four logs and all three BMPs
+were verified. All 948 prior data files stayed unchanged; only expected metadata
+and seven new evidence files changed. Offline fsck/allocation passed: 956 files,
+1,905 allocated clusters, zero leaks/mismatches/errors. Ubuntu recovery/default,
+EFI order and consumed one-shot were verified. USB is cleanly unmounted.
 
-[PR #66](https://github.com/PaulMDemers/SrvrOS/pull/66) contains this checkpoint.
-The next physical run is attended: keep USB attached, start on AC, unplug at
-prompt 2, reconnect at prompt 3. Each phase saves before advancing; safe completion
-or timeout returns to Ubuntu automatically. Exact-stage rehearsal and local
-recovery/run records are required before reboot. Ordinary startup remains OFF.
+The accepted payload/evidence survive cleanup under
+`~/.local/share/srvros/known-good/c06f94a5893a402d` and
+`~/.local/share/srvros/accepted-evidence/c06f94a5893a402d`.
+Full build/both battery kernels/core/docs, all five guided VM cases, existing
+three-minute capture, pending-save exit and alarm/restart regressions passed.
+Exact-stage native refusal/save/return and missing-workspace return passed.
+Later integration of main `208423f` changes only Air6,1 documentation; tested
+compiled source is unchanged. Pro PR19 `20d48a5` remains separate Wi-Fi work.
+Actions remain disabled; validation is local.
+
+Ubuntu reports 85%, while SrvrOS reports 97%. Read-only inspection confirms
+Ubuntu's installed `acpi-sbs` module reads command `0x0e` (absolute SOC); SrvrOS
+reads `0x0d` (relative SOC). The [SBS specification](https://sbs-forum.org/specs/sbdat110.pdf)
+defines these against design capacity and present full-charge capacity,
+respectively. The post-return remaining/full capacities agree (6,035/6,283 mAh;
+design 7,150 mAh). This explains the differing percentages without changing the
+relative gauge. Physical calibration, battery life and health are not accepted.
+
+This closes explicit AC transition/indicator acceptance. No reboot is armed.
+Next: opt-in ordinary native Home startup using the accepted owner, with graceful
+unavailable/stale presentation and exit/restart regressions. Ordinary automatic
+startup remains OFF; sibling firmware/resource gates are unchanged.
 
 ### Explicit continuous Home desktop capture accepted (PR #63)
 
