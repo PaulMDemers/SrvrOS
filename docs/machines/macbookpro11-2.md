@@ -3057,3 +3057,17 @@ failed9cc1888913aa7ff5 remains installed for comparison. Accepted6477738b1d3cf7d
 removed from ESP only after archive equality verification. Workspace clean:
 183files/523clusters, zero allocation errors, unmounted. Native observation
 pending cold adapter power cycle; Ubuntu default and no reboot armed.
+
+Read-only TXBE capture completed: sourceffa4e17, release70e0236472c320bc,
+session00065e86348e7c75-00. All eleven compact phases/44 readbacks passed;
+observation status0 attempted1 complete1 reads64 samples8. TXBE10 stayed
+00037fff over2823351..2825238us (1.887ms); TXBE9/12/13 stayed0. MAC0 and
+COREf000f200 held at all sixteen sample boundaries. Exactly eleven compact
+commands; no phase11/sequence15. Both completion markers passed. No evidence
+of spontaneous change in this short window; register semantics and the earlier
+write mismatch remain unresolved, and phase11 is not accepted. Next audit
+register mapping and write/read transport before choosing a further write trial.
+Evidence archived in wifi-txbe-observe-ffa4e17/native-collection outside build.
+Ubuntu default, consumed one-shot, installed payload and desktop recovery
+verified. Workspace clean:185files/526clusters, zero leaks/mismatches/errors;
+unmounted. Run/checkpoint collected and unarmed. RF/connectivity not tested.

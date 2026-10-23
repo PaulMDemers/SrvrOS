@@ -1151,7 +1151,7 @@ are NO. This phase remains unaccepted; next investigate TXBE10 with bounded
 read-only samples. Do not infer counter semantics or relax readback from
 this single observation. RF/connectivity remain untested.
 
-### Read-only TXBE observation (native pending)
+### Read-only TXBE observation (captured Pro adapter)
 
 Firmware v23 (`--wifi-txbe-observe`, requiring `--wifi-txbe-start` and
 excluding `--wifi-txbe-next`) executes accepted compact phases0..10, then
@@ -1166,3 +1166,14 @@ records only fully guarded samples, with monotonic time at the TXBE10 read.
 Changing values are recorded without claiming counter/status semantics or
 accepting a write. Strict v22 verification remains unchanged. RF/connectivity
 remain untested. Results save to the normal workspace log and return to Ubuntu.
+
+Native sourceffa4e17 / release70e0236472c320bc,
+session00065e86348e7c75-00 completed all eleven initialization phases and
+64 observation reads. TXBE10 remained00037fff in all eight samples at
+2823351..2825238 monotonic microseconds (1.887ms); TXBE9/12/13 stayed0.
+All sample boundaries retained MAC0/COREf000f200. This short window shows
+no spontaneous change and does not establish register semantics or explain
+the previous write mismatch. Phase11 remains unaccepted. Next audit the
+register mapping and write/read transport before selecting another write trial.
+Both completion markers passed; logs saved, Ubuntu recovered, and offline
+workspace allocation was clean. RF/connectivity remain untested.
