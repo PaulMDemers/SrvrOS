@@ -91,12 +91,13 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `d5491c0`, branch `device/macbookair6-1/battery-preflight-return`. Close out
-run `10567bbea85fe3e2`; scope is Air6,1 documentation and local evidence only.
-The native passive capture completed. Next implementation checkpoint is the
-independent NVS/GPIO/PCI/AML initialization, EC/query and SCI/rollback audit,
-then a bounded AC-connected battery sample diagnostic. The captured event state
-does not grant runtime ownership or extend Air7,2's profile to this machine.
+Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
+Air6,1 AML initialization and query effects using private captured regions and
+synthetic EC state. Scope: separate diagnostic-native profile/policy, shared
+runtime only where a model-specific contract is required, staging/VM tests and
+Air6,1 docs. PR88 owns trackpad timing; PR19 owns Pro USB Wi-Fi. Preserve both.
+Next checkpoint is five bounded AC-connected samples with parked USB and full
+retirement. Ordinary desktop admission and charging controls remain disabled.
 
 ## First console trial prepared (2026-10-22)
 
