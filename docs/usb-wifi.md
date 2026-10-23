@@ -1691,7 +1691,7 @@ were saved, with register_acceptance and RF/connectivity explicitly NOT_TESTED.
 The separate v35 strict failure remains unchanged. These observations support
 an explicit TX_LINK readback rule; they do not accept unrelated upper-bit values.
 
-### Exact captured policy validation (v37; native result pending)
+### Exact captured policy validation (v37; Pro11,2 native passed)
 
 `--wifi-mac-policy-validate` requires policy prerequisites and excludes observation
 mode. Write bytes and initial-value gates are unchanged. After the exact ACK,
@@ -1703,3 +1703,11 @@ reports `exact_profile=1` with completion status and write_mismatch_mask1 becaus
 the first expected readback differs from its write operand. v35 and v36 retain
 strict historical and observation semantics respectively. This validates only
 the bounded MAC policy group, not RF, BBP setup or wireless connectivity.
+
+On 2026-10-23, Pro11,2 release `678a8d195cc57e83`, session
+`00065e8a2764f20b-00`, passed the prepared exact validator. All12 reads, the
+sequence7 ACK, all four expected readbacks and final MAC0/COREf000f200 matched;
+`complete=1 write_mismatch_mask=1 exact_profile=1` and both capture completion
+markers were saved. This accepts this bounded four-register operation on the
+captured7392:a711 adapter, not other adapters, remaining initialization or RF/
+connectivity. v35's historical failure and v36's observation evidence remain.

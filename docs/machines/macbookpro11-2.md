@@ -3784,3 +3784,25 @@ unmounted; no one-shot armed. Run/collector:
 `~/.local/share/srvros/macbookpro11-2/wifi-policy-validate-c0ee877/`.
 Next: readiness-confirmed cold adapter power cycle and automatic capture/return,
 then collect matching session. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v37 exact policy validation passed natively
+
+Collected release `678a8d195cc57e83`, source `c0ee877`, new session
+`00065e8a2764f20b-00`. Firmware/reset/timing, compact0/1, clocks/readiness and
+FCE/WMM passed. Policy command sequence7 sent40/received16 cc13/residue1008,
+exact ACK; status0 complete1 reads12 batches_attempted1/completed1 ack_mask1.
+Readbacks exactly LINK007f1020, TIMEOUT000a2090, RETRY47d01f0f, AUTO_RSP00000013.
+Initial/final MAC0 and COREf000f200 verified. Validation complete1,
+write_mismatch_mask1 exact_profile1; both capture completion markers yes.
+No observation mode or BBP table ran. Prepared collector passed unchanged.
+Acceptance is limited to the exact bounded policy operation on captured7392:a711;
+RF/connectivity and remaining MAC/BBP initialization are still NOT_TESTED.
+
+Complete matching collection, run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-validate-c0ee877/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean213files/568clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: select remaining reference MAC prerequisites against captured
+inventory before revisiting full baseband initialization. Preserve all earlier
+failed/observational records and the exact profile's device gates.
