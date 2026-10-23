@@ -904,7 +904,7 @@ and MAC stayed disabled. Prior setup regressions and both capture completion
 markers passed. This accepts only the specified settings; remaining AGC/baseband
 configuration, RF, scanning, association and connectivity are still pending.
 
-### Initial AGC settings (native pending)
+### Initial AGC settings (accepted on captured Pro adapter)
 
 Firmware v13 (`--wifi-bbp-agc`, requiring `--wifi-bbp-front`) adds two fixed
 commands, sequences12/13, for AGC1/2/15/22 at2304/2308/233c/2358. Values are
@@ -922,3 +922,11 @@ stale replies, target mismatches and MAC/CORE guards. xHCI fixtures exercise
 all prerequisite refusals, bounded transfers, exact reads and quarantine.
 Command sequence identifiers are not wrapped; expanding initialization beyond
 sequence15 requires a separately validated batching/session design.
+
+Native source56bf5da / releaseb245ac895a7d9396, session00065e777b83c006-00
+passed exact sequence12/13 replies, sent24/received16 for both commands,
+status0, submitted2/completed2, ack_mask3 and16 reads. AGC1 changed1->3 and
+AGC2 changed6464->3a6464; AGC15/22 already matched88a28cb8/1e21 and stayed
+unchanged. CORE0 stayedf000f200 and MAC stayed disabled. Prior setup checks
+and both saved completion markers passed. Remaining AGC/baseband configuration,
+RF, scanning, association and connectivity are not accepted by this result.

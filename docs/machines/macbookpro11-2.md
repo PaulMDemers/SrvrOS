@@ -2696,3 +2696,16 @@ Run record build/bringup/wifi-bbp-agc/run.json; payload, VM receipts and prepare
 collector archived in ~/.local/share/srvros/macbookpro11-2/wifi-bbp-agc-56bf5da.
 Unarmed, awaiting cold-trial readiness. Collect the matching session first on
 return. Native acceptance pending; no RF/scan/connectivity test included.
+
+Initial AGC native acceptance (2026-10-22): source56bf5da,
+releaseb245ac895a7d9396, session00065e777b83c006-00 passed exact sequence12/13
+replies, both24-byte commands/16-byte responses, status0/submitted2/completed2/
+ack_mask3/reads16. AGC1 changed1->3, AGC2 changed6464->3a6464; AGC15/22
+already matched88a28cb8/1e21. CORE0 stayedf000f200 and MAC stayed0. All prior
+setup checks and both capture completion markers passed. Logs/hashes archived
+in wifi-bbp-agc-56bf5da/native-collection outside build. Ubuntu default, consumed
+one-shot, installed payload and desktop recovery verified. Workspace unmounted;
+clean165files/496clusters, zero leaked allocations or bitmap mismatches.
+Run/checkpoint collected and unarmed. Next design bounded larger command batches
+and session sequencing before exhausting the4-bit sequence space, then finish
+AGC/baseband initialization. RF/scan/association/connectivity remain pending.
