@@ -3857,3 +3857,21 @@ captured starts00402004/00802084/0400243f/00ffff07. Exact starts, sequence9 pack
 ACK, twelve reads and final MAC0/COREf000f200; no subsequent BBP or RF enable.
 Touch MCU/xHCI/main/staging/tests; base22fd266, fetched mainf2e0945 battery-files;
 PR102 filesystem scale separate, no Wi-Fi overlap.
+
+### 2026-10-23 — v39 mixed-mode/TXOP/RTS candidate installed, unarmed
+
+Source `d4c5fbc`, release `2cfc6b033353005e`. Build, compact/xHCI tests,
+ASan/UBSan, 95 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v38
+`89ee4a2fc2121ce2` retained; v37 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean215files/571clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-contention/run.json`,
+`build/bringup/collect_wifi_mac_contention_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-contention-d4c5fbc/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
