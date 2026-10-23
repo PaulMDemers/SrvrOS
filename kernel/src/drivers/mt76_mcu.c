@@ -158,6 +158,19 @@ static const struct mt76_mcu_register_pair bbp_agc[4]={
 static const struct mt76_mcu_register_pair bbp_batch[4]={
     {0x233c,0x88a28cb8},{0x2358,0x1e21},{0x2304,3},{0x2308,0x003a6464}
 };
+static const struct mt76_mcu_register_pair *compact_plan(unsigned phase) {
+    switch(phase) {
+    case 0:return mac_basics;case 1:return mac_format;case 2:return bbp_core;
+    case 3:return bbp_front;case 4:return bbp_batch;default:return 0;
+    }
+}
+bool mt76_mcu_compact_read_allowed(unsigned phase,uint32_t address) {
+    const struct mt76_mcu_register_pair *plan=compact_plan(phase);
+    if(!plan)return false;
+    if(address==0x1004 || (phase>=2 && address==0x2000))return true;
+    for(unsigned n=0;n<4;n++)if(address==plan[n].address)return true;
+    return false;
+}
 static size_t fixed_mac_packet(const struct mt76_mcu_register_pair *plan,
     unsigned sequence,unsigned batch,unsigned pairs,uint8_t *out,size_t capacity) {
     if((pairs!=2 && pairs!=4) || batch>=4/pairs)return 0;
@@ -206,6 +219,14 @@ size_t mt76_mcu_bbp_batch_packet(unsigned batch,uint8_t *out,size_t capacity) {
 }
 bool mt76_mcu_validate_bbp_batch_reply(unsigned batch,const uint8_t *data,size_t length) {
     return fixed_mac_reply(bbp_batch,14,batch,4,data,length);
+}
+size_t mt76_mcu_compact_packet(unsigned phase,uint8_t *out,size_t capacity) {
+    const struct mt76_mcu_register_pair *plan=compact_plan(phase);
+    return plan?fixed_mac_packet(plan,4+phase,0,4,out,capacity):0;
+}
+bool mt76_mcu_validate_compact_reply(unsigned phase,const uint8_t *data,size_t length) {
+    const struct mt76_mcu_register_pair *plan=compact_plan(phase);
+    return plan && fixed_mac_reply(plan,4+phase,0,4,data,length);
 }
 static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value) {
@@ -275,6 +296,12 @@ enum mt76_mcu_timing_status mt76_mcu_apply_bbp_agc(struct mt76_mcu_mac *s,
 
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_batch(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_batch,14,true,4); }
+
+enum mt76_mcu_timing_status mt76_mcu_apply_compact(unsigned phase,
+    struct mt76_mcu_mac *s,const struct mt76_mcu_timing_io *io) {
+    const struct mt76_mcu_register_pair *plan=compact_plan(phase);
+    return plan?apply_fixed_mac(s,io,plan,4+phase,phase>=2,4):MT76_TIMING_REFUSED;
+}
 
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;

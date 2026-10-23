@@ -2751,3 +2751,17 @@ installed payload and desktop recovery verified. Workspace unmounted; clean
 collected and unarmed. Next consolidate setup using accepted four-pair batches
 to free command identifiers before remaining baseband work; sequence reuse,
 RF/scan/association/connectivity remain unaccepted.
+
+Active scope: consolidate five accepted four-register plans into sequences4..8
+after unchanged firmware/reset/identity/write/timing steps1..3. Preserve MAC
+basics -> format -> read-only BBP readiness -> CORE -> IBI/AGC0 -> AGC order.
+Each phase uses one40-byte command and all four readbacks; phases2..4 retain
+captured CORE identity guards. No new settings or sequence reuse. Touch fixed
+MCU engine, xHCI phase ownership, isolated capture/profile and tests. Inspected
+main80b567a and Air PR69: independent desktop/battery work, no Wi-Fi dependency;
+retain accepted integration22fd266. Native consolidation acceptance pending.
+
+Consolidation validation: full build, five-phase fixed engine and all older
+fixed-plan regressions, native xHCI phase/prefix/readiness/read-scope/packet
+fixtures, ASan/UBSan, 71 boot profiles and docs checks pass. No native
+consolidation acceptance yet; prepare exact-stage VM and automatic cold trial.

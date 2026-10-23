@@ -244,6 +244,9 @@ struct xhci_wifi_mcu {
     bool format_active;
     struct mt76_bbp_probe bbp;
     bool bbp_active;
+    struct mt76_mcu_mac compact[MT76_MCU_COMPACT_PHASES];
+    unsigned compact_next, compact_submitted[MT76_MCU_COMPACT_PHASES];
+    bool compact_mode, compact_active;
     struct mt76_mcu_mac bbp_batch;
     unsigned bbp_batch_submitted;
     bool bbp_batch_active;

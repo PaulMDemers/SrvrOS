@@ -625,11 +625,84 @@ static bool wifi_mcu_initialize_bbp_batch(struct xhci_device *d) {
     return true;
 }
 
+static bool wifi_compact_prefix(struct xhci_wifi_mcu *m,unsigned count) {
+    if(count>MT76_MCU_COMPACT_PHASES)return false;
+    for(unsigned i=0;i<count;i++)if(!m->compact[i].complete ||
+        m->compact[i].ack_mask!=1 || m->compact[i].batches_completed!=1 ||
+        m->compact_submitted[i]!=1)return false;
+    return true;
+}
+static bool wifi_compact_owned(void *context) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    unsigned phase=m->compact_next;
+    return phase<MT76_MCU_COMPACT_PHASES && m->compact_mode && m->compact_active &&
+        wifi_mcu_owned(d) && m->configured && !m->pending &&
+        m->identity_validated && m->write_validated && m->timing.complete &&
+        m->timing.ack_validated && d->firmware.radio_reset.prepared &&
+        wifi_compact_prefix(m,phase) &&
+        (phase<2 || (m->bbp.complete && m->bbp.core==0xf000f200));
+}
+static bool wifi_compact_read(void *context,uint32_t address,uint32_t *value) {
+    struct xhci_device *d=context;
+    if(!value || !wifi_compact_owned(d) ||
+        !mt76_mcu_compact_read_allowed(d->firmware.mcu.compact_next,address))return false;
+    struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    int actual=0;*value=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
+    for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    return *value!=UINT32_MAX;
+}
+static int wifi_compact_exchange(void *context,const uint8_t *packet,size_t length,
+    uint8_t *reply,size_t capacity) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(!wifi_compact_owned(d))return -1;
+    unsigned phase=m->compact_next;struct mt76_mcu_mac *s=&m->compact[phase];
+    uint8_t allowed[40];
+    if(!packet || !reply || length!=sizeof allowed || capacity<MT76_MCU_RESPONSE_MAX ||
+        m->compact_submitted[phase] || !s->attempted || s->batches_attempted!=1 ||
+        s->batches_completed || s->ack_mask ||
+        mt76_mcu_compact_packet(phase,allowed,sizeof allowed)!=sizeof allowed)return -1;
+    for(size_t i=0;i<length;i++)if(packet[i]!=allowed[i])return -1;
+    m->compact_submitted[phase]=1;
+    for(size_t i=0;i<length;i++)d->firmware.buffer[i]=packet[i];
+    int sent=wifi_mcu_bulk(d,false,length),received=-1;
+    if(sent==(int)length)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    console_printf("wifi-compact-command: phase=%u sequence=%u sent=%d received=%d cc=%u residue=%u\n",
+        (uint64_t)phase,(uint64_t)(4+phase),(int64_t)sent,(int64_t)received,
+        (uint64_t)m->completion,(uint64_t)m->remaining);
+    if(received>0 && received<=64)for(unsigned n=0;n<(unsigned)received/4;n++) {
+        uint32_t word=0;for(unsigned b=0;b<4;b++)word|=(uint32_t)m->buffer[4*n+b]<<(8*b);
+        console_printf("wifi-compact-word: phase=%u index=%u value=%x\n",(uint64_t)phase,(uint64_t)n,(uint64_t)word);
+    }
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
+}
+static bool wifi_mcu_compact_step(struct xhci_device *d,unsigned phase) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(phase>=MT76_MCU_COMPACT_PHASES || phase!=m->compact_next)return wifi_mcu_fail(d);
+    m->compact_active=true;
+    const struct mt76_mcu_timing_io io={d,wifi_compact_owned,wifi_compact_read,wifi_compact_exchange};
+    struct mt76_mcu_mac *s=&m->compact[phase];
+    enum mt76_mcu_timing_status status=mt76_mcu_apply_compact(phase,s,&io);
+    m->compact_active=false;
+    console_printf("wifi-compact-init: phase=%u status=%u attempted=%u submitted=%u batches_attempted=%u batches_completed=%u ack_mask=%u complete=%u reads=%u mac_before=%x mac_after=%x core_before=%x core_after=%x\n",
+        (uint64_t)phase,(uint64_t)status,(uint64_t)s->attempted,(uint64_t)m->compact_submitted[phase],
+        (uint64_t)s->batches_attempted,(uint64_t)s->batches_completed,(uint64_t)s->ack_mask,
+        (uint64_t)s->complete,(uint64_t)s->reads,(uint64_t)s->mac_before,(uint64_t)s->mac_after,
+        (uint64_t)s->core_before,(uint64_t)s->core_after);
+    for(unsigned i=0;i<4;i++)console_printf("wifi-compact-readback: phase=%u index=%u before=%x after=%x\n",
+        (uint64_t)phase,(uint64_t)i,(uint64_t)s->before[i],(uint64_t)s->after[i]);
+    if(status!=MT76_TIMING_OK)return wifi_mcu_fail(d);
+    m->compact_next++;return true;
+}
+
 static bool wifi_bbp_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return wifi_mcu_owned(d) && m->configured && !m->pending && m->bbp_active &&
-        m->format.complete && m->format.ack_mask==3 && m->format.batches_completed==2 &&
-        m->mac.complete && m->timing.complete && m->identity_validated &&
+        (m->compact_mode ? (m->compact_next==2 && wifi_compact_prefix(m,2)) :
+        (m->format.complete && m->format.ack_mask==3 && m->format.batches_completed==2 && m->mac.complete)) &&
+        m->timing.complete && m->identity_validated &&
         m->write_validated && d->firmware.radio_reset.prepared;
 }
 static bool wifi_bbp_read(void *context,uint32_t address,uint32_t *value) {
@@ -655,7 +728,18 @@ static bool wifi_mcu_probe_bbp(struct xhci_device *d) {
     return true;
 }
 
-static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool timing,bool mac_basics,bool format,bool bbp,bool bbp_core,bool bbp_front,bool bbp_agc,bool bbp_batch) {
+static bool wifi_mcu_initialize_compact(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(m->compact_mode || m->compact_next)return wifi_mcu_fail(d);
+    m->compact_mode=true;
+    for(unsigned phase=0;phase<MT76_MCU_COMPACT_PHASES;phase++) {
+        if(phase==2 && !wifi_mcu_probe_bbp(d))return false;
+        if(!wifi_mcu_compact_step(d,phase))return false;
+    }
+    return true;
+}
+
+static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool timing,bool mac_basics,bool format,bool bbp,bool bbp_core,bool bbp_front,bool bbp_agc,bool bbp_batch,bool compact) {
     unsigned found=0;bool saved=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];struct xhci_wifi_firmware *f=&d->firmware;
@@ -690,6 +774,7 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             m->identity_validated=true;
             if(write_probe && !wifi_mcu_capture_write(d))saved=false;
             else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
+            else if(compact) { if(!wifi_mcu_initialize_compact(d))saved=false; }
             else if(mac_basics && !wifi_mcu_initialize_mac(d))saved=false;
             else if(format && !wifi_mcu_initialize_format(d))saved=false;
             else if(bbp && !wifi_mcu_probe_bbp(d))saved=false;
@@ -703,25 +788,27 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
     return found && saved;
 }
 
-bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false,false,false,false,false,false,false,false,false,false,false); }
-bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true,false,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false,false,false,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true,false,false,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_write_probe(void) { return wifi_capture_mcu(true,true,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_write_probe(void) { return wifi_capture_mcu(true,true,false,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_pair_probe(void) { return wifi_capture_mcu(true,true,true,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_pair_probe(void) { return wifi_capture_mcu(true,true,true,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_timing_probe(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_timing_probe(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_mac_basics(void) { return wifi_capture_mcu(true,true,true,true,true,false,false,false,false,false,false); }
+bool xhci_wifi_capture_mac_basics(void) { return wifi_capture_mcu(true,true,true,true,true,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_mac_format(void) { return wifi_capture_mcu(true,true,true,true,true,true,false,false,false,false,false); }
+bool xhci_wifi_capture_mac_format(void) { return wifi_capture_mcu(true,true,true,true,true,true,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_ready(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,false,false,false,false); }
+bool xhci_wifi_capture_bbp_ready(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,false,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_core(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,false,false,false); }
+bool xhci_wifi_capture_bbp_core(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_front(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,false,false); }
+bool xhci_wifi_capture_bbp_front(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,false,false,false); }
 
-bool xhci_wifi_capture_bbp_agc(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,false); }
+bool xhci_wifi_capture_bbp_agc(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,false,false); }
 
-bool xhci_wifi_capture_bbp_batch(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,true); }
+bool xhci_wifi_capture_bbp_batch(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,true,false); }
+
+bool xhci_wifi_capture_compact(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true); }

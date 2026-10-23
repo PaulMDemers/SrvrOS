@@ -965,3 +965,29 @@ f000f200 and MAC0, preceding setup checks and saved completion markers passed.
 This accepts the fixed four-pair command on this adapter, not arbitrary batch
 sizes, command types, sequence reuse or RF/connectivity. Consolidating setup
 with this width is the next step toward freeing command identifiers.
+
+### Consolidated initialization (native pending)
+
+Firmware v15 (`--wifi-compact`, requiring the batching recipe) replaces the
+older per-phase paths with five fixed four-pair commands at sequences4..8.
+Firmware upload, reset, strict identity/write replies and sequence3 timing
+remain unchanged. Order is MAC basics, frame format, read-only BBP readiness,
+CORE, remaining CORE/IBI/AGC0, then AGC15/22/1/2. All register settings remain
+those accepted above. The readiness check stays between format and CORE;
+phases2..4 require captured CORE0=f000f200 before/after each command.
+
+The transport pins one phase and requires every previous phase's complete
+status, ACK and single submission. Exact40-byte packets and phase-specific
+read allowlists are enforced. A phase advances only after all readbacks and
+identity/MAC guards pass. Any failure quarantines the session; command IDs
+are never recycled. The five commands require five exact16-byte first-entry
+replies and20 target readbacks, with10/10/12/12/12 total reads per phase.
+Successful consolidation ends at sequence8, leaving9..15 unused. Older
+profiles retain their original sequences, logs and behavior. RF remains off.
+
+`make test-mt76-compact` checks independent packet/reply fixtures for all five
+plans, exhaustive register allowlists, reply-bit mutations, every I/O failure
+and ownership boundary, readback/MAC/CORE faults and refused retry. Native
+transport fixtures cover every phase's prerequisites, prior completion, BBP
+readiness, packet mutation, read scopes, short buffers, stale events and
+failure quarantine. Hardware acceptance remains pending.
