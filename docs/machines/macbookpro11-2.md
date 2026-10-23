@@ -2976,3 +2976,13 @@ Fetched mainf5e1525; PR69 opt-in Home battery startup and PR74 Air6,1
 evidence inspected. Default battery remains off; those desktop paths are
 independent of this isolated capture. Retain integrated base22fd266. Preserve
 shared desktop recipes on future integration. No RF or identifier recycling.
+
+TXBE0/4/6/8 candidate source56e1f4a / release6477738b1d3cf7d5
+installed unarmed. Build, compact/xHCI host tests, sanitizer,77 boot-profile
+tests and docs checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without probing. Payload, receipts, run record
+and collector archived outside build in wifi-txbe-start-56e1f4a. Accepted
+492306b5fccc17b9 and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
+7d6ccc2fe96d530c removed from ESP only after archive equality verification.
+Workspace clean before install:179files/517clusters, zero allocation errors,
+unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
