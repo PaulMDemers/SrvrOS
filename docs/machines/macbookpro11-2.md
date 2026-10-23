@@ -3389,3 +3389,22 @@ Workspace clean:199files/547clusters, zero leaks/mismatches/errors; unmounted.
 Run/checkpoint collected as failed, no reboot armed. Fetched maind5491c0
 (Air6,1 battery preflight); PR88 tap diagnostics remains separate. Actual
 integrated base22fd266 unchanged; no new candidate installed.
+
+
+Post-v30 state audit: Linux sends the58-entry BBP table as24/24/10 pairs, only
+last chunk acknowledged. TXBE10 is index37, followed by20 entries; upstream does
+not perform our immediate target readback. Two read-only live snapshots of66
+registers confirm TXBE10zero and nine runtime values differing from the initial
+BBP table. Live Linux MAC0c/channel/calibration state differs from SrvrOS; no
+causal claim or acceptance follows. Selector restored, no device writes/reset.
+
+Selected next scope is a dedicated full-table observation diagnostic following
+accepted MAC phases/clocks, fixed200/200/88-byte packets with seq0/0/6, final ACK
+and post-table snapshots. Keep disabled-MAC/CORE guards, no RF/channel/MAC enable,
+private fixed-packet no-response admission, explicit mismatch accounting and
+historical strict tests unchanged. Do not equate snapshot completion with target
+acceptance. MAC-table omissions remain uncontrolled. Implementation is pending.
+Audit and proposed unsent packet fixtures archived in txbe-state-audit-e829cf1
+outside build. Current29504434a7bc5aa6/recoverye47dca3a6b30c6c1 unchanged;
+no reboot armed. Fetched main9bbc3b9 (Air6,1 preflight return), inspected separate
+PR88 tap diagnostics; actual integrated base22fd266 retained. Documentation only.

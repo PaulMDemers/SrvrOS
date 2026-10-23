@@ -1544,3 +1544,37 @@ fully initialized, TX/RX-enabled zero observation remains a different state.
 Next investigate remaining initialization/state differences before another
 candidate; retain exact readback checks and all historical failures. TXBE12/13
 were not written, and RF/connectivity remain untested.
+
+### Post-v30 observation-boundary audit
+
+Linux's [register-pair transport](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c)
+partitions the 58-entry baseband initialization table into24/24/10 entries using
+the192-byte command-payload limit. Only the final chunk requests a response;
+preceding chunks use the driver's no-response sequence0. TXBE10 is table index37
+(zero based), in the second chunk, with20 entries still to follow. The
+[baseband initializer](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+does not read back TXBE10 immediately after its write. Our acknowledged short
+commands and immediate checks observe a different point in initialization.
+Neither this difference nor an omitted MAC setting is yet proven causal.
+
+Two additional read-only snapshots of66 selected registers on this adapter under
+Linux confirm TXBE10zero and show nine baseband entries differ from their initial
+table values: CORE1, AGC0/33, TXC0, TXBE0/17 and RXO21/24/28. These are live,
+TX/RX-enabled observations after channel/calibration setup; they cannot establish
+what those registers read immediately after initialization writes. The capture
+restored the debugfs selector and made no device-register writes or resets.
+
+Next bounded implementation scope: a separate full-table observation diagnostic,
+after the accepted two MAC phases and clock prerequisite. Reproduce24/24/10
+entry boundaries, no-response first chunks and a single final response at unused
+sequence6; retain disabled-MAC and CORE guards and collect target readbacks after
+the complete table. Do not enable MAC TX/RX, calibrate RF or select a channel.
+Keep no-response admission specific to these fixed packets, not generic writes.
+Record mismatches explicitly; completion of a transport/snapshot diagnostic must
+not be presented as target-value or Wi-Fi acceptance. Historical strict tests stay
+unchanged. Full MAC-table equivalence remains outside this comparison.
+
+The `txbe-state-audit` receipt checks source boundaries, all58 entries, two Linux
+snapshots and the v30 failure. It includes proposed200/200/88-byte packet fixtures
+with sequence0/0/6, archived outside build; these packets have not been sent to
+hardware. No new kernel/profile or boot payload was installed during this audit.
