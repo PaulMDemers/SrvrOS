@@ -2765,3 +2765,13 @@ Consolidation validation: full build, five-phase fixed engine and all older
 fixed-plan regressions, native xHCI phase/prefix/readiness/read-scope/packet
 fixtures, ASan/UBSan, 71 boot profiles and docs checks pass. No native
 consolidation acceptance yet; prepare exact-stage VM and automatic cold trial.
+
+Consolidated trial installed: source1b9bf8e, releasee459728ba57fea08. Exact-stage
+GPT save/return and missing-workspace refusal/return VM checks pass. Workspace
+fsck/allocation clean; Ubuntu default and desktop recoverye47dca3a6b30c6c1
+retained; accepted batchingb3eaadb9ad679dbb retained. Older AGCb245ac895a7d9396
+removed only after full durable archive equality. Run record
+build/bringup/wifi-compact/run.json; payload/receipts and strict five-phase
+collector archived in ~/.local/share/srvros/macbookpro11-2/wifi-compact-1b9bf8e.
+Unarmed awaiting cold-trial readiness. Collect matching session first after
+return; consolidated native acceptance pending. RF/connectivity remain untested.
