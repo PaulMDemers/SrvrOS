@@ -913,3 +913,27 @@ session logs were added. Offline checks pass: 197 files, 371 clusters, no leaks,
 bitmap mismatches or errors. Ubuntu returned with an empty one-shot; installed
 candidate/recovery and backup hashes are verified. Run records and return logs
 are retained outside build under the candidate's evidence/trial directory.
+
+## Battery/AC passive preflight ready (2026-10-23)
+
+Run `10567bbea85fe3e2`, release `9b528e09c13e1d4b`, clean source `f6bab3e`,
+is installed unarmed. Fresh DSDT/ECDT/FADT match the original unit capture.
+Offline loading of nine AML tables with private GNVS/SMBus PCI snapshots matches
+the EC namespace/resources with zero errors, denials, writes or leaked allocations.
+Full initialization and runtime permissions remain unaudited; this result is not
+live battery telemetry. See the [battery bring-up note](../macbookair6-1-battery.md).
+
+The distinct v60 automatic test records only exact-gated PM1, GPE and EC-status
+reads, saves to USB, unmounts and returns to Ubuntu. Leave AC connected. It does
+not issue EC commands, read EC data, initialize AML or own SCI. Native handoff
+state is needed before a later bounded battery-sampling profile can be admitted.
+
+Build/USB image, core/desktop suites, 64 staging tests, 24 collector tests,
+passive-port host checks, actual resource-gate/mutation tests and docs checks
+pass. Exact-stage GPT VM confirms refusal without native access, saved logs,
+clean filesystem/unmount and automatic reset. Native preflight remains pending.
+USB has 197 baseline files; offline allocation passes with 371 clusters and
+zero leaks/mismatches/errors. Installed/independent payload hashes are verified;
+console recovery `c35475f62f154f1e` and accepted telemetry `eee15036f4172920`
+remain available. Ubuntu stays default with empty one-shot. Evidence is backed
+up outside build before boot; no reboot has been requested.
