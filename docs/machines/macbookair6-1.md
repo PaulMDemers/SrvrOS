@@ -1264,3 +1264,14 @@ backed up outside build. Accept only bounded parked AC transitions and observed
 alarm refresh, not gauge accuracy, sustained service or desktop ownership.
 Next recommended scope is bounded mounted-USB/file coexistence before desktop
 battery integration; retain exact Air6,1 admission and serialized retirement.
+
+## Bounded battery/file coexistence scope (2026-10-23)
+
+From main `d7ed773`, this unit owns Air6,1 admission to the existing parked
+exclusive-image/Text file capture, its distinct v64 recipe and directed policy/VM
+checks. Reuse the serialized SMBus owner, 512-event ceiling and client/runtime/
+image retirement order. No new AML/register permissions, mounted Home admission
+or ordinary battery startup. PR102 filesystem scale and PR19 Wi-Fi remain
+independent; use this main baseline without importing either active change.
+Prepare a fresh disposable USB image, exact-stage checks and retained recovery
+before native acceptance. No reboot is armed.

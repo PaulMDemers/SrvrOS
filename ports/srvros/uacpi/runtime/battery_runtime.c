@@ -108,10 +108,14 @@ static bool native_query_return_scope(void) {
         (capture_storage_parked() || (mounted_home_owned() && runtime.platform.smbus_capture_profile));
 }
 static bool air61_smbus_owned(void) {
-    return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
-        runtime.platform.smbus_capture_profile && battery_bounded_capture_entry(runtime.transition_mode,
-        runtime.service_mode,owner==OWNER_SERVICE,smbus_capture&&!smbus_files&&!smbus_controls&&!mounted_home&&!smbus_study,
-        auto_return,smbus_capture_parked(),workspace_active(),workspace_image_busy(),scheduler_io_active());
+    if(runtime.platform.query_policy!=BATTERY_QUERY_AIR61 || !runtime.platform.bounded_samples_only ||
+       !runtime.platform.smbus_capture_profile)return false;
+    bool capture=smbus_capture&&!smbus_controls&&!mounted_home&&!smbus_study;
+    if(smbus_files)return battery_bounded_files_entry(runtime.transition_mode,runtime.service_mode,
+        owner==OWNER_SERVICE,capture&&!smbus_transitions,auto_return,smbus_capture_parked(),
+        workspace_active(),workspace_image_ready());
+    return battery_bounded_capture_entry(runtime.transition_mode,runtime.service_mode,owner==OWNER_SERVICE,
+        capture,auto_return,smbus_capture_parked(),workspace_active(),workspace_image_busy(),scheduler_io_active());
 }
 static bool smbus_owned(void) {
     return air61_smbus_owned() || (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&

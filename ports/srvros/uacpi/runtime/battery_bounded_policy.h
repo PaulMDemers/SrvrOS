@@ -13,6 +13,12 @@ static inline bool battery_bounded_capture_entry(bool coherent,bool service,bool
     bool capture,bool automatic,bool parked,bool mounted,bool image,bool io) {
     return coherent&&service&&owner&&capture&&automatic&&parked&&!mounted&&!image&&!io;
 }
+/* Exclusive image file capture: storage I/O may overlap sampling only while
+ * the exact parked image lease remains ready. Entry separately requires idle I/O. */
+static inline bool battery_bounded_files_entry(bool coherent,bool service,bool owner,
+    bool capture,bool automatic,bool parked,bool mounted,bool ready) {
+    return coherent&&service&&owner&&capture&&automatic&&parked&&!mounted&&ready;
+}
 /* AML only: SBS bank transactions use the separately serialized sampler. */
 static inline bool battery_bounded_ec(bool write,uint64_t address,uint64_t value) {
     return write?(address==0x10&&!value):address==0x60;
