@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Automatic ordinary Home capture on disposable Q35 USB; no physical disks."""
-import argparse,hashlib,json,os,struct,subprocess,tempfile,time
+import argparse,hashlib,json,os,re,struct,subprocess,tempfile,time
 from pathlib import Path
 from battery_workspace_smoke import ANCHOR,MARKER
 from desktop_foundation_smoke import QMP
@@ -47,7 +47,7 @@ def main():
                 assert (process.poll() is None if fatal else process.poll()==0),data[-6000:]
                 result=dict(status='PASS',case=args.case,native_acceptance=False)
                 if fatal:
-                    assert b'battery: HALTED SMBus event ' in data
+                    assert re.search(rb'^battery: HALTED (?:SMBus event [^\r\n]*|sample errors=0 denied=0 heap=[1-9]\d* ec_phase=7 ec_error=1 queries=1); live state retained\r?$',data,re.M)
                     for forbidden in (b'battery-workspace-hold: released',b'battery-service: retired ',b'laptop-capture: completed=',b'laptop-capture: returning',b'workspace: unmounted'):
                         assert forbidden not in data
                     result.update(automatic_reset=False,runtime_retired=False,storage_cleanup='not claimed')
