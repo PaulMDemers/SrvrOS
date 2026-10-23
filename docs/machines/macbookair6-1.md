@@ -633,3 +633,25 @@ pass (201 clusters, zero leaks/mismatches/errors). Installed payload and console
 recovery hashes, Ubuntu default and empty one-shot are verified. Local run and
 VM receipts are backed up outside build under the release's
 `refusal-preferences/359e52fa68fe19bf` directory. Physical acceptance is pending.
+
+### Refusal captured; preference restoration ready
+
+Phase 1 `359e52fa68fe19bf` returned with matching new session
+`session-00065e84b6a90e72-00`: exit snapshot/desktop exit present, no collector
+attention. The actual refusal stdout matches, exit status is 1, verification
+receipt passes, and the completed workload remains byte-for-byte unchanged.
+`desktop.conf` persists speed 5 and acceleration off. All 157 preboot files
+are unchanged except expected metadata updates. No screenshot was saved; visual
+reopen behavior was not separately reported. Offline fsck is clean (165 files),
+allocation passes with 210 clusters and zero leaks/mismatches/errors.
+
+Phase 2 `3559ab3a5aab1fb8` is ready on the same verified installed payload,
+with all 165 current file hashes recorded and no new USB inputs. Open Settings
+and confirm speed 5/acceleration off before any change; capture a screenshot if
+possible, return to console and reboot to Ubuntu. Do not rerun the workload or
+refusal wrapper. The existing exact-stage two-boot VM receipt remains applicable;
+no OS changes or new installation are involved. Both run records/evidence have
+verified durable backups. Ubuntu default/recovery are intact; one-shot is empty.
+Refusal and saved preference bytes are physically verified; restoration remains
+pending this second boot. Newly merged PR #69 is not part of this installed
+release; do not widen the trial to its battery startup behavior.
