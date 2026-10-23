@@ -7,7 +7,7 @@ from displayd_frame_smoke import stop_process
 from displayd_resolution_smoke import build_iso, read_for
 from vm_sockets import connect_unix
 from exfat_test_image import ExfatFixture, check_clean_image
-from battery_workspace_smoke import ANCHOR, MARKER
+from battery_workspace_smoke import ANCHOR
 
 
 def main():
@@ -35,7 +35,8 @@ def main():
             assert manifest['config_version'].startswith('ram-usb-v54-desktop-')
             uuid=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1]
         subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+uuid,str(volume)],check=True,stdout=subprocess.DEVNULL)
-        fixture=ExfatFixture(volume.read_bytes());fixture.add_directory_files('srvros-work',{'.workspace':MARKER,'anchor.txt':ANCHOR})
+        marker=f'SRVROS-WORKSPACE-V1 {uuid}\n'.encode()
+        fixture=ExfatFixture(volume.read_bytes());fixture.add_directory_files('srvros-work',{'.workspace':marker,'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as f:f.write(mbr);f.seek(2048*512);f.write(fixture.data)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='refusal' else 'vm.elf')
@@ -152,7 +153,7 @@ def main():
                 stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                 if entry_refusal or (args.case=='refusal' and not args.boot_session):assert disk[2048*512:]==bytes(fixture.data)
                 elif args.case!='runtime-fault':
-                    final=ExfatFixture(disk[2048*512:]);assert final.read('srvros-work/.workspace')==MARKER and final.read('srvros-work/anchor.txt')==ANCHOR
+                    final=ExfatFixture(disk[2048*512:]);assert final.read('srvros-work/.workspace')==marker and final.read('srvros-work/anchor.txt')==ANCHOR
                     assert final.read('srvros-work/desktop-proof.txt')==(b'Ordinary Home desktop. Pending save.' if args.case=='cancel' else b'Ordinary Home desktop.')
                     assert {n for n,_ in final.entries(final.chain(final.root))}=={'srvros-work','.srvros'}
                     assert {n for n,_ in final.entries(final.read('srvros-work'))}=={'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}
