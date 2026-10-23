@@ -3210,3 +3210,15 @@ Linux v6.18 usb.c confirms request6, local index2728, value0, four LE payload
 bytes. Touch MCU/xHCI/main/profile/tests. Main nowd2d56a6 (Air6,1 audio work),
 PR83 attended acceptance inspected; actual base22fd266 unchanged. No native
 write or new candidate installed yet.
+
+Isolated EP0 TXBE10 zero-write candidate sourcee821968 / releaseacaea56aaa88d52f
+installed unarmed. Build, compact/MCU/xHCI tests, ASan/UBSan,83 boot-profile
+tests and docs checks pass. Collector accepts synthetic zero readback and rejects17
+corrupt/conflicting receipts. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without starting the probe. Payload, receipts,
+run record and collector archived outside build in wifi-txbe-direct-e821968.
+Accepted read comparisoneb362bcf6da9fdfb and desktop recoverye47dca3a6b30c6c1
+retained. Failed v25f8b4b41d736bd4e2 removed from ESP only after full archived
+payload equality verification. Workspace clean:191files/535clusters, zero
+allocation errors; unmounted. Ubuntu default and no reboot armed. Await cold
+adapter power cycle; collect the matching new session first on return.
