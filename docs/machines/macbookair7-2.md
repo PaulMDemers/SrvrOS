@@ -33,11 +33,24 @@ Session `session-00065e8778243499-00` matches the release, has an exit snapshot,
 clean desktop retirement and no collector attention. All prior data was retained;
 only expected `.srvros/meta` changed. Offline fsck and allocation passed (999
 files, 2073 clusters, zero leaks/mismatches). Ubuntu default, consumed one-shot
-and recovery were verified. Current is `b6306e33e9590538`, previous accepted
+and recovery were verified. At collection, current was `b6306e33e9590538`, previous accepted
 battery desktop is `9aa8dbf6fbda8252`. USB is unmounted and no reboot is armed.
 Raw reports and run records are retained outside build under
 `~/.local/share/srvros/pending-trials/b6306e33e9590538/returned`; validation is in
 `~/.local/share/srvros/validation/device-checks-b6306e33e9590538`.
+
+The trackpad-only follow-up is now installed as `4414f888007a8407` (compiled
+`b1486c6`, staged documentation head `d510c39`), retaining `9aa8dbf6fbda8252` as
+previous recovery. No reboot is armed. Full build/core/docs, host paste/checklist
+cases, guest multiline paste across consecutive reads, oversized-read draining,
+trackpad script reports and the exact EFI/audio/GPT save/reopen rehearsal passed.
+Help's first screen shows the trackpad-only command. The user still needs to
+perform the gestures; VM observations are explicitly marked skipped. Before
+installation the existing USB passed fsck/allocation with all 999 files/2073
+clusters and no leaks. Earlier device reports are included in the pre-run hashes.
+Validation, payload and run/collector survive cleanup under
+`~/.local/share/srvros/validation/trackpad-followup-4414f888007a8407` and
+`~/.local/share/srvros/pending-trials/4414f888007a8407`.
 
 ### Integrated v55 desktop physically accepted (2026-10-23)
 
