@@ -4242,6 +4242,7 @@ static uint64_t read_command(const char *args) {
     char *name;
     char value[LINE_MAX];
     size_t length = 0;
+    int overflow = 0;
 
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
@@ -4259,7 +4260,7 @@ static uint64_t read_command(const char *args) {
         cli_puts("read: bad name\n");
         return 2;
     }
-    while (length + 1 < sizeof(value)) {
+    for (;;) {
         char c;
         long count = srv_read(SRV_STDIN, &c, 1);
         if (count <= 0) {
@@ -4271,7 +4272,12 @@ static uint64_t read_command(const char *args) {
         if (c == '\n') {
             break;
         }
-        value[length++] = c;
+        if (length + 1 < sizeof(value)) value[length++] = c;
+        else overflow = 1;
+    }
+    if (overflow) {
+        cli_puts("read: input line too long\n");
+        return 1; /* Drain the entire line; never turn its tail into another answer. */
     }
     value[length] = '\0';
     if (setenv(name, value, 1) < 0) {
