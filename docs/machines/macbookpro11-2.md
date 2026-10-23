@@ -2616,3 +2616,12 @@ MAC enable writes. Main105dffd unchanged; accepted integration22fd266 retained.
 BBP CORE implementation validation: full build, bounded engine and native xHCI
 fixtures, prior MCU/timing/MAC/frame-format/readiness regressions, ASan/UBSan
 and all 67 boot-profile tests pass. Physical acceptance remains pending.
+
+BBP CORE candidate source23b97f2 / release5f7b66b688f803cb installed unarmed.
+Exact-stage GPT save/return and missing-workspace refusal/return VM checks pass.
+Workspace fsck/allocation checks pass; Ubuntu default and desktop recovery
+e47dca3a6b30c6c1 retained, accepted readiness6df00376834c37fd retained. Old
+format54d6def400fd2a6c removed only after full durable-archive equality checks.
+Run record: build/bringup/wifi-bbp-core/run.json; durable evidence/payload in
+~/.local/share/srvros/macbookpro11-2/wifi-bbp-core-23b97f2. Await cold-trial
+readiness; collect the matching session first after return. RF remains untested.
