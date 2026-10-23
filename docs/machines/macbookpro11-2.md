@@ -3552,3 +3552,13 @@ Initial build/MCU/xHCI regressions and89 staging cases pass. Separate collector
 accepts raw all-ones observations only with70 exact successful transfer receipts,
 all63 ordered values, repeated identity/guards and no BBP command; ten mutation
 cases reject incorrect/incomplete evidence. No physical v33 result yet.
+
+Raw MAC observation candidate installed: source `139f82c`, release
+`2d2630e3bbbbe8d8`, profile v33. Build, MCU/xHCI fault and write-refusal tests,
+89 staging cases, sanitizer checks, collector success/ten rejection cases and
+docs checks pass. Exact-stage GPT save/unmount/reset and missing-workspace return
+VM checks pass. Native results pending; no interpretation of all-ones as valid
+settings is accepted. Archive outside build: wifi-mac-raw-139f82c, with payload,
+VM receipts, collector/fixture and tests. Saved run record; Ubuntu default and
+known-good e47dca3a6b30c6c1 recovery verified. Workspace203files/553clusters clean,
+unmounted. No boot armed; await cold Wi-Fi cycle, then collect exact session first.
