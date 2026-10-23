@@ -4,7 +4,18 @@ Updated: 2026-10-23. State: **active reference machine; partial device acceptanc
 
 ### Active scope: close device acceptance; refine two-finger tap timing
 
-Preparing the authorized short diagnostic round: `tap-diagnostics.sh` creates
+Installed diagnostic `efc90fce7ae6849d` / v58 (source `106da96`) for the
+authorized attended round; accepted recovery `9aa8dbf6fbda8252` remains previous.
+Full build/core/docs, eight host checklist checks, actual Terminal guest execution
+and exact EFI/audio/GPT save/reopen checks pass. The real USB passed offline
+fsck/allocation (1017 files, 2212 clusters, no leaks or mismatches); prior files
+are hashed. Ubuntu default and firmware order are unchanged. Durable run/payload/
+collector: `~/.local/share/srvros/pending-trials/efc90fce7ae6849d`; validation:
+`~/.local/share/srvros/validation/tap-diagnostic-trial-efc90fce7ae6849d`.
+The local run record owns arming state. Collect this matching session first after
+return; physical tap usability and rejection interpretation remain pending.
+
+`tap-diagnostics.sh` creates
 fresh Home/tap-diagnostics reports and asks for 20 natural two-finger taps,
 Escape between attempts and keyboard-only return to Terminal. New Help-first
 instructions, image dependency/packaging and host/guest script checks accompany
@@ -23,7 +34,8 @@ in the pointer policy and xHCI summary, with host replay coverage; no further
 threshold change until native evidence distinguishes the cause. The diagnostics
 pass pointer/mouse/ABI, xHCI and full build/core/docs checks, including exact
 reason counts, secondary classification, first-rejection retention and reset.
-No diagnostic payload is staged or installed, and no new reboot is armed. Main `f310923` adds Air6,1 telemetry acceptance docs and is merged.
+The diagnostic candidate above supersedes this earlier installed-state checkpoint.
+Main `f310923` adds Air6,1 telemetry acceptance docs and is merged.
 Pro PR19 `c408949` retains failed clock-enabled TXBE write evidence and a separate
 next TXBE9/TXBE10 prerequisite audit; no Wi-Fi implementation is imported.
 
