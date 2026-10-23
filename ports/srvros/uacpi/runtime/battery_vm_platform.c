@@ -355,7 +355,7 @@ static void model_sample_begin(uint64_t generation) {
      * synthetic transition. It changes no native timing or policy. */
     bool discharging=(model.fault==84&&generation>=9&&generation<=24)||(model.fault==13&&generation>=4&&generation<=6)||
         (model.fault>=15&&model.fault!=84&&generation>=3&&generation<=4);
-    if(model.fault>=85 && model.fault<=89)discharging=model.fault!=87 && generation>=4 && generation<=(model.fault==86?7:6);
+    if(model.fault>=85 && model.fault<=89)discharging=model.fault!=87 && generation>=4 && generation<=((model.fault==86 || model.fault==89)?7:6);
     model.memory[0x60]=discharging?1:3;
     model.words[10]=discharging?(uint16_t)-250:generation>6?250:0;
     model.words[13]=model.fault==16&&generation>=2&&generation<=4?101:86;
