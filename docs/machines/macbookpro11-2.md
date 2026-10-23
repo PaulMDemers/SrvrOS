@@ -2606,3 +2606,13 @@ Ubuntu default, consumed one-shot and current/recovery manifests verified;
 workspace unmounted and clean159files/487clusters, zero allocation errors.
 Run/checkpoint collected and unarmed. Next implement bounded baseband setup
 with exact register readbacks; scanning/association/connectivity remain pending.
+
+Active scope: first bounded BBP CORE setup after native readiness. Fixed
+CORE1/4/24/32 offsets2004/2010/2060/2080 values2/0/0/4003000a from Linuxv6.18
+model initialization, sequences8/9. Require captured CORE0=f000f200 before/after
+each batch, MAC0 boundaries and all target readbacks. No RF, channel, power or
+MAC enable writes. Main105dffd unchanged; accepted integration22fd266 retained.
+
+BBP CORE implementation validation: full build, bounded engine and native xHCI
+fixtures, prior MCU/timing/MAC/frame-format/readiness regressions, ASan/UBSan
+and all 67 boot-profile tests pass. Physical acceptance remains pending.

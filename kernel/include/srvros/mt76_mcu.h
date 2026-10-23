@@ -76,7 +76,7 @@ enum mt76_mcu_timing_status mt76_mcu_apply_timing(struct mt76_mcu_timing *sessio
 struct mt76_mcu_mac {
     bool attempted, complete;
     unsigned batches_attempted, batches_completed, ack_mask, reads;
-    uint32_t before[4], after[4], mac_before, mac_after;
+    uint32_t before[4], after[4], mac_before, mac_after, core_before, core_after;
     int received;
 };
 size_t mt76_mcu_mac_packet(unsigned batch, uint8_t *out, size_t capacity);
@@ -93,6 +93,14 @@ enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *sessi
 size_t mt76_mcu_format_packet(unsigned batch,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_format_reply(unsigned batch,const uint8_t *data,size_t length);
 enum mt76_mcu_timing_status mt76_mcu_apply_mac_format(struct mt76_mcu_mac *session,
+    const struct mt76_mcu_timing_io *io);
+/* Fixed initial BBP CORE plan: 2004=2,2010=0,2060=0,2080=4003000a.
+ * Sequences8/9; caller pins completed frame format and native BBP readiness.
+ * Each batch also requires captured CORE0=f000f200 before/after. No arbitrary
+ * table input or RF/channel/power/MAC-enable writes. Native trial pending. */
+size_t mt76_mcu_bbp_packet(unsigned batch,uint8_t *out,size_t capacity);
+bool mt76_mcu_validate_bbp_reply(unsigned batch,const uint8_t *data,size_t length);
+enum mt76_mcu_timing_status mt76_mcu_apply_bbp_core(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this

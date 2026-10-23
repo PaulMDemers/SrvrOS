@@ -141,6 +141,11 @@ static const struct mt76_mcu_register_pair mac_basics[4]={
 static const struct mt76_mcu_register_pair mac_format[4]={
     {0x0250,0},{0x0260,0},{0x1410,0x1ff},{0x150c,3}
 };
+/* Initial BBP CORE configuration, numeric Linux v6.18 model settings only.
+ * Guarded by the exact native CORE0 identity, not a whole imported table. */
+static const struct mt76_mcu_register_pair bbp_core[4]={
+    {0x2004,2},{0x2010,0},{0x2060,0},{0x2080,0x4003000a}
+};
 static size_t fixed_mac_packet(const struct mt76_mcu_register_pair *plan,
     unsigned sequence,unsigned batch,uint8_t *out,size_t capacity) {
     if(batch>=MT76_MCU_MAC_BATCHES)return 0;
@@ -166,6 +171,12 @@ size_t mt76_mcu_format_packet(unsigned batch,uint8_t *out,size_t capacity) {
 bool mt76_mcu_validate_format_reply(unsigned batch,const uint8_t *data,size_t length) {
     return fixed_mac_reply(mac_format,6,batch,data,length);
 }
+size_t mt76_mcu_bbp_packet(unsigned batch,uint8_t *out,size_t capacity) {
+    return fixed_mac_packet(bbp_core,8,batch,out,capacity);
+}
+bool mt76_mcu_validate_bbp_reply(unsigned batch,const uint8_t *data,size_t length) {
+    return fixed_mac_reply(bbp_core,8,batch,data,length);
+}
 static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t address,uint32_t *value) {
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
@@ -174,7 +185,7 @@ static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     return *value==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
 }
 static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io,const struct mt76_mcu_register_pair *plan,unsigned sequence) {
+    const struct mt76_mcu_timing_io *io,const struct mt76_mcu_register_pair *plan,unsigned sequence,bool guard_core) {
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)
         return MT76_TIMING_REFUSED;
     *s=(struct mt76_mcu_mac){.attempted=true,.received=-1};
@@ -183,6 +194,10 @@ static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
     for(unsigned batch=0;batch<MT76_MCU_MAC_BATCHES;batch++) {
         MAC_READ(0x1004,&s->mac_before);
         if(s->mac_before)return MT76_TIMING_STATE;
+        if(guard_core) {
+            MAC_READ(0x2000,&s->core_before);
+            if(s->core_before!=0xf000f200)return MT76_TIMING_STATE;
+        }
         for(unsigned n=0;n<2;n++) {
             unsigned i=2*batch+n;
             MAC_READ(plan[i].address,&s->before[i]);
@@ -203,6 +218,10 @@ static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
         }
         MAC_READ(0x1004,&s->mac_after);
         if(s->mac_after)return MT76_TIMING_STATE;
+        if(guard_core) {
+            MAC_READ(0x2000,&s->core_after);
+            if(s->core_after!=0xf000f200)return MT76_TIMING_STATE;
+        }
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
         s->batches_completed++;
     }
@@ -211,9 +230,12 @@ static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
 }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_basics,4); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_basics,4,false); }
 enum mt76_mcu_timing_status mt76_mcu_apply_mac_format(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_format,6); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_format,6,false); }
+
+enum mt76_mcu_timing_status mt76_mcu_apply_bbp_core(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_core,8,true); }
 
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
     if (!s || !sequence || s->poisoned || s->pending || s->issued >= 15) return false;

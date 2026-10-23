@@ -851,3 +851,20 @@ result, every authorization boundary, all20 successful polling positions,
 timeout/cancellation and disabled/idle MAC boundaries. Native tests cover the
 four-offset allowlist, completed frame-format prerequisite, stale events and
 transport failure quarantine.
+
+### Fixed BBP CORE setup (native pending)
+
+Firmware v11 (`--wifi-bbp-core`, requiring `--wifi-bbp-ready`) adds two
+fixed commands, sequences 8/9, for CORE1/4/24/32 at 2004/2010/2060/2080:
+values 2/0/0/4003000a. These numeric settings follow the Linux v6.18
+MT7610 initialization table. Each batch checks disabled MAC and the captured
+CORE0 identity f000f200 before and after, validates the exact first-entry
+reply and reads back both targets. No RF, channel, power or MAC-enable
+operation is included. Failure quarantines the attempt without retry.
+
+`make test-mt76-bbp-core` covers exact packets, every reply bit mutation,
+all 18 I/O failures, 20 authorization boundaries, stale replies, target
+mismatches, MAC/core guards and refused retry. Native transport fixtures
+cover prerequisites, exact packets and read scope, ordering, stale events
+and quarantine. Full build, these tests, earlier MCU/MAC/readiness regressions,
+ASan/UBSan and all 67 boot-profile tests pass. Hardware acceptance is pending.
