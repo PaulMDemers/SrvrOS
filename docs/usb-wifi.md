@@ -1746,3 +1746,14 @@ and initial/final MAC0/COREf000f200. Both capture completion markers were saved,
 with all preceding bounded initialization checks passing. This accepts this group
 on captured7392:a711; remaining MAC/BBP initialization and RF/connectivity are
 outside its scope.
+
+### TX software controls (v40; native result pending)
+
+`--wifi-mac-txsw` requires v39 prerequisites. One sequence10, 40-byte packet
+writes TX_SW0_1330=601, TX_SW1_1334=40000, TX_SW2_1338=0 and header translation
+0260=0. Captured starts0204080c/000c0808/000c0408/0 are mandatory. These are final
+mt76x0 table values; this subset does not replay common-table intermediate TX_SW
+writes. Four read-only same-adapter Linux samples agreed on601/40000/0; active
+Linux beacon offsets differed from the init table and remain deferred. Exact ACK,
+four readbacks, twelve reads and final MAC0/COREf000f200 are required; no retry,
+RF enable or BBP table follows. Header translation is explicitly kept disabled.

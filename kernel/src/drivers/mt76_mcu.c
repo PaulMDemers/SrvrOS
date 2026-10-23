@@ -842,3 +842,13 @@ size_t mt76_mac_contention_packet(uint8_t *out,size_t capacity){
 }
 enum mt76_mcu_timing_status mt76_mac_contention_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_contention_plan,9,true,4,4);}
+
+/* mt76x0 final TX software controls, header translation disabled; MAC stays off. */
+static const struct mt76_mcu_register_pair mac_txsw_plan[4]={
+    {0x1330,0x00000601},{0x1334,0x00040000},{0x1338,0},{0x0260,0}
+};
+size_t mt76_mac_txsw_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,10,mac_txsw_plan,4,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_txsw_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_txsw_plan,10,true,4,4);}

@@ -3895,3 +3895,12 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean217files/574clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: select remaining reference MAC prerequisites against the captured
 inventory before revisiting full baseband initialization.
+
+Active scope 2026-10-23: v40 TX_SW0/1/2 and header-translation-disabled group after
+v39. Registers1330/1334/1338/0260 writes601/40000/0/0; captured starts0204080c/
+000c0808/000c0408/0. Four live Linux samples agree with TX_SW final values;
+active beacon offsets differ, deferred. Same-adapter read-only audit restored
+regidx, no register writes/reset/unbind. Exact gates, sequence10 packet,12reads
+and final MAC0/COREf000f200. Reference final table values, not replay of earlier
+common TX_SW intermediate writes. Touch MCU/xHCI/main/staging/tests; base22fd266,
+fetched mainc43d27c; PR106 power measurements separate.
