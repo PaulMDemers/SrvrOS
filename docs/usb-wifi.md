@@ -1052,3 +1052,14 @@ completion markers passed; MAC remained0 and CORE0 remainedf000f200.
 The first attempt saved no session and remains incomplete; the retry accepts
 these initial settings only. Remaining baseband settings, RF, scanning and
 connectivity remain pending. Identifiers11..15 remain unused.
+
+### AGC57/59/63 and TXC0 extension (native acceptance pending)
+
+Firmware v18 (`--wifi-agc-tail`, requiring `--wifi-agc-next`) adds phase7
+at sequence11: fixed offsets23e4/23ec/23fc/2400 receive
+1010/baa20e96/1/00280403. One40-byte command requires seven prior phases,
+strict16-byte reply, four independent readbacks and MAC/CORE guards.
+Prior profiles retain their phase limits. RF remains disabled and sequence
+identifiers are never recycled. Host fixtures cover all eight fixed packets,
+read allowlists, failure/cancellation paths and xHCI ownership/quarantine;
+74 profile tests and sanitizer checks pass. Native evidence is pending.

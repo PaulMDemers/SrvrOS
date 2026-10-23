@@ -2869,3 +2869,12 @@ unmounted. Run/checkpoint collected and unarmed. First attempt remains
 incomplete with no saved session; its cause is unknown. Next remaining
 AGC/baseband settings using unused identifiers11..15; no RF/connectivity
 acceptance and no sequence recycling.
+
+Active scope: phase7 AGC57/59/63 and TXC0 at sequence11, fixed offsets
+23e4/23ec/23fc/2400 and values1010/baa20e96/1/00280403 from pinned
+Linuxv6.18 MT7610 initialization. Require seven preceding phases and
+MAC/CORE boundaries; v18 limit8, earlier limits unchanged. Touch fixed MCU
+plan, xHCI limits, capture/profile/tests. Fetched main5089172; new PR72
+contains only Air6,1 file identity acceptance documentation. Air PR69
+remains independent battery work. Actual integrated base remains22fd266.
+RF/connectivity and sequence reuse remain outside scope.

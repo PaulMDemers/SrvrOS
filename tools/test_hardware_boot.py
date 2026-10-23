@@ -417,6 +417,17 @@ class InstallTests(unittest.TestCase):
                     'srvros.wifi-agc-more=1 srvros.wifi-agc-next=1'))
         with self.assertRaises(ValueError):boot.stage(wifi_agc_next=True)
 
+    def test_wifi_agc_tail_profile(self):
+        for suffix in ('', '-auto-return'):
+            v17='ram-usb-wifi-fw-v17-laptop-probe-37d8c5d0'+suffix
+            v18=v17.replace('v17','v18')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v18))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v18),
+                boot.limine_config('0123456789abcdef',v17).replace(
+                    'srvros.wifi-agc-next=1',
+                    'srvros.wifi-agc-next=1 srvros.wifi-agc-tail=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_agc_tail=True)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-wifi-cal-v1-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
