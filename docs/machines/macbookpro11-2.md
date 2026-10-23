@@ -2811,3 +2811,16 @@ build/bringup/wifi-agc-more/run.json; payload/receipts and six-phase collector
 archived in ~/.local/share/srvros/macbookpro11-2/wifi-agc-more-c9a84ec. Unarmed
 awaiting cold-trial readiness. Collect matching session first after return;
 new phase native acceptance pending. RF/connectivity remain untested.
+
+AGC23..26 native acceptance (2026-10-23): sourcec9a84ec,
+release8bf9cd874ed0f02d, session00065e7ad65bc92e-00 passed sequence9 sent40/
+received16, exact reply, status0/submitted1/completed1/ack_mask1/reads12.
+AGC23 changed272f->272c, AGC24 stayed2f3a, AGC25 changed0008005a->8000005a,
+AGC26 changed005a2004->007c2005. CORE0 stayedf000f200, MAC stayed0. All24
+readbacks, earlier phases, readiness ordering and both completion markers
+passed. Matching logs/hashes archived outside build in
+wifi-agc-more-c9a84ec/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+171files/505clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
+collected and unarmed. Next remaining AGC/baseband settings using identifiers
+10..15; RF/scan/association/connectivity remain pending.

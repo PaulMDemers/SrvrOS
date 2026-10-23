@@ -1002,7 +1002,7 @@ were saved. This accepts consolidation of these settings on the captured
 adapter, leaving command identifiers9..15 unused; it does not accept remaining
 baseband settings, sequence recycling, RF, scanning or connectivity.
 
-### AGC23/24/25/26 extension (native pending)
+### AGC23/24/25/26 extension (accepted on captured Pro adapter)
 
 Firmware v16 (`--wifi-agc-more`, requiring `--wifi-compact`) adds compact
 phase5 at sequence9. Fixed addresses235c/2360/2364/2368 receive
@@ -1020,3 +1020,11 @@ Host tests extend independent packet/reply fixtures, all read allowlists,
 every I/O/authorization failure, target/identity guards, packet mutation and
 native prerequisite checks to the new phase. The previous profile is tested
 for both allowed earlier phases and refusal of phase5.
+
+Native sourcec9a84ec / release8bf9cd874ed0f02d, session00065e7ad65bc92e-00
+passed phase5: sequence9 sent40/received16, exact reply, status0, one submission
+and completion, ack_mask1 and12 reads. AGC23 changed272f->272c, AGC24 stayed
+2f3a, AGC25 changed0008005a->8000005a and AGC26 changed005a2004->007c2005.
+CORE0 stayedf000f200 and MAC0. All earlier phases, readiness ordering and both
+completion markers passed. This accepts these four initial values only;
+remaining AGC/baseband settings, RF and connectivity remain pending.
