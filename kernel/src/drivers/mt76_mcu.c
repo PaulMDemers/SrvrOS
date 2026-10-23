@@ -461,3 +461,42 @@ enum mt76_mcu_timing_status mt76_txbe_access_apply(struct mt76_txbe_access *s,
     if(s->matches!=2*MT76_TXBE_SAMPLES)return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Isolated EP0 zero write; MCU reply and all subsequent EP0 samples must be zero. */
+enum mt76_mcu_timing_status mt76_txbe_direct_apply(struct mt76_txbe_access *s,
+    const struct mt76_txbe_direct_io *direct) {
+    if(!direct || !direct->write_zero)return MT76_TIMING_REFUSED;
+    const struct mt76_mcu_timing_io *io=&direct->access;
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    const struct mt76_txbe_io read_io={io->context,io->authorize,io->read};
+    enum mt76_mcu_timing_status status=mt76_txbe_observe(&s->before,&read_io);
+    if(status!=MT76_TIMING_OK)return status;
+    for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++)if(s->before.values[n][2]!=0)return MT76_TIMING_STATE;
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->control_attempted=true;
+    if(!direct->write_zero(io->context))return MT76_TIMING_IO;
+    s->control_written=true;
+    uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+    if(mt76_txbe_access_packet(packet,sizeof packet)!=sizeof packet)return MT76_TIMING_REFUSED;
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->request_attempted=true;
+    s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);
+    if(s->received<0)return MT76_TIMING_IO;
+    if(s->received!=16)return MT76_TIMING_REPLY;
+    const uint32_t words[4]={0x4a0f0008,0x412728,0,0x4a0f0008};
+    for(unsigned i=0;i<16;i++)if((i<8 || i>=12) &&
+        reply[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return MT76_TIMING_REPLY;
+    s->value=0;
+    for(unsigned i=0;i<4;i++)s->value|=(uint32_t)reply[8+i]<<(8*i);
+    if(s->value==UINT32_MAX)return MT76_TIMING_STATE;
+    s->reply_validated=true;
+    status=mt76_txbe_observe(&s->after,&read_io);
+    if(status!=MT76_TIMING_OK)return status;
+    for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++) {
+        if(s->after.values[n][3]==s->value)s->matches++;
+    }
+    for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++)if(s->after.values[n][2]!=0)return MT76_TIMING_STATE;
+    if(s->matches!=MT76_TXBE_SAMPLES || s->value!=0)return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}

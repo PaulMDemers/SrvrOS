@@ -178,6 +178,7 @@ bool mt76_mcu_retire(struct mt76_mcu_session *session, uint8_t sequence,
  * with all guarded EP0 observations, not acceptance of initialization writes. */
 struct mt76_txbe_access {
     bool attempted, request_attempted, reply_validated, complete;
+    bool control_attempted, control_written;
     int received;
     uint32_t value;
     unsigned matches;
@@ -187,4 +188,10 @@ size_t mt76_txbe_access_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_txbe_access_apply(struct mt76_txbe_access *s,
     const struct mt76_mcu_timing_io *io);
 
+struct mt76_txbe_direct_io {
+    struct mt76_mcu_timing_io access;
+    bool (*write_zero)(void *context);
+};
+enum mt76_mcu_timing_status mt76_txbe_direct_apply(struct mt76_txbe_access *s,
+    const struct mt76_txbe_direct_io *io);
 #endif

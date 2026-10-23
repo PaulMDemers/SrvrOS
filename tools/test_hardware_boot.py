@@ -528,6 +528,21 @@ class InstallTests(unittest.TestCase):
         for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second'):
             with self.assertRaises(ValueError):boot.stage(wifi_txbe_access=True,wifi_txbe_start=True,**{conflict:True})
 
+    def test_wifi_txbe_direct_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v27=v21.replace('v21','v27')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v27))
+            cfg=boot.limine_config('0123456789abcdef',v27)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-txbe-direct=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_direct=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access'):
+            with self.assertRaises(ValueError):boot.stage(wifi_txbe_direct=True,wifi_txbe_start=True,**{conflict:True})
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-wifi-cal-v1-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

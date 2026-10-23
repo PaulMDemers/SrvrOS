@@ -3201,3 +3201,12 @@ Ubuntu default, consumed one-shot and installed/recovery payload hashes verified
 Workspace clean:191files/535clusters, zero leaks/mismatches/errors; unmounted.
 Run/checkpoint collected and unarmed. Fetched maind3875c7 (Air6,1 audio PR84);
 actual integrated base22fd266 remains unchanged for these comparisons.
+
+Active scope: isolate the TXBE10 write transport with one EP0 request6 zero
+write after phases0..10 and guarded baseline samples, followed by one MCU read
+at unused sequence15 and guarded EP0 samples. Exact address/value, single attempt,
+no retry, TXBE9zero, MAC0/COREf000f200; nonzero readback remains failure.
+Linux v6.18 usb.c confirms request6, local index2728, value0, four LE payload
+bytes. Touch MCU/xHCI/main/profile/tests. Main nowd2d56a6 (Air6,1 audio work),
+PR83 attended acceptance inspected; actual base22fd266 unchanged. No native
+write or new candidate installed yet.

@@ -158,13 +158,14 @@ static void test_second(void){
  puts("mt76 TXBE second: PASS exact single write, 128 reads, every read/cancellation fault, reply mutations, guards and no retry");
 }
 
-struct access_fake {unsigned reads,auth,deny,fail,bad,exchanges,mutate;int length;uint32_t value;bool changed;};
+struct access_fake {unsigned reads,auth,deny,fail,bad,exchanges,mutate;int length;uint32_t value;bool changed,direct_written,direct_fail;unsigned writes;};
 static bool access_auth(void *p){struct access_fake *f=p;return ++f->auth!=f->deny;}
 static bool access_read(void *p,uint32_t a,uint32_t *v){
  struct access_fake *f=p;unsigned n=f->reads++,i=n%8;
  const uint32_t addresses[]={0x1004,0x2000,0x2724,0x2728,0x2730,0x2734,0x1004,0x2000};
  assert(a==addresses[i]);
  *v=(i==1 || i==7)?0xf000f200:i==3?0x37fff:0;
+ if(f->direct_written && i==3)*v=f->value;
  if(f->changed && n==67)*v=0x38e30;
  if(f->bad==n+1)*v=UINT32_MAX;
  return f->fail!=n+1;
@@ -209,11 +210,36 @@ static void test_access(void){
  assert(mt76_txbe_access_apply(NULL,NULL)==MT76_TIMING_REFUSED);
  puts("mt76 TXBE access: PASS MCU read packet, framing, all faults, mismatch evidence and no retry");
 }
+
+static bool direct_zero(void *p){struct access_fake *f=p;assert(f->reads==64 && !f->writes && !f->exchanges);f->writes++;if(f->direct_fail)return false;f->direct_written=true;return true;}
+static enum mt76_mcu_timing_status direct_run(struct access_fake *f,struct mt76_txbe_access *s){
+ const struct mt76_txbe_direct_io io={{f,access_auth,access_read,access_exchange},direct_zero};return mt76_txbe_direct_apply(s,&io);
+}
+static void test_direct(void){
+ struct access_fake base={.length=16,.value=0},f=base;struct mt76_txbe_access s={0};
+ assert(direct_run(&f,&s)==MT76_TIMING_OK && s.complete && s.control_attempted && s.control_written && s.matches==8 && f.reads==128 && f.auth==132 && f.writes==1 && f.exchanges==1);
+ assert(direct_run(&f,&s)==MT76_TIMING_REFUSED && f.writes==1);
+ for(unsigned n=1;n<=128;n++){
+  f=base;f.fail=n;s=(struct mt76_txbe_access){0};assert(direct_run(&f,&s)==MT76_TIMING_IO && !s.complete && f.writes==(n>64));
+  f=base;f.bad=n;s=(struct mt76_txbe_access){0};assert(direct_run(&f,&s)==MT76_TIMING_STATE && !s.complete);
+ }
+ for(unsigned n=1;n<=132;n++){f=base;f.deny=n;s=(struct mt76_txbe_access){0};assert(direct_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete);}
+ f=base;f.direct_fail=true;s=(struct mt76_txbe_access){0};assert(direct_run(&f,&s)==MT76_TIMING_IO && s.control_attempted && !s.control_written && f.writes==1 && !f.exchanges && f.reads==64);
+ f=base;f.value=0x37fff;s=(struct mt76_txbe_access){0};assert(direct_run(&f,&s)==MT76_TIMING_STATE && s.matches==8 && s.after.complete && !s.complete);
+ f=base;f.changed=true;s=(struct mt76_txbe_access){0};assert(direct_run(&f,&s)==MT76_TIMING_STATE && s.matches==7 && !s.complete);
+ for(unsigned n=1;n<=128;n++){
+  f=base;f.mutate=n;s=(struct mt76_txbe_access){0};bool data=n>64 && n<=96;
+  assert(direct_run(&f,&s)==(data?MT76_TIMING_STATE:MT76_TIMING_REPLY) && !s.complete && f.writes==1);
+ }
+ assert(mt76_txbe_direct_apply(NULL,NULL)==MT76_TIMING_REFUSED);
+ puts("mt76 TXBE direct: PASS one control write, all read/cancel faults, malformed replies and strict zero readback");
+}
 int main(void){
  test_observe();
  test_first();
  test_second();
  test_access();
+ test_direct();
  for(unsigned p=0;p<12;p++){
   uint8_t expected[40],reply[16],out[42];fixture(p,expected,reply);memset(out,0xcc,sizeof out);
   assert(mt76_mcu_compact_packet(p,out+1,40)==40 && !memcmp(out+1,expected,40) && out[0]==0xcc && out[41]==0xcc);

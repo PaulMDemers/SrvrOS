@@ -1349,3 +1349,23 @@ further hardware trial; no retries, relaxed checks or RF enablement follow from
 this result. Evidence is archived outside build in
 `wifi-txbe-access-b4417eb/native-collection`; read-path agreement is its full
 acceptance scope.
+
+### Isolated USB control write (native pending)
+
+The agreed baseline reads leave MCU write handling versus register behavior
+unresolved. Linux v6.18 `usb.c` uses vendor OUT request6 with local register
+index and four little-endian data bytes for direct register writes. The new
+firmware v27 (`--wifi-txbe-direct`, requiring start and excluding all four
+alternative TXBE trials) uses precisely one such write: index2728, value0,
+length4, after the eleven accepted phases and eight guarded baseline samples.
+It then reads TXBE10 using command10 at unused sequence15 and takes eight guarded
+EP0 samples. TXBE9 must remain0 and MAC0/COREf000f200 guards must hold.
+
+The direct write has its own fixed-value callback and one-attempt ownership;
+it does not expand the general firmware-write allowlist. The common read receipt
+reports expected_matches8 in this mode, comparing only the post-write samples
+with the MCU result. Completion additionally requires that value to be zero.
+`wifi-txbe-direct-write` records the control completion and
+`wifi-txbe-direct` records attempted/submitted/written. Nonzero or disagreeing
+readbacks remain failed captures with saved evidence. This test does not retry
+the earlier MCU write, accept phase11, reuse a sequence, or enable RF.

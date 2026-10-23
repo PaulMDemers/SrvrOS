@@ -2585,7 +2585,7 @@ static void test_wifi_txbe_access_reads(void) {
 }
 
 static void test_wifi_txbe_access_binding(void) {
- for(unsigned fault=0;fault<18;fault++) {
+ for(unsigned direct=0;direct<2;direct++)for(unsigned fault=0;fault<20;fault++) {
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb out[64]={0},in[64]={0},events[64]={0};
   uint8_t tx[200]={0},rx[1024]={0},packet[16],reply[1024];
@@ -2593,6 +2593,7 @@ static void test_wifi_txbe_access_binding(void) {
   struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
   m->compact_active=false;m->compact_limit=11;m->compact[11]=(struct mt76_mcu_mac){0};m->txbe_access_active=true;
   m->txbe_access=(struct mt76_txbe_access){.attempted=true,.request_attempted=true,.before={.attempted=true,.complete=true,.reads=64,.samples=8}};
+  m->txbe_direct_mode=direct;m->txbe_direct_submitted=direct;m->txbe_access.control_written=direct;
   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
   m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
   xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
@@ -2614,6 +2615,8 @@ static void test_wifi_txbe_access_binding(void) {
   if(fault==15)events[0].status=6u<<24;
   if(fault==16)events[1].status=6u<<24;
   if(fault==17)events[1].parameter_low+=16;
+  if(fault==18){m->txbe_direct_mode=true;m->txbe_access.control_written=false;}
+  if(fault==19){m->txbe_direct_mode=true;m->txbe_access.control_written=true;m->txbe_direct_submitted=false;}
   assert(mt76_txbe_access_packet(packet,16)==16);
   if(!fault){
    for(unsigned i=0;i<16;i++)for(unsigned b=0;b<8;b++){
@@ -2626,13 +2629,48 @@ static void test_wifi_txbe_access_binding(void) {
    assert(!m->txbe_access_submitted && !f->ep.enqueue);
   }
   assert(wifi_txbe_access_exchange(d,packet,16,reply,1024)==(fault?-1:16));assert(!freed);
-  if(fault>=15)assert(m->txbe_access_submitted && f->failed && d->ep0_quarantined);
+  if(fault>=15 && fault<=17)assert(m->txbe_access_submitted && f->failed && d->ep0_quarantined);
   else if(fault)assert(!f->ep.enqueue && !m->response.enqueue);
   else {assert(!memcmp(tx,packet,16) && m->txbe_access_submitted);assert(wifi_txbe_access_exchange(d,packet,16,reply,1024)==-1);}
  }
  puts("xhci TXBE first binding: PASS exact packet, lifecycle prerequisites, no retry, error quarantine");
 }
 
+
+static void test_wifi_txbe_direct(void) {
+ for(unsigned fault=0;fault<19;fault++) {
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096];memset(buffer,0xa5,sizeof buffer);
+  struct xhci_device d;compact_fixture(&d,11);struct xhci_wifi_mcu *m=&d.firmware.mcu;
+  m->compact_limit=11;m->compact_active=false;m->compact[11]=(struct mt76_mcu_mac){0};m->txbe_access_active=true;m->txbe_direct_mode=true;
+  m->txbe_access=(struct mt76_txbe_access){.attempted=true,.control_attempted=true,.before={.complete=true,.reads=64,.samples=8}};
+  d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_cycle=true;d.descriptor_buffer=buffer;d.descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  events[0]=control_event(0x9020,fault==18?6:1,0);
+  if(fault==1)m->txbe_direct_mode=false;
+  if(fault==2)m->txbe_direct_submitted=true;
+  if(fault==3)m->txbe_access.attempted=false;
+  if(fault==4)m->txbe_access.control_attempted=false;
+  if(fault==5)m->txbe_access.control_written=true;
+  if(fault==6)m->txbe_access.before.complete=false;
+  if(fault==7)m->txbe_access.before.reads=63;
+  if(fault==8)m->txbe_access.before.samples=7;
+  if(fault==9)m->txbe_access.request_attempted=true;
+  if(fault==10)m->txbe_access.after.attempted=true;
+  if(fault==11)m->txbe_access_submitted=true;
+  if(fault==12)m->txbe_access.before.values[7][2]=1;
+  if(fault==13)m->txbe_access_active=false;
+  if(fault==14)m->txbe_first.attempted=true;
+  if(fault==15)m->compact_submitted[11]=1;
+  if(fault==16)m->pending=true;
+  if(fault==17)m->compact[10].complete=false;
+  assert(wifi_txbe_direct_write(&d)==(!fault));
+  if(!fault){assert(m->txbe_direct_submitted && !buffer[0] && !buffer[1] && !buffer[2] && !buffer[3]);assert(d.firmware.control_index==0x2728 && d.firmware.control_type==0x40 && d.firmware.control_request==6 && d.firmware.control_length==4);assert(!wifi_txbe_direct_write(&d));}
+  else if(fault==18)assert(d.ep0_quarantined && d.firmware.failed && m->txbe_direct_submitted);
+  else assert(!d.ep0_enqueue);
+ }
+ puts("xhci TXBE direct: PASS fixed zero payload, exclusive ownership, no retry, control error quarantine");
+}
 static void test_wifi_bbp_reads(void) {
     const uint32_t addresses[]={0x1004,0x1200,0x0400,0x2000};
     for(unsigned reg=0;reg<4;reg++)for(unsigned fault=0;fault<13;fault++) {
@@ -2751,6 +2789,7 @@ int main(int argc, char **argv) {
     test_wifi_compact_binding();
     test_wifi_compact_reads();
     test_wifi_txbe_observe();
+    test_wifi_txbe_direct();
     test_wifi_txbe_access_reads();
     test_wifi_txbe_access_binding();
     test_wifi_txbe_first_reads();
