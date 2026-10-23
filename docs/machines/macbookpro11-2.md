@@ -3520,3 +3520,21 @@ unchanged. Ubuntu default, consumed one-shot and payload/recovery hashes verifie
 Offline workspace clean:203files/553clusters, zero allocation errors, unmounted.
 Evidence and partial comparison retained outside build in
 wifi-mac-snapshot-f3ba99c/failed-native-collection. No new candidate or reboot armed.
+
+Post-v32 AMPDU read audit: four read-only Linux samples show1030=aaa99887,
+ASIC76502000, COREf000f200 and enabled MAC0c. Linux initialization writesaaa99887,
+so this is not evidence of reset semantics. Debugfs selector restored; no register
+writes, reset or unbind. Source audit confirms Srvr snapshot callback checks
+successful control completion plus actual4 bytes before decoding; reads37/status4
+therefore indicates rejection of returnedffffffff by our value policy, not its
+transport-IO failure path. Individual transfer receipts were not logged, so this
+does not rule out a driver defect or prove a valid reset value. Linux's USB read
+API can itself return~0 on failed transfer, another reason not to infer semantics
+from debugfs all-ones data alone.
+
+Next scope selected: separate raw read-only inventory with explicit transfer
+receipts, repeated ASIC/MAC/CORE guards and1030 read; retain all-ones only as
+unvalidated observations and perform no subsequent BBP writes. Preserve v32's
+strict stop and historical failures. Audit/capture/source hashes retained outside
+build in ampdu-read-audit-6437ed0. Fetched mainbd55dd5 (PR94 Air6,1 failure display)
+but actual base22fd266 unchanged. No candidate installed or reboot armed.
