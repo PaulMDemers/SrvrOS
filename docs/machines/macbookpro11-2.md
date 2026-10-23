@@ -2922,3 +2922,16 @@ c34215d727a60f08 and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
 ff59ebda5a2483ae removed from ESP only after archive equality verification.
 Workspace clean before install:175files/511clusters, zero allocation errors,
 unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
+
+TXC1/RXC1/2/3 accepted on captured adapter: sourcedf537ea,
+release7d6ccc2fe96d530c, session00065e84abf0e3e4-00. Phase8 sequence12
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. TXC1 stayed0; RXC1 changed14->12; RXC2 stayed11;
+RXC3 stayed5. CORE0 stayedf000f200 and MAC0. All earlier phases,
+firmware/reset/identity/timing, readiness ordering,36 register readbacks
+and both completion markers passed. Evidence archived outside build in
+wifi-rxc-start-df537ea/native-collection. Ubuntu default, consumed one-shot
+and installed candidate/desktop recovery verified. Workspace clean:
+177files/514clusters, zero leaks/allocation mismatches, unmounted.
+Run/checkpoint collected and unarmed. Next remaining RXC/baseband settings
+using identifiers13..15; no sequence reuse, RF or connectivity acceptance.
