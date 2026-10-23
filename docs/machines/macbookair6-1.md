@@ -955,3 +955,33 @@ All 197 prior files remain; only `.srvros/meta` changed and two matching session
 logs were added. Offline exFAT/allocation checks pass: 199 files, 374 clusters,
 zero leaks/mismatches/errors. Installed and independent recovery/payload hashes
 are verified. Return records and logs are backed up outside build. No boot is armed.
+
+## Bounded battery/AC runtime ready (2026-10-23)
+
+The independent connected audit is complete for the first bounded profile;
+native operation remains pending. Release `674c597b082f2494`, clean source
+`308e4bd`, is installed unarmed for run `5b60eacb23867c83`. See the
+[runtime audit](../macbookair6-1-battery.md#connected-runtime-audit-and-bounded-sampling-candidate)
+for exact GNVS/PPMT/OpRegion, PCI, EC and query permissions. Offline initialization,
+allowed queries and EC detach pass in all four modeled lid/AC states. GPIO stays
+denied. `_Q10`, `_Q80`, absent Air7,2 methods and unknown queries are refused.
+
+v61 uses its own native binary and refuses service, transitions and mounted-USB
+entry. It parks USB, attempts five AC-connected samples, retires and saves logs
+before automatic Ubuntu return. The first native trial may expose another
+ownership/refusal condition; missing final logs remain failure/incomplete evidence.
+No desktop battery provider or charge-control access is admitted.
+
+Full build/USB image, native binaries, core/desktop suites, 65 staging tests,
+captured firmware/mutation tests and docs checks pass. QEMU passes five-sample
+success, denied access, transport fault, failed foreign-event restoration and
+EC-disconnect deadline containment; separate Global Lock handoff/release pass.
+The exact staged GPT VM refuses unsupported hardware, saves logs, unmounts and
+returns. These are runtime regression results, not native sampling acceptance.
+
+USB has 199 baseline files; offline exFAT/allocation pass (374 clusters, zero
+leaks/mismatches/errors). Installed/recovery and independent backup hashes pass;
+Ubuntu remains default with empty one-shot. Console recovery `c35475f62f154f1e`,
+accepted desktop telemetry `eee15036f4172920` and passive preflight
+`9b528e09c13e1d4b` are retained. Raw audit and run evidence are copied outside
+build before boot. Leave AC and USB connected for the automatic trial.
