@@ -1343,3 +1343,30 @@ on the unmounted real drive before installation/boot. Do not relax exclusive
 range checks or treat another general allocation pass as a substitute. Any new
 payload built on the later integration baseline needs its own exact-stage
 validation; this run does not accept the filesystem-scale changes from PR102.
+
+## Contiguous-image retry scope (2026-10-23)
+
+From main `c43d27c`, this preparation only replaces the unused disposable image's
+allocation and repeats exact-payload/media checks. Reuse installed release
+`fc1d1f4c45d30252`, clean compiled source `cac24ef`, without rebuilding or importing
+PR102 filesystem changes. PR106 package-energy measurement and PR19 Wi-Fi remain
+independent. Preserve the failed native evidence and image bytes; no kernel or
+firmware permissions change. Native battery/file coexistence remains pending.
+
+Holding the original image while writing a new copy first encountered a second
+one-cluster gap. Holding both unused copies produced a contiguous 128-cluster
+image at byte offset 88473600 (first cluster 653, NoFatChain set). Both temporary
+files were removed only after byte comparison. Final real-drive `--battery-image`
+passes, independent FAT layout inspection has no breaks, and all 215 original
+file hashes still match. Offline fsck/allocation passes with 523 clusters and
+zero leaks/mismatches/errors. The retry prelaunch script now requires the extent
+check explicitly; a general filesystem pass cannot satisfy it.
+
+The repeated exact-stage EFI/GPT rehearsal passes: native platform refusal,
+saved diagnostics, verified disposable files, clean unmount and return. Installed
+candidate/recovery hashes, Ubuntu default and empty one-shot pass. The final
+prelaunch check verifies AC, unchanged host boot, USB UUID, all 215 file hashes,
+fsck and the required contiguous extent. Retry evidence has its own durable
+backup alongside the unchanged payload and failed run. USB is unmounted and no
+reboot is armed. Keep AC/USB connected; the automatic 60-edit/five-save test
+needs no input. Collect its matching session before any subsequent trial.
