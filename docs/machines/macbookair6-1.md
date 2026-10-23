@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Offline EC contract matched; passive v60 preflight prepared | Native handoff capture, full runtime audit, bounded samples; ordinary AML stays off |
+| Battery/AC | Offline EC contract and native passive handoff capture accepted | Full model-specific runtime audit, bounded samples; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -91,14 +91,12 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `f310923`, branch `device/macbookair6-1/battery-preflight`. Start independent
-read-only battery/AC bring-up with a passive firmware handoff capture. Scope:
-Air6,1 resource gate, opt-in preflight reader, immutable v60 capture recipe,
-host/VM tests and this machine's documentation. Existing Air7,2 native battery
-ownership is not widened. PR88 owns trackpad timing; PR19 owns Pro USB Wi-Fi.
-Neither overlaps this bounded diagnostic. Next checkpoint is native PM1/GPE/EC
-status evidence with AC connected; battery samples require a later audited
-EC/SCI/NVS/AML profile. No EC command/data, ACPI mode or event writes in this step.
+Base `d5491c0`, branch `device/macbookair6-1/battery-preflight-return`. Close out
+run `10567bbea85fe3e2`; scope is Air6,1 documentation and local evidence only.
+The native passive capture completed. Next implementation checkpoint is the
+independent NVS/GPIO/PCI/AML initialization, EC/query and SCI/rollback audit,
+then a bounded AC-connected battery sample diagnostic. The captured event state
+does not grant runtime ownership or extend Air7,2's profile to this machine.
 
 ## First console trial prepared (2026-10-22)
 
@@ -937,3 +935,22 @@ zero leaks/mismatches/errors. Installed/independent payload hashes are verified;
 console recovery `c35475f62f154f1e` and accepted telemetry `eee15036f4172920`
 remain available. Ubuntu stays default with empty one-shot. Evidence is backed
 up outside build before boot; no reboot has been requested.
+
+## Battery/AC passive preflight return (2026-10-23)
+
+Matching session `00065e8886bf8b00-00`, release `9b528e09c13e1d4b`, records
+all 36 passive reads, zero writes and `completed=yes`, with no collector attention.
+Ubuntu returned on a new boot with empty one-shot. PM1 control/enable are zero,
+status is `8001`, and EC status is zero (idle at the snapshot). GPE enable
+byte 12 is `40`, byte 14 is `04`, and every other enable byte is zero: enabled
+sources `66` and `72` hexadecimal. Their pending status bytes were zero; other
+masked GPE status bits were set. Nothing was acknowledged or changed.
+
+This accepts the passive firmware handoff capture only. It does not prove
+battery/AC readings, event ownership, AML initialization or EC/SCI teardown.
+The complete snapshot is retained for the independent runtime audit.
+
+All 197 prior files remain; only `.srvros/meta` changed and two matching session
+logs were added. Offline exFAT/allocation checks pass: 199 files, 374 clusters,
+zero leaks/mismatches/errors. Installed and independent recovery/payload hashes
+are verified. Return records and logs are backed up outside build. No boot is armed.

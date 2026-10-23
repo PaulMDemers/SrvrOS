@@ -1,7 +1,7 @@
 # MacBookAir6,1 battery/AC bring-up
 
-Live SrvrOS battery/AC telemetry is not enabled yet. The first v60 boot captures
-passive firmware handoff state with AC connected. It is a prerequisite for an
+Live SrvrOS battery/AC telemetry is not enabled yet. The first v60 boot captured
+passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
 
@@ -70,3 +70,13 @@ Then complete the model-specific initialization/NVS/GPIO/query/rollback audit
 before attempting five bounded AC-connected battery samples. AC transitions,
 ordinary desktop telemetry, accuracy, low-charge behavior, charging control,
 lid policy and suspend remain later milestones.
+
+## First native result
+
+Release `9b528e09c13e1d4b`, session `00065e8886bf8b00-00`, completed the
+36-read/zero-write capture. PM1 control/enable were zero, status `8001`, EC
+status zero; only GPEs `66` and `72` were enabled, with neither pending at the
+snapshot (hexadecimal). Other masked status bits were set and left untouched.
+Matching logs, Ubuntu return, prior-file preservation, offline filesystem and
+allocation checks passed. This accepts passive preflight only; live telemetry
+and the runtime ownership audit remain pending.
