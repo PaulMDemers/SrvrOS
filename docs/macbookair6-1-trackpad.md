@@ -133,3 +133,10 @@ then `AaZz09` and Enter. Wait for saved report and successful unmount, then
 manually restart after HALT. The collector's `tap_typing_trial=EXERCISED` requires
 previous gesture coverage, primary taps, typing suppression and configured
 options. It does not prove click accuracy or recovery feel; report those.
+
+Run `4eb6e6e65525268d` physically exercised primary taps and typing suppression
+with positive user feedback (18 primary taps, 150 suppressed frames). Secondary
+taps remain unexercised. The reported Type study activation-color omission is
+a separate rendering issue: batched press/release can disappear before drawing.
+The follow-up keeps brief visual feedback without delaying activation; its
+physical retest remains pending. See the unit record for evidence and limits.
