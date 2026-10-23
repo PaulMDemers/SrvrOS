@@ -3497,3 +3497,26 @@ e47dca3a6b30c6c1 verified. Workspace201files/550clusters, zero allocation errors
 clean fsck and unmounted. No boot armed; await cold adapter cycle. On return,
 collect the matching new session first, requiring complete63-value inventory and
 67 reads before interpreting the unchanged full-BBP observations.
+
+Native v32 snapshot incomplete: source `f3ba99c`, release `b7a5985c12609971`,
+session `00065e892754f5ff-00`. Firmware/reset/timing, MAC phases0/1 and clock/BBP
+readiness passed. Snapshot status4 complete0 reads37 writes0: initial MAC/CORE
+checks plus35 target reads; target index34/address1030 returnedffffffff and the
+all-ones policy stopped capture. Final guards and targets35..62 were not read;
+their printed zero fields are not observations. No BBP table command ran and
+both completion markers are NO. This is failed/incomplete evidence, not a pass.
+
+The preceding34 valid targets include23 differences from final reference MAC
+table settings: PBF_CFG0404=3fdc1cf5 vs77723c1f, WPDMA0208=40000050 vs30,
+FCE_PSE0800=5 vs1. These support the missing-prerequisite inventory but establish
+no cause of TXBE behavior. Pinned source identifies1030 as AMPDU_MAX_LEN_20M1S
+and writesaaa99887; it does not document its reset read value. Do not infer a USB
+transport failure or a legitimate reset value fromffffffff alone. Next distinguish
+returned register data from transport validity with independent checks before
+changing the snapshot admission policy or writing missing settings.
+
+Separate failure collector archived the exact prefix and failure; success checker
+unchanged. Ubuntu default, consumed one-shot and payload/recovery hashes verified.
+Offline workspace clean:203files/553clusters, zero allocation errors, unmounted.
+Evidence and partial comparison retained outside build in
+wifi-mac-snapshot-f3ba99c/failed-native-collection. No new candidate or reboot armed.
