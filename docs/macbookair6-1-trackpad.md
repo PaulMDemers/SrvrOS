@@ -139,4 +139,6 @@ with positive user feedback (18 primary taps, 150 suppressed frames). Secondary
 taps remain unexercised. The reported Type study activation-color omission is
 a separate rendering issue: batched press/release can disappear before drawing.
 The follow-up keeps brief visual feedback without delaying activation; its
-physical retest remains pending. See the unit record for evidence and limits.
+physical retest in run `cd54ca6d8f2cd4fb` received positive user feedback for
+tapping/clicking. Visible feedback acceptance is user-reported, not measured by
+packet counters. See the unit record for evidence and limits.
