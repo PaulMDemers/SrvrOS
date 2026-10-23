@@ -65,6 +65,14 @@ are recorded; the later write mismatch remains unresolved, and RF/scan/associati
 connectivity are unaccepted. No draft Wi-Fi implementation was copied into this
 branch. See the [parity ledger](../device-parity.md) for shared versus native scope.
 
+During closeout, main advanced to `b01ae95` (Air6,1 exact audio profile and v57).
+It was inspected and merged at `5c975aa`, retaining separate v55/v56/v57 recipes.
+Full build/both runtime kernels/core/docs, combined HDA/battery/save/reopen and
+exact EFI stage `67d88f2345ef97ff` all passed locally at that revision. Updated
+integration evidence is retained outside build; this later payload is not
+installed or physically accepted. No additional Air test is queued.
+
+
 ### Ordinary Home v54 physically accepted (2026-10-23)
 
 Release `fc5b73b074db7884` returned to Ubuntu. The two screenshot-matched sessions

@@ -593,3 +593,8 @@ read-only observations; RF/scan/association/connectivity remain unaccepted. Air
 can reuse mainline captured-adapter ECM support when an adapter is attached;
 no networking acceptance is inferred from this no-adapter desktop trial. Other
 machines must retain their own device gates and acceptance ledgers.
+
+Closeout also consumed main `b01ae95` / PR82's exact Air6,1 audio profile and
+separate v57 recipe at `5c975aa`. Full local build/core/docs, combined audio/battery
+and exact EFI `67d88f2345ef97ff` regressions passed again. Both device profiles are
+preserved; the installed physical Air7,2 release remains `9aa8dbf6fbda8252`.

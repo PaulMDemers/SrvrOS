@@ -1,6 +1,6 @@
 # Air and Pro device parity
 
-Reviewed October 23, 2026 against main `e741c58` and Pro PR19 head `f1785c6`.
+Reviewed October 23, 2026 against main `b01ae95` and Pro PR19 head `f1785c6`.
 This compares available shared code with each machine's evidence. A passing Pro
 trial does not accept a different Air controller, firmware or connected adapter.
 The [Air record](machines/macbookair7-2.md) and
