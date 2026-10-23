@@ -1319,3 +1319,16 @@ Agreement would support consistent reads through both paths; disagreement would
 focus investigation on access-path behavior or timing, not by itself prove which
 path is correct. Implementation and native evidence remain pending. The original
 quartet and v25 zero-write checks remain failed and unchanged.
+
+### MCU/EP0 read comparison implementation (native pending)
+
+Firmware v26 (`--wifi-txbe-access`, requiring `--wifi-txbe-start` and excluding
+next/observe/first/second) runs the accepted eleven phases, eight guarded EP0
+samples, one command10 TXBE10 read at sequence15, and eight further samples.
+The distinct `wifi-txbe-access-*` records contain the exact reply, MCU value,
+match count and every fully guarded sample. Completion requires all16 target
+readings to agree and TXBE9 to remain zero. A mismatch records status4 and
+failed capture completion while retaining the observations. Malformed framing,
+short transfers, changed MAC/CORE guards and cancellation also fail; no retry
+or sequence reuse is allowed. This diagnostic adds no register write. An agreed
+read would accept only this comparison, not TXBE10 initialization or RF activity.

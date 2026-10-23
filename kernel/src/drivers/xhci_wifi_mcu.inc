@@ -710,7 +710,7 @@ static bool wifi_txbe_base_owned(void *context) {
 }
 static bool wifi_txbe_observe_owned(void *context) {
     struct xhci_device *d=context;
-    return d->firmware.mcu.txbe_observe_active && !d->firmware.mcu.txbe_first_active && wifi_txbe_base_owned(d);
+    return !d->firmware.mcu.txbe_access.attempted && !d->firmware.mcu.txbe_access_active && d->firmware.mcu.txbe_observe_active && !d->firmware.mcu.txbe_first_active && wifi_txbe_base_owned(d);
 }
 static bool wifi_txbe_observe_read(void *context,uint32_t address,uint32_t *value) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
@@ -745,7 +745,7 @@ static bool wifi_mcu_observe_txbe(struct xhci_device *d) {
 
 static bool wifi_txbe_first_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
-    return m->txbe_first_active && !m->txbe_observe_active && !m->txbe_observation.attempted && wifi_txbe_base_owned(d);
+    return !m->txbe_access.attempted && !m->txbe_access_active && m->txbe_first_active && !m->txbe_observe_active && !m->txbe_observation.attempted && wifi_txbe_base_owned(d);
 }
 static bool wifi_txbe_first_read(void *context,uint32_t address,uint32_t *value) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
@@ -801,6 +801,72 @@ static bool wifi_mcu_txbe_first(struct xhci_device *d,bool second) {
             uint32_t *v=o->values[i];
             console_printf("wifi-txbe-first-sample: stage=%u index=%u monotonic_us=%u mac_before=%x core_before=%x txbe9=%x txbe10=%x txbe12=%x txbe13=%x mac_after=%x core_after=%x\n",
                 (uint64_t)stage,(uint64_t)i,m->txbe_first_us[stage][i],(uint64_t)v[0],(uint64_t)v[1],
+                (uint64_t)v[2],(uint64_t)v[3],(uint64_t)v[4],(uint64_t)v[5],(uint64_t)v[6],(uint64_t)v[7]);
+        }
+    }
+    if(status!=MT76_TIMING_OK)return wifi_mcu_fail(d);
+    return true;
+}
+
+static bool wifi_txbe_access_owned(void *context) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    return !m->txbe_first.attempted && !m->txbe_first_active && m->txbe_access_active && !m->txbe_observe_active && !m->txbe_observation.attempted && wifi_txbe_base_owned(d);
+}
+static bool wifi_txbe_access_read(void *context,uint32_t address,uint32_t *value) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    unsigned stage=m->txbe_access.request_attempted?1:0;
+    struct mt76_txbe_observation *s=stage?&m->txbe_access.after:&m->txbe_access.before;
+    if(!value || !wifi_txbe_access_owned(d) || !mt76_txbe_read_allowed(address) ||
+        s->samples>=MT76_TXBE_SAMPLES || (stage && !m->txbe_access.reply_validated))return false;
+    struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    int actual=0;*value=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
+    for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    if(address==0x2728)m->txbe_access_us[stage][s->samples]=timer_monotonic_us();
+    return true;
+}
+static int wifi_txbe_access_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    struct mt76_txbe_access *s=&m->txbe_access;uint8_t allowed[16];
+    if(!wifi_txbe_access_owned(d) || !packet || !reply || length!=16 || capacity<MT76_MCU_RESPONSE_MAX ||
+        !s->attempted || !s->request_attempted || !s->before.complete || s->before.reads!=64 || s->before.samples!=8 ||
+        s->after.attempted || s->reply_validated || m->txbe_access_submitted ||
+        mt76_txbe_access_packet(allowed,sizeof allowed)!=16)return -1;
+    for(unsigned i=0;i<16;i++)if(packet[i]!=allowed[i])return -1;
+    m->txbe_access_submitted=true;
+    for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
+    int sent=wifi_mcu_bulk(d,false,16),received=-1;
+    if(sent==16)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    console_printf("wifi-txbe-access-command: sequence=15 sent=%d received=%d cc=%u residue=%u\n",
+        (int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining);
+    if(received>0 && received<=64)for(unsigned n=0;n<(unsigned)received/4;n++) {
+        uint32_t word=0;for(unsigned b=0;b<4;b++)word|=(uint32_t)m->buffer[4*n+b]<<(8*b);
+        console_printf("wifi-txbe-access-word: index=%u value=%x\n",(uint64_t)n,(uint64_t)word);
+    }
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
+}
+static bool wifi_mcu_txbe_access(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(m->txbe_access.attempted)return wifi_mcu_fail(d);
+    m->txbe_access_active=true;
+
+    const struct mt76_mcu_timing_io io={d,wifi_txbe_access_owned,wifi_txbe_access_read,wifi_txbe_access_exchange};
+    struct mt76_txbe_access *s=&m->txbe_access;
+    enum mt76_mcu_timing_status status=mt76_txbe_access_apply(s,&io);
+    m->txbe_access_active=false;
+    console_printf("wifi-txbe-access: status=%u attempted=%u request_attempted=%u submitted=%u received=%d reply_validated=%u complete=%u before_reads=%u before_samples=%u after_reads=%u after_samples=%u\n",
+        (uint64_t)status,(uint64_t)s->attempted,(uint64_t)s->request_attempted,(uint64_t)m->txbe_access_submitted,
+        (int64_t)s->received,(uint64_t)s->reply_validated,(uint64_t)s->complete,
+        (uint64_t)s->before.reads,(uint64_t)s->before.samples,(uint64_t)s->after.reads,(uint64_t)s->after.samples);
+    console_printf("wifi-txbe-access-value: value=%x matches=%u expected_matches=16\n",(uint64_t)s->value,(uint64_t)s->matches);
+    for(unsigned stage=0;stage<2;stage++) {
+        struct mt76_txbe_observation *o=stage?&s->after:&s->before;
+        for(unsigned i=0;i<o->samples;i++) {
+            uint32_t *v=o->values[i];
+            console_printf("wifi-txbe-access-sample: stage=%u index=%u monotonic_us=%u mac_before=%x core_before=%x txbe9=%x txbe10=%x txbe12=%x txbe13=%x mac_after=%x core_after=%x\n",
+                (uint64_t)stage,(uint64_t)i,m->txbe_access_us[stage][i],(uint64_t)v[0],(uint64_t)v[1],
                 (uint64_t)v[2],(uint64_t)v[3],(uint64_t)v[4],(uint64_t)v[5],(uint64_t)v[6],(uint64_t)v[7]);
         }
     }
@@ -887,6 +953,7 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
             else if(compact) {
                 if(!wifi_mcu_initialize_compact(d,5+agc_steps))saved=false;
+                else if(observe==4) { if(!wifi_mcu_txbe_access(d))saved=false; }
                 else if(observe==2 || observe==3) { if(!wifi_mcu_txbe_first(d,observe==3))saved=false; }
                 else if(observe==1 && !wifi_mcu_observe_txbe(d))saved=false;
             }
@@ -947,3 +1014,5 @@ bool xhci_wifi_capture_txbe_observe(void) { return wifi_capture_mcu(true,true,tr
 bool xhci_wifi_capture_txbe_first(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,2); }
 
 bool xhci_wifi_capture_txbe_second(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,3); }
+
+bool xhci_wifi_capture_txbe_access(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,4); }

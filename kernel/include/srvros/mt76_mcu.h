@@ -174,4 +174,17 @@ struct mt76_mcu_session { uint8_t issued, pending; bool poisoned; };
 bool mt76_mcu_begin(struct mt76_mcu_session *session, uint8_t *sequence);
 bool mt76_mcu_retire(struct mt76_mcu_session *session, uint8_t sequence,
     bool validated_completion);
+/* Read-only path comparison at unused sequence15; completion requires agreement
+ * with all guarded EP0 observations, not acceptance of initialization writes. */
+struct mt76_txbe_access {
+    bool attempted, request_attempted, reply_validated, complete;
+    int received;
+    uint32_t value;
+    unsigned matches;
+    struct mt76_txbe_observation before, after;
+};
+size_t mt76_txbe_access_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_txbe_access_apply(struct mt76_txbe_access *s,
+    const struct mt76_mcu_timing_io *io);
+
 #endif

@@ -3167,3 +3167,10 @@ retry, identifier reuse or relaxed initialization gate. Native result pending;
 no candidate installed in this audit. Currentf8b4b41d736bd4e2 and desktop
 recoverye47dca3a6b30c6c1 unchanged, no reboot armed. Mainb99bb5b and PR83
 attended-device scope rechecked; actual integrated base22fd266 unchanged.
+
+Active scope: implement the selected MCU-versus-EP0 TXBE10 read comparison.
+One command10 at unused sequence15, guarded before/after observations, exact
+response framing and address, explicit mismatch reporting. Touch MCU/xHCI,
+capture/profile and tests; no diagnostic register write or phase11 acceptance.
+Dependencies remain the eleven accepted phases and pinned firmware. Current
+mainb99bb5b/PR83 scope inspected; integrated base22fd266 retained for comparison.

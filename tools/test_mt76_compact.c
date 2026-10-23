@@ -157,10 +157,63 @@ static void test_second(void){
  assert(mt76_txbe_second_apply(NULL,NULL)==MT76_TIMING_REFUSED);
  puts("mt76 TXBE second: PASS exact single write, 128 reads, every read/cancellation fault, reply mutations, guards and no retry");
 }
+
+struct access_fake {unsigned reads,auth,deny,fail,bad,exchanges,mutate;int length;uint32_t value;bool changed;};
+static bool access_auth(void *p){struct access_fake *f=p;return ++f->auth!=f->deny;}
+static bool access_read(void *p,uint32_t a,uint32_t *v){
+ struct access_fake *f=p;unsigned n=f->reads++,i=n%8;
+ const uint32_t addresses[]={0x1004,0x2000,0x2724,0x2728,0x2730,0x2734,0x1004,0x2000};
+ assert(a==addresses[i]);
+ *v=(i==1 || i==7)?0xf000f200:i==3?0x37fff:0;
+ if(f->changed && n==67)*v=0x38e30;
+ if(f->bad==n+1)*v=UINT32_MAX;
+ return f->fail!=n+1;
+}
+static int access_exchange(void *p,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
+ struct access_fake *f=p;f->exchanges++;
+ const uint8_t expected[16]={8,0,0xaf,0x50,0x28,0x27,0x41,0,0,0,0,0,0,0,0,0};
+ assert(f->reads==64 && f->exchanges==1 && length==16 && capacity>=16 && !memcmp(packet,expected,16));
+ uint32_t words[]={0x4a0f0008,0x412728,f->value,0x4a0f0008};
+ for(unsigned i=0;i<16;i++)reply[i]=(uint8_t)(words[i/4]>>(8*(i%4)));
+ if(f->mutate)reply[(f->mutate-1)/8]^=1u<<((f->mutate-1)%8);
+ return f->length;
+}
+static enum mt76_mcu_timing_status access_run(struct access_fake *f,struct mt76_txbe_access *s){
+ const struct mt76_mcu_timing_io io={f,access_auth,access_read,access_exchange};return mt76_txbe_access_apply(s,&io);
+}
+static void test_access(void){
+ struct access_fake base={.length=16,.value=0x37fff},f=base;struct mt76_txbe_access s={0};
+ assert(access_run(&f,&s)==MT76_TIMING_OK && s.complete && s.reply_validated && s.value==0x37fff && s.matches==16 && f.reads==128 && f.auth==131 && f.exchanges==1);
+ assert(access_run(&f,&s)==MT76_TIMING_REFUSED && f.exchanges==1);
+ for(unsigned n=1;n<=128;n++) {
+  f=base;f.fail=n;s=(struct mt76_txbe_access){0};
+  assert(access_run(&f,&s)==MT76_TIMING_IO && !s.complete && f.reads==n && f.exchanges==(n>64));
+  assert(access_run(&f,&s)==MT76_TIMING_REFUSED);
+  f=base;f.bad=n;s=(struct mt76_txbe_access){0};assert(access_run(&f,&s)==MT76_TIMING_STATE && !s.complete);
+ }
+ for(unsigned n=1;n<=131;n++) {
+  f=base;f.deny=n;s=(struct mt76_txbe_access){0};assert(access_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete);
+ }
+ for(unsigned n=1;n<=128;n++) {
+  f=base;f.mutate=n;s=(struct mt76_txbe_access){0};
+  bool data=n>64 && n<=96;
+  assert(access_run(&f,&s)==(data?MT76_TIMING_STATE:MT76_TIMING_REPLY) && !s.complete);
+  assert(f.reads==(data?128:64));
+ }
+ for(int n=-1;n<=32;n++)if(n!=16) {
+  f=base;f.length=n;s=(struct mt76_txbe_access){0};assert(access_run(&f,&s)==(n<0?MT76_TIMING_IO:MT76_TIMING_REPLY) && f.reads==64 && !s.complete);
+ }
+ f=base;f.value=UINT32_MAX;s=(struct mt76_txbe_access){0};assert(access_run(&f,&s)==MT76_TIMING_STATE && !s.reply_validated && f.reads==64);
+ f=base;f.changed=true;s=(struct mt76_txbe_access){0};assert(access_run(&f,&s)==MT76_TIMING_STATE && s.matches==15 && s.after.complete && !s.complete);
+ uint8_t out[16];assert(!mt76_txbe_access_packet(out,15) && !mt76_txbe_access_packet(NULL,16));
+ assert(mt76_txbe_access_apply(NULL,NULL)==MT76_TIMING_REFUSED);
+ puts("mt76 TXBE access: PASS MCU read packet, framing, all faults, mismatch evidence and no retry");
+}
 int main(void){
  test_observe();
  test_first();
  test_second();
+ test_access();
  for(unsigned p=0;p<12;p++){
   uint8_t expected[40],reply[16],out[42];fixture(p,expected,reply);memset(out,0xcc,sizeof out);
   assert(mt76_mcu_compact_packet(p,out+1,40)==40 && !memcmp(out+1,expected,40) && out[0]==0xcc && out[41]==0xcc);
