@@ -68,9 +68,9 @@ def main():
         else:
             iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
             boot_args=['-cdrom',iso,'-boot','d']
-        cmd=['qemu-system-x86_64','-M','q35','-m','2G' if stage else '512M',*boot_args,'-nic','none',
+        cmd=['qemu-system-x86_64','-M','q35,acpi=off' if args.case=='clock-missing' else 'q35','-m','2G' if stage else '512M',*boot_args,'-nic','none',
              *([] if stage or args.case=='clock-missing' else ['-acpitable',f'file={tmp}/battery.aml']),
-             *(['-no-acpi'] if args.case=='clock-missing' else []),'-serial',f'unix:{tmp}/serial,server=on,wait=off',
+             '-serial',f'unix:{tmp}/serial,server=on,wait=off',
              '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot',
              '-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
              '-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0']
