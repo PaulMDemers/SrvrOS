@@ -4,6 +4,21 @@ Updated: 2026-10-23. State: **active reference machine; partial device acceptanc
 
 ### Active scope: close device acceptance; refine two-finger tap timing
 
+Candidate `8e70766e16933891` / v58 (source `03bb41d`) is installed for the
+authorized attended timing/live-link trial, retaining `9aa8dbf6fbda8252` recovery.
+Final full build/core/docs, guest script/paste and exact EFI/audio/GPT save/reopen
+checks pass. Help visibly shows `sh /fat/share/examples/tap-checks.sh` first.
+The real USB passed offline fsck/allocation: 1006 files, 2121 clusters, no leaks
+or mismatches; prior reports were hashed and remain in place. Ubuntu default and
+firmware order are unchanged. Human gestures/cable changes are required; prompts
+have no timeout and the user returns through clean desktop exit and monitor reboot.
+Run/payload/collector backups survive cleanup in
+`~/.local/share/srvros/pending-trials/8e70766e16933891`; validation is retained in
+`~/.local/share/srvros/validation/tap-timing-trial-8e70766e16933891`.
+The local run record owns the exact arming state. Collect its matching session,
+new tap-checks observations/interface reports and down/up screenshots before
+accepting the revised timing or System link display. No new physical pass yet.
+
 PR88's next attended trial adds `tap-checks.sh`, image packaging and Help-first
 instructions, with host and guest script regression coverage. It preserves prior
 report directories and separately records tap feel, unintended menus/dragging,
@@ -47,7 +62,7 @@ displacement/scroll suppression, model gates and installed payload are unchanged
 Timing boundaries across both contact orders and either surviving finger are
 covered by 140 host replays. Full build/core/docs, pointer/mouse/ABI, xHCI and
 the disposable-VM context-menu regression pass. The revised feel remains
-physically untested; no reboot or installation is scheduled. Validation is retained
+physically untested; the candidate above is prepared for that check. Validation is retained
 outside build under `~/.local/share/srvros/validation/trackpad-timing-20261023`.
 
 ### October 23 audio/network round (collected)
