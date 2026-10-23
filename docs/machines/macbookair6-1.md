@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% and bounded speaker/headphone audio playback physically accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -59,7 +59,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
-| Temperature/fan | Exact CPU/one-fan read-only profile implemented; native acceptance pending | Live System/Sensors freshness and desktop/audio coexistence |
+| Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
@@ -91,17 +91,11 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `df44fa0`, branch `device/macbookair6-1/telemetry`. Add read-only boot-CPU
-thermal admission for captured Intel signature `40651` and one-fan SMC admission
-for exact GPU `0a26`, PCH `9c43`, DSDT length 31777/hash `af9a47bc352dc6bf`.
-The DSDT declares APP0001 I/O `300..31f`; Linux reports one Exhaust fan and
-zero manual-control mode. Reuse the existing bounded FNum/F0Ac metadata/read
-worker, never fan writes, SMC MMIO, IRQ6 or battery/EC/AML ownership.
-Scope: thermal core, SMC target, host fixtures, distinct unscaled v59 sensor
-stage/VM checks and Air6,1 docs. PR #83 (`0bf5471`) owns v58 guided device checks;
-keep its recipe and scripts separate. PR #19 owns Pro Wi-Fi. Next checkpoint is
-an attended System/Sensors read-only trial with desktop/audio use, after local
-checks and exact-stage rehearsal. No native telemetry acceptance is implied.
+Base `36dbc3d`, branch `device/macbookair6-1/telemetry-acceptance`. Close out
+run `3f703367ab650765` using matching native logs and the user's successful
+sensor-display report. Scope is Air6,1 machine/telemetry documentation only;
+no shared subsystem or boot-payload changes. Basic telemetry is accepted;
+longer coexistence and UI-control observations remain bounded follow-up work.
 
 ## First console trial prepared (2026-10-22)
 
@@ -895,3 +889,24 @@ payload/recovery and independent backups are hash-verified. Console recovery
 `c35475f62f154f1e` and accepted audio `0533c0dfc63d104f` are retained. Ubuntu
 remains default and no reboot is armed. Run records, captures and VM evidence
 are stored locally and copied outside build before boot.
+
+## Read-only telemetry return (2026-10-23)
+
+The user reports all sensors displayed fine. Matching session
+`00065e8823afc352-00` on release `eee15036f4172920` ran about 82 seconds and
+exited cleanly with no collector attention. Saved snapshots show boot-core
+57–63 C, package 58–64 C and one fan at 1175–1231 RPM. Both providers reached
+81 samples; every saved device sample was less than one second old. SMC ended
+with 84 transactions, zero failures and error zero. Audio tone activity occurred
+with final audio ready/error zero; PCM stayed idle in the saved snapshots.
+
+This accepts basic native read-only temperature/fan display and fresh sampling.
+The full two-minute file/audio coexistence checklist, Pause/Refresh/reopen and
+screenshots are not independently established. No new document or screenshot
+was saved. This is not thermal calibration, fan-control or cooling acceptance.
+
+All 193 preboot files remain; only `.srvros/meta` changed and four matching
+session logs were added. Offline checks pass: 197 files, 371 clusters, no leaks,
+bitmap mismatches or errors. Ubuntu returned with an empty one-shot; installed
+candidate/recovery and backup hashes are verified. Run records and return logs
+are retained outside build under the candidate's evidence/trial directory.
