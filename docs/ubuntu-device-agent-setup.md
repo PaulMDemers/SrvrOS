@@ -217,7 +217,7 @@ rehearsal below for disposable workspace coverage, then validate the real drive.
 ### Workspace log capacity and verified archival
 
 Free disk bytes and clean fsck are insufficient for creating new files: the
-scale candidate has 8192 file slots and 2048 directory slots per mounted volume,
+current driver has 8192 file slots and 2048 directory slots per mounted volume,
 allocated on demand, with a shared 32768-node VFS budget. Older installed releases
 retain their old limits; use matching source and payload. See the
 [capacity contract](filesystem-capacity.md) for memory admission and lifetime rules.
@@ -715,6 +715,11 @@ sudo fsck.exfat -n "$SRVROS_USB_PART"
 sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
 udisksctl mount -b "$SRVROS_USB_PART"
 ```
+
+Ubuntu may remove an automatically created mount directory when the volume is
+unmounted. After remounting, resolve the current mountpoint again; scripts that
+mount explicitly must recreate and verify their empty mount directory first.
+Do not assume a path saved before unmount still exists.
 
 Require successful results from both checks. `fsck.exfat -n` alone can report
 clean while the allocation bitmap contains orphaned clusters: this occurred on

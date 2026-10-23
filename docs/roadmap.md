@@ -40,10 +40,13 @@ identities and paths, direct enumeration, memory reservation before mutation and
 deleted-slot reuse. Host tests cover thousands of files, both exhausted budgets,
 allocation failures and save/rename/delete/remount. The exact-stage VM passes
 with 5000 preserved files, automatic return and desktop positive/refusal checks.
-The native automated trial is next; see the [capacity contract](filesystem-capacity.md).
+The native automated round passed beyond both old limits with all prior data
+preserved and clean offline allocation; only the verified fixture was removed.
+See the [capacity contract](filesystem-capacity.md).
 
-**Done when:** growth beyond the old limits preserves contents and identities,
-memory failure refuses safely, and the exact native persistence trial passes.
+**Completed:** bounded filesystem growth and safe refusal are host/VM validated
+and accepted by the exact native persistence round. Path limits, linear lookup
+and full metadata-sidecar rewrites remain explicit bounds.
 
 ## 4. Improve power from repeatable measurements
 

@@ -2,46 +2,52 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: filesystem scale beyond fixed desktop-era tables
+### Current checkpoint: filesystem scale milestone complete
 
-Branch `device/macbookair7-2/filesystem-scale`, base main `249bb97`. Own bounded
-scope: demand-allocated stable exFAT file/directory slots and VFS nodes, direct
-VFS enumeration, memory admission before disk mutation, reusable deleted slots,
-metadata buffer scaling, thousands-of-files/failure/remount regressions and the
-host/VM/native workflow. Refresh status/parity docs from the recorded Air evidence.
-Pro PR19 `c5f9378` remains Wi-Fi; Air6,1 PR101 `95c5219` owns parked AC captures.
-No device profiles, firmware ownership, window budget or on-disk format changes.
+[PR102](https://github.com/PaulMDemers/SrvrOS/pull/102) replaces the old static
+filesystem tables with stable demand allocation, direct VFS enumeration,
+pre-write node/metadata reservation and reusable deleted slots. Budgets are
+8192 files/2048 directories per volume and 32768 VFS nodes overall. Paths and
+disk formats are unchanged. This is bounded growth, not arbitrary filesystem
+size or power-loss atomicity; see the [capacity contract](../filesystem-capacity.md).
 
-Keep installed `a39bb31d4031693a`, accepted recovery `9aa8dbf6fbda8252`, Ubuntu
-default and all USB evidence. No physical test is armed. Disposable fixtures must
-cross the old 1024-file/256-directory/4096-VFS-node boundaries and cover allocation
-failure before an automated native round. Implementation limits remain bounded;
-this does not promise arbitrary filesystem size or power-loss durability.
+Native release `eba663ccd2a40909`, source `768f6b2`, request `931553fd2910f285`
+returned with a complete CRC-protected PASS report. A disposable 256-file /
+64-directory fixture brought the starting USB to 1236 files and 270 directories,
+above both former limits. Write/flush/read, file operations and shell/editor
+save/remount/reopen passed. All existing files and directories were preserved;
+25 expected test files were added, with only the request marker and filesystem
+metadata modified. Before cleanup, offline checks passed at 1261 files / 275
+directories, 2265 allocated clusters, no leaks or FAT/bitmap mismatches.
 
-The implementation uses stable 64-record exFAT blocks, 256-node VFS blocks,
-direct live-node enumeration and per-mount metadata scratch. Budgets are 8192
-files/2048 directories per volume and 32768 VFS nodes overall. Full build/core
-and docs checks pass. The host fixture passes 5000 imported files, 96 growth/reuse
-files, 320 directories, preserved references/identities, rename/edit/remount and
-allocation-failure rollback/retry; peak tracked heap is about 4 MiB. Existing
-exhaustion, write/flush and power-cut recovery tests pass, including all isolated
-workspace-image write, flush and partial-write recovery boundaries.
+Only the verified temporary fixture was removed. A final read-only comparison
+confirmed every remaining file and all original directories. Post-cleanup fsck
+passed at 1005 files / 210 directories; allocation passed at 2200 clusters with
+no leaks or mismatches. The first Ubuntu cleanup attempt stopped because udisks
+removed its old mount directory; it made no deletions. Recreating the mountpoint
+and repeating collection completed safely. This was a host cleanup issue, not
+an OS test failure. Evidence survives build cleanup under
+`~/.local/share/srvros/reviewed-evidence/eba663ccd2a40909` and
+`~/.local/share/srvros/pending-trials/eba663ccd2a40909`.
 
-Source `768f6b2` passes exact v8 EFI payload `eba663ccd2a40909` with 5000 imported
-files: automatic default return, CRC report, shell/editor save/remount/reopen,
-exact preserved files, replay/read-only refusal and independent exFAT checks.
-Desktop payload `e6f8e9b2926e3b6c` passes EFI/GPT full-volume refusal (8191 files,
-no session created, clean unmount) and positive keyboard editing, GUI save,
-preferences across fresh boot, durable diagnostics and HDA/WAV capture.
+Host tests cover 6000 VFS nodes, 5000 imported files plus 96 growth/reuse files
+and 320 directories, stable references/identities, allocation-failure rollback,
+both exhausted budgets and write/flush/power-cut/partial-write recovery. Original
+exact v8 EFI and desktop EFI/GPT positive/refusal checks passed. After consuming
+main `d7ed773` (Air6,1 PR101/103), integrated source `d32e02e` passed full
+build/core/docs, the scale fixture, exact v8 EFI `432e416b0d7b0dd2` with 5000 preserved
+files and desktop `8855701b88562f2a` positive/audio/save/reopen and 8191-file refusal.
+Those integrated payloads are VM-validated, not newly physically accepted.
 
-Next is native request `931553fd2910f285` against the exact v8 payload, with
-256 temporary empty files and 64 empty directories to cross both old limits.
-The recorded fixture is removed only after complete reports, content preservation
-and offline allocation checks pass; existing files stay intact. No human input
-is required. Native acceptance remains pending. See the
-[capacity contract](../filesystem-capacity.md).
+Installed current remains `eba663ccd2a40909` (automated request consumed);
+accepted previous remains `9aa8dbf6fbda8252`. Ubuntu default and consumed one-shot
+are verified, USB is unmounted, and no reboot is armed. The milestone accepts
+bounded native persistence, not new physical gesture, battery, power or sibling
+hardware behavior. Pro PR19 `70db245` remains Wi-Fi; Air6,1 PR104 `cac24ef` owns
+its bounded battery/file coexistence work. No additional physical test is needed
+for this filesystem closeout.
 
-### Current checkpoint: bounded capacity recovery milestone complete
+### Previous checkpoint: bounded capacity recovery milestone complete
 
 Native release `a39bb31d4031693a` (source `2c68476`), request
 `cda6574dd2dedfa8`, returned with a valid complete CRC-protected PASS report.

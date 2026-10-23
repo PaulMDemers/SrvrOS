@@ -1,6 +1,6 @@
 # Filesystem capacity and allocation
 
-The filesystem scale candidate replaces the old static 1,024-file / 256-directory
+The filesystem scale implementation replaces the old static 1,024-file / 256-directory
 exFAT tables and 4,096-node VFS table. Native acceptance is tracked separately in
 the [Air7,2 record](machines/macbookair7-2.md); an installed older release retains
 its older limits.
