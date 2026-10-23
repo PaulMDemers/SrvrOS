@@ -497,3 +497,42 @@ The rebuilt release is installed unarmed with console recovery retained; install
 hashes, Ubuntu default and empty one-shot are verified. Final payload and trial
 backups are hash-verified outside build under `9ddea14869c9ed6f`. The run command,
 checklist and physical acceptance scope above are unchanged.
+
+## Full desktop return: persistence confirmed, picker defect (2026-10-23)
+
+Evidence-only follow-up on merged main `80b567a`, branch
+`device/macbookair6-1/desktop-evidence`. PR #69 ordinary battery sessions and
+PR #19 Wi-Fi remain separate. No new payload or reboot is prepared.
+
+Run `23dadab462e9ed83`, release `9ddea14869c9ed6f`, returned to Ubuntu with a
+changed boot ID. Two matching sessions (`00065e7a277b701f-00` and
+`00065e7a391c3f26-00`) have exit snapshots, clean desktop exit and no collector
+attention flags. The user confirms restarting/rerunning after an interruption.
+The workload retains rounds 1–19 followed by 1–60, a completion marker and an
+exact final 1 MiB payload. Strict single-run verification correctly rejects the
+79-line round log; do not call the original uninterrupted trial a pass.
+
+The user reported Text claiming saves while files did not appear, and inability
+to reenter Home after navigating Up. Four newly saved text files exist on USB:
+`demo_test.txt`, `test-save-test.txt`, `test2.txt`, `t3.txt`. Logs report successful
+file writes and directory reads, but Home listings never reach picker-ready.
+Persisted `.srvros/meta` contains two duplicate-inode pairs within Home:
+639 for the first trackpad completion and a later request, 647 for another
+completion and the new session script. `desk_listing_decode` refuses duplicate
+inodes, rejecting the entire directory. Parent browsing can succeed, but entering
+Home again hits the same rejection. This is a metadata identity defect, not
+sufficient evidence to blame double-click timing or lost document writes.
+
+All 124 pre-boot file hashes are preserved except expected `.srvros/meta`.
+Offline fsck is clean (139 files); allocation traversal finds 160 clusters with
+zero leaks/mismatches/errors. Installed current/recovery hashes and Ubuntu default
+verify; one-shot is empty. Raw sessions, new files, metadata and return records
+are hash-verified outside build under the installed release's trial directory.
+No screenshot or saved desktop preferences was found; those checks remain open.
+Full desktop acceptance is withheld pending the picker fix and a fresh trial.
+
+Two follow-ups are needed: reproduce persisted/imported inode collisions and fix
+identity restoration while retaining strict listing validation; make the workload
+explicitly refuse an existing run directory. Its current `mkdir ... || exit 1`
+guard is insufficient because SrvrOS mkdir succeeds for existing directories.
+Preserve the interrupted and restarted evidence instead of rewriting round logs.
