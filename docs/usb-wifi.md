@@ -875,7 +875,7 @@ CORE0 remainedf000f200 and MAC remained disabled. Both capture completion
 markers were saved. This accepts only these four settings; remaining baseband
 configuration, RF, scanning and connectivity are still pending.
 
-### Remaining CORE and initial IBI/AGC setup (native pending)
+### Remaining CORE and initial IBI/AGC setup (accepted on captured Pro adapter)
 
 Firmware v12 (`--wifi-bbp-front`, requiring `--wifi-bbp-core`) adds fixed
 sequences10/11 after completed CORE setup: CORE42/44 at20a8/20b0 are zero,
@@ -895,3 +895,11 @@ readbacks before automatic return. RF, power and connectivity remain pending.
 mutation, all18 I/O failures and20 authorization boundaries, stale replies,
 readback/identity/MAC mismatches and retry refusal. xHCI tests add prerequisite
 refusals, packet mutation, ordered submissions, read scope and DMA quarantine.
+
+Native source daffe4c / release1874caf6830abdc0, session00065e772300653c-00
+passed both sequence10/11 commands and exact replies: sent24/received16,
+status0, submitted2/completed2, ack_mask3 and16 reads. CORE42/44 stayed0,
+IBI11 changed0->0fde8081 and AGC0 changed7400->21400. CORE0 stayedf000f200
+and MAC stayed disabled. Prior setup regressions and both capture completion
+markers passed. This accepts only the specified settings; remaining AGC/baseband
+configuration, RF, scanning, association and connectivity are still pending.

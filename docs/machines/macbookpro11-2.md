@@ -2661,3 +2661,15 @@ VM receipts and prepared collector archived in
 ~/.local/share/srvros/macbookpro11-2/wifi-bbp-front-daffe4c. Unarmed, awaiting
 cold-trial readiness. Collect the matching session first after return; native
 acceptance pending. No RF/scan/connectivity test is included.
+
+Remaining CORE / initial IBI/AGC native acceptance (2026-10-22): source daffe4c,
+release1874caf6830abdc0, session00065e772300653c-00 passed exact sequence10/11
+replies, both24-byte commands and16-byte responses, status0/submitted2/completed2/
+ack_mask3/reads16. CORE42/44 stayed0, IBI11 changed0->0fde8081, AGC0 changed
+7400->21400; CORE0 stayedf000f200 and MAC stayed0. All prior setup checks and
+both capture completion markers passed. Matching logs and hashes archived in
+wifi-bbp-front-daffe4c/native-collection outside build. Ubuntu default, consumed
+one-shot, installed payload and desktop recovery verified. Workspace unmounted;
+clean163files/493clusters with zero leaked allocations or bitmap mismatches.
+Run/checkpoint collected and unarmed. Next: remaining AGC/baseband initialization,
+then RF/scan/association/connectivity, which remain untested.
