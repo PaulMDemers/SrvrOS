@@ -70,3 +70,20 @@ An overlong shell `read` drains to the next newline and fails without setting th
 variable, so the tail cannot silently answer a later prompt. Earlier terminal
 pastes could consume successive reads; a completed checklist from that behavior
 does not establish acceptance of the skipped prompts.
+
+## Secondary tap timing refinement
+
+The October 23 Air7,2 follow-up accepted secondary click/tap functionality but
+reported overly strict two-finger synchronization. The revised provisional policy
+allows the second finger to arrive within 150 ms and the final finger to lift
+within 150 ms of the first lift, with a 300 ms total two-finger tap limit.
+Single-finger taps retain the 10–200 ms limit. Both fingers must lift before the
+secondary pulse; expired chords never become primary clicks. Movement beyond
+64 raw units, scrolling, palms, typing suppression and physical button presses
+still disarm the tap. These values are host-tested usability tuning, pending
+physical evaluation; no hardware contact timing was measured from the screenshot.
+
+For the next attended trial, try relaxed staggered arrival/lift, then deliberate
+scrolls and long resting contacts to check for unwanted menus. Recheck ordinary
+one-finger taps and held physical drags. Keep earlier trackpad reports archived;
+the checklist refuses an existing report directory and must not overwrite it.

@@ -24,14 +24,20 @@ reboot is armed. Raw collection, observations and screenshot survive build clean
 under `~/.local/share/srvros/pending-trials/4414f888007a8407/returned`; scoped
 acceptance is in `~/.local/share/srvros/accepted-evidence/4414f888007a8407`.
 
-PR83 closes the guided-checklist/paste correction with the existing local build,
+PR83 merged as `cba50a8`, closing the guided-checklist/paste correction with the existing local build,
 core, terminal guest and exact EFI/audio/GPT validation. Main `df44fa0` was fetched,
 inspected and merged: Air6,1 headphone/Stop acceptance documentation only. Pro PR19
 `e66c665` owns an opt-in PBF/MAC clock prerequisite candidate; native comparison
 is pending and earlier TXBE write failures remain failures. No Wi-Fi code is copied.
-Next bounded work touches only trackpad tap policy, host regressions and current
-documentation: relax contact arrival/release timing without changing physical
-click ownership, displacement/scroll suppression, model gates or installed payload.
+The next bounded change touches only trackpad tap policy, host regressions and
+current documentation: 150 ms arrival/release allowances and a 300 ms total
+secondary-tap limit; one-finger taps retain 200 ms. Physical click ownership,
+displacement/scroll suppression, model gates and installed payload are unchanged.
+Timing boundaries across both contact orders and either surviving finger are
+covered by 140 host replays. Full build/core/docs, pointer/mouse/ABI, xHCI and
+the disposable-VM context-menu regression pass. The revised feel remains
+physically untested; no reboot or installation is scheduled. Validation is retained
+outside build under `~/.local/share/srvros/validation/trackpad-timing-20261023`.
 
 ### October 23 audio/network round (collected)
 

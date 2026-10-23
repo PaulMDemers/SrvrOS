@@ -209,6 +209,32 @@ static void tapping(void) {
     tap_feed(&s,&f,1000,taps,false);f.count=2;f.contacts[1].x=1000;swap_contacts(&f);
     tap_feed(&s,&f,30000,taps,false);f.count=1;tap_feed(&s,&f,50000,taps,false);f.count=0;
     assert(tap_feed(&s,&f,70000,taps,false).tap_buttons==2);
+    /* A human chord may arrive/release across several reports. Cover both
+     * contact orders and either surviving finger, including the exact timing
+     * boundaries. A rejected chord must never fall back to a primary click. */
+    const unsigned joins[]={0,30000,80000,100000,130000,150000,150001};
+    const unsigned lifts[]={1,50000,100000,150000,150001};
+    for(unsigned j=0;j<sizeof(joins)/sizeof(joins[0]);j++)
+    for(unsigned l=0;l<sizeof(lifts)/sizeof(lifts[0]);l++)
+    for(unsigned swap=0;swap<2;swap++) for(unsigned remaining=0;remaining<2;remaining++) {
+        s=(struct trackpad_pointer){0};f=frame(-1000,0,joins[j]?1:2,0);
+        f.contacts[1].x=1000;
+        if(!joins[j] && swap) swap_contacts(&f);
+        assert(!tap_feed(&s,&f,1000,taps,false).tap_buttons);
+        if(joins[j]) {
+            f.count=2;
+            if(swap) swap_contacts(&f);
+            assert(!tap_feed(&s,&f,1000+joins[j],taps,false).tap_buttons);
+        }
+        f.contacts[0]=f.contacts[remaining];f.count=1;
+        uint64_t first_lift=1000+joins[j]+20000;
+        assert(!tap_feed(&s,&f,first_lift,taps,false).tap_buttons);
+        f.count=0;
+        unsigned total=joins[j]+20000+lifts[l];
+        unsigned expected=joins[j]<=150000 && lifts[l]<=150000 && total<=300000?2:0;
+        assert(tap_feed(&s,&f,first_lift+lifts[l],taps,false).tap_buttons==expected);
+        assert(!tap_feed(&s,&f,first_lift+lifts[l]+1000,taps,false).tap_buttons);
+    }
     /* Two-finger jitter is quiet. Deliberate scroll cancels tapping permanently. */
     s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
     tap_feed(&s,&f,1000,taps,false);f.contacts[0].y=f.contacts[1].y=48;
@@ -230,7 +256,7 @@ static void tapping(void) {
         switch(reason) {
         case 0:end=220000;break;
         case 1:end=15000;break;
-        case 2:f.count=2;f.contacts[1].x=1000;tap_feed(&s,&f,95000,taps,false);break;
+        case 2:f.count=2;f.contacts[1].x=1000;tap_feed(&s,&f,161000,taps,false);end=180000;break;
         case 3:f.contacts[0].x=2000;tap_feed(&s,&f,20000,taps,false);break;
         case 4:f.contacts[0].touch_major=601;tap_feed(&s,&f,20000,taps,false);break;
         case 5:f.count=3;tap_feed(&s,&f,20000,taps,false);break;
@@ -241,7 +267,7 @@ static void tapping(void) {
             f.button=0;assert(!tap_feed(&s,&f,30000,taps,false).buttons);break;
         case 10:opts=taps|SRV_POINTER_DISABLE_WHILE_TYPING;break;
         case 11:f.count=2;f.contacts[1].x=1000;tap_feed(&s,&f,20000,taps,false);
-            f.count=1;tap_feed(&s,&f,30000,taps,false);end=120000;break;
+            f.count=1;tap_feed(&s,&f,30000,taps,false);end=190000;break;
         }
         f.count=0;assert(!tap_feed(&s,&f,end,opts,reason==10).tap_buttons);
     }

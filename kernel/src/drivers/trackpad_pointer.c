@@ -167,12 +167,14 @@ bool trackpad_pointer_timed(struct trackpad_pointer *s,const struct apple_trackp
 }
 
 /* Provisional policy in native units, independent of pointer speed/gain.
- * A chord must form promptly; both contacts must lift before a click is emitted.
+ * Allow staggered finger contact/lift without extending single-finger taps.
+ * Both contacts must lift before a click is emitted.
  * No timer callback is needed: expiry only disarms, never synthesizes input. */
 #define TAP_MIN_US 10000u
 #define TAP_MAX_US 200000u
-#define TAP_CHORD_US 80000u
-#define TAP_RELEASE_US 80000u
+#define TAP_SECONDARY_MAX_US 300000u
+#define TAP_CHORD_US 150000u
+#define TAP_RELEASE_US 150000u
 #define TAP_SLOP 64
 static int tap_distance(const struct trackpad_pointer *s,unsigned old,
     const struct apple_trackpad_frame *f,unsigned next) {
@@ -190,7 +192,7 @@ static void tap_policy(struct trackpad_pointer *s,const struct apple_trackpad_fr
     s->tap_last_us=now;
     if(invalid) s->tap_inhibit=true;
     if(s->tap_inhibit) s->tap_armed=false;
-    if(s->tap_armed && (now-s->tap_start_us>TAP_MAX_US ||
+    if(s->tap_armed && (now-s->tap_start_us>(s->tap_peak==2?TAP_SECONDARY_MAX_US:TAP_MAX_US) ||
         (s->tap_releasing && now-s->tap_release_us>TAP_RELEASE_US))) s->tap_armed=false;
     if(!f->count) {
         if(s->tap_armed && now-s->tap_start_us>=TAP_MIN_US) {
