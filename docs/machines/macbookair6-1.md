@@ -780,3 +780,25 @@ the latter changed pointer speed5 to3 and acceleration0 to1. The user confirmed
 these changes were intentional; this is not a preference-persistence regression. Four new session logs are retained. Run/launch are collected,
 one-shot empty and USB unmounted. Evidence is backed up outside build; no new
 boot is staged or armed.
+
+## Audio listening candidate (2026-10-23)
+
+Implementation `8f3656a`, PR #82, v57 release `0533c0dfc63d104f` adds exact
+`9c20` / CS4208 `106b:7100` revision `100300` admission. Both observed pin
+pairs are validated before codec writes; speaker DAC3/pin12 and headphone
+DAC2/pin10 reuse muted startup, GPIO0 and the existing serialized worker.
+See the [route evidence and listening checklist](../macbookair6-1-audio.md).
+
+Full build/USB image, core and desktop host tests, 60 staging tests and docs
+checks passed. The exact staged GPT VM passed two desktop sessions, GUI file
+save/reopen, preference restoration, recorded 500 ms tone and six-second stereo
+WAV, zero underruns and silent tails. Native audio remains **not tested**;
+QEMU routing cannot establish this Air's sound quality or channel balance.
+
+The candidate retains accepted brightness and input, with battery/AML, SMC,
+sensors and networking off. Preserve accepted brightness `59086591e526632b`
+and previous console recovery `c35475f62f154f1e`. Local run
+`build/audio/42421979e85c44eb` holds 176 preboot file hashes and clean offline
+exFAT/allocation evidence. Ubuntu stays default; reboot is unarmed. Next action
+is the attended speaker/volume/channel/Stop test and optional manual headphones,
+followed by collection and file/allocation checks before acceptance.
