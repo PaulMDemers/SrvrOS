@@ -119,6 +119,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
+    parser.add_argument("--desktop-no-headroom", action="store_true", help="Verify safe desktop refusal at the exFAT file-slot limit")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
     parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
@@ -144,6 +145,8 @@ def main():
     if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-")):
         parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --services" if manifest["config_version"].startswith("ram-usb-v55-") else ""))
     basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
+    if args.desktop_no_headroom and (not desktop or basic_desktop or args.audio_check):
+        parser.error("--desktop-no-headroom requires an ordinary desktop stage without audio checking")
     session_run="0123456789abcdef"
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
@@ -233,6 +236,9 @@ def main():
                 files.update({"collision-a.txt":b"saved alpha\n", "collision-b.txt":b"saved beta\n"})
                 metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t50000\t33188\t1\t0\t0\t100\t200\t300\n" for name in ("collision-a.txt","collision-b.txt"))
                 fixture.add_directory_files(".srvros",{"meta":metadata.encode()})
+            if args.desktop_no_headroom:
+                files.update({f"fill{i:04d}":b"" for i in range(1021)})
+                fixture.add_directory_files(".srvros",{"meta":b"SRVROSMETA1\n"})
             fixture.add_directory_files("srvros-work",files)
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
@@ -260,6 +266,23 @@ def main():
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if args.desktop_no_headroom:
+                    text=wait_for(serial,lambda s:"desktop-trial: NOT STARTED" in s and "srv> " in s,process,args.boot_wait)
+                    assert "workspace-log: REFUSED insufficient file/directory slots" in text
+                    assert "desktop-trial: USB unmounted=yes" in text
+                    assert "deskd: starting" not in text
+                    with stick.open("rb") as stream:
+                        stream.seek(2048*512);saved=stream.read(len(fixture.data))
+                    volume.write_bytes(saved);check_clean_image(volume)
+                    final=ExfatFixture(saved)
+                    names={name for name,_ in final.entries(final.read("srvros-work"))}
+                    assert names==set(files), names-set(files)
+                    for name,payload in files.items(): assert final.read("srvros-work/"+name)==payload
+                    result=dict(status="PASS",release=release,manifest_sha256=boot.digest(source/"manifest.json"),
+                                desktop_no_headroom=True,workspace_table=args.workspace_table)
+                    (logs/"hardware-grub-result.json").write_text(json.dumps(result,indent=2)+"\n")
+                    print(f"hardware-grub-smoke: PASS ({release}); capacity refusal, no session created, clean unmount")
+                    return
                 if args.probe_check:
                     if args.probe_missing_workspace:
                         text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if auto_return else "laptop-capture: HALTED") in s,process,args.boot_wait)

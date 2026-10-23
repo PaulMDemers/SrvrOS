@@ -2,7 +2,84 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Current result: tap feel accepted; logging capacity follow-up
+### Current checkpoint: bounded capacity recovery milestone complete
+
+Native release `a39bb31d4031693a` (source `2c68476`), request
+`cda6574dd2dedfa8`, returned with a valid complete CRC-protected PASS report.
+Write/flush/read, file operations and shell/editor save/remount/reopen pass;
+all expected file trees verify independently in Ubuntu. There are 25 new test
+files, no missing files and no unexpected modifications: only the request and
+filesystem metadata changed. Offline fsck passes (979 files, 205 directories),
+and independent traversal finds 2165 allocated clusters, no leaks or mismatches.
+This accepts one automated persistence round, not physical gestures or battery.
+
+Ubuntu default and consumed one-shot pass. Installed current remains
+`a39bb31d4031693a`; accepted previous remains `9aa8dbf6fbda8252`. USB is unmounted,
+no reboot is armed, and returned evidence is preserved outside build at
+`~/.local/share/srvros/pending-trials/a39bb31d4031693a/returned`.
+
+PR88 tap work is merged; the user's subjective tap feel is accepted, while its
+missing full native receipt remains incomplete. PR99 closes the independent
+logging-capacity follow-up. Actual main `5d195a9` adds Air6,1 PR98's separately
+gated SMBus capture; integration preserves both Makefile targets and v62 profile.
+Pro PR19 `1b98c71` remains separate Wi-Fi work. No sibling acceptance is inferred.
+Final integrated source `1e78461` passed full build/core/docs and exact EFI/GPT
+capacity refusal plus desktop/audio/save/reopen. The ordinary payload is byte-identical
+to already rehearsed `c4f6502fdd232e6c`; no integration payload was installed.
+Receipts survive build cleanup at
+`~/.local/share/srvros/validation/log-capacity-integration-1e78461`. PR99 carries
+the completed change for the shared baseline. No further test is required for
+this bounded milestone. Larger filesystem limits and archival of other kinds
+of evidence remain separate work. The subsequent main `61aa054` update contains
+only Air6,1 acceptance documentation (PR100); it is consumed without changing
+the validated code or installed payload.
+
+Verified archival previously moved 22 completed old sessions (70 files) to
+`~/.local/share/srvros/log-archives/20261023-capacity-recovery` before pruning
+only their verified USB copies. All other 953 files were unchanged. Newest 32,
+incomplete/unknown sessions and user documents were preserved. After this test,
+44 file slots remain after metadata reserve: enough for the 32-file logger
+admission, but the conservative 64-file automated-test preflight will refuse
+another round until additional space is deliberately recovered. No further
+cleanup or trial is scheduled as part of this closeout.
+
+### Capacity implementation and pre-boot validation (PR #99)
+
+Source `2c68476` adds independent file/directory admission before session creation,
+visible attended-trial refusal, mounted preparation checks and an offline real
+exFAT/VFS headroom check. Explicit Ubuntu archival keeps the newest 32 sessions
+and incomplete/unknown contents; at most 32 completed old sessions are copied,
+hashed and flushed outside the checkout/on another device before optional prune.
+No boot-time deletion or filesystem limit increase. The setup guide documents it.
+
+Full build/core/docs, nine archive safety cases, logger refusal, host preparation
+and exhaustive filesystem write/flush/power-cut regressions pass. Desktop release
+`c4f6502fdd232e6c` passed exact EFI/GPT full-capacity refusal without session
+creation and normal desktop/audio/save/reopen. Offline real USB checks after
+archival pass: 953 files, 200 directories, 2130 allocated clusters, no leaks or
+mismatches, 70 usable file slots. All remaining files were hash-preserved.
+
+One unattended native v8 persistence round is prepared as release
+`a39bb31d4031693a`, request `cda6574dd2dedfa8`; its exact automatic-return VM
+rehearsal passed persisted CRC/file-tree verification, default return, replay
+halt and read-only failure halt. The candidate is installed with the accepted
+previous payload retained; local run records own the arming state. It exercises USB write/flush/read,
+file operations and shell save/remount/reopen, with no human input, automatic
+Ubuntu return on success and visible failure halt. Native acceptance is pending;
+this does not retest physical gestures or battery. Accepted recovery remains
+`9aa8dbf6fbda8252`. Local run state/evidence lives under
+`build/log-capacity-20261023`; verified receipts/payloads are preserved outside
+build in `~/.local/share/srvros/validation/log-capacity-a39bb31d4031693a` and
+`~/.local/share/srvros/pending-trials/a39bb31d4031693a`. The pre-install real USB
+has 954 files including the request; offline fsck/allocation/headroom pass.
+Collect this exact request on Ubuntu return before another test.
+
+Actual main remains `2e2eb2b`. Pro PR19 `37fa564` remains Wi-Fi work; Air6,1
+PR98 `7a1b014` is a distinct bounded SMBus capture. Both touch some shared guide
+and harness files; preserve their separate profiles when integrating. This work
+adds no device/firmware gates. Actions stay disabled; all validation is local.
+
+### Earlier tap acceptance and capacity diagnosis
 
 Returned settling trial `95db354d397095b4` (source `c619cdd`): the tester says
 "it's dialed in well enough now". Accept the subjective tap feel and stop further

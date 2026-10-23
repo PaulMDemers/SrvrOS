@@ -3516,6 +3516,11 @@ build/tests/battery-failure-display$(HOST_EXE): tools/test_battery_failure_displ
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 
+.PHONY: test-log-archive
+test-core: test-log-archive
+test-log-archive:
+	$(PYTHON) tools/test_hardware_log_archive.py
+
 .PHONY: acpi-air61-battery-vm-kernel
 acpi-air61-battery-vm-kernel: build/acpi-air61-battery/vm.elf
 build/acpi-air61-battery/vm.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-air61-battery/battery_vm_platform.o kernel/linker.ld

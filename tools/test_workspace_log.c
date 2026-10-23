@@ -5,11 +5,15 @@
 #include "../kernel/src/workspace_log.c"
 static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[24];
 static unsigned count,depth,writes,flushes,device_reads;
+static bool capacity_ok=true;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100;
 static struct item *find(const char *p) { for(unsigned i=0;i<count;i++) if(!strcmp(p,files[i].path)) return &files[i];return NULL; }
 static struct item *add(const char *p) { assert(count<24 && strlen(p)<160);struct item *f=&files[count++];strcpy(f->path,p);return f; }
 const struct vfs_node *vfs_lookup(const char *p) { assert(depth);struct item *f=find(p);return f?&f->node:NULL; }
+bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
+    assert(depth && !strcmp(p,"/work/srvros-work/Logs") && f==32 && d==8);return capacity_ok;
+}
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
     assert(depth && n<=65536);writes++;if(!io_ok) return false;
@@ -43,6 +47,7 @@ void console_printf(const char *fmt,...) { (void)fmt;total++; }
 void console_write(const char *text) { (void)text;total++; }
 int main(void) {
     mounted=false;assert(!workspace_log_start() && !writes);mounted=true;
+    capacity_ok=false;assert(!workspace_log_start() && !writes && !count && !directory[0]);capacity_ok=true;
     assert(workspace_log_start() && enabled && healthy && writes==1 && flushes==1);
     assert(device_reads==2);
     char first[128];strcpy(first,directory);assert(!workspace_log_start());

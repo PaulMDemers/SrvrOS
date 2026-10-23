@@ -1144,6 +1144,11 @@ static bool mutation_capacity(struct exfat_mount *mount, const char *path,
     return ok;
 }
 
+bool exfat_creation_capacity(const char *path, uint64_t files, uint64_t dirs) {
+    if (!path || files > EXFAT_MAX_FILES || dirs > EXFAT_MAX_DIRS) return false;
+    return mutation_capacity(find_mount_for_path(path), path, files, dirs);
+}
+
 static bool exfat_sync_mount_metadata_impl(struct exfat_mount *mount) {
     if (mount == NULL || mount->volume.image != NULL || metadata_syncing) {
         return true;

@@ -105,6 +105,14 @@ bool workspace_log_start(void) {
     if(enabled || busy || !workspace_active()) return false;
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
+    /* Four log files plus room for reports/screenshots. Check before creating
+     * a directory so a full node table cannot masquerade as a started session. */
+    if(!exfat_creation_capacity(parent,32,8)) {
+        directory[0]=0;healthy=false;
+        end(flags);
+        console_write("workspace-log: REFUSED insufficient file/directory slots; archive old logs in Ubuntu before testing\n");
+        return false;
+    }
     bool ok=directory_exists(parent) || exfat_create_directory(parent);
     uint64_t stamp=(uint64_t)timer_realtime_us();
     if((int64_t)stamp<0) stamp=timer_monotonic_us();
