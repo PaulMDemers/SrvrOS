@@ -2788,3 +2788,16 @@ installed payload and desktop recovery verified. Workspace unmounted; clean
 169files/502clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
 collected and unarmed. Next add remaining baseband settings using unused command
 identifiers9..15; no sequence recycling or RF/connectivity acceptance.
+
+Active scope: add AGC23/24/25/26 as optional compact phase5, sequence9,
+addresses235c/2360/2364/2368 and values272c/2f3a/8000005a/007c2005 from
+Linuxv6.18 initial MT7610 settings. All prior phases, exact replies, readbacks
+and MAC/CORE guards required. Preserve five-phase v15 with explicit phase
+limit; new v16 permits six. Touch fixed MCU plan, native phase ownership,
+capture/profile and tests. Fetched main58b354f: Air desktop evidence only since
+last inspection; Air PR69 remains independent battery scope. Retain accepted
+integration22fd266. No RF or sequence reuse; native added settings pending.
+
+AGC extension validation: full build, six-phase fixed engine and prior
+regressions, native xHCI phase/limit/read-scope/transport checks, ASan/UBSan,
+72 boot profiles and docs checks pass. Native phase5 acceptance pending.

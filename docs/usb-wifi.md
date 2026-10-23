@@ -1001,3 +1001,22 @@ remained0. Old per-phase log families were absent. Both completion markers
 were saved. This accepts consolidation of these settings on the captured
 adapter, leaving command identifiers9..15 unused; it does not accept remaining
 baseband settings, sequence recycling, RF, scanning or connectivity.
+
+### AGC23/24/25/26 extension (native pending)
+
+Firmware v16 (`--wifi-agc-more`, requiring `--wifi-compact`) adds compact
+phase5 at sequence9. Fixed addresses235c/2360/2364/2368 receive
+272c/2f3a/8000005a/007c2005 from the Linux v6.18 MT7610 initialization table.
+The phase requires all five accepted phases to complete, then checks captured
+CORE0 and disabled MAC before/after one40-byte command. The strict expected
+reply is[4a090008,0041235c,272c,4a090008]; all four values must independently
+read back correctly. This is initial AGC configuration, not channel calibration
+or RF/receive/transmit enable. Native acceptance is pending.
+
+The five-phase v15 profile retains an explicit limit5; only v16 selects limit6.
+Unknown limits and attempts beyond the selected limit are refused. Existing
+per-phase read allowlists, single submission and failure quarantine apply.
+Host tests extend independent packet/reply fixtures, all read allowlists,
+every I/O/authorization failure, target/identity guards, packet mutation and
+native prerequisite checks to the new phase. The previous profile is tested
+for both allowed earlier phases and refusal of phase5.

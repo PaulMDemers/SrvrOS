@@ -158,10 +158,14 @@ static const struct mt76_mcu_register_pair bbp_agc[4]={
 static const struct mt76_mcu_register_pair bbp_batch[4]={
     {0x233c,0x88a28cb8},{0x2358,0x1e21},{0x2304,3},{0x2308,0x003a6464}
 };
+/* Next fixed AGC initialization quartet; numeric Linux v6.18 settings. */
+static const struct mt76_mcu_register_pair agc_more[4]={
+    {0x235c,0x272c},{0x2360,0x2f3a},{0x2364,0x8000005a},{0x2368,0x007c2005}
+};
 static const struct mt76_mcu_register_pair *compact_plan(unsigned phase) {
     switch(phase) {
     case 0:return mac_basics;case 1:return mac_format;case 2:return bbp_core;
-    case 3:return bbp_front;case 4:return bbp_batch;default:return 0;
+    case 3:return bbp_front;case 4:return bbp_batch;case 5:return agc_more;default:return 0;
     }
 }
 bool mt76_mcu_compact_read_allowed(unsigned phase,uint32_t address) {
