@@ -3593,3 +3593,22 @@ Exact initial-value gates, unused seq6 two-pair packet, strict ACK/readbacks and
 MAC0/COREf000f200 boundaries; no subsequent BBP table writes. Defer PBF/WPDMA,
 RF/power/PA/LDO changes. Touch MCU/xHCI/main/staging/tests; current base22fd266,
 fetched main9488193 (Air6,1 HPTC) remains separate. Native behavior pending.
+
+### 2026-10-23 — v34 MAC routing candidate installed, unarmed
+
+Source `7cc6fe3`, release `c929ce1b090b820d`: FCE/WMM fixed-pair trial described
+above. Build, compact/xHCI host tests, ASan/UBSan, 90 boot-profile tests and docs
+checks passed. Exact-stage GPT VM saved diagnostics, passed offline filesystem
+checks and returned automatically; missing-workspace VM returned without probing.
+The collector accepts exact command/ACK, eight reads and both target readbacks;
+synthetic success and five failure mutations passed. Hardware acceptance pending.
+
+Installed with Ubuntu default and known-good previous `e47dca3a6b30c6c1` unchanged.
+Raw inventory release `2d2630e3bbbbe8d8` retained; obsolete strict snapshot removed
+from ESP only after comparison with its durable archive. UUID `0E53-5900` passed
+preboot fsck and allocation checks (205 files, 556 clusters, no leaks), then was
+unmounted. No one-shot armed. Run record: `build/bringup/wifi-mac-route/run.json`;
+collector: `build/bringup/collect_wifi_mac_route_return.py`. Payload, evidence and
+helpers: `~/.local/share/srvros/macbookpro11-2/wifi-mac-route-7cc6fe3/`.
+Next: user-ready cold adapter power cycle, automatic capture/return, then collect
+matching session before further changes. RF/connectivity remains NOT_TESTED.
