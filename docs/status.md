@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-19. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-10-23. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -10,9 +10,10 @@ there is no supported stable binary release yet.
 | Target | Evidence | Remaining work |
 | --- | --- | --- |
 | QEMU q35 | Repeatable boot, CLI, filesystem, network and desktop regressions | Emulator coverage cannot validate physical controllers or firmware |
-| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | New input fixes, battery/AC, audio routes and network adapter acceptance |
+| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | Combined ordinary-session services, targeted input cases, audio routes and network adapter acceptance |
+| MacBookAir6,1 | Console/input, USB workspace and bounded desktop pointer/drag/scroll trials | Preference restoration and additional devices have separate acceptance |
 | MacBookAir7,1 / A1465 | Planned | Capture this model and run its own acceptance cycle |
-| MacBookPro11,2 / A1398 | Planned | Inventory, Retina display/input and device bring-up |
+| MacBookPro11,2 / A1398 | Native desktop/input, scaled display, brightness, speakers, CPU/two-fan telemetry and captured USB Ethernet accepted | USB Wi-Fi diagnostics in progress; battery and headphone checks deferred |
 | MacBookPro11,3 / A1398 | Planned | Separate GPU/firmware inventory; no assumed graphics switching support |
 | Macmini7,1 / late-2014 A1347 | Planned | Inventory, storage, display and external input bring-up |
 
@@ -42,7 +43,7 @@ Earlier unexpected app closures are not conclusively explained by these fixes.
 Current limits include eight client windows, software rendering and bounded
 client surfaces up to 1440×900 logical pixels. Explicit 2× scaling passes VM
 checks at 2880×1800, but is pixel enlargement, not a high-density font renderer
-or Retina Mac acceptance. See the [desktop guide](native-desktop.md).
+or Retina Mac acceptance. See the [desktop guide](native-desktop.md) and [device parity ledger](device-parity.md).
 
 ## Files, services and devices
 
@@ -50,15 +51,15 @@ or Retina Mac acceptance. See the [desktop guide](native-desktop.md).
 | --- | --- |
 | exFAT / USB workspace | Repeated physical read/write/flush/remount and shell workflows passed; no journal or power-loss durability guarantee |
 | Internal storage | AHCI available in VM; laptop test profiles use a RAM boot image and USB workspace, not an internal-disk installation |
-| Networking | e1000 and small IPv4 stack exercised in QEMU; CDC ECM USB driver has VM coverage, physical adapter pending |
+| Networking | e1000 and small IPv4 stack exercised in QEMU; CDC ECM USB driver has VM coverage, captured Pro adapter DHCP/DNS/HTTP and cable-status UI accepted; Air adapter trial pending |
 | Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback completed on hardware with zero reported underruns; audible channel separation/headphones still need confirmation |
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
-| Battery / AC / suspend | No live native battery/AC service or accepted suspend/resume |
-| Wi-Fi / Bluetooth / NVMe | Not available as accepted device support |
+| Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
+| Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
 | POSIX / ports | Useful subset, not full POSIX or Linux binary compatibility; full Node runtime recovery remains incomplete |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 
-## Latest measured checkpoints
+## Measured checkpoints and current acceptance
 
 - Five physical filesystem/shell rounds passed on the reference Air, with retained
   outputs and a clean offline exFAT check.
@@ -73,6 +74,16 @@ or Retina Mac acceptance. See the [desktop guide](native-desktop.md).
 - Read-only native telemetry now measures **6.458 W average package power** and
   **2,083 MHz CPU0 active frequency** over 52.999 seconds inside a 60-second
   desktop capture. This excludes whole-laptop power and does not change CPU policy.
+
+Ordinary Home battery acceptance on October 23 includes a real document saved
+and reopened across two desktop lifetimes, clean runtime retirement, preserved
+prior files, clean offline allocation and confirmed Ubuntu return. Screenshots
+show the cached indicator. This does not establish battery life or calibration.
+The combined v55 profile is physically accepted on Air7,2 release
+`9aa8dbf6fbda8252`: playback/input, brightness, read-only sensors and battery
+coexist with document save/exit/reopen. Runtime/PCM cleanup, file preservation
+and offline allocation pass. Ethernet still needs an attached Air adapter;
+headphone/channel and targeted secondary-click acceptance remain open.
 
 Exact source/payload identities, evidence locations and negative tests are in
 the [October 19 journal](desktop-progress-2026-10-19.md) and

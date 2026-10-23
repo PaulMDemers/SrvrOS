@@ -5,6 +5,9 @@
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+static struct srv_battery_status battery_mock;
+static int battery_mock_error;
+long srv_battery_status(struct srv_battery_status *out) { *out=battery_mock;return battery_mock_error; }
 static unsigned audio_calls;
 int gui_audio(unsigned op,unsigned value,struct srv_audio_status *out) {
     (void)value;if(op) audio_calls++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.volume=25};return 0;
@@ -119,7 +122,33 @@ static void pointer_cancel_keeps_keyboard(void) {
     assert(sent_serials[1]==91 && sent_serials[2]==92);
     sends=0;now=1;
 }
+static void battery_ui_notifications(void) {
+    static struct session s;
+    memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=-1;
+    desk_damage_init(&s.damage,1280,800);desktop_notice_view_init(&s.scene.notifications);
+    strcpy(s.scene.clock,"12:00");
+    battery_mock=(struct srv_battery_status){.size=sizeof(battery_mock),.version=SRV_BATTERY_VERSION,
+        .state=SRV_BATTERY_ACTIVE,.flags=SRV_BATTERY_VALID|SRV_BATTERY_FRESH,
+        .valid=SRV_BATTERY_SOC_VALID,.soc=20};
+    battery_update(&s,1);
+    assert(!strcmp(s.scene.battery,"20%") && s.scene.notifications.store.count==1);
+    assert(!strcmp(s.scene.notifications.store.records[0].text.title,"Battery low"));
+    assert(s.scene.notifications.store.records[0].application==DESK_APP_SYSTEM && s.scene.focus==-1);
+    for(int i=0;i<20;i++)battery_update(&s,1);
+    assert(s.scene.notifications.store.count==1);
+    battery_mock.soc=5;battery_update(&s,1);assert(s.scene.notifications.store.count==2);
+    assert(!strcmp(s.scene.notifications.store.records[1].text.title,"Battery very low"));
+    battery_mock.flags|=SRV_BATTERY_STALE;battery_update(&s,1);
+    assert(!strcmp(s.scene.battery,"Battery stale") && s.scene.notifications.store.count==2);
+    battery_mock_error=-1;battery_update(&s,1);assert(!strcmp(s.scene.battery,"Battery —"));
+    assert(s.scene.notifications.store.count==2);battery_mock_error=0;
+    struct desk_rect r=desktop_battery_rect(1280,s.scene.clock);execute_result=42;
+    assert(global_click(&s,r.x+5,10));assert(!strcmp(executed_role,"system"));
+    assert(s.children[0]==42 && s.child_apps[0]==DESK_APP_SYSTEM);
+    execute_result=-1;
+}
 int main(void) {
+    battery_ui_notifications();
     pointer_cancel_keeps_keyboard();
     struct session s={.scene={.focus=-1},.children={42}};
     assert(cache_init(&s)==0 && allocations==2*DESKD_WINDOWS);

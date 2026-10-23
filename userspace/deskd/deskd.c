@@ -54,6 +54,8 @@ struct session {
     uint64_t battery_tick,battery_reads,battery_first,battery_last;
     struct srv_battery_status battery_status;
     int battery_result;
+    struct desk_battery_alert battery_alert;
+    uint64_t battery_notice_serial;
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
@@ -351,6 +353,20 @@ static void battery_update(struct session *s,int force) {
         s->battery_reads++;
         if(!s->battery_first)s->battery_first=value.generation;
         s->battery_last=value.generation;
+    }
+    unsigned warning=desk_battery_alert_update(&s->battery_alert,result?NULL:&value);
+    if(warning && s->scene.apps && !s->exiting) {
+        struct desk_notification text={0};
+        strcpy(text.title,warning==2?"Battery very low":"Battery low");
+        snprintf(text.message,sizeof(text.message),"%u%% remaining. %s",value.soc,
+            warning==2?"Connect power now and save your work.":"Connect power soon.");
+        uint64_t id;long us=srv_monotonic_us();
+        if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX-1,DESK_APP_SYSTEM,
+            ++s->battery_notice_serial,us<0?0:(uint64_t)us,DESK_NOTICE_WARNING,&text,&id)>0) {
+            desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);
+            notifications_damage(s);
+            desk_log("deskd: battery notice level=%u soc=%u\n",warning,value.soc);
+        }
     }
     if(strcmp(view.label,s->scene.battery)) {
         strcpy(s->scene.battery,view.label);
@@ -956,6 +972,12 @@ static int hit(struct session *s,int x,int y) {
 }
 static int global_click(struct session *s,int x,int y) {
     if(!s->scene.apps) return 0;
+    if(s->scene.battery[0] && desk_widget_contains(desktop_battery_rect(s->damage.width,s->scene.clock),x,y)) {
+        for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid && !s->clients[i].closing && s->scene.windows[i].application==DESK_APP_SYSTEM) {
+            focus(s,i);return 1;
+        }
+        spawn_app(s,DESK_APP_SYSTEM,"");return 1;
+    }
     if(desk_widget_contains(desktop_alert_rect(s->damage.width,s->scene.clock),x,y)) { notifications_open(s);return 1; }
     if(desk_widget_contains(desktop_clock_rect(s->damage.width,s->scene.clock),x,y)) { calendar_open(s);return 1; }
     for(int app=1;app<=DESK_APP_COUNT;app++) {

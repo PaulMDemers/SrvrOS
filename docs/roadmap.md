@@ -1,65 +1,64 @@
 # Roadmap
 
-The goal is a pleasant, useful native desktop on the MacBook Air, with a solid
-shell and server foundation underneath. The reference machine is MacBookAir7,2;
-additional Macs have independent bring-up records. See [current status](status.md)
-for what is already implemented and tested.
+Updated October 23, 2026. The goal is a pleasant native desktop on the MacBook
+Air, with a solid shell and server foundation. The [current status](status.md)
+and [machine records](machines/README.md) separate implementation from physical
+acceptance. The [device parity ledger](device-parity.md) compares the Air with
+ongoing Pro work.
 
-## 1. Close the current input and reliability milestone
+## 1. Integrate the everyday laptop session
 
-Physically accept secondary click, tap gestures and pointer cancellation while
-preserving primary dragging, two-finger scrolling and simultaneous typing.
-Exercise System and other apps during file/network work with the delivery-deadline
-fixes. Save logs and screenshots, complete the clean return path, and investigate
-any remaining unexpected closure rather than attributing it to an unproven cause.
+**Completed on Air7,2 release `9aa8dbf6fbda8252`.** Ordinary Home battery,
+brightness, PCM audio and read-only sensors coexist with input and saved files.
+The attended save/exit/reopen trial and local host/VM regressions pass; files,
+resource retirement and Ubuntu recovery were verified. Cached low-charge notices
+and battery-label access to System are implemented, with synthetic warning tests.
+The combined profile preserves native gates and omits the isolated AML probe.
 
-**Done when:** a matching hardware session accepts those interactions, retains
-its artifacts, and reports no input/control timeout or unexplained client loss.
+Absent Ethernet hardware and the named listening/gesture/low-charge gaps remain
+explicitly outside this acceptance. The accepted payload/evidence and older
+recovery are retained independently of build cleanup.
 
-## 2. Measure power before changing policy
+## 2. Close remaining device and input acceptance gaps
 
-Collect the opt-in read-only package-energy and active-frequency sample on the
-Air. Compare matched display brightness, workload, adapter state and duration
-with scheduler occupancy. Keep Linux CPU policy inventory alongside the baseline.
-Then evaluate less polling, timer behavior and deeper idle entry separately.
+Retain targeted secondary-click/cancellation checks, PCM channel/headphone
+listening and network cable recovery in the hardware checklist. Reuse the Pro's
+merged exact-adapter Ethernet support. Its draft USB Wi-Fi firmware/MCU work is
+owned there; scanning and connectivity remain unfinished. Do not duplicate it or
+copy its hardware acceptance to the Air. Each sibling needs captured identities.
 
-**Done when:** measurements are valid and repeatable, and wake/input/storage
-regressions pass. Temperature or idle percentage alone is not an energy result.
+**Done when:** the named provider has matched release/logs and explicit native
+acceptance; skipped checks remain pending. No blanket fleet-wide parity claim.
 
-## 3. Complete laptop services and device acceptance
+## 3. Improve power from repeatable measurements
 
-Use the tested worker/IRQ/EC foundations to develop a bounded native ACPI runtime.
-Resolve early EC binding, module-level AML, transaction ownership, permitted
-regions, interrupt/query handling and teardown before exposing battery/AC state.
-Keep the existing restricted probe separate from ordinary startup. Suspend/resume
-needs its own recovery design and device reinitialization work.
+Compare matched workload, brightness, adapter state and duration using read-only
+package-energy/active-frequency telemetry and scheduler occupancy. Linux policy
+inventory is a comparison baseline. Evaluate polling/timer changes and deeper idle
+separately. Relative charge display is not a calibrated runtime or health estimate.
 
-Physically accept PCM playback and headphone routes. Test actual USB Ethernet
-adapters and extend drivers from captured descriptors, not product guesses.
-Wi-Fi, Bluetooth and additional storage controllers are later device projects.
-
-**Done when:** each service has fault containment, current diagnostics and its
-own on-device evidence; no sibling's acceptance is copied.
+**Done when:** repeatable measurements show improvement without input, storage,
+audio or battery regressions. Temperature and idle percentage alone are not energy.
 
 ## 4. Make the desktop less constrained
 
-Replace the eight preallocated window-cache pairs with demand-sized buffers and
-coordinate process, queue and surface budgets. Handle allocation failure without
-losing the displayed frame or input ownership before raising the window limit.
-Continue reusable controls, keyboard accessibility, consistent app behavior,
-text coverage and save/recovery workflows. Improve high-density rendering after
-explicit 2× scaling has physical evidence.
+Replace eight preallocated window-cache pairs with demand-sized buffers and align
+process, queue and surface budgets. Handle allocation failure before raising the
+limit. Continue reusable controls, keyboard accessibility, app save/recovery and
+text coverage. Native-density typography is separate from current 2× pixel scaling.
 
-**Done when:** workloads beyond eight windows, resize/close/reopen, memory
-pressure and cancellation preserve documents and resource stability.
+**Done when:** workloads beyond eight windows, resizing, close/reopen and memory
+pressure preserve documents, input and resource stability.
 
-## 5. Expand hardware and strengthen the base
+## 5. Suspend and expand hardware deliberately
 
-Bring up Air7,1, Pro11,2, Pro11,3 and Mini7,1 using the
-[common Ubuntu workflow](ubuntu-device-agent-setup.md) and
-[hardware expansion plan](apple-hardware-expansion-plan.md). Improve filesystem
-recovery, network behavior, libc coverage and process isolation as applications
-need them. No date is promised for production readiness or a self-hosting system.
+Suspend/resume needs device quiescence, wake sources, firmware ownership and
+reinitialization with preserved recovery; battery readout does not provide this.
+Continue on-device Air6,1 and Pro11,2 development and independent bring-up of
+Air7,1, Pro11,3 and Mini7,1 through the [Ubuntu workflow](ubuntu-device-agent-setup.md).
+Internal installation, Bluetooth/camera, additional storage, process isolation and
+POSIX/ports progress remain separate work as real applications require them.
 
-The [earlier roadmap](history/roadmap-2026-10-18.md) is retained as history, along
-with the [original desktop plan](desktop-plan-2026-10-17.md).
+No production-readiness or self-hosting date is promised. The
+[October 18 roadmap](history/roadmap-2026-10-18.md) and
+[original desktop plan](desktop-plan-2026-10-17.md) remain historical context.

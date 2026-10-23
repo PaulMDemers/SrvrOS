@@ -141,8 +141,8 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
-    if manifest.get("config_version", "").startswith("ram-usb-v54-"):
-        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release)
+    if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-")):
+        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --services" if manifest["config_version"].startswith("ram-usb-v55-") else ""))
     basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
     session_run="0123456789abcdef"
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))

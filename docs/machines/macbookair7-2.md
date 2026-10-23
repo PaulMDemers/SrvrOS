@@ -2,6 +2,77 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Integrated v55 desktop physically accepted (2026-10-23)
+
+Release `9aa8dbf6fbda8252` (compiled `7ab571f`, staged `d5bb51d`) passed the
+attended combined Home trial. The tester reported everything worked as intended:
+input during playback, brightness/volume, Sensors, battery/AC, document save,
+desktop exit/reopen and monitor reboot. Screenshot `Screen-20261023-183835-4-1`
+shows Text's saved-and-verified `integrated-v55.txt` and `AC · 96%`; the archived
+file contains `Test document`. Only one new screenshot was saved, so reopening
+is supported by the tester report and second lifetime, not a second image.
+
+Sessions `session-00065e86405f5247-00` and `session-00065e864b291935-00` drained
+nine and four peak members respectively. Both battery runtimes retired with one
+attach/detach, zero heap/errors/denials and no rejected samples. All 83 and five
+active SCI deliveries were handled, with zero unclaimed or in-flight interrupts.
+The second boot log confirms the first logger and Home hold release. Final
+release follows its own exit snapshot; the instructed return report, changed
+Ubuntu boot and recovery checks complete that evidence without inventing a final
+log receipt. An earlier same-release session is retained separately.
+
+Five playback processes ran. Final PCM state was done, 1,152,000 bytes submitted
+for the last stream, zero underruns, owner zero and queue empty; HDA was ready
+with no error/pending operation. Brightness requests 58% and 22% applied. The
+final read-only snapshots reported 57/59 C and 1191/1199 RPM, with fresh samples
+and no SMC failures. Boot-scoped providers remain available at the monitor;
+app resources, battery and session logging retire before Home's hold releases.
+
+All existing data files were preserved; only expected `.srvros/meta` changed.
+Offline fsck and independent allocation passed: 985 files, 2057 clusters, zero
+leaks/mismatches/errors. Ubuntu default, consumed one-shot and recovery verified;
+USB is unmounted and no reboot is armed. Current is `9aa8dbf6fbda8252`, previous
+`b427b78f21644bd2`; accepted v54 is independently retained. Payload and evidence
+survive cleanup under `~/.local/share/srvros/known-good/9aa8dbf6fbda8252` and
+`~/.local/share/srvros/accepted-evidence/9aa8dbf6fbda8252`.
+
+### Integration and remaining parity scope
+
+PR76 combines existing brightness, HDA, read-only CPU/SMC and CDC ECM discovery
+with ordinary battery-owned Home. It adds cached 20%/5% warnings and battery-label
+access to System, without firmware I/O in UI paths or new native model gates.
+No Air network adapter is attached: Ethernet acceptance remains separate.
+Headphones/channel isolation, targeted secondary click/cancellation, physical
+low-charge alerts, calibration, battery life and suspend remain open.
+
+The full build/both runtime kernels/core/docs and combined normal, PCM playback,
+pending-save cancellation, unavailable battery and legacy ordinary VM cases
+passed at `7ab571f`. Test follow-up `d5bb51d` checks the final provider snapshots;
+exact staged GRUB/Limine/native EFI also passed with native battery refusal and
+usable apps. Host tests cover warning hysteresis, stale/unavailable suppression,
+notification focus and System routing. Low-charge behavior is synthetic evidence,
+not a physical battery-drain test. Validation artifacts are archived outside build.
+
+After the trial, main `e741c58` was inspected and merged at `7376018`, preserving
+Air6,1's exact brightness gate and separate v56 recipe alongside v53/v54/v55 and
+Pro v37. Full build/both runtime kernels/core/docs passed at `7376018`. Combined
+HDA/battery/save/reopen and exact merged EFI stage `bbd585f9114b6185` passed
+at `bc8bda9`, including final provider ownership and offline allocation. These
+merged artifacts are VM-tested; physical acceptance above stays bound to the
+installed `9aa8dbf6fbda8252` payload. Pro PR19 head `f1785c6` owns bounded USB Wi-Fi
+MCU/baseband work: eleven compact phases/readbacks and read-only TXBE observations
+are recorded; the later write mismatch remains unresolved, and RF/scan/association/
+connectivity are unaccepted. No draft Wi-Fi implementation was copied into this
+branch. See the [parity ledger](../device-parity.md) for shared versus native scope.
+
+During closeout, main advanced to `b01ae95` (Air6,1 exact audio profile and v57).
+It was inspected and merged at `5c975aa`, retaining separate v55/v56/v57 recipes.
+Full build/both runtime kernels/core/docs, combined HDA/battery/save/reopen and
+exact EFI stage `67d88f2345ef97ff` all passed locally at that revision. Updated
+integration evidence is retained outside build; this later payload is not
+installed or physically accepted. No additional Air test is queued.
+
+
 ### Ordinary Home v54 physically accepted (2026-10-23)
 
 Release `fc5b73b074db7884` returned to Ubuntu. The two screenshot-matched sessions
