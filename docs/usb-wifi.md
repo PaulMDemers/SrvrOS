@@ -1286,3 +1286,36 @@ Raw logs and run receipts are archived outside build in
 consumed one-shot, payload hashes and retained desktop recovery were verified.
 Offline workspace checks passed:189 files/532 clusters, zero leaks, allocation
 mismatches or errors. Workspace unmounted; no reboot armed.
+
+### TXBE10 access-path audit after v25
+
+The v25 failure was checked against the pinned Linux v6.18
+[MCU read/write implementation](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c)
+and [USB register access](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/usb.c).
+Command12 sends little-endian WLAN-base/address and value pairs; command10
+provides an independent firmware register-read path. USB request7 reads the
+local register offset directly. No address or byte-order discrepancy was found.
+An independent host reconstruction matched the compiled TXBE10 write packet
+`0800cf50282741000000000000000000`. Its single-register MCU read counterpart
+is `0800af50282741000000000000000000`, using unused sequence15 after phases0..10.
+Host packet checks and compact/MCU regressions pass; no hardware access occurred.
+
+An older vendor-source mirror at commit
+`092d218723b8d50816b3bfb377675f5658a8ac4a` corroborates the address and zero table
+value (`include/phy/rlt_phy.h`, `chips/mt76x0.c`); its `mcu/mcu_and.c` also
+encodes random reads as address/zero pairs. This is corroboration, not a register
+specification. Neither source establishes that TXBE10 must read back its written
+value. The observed TXBE9-associated change does not establish a counter or
+other particular register semantics. Do not import a sibling chip's register
+manual or waive the failed check on that basis.
+
+Selected next diagnostic: replace the isolated write with one MCU TXBE10 read
+at sequence15, bracketed by the existing guarded EP0 observations after the
+accepted eleven phases. Require exact response length, sequence/event, echoed
+address and framing, then compare the returned value with the before/after
+control reads. Log disagreements as evidence, never as initialization acceptance.
+No new diagnostic register writes, retries, sequence reuse or RF enablement.
+Agreement would support consistent reads through both paths; disagreement would
+focus investigation on access-path behavior or timing, not by itself prove which
+path is correct. Implementation and native evidence remain pending. The original
+quartet and v25 zero-write checks remain failed and unchanged.

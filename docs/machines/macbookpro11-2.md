@@ -3155,3 +3155,15 @@ wifi-txbe-second-c96e810/failed-native-collection. Ubuntu default, consumed
 one-shot, installed payload and desktop recovery hashes verified. Workspace
 clean:189files/532clusters, zero leaks/mismatches/errors; unmounted.
 Run/checkpoint collected with failure recorded and no reboot armed.
+
+TXBE10 access-path audit completed: Linux v6.18 MCU and vendor USB transport
+agree with the compiled address/byte encoding; an older vendor-source mirror
+corroborates the numeric table entry but supplies no readback semantics. Host
+independent packet reconstruction and MCU/compact regressions pass. Receipts
+in txbe-access-audit, archived outside build under wifi-txbe-second-c96e810.
+Selected next bounded scope: one command10 TXBE10 MCU read at sequence15 after
+phases0..10, bracketed by guarded EP0 observations, without a diagnostic write,
+retry, identifier reuse or relaxed initialization gate. Native result pending;
+no candidate installed in this audit. Currentf8b4b41d736bd4e2 and desktop
+recoverye47dca3a6b30c6c1 unchanged, no reboot armed. Mainb99bb5b and PR83
+attended-device scope rechecked; actual integrated base22fd266 unchanged.
