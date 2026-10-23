@@ -3298,3 +3298,17 @@ access; one zero write, sequence15 MCU read and eight guarded post-write samples
 must read zero. Touch xHCI/main/profile/tests; dependencies are the accepted
 v28 prerequisite and eleven compact phases. Main df44fa0, PR83/87 inspected;
 actual base22fd266 retained for this comparison. No reboot armed.
+
+Clock-enabled isolated TXBE10 write candidate source `492fb20`, release
+`19f40e64c606d997` installed unarmed. Build, radio/compact/MCU/xHCI tests,
+xHCI ASan/UBSan, 85 boot-profile tests and documentation checks passed. The
+collector accepts synthetic zero readback and rejects21 missing/corrupted or
+conflicting receipts, including clock failures. Exact-stage GPT VM saved,
+unmounted and reset; missing-workspace VM returned without starting the probe.
+Payload, receipts, helpers and run record archived outside build in
+wifi-clock-direct-492fb20. Accepted clock67f92f9c2a4d9365 and desktop recovery
+e47dca3a6b30c6c1 retained. Failed direct-writeacaea56aaa88d52f removed from ESP
+only after complete archived-payload equality verification. Workspace clean:
+195files/541clusters, zero allocation errors; unmounted. Ubuntu remains default.
+Await cold adapter power cycle; collect the exact new session first on return.
+No reboot armed, no native write acceptance yet.
