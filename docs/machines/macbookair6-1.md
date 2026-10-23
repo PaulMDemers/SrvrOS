@@ -873,3 +873,25 @@ backup outside `build`; the earlier speaker acceptance remains intact.
 
 The user explicitly confirmed the early stops were intentional, with no playback
 problem. They are not failures, but do not complete the full-duration target.
+
+## Read-only telemetry trial ready (2026-10-23)
+
+Release `eee15036f4172920`, compiled clean source `60fc97a`, is installed for
+attended run `3f703367ab650765`. MR87 adds captured CPU signature `40651` and
+the exact Air6,1 DSDT/GPU/PCH single-fan profile. The v59 unscaled desktop keeps
+brightness/audio and enables only CPU temperature and SMC fan reads. No fan
+control, EC/AML, battery, SMC MMIO or IRQ6 ownership is enabled. See the
+[telemetry checklist](../macbookair6-1-telemetry.md). Native readings remain pending.
+
+Full build, USB image, core/desktop host suites, 63 boot-profile tests and docs
+checks pass. The actual DSDT matcher passes. The exact staged GPT VM passes
+two desktop sessions, save/reopen, preferences, tone/WAV playback with zero
+underruns, saved device status and clean unmounts. Generic QEMU correctly
+reports thermal/SMC unavailable; this does not accept native readings.
+
+USB `6ADA-85BB` remains unmounted with a 193-file baseline; offline exFAT and
+allocation checks pass (366 clusters, zero leaks/mismatches/errors). Installed
+payload/recovery and independent backups are hash-verified. Console recovery
+`c35475f62f154f1e` and accepted audio `0533c0dfc63d104f` are retained. Ubuntu
+remains default and no reboot is armed. Run records, captures and VM evidence
+are stored locally and copied outside build before boot.
