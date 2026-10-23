@@ -91,11 +91,14 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `36dbc3d`, branch `device/macbookair6-1/telemetry-acceptance`. Close out
-run `3f703367ab650765` using matching native logs and the user's successful
-sensor-display report. Scope is Air6,1 machine/telemetry documentation only;
-no shared subsystem or boot-payload changes. Basic telemetry is accepted;
-longer coexistence and UI-control observations remain bounded follow-up work.
+Base `f310923`, branch `device/macbookair6-1/battery-preflight`. Start independent
+read-only battery/AC bring-up with a passive firmware handoff capture. Scope:
+Air6,1 resource gate, opt-in preflight reader, immutable v60 capture recipe,
+host/VM tests and this machine's documentation. Existing Air7,2 native battery
+ownership is not widened. PR88 owns trackpad timing; PR19 owns Pro USB Wi-Fi.
+Neither overlaps this bounded diagnostic. Next checkpoint is native PM1/GPE/EC
+status evidence with AC connected; battery samples require a later audited
+EC/SCI/NVS/AML profile. No EC command/data, ACPI mode or event writes in this step.
 
 ## First console trial prepared (2026-10-22)
 
