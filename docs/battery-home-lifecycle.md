@@ -473,3 +473,12 @@ log to its staged source/release and new session, verify the saved BMP and all
 pre-existing files, then run offline filesystem/allocation checks. A VM pass
 accepts neither physical gauge accuracy nor native AC transitions. An attended
 unplug/replug and indicator check still precedes ordinary native startup.
+
+
+Air7,2 v51 release `8666698f5e5d4ed5` has now passed this explicit native capture:
+201.276 seconds, 74 samples, 1,110 events, 74 handled/zero unclaimed SCI,
+five inherited members retired, four logs and a 1440x900 screenshot saved.
+Prior data and offline allocation checks passed. The screenshot shows `AC · 97%`;
+AC transitions and physical gauge accuracy still need attended acceptance.
+See the [machine record](machines/macbookair7-2.md) for source/session identities,
+validation and durable evidence. This does not enable ordinary startup.

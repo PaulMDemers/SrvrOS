@@ -810,3 +810,9 @@ Collect the matching session before another run. Require the strict
 source/release identity, prior-file hashes and offline filesystem checks.
 Physical typing and AC/gauge accuracy remain separate attended acceptance.
 See [the Home lifecycle contract](battery-home-lifecycle.md#explicit-automatic-home-capture-v51).
+
+
+The reference Air7,2 accepted v51 release `8666698f5e5d4ed5` with a complete
+201-second native session, periodic/final logs, screenshot and clean filesystem
+retirement. This accepts the explicit automatic workload on that unit only;
+ordinary startup, attended AC transitions and gauge accuracy remain separate.
