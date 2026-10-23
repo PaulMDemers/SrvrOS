@@ -393,3 +393,9 @@ Press/release ordering, immediate activation and logical capture are unchanged.
 Resize/cancel clears the pulse. Host regression covers both tap edges before
 draw, highlighted/restored pixels, delayed/stale frame release and repeat/cancel.
 This fix is not yet physically retested and does not alter the installed v50.
+
+Feedback fix build/desktop host suite and compositor VM passed, including study
+activation, scrollbar capture, focus, drag/resize, client/server cleanup and
+console return/relaunch. Host pixel regression verifies the fast-tap highlight
+and its expiry. Logs: `build/review/air61-feedback-{build,host,compositor}.log`.
+No new hardware stage or installation was made; v50 remains installed unarmed.
