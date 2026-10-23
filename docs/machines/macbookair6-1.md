@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% and basic speaker audio playback physically accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% and bounded speaker/headphone audio playback physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -57,7 +57,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
-| Sound/routes | Basic speaker playback accepted; three tones, completed WAV and cancellation logged with zero underruns | Explicit channel-balance/quality detail, headphone isolation and sustained playback |
+| Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
@@ -91,14 +91,11 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `d3875c7`, branch `device/macbookair6-1/audio-endurance`. Prepare a
-headphone-routing and five one-minute playback trial using accepted v57 release
-`0533c0dfc63d104f` (compiled `8f3656a`). Scope is this unit's test documentation
-and a generated WAV on its USB workspace; no driver, recipe or shared script
-changes. PR #83 owns the shared attended device-check script/v58 on Air7,2;
-PR #19 owns Pro Wi-Fi. Reuse the existing audio fixture and waveform checker,
-without duplicating those scopes. Rehearse the accepted exact payload and a
-five-minute PCM VM soak, preserve recovery, then leave the physical test unarmed.
+Close out headphone trial `5a302d248eee397a` against integration `d2d56a6`.
+Documentation/evidence only; installed v57 `0533c0dfc63d104f` remains unchanged.
+Record user-confirmed headphone/speaker operation and bounded route/Stop checks.
+Long plays were canceled early, so five-minute native endurance remains incomplete.
+Preserve the separate run evidence and accepted recovery; no reboot is armed.
 
 ## First console trial prepared (2026-10-22)
 
@@ -845,3 +842,28 @@ Stop/recovery and return to speakers. Console recovery `c35475f62f154f1e`
 remains previous; Ubuntu stays default. No reboot is armed. On return identify
 new sessions against this run's preboot hashes: the release ID is deliberately
 the same as the earlier accepted speaker trial. Preserve the prior trial evidence.
+
+## Headphone trial return (2026-10-23)
+
+The user reports all headphone and speaker audio worked as intended. New
+sessions `00065e879b6e0aac-00` and `00065e87be98c776-00` both exited cleanly.
+The first initialized without playback. The second records connected headphones,
+manual headphone selection at 10%, two headphone tones, a complete 1,152,000-byte
+channel WAV, subsequent Stop requests, selection back to speakers and a third
+completed tone. Audio ended ready with no owner, error or underruns.
+
+Three longer streams were canceled: handles 2/3 on headphones and 4 on speakers.
+No complete 11,520,000-byte one-minute stream is evidenced, so the five-minute
+native endurance target is **incomplete**, not passed. Headphones still reported
+connected at exit; disconnected-jack indication is not established. The user's
+listening report accepts bounded headphone/speaker operation; individual
+left/right and speaker-isolation observations were not separately enumerated.
+
+All 185 preboot files remain unchanged except `.srvros/meta`; eight new session
+logs were added. Offline exFAT/allocation checks pass: 193 files, 366 clusters,
+no leaks/mismatches/errors. Ubuntu returned with empty one-shot and verified
+payload/recovery hashes. Return evidence is retained in this run's separate
+backup outside `build`; the earlier speaker acceptance remains intact.
+
+The user explicitly confirmed the early stops were intentional, with no playback
+problem. They are not failures, but do not complete the full-duration target.

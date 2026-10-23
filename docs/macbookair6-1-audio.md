@@ -2,7 +2,7 @@
 
 This unit's captured analog controller is Intel `8086:9c20`, with CS4208
 `1013:4208`, subsystem `106b:7100`, revision `100300`, AFG 1. The separate
-`8086:0a0c` HDMI controller is not admitted. Basic native speaker playback is accepted; headphone routing remains pending.
+`8086:0a0c` HDMI controller is not admitted. Bounded native speaker/headphone playback is accepted; five-minute native endurance remains incomplete.
 
 ## Route evidence and bounds
 
@@ -130,3 +130,18 @@ revision describes its harness; payload identity is established separately by
 matching guest kernel/initramfs hashes to the accepted manifest. The exact v57
 GPT desktop/audio boot rehearsal remains a separate receipt. QEMU cannot prove
 headphone wiring or isolation; those require the attended checks above.
+
+## Headphone return, 2026-10-23
+
+The user reports that all headphone and speaker audio worked as intended.
+Session `00065e87be98c776-00` records connected headphones, manual headphone
+selection, a completed short channel WAV, Stop/recovery and return to speakers.
+Three test tones completed; no audio errors or underruns occurred. This accepts
+bounded headphone/speaker operation. Detailed per-channel/isolation observations
+were not individually recorded, and the jack still reported connected at exit.
+The three longer streams were canceled early: no full one-minute completion is
+logged, so the five-minute native endurance target remains incomplete. See the
+[machine record](machines/macbookair6-1.md) for preserved files and return checks.
+
+The user explicitly confirmed the early stops were intentional, with no playback
+problem. They are not failures, but do not complete the full-duration target.
