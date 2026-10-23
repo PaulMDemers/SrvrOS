@@ -362,3 +362,40 @@ and GRUB syntax verified; one-shot is empty. Run/checklist and exact VM evidence
 have hash-verified durable backups under release `f8e370a084725baa`. At readiness
 save `launch.json` and arm the already installed entry without reinstalling.
 Collect run `4eb6e6e65525268d` first after manual restart.
+
+## Tap/typing accepted; study feedback follow-up (2026-10-22)
+
+Run `4eb6e6e65525268d`, release `f8e370a084725baa`, source `1977c8b`: the user
+reports everything worked as intended, with one UI defect: tapping Text size
+activates it but lacks the brief pressed-color feedback seen on physical click.
+Collector verifies CRC/completion and host return; tap/typing, pointer and
+gesture trials are EXERCISED, keyboard/desktop exit PASS. Counts: 18 primary
+taps, 150 typing-suppressed frames, 326 scroll events, 2,484 reports, zero
+malformed reports/errors/cancels/queue overflows or dropped keys. This accepts
+bounded primary taps and typing suppression/recovery with positive user feedback.
+Secondary taps and broad-contact rejection remain unexercised in this run.
+
+All 115 unrelated file hashes are preserved; only expected consumed request,
+workspace metadata and report/completion changes occurred. Offline fsck and
+allocation pass. Evidence has a hash-verified durable backup under this release;
+Ubuntu returned and one-shot is empty. No new boot is prepared.
+
+Follow-up scope on base `14f17d2`, branch `device/macbookair6-1/tap-feedback`:
+fix only the Type study's visual activation feedback with presentation-aware
+expiry and regression tests. Its receive batch can consume both tap edges
+before drawing. Preserve immediate activation and input order; no driver,
+shared-widget or firmware policy changes. PR #19 Wi-Fi is independent. The
+newer integrated battery/lifetime work is outside the physical trial acceptance.
+
+The Type study now retains a visual-only activation pulse through the highlighted
+frame's compositor release, then clears it after ten ticks (about 100 ms).
+Press/release ordering, immediate activation and logical capture are unchanged.
+Resize/cancel clears the pulse. Host regression covers both tap edges before
+draw, highlighted/restored pixels, delayed/stale frame release and repeat/cancel.
+This fix is not yet physically retested and does not alter the installed v50.
+
+Feedback fix build/desktop host suite and compositor VM passed, including study
+activation, scrollbar capture, focus, drag/resize, client/server cleanup and
+console return/relaunch. Host pixel regression verifies the fast-tap highlight
+and its expiry. Logs: `build/review/air61-feedback-{build,host,compositor}.log`.
+No new hardware stage or installation was made; v50 remains installed unarmed.
