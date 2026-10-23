@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Offline EC contract and native passive handoff capture accepted | Full model-specific runtime audit, bounded samples; ordinary AML stays off |
+| Battery/AC | Passive native handoff accepted; connected offline runtime audited and isolated five-sample candidate implemented | Native bounded samples and retirement; ordinary desktop remains off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation

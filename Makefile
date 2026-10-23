@@ -3305,7 +3305,7 @@ build/acpi-battery/vm.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UAC
 test-core: test-battery-native-policy
 test-battery-native-policy: build/tests/battery-native-policy$(HOST_EXE)
 	$<
-build/tests/battery-native-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h
+build/tests/battery-native-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h ports/srvros/uacpi/runtime/battery_bounded_policy.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 
@@ -3481,3 +3481,29 @@ test-battery-preflight: build/tests/battery-preflight-host$(HOST_EXE)
 build/tests/battery-preflight-host$(HOST_EXE): tools/test_battery_preflight.c kernel/src/drivers/laptop_probe.c kernel/include/srvros/laptop_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_battery_preflight.c -o $@
+
+# Air6,1 is a separate five-sample diagnostic binary, never a desktop profile.
+.PHONY: acpi-air61-battery-kernel
+acpi-air61-battery-kernel: build/acpi-air61-battery/srvros.elf
+build/acpi-air61-battery/srvros.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-air61-battery/battery_native_platform.o kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-air61-battery/battery_native_platform.o: ports/srvros/uacpi/runtime/battery_native_platform.c $(ZIG) $(UACPI_HEADERS) $(KERNEL_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -DSRVROS_BATTERY_AIR61 -c $< -o $@
+-include build/acpi-air61-battery/battery_native_platform.d
+
+.PHONY: test-air61-battery-policy
+test-core: test-air61-battery-policy
+test-air61-battery-policy: build/tests/air61-battery-policy$(HOST_EXE)
+	$<
+build/tests/air61-battery-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h ports/srvros/uacpi/runtime/battery_bounded_policy.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_BATTERY_AIR61 $< -o $@
+
+.PHONY: test-air61-battery-profile
+test-core: test-air61-battery-profile
+test-air61-battery-profile: build/tests/air61-battery-profile$(HOST_EXE)
+	$<
+build/tests/air61-battery-profile$(HOST_EXE): tools/test_air61_battery_profile.c ports/srvros/uacpi/runtime/battery_native_platform.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
