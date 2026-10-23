@@ -22,6 +22,7 @@
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
 #include <srvros/monitor.h>
+#include <srvros/desktop_session.h>
 #include <srvros/net.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
@@ -511,6 +512,7 @@ static void render_stress(void) {
 static void print_help(void) {
     console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
     console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
+    console_write("desktop battery: ordinary Home session with opt-in battery monitoring; Ctrl+Alt+Esc exits\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
 }
 
@@ -1080,6 +1082,9 @@ static void run_command(char *line) {
         command_unmount(args);
     } else if (streq(command, "workspace")) {
         command_workspace(args);
+    } else if (streq(command, "desktop")) {
+        if(args && streq(args,"battery"))desktop_battery_session_run();
+        else console_write("usage: desktop battery (requires mounted Home and battery runtime kernel)\n");
     } else if (streq(command, "reboot")) {
         if (workspace_active() && !workspace_unmount()) {
             console_write("reboot: workspace could not be unmounted\n");

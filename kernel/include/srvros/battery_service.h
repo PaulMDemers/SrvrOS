@@ -3,7 +3,7 @@
 #include <srvros/sbs_sample.h>
 struct limine_memmap_response;
 
-/* Kernel contract only. No native service is enabled by ordinary desktop boot.
+/* Kernel contract only. Native service startup requires an explicit opt-in.
  * Hardware access stays with one CPU0 lifecycle owner and its EC/AML worker. */
 enum battery_service_state {
     BATTERY_SERVICE_DISABLED, BATTERY_SERVICE_STARTING, BATTERY_SERVICE_ACTIVE,

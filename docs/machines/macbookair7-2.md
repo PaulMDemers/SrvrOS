@@ -1,6 +1,81 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
+
+### Ordinary Home v54 physically accepted (2026-10-23)
+
+Release `fc5b73b074db7884` returned to Ubuntu. The two screenshot-matched sessions
+`session-00065e84a072f3e3-00` and `session-00065e84a5ba22cc-00` record distinct
+inherited lifetimes, with eight and five peak members. Both drain to zero and
+retire the battery runtime with one attach/detach, zero retained heap, errors or
+denied operations. There were 29 and 14 sample attempts, no rejected samples,
+and 29 and 24 handled SCI deliveries with zero unclaimed. The second boot log
+also verifies the first session's logger completion and Home hold release.
+
+Both saved screenshots show `AC · 96%`: Text first reports the document saved
+and verified, then opened with identical contents after the desktop restart.
+The document and screenshots are backed up; all prior non-metadata files are
+unchanged. Offline fsck and independent allocation pass: 972 files, 2,002 allocated
+clusters, zero leaks/mismatches/errors. Ubuntu default, consumed one-shot and
+installed recovery are verified; USB is unmounted. Current is `fc5b73b074db7884`,
+previous remains `b427b78f21644bd2`. No reboot is armed.
+
+An additional earlier same-release session is retained separately; it is not
+substituted for the paired save/reopen evidence. Final logger/mount release is
+after the final exit snapshot. The tester confirmed normal app/input behavior and return using monitor
+`reboot`, completing this scoped physical acceptance. Evidence and payloads survive
+build cleanup under `~/.local/share/srvros/accepted-evidence/fc5b73b074db7884`
+and `~/.local/share/srvros/known-good/fc5b73b074db7884`. Main `bd1e834` was fetched and inspected: PR71 file identities and PR73
+preference trial tooling are now merged upstream, but are not part of this
+physical candidate. Main was subsequently merged at `bda091c`; full build/both runtime kernels,
+core/docs, workload regressions and normal/cancel/profile-refusal ordinary Home
+VMs passed locally. Integration evidence is archived outside build. These later
+file-identity changes are VM/host validated here; physical acceptance above
+remains tied to the installed `fc5b73b074db7884` payload.
+
+### Attended v54 trial preparation (2026-10-23)
+
+Preparing tested release `fc5b73b074db7884` for ordinary Home app/save/exit/reopen
+acceptance. Main `58b354f` was inspected and merged; it adds only Air6,1 evidence,
+so staged binaries remain unchanged. PR71 (`9c0b09c`) owns imported file identities
+and PR19 (`d4f8be5`) owns Wi-Fi; neither is included in this candidate. Read-only
+USB metadata inspection found no duplicate IDs within Home; existing cross-path
+collisions are retained as evidence rather than repaired for this trial. Scope
+is this unit's run records, recovery checks, installation and collection. Human
+app use is required. See the local checkpoint for actual armed/returned state.
+
+### Ordinary Home battery startup: locally validated (PR #69)
+
+Base `80b567a` includes Air6,1 PR #68. The distinct v54 `--desktop-battery`
+profile opens ordinary Home apps with continuous battery monitoring, no capture
+timer and no forced exit. Ctrl+Alt+Esc drains inherited apps, stops the service,
+finishes logging and releases the mount hold. Home stays mounted; `desktop battery`
+reopens the session. Default startup remains off and exact native gates remain
+unchanged. Air6,1 v53 and Pro PR #19 (`b816acd`) are preserved.
+
+The core/build/docs suite and ordinary boot matrix passed on `538c2e9`: normal
+files/orphan jobs, pending-save exit, unavailable profile, native refusal with
+usable apps, missing Home/runtime/opt-in, uncertain acknowledgement containment,
+legacy command refusal and System alarm/Stop/restart. An initial EFI fixture
+had no reference clock and exposed unsafe session entry before blocking was
+possible. The entry now refuses before ownership when clock/context prerequisites
+are missing. Full build/core passed again on `e1ee996`; `a37ef21` changes only
+the VM fixture command. Missing-clock and normal/reopen checks then passed.
+
+Exact stage `fc5b73b074db7884` (source `a37ef21`) passed GRUB → staged Limine →
+native kernel on disposable Q35 EFI. The expected native profile refusal kept
+Text, Files and Terminal usable; two distinct inherited lifetimes and logs retired,
+files/allocation were verified, and monitor reboot completed. The first lifetime
+peaked at eleven members. The shared cache-to-ABI-to-view test covers expiry,
+rejected AC coherence, recovery and unavailable presentation without a stale
+percentage. Screenshots show fresh and unavailable labels in the appropriate VMs.
+
+Evidence and payloads are retained outside `build` under
+`~/.local/share/srvros/local-validation/home-session-a37ef21549f9`.
+These checks were host/VM evidence; the subsequent attended acceptance is
+recorded above. Before that trial, installed current was `c06f94a5893a402d` and
+previous was `b427b78f21644bd2`. Gauge calibration, battery life and sibling
+hardware remain separate. Actions remain disabled.
 
 ### Guided Home AC/indicator transitions accepted (PR #66)
 

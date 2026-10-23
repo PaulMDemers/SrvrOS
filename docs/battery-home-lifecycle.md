@@ -4,7 +4,8 @@ The Air's accepted v47 capture runs the real Text file worker alongside native
 SMBus completion events, but its outer workspace is parked. An exclusive image
 lease bounds which storage can change. Ordinary mounted Home removes that bound:
 apps, settings and logging can retain open files or asynchronous work. Native
-Home monitoring and automatic startup remain disabled outside the explicit diagnostic.
+Home monitoring remains default-off; the explicit ordinary session described below
+reuses the accepted continuous capture owner.
 The later v49 held-Home desktop session is now physically accepted on Air7,2:
 release `fd6f6b9d397c339f` completed three service lifetimes, all 60 generated
 edits and five exact file cycles, then retired before saving and unmounting.
@@ -530,3 +531,66 @@ This accepts the explicit native transition/indicator path. Ordinary native
 startup and calibrated gauge accuracy remain separate milestones. See the
 [machine record](machines/macbookair7-2.md) for source/session identities and
 why Ubuntu's absolute SOC differs from the relative SOC displayed here.
+
+## Opt-in ordinary Home startup
+
+The v54 `--desktop-battery` profile opens ordinary Home apps and starts battery
+monitoring without a capture timer, generated edits or forced desktop exit.
+This is an explicit opt-in; the default kernel/desktop remains unchanged. Exact
+native model, firmware and resource gates still apply. Unsupported hardware
+shows unavailable battery information and retains a usable desktop. Cache reads
+never initiate firmware work. Stale readings lose their percentage label; they
+are not displayed as a current charge estimate.
+
+Build and stage matched artifacts:
+
+```sh
+tools/host-env.sh make -j2 all usb-image acpi-battery-kernel acpi-battery-vm-kernel
+python3 tools/hardware_boot.py stage --desktop-volume YOUR-UUID --desktop-battery
+```
+
+The staged command line selects `srvros.desktop=session srvros.battery=on` and
+mounts the UUID-selected Home volume. It enables gestures but no unrelated audio,
+brightness, network, sensor or optional AML probe. This profile is separate from
+Air6,1's v53 basic desktop; it does not establish a sibling battery profile.
+The full-runtime kernel is required. Missing/unwritable Home or a runtime-less
+kernel refuses session entry and returns to the monitor. Missing reference clock
+or blocking context also refuses before any lifetime, logger or mount hold is acquired.
+
+Use **Ctrl+Alt+Esc** to exit. The owner revokes controls, drains the inherited app
+lifetime (including orphan jobs), stops battery work, finishes logging and then
+releases the mount hold. Home remains mounted. `desktop battery` opens another
+session; `reboot` flushes and unmounts before returning to Ubuntu. Unsaved app
+changes follow existing desktop close behavior. An uncertain live firmware owner
+still halts without pretending to release resources or writing a final log.
+This ordinary profile is interactive and does not automatically reboot.
+
+VM validation uses disposable disks only:
+
+```sh
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session
+# Repeat with --case cancel, profile-refusal, refusal, or runtime-fault.
+# Admission checks: --case missing-workspace, runtime-missing, opt-out, or clock-missing.
+# Exact staged native payload on Q35 must keep apps usable with battery unavailable:
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage RELEASE
+```
+
+Normal/clean-unavailable cases save real Text and Terminal files, keep orphan
+jobs owned, finish periodic logs, exit and reopen within the same boot. The
+pending-save case exits after submission. Offline checks verify file bytes,
+log lifetimes and allocation. The runtime-fault case must retain ownership and
+halt; it cannot count as a clean exit. The older command-only fixture remains
+VM-only. These checks do not establish native v54 acceptance; follow the device
+setup guide's exact-stage, recovery and run-record sequence before hardware use.
+
+
+Air7,2 release `fc5b73b074db7884` (source `a37ef21`) passed the attended ordinary
+Home trial on October 23. Two sessions saved/reopened a real Text document and
+showed `AC · 96%` in screenshots. Both inherited lifetimes and native runtimes
+retired cleanly; the tester confirmed normal input/apps and monitor reboot.
+Prior data stayed unchanged and offline allocation/recovery checks passed.
+The first logger/mount release is recorded in the second boot log; the final
+release follows its exit snapshot and is not claimed as a persisted receipt.
+This accepts ordinary opt-in startup, the cached indicator and exit/reopen on
+this unit. Default startup remains off. Calibration, battery life, suspend and
+sibling firmware remain outside this result. See the [machine record](machines/macbookair7-2.md).

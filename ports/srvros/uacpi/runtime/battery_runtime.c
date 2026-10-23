@@ -12,6 +12,7 @@
 #include "ec_query_budget.h"
 #include "ec_query_rearm.h"
 #include <srvros/battery_diagnostic.h>
+#include <srvros/desktop_session.h>
 #include <srvros/battery_cache.h>
 #include <srvros/battery_control.h>
 #include <srvros/arch.h>
@@ -76,8 +77,8 @@ static bool recovery_study;
 static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbus_controls;
 static uint64_t smbus_workspace_hold;
 static bool mounted_home;
-/* Continuous sessions are explicit: VM command or bounded native boot capture. */
-static bool continuous_home, desktop_home, desktop_capture, desktop_transitions;
+/* Continuous sessions require an explicit command, capture or Home boot profile. */
+static bool continuous_home, desktop_home, desktop_capture, desktop_transitions, desktop_session;
 static uint64_t home_session_events;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
@@ -1686,13 +1687,13 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     uint64_t capture_start=timer_monotonic_us(),first_generation=0,last_generation=0;
     if(bound && continuous_home) {
         bool started=battery_service_start(rsdp,map);
-        console_printf("battery-monitor: auto_start=%u native=%s\n",(uint64_t)started,desktop_capture?"explicit-capture":"disabled");
+        console_printf("battery-monitor: auto_start=%u native=%s\n",(uint64_t)started,desktop_capture?"explicit-capture":desktop_session?"explicit-session":"disabled");
     }
     if(bound)for(;;) {
         if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
         if(!lifetime)desktop_tree_scan(&tree);
         controls_dispatch(rsdp,map);
-        if(workspace && !guarded) {
+        if(workspace && !desktop_session && !guarded) {
             struct battery_service_status state;battery_service_status(&state);
             if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {
                 mounted_study_guard();guarded=true;
@@ -2123,11 +2124,12 @@ static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) 
 /* The explicit Home command uses the same session owner as the VM study.
  * Its capability is held through client retirement and every Start/Stop epoch;
  * runtime_open still checks the exact native controller/firmware profile.
- * No ordinary startup or fatal reset privilege is granted here. */
+ * Only the explicit Home entry opts into ordinary startup; no fatal reset
+ * privilege is granted while storage remains mounted. */
 static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,unsigned files,bool home,bool continuous) {
     if((!home && !battery_platform_workspace_study_allowed()) || !workspace_active() || workspace_image_busy() ||
        scheduler_io_active() || mounted_home || continuous_home || smbus_study || smbus_capture || query_study || query_capture ||
-       (continuous && (!home || (!desktop_capture && !battery_platform_workspace_study_allowed()))) ||
+       (continuous && (!home || (!desktop_capture && !desktop_session && !battery_platform_workspace_study_allowed()))) ||
        owner!=OWNER_NONE || controls.group || service.running || service.quarantined) {
         console_write(home?"battery-workspace-controls: REFUSED explicit Home ownership\n":"battery-workspace-controls: REFUSED VM-only mounted study\n");return false;
     }
@@ -2135,10 +2137,11 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     smbus_study=!home;mounted_home=home;smbus_controls=true;home_session_events=0;continuous_home=continuous;
     console_printf("battery-workspace-controls: begin mounted=yes native=%s\n",home?"explicit":"disabled");
     if(desktop_capture)console_write("battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=explicit-capture\n");
+    else if(desktop_session)console_write("battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=explicit-session\n");
     else if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
     if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
     bool logging=!desktop_home || (desktop_capture?workspace_log_active():workspace_log_start());
-    if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=%s\n",logging?"started":"FAILED",desktop_capture?"explicit-capture":"disabled");
+    if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=%s\n",logging?"started":"FAILED",desktop_capture?"explicit-capture":desktop_session?"explicit-session":"disabled");
     bool complete=logging && controls_test(rsdp,map,automatic,true,files);
     if(desktop_home) {
         if(!workspace_log_quiesce(5000))unsafe("desktop logger retirement");
@@ -2170,6 +2173,16 @@ static bool home_desktop_capture_run(void *rsdp,struct limine_memmap_response *m
     else console_write("battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none\n");
     bool ok=workspace_controls_test(rsdp,map,false,0,true,true);
     desktop_home=desktop_capture=desktop_transitions=false;
+    return ok;
+}
+/* Explicit ordinary session, never selected by default boot or cache reads.
+ * The same inherited lifetime and exact mount hold span every service epoch. */
+bool battery_home_desktop_session_run(void *rsdp,struct limine_memmap_response *map) {
+    if(desktop_home || desktop_capture || desktop_session || continuous_home || workspace_log_active())return false;
+    if(!battery_diagnostic_auto_return(false))return false;
+    desktop_home=desktop_session=true;
+    bool ok=workspace_controls_test(rsdp,map,false,0,true,true);
+    desktop_home=desktop_session=false;
     return ok;
 }
 bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {

@@ -8,6 +8,13 @@ historical prototypes. Start the current desktop from the SrvrOS monitor:
 run /fat/bin/deskd
 ```
 
+For an explicitly enabled Home session with battery monitoring, use the full
+battery runtime and `desktop battery` after mounting Home. **Ctrl+Alt+Esc**
+returns to the monitor after app, battery and log cleanup; Home stays mounted
+for reopening. Default `deskd` startup does not start firmware work. See
+[ordinary Home startup](battery-home-lifecycle.md#opt-in-ordinary-home-startup)
+for the v54 boot profile and validation limits.
+
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes
 and live sensor display. Physical two-finger pressing now selects secondary click at press;
