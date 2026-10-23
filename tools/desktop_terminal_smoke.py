@@ -27,6 +27,7 @@ def main():
         fixture.add_directory_files("read-fixture",{
             "long.txt":b"x"*300+b"\nkeep-next\n",
             "check.sh":b"read OVER\necho overflow-status=$?\nread NEXT\necho next=$NEXT\n",
+            "tap.txt":b"vm-timing-skipped\nvm-input-skipped\nvm-link-down-skipped\nvm-link-up-skipped\n\n",
             "trackpad.txt":b"vm-press-skipped tap-skipped\nvm-drag-skipped cancel-skipped\n\n"})
         (tmp/"disk.exfat").write_bytes(fixture.data)
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
@@ -130,6 +131,13 @@ def main():
                 wait(b"Checks recorded. Completion is NOT a pass");wait(b" $ ")
                 serial.sendall(b"cat /fat/read-fixture/trackpad-checks/observations.txt\n")
                 wait(b"secondary-input: vm-press-skipped tap-skipped");wait(b"drag-cancel: vm-drag-skipped cancel-skipped");wait(b" $ ")
+                serial.sendall(b"HOME=/fat/read-fixture sh /fat/share/examples/tap-checks.sh < /fat/read-fixture/tap.txt\n")
+                wait(b"Checks recorded. Completion is NOT a pass");wait(b" $ ")
+                serial.sendall(b"cat /fat/read-fixture/tap-checks/observations.txt\n")
+                wait(b"tap-timing: vm-timing-skipped");wait(b"input-regressions: vm-input-skipped")
+                wait(b"network-down-ui: vm-link-down-skipped");wait(b"network-up-ui: vm-link-up-skipped");wait(b" $ ")
+                serial.sendall(b"cat /fat/read-fixture/tap-checks/sequence.txt\n")
+                wait(b"started\r\ncompleted");wait(b" $ ")
                 serial.sendall(b"exit\n");wait(b"srv> ")
                 # 820x500 client + 180x50 drag, minus terminal insets 54x98,
                 # with current 10x22 cells: 94 columns and 20 rows.

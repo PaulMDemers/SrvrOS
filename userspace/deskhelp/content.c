@@ -126,6 +126,8 @@ static const struct desk_document_block find_guide[]={
  N(9,"The first 256 matches are shown; a notice appears when more exist. Paths must fit within 159 UTF-8 bytes, and skipped paths are reported. Searches reflect the currently mounted VFS; they are not an index or an atomic filesystem snapshot. Missing or changed results can fail to open. The search deadline is 60 seconds. Small windows keep kind selection in the menu and keyboard shortcuts.")};
 static const struct desk_document_block laptop_trial[]={
  T(1,"Laptop desktop trial"),
+ H(39,"Tap timing and live network follow-up"),
+ P(40,"For the current short trial, open Terminal and run sh /fat/share/examples/tap-checks.sh. Try relaxed two-finger taps, scrolling, resting contacts and held-click dragging. Then keep System / Network visible while disconnecting and reconnecting only the Ethernet cable. Save screenshots of link down and up. Keep the USB adapter and flash drive attached. Reports go to a new Home/tap-checks folder, preserving earlier rounds. Prompts wait indefinitely. Finish with Ctrl-Alt-Escape, wait for USB unmounted=yes, then type reboot."),
  H(37,"Trackpad-only follow-up"),
  P(38,"If your audio and Ethernet round has already been collected, open Terminal and run sh /fat/share/examples/trackpad-checks.sh. This tests physical secondary click, two-finger tap, held-click steering, scrolling and Sketch Escape. It saves a separate Home/trackpad-checks folder and does not repeat audio or network tests. Prompts wait for you; paste is kept on one line until you press Return. At the end save a screenshot, Ctrl-Alt-Escape, wait for USB unmounted=yes and type reboot."),
  H(34,"Headphones, Ethernet and right-click checks"),

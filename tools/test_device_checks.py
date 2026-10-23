@@ -18,7 +18,7 @@ class DeviceChecks(unittest.TestCase):
         self.bin.mkdir()
         examples = self.root / 'share/examples'
         examples.mkdir(parents=True)
-        for name in ('device-checks.sh', 'network-trial.sh', 'trackpad-checks.sh'):
+        for name in ('device-checks.sh', 'network-trial.sh', 'trackpad-checks.sh', 'tap-checks.sh'):
             text = (ROOT / 'userspace/examples' / name).read_text()
             (examples / name).write_text(text.replace('/fat', str(self.root)))
         (examples / 'network-check.sh').write_text('echo dhcp-status=0\necho dns-status=0\necho http-status=0\necho HTTP-fixture\n')
@@ -46,6 +46,38 @@ class DeviceChecks(unittest.TestCase):
         self.assertNotEqual(self.run_checks('overwrite\n').returncode,0)
         self.assertEqual(before,{p.name:p.read_bytes() for p in report.iterdir()})
         self.assertEqual((original/'observations.txt').read_text(),'original audio/network evidence\n')
+
+    def test_tap_followup_preserves_reports_and_partial_observations(self):
+        self.script=self.script.with_name('tap-checks.sh')
+        for name in ('device-checks', 'trackpad-checks'):
+            prior=self.home/name;prior.mkdir()
+            (prior/'observations.txt').write_text('earlier evidence\n')
+        # EOF at the network-up prompt must preserve the down report, not complete.
+        r=self.run_checks('tap-easier\nno-extra-menu\ndown-visible\n')
+        self.assertNotEqual(r.returncode,0)
+        report=self.home/'tap-checks'
+        self.assertEqual((report/'sequence.txt').read_text(),'started\n')
+        self.assertIn('network-down-ui: down-visible',(report/'observations.txt').read_text())
+        self.assertTrue((report/'network-down.txt').exists())
+        self.assertFalse((report/'network-after.txt').exists())
+        before={p.name:p.read_bytes() for p in report.iterdir()}
+        self.assertNotEqual(self.run_checks('overwrite\n').returncode,0)
+        self.assertEqual(before,{p.name:p.read_bytes() for p in report.iterdir()})
+        for name in ('device-checks','trackpad-checks'):
+            self.assertEqual((self.home/name/'observations.txt').read_text(),'earlier evidence\n')
+
+    def test_tap_followup_complete_records_observations_not_pass(self):
+        self.script=self.script.with_name('tap-checks.sh')
+        r=self.run_checks('still-strict\nscroll-menu-bug\ndown-visible\nup-visible\n\n')
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        report=self.home/'tap-checks'
+        self.assertEqual((report/'sequence.txt').read_text(),'started\ncompleted\n')
+        for item in ('tap-timing: still-strict','input-regressions: scroll-menu-bug',
+                     'network-down-ui: down-visible','network-up-ui: up-visible'):
+            self.assertIn(item,(report/'observations.txt').read_text())
+        for name in ('network-before.txt','network-down.txt','network-after.txt'):
+            self.assertIn('link=up',(report/name).read_text()) # Stub, not physical state.
+        self.assertIn('Completion is NOT a pass',r.stdout)
 
     def test_eof_never_completes(self):
         result = self.run_checks('')

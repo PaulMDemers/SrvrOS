@@ -4,6 +4,17 @@ Updated: 2026-10-23. State: **active reference machine; partial device acceptanc
 
 ### Active scope: close device acceptance; refine two-finger tap timing
 
+PR88's next attended trial adds `tap-checks.sh`, image packaging and Help-first
+instructions, with host and guest script regression coverage. It preserves prior
+report directories and separately records tap feel, unintended menus/dragging,
+and System link-down/up observations plus interface snapshots. User gestures and
+Ethernet cable changes are required; USB stays attached. Preparation is authorized;
+announce before arming the one-shot. Keep accepted `9aa8dbf6fbda8252` recovery.
+Main `36dbc3d` (Air6,1 telemetry/v59) was inspected and merged; its exact sibling
+profile does not widen Air7,2 firmware access. Pro PR19 `fea9f67` owns the separate
+clock-enabled TXBE write comparison, installed but not yet natively accepted.
+No overlapping pointer policy change or Wi-Fi code is imported.
+
 Trackpad-only release `4414f888007a8407` (compiled `b1486c6`, staged `d510c39`)
 returned and was collected from session `session-00065e87d79869ca-00`.
 Saved observations explicitly confirm physical secondary click and secondary tap;

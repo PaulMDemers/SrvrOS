@@ -87,3 +87,11 @@ For the next attended trial, try relaxed staggered arrival/lift, then deliberate
 scrolls and long resting contacts to check for unwanted menus. Recheck ordinary
 one-finger taps and held physical drags. Keep earlier trackpad reports archived;
 the checklist refuses an existing report directory and must not overwrite it.
+
+The combined follow-up uses `sh /fat/share/examples/tap-checks.sh` and creates
+`Home/tap-checks`, preserving both earlier checklist directories. Help shows this
+command first. After tap observations it pauses for System's live Network view:
+unplug only Ethernet, capture the down display, record it while still disconnected,
+then reconnect, capture the up display and record again. Each phase saves an
+`ifconfig` snapshot. These snapshots do not substitute for the prompted visual
+observations or screenshots. No audio replay or timed exit is included.
