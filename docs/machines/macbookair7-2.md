@@ -2,38 +2,41 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: audio, Ethernet and secondary-input acceptance
+### Active scope: finish device acceptance and multiline paste correction
 
-Starting from merged main `b99bb5b`, the reference Air owns a focused attended
-round for headphone/channel isolation, USB Ethernet DHCP/DNS/HTTP and cable/UI
-recovery, plus two-finger secondary press/tap and primary drag preservation.
-The newly attached `0b95:1790` revision `0200` at 5 Gb/s exactly matches all 98
-bytes of the existing ECM configuration-3 fixture. Ubuntu uses NCM configuration
-2 with a 1000 Mb/s link; no host configuration switch is needed. Native acceptance
-is pending. This is evidence of identity, not a networking pass.
+Collected release `b6306e33e9590538` / v58 (source `2ae5e7a`) after the
+October 23 attended round. The tester reports normal operation. Speaker and
+headphone observations each say success; both six-second files completed with
+zero underruns. The Stop replay exited 1 with an empty queue and no owner;
+the user recorded successful audio controls. HDA remained ready with no error,
+five test requests completed, and the jack was connected at final exit. Audible
+channel/isolation acceptance is based on the prompted tester observations;
+final unplug/speaker recovery is not independently established by that snapshot.
 
-Use the explicit v58 guided device profile and its on-screen Help, not a new
-battery/firmware gate. Scope is a focused Help checklist, an explicit attended
-report script, host/script and exact-stage VM validation, and this unit's run/
-collection record, plus explicit startup dispatch/recipe. Keep accepted v55 payload/evidence and Ubuntu recovery.
-Pro PR19 owns Wi-Fi; Air6,1 audio PR82 is already included in main. Listening,
-cable changes and gestures need human input, with no countdown or forced exit.
+The exact `0b95:1790` rev0200 adapter passed native DHCP, DNS and HTTP 200 both
+before and after cable removal. The disconnected report showed link down and
+DHCP failure. Network Utility's DNS query also completed. Live System link-down
+refresh was not captured (saved refreshes show link up), so retain that narrow
+visual check separately. This does not establish USB hot-unplug recovery.
 
-The prepared attended candidate is `b6306e33e9590538`, v58, compiled/staged
-from `2ae5e7a`; exact EFI harness follow-up `067ff95` changes only how the test
-captures the DHCP builtin output. Local full build/core/docs, 62 boot-tool tests,
-three checklist host cases, guest checklist EOF/replay/saved observations,
-ECM traffic/cable recovery and network UI tests passed. Exact staged GRUB/EFI
-with GPT workspace, ECM DHCP, HDA tone/channel WAV, Text save, screenshot,
-preferences over two VM boots and both clean unmounts passed. VMs establish no
-physical listening, cable or gesture acceptance. Help's first screen was inspected.
+A 138-byte pasted Network Utility report supplied newline-delimited answers to
+the remaining reads. The script completed normally, but the secondary-input and
+drag-cancel fields contain network report lines; **trackpad acceptance is not
+established**. Current bounded work is Terminal paste normalization when bracketed
+paste is not enabled, host/guest regressions, and a trackpad-only attended script.
+Touched scope: deskterm, reusable terminal helper/tests, shell read overflow handling, checklist packaging/Help
+and this unit's documentation. No device/firmware gates change. PR83 owns this
+work; Pro PR19 retains Wi-Fi ownership. Main `d2d56a6` adds Air6,1 audio evidence
+and endurance instructions and is merged here; it adds no new driver code.
 
-PR83 publishes the checklist, explicit Help-first startup selector and immutable
-v58 recipe. The ordinary accepted battery desktop `9aa8dbf6fbda8252` remains
-recovery; this focused trial has battery monitoring off. Human prompts have no
-time limit. The local run/collector lives in `build/native-desktop-trials/` under
-the candidate release and is copied outside build before reboot; collect it first
-on Ubuntu return. Validation is retained under
+Session `session-00065e8778243499-00` matches the release, has an exit snapshot,
+clean desktop retirement and no collector attention. All prior data was retained;
+only expected `.srvros/meta` changed. Offline fsck and allocation passed (999
+files, 2073 clusters, zero leaks/mismatches). Ubuntu default, consumed one-shot
+and recovery were verified. Current is `b6306e33e9590538`, previous accepted
+battery desktop is `9aa8dbf6fbda8252`. USB is unmounted and no reboot is armed.
+Raw reports and run records are retained outside build under
+`~/.local/share/srvros/pending-trials/b6306e33e9590538/returned`; validation is in
 `~/.local/share/srvros/validation/device-checks-b6306e33e9590538`.
 
 ### Integrated v55 desktop physically accepted (2026-10-23)
