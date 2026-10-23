@@ -256,6 +256,8 @@ struct xhci_wifi_mcu {
     bool mac_policy_mode,mac_policy_active,mac_policy_submitted;
     struct mt76_mcu_mac mac_policy;
     struct mt76_mcu_mac mac_protect;
+    struct mt76_mcu_mac mac_contention;
+    bool mac_contention_mode,mac_contention_active,mac_contention_submitted;
     bool mac_protect_mode,mac_protect_active,mac_protect_submitted;
     bool mac_policy_observe,mac_policy_validate;
     uint32_t mac_policy_mismatch;

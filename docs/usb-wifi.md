@@ -1729,3 +1729,13 @@ values matched. Initial/final MAC0/COREf000f200 and the earlier exact policy
 validation passed; both capture completion markers were saved. This accepts the
 bounded CCK/OFDM/GF group on captured7392:a711. Other protection settings, remaining
 MAC/BBP setup and RF/connectivity remain outside this acceptance.
+
+### Mixed-mode/TXOP/RTS group (v39; native result pending)
+
+`--wifi-mac-contention` requires accepted v38 protection prerequisites. One fixed
+sequence9, 40-byte command writes MM20_136c=01742004, MM40_1370=03f42084,
+TXOP1340=0000583f and RTS1344=00ffff20 in Linux v7.0 common-table relative order.
+Captured starting values00402004/00802084/0400243f/00ffff07 are mandatory before
+submission. Exact ACK, all four target readbacks and MAC0/COREf000f200 boundaries
+are required (twelve reads). No retry, RF enable, PBF/DMA/power change or BBP table
+follows. Acceptance remains specific to captured7392:a711 and this bounded group.

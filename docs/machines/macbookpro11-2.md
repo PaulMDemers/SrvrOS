@@ -3850,3 +3850,10 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean215files/571clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: select the remaining MAC/protection settings from the reference
 inventory before revisiting full baseband initialization.
+
+Active scope 2026-10-23: v39 mixed-mode/TXOP/RTS group after accepted v38.
+Reference order136c/1370/1340/1344, writes01742004/03f42084/0000583f/00ffff20;
+captured starts00402004/00802084/0400243f/00ffff07. Exact starts, sequence9 packet/
+ACK, twelve reads and final MAC0/COREf000f200; no subsequent BBP or RF enable.
+Touch MCU/xHCI/main/staging/tests; base22fd266, fetched mainf2e0945 battery-files;
+PR102 filesystem scale separate, no Wi-Fi overlap.

@@ -832,3 +832,13 @@ size_t mt76_mac_protect_packet(uint8_t *out,size_t capacity){
 }
 enum mt76_mcu_timing_status mt76_mac_protect_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_protect_plan,8,true,4,4);}
+
+/* Remaining common-table mixed-mode protection and TXOP/RTS, MAC disabled. */
+static const struct mt76_mcu_register_pair mac_contention_plan[4]={
+    {0x136c,0x01742004},{0x1370,0x03f42084},{0x1340,0x0000583f},{0x1344,0x00ffff20}
+};
+size_t mt76_mac_contention_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,9,mac_contention_plan,4,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_contention_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_contention_plan,9,true,4,4);}
