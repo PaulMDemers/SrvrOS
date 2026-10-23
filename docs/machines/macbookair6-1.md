@@ -399,3 +399,27 @@ activation, scrollbar capture, focus, drag/resize, client/server cleanup and
 console return/relaunch. Host pixel regression verifies the fast-tap highlight
 and its expiry. Logs: `build/review/air61-feedback-{build,host,compositor}.log`.
 No new hardware stage or installation was made; v50 remains installed unarmed.
+
+## Highlight verification preparation (2026-10-22)
+
+Base `52ef3ea`, branch `device/macbookair6-1/highlight-trial`: prepare a fresh
+v50 request with merged Type study feedback fix. No implementation changes;
+recheck build/host regression and exact-stage GPT VM, retain console recovery,
+install unarmed. Primary objective: light taps on Text size visibly highlight
+once, activate once, then restore; compare physical clicks and check repeated
+taps/cancel/resize do not leave the highlight stuck. Tap/typing checks remain
+enabled. PR #19 Wi-Fi remains independent. Prior run is collected and archived.
+
+Fresh run `cd54ca6d8f2cd4fb`, release `ab0bea06acccc443`, clean source `d15b5a7`
+is installed unarmed. Build/desktop/capture tests pass, including the batched-tap
+pixel/expiry regression; prior compositor integration covers the unchanged fix.
+Exact-stage v50 GPT rehearsal passes startup/options/exit, report/unmount,
+replay/read-only refusal and halt. Hardware coverage remains pending.
+
+USB UUID `6ADA-85BB`: 120 pre-test file hashes, clean fsck, allocation 123
+clusters with zero leaks/errors. `--keep-previous` retains console recovery
+`c35475f62f154f1e`; accepted tap/typing payload `f8e370a084725baa` is durably
+backed up. Installed hashes, Ubuntu default and GRUB syntax verified; next_entry
+empty. Run/checklist and VM evidence have hash-verified copies outside build.
+At readiness save launch.json and arm the installed entry without reinstalling.
+After manual restart collect this run and the user's visible-highlight feedback.
