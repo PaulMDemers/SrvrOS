@@ -614,3 +614,22 @@ before a second boot verifies restoration. Scope is workload evidence helper,
 VM rehearsal and this unit's guide/record; no OS or firmware gate changes.
 PR #69 battery startup and PR #19 Wi-Fi remain separate. Re-run exact-stage GPT
 VM before readiness; retain Ubuntu default and console recovery. No reboot yet.
+
+Focused phase-1 run `359e52fa68fe19bf` is ready, installed-unarmed, reusing
+unchanged accepted release `db7ce82008f4b9a6` (OS source `78e285a`). Preparation
+helper/VM code `8441c88`, regression `b925cc3`: 57 staging tests, refusal preflight
+and collector regression, Settings/preferences host tests and docs checks pass.
+The exact-stage GPT VM passes two boots, saved preferences, the new refusal
+stdout/status/comparison receipt, 60 exact rounds, and two clean unmounts.
+Two initial fixture-construction attempts failed before boot because nested
+names are unsupported by the image builder; the final fixture uses flat names.
+
+Native command: `sh refusal-359e52fa68fe19bf.sh`. It checks completed workload
+`f48940182e6911a0`; require REFUSAL VERIFIED, then set Settings speed 5 and
+acceleration off, wait for ready and reopen Settings. Return to Ubuntu for
+collection before the separate restoration boot. All 150 prior files are
+preserved; seven fresh inputs bring the preboot count to 157. Offline checks
+pass (201 clusters, zero leaks/mismatches/errors). Installed payload and console
+recovery hashes, Ubuntu default and empty one-shot are verified. Local run and
+VM receipts are backed up outside build under the release's
+`refusal-preferences/359e52fa68fe19bf` directory. Physical acceptance is pending.
