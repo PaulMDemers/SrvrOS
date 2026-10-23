@@ -1091,7 +1091,7 @@ earlier phases,36 register readbacks and both completion markers passed.
 MAC0 and CORE0f000f200 preserved. Identifiers13..15 remain unused;
 remaining RXC/baseband settings, RF and connectivity remain pending.
 
-### RXC4/5/7 and TXO8 extension (native acceptance pending)
+### RXC4/5/7 and TXO8 extension (accepted on captured Pro adapter)
 
 Firmware v20 (`--wifi-rxc-tail`, requiring `--wifi-rxc-start`) adds phase9
 at sequence13: fixed offsets2510/2514/251c/2620 receive0/f977c4ec/90/0.
@@ -1100,3 +1100,11 @@ independent readbacks and MAC/CORE guards. Prior profiles retain limits.
 RF stays disabled; no identifier recycling. Host coverage includes all ten
 fixed packets, read allowlists, failures/cancellation, ownership/quarantine;
 76 boot-profile tests pass. Native acceptance remains pending.
+
+Native sourcefd54365 / release492306b5fccc17b9,
+session00065e84c6495273-00 passed phase9 at sequence13: sent40/received16,
+exact reply, status0, one submission/completion, ack_mask1 and12 reads.
+RXC4 stayed0; RXC5 changed71550400->f977c4ec; RXC7 changed0->90;
+TXO8 stayed0. All earlier phases,40 register readbacks and both completion
+markers passed; MAC0 and CORE0f000f200 preserved. Identifiers14..15 remain
+unused. Remaining baseband initialization, RF and connectivity are pending.

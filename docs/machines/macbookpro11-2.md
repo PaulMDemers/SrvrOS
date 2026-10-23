@@ -2953,3 +2953,17 @@ and collector archived outside build in wifi-rxc-tail-fd54365. Accepted
 c34215d727a60f08 removed from ESP only after archive equality verification.
 Workspace clean before install:177files/514clusters, zero allocation errors,
 unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
+
+RXC4/5/7+TXO8 accepted on captured adapter: sourcefd54365,
+release492306b5fccc17b9, session00065e84c6495273-00. Phase9 sequence13
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. RXC4 stayed0; RXC5 changed71550400->f977c4ec;
+RXC7 changed0->90; TXO8 stayed0. CORE0 stayedf000f200 and MAC0.
+All preceding phases, firmware/reset/identity/timing, readiness ordering,
+40 register readbacks and both completion markers passed. Evidence archived
+outside build in wifi-rxc-tail-fd54365/native-collection. Ubuntu default,
+consumed one-shot and installed candidate/desktop recovery verified.
+Workspace clean:179files/517clusters, zero leaks/allocation mismatches,
+unmounted. Run/checkpoint collected and unarmed. Remaining TXBE/RXFE/RXO
+and other baseband settings pending; identifiers14..15 unused. Further
+expansion must respect sequence exhaustion. RF/connectivity not accepted.
