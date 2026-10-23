@@ -3291,3 +3291,10 @@ Workspace clean:195files/541clusters, zero leaks/mismatches/errors; unmounted.
 Run/checkpoint collected and unarmed. Fetched maindf44fa0 (Air6,1 audio endurance);
 PR87 telemetry and PR83 attended acceptance remain separate scopes. Actual
 integrated base22fd266 unchanged. No new candidate staged or reboot armed.
+
+Active scope: separate v29 clock-plus-direct-write comparison, reusing the accepted
+clock engine and isolated EP0 TXBE10 writer. Require clock completion before
+access; one zero write, sequence15 MCU read and eight guarded post-write samples
+must read zero. Touch xHCI/main/profile/tests; dependencies are the accepted
+v28 prerequisite and eleven compact phases. Main df44fa0, PR83/87 inspected;
+actual base22fd266 retained for this comparison. No reboot armed.

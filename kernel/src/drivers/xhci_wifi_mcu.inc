@@ -810,7 +810,7 @@ static bool wifi_mcu_txbe_first(struct xhci_device *d,bool second) {
 
 static bool wifi_txbe_access_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
-    return !m->txbe_first.attempted && !m->txbe_first_active && m->txbe_access_active && !m->txbe_observe_active && !m->txbe_observation.attempted && wifi_txbe_base_owned(d);
+    return (!m->clock_mode || (m->clock.complete && m->clock.written && m->clock_submitted && !m->clock_active && m->clock.pbf_after==0x80c00 && m->bbp.pbf==0x80c00)) && !m->txbe_first.attempted && !m->txbe_first_active && m->txbe_access_active && !m->txbe_observe_active && !m->txbe_observation.attempted && wifi_txbe_base_owned(d);
 }
 static bool wifi_txbe_access_read(void *context,uint32_t address,uint32_t *value) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
@@ -1016,8 +1016,8 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             if(write_probe && !wifi_mcu_capture_write(d))saved=false;
             else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
             else if(compact) {
-                if(!wifi_mcu_initialize_compact(d,5+agc_steps,observe==6))saved=false;
-                else if(observe==4 || observe==5 || observe==6) { if(!wifi_mcu_txbe_access(d,observe==5))saved=false; }
+                if(!wifi_mcu_initialize_compact(d,5+agc_steps,(observe==6 || observe==7)))saved=false;
+                else if(observe==4 || observe==5 || observe==6 || observe==7) { if(!wifi_mcu_txbe_access(d,observe==5 || observe==7))saved=false; }
                 else if(observe==2 || observe==3) { if(!wifi_mcu_txbe_first(d,observe==3))saved=false; }
                 else if(observe==1 && !wifi_mcu_observe_txbe(d))saved=false;
             }
@@ -1084,3 +1084,5 @@ bool xhci_wifi_capture_txbe_access(void) { return wifi_capture_mcu(true,true,tru
 bool xhci_wifi_capture_txbe_direct(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,5); }
 
 bool xhci_wifi_capture_clock(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,6); }
+
+bool xhci_wifi_capture_clock_direct(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,7); }

@@ -64,6 +64,7 @@ bool xhci_wifi_capture_txbe_second(void);
 bool xhci_wifi_capture_txbe_access(void);
 bool xhci_wifi_capture_txbe_direct(void);
 bool xhci_wifi_capture_clock(void);
+bool xhci_wifi_capture_clock_direct(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

@@ -2638,7 +2638,7 @@ static void test_wifi_txbe_access_binding(void) {
 
 
 static void test_wifi_txbe_direct(void) {
- for(unsigned fault=0;fault<19;fault++) {
+ for(unsigned clocked=0;clocked<2;clocked++) for(unsigned fault=0;fault<(clocked?25u:19u);fault++) {
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096];memset(buffer,0xa5,sizeof buffer);
   struct xhci_device d;compact_fixture(&d,11);struct xhci_wifi_mcu *m=&d.firmware.mcu;
@@ -2647,6 +2647,13 @@ static void test_wifi_txbe_direct(void) {
   d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_cycle=true;d.descriptor_buffer=buffer;d.descriptor_buffer_phys=(uintptr_t)buffer;
   xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
   events[0]=control_event(0x9020,fault==18?6:1,0);
+  if(clocked){m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;}
+  if(fault==19)m->clock.complete=false;
+  if(fault==20)m->clock.written=false;
+  if(fault==21)m->clock_submitted=false;
+  if(fault==22)m->clock_active=true;
+  if(fault==23)m->clock.pbf_after=0x80000;
+  if(fault==24)m->bbp.pbf=0x80000;
   if(fault==1)m->txbe_direct_mode=false;
   if(fault==2)m->txbe_direct_submitted=true;
   if(fault==3)m->txbe_access.attempted=false;

@@ -1453,3 +1453,13 @@ failures: no TXBE10 write occurred in this run. The next bounded comparison
 should repeat the isolated zero write with the accepted clock prerequisite,
 retaining exact zero readback as its success condition. RF and connectivity
 remain untested. Historical write failures remain failures.
+
+### Clock-enabled isolated write comparison (native pending)
+
+Firmware v29 (`--wifi-clock-direct`, requiring TXBE start and excluding all
+other TXBE alternatives) repeats the v28 clock prerequisite before phases2..10,
+then reuses the v27 single EP0 zero write to TXBE10. The subsequent sequence15
+MCU read and all eight guarded post-write EP0 samples must agree on zero.
+A nonzero value still fails. Access refuses incomplete clock setup, active clock
+ownership or missing PBF readback. Historical profiles and failed results retain
+their original meaning. No RF enable or additional initialization table is added.
