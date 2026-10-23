@@ -30,7 +30,9 @@ Receipts survive build cleanup at
 `~/.local/share/srvros/validation/log-capacity-integration-1e78461`. PR99 carries
 the completed change for the shared baseline. No further test is required for
 this bounded milestone. Larger filesystem limits and archival of other kinds
-of evidence remain separate work.
+of evidence remain separate work. The subsequent main `61aa054` update contains
+only Air6,1 acceptance documentation (PR100); it is consumed without changing
+the validated code or installed payload.
 
 Verified archival previously moved 22 completed old sessions (70 files) to
 `~/.local/share/srvros/log-archives/20261023-capacity-recovery` before pruning

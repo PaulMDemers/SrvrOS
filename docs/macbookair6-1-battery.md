@@ -1,7 +1,9 @@
 # MacBookAir6,1 battery/AC bring-up
 
-Live SrvrOS battery/AC telemetry remains physically unaccepted; the isolated
-five-sample runtime and short SMBus capture profiles are described below.
+The short parked SMBus capture is physically accepted on this unit: three
+sample generations and clean runtime retirement with AC connected. Battery gauge
+accuracy, AC transitions, alarms and desktop monitoring remain unaccepted. The
+isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
@@ -273,3 +275,26 @@ native hardware, including alarms in both OS branches, wrong descriptors and
 unsafe event handling. Native alarms, accuracy, sustained monitoring and AC
 transitions remain unaccepted. On failure, photograph the existing 30-second
 screen; missing final completion is not a pass.
+
+## Short native capture accepted (2026-10-23)
+
+Release `bfde0423543f20d0`, source `63bc06f`, session
+`00065e89a7794b63-00` completed with fresh generation 3 and 45 natural completion
+events. Three SCI deliveries were handled, zero unclaimed. Runtime retirement
+reports three attempts, zero rejected, attached/detached 1/1, heap/errors/denied
+all zero. Return-boundary proof has idle controller, masked sources and no
+outstanding resource lease; both foreign-event masks were restored. The saved
+exit report passes the strict native SMBus validator and records completed=yes.
+
+No alarms, acknowledgements or unknown senders occurred. This accepts only
+bounded parked completion-event sampling and clean retirement with AC connected;
+it does not establish alarm behavior, gauge accuracy, AC transitions or desktop
+coexistence. Ordinary startup remains off. Next is a separately scoped attended
+AC unplug/reconnect capture, with coherent sample/event evidence and the same
+storage and recovery boundaries; do not enable the existing guided profile
+without auditing Air6,1 admission and query paths.
+
+All 205 prior USB files remain; only session metadata changed and three logs
+were added. Offline fsck/allocation pass: 208 files, 387 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu returned on a new boot, the one-shot is empty,
+and candidate/recovery hashes pass. Collected evidence is backed up outside build.
