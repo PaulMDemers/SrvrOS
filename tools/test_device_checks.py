@@ -18,7 +18,7 @@ class DeviceChecks(unittest.TestCase):
         self.bin.mkdir()
         examples = self.root / 'share/examples'
         examples.mkdir(parents=True)
-        for name in ('device-checks.sh', 'network-trial.sh'):
+        for name in ('device-checks.sh', 'network-trial.sh', 'trackpad-checks.sh'):
             text = (ROOT / 'userspace/examples' / name).read_text()
             (examples / name).write_text(text.replace('/fat', str(self.root)))
         (examples / 'network-check.sh').write_text('echo dhcp-status=0\necho dns-status=0\necho http-status=0\necho HTTP-fixture\n')
@@ -32,6 +32,20 @@ class DeviceChecks(unittest.TestCase):
     def run_checks(self, data):
         return subprocess.run(['/bin/sh', str(self.script)], input=data, text=True,
                               capture_output=True, env=self.env, timeout=5)
+
+    def test_trackpad_only_preserves_original_reports_and_refuses_replay(self):
+        self.script=self.script.with_name('trackpad-checks.sh')
+        original=self.home/'device-checks'
+        original.mkdir();(original/'observations.txt').write_text('original audio/network evidence\n')
+        r=self.run_checks('press-ok tap-ok\ndrag-ok scroll-ok cancel-ok\n\n')
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        report=self.home/'trackpad-checks'
+        self.assertEqual((report/'sequence.txt').read_text(),'started\ncompleted\n')
+        self.assertIn('secondary-input: press-ok tap-ok',(report/'observations.txt').read_text())
+        before={p.name:p.read_bytes() for p in report.iterdir()}
+        self.assertNotEqual(self.run_checks('overwrite\n').returncode,0)
+        self.assertEqual(before,{p.name:p.read_bytes() for p in report.iterdir()})
+        self.assertEqual((original/'observations.txt').read_text(),'original audio/network evidence\n')
 
     def test_eof_never_completes(self):
         result = self.run_checks('')

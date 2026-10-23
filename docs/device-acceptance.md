@@ -54,3 +54,19 @@ UI/return instructions when called from this checklist. Existing standalone
 network trials retain their behavior. Host regressions exercise EOF, partial
 reports, failed observations, nested cable prompts and replay preservation.
 VMs validate drivers and scripted mechanics, never human perception.
+
+## Trackpad-only follow-up and pasted reports
+
+After collecting the first round, run `sh /fat/share/examples/trackpad-checks.sh`
+for only secondary press/tap, held-click steering, post-scroll suppression and
+Sketch Escape. It uses a new `Home/trackpad-checks` directory and never overwrites
+`Home/device-checks`. This follow-up still needs physical gestures and observations;
+there is no automatic reboot or prompt deadline.
+
+Terminal now replaces CR/LF clipboard line breaks with spaces when the receiving
+app has not enabled bracketed paste. Enter submits the single answer. Apps that
+explicitly enable bracketed paste retain their multiline text and markers.
+An overlong shell `read` drains to the next newline and fails without setting the
+variable, so the tail cannot silently answer a later prompt. Earlier terminal
+pastes could consume successive reads; a completed checklist from that behavior
+does not establish acceptance of the skipped prompts.
