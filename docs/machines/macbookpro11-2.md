@@ -2912,3 +2912,13 @@ profile/tests. Fetched mainbd1e834; PR73 workload refusal evidence and
 ordinary desktop VM changes inspected, independent of Wi-Fi probe path.
 Air PR69 remains battery scope. Actual integrated base remains22fd266.
 No RF/connectivity or sequence recycling in this trial.
+
+TXC1/RXC1/2/3 candidate sourcedf537ea / release7d6ccc2fe96d530c
+installed unarmed. Build, compact/xHCI host tests, sanitizer,75 boot-profile
+tests and docs checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without probing. Payload, receipts, run record
+and collector archived outside build in wifi-rxc-start-df537ea. Accepted
+c34215d727a60f08 and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
+ff59ebda5a2483ae removed from ESP only after archive equality verification.
+Workspace clean before install:175files/511clusters, zero allocation errors,
+unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
