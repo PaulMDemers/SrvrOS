@@ -2843,3 +2843,13 @@ Current accepted8bf9cd874ed0f02d and desktope47dca3a6b30c6c1 retained;
 obsoletee459728ba57fea08 removed from ESP only after archive equality check.
 Workspace preboot filesystem/allocation checks pass, unmounted. Native
 acceptance pending an attended cold adapter power cycle; Ubuntu stays default.
+
+AGC33/34/37/41 first return is incomplete: one-shot consumed, but workspace
+collection contained no session for releaseff59ebda5a2483ae and no new
+session beyond00065e7ad65bc92e-00. Do not accept this phase. Installed
+candidate and known-good desktop recovery match their archived bytes;
+Ubuntu remains default. Workspace clean:171files/505clusters, zero leaks
+or allocation mismatches, then unmounted. Collection archived as
+wifi-agc-next-b3e4ee1/incomplete-return-collection; run/checkpoint now
+returned/unarmed. Await boot observation to distinguish an early boot or
+workspace discovery failure from a skipped test before scheduling a retry.
