@@ -210,4 +210,14 @@ bool mt76_bbp_table_read_allowed(uint32_t address);
 size_t mt76_bbp_table_packet(unsigned chunk,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_bbp_table_capture(struct mt76_bbp_table *s,
     const struct mt76_mcu_timing_io *io);
+#define MT76_MAC_SNAPSHOT_ENTRIES 63
+struct mt76_mac_snapshot {
+    bool attempted, complete;
+    unsigned reads;
+    uint32_t values[MT76_MAC_SNAPSHOT_ENTRIES], mac[2], core[2];
+};
+uint32_t mt76_mac_snapshot_address(unsigned index);
+bool mt76_mac_snapshot_read_allowed(uint32_t address);
+enum mt76_mcu_timing_status mt76_mac_snapshot_capture(struct mt76_mac_snapshot *s,
+    const struct mt76_mcu_timing_io *io);
 #endif

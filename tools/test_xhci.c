@@ -2690,7 +2690,7 @@ static void test_wifi_txbe_direct(void) {
 }
 
 static void test_wifi_full_table(void){
- for(unsigned chunk=0;chunk<3;chunk++)for(unsigned fault=0;fault<23;fault++){
+ for(unsigned chunk=0;chunk<3;chunk++)for(unsigned fault=0;fault<25;fault++){
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[200],reply[1024];
   struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
@@ -2723,15 +2723,22 @@ static void test_wifi_full_table(void){
   if(fault==20)m->compact[2].attempted=true;
   if(fault==21)events[0].status=6u<<24;
   if(fault==22){if(chunk<2)continue;events[1].status=6u<<24;}
+  if(fault==23)m->mac_snapshot_mode=true;
+  if(fault==24){m->mac_snapshot_mode=true;m->mac_snapshot.complete=true;m->mac_snapshot_active=true;}
   size_t length=mt76_bbp_table_packet(chunk,packet,sizeof packet);
   if(!fault){
    uint32_t value;assert(!wifi_table_read(d,0x1000,&value));
+   assert(!wifi_mac_snapshot_owned(d));m->mac_snapshot_mode=true;m->mac_snapshot_active=true;m->table.attempted=false;
+   if(!chunk){assert(wifi_mac_snapshot_owned(d));assert(!wifi_mac_snapshot_read(d,0x1000,&value));assert(!wifi_mac_snapshot_read(d,0x2728,&value));}
+   else assert(!wifi_mac_snapshot_owned(d));
+   m->mac_snapshot_active=false;m->mac_snapshot.complete=true;m->table.attempted=true;
+
    for(unsigned i=0;i<length;i++)for(unsigned bit=0;bit<8;bit++){packet[i]^=1u<<bit;assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==-1);packet[i]^=1u<<bit;}
    assert(wifi_table_exchange(d,packet,length-1,reply,sizeof reply)==-1);
   }
   assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==(fault?-1:chunk<2?0:16));
   if(!fault){assert(!memcmp(tx,packet,length) && m->table_submitted==chunk+1);assert(m->response.enqueue==(chunk==2?1u:0u));assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==-1);}
-  else if(fault>=21)assert(m->table_submitted==chunk+1 && f->failed && d->ep0_quarantined);
+  else if(fault==21 || fault==22)assert(m->table_submitted==chunk+1 && f->failed && d->ep0_quarantined);
   else assert(!f->ep.enqueue && !m->response.enqueue);
  }
  puts("xhci full BBP: PASS exact fixed chunks, no response for first chunks, ownership, no retry and quarantine");

@@ -3474,3 +3474,14 @@ MAC-disabled/CORE guards. Use observed initial values to choose a justified writ
 set. No new candidate installed or reboot armed. Audit scripts, numeric C-extracted
 MAC inventory, exact source copies and result hashes archived outside build in
 bbp-mismatch-audit-47ce3d4. No live device writes/reset/unbind performed.
+
+Implementation scope: separate v32 MAC snapshot profile before the existing full
+BBP observation. Fixed63-address read allowlist,67 reads including boundary guards,
+no write/exchange callback, cancellation/error/no-retry tests. BBP commands remain
+blocked until snapshot completion; existing v31 behavior stays separate. Touch
+MCU/xHCI/main/staging/tests and documentation; no new RF/channel/PA/LDO writes.
+
+Fetched mainb17b80e (PR93 Air6,1 bounded battery return) and inspected PR88 tap
+scope; neither is incorporated into the actual22fd266 base for this experiment.
+The snapshot candidate adds no shared battery/input changes. Local staging88
+cases and initial build/controller/MCU checks pass; final tests/VM pending.

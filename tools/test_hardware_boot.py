@@ -588,6 +588,14 @@ class InstallTests(unittest.TestCase):
         for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock','wifi_clock_direct'):
             with self.assertRaises(ValueError):boot.stage(wifi_clock_pair=True,wifi_txbe_start=True,**{conflict:True})
 
+    def test_wifi_mac_snapshot_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v32-laptop-probe-0e535900-auto-return')
+        self.assertIn('srvros.wifi-mac-snapshot=1',cfg)
+        self.assertIn('srvros.wifi-bbp-table=1',cfg)
+        self.assertNotIn('srvros.wifi-clock-pair=1',cfg)
+        self.assertNotIn('srvros.wifi-mac-snapshot=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v31-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_snapshot=True)
+
     def test_wifi_bbp_table_profile(self):
         for suffix in ('', '-auto-return'):
             v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix

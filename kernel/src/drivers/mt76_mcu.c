@@ -628,3 +628,94 @@ enum mt76_mcu_timing_status mt76_bbp_table_capture(struct mt76_bbp_table *s,
     s->complete=true;return MT76_TIMING_OK;
 #undef TABLE_READ
 }
+
+/* Fixed read-only inventory of reference MAC prerequisites; no write admission. */
+static const uint32_t mac_snapshot_addresses[MT76_MAC_SNAPSHOT_ENTRIES]={
+    0x041c,
+    0x0420,
+    0x1408,
+    0x140c,
+    0x1004,
+    0x1400,
+    0x1104,
+    0x1330,
+    0x1334,
+    0x1350,
+    0x1348,
+    0x1018,
+    0x102c,
+    0x0408,
+    0x040c,
+    0x134c,
+    0x1404,
+    0x1364,
+    0x1368,
+    0x0404,
+    0x0208,
+    0x1374,
+    0x1378,
+    0x136c,
+    0x1370,
+    0x1340,
+    0x1344,
+    0x1380,
+    0x1608,
+    0x1100,
+    0x1204,
+    0x0124,
+    0x0400,
+    0x0800,
+    0x1030,
+    0x1338,
+    0x0a44,
+    0x0260,
+    0x0250,
+    0x1218,
+    0x1220,
+    0x13b0,
+    0x13c0,
+    0x1314,
+    0x1318,
+    0x131c,
+    0x1320,
+    0x1324,
+    0x13d4,
+    0x13d8,
+    0x13dc,
+    0x150c,
+    0x1238,
+    0x006c,
+    0x0070,
+    0x1410,
+    0x13e0,
+    0x13e4,
+    0x13e8,
+    0x1358,
+    0x141c,
+    0x080c,
+    0x0230,
+};
+uint32_t mt76_mac_snapshot_address(unsigned index){return index<MT76_MAC_SNAPSHOT_ENTRIES?mac_snapshot_addresses[index]:UINT32_MAX;}
+bool mt76_mac_snapshot_read_allowed(uint32_t address){
+    if(address==0x2000)return true;
+    for(unsigned i=0;i<MT76_MAC_SNAPSHOT_ENTRIES;i++)if(address==mac_snapshot_addresses[i])return true;
+    return false;
+}
+enum mt76_mcu_timing_status mt76_mac_snapshot_capture(struct mt76_mac_snapshot *s,
+    const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned n=0;n<MT76_MAC_SNAPSHOT_ENTRIES+4;n++){
+        unsigned edge=n<2?0:1;
+        uint32_t address,*value;
+        if(n==0 || n==MT76_MAC_SNAPSHOT_ENTRIES+2){address=0x1004;value=&s->mac[edge];}
+        else if(n==1 || n==MT76_MAC_SNAPSHOT_ENTRIES+3){address=0x2000;value=&s->core[edge];}
+        else{address=mac_snapshot_addresses[n-2];value=&s->values[n-2];}
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+        s->reads++;
+        if(*value==UINT32_MAX || (address==0x1004 && *value) || (address==0x2000 && *value!=0xf000f200))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

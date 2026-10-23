@@ -1599,3 +1599,12 @@ three table commands and124 reads with MAC disabled and CORE guards intact.
 fb3fec3c rather than0, and RXO21/24 remained0 rather than1/6. Full-table batching
 alone did not remove the earlier TXBE10 mismatch. This validates capture only,
 not register initialization or RF/connectivity; prerequisites remain under audit.
+
+The separate firmware v32 `--wifi-mac-snapshot` profile requires
+`--wifi-bbp-table` and its prerequisites. After MAC phases0/1, clocks and BBP
+readiness, it reads a fixed63-address inventory (the60 distinct reference MAC
+table addresses plus EXT_CCA, FCE_L2_STUFF and WMM_CTRL), bracketed by MAC0 and
+COREf000f200 checks:67 reads total. The read-only engine has no exchange callback.
+Incomplete inventory blocks the subsequent unchanged full BBP observation.
+Values are evidence, not a register-acceptance test; no omitted MAC/power settings
+are written. Existing v31 and strict earlier profiles retain their behavior.

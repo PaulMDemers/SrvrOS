@@ -303,7 +303,39 @@ static void test_full_table(void){
  puts("BBP table: PASS all read/transport/cancel/guard failures, mismatch accounting and no generic seq0 admission");
 }
 
+struct snapshot_fake {unsigned reads,auth,fail,deny,bad,guard;};
+static bool snapshot_auth(void *p){struct snapshot_fake *f=p;return ++f->auth!=f->deny;}
+static bool snapshot_read(void *p,uint32_t a,uint32_t *v){
+ struct snapshot_fake *f=p;unsigned n=f->reads++;
+ assert(n<67);
+ uint32_t expected=(n==0 || n==65)?0x1004:(n==1 || n==66)?0x2000:mt76_mac_snapshot_address(n-2);
+ assert(a==expected && mt76_mac_snapshot_read_allowed(a));
+ *v=a==0x1004?0:a==0x2000?0xf000f200:a;
+ if(f->reads==f->bad)*v=UINT32_MAX;
+ if(f->reads==f->guard)*v^=1;
+ return f->reads!=f->fail;
+}
+static void test_mac_snapshot(void){
+ for(unsigned mode=0;mode<4;mode++)for(unsigned n=1;n<=(mode==2?68:67);n++){
+  struct snapshot_fake f={.fail=mode==1?n:0,.deny=mode==2?n:0,.bad=mode==3?n:0};struct mt76_mac_snapshot s={0};
+  const struct mt76_mcu_timing_io io={&f,snapshot_auth,snapshot_read,NULL};
+  assert(mt76_mac_snapshot_capture(&s,&io)==(mode==1?MT76_TIMING_IO:mode==2?MT76_TIMING_CANCELLED:mode==3?MT76_TIMING_STATE:MT76_TIMING_OK));
+  assert(s.complete==!mode);if(!mode)assert(s.reads==67 && f.auth==68);
+  assert(mt76_mac_snapshot_capture(&s,&io)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned i=0;i<67;i++){
+  uint32_t a=(i==0 || i==65)?0x1004:(i==1 || i==66)?0x2000:mt76_mac_snapshot_address(i-2);
+  if(a!=0x1004 && a!=0x2000)continue;
+  struct snapshot_fake f={.guard=i+1};struct mt76_mac_snapshot s={0};const struct mt76_mcu_timing_io io={&f,snapshot_auth,snapshot_read,NULL};
+  assert(mt76_mac_snapshot_capture(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ assert(!mt76_mac_snapshot_read_allowed(0x1000) && !mt76_mac_snapshot_read_allowed(0x2728));
+ for(unsigned i=0;i<63;i++)for(unsigned j=i+1;j<63;j++)assert(mt76_mac_snapshot_address(i)!=mt76_mac_snapshot_address(j));
+ puts("MAC snapshot: PASS fixed read order, every transport/cancellation/all-ones failure, guards, no exchange callback and no retry");
+}
+
 int main(void){
+ test_mac_snapshot();
  test_full_table();
  test_clock_pair();
  test_observe();
