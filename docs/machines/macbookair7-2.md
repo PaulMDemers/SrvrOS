@@ -42,12 +42,18 @@ mismatches, 70 usable file slots. All remaining files were hash-preserved.
 
 One unattended native v8 persistence round is prepared as release
 `a39bb31d4031693a`, request `cda6574dd2dedfa8`; its exact automatic-return VM
-rehearsal is the next gate before install. It exercises USB write/flush/read,
+rehearsal passed persisted CRC/file-tree verification, default return, replay
+halt and read-only failure halt. The candidate is installed with the accepted
+previous payload retained; local run records own the arming state. It exercises USB write/flush/read,
 file operations and shell save/remount/reopen, with no human input, automatic
 Ubuntu return on success and visible failure halt. Native acceptance is pending;
 this does not retest physical gestures or battery. Accepted recovery remains
 `9aa8dbf6fbda8252`. Local run state/evidence lives under
-`build/log-capacity-20261023` and must be copied outside build before reboot.
+`build/log-capacity-20261023`; verified receipts/payloads are preserved outside
+build in `~/.local/share/srvros/validation/log-capacity-a39bb31d4031693a` and
+`~/.local/share/srvros/pending-trials/a39bb31d4031693a`. The pre-install real USB
+has 954 files including the request; offline fsck/allocation/headroom pass.
+Collect this exact request on Ubuntu return before another test.
 
 Actual main remains `2e2eb2b`. Pro PR19 `37fa564` remains Wi-Fi work; Air6,1
 PR98 `7a1b014` is a distinct bounded SMBus capture. Both touch some shared guide
