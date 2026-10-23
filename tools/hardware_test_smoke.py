@@ -31,8 +31,12 @@ def main():
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--ovmf', default=default_ovmf_path())
     parser.add_argument('--stress', action='store_true')
+    parser.add_argument('--scale-files', type=int, default=0,
+                        help='Seed a preserved directory on disposable media to cross old node limits')
     parser.add_argument('--release', help='Rehearse this exact staged v8/v9 release on disposable VM media')
     args = parser.parse_args()
+    if not 0 <= args.scale_files <= 7000:
+        parser.error('--scale-files must be between 0 and 7000')
     run=RUN;exact_source=None;exact_manifest=None
     if args.release:
         if not test.RUN_RE.fullmatch(args.release):parser.error('Invalid release ID')
@@ -63,6 +67,9 @@ def main():
         fixture = ExfatFixture(volume_image.read_bytes())
         volume = f'{fixture.u32(100):08x}'
         fixture.add_directory_files('srvros-tests', {f'{member}.req': f'SRVROS-AUTOTEST-V3 {member}\n'.encode() for member in members})
+        scale_files = {f'file-{i:04d}': b'' for i in range(args.scale_files)}
+        if scale_files:
+            fixture.add_directory_files('preserved-scale', scale_files)
         volume_image.write_bytes(fixture.data)
         print(check_clean_image(volume_image), end='', flush=True)
         if exact_source:
@@ -167,6 +174,11 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
             result = ExfatFixture(stream.read())
         volume_image.write_bytes(result.data)
         print(check_clean_image(volume_image), end='', flush=True)
+        if scale_files:
+            entries = dict(result.entries(result.read('preserved-scale')))
+            assert set(entries) == set(scale_files)
+            assert all(struct.unpack_from('<Q', entry, 56)[0] == 0 for entry in entries.values())
+            print(f'hardware-test-smoke: {len(scale_files)} imported files preserved PASS', flush=True)
         data = result.read(f'srvros-tests/{run}.txt')
         done = result.read(f'srvros-tests/{run}.done')
         metadata = {'run': run, 'release': release, 'volume': volume, 'suite': test.SUITE}
@@ -253,6 +265,7 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         (logs/'autotest-cycle-result.json').write_text(json.dumps({
             'status':'PASS','release':release,'run':run,'rounds':len(members),
             'exact_staged_release':exact_source is not None,'manifest':manifest,
+            'preserved_scale_files':args.scale_files,
             'report_crc_and_contents':True,'default_return':True,'replay_halts':True,'readonly_failure_halts':True,
         },indent=2)+'\n')
         print(data.decode(), end='')

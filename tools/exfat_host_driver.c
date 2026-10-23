@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <stddef.h>
 #ifdef __linux__
 #include <sys/ioctl.h>
 #include <linux/fs.h>
@@ -24,9 +25,18 @@ static unsigned io_depth;
 bool scheduler_io_begin(void) { if(foreign) return false; io_depth++; return true; }
 void scheduler_io_end(void) { assert(io_depth); io_depth--; }
 bool scheduler_io_active(void) { return foreign || io_depth != 0; }
-void *kmalloc(uint64_t n) { return malloc(n); }
-void *kcalloc(uint64_t n, uint64_t size) { return calloc(n,size); }
-void kfree(void *p) { free(p); }
+static uint64_t alloc_calls, fail_alloc_at, live_bytes, peak_bytes;
+struct allocation { max_align_t alignment; uint64_t size; };
+void *kmalloc(uint64_t n) {
+    if(++alloc_calls==fail_alloc_at || n>SIZE_MAX-sizeof(struct allocation)) return NULL;
+    struct allocation *p=malloc(sizeof(*p)+n);if(!p)return NULL;
+    p->size=n;live_bytes+=n;if(live_bytes>peak_bytes)peak_bytes=live_bytes;return p+1;
+}
+void *kcalloc(uint64_t n, uint64_t size) {
+    if(size && n>SIZE_MAX/size)return NULL;
+    void *p=kmalloc(n*size);if(p)memset(p,0,n*size);return p;
+}
+void kfree(void *p) { if(p) { struct allocation *a=(struct allocation *)p-1;live_bytes-=a->size;free(a); } }
 uint64_t timer_ticks(void) { return 100; }
 static int64_t mock_realtime=1792326896000000LL;
 int64_t timer_realtime_us(void) { return mock_realtime; }
@@ -93,6 +103,18 @@ int main(int argc, char **argv) {
             (unsigned long long)result.fat_bitmap_mismatches,(unsigned long long)result.errors);
         close(fd);return ok ? 0 : 1;
     }
+    if(!strcmp(argv[2],"memory-mount")) {
+        assert(argc==4);fail_alloc_at=strtoull(argv[3],NULL,10);
+        assert(!exfat_mount_block_device("/vol",&d));
+        fail_alloc_at=0;assert(!vfs_count() && !vfs_lookup("/vol") && !writes && !flushes);
+        assert(exfat_mount_block_device("/vol",&d));
+        assert(exfat_unmount("/vol") && !vfs_count() && !writes && !flushes);
+        uint64_t retained=live_bytes;
+        assert(exfat_mount_block_device("/vol",&d));assert(exfat_unmount("/vol"));
+        assert(live_bytes==retained); /* Only bounded VFS high-water blocks survive. */
+        printf("memory mount rollback/retry PASS retained=%llu peak=%llu\n",(unsigned long long)retained,(unsigned long long)peak_bytes);
+        close(fd);return 0;
+    }
     if(!strcmp(argv[2],"noflush")) d.flush=NULL;
     if(!strcmp(argv[2],"foreign")) foreign=true;
     if(!strcmp(argv[2],"snapshot-seed")) {
@@ -126,6 +148,63 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"memory-refusal")) {
+        /* Empty-volume growth needs a file block and metadata scratch. Neither
+         * failure may dirty VolumeFlags, publish nodes or quarantine the mount. */
+        for(unsigned boundary=1;boundary<=2;boundary++) {
+            uint64_t nodes=vfs_count();unsigned before=writes,flushed=flushes;
+            fail_alloc_at=alloc_calls+boundary;
+            assert(!exfat_write_file("/vol/refused",(const uint8_t *)"x",1));
+            fail_alloc_at=0;
+            assert(writes==before && flushes==flushed && vfs_count()==nodes && !vfs_lookup("/vol/refused"));
+            assert(exfat_is_writable("/vol"));
+            assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        }
+        assert(exfat_write_file("/vol/resumed",(const uint8_t *)"saved",5));
+        equal("/vol/resumed",(const uint8_t *)"saved",5);
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal("/vol/resumed",(const uint8_t *)"saved",5);
+        puts("allocation refusal before writes and successful retry PASS");close(fd);return 0;
+    }
+    if(!strcmp(argv[2],"scale")) {
+        assert(vfs_count()>4096);
+        const struct vfs_node *anchor=vfs_lookup("/vol/bulk/anchor.txt");assert(anchor);
+        const void *private_data=anchor->private_data;const char *path=anchor->path;
+        uint64_t inode=anchor->metadata.inode;
+        for(unsigned i=0;i<96;i++) {
+            char name[64];snprintf(name,sizeof(name),"/vol/bulk/new-%04u",i);
+            assert(exfat_write_file(name,(const uint8_t *)"new",3));
+        }
+        for(unsigned i=0;i<320;i++) {
+            char name[64];snprintf(name,sizeof(name),"/vol/dir-%04u",i);
+            assert(exfat_create_directory(name));
+        }
+        assert(vfs_lookup("/vol/bulk/anchor.txt")==anchor && anchor->private_data==private_data && anchor->path==path);
+        equal(anchor->path,(const uint8_t *)"anchor",6);
+        for(unsigned i=0;i<96;i+=2) {
+            char name[64];snprintf(name,sizeof(name),"/vol/bulk/new-%04u",i);
+            assert(exfat_delete_file(name));assert(exfat_write_file(name,(const uint8_t *)"reused",6));
+        }
+        for(unsigned i=0;i<320;i+=2) {
+            char name[64];snprintf(name,sizeof(name),"/vol/dir-%04u",i);
+            assert(exfat_delete_directory(name));assert(exfat_create_directory(name));
+        }
+        assert(exfat_rename("/vol/bulk/f0042","/vol/bulk/renamed"));
+        assert(exfat_write_file("/vol/bulk/f0043",(const uint8_t *)"edited",6));
+        struct exfat_check_result result;assert(exfat_check("/vol",&result));
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal("/vol/bulk/anchor.txt",(const uint8_t *)"anchor",6);
+        assert(vfs_lookup("/vol/bulk/anchor.txt")->metadata.inode==inode);
+        assert(!vfs_lookup("/vol/bulk/f0042") && vfs_lookup("/vol/bulk/renamed"));
+        equal("/vol/bulk/f0043",(const uint8_t *)"edited",6);
+        for(unsigned i=0;i<96;i++) {
+            char name[64];snprintf(name,sizeof(name),"/vol/bulk/new-%04u",i);
+            equal(name,(const uint8_t *)(i%2?"new":"reused"),i%2?3:6);
+        }
+        assert(exfat_check("/vol",&result));
+        printf("scale: PASS nodes=%llu files=%llu peak_heap=%llu\n",(unsigned long long)vfs_count(),(unsigned long long)result.files_checked,(unsigned long long)peak_bytes);
+        assert(exfat_unmount("/vol"));close(fd);return 0;
+    }
     if(!strcmp(argv[2],"scratch-seed")) {
         uint8_t data[4096];for(unsigned i=0;i<4096;i++)data[i]=(uint8_t)i;
         assert(exfat_write_file("/vol/scratch.bin",data,4096));
@@ -200,9 +279,10 @@ int main(int argc, char **argv) {
         puts("capacity-limited mount rollback and retry PASS");
     } else if(!strcmp(argv[2],"file-capacity")) {
         char path[160],last[160]; unsigned count=0;
+        if(!vfs_lookup("/vol/bulk")) assert(exfat_create_directory("/vol/bulk"));
         for(;;) {
-            snprintf(path,sizeof(path),"/vol/file-%04u-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz.txt",count);
-            if(!exfat_write_file(path,NULL,0)) break;
+            snprintf(path,sizeof(path),"/vol/bulk/file-%04u-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz.txt",count);
+            if(!vfs_lookup(path) && !exfat_write_file(path,NULL,0)) break;
             strcpy(last,path); count++; assert(count<10000);
         }
         assert(count>512 && exfat_is_writable("/vol") && !vfs_lookup(path));
@@ -210,6 +290,7 @@ int main(int argc, char **argv) {
         assert(!exfat_creation_capacity("/vol/new",1,0));
         assert(exfat_creation_capacity("/vol/new",0,1));
         assert(!exfat_creation_capacity("/vol/new",UINT64_MAX,0) && writes==before);
+        assert(exfat_write_file(last,NULL,0));
         const struct vfs_node *meta=vfs_lookup("/vol/.srvros/meta"); assert(meta && meta->size>65536);
         assert(exfat_delete_file(last));
         assert(exfat_creation_capacity("/vol/new",1,0));
@@ -226,6 +307,9 @@ int main(int argc, char **argv) {
             strcpy(last,path); count++; assert(count<10000);
         }
         assert(count>128 && exfat_is_writable("/vol") && !vfs_lookup(path));
+        assert(exfat_delete_directory("/vol/directory-0000"));
+        assert(exfat_creation_capacity("/vol/reused-hole",0,1));
+        assert(exfat_create_directory("/vol/reused-hole"));
         assert(exfat_delete_directory(last)); assert(exfat_create_directory(path));
         assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
         assert(vfs_lookup(path) && exfat_is_writable("/vol"));

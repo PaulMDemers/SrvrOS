@@ -462,10 +462,11 @@ void kmain(void) {
         hhdm_request.response != NULL ? hhdm_request.response->offset : 0);
     acpi_init(rsdp_request.response != NULL ? rsdp_request.response->address : NULL);
     load_initramfs();
-    vfs_init();
     test_pmm();
     heap_init();
     test_heap();
+    /* VFS imports may grow beyond the bootstrap node block. */
+    vfs_init();
     scheduler_init();
     workqueue_init();
     if (!scheduler_start_idle_worker()) {

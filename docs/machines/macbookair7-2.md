@@ -9,7 +9,7 @@ scope: demand-allocated stable exFAT file/directory slots and VFS nodes, direct
 VFS enumeration, memory admission before disk mutation, reusable deleted slots,
 metadata buffer scaling, thousands-of-files/failure/remount regressions and the
 host/VM/native workflow. Refresh status/parity docs from the recorded Air evidence.
-Pro PR19 `b7afc57` remains Wi-Fi; Air6,1 PR101 `0b78ced` owns parked AC captures.
+Pro PR19 `c5f9378` remains Wi-Fi; Air6,1 PR101 `95c5219` owns parked AC captures.
 No device profiles, firmware ownership, window budget or on-disk format changes.
 
 Keep installed `a39bb31d4031693a`, accepted recovery `9aa8dbf6fbda8252`, Ubuntu
@@ -17,6 +17,15 @@ default and all USB evidence. No physical test is armed. Disposable fixtures mus
 cross the old 1024-file/256-directory/4096-VFS-node boundaries and cover allocation
 failure before an automated native round. Implementation limits remain bounded;
 this does not promise arbitrary filesystem size or power-loss durability.
+
+The implementation uses stable 64-record exFAT blocks, 256-node VFS blocks,
+direct live-node enumeration and per-mount metadata scratch. Budgets are 8192
+files/2048 directories per volume and 32768 VFS nodes overall. Full build/core
+and docs checks pass. The host fixture passes 5000 imported files, 96 growth/reuse
+files, 320 directories, preserved references/identities, rename/edit/remount and
+allocation-failure rollback/retry; peak tracked heap is about 4 MiB. Existing
+exhaustion, write/flush and power-cut recovery tests pass. Exact-stage VM/native
+results remain pending. See the [capacity contract](../filesystem-capacity.md).
 
 ### Current checkpoint: bounded capacity recovery milestone complete
 

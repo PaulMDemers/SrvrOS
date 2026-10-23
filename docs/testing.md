@@ -4,7 +4,10 @@ On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-de
 and update their [machine record](machines/README.md). A VM pass is not physical
 acceptance on any of the additional models. Ordinary desktop profiles exclude
 the optional AML probe. A later isolated Air7,2 resource probe completed cleanly;
-live native SCI/EC/battery service remains unaccepted. See [current status](status.md).
+native SCI/EC/battery acceptance is model- and profile-specific. See [current status](status.md).
+
+Filesystem capacity, stable allocation, exhaustion and large disposable-volume
+tests are described in the [capacity contract](filesystem-capacity.md).
 
 srvros has host tests for console/input/clock/storage logic and QEMU boot smoke tests. Each harness starts a fresh QEMU
 instance, connects to the serial console, drives monitor or shell commands, and

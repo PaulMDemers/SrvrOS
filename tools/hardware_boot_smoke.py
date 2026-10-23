@@ -237,7 +237,8 @@ def main():
                 metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t50000\t33188\t1\t0\t0\t100\t200\t300\n" for name in ("collision-a.txt","collision-b.txt"))
                 fixture.add_directory_files(".srvros",{"meta":metadata.encode()})
             if args.desktop_no_headroom:
-                files.update({f"fill{i:04d}":b"" for i in range(1021)})
+                from hardware_log_archive import limits
+                files.update({f"fill{i:04d}":b"" for i in range(limits()[0]-3)})
                 fixture.add_directory_files(".srvros",{"meta":b"SRVROSMETA1\n"})
             fixture.add_directory_files("srvros-work",files)
             volume.write_bytes(fixture.data);check_clean_image(volume)
@@ -270,7 +271,7 @@ def main():
                     text=wait_for(serial,lambda s:"desktop-trial: NOT STARTED" in s and "srv> " in s,process,args.boot_wait)
                     assert "workspace-log: REFUSED insufficient file/directory slots" in text
                     assert "desktop-trial: USB unmounted=yes" in text
-                    assert "deskd: starting" not in text
+                    assert "/fat/bin/deskd" not in text
                     with stick.open("rb") as stream:
                         stream.seek(2048*512);saved=stream.read(len(fixture.data))
                     volume.write_bytes(saved);check_clean_image(volume)

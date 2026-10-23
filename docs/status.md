@@ -87,7 +87,10 @@ recovery, prompted headphone controls and named secondary-click/drag/scroll chec
 Tap settling is tester-accepted in PR88; its missing final receipt is not a full
 regression pass. PR99 adds verified archival and capacity admission; its native
 automated save/remount/reopen round preserved all prior files and passed offline
-checks. The current 1024-file/256-directory limits remain a separate scale target.
+checks. The [filesystem scale candidate](filesystem-capacity.md) replaces the old
+1024-file/256-directory tables with stable demand allocation and direct VFS
+enumeration. Host growth/failure tests pass; exact-stage VM and native acceptance
+remain pending in the Air record.
 
 Exact source/payload identities, evidence locations and negative tests are in
 the [October 19 journal](desktop-progress-2026-10-19.md) and

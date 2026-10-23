@@ -217,7 +217,10 @@ rehearsal below for disposable workspace coverage, then validate the real drive.
 ### Workspace log capacity and verified archival
 
 Free disk bytes and clean fsck are insufficient for creating new files: the
-current driver has 1024 file slots and 256 directory slots per mounted volume.
+scale candidate has 8192 file slots and 2048 directory slots per mounted volume,
+allocated on demand, with a shared 32768-node VFS budget. Older installed releases
+retain their old limits; use matching source and payload. See the
+[capacity contract](filesystem-capacity.md) for memory admission and lifetime rules.
 Metadata replacement also needs a temporary file slot. Check the entire mounted
 USB before staging, using this host's UUID:
 
