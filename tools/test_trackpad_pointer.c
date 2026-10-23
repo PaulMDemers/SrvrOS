@@ -245,10 +245,43 @@ static void tapping(void) {
     }
     /* Two-finger jitter is quiet. Deliberate scroll cancels tapping permanently. */
     s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
-    tap_feed(&s,&f,1000,taps,false);f.contacts[0].y=f.contacts[1].y=48;
+    tap_feed(&s,&f,1000,taps,false);f.contacts[0].y=f.contacts[1].y=96;
     m=tap_feed(&s,&f,20000,taps,false);assert(!m.wheel_y);
-    f.contacts[0].y=f.contacts[1].y=96;m=tap_feed(&s,&f,30000,taps,false);assert(m.wheel_y==3);
+    f.contacts[0].y=f.contacts[1].y=144;m=tap_feed(&s,&f,30000,taps,false);assert(m.wheel_y==3);
     f.count=0;assert(!tap_feed(&s,&f,50000,taps,false).tap_buttons);
+    /* Secondary settling allowance covers reordered contacts at join, with both
+     * down, and either surviving contact after first lift. Diagonal movement
+     * uses the same Manhattan metric. Crossing the limit cannot rearm on return. */
+    const unsigned travels[]={64,65,127,128,129,256};
+    for(unsigned phase=0;phase<3;phase++) for(unsigned swap=0;swap<2;swap++)
+    for(unsigned survivor=0;survivor<2;survivor++)
+    for(unsigned t=0;t<sizeof(travels)/sizeof(travels[0]);t++) {
+        s=(struct trackpad_pointer){0};f=frame(-1000,0,phase==0?1:2,0);
+        f.contacts[1].x=1000;tap_feed(&s,&f,1000,taps,false);
+        f.count=2;
+        unsigned moving=phase==0?0:survivor;
+        f.contacts[moving].x+=(int)(travels[t]/2);
+        f.contacts[moving].y+=(int)(travels[t]-travels[t]/2);
+        if(phase==2) { f.contacts[0]=f.contacts[survivor];f.count=1; }
+        else if(swap) swap_contacts(&f);
+        m=tap_feed(&s,&f,21000,taps,false);
+        if(travels[t]<=128 && f.count==2) assert(!m.wheel_x && !m.wheel_y);
+        /* Returning to the original coordinate cannot revive a rejected tap. */
+        if(phase==2) f.contacts[0]=frame(survivor?1000:-1000,0,1,0).contacts[0];
+        else { f=frame(-1000,0,2,0);f.contacts[1].x=1000;if(swap) swap_contacts(&f); }
+        tap_feed(&s,&f,31000,taps,false);f.count=0;
+        assert(tap_feed(&s,&f,51000,taps,false).tap_buttons==(travels[t]<=128?2:0));
+        assert(s.tap_rejections.count[TAP_REJECT_MOVEMENT]==(travels[t]>128));
+    }
+    /* A one-finger move remains limited to 64 even with both preferences on.
+     * Adding a second finger after rejection must not revive the candidate. */
+    for(unsigned travel=64;travel<=65;travel++) for(unsigned join=0;join<2;join++) {
+        s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
+        tap_feed(&s,&f,1000,taps,false);f.contacts[0].x+=(int)travel;
+        tap_feed(&s,&f,21000,taps,false);
+        if(join) { f.count=2;f.contacts[1].x=1000;tap_feed(&s,&f,31000,taps,false); }
+        f.count=0;assert(tap_feed(&s,&f,51000,taps,false).tap_buttons==(travel==64?(join?2:1):0));
+    }
     /* Independent options: a secondary tap never falls back to primary. */
     for(unsigned opts=0;opts<=taps;opts+=4) for(int count=1;count<=2;count++) {
         s=(struct trackpad_pointer){0};f=frame(-1000,0,count,0);f.contacts[1].x=1000;
@@ -297,13 +330,13 @@ static void tapping(void) {
     assert(s.tap_rejections.count[TAP_REJECT_RECONTACT]==1);
     /* First rejection is retained across later invalid frames and transport cancel. */
     s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
-    tap_feed(&s,&f,1000,taps,false);f.contacts[1].x+=65;
+    tap_feed(&s,&f,1000,taps,false);f.contacts[1].x+=129;
     tap_feed(&s,&f,21000,taps,false);f.contacts[1].x+=100;
     tap_feed(&s,&f,31000,taps,false);trackpad_pointer_cancel(&s,&m);
     assert(s.tap_rejections.count[TAP_REJECT_MOVEMENT]==1);
     assert(s.tap_rejections.two_finger[TAP_REJECT_MOVEMENT]==1);
     assert(s.tap_rejections.max_age_us[TAP_REJECT_MOVEMENT]==20000);
-    assert(s.tap_rejections.max_travel[TAP_REJECT_MOVEMENT]==65);
+    assert(s.tap_rejections.max_travel[TAP_REJECT_MOVEMENT]==129);
     assert(!s.tap_rejections.count[TAP_REJECT_CANCEL]);
     s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
     unsigned typing_opts=taps|SRV_POINTER_DISABLE_WHILE_TYPING;

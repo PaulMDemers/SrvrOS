@@ -89,8 +89,7 @@ one-finger taps and held physical drags. Keep earlier trackpad reports archived;
 the checklist refuses an existing report directory and must not overwrite it.
 
 The combined follow-up uses `sh /fat/share/examples/tap-checks.sh` and creates
-`Home/tap-checks`, preserving both earlier checklist directories. Help shows this
-command first. After tap observations it pauses for System's live Network view:
+`Home/tap-checks`, preserving both earlier checklist directories. This is the earlier trial; the focused diagnostic now appears first in Help. After tap observations it pauses for System's live Network view:
 unplug only Ethernet, capture the down display, record it while still disconnected,
 then reconnect, capture the up display and record again. Each phase saves an
 `ifconfig` snapshot. These snapshots do not substitute for the prompted visual
@@ -115,8 +114,20 @@ connectivity, run `dhcp` first and inspect its result, then DNS/ping/HTTP. A cab
 link alone does not configure an address, router or DNS server.
 
 For the focused rejection capture run `sh /fat/share/examples/tap-diagnostics.sh`.
-It creates Home/tap-diagnostics without changing earlier reports. Move the pointer
-once to empty desktop, make 20 natural two-finger taps with full lift, Escape and
-a short pause after each attempt, then Alt-Tab back to Terminal to record the
+It creates Home/tap-diagnostics-v2 without changing earlier reports. Move the pointer
+once to empty desktop, make 20 natural two-finger taps with full lift and a short
+pause after each attempt. Press Escape ONLY to dismiss a visible menu; when no
+menu appears, press no key. Then Alt-Tab back to Terminal to record the
 menu count. Avoid unrelated gestures. Exit normally so the session's xHCI summary
 is saved. Prompt completion and aggregate rejection counts alone are not a pass.
+
+The first diagnostic native sample saved 9 secondary taps and 14 two-finger
+movement rejections, with no two-finger timing rejection. The tester saw 8–9 menus
+from about 20 attempts. An Escape byte prefixed the saved answer because Escape
+on a failed tap could reach the focused Terminal; the script still completed.
+Policy `taps-v3` keeps 150 ms join/lift and 300 ms total limits, and raises only
+secondary displacement tolerance from 64 to 128 raw Manhattan units (4 to 8 base
+pixels). Primary taps retain 64. This is a provisional native-informed adjustment,
+not physical acceptance; verify natural taps and unwanted menus during scrolling.
+Whole-session rejection totals include ordinary pointing and cannot establish a
+precise success ratio or an optimal displacement threshold.

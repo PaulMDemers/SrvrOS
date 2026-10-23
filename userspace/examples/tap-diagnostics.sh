@@ -1,6 +1,6 @@
 #!/fat/bin/sh
 # One deliberate gesture sample; aggregate driver diagnostics are saved on exit.
-reports="$HOME/tap-diagnostics"
+reports="$HOME/tap-diagnostics-v2"
 if [ -e "$reports" ]; then
     echo 'tap-diagnostics: existing reports retained; collect before another run'
     exit 1
@@ -12,7 +12,8 @@ echo 'TAP DIAGNOSTICS: 20 two-finger taps, no timer or network checks.'
 echo 'Move the pointer ONCE onto empty desktop, outside windows and dock.'
 echo 'Then avoid pointing, scrolling, physical clicks and Settings changes.'
 echo 'Try 20 natural two-finger taps. Lift both fingers fully after each attempt.'
-echo 'Count how many open a menu. Press Escape after EVERY attempt, then pause'
+echo 'Count menus. Press Escape ONLY when a menu is visible, to dismiss it.'
+echo 'If no menu appears, do not press any key. After every attempt pause'
 echo 'about one second with fingers lifted. Do not press the physical click.'
 echo 'After 20 attempts use Alt-Tab until Terminal is focused again.'
 echo 'Type how many menus appeared out of 20, plus any unexpected behavior.'

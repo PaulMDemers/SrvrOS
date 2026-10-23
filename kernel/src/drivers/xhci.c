@@ -2634,7 +2634,7 @@ static void print_trackpad_capture(const struct xhci_device *device) {
     event_irq_restore(flags);
     print_input_timing("contact-dispatch-gap",&gap);
     print_input_timing("dispatch-to-rearm",&rearm);
-    console_printf("trackpad-gesture: policy=taps-v2 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
+    console_printf("trackpad-gesture: policy=taps-v3 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
         t->drag_frames,t->drag_rebases,t->drag_handoffs,t->scroll_events,t->typing_suppressed,t->palm_suppressed,t->pointer_cancels,t->tap_primary,t->tap_secondary);
     static const char *const reasons[TAP_REJECT_COUNT]={"policy","physical","palm","typing",
         "contacts","clock","duration","lift","join","recontact","movement","short",

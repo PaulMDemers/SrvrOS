@@ -4,6 +4,30 @@ Updated: 2026-10-23. State: **active reference machine; partial device acceptanc
 
 ### Active scope: close device acceptance; refine two-finger tap timing
 
+Returned diagnostic `efc90fce7ae6849d`, session `session-00065e8898366d73-00`:
+tester saw 8–9 menus from roughly 20 attempts; exit counters show 9 secondary taps
+and 14 movement rejections whose peak reached two fingers. There are no two-finger
+timing rejections. The whole-session 55 movement rejections and maximum 352 raw
+units include ordinary pointing and cannot be assigned to those 20 attempts.
+The answer contains a leading Escape byte but says "8-9 appeared"; started/completed
+and a clean exit are saved. No screenshot. This is not physical tap acceptance.
+Prior files are unchanged apart from metadata; offline fsck/allocation pass
+(1023 files, 2220 clusters, no leaks/mismatches), recovery passes and one-shot is
+consumed. USB is unmounted. Review is retained outside build at
+`~/.local/share/srvros/reviewed-evidence/efc90fce7ae6849d`.
+
+Next bounded work: increase only secondary-tap displacement allowance from 64 to
+128 native Manhattan units (4 to 8 unaccelerated base pixels), retaining all time
+limits and primary-tap limits. Test boundary/contact-order/lift/scroll arbitration.
+Correct the checklist to dismiss only visible menus so failed attempts do not
+send Escape into Terminal's read; use fresh Home/tap-diagnostics-v2 reports.
+Touched subsystems: pointer policy/tests, trial script/Help/VM checks, current docs.
+Main `90a1db8` was fetched/inspected: separate Air6,1 battery runtime work; this
+focused change retains actual base `f310923`. Pro PR19 `5735a13` records separate
+validated full-table Wi-Fi candidate; no sibling driver/firmware gates are copied.
+
+### Earlier diagnostic preparation (returned above)
+
 Installed diagnostic `efc90fce7ae6849d` / v58 (source `106da96`) for the
 authorized attended round; accepted recovery `9aa8dbf6fbda8252` remains previous.
 Full build/core/docs, eight host checklist checks, actual Terminal guest execution

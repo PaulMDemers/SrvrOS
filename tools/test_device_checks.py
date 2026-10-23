@@ -81,10 +81,10 @@ class DeviceChecks(unittest.TestCase):
 
     def test_tap_diagnostics_partial_sample_and_replay_refusal(self):
         self.script=self.script.with_name('tap-diagnostics.sh')
-        original=self.home/'tap-checks';original.mkdir()
+        original=self.home/'tap-diagnostics';original.mkdir()
         (original/'observations.txt').write_text('earlier evidence\n')
         self.assertNotEqual(self.run_checks('7 of 20\n').returncode,0)
-        report=self.home/'tap-diagnostics'
+        report=self.home/'tap-diagnostics-v2'
         self.assertEqual((report/'sequence.txt').read_text(),'started\n')
         self.assertEqual((report/'observations.txt').read_text(),'two-finger-sample: 7 of 20\n')
         self.assertNotEqual(self.run_checks('20 of 20\n\n').returncode,0)
@@ -95,7 +95,7 @@ class DeviceChecks(unittest.TestCase):
         self.script=self.script.with_name('tap-diagnostics.sh')
         r=self.run_checks('0 of 20\n\n')
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        report=self.home/'tap-diagnostics'
+        report=self.home/'tap-diagnostics-v2'
         self.assertEqual((report/'sequence.txt').read_text(),'started\ncompleted\n')
         self.assertEqual((report/'observations.txt').read_text(),'two-finger-sample: 0 of 20\n')
         self.assertIn('completion is NOT acceptance',r.stdout)

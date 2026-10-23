@@ -141,9 +141,9 @@ def main():
                 wait(b"started\r\ncompleted");wait(b" $ ")
                 serial.sendall(b"HOME=/fat/read-fixture sh /fat/share/examples/tap-diagnostics.sh < /fat/read-fixture/tap-diag.txt\n")
                 wait(b"Sample recorded; completion is NOT acceptance");wait(b" $ ")
-                serial.sendall(b"cat /fat/read-fixture/tap-diagnostics/observations.txt\n")
+                serial.sendall(b"cat /fat/read-fixture/tap-diagnostics-v2/observations.txt\n")
                 wait(b"two-finger-sample: vm-gestures-skipped");wait(b" $ ")
-                serial.sendall(b"cat /fat/read-fixture/tap-diagnostics/sequence.txt\n")
+                serial.sendall(b"cat /fat/read-fixture/tap-diagnostics-v2/sequence.txt\n")
                 wait(b"started\r\ncompleted");wait(b" $ ")
                 serial.sendall(b"exit\n");wait(b"srv> ")
                 # 820x500 client + 180x50 drag, minus terminal insets 54x98,

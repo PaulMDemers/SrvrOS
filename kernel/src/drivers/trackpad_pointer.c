@@ -189,6 +189,10 @@ bool trackpad_pointer_timed(struct trackpad_pointer *s,const struct apple_trackp
 #define TAP_CHORD_US 150000u
 #define TAP_RELEASE_US 150000u
 #define TAP_SLOP 64
+/* Native Air7,2 capture: two-finger candidates rejected for movement, not timing.
+ * Permit eight base pixels of contact settling; scrolling still takes over
+ * beyond the boundary and a rejected candidate never rearms before full lift. */
+#define TAP_SECONDARY_SLOP 128
 static int tap_distance(const struct trackpad_pointer *s,unsigned old,
     const struct apple_trackpad_frame *f,unsigned next) {
     return distance(f->contacts[next].x-s->tap_x[old],f->contacts[next].y-s->tap_y[old]);
@@ -197,6 +201,7 @@ static void tap_policy(struct trackpad_pointer *s,const struct apple_trackpad_fr
     bool enabled,uint64_t now,unsigned options,struct trackpad_motion *out) {
     options &= SRV_POINTER_TAPS;
     unsigned previous=s->tap_contacts;
+    int slop=f->count==2 || s->tap_peak==2?TAP_SECONDARY_SLOP:TAP_SLOP;
     if(s->tap_options!=options && previous) s->tap_inhibit=true;
     s->tap_options=options;
     bool invalid=!enabled || !options || f->button || s->blocked ||
@@ -230,17 +235,17 @@ static void tap_policy(struct trackpad_pointer *s,const struct apple_trackpad_fr
             else if(now-s->tap_start_us>TAP_CHORD_US) tap_reject(s,TAP_REJECT_JOIN,now,0);
             else {
                 unsigned old=tap_distance(s,0,f,1)<tap_distance(s,0,f,0);
-                if(tap_distance(s,0,f,old)>TAP_SLOP) tap_reject(s,TAP_REJECT_MOVEMENT,now,tap_distance(s,0,f,old));
+                if(tap_distance(s,0,f,old)>slop) tap_reject(s,TAP_REJECT_MOVEMENT,now,tap_distance(s,0,f,old));
                 else { s->tap_x[1]=f->contacts[1-old].x;s->tap_y[1]=f->contacts[1-old].y;s->tap_peak=2; }
             }
         } else if(f->count==2) {
             unsigned order=tap_distance(s,0,f,1)+tap_distance(s,1,f,0)<
                 tap_distance(s,0,f,0)+tap_distance(s,1,f,1);
-            unsigned a=tap_distance(s,0,f,order),b=tap_distance(s,1,f,1-order);
-            if(a>TAP_SLOP || b>TAP_SLOP) tap_reject(s,TAP_REJECT_MOVEMENT,now,a>b?a:b);
+            int a=tap_distance(s,0,f,order),b=tap_distance(s,1,f,1-order);
+            if(a>slop || b>slop) tap_reject(s,TAP_REJECT_MOVEMENT,now,a>b?a:b);
         } else {
             unsigned old=previous==2 && tap_distance(s,1,f,0)<tap_distance(s,0,f,0);
-            if(tap_distance(s,old,f,0)>TAP_SLOP) tap_reject(s,TAP_REJECT_MOVEMENT,now,tap_distance(s,old,f,0));
+            if(tap_distance(s,old,f,0)>slop) tap_reject(s,TAP_REJECT_MOVEMENT,now,tap_distance(s,old,f,0));
             if(previous==2) {
                 s->tap_x[0]=s->tap_x[old];s->tap_y[0]=s->tap_y[old];
                 s->tap_releasing=true;s->tap_release_us=now;
