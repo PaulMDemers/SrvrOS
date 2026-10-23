@@ -1,6 +1,9 @@
 # MacBookAir6,1 read-only temperature and fan trial
 
-Native readings are pending. This profile uses the existing cached CPU thermal
+Basic native readings and fresh sampling were accepted on 2026-10-23, release
+`eee15036f4172920`: about 82 seconds, 81 samples per provider, zero SMC errors,
+and successful user-observed sensor display. The longer coexistence/UI checklist
+below remains incomplete; see the machine record for the bounded result. This profile uses the existing cached CPU thermal
 and bounded SMC services. It does not control fan speed, charging, thermal policy
 or power limits, and does not grant battery/EC/AML access.
 
