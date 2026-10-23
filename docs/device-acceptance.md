@@ -70,3 +70,72 @@ An overlong shell `read` drains to the next newline and fails without setting th
 variable, so the tail cannot silently answer a later prompt. Earlier terminal
 pastes could consume successive reads; a completed checklist from that behavior
 does not establish acceptance of the skipped prompts.
+
+## Secondary tap timing refinement
+
+The October 23 Air7,2 follow-up accepted secondary click/tap functionality but
+reported overly strict two-finger synchronization. The revised provisional policy
+allows the second finger to arrive within 150 ms and the final finger to lift
+within 150 ms of the first lift, with a 300 ms total two-finger tap limit.
+Single-finger taps retain the 10–200 ms limit. Both fingers must lift before the
+secondary pulse; expired chords never become primary clicks. Movement beyond
+64 raw units, scrolling, palms, typing suppression and physical button presses
+still disarm the tap. These values are host-tested usability tuning, pending
+physical evaluation; no hardware contact timing was measured from the screenshot.
+
+For the next attended trial, try relaxed staggered arrival/lift, then deliberate
+scrolls and long resting contacts to check for unwanted menus. Recheck ordinary
+one-finger taps and held physical drags. Keep earlier trackpad reports archived;
+the checklist refuses an existing report directory and must not overwrite it.
+
+The combined follow-up uses `sh /fat/share/examples/tap-checks.sh` and creates
+`Home/tap-checks`, preserving both earlier checklist directories. This is the earlier trial; the focused diagnostic now appears first in Help. After tap observations it pauses for System's live Network view:
+unplug only Ethernet, capture the down display, record it while still disconnected,
+then reconnect, capture the up display and record again. Each phase saves an
+`ifconfig` snapshot. These snapshots do not substitute for the prompted visual
+observations or screenshots. No audio replay or timed exit is included.
+
+The native timing follow-up still triggered only about one in three attempts.
+The 150/300 ms policy is not accepted as a fix. `trackpad-tap-reject` summaries
+now count the first rejection of each armed candidate by rule (movement, total
+age, join/lift timing, contact replacement, palm/typing/physical/policy and clock
+conditions). They include the number whose peak had reached two fingers and
+independent maximum candidate age and displacement. A rejection before the
+second finger arrives cannot establish the user's intended gesture. These are
+bounded aggregates, not raw contact traces or attempt/success ratios; the next
+native run must pair them with deliberate gestures and user observations.
+Counters survive transport cancellation and reset with explicit capture reset;
+no per-report printing, allocation, or new threshold change is added.
+
+The same trial confirmed live System link-state updates in logs and the user's
+notes, although both screenshots were captured while connected. This script
+only reads interface state; it does not acquire a DHCP lease. To test Internet
+connectivity, run `dhcp` first and inspect its result, then DNS/ping/HTTP. A cable
+link alone does not configure an address, router or DNS server.
+
+For the focused rejection capture run `sh /fat/share/examples/tap-diagnostics.sh`.
+It creates Home/tap-diagnostics-v2 without changing earlier reports. Move the pointer
+once to empty desktop, make 20 natural two-finger taps with full lift and a short
+pause after each attempt. Press Escape ONLY to dismiss a visible menu; when no
+menu appears, press no key. Then Alt-Tab back to Terminal to record the
+menu count. Avoid unrelated gestures. Exit normally so the session's xHCI summary
+is saved. Prompt completion and aggregate rejection counts alone are not a pass.
+
+The first diagnostic native sample saved 9 secondary taps and 14 two-finger
+movement rejections, with no two-finger timing rejection. The tester saw 8–9 menus
+from about 20 attempts. An Escape byte prefixed the saved answer because Escape
+on a failed tap could reach the focused Terminal; the script still completed.
+Policy `taps-v3` keeps 150 ms join/lift and 300 ms total limits, and raises only
+secondary displacement tolerance from 64 to 128 raw Manhattan units (4 to 8 base
+pixels). Primary taps retain 64. This is a provisional native-informed adjustment,
+not physical acceptance; verify natural taps and unwanted menus during scrolling.
+Whole-session rejection totals include ordinary pointing and cannot establish a
+precise success ratio or an optimal displacement threshold.
+
+The tester accepted the follow-up tap feel on installed release `95db354d397095b4`
+as "dialed in well enough". Further threshold tuning stops here. That returned
+round has no saved logs/report: the USB reached 1023 files, exhausting the driver's
+1024-file table after reserving a metadata temporary slot. A disposable host-image
+reproduction confirms the boundary; clean fsck does not imply creation headroom.
+Keep subjective input acceptance separate from the incomplete session receipt.
+Address log archival/creation headroom before another physical trial.

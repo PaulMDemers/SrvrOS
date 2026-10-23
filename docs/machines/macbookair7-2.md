@@ -2,7 +2,160 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: close device acceptance; refine two-finger tap timing
+### Current result: tap feel accepted; logging capacity follow-up
+
+Returned settling trial `95db354d397095b4` (source `c619cdd`): the tester says
+"it's dialed in well enough now". Accept the subjective tap feel and stop further
+threshold tuning. This is not a claim that all native regression checks passed.
+The USB has only an empty new `session-00065e891a178922-00` directory and no
+saved report, counter summary, screenshot or exit snapshot. Collection cannot
+match a saved release; full trial evidence remains **incomplete**. The return
+route was queried; it is not inferred from the Ubuntu boot alone.
+
+A separate capacity issue explains the missing files: the driver has 1024 file
+slots, and creation reserves a temporary metadata slot. The real USB contains
+1023 files. A disposable host-image run of the real driver reproduced refusal
+after 1022 ordinary files plus the metadata file, then successful delete/recreate
+and clean remount/fsck. Directory creation can still succeed at this boundary.
+Do not treat clean fsck as evidence that new logs can be saved. Native error text
+was not captured. Before another hardware run, address file-table headroom and
+archival/retention of old logs; preserve all evidence outside build before any
+USB cleanup. No storage code or USB file deletion was performed in this review.
+
+Prior files are unchanged except expected metadata; offline fsck/allocation pass
+(1023 files, 2222 clusters, no leaks/mismatches). Ubuntu default, consumed one-shot
+and current/recovery payloads pass. Current is `95db354d397095b4`, previous remains
+`9aa8dbf6fbda8252`; USB is unmounted and no reboot is armed. Raw collection is in
+`~/.local/share/srvros/pending-trials/95db354d397095b4/returned`; scoped review and
+capacity reproduction survive cleanup in
+`~/.local/share/srvros/reviewed-evidence/95db354d397095b4`.
+Fetched main `9488193` includes separate Air6,1 battery work and was inspected;
+Pro PR19 `4f991e5` owns its raw MAC read-only Wi-Fi trial. Actual tap candidate
+base remains `f310923`; no sibling changes or firmware gates were imported.
+
+### Tap diagnostics and preparation history
+
+Returned diagnostic `efc90fce7ae6849d`, session `session-00065e8898366d73-00`:
+tester saw 8–9 menus from roughly 20 attempts; exit counters show 9 secondary taps
+and 14 movement rejections whose peak reached two fingers. There are no two-finger
+timing rejections. The whole-session 55 movement rejections and maximum 352 raw
+units include ordinary pointing and cannot be assigned to those 20 attempts.
+The answer contains a leading Escape byte but says "8-9 appeared"; started/completed
+and a clean exit are saved. No screenshot. This is not physical tap acceptance.
+Prior files are unchanged apart from metadata; offline fsck/allocation pass
+(1023 files, 2220 clusters, no leaks/mismatches), recovery passes and one-shot is
+consumed. USB is unmounted. Review is retained outside build at
+`~/.local/share/srvros/reviewed-evidence/efc90fce7ae6849d`.
+
+Candidate `95db354d397095b4` / v58, source `c619cdd`, implements the bounded
+follow-up: increase only secondary-tap displacement allowance from 64 to
+128 native Manhattan units (4 to 8 unaccelerated base pixels), retaining all time
+limits and primary-tap limits. Boundary/contact-order/lift/scroll arbitration tests pass.
+The corrected checklist dismisses only visible menus so failed attempts do not
+send Escape into Terminal's read; use fresh Home/tap-diagnostics-v2 reports.
+Touched subsystems: pointer policy/tests, trial script/Help/VM checks, current docs.
+Main `90a1db8` was fetched/inspected: separate Air6,1 battery runtime work; this
+focused change retains actual base `f310923`. Pro PR19 `5735a13` records separate
+validated full-table Wi-Fi candidate; no sibling driver/firmware gates are copied.
+
+Full build/core/docs, pointer/mouse/ABI, xHCI, eight host checklist tests, actual
+Terminal guest script execution and exact EFI/audio/GPT save/reopen all pass.
+The corrected Help page was visually reviewed. Source is committed and shared;
+PR88 stays draft pending native taps and unwanted-menu/scroll acceptance.
+Validation/payload evidence survives cleanup at
+`~/.local/share/srvros/validation/tap-settling-trial-95db354d397095b4`.
+The user authorized the attended trial. Candidate `95db354d397095b4` is now
+installed, retaining accepted `9aa8dbf6fbda8252` recovery and Ubuntu default.
+Real USB preflight passed (1023 files, 2220 clusters, no leaks/mismatches); earlier
+reports are hashed and preserved, and the fresh Home/tap-diagnostics-v2 is absent.
+Run, payload, recovery checks and return collector are backed up outside build in
+`~/.local/share/srvros/pending-trials/95db354d397095b4`. The local run record owns
+arming state. Human actions were announced: 20 taps, Escape only for visible
+menus, record count, clean desktop exit/unmount and monitor reboot. No timed exit.
+Collect the matching session before another trial. Native acceptance is pending.
+Fetched main `b17b80e` adds Air6,1 incomplete runtime evidence, and Pro PR19
+`09f2c0d` records a separate Wi-Fi prerequisite audit; both were inspected. The
+exact validated candidate retains its prior base; no source changes or sibling
+profile assumptions were introduced while preparing this install.
+
+### Earlier diagnostic preparation (returned above)
+
+Installed diagnostic `efc90fce7ae6849d` / v58 (source `106da96`) for the
+authorized attended round; accepted recovery `9aa8dbf6fbda8252` remains previous.
+Full build/core/docs, eight host checklist checks, actual Terminal guest execution
+and exact EFI/audio/GPT save/reopen checks pass. The real USB passed offline
+fsck/allocation (1017 files, 2212 clusters, no leaks or mismatches); prior files
+are hashed. Ubuntu default and firmware order are unchanged. Durable run/payload/
+collector: `~/.local/share/srvros/pending-trials/efc90fce7ae6849d`; validation:
+`~/.local/share/srvros/validation/tap-diagnostic-trial-efc90fce7ae6849d`.
+The local run record owns arming state. Collect this matching session first after
+return; physical tap usability and rejection interpretation remain pending.
+
+`tap-diagnostics.sh` creates
+fresh Home/tap-diagnostics reports and asks for 20 natural two-finger taps,
+Escape between attempts and keyboard-only return to Terminal. New Help-first
+instructions, image dependency/packaging and host/guest script checks accompany
+the already tested rejection counters. Prior gesture/audio/network reports stay
+intact; no additional threshold, DHCP or device-profile changes are part of this
+trial. Base remains `f310923`; fetched main `d5491c0` adds the distinct Air6,1
+passive battery preflight and will be consumed separately after this capture.
+Pro PR19 `21c3117` owns an installed, unaccepted TXBE9/TXBE10 ordered-pair trial;
+its xHCI changes are not copied into this pointer diagnostics candidate.
+
+Returned `8e70766e16933891`, session `session-00065e883cb81885-00`: tap timing
+remains **unaccepted**. The saved response says "It triggers about 1 in 3 attempts";
+other input regressions say "All good". Do not merge PR88 as a completed fix.
+Next bounded work adds aggregate tap-rejection reasons/age/displacement diagnostics
+in the pointer policy and xHCI summary, with host replay coverage; no further
+threshold change until native evidence distinguishes the cause. The diagnostics
+pass pointer/mouse/ABI, xHCI and full build/core/docs checks, including exact
+reason counts, secondary classification, first-rejection retention and reset.
+The diagnostic candidate above supersedes this earlier installed-state checkpoint.
+Main `f310923` adds Air6,1 telemetry acceptance docs and is merged.
+Pro PR19 `c408949` retains failed clock-enabled TXBE write evidence and a separate
+next TXBE9/TXBE10 prerequisite audit; no Wi-Fi implementation is imported.
+
+System logs record cable down/up and matching live Network refreshes twice. The
+user reports cable changes display properly. Both screenshots show connected,
+and all three script snapshots were taken after reconnection; the network-up
+observation is blank. Retain that screenshot limitation. Missing router/DNS and
+failed ping came with `dhcp=no`, default 10.0.2.15: this focused script never
+requested DHCP. This does not reverse the prior successful explicit DHCP/DNS/HTTP
+round or establish a new connectivity failure. The follow-up should acquire a
+lease explicitly before testing connectivity.
+
+The matching session exited cleanly with no collector attention. All prior files
+are unchanged except expected `.srvros/meta`; offline checks pass: 1017 files,
+2212 clusters, no leaks/mismatches. Ubuntu default, consumed one-shot and both
+installed/recovery payloads pass. Current stays `8e70766e16933891`, previous
+`9aa8dbf6fbda8252`; USB is unmounted. Raw results and screenshots survive cleanup
+under `~/.local/share/srvros/pending-trials/8e70766e16933891/returned`.
+
+Candidate `8e70766e16933891` / v58 (source `03bb41d`) is installed for the
+authorized attended timing/live-link trial, retaining `9aa8dbf6fbda8252` recovery.
+Final full build/core/docs, guest script/paste and exact EFI/audio/GPT save/reopen
+checks pass. Help visibly shows `sh /fat/share/examples/tap-checks.sh` first.
+The real USB passed offline fsck/allocation: 1006 files, 2121 clusters, no leaks
+or mismatches; prior reports were hashed and remain in place. Ubuntu default and
+firmware order are unchanged. Human gestures/cable changes are required; prompts
+have no timeout and the user returns through clean desktop exit and monitor reboot.
+Run/payload/collector backups survive cleanup in
+`~/.local/share/srvros/pending-trials/8e70766e16933891`; validation is retained in
+`~/.local/share/srvros/validation/tap-timing-trial-8e70766e16933891`.
+The local run record owns the exact arming state. Collect its matching session,
+new tap-checks observations/interface reports and down/up screenshots before
+accepting the revised timing or System link display. No new physical pass yet.
+
+PR88's next attended trial adds `tap-checks.sh`, image packaging and Help-first
+instructions, with host and guest script regression coverage. It preserves prior
+report directories and separately records tap feel, unintended menus/dragging,
+and System link-down/up observations plus interface snapshots. User gestures and
+Ethernet cable changes are required; USB stays attached. Preparation is authorized;
+announce before arming the one-shot. Keep accepted `9aa8dbf6fbda8252` recovery.
+Main `36dbc3d` (Air6,1 telemetry/v59) was inspected and merged; its exact sibling
+profile does not widen Air7,2 firmware access. Pro PR19 `fea9f67` owns the separate
+clock-enabled TXBE write comparison, installed but not yet natively accepted.
+No overlapping pointer policy change or Wi-Fi code is imported.
 
 Trackpad-only release `4414f888007a8407` (compiled `b1486c6`, staged `d510c39`)
 returned and was collected from session `session-00065e87d79869ca-00`.
@@ -24,14 +177,20 @@ reboot is armed. Raw collection, observations and screenshot survive build clean
 under `~/.local/share/srvros/pending-trials/4414f888007a8407/returned`; scoped
 acceptance is in `~/.local/share/srvros/accepted-evidence/4414f888007a8407`.
 
-PR83 closes the guided-checklist/paste correction with the existing local build,
+PR83 merged as `cba50a8`, closing the guided-checklist/paste correction with the existing local build,
 core, terminal guest and exact EFI/audio/GPT validation. Main `df44fa0` was fetched,
 inspected and merged: Air6,1 headphone/Stop acceptance documentation only. Pro PR19
 `e66c665` owns an opt-in PBF/MAC clock prerequisite candidate; native comparison
 is pending and earlier TXBE write failures remain failures. No Wi-Fi code is copied.
-Next bounded work touches only trackpad tap policy, host regressions and current
-documentation: relax contact arrival/release timing without changing physical
-click ownership, displacement/scroll suppression, model gates or installed payload.
+The next bounded change touches only trackpad tap policy, host regressions and
+current documentation: 150 ms arrival/release allowances and a 300 ms total
+secondary-tap limit; one-finger taps retain 200 ms. Physical click ownership,
+displacement/scroll suppression, model gates and installed payload are unchanged.
+Timing boundaries across both contact orders and either surviving finger are
+covered by 140 host replays. Full build/core/docs, pointer/mouse/ABI, xHCI and
+the disposable-VM context-menu regression pass. The revised feel remains
+physically untested; the candidate above is prepared for that check. Validation is retained
+outside build under `~/.local/share/srvros/validation/trackpad-timing-20261023`.
 
 ### October 23 audio/network round (collected)
 

@@ -431,6 +431,7 @@ void xhci_trackpad_reset_capture(void) {
         struct xhci_trackpad_endpoint *t=&xhci.devices[i].trackpad;
         t->scroll_events=t->typing_suppressed=t->palm_suppressed=0;
         t->drag_frames=t->drag_rebases=t->drag_handoffs=t->tap_primary=t->tap_secondary=0;
+        t->pointer.tap_rejections=(struct trackpad_tap_rejections){0};
         t->max_touch_major=t->max_touch_minor=0;
         t->pointer_motion=t->pointer_events=t->pointer_buttons=t->pointer_cancels=0;
         t->reports=t->contact_reports=t->button_reports=t->lifts=t->malformed=0;
@@ -2629,11 +2630,18 @@ static void print_trackpad_capture(const struct xhci_device *device) {
         t->reports,t->contact_reports,t->button_reports,t->malformed,t->errors);
     uint64_t flags=event_irq_save();
     struct input_timing gap=t->contact_gap,rearm=t->rearm_time;
+    struct trackpad_tap_rejections rejected=t->pointer.tap_rejections;
     event_irq_restore(flags);
     print_input_timing("contact-dispatch-gap",&gap);
     print_input_timing("dispatch-to-rearm",&rearm);
-    console_printf("trackpad-gesture: policy=taps-v1 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
+    console_printf("trackpad-gesture: policy=taps-v3 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
         t->drag_frames,t->drag_rebases,t->drag_handoffs,t->scroll_events,t->typing_suppressed,t->palm_suppressed,t->pointer_cancels,t->tap_primary,t->tap_secondary);
+    static const char *const reasons[TAP_REJECT_COUNT]={"policy","physical","palm","typing",
+        "contacts","clock","duration","lift","join","recontact","movement","short",
+        "secondary-off","cancel"};
+    for(unsigned i=0;i<TAP_REJECT_COUNT;i++) if(rejected.count[i])
+        console_printf("trackpad-tap-reject: reason=%s count=%u two_finger=%u max_age_us=%u max_travel=%u\n",
+            reasons[i],rejected.count[i],rejected.two_finger[i],rejected.max_age_us[i],(uint64_t)rejected.max_travel[i]);
     console_printf("trackpad-capture: current contacts=%u button=%u x=%d y=%d origin=%u\n",
         (uint64_t)t->frame.count,(uint64_t)t->frame.button,(int64_t)t->frame.contacts[0].x,
         (int64_t)t->frame.contacts[0].y,(uint64_t)t->frame.contacts[0].origin);
