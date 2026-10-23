@@ -1660,3 +1660,12 @@ the other three after-values and final MAC/CORE guards were not read. Their zero
 summary fields are unpopulated state, not hardware observations. Both capture
 markers report NO. This is a failed strict comparison; retained upper bits need
 reference/field-semantics investigation before changing the acceptance rule.
+
+The follow-up same-adapter Linux audit read TX_LINK `007f1020` in four samples,
+matching the native result. The related [Linux v7.0 rt2800 register definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/ralink/rt2x00/rt2800.h)
+identify upper feedback fields, but are not an MT7610 writable-mask guarantee.
+This supports investigating a too-strict whole-word comparison. The v35 failure
+remains recorded; no check was relaxed. Live timeout and AUTO_RSP values differ
+from the initialization table because the reference driver can change ACK timeout
+and preamble selection at runtime. Next capture should observe every submitted
+policy target and final guards before deciding field-specific validation rules.

@@ -3684,3 +3684,27 @@ Workspace clean209files/562clusters, zero leaks/mismatches, unmounted. Run and
 checkpoint marked collected failure, no reboot armed. Next: inspect TX_LINK
 field semantics/reference behavior before relaxing exact readback or testing
 another write; remaining policy registers are unobserved.
+
+### 2026-10-23 — TX_LINK readback audit (no device-register writes)
+
+Read four live Linux samples from this exact7392:a711 adapter, mt76x0u, with
+original debugfs regidx restored. TX_LINK1350 consistently007f1020, identical to
+v35's native post-write value. Desired low control bits match1020; native changed
+bit12 while retaining007f0000. Linux v7.0 rt2800 definitions identify upper bits
+as remote feedback fields, but that related-chip definition is not a proven
+MT7610 writable mask. Evidence suggests the whole-word equality was too strict;
+it does not justify silently accepting v35 or ignoring arbitrary upper bits.
+
+Linux also reads timeout1348=a1990, retry134c=47d01f0f, AUTO_RSP1404=3. mt76x02
+runtime code updates ACK timeout and preamble selection after initialization,
+so these live values are not cold-init expected values. Native remaining three
+readbacks/final guards remain unknown. No driver reset/unbind or register writes.
+Audit sources/results/capture and hashes:
+`~/.local/share/srvros/macbookpro11-2/mac-policy-audit-44c2616/`.
+
+Next bounded scope: separate observational policy profile with unchanged command,
+ACK and initial-value gates; read all four targets plus final MAC/CORE guards,
+report mismatches without aborting solely on a target value, and explicitly keep
+register acceptance NOT_TESTED. Preserve v35 strict behavior. No new image
+installed or reboot armed. Fetched main249bb97 (log capacity), PR101 AC transitions
+separate; actual source integration base remains22fd266.
