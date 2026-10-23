@@ -91,17 +91,17 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `bbd0208`, branch `device/macbookair6-1/brightness`. Capture this unit's
-PWM state read-only using its exact GPU `8086:0a26`, PCH `8086:9c43` and captured
-DSDT identity. Scope: laptop probe/resource matcher, host tests and Air6,1 docs.
-Use existing v19 automatic diagnostic capture; no staging/main changes, EC/AML
-access, PWM writes or brightness provider binding. PR #76 owns combined laptop
-services; PR #19 owns Pro Wi-Fi. Neither overlaps this isolated matcher/probe.
-
-1. Rehearse the exact diagnostic stage, retain console recovery and accepted desktop.
-2. Collect native mode/period/duty evidence before implementing a write provider.
-   Follow the [brightness capture guide](../macbookair6-1-brightness.md).
-3. Keep audio, battery/AC, telemetry and networking as separate milestones.
+Base `e741c58`, branch `device/macbookair6-1/audio`. Add the captured analog
+controller `8086:9c20` and an exact CS4208 `1013:4208` / `106b:7100` /
+revision `100300` profile. Validate raw pin defaults and direct speaker/headphone
+routes before codec writes. Reuse the existing muted startup and audio worker.
+Scope: audio controller/codec, HDA host tests, a distinct unscaled v57
+brightness+audio stage, exact-stage audio VM checks and this unit's documentation.
+PR #76 (`73fc9ba`) owns v55 combined laptop/battery services; preserve its
+independent recipe and do not modify main or battery ownership. PR #19 owns Pro
+Wi-Fi. Shared staging additions are limited to v57, leaving existing recipes
+unchanged. Next checkpoint is an attended low-volume listening test, after local
+host/VM checks, merge and verified install. Physical audio acceptance is pending.
 
 ## First console trial prepared (2026-10-22)
 
