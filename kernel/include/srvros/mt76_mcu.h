@@ -194,4 +194,7 @@ struct mt76_txbe_direct_io {
 };
 enum mt76_mcu_timing_status mt76_txbe_direct_apply(struct mt76_txbe_access *s,
     const struct mt76_txbe_direct_io *io);
+size_t mt76_mcu_clock_pair_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_mcu_apply_clock_pair(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io);
 #endif

@@ -259,13 +259,13 @@ static enum mt76_mcu_timing_status mac_read(struct mt76_mcu_mac *s,
     return *value==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
 }
 static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io,const struct mt76_mcu_register_pair *plan,unsigned sequence,bool guard_core,unsigned pairs) {
+    const struct mt76_mcu_timing_io *io,const struct mt76_mcu_register_pair *plan,unsigned sequence,bool guard_core,unsigned pairs,unsigned total) {
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange ||
-        (pairs!=2 && pairs!=4))return MT76_TIMING_REFUSED;
+        (pairs!=2 && pairs!=4) || (total!=2 && total!=4) || pairs>total)return MT76_TIMING_REFUSED;
     *s=(struct mt76_mcu_mac){.attempted=true,.received=-1};
     enum mt76_mcu_timing_status status;
 #define MAC_READ(address,value) do { status=mac_read(s,io,address,value); if(status!=MT76_TIMING_OK)return status; } while(0)
-    for(unsigned batch=0;batch<4/pairs;batch++) {
+    for(unsigned batch=0;batch<total/pairs;batch++) {
         MAC_READ(0x1004,&s->mac_before);
         if(s->mac_before)return MT76_TIMING_STATE;
         if(guard_core) {
@@ -304,26 +304,26 @@ static enum mt76_mcu_timing_status apply_fixed_mac(struct mt76_mcu_mac *s,
 }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_mac_basics(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_basics,4,false,2); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_basics,4,false,2,4); }
 enum mt76_mcu_timing_status mt76_mcu_apply_mac_format(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_format,6,false,2); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,mac_format,6,false,2,4); }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_core(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_core,8,true,2); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_core,8,true,2,4); }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_front(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_front,10,true,2); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_front,10,true,2,4); }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_agc(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_agc,12,true,2); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_agc,12,true,2,4); }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_batch(struct mt76_mcu_mac *s,
-    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_batch,14,true,4); }
+    const struct mt76_mcu_timing_io *io) { return apply_fixed_mac(s,io,bbp_batch,14,true,4,4); }
 
 enum mt76_mcu_timing_status mt76_mcu_apply_compact(unsigned phase,
     struct mt76_mcu_mac *s,const struct mt76_mcu_timing_io *io) {
     const struct mt76_mcu_register_pair *plan=compact_plan(phase);
-    return plan?apply_fixed_mac(s,io,plan,4+phase,phase>=2,4):MT76_TIMING_REFUSED;
+    return plan?apply_fixed_mac(s,io,plan,4+phase,phase>=2,4,4):MT76_TIMING_REFUSED;
 }
 
 bool mt76_mcu_begin(struct mt76_mcu_session *s, uint8_t *sequence) {
@@ -499,4 +499,13 @@ enum mt76_mcu_timing_status mt76_txbe_direct_apply(struct mt76_txbe_access *s,
     for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++)if(s->after.values[n][2]!=0)return MT76_TIMING_STATE;
     if(s->matches!=MT76_TXBE_SAMPLES || s->value!=0)return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
+}
+
+/* One ordered pair at the final unused identifier; no writes to TXBE12/13. */
+size_t mt76_mcu_clock_pair_packet(uint8_t *out,size_t capacity) {
+    return fixed_mac_packet(txbe_next,15,0,2,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mcu_apply_clock_pair(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) {
+    return apply_fixed_mac(s,io,txbe_next,15,true,2,2);
 }

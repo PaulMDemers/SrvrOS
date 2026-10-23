@@ -3349,3 +3349,12 @@ source hashes and raw receipt archived outside build in txbe-linux-audit-9d22c95
 Current19f40e64c606d997/recoverye47dca3a6b30c6c1 unchanged; no reboot armed.
 Fetched main36dbc3d and inspected separate PR88 gesture scope. Integrated
 base22fd266 unchanged; this work changes audit documentation only.
+
+Active implementation scope: explicit clock-enabled TXBE9/TXBE10 ordered pair.
+Reuse compact phases0..10, accepted clocks before BBP, then one command12
+sequence15 containing only2724=20000000 followed by2728=0. Require both target
+readbacks and MAC0/COREf000f200 before/after. No TXBE12/13 writes, sequence
+reuse or RF enable. Touch MCU/xHCI/main/staging/tests; depend on accepted v28
+clock setup and retain historical profiles. No reboot armed.
+Fetched mainf310923 (Air6,1 telemetry acceptance); open PR90 passive battery
+preflight and PR88 gestures are separate scopes. Actual integrated base22fd266.

@@ -248,7 +248,7 @@ struct xhci_wifi_mcu {
     unsigned compact_next, compact_limit, compact_submitted[MT76_MCU_COMPACT_PHASES];
     bool compact_mode, compact_active;
     bool txbe_observe_active, txbe_first_active, txbe_first_submitted, txbe_second_mode;
-    bool clock_mode,clock_active,clock_submitted;
+    bool clock_mode,clock_active,clock_submitted,clock_pair_mode;
     struct mt76_clock_probe clock;
     bool txbe_access_active, txbe_access_submitted, txbe_direct_mode, txbe_direct_submitted;
     struct mt76_txbe_access txbe_access;

@@ -1514,3 +1514,15 @@ weaken the zero-readback condition based on a Linux steady-state observation.
 The local `txbe-linux-audit` script verifies eight samples, six historical trial
 receipts, table identity, addresses and ordering; raw evidence is archived outside
 build. No new candidate was installed for this audit.
+
+### Clock-enabled ordered pair diagnostic (native pending)
+
+Firmware v30 (`--wifi-clock-pair`, requiring TXBE start and excluding all other
+TXBE alternatives) performs accepted compact phases0..10 with the clock
+prerequisite, then sends one 24-byte command12 at sequence15: TXBE9=20000000,
+TXBE10=0. Phase11 now has exactly two targets in this explicit profile, eight
+reads, one acknowledgement and one completed batch. Both target values and
+MAC0/COREf000f200 before/after must match. The old quartet profile is unchanged.
+TXBE12/13 are not written; no MCU identifier wraps or gets reused. The native
+binding refuses a 40-byte quartet, missing clock completion or unrelated target
+reads. Failure remains failure and is saved for collection after automatic return.
