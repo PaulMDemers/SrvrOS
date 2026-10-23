@@ -24,6 +24,36 @@ byte-for-byte unchanged. The mounted scan has 953 files, 200 directories and
 70 usable file slots after metadata reserve. Offline checks follow before any
 physical run. Original incomplete evidence remains archived independently.
 
+### Capacity implementation and local validation (PR #99)
+
+Source `2c68476` adds independent file/directory admission before session creation,
+visible attended-trial refusal, mounted preparation checks and an offline real
+exFAT/VFS headroom check. Explicit Ubuntu archival keeps the newest 32 sessions
+and incomplete/unknown contents; at most 32 completed old sessions are copied,
+hashed and flushed outside the checkout/on another device before optional prune.
+No boot-time deletion or filesystem limit increase. The setup guide documents it.
+
+Full build/core/docs, nine archive safety cases, logger refusal, host preparation
+and exhaustive filesystem write/flush/power-cut regressions pass. Desktop release
+`c4f6502fdd232e6c` passed exact EFI/GPT full-capacity refusal without session
+creation and normal desktop/audio/save/reopen. Offline real USB checks after
+archival pass: 953 files, 200 directories, 2130 allocated clusters, no leaks or
+mismatches, 70 usable file slots. All remaining files were hash-preserved.
+
+One unattended native v8 persistence round is prepared as release
+`a39bb31d4031693a`, request `cda6574dd2dedfa8`; its exact automatic-return VM
+rehearsal is the next gate before install. It exercises USB write/flush/read,
+file operations and shell save/remount/reopen, with no human input, automatic
+Ubuntu return on success and visible failure halt. Native acceptance is pending;
+this does not retest physical gestures or battery. Accepted recovery remains
+`9aa8dbf6fbda8252`. Local run state/evidence lives under
+`build/log-capacity-20261023` and must be copied outside build before reboot.
+
+Actual main remains `2e2eb2b`. Pro PR19 `37fa564` remains Wi-Fi work; Air6,1
+PR98 `7a1b014` is a distinct bounded SMBus capture. Both touch some shared guide
+and harness files; preserve their separate profiles when integrating. This work
+adds no device/firmware gates. Actions stay disabled; all validation is local.
+
 ### Current result: tap feel accepted; logging capacity follow-up
 
 Returned settling trial `95db354d397095b4` (source `c619cdd`): the tester says
