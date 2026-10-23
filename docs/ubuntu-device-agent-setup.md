@@ -269,8 +269,8 @@ The v55 combined profile adds `--desktop-services` to `--desktop-battery`.
 It enables the existing brightness, HDA, read-only CPU/SMC and ECM providers,
 without scaling or an isolated AML probe. Use `--services` with the ordinary
 battery VM harness, including its exact-stage run. Combined physical acceptance
-is pending; see [device parity](device-parity.md) for provider evidence and the
-attended checklist. Unsupported providers stay unavailable. Boot-scoped device
+is recorded for Air7,2 release `9aa8dbf6fbda8252`; see
+[device parity](device-parity.md) for its scoped evidence and the attended checklist. Unsupported providers stay unavailable. Boot-scoped device
 workers remain available after desktop exit; app PCM, battery ownership and
 session logging retire before the Home hold releases.
 

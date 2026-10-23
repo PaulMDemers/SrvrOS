@@ -22,8 +22,9 @@ off the machine. The combined v55 provider profile is described in the
 [device parity ledger](device-parity.md).
 
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
-on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes
-and live sensor display. Physical two-finger pressing now selects secondary click at press;
+on Air7,2. The October 23 v55 trial accepted combined Home/battery, playback,
+brightness/volume, live sensors and save/exit/reopen. See the machine record for
+the exact payload and remaining listening/gesture checks. Physical two-finger pressing now selects secondary click at press;
 specific gesture cases still need confirmation. Secondary tapping is separate.
 The October 19 interactive round reported generally good behavior and recorded
 no recurrence of the earlier System input-timeout closure. That earlier cause

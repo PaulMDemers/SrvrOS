@@ -79,7 +79,11 @@ Ordinary Home battery acceptance on October 23 includes a real document saved
 and reopened across two desktop lifetimes, clean runtime retirement, preserved
 prior files, clean offline allocation and confirmed Ubuntu return. Screenshots
 show the cached indicator. This does not establish battery life or calibration.
-The combined v55 laptop-services profile is under validation.
+The combined v55 profile is physically accepted on Air7,2 release
+`9aa8dbf6fbda8252`: playback/input, brightness, read-only sensors and battery
+coexist with document save/exit/reopen. Runtime/PCM cleanup, file preservation
+and offline allocation pass. Ethernet still needs an attached Air adapter;
+headphone/channel and targeted secondary-click acceptance remain open.
 
 Exact source/payload identities, evidence locations and negative tests are in
 the [October 19 journal](desktop-progress-2026-10-19.md) and

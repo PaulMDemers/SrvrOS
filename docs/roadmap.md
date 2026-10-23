@@ -8,17 +8,16 @@ ongoing Pro work.
 
 ## 1. Integrate the everyday laptop session
 
-Ordinary Home battery startup, cached indicator, AC transitions and save/exit/
-reopen are accepted on Air7,2. Bring existing brightness, audio, read-only sensors
-and Ethernet discovery into that session without enabling the isolated AML probe
-or widening hardware gates. Keep unsupported devices unavailable and apps usable.
-Add cached low-charge notifications and easy access to battery details. Refresh
-public documentation alongside tested behavior.
+**Completed on Air7,2 release `9aa8dbf6fbda8252`.** Ordinary Home battery,
+brightness, PCM audio and read-only sensors coexist with input and saved files.
+The attended save/exit/reopen trial and local host/VM regressions pass; files,
+resource retirement and Ubuntu recovery were verified. Cached low-charge notices
+and battery-label access to System are implemented, with synthetic warning tests.
+The combined profile preserves native gates and omits the isolated AML probe.
 
-**Done when:** host/VM regressions and one attended combined Air trial establish
-input, saves, playback, brightness, telemetry, indicator and clean exit/reopen.
-Record absent hardware explicitly; Ethernet acceptance requires an attached adapter.
-Preserve the accepted v54 recovery payload until the combined release passes.
+Absent Ethernet hardware and the named listening/gesture/low-charge gaps remain
+explicitly outside this acceptance. The accepted payload/evidence and older
+recovery are retained independently of build cleanup.
 
 ## 2. Close remaining device and input acceptance gaps
 
