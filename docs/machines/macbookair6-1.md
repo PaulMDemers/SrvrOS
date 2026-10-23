@@ -1134,3 +1134,13 @@ logs added. Offline exFAT/allocation pass: 205 files, 383 clusters, zero leaks,
 bitmap mismatches or errors. Payload/recovery hashes and Ubuntu default pass;
 Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
 are backed up outside build. No reboot is armed.
+
+## Short SMBus capture scope (2026-10-23)
+
+Based on main `eeca0e8`, this unit owns bounded Air6,1 host-event admission in
+shared battery runtime/platform, v62 staging and directed host/VM tests.
+Air7,2 PR88 input timing and Pro11,2 PR19 Wi-Fi remain independent scopes.
+Reuse the existing serialized SMBus event/service/retirement mechanisms with
+exact Air6,1 firmware gates. Admit only the automatic short parked capture;
+retain v61 query refusal and reject mounted Home, image/files and ordinary
+service. No AML `_Q10` dispatch or general EC register permissions are added.

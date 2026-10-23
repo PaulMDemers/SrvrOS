@@ -199,7 +199,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     if(ec&3)return refuse("ec-busy",ec,0);
     p->io=(struct ec_io){p,ec_status,ec_read,ec_command,ec_write};
 #ifdef SRVROS_BATTERY_AIR61
-    p->query_policy=BATTERY_QUERY_AIR61;p->bounded_samples_only=true;
+    p->query_policy=BATTERY_QUERY_AIR61;p->bounded_samples_only=true;p->smbus_capture_profile=true;
 #else
     p->query_policy=BATTERY_QUERY_AIR72;p->smbus_capture_profile=true;
 #endif

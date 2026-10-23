@@ -413,6 +413,9 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
     if(model.fault>=48)p->query_policy=BATTERY_QUERY_AIR72;
     if(model.fault>=62){p->model_smbus_queries=true;p->smbus_capture_profile=true;}
+#ifdef SRVROS_BATTERY_AIR61
+    p->query_policy=BATTERY_QUERY_AIR61;p->bounded_samples_only=true;
+#endif
     if((model.fault>=41 && model.fault<=47) || model.fault==61)p->model_query_checkpoint=model_query_checkpoint;
     if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
     if(model.fault==37)p->model_owner_irq=model_owner_irq;

@@ -12,13 +12,15 @@ from vm_sockets import connect_unix
 from battery_native_query_smoke import verify_image
 from battery_native_smbus_records import check,check_files
 from battery_desktop_smoke import verify_app_image
-CASES={'completion':62,'alarm-darwin':63,'alarm-other':64,'unknown':65,'busy':66,'error':67,'read-timeout':68,'ack-timeout':69,'bad-hid':70,'bad-bank':71,'late-alarm':72,'native-refusal':62,'profile-refusal':15,'no-event':73,'bad-lock':74,'unsupported':75}
-FATAL={c:('namespace/EC connection' if c.startswith('bad-') else 'query policy' if c=='unsupported' else 'SMBus event') for c in ('busy','error','read-timeout','ack-timeout','bad-hid','bad-bank','bad-lock','unsupported')}
+CASES={'completion':62,'alarm-darwin':63,'alarm-other':64,'unknown':65,'busy':66,'error':67,'read-timeout':68,'ack-timeout':69,'bad-hid':70,'bad-bank':71,'late-alarm':72,'native-refusal':62,'profile-refusal':15,'no-event':73,'bad-lock':74,'unsupported':75,'ordinary-refusal':62}
+FATAL={c:('namespace/EC connection' if c.startswith('bad-') else 'query policy' if c in ('unsupported','ordinary-refusal') else 'SMBus event') for c in ('busy','error','read-timeout','ack-timeout','bad-hid','bad-bank','bad-lock','unsupported','ordinary-refusal')}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--air61',action='store_true',help='exercise bounded Air6,1 admission in disposable model')
     parser.add_argument('--files',action='store_true')
     parser.add_argument('--case',choices=(*CASES,'sustained','stop-read','stop-ack','stop-uncertain','event-limit'),default='completion');args=parser.parse_args()
+    if args.air61 and args.files:parser.error('Air6,1 does not admit file coexistence')
     if args.case not in CASES and not args.files:parser.error('case requires --files')
     cases=dict(CASES);fatal=dict(FATAL)
     if args.files:
@@ -26,7 +28,7 @@ def main():
         fatal.update({'stop-uncertain':'SMBus event','event-limit':'SMBus capture event limit'})
     checker=check_files if args.files else check
     capture=b'battery-smbus-files-capture' if args.files else b'battery-smbus-capture'
-    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-native-smbus-'+('files-' if args.files else '')+args.case)
+    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-native-smbus-'+('air61-' if args.air61 else '')+('files-' if args.files else '')+args.case)
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-native-smbus-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -41,10 +43,12 @@ def main():
         fixture.add_directory_files('srvros-work',entries)
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(cases[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_AIR61 1\n' if args.air61 else '')+'#define BATTERY_FAULT '+str(cases[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='native-refusal' else 'vm.elf')
+        if args.air61:kernel=root/'build/acpi-air61-battery'/('srvros.elf' if args.case=='native-refusal' else 'vm.elf')
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop-release=0123456789abcdef srvros.capture=battery-smbus srvros.capture-failure=reboot'
+        if args.case=='ordinary-refusal':cmdline=cmdline.replace('srvros.capture=battery-smbus','srvros.capture=battery')
         if args.files:cmdline=cmdline.replace('srvros.capture=battery-smbus','srvros.capture=battery-smbus-files')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar',cmdline=cmdline)
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
