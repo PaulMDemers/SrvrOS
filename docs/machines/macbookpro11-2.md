@@ -3022,3 +3022,19 @@ e47dca3a6b30c6c1 retained. Obsolete492306b5fccc17b9 removed from ESP
 only after archive equality verification. Workspace clean before install:
 181files/520clusters, zero allocation errors, unmounted. Native acceptance
 pending cold adapter power cycle; Ubuntu remains default.
+
+TXBE9/10/12/13 native trial FAILED readback: source5d5488c,
+release9cc1888913aa7ff5, session00065e85ec8dd3b8-00. Earlier eleven
+phases and44 readbacks passed. Phase11 sequence15 sent40/received16 with
+exact first-entry reply and ack_mask1; TXBE9 read0->20000000. TXBE10
+read37dff before and38e30 after, not requested0. Engine returned status4
+(MT76_TIMING_STATE), reads8, batches_completed0, complete0. TXBE12/13
+and final MAC/CORE reads were not reached; their zero log fields are not
+observations. Both capture completion markers are NO. No native acceptance
+of phase11, no retry/recycled identifier. Failure logs archived outside build
+in wifi-txbe-next-5d5488c/failed-native-collection. Ubuntu default, consumed
+one-shot and installed payload/recovery verified. Workspace clean:
+183files/523clusters, zero leaks/allocation mismatches; unmounted.
+Run/checkpoint collected failed/unarmed. Next bounded read-only TXBE10
+sampling to distinguish changing status/counter behavior from a write failure;
+keep strict gates until evidence establishes semantics. No new reboot armed.

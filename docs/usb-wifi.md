@@ -1127,7 +1127,7 @@ All prior phases,44 register readbacks and both completion markers passed;
 MAC0 and CORE0f000f200 preserved. Identifier15 remains unused. Remaining
 baseband initialization, RF and connectivity are pending.
 
-### TXBE9/10/12/13 extension (native acceptance pending)
+### TXBE9/10/12/13 extension (native readback failure)
 
 Firmware v22 (`--wifi-txbe-next`, requiring `--wifi-txbe-start`) adds phase11
 at sequence15: fixed offsets2724/2728/2730/2734 receive20000000/0/0/0.
@@ -1140,3 +1140,13 @@ Host fixtures cover twelve packets, allowlists, failures/cancellation and
 ownership/quarantine;78 boot-profile tests pass. Hardware result pending.
 Remaining initialization will require independently validated larger batches
 or a proven-drained transport session, not simply clearing sequence state.
+
+Native source5d5488c / release9cc1888913aa7ff5,
+session00065e85ec8dd3b8-00 failed phase11 with status4 after8 reads.
+Sequence15 command/reply and first TXBE9 readback matched, but TXBE10
+changed37dff->38e30 instead of reading0. Earlier eleven phases passed.
+The engine stopped before TXBE12/13 and final MAC/CORE reads; zero-filled
+log fields for those unread values are not evidence. Both completion markers
+are NO. This phase remains unaccepted; next investigate TXBE10 with bounded
+read-only samples. Do not infer counter semantics or relax readback from
+this single observation. RF/connectivity remain untested.
