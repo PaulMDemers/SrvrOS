@@ -150,3 +150,24 @@ trial. It should return automatically to Ubuntu. The evidence must contain five
 fresh, coherent samples, balanced attach/detach, both foreign-event restorations,
 clean completion and matching saved logs. Physical gauge calibration, AC
 transitions, long-lived desktop monitoring and charge controls remain unaccepted.
+
+## Bounded battery/AC runtime return (2026-10-23)
+
+Release `674c597b082f2494` (compiled `308e4bd`), matching session
+`00065e88fbc08db1-00`, returned without an exit log or five-sample completion
+receipt. The collector flags the missing exit. Saved `boot.log` and
+`session-a.log` end immediately before the unattended battery probe; they do
+not establish entry, sampling, retirement or the cause of the interruption.
+This trial is incomplete/failed acceptance, not a native battery pass.
+Whether recovery was automatic or manual awaits the user's observation.
+
+All 199 prior USB files remain; only `.srvros/meta` changed and the two matching
+logs were added. Offline exFAT and allocation checks pass: 201 files, 377 clusters,
+zero leaks, bitmap mismatches or errors. Ubuntu returned on a new boot, with
+empty one-shot and installed payload/recovery hashes verified. Evidence and
+updated run records are retained outside build. No reboot is armed.
+
+Next work is to locate the stopping point using the screen observation and
+bounded diagnostics while keeping USB parked during uncertain EC/SCI ownership.
+Do not widen firmware permissions or enable desktop battery startup based on
+this result. The existing host/VM passes remain regression evidence only.
