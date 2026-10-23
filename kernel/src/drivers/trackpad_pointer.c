@@ -1,8 +1,21 @@
 #include <srvros/trackpad_pointer.h>
 
+static void tap_reject(struct trackpad_pointer *s,enum trackpad_tap_rejection reason,
+    uint64_t now,unsigned travel) {
+    if(!s->tap_armed) return;
+    struct trackpad_tap_rejections *r=&s->tap_rejections;
+    r->count[reason]++;r->two_finger[reason]+=s->tap_peak==2;
+    uint64_t age=now>=s->tap_start_us?now-s->tap_start_us:0;
+    if(age>r->max_age_us[reason]) r->max_age_us[reason]=age;
+    if(travel>r->max_travel[reason]) r->max_travel[reason]=travel;
+    s->tap_armed=false;
+}
+
 bool trackpad_pointer_cancel(struct trackpad_pointer *s,struct trackpad_motion *out) {
     bool release=s->buttons!=0;
-    *s=(struct trackpad_pointer){.blocked=true,.tap_inhibit=true};
+    tap_reject(s,TAP_REJECT_CANCEL,s->tap_last_us,0);
+    struct trackpad_tap_rejections rejected=s->tap_rejections;
+    *s=(struct trackpad_pointer){.blocked=true,.tap_inhibit=true,.tap_rejections=rejected};
     *out=(struct trackpad_motion){0};
     return release;
 }
@@ -167,13 +180,19 @@ bool trackpad_pointer_timed(struct trackpad_pointer *s,const struct apple_trackp
 }
 
 /* Provisional policy in native units, independent of pointer speed/gain.
- * A chord must form promptly; both contacts must lift before a click is emitted.
+ * Allow staggered finger contact/lift without extending single-finger taps.
+ * Both contacts must lift before a click is emitted.
  * No timer callback is needed: expiry only disarms, never synthesizes input. */
 #define TAP_MIN_US 10000u
 #define TAP_MAX_US 200000u
-#define TAP_CHORD_US 80000u
-#define TAP_RELEASE_US 80000u
+#define TAP_SECONDARY_MAX_US 300000u
+#define TAP_CHORD_US 150000u
+#define TAP_RELEASE_US 150000u
 #define TAP_SLOP 64
+/* Native Air7,2 capture: two-finger candidates rejected for movement, not timing.
+ * Permit eight base pixels of contact settling; scrolling still takes over
+ * beyond the boundary and a rejected candidate never rearms before full lift. */
+#define TAP_SECONDARY_SLOP 128
 static int tap_distance(const struct trackpad_pointer *s,unsigned old,
     const struct apple_trackpad_frame *f,unsigned next) {
     return distance(f->contacts[next].x-s->tap_x[old],f->contacts[next].y-s->tap_y[old]);
@@ -182,47 +201,58 @@ static void tap_policy(struct trackpad_pointer *s,const struct apple_trackpad_fr
     bool enabled,uint64_t now,unsigned options,struct trackpad_motion *out) {
     options &= SRV_POINTER_TAPS;
     unsigned previous=s->tap_contacts;
+    int slop=f->count==2 || s->tap_peak==2?TAP_SECONDARY_SLOP:TAP_SLOP;
     if(s->tap_options!=options && previous) s->tap_inhibit=true;
     s->tap_options=options;
     bool invalid=!enabled || !options || f->button || s->blocked ||
         out->palm_suppressed || out->typing_suppressed || f->count>2 ||
         !now || (s->tap_last_us && now<=s->tap_last_us);
+    enum trackpad_tap_rejection reason=
+        !now || (s->tap_last_us && now<=s->tap_last_us)?TAP_REJECT_CLOCK:
+        f->count>2?TAP_REJECT_CONTACTS:out->palm_suppressed?TAP_REJECT_PALM:
+        out->typing_suppressed?TAP_REJECT_TYPING:
+        f->button || s->blocked?TAP_REJECT_PHYSICAL:TAP_REJECT_POLICY;
     s->tap_last_us=now;
     if(invalid) s->tap_inhibit=true;
-    if(s->tap_inhibit) s->tap_armed=false;
-    if(s->tap_armed && (now-s->tap_start_us>TAP_MAX_US ||
-        (s->tap_releasing && now-s->tap_release_us>TAP_RELEASE_US))) s->tap_armed=false;
+    if(s->tap_inhibit) tap_reject(s,reason,now,0);
+    if(s->tap_armed && now-s->tap_start_us>(s->tap_peak==2?TAP_SECONDARY_MAX_US:TAP_MAX_US))
+        tap_reject(s,TAP_REJECT_DURATION,now,0);
+    if(s->tap_armed && s->tap_releasing && now-s->tap_release_us>TAP_RELEASE_US)
+        tap_reject(s,TAP_REJECT_LIFT,now,0);
     if(!f->count) {
         if(s->tap_armed && now-s->tap_start_us>=TAP_MIN_US) {
             if(s->tap_peak==1 && (options&SRV_POINTER_TAP_CLICK)) out->tap_buttons=1;
             if(s->tap_peak==2 && (options&SRV_POINTER_TWO_FINGER_TAP)) out->tap_buttons=2;
         }
+        if(s->tap_armed && now-s->tap_start_us<TAP_MIN_US) tap_reject(s,TAP_REJECT_SHORT,now,0);
         s->tap_armed=s->tap_inhibit=s->tap_releasing=false;
     } else if(!previous && !s->tap_inhibit) {
         s->tap_armed=true;s->tap_releasing=false;s->tap_peak=f->count;s->tap_start_us=now;
         for(unsigned i=0;i<f->count;i++) { s->tap_x[i]=f->contacts[i].x;s->tap_y[i]=f->contacts[i].y; }
     } else if(s->tap_armed) {
         if(f->count>previous) {
-            if(s->tap_peak!=1 || s->tap_releasing || now-s->tap_start_us>TAP_CHORD_US) s->tap_armed=false;
+            if(s->tap_peak!=1 || s->tap_releasing) tap_reject(s,TAP_REJECT_RECONTACT,now,0);
+            else if(now-s->tap_start_us>TAP_CHORD_US) tap_reject(s,TAP_REJECT_JOIN,now,0);
             else {
                 unsigned old=tap_distance(s,0,f,1)<tap_distance(s,0,f,0);
-                if(tap_distance(s,0,f,old)>TAP_SLOP) s->tap_armed=false;
+                if(tap_distance(s,0,f,old)>slop) tap_reject(s,TAP_REJECT_MOVEMENT,now,tap_distance(s,0,f,old));
                 else { s->tap_x[1]=f->contacts[1-old].x;s->tap_y[1]=f->contacts[1-old].y;s->tap_peak=2; }
             }
         } else if(f->count==2) {
             unsigned order=tap_distance(s,0,f,1)+tap_distance(s,1,f,0)<
                 tap_distance(s,0,f,0)+tap_distance(s,1,f,1);
-            if(tap_distance(s,0,f,order)>TAP_SLOP || tap_distance(s,1,f,1-order)>TAP_SLOP) s->tap_armed=false;
+            int a=tap_distance(s,0,f,order),b=tap_distance(s,1,f,1-order);
+            if(a>slop || b>slop) tap_reject(s,TAP_REJECT_MOVEMENT,now,a>b?a:b);
         } else {
             unsigned old=previous==2 && tap_distance(s,1,f,0)<tap_distance(s,0,f,0);
-            if(tap_distance(s,old,f,0)>TAP_SLOP) s->tap_armed=false;
+            if(tap_distance(s,old,f,0)>slop) tap_reject(s,TAP_REJECT_MOVEMENT,now,tap_distance(s,old,f,0));
             if(previous==2) {
                 s->tap_x[0]=s->tap_x[old];s->tap_y[0]=s->tap_y[old];
                 s->tap_releasing=true;s->tap_release_us=now;
             }
         }
     }
-    if(s->tap_peak==2 && !(options&SRV_POINTER_TWO_FINGER_TAP)) s->tap_armed=false;
+    if(s->tap_peak==2 && !(options&SRV_POINTER_TWO_FINGER_TAP)) tap_reject(s,TAP_REJECT_SECONDARY_OFF,now,0);
     /* A quiet two-finger tap must not scroll and then open a context menu.
      * Crossing the displacement/time limit gives subsequent motion to scrolling. */
     if(s->tap_armed && s->tap_peak==2) {

@@ -696,7 +696,17 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures,uint16_
     assert(capture.tap_primary==(gestures?1u:0u) && capture.tap_secondary==(gestures?1u:0u));
     assert(capture.drag_frames==(gestures?4u:0u) && capture.drag_rebases==(gestures?3u:0u));
     assert(capture.samples[2].length==94 && capture.samples[1].data[40]==123);
+    t->pointer.tap_rejections.count[TAP_REJECT_MOVEMENT]=7;
+    t->pointer.tap_rejections.two_finger[TAP_REJECT_MOVEMENT]=3;
+    t->pointer.tap_rejections.max_age_us[TAP_REJECT_MOVEMENT]=20000;
+    t->pointer.tap_rejections.max_travel[TAP_REJECT_MOVEMENT]=96;
+    bool armed=t->pointer.tap_armed;
     xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
+    assert(t->pointer.tap_armed==armed);
+    for(unsigned i=0;i<TAP_REJECT_COUNT;i++) {
+        assert(!t->pointer.tap_rejections.count[i] && !t->pointer.tap_rejections.two_finger[i]);
+        assert(!t->pointer.tap_rejections.max_age_us[i] && !t->pointer.tap_rejections.max_travel[i]);
+    }
     assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);
     assert(!capture.drag_frames && !capture.drag_rebases && !capture.drag_handoffs && !capture.tap_primary && !capture.tap_secondary);
     if (pointer) assert(capture.pointer_enabled && capture.pointer_cancels==0);

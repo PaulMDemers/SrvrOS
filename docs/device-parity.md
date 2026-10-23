@@ -1,6 +1,6 @@
 # Air and Pro device parity
 
-Reviewed October 23, 2026 against main `df44fa0` and Pro PR19 head `e66c665`.
+Reviewed October 23, 2026 against main `f310923` and Pro PR19 head `c408949`.
 This compares available shared code with each machine's evidence. A passing Pro
 trial does not accept a different Air controller, firmware or connected adapter.
 The [Air record](machines/macbookair7-2.md) and
@@ -8,15 +8,15 @@ The [Air record](machines/macbookair7-2.md) and
 
 | Capability | Shared implementation / Pro evidence | Air7,2 position and next check |
 | --- | --- | --- |
-| Keyboard and trackpad | Captured Pro `05ac:0262` and Air `05ac:0291` reports; full-speed EP0 correction merged | Typing, pointer, scrolling and dragging exercised. Physical secondary press/tap, held-click steering, post-scroll suppression and Sketch Escape accepted in the October 23 follow-up; tap timing needs refinement. Pro latency tuning is deferred. |
+| Keyboard and trackpad | Captured Pro `05ac:0262` and Air `05ac:0291` reports; full-speed EP0 correction merged | Typing, pointer, scrolling and dragging exercised. Physical secondary press/tap, held-click steering, post-scroll suppression and Sketch Escape accepted in the October 23 follow-up; tap reliability remains poor (about one in three attempts with revised timing); rejection diagnostics are next. Pro latency tuning is deferred. |
 | Display and windows | Pro 2880×1800 at explicit 2×; native apps, maximize, tiling | Air 1440×900 at 1× accepted. No need to copy Retina scaling; both still have eight client windows and bounded software surfaces. |
 | Panel brightness | Exact Air and Pro PWM profiles merged and physically exercised | Combined ordinary battery session v55 physically accepted. No automatic brightness policy. |
 | HDA and PCM | Separate CS4208 controller/subsystem routing for Pro and Air; Pro speakers exercised | Air speaker volume/tone and combined-session PCM playback accepted. Prompted speaker/headphone listening and Stop/volume reported successful in v58; playback and cancellation logs agree. Do not substitute the Pro codec profile. |
 | CPU and fan telemetry | Haswell/Broadwell CPU matching; Pro two-fan SMC and Air one-fan profiles merged | Both have read-only telemetry evidence; Air v55 accepts coexistence with battery and app I/O. No fan-control writes. |
 | Battery/AC | Shared cache, service lifetime and UI; native profile currently accepted only on Air7,2 | Ordinary Home startup, save/exit/reopen, AC transitions and indicator accepted. Pro battery work remains deferred; no copied EC/firmware gate. |
 | USB exFAT | MBR and validated GPT discovery; imported-file identity repair and replay refusal merged | Air workspace accepted on its recorded payloads. The v55 trial includes the imported-file identity baseline and preserves all prior data; targeted collision cases remain host/VM evidence. No journaling/power-loss guarantee. |
-| USB Ethernet | Captured `0b95:1790`, revision `0200`, ECM compatibility and cable-status work merged; Pro DHCP/DNS/HTTP/cable UI accepted | Matching revision 0200 adapter now attached at 5 Gb/s; all 98 ECM configuration bytes match the existing fixture. Native DHCP/DNS/HTTP and cable down/recovery passed in v58; live System down-state refresh remains unrecorded; no arbitrary ASIX VID/PID enablement. |
-| USB Wi-Fi | Pro PR19: TXBE10 write/readback remains unresolved; a PBF/MAC clock prerequisite candidate awaits native comparison; Edimax `7392:a711`/`mt76x0u`, firmware/MCU/baseband diagnostics in progress | Draft work is not merged or connectivity-ready. Preserve Pro ownership; consume after review and test matching hardware independently. RF, scan and association remain unaccepted. |
+| USB Ethernet | Captured `0b95:1790`, revision `0200`, ECM compatibility and cable-status work merged; Pro DHCP/DNS/HTTP/cable UI accepted | Matching revision 0200 adapter now attached at 5 Gb/s; all 98 ECM configuration bytes match the existing fixture. Native DHCP/DNS/HTTP and cable down/recovery passed in v58; live System down/up changes are now logged and tester-confirmed, but down-state screenshots remain absent; no arbitrary ASIX VID/PID enablement. |
+| USB Wi-Fi | Pro PR19: TXBE10 write/readback remains unresolved; clock-enabled direct write also failed; a separate TXBE9 prerequisite audit is in progress; Edimax `7392:a711`/`mt76x0u`, firmware/MCU/baseband diagnostics in progress | Draft work is not merged or connectivity-ready. Preserve Pro ownership; consume after review and test matching hardware independently. RF, scan and association remain unaccepted. |
 | Internal Wi-Fi/Bluetooth/camera | No accepted complete device path on either target | Separate projects; USB Wi-Fi progress does not enable Broadcom internal Wi-Fi. |
 | Internal storage | AHCI implementation; hardware desktop boots use RAM plus USB Home | Internal installation is not accepted on either machine. Preserve Ubuntu and known-good boot payloads. |
 | Suspend, battery life, calibration | Separate from battery readout and CPU telemetry | No accepted suspend/resume or calibrated runtime estimate; requires device reinitialization/recovery and measurements. |
@@ -52,7 +52,8 @@ full hardware power-down on desktop exit.
 4. Air v58 accepts prompted headphone/audio controls and native Ethernet DHCP/DNS/
    HTTP with cable down/recovery. The trackpad-only follow-up accepts secondary
    press/tap, drag/scroll and Sketch Escape; tap timing refinement remains open.
-   Live System link-down display is not independently recorded; USB hot-unplug,
+   Live System link changes now have logs and tester confirmation, with screenshots
+   only after reconnect. USB hot-unplug,
    hardware transport cancellation and physical low-charge behavior remain separate.
 
 Keep untested providers and unsupported models marked as such. Integration on
