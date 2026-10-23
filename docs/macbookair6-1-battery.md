@@ -114,7 +114,7 @@ writes. The replay also reads the HPTC DWORD at `fed1f404` (value `80`), which w
 | AML EC | Byte read only at `60`; byte write only zero to ECSS `10` |
 | SMBus | Existing serialized SBS read-word sampler at bank `20`; no charge/control writes |
 | AML PCI | SMBus DWORD `20`; HDAU vendor bytes 0/1; LPC routing bytes `60..63`, `68..6b`; no PCI writes |
-| AML GPIO / chipset MMIO | Current native policy denies both. The audit did require a read-only HPTC DWORD at `fed1f404`; its omission is the first native initialization failure (see return below). |
+| AML GPIO / chipset MMIO | GPIO denied; opaque RCRB mapping `fed1c000/4000` permits only a 32-bit read at HPTC `fed1f404`. All other addresses, widths and every write denied. Native retry pending. |
 | Query dispatch | `_Q20`, `_Q21`, `_Q40`, `_Q5A` only; zero means no query |
 
 `_Q10` has a shared SMBus-writing non-Darwin branch and is refused even though
