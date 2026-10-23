@@ -386,3 +386,10 @@ expiry and regression tests. Its receive batch can consume both tap edges
 before drawing. Preserve immediate activation and input order; no driver,
 shared-widget or firmware policy changes. PR #19 Wi-Fi is independent. The
 newer integrated battery/lifetime work is outside the physical trial acceptance.
+
+The Type study now retains a visual-only activation pulse through the highlighted
+frame's compositor release, then clears it after ten ticks (about 100 ms).
+Press/release ordering, immediate activation and logical capture are unchanged.
+Resize/cancel clears the pulse. Host regression covers both tap edges before
+draw, highlighted/restored pixels, delayed/stale frame release and repeat/cancel.
+This fix is not yet physically retested and does not alter the installed v50.
