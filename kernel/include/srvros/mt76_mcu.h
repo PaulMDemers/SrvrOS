@@ -149,6 +149,18 @@ bool mt76_txbe_read_allowed(uint32_t address);
 enum mt76_mcu_timing_status mt76_txbe_observe(struct mt76_txbe_observation *s,
     const struct mt76_txbe_io *io);
 
+/* Isolated TXBE9=20000000 at sequence15, between two fixed observations.
+ * Requires eleven accepted phases and unused sequence15. No TXBE10 write.
+ * Strict reply and TXBE9 readback; other TXBE values are observations only. */
+struct mt76_txbe_first {
+    bool attempted, write_attempted, ack_validated, complete;
+    int received;
+    struct mt76_txbe_observation before, after;
+};
+size_t mt76_txbe_first_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_txbe_first_apply(struct mt76_txbe_first *s,
+    const struct mt76_mcu_timing_io *io);
+
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this
  * struct. An uncertain transfer poisons the session until transport teardown. */

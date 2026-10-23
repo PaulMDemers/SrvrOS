@@ -2443,6 +2443,100 @@ static void test_wifi_txbe_observe(void) {
  puts("xhci TXBE observation: PASS exact read scope, prerequisite refusal and failure quarantine");
 }
 
+static void test_wifi_txbe_first_reads(void) {
+ const uint32_t addresses[]={0x1004,0x2000,0x2724,0x2728,0x2730,0x2734,0x272c};
+ for(unsigned stage=0;stage<2;stage++)for(unsigned reg=0;reg<7;reg++)for(unsigned fault=0;fault<26;fault++) {
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device d;compact_fixture(&d,11);struct xhci_wifi_mcu *m=&d.firmware.mcu;
+  m->compact_limit=11;m->compact_active=false;m->compact[11]=(struct mt76_mcu_mac){0};m->txbe_first_active=true;
+  m->txbe_first.write_attempted=stage;m->txbe_first.ack_validated=stage;
+  d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_cycle=true;d.descriptor_buffer=buffer;d.descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  events[0]=control_event(0x9020,fault==24?6:1,0);
+  if(fault==1)m->txbe_first_active=false;
+  if(fault==2)m->compact_mode=false;
+  if(fault==3)m->compact_active=true;
+  if(fault==4)m->compact_limit=12;
+  if(fault==5)m->compact_next=10;
+  if(fault==6)m->compact_submitted[11]=1;
+  if(fault==7)m->compact[11].attempted=true;
+  if(fault==8)m->configured=false;
+  if(fault==9)m->pending=true;
+  if(fault==10)m->identity_validated=false;
+  if(fault==11)m->write_validated=false;
+  if(fault==12)m->timing.complete=false;
+  if(fault==13)m->timing.ack_validated=false;
+  if(fault==14)d.firmware.radio_reset.prepared=false;
+  if(fault==15)m->bbp.complete=false;
+  if(fault==16)m->bbp.core=0;
+  if(fault==17)m->compact[10].complete=false;
+  if(fault==18)m->compact[10].ack_mask=0;
+  if(fault==19)m->compact[10].batches_completed=0;
+  if(fault==20)m->compact_submitted[10]=0;
+  if(fault==21)d.firmware.active=false;
+  if(fault==22)d.wifi_identity.mac=0;
+  if(fault==23){if(stage)m->txbe_first.after.samples=8;else m->txbe_first.before.samples=8;}
+  if(fault==25){if(stage)m->txbe_first.ack_validated=false;else m->txbe_observation.attempted=true;}
+  uint32_t value;
+  assert(wifi_txbe_first_read(&d,addresses[reg],&value)==(!fault && reg<6));
+  assert(!freed && m->compact_submitted[11]==(fault==6));
+  if(reg==6 || (fault && fault!=24))assert(!d.ep0_enqueue);
+  else if(fault==24)assert(d.ep0_quarantined && d.firmware.failed);
+  else assert(d.firmware.control_index==addresses[reg] && d.firmware.control_type==0xc0 && d.firmware.control_request==7 && d.firmware.control_length==4);
+ }
+ puts("xhci TXBE first reads: PASS exact read scope, prerequisite refusal and failure quarantine");
+}
+
+static void test_wifi_txbe_first_binding(void) {
+ for(unsigned fault=0;fault<18;fault++) {
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb out[64]={0},in[64]={0},events[64]={0};
+  uint8_t tx[200]={0},rx[1024]={0},packet[16],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,11);
+  struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  m->compact_active=false;m->compact_limit=11;m->compact[11]=(struct mt76_mcu_mac){0};m->txbe_first_active=true;
+  m->txbe_first=(struct mt76_txbe_first){.attempted=true,.write_attempted=true,.before={.attempted=true,.complete=true,.reads=64,.samples=8}};
+  f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+  m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+  if(fault==1)m->txbe_first_active=false;
+  if(fault==2)m->txbe_observe_active=true;
+  if(fault==3)m->txbe_observation.attempted=true;
+  if(fault==4)m->txbe_first.attempted=false;
+  if(fault==5)m->txbe_first.write_attempted=false;
+  if(fault==6)m->txbe_first.before.complete=false;
+  if(fault==7)m->txbe_first.before.reads=63;
+  if(fault==8)m->txbe_first.before.samples=7;
+  if(fault==9)m->txbe_first.after.attempted=true;
+  if(fault==10)m->txbe_first.ack_validated=true;
+  if(fault==11)m->txbe_first_submitted=true;
+  if(fault==12)m->compact_submitted[11]=1;
+  if(fault==13)m->compact_limit=12;
+  if(fault==14)m->compact[10].complete=false;
+  if(fault==15)events[0].status=6u<<24;
+  if(fault==16)events[1].status=6u<<24;
+  if(fault==17)events[1].parameter_low+=16;
+  assert(mt76_txbe_first_packet(packet,16)==16);
+  if(!fault){
+   for(unsigned i=0;i<16;i++)for(unsigned b=0;b<8;b++){
+    packet[i]^=1u<<b;assert(wifi_txbe_first_exchange(d,packet,16,reply,1024)==-1);packet[i]^=1u<<b;
+   }
+   assert(wifi_txbe_first_exchange(d,packet,15,reply,1024)==-1);
+   assert(wifi_txbe_first_exchange(d,packet,16,reply,1023)==-1);
+   assert(wifi_txbe_first_exchange(d,NULL,16,reply,1024)==-1);
+   assert(wifi_txbe_first_exchange(d,packet,16,NULL,1024)==-1);
+   assert(!m->txbe_first_submitted && !f->ep.enqueue);
+  }
+  assert(wifi_txbe_first_exchange(d,packet,16,reply,1024)==(fault?-1:16));assert(!freed);
+  if(fault>=15)assert(m->txbe_first_submitted && f->failed && d->ep0_quarantined);
+  else if(fault)assert(!f->ep.enqueue && !m->response.enqueue);
+  else {assert(!memcmp(tx,packet,16) && m->txbe_first_submitted);assert(wifi_txbe_first_exchange(d,packet,16,reply,1024)==-1);}
+ }
+ puts("xhci TXBE first binding: PASS exact packet, lifecycle prerequisites, no retry, error quarantine");
+}
+
 static void test_wifi_bbp_reads(void) {
     const uint32_t addresses[]={0x1004,0x1200,0x0400,0x2000};
     for(unsigned reg=0;reg<4;reg++)for(unsigned fault=0;fault<13;fault++) {
@@ -2561,6 +2655,8 @@ int main(int argc, char **argv) {
     test_wifi_compact_binding();
     test_wifi_compact_reads();
     test_wifi_txbe_observe();
+    test_wifi_txbe_first_reads();
+    test_wifi_txbe_first_binding();
     test_wifi_bbp_reads();
     test_wifi_mcu_transport();
     test_wifi_recovery();

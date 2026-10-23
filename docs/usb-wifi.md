@@ -1212,3 +1212,22 @@ recycling a sequence or weakening v22 checks. A TXBE10 change would identify an
 effect associated with TXBE9 in this setup, not automatically establish counter
 semantics; stability would leave the TXBE10 write itself for a later isolated
 trial. This comparison is a design only, not an implemented or installed profile.
+
+### Isolated TXBE9 comparison (native pending)
+
+Firmware v24 (`--wifi-txbe-first`, requiring `--wifi-txbe-start`, excluding
+`--wifi-txbe-next` and `--wifi-txbe-observe`) implements the comparison above.
+It completes phases0..10, records eight guarded baseline samples, sends one
+16-byte sequence15 command writing only2724=20000000, then records eight
+more guarded samples. The reply must match4a0f0008/00412724/20000000/4a0f0008.
+All eight subsequent TXBE9 values must equal20000000. All128 reads must pass;
+MAC0/COREf000f200 remain required at each boundary. TXBE10/12/13 are observed
+without writing them or imposing an unproven expected value. No phase11 batch
+or sequence reuse, and no retry after an attempted operation.
+
+`wifi-txbe-first-command` and `wifi-txbe-first-word` record the exchange;
+`wifi-txbe-first` records completion and per-stage read/sample counts.
+`wifi-txbe-first-sample` stage0/1 means before/after the write, with timestamp
+at each TXBE10 read. Only fully guarded samples are emitted, even on failure.
+The capture automatically saves results and returns to Ubuntu. A completed
+comparison does not accept the original four-register batch or RF/connectivity.

@@ -3084,3 +3084,9 @@ changes, preserve v56/basic brightness on future integration. PR76 remains Home
 services/battery, PR19 owns Wi-Fi. Actual integrated base22fd266 unchanged.
 Local audit receipts in build/bringup/txbe-audit, archived outside build.
 Current70e0236472c320bc and recoverye47dca3a6b30c6c1 unchanged; no boot armed.
+
+Active scope: implement TXBE9-only comparison after eleven accepted phases,
+eight guarded samples on either side of one sequence15 write. No writes to
+TXBE10/12/13, no identifier reuse, no v22 gate changes. Touch MCU/xHCI,
+main capture, staging and tests. Mainab99517/PR76 inspected in preceding audit;
+actual integrated base22fd266. Shared Air desktop profiles stay separate.
