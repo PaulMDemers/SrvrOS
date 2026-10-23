@@ -1,8 +1,8 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture, bounded pointer/drag/scroll, primary taps, typing suppression and Type study highlight accepted**.
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Brightness read-only bring-up next.**
 
-## Identity and ownership
+## Initial inventory (2026-10-22)
 
 - Actual DMI model: MacBookAir6,1; firmware `122.0.0.0.0`.
   Marketing year and storage replacement history are not independently verified.
@@ -27,7 +27,7 @@ Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw
   missing/partial reads, including ACPI, HID descriptors, codecs and CPU policy.
   Raw firmware, EDID and device data remain local and ignored.
 
-## Active work and shared dependencies
+## Initial setup scope (historical)
 
 Bounded objective: provision the documented host toolchain, capture this unit,
 validate the unchanged integration baseline and prepare console/input bring-up.
@@ -53,12 +53,12 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
 | Capability | State | Remaining work |
 | --- | --- | --- |
-| Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
+| Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
-| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Full app coexistence next; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | Bounded monitor write/read and persistence accepted | Desktop/sustained I/O and hotplug not accepted |
+| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
-| Brightness | Not tested | Exact firmware/register evidence |
+| Brightness | Exact hardware inventoried; read-only capture being prepared | Native PWM capture, then gated provider and visible adjustment |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
@@ -89,13 +89,18 @@ The first authorized one-shot returned to Ubuntu and was collected. No boot is
 armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
 console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
-## Next actions
+## Current objective and next actions
 
-1. Preserve accepted release `c35475f62f154f1e` and the collected USB test file.
-2. Plan bounded topcase report capture before an Air6,1 trackpad profile; native
-   pointer/gesture support remains unaccepted. Coordinate any shared xHCI work.
-3. Scope desktop, backlight, audio and EC/SCI enablement independently. Rebuild
-   and rehearse any new candidate while retaining the accepted console payload.
+Base `bbd0208`, branch `device/macbookair6-1/brightness`. Capture this unit's
+PWM state read-only using its exact GPU `8086:0a26`, PCH `8086:9c43` and captured
+DSDT identity. Scope: laptop probe/resource matcher, host tests and Air6,1 docs.
+Use existing v19 automatic diagnostic capture; no staging/main changes, EC/AML
+access, PWM writes or brightness provider binding. PR #76 owns combined laptop
+services; PR #19 owns Pro Wi-Fi. Neither overlaps this isolated matcher/probe.
+
+1. Rehearse the exact diagnostic stage, retain console recovery and accepted desktop.
+2. Collect native mode/period/duty evidence before implementing a write provider.
+3. Keep audio, battery/AC, telemetry and networking as separate milestones.
 
 ## First console trial prepared (2026-10-22)
 
