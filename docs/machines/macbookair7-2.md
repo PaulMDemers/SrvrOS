@@ -2,6 +2,23 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: audio, Ethernet and secondary-input acceptance
+
+Starting from merged main `b99bb5b`, the reference Air owns a focused attended
+round for headphone/channel isolation, USB Ethernet DHCP/DNS/HTTP and cable/UI
+recovery, plus two-finger secondary press/tap and primary drag preservation.
+The newly attached `0b95:1790` revision `0200` at 5 Gb/s exactly matches all 98
+bytes of the existing ECM configuration-3 fixture. Ubuntu uses NCM configuration
+2 with a 1000 Mb/s link; no host configuration switch is needed. Native acceptance
+is pending. This is evidence of identity, not a networking pass.
+
+Use the existing v22 guided device profile and its on-screen Help, not a new
+battery/firmware gate. Scope is a focused Help checklist, an explicit attended
+report script, host/script and exact-stage VM validation, and this unit's run/
+collection record. Keep accepted v55 payload/evidence and Ubuntu recovery.
+Pro PR19 owns Wi-Fi; Air6,1 audio PR82 is already included in main. Listening,
+cable changes and gestures need human input, with no countdown or forced exit.
+
 ### Integrated v55 desktop physically accepted (2026-10-23)
 
 Release `9aa8dbf6fbda8252` (compiled `7ab571f`, staged `d5bb51d`) passed the

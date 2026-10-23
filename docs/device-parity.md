@@ -15,7 +15,7 @@ The [Air record](machines/macbookair7-2.md) and
 | CPU and fan telemetry | Haswell/Broadwell CPU matching; Pro two-fan SMC and Air one-fan profiles merged | Both have read-only telemetry evidence; Air v55 accepts coexistence with battery and app I/O. No fan-control writes. |
 | Battery/AC | Shared cache, service lifetime and UI; native profile currently accepted only on Air7,2 | Ordinary Home startup, save/exit/reopen, AC transitions and indicator accepted. Pro battery work remains deferred; no copied EC/firmware gate. |
 | USB exFAT | MBR and validated GPT discovery; imported-file identity repair and replay refusal merged | Air workspace accepted on its recorded payloads. The v55 trial includes the imported-file identity baseline and preserves all prior data; targeted collision cases remain host/VM evidence. No journaling/power-loss guarantee. |
-| USB Ethernet | Captured `0b95:1790`, revision `0200`, ECM compatibility and cable-status work merged; Pro DHCP/DNS/HTTP/cable UI accepted | Implementation available, physical parity pending: no adapter attached at inventory. Capture actual descriptors before testing; no arbitrary ASIX VID/PID enablement. |
+| USB Ethernet | Captured `0b95:1790`, revision `0200`, ECM compatibility and cable-status work merged; Pro DHCP/DNS/HTTP/cable UI accepted | Matching revision 0200 adapter now attached at 5 Gb/s; all 98 ECM configuration bytes match the existing fixture. Native DHCP/DNS/HTTP and cable/UI recovery are next; no arbitrary ASIX VID/PID enablement. |
 | USB Wi-Fi | Pro PR19: Edimax `7392:a711`/`mt76x0u`, firmware/MCU/baseband diagnostics in progress | Draft work is not merged or connectivity-ready. Preserve Pro ownership; consume after review and test matching hardware independently. RF, scan and association remain unaccepted. |
 | Internal Wi-Fi/Bluetooth/camera | No accepted complete device path on either target | Separate projects; USB Wi-Fi progress does not enable Broadcom internal Wi-Fi. |
 | Internal storage | AHCI implementation; hardware desktop boots use RAM plus USB Home | Internal installation is not accepted on either machine. Preserve Ubuntu and known-good boot payloads. |
@@ -54,3 +54,6 @@ full hardware power-down on desktop exit.
 
 Keep untested providers and unsupported models marked as such. Integration on
 one machine is not fleet-wide hardware acceptance.
+
+The [attended device checklist](device-acceptance.md) records headphone, Ethernet
+and specific gesture observations without treating script completion as a pass.

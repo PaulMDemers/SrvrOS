@@ -40,9 +40,12 @@ echo completed >> "$HOME/network-trial.txt" || exit 1
 sync || exit 1
 echo Reports saved in Home: network-before.txt, network-down.txt, network-after.txt.
 echo Completion is not a pass: check DHCP, DNS and HTTP status codes and response.
+# An enclosing attended checklist supplies its own UI and return instructions.
+if [ "${4:-}" != continue ]; then
 echo Open System and select Network for the live-display check.
 echo Unplug only Ethernet, wait 15 seconds, then reconnect and wait 15 seconds.
 echo Leave System open throughout. Note whether both states update automatically.
 echo Save a screenshot with Command-Shift-3 if the display stays disconnected.
 echo To return: press F10, End, Return. Wait for USB unmounted=yes.
 echo Then type reboot and press Enter. There is no timer.
+fi
