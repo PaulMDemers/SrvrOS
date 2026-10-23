@@ -2824,3 +2824,12 @@ installed payload and desktop recovery verified. Workspace unmounted; clean
 171files/505clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
 collected and unarmed. Next remaining AGC/baseband settings using identifiers
 10..15; RF/scan/association/connectivity remain pending.
+
+Active scope: optional compact phase6 for AGC33/34/37/41, sequence10,
+addresses2384/2388/2394/23a4 and values3238/000a0c0c/2121262c/38383e45
+from Linuxv6.18 initial MT7610 settings. Require preceding six phases and
+MAC/CORE boundaries; preserve v15/v16 phase limits, add v17 limit7. Touch
+fixed MCU plan, xHCI limits, capture/profile and tests. Fetched mainaddbd02;
+PR71 imported file-identity/workload replay fix inspected, outside isolated
+Wi-Fi capture; Air PR69 remains battery scope. Retain accepted integration
+22fd266 for this trial. No RF or sequence reuse; new settings native pending.

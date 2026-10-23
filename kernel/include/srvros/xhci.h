@@ -52,6 +52,7 @@ bool xhci_wifi_capture_bbp_agc(void);
 bool xhci_wifi_capture_bbp_batch(void);
 bool xhci_wifi_capture_compact(void);
 bool xhci_wifi_capture_agc_more(void);
+bool xhci_wifi_capture_agc_next(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

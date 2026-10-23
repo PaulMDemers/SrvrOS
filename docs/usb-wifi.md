@@ -1011,7 +1011,7 @@ The phase requires all five accepted phases to complete, then checks captured
 CORE0 and disabled MAC before/after one40-byte command. The strict expected
 reply is[4a090008,0041235c,272c,4a090008]; all four values must independently
 read back correctly. This is initial AGC configuration, not channel calibration
-or RF/receive/transmit enable. Native acceptance is pending.
+or RF/receive/transmit enable.
 
 The five-phase v15 profile retains an explicit limit5; only v16 selects limit6.
 Unknown limits and attempts beyond the selected limit are refused. Existing
@@ -1028,3 +1028,17 @@ and completion, ack_mask1 and12 reads. AGC23 changed272f->272c, AGC24 stayed
 CORE0 stayedf000f200 and MAC0. All earlier phases, readiness ordering and both
 completion markers passed. This accepts these four initial values only;
 remaining AGC/baseband settings, RF and connectivity remain pending.
+
+### AGC33/34/37/41 extension (native acceptance pending)
+
+Firmware v17 (`--wifi-agc-next`, requiring `--wifi-agc-more`) adds phase6
+at sequence10. Fixed addresses2384/2388/2394/23a4 receive
+3238/000a0c0c/2121262c/38383e45. The six preceding phases must complete
+before one40-byte command, exact16-byte first-entry reply, four independent
+readbacks and MAC/CORE guards. Profiles v15/v16 retain limits5/6; v17
+selects7. No command identifier is reused and RF remains disabled.
+
+Host checks cover all seven packet/reply fixtures, allowlists, I/O and
+authorization failures, readback guards and xHCI ownership/quarantine.
+The host fixture correctly distinguishes baseline reads from post-command
+readbacks; sanitizer checks pass. All73 boot-profile tests pass.
