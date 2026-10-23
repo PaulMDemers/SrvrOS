@@ -3450,3 +3450,27 @@ one-shot and current/recovery hashes verified. Workspace clean:201files/550clust
 zero leaks/mismatches/errors, unmounted. No reboot armed. Next audit the four
 mismatching registers and remaining reference initialization prerequisites before
 choosing another bounded trial; retain all earlier strict failure results.
+
+Active audit after v31: compare the four mismatches with pinned Linux v7.0
+initialization, later BBP tables and saved live-driver observations; inventory
+omitted MAC prerequisites before selecting another native write trial. Scope is
+source/evidence analysis and local numeric table fixtures, no device reset/write.
+Fetched main90a1db8 includes PR92 Air6,1 isolated battery runtime; actual integrated
+base22fd266 unchanged. PR88 tap diagnostics remains separate. Current/recovery
+and unarmed boot state remain unchanged.
+
+Post-v31 audit complete: RXO21/24 also read0 in both saved running-Linux samples;
+TXBE17 readsff3fef3c in Linux versusfb3fec3c here, and TXBE10 reads0 versus38e30.
+Neither later band-switch table nor DCOC table explicitly writes those four
+addresses. This does not establish register semantics or eliminate indirect
+calibration/state effects. Pinned Linux v7.0 MAC tables contain66 ordered writes
+to60 distinct addresses; current reset/timing/MAC/clock setup matches the final
+values at12 addresses, leaving48 table addresses unapplied. This is an inventory,
+not a causal finding or authorization to blindly write power/PA/LDO settings.
+
+Next bounded diagnostic selected: read-only prerequisite inventory of the60 MAC
+table addresses plus EXT_CCA/FCE_L2/WMM before the full BBP observation, retaining
+MAC-disabled/CORE guards. Use observed initial values to choose a justified write
+set. No new candidate installed or reboot armed. Audit scripts, numeric C-extracted
+MAC inventory, exact source copies and result hashes archived outside build in
+bbp-mismatch-audit-47ce3d4. No live device writes/reset/unbind performed.
