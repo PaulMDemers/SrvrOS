@@ -91,11 +91,17 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Close out headphone trial `5a302d248eee397a` against integration `d2d56a6`.
-Documentation/evidence only; installed v57 `0533c0dfc63d104f` remains unchanged.
-Record user-confirmed headphone/speaker operation and bounded route/Stop checks.
-Long plays were canceled early, so five-minute native endurance remains incomplete.
-Preserve the separate run evidence and accepted recovery; no reboot is armed.
+Base `df44fa0`, branch `device/macbookair6-1/telemetry`. Add read-only boot-CPU
+thermal admission for captured Intel signature `40651` and one-fan SMC admission
+for exact GPU `0a26`, PCH `9c43`, DSDT length 31777/hash `af9a47bc352dc6bf`.
+The DSDT declares APP0001 I/O `300..31f`; Linux reports one Exhaust fan and
+zero manual-control mode. Reuse the existing bounded FNum/F0Ac metadata/read
+worker, never fan writes, SMC MMIO, IRQ6 or battery/EC/AML ownership.
+Scope: thermal core, SMC target, host fixtures, distinct unscaled v59 sensor
+stage/VM checks and Air6,1 docs. PR #83 (`0bf5471`) owns v58 guided device checks;
+keep its recipe and scripts separate. PR #19 owns Pro Wi-Fi. Next checkpoint is
+an attended System/Sensors read-only trial with desktop/audio use, after local
+checks and exact-stage rehearsal. No native telemetry acceptance is implied.
 
 ## First console trial prepared (2026-10-22)
 
