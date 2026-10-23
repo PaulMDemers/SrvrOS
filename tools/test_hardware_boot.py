@@ -92,6 +92,22 @@ class InstallTests(unittest.TestCase):
         self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
         self.assertNotIn('srvros.audio=',boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0"))
 
+    def test_session_workload_verifier(self):
+        from desktop_session_workload import files, verify, SEED, ROUNDS
+        run='0123456789abcdef'
+        contents=files(run)
+        prefix='session-'+run+'/'
+        contents.update({prefix+'payload.bin':SEED,
+                         prefix+'rounds.txt':''.join(f'{n}\n' for n in range(1,ROUNDS+1)).encode(),
+                         prefix+'complete.txt':f'COMPLETE {run} {ROUNDS}\n'.encode()})
+        self.assertEqual(verify(contents.__getitem__,run)['rounds'],60)
+        for key in tuple(contents):
+            saved=contents[key];contents[key]=b'incomplete'
+            with self.assertRaises(ValueError): verify(contents.__getitem__,run)
+            contents[key]=saved
+        for bad in ('../bad','',run+'0'):
+            with self.assertRaises(ValueError): files(bad)
+
     def test_basic_desktop_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v53-desktop-6ada85bb")
         self.assertIn('srvros.desktop-release=0123456789abcdef',cfg)

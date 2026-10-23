@@ -417,7 +417,7 @@ def main():
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
-                        for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                        for c in value: ui.key({">":"dot","$":"4","?":"slash",";":"semicolon"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
                     if network_desktop:
                         # Each saved phase is displayed by cat before its next gate.
                         def phase_cats(count):
