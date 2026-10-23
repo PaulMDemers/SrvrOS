@@ -2889,3 +2889,17 @@ e47dca3a6b30c6c1 retained. Obsolete8bf9cd874ed0f02d removed from ESP
 only after archived-byte equality verification. Workspace clean before
 install:173files/508clusters, zero allocation errors; unmounted. Native
 acceptance pending cold adapter power cycle; Ubuntu remains default.
+
+AGC57/59/63+TXC0 accepted on captured adapter: sourcede17cb6,
+releasec34215d727a60f08, session00065e83ccc7f06a-00. Phase7 sequence11
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. AGC57 stayed1010; AGC59 changedbaa20e23->baa20e96;
+AGC63 changed0->1; TXC0 stayed00280403. CORE0 stayedf000f200 and MAC0.
+All preceding phases, firmware/reset/identity/timing, readiness ordering,
+32 register readbacks and both completion markers passed. Matching evidence
+archived outside build in wifi-agc-tail-de17cb6/native-collection. Ubuntu
+default, consumed one-shot and installed candidate/desktop recovery verified.
+Workspace clean:175files/511clusters, zero leaks/allocation mismatches,
+unmounted. Run/checkpoint collected and unarmed. Next remaining TXC/RXC
+and other baseband initialization; identifiers12..15 unused. RF, scanning
+and connectivity remain pending; no sequence recycling accepted.

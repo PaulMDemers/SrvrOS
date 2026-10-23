@@ -1053,7 +1053,7 @@ The first attempt saved no session and remains incomplete; the retry accepts
 these initial settings only. Remaining baseband settings, RF, scanning and
 connectivity remain pending. Identifiers11..15 remain unused.
 
-### AGC57/59/63 and TXC0 extension (native acceptance pending)
+### AGC57/59/63 and TXC0 extension (accepted on captured Pro adapter)
 
 Firmware v18 (`--wifi-agc-tail`, requiring `--wifi-agc-next`) adds phase7
 at sequence11: fixed offsets23e4/23ec/23fc/2400 receive
@@ -1063,3 +1063,12 @@ Prior profiles retain their phase limits. RF remains disabled and sequence
 identifiers are never recycled. Host fixtures cover all eight fixed packets,
 read allowlists, failure/cancellation paths and xHCI ownership/quarantine;
 74 profile tests and sanitizer checks pass. Native evidence is pending.
+
+Native sourcede17cb6 / releasec34215d727a60f08,
+session00065e83ccc7f06a-00 passed phase7 at sequence11: sent40/received16,
+exact reply, status0, one submission/completion, ack_mask1 and12 reads.
+AGC57 stayed1010, AGC59 changedbaa20e23->baa20e96, AGC63 changed0->1,
+and TXC0 stayed00280403. All earlier phases,32 register readbacks and
+both completion markers passed; MAC0 and CORE0f000f200 preserved.
+This accepts these initial settings only, leaving identifiers12..15 unused.
+Remaining TXC/RXC/baseband initialization, RF and connectivity are pending.
