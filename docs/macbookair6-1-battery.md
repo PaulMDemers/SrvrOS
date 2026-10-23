@@ -159,7 +159,7 @@ receipt. The collector flags the missing exit. Saved `boot.log` and
 `session-a.log` end immediately before the unattended battery probe; they do
 not establish entry, sampling, retirement or the cause of the interruption.
 This trial is incomplete/failed acceptance, not a native battery pass.
-Whether recovery was automatic or manual awaits the user's observation.
+The user confirms automatic recovery; the screen reset too quickly to capture.
 
 All 199 prior USB files remain; only `.srvros/meta` changed and the two matching
 logs were added. Offline exFAT and allocation checks pass: 201 files, 377 clusters,
@@ -171,3 +171,16 @@ Next work is to locate the stopping point using the screen observation and
 bounded diagnostics while keeping USB parked during uncertain EC/SCI ownership.
 Do not widen firmware permissions or enable desktop battery startup based on
 this result. The existing host/VM passes remain regression evidence only.
+
+## Bounded failure screen
+
+Terminal automatic battery faults now take over the emergency console after
+masking sources and disabling interrupts. The final screen retains the failure
+reason, setup stage/elapsed time, worker completion/in-flight state, interpreter
+errors/denials and EC phase/error. Photograph that screen during the 30-second
+pause; automatic Ubuntu return follows. The shared reset interlock still forbids
+reset with mounted storage or active I/O. There is no attempted USB logging,
+EC cleanup, scheduler yield or resumed worker during the pause. The pause uses
+300 interrupt-independent 100 ms clock waits; a failed clock wait ends it early.
+Successful samples and cleanly returned refusals use the existing saved logs.
+A reset outside this containment path may still have no visible diagnostic.

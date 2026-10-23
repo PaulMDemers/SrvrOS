@@ -994,7 +994,7 @@ receipt. The collector flags the missing exit. Saved `boot.log` and
 `session-a.log` end immediately before the unattended battery probe; they do
 not establish entry, sampling, retirement or the cause of the interruption.
 This trial is incomplete/failed acceptance, not a native battery pass.
-Whether recovery was automatic or manual awaits the user's observation.
+The user confirms automatic recovery; the screen reset too quickly to capture.
 
 All 199 prior USB files remain; only `.srvros/meta` changed and the two matching
 logs were added. Offline exFAT and allocation checks pass: 201 files, 377 clusters,
@@ -1006,3 +1006,40 @@ Next work is to locate the stopping point using the screen observation and
 bounded diagnostics while keeping USB parked during uncertain EC/SCI ownership.
 Do not widen firmware permissions or enable desktop battery startup based on
 this result. The existing host/VM passes remain regression evidence only.
+
+## Failure-display follow-up scope (2026-10-23)
+
+Based on main `b17b80e`, this unit owns a bounded terminal failure display in
+shared `battery_runtime.c`, its small delay helper and host/VM tests. Other open
+work (Air7,2 PR88 input timing, Pro11,2 PR19 Wi-Fi) was inspected; no overlapping
+battery-runtime scope was found. Automatic contained faults retain the existing
+storage interlock and interrupt/source masking, enter the emergency console,
+show reason/setup/worker/EC details for 30 seconds, then reset. Clock failure
+shortens the pause through the existing per-delay iteration bound. Mounted/I/O
+faults still halt. No firmware permissions or successful sampling path change.
+Next checkpoint: host/VM validation and a new exact staged Air6,1 trial.
+
+## Failure-display candidate ready (2026-10-23)
+
+Release `b9a2d264ad3a0dd2`, clean source `453e063`, is installed unarmed.
+Full build/USB image, both native battery binaries, VM binary, core/desktop
+suites, 65 staging tests and docs checks pass. Host tests cover all 301 delay
+completion/failure boundaries. Q35 confirms readable framebuffer diagnostics,
+interrupts disabled and 30.009-second hold before automatic reset; a parked
+filesystem fault also resets after the hold with outside bytes preserved.
+An active scratch-I/O fault blocks reset and skips the delay, retaining storage;
+offline contents/exFAT pass. Normal sampling passes. The exact staged GPT VM
+refuses nonmatching native hardware, saves logs, unmounts and returns.
+
+The USB baseline is 201 files; offline allocation passes with 377 clusters and
+zero leaks/mismatches/errors. Current/recovery payload hashes and Ubuntu default
+are verified, with no one-shot armed. Console recovery `c35475f62f154f1e` and
+accepted desktop telemetry `eee15036f4172920` remain installed. The superseded
+`db7ce82008f4b9a6` payload was removed from EFI only after its independent backup
+was verified. New payload and evidence are backed up outside build.
+
+Leave AC and USB connected. If a failure screen appears, photograph its reason
+and progress during the 30-second pause before automatic Ubuntu return. This is
+another diagnostic attempt, not battery acceptance; a failure outside the
+instrumented path can still reset without a report. Collect the matching session
+before any further trial, and retain missing completion as incomplete/failure.
