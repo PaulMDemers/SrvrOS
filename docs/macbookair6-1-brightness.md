@@ -21,9 +21,15 @@ verify all prior USB hashes and both offline checks, install with `--keep-previo
 and save the durable run record before one-shot boot.
 
 After return use `tools/hardware_desktop.py --uuid 6ADA-85BB`, match a new session
-and release, and require the `air61-backlight: read-only` record plus completed,
-saved and unmounted markers. Check mode, period and duty before designing the
+and release, and require the `air61-backlight: read-only` record plus the completed
+marker and retained exit log. The final saved/unmounted messages occur after
+logging stops; record any observed console result separately, then verify host
+return and offline integrity. Check mode, period and duty before designing the
 write profile. Verify prior files and offline filesystem/allocation integrity.
 VM refusal on Q35 validates recovery, not native register access or panel control.
 Visible brightness adjustment needs a subsequent exact-gated provider and attended
 trial; no other model's period or mode is accepted as this unit's evidence.
+
+The first native capture (`142dd83ded3d2da4`) observed CPU control/duty 0/0,
+PCH control `c0000000`, PCH duty `0ad904cc`: mode 2, period 2777, duty 1228.
+These are this unit's native observations; visible adjustment remains untested.
