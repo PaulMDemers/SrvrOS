@@ -3186,3 +3186,18 @@ removed from ESP only after full archived-payload equality verification.
 Workspace clean:189files/532clusters, zero allocation errors; unmounted.
 Ubuntu remains default. Native comparison awaits cold adapter power cycle;
 collect the matching new session first on return. No reboot armed.
+
+Native MCU/EP0 TXBE10 comparison accepted: sourceb4417eb,
+releaseeb362bcf6da9fdfb, session00065e876ba24dc3-00. Sequence15 exact16-byte
+command/reply, status0 reply_validated1 complete1; MCU value37fff matched all16
+EP0 samples,64 reads/eight samples per side. Before2882205..2885095us,
+after2885446..2889299us; TXBE9/12/13 stayed0 and all MAC0/COREf000f200
+boundaries held. Eleven prerequisite phases/44 readbacks and both completion
+markers passed. This accepts only baseline read-path agreement; the v22/v25
+write failures and RF/connectivity remain unaccepted. Next investigate write
+behavior/register semantics before selecting another physical trial.
+Evidence archived outside build in wifi-txbe-access-b4417eb/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Workspace clean:191files/535clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected and unarmed. Fetched maind3875c7 (Air6,1 audio PR84);
+actual integrated base22fd266 remains unchanged for these comparisons.

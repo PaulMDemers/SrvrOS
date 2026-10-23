@@ -1332,3 +1332,20 @@ failed capture completion while retaining the observations. Malformed framing,
 short transfers, changed MAC/CORE guards and cancellation also fail; no retry
 or sequence reuse is allowed. This diagnostic adds no register write. An agreed
 read would accept only this comparison, not TXBE10 initialization or RF activity.
+
+Native v26 comparison accepted on the captured adapter: source `b4417eb`,
+release `eb362bcf6da9fdfb`, session `00065e876ba24dc3-00`. Sequence15 sent16
+and received16 with exact framing/address and MCU value `0x37fff`. Status0,
+attempted1, request_attempted1, submitted1, reply_validated1, complete1; both
+observation stages completed64 reads/eight samples, matches16. Before timestamps
+2882205..2885095us and after2885446..2889299us; every TXBE10 sample was37fff,
+TXBE9/12/13 stayed0, and all MAC0/COREf000f200 boundaries held. Eleven prerequisite
+phases/44 readbacks and both capture completion markers passed.
+
+This supports consistent baseline reads through MCU and EP0 in this setup. It
+neither explains the ignored zero-write readback nor accepts the earlier v22/v25
+writes. Next investigate write-path behavior and register semantics before a
+further hardware trial; no retries, relaxed checks or RF enablement follow from
+this result. Evidence is archived outside build in
+`wifi-txbe-access-b4417eb/native-collection`; read-path agreement is its full
+acceptance scope.
