@@ -1,3 +1,4 @@
+#include "battery_bounded_policy.h"
 /* Bounded battery/AC diagnostic. Full runtime, linked separately from the
  * snapshot probe and the desktop. CPU0 lifecycle owner and one EC/AML worker. */
 #include "battery_platform.h"
@@ -642,6 +643,8 @@ static uacpi_status region_handler(uacpi_region_op op,uacpi_handle data) {
     uacpi_region_rw_data *r=data;
     if(r->handler_context!=&runtime||r->region_context!=&runtime||r->byte_width!=1||r->address>255)goto denied;
     if(op==UACPI_REGION_OP_WRITE && query_tracking() && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
+    if(runtime.platform.bounded_samples_only &&
+       !battery_bounded_ec(op==UACPI_REGION_OP_WRITE,r->address,r->value))goto denied;
     uint8_t v=r->value;
     if(!transfer(op==UACPI_REGION_OP_WRITE,r->address,&v,false))goto denied;
     if(op==UACPI_REGION_OP_READ)r->value=v;return UACPI_STATUS_OK;
@@ -936,6 +939,10 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(runtime.engaged||!timer_reference_ready())return false;
     runtime=(typeof(runtime)){.transition_mode=transitions,.service_mode=service_mode};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
+    if(runtime.platform.bounded_samples_only && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
+       workspace_parked_device()!=NULL,workspace_active(),workspace_image_busy(),scheduler_io_active())) {
+        console_write("battery: REFUSED bounded profile requires parked automatic five-sample diagnostic\n");return false;
+    }
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
     }

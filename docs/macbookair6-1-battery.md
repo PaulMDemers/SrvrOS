@@ -1,6 +1,7 @@
 # MacBookAir6,1 battery/AC bring-up
 
-Live SrvrOS battery/AC telemetry is not enabled yet. The first v60 boot captured
+Live SrvrOS battery/AC telemetry remains physically unaccepted; the isolated
+five-sample runtime candidate is described below. Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
@@ -80,3 +81,72 @@ snapshot (hexadecimal). Other masked status bits were set and left untouched.
 Matching logs, Ubuntu return, prior-file preservation, offline filesystem and
 allocation checks passed. This accepts passive preflight only; live telemetry
 and the runtime ownership audit remain pending.
+
+## Connected runtime audit and bounded sampling candidate
+
+The separate `acpi-air61-battery-kernel` binary is selected only by v61
+`--battery-air61`. It shares the existing owner, transport, Global Lock,
+SCI/event lifecycle and sampler; it does not add Air6,1 to the Air7,2 binary or
+ordinary desktop. Platform admission requires the exact captured DSDT and all
+eight distinct SSDTs, GPU `0a26`, LPC `9c43`, HDAU `0a0c`, SMBus `9c22`, and
+ECDT/FADT agreement. Unknown, missing, duplicate or changed tables refuse.
+
+Fresh GNVS ASLB and GPU ASLS agree at `8cd18190`. The Linux i915 OpRegion export
+is 8192 bytes, `IntelGraphicsMem` version 2 with mailbox 1. GNVS is
+`8cd3ea90/26d`; CpuPm declares **PPMT `8cd1bf90/3a`**, not Air7,2's PNVS.
+The native reader requires containing ACPI-NVS ranges, a 64-byte FACS with free
+Global Lock, OpRegion header agreement, RCBA/HPTC sanity and idle EC. Firmware
+MADT describes IO-APIC 2 at `fec00000`, GSI base 0, SCI override IRQ9→GSI9 flags
+`d`; the shared owner still requires a free masked route and validates readback.
+
+Connected offline initialization used those private memory/PCI snapshots and a
+256-byte synthetic EC. All four lid/AC combinations (EC byte `60` values 0–3)
+pass initialization, allowed queries and detach: zero errors/denials/leaks.
+Initialization writes 14 private memory bytes in total, plus ECSS zero at EC
+`10`; reads of EC `60` obtain lid/AC bits. Allowed-query replays add six memory
+writes. These traces are models, not native battery samples or live ownership.
+
+| Domain | Air6,1 native permission |
+| --- | --- |
+| GNVS / PPMT / OpRegion | Reads within exact captured spans, subject to live ACPI-NVS checks |
+| Memory writes | OSYS bytes GNVS+0/+1; boolean LIDS/PWRS at +15/+16; CLID at OpRegion+`1ac` as boolean low byte and three zero upper bytes |
+| FACS | Existing exact Global Lock DWORD and bounded shared arbitration/release contract |
+| AML EC | Byte read only at `60`; byte write only zero to ECSS `10` |
+| SMBus | Existing serialized SBS read-word sampler at bank `20`; no charge/control writes |
+| AML PCI | SMBus DWORD `20`; HDAU vendor bytes 0/1; LPC routing bytes `60..63`, `68..6b`; no PCI writes |
+| AML GPIO / chipset MMIO | Denied: the Air6,1 connected audit requires no GPIO or HPTC AML access |
+| Query dispatch | `_Q20`, `_Q21`, `_Q40`, `_Q5A` only; zero means no query |
+
+`_Q10` has a shared SMBus-writing non-Darwin branch and is refused even though
+its Darwin-only offline replay succeeds. `_Q80` is device policy and its offline
+replay reaches denied power-limit SystemIO at `310..319`; it remains refused. Air7,2-only
+`_QCE/_QCF/_QD0` and unknown queries are refused. A refused query in this first
+native diagnostic invokes existing containment; it is not ignored or treated as
+successful telemetry. No Home service/query-recovery ownership is admitted.
+
+The runtime entry guard requires the diagnostic owner, automatic recovery,
+parked/unmounted USB, no active image or storage I/O, and neither service nor
+transition mode. The bound is five samples. Before ownership, foreign GPE66/72
+are retained under the shared event leases; they are masked temporarily without
+acknowledging their status. Initialization, ACPI transition, EC/SCI ownership,
+Global Lock release and retirement necessarily perform audited hardware writes.
+“Read-only telemetry” means no battery charging/control writes, not zero
+controller/initialization writes. GPIO policy stays fully denied on this model.
+
+On success the runtime stops new work, drains/retires its worker, disconnects
+EC, restores prior mode/masked SCI route and foreign enables, and verifies zero
+interpreter allocations/errors/denials. Only then may the outer capture remount
+USB to save logs. A contained fault resets with USB parked and can leave no exit
+log; that is a failed/incomplete trial, never a pass.
+
+```sh
+tools/host-env.sh make -j2 all usb-image acpi-air61-battery-kernel test-core test-desktop
+python3 tools/hardware_boot.py stage --laptop-probe-volume 6ADA-85BB --battery-air61
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --workspace-table gpt
+```
+
+Leave AC and USB connected. Do not unplug AC during this first bounded sample
+trial. It should return automatically to Ubuntu. The evidence must contain five
+fresh, coherent samples, balanced attach/detach, both foreign-event restorations,
+clean completion and matching saved logs. Physical gauge calibration, AC
+transitions, long-lived desktop monitoring and charge controls remain unaccepted.

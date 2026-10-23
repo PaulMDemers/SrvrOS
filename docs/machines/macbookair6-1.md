@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Offline EC contract and native passive handoff capture accepted | Full model-specific runtime audit, bounded samples; ordinary AML stays off |
+| Battery/AC | Passive native handoff accepted; connected offline runtime audited and isolated five-sample candidate implemented | Native bounded samples and retirement; ordinary desktop remains off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -91,12 +91,13 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `d5491c0`, branch `device/macbookair6-1/battery-preflight-return`. Close out
-run `10567bbea85fe3e2`; scope is Air6,1 documentation and local evidence only.
-The native passive capture completed. Next implementation checkpoint is the
-independent NVS/GPIO/PCI/AML initialization, EC/query and SCI/rollback audit,
-then a bounded AC-connected battery sample diagnostic. The captured event state
-does not grant runtime ownership or extend Air7,2's profile to this machine.
+Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
+Air6,1 AML initialization and query effects using private captured regions and
+synthetic EC state. Scope: separate diagnostic-native profile/policy, shared
+runtime only where a model-specific contract is required, staging/VM tests and
+Air6,1 docs. PR88 owns trackpad timing; PR19 owns Pro USB Wi-Fi. Preserve both.
+Next checkpoint is five bounded AC-connected samples with parked USB and full
+retirement. Ordinary desktop admission and charging controls remain disabled.
 
 ## First console trial prepared (2026-10-22)
 
@@ -954,3 +955,33 @@ All 197 prior files remain; only `.srvros/meta` changed and two matching session
 logs were added. Offline exFAT/allocation checks pass: 199 files, 374 clusters,
 zero leaks/mismatches/errors. Installed and independent recovery/payload hashes
 are verified. Return records and logs are backed up outside build. No boot is armed.
+
+## Bounded battery/AC runtime ready (2026-10-23)
+
+The independent connected audit is complete for the first bounded profile;
+native operation remains pending. Release `674c597b082f2494`, clean source
+`308e4bd`, is installed unarmed for run `5b60eacb23867c83`. See the
+[runtime audit](../macbookair6-1-battery.md#connected-runtime-audit-and-bounded-sampling-candidate)
+for exact GNVS/PPMT/OpRegion, PCI, EC and query permissions. Offline initialization,
+allowed queries and EC detach pass in all four modeled lid/AC states. GPIO stays
+denied. `_Q10`, `_Q80`, absent Air7,2 methods and unknown queries are refused.
+
+v61 uses its own native binary and refuses service, transitions and mounted-USB
+entry. It parks USB, attempts five AC-connected samples, retires and saves logs
+before automatic Ubuntu return. The first native trial may expose another
+ownership/refusal condition; missing final logs remain failure/incomplete evidence.
+No desktop battery provider or charge-control access is admitted.
+
+Full build/USB image, native binaries, core/desktop suites, 65 staging tests,
+captured firmware/mutation tests and docs checks pass. QEMU passes five-sample
+success, denied access, transport fault, failed foreign-event restoration and
+EC-disconnect deadline containment; separate Global Lock handoff/release pass.
+The exact staged GPT VM refuses unsupported hardware, saves logs, unmounts and
+returns. These are runtime regression results, not native sampling acceptance.
+
+USB has 199 baseline files; offline exFAT/allocation pass (374 clusters, zero
+leaks/mismatches/errors). Installed/recovery and independent backup hashes pass;
+Ubuntu remains default with empty one-shot. Console recovery `c35475f62f154f1e`,
+accepted desktop telemetry `eee15036f4172920` and passive preflight
+`9b528e09c13e1d4b` are retained. Raw audit and run evidence are copied outside
+build before boot. Leave AC and USB connected for the automatic trial.
