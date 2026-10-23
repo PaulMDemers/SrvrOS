@@ -2,7 +2,7 @@
 bool thermal_cpu_supported(uint32_t b,uint32_t d,uint32_t c,uint32_t sig,uint32_t fc,uint32_t fd,uint32_t ta) {
     unsigned family=(sig>>8)&15,model=((sig>>4)&15)|((sig>>12)&0xf0);
     return b==0x756e6547 && d==0x49656e69 && c==0x6c65746e && family==6 && !((sig>>20)&255) &&
-        (model==0x3d || model==0x46) &&
+        (model==0x3d || model==0x46 || sig==0x40651) &&
         !(fc&(1u<<31)) && (fd&(1u<<5)) && (ta&1);
 }
 void thermal_decode(struct srv_thermal_status *s,uint64_t target,uint64_t core,uint64_t package,bool has_package) {

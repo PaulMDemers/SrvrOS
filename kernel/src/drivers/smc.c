@@ -41,7 +41,7 @@ static bool target(void) {
         const struct pci_device *d=pci_device_at(i);
         if(d->vendor_id==0x8086 && d->class_code==3)gpu=d->device_id;
         if(d->vendor_id==0x8086 && d->class_code==6 &&
-           (d->device_id==0x9cc3 || d->device_id==0x8c4b))pch=d->device_id;
+           (d->device_id==0x9cc3 || d->device_id==0x8c4b || d->device_id==0x9c43))pch=d->device_id;
     }
     expected_fans=0;
     for(uint64_t i=0;i<acpi_table_count();i++) {
@@ -49,11 +49,12 @@ static bool target(void) {
         if(t->signature[0]!='D' || t->signature[1]!='S' || t->signature[2]!='D' || t->signature[3]!='T')continue;
         const uint8_t *data=pmm_phys_to_virt(t->physical_address);
         if(gpu==0x1626 && pch==0x9cc3 && laptop_firmware_match(data,t->length))expected_fans=1;
+        else if(laptop_air61_display_match(gpu,pch,data,t->length))expected_fans=1;
         else if(laptop_pro_display_match(gpu,pch,data,t->length))expected_fans=2;
     }
-    /* Both captured DSDTs include APP0001 I/O 0x300..0x31f. This service
+    /* The three independently captured DSDTs include APP0001 I/O 0x300..0x31f. This service
      * uses only metadata/read commands for FNum/F0Ac/F1Ac; no control keys,
-     * MMIO or IRQ6 ownership. The Pro match is independently evidenced. */
+     * MMIO or IRQ6 ownership. Air6,1 resources are recorded in its telemetry note. */
     return expected_fans!=0;
 }
 static bool metadata(const uint8_t *p,unsigned length,const char type[4]) {

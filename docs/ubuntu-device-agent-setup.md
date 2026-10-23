@@ -257,6 +257,11 @@ gated. Battery/AML and other optional laptop services remain off. See the
 accepted, with full native endurance still incomplete.
 Use `--desktop-check --audio-check --workspace-table gpt` for its exact-stage VM.
 
+For Air6,1 read-only CPU/fan acceptance, add `--desktop-sensors` to that
+unscaled brightness/audio command. The distinct v59 recipe keeps battery/AML
+and networking off. See the [Air6,1 telemetry trial](macbookair6-1-telemetry.md)
+for captured resource gates and System/Sensors checks; native acceptance is pending.
+
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
 models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.

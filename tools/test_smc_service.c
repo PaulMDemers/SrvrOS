@@ -21,6 +21,9 @@ bool laptop_firmware_match(const uint8_t *data,size_t size) { assert(data==(uint
 bool laptop_pro_display_match(uint16_t gpu,uint16_t pch,const uint8_t *data,size_t size) {
     assert(data==(uint8_t*)&table && size==35034);return firmware && gpu==0x0d26 && pch==0x8c4b;
 }
+bool laptop_air61_display_match(uint16_t gpu,uint16_t pch,const uint8_t *data,size_t size) {
+    assert(data==(uint8_t*)&table && size==35034);return firmware && gpu==0x0a26 && pch==0x9c43;
+}
 bool scheduler_spawn_io_service(const char *name,scheduler_thread_fn fn,void *arg,scheduler_wait_condition_fn eligible) { assert(!strcmp(name,"smc") && fn==worker && !arg && eligible==ready);return spawn_ok; }
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;(void)fn;(void)arg;assert(0);return false; }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t deadline) { (void)q;(void)fn;(void)arg;(void)deadline;assert(0);return false; }
@@ -69,5 +72,18 @@ int main(void) {
     assert(snapshot.state==SRV_SMC_FAULT && !snapshot.flags && snapshot.samples==2);
     init();reply(count_info,6);reply(count,1);reply(fan_info,6);
     fan_info[0]=1;reply(fan_info,6);assert(snapshot.state==SRV_SMC_FAULT && !snapshot.samples && !snapshot.flags);
+    devices[0].device_id=0x0a26;devices[1].device_id=0x9c43;
+    firmware=false;init();assert(snapshot.state==SRV_SMC_UNAVAILABLE && !expected_fans);
+    firmware=true;devices[1].device_id=0x9cc3;init();assert(snapshot.state==SRV_SMC_UNAVAILABLE);
+    devices[1].device_id=0x9c43;init();assert(expected_fans==1 && snapshot.state==SRV_SMC_STARTING);
+    fan_info[0]=2;count[0]=1;reply(count_info,6);reply(count,1);reply(fan_info,6);
+    assert(stage==4 && !memcmp(m.key,"F0Ac",4));
+    fan[0]=0x12;fan[1]=0xc8;reply(fan,2);
+    assert(snapshot.state==SRV_SMC_ACTIVE && snapshot.fan_count==1 && snapshot.fan_millirpm==1202000);
+    assert(!snapshot.fan1_millirpm && snapshot.samples==1 && m.command==0x10 && !memcmp(m.key,"F0Ac",4));
+    struct srv_smc_status cached;unsigned commands=m.commands;smc_status(&cached);
+    assert(cached.samples==1 && m.commands==commands);
+    clock_us+=1000000;reply(fan,2);assert(snapshot.samples==2 && !memcmp(m.key,"F0Ac",4));
+    init();count[0]=2;reply(count_info,6);reply(count,1);assert(snapshot.state==SRV_SMC_FAULT && snapshot.error==0x102);
     puts("smc-service: PASS exact-target gate, worker failure, metadata/count checks, cached fan samples, zero RPM and fault invalidation without control writes");
 }
