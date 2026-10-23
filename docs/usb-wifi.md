@@ -1454,7 +1454,7 @@ should repeat the isolated zero write with the accepted clock prerequisite,
 retaining exact zero readback as its success condition. RF and connectivity
 remain untested. Historical write failures remain failures.
 
-### Clock-enabled isolated write comparison (native pending)
+### Clock-enabled isolated write comparison (native write failed)
 
 Firmware v29 (`--wifi-clock-direct`, requiring TXBE start and excluding all
 other TXBE alternatives) repeats the v28 clock prerequisite before phases2..10,
@@ -1463,3 +1463,19 @@ MCU read and all eight guarded post-write EP0 samples must agree on zero.
 A nonzero value still fails. Access refuses incomplete clock setup, active clock
 ownership or missing PBF readback. Historical profiles and failed results retain
 their original meaning. No RF enable or additional initialization table is added.
+
+Native v29 source `492fb20`, release `19f40e64c606d997`, session
+`00065e8821c93f58-00` reproduced the zero-write readback failure with clocks
+enabled. Clock transition80000->80c00, readiness and all eleven compact phases /
+44 target readbacks passed. The fixed EP0 index2728 zero transfer completed
+actual4; the subsequent exact sequence15 MCU reply returned37fff. All sixteen
+EP0 samples also read37fff, with TXBE9/12/13 zero and MAC0/COREf000f200 guards
+intact. The comparison reported status4 complete0, matching all eight post-write
+samples; both capture completion markers were NO. The failure was saved and
+Ubuntu recovery completed, with clean offline workspace checks.
+
+Enabling the PBF/MAC clock bits did not resolve the observed write/readback
+mismatch in this sequence. This does not establish register semantics or exclude
+other missing initialization prerequisites. Preserve the exact zero-readback
+requirement and these failed results; audit remaining setup and reference behavior
+before selecting another trial. No RF or connectivity acceptance follows.

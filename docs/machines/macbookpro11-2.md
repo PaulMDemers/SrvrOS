@@ -3312,3 +3312,22 @@ only after complete archived-payload equality verification. Workspace clean:
 195files/541clusters, zero allocation errors; unmounted. Ubuntu remains default.
 Await cold adapter power cycle; collect the exact new session first on return.
 No reboot armed, no native write acceptance yet.
+
+
+Native clock-enabled TXBE10 zero-write failed: source `492fb20`, release
+`19f40e64c606d997`, session `00065e8821c93f58-00`. Clock status0 complete1,
+PBF80000->80c00 retained at readiness; eleven phases/44 readbacks passed.
+EP0 zero-write transport completed actual4. Sequence15 exact MCU reply returned
+37fff; comparison status4 complete0 reply_validated1, matches8 expected8.
+All16 EP0 samples retained37fff; TXBE9/12/13 zero, MAC0/COREf000f200 held.
+Before3096597..3100465us, after3100884..3104735us. Both completion markers NO.
+Clock enablement did not resolve this mismatch. Next audit remaining prerequisites
+and register semantics; do not relax zero-readback or accept phase11/RF.
+
+Failure archived outside build in wifi-clock-direct-492fb20/failed-native-collection;
+separate failure collector retains the original success predicate, which rejects
+this receipt. Ubuntu default, consumed one-shot and installed/recovery hashes
+verified. Workspace clean:197files/544clusters, zero leaks/mismatches/errors;
+unmounted. Run/checkpoint collected as failed and unarmed. Fetched main36dbc3d
+(Air6,1 telemetry); PR88 two-finger tap scope is separate. Actual integrated
+base22fd266 retained; no new candidate or reboot armed.
