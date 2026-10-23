@@ -550,3 +550,30 @@ owns Wi-Fi. Neither owns VFS identity restoration. Prior native run is collected
 retain its evidence and console recovery. Prepare a fresh v53 trial only after
 host tests and exact-stage VM pass, install unarmed, then merge under existing
 authorization. No firmware/profile gates are widened.
+
+The VFS now remaps imported zero/colliding IDs to unused live IDs across the
+whole node table; unique requested IDs and all other metadata fields are retained.
+Registration and metadata restoration share the rule; allocation skips used IDs
+and handles wraparound. The picker retains strict duplicate checks. The host
+regression fails against the old implementation at the collision assertion and
+passes on the fix, including file/directory import, repeated updates, zero and
+maximum IDs, wraparound and retained mode/time. Core and desktop suites pass.
+
+Exact-stage v53 GPT VM passes on release `db7ce82008f4b9a6`, clean source
+`78e285a`: seeded duplicate persisted IDs become unique, saved Text files reopen,
+Home Up/reentry works, all 60 copy/sync/readback rounds verify, and retries during
+the active workload and after a fresh boot return nonzero without changing the
+round log or final payload. Preferences, session logs and two clean unmounts pass.
+The guard explicitly tests directory existence before mkdir; it is a sequential
+rerun guard, not an atomic concurrent-job lock. Run one instance at a time.
+
+Fresh native run `f48940182e6911a0` is installed unarmed. Command:
+`sh session-f48940182e6911a0.sh`. Follow the updated full desktop checklist,
+including visible file listings, Up/double-click Home reentry, saved-file reopen
+and a second invocation that must print REFUSED without another round. Prior
+metadata/evidence remains untouched on USB so mount-time repair is exercised.
+There are 141 pre-boot hashes; fsck is clean and allocation has 169 clusters with
+zero leaks/mismatches/errors. Console recovery `c35475f62f154f1e`, installed hashes,
+Ubuntu default and empty one-shot are verified. Payload/trial evidence has a
+hash-verified durable copy outside build under the new release. Physical fix
+acceptance is pending; collect this fresh run before another trial.
