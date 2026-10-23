@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture and bounded desktop pointer/drag/scroll trial accepted**.
+Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture, bounded pointer/drag/scroll, primary taps, typing suppression and Type study highlight accepted**.
 
 ## Identity and ownership
 
@@ -42,9 +42,9 @@ Air6,1 transport reproducer exists; retain both branches' profile contracts.
 The captured 84-byte USB configuration is byte-identical to the existing
 Air7,2 `apple-05ac-0291-config.bin` fixture. Keyboard is boot interface 1,
 endpoint 0x82, packet 64, interval 8. This supports reuse of configuration
-parsing, not native transport or trackpad report acceptance. Current
-`parse_trackpad_config` explicitly refuses PID `0290`; descriptor similarity
-alone does not establish coordinate ranges, report format or mode switching.
+parsing, not native transport or trackpad report acceptance. Initial `parse_trackpad_config` refused PID `0290`; subsequent exact-gated admission
+and native capture/gesture acceptance are recorded below. Descriptor similarity
+alone did not establish coordinate ranges, report format or mode switching.
 The existing CS4208 routes admit only subsystem `106b:7e00` or `106b:5e00`,
 not this unit's `106b:7100`. Backlight and SMC matching also target captured
 Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
@@ -55,7 +55,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | --- | --- | --- |
 | Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
-| Trackpad/gestures | PID not admitted | Captured report/transport evidence before profile |
+| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Full app coexistence next; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | Bounded monitor write/read and persistence accepted | Desktop/sustained I/O and hotplug not accepted |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
 | Brightness | Not tested | Exact firmware/register evidence |
@@ -449,3 +449,51 @@ completion under `build/trackpad-tests/cd54ca6d8f2cd4fb/` have a hash-verified
 durable backup under release `ab0bea06acccc443`. Installed payloads and Ubuntu
 default are verified; one-shot consumed. Current remains this accepted bounded
 trial, previous remains console recovery `c35475f62f154f1e`. No new boot prepared.
+
+## Full desktop/USB session preparation (2026-10-22)
+
+Base `208423f`, branch `device/macbookair6-1/desktop-session`. Bounded objective:
+full workspace desktop with an attended, finite Terminal copy/sync/readback job
+while using Text, Files, window management and settings. Scope: additive v53
+input-only desktop staging, shared fixture/verification helper, exact-stage VM
+coverage and this unit's checklist. No kernel, driver or app behavior changes.
+PR #66 owns v52 AC/battery capture; PR #19 owns Wi-Fi. Their separate recipes
+and native gates remain unchanged. Prior highlight run is collected. Preserve
+console recovery `c35475f62f154f1e`; install unarmed after exact-stage validation.
+
+The initial [full desktop session checklist](../macbookair6-1-desktop-session.md)
+uses v53 release `306174ddfec763ef`, clean source `f8a498a`; VM tooling finalized
+at `819acd0`. Build, desktop host suite, staging/collector tests (56 installer
+checks, 22 collector checks) and docs pass. Exact-stage GPT VM passes 60 one-MiB
+copy/sync/readback rounds with concurrent Text save, Terminal writes and screenshot
+capture, plus exact retained bytes, session collection, two clean unmounts and
+preferences across a fresh VM boot. Two earlier harness failures (semicolon key
+mapping and outdated Settings coordinates) were corrected; neither was a native
+OS failure. Failed logs remain local. No native full desktop acceptance yet.
+
+Native run `23dadab462e9ed83` has fresh inputs and 124 pre-boot file hashes on
+UUID `6ADA-85BB`. Offline fsck is clean; allocation has 134 clusters, zero leaks,
+mismatches or errors. Install retains console recovery `c35475f62f154f1e` via
+`--keep-previous`. Installed hashes, Ubuntu default and empty one-shot are checked.
+Evidence/checklist live in `build/desktop-sessions/23dadab462e9ed83`, with durable
+payload and trial copies outside build under release `306174ddfec763ef`.
+
+At readiness recheck installed state, USB identity/input hashes and record the
+launch before arming. In the desktop Terminal run `sh session-23dadab462e9ed83.sh`,
+then use other apps while it advances. Save `notes-23dadab462e9ed83.txt`, wait for
+USB SESSION COMPLETE, save a screenshot, return to console and require clean
+log save/unmount before `reboot`. On return collect the matching new desktop
+session and verify workload/notes/preferences/prior files and both offline checks
+before staging another run. The preparation leaves reboot unarmed.
+
+MR #66 landed during preparation; consumed merged main `ddf4ebf` and retained
+both the v52 battery recipe and v53 basic desktop recipe. Combined source
+`f689b7c` rebuilds successfully; 57 staging/installer tests, 23 collector tests,
+the desktop suite and battery control/transition regressions pass. Initial
+release `306174ddfec763ef` is superseded by `9ddea14869c9ed6f`; the same unstarted
+USB run and inputs remain valid. Final exact-stage GPT rehearsal passes all 60 rounds, concurrent app saves,
+retained bytes, two clean exits/unmounts and fresh-boot preference persistence.
+The rebuilt release is installed unarmed with console recovery retained; installed
+hashes, Ubuntu default and empty one-shot are verified. Final payload and trial
+backups are hash-verified outside build under `9ddea14869c9ed6f`. The run command,
+checklist and physical acceptance scope above are unchanged.
