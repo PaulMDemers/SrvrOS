@@ -38,13 +38,16 @@ main `d7ed773` (Air6,1 PR101/103), integrated source `d32e02e` passed full
 build/core/docs, the scale fixture, exact v8 EFI `432e416b0d7b0dd2` with 5000 preserved
 files and desktop `8855701b88562f2a` positive/audio/save/reopen and 8191-file refusal.
 Those integrated payloads are VM-validated, not newly physically accepted.
+The subsequent PR104 baseline `f2e0945` was consumed as `d892afa`; full build,
+core and docs checks passed again. Its ordinary v8/v58 payloads are byte-identical
+to those already VM-tested, so no additional boot or hardware acceptance is claimed.
 
 Installed current remains `eba663ccd2a40909` (automated request consumed);
 accepted previous remains `9aa8dbf6fbda8252`. Ubuntu default and consumed one-shot
 are verified, USB is unmounted, and no reboot is armed. The milestone accepts
 bounded native persistence, not new physical gesture, battery, power or sibling
-hardware behavior. Pro PR19 `70db245` remains Wi-Fi; Air6,1 PR104 `cac24ef` owns
-its bounded battery/file coexistence work. No additional physical test is needed
+hardware behavior. Pro PR19 remains Wi-Fi; Air6,1 PR104's merged bounded
+battery/file coexistence work retains that machine's separate acceptance. No additional physical test is needed
 for this filesystem closeout.
 
 ### Previous checkpoint: bounded capacity recovery milestone complete
