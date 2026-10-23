@@ -2,7 +2,38 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: close device acceptance; refine two-finger tap timing
+### Current result: tap feel accepted; logging capacity follow-up
+
+Returned settling trial `95db354d397095b4` (source `c619cdd`): the tester says
+"it's dialed in well enough now". Accept the subjective tap feel and stop further
+threshold tuning. This is not a claim that all native regression checks passed.
+The USB has only an empty new `session-00065e891a178922-00` directory and no
+saved report, counter summary, screenshot or exit snapshot. Collection cannot
+match a saved release; full trial evidence remains **incomplete**. The return
+route was queried; it is not inferred from the Ubuntu boot alone.
+
+A separate capacity issue explains the missing files: the driver has 1024 file
+slots, and creation reserves a temporary metadata slot. The real USB contains
+1023 files. A disposable host-image run of the real driver reproduced refusal
+after 1022 ordinary files plus the metadata file, then successful delete/recreate
+and clean remount/fsck. Directory creation can still succeed at this boundary.
+Do not treat clean fsck as evidence that new logs can be saved. Native error text
+was not captured. Before another hardware run, address file-table headroom and
+archival/retention of old logs; preserve all evidence outside build before any
+USB cleanup. No storage code or USB file deletion was performed in this review.
+
+Prior files are unchanged except expected metadata; offline fsck/allocation pass
+(1023 files, 2222 clusters, no leaks/mismatches). Ubuntu default, consumed one-shot
+and current/recovery payloads pass. Current is `95db354d397095b4`, previous remains
+`9aa8dbf6fbda8252`; USB is unmounted and no reboot is armed. Raw collection is in
+`~/.local/share/srvros/pending-trials/95db354d397095b4/returned`; scoped review and
+capacity reproduction survive cleanup in
+`~/.local/share/srvros/reviewed-evidence/95db354d397095b4`.
+Fetched main `9488193` includes separate Air6,1 battery work and was inspected;
+Pro PR19 `4f991e5` owns its raw MAC read-only Wi-Fi trial. Actual tap candidate
+base remains `f310923`; no sibling changes or firmware gates were imported.
+
+### Tap diagnostics and preparation history
 
 Returned diagnostic `efc90fce7ae6849d`, session `session-00065e8898366d73-00`:
 tester saw 8–9 menus from roughly 20 attempts; exit counters show 9 secondary taps

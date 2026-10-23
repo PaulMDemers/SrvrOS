@@ -131,3 +131,11 @@ pixels). Primary taps retain 64. This is a provisional native-informed adjustmen
 not physical acceptance; verify natural taps and unwanted menus during scrolling.
 Whole-session rejection totals include ordinary pointing and cannot establish a
 precise success ratio or an optimal displacement threshold.
+
+The tester accepted the follow-up tap feel on installed release `95db354d397095b4`
+as "dialed in well enough". Further threshold tuning stops here. That returned
+round has no saved logs/report: the USB reached 1023 files, exhausting the driver's
+1024-file table after reserving a metadata temporary slot. A disposable host-image
+reproduction confirms the boundary; clean fsck does not imply creation headroom.
+Keep subjective input acceptance separate from the incomplete session receipt.
+Address log archival/creation headroom before another physical trial.
