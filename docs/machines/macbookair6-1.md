@@ -59,7 +59,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
-| Temperature/fan | Linux inventory only | Native read-only profile evidence |
+| Temperature/fan | Exact CPU/one-fan read-only profile implemented; native acceptance pending | Live System/Sensors freshness and desktop/audio coexistence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
@@ -91,11 +91,17 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Close out headphone trial `5a302d248eee397a` against integration `d2d56a6`.
-Documentation/evidence only; installed v57 `0533c0dfc63d104f` remains unchanged.
-Record user-confirmed headphone/speaker operation and bounded route/Stop checks.
-Long plays were canceled early, so five-minute native endurance remains incomplete.
-Preserve the separate run evidence and accepted recovery; no reboot is armed.
+Base `df44fa0`, branch `device/macbookair6-1/telemetry`. Add read-only boot-CPU
+thermal admission for captured Intel signature `40651` and one-fan SMC admission
+for exact GPU `0a26`, PCH `9c43`, DSDT length 31777/hash `af9a47bc352dc6bf`.
+The DSDT declares APP0001 I/O `300..31f`; Linux reports one Exhaust fan and
+zero manual-control mode. Reuse the existing bounded FNum/F0Ac metadata/read
+worker, never fan writes, SMC MMIO, IRQ6 or battery/EC/AML ownership.
+Scope: thermal core, SMC target, host fixtures, distinct unscaled v59 sensor
+stage/VM checks and Air6,1 docs. PR #83 (`0bf5471`) owns v58 guided device checks;
+keep its recipe and scripts separate. PR #19 owns Pro Wi-Fi. Next checkpoint is
+an attended System/Sensors read-only trial with desktop/audio use, after local
+checks and exact-stage rehearsal. No native telemetry acceptance is implied.
 
 ## First console trial prepared (2026-10-22)
 
@@ -867,3 +873,25 @@ backup outside `build`; the earlier speaker acceptance remains intact.
 
 The user explicitly confirmed the early stops were intentional, with no playback
 problem. They are not failures, but do not complete the full-duration target.
+
+## Read-only telemetry trial ready (2026-10-23)
+
+Release `eee15036f4172920`, compiled clean source `60fc97a`, is installed for
+attended run `3f703367ab650765`. MR87 adds captured CPU signature `40651` and
+the exact Air6,1 DSDT/GPU/PCH single-fan profile. The v59 unscaled desktop keeps
+brightness/audio and enables only CPU temperature and SMC fan reads. No fan
+control, EC/AML, battery, SMC MMIO or IRQ6 ownership is enabled. See the
+[telemetry checklist](../macbookair6-1-telemetry.md). Native readings remain pending.
+
+Full build, USB image, core/desktop host suites, 63 boot-profile tests and docs
+checks pass. The actual DSDT matcher passes. The exact staged GPT VM passes
+two desktop sessions, save/reopen, preferences, tone/WAV playback with zero
+underruns, saved device status and clean unmounts. Generic QEMU correctly
+reports thermal/SMC unavailable; this does not accept native readings.
+
+USB `6ADA-85BB` remains unmounted with a 193-file baseline; offline exFAT and
+allocation checks pass (366 clusters, zero leaks/mismatches/errors). Installed
+payload/recovery and independent backups are hash-verified. Console recovery
+`c35475f62f154f1e` and accepted audio `0533c0dfc63d104f` are retained. Ubuntu
+remains default and no reboot is armed. Run records, captures and VM evidence
+are stored locally and copied outside build before boot.
