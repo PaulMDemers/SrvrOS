@@ -1309,3 +1309,37 @@ Keep AC and USB connected; no input or charger changes are required. Expect
 Photograph any fault. On return collect this release before further work and
 verify its complete receipt, exact inner image, all other files and both
 allocation graphs. A quick return alone is not acceptance.
+
+## Battery/file return closeout scope (2026-10-23)
+
+From main `7638d57` (including PR102 filesystem scale), this closeout only records
+the returned Air6,1 candidate and missed image preparation check. No shared
+runtime/filesystem changes; Pro PR19 Wi-Fi remains independent. The installed
+physical candidate predates PR102 and stays identified by its own source/release.
+
+## First battery/file return: image preparation refused (2026-10-23)
+
+Release `fc1d1f4c45d30252`, source `cac24ef`, session `00065e8a98eec3bc-00`
+saved `completed=NO` with `battery media parked=NO fault-reset=NO`. The exclusive
+image was refused before outer unmount, battery runtime entry or Text/file work.
+This is failed preparation, not coexistence acceptance or a runtime failure.
+
+The 16 MiB image has the correct size/valid length but its 128-cluster FAT chain
+jumps from cluster 392 to 394. The read-only native-driver `--battery-image`
+check reproduces `image-range: REFUSED`. General allocation and fsck passed
+before boot, but the dedicated contiguous-extent check was omitted. A valid
+filesystem and matching image bytes do not prove exclusive-range admission.
+
+All 212 prior files remain unchanged except expected `.srvros/meta`; the inner
+image is byte-identical to its fresh baseline. Three logs bring the total to
+215 files. Outer fsck/allocation pass (523 clusters, zero leaks/mismatches/errors);
+inner checks pass (two files, seven clusters). Payload/recovery hashes, Ubuntu
+default and consumed one-shot verify. USB is unmounted, no reboot is armed, and
+matching logs/image/layout/return evidence is independently backed up.
+
+Next prepare a fresh contiguous image, preserving this failed run's evidence,
+and require `check_exfat_allocation.py --uuid 6ADA-85BB --battery-image` to pass
+on the unmounted real drive before installation/boot. Do not relax exclusive
+range checks or treat another general allocation pass as a substitute. Any new
+payload built on the later integration baseline needs its own exact-stage
+validation; this run does not accept the filesystem-scale changes from PR102.
