@@ -10,7 +10,7 @@ there is no supported stable binary release yet.
 | Target | Evidence | Remaining work |
 | --- | --- | --- |
 | QEMU q35 | Repeatable boot, CLI, filesystem, network and desktop regressions | Emulator coverage cannot validate physical controllers or firmware |
-| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | Combined ordinary-session services, targeted input cases, audio routes and network adapter acceptance |
+| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | Suspend/resume, measured power improvements, USB hot-unplug and broader filesystem/window scale |
 | MacBookAir6,1 | Console/input, USB workspace and bounded desktop pointer/drag/scroll trials | Preference restoration and additional devices have separate acceptance |
 | MacBookAir7,1 / A1465 | Planned | Capture this model and run its own acceptance cycle |
 | MacBookPro11,2 / A1398 | Native desktop/input, scaled display, brightness, speakers, CPU/two-fan telemetry and captured USB Ethernet accepted | USB Wi-Fi diagnostics in progress; battery and headphone checks deferred |
@@ -35,7 +35,7 @@ cancel interrupted trackpad presses, preserve queued typing on pointer
 cancellation, and correct compositor input/control delivery deadlines. Host/VM
 regressions pass. The latest physical round reported generally good behavior,
 with no recorded timeout or app failure; individual secondary-click/cancellation
-cases are not all confirmed. The Terminal backspace correction passed its physical retest on
+cases were subsequently exercised in the October 23 follow-up; tap refinement is tester-accepted in PR88, although its final full diagnostic receipt is incomplete. The Terminal backspace correction passed its physical retest on
 `5282cfde546ea2b5`; Text copy/paste/select-all shortcuts were explicitly
 validated in the same round.
 Earlier unexpected app closures are not conclusively explained by these fixes.
@@ -51,8 +51,8 @@ or Retina Mac acceptance. See the [desktop guide](native-desktop.md) and [device
 | --- | --- |
 | exFAT / USB workspace | Repeated physical read/write/flush/remount and shell workflows passed; no journal or power-loss durability guarantee |
 | Internal storage | AHCI available in VM; laptop test profiles use a RAM boot image and USB workspace, not an internal-disk installation |
-| Networking | e1000 and small IPv4 stack exercised in QEMU; CDC ECM USB driver has VM coverage, captured Pro adapter DHCP/DNS/HTTP and cable-status UI accepted; Air adapter trial pending |
-| Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback completed on hardware with zero reported underruns; audible channel separation/headphones still need confirmation |
+| Networking | e1000 and small IPv4 stack exercised in QEMU; CDC ECM USB driver has VM coverage, captured Pro adapter DHCP/DNS/HTTP and cable-status UI accepted; Air matched-adapter DHCP/DNS/HTTP and cable down/recovery accepted |
+| Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback completed on hardware with zero reported underruns; prompted headphone/speaker controls reported successful in the v58 trial |
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
 | Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
@@ -82,8 +82,18 @@ show the cached indicator. This does not establish battery life or calibration.
 The combined v55 profile is physically accepted on Air7,2 release
 `9aa8dbf6fbda8252`: playback/input, brightness, read-only sensors and battery
 coexist with document save/exit/reopen. Runtime/PCM cleanup, file preservation
-and offline allocation pass. Ethernet still needs an attached Air adapter;
-headphone/channel and targeted secondary-click acceptance remain open.
+and offline allocation pass. The subsequent v58/follow-up rounds accept matched-adapter Ethernet with cable
+recovery, prompted headphone controls and named secondary-click/drag/scroll checks.
+Tap settling is tester-accepted in PR88; its missing final receipt is not a full
+regression pass. PR99 adds verified archival and capacity admission; its native
+automated save/remount/reopen round preserved all prior files and passed offline
+checks. [PR102 filesystem scaling](filesystem-capacity.md) replaces the old
+1024-file/256-directory tables with stable demand allocation and direct VFS
+enumeration. Host growth/failure tests and exact-stage VM tests with 5000 files
+pass, including desktop save/reopen and capacity refusal. The Air native round
+also passed beyond both old limits (1236 files / 270 directories at start),
+preserving all prior files and passing offline checks before and after removing
+only the disposable fixture. This closes the bounded filesystem scale milestone.
 
 Exact source/payload identities, evidence locations and negative tests are in
 the [October 19 journal](desktop-progress-2026-10-19.md) and

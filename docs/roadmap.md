@@ -15,8 +15,10 @@ resource retirement and Ubuntu recovery were verified. Cached low-charge notices
 and battery-label access to System are implemented, with synthetic warning tests.
 The combined profile preserves native gates and omits the isolated AML probe.
 
-Absent Ethernet hardware and the named listening/gesture/low-charge gaps remain
-explicitly outside this acceptance. The accepted payload/evidence and older
+Subsequent v58/follow-up trials accept matched Ethernet/cable recovery, prompted
+headphone controls and named gesture checks; PR88 tap settling is tester-accepted
+with incomplete final diagnostic receipt. Physical low-charge/calibration remains
+outside this acceptance. The accepted payload/evidence and older
 recovery are retained independently of build cleanup.
 
 ## 2. Close remaining device and input acceptance gaps
@@ -30,7 +32,23 @@ copy its hardware acceptance to the Air. Each sibling needs captured identities.
 **Done when:** the named provider has matched release/logs and explicit native
 acceptance; skipped checks remain pending. No blanket fleet-wide parity claim.
 
-## 3. Improve power from repeatable measurements
+## 3. Scale persistent workspaces
+
+PR99 prevents silent diagnostic loss at the current node-table limits and adds
+verified archival. PR102 implements bounded demand allocation, stable node
+identities and paths, direct enumeration, memory reservation before mutation and
+deleted-slot reuse. Host tests cover thousands of files, both exhausted budgets,
+allocation failures and save/rename/delete/remount. The exact-stage VM passes
+with 5000 preserved files, automatic return and desktop positive/refusal checks.
+The native automated round passed beyond both old limits with all prior data
+preserved and clean offline allocation; only the verified fixture was removed.
+See the [capacity contract](filesystem-capacity.md).
+
+**Completed:** bounded filesystem growth and safe refusal are host/VM validated
+and accepted by the exact native persistence round. Path limits, linear lookup
+and full metadata-sidecar rewrites remain explicit bounds.
+
+## 4. Improve power from repeatable measurements
 
 Compare matched workload, brightness, adapter state and duration using read-only
 package-energy/active-frequency telemetry and scheduler occupancy. Linux policy
@@ -40,7 +58,7 @@ separately. Relative charge display is not a calibrated runtime or health estima
 **Done when:** repeatable measurements show improvement without input, storage,
 audio or battery regressions. Temperature and idle percentage alone are not energy.
 
-## 4. Make the desktop less constrained
+## 5. Make the desktop less constrained
 
 Replace eight preallocated window-cache pairs with demand-sized buffers and align
 process, queue and surface budgets. Handle allocation failure before raising the
@@ -50,7 +68,7 @@ text coverage. Native-density typography is separate from current 2× pixel scal
 **Done when:** workloads beyond eight windows, resizing, close/reopen and memory
 pressure preserve documents, input and resource stability.
 
-## 5. Suspend and expand hardware deliberately
+## 6. Suspend and expand hardware deliberately
 
 Suspend/resume needs device quiescence, wake sources, firmware ownership and
 reinitialization with preserved recovery; battery readout does not provide this.

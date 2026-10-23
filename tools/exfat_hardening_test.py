@@ -61,6 +61,12 @@ def main():
         for mode in ('timestamps', 'capacity', 'file-capacity', 'dir-capacity'):
             image=directory/(mode+'.img')
             format_image(image,'4K')
+            if mode=='file-capacity':
+                from hardware_log_archive import limits
+                fixture=ExfatFixture(image.read_bytes())
+                fixture.add_directory_files('bulk',{f'file-{i:04d}-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz.txt':b'' for i in range(limits()[0]-2)})
+                fixture.add_directory_files('.srvros',{'meta':b'SRVROSMETA1\n'})
+                image.write_bytes(fixture.data);clean(image)
             print(command(DRIVER,image,mode).strip(),flush=True)
             clean(image)
         image=directory/'fragmented.img'

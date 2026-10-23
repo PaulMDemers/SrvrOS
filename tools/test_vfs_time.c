@@ -1,7 +1,11 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../kernel/src/vfs.c"
+static bool fail_alloc;
+void *kcalloc(size_t n,size_t size) { return fail_alloc?NULL:calloc(n,size); }
+void kfree(void *p) { free(p); }
 static int64_t wall=-1;
 static unsigned notifications;
 static const struct initramfs_file boot_files[]={
@@ -69,5 +73,24 @@ int main(void) {
         const struct vfs_node *a=vfs_node_at(i);assert(a && a->metadata.inode);
         for(uint64_t j=0;j<i;j++) assert(a->metadata.inode!=vfs_node_at(j)->metadata.inode);
     }
+    /* Cross the previous 4096-node ceiling without moving referenced nodes. */
+    static char names[6000][32];
+    const struct vfs_node *retained=file;
+    uint64_t old_count=vfs_count();
+    for(unsigned i=0;i<6000;i++) {
+        snprintf(names[i],sizeof(names[i]),"/scale/%u",i);
+        assert(vfs_register_file(names[i],3,NULL,read_test));
+    }
+    assert(vfs_lookup("/test")==retained && vfs_count()==old_count+6000);
+    for(uint64_t i=0;i<vfs_count();i++) assert(vfs_node_at(i) && vfs_node_at(i)->used);
+    assert(!vfs_node_at(vfs_count()));
+    for(unsigned i=0;i<6000;i+=2) assert(vfs_unregister_path(names[i]));
+    for(unsigned i=0;i<6000;i+=2) assert(vfs_register_file(names[i],3,NULL,read_test));
+    assert(vfs_lookup("/test")==retained);
+    fail_alloc=true;assert(!vfs_reserve_nodes(vfs_free_nodes()));
+    assert(vfs_lookup("/test")==retained && vfs_count()==old_count+6000);
+    fail_alloc=false;assert(!vfs_reserve_nodes(UINT64_MAX));
+    assert(vfs_unregister_prefix("/scale")==6000 && vfs_count()==old_count);
+    assert(vfs_lookup("/test")==retained);
     puts("vfs-time: PASS boot root/parent directories, conflicting paths, UTC create/read/write/change timestamps, explicit utime, imported metadata and unavailable-clock sentinel");
 }

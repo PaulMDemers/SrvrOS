@@ -2145,6 +2145,10 @@ build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exf
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/exfat_hardening_test.py
 
+.PHONY: test-exfat-scale
+test-exfat-scale: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/exfat_scale_test.py
+
 .PHONY: test-workspace
 test-workspace: build/tests/workspace-host$(HOST_EXE) build/tests/sync-command-host$(HOST_EXE)
 	build/tests/workspace-host$(HOST_EXE)

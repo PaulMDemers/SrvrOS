@@ -135,7 +135,10 @@ precise success ratio or an optimal displacement threshold.
 The tester accepted the follow-up tap feel on installed release `95db354d397095b4`
 as "dialed in well enough". Further threshold tuning stops here. That returned
 round has no saved logs/report: the USB reached 1023 files, exhausting the driver's
-1024-file table after reserving a metadata temporary slot. A disposable host-image
+then-current 1024-file table after reserving a metadata temporary slot. A disposable host-image
 reproduction confirms the boundary; clean fsck does not imply creation headroom.
 Keep subjective input acceptance separate from the incomplete session receipt.
-Address log archival/creation headroom before another physical trial.
+PR99 subsequently added verified archival/admission, and PR102 validated demand
+allocation beyond the former limits in host/VM and native persistence trials.
+See the [Air record](machines/macbookair7-2.md); these fixes do not retroactively
+turn the missing tap-trial receipt into a full pass.

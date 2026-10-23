@@ -25,11 +25,12 @@ class ArchiveTests(unittest.TestCase):
             self.assertFalse(logs.headroom(self.mount,files=4,dirs=0)['ok'])
         with patch.object(logs,'limits',return_value=(100,4)):
             self.assertFalse(logs.headroom(self.mount,files=0,dirs=1)['ok'])
-    def test_actual_1023_file_boundary(self):
+    def test_current_file_boundary_and_old_limit(self):
         meta=self.mount/'.srvros';meta.mkdir();(meta/'meta').write_bytes(b'')
-        for n in range(1022):(self.mount/str(n)).write_bytes(b'')
+        for n in range(logs.limits()[0]-2):(self.mount/str(n)).write_bytes(b'')
         result=logs.headroom(self.mount,files=1,dirs=0)
         self.assertEqual(result['available_files'],0);self.assertFalse(result['ok'])
+        self.assertGreater(logs.limits()[0],1024)
         (self.mount/'0').unlink();self.assertTrue(logs.headroom(self.mount,files=1,dirs=0)['ok'])
     def test_preserves_incomplete_unknown_recent(self):
         self.session(0,False);p=self.session(1);(p/'document.txt').write_text('preserve')
