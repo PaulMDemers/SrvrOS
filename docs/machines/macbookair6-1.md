@@ -1,8 +1,8 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture, bounded pointer/drag/scroll, primary taps, typing suppression and Type study highlight accepted**.
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% physically accepted.**
 
-## Identity and ownership
+## Initial inventory (2026-10-22)
 
 - Actual DMI model: MacBookAir6,1; firmware `122.0.0.0.0`.
   Marketing year and storage replacement history are not independently verified.
@@ -27,7 +27,7 @@ Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw
   missing/partial reads, including ACPI, HID descriptors, codecs and CPU policy.
   Raw firmware, EDID and device data remain local and ignored.
 
-## Active work and shared dependencies
+## Initial setup scope (historical)
 
 Bounded objective: provision the documented host toolchain, capture this unit,
 validate the unchanged integration baseline and prepare console/input bring-up.
@@ -53,12 +53,12 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
 | Capability | State | Remaining work |
 | --- | --- | --- |
-| Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
+| Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
-| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Full app coexistence next; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | Bounded monitor write/read and persistence accepted | Desktop/sustained I/O and hotplug not accepted |
+| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
-| Brightness | Not tested | Exact firmware/register evidence |
+| Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
@@ -89,13 +89,19 @@ The first authorized one-shot returned to Ubuntu and was collected. No boot is
 armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
 console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
-## Next actions
+## Current objective and next actions
 
-1. Preserve accepted release `c35475f62f154f1e` and the collected USB test file.
-2. Plan bounded topcase report capture before an Air6,1 trackpad profile; native
-   pointer/gesture support remains unaccepted. Coordinate any shared xHCI work.
-3. Scope desktop, backlight, audio and EC/SCI enablement independently. Rebuild
-   and rehearse any new candidate while retaining the accepted console payload.
+Base `bbd0208`, branch `device/macbookair6-1/brightness`. Capture this unit's
+PWM state read-only using its exact GPU `8086:0a26`, PCH `8086:9c43` and captured
+DSDT identity. Scope: laptop probe/resource matcher, host tests and Air6,1 docs.
+Use existing v19 automatic diagnostic capture; no staging/main changes, EC/AML
+access, PWM writes or brightness provider binding. PR #76 owns combined laptop
+services; PR #19 owns Pro Wi-Fi. Neither overlaps this isolated matcher/probe.
+
+1. Rehearse the exact diagnostic stage, retain console recovery and accepted desktop.
+2. Collect native mode/period/duty evidence before implementing a write provider.
+   Follow the [brightness capture guide](../macbookair6-1-brightness.md).
+3. Keep audio, battery/AC, telemetry and networking as separate milestones.
 
 ## First console trial prepared (2026-10-22)
 
@@ -655,3 +661,122 @@ verified durable backups. Ubuntu default/recovery are intact; one-shot is empty.
 Refusal and saved preference bytes are physically verified; restoration remains
 pending this second boot. Newly merged PR #69 is not part of this installed
 release; do not widen the trial to its battery startup behavior.
+
+### Preference restoration physically accepted (2026-10-23)
+
+Phase 2 `3559ab3a5aab1fb8` returned on unchanged release `db7ce82008f4b9a6`.
+New matching session `session-00065e84cfa28c9c-00` has its exit snapshot and
+desktop exit, with no collector attention. The user confirms settings persisted;
+the saved screenshot shows Trackpad speed 5 of 5 and acceleration unchecked.
+`desktop.conf` is byte-identical to phase 1, and the earlier refusal receipts and
+completed workload still verify. All 165 preboot files are preserved except the
+expected metadata update. New files are the four session logs and screenshot.
+Offline fsck is clean (170 files); allocation passes with 249 clusters and zero
+leaks/mismatches/errors. Evidence and screenshot have a hash-verified durable
+backup outside build. One-shot is empty, USB unmounted, and recovery verified.
+
+This closes the focused completed-workload rerun refusal and speed/acceleration
+persistence checks on this unit. It does not expand acceptance to every preference,
+concurrent script starts, optional hardware services or other Mac models. No
+new boot is staged or armed; both focused runs are collected.
+
+## Read-only brightness capture ready (2026-10-23)
+
+Implementation/source `a0f148a`, release `142dd83ded3d2da4`, run
+`b1bf2459dd0cd1f9`: exact GPU `0a26`, PCH `9c43`, 31,777-byte DSDT fingerprint
+`af9a47bc352dc6bf` admits only the read-only PWM capture. Current Ubuntu DSDT
+matches the inventory bytes. No EC/AML access, writable PWM mapping or provider
+binding is admitted on this profile. Native mode/period evidence is still pending.
+
+Full build/USB image and core suite pass, as do backlight tests, 58 staging tests
+and captured-firmware positive/negative tests (wrong chipset, length, checksum
+and checksum-correct modification refused). Exact-stage GPT v19 VM saves logs,
+checks retained file bytes and clean exFAT, then resets; the missing-workspace
+case returns without starting the probe. This is recovery-path validation, not
+native PWM acceptance. Docs and diff checks pass.
+
+Installed unarmed with console recovery `c35475f62f154f1e` retained; accepted
+desktop `db7ce82008f4b9a6` remains installed and independently backed up. One
+superseded EFI payload (`9ddea14869c9ed6f`) was removed only after verifying its
+complete independent backup. Ubuntu default and empty one-shot verified.
+All 170 USB files are recorded; offline fsck/allocation pass (249 clusters,
+zero leaks/mismatches/errors). Payload and run evidence are preserved outside
+build. This next boot is unattended: leave USB attached, allow automatic Ubuntu
+return, then collect before any write-enabled brightness implementation.
+
+
+## Native PWM capture result (2026-10-23)
+
+Run `b1bf2459dd0cd1f9`, release `142dd83ded3d2da4`, session
+`session-00065e85df9c8068-00` returned to Ubuntu with matching boot/exit logs,
+`completed=yes` and no collector attention. Exact Air6,1 admission succeeded:
+CPU control/duty `0/0`, PCH control `c0000000`, PCH duty `0ad904cc`;
+decoded mode 2 (PCH override), period 2777, duty 1228 (about 44% duty).
+The capture explicitly records no PWM writes, provider binding or EC access.
+This accepts read-only access, not panel adjustment or calibrated luminance.
+
+All 170 prior file hashes match except expected metadata update; only two
+session logs are new. Offline fsck is clean (172 files), allocation passes with
+252 clusters and zero leaks/mismatches/errors. Final saved/unmounted console
+messages are emitted after logging stops and are not present in the saved exit
+snapshot; retained logs, returned host state and offline integrity are recorded
+separately rather than claiming those console messages were captured.
+Evidence has a hash-verified backup outside build. One-shot is empty and USB
+unmounted; recovery remains verified. Next is an exact Air6,1 brightness provider
+preserving observed mode/period, with an attended visible adjustment trial.
+No new boot is staged or armed.
+
+## Brightness control scope (2026-10-23)
+
+Base `83a3f59`, branch `device/macbookair6-1/brightness-control`. Bind an explicit
+Air6,1 profile only behind the existing captured GPU/PCH/DSDT gate and observed
+CPU control 0, PCH control c0000000, period2777. Reuse bounded 5–100% duty writes,
+readback verification and drift quarantine. Discovery must leave the panel alone.
+Prepare a brightness-only unscaled desktop v56 via basic+brightness staging;
+no audio, EC/AML, battery or other optional service. Scope: backlight/profile,
+probe binding, staging/VM tests and this unit's docs. PR #76 reserves v55 for
+combined services; preserve that separate work when integrating shared staging.
+PR #19 remains Pro Wi-Fi work. Native visible adjustment remains unaccepted.
+
+### Attended brightness control ready
+
+Clean source `1cc5f82`, release `59086591e526632b`, run `19da744d205e2b2c`
+implements explicit Air6,1 control using the native captured period2777. The
+existing exact GPU/PCH/DSDT gate is retained. Discovery leaves duty unchanged;
+requests are bounded 5–100%, preserve mode/period and verify readback. Any mode,
+period or readback mismatch disables the provider. Read-only capture stays read-only.
+
+Full build/USB image, core and desktop suites, all-profile backlight tests,
+captured-firmware tests and 59 staging tests pass. Exact-stage GPT v56 VM passes
+two boots, Settings/preferences, Text saves, screenshots, diagnostic collection
+and clean unmounts. Unsupported Q35 brightness remains unavailable. These tests
+do not establish visible native adjustment. Docs/diff checks pass.
+
+Installed unarmed, console recovery retained, accepted desktop and prior capture
+backups verified. Superseded EFI payload `19eb394b28cbeef5` was removed only after
+verifying its independent backup. All 172 existing USB files are recorded;
+offline fsck/allocation pass (252 clusters, zero issues). Payload/run evidence
+is backed up outside build. Follow the attended brightness guide: inspect the
+initial level without a startup change; try 50/25/75/100/5 then50, confirm visible
+changes and responsive input, reopen Settings, screenshot and return manually.
+No battery/EC/AML/audio/network/sensor service is enabled. Native acceptance pending.
+
+
+## Native brightness adjustment accepted (2026-10-23)
+
+Run `19da744d205e2b2c`, release `59086591e526632b` (source `1cc5f82`), session
+`session-00065e863524e78f-00`: the user reports proper brightness operation
+throughout the range. Exact Air6,1 provider starts ready at 44%, with no discovery
+write. Logs contain 193 successful brightness readings spanning 5–100%, ending
+at 58%, with no unavailable result. The desktop exit snapshot is present and
+collector attention is empty. This accepts visible adjustment on this unit;
+no screenshot was saved, and final50/reopen or absence of a visible startup
+change is not separately claimed. Reboot persistence/calibrated luminance remain
+outside scope.
+
+Offline fsck is clean (176 files); allocation passes with 257 clusters and zero
+leaks/mismatches/errors. Prior files match except metadata and desktop.conf;
+the latter changed pointer speed5 to3 and acceleration0 to1. The user confirmed
+these changes were intentional; this is not a preference-persistence regression. Four new session logs are retained. Run/launch are collected,
+one-shot empty and USB unmounted. Evidence is backed up outside build; no new
+boot is staged or armed.

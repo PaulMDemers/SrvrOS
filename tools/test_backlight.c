@@ -36,7 +36,11 @@ int main(void) {
     assert(backlight_percent(0)==-1 && !reads && !writes);
     ready();assert(backlight_bind((struct backlight_io){regs,read_reg,write_duty}));
     assert(!backlight_bind_profile((struct backlight_io){regs,read_reg,write_duty},BACKLIGHT_PRO11_2));
-    exercise();profile=BACKLIGHT_PRO11_2;expected_period=1953;exercise();
+    exercise();profile=BACKLIGHT_AIR6_1;exercise();
+    ready();regs[2]=(2777u<<16)|1228;unsigned before=writes;assert(backlight_percent(0)==44 && writes==before);
+    regs[2]=(1953u<<16)|1228;assert(!backlight_bind_profile((struct backlight_io){regs,read_reg,write_duty},BACKLIGHT_AIR6_1));
+    assert(writes==before);
+    profile=BACKLIGHT_PRO11_2;expected_period=1953;exercise();
     ready();unsigned w=writes;
     assert(!backlight_bind((struct backlight_io){regs,read_reg,write_duty}));
     assert(writes==w && backlight_percent(50)==-1);

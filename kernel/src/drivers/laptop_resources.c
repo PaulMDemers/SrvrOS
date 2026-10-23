@@ -43,3 +43,11 @@ bool laptop_pro_display_match(uint16_t gpu,uint16_t pch,const uint8_t *b,size_t 
     for(size_t i=0;i<n;i++) hash=(hash^b[i])*1099511628211ull;
     return hash==0x5c5e79599c550767ull;
 }
+
+/* Air6,1 captured DSDT: read-only display admission, no EC or provider gate. */
+bool laptop_air61_display_match(uint16_t gpu,uint16_t pch,const uint8_t *b,size_t n) {
+    if(gpu!=0x0a26 || pch!=0x9c43 || !table(b,n,"DSDT",36) || n!=31777) return false;
+    uint64_t hash=14695981039346656037ull;
+    for(size_t i=0;i<n;i++) hash=(hash^b[i])*1099511628211ull;
+    return hash==0xaf9a47bc352dc6bfull;
+}
