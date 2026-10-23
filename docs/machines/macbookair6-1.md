@@ -45,7 +45,7 @@ endpoint 0x82, packet 64, interval 8. This supports reuse of configuration
 parsing, not native transport or trackpad report acceptance. Initial `parse_trackpad_config` refused PID `0290`; subsequent exact-gated admission
 and native capture/gesture acceptance are recorded below. Descriptor similarity
 alone did not establish coordinate ranges, report format or mode switching.
-The existing CS4208 routes admit only subsystem `106b:7e00` or `106b:5e00`,
+At initial inventory, the CS4208 routes admitted only subsystem `106b:7e00` or `106b:5e00`,
 not this unit's `106b:7100`. Backlight and SMC matching also target captured
 Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
@@ -57,7 +57,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
-| Sound/routes | Not tested | Exact codec routing evidence and listening checks |
+| Sound/routes | Exact codec profile implemented; native listening pending | Speaker/channel/volume, Stop and optional manual headphone checks |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
@@ -91,17 +91,17 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `bbd0208`, branch `device/macbookair6-1/brightness`. Capture this unit's
-PWM state read-only using its exact GPU `8086:0a26`, PCH `8086:9c43` and captured
-DSDT identity. Scope: laptop probe/resource matcher, host tests and Air6,1 docs.
-Use existing v19 automatic diagnostic capture; no staging/main changes, EC/AML
-access, PWM writes or brightness provider binding. PR #76 owns combined laptop
-services; PR #19 owns Pro Wi-Fi. Neither overlaps this isolated matcher/probe.
-
-1. Rehearse the exact diagnostic stage, retain console recovery and accepted desktop.
-2. Collect native mode/period/duty evidence before implementing a write provider.
-   Follow the [brightness capture guide](../macbookair6-1-brightness.md).
-3. Keep audio, battery/AC, telemetry and networking as separate milestones.
+Base `e741c58`, branch `device/macbookair6-1/audio`. Add the captured analog
+controller `8086:9c20` and an exact CS4208 `1013:4208` / `106b:7100` /
+revision `100300` profile. Validate raw pin defaults and direct speaker/headphone
+routes before codec writes. Reuse the existing muted startup and audio worker.
+Scope: audio controller/codec, HDA host tests, a distinct unscaled v57
+brightness+audio stage, exact-stage audio VM checks and this unit's documentation.
+PR #76 (`73fc9ba`) owns v55 combined laptop/battery services; preserve its
+independent recipe and do not modify main or battery ownership. PR #19 owns Pro
+Wi-Fi. Shared staging additions are limited to v57, leaving existing recipes
+unchanged. Next checkpoint is an attended low-volume listening test, after local
+host/VM checks, merge and verified install. Physical audio acceptance is pending.
 
 ## First console trial prepared (2026-10-22)
 
@@ -780,3 +780,25 @@ the latter changed pointer speed5 to3 and acceleration0 to1. The user confirmed
 these changes were intentional; this is not a preference-persistence regression. Four new session logs are retained. Run/launch are collected,
 one-shot empty and USB unmounted. Evidence is backed up outside build; no new
 boot is staged or armed.
+
+## Audio listening candidate (2026-10-23)
+
+Implementation `8f3656a`, PR #82, v57 release `0533c0dfc63d104f` adds exact
+`9c20` / CS4208 `106b:7100` revision `100300` admission. Both observed pin
+pairs are validated before codec writes; speaker DAC3/pin12 and headphone
+DAC2/pin10 reuse muted startup, GPIO0 and the existing serialized worker.
+See the [route evidence and listening checklist](../macbookair6-1-audio.md).
+
+Full build/USB image, core and desktop host tests, 60 staging tests and docs
+checks passed. The exact staged GPT VM passed two desktop sessions, GUI file
+save/reopen, preference restoration, recorded 500 ms tone and six-second stereo
+WAV, zero underruns and silent tails. Native audio remains **not tested**;
+QEMU routing cannot establish this Air's sound quality or channel balance.
+
+The candidate retains accepted brightness and input, with battery/AML, SMC,
+sensors and networking off. Preserve accepted brightness `59086591e526632b`
+and previous console recovery `c35475f62f154f1e`. Local run
+`build/audio/42421979e85c44eb` holds 176 preboot file hashes and clean offline
+exFAT/allocation evidence. Ubuntu stays default; reboot is unarmed. Next action
+is the attended speaker/volume/channel/Stop test and optional manual headphones,
+followed by collection and file/allocation checks before acceptance.

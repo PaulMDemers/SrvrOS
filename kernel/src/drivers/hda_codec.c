@@ -54,25 +54,34 @@ bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,enum hda_profile 
         c->afg=1;
         if(!verb(c,1,0xf20,0,&c->subsystem)) return false;
         bool pro=profile==HDA_PRO11_2 && c->vendor==0x10134208 && c->subsystem==0x106b5e00;
-        c->apple=pro || (profile==HDA_AIR7_2 && c->vendor==0x10134208 && c->subsystem==0x106b7e00);
+        bool air61=profile==HDA_AIR6_1 && c->vendor==0x10134208 && c->subsystem==0x106b7100;
+        c->apple=air61 || pro || (profile==HDA_AIR7_2 && c->vendor==0x10134208 && c->subsystem==0x106b7e00);
         bool qemu=profile==HDA_GENERIC && (c->vendor==0x1af40012||c->vendor==0x1af40022||c->vendor==0x1af40032);
         if(!c->apple&&!qemu) continue;
         c->pin[0]=c->apple?0x12:3; c->dac[0]=c->apple?3:2;
         c->pin[1]=0x10; c->dac[1]=2;
         c->routes=pro?3:c->apple?2:1;
         c->pin[2]=0x13;c->dac[2]=4;
-        if(pro) {
+        if(pro || air61) {
             uint32_t value;
             if(!parameter(c,0,2,&value)||value!=0x100300) return false;
-            const uint32_t defaults[]={0x90100110,0x002b4020,0x90100112};
-            for(unsigned r=0;r<3;r++)
-                if(!verb(c,c->pin[r],0xf1c,0,&value)||value!=defaults[r]) return false;
+            uint32_t defaults[3];
+            for(unsigned r=0;r<c->routes;r++)
+                if(!verb(c,c->pin[r],0xf1c,0,&defaults[r])) return false;
+            if(air61) {
+                /* This unit's Linux init_pin_configs and live codec dump.
+                 * Accept complete observed pairs, never a guessed hybrid. */
+                bool firmware=defaults[0]==0x90100110 && defaults[1]==0x002b4020;
+                bool raw=defaults[0]==0x90170011 && defaults[1]==0x032b401f;
+                if(!firmware && !raw) return false;
+            } else if(defaults[0]!=0x90100110 || defaults[1]!=0x002b4020 ||
+                      defaults[2]!=0x90100112) return false;
         }
         for(unsigned r=0;r<c->routes;r++) if(!validate_route(c,r)) return false;
         if(c->apple) {
             /* CS4208 A1 coefficient setup, gated by the observed codec + board
              * subsystem. Register values are documented in the audio bring-up
-             * note; only the two explicitly matched boards use these coefficients. */
+             * note; only explicitly matched boards use these coefficients. */
             if(!power_on(c,1)||!verb(c,0x24,0x703,1,0)||
                !verb(c,0x24,0x500,0x33,0)||!verb(c,0x24,0x400,1,0)||
                !verb(c,0x24,0x500,0x34,0)||!verb(c,0x24,0x400,0x1c01,0)||

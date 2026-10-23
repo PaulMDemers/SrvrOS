@@ -2,7 +2,7 @@
 #define SRVROS_HDA_CODEC_H
 #include <srvros/hda_core.h>
 enum hda_output { HDA_SPEAKERS=0, HDA_HEADPHONES=1 };
-enum hda_profile { HDA_GENERIC, HDA_AIR7_2, HDA_PRO11_2 };
+enum hda_profile { HDA_GENERIC, HDA_AIR7_2, HDA_PRO11_2, HDA_AIR6_1 };
 struct hda_codec {
     struct hda_core *controller;
     uint32_t vendor, subsystem, gpio_mask, gpio_direction, gpio_data;
