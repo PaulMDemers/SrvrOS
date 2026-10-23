@@ -3904,3 +3904,21 @@ regidx, no register writes/reset/unbind. Exact gates, sequence10 packet,12reads
 and final MAC0/COREf000f200. Reference final table values, not replay of earlier
 common TX_SW intermediate writes. Touch MCU/xHCI/main/staging/tests; base22fd266,
 fetched mainc43d27c; PR106 power measurements separate.
+
+### 2026-10-23 — v40 TX software-control candidate installed, unarmed
+
+Source `e6e83ab`, release `656e4b9c37ae4baf`. Build, compact/xHCI tests,
+ASan/UBSan, 96 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v39
+`2cfc6b033353005e` retained; v38 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean217files/574clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-txsw/run.json`,
+`build/bringup/collect_wifi_mac_txsw_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-txsw-e6e83ab/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
