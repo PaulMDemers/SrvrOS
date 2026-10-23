@@ -3126,3 +3126,15 @@ changes inspected. They do not change this isolated Wi-Fi transport. PR83 owns
 attended audio/Ethernet/secondary-input acceptance. Preserve desktop v55/56/57
 and service dispatch on future integration; retain actual base22fd266 for this
 comparison against the accepted captures.
+
+TXBE10-only candidate sourcec96e810 / releasef8b4b41d736bd4e2 installed
+unarmed. Build, compact/MCU/xHCI tests, sanitizer,81 boot-profile tests and docs
+checks pass. Collector accepts synthetic16 samples and rejects14 corrupted
+fixtures, including nonzero target readback and changed TXBE9. Exact-stage GPT
+VM saved/unmounted/reset; missing-workspace VM returned without probing.
+Payload/receipts/run/collector archived outside build in wifi-txbe-second-c96e810.
+Accepted TXBE9 comparisonb3a29375623082db and desktop recoverye47dca3a6b30c6c1
+retained. Observation70e0236472c320bc removed from ESP only after archive equality
+verification. Workspace clean:187files/529clusters, zero allocation errors;
+unmounted. Ubuntu default, no reboot armed. Await cold adapter power cycle;
+collect matching session first and preserve failed readbacks as failures.
