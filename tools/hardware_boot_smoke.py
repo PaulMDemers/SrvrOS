@@ -148,8 +148,8 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-"))):
-        parser.error("--audio-check requires a v21/v22 desktop stage")
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-"))):
+        parser.error("--audio-check requires an audio-enabled desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
@@ -512,7 +512,7 @@ def main():
                         return
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
-                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-", "ram-usb-v56-")))
+                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
                     if basic_desktop:
                         shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
                         wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
@@ -745,7 +745,7 @@ def main():
                 try:
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
-                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-", "ram-usb-v56-")))
+                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
                     if basic_desktop:
                         ui.call("human-monitor-command",{"command-line":"sendkey meta_l-spc"});time.sleep(.3)
                         type_text("terminal new app");ui.key("ret")

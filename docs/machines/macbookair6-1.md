@@ -45,7 +45,7 @@ endpoint 0x82, packet 64, interval 8. This supports reuse of configuration
 parsing, not native transport or trackpad report acceptance. Initial `parse_trackpad_config` refused PID `0290`; subsequent exact-gated admission
 and native capture/gesture acceptance are recorded below. Descriptor similarity
 alone did not establish coordinate ranges, report format or mode switching.
-The existing CS4208 routes admit only subsystem `106b:7e00` or `106b:5e00`,
+At initial inventory, the CS4208 routes admitted only subsystem `106b:7e00` or `106b:5e00`,
 not this unit's `106b:7100`. Backlight and SMC matching also target captured
 Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
@@ -57,7 +57,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
-| Sound/routes | Not tested | Exact codec routing evidence and listening checks |
+| Sound/routes | Exact codec profile implemented; native listening pending | Speaker/channel/volume, Stop and optional manual headphone checks |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
