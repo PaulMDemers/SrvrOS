@@ -214,10 +214,11 @@ This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
 
-For the interactive desktop candidate, after a successful build:
+For the attended audio/Ethernet/input desktop candidate, after a successful build
+(see [device checks](device-acceptance.md) for the required human actions):
 
 ```sh
-python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID"
+python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" --desktop-device-checks
 SRVROS_RELEASE=$(cat build/hardware-boot/latest)
 cat "build/hardware-boot/$SRVROS_RELEASE/manifest.json"
 tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check --audio-check

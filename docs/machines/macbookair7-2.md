@@ -12,10 +12,10 @@ bytes of the existing ECM configuration-3 fixture. Ubuntu uses NCM configuration
 2 with a 1000 Mb/s link; no host configuration switch is needed. Native acceptance
 is pending. This is evidence of identity, not a networking pass.
 
-Use the existing v22 guided device profile and its on-screen Help, not a new
+Use the explicit v58 guided device profile and its on-screen Help, not a new
 battery/firmware gate. Scope is a focused Help checklist, an explicit attended
 report script, host/script and exact-stage VM validation, and this unit's run/
-collection record. Keep accepted v55 payload/evidence and Ubuntu recovery.
+collection record, plus explicit startup dispatch/recipe. Keep accepted v55 payload/evidence and Ubuntu recovery.
 Pro PR19 owns Wi-Fi; Air6,1 audio PR82 is already included in main. Listening,
 cable changes and gestures need human input, with no countdown or forced exit.
 
@@ -58,7 +58,7 @@ survive cleanup under `~/.local/share/srvros/known-good/9aa8dbf6fbda8252` and
 PR76 combines existing brightness, HDA, read-only CPU/SMC and CDC ECM discovery
 with ordinary battery-owned Home. It adds cached 20%/5% warnings and battery-label
 access to System, without firmware I/O in UI paths or new native model gates.
-No Air network adapter is attached: Ethernet acceptance remains separate.
+An Air network adapter is now attached; Ethernet acceptance remains separate.
 Headphones/channel isolation, targeted secondary click/cancellation, physical
 low-charge alerts, calibration, battery life and suspend remain open.
 

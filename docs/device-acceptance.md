@@ -1,9 +1,11 @@
 # Attended audio, Ethernet and trackpad checks
 
-Use the existing guided v22 desktop on the reference Air7,2 with its actual
+Use the explicit guided v58 device-check desktop on the reference Air7,2 with its actual
 workspace UUID. This focused device round deliberately leaves battery monitoring
 off; preserve the independently accepted ordinary battery desktop as recovery.
-No new device gate or boot recipe is needed. The attached adapter must match its
+Stage with `--desktop-volume <local-uuid> --desktop-device-checks`. The recipe
+keeps ECM enabled but explicitly opens Help rather than the network-only script;
+legacy boot recipes and device gates remain unchanged. The attached adapter must match its
 captured descriptors; VID/PID alone is not sufficient evidence of compatibility.
 
 After the normal build, exact-stage VM, recovery and collection preflights in the
