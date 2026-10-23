@@ -1,6 +1,6 @@
 # Air and Pro device parity
 
-Reviewed October 23, 2026 against main `b99bb5b` and Pro PR19 head `7d5b58b`.
+Reviewed October 23, 2026 against main `d2d56a6` and Pro PR19 head `c0cf276`.
 This compares available shared code with each machine's evidence. A passing Pro
 trial does not accept a different Air controller, firmware or connected adapter.
 The [Air record](machines/macbookair7-2.md) and
@@ -16,7 +16,7 @@ The [Air record](machines/macbookair7-2.md) and
 | Battery/AC | Shared cache, service lifetime and UI; native profile currently accepted only on Air7,2 | Ordinary Home startup, save/exit/reopen, AC transitions and indicator accepted. Pro battery work remains deferred; no copied EC/firmware gate. |
 | USB exFAT | MBR and validated GPT discovery; imported-file identity repair and replay refusal merged | Air workspace accepted on its recorded payloads. The v55 trial includes the imported-file identity baseline and preserves all prior data; targeted collision cases remain host/VM evidence. No journaling/power-loss guarantee. |
 | USB Ethernet | Captured `0b95:1790`, revision `0200`, ECM compatibility and cable-status work merged; Pro DHCP/DNS/HTTP/cable UI accepted | Matching revision 0200 adapter now attached at 5 Gb/s; all 98 ECM configuration bytes match the existing fixture. Native DHCP/DNS/HTTP and cable down/recovery passed in v58; live System down-state refresh remains unrecorded; no arbitrary ASIX VID/PID enablement. |
-| USB Wi-Fi | Pro PR19: isolated TXBE10 readback still fails; Edimax `7392:a711`/`mt76x0u`, firmware/MCU/baseband diagnostics in progress | Draft work is not merged or connectivity-ready. Preserve Pro ownership; consume after review and test matching hardware independently. RF, scan and association remain unaccepted. |
+| USB Wi-Fi | Pro PR19: TXBE10 write/readback remains unresolved; baseline MCU/EP0 reads agree; Edimax `7392:a711`/`mt76x0u`, firmware/MCU/baseband diagnostics in progress | Draft work is not merged or connectivity-ready. Preserve Pro ownership; consume after review and test matching hardware independently. RF, scan and association remain unaccepted. |
 | Internal Wi-Fi/Bluetooth/camera | No accepted complete device path on either target | Separate projects; USB Wi-Fi progress does not enable Broadcom internal Wi-Fi. |
 | Internal storage | AHCI implementation; hardware desktop boots use RAM plus USB Home | Internal installation is not accepted on either machine. Preserve Ubuntu and known-good boot payloads. |
 | Suspend, battery life, calibration | Separate from battery readout and CPU telemetry | No accepted suspend/resume or calibrated runtime estimate; requires device reinitialization/recovery and measurements. |
