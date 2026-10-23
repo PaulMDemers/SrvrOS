@@ -21,7 +21,6 @@ def main():
     parser.add_argument('--transitions',action='store_true',help='attended parked Air6,1 transition model')
     parser.add_argument('--files',action='store_true')
     parser.add_argument('--case',choices=(*CASES,'incoherent','timeout','sustained','stop-read','stop-ack','stop-uncertain','event-limit'),default='completion');args=parser.parse_args()
-    if args.air61 and args.files:parser.error('Air6,1 does not admit file coexistence')
     if args.case not in CASES and not args.files and not args.transitions:parser.error('case requires --files')
     cases=dict(CASES);fatal=dict(FATAL)
     if args.files:

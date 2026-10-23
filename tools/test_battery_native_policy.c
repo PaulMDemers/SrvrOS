@@ -10,6 +10,7 @@
 #define TEST_CPU_NVS_LEN 83
 #endif
 int main(void) {
+    for(unsigned m=0;m<256;m++)assert(battery_bounded_files_entry(m&1,m&2,m&4,m&8,m&16,m&32,m&64,m&128)==(m==191));
     for(unsigned m=0;m<512;m++)assert(battery_bounded_capture_entry(m&1,m&2,m&4,m&8,m&16,m&32,m&64,m&128,m&256)==(m==63));
     for(unsigned m=0;m<256;m++)assert(battery_bounded_entry(m&1,m&2,m&4,m&8,m&16,m&32,m&64,m&128)==(m==28));
     for(unsigned a=0;a<512;a++)for(unsigned v=0;v<257;v++) {

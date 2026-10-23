@@ -893,7 +893,7 @@ acknowledgement or cache-invalidation acceptance. Keep event counts and physical
 accuracy limits in the machine record rather than promoting all VM cases to
 hardware passes.
 
-## Parked SMBus with Text/file activity (Air7,2 v47)
+## Parked SMBus with Text/file activity (Air7,2 v47, Air6,1 v64)
 
 The separate `--battery-smbus-files` recipe uses the native diagnostic kernel,
 automatic return, and a fresh exclusive `battery-fs.img`. Follow the image
@@ -904,6 +904,12 @@ check outer-file preservation, both filesystems/allocation, and Ubuntu recovery.
 A valid v46 receipt does not accept v47. No physical interaction is required;
 missing completion, interrupted work, event-limit failure or quick reset is not
 a pass. Ordinary mounted Home and automatic battery startup stay off.
+
+For the captured Air6,1, build `acpi-air61-battery-kernel` and add
+`--battery-air61` to the `--battery-smbus-files` laptop probe command. This selects
+the separate v64 recipe and exact Air6,1 gate. Follow the same fresh-image and
+return checks; see the [Air6,1 audit](macbookair6-1-battery.md#bounded-usb-file-coexistence-candidate-v64).
+Native coexistence acceptance remains pending.
 
 ### Automatic continuous Home battery trial
 
