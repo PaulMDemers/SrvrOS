@@ -2,6 +2,20 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: integrated laptop desktop and Pro parity (2026-10-23)
+
+Base `f5e1525`; inspected Pro PR19 `f5ad001` (USB Wi-Fi MCU/baseband work;
+RF/scan/association/connectivity still unaccepted). This Air owns a new explicit
+ordinary Home profile combining battery with existing brightness, HDA audio,
+read-only CPU/SMC telemetry and CDC ECM discovery. Scope: staging recipes/tests,
+ordinary-session diagnostics and VM regressions, public status/roadmap and a
+cross-machine capability ledger. Preserve v54, Pro v37 and Air6,1 v53 recipes;
+no new hardware register/profile gates or Wi-Fi implementation. Shared Ethernet
+is already mainline; no network adapter is attached to this Air, so physical
+network parity needs an adapter and its own trial. Installed accepted v54 and
+Ubuntu recovery stay unchanged while host/VM work proceeds. Low-charge UX will
+reuse the cached ABI, with no firmware calls from UI paths.
+
 ### Ordinary Home v54 physically accepted (2026-10-23)
 
 Release `fc5b73b074db7884` returned to Ubuntu. The two screenshot-matched sessions
