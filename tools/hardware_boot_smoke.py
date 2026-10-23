@@ -276,9 +276,13 @@ def main():
                         stream.seek(2048*512);saved=stream.read(len(fixture.data))
                     volume.write_bytes(saved);check_clean_image(volume)
                     final=ExfatFixture(saved)
-                    names={name for name,_ in final.entries(final.read("srvros-work"))}
-                    assert names==set(files), names-set(files)
-                    for name,payload in files.items(): assert final.read("srvros-work/"+name)==payload
+                    entries=dict(final.entries(final.read("srvros-work")))
+                    assert set(entries)==set(files), set(entries)-set(files)
+                    for name,payload in files.items():
+                        entry=entries[name]
+                        first=struct.unpack_from('<I',entry,52)[0]
+                        size=struct.unpack_from('<Q',entry,56)[0]
+                        assert final.chain(first,size,bool(entry[33]&2))==payload
                     result=dict(status="PASS",release=release,manifest_sha256=boot.digest(source/"manifest.json"),
                                 desktop_no_headroom=True,workspace_table=args.workspace_table)
                     (logs/"hardware-grub-result.json").write_text(json.dumps(result,indent=2)+"\n")
