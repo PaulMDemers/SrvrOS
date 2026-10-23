@@ -224,6 +224,8 @@ def main():
             if basic_desktop:
                 from desktop_session_workload import files as session_files
                 files.update(session_files(session_run))
+                from desktop_session_workload import refusal_files
+                files.update(refusal_files(session_run, session_run))
                 files.update({"collision-a.txt":b"saved alpha\n", "collision-b.txt":b"saved beta\n"})
                 metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t50000\t33188\t1\t0\t0\t100\t200\t300\n" for name in ("collision-a.txt","collision-b.txt"))
                 fixture.add_directory_files(".srvros",{"meta":metadata.encode()})
@@ -747,7 +749,7 @@ def main():
                         type_text("terminal new app");ui.key("ret")
                         wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
                         time.sleep(.7)
-                        type_text(f"sh /work/srvros-work/session-{session_run}.sh; echo $? > replay-complete.txt; exit");ui.key("ret")
+                        type_text(f"sh /work/srvros-work/refusal-{session_run}.sh; echo $? > replay-complete.txt; exit");ui.key("ret")
                         wait_for(serial,lambda s:"deskterm: shell exited status=0" in s,process,30)
                     for keys in ("f10","end","ret"):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
@@ -758,7 +760,9 @@ def main():
                     assert stored.read(shot_path.removeprefix("/work/"))==shot_bytes
                     if basic_desktop:
                         verify_session(lambda name:stored.read("srvros-work/"+name),session_run)
-                        assert stored.read("srvros-work/replay-complete.txt")==b"1\n"
+                        assert stored.read("srvros-work/replay-complete.txt")==b"0\n"
+                        from desktop_session_workload import verify_refusal
+                        session_proof["refusal_receipt"]=verify_refusal(lambda name:stored.read("srvros-work/"+name),session_run,session_run)
                         session_proof["completed_replay_refused"]=True
                     second_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1]
                     assert second_session!=first_session

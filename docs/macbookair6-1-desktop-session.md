@@ -65,3 +65,25 @@ check the saved note/screenshot and preferences, compare all prior file hashes
 (allow only documented metadata/preferences/session changes), then run both
 offline filesystem checks. A completion file alone does not accept the user's
 visible input experience, clean desktop exit or filesystem preservation.
+
+## Focused refusal and preferences follow-up
+
+Reuse a verified completed workload and the accepted v53 payload. Generate
+`desktop_session_workload.refusal_files(completed_run, fresh_trial)` in Home,
+recording preboot hashes first. The wrapper checks that the retained workload is
+complete before invoking it; it saves stdout/status, requires the exact refusal
+and exit 1, and compares retained payload/rounds/completion afterward. Run
+`sh refusal-<trial>.sh` at the Terminal `$` prompt. Require
+`REFUSAL VERIFIED - workload unchanged`. Collect with `verify_refusal` after
+return; missing receipts are incomplete evidence. Invoke this wrapper once per
+trial; use a fresh trial identity for another attempt.
+
+In Settings set Trackpad speed to **5 of 5** and uncheck pointer acceleration.
+Wait for the saved/ready status, close and reopen Settings, and confirm both
+values. Leave other preferences as they were. Take a screenshot if possible,
+then return to console and reboot to Ubuntu using the normal checklist.
+Collect and verify Home's `desktop.conf` before preparing the second boot.
+On that second boot, open Settings and inspect speed/acceleration **before
+changing anything**; confirm 5/off and capture a screenshot. Return and collect
+again. Closing/reopening an app alone is not proof of persistence across boot.
+A missing configuration or save failure must be resolved before the second boot.
