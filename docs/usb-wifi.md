@@ -1711,3 +1711,14 @@ sequence7 ACK, all four expected readbacks and final MAC0/COREf000f200 matched;
 markers were saved. This accepts this bounded four-register operation on the
 captured7392:a711 adapter, not other adapters, remaining initialization or RF/
 connectivity. v35's historical failure and v36's observation evidence remain.
+
+### CCK/OFDM/GF protection group (v38; native result pending)
+
+`--wifi-mac-protect` requires v37 exact policy validation. It appends one fixed
+sequence8, 40-byte command for CCK1364=07f40003, OFDM1368=07f42004,
+GF20_1374=01742004, GF40_1378=03f42084, preserving their Linux v7.0 common-table
+relative order. Exact captured initial values00100003/00200003/01002004/02002084
+are required before submission. Exact ACK, twelve reads, all four after-values
+and initial/final MAC0/COREf000f200 must pass. No retry, PBF/DMA/power change,
+RF enable or subsequent BBP table is introduced. This is a bounded table subset,
+not a claim of complete reference-order initialization or wireless connectivity.

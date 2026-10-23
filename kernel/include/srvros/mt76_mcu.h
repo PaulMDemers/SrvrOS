@@ -230,6 +230,9 @@ enum mt76_mcu_timing_status mt76_mac_route_apply(struct mt76_mcu_mac *s,
 size_t mt76_mac_policy_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_mac_policy_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io);
+size_t mt76_mac_protect_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_mac_protect_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io);
 enum mt76_mcu_timing_status mt76_mac_policy_observe(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask);
 enum mt76_mcu_timing_status mt76_mac_policy_validate(struct mt76_mcu_mac *s,

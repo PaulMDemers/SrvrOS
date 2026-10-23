@@ -504,7 +504,48 @@ static void test_policy_validation(void){
  puts("MAC policy validation: PASS exact captured values, every readback/guard bit, cancellation, IO and no retry");
 }
 
+struct protect_fake {unsigned op,auth,fail,deny,bad,ones;};
+static bool protect_auth(void *p){struct protect_fake *f=p;return ++f->auth!=f->deny;}
+static bool protect_read(void *p,uint32_t a,uint32_t *v){
+ struct protect_fake *f=p;
+ const uint32_t addresses[]={0x1004,0x2000,0x1364,0x1368,0x1374,0x1378,0,0x1364,0x1368,0x1374,0x1378,0x1004,0x2000};
+ const uint32_t values[]={0,0xf000f200,0x100003,0x200003,0x1002004,0x2002084,0,0x7f40003,0x7f42004,0x1742004,0x3f42084,0,0xf000f200};
+ assert(f->op<13 && a==addresses[f->op]);*v=values[f->op];f->op++;
+ if(f->bad==f->op)*v^=1;
+ if(f->ones==f->op)*v=UINT32_MAX;
+ return f->fail!=f->op;
+}
+static int protect_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t cap){
+ struct protect_fake *f=p;const uint8_t expected[]={0x20,0,0xc8,0x50,0x64,0x13,0x41,0,0x03,0x00,0xf4,0x07,0x68,0x13,0x41,0,0x04,0x20,0xf4,0x07,0x74,0x13,0x41,0,0x04,0x20,0x74,0x01,0x78,0x13,0x41,0,0x84,0x20,0xf4,0x03,0,0,0,0};
+ assert(f->op==6 && n==40 && cap>=16 && !memcmp(data,expected,40));f->op++;
+ if(f->fail==f->op)return -1;
+ word(reply,0x4a080008);word(reply+4,0x411364);word(reply+8,0x7f40003);word(reply+12,0x4a080008);
+ if(f->bad==7)reply[2]^=1;
+ return 16;
+}
+static void test_mac_protect(void){
+ for(unsigned fail=0;fail<=13;fail++)for(unsigned deny=0;deny<=14;deny++){
+  struct protect_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,protect_auth,protect_read,protect_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_protect_apply(&s,&io);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==12 && s.ack_mask==1 && s.batches_completed==1 && f.op==13 && f.auth==14);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_protect_apply(&s,&io)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bad=1;bad<=13;bad++)if((bad<3 || bad>6)){
+  struct protect_fake f={.bad=bad};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,protect_auth,protect_read,protect_exchange};
+  assert(mt76_mac_protect_apply(&s,&io)==(bad==7?MT76_TIMING_REPLY:MT76_TIMING_STATE));assert(!s.complete);
+ }
+ for(unsigned ones=1;ones<=13;ones++)if(ones!=7){
+  struct protect_fake f={.ones=ones};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,protect_auth,protect_read,protect_exchange};
+  assert(mt76_mac_protect_apply(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ puts("MAC protect: PASS exact ordered 40-byte packet, twelve reads, all failures/cancellation, reply and target guards");
+}
+
+
 int main(void){
+ test_mac_protect();
  test_policy_validation();
  test_mac_policy_observe();
  test_policy_mismatch_masks();

@@ -3806,3 +3806,10 @@ Workspace clean213files/568clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: select remaining reference MAC prerequisites against captured
 inventory before revisiting full baseband initialization. Preserve all earlier
 failed/observational records and the exact profile's device gates.
+
+Active scope 2026-10-23: v38 bounded CCK/OFDM/GF20/GF40 protection group after
+accepted v37 policy. Reference relative order1364/1368/1374/1378, requested
+07f40003/07f42004/01742004/03f42084; captured starts00100003/00200003/01002004/
+02002084. Exact starts, sequence8 four-pair packet/ACK, twelve reads and final
+MAC0/COREf000f200. No PBF/DMA/RF changes or BBP-table writes. Touch MCU/xHCI/main/
+staging/tests; base22fd266, fetched maind7ed773; PR102 filesystem scaling separate.

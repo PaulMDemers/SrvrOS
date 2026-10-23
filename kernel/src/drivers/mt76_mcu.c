@@ -822,3 +822,13 @@ enum mt76_mcu_timing_status mt76_mac_policy_validate(struct mt76_mcu_mac *s,
     }
     return MT76_TIMING_OK;
 }
+
+/* Linux v7.0 common table relative order; MAC remains disabled. */
+static const struct mt76_mcu_register_pair mac_protect_plan[4]={
+    {0x1364,0x07f40003},{0x1368,0x07f42004},{0x1374,0x01742004},{0x1378,0x03f42084}
+};
+size_t mt76_mac_protect_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,8,mac_protect_plan,4,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_protect_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_protect_plan,8,true,4,4);}
