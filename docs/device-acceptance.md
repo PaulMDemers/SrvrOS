@@ -95,3 +95,21 @@ unplug only Ethernet, capture the down display, record it while still disconnect
 then reconnect, capture the up display and record again. Each phase saves an
 `ifconfig` snapshot. These snapshots do not substitute for the prompted visual
 observations or screenshots. No audio replay or timed exit is included.
+
+The native timing follow-up still triggered only about one in three attempts.
+The 150/300 ms policy is not accepted as a fix. `trackpad-tap-reject` summaries
+now count the first rejection of each armed candidate by rule (movement, total
+age, join/lift timing, contact replacement, palm/typing/physical/policy and clock
+conditions). They include the number whose peak had reached two fingers and
+independent maximum candidate age and displacement. A rejection before the
+second finger arrives cannot establish the user's intended gesture. These are
+bounded aggregates, not raw contact traces or attempt/success ratios; the next
+native run must pair them with deliberate gestures and user observations.
+Counters survive transport cancellation and reset with explicit capture reset;
+no per-report printing, allocation, or new threshold change is added.
+
+The same trial confirmed live System link-state updates in logs and the user's
+notes, although both screenshots were captured while connected. This script
+only reads interface state; it does not acquire a DHCP lease. To test Internet
+connectivity, run `dhcp` first and inspect its result, then DNS/ping/HTTP. A cable
+link alone does not configure an address, router or DNS server.

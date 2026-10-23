@@ -234,6 +234,14 @@ static void tapping(void) {
         unsigned expected=joins[j]<=150000 && lifts[l]<=150000 && total<=300000?2:0;
         assert(tap_feed(&s,&f,first_lift+lifts[l],taps,false).tap_buttons==expected);
         assert(!tap_feed(&s,&f,first_lift+lifts[l]+1000,taps,false).tap_buttons);
+        unsigned rejected=0;
+        for(unsigned reason=0;reason<TAP_REJECT_COUNT;reason++) rejected+=s.tap_rejections.count[reason];
+        assert(rejected==(expected?0u:1u));
+        if(!expected) {
+            unsigned reason=joins[j]>150000?TAP_REJECT_JOIN:total>300000?TAP_REJECT_DURATION:TAP_REJECT_LIFT;
+            assert(s.tap_rejections.count[reason]==1);
+            assert(s.tap_rejections.two_finger[reason]==(reason==TAP_REJECT_JOIN?0u:1u));
+        }
     }
     /* Two-finger jitter is quiet. Deliberate scroll cancels tapping permanently. */
     s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
@@ -270,6 +278,12 @@ static void tapping(void) {
             f.count=1;tap_feed(&s,&f,30000,taps,false);end=190000;break;
         }
         f.count=0;assert(!tap_feed(&s,&f,end,opts,reason==10).tap_buttons);
+        const unsigned expected[]={TAP_REJECT_DURATION,TAP_REJECT_SHORT,TAP_REJECT_JOIN,
+            TAP_REJECT_MOVEMENT,TAP_REJECT_PALM,TAP_REJECT_CONTACTS,TAP_REJECT_CLOCK,
+            TAP_REJECT_POLICY,TAP_REJECT_CANCEL,TAP_REJECT_PHYSICAL,TAP_REJECT_POLICY,TAP_REJECT_LIFT};
+        unsigned total=0;
+        for(unsigned i=0;i<TAP_REJECT_COUNT;i++) total+=s.tap_rejections.count[i];
+        assert(total==1 && s.tap_rejections.count[expected[reason]]==1);
     }
     s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
     tap_feed(&s,&f,1000,0,false);tap_feed(&s,&f,20000,taps,false);f.count=0;
@@ -280,6 +294,24 @@ static void tapping(void) {
     tap_feed(&s,&f,1000,taps,false);f.count=1;tap_feed(&s,&f,20000,taps,false);
     f.count=2;tap_feed(&s,&f,30000,taps,false);f.count=0;
     assert(!tap_feed(&s,&f,40000,taps,false).tap_buttons); /* Finger replacement after release began. */
+    assert(s.tap_rejections.count[TAP_REJECT_RECONTACT]==1);
+    /* First rejection is retained across later invalid frames and transport cancel. */
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
+    tap_feed(&s,&f,1000,taps,false);f.contacts[1].x+=65;
+    tap_feed(&s,&f,21000,taps,false);f.contacts[1].x+=100;
+    tap_feed(&s,&f,31000,taps,false);trackpad_pointer_cancel(&s,&m);
+    assert(s.tap_rejections.count[TAP_REJECT_MOVEMENT]==1);
+    assert(s.tap_rejections.two_finger[TAP_REJECT_MOVEMENT]==1);
+    assert(s.tap_rejections.max_age_us[TAP_REJECT_MOVEMENT]==20000);
+    assert(s.tap_rejections.max_travel[TAP_REJECT_MOVEMENT]==65);
+    assert(!s.tap_rejections.count[TAP_REJECT_CANCEL]);
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
+    unsigned typing_opts=taps|SRV_POINTER_DISABLE_WHILE_TYPING;
+    tap_feed(&s,&f,1000,typing_opts,false);tap_feed(&s,&f,21000,typing_opts,true);
+    assert(s.tap_rejections.count[TAP_REJECT_TYPING]==1);
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
+    tap_feed(&s,&f,1000,SRV_POINTER_TAP_CLICK,false);
+    assert(s.tap_rejections.count[TAP_REJECT_SECONDARY_OFF]==1);
 }
 
 static void secondary_click(void) {

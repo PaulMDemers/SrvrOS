@@ -4,6 +4,34 @@ Updated: 2026-10-23. State: **active reference machine; partial device acceptanc
 
 ### Active scope: close device acceptance; refine two-finger tap timing
 
+Returned `8e70766e16933891`, session `session-00065e883cb81885-00`: tap timing
+remains **unaccepted**. The saved response says "It triggers about 1 in 3 attempts";
+other input regressions say "All good". Do not merge PR88 as a completed fix.
+Next bounded work adds aggregate tap-rejection reasons/age/displacement diagnostics
+in the pointer policy and xHCI summary, with host replay coverage; no further
+threshold change until native evidence distinguishes the cause. The diagnostics
+pass pointer/mouse/ABI, xHCI and full build/core/docs checks, including exact
+reason counts, secondary classification, first-rejection retention and reset.
+No diagnostic payload is staged or installed, and no new reboot is armed. Main `f310923` adds Air6,1 telemetry acceptance docs and is merged.
+Pro PR19 `c408949` retains failed clock-enabled TXBE write evidence and a separate
+next TXBE9/TXBE10 prerequisite audit; no Wi-Fi implementation is imported.
+
+System logs record cable down/up and matching live Network refreshes twice. The
+user reports cable changes display properly. Both screenshots show connected,
+and all three script snapshots were taken after reconnection; the network-up
+observation is blank. Retain that screenshot limitation. Missing router/DNS and
+failed ping came with `dhcp=no`, default 10.0.2.15: this focused script never
+requested DHCP. This does not reverse the prior successful explicit DHCP/DNS/HTTP
+round or establish a new connectivity failure. The follow-up should acquire a
+lease explicitly before testing connectivity.
+
+The matching session exited cleanly with no collector attention. All prior files
+are unchanged except expected `.srvros/meta`; offline checks pass: 1017 files,
+2212 clusters, no leaks/mismatches. Ubuntu default, consumed one-shot and both
+installed/recovery payloads pass. Current stays `8e70766e16933891`, previous
+`9aa8dbf6fbda8252`; USB is unmounted. Raw results and screenshots survive cleanup
+under `~/.local/share/srvros/pending-trials/8e70766e16933891/returned`.
+
 Candidate `8e70766e16933891` / v58 (source `03bb41d`) is installed for the
 authorized attended timing/live-link trial, retaining `9aa8dbf6fbda8252` recovery.
 Final full build/core/docs, guest script/paste and exact EFI/audio/GPT save/reopen
