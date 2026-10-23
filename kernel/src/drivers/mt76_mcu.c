@@ -750,3 +750,13 @@ size_t mt76_mac_route_packet(uint8_t *out,size_t capacity){
 }
 enum mt76_mcu_timing_status mt76_mac_route_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_route_plan,6,true,2,2);}
+
+/* Linux v7.0 common_mac_reg_table order; bounded diagnostic, MAC remains off. */
+static const struct mt76_mcu_register_pair mac_policy_plan[4]={
+    {0x1350,0x1020},{0x1348,0xa2090},{0x134c,0x47d01f0f},{0x1404,0x13}
+};
+size_t mt76_mac_policy_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,7,mac_policy_plan,4,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_policy_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_policy_plan,7,true,4,4);}

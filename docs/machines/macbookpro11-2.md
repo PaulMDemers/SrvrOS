@@ -3633,3 +3633,13 @@ No reboot armed. Acceptance is limited to these two MAC register operations;
 RF/connectivity and the earlier four BBP mismatches remain unresolved. Next work:
 review remaining reference MAC initialization prerequisites against the v33 raw
 inventory, then select a bounded addition before repeating full baseband setup.
+
+Active scope (2026-10-23): bounded common MAC policy group after accepted v34
+routing. Reference common_mac_reg_table order: TX_LINK1350=1020,
+TX_TIMEOUT1348=a2090, TX_RETRY134c=47d01f0f, AUTO_RSP1404=13. Captured starting
+values 7f0020/10f0a90/4bb80407/7 must match before submission. One sequence7
+four-pair command, exact ACK and all readbacks, MAC0/COREf000f200 boundaries.
+No BBP-table or RF enable; unrelated PBF/DMA/power settings remain deferred.
+Touch MCU/xHCI/main/staging/tests; retain integration base22fd266. Fetched
+main2e2eb2b (PR88 taps, PR97 Air6,1); PR99 log capacity and PR98 battery SMBus
+have separate active scope. No overlapping Wi-Fi implementation found.

@@ -667,7 +667,7 @@ void kmain(void) {
                 sampled=started && init_ready && timer_running && sampled &&
                     xhci_wifi_capture_firmware(firmware?firmware->data:0,firmware?firmware->size:0);
                 if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-table=1"))
-                    sampled=cmdline_has_token(cmdline,"srvros.wifi-mac-route=1")?xhci_wifi_capture_mac_route():cmdline_has_token(cmdline,"srvros.wifi-mac-raw=1")?xhci_wifi_capture_mac_raw():cmdline_has_token(cmdline,"srvros.wifi-mac-snapshot=1")?xhci_wifi_capture_mac_snapshot():xhci_wifi_capture_bbp_table();
+                    sampled=cmdline_has_token(cmdline,"srvros.wifi-mac-policy=1")?xhci_wifi_capture_mac_policy():cmdline_has_token(cmdline,"srvros.wifi-mac-route=1")?xhci_wifi_capture_mac_route():cmdline_has_token(cmdline,"srvros.wifi-mac-raw=1")?xhci_wifi_capture_mac_raw():cmdline_has_token(cmdline,"srvros.wifi-mac-snapshot=1")?xhci_wifi_capture_mac_snapshot():xhci_wifi_capture_bbp_table();
                 else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-clock-pair=1"))
                     sampled=xhci_wifi_capture_clock_pair();
                 else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-clock-direct=1"))

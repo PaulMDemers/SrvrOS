@@ -1638,3 +1638,15 @@ introduced. On 2026-10-23, Pro11,2 release `c929ce1b090b820d`, session
 MAC0/COREf000f200 boundaries. Both completion markers were saved; no BBP table
 ran. This accepts the bounded FCE/WMM operation on this unit. It does not resolve
 the earlier baseband mismatches or accept RF/connectivity.
+
+### Bounded MAC policy group (v35; native result pending)
+
+`--wifi-mac-policy` requires the v34 route prerequisites and appends one fixed
+40-byte sequence7 command for common-table TX_LINK (`1350=1020`), TX_TIMEOUT
+(`1348=a2090`), TX_RETRY (`134c=47d01f0f`) and AUTO_RSP (`1404=13`), in reference
+relative order. Exact initial values from the v33 inventory are required:
+`7f0020`, `10f0a90`, `4bb80407`, `7`. Submission requires completed v34 routing.
+Twelve reads cover MAC/CORE boundaries and all four before/after values; the
+firmware ACK and each readback must match. No retry, full BBP table, RF enable,
+or new PBF/DMA/power setting is included. This is a bounded subset of Linux
+v7.0 common_mac_reg_table, not complete reference-order initialization.
