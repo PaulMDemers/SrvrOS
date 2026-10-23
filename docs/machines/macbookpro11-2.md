@@ -3174,3 +3174,15 @@ response framing and address, explicit mismatch reporting. Touch MCU/xHCI,
 capture/profile and tests; no diagnostic register write or phase11 acceptance.
 Dependencies remain the eleven accepted phases and pinned firmware. Current
 mainb99bb5b/PR83 scope inspected; integrated base22fd266 retained for comparison.
+
+MCU/EP0 TXBE10 comparison sourceb4417eb / releaseeb362bcf6da9fdfb installed
+unarmed. Build, MCU/compact/xHCI tests, ASan/UBSan,82 boot-profile tests and docs
+checks pass. Collector accepts synthetic agreement and rejects14 corrupted or
+conflicting receipts. Exact-stage GPT VM saved/unmounted/reset; missing-workspace
+VM returned without starting the probe. Payload, receipts, run record and collector
+archived outside build in wifi-txbe-access-b4417eb. Desktop recoverye47dca3a6b30c6c1
+and failed v25f8b4b41d736bd4e2 retained. Accepted TXBE9 comparisonb3a29375623082db
+removed from ESP only after full archived-payload equality verification.
+Workspace clean:189files/532clusters, zero allocation errors; unmounted.
+Ubuntu remains default. Native comparison awaits cold adapter power cycle;
+collect the matching new session first on return. No reboot armed.
