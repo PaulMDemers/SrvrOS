@@ -269,10 +269,17 @@ def main():
                              b'battery-service-stale' if args.case in ('service-stale','service-incoherent') else
                              b'battery-service' if service else b'battery-transitions' if transitions and not reentry else b'battery')
                     serial.sendall(b'acpiruntime '+command+b'\n')
+                    display_seen=False
                     start = time.monotonic()
                     while time.monotonic()-start < (155 if transitions else 100):
                         part.extend(boot.read_for(serial, .1))
                         lines = complete_lines(part)
+                        if auto_deadline and not display_seen and b'battery-failure-display: photograph' in part:
+                            display_seen=True
+                            registers=qmp.call('human-monitor-command',{'command-line':'info registers'})
+                            flags=re.search(r'RFL=([0-9a-fA-F]+)',registers)
+                            assert flags and not(int(flags[1],16)&0x200),registers
+                            qmp.call('screendump',{'filename':str(out/'failure-display.ppm')})
                         if auto_deadline and process.poll() is not None:break
                         if service:
                             if b'battery-service-test: PASS' in lines or b'battery-service-test: FAIL' in lines or b'battery: HALTED' in lines:break
@@ -287,8 +294,13 @@ def main():
                     if auto_deadline:
                         reset=check_fault(part,allow_io_halt=isolated or scratch or readonly)
                         assert b'battery-service-test: PASS' not in part,bytes(part)
-                        if reset:assert process.wait(timeout=10)==0
+                        if reset:
+                            assert process.wait(timeout=10)==0
+                            assert display_seen
+                            hold=re.findall(rb'battery-failure-display: slices=(\d+) elapsed_us=(\d+) clock_ok=(\d+)',part)
+                            assert len(hold)==1 and int(hold[0][0])==300 and int(hold[0][1])>=30000000 and hold[0][2]==b'1',bytes(part)
                         else:
+                            assert b'battery-failure-display:' not in part
                             assert process.poll() is None
                             stop_process(process)
                         if readonly:

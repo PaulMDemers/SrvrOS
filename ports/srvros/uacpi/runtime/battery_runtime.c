@@ -1,8 +1,10 @@
+#include "battery_bounded_policy.h"
 /* Bounded battery/AC diagnostic. Full runtime, linked separately from the
  * snapshot probe and the desktop. CPU0 lifecycle owner and one EC/AML worker. */
 #include "battery_platform.h"
 #include "battery_transition.h"
 #include "battery_reset_policy.h"
+#include "battery_failure_display.h"
 #include "battery_recovery_resources.h"
 #include "battery_query_receipt.h"
 #include "battery_event_accounting.h"
@@ -216,6 +218,8 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     bool mounted=workspace_active(),io=scheduler_io_active();
     bool reset=battery_reset_allowed(auto_return,mounted,io);
     mask_sources();
+    /* The interrupted presenter cannot resume after terminal containment. */
+    console_emergency();
     sci_report("fault");
     if(auto_return && !reset)
         console_printf("battery-reset: BLOCKED workspace=%u io=%u; live storage retained\n",(uint64_t)mounted,(uint64_t)io);
@@ -228,6 +232,11 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
         (uint64_t)runtime.transport.error,runtime.queries);
     if(reset) {
         console_write("battery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n");
+        console_write("battery-failure-display: photograph the reason and progress above; USB stays parked; reset in 30 seconds\n");
+        uint64_t display_start=timer_monotonic_us();
+        unsigned slices=battery_failure_display_wait(timer_delay_us);
+        console_printf("battery-failure-display: slices=%u elapsed_us=%u clock_ok=%u; resetting\n",
+            (uint64_t)slices,timer_monotonic_us()-display_start,(uint64_t)(slices==300));
         arch_reboot_unattended();
     }
     console_sync();__asm__ volatile("cli":::"memory");halt_forever();
@@ -642,6 +651,8 @@ static uacpi_status region_handler(uacpi_region_op op,uacpi_handle data) {
     uacpi_region_rw_data *r=data;
     if(r->handler_context!=&runtime||r->region_context!=&runtime||r->byte_width!=1||r->address>255)goto denied;
     if(op==UACPI_REGION_OP_WRITE && query_tracking() && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
+    if(runtime.platform.bounded_samples_only &&
+       !battery_bounded_ec(op==UACPI_REGION_OP_WRITE,r->address,r->value))goto denied;
     uint8_t v=r->value;
     if(!transfer(op==UACPI_REGION_OP_WRITE,r->address,&v,false))goto denied;
     if(op==UACPI_REGION_OP_READ)r->value=v;return UACPI_STATUS_OK;
@@ -936,6 +947,10 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(runtime.engaged||!timer_reference_ready())return false;
     runtime=(typeof(runtime)){.transition_mode=transitions,.service_mode=service_mode};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
+    if(runtime.platform.bounded_samples_only && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
+       workspace_parked_device()!=NULL,workspace_active(),workspace_image_busy(),scheduler_io_active())) {
+        console_write("battery: REFUSED bounded profile requires parked automatic five-sample diagnostic\n");return false;
+    }
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
     }

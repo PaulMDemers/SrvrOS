@@ -14,8 +14,13 @@ static const uint8_t *find(const char *sig,size_t *size) {
     }
     *size=0;return NULL;
 }
+#ifdef SRVROS_LAPTOP_PROBE_HOST_TEST
+static uint8_t read8(uint16_t port);
+static uint16_t read16(uint16_t port);
+#else
 static uint8_t read8(uint16_t port) { uint8_t n;__asm__ volatile("inb %1,%0":"=a"(n):"Nd"(port));return n; }
 static uint16_t read16(uint16_t port) { uint16_t n;__asm__ volatile("inw %1,%0":"=a"(n):"Nd"(port));return n; }
+#endif
 static uint32_t pwm_read(void *context,unsigned reg) {
     uintptr_t va=(uintptr_t)context;
     return *(volatile uint32_t *)(va+(reg==0?0x250:4096+(reg==1?0x250:0x254)));
@@ -130,3 +135,23 @@ static void inspect(bool brightness) {
 
 void laptop_probe(void) { inspect(false); }
 void laptop_brightness_init(void) { inspect(true); }
+
+void laptop_battery_preflight(void) {
+    uint16_t gpu=0,pch=0;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);
+        if(p->vendor_id!=0x8086||p->bus)continue;
+        if(p->device==2&&!p->function&&p->class_code==3)gpu=p->device_id;
+        if(p->device==31&&!p->function&&p->class_code==6&&p->subclass==1)pch=p->device_id;
+    }
+    size_t dn,en,fn;const uint8_t *d=find("DSDT",&dn),*e=find("ECDT",&en),*f=find("FACP",&fn);
+    if(!laptop_air61_power_resources(gpu,pch,d,dn,e,en,f,fn)) {
+        console_write("battery-preflight: REFUSED identity/resources; no register access\n");return;
+    }
+    console_printf("battery-preflight: model=MacBookAir6,1 pm1_control=%x pm1_status=%x pm1_enable=%x ec_status=%x SCI=9 EC_GPE=0x4e\n",
+        (uint64_t)read16(0x1804),(uint64_t)read16(0x1800),(uint64_t)read16(0x1802),(uint64_t)read8(0x66));
+    for(unsigned i=0;i<16;i++)
+        console_printf("battery-preflight: gpe_byte=%u status=%x enable=%x\n",
+            (uint64_t)i,(uint64_t)read8(0x1880+i),(uint64_t)read8(0x1890+i));
+    console_write("battery-preflight: complete reads=36 writes=0; no EC data/commands, AML, ACPI mode, SCI ownership or battery samples\n");
+}

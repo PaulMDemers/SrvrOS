@@ -51,3 +51,14 @@ bool laptop_air61_display_match(uint16_t gpu,uint16_t pch,const uint8_t *b,size_
     for(size_t i=0;i<n;i++) hash=(hash^b[i])*1099511628211ull;
     return hash==0xaf9a47bc352dc6bfull;
 }
+
+/* Independent Air6,1 passive power-register gate. No runtime ownership granted. */
+bool laptop_air61_power_resources(uint16_t gpu,uint16_t pch,const uint8_t *d,size_t dn,const uint8_t *e,size_t en,const uint8_t *f,size_t fn) {
+    struct laptop_resources r;
+    if(!laptop_air61_display_match(gpu,pch,d,dn)||!laptop_resources_parse(&r,e,en,f,fn))return false;
+    /* Captured FADT legacy/extended agreement for the exact read-only domains.
+     * PM1 status/enable are 16 bits each; GPE0 is 16 status + 16 enable bytes. */
+    return fn==244 && f[46]==9 && !f[47] && le32(f+56)==0x1800 && !le32(f+60) &&
+        f[88]==4 && !le32(f+84) && !f[93] &&
+        (f[148]==1 && f[149]==32 && !f[150] && f[151]<=3 && le32(f+152)==0x1800 && !le32(f+156)) && gas(f+160,0,0) && gas(f+232,0,0);
+}

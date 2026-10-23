@@ -369,6 +369,18 @@ run. Keep a durable copy of accepted boot payloads outside `build` before cleanu
 Shell variables do not survive reboot: retain this record and reload UUID/release
 from it on return. Do not rely on an old `latest` pointer as a machine identity.
 
+After the accepted passive capture, Air6,1's isolated **v61** `--battery-air61`
+profile uses `make acpi-air61-battery-kernel` for five AC-connected battery/AC
+samples. It requires automatic recovery and parked USB, and refuses desktop,
+service and transition entry. Keep AC connected; collect matching retirement
+and file-integrity evidence after automatic return. It does not widen Air7,2's
+native profile or ordinary startup. See the same Air6,1 audit below.
+
+Air6,1 starts with the separate passive **v60** `--battery-preflight` profile
+on `--laptop-probe-volume`. It records exact-gated PM1/GPE/EC status only, saves
+logs and returns automatically. It does not admit the Air7,2 runtime or sample
+battery data. See the [Air6,1 battery audit](macbookair6-1-battery.md).
+
 The Air7,2 native battery candidate uses a separate **v31** profile and kernel:
 
 ```sh

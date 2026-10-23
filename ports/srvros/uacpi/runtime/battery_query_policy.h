@@ -2,7 +2,7 @@
 #define SRVROS_BATTERY_QUERY_POLICY_H
 #include <stdbool.h>
 #include <stdint.h>
-enum battery_query_policy { BATTERY_QUERY_LEGACY, BATTERY_QUERY_MODEL, BATTERY_QUERY_AIR72 };
+enum battery_query_policy { BATTERY_QUERY_LEGACY, BATTERY_QUERY_MODEL, BATTERY_QUERY_AIR72, BATTERY_QUERY_AIR61 };
 enum battery_query_class {
     BATTERY_QUERY_NONE, BATTERY_QUERY_NOTIFY, BATTERY_QUERY_SHARED,
     BATTERY_QUERY_EMPTY, BATTERY_QUERY_UNKNOWN, BATTERY_QUERY_OS_BRANCH,
@@ -13,10 +13,19 @@ enum battery_query_class {
  * is refused even under Darwin: its other branch acquires SMTX and writes SMBus.
  * QCF is bounded in BOTH states (no-op or Notify). This grants no new IO. */
 static inline enum battery_query_class battery_query_classify(unsigned policy,uint8_t code) {
-    if(policy>BATTERY_QUERY_AIR72)return BATTERY_QUERY_BAD_POLICY;
+    if(policy>BATTERY_QUERY_AIR61)return BATTERY_QUERY_BAD_POLICY;
     if(!code)return BATTERY_QUERY_NONE;
     if(policy==BATTERY_QUERY_LEGACY)return BATTERY_QUERY_SHARED;
     if(policy==BATTERY_QUERY_MODEL)return code==0x20?BATTERY_QUERY_NOTIFY:BATTERY_QUERY_UNKNOWN;
+    if(policy==BATTERY_QUERY_AIR61) {
+        switch(code) {
+        case 0x10:return BATTERY_QUERY_OS_BRANCH;
+        case 0x20:case 0x21:return BATTERY_QUERY_SHARED;
+        case 0x40:case 0x5a:return BATTERY_QUERY_NOTIFY;
+        case 0x80:return BATTERY_QUERY_DEVICE_POLICY;
+        default:return BATTERY_QUERY_UNKNOWN;
+        }
+    }
     switch(code) {
     case 0x10:return BATTERY_QUERY_OS_BRANCH;
     case 0x20:case 0x21:return BATTERY_QUERY_SHARED;

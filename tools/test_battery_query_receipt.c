@@ -34,6 +34,10 @@ int main(void) {
             code!=0x5a && code!=0xce && code!=0xcf && code!=0xd0);
         assert(battery_query_returned(&r,10,true)==denied);
     }
+    for(unsigned code=0;code<256;code++) {
+        bool rejected=battery_query_rejected(battery_query_classify(BATTERY_QUERY_AIR61,code));
+        assert(rejected==(code && code!=0x20 && code!=0x21 && code!=0x40 && code!=0x5a));
+    }
     assert(battery_query_classify(BATTERY_QUERY_AIR72,0x10)==BATTERY_QUERY_OS_BRANCH);
     assert(battery_query_classify(BATTERY_QUERY_AIR72,0x80)==BATTERY_QUERY_DEVICE_POLICY);
     assert(battery_query_classify(BATTERY_QUERY_AIR72,0x20)==BATTERY_QUERY_SHARED);
