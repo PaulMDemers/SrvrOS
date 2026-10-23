@@ -2,7 +2,7 @@
 
 This unit's captured analog controller is Intel `8086:9c20`, with CS4208
 `1013:4208`, subsystem `106b:7100`, revision `100300`, AFG 1. The separate
-`8086:0a0c` HDMI controller is not admitted. Native audio acceptance is pending.
+`8086:0a0c` HDMI controller is not admitted. Basic native speaker playback is accepted; headphone routing remains pending.
 
 ## Route evidence and bounds
 
@@ -73,3 +73,60 @@ Retain the accepted brightness desktop and console recovery payloads. Install
 with `--keep-previous`; Ubuntu remains default and reboot stays unarmed until
 requested. On return collect the matching release/session, compare existing USB
 files, and check offline exFAT allocation before recording physical acceptance.
+
+## Native result, 2026-10-23
+
+Release `0533c0dfc63d104f` / compiled `8f3656a` returned two clean desktop
+sessions. The user reports proper sound. The listening session completed three
+tones, a full 1,152,000-byte WAV and cancellation of its replay, ending ready
+with zero underruns/errors and no PCM owner. Volume requests include 10% and 25%.
+Basic speaker playback is accepted. Detailed channel balance, headphones,
+startup-pop behavior and sustained output remain unconfirmed. See the
+[machine record](machines/macbookair6-1.md) for session IDs and USB checks.
+
+## Next trial: headphones and five one-minute playbacks
+
+Use the accepted v57 payload `0533c0dfc63d104f`, compiled `8f3656a`. This is
+a new physical run of the same payload, not acceptance of newer mainline code.
+The local host generates `stereo-60s.wav` with the existing
+`tools/audio_stream_smoke.py` fixture: 48 kHz signed 16-bit stereo, distinct
+500/750 Hz channels, ramped ends and a quiet tail. Five full plays exercise
+five minutes of PCM and repeated ownership release across many DMA ring wraps;
+the short pauses between plays are deliberate, not a continuous five-minute stream.
+The prepared file is in Home's `audio-extended` directory on this unit's USB.
+
+1. Keep wired headphones ready. In Settings select Speakers and 10% volume.
+   Run the bundled channel test in Terminal:
+   `playwav /fat/share/examples/stereo.wav`.
+   Check left-only, right-only and stereo sections.
+2. With playback stopped, plug in headphones. Check the jack indication,
+   explicitly select Headphones and keep volume at 10%. Run the channel test
+   again. Check left/right sound and that the laptop speakers stay silent.
+   Selection is manual; plugging in does not promise automatic routing.
+3. Run `playwav /work/srvros-work/audio-extended/stereo-60s.wav` five times,
+   letting each finish before repeating. Expect each to report
+   `complete bytes=11520000 underruns=0`. Count the completed runs. Keep the
+   headphone route selected; move windows and type in Text during playback.
+   Report any dropout, distortion, swapped channel or input stall. Brief silence
+   at the end of each file is part of the fixture. Five completed plays are the
+   target; a canceled or failed play does not count as completed.
+4. Start a sixth play and use Settings Stop while it is running. Check prompt
+   silence and return of control. Press Test to check playback recovers. Stop
+   before unplugging, check disconnected indication, explicitly select Speakers,
+   and repeat the bundled channel test. Confirm sound returns to the speakers.
+5. Exit the desktop normally, wait for USB unmount, then type `reboot` at `srv>`.
+   Report headphones left/right/isolation, completed one-minute play count,
+   Stop/recovery, return to speakers, and any audible or input problem.
+
+If a test fails, stop and report what happened; do not raise volume to compensate
+for silence. A completed player log proves data flow, not audible correctness.
+This trial does not claim automatic jack switching, microphone/HDMI support,
+uninterrupted long-form playback or simultaneous USB write stress.
+
+Host rehearsal uses the accepted kernel/initramfs hashes (not a rebuild of the
+newer checkout), the existing HDA/service/stream/format/Settings tests and
+`audio_stream_smoke.py --seconds 60 --repeat 5`. The soak's recorded checkout
+revision describes its harness; payload identity is established separately by
+matching guest kernel/initramfs hashes to the accepted manifest. The exact v57
+GPT desktop/audio boot rehearsal remains a separate receipt. QEMU cannot prove
+headphone wiring or isolation; those require the attended checks above.

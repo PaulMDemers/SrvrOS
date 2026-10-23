@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% physically accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% and basic speaker audio playback physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -57,7 +57,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
-| Sound/routes | Exact codec profile implemented; native listening pending | Speaker/channel/volume, Stop and optional manual headphone checks |
+| Sound/routes | Basic speaker playback accepted; three tones, completed WAV and cancellation logged with zero underruns | Explicit channel-balance/quality detail, headphone isolation and sustained playback |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
@@ -91,17 +91,14 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `e741c58`, branch `device/macbookair6-1/audio`. Add the captured analog
-controller `8086:9c20` and an exact CS4208 `1013:4208` / `106b:7100` /
-revision `100300` profile. Validate raw pin defaults and direct speaker/headphone
-routes before codec writes. Reuse the existing muted startup and audio worker.
-Scope: audio controller/codec, HDA host tests, a distinct unscaled v57
-brightness+audio stage, exact-stage audio VM checks and this unit's documentation.
-PR #76 (`73fc9ba`) owns v55 combined laptop/battery services; preserve its
-independent recipe and do not modify main or battery ownership. PR #19 owns Pro
-Wi-Fi. Shared staging additions are limited to v57, leaving existing recipes
-unchanged. Next checkpoint is an attended low-volume listening test, after local
-host/VM checks, merge and verified install. Physical audio acceptance is pending.
+Base `d3875c7`, branch `device/macbookair6-1/audio-endurance`. Prepare a
+headphone-routing and five one-minute playback trial using accepted v57 release
+`0533c0dfc63d104f` (compiled `8f3656a`). Scope is this unit's test documentation
+and a generated WAV on its USB workspace; no driver, recipe or shared script
+changes. PR #83 owns the shared attended device-check script/v58 on Air7,2;
+PR #19 owns Pro Wi-Fi. Reuse the existing audio fixture and waveform checker,
+without duplicating those scopes. Rehearse the accepted exact payload and a
+five-minute PCM VM soak, preserve recovery, then leave the physical test unarmed.
 
 ## First console trial prepared (2026-10-22)
 
@@ -802,3 +799,49 @@ and previous console recovery `c35475f62f154f1e`. Local run
 exFAT/allocation evidence. Ubuntu stays default; reboot is unarmed. Next action
 is the attended speaker/volume/channel/Stop test and optional manual headphones,
 followed by collection and file/allocation checks before acceptance.
+
+## Native audio return (2026-10-23)
+
+The user reports that sound worked properly on release `0533c0dfc63d104f`
+(compiled `8f3656a`). Two new sessions were collected: `00065e8718b76081-00`
+initialized audio and exited without test tones; `00065e874fca8c4d-00` completed
+three tones, a 1,152,000-byte WAV and cancellation of a second stream at byte
+609,188. Volume requests include 10% and 25%. Both sessions exited cleanly;
+audio ended ready, no error, no owner and zero underruns.
+
+This accepts basic audible speaker playback on this unit. Detailed left/right
+balance, absence of startup pops, headphone isolation and sustained playback are
+not separately confirmed. No headphone selection or connection was logged.
+The diagnostic literal `physical sound NOT_TESTED` is intentionally not an
+automatic acceptance flag; listening confirmation comes from the user.
+
+All 176 prior files remain, with only filesystem metadata changed and eight new
+session logs. Offline exFAT and allocation checks pass: 184 files, 267 clusters,
+zero leaks/mismatches/errors. Ubuntu return, empty one-shot, installed/recovery
+hashes and the independent payload backup are verified. Full return evidence is
+retained outside `build`; no new boot test is armed.
+
+## Headphone/extended playback ready (2026-10-23)
+
+The next attended trial reuses accepted release `0533c0dfc63d104f`, compiled
+`8f3656a`. No payload or hardware gate changed. Run `5a302d248eee397a` in local
+`build/audio/extended-20261023` has the headphone/extended checklist and a
+verified 60-second stereo WAV in USB Home's `audio-extended` directory. All 184
+existing files are preserved; the new baseline has 185 files. Offline exFAT and
+allocation checks pass: 356 clusters, no leaks/mismatches/errors.
+
+Targeted HDA, audio service/stream, WAV conversion and Settings host tests pass.
+The existing PCM VM harness completed five one-minute plays with zero guest
+underruns, exact recorded samples (maximum error zero), distinct stereo and USB
+input retained. Actual guest kernel/initramfs hashes match the accepted release;
+the newer harness checkout is recorded separately, not claimed as compiled code.
+The exact v57 GPT VM additionally passed two desktop sessions, GUI save/reopen,
+preferences, tone/WAV capture, durable logs and clean unmounts. These results do
+not accept physical headphones or extended native playback.
+
+Use the [extended checklist](../macbookair6-1-audio.md) to check manual headphone
+routing, jack indication, left/right isolation, five full one-minute plays,
+Stop/recovery and return to speakers. Console recovery `c35475f62f154f1e`
+remains previous; Ubuntu stays default. No reboot is armed. On return identify
+new sessions against this run's preboot hashes: the release ID is deliberately
+the same as the earlier accepted speaker trial. Preserve the prior trial evidence.
