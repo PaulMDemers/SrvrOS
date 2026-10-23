@@ -3101,3 +3101,18 @@ recoverye47dca3a6b30c6c1 retained. Failed9cc1888913aa7ff5 removed from ESP only
 after archive equality verification. Workspace clean:185files/526clusters,
 zero leaks/mismatches/errors; unmounted. Ubuntu default, no reboot armed.
 Native result pending cold adapter power cycle; collect matching session first.
+
+TXBE9-only comparison accepted on captured adapter: sourcef1785c6,
+releaseb3a29375623082db, session00065e87131ed81c-00. Exact sequence15 reply,
+sent16/received16, status0 attempted1 write_attempted1 submitted1 ACK1 complete1.
+Both stages completed64 reads/eight samples. Before: TXBE9=0, TXBE10=37fff
+through2836302..2839177us. After: TXBE9=20000000, TXBE10=38e30 through
+2839544..2843407us. TXBE12/13 stayed0; all MAC0/COREf000f200 boundaries held.
+Eleven compact phases/44 readbacks and both completion markers passed. The
+TXBE9-only write reproduced the failed quartet's final TXBE10 value without
+writing TXBE10; its semantics and original write result remain unresolved.
+Next isolate TXBE10=0 with TXBE9 unchanged, retaining strict v22 verification.
+Evidence archived outside build in wifi-txbe-first-f1785c6/native-collection.
+Ubuntu default, consumed one-shot, installed payload/recovery verified. Workspace
+clean:187files/529clusters, zero leaks/mismatches/errors; unmounted. Run/checkpoint
+collected and unarmed. No further trial installed; RF/connectivity not tested.

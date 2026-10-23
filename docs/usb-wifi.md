@@ -1213,7 +1213,7 @@ effect associated with TXBE9 in this setup, not automatically establish counter
 semantics; stability would leave the TXBE10 write itself for a later isolated
 trial. The v24 implementation below now supplies this comparison; native evidence is pending.
 
-### Isolated TXBE9 comparison (native pending)
+### Isolated TXBE9 comparison (captured Pro adapter)
 
 Firmware v24 (`--wifi-txbe-first`, requiring `--wifi-txbe-start`, excluding
 `--wifi-txbe-next` and `--wifi-txbe-observe`) implements the comparison above.
@@ -1231,3 +1231,19 @@ or sequence reuse, and no retry after an attempted operation.
 at each TXBE10 read. Only fully guarded samples are emitted, even on failure.
 The capture automatically saves results and returns to Ubuntu. A completed
 comparison does not accept the original four-register batch or RF/connectivity.
+
+Native sourcef1785c6 / releaseb3a29375623082db,
+session00065e87131ed81c-00 completed the comparison. Sequence15 sent16/received16
+with the exact reply; status0, one submission, ACK1, complete1,64 reads/eight
+samples on each side. Before the write, TXBE9 stayed0 and TXBE10 stayed37fff
+at2836302..2839177us. After TXBE9=20000000, all eight TXBE9 readbacks matched
+and TXBE10 stayed38e30 at2839544..2843407us. TXBE12/13 stayed0; every boundary
+retained MAC0/COREf000f200. All eleven prerequisite phases and both completion
+markers passed. Workspace allocation and Ubuntu recovery checks were clean.
+
+The isolated TXBE9 write reproduced the failed quartet's final TXBE10 value
+without writing TXBE10. This identifies a TXBE9-associated change in this setup;
+it does not establish TXBE10 semantics or prove that the original TXBE10 write
+succeeded or failed. Keep the original v22 mismatch unaccepted. Next comparison:
+TXBE10-only zero write at unused sequence15 after phases0..10, leaving TXBE9
+unchanged, with guarded before/after samples. No new trial is installed or armed.
