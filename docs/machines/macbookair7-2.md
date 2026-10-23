@@ -24,8 +24,22 @@ files/2048 directories per volume and 32768 VFS nodes overall. Full build/core
 and docs checks pass. The host fixture passes 5000 imported files, 96 growth/reuse
 files, 320 directories, preserved references/identities, rename/edit/remount and
 allocation-failure rollback/retry; peak tracked heap is about 4 MiB. Existing
-exhaustion, write/flush and power-cut recovery tests pass. Exact-stage VM/native
-results remain pending. See the [capacity contract](../filesystem-capacity.md).
+exhaustion, write/flush and power-cut recovery tests pass, including all isolated
+workspace-image write, flush and partial-write recovery boundaries.
+
+Source `768f6b2` passes exact v8 EFI payload `eba663ccd2a40909` with 5000 imported
+files: automatic default return, CRC report, shell/editor save/remount/reopen,
+exact preserved files, replay/read-only refusal and independent exFAT checks.
+Desktop payload `e6f8e9b2926e3b6c` passes EFI/GPT full-volume refusal (8191 files,
+no session created, clean unmount) and positive keyboard editing, GUI save,
+preferences across fresh boot, durable diagnostics and HDA/WAV capture.
+
+Next is native request `931553fd2910f285` against the exact v8 payload, with
+256 temporary empty files and 64 empty directories to cross both old limits.
+The recorded fixture is removed only after complete reports, content preservation
+and offline allocation checks pass; existing files stay intact. No human input
+is required. Native acceptance remains pending. See the
+[capacity contract](../filesystem-capacity.md).
 
 ### Current checkpoint: bounded capacity recovery milestone complete
 

@@ -35,11 +35,12 @@ acceptance; skipped checks remain pending. No blanket fleet-wide parity claim.
 ## 3. Scale persistent workspaces
 
 PR99 prevents silent diagnostic loss at the current node-table limits and adds
-verified archival. Next replace the small preallocated exFAT/VFS tables with
-bounded demand allocation and efficient enumeration. Preserve node identities
-and paths, reserve memory before mutation, and reuse deleted slots. Validate
-thousands of files/directories, allocation failures, save/rename/delete/remount
-and clean recovery on disposable images before a native automated trial.
+verified archival. PR102 implements bounded demand allocation, stable node
+identities and paths, direct enumeration, memory reservation before mutation and
+deleted-slot reuse. Host tests cover thousands of files, both exhausted budgets,
+allocation failures and save/rename/delete/remount. The exact-stage VM passes
+with 5000 preserved files, automatic return and desktop positive/refusal checks.
+The native automated trial is next; see the [capacity contract](filesystem-capacity.md).
 
 **Done when:** growth beyond the old limits preserves contents and identities,
 memory failure refuses safely, and the exact native persistence trial passes.

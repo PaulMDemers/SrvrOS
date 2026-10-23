@@ -89,8 +89,9 @@ regression pass. PR99 adds verified archival and capacity admission; its native
 automated save/remount/reopen round preserved all prior files and passed offline
 checks. The [filesystem scale candidate](filesystem-capacity.md) replaces the old
 1024-file/256-directory tables with stable demand allocation and direct VFS
-enumeration. Host growth/failure tests pass; exact-stage VM and native acceptance
-remain pending in the Air record.
+enumeration. Host growth/failure tests and exact-stage VM tests with 5000 files
+pass, including desktop save/reopen and capacity refusal. Native acceptance
+remains pending in the Air record.
 
 Exact source/payload identities, evidence locations and negative tests are in
 the [October 19 journal](desktop-progress-2026-10-19.md) and
