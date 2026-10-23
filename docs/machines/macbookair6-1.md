@@ -460,3 +460,28 @@ coverage and this unit's checklist. No kernel, driver or app behavior changes.
 PR #66 owns v52 AC/battery capture; PR #19 owns Wi-Fi. Their separate recipes
 and native gates remain unchanged. Prior highlight run is collected. Preserve
 console recovery `c35475f62f154f1e`; install unarmed after exact-stage validation.
+
+The new [full desktop session checklist](../macbookair6-1-desktop-session.md)
+uses v53 release `306174ddfec763ef`, clean source `f8a498a`; VM tooling finalized
+at `819acd0`. Build, desktop host suite, staging/collector tests (56 installer
+checks, 22 collector checks) and docs pass. Exact-stage GPT VM passes 60 one-MiB
+copy/sync/readback rounds with concurrent Text save, Terminal writes and screenshot
+capture, plus exact retained bytes, session collection, two clean unmounts and
+preferences across a fresh VM boot. Two earlier harness failures (semicolon key
+mapping and outdated Settings coordinates) were corrected; neither was a native
+OS failure. Failed logs remain local. No native full desktop acceptance yet.
+
+Native run `23dadab462e9ed83` has fresh inputs and 124 pre-boot file hashes on
+UUID `6ADA-85BB`. Offline fsck is clean; allocation has 134 clusters, zero leaks,
+mismatches or errors. Install retains console recovery `c35475f62f154f1e` via
+`--keep-previous`. Installed hashes, Ubuntu default and empty one-shot are checked.
+Evidence/checklist live in `build/desktop-sessions/23dadab462e9ed83`, with durable
+payload and trial copies outside build under release `306174ddfec763ef`.
+
+At readiness recheck installed state, USB identity/input hashes and record the
+launch before arming. In the desktop Terminal run `sh session-23dadab462e9ed83.sh`,
+then use other apps while it advances. Save `notes-23dadab462e9ed83.txt`, wait for
+USB SESSION COMPLETE, save a screenshot, return to console and require clean
+log save/unmount before `reboot`. On return collect the matching new desktop
+session and verify workload/notes/preferences/prior files and both offline checks
+before staging another run. The preparation leaves reboot unarmed.
