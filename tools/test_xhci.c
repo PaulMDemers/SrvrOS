@@ -2797,14 +2797,14 @@ static void test_wifi_mac_route(void){
 }
 
 static void test_wifi_mac_policy(void){
- for(unsigned observe=0;observe<2;observe++)for(unsigned fault=0;fault<28;fault++){
+ for(unsigned observe=0;observe<3;observe++)for(unsigned fault=0;fault<28;fault++){
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[200],reply[1024];
   struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
   m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
   m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
   m->mac_route.complete=true;m->mac_route_submitted=true;
-  m->mac_policy_observe=observe; m->mac_policy_mode=true;m->mac_policy_active=true;
+  m->mac_policy_observe=observe==1;m->mac_policy_validate=observe==2; m->mac_policy_mode=true;m->mac_policy_active=true;
   m->mac_policy=(struct mt76_mcu_mac){.attempted=true,.reads=6,.batches_attempted=1,.mac_before=0,.core_before=0xf000f200,.before={0x7f0020,0x10f0a90,0x4bb80407,7}};
 
   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};

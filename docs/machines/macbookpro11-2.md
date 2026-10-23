@@ -3758,3 +3758,10 @@ Workspace clean211files/565clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: define an explicit bounded TX_LINK readback expectation supported
 by this native capture and same-adapter Linux evidence, keeping the remaining
 three exact checks and final guards; do not globally relax register comparison.
+
+Active scope 2026-10-23: v37 exact policy validation, unchanged write bytes,
+prerequisites/initial gates/ACK. Require LINK readback007f1020 (v36 native and
+same-adapter Linux evidence), other three exact requested values, all12 reads and
+final MAC0/COREf000f200. No ignored-bit mask; reject every other LINK value.
+Preserve v35 strict and v36 observation modes. Touch MCU/xHCI/main/staging/tests.
+Actual base22fd266; fetched maind753051 includes Air6,1 AC work, separate scope.

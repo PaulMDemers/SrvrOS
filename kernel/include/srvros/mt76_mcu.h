@@ -232,4 +232,6 @@ enum mt76_mcu_timing_status mt76_mac_policy_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io);
 enum mt76_mcu_timing_status mt76_mac_policy_observe(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask);
+enum mt76_mcu_timing_status mt76_mac_policy_validate(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask);
 #endif

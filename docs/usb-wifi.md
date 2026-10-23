@@ -1690,3 +1690,16 @@ word (mismatch_mask1); the other three targets match. Both completion markers
 were saved, with register_acceptance and RF/connectivity explicitly NOT_TESTED.
 The separate v35 strict failure remains unchanged. These observations support
 an explicit TX_LINK readback rule; they do not accept unrelated upper-bit values.
+
+### Exact captured policy validation (v37; native result pending)
+
+`--wifi-mac-policy-validate` requires policy prerequisites and excludes observation
+mode. Write bytes and initial-value gates are unchanged. After the exact ACK,
+all four readbacks and final guards must complete. TX_LINK must equal `007f1020`,
+the value observed in native v36 and live Linux on this captured7392:a711 device;
+the remaining three must equal `000a2090`, `47d01f0f`, `00000013`. No bit mask
+ignores arbitrary values. Failure clears completion and stops capture. The log
+reports `exact_profile=1` with completion status and write_mismatch_mask1 because
+the first expected readback differs from its write operand. v35 and v36 retain
+strict historical and observation semantics respectively. This validates only
+the bounded MAC policy group, not RF, BBP setup or wireless connectivity.

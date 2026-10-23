@@ -810,3 +810,15 @@ enum mt76_mcu_timing_status mt76_mac_policy_observe(struct mt76_mcu_mac *s,
     s->complete=true;return MT76_TIMING_OK;
 #undef MAC_READ
 }
+
+/* Exact readback observed on captured 7392:a711; do not generalize to a mask. */
+enum mt76_mcu_timing_status mt76_mac_policy_validate(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask) {
+    enum mt76_mcu_timing_status status=mt76_mac_policy_observe(s,io,mismatch_mask);
+    if(status!=MT76_TIMING_OK)return status;
+    const uint32_t expected[4]={0x007f1020,0x000a2090,0x47d01f0f,0x00000013};
+    for(unsigned i=0;i<4;i++)if(s->after[i]!=expected[i]){
+        s->complete=false;return MT76_TIMING_STATE;
+    }
+    return MT76_TIMING_OK;
+}
