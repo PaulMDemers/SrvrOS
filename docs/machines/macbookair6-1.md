@@ -536,3 +536,17 @@ identity restoration while retaining strict listing validation; make the workloa
 explicitly refuse an existing run directory. Its current `mkdir ... || exit 1`
 guard is insufficient because SrvrOS mkdir succeeds for existing directories.
 Preserve the interrupted and restarted evidence instead of rewriting round logs.
+
+## Identity and workload retry fix scope (2026-10-23)
+
+Base `58b354f`, branch `device/macbookair6-1/file-identities`. Fix duplicate VFS
+identities during metadata import/registration, preserving permissions/times and
+strict picker validation. Add collision/allocator regressions and a disposable
+VM fixture with duplicate persisted IDs, saved-file reopen and Home reentry.
+Fix the shell workload's existing-directory guard and exercise refusal without
+changing retained round evidence. Scope: VFS metadata, workload/rehearsal tools,
+tests and this unit's guide. PR #69 owns opt-in battery session startup; PR #19
+owns Wi-Fi. Neither owns VFS identity restoration. Prior native run is collected;
+retain its evidence and console recovery. Prepare a fresh v53 trial only after
+host tests and exact-stage VM pass, install unarmed, then merge under existing
+authorization. No firmware/profile gates are widened.
