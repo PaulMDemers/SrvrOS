@@ -2,7 +2,6 @@
 #include <srvros/desktop_session.h>
 #include <srvros/console.h>
 #include <srvros/timer.h>
-#include <srvros/arch.h>
 #include <srvros/scheduler.h>
 #include <srvros/exfat.h>
 #include <srvros/workspace.h>
@@ -19,9 +18,8 @@ bool desktop_battery_session_run(void) {
         console_write("desktop-session: REFUSED mount a writable Home workspace first\n");
         return false;
     }
-    uint64_t flags=irq_save();
+    uint64_t flags;__asm__ volatile("pushfq; popq %0":"=r"(flags)::"memory");
     bool can_wait=(flags&(1ull<<9)) && scheduler_current_thread_id() && timer_reference_ready();
-    irq_restore(flags);
     if(!can_wait) {
         console_write("desktop-session: REFUSED blocking context/reference clock unavailable\n");
         return false;
