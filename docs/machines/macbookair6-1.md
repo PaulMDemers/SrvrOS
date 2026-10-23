@@ -100,6 +100,7 @@ services; PR #19 owns Pro Wi-Fi. Neither overlaps this isolated matcher/probe.
 
 1. Rehearse the exact diagnostic stage, retain console recovery and accepted desktop.
 2. Collect native mode/period/duty evidence before implementing a write provider.
+   Follow the [brightness capture guide](../macbookair6-1-brightness.md).
 3. Keep audio, battery/AC, telemetry and networking as separate milestones.
 
 ## First console trial prepared (2026-10-22)

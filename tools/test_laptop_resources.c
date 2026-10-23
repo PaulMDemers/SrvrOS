@@ -30,6 +30,20 @@ int main(int argc,char **argv) {
     assert(!laptop_backlight_decode(0,0,3u<<30,(100u<<16)|101).mode);
     assert(!laptop_backlight_decode(0,0,UINT32_MAX,UINT32_MAX).mode);
     assert(!laptop_pro_display_match(0x0d26,0x8c4b,ec,sizeof(ec)));
+    assert(!laptop_air61_display_match(0x0a26,0x9c43,NULL,0));
+    assert(!laptop_air61_display_match(0x0a26,0x9c43,ec,sizeof(ec)));
+    if(argc==3 && !strcmp(argv[2],"air61")) {
+        size_t n;unsigned char *d=load(argv[1],"DSDT",&n);
+        assert(laptop_air61_display_match(0x0a26,0x9c43,d,n));
+        assert(!laptop_firmware_match(d,n));
+        assert(!laptop_pro_display_match(0x0d26,0x8c4b,d,n));
+        assert(!laptop_air61_display_match(0x1626,0x9c43,d,n));
+        assert(!laptop_air61_display_match(0x0a26,0x9cc3,d,n));
+        assert(!laptop_air61_display_match(0x0a26,0x9c43,d,n-1));
+        d[n-1]^=1;assert(!laptop_air61_display_match(0x0a26,0x9c43,d,n));
+        checksum(d,n);assert(!laptop_air61_display_match(0x0a26,0x9c43,d,n));free(d);
+        puts("laptop-resources: Air6,1 exact capture matches; siblings, truncation and modified firmware refused");
+    }
     if(argc==3 && !strcmp(argv[2],"pro")) {
         size_t n;unsigned char *d=load(argv[1],"DSDT",&n);
         assert(laptop_pro_display_match(0x0d26,0x8c4b,d,n));
