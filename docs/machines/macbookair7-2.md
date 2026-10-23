@@ -19,6 +19,23 @@ collection record, plus explicit startup dispatch/recipe. Keep accepted v55 payl
 Pro PR19 owns Wi-Fi; Air6,1 audio PR82 is already included in main. Listening,
 cable changes and gestures need human input, with no countdown or forced exit.
 
+The prepared attended candidate is `b6306e33e9590538`, v58, compiled/staged
+from `2ae5e7a`; exact EFI harness follow-up `067ff95` changes only how the test
+captures the DHCP builtin output. Local full build/core/docs, 62 boot-tool tests,
+three checklist host cases, guest checklist EOF/replay/saved observations,
+ECM traffic/cable recovery and network UI tests passed. Exact staged GRUB/EFI
+with GPT workspace, ECM DHCP, HDA tone/channel WAV, Text save, screenshot,
+preferences over two VM boots and both clean unmounts passed. VMs establish no
+physical listening, cable or gesture acceptance. Help's first screen was inspected.
+
+PR83 publishes the checklist, explicit Help-first startup selector and immutable
+v58 recipe. The ordinary accepted battery desktop `9aa8dbf6fbda8252` remains
+recovery; this focused trial has battery monitoring off. Human prompts have no
+time limit. The local run/collector lives in `build/native-desktop-trials/` under
+the candidate release and is copied outside build before reboot; collect it first
+on Ubuntu return. Validation is retained under
+`~/.local/share/srvros/validation/device-checks-b6306e33e9590538`.
+
 ### Integrated v55 desktop physically accepted (2026-10-23)
 
 Release `9aa8dbf6fbda8252` (compiled `7ab571f`, staged `d5bb51d`) passed the
