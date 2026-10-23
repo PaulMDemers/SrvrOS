@@ -776,7 +776,7 @@ outside scope.
 
 Offline fsck is clean (176 files); allocation passes with 257 clusters and zero
 leaks/mismatches/errors. Prior files match except metadata and desktop.conf;
-the latter changed pointer speed5 to3 and acceleration0 to1, with intent awaiting
-user clarification. Four new session logs are retained. Run/launch are collected,
+the latter changed pointer speed5 to3 and acceleration0 to1. The user confirmed
+these changes were intentional; this is not a preference-persistence regression. Four new session logs are retained. Run/launch are collected,
 one-shot empty and USB unmounted. Evidence is backed up outside build; no new
 boot is staged or armed.
