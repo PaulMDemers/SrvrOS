@@ -3716,3 +3716,23 @@ and requires final MAC/CORE guards. IO/cancellation/all-ones/ACK/ownership failu
 still fail. No register acceptance or subsequent BBP writes; preserve v35 strict
 behavior. Touch MCU/xHCI/main/staging/tests. Source base22fd266, fetched main249bb97;
 PR101 AC transitions separate, no overlapping Wi-Fi implementation.
+
+### 2026-10-23 — v36 policy observation candidate installed, unarmed
+
+Source `d8e246a`, release `76e71b07371c6185`. Build, compact/xHCI tests,
+ASan/UBSan, 92 boot-profile tests and docs checks passed. Observation tests cover
+all16 mismatch masks and failure/cancellation/guard/ACK paths while strict v35
+still fails mismatches. Collector covers all16 masks and seven invalid captures.
+Exact-stage GPT VM saved diagnostics and passed offline checks; missing-workspace
+VM returned without probing. Native observation result remains pending.
+
+Ubuntu default and previous known-good `e47dca3a6b30c6c1` preserved. Failed v35
+`ee842dc8bcc56669` retained; accepted route payload removed from ESP only after
+full equality with its durable archive. UUID0E53-5900 clean209files/562clusters,
+no allocation errors, unmounted; no one-shot armed. Run record/collector:
+`build/bringup/wifi-policy-observe/run.json`,
+`build/bringup/collect_wifi_policy_observe_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-observe-d8e246a/`.
+Next: readiness-confirmed cold adapter power cycle, automatic capture/return,
+then collect matching session. Completion is observation only; register acceptance
+and RF/connectivity remain NOT_TESTED.
