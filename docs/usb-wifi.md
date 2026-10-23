@@ -1592,3 +1592,10 @@ being classified as accepted initialization. The summary explicitly states
 `register_acceptance=NOT_TESTED`, including when every observed target matches.
 No compact BBP phases or other TXBE experiment runs alongside this profile.
 Historical strict checks remain unchanged; no RF calibration/channel/MAC enable.
+
+The Pro11,2 v31 physical observation (release `4316c9963cb7ae6a`) completed all
+three table commands and124 reads with MAC disabled and CORE guards intact.
+54/58 target values matched; TXBE10 remained38e30 rather than0, TXBE17 retained
+fb3fec3c rather than0, and RXO21/24 remained0 rather than1/6. Full-table batching
+alone did not remove the earlier TXBE10 mismatch. This validates capture only,
+not register initialization or RF/connectivity; prerequisites remain under audit.

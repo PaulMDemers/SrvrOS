@@ -3431,3 +3431,22 @@ wifi-bbp-table-eb832da. Previous known-good desktope47dca3a6b30c6c1 retained;
 Ubuntu default unchanged. Workspace preflight fsck/allocation clean, unmounted.
 Run record and strict observation collector ready. No one-shot armed; await cold
 adapter power cycle, then collect matching session before further changes.
+
+Native full-table observation completed: source `eb832da`, release
+`4316c9963cb7ae6a`, session `00065e88f3984844-00`. Firmware/reset/timing,
+MAC phases0/1, clock/readiness, all three200/200/88-byte commands (seq0/0/6)
+and final ACK passed. All124 reads and four disabled-MAC/COREf000f200 boundaries
+completed. Both capture markers yes; this accepts the observation workflow only.
+Four mismatches remain: TXBE10/2728 before37fff after38e30 expected0;
+TXBE17/2744 before/afterfb3fec3c expected0; RXO21/2954 before/after0 expected1;
+RXO24/2960 before/after0 expected6. Other54 table values matched. Full-table
+batching did not resolve TXBE10. Register initialization and RF/connectivity
+remain unaccepted; no cause is established by this comparison.
+
+Matching logs archived in wifi-bbp-table-eb832da/native-collection outside build.
+Collector checks passed after fixing a local Python variable that shadowed the
+hardware_boot module; no evidence predicates changed. Ubuntu default, consumed
+one-shot and current/recovery hashes verified. Workspace clean:201files/550clusters,
+zero leaks/mismatches/errors, unmounted. No reboot armed. Next audit the four
+mismatching registers and remaining reference initialization prerequisites before
+choosing another bounded trial; retain all earlier strict failure results.
