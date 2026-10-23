@@ -92,6 +92,17 @@ class InstallTests(unittest.TestCase):
         self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
         self.assertNotIn('srvros.audio=',boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0"))
 
+    def test_basic_desktop_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v53-desktop-6ada85bb")
+        self.assertIn('srvros.desktop-release=0123456789abcdef',cfg)
+        self.assertIn('srvros.desktop=trial',cfg)
+        self.assertIn('srvros.trackpad=gestures',cfg)
+        for option in ('laptop-services','aml','audio','smc','power','capture','sensors','usb-network'):
+            self.assertNotIn('srvros.'+option+'=',cfg)
+        for kwargs in ({}, {'desktop_scale':2}, {'desktop_audio':True}):
+            with self.assertRaises(ValueError):
+                boot.stage(desktop_basic=True, **kwargs)
+
     def test_brightness_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0")
         self.assertIn('srvros.laptop-services=brightness',cfg)

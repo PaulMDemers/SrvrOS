@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture and bounded desktop pointer/drag/scroll trial accepted**.
+Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture, bounded pointer/drag/scroll, primary taps, typing suppression and Type study highlight accepted**.
 
 ## Identity and ownership
 
@@ -42,9 +42,9 @@ Air6,1 transport reproducer exists; retain both branches' profile contracts.
 The captured 84-byte USB configuration is byte-identical to the existing
 Air7,2 `apple-05ac-0291-config.bin` fixture. Keyboard is boot interface 1,
 endpoint 0x82, packet 64, interval 8. This supports reuse of configuration
-parsing, not native transport or trackpad report acceptance. Current
-`parse_trackpad_config` explicitly refuses PID `0290`; descriptor similarity
-alone does not establish coordinate ranges, report format or mode switching.
+parsing, not native transport or trackpad report acceptance. Initial `parse_trackpad_config` refused PID `0290`; subsequent exact-gated admission
+and native capture/gesture acceptance are recorded below. Descriptor similarity
+alone did not establish coordinate ranges, report format or mode switching.
 The existing CS4208 routes admit only subsystem `106b:7e00` or `106b:5e00`,
 not this unit's `106b:7100`. Backlight and SMC matching also target captured
 Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
@@ -55,7 +55,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | --- | --- | --- |
 | Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
-| Trackpad/gestures | PID not admitted | Captured report/transport evidence before profile |
+| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Full app coexistence next; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | Bounded monitor write/read and persistence accepted | Desktop/sustained I/O and hotplug not accepted |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
 | Brightness | Not tested | Exact firmware/register evidence |

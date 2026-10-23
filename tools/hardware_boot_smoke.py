@@ -141,6 +141,8 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
+    basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
+    session_run="0123456789abcdef"
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
@@ -218,6 +220,9 @@ def main():
                 from battery_filesystem_image import create
                 inner=temp/'inner.exfat';create(inner)
                 files['battery-fs.img']=inner.read_bytes()
+            if basic_desktop:
+                from desktop_session_workload import files as session_files
+                files.update(session_files(session_run))
             fixture.add_directory_files("srvros-work",files)
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
@@ -500,9 +505,15 @@ def main():
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
                     workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))
+                    if basic_desktop:
+                        shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
+                        wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                        time.sleep(.7)
+                        type_text(f"sh /work/srvros-work/session-{session_run}.sh; exit $?");ui.key("ret")
+                        workload_started=time.monotonic()
                     before=len(serial.read_text(errors="replace"))
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
-                    wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
+                    wait_for(serial,lambda s:("window=2" if basic_desktop else "window=1") in s[before:] and "desktools: starting role=text" in s[before:],process,30)
                     time.sleep(.7);type_text("Laptop trial AaZz09 saved on USB.")
                     shortcut("ctrl-s")
                     wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
@@ -522,6 +533,11 @@ def main():
                     shot_log=wait_for(serial,lambda s:"deskd: screenshot saved status=0 path=" in s,process,90)
                     shot_path=re.search(r"deskd: screenshot saved status=0 path=(/work/srvros-work/Screenshots/[^\r\n]+)",shot_log)[1]
                     wait_for(serial,lambda s:"workspace-log: snapshot=session-" in s,process,30)
+                    if basic_desktop:
+                        # The foreground workload keeps its Terminal alive while Text saves,
+                        # the second Terminal writes, and screenshot capture runs independently.
+                        assert time.monotonic()-workload_started < 120, "Input did not overlap the paced workload"
+                        wait_for(serial,lambda s:s.count("deskterm: shell exited status=0") == 2,process,240)
                     shortcut("f10");shortcut("end");shortcut("ret")
                     wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
                     stored=verify_workspace(stick,volume,0)
@@ -533,7 +549,13 @@ def main():
                     assert shot_bytes[:2]==b"BM" and len(shot_bytes)==54+1280*800*4
                     assert struct.unpack_from("<II",shot_bytes,18)==(1280,800)
                     first_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",serial.read_text(errors="replace"))[1]
-                    assert b"laptop-probe: unsupported chipset" in stored.read(first_session.removeprefix("/work/")+"/boot.log")
+                    if basic_desktop:
+                        from desktop_session_workload import verify as verify_session
+                        session_proof=verify_session(lambda name:stored.read("srvros-work/"+name),session_run)
+                        boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log")
+                        assert b"laptop-probe:" not in boot_log and b"aml-probe:" not in boot_log
+                    else:
+                        assert b"laptop-probe: unsupported chipset" in stored.read(first_session.removeprefix("/work/")+"/boot.log")
                     assert b"deskd: exited" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
                     if args.audio_check:
                         assert b"workspace-devices: audio_state=2" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
@@ -738,7 +760,7 @@ def main():
                     except subprocess.TimeoutExpired: process.kill();process.wait()
     (logs/"hardware-grub-result.json").write_text(json.dumps({
         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-        "desktop":args.desktop_check,"audio":args.audio_check,
+        "desktop":args.desktop_check,"desktop_session_workload":session_proof if basic_desktop else None,"audio":args.audio_check,
         "audio_codec_timer":args.audio_codec_timer if args.audio_check else None,
         "console":args.console_check,"kernel":args.kernel_check,
         "workspace_table":args.workspace_table,"responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"
