@@ -33,10 +33,19 @@ The corrected Help page was visually reviewed. Source is committed and shared;
 PR88 stays draft pending native taps and unwanted-menu/scroll acceptance.
 Validation/payload evidence survives cleanup at
 `~/.local/share/srvros/validation/tap-settling-trial-95db354d397095b4`.
-The candidate is staged only: installed remains `efc90fce7ae6849d`, previous
-`9aa8dbf6fbda8252`; no reboot is armed. Next trial must use fresh
-Home/tap-diagnostics-v2, retain current accepted recovery, and record the exact
-install/one-shot state before any attended reboot.
+The user authorized the attended trial. Candidate `95db354d397095b4` is now
+installed, retaining accepted `9aa8dbf6fbda8252` recovery and Ubuntu default.
+Real USB preflight passed (1023 files, 2220 clusters, no leaks/mismatches); earlier
+reports are hashed and preserved, and the fresh Home/tap-diagnostics-v2 is absent.
+Run, payload, recovery checks and return collector are backed up outside build in
+`~/.local/share/srvros/pending-trials/95db354d397095b4`. The local run record owns
+arming state. Human actions were announced: 20 taps, Escape only for visible
+menus, record count, clean desktop exit/unmount and monitor reboot. No timed exit.
+Collect the matching session before another trial. Native acceptance is pending.
+Fetched main `b17b80e` adds Air6,1 incomplete runtime evidence, and Pro PR19
+`09f2c0d` records a separate Wi-Fi prerequisite audit; both were inspected. The
+exact validated candidate retains its prior base; no source changes or sibling
+profile assumptions were introduced while preparing this install.
 
 ### Earlier diagnostic preparation (returned above)
 
