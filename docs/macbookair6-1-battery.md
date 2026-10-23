@@ -211,3 +211,29 @@ logs were added. Offline exFAT/allocation pass: 203 files, 380 clusters, zero
 leaks/mismatches/errors. Installed and independent payload/recovery hashes pass;
 Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
 are retained outside build. No reboot is armed.
+
+## HPTC retry native return (2026-10-23)
+
+Release `15f29b76df51bab0` (compiled `9316f8a`), session
+`00065e895200284c-00`, has boot/session-a logs but no final report. The user's
+photo shows namespace setup completed and the runtime reached `phase=sample`.
+The final interpreter counters are errors=0/denied=0. This confirms the narrow
+HPTC fix resolves the previous initialization denial on this unit; it does not
+accept sampling or clean runtime retirement.
+
+The first observed SCI query is decimal 16 (`0x10`), classified as OS-branch
+class 5 by Air6,1 policy 3 and refused before dispatch. Terminal reason is
+`query policy`. The query's Darwin branch notifies SMB0; its alternate branch
+acquires SMTX, reads SMBus state and can clear SSTS. The existing refusal is
+intentional; do not simply whitelist the AML method or assume a captured OSYS
+value makes every reachable branch safe. The shared runtime already has a
+separately owned SMBus host-event handler, but Air6,1 does not yet admit that
+profile. Next scope is an Air6,1-specific status/completion/alarm audit and
+bounded event-owner integration with tests, retaining exact firmware and storage
+gates. No event permissions are changed by this closeout.
+
+All 203 prior USB files remain, with only `.srvros/meta` changed and two matching
+logs added. Offline exFAT/allocation pass: 205 files, 383 clusters, zero leaks,
+bitmap mismatches or errors. Payload/recovery hashes and Ubuntu default pass;
+Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
+are backed up outside build. No reboot is armed.
