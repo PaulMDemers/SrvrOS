@@ -4,6 +4,15 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_battery_preflight_requires_complete_bounded_evidence(self):
+        header='battery-preflight: model=MacBookAir6,1 pm1_control=0x0 pm1_status=0x1 pm1_enable=0x0 ec_status=0x0 SCI=9 EC_GPE=0x4e\n'
+        rows=''.join(f'battery-preflight: gpe_byte={i} status=0x0 enable=0x0\n' for i in range(16))
+        done='battery-preflight: complete reads=36 writes=0; no EC data/commands, AML, ACPI mode, SCI ownership or battery samples\n'
+        text=header+rows+done
+        self.assertFalse(desktop.battery_preflight_result(text)['battery_samples'])
+        for bad in (header+rows,rows+done,text.replace('gpe_byte=15','gpe_byte=14'),text.replace('ec_status=0x0','ec_status=0x100'),text+'battery-preflight: REFUSED',text+header):
+            self.assertIsNone(desktop.battery_preflight_result(bad))
+
     def test_automatic_return_does_not_clear_failure(self):
         self.assertTrue(desktop.needs_attention("laptop-capture: completed=NO"))
         self.assertTrue(desktop.needs_attention("battery: FAILED operation deadline"))

@@ -555,6 +555,18 @@ def needs_attention(line):
     return (kind in ("audio","smc") and fields[kind+"_state"]==4) or (kind=="thermal" and fields.get("flags",0)&8)!=0
 
 
+def battery_preflight_result(text):
+    header=re.findall(r"^battery-preflight: model=MacBookAir6,1 pm1_control=(0x[0-9a-f]+) pm1_status=(0x[0-9a-f]+) pm1_enable=(0x[0-9a-f]+) ec_status=(0x[0-9a-f]+) SCI=9 EC_GPE=0x4e$",text,re.M)
+    rows=re.findall(r"^battery-preflight: gpe_byte=(\d+) status=(0x[0-9a-f]+) enable=(0x[0-9a-f]+)$",text,re.M)
+    if len(header)!=1 or len(rows)!=16 or [int(r[0]) for r in rows]!=list(range(16)):
+        return None
+    if 'battery-preflight: complete reads=36 writes=0; no EC data/commands, AML, ACPI mode, SCI ownership or battery samples' not in text or 'battery-preflight: REFUSED' in text:
+        return None
+    values=[int(v,16) for v in header[0]]
+    if any(v>65535 for v in values[:3]) or values[3]>255 or any(int(v,16)>255 for row in rows for v in row[1:]):return None
+    return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
+
+
 def collect(mount, volume, output):
     workspace = mount / "srvros-work"
     marker = workspace / ".workspace"
@@ -712,7 +724,11 @@ def collect(mount, volume, output):
             attention.append('collection: battery Text overlap completion missing or invalid')
         if 'srvros.capture=battery-desktop' in text and desktop_proof is None:
             attention.append('collection: battery desktop overlap completion missing or invalid')
+        preflight=battery_preflight_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.battery-preflight=air61' in text and preflight is None:
+            attention.append('collection: passive battery preflight missing, refused or incomplete')
         records.append({
+            "battery_preflight": preflight,
             "session": name,
             "releases": releases,
             "files": {key: hashlib.sha256(data).hexdigest() for key, data in payload.items()},

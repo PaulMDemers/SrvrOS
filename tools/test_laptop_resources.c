@@ -35,6 +35,18 @@ int main(int argc,char **argv) {
     if(argc==3 && !strcmp(argv[2],"air61")) {
         size_t n;unsigned char *d=load(argv[1],"DSDT",&n);
         assert(laptop_air61_display_match(0x0a26,0x9c43,d,n));
+        size_t en,fn;unsigned char *e=load(argv[1],"ECDT",&en),*f=load(argv[1],"FACP",&fn);
+        assert(laptop_air61_power_resources(0x0a26,0x9c43,d,n,e,en,f,fn));
+        assert(!laptop_air61_power_resources(0x1626,0x9c43,d,n,e,en,f,fn));
+        for(size_t z=0;z<fn;z++)assert(!laptop_air61_power_resources(0x0a26,0x9c43,d,n,e,en,f,z));
+        const unsigned offsets[]={46,56,60,64,68,80,84,88,89,92,93,148,149,150,152,156,160,164,172,176,220,224,232,236};
+        for(unsigned j=0;j<sizeof(offsets)/sizeof(offsets[0]);j++) {
+            unsigned o=offsets[j];f[o]^=1;checksum(f,fn);
+            assert(!laptop_air61_power_resources(0x0a26,0x9c43,d,n,e,en,f,fn));
+            f[o]^=1;checksum(f,fn);
+        }
+        e[64]^=1;checksum(e,en);assert(!laptop_air61_power_resources(0x0a26,0x9c43,d,n,e,en,f,fn));
+        free(e);free(f);
         assert(!laptop_firmware_match(d,n));
         assert(!laptop_pro_display_match(0x0d26,0x8c4b,d,n));
         assert(!laptop_air61_display_match(0x1626,0x9c43,d,n));

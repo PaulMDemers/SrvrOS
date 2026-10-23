@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
+| Battery/AC | Offline EC contract matched; passive v60 preflight prepared | Native handoff capture, full runtime audit, bounded samples; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -91,11 +91,14 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `36dbc3d`, branch `device/macbookair6-1/telemetry-acceptance`. Close out
-run `3f703367ab650765` using matching native logs and the user's successful
-sensor-display report. Scope is Air6,1 machine/telemetry documentation only;
-no shared subsystem or boot-payload changes. Basic telemetry is accepted;
-longer coexistence and UI-control observations remain bounded follow-up work.
+Base `f310923`, branch `device/macbookair6-1/battery-preflight`. Start independent
+read-only battery/AC bring-up with a passive firmware handoff capture. Scope:
+Air6,1 resource gate, opt-in preflight reader, immutable v60 capture recipe,
+host/VM tests and this machine's documentation. Existing Air7,2 native battery
+ownership is not widened. PR88 owns trackpad timing; PR19 owns Pro USB Wi-Fi.
+Neither overlaps this bounded diagnostic. Next checkpoint is native PM1/GPE/EC
+status evidence with AC connected; battery samples require a later audited
+EC/SCI/NVS/AML profile. No EC command/data, ACPI mode or event writes in this step.
 
 ## First console trial prepared (2026-10-22)
 
@@ -910,3 +913,27 @@ session logs were added. Offline checks pass: 197 files, 371 clusters, no leaks,
 bitmap mismatches or errors. Ubuntu returned with an empty one-shot; installed
 candidate/recovery and backup hashes are verified. Run records and return logs
 are retained outside build under the candidate's evidence/trial directory.
+
+## Battery/AC passive preflight ready (2026-10-23)
+
+Run `10567bbea85fe3e2`, release `9b528e09c13e1d4b`, clean source `f6bab3e`,
+is installed unarmed. Fresh DSDT/ECDT/FADT match the original unit capture.
+Offline loading of nine AML tables with private GNVS/SMBus PCI snapshots matches
+the EC namespace/resources with zero errors, denials, writes or leaked allocations.
+Full initialization and runtime permissions remain unaudited; this result is not
+live battery telemetry. See the [battery bring-up note](../macbookair6-1-battery.md).
+
+The distinct v60 automatic test records only exact-gated PM1, GPE and EC-status
+reads, saves to USB, unmounts and returns to Ubuntu. Leave AC connected. It does
+not issue EC commands, read EC data, initialize AML or own SCI. Native handoff
+state is needed before a later bounded battery-sampling profile can be admitted.
+
+Build/USB image, core/desktop suites, 64 staging tests, 24 collector tests,
+passive-port host checks, actual resource-gate/mutation tests and docs checks
+pass. Exact-stage GPT VM confirms refusal without native access, saved logs,
+clean filesystem/unmount and automatic reset. Native preflight remains pending.
+USB has 197 baseline files; offline allocation passes with 371 clusters and
+zero leaks/mismatches/errors. Installed/independent payload hashes are verified;
+console recovery `c35475f62f154f1e` and accepted telemetry `eee15036f4172920`
+remain available. Ubuntu stays default with empty one-shot. Evidence is backed
+up outside build before boot; no reboot has been requested.
