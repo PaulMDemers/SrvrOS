@@ -825,7 +825,7 @@ tests cover the shared engine's original plan. Native transport tests additional
 cover missing basics prerequisites, packet mutation, scoped reads, ordering,
 stale completions and failure quarantine.
 
-### Read-only baseband readiness (native trial pending)
+### Read-only baseband readiness (accepted on captured Pro adapter)
 
 Firmwarev10 (`--wifi-bbp-ready`, requiring `--wifi-mac-format`) checks the
 baseband prerequisite after all accepted MCU setup phases. It requires MAC
@@ -841,8 +841,10 @@ The independent engine has no write callback, caller-defined read list or MCU
 commands. USB reads use the existing bounded exact-length EP0 path. Transport
 errors quarantine retained DMA. Failed sessions cannot be reused. Successful
 first-read readiness takes6 reads;20 zero core reads terminate with timeout
-after23 total reads. Native core value and readiness remain unaccepted until
-the saved capture confirms them.
+after23 total reads. Native readiness passed in release6df00376834c37fd,
+source6e0bd27, session00065e76bf8562b4-00: coref000f200 on the first core read,
+6 total reads, MAC control/status0 before and after. PBF was00080000; this is
+an observation, not acceptance of clock programming or baseband tables.
 
 `make test-mt76-bbp` exercises exact read ordering, each I/O failure and all-ones
 result, every authorization boundary, all20 successful polling positions,

@@ -2594,3 +2594,15 @@ Workspace preboot checks clean. Payload/run/VM/local evidence archived outside
 build in wifi-bbp-ready-6e0bd27. Next cold trial checks responding CORE0 and
 disabled/idle MAC before/after; PBF value is observation only. Baseband table
 initialization and RF/connectivity remain unaccepted.
+
+Read-only BBP readiness accepted, 2026-10-22: source6e0bd27,
+release6df00376834c37fd, session00065e76bf8562b4-00. Firmware, reset,
+identity, timing, basics and frame-format prerequisites passed. BBP status0,
+attempted1, complete1, reads6, core_reads1; CORE0=f000f200, PBF=00080000,
+MAC control/status0 before and after. Completion markers present. This accepts
+core readiness only, not clock programming, baseband tables or RF.
+Matching collection/hashes archived in wifi-bbp-ready-6e0bd27/native-collection.
+Ubuntu default, consumed one-shot and current/recovery manifests verified;
+workspace unmounted and clean159files/487clusters, zero allocation errors.
+Run/checkpoint collected and unarmed. Next implement bounded baseband setup
+with exact register readbacks; scanning/association/connectivity remain pending.
