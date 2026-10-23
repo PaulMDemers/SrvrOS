@@ -2650,3 +2650,14 @@ Validation for BBP front: full build, fixed-plan/per-operation failure tests,
 xHCI prerequisites and transport quarantine, prior MCU/MAC/CORE/readiness
 regressions, ASan/UBSan, 68 boot profiles and documentation checks pass.
 Native acceptance remains pending.
+
+Remaining CORE / initial IBI/AGC trial installed: sourcedaffe4c,
+release1874caf6830abdc0. Exact-stage GPT save/return and missing-workspace
+refusal/return VM checks pass. Workspace fsck/allocation clean; Ubuntu default
+and desktop recoverye47dca3a6b30c6c1 retained, accepted CORE5f7b66b688f803cb
+retained. Readiness6df00376834c37fd removed from ESP only after full durable
+archive equality. Run record build/bringup/wifi-bbp-front/run.json; payload,
+VM receipts and prepared collector archived in
+~/.local/share/srvros/macbookpro11-2/wifi-bbp-front-daffe4c. Unarmed, awaiting
+cold-trial readiness. Collect the matching session first after return; native
+acceptance pending. No RF/scan/connectivity test is included.
