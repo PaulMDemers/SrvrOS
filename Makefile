@@ -3534,3 +3534,8 @@ build/acpi-air61-battery/battery_vm_platform.o: ports/srvros/uacpi/runtime/batte
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -DSRVROS_BATTERY_AIR61 -c $< -o $@
 -include build/acpi-air61-battery/battery_vm_platform.d
+
+.PHONY: test-scheduler-activity
+test-scheduler-activity:
+	$(PYTHON) tools/test_scheduler_activity.py
+test-core: test-scheduler-activity

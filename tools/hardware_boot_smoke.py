@@ -438,6 +438,11 @@ def main():
                             assert "srvros.power=read-only" in exit_log
                             assert "desktop-idle-window: start_us=" in exit_log
                             assert power_idle_sample(exit_log) is None # Refused VM is never a power measurement.
+                            if 'worker-snapshot:' in exit_log:
+                                from hardware_desktop import desktop_worker_sample
+                                workers=desktop_worker_sample(exit_log)
+                                assert workers is not None, 'Incomplete worker attribution'
+                                (logs/'desktop-workers.json').write_text(json.dumps(workers,indent=2)+'\n')
                         capture=re.findall(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",exit_log)
                         assert len(capture)==1
                         image=stored.read(capture[0].removeprefix("/work/"))

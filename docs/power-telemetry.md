@@ -235,3 +235,31 @@ and recovery 9.293 W over 21.000 seconds. Initial idle power remains unavailable
 because eligible checkpoints cover less than ten seconds. Logged temperature
 peaked at 81 C; no diagnostic stop occurred. See the machine record for the
 session and limits; this is a short single-worker console result.
+
+## Worker attribution for matched comparisons
+
+The explicit read-only power capture now records a bounded CPU0 scheduler
+snapshot at each device checkpoint. Each row carries a boot-lifetime identity,
+reusable slot, copied name, timer samples, context switches into the thread,
+deadline-expiry wakes and explicit wait-queue wakes. A wake is counted only when
+a blocked thread becomes ready. An already-ready thread is not counted again;
+slot reuse resets counters and receives a new identity. No userspace ABI or
+scheduling deadline changes. Ordinary boots with power telemetry disabled do
+not emit these additional records.
+
+`hardware_desktop.py` adds `desktop_worker_sample` to collection. It requires a
+completed desktop capture and at least three complete, strictly ordered
+snapshots covering 20 seconds within its measurement window. Missing rows,
+duplicate identities/slots, counter regressions and changed identity bindings
+refuse attribution. Only lifetimes present throughout that covered interval
+receive deltas; partial lifetimes are listed separately. Later screenshot work
+is excluded. Keep the full raw log; a missing summary is incomplete evidence.
+
+These are software transitions, **not hardware wakeups, elapsed CPU runtime or
+energy**. Timer sampling can miss short workers. The measurement logger itself
+uses CPU and USB and appears in the results. Compare candidates with the same
+instrumentation, logging cadence, workload, panel setting, AC and adapter states.
+The legacy v26 capture excludes the ordinary Home battery owner; its result
+must not be labeled whole-desktop battery-service efficiency. A fresh v26
+baseline is the first bounded attribution step, followed by matched repeated
+captures before claiming savings. No CPU policy or deeper-idle change is made.
