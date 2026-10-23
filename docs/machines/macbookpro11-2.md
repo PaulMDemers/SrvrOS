@@ -2878,3 +2878,14 @@ plan, xHCI limits, capture/profile/tests. Fetched main5089172; new PR72
 contains only Air6,1 file identity acceptance documentation. Air PR69
 remains independent battery work. Actual integrated base remains22fd266.
 RF/connectivity and sequence reuse remain outside scope.
+
+AGC57/59/63+TXC0 candidate sourcede17cb6 / releasec34215d727a60f08
+installed unarmed. Build, compact/xHCI host tests, sanitizer,74 boot-profile
+tests and documentation checks pass. Exact-stage GPT VM saved/unmounted
+and reset; missing-workspace VM returned without probing. Payload, VM
+receipts, run record and collector archived outside build in
+wifi-agc-tail-de17cb6. Acceptedff59ebda5a2483ae and known-good desktop
+e47dca3a6b30c6c1 retained. Obsolete8bf9cd874ed0f02d removed from ESP
+only after archived-byte equality verification. Workspace clean before
+install:173files/508clusters, zero allocation errors; unmounted. Native
+acceptance pending cold adapter power cycle; Ubuntu remains default.
