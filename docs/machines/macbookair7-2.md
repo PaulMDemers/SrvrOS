@@ -2,7 +2,24 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: filesystem scale milestone complete
+### Active scope: measured desktop power and worker wakeups
+
+Base `7638d57` (merged PR102), branch `device/macbookair7-2/power-idle`.
+First establish a fresh matched desktop baseline with the existing read-only
+package-energy capture and new bounded per-worker scheduler accounting. Then
+target measured polling costs, preserving input, storage, audio and battery
+lifetimes. Scope: scheduler diagnostics, workspace checkpoint logging, collector,
+local fixtures and power documentation. No CPU policy, firmware gates or suspend
+changes. Pro PR19 `26a283b` retains USB Wi-Fi ownership; its xHCI/main/staging
+changes are outside this first diagnostic block. Actions remain disabled.
+
+Installed current/recovery and filesystem acceptance below remain unchanged.
+No physical run is armed. Native energy comparison is pending; VM CPU usage
+and scheduler ticks are not energy measurements. Before reboot, retain an exact
+stage rehearsal and matching host/device-state record; collect before changing
+polling behavior.
+
+### Previous checkpoint: filesystem scale milestone complete
 
 [PR102](https://github.com/PaulMDemers/SrvrOS/pull/102) replaces the old static
 filesystem tables with stable demand allocation, direct VFS enumeration,
