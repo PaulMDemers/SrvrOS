@@ -1,8 +1,9 @@
 # MacBookAir6,1 battery/AC bring-up
 
-The short parked SMBus capture is physically accepted on this unit: three
-sample generations and clean runtime retirement with AC connected. Battery gauge
-accuracy, AC transitions, alarms and desktop monitoring remain unaccepted. The
+Short parked SMBus sampling and bounded attended AC unplug/reconnect are
+physically accepted on this unit, including two observed alarm acknowledgements
+and clean runtime retirement. Battery gauge accuracy, broader alarm behavior,
+sustained operation and desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
@@ -334,3 +335,32 @@ phase timeout, the machine saves logs and returns to Ubuntu. Collect the matchin
 release and require `battery_smbus_transitions`, phase/current/timestamp proofs,
 clean retirement, preserved files and offline fsck/allocation. A modeled pass is
 not native transition acceptance or gauge calibration.
+
+## Attended AC native return accepted (2026-10-23)
+
+Release `321ba9c91e681a4c`, clean source `95c5219` (MR101), session
+`00065e8a183ee909-00` passes the strict native transition validator. Three fresh
+coherent samples were recorded per phase: connected generations 1–3, disconnected
+5–7 and reconnected 10–12. Final phase currents were 0, -1328000 and 0 µA,
+respectively. Reported relative charge was 97–98%; this does not establish gauge
+accuracy or calibration.
+
+The runtime handled 182 events, including two alarms and two acknowledgements,
+with zero unknown events or rejected samples. Twelve sample attempts completed;
+attach/detach balanced 1/1, with zero heap, errors or denied accesses at retirement.
+Post-alarm generation 12 exceeds invalidated generation 8. Controller/resource
+retirement, foreign-event restoration, complete exit log and automatic Ubuntu
+return are verified. This accepts the observed bounded parked transition and
+alarm-refresh path only; ordinary/Home/file battery ownership remains disabled.
+
+All 208 previous USB files remain unchanged except expected `.srvros/meta`.
+Three matching logs bring the total to 211 files. Offline exFAT/allocation pass
+with 391 clusters and zero leaks, mismatches or errors. Installed payload and
+recovery hashes pass; Ubuntu remains default and the one-shot is consumed.
+Console recovery `c35475f62f154f1e` and previous accepted captures remain retained.
+Matching raw logs, validation and return records are backed up outside build.
+
+Next recommended work is bounded battery service coexistence with a mounted USB
+workspace and file work, reusing the existing ownership/retirement mechanism with
+an independently audited Air6,1 admission. Desktop monitoring and longer sessions
+follow that boundary; no new run is armed by this closeout.
