@@ -569,3 +569,27 @@ battery startup path. Unsupported profiles keep apps usable; absent clock or
 blocking context refuses entry before ownership. Local validation and the
 attended Air7,2 v54 save/exit/reopen trial passed; see the Air record for exact
 source, sessions and acceptance limits. Preserve Air6,1 v53 basic desktop and Pro PR19 Wi-Fi recipes when integrating the shared staging files.
+
+
+## Combined Air desktop handoff (2026-10-23, PR #76)
+
+Air7,2 accepts the explicit v55 `--desktop-battery --desktop-services` ordinary
+Home profile on release `9aa8dbf6fbda8252`: existing brightness, HDA playback and
+read-only CPU/SMC coexist with battery, app/input use and save/exit/reopen. All
+prior files and offline allocation pass; two native lifetimes retire cleanly.
+Cached low-charge notices and System access from the battery label are shared
+UI mechanisms; warning thresholds remain synthetic tests, not battery-drain or
+calibration acceptance. Boot-scoped device workers persist at the monitor.
+
+Main `e741c58` and Air6,1's exact brightness gate/v56 recipe were integrated at
+`7376018`; v53/v54/v55/v56 and Pro v37 retain distinct behavior. Full local
+build/core/docs and combined audio/battery plus exact staged EFI regressions pass.
+The post-merge VM payload does not inherit physical acceptance from the earlier
+installed candidate. Actions remain disabled. No new Air physical run is armed.
+
+Pro PR19 head `f1785c6` remains the owner of bounded USB Wi-Fi MCU/baseband
+bring-up. Its latest record retains a later write/readback mismatch and successful
+read-only observations; RF/scan/association/connectivity remain unaccepted. Air
+can reuse mainline captured-adapter ECM support when an adapter is attached;
+no networking acceptance is inferred from this no-adapter desktop trial. Other
+machines must retain their own device gates and acceptance ledgers.

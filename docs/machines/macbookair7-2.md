@@ -55,8 +55,11 @@ not a physical battery-drain test. Validation artifacts are archived outside bui
 
 After the trial, main `e741c58` was inspected and merged at `7376018`, preserving
 Air6,1's exact brightness gate and separate v56 recipe alongside v53/v54/v55 and
-Pro v37. Local integration checks are in progress; physical acceptance above
-stays bound to the tested payload. Pro PR19 head `f1785c6` owns bounded USB Wi-Fi
+Pro v37. Full build/both runtime kernels/core/docs passed at `7376018`. Combined
+HDA/battery/save/reopen and exact merged EFI stage `bbd585f9114b6185` passed
+at `bc8bda9`, including final provider ownership and offline allocation. These
+merged artifacts are VM-tested; physical acceptance above stays bound to the
+installed `9aa8dbf6fbda8252` payload. Pro PR19 head `f1785c6` owns bounded USB Wi-Fi
 MCU/baseband work: eleven compact phases/readbacks and read-only TXBE observations
 are recorded; the later write mismatch remains unresolved, and RF/scan/association/
 connectivity are unaccepted. No draft Wi-Fi implementation was copied into this
