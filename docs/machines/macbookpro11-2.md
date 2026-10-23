@@ -2726,3 +2726,14 @@ Four-pair validation: full build, all shared fixed-plan regressions, new
 quarantine fixtures, ASan/UBSan, 70 boot profiles and docs checks pass.
 The comparison skips the old AGC phase; native expected tail baselines1/6464
 must change to3/3a6464. Physical batching acceptance remains pending.
+
+Four-pair comparison installed: sourced1c0811, releaseb3eaadb9ad679dbb.
+Exact-stage GPT save/return and missing-workspace refusal/return VM checks pass.
+Workspace fsck/allocation clean; Ubuntu default and desktop recovery
+e47dca3a6b30c6c1 retained; accepted AGCb245ac895a7d9396 retained. Older
+CORE/IBI1874caf6830abdc0 removed only after full durable archive equality.
+Run record build/bringup/wifi-bbp-batch/run.json; payload, VM receipts and
+strict tail-change collector archived in
+~/.local/share/srvros/macbookpro11-2/wifi-bbp-batch-d1c0811. Unarmed, awaiting
+cold-trial readiness. Collect matching session first after return; no native
+batching acceptance yet. RF and connectivity remain untested.
