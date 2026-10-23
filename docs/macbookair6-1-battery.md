@@ -298,3 +298,39 @@ All 205 prior USB files remain; only session metadata changed and three logs
 were added. Offline fsck/allocation pass: 208 files, 387 clusters, zero leaks,
 bitmap mismatches or errors. Ubuntu returned on a new boot, the one-shot is empty,
 and candidate/recovery hashes pass. Collected evidence is backed up outside build.
+
+## Attended parked AC transition candidate
+
+The separate v63 recipe is `--battery-air61 --battery-transitions` with this
+unit's `--laptop-probe-volume`. It uses the same exact Air6,1 firmware profile,
+parked volume, automatic recovery and serialized SMBus service as accepted v62.
+It does not admit direct v32 diagnostics, mounted Home, image/file work or normal
+startup. No EC/AML/NVS permissions change. `_Q21` reads EACP (EC `60` bit 1),
+writes boolean GNVS PWRS and notifies ADP1; PNOT only reads namespace state and
+notifies CPUs. Captured-table initialization, `_Q21`, `_PSR` and detach replay
+in all four lid/AC states has zero errors/denials/leaks; PWRS is the sole added
+private-memory byte write. This does not predict every query firmware may emit;
+unsupported queries still contain the run rather than execute unknown AML.
+
+The service consumer requires three consecutive coherent fresh readings for each
+connected/disconnected/reconnected phase. Disconnected current must be negative;
+connected current may be zero or positive. Duplicate cache reads never count;
+rejected or missed generations restart stability. Each phase has a 120-second
+wall-clock limit even when samples stop. Timeout retires normally and saves an
+incomplete result; faults retain the existing 30-second photograph/reset path.
+
+The attended capture has an explicit 4096-event ceiling (short v62 retains 128).
+At the observed 15 completions per sample, 128 cannot cover even the minimum nine
+readings. Existing per-query and per-transfer deadlines remain. Per-event UART
+records are suppressed only in this longer capture to preserve the bounded log
+and readable prompts; final aggregate counters, accepted-phase samples and
+retirement proofs are saved. This provides aggregate event evidence, not a full
+per-event history. No polling, alarm decoding or acknowledgement rules change.
+
+Start with AC connected and leave USB connected throughout. Wait for **UNPLUG
+AC**, disconnect only the charger, then wait for **RECONNECT AC** and reconnect
+it. Prompts repeat every five seconds while waiting. On normal completion or
+phase timeout, the machine saves logs and returns to Ubuntu. Collect the matching
+release and require `battery_smbus_transitions`, phase/current/timestamp proofs,
+clean retirement, preserved files and offline fsck/allocation. A modeled pass is
+not native transition acceptance or gauge calibration.
