@@ -602,3 +602,15 @@ under the run directory and hash-verified durable evidence outside build at
 `~/.local/share/srvros/evidence/db7ce82008f4b9a6/trial`. Run/launch records are
 returned-collected; GRUB one-shot is empty and USB is unmounted. No new trial
 is staged or armed. Next work should choose a bounded remaining acceptance scope.
+
+## Rerun refusal and preference persistence scope (2026-10-23)
+
+Base `5089172`, branch `device/macbookair6-1/rerun-preferences`. Prepare a focused
+attended follow-up using accepted release `db7ce82008f4b9a6` and the completed
+`f48940182e6911a0` workload. Preserve that workload; capture refusal stdout and
+exit status and compare its retained files with pre-test reference bytes. Save
+pointer speed 5/acceleration off through Settings, check reopening, then collect
+before a second boot verifies restoration. Scope is workload evidence helper,
+VM rehearsal and this unit's guide/record; no OS or firmware gate changes.
+PR #69 battery startup and PR #19 Wi-Fi remain separate. Re-run exact-stage GPT
+VM before readiness; retain Ubuntu default and console recovery. No reboot yet.
