@@ -4,6 +4,7 @@
 #include <srvros/workspace_image.h>
 #include <srvros/workspace_log.h>
 #include <srvros/battery_diagnostic.h>
+#include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
@@ -729,7 +730,10 @@ void kmain(void) {
     }
     trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
-    if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
+    if (cmdline_has_token(cmdline, "srvros.desktop=session")) {
+        if(cmdline_has_token(cmdline,"srvros.battery=on"))desktop_battery_session_run();
+        else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
+    } else if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
         if (!workspace_active()) {
             console_write("desktop-trial: USB workspace unavailable; trial not started. Photograph this screen.\n");
         } else {

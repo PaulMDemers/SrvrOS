@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -101,6 +101,9 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith("ram-usb-v37-"): cmdline += " srvros.usb-network=ecm"
         if version.startswith("ram-usb-v53-"):
             cmdline += f" srvros.desktop-release={release}"
+        if version.startswith("ram-usb-v54-"):
+            cmdline = cmdline.replace("srvros.desktop=trial", "srvros.desktop=session")
+            cmdline += f" srvros.desktop-release={release} srvros.battery=on"
     elif trackpad:
         volume, run = trackpad.groups()
         mode="gestures" if version.startswith(("ram-usb-v50-","ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
@@ -163,13 +166,15 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, tap_typing=False, desktop_basic=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, tap_typing=False, desktop_basic=False, desktop_battery=False):
     if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions) and hold_on_failure:
         raise ValueError("USB overlap requires automatic checkpoint/return")
     if hold_on_failure and laptop_probe_volume is None:
         raise ValueError("Hold-on-failure requires a laptop probe profile")
     if battery_transitions and battery_capture:
         raise ValueError("Battery sample and transition captures are separate profiles")
+    if desktop_battery and (desktop_volume is None or desktop_basic or desktop_scale != 1 or desktop_brightness or desktop_audio or desktop_sensors or desktop_network):
+        raise ValueError("Battery desktop requires its own unscaled Home profile")
     if desktop_basic and (desktop_volume is None or desktop_scale != 1 or desktop_brightness or desktop_audio or desktop_sensors or desktop_network):
         raise ValueError("Basic desktop requires an unscaled desktop volume without optional services")
     if desktop_network and not desktop_sensors:
@@ -210,7 +215,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v{53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
+        version = f"ram-usb-v{54 if desktop_battery else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
@@ -220,7 +225,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
-        "srvros.elf": ROOT / ("build/acpi-battery/srvros.elf" if (battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions) else "build/kernel/srvros.elf"),
+        "srvros.elf": ROOT / ("build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions) else "build/kernel/srvros.elf"),
         "initramfs.tar": ROOT / "build/initramfs.tar",
     }
     STAGE.mkdir(parents=True, exist_ok=True)
@@ -390,6 +395,8 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
+    elif verify(source).get("config_version", "").startswith("ram-usb-v54-"):
+        print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
     elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
@@ -444,7 +451,10 @@ def main():
     capture.add_argument("--battery-capture",action="store_true",help="explicit native battery diagnostic kernel; save and return only after clean teardown")
     capture.add_argument("--aml-capture",action="store_true",help="run the isolated snapshot-only AML diagnostic with workspace logging; return only after clean completion")
     capture.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
+    parser.add_argument("--desktop-battery",action="store_true",help="ordinary Home session with explicit battery monitoring; Ctrl+Alt+Esc exits")
     args = parser.parse_args()
+    if args.desktop_battery and (args.action != "stage" or not args.desktop_volume):
+        parser.error("--desktop-battery requires stage --desktop-volume")
     if args.hold_on_failure and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("--hold-on-failure requires stage --laptop-probe-volume")
     if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture or args.battery_transitions or args.battery_service or args.battery_usb_read or args.battery_usb_write or args.battery_filesystem or args.battery_desktop or args.battery_text or args.battery_load or args.battery_app_files or args.battery_controls or args.battery_query or args.battery_smbus or args.battery_smbus_files or args.battery_home or args.battery_home_session or args.battery_home_desktop or args.battery_home_transitions or args.keyboard_capture or args.cpu_load_capture) and (args.action != "stage" or not args.laptop_probe_volume):
@@ -471,7 +481,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

@@ -1,10 +1,13 @@
 # Cached battery and AC service
 
 The kernel service builds on the bounded Air7,2 battery diagnostic. It is linked
-only into the separate full-runtime image. Ordinary desktop boot still returns
-the disabled stub. A versioned read-only userspace snapshot feeds the desktop
-and System battery display; scoped Start/Stop controls passed the parked-workspace
-trial. Mounted workspace support remains a VM-only study.
+only into the separate full-runtime image. Default desktop boot uses the disabled
+stub. The explicit v54 ordinary Home session selects that runtime and starts the
+cached service under the accepted desktop owner; unsupported profiles remain
+unavailable while apps continue. A versioned read-only userspace snapshot feeds
+the desktop and System display. See [ordinary Home startup](battery-home-lifecycle.md#opt-in-ordinary-home-startup)
+for opt-in staging, exit/restart and validation limits. Native held-Home captures
+and AC transitions have Air7,2 acceptance; v54 ordinary startup is pending.
 See the [native runtime gate](native-ec-runtime.md) and
 [machine acceptance record](machines/macbookair7-2.md) for physical evidence.
 

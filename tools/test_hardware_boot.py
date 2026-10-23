@@ -119,6 +119,27 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 boot.stage(desktop_basic=True, **kwargs)
 
+    def test_battery_desktop_profile(self):
+        version="ram-usb-v54-desktop-37d8c5d0"
+        cfg=boot.limine_config("0123456789abcdef",version)
+        self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
+        self.assertIn('srvros.desktop=session',cfg)
+        self.assertIn('srvros.battery=on',cfg)
+        self.assertNotIn('srvros.desktop=trial',cfg)
+        for option in ('laptop-services','aml','audio','smc','power','capture','sensors','usb-network'):
+            self.assertNotIn('srvros.'+option+'=',cfg)
+        for kwargs in ({}, {'desktop_volume':'37d8c5d0','desktop_basic':True},
+                       {'desktop_volume':'37d8c5d0','desktop_scale':2},
+                       {'desktop_volume':'37d8c5d0','desktop_audio':True}):
+            with self.assertRaises(ValueError):boot.stage(desktop_battery=True, **kwargs)
+        for name in ('limine-binary/BOOTX64.EFI','acpi-battery/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(desktop_volume='37d8c5d0',desktop_battery=True)
+        manifest=boot.verify(self.stage/release)
+        self.assertEqual(manifest['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-battery/srvros.elf')
+
     def test_brightness_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0")
         self.assertIn('srvros.laptop-services=brightness',cfg)

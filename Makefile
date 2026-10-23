@@ -3384,9 +3384,9 @@ test-battery-desktop-records:
 test-core: test-battery-view
 test-battery-view: build/tests/battery-view$(HOST_EXE)
 	$<
-build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
+build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c kernel/src/drivers/battery_cache.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c userspace/widgets/src/battery.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c kernel/src/drivers/battery_cache.c userspace/widgets/src/battery.c -o $@
 
 .PHONY: test-battery-control
 test-core: test-battery-control
