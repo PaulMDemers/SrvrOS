@@ -3071,3 +3071,16 @@ Evidence archived in wifi-txbe-observe-ffa4e17/native-collection outside build.
 Ubuntu default, consumed one-shot, installed payload and desktop recovery
 verified. Workspace clean:185files/526clusters, zero leaks/mismatches/errors;
 unmounted. Run/checkpoint collected and unarmed. RF/connectivity not tested.
+
+TXBE mapping/transport audit completed without kernel or installed-payload changes.
+Pinned Linux v6.18 definitions independently reconstruct all40 phase11 bytes;
+USB request/index/value and MCU base/little-endian pairs agree. Compact/MCU tests
+pass. No mapping defect found; Linux completion checking does not establish exact
+readback semantics. Selected next bounded scope is TXBE9-only sequence15 with
+before/after guarded samples after phases0..10, leaving TXBE10/12/13 unwritten.
+Implementation and native evidence pending; do not relax failed v22 verification.
+Fetched mainab99517 (merged Air6,1 brightness PR79); inspected shared staging
+changes, preserve v56/basic brightness on future integration. PR76 remains Home
+services/battery, PR19 owns Wi-Fi. Actual integrated base22fd266 unchanged.
+Local audit receipts in build/bringup/txbe-audit, archived outside build.
+Current70e0236472c320bc and recoverye47dca3a6b30c6c1 unchanged; no boot armed.

@@ -1177,3 +1177,38 @@ the previous write mismatch. Phase11 remains unaccepted. Next audit the
 register mapping and write/read transport before selecting another write trial.
 Both completion markers passed; logs saved, Ubuntu recovered, and offline
 workspace allocation was clean. RF/connectivity remain untested.
+
+### TXBE write/read audit (2026-10-23)
+
+The local pinned Linux v6.18 references and independent packet reconstruction
+agree with the current code. [Register definitions](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+use TXBE base2700 plus four times the register index. Thus TXBE9/10/12/13
+are2724/2728/2730/2734; [initial settings](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h)
+are20000000/0/0/0. The MCU WLAN base410000 yields412724/412728/412730/412734.
+An independent reconstruction from those local references matched every byte
+of the actual phase11 codec output, including sequence15, length and padding.
+Compact and MCU regression tests passed. No address/endianness error was found.
+
+The [USB register path](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/usb.c)
+uses vendor-IN request7, address high16 in value and low16 in index, four bytes
+little-endian. Our direct read of2728 uses value0/index2728 and checks actual4.
+The [MCU path](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c)
+sends little-endian address/value pairs with command12. Linux waits for the
+matching sequence/event; its initialization path does not perform our strict
+per-register equality readback. That difference does not prove our observed
+mismatch harmless, and does not justify removing validation.
+
+The failed phase11 changed TXBE9 as well as attempting TXBE10/12/13. Its first
+reply/first-register readback passed, but it cannot isolate which write caused
+TXBE10 to differ. The read-only control sampled before any of those four writes
+and was stable for only1.887ms. These captures neither establish a free-running
+counter nor prove that TXBE10 ignored a write. Register semantics remain unknown.
+
+Selected next comparison: after accepted phases0..10, record guarded baseline
+samples, issue only TXBE9=20000000 once at unused sequence15, validate its exact
+reply and readback, then record the same guarded samples. Leave TXBE10/12/13
+unwritten. This separates the first write's effect from the failed batch without
+recycling a sequence or weakening v22 checks. A TXBE10 change would identify an
+effect associated with TXBE9 in this setup, not automatically establish counter
+semantics; stability would leave the TXBE10 write itself for a later isolated
+trial. This comparison is a design only, not an implemented or installed profile.
