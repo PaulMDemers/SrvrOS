@@ -37,5 +37,26 @@ int main(void) {
         assert(step(&t,1,true,true)==-1);
     }
     t=(struct battery_transition){0};assert(!step(&t,1,true,true));assert(step(&t,1,true,true)==-1);
+    t=(struct battery_transition){0};
+    struct battery_service_status c={.flags=BATTERY_CACHE_FRESH|BATTERY_CACHE_AC_PRESENT};
+    for(unsigned g=1;g<=3;g++) {
+        c.sample=sample(g);c.sample.current_ua=0;c.ac_sampled_us=g*2000000ull;
+        assert(!battery_transition_cached_step(&t,&c,c.sample.completed_us+1));
+        assert(!battery_transition_cached_step(&t,&c,c.sample.completed_us+2));
+    }
+    assert(t.phase==1);
+    c.sample=sample(5);c.ac_sampled_us=10000000;c.flags=BATTERY_CACHE_FRESH;
+    assert(!battery_transition_cached_step(&t,&c,c.sample.completed_us+1)&&t.stable==1);
+    c.flags=0;assert(!battery_transition_cached_step(&t,&c,c.sample.completed_us+2)&&!t.stable);
+    for(unsigned g=6;g<=11;g++) {
+        c.sample=sample(g);c.ac_sampled_us=g*2000000ull;c.flags=BATTERY_CACHE_FRESH;
+        if(g>=9){c.flags|=BATTERY_CACHE_AC_PRESENT;c.sample.current_ua=0;}
+        assert(battery_transition_cached_step(&t,&c,c.sample.completed_us+1)==(g==11));
+    }
+    assert(t.phase==3);
+    t=(struct battery_transition){0};c.flags=0;
+    assert(battery_transition_cached_step(&t,&c,BATTERY_TRANSITION_WAIT_US)==-1);
+    t=(struct battery_transition){.last_generation=5};c.sample=sample(4);c.flags=BATTERY_CACHE_FRESH;
+    assert(battery_transition_cached_step(&t,&c,c.sample.completed_us+1)==-1);
     puts("battery-transition: PASS consecutive coherent phases, discharge sign, stale/replayed samples and bounded waits");
 }

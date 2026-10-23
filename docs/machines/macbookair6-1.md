@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Passive native handoff accepted; connected offline runtime audited and isolated five-sample candidate implemented | Native bounded samples and retirement; ordinary desktop remains off |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement accepted | Mounted USB coexistence, desktop ownership, sustained sampling and gauge accuracy; ordinary desktop remains off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -1198,3 +1198,69 @@ Ubuntu returned with consumed one-shot; current/recovery hashes and default pass
 Current stays `bfde0423543f20d0`, recovery `c35475f62f154f1e`. USB is unmounted;
 no reboot is armed. Matching logs, validation and return state are backed up
 outside build before another trial.
+
+## Attended parked AC transition scope (2026-10-23)
+
+From main `249bb97`, this unit owns the next bounded Air6,1 attended AC
+transition capture: shared battery capture consumer/admission, boot recipe,
+collector and directed host/VM tests. Reuse the accepted serialized service and
+host-event owner with USB parked; keep ordinary/Home/file ownership disabled.
+Audit captured AC query effects and retain exact firmware/access gates. PR99 log
+capacity guards are consumed; Pro PR19 remains independent Wi-Fi work. Prepare
+and validate before an attended unplug/reconnect trial; no reboot is armed.
+
+## Attended AC candidate ready (2026-10-23)
+
+Release `321ba9c91e681a4c`, clean source `95c5219`, prepares v63 with the existing
+parked SMBus service and exact Air6,1 firmware/access gates. It requires three
+coherent fresh samples in each connected/disconnected/reconnected phase, with a
+120-second deadline per phase and 4096-event ceiling. No native AC-transition
+acceptance is claimed yet; ordinary battery startup remains off.
+
+Full build/core/desktop, 67 staging tests, 24 collector checks, transition/cache
+and malformed receipt tests pass. Captured `_Q21`/`_PSR` replay in all four lid/AC
+states initializes/disconnects with zero errors/denials/leaks. Seven directed VM
+cases pass: normal transitions, mid-read incoherence, alarm refresh, unsupported
+query containment, profile refusal, native refusal and a real 120-second phase
+timeout. Short Air6,1 and Air7,2 capture regressions pass. An earlier alarm fixture
+reconnected before three fresh readings and correctly saved an incomplete result;
+its receipt and clean filesystem evidence are retained separately. The adjusted
+fixture completes after post-alarm stabilization. Exact staged EFI/GPT refuses
+nonmatching native hardware, saves, unmounts and returns automatically.
+
+The 208-file USB baseline is unchanged; fsck/allocation pass with 387 clusters
+and zero leaks/mismatches/errors. Candidate and recovery hashes, Ubuntu default
+and empty one-shot pass. Console recovery `c35475f62f154f1e`, accepted short
+capture `bfde0423543f20d0`, desktop telemetry and passive preflight are retained.
+Superseded failed HPTC trial `15f29b76df51bab0` was removed from EFI after its
+independent backup was verified. Payload, run and validation evidence are saved
+outside build. No reboot is armed.
+
+Start with AC connected. Wait for UNPLUG AC, unplug only the charger, then wait
+for RECONNECT AC and reconnect it. USB stays connected throughout. Prompts repeat
+every five seconds. Completion or phase timeout saves and returns to Ubuntu;
+photograph any fault during the 30-second pause. Collect the matching transition
+receipt and verify runtime retirement and USB integrity before another run.
+
+## Attended AC return closeout (2026-10-23)
+
+Scope from main `d753051`: record this unit's native v63 acceptance in the
+machine ledger and battery guide; no runtime or access-gate changes. Open PR102
+(Air7,2 filesystem scale) and PR19 (Pro Wi-Fi) remain independent work.
+
+Release `321ba9c91e681a4c`, source `95c5219`, session `00065e8a183ee909-00`
+passes the strict transition receipt: three fresh samples per connected,
+disconnected and reconnected phase, generations 1–3/5–7/10–12. Disconnected
+current is -1328000 µA; connected currents are zero. Twelve attempts have zero
+rejections; 182 events include two alarms/two acknowledgements, no unknowns.
+Attach/detach is 1/1 and retired heap/errors/denied are zero. Post-alarm freshness,
+resource restoration, complete exit log and Ubuntu return are verified.
+
+All 208 prior files are preserved except expected metadata replacement; three
+new logs produce 211 files. Offline checks pass with 391 clusters and zero
+leaks/mismatches/errors. Payload/recovery hashes and Ubuntu default pass; one-shot
+is consumed. USB is unmounted and no reboot is armed. Evidence is independently
+backed up outside build. Accept only bounded parked AC transitions and observed
+alarm refresh, not gauge accuracy, sustained service or desktop ownership.
+Next recommended scope is bounded mounted-USB/file coexistence before desktop
+battery integration; retain exact Air6,1 admission and serialized retirement.

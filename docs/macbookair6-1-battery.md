@@ -1,8 +1,9 @@
 # MacBookAir6,1 battery/AC bring-up
 
-The short parked SMBus capture is physically accepted on this unit: three
-sample generations and clean runtime retirement with AC connected. Battery gauge
-accuracy, AC transitions, alarms and desktop monitoring remain unaccepted. The
+Short parked SMBus sampling and bounded attended AC unplug/reconnect are
+physically accepted on this unit, including two observed alarm acknowledgements
+and clean runtime retirement. Battery gauge accuracy, broader alarm behavior,
+sustained operation and desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
@@ -298,3 +299,68 @@ All 205 prior USB files remain; only session metadata changed and three logs
 were added. Offline fsck/allocation pass: 208 files, 387 clusters, zero leaks,
 bitmap mismatches or errors. Ubuntu returned on a new boot, the one-shot is empty,
 and candidate/recovery hashes pass. Collected evidence is backed up outside build.
+
+## Attended parked AC transition candidate
+
+The separate v63 recipe is `--battery-air61 --battery-transitions` with this
+unit's `--laptop-probe-volume`. It uses the same exact Air6,1 firmware profile,
+parked volume, automatic recovery and serialized SMBus service as accepted v62.
+It does not admit direct v32 diagnostics, mounted Home, image/file work or normal
+startup. No EC/AML/NVS permissions change. `_Q21` reads EACP (EC `60` bit 1),
+writes boolean GNVS PWRS and notifies ADP1; PNOT only reads namespace state and
+notifies CPUs. Captured-table initialization, `_Q21`, `_PSR` and detach replay
+in all four lid/AC states has zero errors/denials/leaks; PWRS is the sole added
+private-memory byte write. This does not predict every query firmware may emit;
+unsupported queries still contain the run rather than execute unknown AML.
+
+The service consumer requires three consecutive coherent fresh readings for each
+connected/disconnected/reconnected phase. Disconnected current must be negative;
+connected current may be zero or positive. Duplicate cache reads never count;
+rejected or missed generations restart stability. Each phase has a 120-second
+wall-clock limit even when samples stop. Timeout retires normally and saves an
+incomplete result; faults retain the existing 30-second photograph/reset path.
+
+The attended capture has an explicit 4096-event ceiling (short v62 retains 128).
+At the observed 15 completions per sample, 128 cannot cover even the minimum nine
+readings. Existing per-query and per-transfer deadlines remain. Per-event UART
+records are suppressed only in this longer capture to preserve the bounded log
+and readable prompts; final aggregate counters, accepted-phase samples and
+retirement proofs are saved. This provides aggregate event evidence, not a full
+per-event history. No polling, alarm decoding or acknowledgement rules change.
+
+Start with AC connected and leave USB connected throughout. Wait for **UNPLUG
+AC**, disconnect only the charger, then wait for **RECONNECT AC** and reconnect
+it. Prompts repeat every five seconds while waiting. On normal completion or
+phase timeout, the machine saves logs and returns to Ubuntu. Collect the matching
+release and require `battery_smbus_transitions`, phase/current/timestamp proofs,
+clean retirement, preserved files and offline fsck/allocation. A modeled pass is
+not native transition acceptance or gauge calibration.
+
+## Attended AC native return accepted (2026-10-23)
+
+Release `321ba9c91e681a4c`, clean source `95c5219` (MR101), session
+`00065e8a183ee909-00` passes the strict native transition validator. Three fresh
+coherent samples were recorded per phase: connected generations 1–3, disconnected
+5–7 and reconnected 10–12. Final phase currents were 0, -1328000 and 0 µA,
+respectively. Reported relative charge was 97–98%; this does not establish gauge
+accuracy or calibration.
+
+The runtime handled 182 events, including two alarms and two acknowledgements,
+with zero unknown events or rejected samples. Twelve sample attempts completed;
+attach/detach balanced 1/1, with zero heap, errors or denied accesses at retirement.
+Post-alarm generation 12 exceeds invalidated generation 8. Controller/resource
+retirement, foreign-event restoration, complete exit log and automatic Ubuntu
+return are verified. This accepts the observed bounded parked transition and
+alarm-refresh path only; ordinary/Home/file battery ownership remains disabled.
+
+All 208 previous USB files remain unchanged except expected `.srvros/meta`.
+Three matching logs bring the total to 211 files. Offline exFAT/allocation pass
+with 391 clusters and zero leaks, mismatches or errors. Installed payload and
+recovery hashes pass; Ubuntu remains default and the one-shot is consumed.
+Console recovery `c35475f62f154f1e` and previous accepted captures remain retained.
+Matching raw logs, validation and return records are backed up outside build.
+
+Next recommended work is bounded battery service coexistence with a mounted USB
+workspace and file work, reusing the existing ownership/retirement mechanism with
+an independently audited Air6,1 admission. Desktop monitoring and longer sessions
+follow that boundary; no new run is armed by this closeout.

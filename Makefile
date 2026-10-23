@@ -3325,6 +3325,7 @@ build/tests/battery-event-hold$(HOST_EXE): tools/test_battery_event_hold.c ports
 test-core: test-battery-transition
 test-battery-transition: build/tests/battery-transition$(HOST_EXE)
 	$<
+	$(PYTHON) tools/test_battery_smbus_transition_records.py
 build/tests/battery-transition$(HOST_EXE): tools/test_battery_transition.c ports/srvros/uacpi/runtime/battery_transition.h kernel/include/srvros/sbs_sample.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
