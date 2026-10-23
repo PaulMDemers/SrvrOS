@@ -2943,3 +2943,13 @@ v20 limit10, earlier limits preserved. Touch MCU plan, xHCI limits,
 capture/profile/tests. Refetched mainbd1e834 unchanged; Air PR69 battery
 and Air6,1 desktop evidence remain separate. Actual integrated base22fd266.
 No RF, connectivity or command identifier recycling. Native result pending.
+
+RXC4/5/7+TXO8 candidate sourcefd54365 / release492306b5fccc17b9
+installed unarmed. Build, compact/xHCI host tests, sanitizer,76 boot-profile
+tests and docs checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without probing. Payload, receipts, run record
+and collector archived outside build in wifi-rxc-tail-fd54365. Accepted
+7d6ccc2fe96d530c and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
+c34215d727a60f08 removed from ESP only after archive equality verification.
+Workspace clean before install:177files/514clusters, zero allocation errors,
+unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
