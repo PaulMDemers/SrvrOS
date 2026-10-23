@@ -82,3 +82,7 @@ __attribute__((weak)) bool battery_home_diagnostic_run(void *rsdp,struct limine_
 __attribute__((weak)) bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     (void)rsdp;(void)map;console_write("battery-home-session: unavailable in this kernel\n");return false;
 }
+
+__attribute__((weak)) bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    (void)rsdp;(void)map;console_write("battery-home-desktop: REFUSED diagnostic kernel required\n");return false;
+}

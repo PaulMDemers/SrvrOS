@@ -76,8 +76,8 @@ static bool recovery_study;
 static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbus_controls;
 static uint64_t smbus_workspace_hold;
 static bool mounted_home;
-/* Explicit VM-only continuous session, never selected by native startup. */
-static bool continuous_home, desktop_home;
+/* Continuous sessions are explicit: VM command or bounded native boot capture. */
+static bool continuous_home, desktop_home, desktop_capture;
 static uint64_t home_session_events;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
@@ -1670,7 +1670,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!free)return false;
     uint64_t lifetime=continuous_home?process_lifetime_create():0;
     if(continuous_home && !lifetime)return false;
-    const char *arguments=desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    const char *arguments=desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
     int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
         process_spawn_background_elf_args("/fat/bin/deskd",arguments);
     if(child<=0) {
@@ -1683,9 +1683,10 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     struct desktop_tree tree={.pids={pid},.count=1};
     f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
     uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false,guarded=false;
+    uint64_t capture_start=timer_monotonic_us(),first_generation=0,last_generation=0;
     if(bound && continuous_home) {
         bool started=battery_service_start(rsdp,map);
-        console_printf("battery-monitor: auto_start=%u native=disabled\n",(uint64_t)started);
+        console_printf("battery-monitor: auto_start=%u native=%s\n",(uint64_t)started,desktop_capture?"explicit-capture":"disabled");
     }
     if(bound)for(;;) {
         if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
@@ -1697,9 +1698,24 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
                 mounted_study_guard();guarded=true;
             }
         }
+        if(desktop_capture) {
+            struct battery_service_status state;battery_service_status(&state);
+            if(state.state==BATTERY_SERVICE_UNAVAILABLE || state.state==BATTERY_SERVICE_FAULTED)break;
+            if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {
+                if(!first_generation)first_generation=state.sample.generation;
+                last_generation=state.sample.generation;
+            }
+            if(timer_monotonic_us()-capture_start>=240000000)break;
+        }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
         uacpi_kernel_sleep(10);
+    }
+    if(desktop_capture) {
+        uint64_t elapsed=timer_monotonic_us()-capture_start;
+        ok=ok && elapsed>=175000000 && first_generation && last_generation>=first_generation+30;
+        console_printf("battery-home-desktop-sample: first_gen=%u last_gen=%u elapsed_us=%u complete=%s\n",
+            first_generation,last_generation,elapsed,ok?"yes":"NO");
     }
     f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
     battery_control_revoke(&controls);irq_restore(f);
@@ -2111,22 +2127,24 @@ static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) 
 static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,unsigned files,bool home,bool continuous) {
     if((!home && !battery_platform_workspace_study_allowed()) || !workspace_active() || workspace_image_busy() ||
        scheduler_io_active() || mounted_home || continuous_home || smbus_study || smbus_capture || query_study || query_capture ||
-       (continuous && (!home || !battery_platform_workspace_study_allowed())) ||
+       (continuous && (!home || (!desktop_capture && !battery_platform_workspace_study_allowed()))) ||
        owner!=OWNER_NONE || controls.group || service.running || service.quarantined) {
         console_write(home?"battery-workspace-controls: REFUSED explicit Home ownership\n":"battery-workspace-controls: REFUSED VM-only mounted study\n");return false;
     }
     if(!mounted_study_acquire()){console_write("battery-workspace-controls: REFUSED mount hold\n");return false;}
     smbus_study=!home;mounted_home=home;smbus_controls=true;home_session_events=0;continuous_home=continuous;
     console_printf("battery-workspace-controls: begin mounted=yes native=%s\n",home?"explicit":"disabled");
-    if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
+    if(desktop_capture)console_write("battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=explicit-capture\n");
+    else if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
     if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
-    bool logging=!desktop_home || workspace_log_start();
-    if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=disabled\n",logging?"started":"FAILED");
+    bool logging=!desktop_home || (desktop_capture?workspace_log_active():workspace_log_start());
+    if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=%s\n",logging?"started":"FAILED",desktop_capture?"explicit-capture":"disabled");
     bool complete=logging && controls_test(rsdp,map,automatic,true,files);
     if(desktop_home) {
         if(!workspace_log_quiesce(5000))unsafe("desktop logger retirement");
-        bool saved=logging && workspace_log_stop();
-        console_printf("battery-home-desktop: logger_retired=yes final_saved=%s\n",saved?"yes":"NO");
+        bool saved=logging && (desktop_capture || workspace_log_stop());
+        if(desktop_capture)console_write("battery-home-desktop: logger_retired=yes final_deferred=yes\n");
+        else console_printf("battery-home-desktop: logger_retired=yes final_saved=%s\n",saved?"yes":"NO");
         complete=complete && saved;
     }
     struct battery_service_status final;battery_service_status(&final);
@@ -2140,6 +2158,18 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     mounted_study_release();
     smbus_controls=false;smbus_study=false;mounted_home=false;continuous_home=false;
     return complete;
+}
+bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(desktop_home || desktop_capture || continuous_home || !workspace_log_active())return false;
+    /* Only the explicit boot capture calls this. runtime_open still enforces
+     * the captured native EC/SMBus/firmware profile. Fatal mounted ownership
+     * cannot use automatic reset; the outer capture owns the final log. */
+    if(!battery_diagnostic_auto_return(false))return false;
+    desktop_home=desktop_capture=true;
+    console_write("battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none\n");
+    bool ok=workspace_controls_test(rsdp,map,false,0,true,true);
+    desktop_home=desktop_capture=false;
+    return ok;
 }
 bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return workspace_controls_test(rsdp,map,true,1,true,false);

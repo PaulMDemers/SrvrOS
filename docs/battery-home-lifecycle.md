@@ -436,3 +436,40 @@ The inherited-process/PTY, continuous alarm/restart and older bounded Home cance
 regressions also passed. Durable evidence is under
 `~/.local/share/srvros/local-validation/home-desktop-43519102297f`.
 These checks do not enable or accept ordinary native startup.
+
+## Explicit automatic Home capture (v51)
+
+The `--battery-home-desktop` staging option selects a separate, automatic native
+capture. It starts the ordinary Home desktop with Text open and the battery
+service active, measures 180 seconds, saves a screenshot under Home/Screenshots,
+then exits. The logger stays active throughout and writes alternating periodic
+snapshots. This is an explicit capture only: ordinary startup and the native
+`acpiruntime battery-home-desktop` command remain disabled. Native controller,
+firmware and resource gates are unchanged.
+
+The inherited process lifetime covers Text, file workers and the screenshot
+worker. On exit it is revoked and drained before stopping the battery service.
+The runtime proves its held-source return and resource retirement before the
+process lifetime is released. Periodic logging then quiesces before releasing the
+mount hold. The outer capture writes the completion record into `exit.log`,
+unmounts and returns to Ubuntu. A platform or query refusal is a failed capture
+with a clean return when ownership permits it. Uncertain live runtime ownership
+still halts without claiming cleanup or writing a final report.
+
+No input is required; keep power and the designated USB workspace connected.
+The desktop has a 240-second supervisory deadline. Completion also requires at
+least 175 seconds of service observation and 30 fresh generation advances;
+the desktop's independent idle measurement must cover at least 179 seconds.
+These are continuity checks, not a maximum polling latency or power target.
+The screenshot worker has its existing 30-second deadline. Retirement retains
+the existing five-second process drain and 35-second service stop bounds.
+
+`battery_home_desktop_capture_smoke.py` exercises the actual boot capture on a
+disposable Q35 volume, including completion, profile/query refusal and uncertain
+acknowledgement. `battery_home_desktop_records.check_capture` validates saved
+receipts, generation progress, elapsed time, matching lifetime identity, resource
+restoration and shutdown order. Physical collection must additionally bind the
+log to its staged source/release and new session, verify the saved BMP and all
+pre-existing files, then run offline filesystem/allocation checks. A VM pass
+accepts neither physical gauge accuracy nor native AC transitions. An attended
+unplug/replug and indicator check still precedes ordinary native startup.

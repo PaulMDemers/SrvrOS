@@ -786,3 +786,27 @@ check outer-file preservation, both filesystems/allocation, and Ubuntu recovery.
 A valid v46 receipt does not accept v47. No physical interaction is required;
 missing completion, interrupted work, event-limit failure or quick reset is not
 a pass. Ordinary mounted Home and automatic battery startup stay off.
+
+### Automatic continuous Home battery trial
+
+For the reference Air's explicit continuous desktop trial, build both the normal
+image and native diagnostic kernel, then stage with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_VOLUME --battery-home-desktop`.
+This selects v51 and automatic return. Use the normal exact-stage VM, durable
+payload/evidence backup, verified install and one-shot Ubuntu recovery sequence
+above. The separate Q35 capture fixture validates the positive path; exact-stage
+VM rehearsal must refuse native hardware ownership and return cleanly.
+
+The run needs no input. It opens ordinary Home/Text for three minutes while the
+battery service and periodic logging run, saves a Home/Screenshots BMP, retires
+all inherited clients and firmware ownership, saves `exit.log`, unmounts and
+returns. Existing Home files and preferences must be preserved. No fresh
+`battery-study` directory is needed. Allow several minutes for boot, screenshot
+I/O and retirement. Only unresolved live ownership may halt; a clean refusal
+returns automatically and is not a pass.
+
+Collect the matching session before another run. Require the strict
+`battery_home_desktop_records.check_capture` result plus the new screenshot,
+source/release identity, prior-file hashes and offline filesystem checks.
+Physical typing and AC/gauge accuracy remain separate attended acceptance.
+See [the Home lifecycle contract](battery-home-lifecycle.md#explicit-automatic-home-capture-v51).
