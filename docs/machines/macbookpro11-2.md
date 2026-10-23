@@ -3272,3 +3272,22 @@ payload equality verification. Workspace clean:193files/538clusters, zero
 allocation errors; unmounted. Ubuntu default, no reboot armed. Native clock
 transition and subsequent comparison await a cold adapter power cycle; collect
 matching session first after return. Existing TXBE write failures remain failures.
+
+
+Native clock prerequisite accepted: source `1b3e323`, release
+`67f92f9c2a4d9365`, session `00065e87eb5deca5-00`. Clock status0 complete1,
+six reads, PBF80000->80c00, MAC disabled/idle before and after; readiness
+retained80c00. Eleven compact phases/44 target readbacks passed. Sequence15
+MCU read matched all16 EP0 samples at TXBE10=37fff; TXBE9/12/13 stayed0,
+MAC0/COREf000f200 guards held. Before2866911..2872953us,
+after2873320..2876195us. Both completion markers YES. This accepts the clock
+prerequisite and read comparison only; no TXBE write or RF/connectivity acceptance.
+Next bounded scope is an isolated TXBE10 zero-write comparison with clocks enabled,
+keeping the exact zero-readback gate and historical failures intact.
+
+Evidence archived outside build in wifi-clock-1b3e323/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Workspace clean:195files/541clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected and unarmed. Fetched maindf44fa0 (Air6,1 audio endurance);
+PR87 telemetry and PR83 attended acceptance remain separate scopes. Actual
+integrated base22fd266 unchanged. No new candidate staged or reboot armed.

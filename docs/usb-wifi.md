@@ -1419,7 +1419,7 @@ transmit/receive enable, other MAC-table expansion or startup change is accepted
 The local `txbe-prerequisite-audit` receipt checks source ordering, bit arithmetic
 and five exact native logs; it is not a hardware trial.
 
-### Explicit clock prerequisite implementation (native pending)
+### Explicit clock prerequisite implementation and native result
 
 Firmware v28 (`--wifi-clock`, requiring TXBE start and excluding all TXBE
 alternatives) adds one guarded clock transition between compact phases1 and2.
@@ -1437,3 +1437,19 @@ is separate from the generic firmware writer and admits only completed MAC
 phases0/1 with no baseband attempt yet. Historical profiles do not enable it.
 This tests the prerequisite and subsequent observations; a pass would not
 retroactively accept the failed TXBE write tests or enable RF connectivity.
+
+The native v28 trial passed on MacBookPro11,2: source `1b3e323`, release
+`67f92f9c2a4d9365`, session `00065e87eb5deca5-00`. The one-time clock write
+changed PBF from `80000` to `80c00`; all six clock reads passed, with MAC
+still disabled and idle. Baseband readiness retained `80c00`, and all eleven
+compact phases / 44 target readbacks passed. The sequence15 MCU read matched
+all sixteen EP0 samples: TXBE10 remained `37fff`, TXBE9/12/13 remained zero,
+and every MAC0/COREf000f200 boundary held. Both capture completion markers
+passed and the session saved, unmounted and returned to Ubuntu.
+
+This accepts the explicit clock prerequisite and read-path agreement with it
+in place. It does not establish that missing clocks caused the previous write
+failures: no TXBE10 write occurred in this run. The next bounded comparison
+should repeat the isolated zero write with the accepted clock prerequisite,
+retaining exact zero readback as its success condition. RF and connectivity
+remain untested. Historical write failures remain failures.
