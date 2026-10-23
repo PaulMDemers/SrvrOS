@@ -364,3 +364,34 @@ Next recommended work is bounded battery service coexistence with a mounted USB
 workspace and file work, reusing the existing ownership/retirement mechanism with
 an independently audited Air6,1 admission. Desktop monitoring and longer sessions
 follow that boundary; no new run is armed by this closeout.
+
+## Bounded USB file coexistence candidate (v64)
+
+The explicit `--battery-air61 --battery-smbus-files` laptop probe reuses the
+existing [parked image capture](battery-smbus-events.md#parked-smbustextfile-capture-v47).
+A fresh 16 MiB `srvros-work/battery-fs.img` contains disposable test data. The
+outer workspace is unmounted and aliases revoked before runtime admission;
+only the exclusive image view performs real USB writes. This is not ordinary
+mounted Home or desktop battery enablement.
+
+Air6,1 admission requires its exact captured platform, coherent service sampling,
+service owner, automatic recovery, the same parked volume, no mounted workspace
+and a ready unpoisoned image lease. Entry requires idle storage; once admitted,
+the existing image I/O scopes allow sampling between bounded storage operations.
+Ordinary service, controls, mounted Home and VM studies cannot use this admission.
+The short v62 and attended v63 gates retain their separate storage requirements.
+There are no new firmware, EC, AML, NVS or PCI permissions.
+
+The workload runs 60 generated edits and five Text save/open cycles while the
+serialized service samples and handles natural events. The event cap stays 512;
+existing startup, 90-second desktop and 35-second stop deadlines remain. Clients
+and file workers retire before the battery service, then the image flushes and
+revokes before outer remount/log save/unmount. Terminal uncertainty preserves the
+existing reset interlock: no reset during active storage I/O and no filesystem
+cleanup from a live fault context. A missing completion is failed/incomplete.
+
+Keep AC and USB connected throughout this automatic test; no typing or charger
+changes are required. On return require the strict `battery_smbus_files` receipt,
+all 60 edits/five cycles, fresh post-alarm cache, balanced resource retirement and
+clean image revocation. Verify exact inner contents, both allocation graphs and
+all other USB file hashes. Native coexistence acceptance remains pending.
