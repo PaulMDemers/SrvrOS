@@ -50,6 +50,9 @@ bool exfat_delete_file(const char *path);
 bool exfat_create_directory(const char *path);
 bool exfat_delete_directory(const char *path);
 bool exfat_rename(const char *old_path, const char *new_path);
+/* Read-only node-table admission, including metadata replacement and VFS slots.
+ * Caller owns filesystem exclusion. This is a point-in-time check, not a lease. */
+bool exfat_creation_capacity(const char *path, uint64_t files, uint64_t dirs);
 bool exfat_statfs(const char *path, struct exfat_fsinfo *info);
 bool exfat_check(const char *mountpoint, struct exfat_check_result *result);
 void exfat_check_print(const char *mountpoint);

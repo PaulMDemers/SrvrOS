@@ -3515,3 +3515,8 @@ test-battery-failure-display: build/tests/battery-failure-display$(HOST_EXE)
 build/tests/battery-failure-display$(HOST_EXE): tools/test_battery_failure_display.c ports/srvros/uacpi/runtime/battery_failure_display.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-log-archive
+test-core: test-log-archive
+test-log-archive:
+	$(PYTHON) tools/test_hardware_log_archive.py

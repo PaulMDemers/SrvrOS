@@ -53,7 +53,8 @@ static void equal(const char *path, const uint8_t *expected, uint64_t n) {
 int main(int argc, char **argv) {
     assert(argc>=3);
     bool image_range=!strcmp(argv[2],"image-range");
-    bool check_only=image_range||!strcmp(argv[2],"allocation-check");
+    bool headroom_only=!strcmp(argv[2],"headroom-check");
+    bool check_only=headroom_only||image_range||!strcmp(argv[2],"allocation-check");
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -79,6 +80,11 @@ int main(int argc, char **argv) {
             struct block_device *resolved=NULL;uint64_t offset=0;
             ok=exfat_exclusive_range("/vol/srvros-work/battery-fs.img",16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
             printf("image-range: %s offset=%llu bytes=16777216\n",ok?"PASS":"REFUSED",(unsigned long long)offset);
+        }
+        if(headroom_only) {
+            bool room=exfat_creation_capacity("/vol/new-trial",32,8);
+            printf("headroom-check: %s reserve_files=32 reserve_directories=8 plus_metadata=yes\n",room?"PASS":"REFUSED");
+            ok=ok && room;
         }
         assert(!writes && !flushes);
         printf("allocation-check: %s files=%llu clusters=%llu leaked=%llu fat_bitmap_mismatches=%llu errors=%llu\n",
@@ -200,8 +206,13 @@ int main(int argc, char **argv) {
             strcpy(last,path); count++; assert(count<10000);
         }
         assert(count>512 && exfat_is_writable("/vol") && !vfs_lookup(path));
+        unsigned before=writes;
+        assert(!exfat_creation_capacity("/vol/new",1,0));
+        assert(exfat_creation_capacity("/vol/new",0,1));
+        assert(!exfat_creation_capacity("/vol/new",UINT64_MAX,0) && writes==before);
         const struct vfs_node *meta=vfs_lookup("/vol/.srvros/meta"); assert(meta && meta->size>65536);
         assert(exfat_delete_file(last));
+        assert(exfat_creation_capacity("/vol/new",1,0));
         assert(exfat_write_file(path,(const uint8_t *)"saved",5));
         assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
         equal(path,(const uint8_t *)"saved",5);

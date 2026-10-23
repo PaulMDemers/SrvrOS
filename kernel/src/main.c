@@ -746,25 +746,32 @@ void kmain(void) {
         } else {
             console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
             console_printf("desktop-trial: boot options=%s\n",cmdline);
-            (void)workspace_log_start();
-            /* Device checks retain ECM but start Help; legacy network trials keep their script. */
-            bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm") &&
-                !cmdline_has_token(cmdline,"srvros.desktop-check=devices");
-            bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
-            bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
-                (scaled?"--network-trial --scale=2":"--network-trial") :
-                (scaled?"--hardware-trial --scale=2":"--hardware-trial"));
-            audio_print_status();
-            thermal_print_status();
-            smc_print_status();
-            xhci_print_input_summary(); /* Include gesture counters in the saved exit snapshot. */
-            bool logs_saved=workspace_log_stop();
-            console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");
-            bool unmounted = workspace_unmount();
-            console_printf("desktop-trial: desktop returned=%s USB unmounted=%s\n", exited?"yes":"NO", unmounted?"yes":"NO");
-            console_write("This is a manual trial, not an automated pass. Photograph any failure.\n");
-            if (unmounted) console_write("When finished, type reboot to return to Ubuntu.\n");
-            else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+            if(!workspace_log_start()) {
+                console_write("desktop-trial: NOT STARTED; diagnostics unavailable. Archive old logs in Ubuntu and retry.\n");
+                bool unmounted=workspace_unmount();
+                console_printf("desktop-trial: USB unmounted=%s\n",unmounted?"yes":"NO");
+                if(unmounted) console_write("Type reboot to return to Ubuntu.\n");
+                else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+            } else {
+                /* Device checks retain ECM but start Help; legacy network trials keep their script. */
+                bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm") &&
+                    !cmdline_has_token(cmdline,"srvros.desktop-check=devices");
+                bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
+                bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
+                    (scaled?"--network-trial --scale=2":"--network-trial") :
+                    (scaled?"--hardware-trial --scale=2":"--hardware-trial"));
+                audio_print_status();
+                thermal_print_status();
+                smc_print_status();
+                xhci_print_input_summary(); /* Include gesture counters in the saved exit snapshot. */
+                bool logs_saved=workspace_log_stop();
+                console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");
+                bool unmounted = workspace_unmount();
+                console_printf("desktop-trial: desktop returned=%s USB unmounted=%s\n", exited?"yes":"NO", unmounted?"yes":"NO");
+                console_write("This is a manual trial, not an automated pass. Photograph any failure.\n");
+                if (unmounted) console_write("When finished, type reboot to return to Ubuntu.\n");
+                else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+            }
         }
     }
     monitor_run();

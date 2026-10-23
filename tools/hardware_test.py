@@ -71,6 +71,8 @@ def batch_runs(run, repeat=1):
 def prepare(uuid, repeat=1):
     volume = volume_id(uuid)
     mount = volume_mount(volume)
+    from hardware_log_archive import require_headroom
+    require_headroom(mount, files=64*repeat, dirs=8*repeat)
     folder = mount / 'srvros-tests'
     if folder.is_symlink():
         raise RuntimeError('Refusing a symlink at the USB result directory')
@@ -151,6 +153,8 @@ def launch(run):
     if manifest['config_version'] != expected or manifest['sha256'] != metadata['boot_manifest']['sha256']:
         raise RuntimeError('Staged payload does not match this test request')
     mount = volume_mount(metadata['volume'])
+    from hardware_log_archive import require_headroom
+    require_headroom(mount, files=64*repeat, dirs=8*repeat)
     for member in members:
         if repeat == 5:
             child = load_run(member)

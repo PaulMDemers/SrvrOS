@@ -214,6 +214,57 @@ This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
 
+### Workspace log capacity and verified archival
+
+Free disk bytes and clean fsck are insufficient for creating new files: the
+current driver has 1024 file slots and 256 directory slots per mounted volume.
+Metadata replacement also needs a temporary file slot. Check the entire mounted
+USB before staging, using this host's UUID:
+
+```sh
+python3 tools/hardware_log_archive.py check --uuid "$SRVROS_USB_UUID"
+python3 tools/hardware_log_archive.py plan --uuid "$SRVROS_USB_UUID"
+```
+
+The default admission reserve is 32 files and 8 directories, plus missing
+metadata entries. Workspace preparation checks this reserve; automated tests
+reserve 64 files and 8 directories per round. These are point-in-time checks,
+not a capacity lease. The kernel logger independently checks the reserve before
+creating a session. An attended trial refuses to start without diagnostics and
+reports whether USB unmount succeeded, instead of opening a desktop with an
+empty log directory. Existing failure/return policy remains profile-specific.
+
+Archive only with an explicit command and a fresh destination on the Ubuntu
+filesystem, outside the checkout. Create its parent first:
+
+```sh
+mkdir -p "$HOME/.local/share/srvros/log-archives"
+python3 tools/hardware_log_archive.py archive --uuid "$SRVROS_USB_UUID" \
+  --destination "$HOME/.local/share/srvros/log-archives/UNIQUE-RUN" --prune
+```
+
+The bounded batch contains at most 32 old completed sessions and retains the
+newest 32 session names by timestamp. Incomplete sessions, unknown contents and
+user documents are preserved. Every selected file is copied, SHA-256 verified
+and flushed with a manifest on another device before its USB copy is removed.
+Omit `--prune` for archive-only operation. There is no automatic deletion during
+boot. If preserved evidence still fills the volume, stop and arrange additional
+verified archival rather than deleting unknown files or increasing driver limits.
+
+After archival, unmount and run both offline checks from the normal preflight
+sequence. Add `--require-headroom` to the allocation checker to validate the
+reserve with the real SrvrOS filesystem/VFS implementation:
+
+```sh
+sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-headroom
+```
+
+A disposable exact-stage negative rehearsal is available for an ordinary desktop
+trial: `tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check
+--desktop-no-headroom --workspace-table gpt`. It verifies capacity refusal,
+no session creation, preserved files and clean unmount; it does not replace the
+normal positive desktop rehearsal or physical acceptance.
+
 For the attended audio/Ethernet/input desktop candidate, after a successful build
 (see [device checks](device-acceptance.md) for the required human actions):
 
