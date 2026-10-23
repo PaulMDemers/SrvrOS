@@ -931,7 +931,7 @@ unchanged. CORE0 stayedf000f200 and MAC stayed disabled. Prior setup checks
 and both saved completion markers passed. Remaining AGC/baseband configuration,
 RF, scanning, association and connectivity are not accepted by this result.
 
-### Four-pair command comparison (native pending)
+### Four-pair command comparison (accepted on captured Pro adapter)
 
 Firmware v14 (`--wifi-bbp-batch`, requiring `--wifi-bbp-agc`) replaces the
 two-command AGC phase with one40-byte sequence14 command after completed
@@ -946,8 +946,7 @@ exact first-entry reply validation, every target readback, disabled MAC and
 CORE identity guards, cancellation boundaries and one-attempt behavior. Public
 entry points still expose only fixed plans. Four-pair success requires one
 completed batch, ack_mask1 and12 reads. The strict expected reply is
-[4a0e0008,0041233c,88a28cb8,4a0e0008]; this remains a hypothesis until the
-matching native capture confirms it. Unexpected replies fail the trial.
+[4a0e0008,0041233c,88a28cb8,4a0e0008]; the native capture below confirms this fixed command contract. Unexpected replies fail the trial.
 
 `make test-mt76-bbp-batch` covers the independent40-byte fixture, reply bit
 mutations, all13 I/O failures and14 authorization boundaries, stale/short/long
@@ -956,3 +955,13 @@ regress the shared engine. Native fixtures cover prerequisites, every packet
 bit mutation, exact40-byte admission, one submission, read scope and quarantine.
 A passing trial will support consolidation of setup commands; larger tables
 and sequence-space exhaustion still require explicit design, not counter reset.
+
+Native source d1c0811 / releaseb3eaadb9ad679dbb, session00065e7a17440518-00
+passed: one40-byte sequence14 command, exact16-byte reply, status0, submitted1,
+completed1, ack_mask1 and12 reads. AGC15/22 remained88a28cb8/1e21; the final
+two pairs changed AGC1 from1->3 and AGC2 from6464->3a6464, proving application
+of the packet tail. The old sequence12/13 phase was absent. CORE0 remained
+f000f200 and MAC0, preceding setup checks and saved completion markers passed.
+This accepts the fixed four-pair command on this adapter, not arbitrary batch
+sizes, command types, sequence reuse or RF/connectivity. Consolidating setup
+with this width is the next step toward freeing command identifiers.

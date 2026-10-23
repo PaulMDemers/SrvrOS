@@ -2737,3 +2737,17 @@ strict tail-change collector archived in
 ~/.local/share/srvros/macbookpro11-2/wifi-bbp-batch-d1c0811. Unarmed, awaiting
 cold-trial readiness. Collect matching session first after return; no native
 batching acceptance yet. RF and connectivity remain untested.
+
+Four-pair native acceptance (2026-10-23): sourced1c0811,
+releaseb3eaadb9ad679dbb, session00065e7a17440518-00 passed one40-byte command,
+exact sequence14/16-byte reply, status0/submitted1/completed1/ack_mask1/reads12.
+AGC15/22 stayed88a28cb8/1e21; tail pairs AGC1/2 changed1/6464->3/3a6464.
+The earlier sequence12/13 AGC phase was absent, so tail readbacks prove full
+payload application. CORE0 stayedf000f200, MAC stayed0; preceding setup checks
+and both completion markers passed. Matching logs/hashes archived outside build
+in wifi-bbp-batch-d1c0811/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+167files/499clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
+collected and unarmed. Next consolidate setup using accepted four-pair batches
+to free command identifiers before remaining baseband work; sequence reuse,
+RF/scan/association/connectivity remain unaccepted.
