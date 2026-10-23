@@ -423,3 +423,29 @@ backed up. Installed hashes, Ubuntu default and GRUB syntax verified; next_entry
 empty. Run/checklist and VM evidence have hash-verified copies outside build.
 At readiness save launch.json and arm the installed entry without reinstalling.
 After manual restart collect this run and the user's visible-highlight feedback.
+
+
+## Native tap highlight verification accepted (2026-10-22)
+
+Evidence-only follow-up on base `9256faa`, branch
+`device/macbookair6-1/highlight-evidence`; no implementation changes. Open
+PR #66 AC/battery transitions and PR #19 Wi-Fi remain independent work.
+
+For run `cd54ca6d8f2cd4fb`, release `ab0bea06acccc443`, source `d15b5a7`, the
+user reports “The tapping and clicking both working great.” This is positive
+feedback for the requested highlight verification on the merged MR #64 fix.
+Visible feedback acceptance is user-reported; saved counters do not measure
+rendered button colors or pulse timing. Collector validates report CRC/completion
+and changed host boot ID: tap/typing, pointer and gesture trials EXERCISED,
+keyboard/desktop exit PASS. Counts include 11 primary taps, 20 button edges,
+32 typing-suppressed frames, 26 scroll events and 765 reports. No malformed
+reports, driver errors, pointer cancels/queue overflows or dropped keys.
+Secondary taps and broad-contact suppression remain unexercised in this run.
+
+All 118 unrelated pre-test files retain their hashes. Only the expected consumed
+request, metadata and report/completion changes occurred. Offline fsck is clean
+(122 files); allocation 125 clusters, zero leaks/mismatches/errors. Evidence and
+completion under `build/trackpad-tests/cd54ca6d8f2cd4fb/` have a hash-verified
+durable backup under release `ab0bea06acccc443`. Installed payloads and Ubuntu
+default are verified; one-shot consumed. Current remains this accepted bounded
+trial, previous remains console recovery `c35475f62f154f1e`. No new boot prepared.
