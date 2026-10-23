@@ -3038,3 +3038,10 @@ one-shot and installed payload/recovery verified. Workspace clean:
 Run/checkpoint collected failed/unarmed. Next bounded read-only TXBE10
 sampling to distinguish changing status/counter behavior from a write failure;
 keep strict gates until evidence establishes semantics. No new reboot armed.
+
+Active scope: read-only TXBE9/10/12/13 observation after the eleven accepted
+compact phases. Eight fixed samples bracketed by MAC/CORE guards, no phase11
+submission, retry or relaxed write verification. Touch pure MCU diagnostic,
+xHCI ownership, capture/profile and tests. Main83a3f59 inspected (Air6,1
+brightness documentation); PR76 Home services and PR79 Air6,1 brightness
+remain separate. Integrated base22fd266. Native register semantics unknown.

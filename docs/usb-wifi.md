@@ -1150,3 +1150,19 @@ log fields for those unread values are not evidence. Both completion markers
 are NO. This phase remains unaccepted; next investigate TXBE10 with bounded
 read-only samples. Do not infer counter semantics or relax readback from
 this single observation. RF/connectivity remain untested.
+
+### Read-only TXBE observation (native pending)
+
+Firmware v23 (`--wifi-txbe-observe`, requiring `--wifi-txbe-start` and
+excluding `--wifi-txbe-next`) executes accepted compact phases0..10, then
+collects eight fixed samples of TXBE9/10/12/13 at2724/2728/2730/2734.
+Each sample reads MAC1004 and CORE2000 before and after; all64 reads must
+succeed with MAC0, COREf000f200 and no all-ones response. The diagnostic
+has no write/exchange callback, does not submit phase11, and cannot retry.
+Native ownership requires all eleven prior completions and no phase11 attempt.
+
+`wifi-txbe-observe` reports status/read/sample counts; `wifi-txbe-sample`
+records only fully guarded samples, with monotonic time at the TXBE10 read.
+Changing values are recorded without claiming counter/status semantics or
+accepting a write. Strict v22 verification remains unchanged. RF/connectivity
+remain untested. Results save to the normal workspace log and return to Ubuntu.

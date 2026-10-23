@@ -122,7 +122,7 @@ enum mt76_mcu_timing_status mt76_mcu_apply_bbp_batch(struct mt76_mcu_mac *sessio
     const struct mt76_mcu_timing_io *io);
 
 /* Twelve fixed four-pair plans, sequences4..15; no caller-supplied tables.
- * First eleven accepted in release6477738b1d3cf7d5; phase11 native pending.
+ * First eleven accepted in release6477738b1d3cf7d5; phase11 failed native TXBE10 readback.
  * Transport enforces phase order, prior completion and readiness before phase2. */
 #define MT76_MCU_COMPACT_PHASES 12u
 bool mt76_mcu_compact_read_allowed(unsigned phase,uint32_t address);
@@ -130,6 +130,24 @@ size_t mt76_mcu_compact_packet(unsigned phase,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_compact_reply(unsigned phase,const uint8_t *data,size_t length);
 enum mt76_mcu_timing_status mt76_mcu_apply_compact(unsigned phase,
     struct mt76_mcu_mac *session,const struct mt76_mcu_timing_io *io);
+
+/* Read-only observation after accepted phases0..10, never phase11. Eight
+ * fixed samples; guards before/after each. Values are observations, not write
+ * acceptance or a claim about register semantics. No exchange/write callback. */
+#define MT76_TXBE_SAMPLES 8u
+struct mt76_txbe_observation {
+    bool attempted, complete;
+    unsigned reads, samples;
+    uint32_t values[MT76_TXBE_SAMPLES][8];
+};
+struct mt76_txbe_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*read)(void *context,uint32_t address,uint32_t *value);
+};
+bool mt76_txbe_read_allowed(uint32_t address);
+enum mt76_mcu_timing_status mt76_txbe_observe(struct mt76_txbe_observation *s,
+    const struct mt76_txbe_io *io);
 
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion
  * requires a new, proven-drained transport session, not just clearing this

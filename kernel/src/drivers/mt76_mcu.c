@@ -343,3 +343,29 @@ bool mt76_mcu_retire(struct mt76_mcu_session *s, uint8_t sequence,
     s->pending = 0;
     return true;
 }
+
+static const uint32_t txbe_observe_addresses[8]={
+    0x1004,0x2000,0x2724,0x2728,0x2730,0x2734,0x1004,0x2000
+};
+bool mt76_txbe_read_allowed(uint32_t address) {
+    for(unsigned i=0;i<8;i++)if(address==txbe_observe_addresses[i])return true;
+    return false;
+}
+enum mt76_mcu_timing_status mt76_txbe_observe(struct mt76_txbe_observation *s,
+    const struct mt76_txbe_io *io) {
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned n=0;n<MT76_TXBE_SAMPLES;n++) {
+        for(unsigned i=0;i<8;i++) {
+            if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+            uint32_t v=0;
+            if(!io->read(io->context,txbe_observe_addresses[i],&v))return MT76_TIMING_IO;
+            s->reads++;s->values[n][i]=v;
+            if(v==UINT32_MAX || ((i==0 || i==6) && v!=0) ||
+                ((i==1 || i==7) && v!=0xf000f200))return MT76_TIMING_STATE;
+        }
+        s->samples++;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

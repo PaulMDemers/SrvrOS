@@ -698,6 +698,47 @@ static bool wifi_mcu_compact_step(struct xhci_device *d,unsigned phase) {
     m->compact_next++;return true;
 }
 
+static bool wifi_txbe_observe_owned(void *context) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    return m->txbe_observe_active && m->compact_mode && !m->compact_active &&
+        m->compact_limit==11 && m->compact_next==11 && wifi_compact_prefix(m,11) &&
+        !m->compact_submitted[11] && !m->compact[11].attempted &&
+        wifi_mcu_owned(d) && m->configured && !m->pending &&
+        m->identity_validated && m->write_validated && m->timing.complete &&
+        m->timing.ack_validated && d->firmware.radio_reset.prepared &&
+        m->bbp.complete && m->bbp.core==0xf000f200;
+}
+static bool wifi_txbe_observe_read(void *context,uint32_t address,uint32_t *value) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(!value || !wifi_txbe_observe_owned(d) || !mt76_txbe_read_allowed(address) ||
+        m->txbe_observation.samples>=MT76_TXBE_SAMPLES)return false;
+    struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    int actual=0;*value=0;
+    if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
+    for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    if(address==0x2728)m->txbe_sample_us[m->txbe_observation.samples]=timer_monotonic_us();
+    return true;
+}
+static bool wifi_mcu_observe_txbe(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    m->txbe_observe_active=true;
+    const struct mt76_txbe_io io={d,wifi_txbe_observe_owned,wifi_txbe_observe_read};
+    struct mt76_txbe_observation *s=&m->txbe_observation;
+    enum mt76_mcu_timing_status status=mt76_txbe_observe(s,&io);
+    m->txbe_observe_active=false;
+    console_printf("wifi-txbe-observe: status=%u attempted=%u complete=%u reads=%u samples=%u\n",
+        (uint64_t)status,(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->reads,(uint64_t)s->samples);
+    /* Only emit fully guarded samples, never zero-initialized missing reads. */
+    for(unsigned i=0;i<s->samples;i++) {
+        uint32_t *v=s->values[i];
+        console_printf("wifi-txbe-sample: index=%u monotonic_us=%u mac_before=%x core_before=%x txbe9=%x txbe10=%x txbe12=%x txbe13=%x mac_after=%x core_after=%x\n",
+            (uint64_t)i,m->txbe_sample_us[i],(uint64_t)v[0],(uint64_t)v[1],
+            (uint64_t)v[2],(uint64_t)v[3],(uint64_t)v[4],(uint64_t)v[5],(uint64_t)v[6],(uint64_t)v[7]);
+    }
+    if(status!=MT76_TIMING_OK)return wifi_mcu_fail(d);
+    return true;
+}
+
 static bool wifi_bbp_owned(void *context) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return wifi_mcu_owned(d) && m->configured && !m->pending && m->bbp_active &&
@@ -740,7 +781,7 @@ static bool wifi_mcu_initialize_compact(struct xhci_device *d,unsigned limit) {
     return true;
 }
 
-static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool timing,bool mac_basics,bool format,bool bbp,bool bbp_core,bool bbp_front,bool bbp_agc,bool bbp_batch,bool compact,unsigned agc_steps) {
+static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool timing,bool mac_basics,bool format,bool bbp,bool bbp_core,bool bbp_front,bool bbp_agc,bool bbp_batch,bool compact,unsigned agc_steps,bool observe) {
     unsigned found=0;bool saved=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];struct xhci_wifi_firmware *f=&d->firmware;
@@ -775,7 +816,10 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             m->identity_validated=true;
             if(write_probe && !wifi_mcu_capture_write(d))saved=false;
             else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
-            else if(compact) { if(!wifi_mcu_initialize_compact(d,5+agc_steps))saved=false; }
+            else if(compact) {
+                if(!wifi_mcu_initialize_compact(d,5+agc_steps))saved=false;
+                else if(observe && !wifi_mcu_observe_txbe(d))saved=false;
+            }
             else if(mac_basics && !wifi_mcu_initialize_mac(d))saved=false;
             else if(format && !wifi_mcu_initialize_format(d))saved=false;
             else if(bbp && !wifi_mcu_probe_bbp(d))saved=false;
@@ -789,41 +833,43 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
     return found && saved;
 }
 
-bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false,false,false,false,false,false,false,false,false,false,false,false,false); }
-bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true,false,false,false,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_mcu(void) { return wifi_capture_mcu(false,false,false,false,false,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_radio_reset(void) { return wifi_capture_mcu(true,false,false,false,false,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_write_probe(void) { return wifi_capture_mcu(true,true,false,false,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_write_probe(void) { return wifi_capture_mcu(true,true,false,false,false,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_pair_probe(void) { return wifi_capture_mcu(true,true,true,false,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_pair_probe(void) { return wifi_capture_mcu(true,true,true,false,false,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_timing_probe(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_timing_probe(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_mac_basics(void) { return wifi_capture_mcu(true,true,true,true,true,false,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_mac_basics(void) { return wifi_capture_mcu(true,true,true,true,true,false,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_mac_format(void) { return wifi_capture_mcu(true,true,true,true,true,true,false,false,false,false,false,false,false); }
+bool xhci_wifi_capture_mac_format(void) { return wifi_capture_mcu(true,true,true,true,true,true,false,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_ready(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,false,false,false,false,false,false); }
+bool xhci_wifi_capture_bbp_ready(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,false,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_core(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,false,false,false,false,false); }
+bool xhci_wifi_capture_bbp_core(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,false,false,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_front(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,false,false,false,false); }
+bool xhci_wifi_capture_bbp_front(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,false,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_agc(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,false,false,false); }
+bool xhci_wifi_capture_bbp_agc(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,false,false,false,false); }
 
-bool xhci_wifi_capture_bbp_batch(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,true,false,false); }
+bool xhci_wifi_capture_bbp_batch(void) { return wifi_capture_mcu(true,true,true,true,true,true,true,true,true,true,true,false,false,false); }
 
-bool xhci_wifi_capture_compact(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,false); }
+bool xhci_wifi_capture_compact(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,false,false); }
 
-bool xhci_wifi_capture_agc_more(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,true); }
+bool xhci_wifi_capture_agc_more(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,true,false); }
 
-bool xhci_wifi_capture_agc_next(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,2); }
+bool xhci_wifi_capture_agc_next(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,2,false); }
 
-bool xhci_wifi_capture_agc_tail(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,3); }
+bool xhci_wifi_capture_agc_tail(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,3,false); }
 
-bool xhci_wifi_capture_rxc_start(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,4); }
+bool xhci_wifi_capture_rxc_start(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,4,false); }
 
-bool xhci_wifi_capture_rxc_tail(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,5); }
+bool xhci_wifi_capture_rxc_tail(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,5,false); }
 
-bool xhci_wifi_capture_txbe_start(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6); }
+bool xhci_wifi_capture_txbe_start(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,false); }
 
-bool xhci_wifi_capture_txbe_next(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,7); }
+bool xhci_wifi_capture_txbe_next(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,7,false); }
+
+bool xhci_wifi_capture_txbe_observe(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,6,true); }

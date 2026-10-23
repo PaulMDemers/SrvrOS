@@ -28,7 +28,43 @@ static int exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t c
  memcpy(reply,r,16);if(f->stale)reply[2]=3;f->writes++;return 16;
 }
 static enum mt76_mcu_timing_status run(struct fake *f,struct mt76_mcu_mac *s){const struct mt76_mcu_timing_io io={f,authorize,read_reg,exchange};return mt76_mcu_apply_compact(f->phase,s,&io);}
+struct obs_fake {unsigned reads,auth,fail,deny,bad,ones;};
+static bool obs_auth(void *p) {struct obs_fake *f=p;return ++f->auth!=f->deny;}
+static bool obs_read(void *p,uint32_t a,uint32_t *v) {
+ struct obs_fake *f=p;unsigned n=f->reads++,i=n%8;
+ const uint32_t order[]={0x1004,0x2000,0x2724,0x2728,0x2730,0x2734,0x1004,0x2000};
+ assert(a==order[i]);*v=a==0x1004?0:a==0x2000?0xf000f200:n;
+ if(f->bad==n+1)*v^=1;
+ if(f->ones==n+1)*v=UINT32_MAX;
+ return f->fail!=n+1;
+}
+static enum mt76_mcu_timing_status obs_run(struct obs_fake *f,struct mt76_txbe_observation *s) {
+ const struct mt76_txbe_io io={f,obs_auth,obs_read};return mt76_txbe_observe(s,&io);
+}
+static void test_observe(void) {
+ struct obs_fake f={0};struct mt76_txbe_observation s={0};
+ assert(obs_run(&f,&s)==MT76_TIMING_OK && s.complete && s.samples==8 && s.reads==64 && f.reads==64 && f.auth==65);
+ for(unsigned n=0;n<8;n++)for(unsigned i=2;i<6;i++)assert(s.values[n][i]==8*n+i);
+ assert(obs_run(&f,&s)==MT76_TIMING_REFUSED && f.reads==64);
+ for(unsigned n=1;n<=64;n++) {
+  f=(struct obs_fake){.fail=n};s=(struct mt76_txbe_observation){0};
+  assert(obs_run(&f,&s)==MT76_TIMING_IO && f.reads==n && s.reads==n-1 && !s.complete);
+  assert(obs_run(&f,&s)==MT76_TIMING_REFUSED);
+  f=(struct obs_fake){.ones=n};s=(struct mt76_txbe_observation){0};
+  assert(obs_run(&f,&s)==MT76_TIMING_STATE && f.reads==n && !s.complete);
+  unsigned i=(n-1)%8;
+  if(i<2 || i>5){f=(struct obs_fake){.bad=n};s=(struct mt76_txbe_observation){0};assert(obs_run(&f,&s)==MT76_TIMING_STATE && f.reads==n && !s.complete);}
+ }
+ for(unsigned n=1;n<=65;n++) {
+  f=(struct obs_fake){.deny=n};s=(struct mt76_txbe_observation){0};
+  assert(obs_run(&f,&s)==MT76_TIMING_CANCELLED && f.reads==n-1 && !s.complete);
+ }
+ for(unsigned a=0;a<0x10000;a++)assert(mt76_txbe_read_allowed(a)==(a==0x1004 || a==0x2000 || a==0x2724 || a==0x2728 || a==0x2730 || a==0x2734));
+ assert(mt76_txbe_observe(NULL,NULL)==MT76_TIMING_REFUSED);
+ puts("mt76 TXBE observation: PASS fixed read order, changing values, all failure points, guards and one attempt");
+}
 int main(void){
+ test_observe();
  for(unsigned p=0;p<12;p++){
   uint8_t expected[40],reply[16],out[42];fixture(p,expected,reply);memset(out,0xcc,sizeof out);
   assert(mt76_mcu_compact_packet(p,out+1,40)==40 && !memcmp(out+1,expected,40) && out[0]==0xcc && out[41]==0xcc);
