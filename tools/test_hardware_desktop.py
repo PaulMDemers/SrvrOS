@@ -428,6 +428,32 @@ class CollectionTests(unittest.TestCase):
             image.unlink();image.symlink_to(folder/'boot.log')
             _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
 
+    def test_guided_home_transitions_require_all_three_images(self):
+        import struct
+        from test_battery_home_desktop_records import transitions_fixture
+        native=transitions_fixture().replace(b'0x62f',b'0x189c').replace(b'0x62e',b'0x189e')
+        boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-transitions\n'
+        proof=boot+native
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);work=root/'usb/srvros-work';folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for name in desktop.FILES:(folder/name).write_bytes(proof if name=='exit.log' else boot)
+            images=work/'Screenshots';images.mkdir()
+            bmp=bytearray(70);bmp[:2]=b'BM';struct.pack_into('<I',bmp,2,70);struct.pack_into('<IIiiHHI',bmp,10,54,40,2,2,1,32,0)
+            for i in range(3):(images/f'Screen-{i}.bmp').write_bytes(bmp)
+            out,report=desktop.collect(root/'usb','37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertFalse(item['attention']);self.assertEqual(len(item['battery_home_transitions']['screenshots']),3)
+            for i in range(3):
+                image=images/f'Screen-{i}.bmp';self.assertEqual((out/item['session']/image.name).read_bytes(),bmp)
+                for bad in (None,bmp[:-1]):
+                    if bad is None:image.unlink()
+                    else:image.write_bytes(bad)
+                    _,report=desktop.collect(root/'usb','37d8c5d0',root/'out')
+                    self.assertIsNone(report['sessions'][0]['battery_home_transitions'])
+                    image.write_bytes(bmp)
+            (folder/'session-a.log').unlink()
+            _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_transitions'])
+
     def test_home_session_collects_exact_work_files_and_native_proof(self):
         from test_battery_control_files_records import fixture,home_fixture
         native=home_fixture(fixture()).replace(b'enable=0x62f',b'enable=0x189c').replace(b'enable=0x62e',b'enable=0x189e')

@@ -37,7 +37,39 @@ workspace-log: snapshot=exit.log monotonic_us=191000000 total_before=9000 tail_l
 '''
 
 
+def transitions_fixture():
+    data=fixture().replace(b'battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none',
+        b'battery-home-transitions-capture: begin phases=3 watchdog_seconds=480 startup=disabled input=AC-unplug-reconnect')
+    data=data.replace(b'battery-home-desktop-sample:',b'battery-home-transitions-sample:').replace(b'battery-home-desktop-capture: returned',b'battery-home-transitions-capture: returned')
+    phases=[]
+    for phase in range(3):
+        first=phase*10+1;ac=int(phase!=1);sample=(phase+1)*20000000
+        phases.append((f'desktop-ac: accepted={phase} stable=3 epoch=1 first_gen={first} last_gen={first+2} ac={ac} soc=86 current_ua={0 if ac else -250000} voltage_uv=12000000 remaining=4300000 full=5000000 unit=1 ac_us={sample-1000} sampled_us={sample} age_us=500 label={"AC · " if ac else ""}86%\n'
+            f'deskd: screenshot captured path=/work/srvros-work/Screenshots/Screen-{phase}.bmp width=2 height=2\n'
+            f'deskd: screenshot saved status=0 path=/work/srvros-work/Screenshots/Screen-{phase}.bmp\n'
+            f'desktop-ac: screenshot phase={phase} saved=yes\n'+
+            (f'desktop-ac: prompt phase={phase+1}\n' if phase<2 else '')).encode())
+    begin=data.index(b'desktop-idle: elapsed_us=');end=data.index(b'battery-home-transitions-sample:')
+    return data[:begin]+b''.join(phases)+b'desktop-ac: completed=yes phases=3 screenshots=3\n'+data[end:]
+
+
 class Records(unittest.TestCase):
+    def test_transitions_require_ordered_distinct_samples_and_saved_images(self):
+        data=transitions_fixture();result=check_capture(data,vm=True,transitions=True)
+        self.assertEqual([p['ac'] for p in result['phases']],[True,False,True])
+        for old,new in ((b'last_gen=3',b'last_gen=2'),(b'first_gen=11',b'first_gen=1'),
+                        (b'current_ua=-250000',b'current_ua=0'),(b'ac=0',b'ac=1'),
+                        (b'epoch=1 first_gen=11',b'epoch=2 first_gen=11'),
+                        (b'age_us=500',b'age_us=5000001'),(b'label=86%','label=AC · 86%'.encode()),
+                        (b'ac_us=39999000',b'ac_us=19999000'),(b'full=5000000',b'full=0'),
+                        (b'Screen-1.bmp',b'Screen-0.bmp'),(b'completed=yes phases=3',b'completed=yes phases=2')):
+            with self.subTest(old=old),self.assertRaises(AssertionError):check_capture(data.replace(old,new),vm=True,transitions=True)
+        for row in data.splitlines(keepends=True):
+            if row.startswith((b'desktop-ac:',b'deskd: screenshot')):
+                for bad in (data.replace(row,b'',1),data+row):
+                    with self.subTest(row=row),self.assertRaises(AssertionError):check_capture(bad,vm=True,transitions=True)
+        with self.assertRaises(AssertionError):check_capture(data,vm=True)
+
     def test_complete_vm_and_native(self):
         data=fixture();self.assertEqual(check_capture(data,vm=True)['battery_events'],2100)
         self.assertEqual(check_capture(data.replace(b'\n',b'\r\n'),vm=True)['peak_members'],4)
