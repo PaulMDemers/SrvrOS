@@ -1,6 +1,10 @@
 #!/fat/bin/sh
 # Explicit attended checks. Never infer perception or overall PASS from completion.
 reports="$HOME/device-checks"
+if [ -e "$reports" ]; then
+    echo 'device-checks: existing reports retained; collect before another run'
+    exit 1
+fi
 mkdir "$reports" || exit 1
 echo started > "$reports/sequence.txt" || exit 1
 echo 'DEVICE CHECKS: headphones, Ethernet and trackpad. No prompt has a deadline.'
