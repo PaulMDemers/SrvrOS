@@ -3045,3 +3045,15 @@ submission, retry or relaxed write verification. Touch pure MCU diagnostic,
 xHCI ownership, capture/profile and tests. Main83a3f59 inspected (Air6,1
 brightness documentation); PR76 Home services and PR79 Air6,1 brightness
 remain separate. Integrated base22fd266. Native register semantics unknown.
+
+Read-only TXBE observation candidate sourceffa4e17 / release70e0236472c320bc
+installed unarmed. Build, compact/MCU/xHCI tests, sanitizer,79 boot-profile
+checks and docs checks pass. Collector accepts a synthetic eight-sample receipt
+and rejects nine incomplete/corrupt variants; this is not native evidence.
+Exact-stage GPT VM saved/unmounted/reset; missing-workspace VM returned without
+probing. Payload, receipts, run record and collector archived outside build in
+wifi-txbe-observe-ffa4e17. Desktop recoverye47dca3a6b30c6c1 retained;
+failed9cc1888913aa7ff5 remains installed for comparison. Accepted6477738b1d3cf7d5
+removed from ESP only after archive equality verification. Workspace clean:
+183files/523clusters, zero allocation errors, unmounted. Native observation
+pending cold adapter power cycle; Ubuntu default and no reboot armed.
