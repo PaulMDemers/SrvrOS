@@ -2833,3 +2833,13 @@ fixed MCU plan, xHCI limits, capture/profile and tests. Fetched mainaddbd02;
 PR71 imported file-identity/workload replay fix inspected, outside isolated
 Wi-Fi capture; Air PR69 remains battery scope. Retain accepted integration
 22fd266 for this trial. No RF or sequence reuse; new settings native pending.
+
+AGC33/34/37/41 candidate b3e4ee1 / releaseff59ebda5a2483ae installed
+unarmed. Build, focused MCU/baseband/xHCI tests, sanitizer,73 profile tests
+and documentation checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing workspace returned without starting the probe. Payload, VM receipts,
+run record and collector archived outside build in wifi-agc-next-b3e4ee1.
+Current accepted8bf9cd874ed0f02d and desktope47dca3a6b30c6c1 retained;
+obsoletee459728ba57fea08 removed from ESP only after archive equality check.
+Workspace preboot filesystem/allocation checks pass, unmounted. Native
+acceptance pending an attended cold adapter power cycle; Ubuntu stays default.
