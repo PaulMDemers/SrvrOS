@@ -930,3 +930,29 @@ AGC2 changed6464->3a6464; AGC15/22 already matched88a28cb8/1e21 and stayed
 unchanged. CORE0 stayedf000f200 and MAC stayed disabled. Prior setup checks
 and both saved completion markers passed. Remaining AGC/baseband configuration,
 RF, scanning, association and connectivity are not accepted by this result.
+
+### Four-pair command comparison (native pending)
+
+Firmware v14 (`--wifi-bbp-batch`, requiring `--wifi-bbp-agc`) replaces the
+two-command AGC phase with one40-byte sequence14 command after completed
+CORE/IBI/AGC0 setup. It writes the same accepted AGC values in order15/22/1/2.
+Putting AGC1/2 last allows their expected changes1->3 and6464->3a6464 to prove
+that the adapter processed the packet tail. Sequence12/13 is skipped in this
+profile; older profiles retain their original commands and bytes. No new
+register values, RF enable or sequence recycling is introduced.
+
+The private engine now supports fixed two- or four-pair batches. It retains
+exact first-entry reply validation, every target readback, disabled MAC and
+CORE identity guards, cancellation boundaries and one-attempt behavior. Public
+entry points still expose only fixed plans. Four-pair success requires one
+completed batch, ack_mask1 and12 reads. The strict expected reply is
+[4a0e0008,0041233c,88a28cb8,4a0e0008]; this remains a hypothesis until the
+matching native capture confirms it. Unexpected replies fail the trial.
+
+`make test-mt76-bbp-batch` covers the independent40-byte fixture, reply bit
+mutations, all13 I/O failures and14 authorization boundaries, stale/short/long
+replies, all readbacks and identity/MAC guards. Existing fixed-plan tests
+regress the shared engine. Native fixtures cover prerequisites, every packet
+bit mutation, exact40-byte admission, one submission, read scope and quarantine.
+A passing trial will support consolidation of setup commands; larger tables
+and sequence-space exhaustion still require explicit design, not counter reset.

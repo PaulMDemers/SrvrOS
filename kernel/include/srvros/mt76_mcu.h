@@ -97,20 +97,28 @@ enum mt76_mcu_timing_status mt76_mcu_apply_mac_format(struct mt76_mcu_mac *sessi
 /* Fixed initial BBP CORE plan: 2004=2,2010=0,2060=0,2080=4003000a.
  * Sequences8/9; caller pins completed frame format and native BBP readiness.
  * Each batch also requires captured CORE0=f000f200 before/after. No arbitrary
- * table input or RF/channel/power/MAC-enable writes. Native trial pending. */
+ * table input or RF/channel/power/MAC-enable writes. Native accepted in release5f7b66b688f803cb. */
 size_t mt76_mcu_bbp_packet(unsigned batch,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_bbp_reply(unsigned batch,const uint8_t *data,size_t length);
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_core(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
-/* Fixed CORE42/44, IBI11 and AGC0 plan; native acceptance pending. */
+/* Fixed CORE42/44, IBI11 and AGC0; accepted in release1874caf6830abdc0. */
 size_t mt76_mcu_bbp_front_packet(unsigned batch,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_bbp_front_reply(unsigned batch,const uint8_t *data,size_t length);
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_front(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
-/* Fixed AGC1/2/15/22 plan; native acceptance pending. */
+/* Fixed AGC1/2/15/22; accepted in releaseb245ac895a7d9396. */
 size_t mt76_mcu_bbp_agc_packet(unsigned batch,uint8_t *out,size_t capacity);
 bool mt76_mcu_validate_bbp_agc_reply(unsigned batch,const uint8_t *data,size_t length);
 enum mt76_mcu_timing_status mt76_mcu_apply_bbp_agc(struct mt76_mcu_mac *session,
+    const struct mt76_mcu_timing_io *io);
+
+/* Comparison only: rewrite accepted AGC values in one four-pair command,
+ * sequence14, replacing the two-command AGC plan after completed IBI/AGC0.
+ * Changed targets last; native batching pending. */
+size_t mt76_mcu_bbp_batch_packet(unsigned batch,uint8_t *out,size_t capacity);
+bool mt76_mcu_validate_bbp_batch_reply(unsigned batch,const uint8_t *data,size_t length);
+enum mt76_mcu_timing_status mt76_mcu_apply_bbp_batch(struct mt76_mcu_mac *session,
     const struct mt76_mcu_timing_io *io);
 
 /* Serialized session: never recycle the four-bit sequence space. Exhaustion

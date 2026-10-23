@@ -2201,6 +2201,113 @@ static void test_wifi_bbp_agc_reads(void) {
     puts("xhci-bbp-agc-read: PASS exact read scope and failure quarantine");
 }
 
+static void test_wifi_bbp_batch_binding(void) {
+    for(unsigned fault=0;fault<32;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb out[64]={0},in[64]={0},events[64]={0};
+        uint8_t tx[200]={0},rx[1024]={0},packet[40],reply[1024];
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000}};
+        struct xhci_wifi_firmware *f=&d->firmware;
+        *f=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .radio_reset={.prepared=true},.buffer=tx,.buffer_phys=0x10000,
+            .ep={.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16}};
+        f->mcu=(struct xhci_wifi_mcu){.configured=true,.identity_validated=true,
+            .write_validated=true,.bbp_batch_active=true,.format={.complete=true,.ack_mask=3},.bbp_front={.complete=true,.ack_mask=3,.batches_completed=2},.bbp_setup={.complete=true,.ack_mask=3,.batches_completed=2},.bbp={.complete=true,.core=0xf000f200},.mac={.complete=true,.ack_mask=3,.batches_completed=2},.timing={.complete=true,.ack_validated=true},
+            .bbp_batch={.attempted=true,.batches_attempted=1},.buffer=rx,.buffer_phys=0x20000,
+            .response={.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        for(unsigned n=0;n<4;n++) {
+            events[n]=control_event((n%2?0xb000:0x9000)+(n/2)*16,n%2?13:1,n%2?1008:0);
+            events[n].control=(32u<<10)|(1u<<24)|((n%2?11u:16u)<<16)|1;
+        }
+        if(fault==1)f->mcu.identity_validated=false;
+        if(fault==2)f->radio_reset.prepared=false;
+        if(fault==3)f->mcu.timing.complete=false;
+        if(fault==4)f->mcu.pending=true;
+        if(fault==5)f->active=false;
+        if(fault==6)d->wifi_identity.mac=0;
+        if(fault==7)events[0].status=6u<<24;
+        if(fault==8)events[1].status=6u<<24;
+        if(fault==9)events[1].parameter_low+=16;
+        if(fault==10)f->mcu.write_validated=false;
+        if(fault==11)f->mcu.timing.ack_validated=false;
+        if(fault==12)f->mcu.bbp_batch_active=false;
+        if(fault==13)f->mcu.bbp_batch.attempted=false;
+        if(fault==14)f->mcu.bbp_batch.batches_attempted=2;
+        if(fault==15)f->mcu.bbp_batch.batches_completed=1;
+        if(fault==16)f->mcu.bbp_batch.ack_mask=1;
+        if(fault==17)f->mcu.bbp_batch_submitted=2;
+        if(fault==18)f->mcu.configured=false;
+        if(fault==19)f->mcu.mac.complete=false;
+        if(fault==20)f->mcu.mac.ack_mask=1;
+        if(fault==21)f->mcu.mac.batches_completed=1;
+        if(fault==22)f->mcu.format.complete=false;
+        if(fault==23)f->mcu.format.ack_mask=1;
+        if(fault==24)f->mcu.bbp.complete=false;
+        if(fault==25)f->mcu.bbp.core=0;
+        if(fault==26)f->mcu.bbp_setup.complete=false;
+        if(fault==27)f->mcu.bbp_setup.ack_mask=1;
+        if(fault==28)f->mcu.bbp_setup.batches_completed=1;
+        if(fault==29)f->mcu.bbp_front.complete=false;
+        if(fault==30)f->mcu.bbp_front.ack_mask=1;
+        if(fault==31)f->mcu.bbp_front.batches_completed=1;
+        assert(mt76_mcu_bbp_batch_packet(0,packet,sizeof packet)==40);
+        if(!fault) {
+            for(unsigned i=0;i<40;i++)for(unsigned bit=0;bit<8;bit++) {
+                packet[i]^=1u<<bit;
+                assert(wifi_bbp_batch_exchange(d,packet,40,reply,sizeof reply)==-1);
+                packet[i]^=1u<<bit;
+            }
+            assert(wifi_bbp_batch_exchange(d,packet,39,reply,sizeof reply)==-1);
+            assert(wifi_bbp_batch_exchange(d,packet,40,reply,1023)==-1);
+            assert(wifi_bbp_batch_exchange(d,NULL,40,reply,sizeof reply)==-1);
+            assert(wifi_bbp_batch_exchange(d,packet,40,NULL,sizeof reply)==-1);
+            assert(f->ep.enqueue==0 && f->mcu.bbp_batch_submitted==0);
+        }
+        assert(wifi_bbp_batch_exchange(d,packet,40,reply,sizeof reply)==(fault?-1:16));
+        assert(!freed);
+        if(fault>=7 && fault<=9)assert(f->mcu.bbp_batch_submitted==1 && f->failed && d->ep0_quarantined);
+        else if(fault)assert(f->ep.enqueue==0 && f->mcu.response.enqueue==0);
+        else {
+            assert(!memcmp(tx,packet,40) && f->mcu.bbp_batch_submitted==1);
+            assert(wifi_bbp_batch_exchange(d,packet,40,reply,sizeof reply)==-1);
+            f->mcu.bbp_batch.batches_attempted=2;f->mcu.bbp_batch.batches_completed=1;f->mcu.bbp_batch.ack_mask=1;
+            assert(wifi_bbp_batch_exchange(d,packet,40,reply,sizeof reply)==-1);
+            assert(f->ep.enqueue==1 && f->mcu.bbp_batch_submitted==1);
+        }
+    }
+    puts("xhci-bbp-batch-binding: PASS prerequisites, ordered unique batches, exact packets, stale events and quarantine");
+}
+
+static void test_wifi_bbp_batch_reads(void) {
+    const uint32_t addresses[]={0x1004,0x2304,0x2308,0x233c,0x2358,0x2000};
+    for(unsigned reg=0;reg<6;reg++)for(unsigned fault=0;fault<5;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+        struct xhci_device d={.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000},.ep0_ring=ring,.ep0_ring_phys=0x9000,
+            .ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        d.firmware=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .radio_reset={.prepared=true},.mcu={.configured=true,.bbp_batch_active=true,.format={.complete=true,.ack_mask=3},.bbp_front={.complete=true,.ack_mask=3,.batches_completed=2},.bbp_setup={.complete=true,.ack_mask=3,.batches_completed=2},.bbp={.complete=true,.core=0xf000f200},.mac={.complete=true,.ack_mask=3,.batches_completed=2},
+            .identity_validated=true,.write_validated=true,.timing={.complete=true,.ack_validated=true}}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,fault==4?6:1,0);
+        uint32_t address=addresses[reg],value;
+        if(fault==1)d.firmware.mcu.bbp_batch_active=false;
+        if(fault==2)d.firmware.mcu.pending=true;
+        if(fault==3)address=0x1100;
+        assert(wifi_bbp_batch_read(&d,address,&value)==!fault);
+        assert(!freed);
+        if(!fault)assert(d.firmware.control_type==0xc0 && d.firmware.control_request==7 &&
+            d.firmware.control_index==address && d.firmware.control_length==4);
+        if(fault && fault!=4)assert(d.ep0_enqueue==0);
+        if(fault==4)assert(d.ep0_quarantined && d.firmware.failed);
+    }
+    puts("xhci-bbp-batch-read: PASS exact read scope and failure quarantine");
+}
+
 static void test_wifi_bbp_reads(void) {
     const uint32_t addresses[]={0x1004,0x1200,0x0400,0x2000};
     for(unsigned reg=0;reg<4;reg++)for(unsigned fault=0;fault<13;fault++) {
@@ -2314,6 +2421,8 @@ int main(int argc, char **argv) {
     test_wifi_bbp_front_reads();
     test_wifi_bbp_agc_binding();
     test_wifi_bbp_agc_reads();
+    test_wifi_bbp_batch_binding();
+    test_wifi_bbp_batch_reads();
     test_wifi_bbp_reads();
     test_wifi_mcu_transport();
     test_wifi_recovery();

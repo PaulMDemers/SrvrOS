@@ -373,6 +373,17 @@ class InstallTests(unittest.TestCase):
                     'srvros.wifi-bbp-front=1 srvros.wifi-bbp-agc=1'))
         with self.assertRaises(ValueError):boot.stage(wifi_bbp_agc=True)
 
+    def test_wifi_bbp_batch_profile(self):
+        for suffix in ('', '-auto-return'):
+            v13='ram-usb-wifi-fw-v13-laptop-probe-37d8c5d0'+suffix
+            v14=v13.replace('v13','v14')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v14))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v14),
+                boot.limine_config('0123456789abcdef',v13).replace(
+                    'srvros.wifi-bbp-agc=1',
+                    'srvros.wifi-bbp-agc=1 srvros.wifi-bbp-batch=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_batch=True)
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-wifi-cal-v1-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

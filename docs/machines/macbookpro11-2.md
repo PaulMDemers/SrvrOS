@@ -2709,3 +2709,20 @@ clean165files/496clusters, zero leaked allocations or bitmap mismatches.
 Run/checkpoint collected and unarmed. Next design bounded larger command batches
 and session sequencing before exhausting the4-bit sequence space, then finish
 AGC/baseband initialization. RF/scan/association/connectivity remain pending.
+
+Active scope: four-pair MCU batching comparison using accepted AGC1/2/15/22
+values, one40-byte command at sequence14 replacing sequence12/13 after IBI/AGC0.
+Order AGC15/22/1/2 puts changed targets last, proving the packet tail is applied.
+Generalize only the private fixed-plan engine to two or four pairs; public
+entry points retain fixed tables/sequences. Check every baseline/readback and
+MAC/CORE identity boundaries. No new register settings or RF enable. Main9256faa
+(PR64/65 Type feedback) and Air PR66 battery transitions inspected; independent
+Wi-Fi scope, retain accepted integration22fd266. Touch MCU/xHCI/main/profile
+and tests. Sequence reuse stays forbidden; successful batching can later
+consolidate setup commands without exhausting the four-bit space.
+
+Four-pair validation: full build, all shared fixed-plan regressions, new
+13-operation/14-authorization-boundary faults, native exact40-byte packet and
+quarantine fixtures, ASan/UBSan, 70 boot profiles and docs checks pass.
+The comparison skips the old AGC phase; native expected tail baselines1/6464
+must change to3/3a6464. Physical batching acceptance remains pending.
