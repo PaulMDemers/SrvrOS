@@ -3736,3 +3736,25 @@ no allocation errors, unmounted; no one-shot armed. Run record/collector:
 Next: readiness-confirmed cold adapter power cycle, automatic capture/return,
 then collect matching session. Completion is observation only; register acceptance
 and RF/connectivity remain NOT_TESTED.
+
+
+### 2026-10-23 — v36 complete policy observations collected
+
+Release `76e71b07371c6185`, source `d8e246a`, new session
+`00065e89f951db06-00`. Firmware/reset/timing, compact0/1, clocks/readiness and
+FCE/WMM passed. Policy sequence7 sent40/received16 cc13/residue1008, exact ACK;
+status0 complete1 reads12 batches_attempted1/completed1 ack_mask1. All four
+readbacks collected: LINK007f0020->007f1020 (request1020), TIMEOUT010f0a90->000a2090,
+RETRY4bb80407->47d01f0f, AUTO_RSP7->13. Mismatch_mask1 correctly reports only
+TX_LINK. Initial/final MAC0 and COREf000f200 verified; both capture markers yes.
+Completion accepts observation only: register_acceptance=NOT_TESTED and
+RF/connectivity NOT_TESTED. No BBP table ran; prior strict failure stays recorded.
+
+Prepared observation collector passed unchanged. Complete collection and updated
+run/checkpoint archived with checksums under
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-observe-d8e246a/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean211files/565clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: define an explicit bounded TX_LINK readback expectation supported
+by this native capture and same-adapter Linux evidence, keeping the remaining
+three exact checks and final guards; do not globally relax register comparison.

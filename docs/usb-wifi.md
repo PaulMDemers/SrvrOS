@@ -1670,7 +1670,7 @@ from the initialization table because the reference driver can change ACK timeou
 and preamble selection at runtime. Next capture should observe every submitted
 policy target and final guards before deciding field-specific validation rules.
 
-### Policy observation capture (v36; native result pending)
+### Policy observation capture (v36; complete native observations)
 
 `--wifi-mac-policy-observe` requires v35 policy prerequisites. It submits exactly
 the same four-register sequence7 command after accepted routing, with the same
@@ -1681,3 +1681,12 @@ capture. Transport, authorization, all-ones, malformed ACK and guard failures
 still stop it. There is no retry or subsequent BBP table. Completion means that
 observations were collected; `register_acceptance=NOT_TESTED` is explicit even
 when the mismatch mask is zero. v35 retains its strict first-mismatch failure.
+
+Pro11,2 release `76e71b07371c6185`, session `00065e89f951db06-00`, completed
+all12 reads with an exact sequence7 ACK and initial/final MAC0/COREf000f200.
+Observed after-values: TX_LINK `007f1020`, TX_TIMEOUT `000a2090`, TX_RETRY
+`47d01f0f`, AUTO_RSP `00000013`. Only TX_LINK differs from the requested whole
+word (mismatch_mask1); the other three targets match. Both completion markers
+were saved, with register_acceptance and RF/connectivity explicitly NOT_TESTED.
+The separate v35 strict failure remains unchanged. These observations support
+an explicit TX_LINK readback rule; they do not accept unrelated upper-bit values.
