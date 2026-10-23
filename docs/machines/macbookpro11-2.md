@@ -3538,3 +3538,17 @@ unvalidated observations and perform no subsequent BBP writes. Preserve v32's
 strict stop and historical failures. Audit/capture/source hashes retained outside
 build in ampdu-read-audit-6437ed0. Fetched mainbd55dd5 (PR94 Air6,1 failure display)
 but actual base22fd266 unchanged. No candidate installed or reboot armed.
+
+Active implementation: separate v33 raw read-only MAC inventory after the accepted
+firmware/MAC/clock prerequisites. Log per-read USB completion, actual length and
+residue, repeat ASIC/MAC/CORE guards and1030; record all-ones only as unvalidated
+observations. No subsequent BBP table commands are admitted in this mode. Keep
+v32 strict refusal behavior. Touch MCU/xHCI/main/staging/tests; no new RF or power
+writes. Physical acceptance pending.
+
+Fetched main6e608b0 (PR95 Air6,1 display return), inspected PR96 HPTC and PR88 tap
+scopes; actual integrated base22fd266 remains unchanged for this experiment.
+Initial build/MCU/xHCI regressions and89 staging cases pass. Separate collector
+accepts raw all-ones observations only with70 exact successful transfer receipts,
+all63 ordered values, repeated identity/guards and no BBP command; ten mutation
+cases reject incorrect/incomplete evidence. No physical v33 result yet.

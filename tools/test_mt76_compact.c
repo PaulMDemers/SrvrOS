@@ -334,7 +334,32 @@ static void test_mac_snapshot(void){
  puts("MAC snapshot: PASS fixed read order, every transport/cancellation/all-ones failure, guards, no exchange callback and no retry");
 }
 
+static bool raw_read(void *p,uint32_t a,uint32_t *v){
+ struct snapshot_fake *f=p;unsigned n=f->reads++;
+ assert(n<70);
+ uint32_t expected=(n==0 || n==67)?0x1000:(n==1 || n==68)?0x1004:(n==2 || n==69)?0x2000:n==66?0x1030:mt76_mac_snapshot_address(n-3);
+ assert(a==expected);
+ *v=a==0x1000?0x76502000:a==0x1004?0:a==0x2000?0xf000f200:a==0x1030?UINT32_MAX:a;
+ if(f->reads==f->bad)*v=UINT32_MAX;
+ if(f->reads==f->guard)*v^=1;
+ return f->reads!=f->fail;
+}
+static void test_mac_raw(void){
+ for(unsigned mode=0;mode<5;mode++)for(unsigned n=1;n<=(mode==2?71:70);n++){
+  struct snapshot_fake f={.fail=mode==1?n:0,.deny=mode==2?n:0,.bad=mode==3?n:0,.guard=mode==4?n:0};struct mt76_mac_snapshot s={0};
+  const struct mt76_mcu_timing_io io={&f,snapshot_auth,raw_read,NULL};
+  unsigned i=n-1;uint32_t a=(i==0 || i==67)?0x1000:(i==1 || i==68)?0x1004:(i==2 || i==69)?0x2000:i==66?0x1030:i<66?mt76_mac_snapshot_address(i-3):0;
+  bool guard=a==0x1000 || a==0x1004 || a==0x2000;
+  enum mt76_mcu_timing_status expected=mode==1?MT76_TIMING_IO:mode==2?MT76_TIMING_CANCELLED:(mode>=3 && guard)?MT76_TIMING_STATE:MT76_TIMING_OK;
+  assert(mt76_mac_raw_capture(&s,&io)==expected && s.complete==(expected==MT76_TIMING_OK));
+  if(!mode)assert(s.reads==70 && s.all_ones==2 && s.repeat_1030==UINT32_MAX && f.auth==71);
+  assert(mt76_mac_raw_capture(&s,&io)==MT76_TIMING_REFUSED);
+ }
+ puts("MAC raw: PASS all read/cancel faults, repeated identity/guard failures, all-ones observations and no exchange callback");
+}
+
 int main(void){
+ test_mac_raw();
  test_mac_snapshot();
  test_full_table();
  test_clock_pair();

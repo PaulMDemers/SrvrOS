@@ -1608,3 +1608,11 @@ COREf000f200 checks:67 reads total. The read-only engine has no exchange callbac
 Incomplete inventory blocks the subsequent unchanged full BBP observation.
 Values are evidence, not a register-acceptance test; no omitted MAC/power settings
 are written. Existing v31 and strict earlier profiles retain their behavior.
+
+Firmware v33 `--wifi-mac-raw` requires the snapshot prerequisites but ends after
+the raw read-only inventory; it does not run the full BBP table. It adds an ASIC
+identity check to each MAC/CORE boundary and repeats1030, for70 reads total. Each
+USB read logs completion, actual length, residue and timeout. Target all-ones
+values are counted as unvalidated observations; transport failures and incorrect
+ASIC76502000/MAC0/COREf000f200 guards still stop capture. Completion is not register
+acceptance. v32 retains its strict all-ones refusal and subsequent BBP workflow.

@@ -719,3 +719,26 @@ enum mt76_mcu_timing_status mt76_mac_snapshot_capture(struct mt76_mac_snapshot *
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Observational only: all-ones target data never authorizes subsequent writes. */
+enum mt76_mcu_timing_status mt76_mac_raw_capture(struct mt76_mac_snapshot *s,
+    const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned n=0;n<70;n++){
+        uint32_t address,*value;
+        if(n==0 || n==67){address=0x1000;value=&s->asic[n==67];}
+        else if(n==1 || n==68){address=0x1004;value=&s->mac[n==68];}
+        else if(n==2 || n==69){address=0x2000;value=&s->core[n==69];}
+        else if(n==66){address=0x1030;value=&s->repeat_1030;}
+        else{address=mac_snapshot_addresses[n-3];value=&s->values[n-3];}
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+        s->reads++;
+        if((address==0x1000 && *value!=0x76502000) ||
+           (address==0x1004 && *value) || (address==0x2000 && *value!=0xf000f200))return MT76_TIMING_STATE;
+        if(*value==UINT32_MAX)s->all_ones++;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

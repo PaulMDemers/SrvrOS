@@ -215,9 +215,13 @@ struct mt76_mac_snapshot {
     bool attempted, complete;
     unsigned reads;
     uint32_t values[MT76_MAC_SNAPSHOT_ENTRIES], mac[2], core[2];
+    uint32_t asic[2], repeat_1030;
+    unsigned all_ones;
 };
 uint32_t mt76_mac_snapshot_address(unsigned index);
 bool mt76_mac_snapshot_read_allowed(uint32_t address);
 enum mt76_mcu_timing_status mt76_mac_snapshot_capture(struct mt76_mac_snapshot *s,
+    const struct mt76_mcu_timing_io *io);
+enum mt76_mcu_timing_status mt76_mac_raw_capture(struct mt76_mac_snapshot *s,
     const struct mt76_mcu_timing_io *io);
 #endif

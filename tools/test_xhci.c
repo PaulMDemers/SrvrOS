@@ -2690,7 +2690,7 @@ static void test_wifi_txbe_direct(void) {
 }
 
 static void test_wifi_full_table(void){
- for(unsigned chunk=0;chunk<3;chunk++)for(unsigned fault=0;fault<25;fault++){
+ for(unsigned chunk=0;chunk<3;chunk++)for(unsigned fault=0;fault<26;fault++){
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[200],reply[1024];
   struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
@@ -2723,6 +2723,7 @@ static void test_wifi_full_table(void){
   if(fault==20)m->compact[2].attempted=true;
   if(fault==21)events[0].status=6u<<24;
   if(fault==22){if(chunk<2)continue;events[1].status=6u<<24;}
+  if(fault==25)m->mac_raw_mode=true;
   if(fault==23)m->mac_snapshot_mode=true;
   if(fault==24){m->mac_snapshot_mode=true;m->mac_snapshot.complete=true;m->mac_snapshot_active=true;}
   size_t length=mt76_bbp_table_packet(chunk,packet,sizeof packet);
