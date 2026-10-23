@@ -65,3 +65,9 @@ refusal, and this native trial supplies visible panel acceptance.
 Collect the matching new session, provider/brightness request logs and screenshot,
 compare prior files and run both offline checks. Preserve read-only capture and
 accepted desktop/console backups separately from this unaccepted candidate.
+
+
+Native control trial `59086591e526632b` is physically accepted for visible 5–100%
+adjustment: user report plus successful logged readings across that range, clean
+desktop exit and offline USB checks. Final logged level was58%, no screenshot
+was saved, and this does not establish brightness persistence across reboot.

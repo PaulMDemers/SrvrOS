@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Read-only native PWM capture accepted; brightness writes pending.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100% physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -58,7 +58,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
 | USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
 | Sound/routes | Not tested | Exact codec routing evidence and listening checks |
-| Brightness | Exact-gated native read-only PWM capture accepted | Gated write provider and attended visible adjustment |
+| Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Linux inventory only | Native read-only profile evidence |
 | Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
@@ -760,3 +760,23 @@ is backed up outside build. Follow the attended brightness guide: inspect the
 initial level without a startup change; try 50/25/75/100/5 then50, confirm visible
 changes and responsive input, reopen Settings, screenshot and return manually.
 No battery/EC/AML/audio/network/sensor service is enabled. Native acceptance pending.
+
+
+## Native brightness adjustment accepted (2026-10-23)
+
+Run `19da744d205e2b2c`, release `59086591e526632b` (source `1cc5f82`), session
+`session-00065e863524e78f-00`: the user reports proper brightness operation
+throughout the range. Exact Air6,1 provider starts ready at 44%, with no discovery
+write. Logs contain 193 successful brightness readings spanning 5–100%, ending
+at 58%, with no unavailable result. The desktop exit snapshot is present and
+collector attention is empty. This accepts visible adjustment on this unit;
+no screenshot was saved, and final50/reopen or absence of a visible startup
+change is not separately claimed. Reboot persistence/calibrated luminance remain
+outside scope.
+
+Offline fsck is clean (176 files); allocation passes with 257 clusters and zero
+leaks/mismatches/errors. Prior files match except metadata and desktop.conf;
+the latter changed pointer speed5 to3 and acceleration0 to1, with intent awaiting
+user clarification. Four new session logs are retained. Run/launch are collected,
+one-shot empty and USB unmounted. Evidence is backed up outside build; no new
+boot is staged or armed.
