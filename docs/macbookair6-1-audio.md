@@ -2,7 +2,7 @@
 
 This unit's captured analog controller is Intel `8086:9c20`, with CS4208
 `1013:4208`, subsystem `106b:7100`, revision `100300`, AFG 1. The separate
-`8086:0a0c` HDMI controller is not admitted. Native audio acceptance is pending.
+`8086:0a0c` HDMI controller is not admitted. Basic native speaker playback is accepted; headphone routing remains pending.
 
 ## Route evidence and bounds
 
@@ -73,3 +73,13 @@ Retain the accepted brightness desktop and console recovery payloads. Install
 with `--keep-previous`; Ubuntu remains default and reboot stays unarmed until
 requested. On return collect the matching release/session, compare existing USB
 files, and check offline exFAT allocation before recording physical acceptance.
+
+## Native result, 2026-10-23
+
+Release `0533c0dfc63d104f` / compiled `8f3656a` returned two clean desktop
+sessions. The user reports proper sound. The listening session completed three
+tones, a full 1,152,000-byte WAV and cancellation of its replay, ending ready
+with zero underruns/errors and no PCM owner. Volume requests include 10% and 25%.
+Basic speaker playback is accepted. Detailed channel balance, headphones,
+startup-pop behavior and sustained output remain unconfirmed. See the
+[machine record](machines/macbookair6-1.md) for session IDs and USB checks.
