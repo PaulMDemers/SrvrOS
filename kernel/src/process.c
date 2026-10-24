@@ -212,7 +212,6 @@ struct process {
     uint64_t tls_filesz;
     uint64_t tls_memsz;
     uint64_t tls_align;
-    uint64_t tls_next;
     uint64_t tls_base;
     uint64_t tls_thread_pointer;
     uint8_t tls_template[PROCESS_TLS_TEMPLATE_MAX];
@@ -1297,11 +1296,13 @@ static bool process_capture_tls_template(struct process *process,
     process->tls_filesz = program->filesz;
     process->tls_memsz = program->memsz;
     process->tls_align = program->align != 0 ? program->align : 16;
-    process->tls_next = USER_TLS_BASE;
     return true;
 }
 
-static bool process_setup_tls_block(struct process *process, uint64_t *base_out, uint64_t *thread_pointer_out) {
+/* Slot zero belongs to the main thread. Worker slots are reused only after
+ * their old TLS has been unmapped; addresses never advance for process life. */
+static bool process_setup_tls_block(struct process *process, unsigned slot,
+    uint64_t *base_out, uint64_t *thread_pointer_out) {
     if (process == NULL || process->tls_memsz == 0) {
         if (base_out != NULL) {
             *base_out = 0;
@@ -1312,17 +1313,16 @@ static bool process_setup_tls_block(struct process *process, uint64_t *base_out,
         return true;
     }
 
-    uint64_t base = page_up(process->tls_next);
     uint64_t block_size = align_up_u64(process->tls_memsz, process->tls_align);
-    uint64_t thread_pointer = base + block_size;
     uint64_t mapped_length = page_up(block_size + USER_TLS_TCB_SIZE);
-    if (mapped_length == 0 ||
-        base < USER_TLS_BASE ||
-        base >= USER_TLS_LIMIT ||
-        mapped_length > USER_TLS_LIMIT - base ||
-        !mmap_range_free(process, base, mapped_length)) {
+    if (!mapped_length || slot>PROCESS_MAX_USER_THREADS ||
+        mapped_length>(USER_TLS_LIMIT-USER_TLS_BASE)/(PROCESS_MAX_USER_THREADS+1)) {
         return false;
     }
+    uint64_t base=USER_TLS_BASE+slot*mapped_length;
+    uint64_t thread_pointer=base+block_size;
+    for (uint64_t page=0;page<mapped_length;page+=PAGE_SIZE)
+        if (process_mapping_index(process,base+page)>=0) return false;
 
     uint64_t mapped = 0;
     for (; mapped < mapped_length; mapped += PAGE_SIZE) {
@@ -1347,7 +1347,6 @@ static bool process_setup_tls_block(struct process *process, uint64_t *base_out,
         return false;
     }
 
-    process->tls_next = base + mapped_length;
     if (base_out != NULL) {
         *base_out = base;
     }
@@ -1355,6 +1354,15 @@ static bool process_setup_tls_block(struct process *process, uint64_t *base_out,
         *thread_pointer_out = thread_pointer;
     }
     return true;
+}
+
+static void process_release_thread_tls(struct process_user_thread *thread) {
+    if (!thread || !thread->owner || !thread->tls_base) return;
+    struct process *process=thread->owner;
+    uint64_t size=page_up(align_up_u64(process->tls_memsz,process->tls_align)+USER_TLS_TCB_SIZE);
+    for (uint64_t page=0;page<size;page+=PAGE_SIZE)
+        (void)process_unmap_tracked_page(process,thread->tls_base+page);
+    thread->tls_base=0;thread->tls_thread_pointer=0;
 }
 
 static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
@@ -1430,7 +1438,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         return false;
     }
 
-    if (!process_setup_tls_block(process, &process->tls_base, &process->tls_thread_pointer)) {
+    if (!process_setup_tls_block(process, 0, &process->tls_base, &process->tls_thread_pointer)) {
         console_write("run: failed to map TLS block\n");
         vfs_release_data(node, data);
         cleanup_process_mappings(process);
@@ -1765,7 +1773,6 @@ static void move_process_image(struct process *destination, struct process *sour
     destination->tls_filesz = load_process_u64(&source->tls_filesz);
     destination->tls_memsz = load_process_u64(&source->tls_memsz);
     destination->tls_align = load_process_u64(&source->tls_align);
-    destination->tls_next = load_process_u64(&source->tls_next);
     destination->tls_base = load_process_u64(&source->tls_base);
     destination->tls_thread_pointer = load_process_u64(&source->tls_thread_pointer);
     for (uint64_t i = 0; i < PROCESS_TLS_TEMPLATE_MAX; i++) {
@@ -2808,6 +2815,7 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         return -1;
     }
 
+    uint64_t irq = process_irq_save();
     struct process_user_thread *thread = NULL;
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
         if (!process->user_threads[i].used) {
@@ -2816,6 +2824,7 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         }
     }
     if (thread == NULL) {
+        process_irq_restore(irq);
         return -1;
     }
 
@@ -2824,9 +2833,14 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         process->next_thread_id = 2;
     }
 
+    /* Reserve before allocation can yield to a second creator. */
+    *thread = (struct process_user_thread){ .used = true, .owner = process };
+    process_irq_restore(irq);
+
     uint64_t tls_base = 0;
     uint64_t tls_thread_pointer = 0;
-    if (!process_setup_tls_block(process, &tls_base, &tls_thread_pointer)) {
+    if (!process_setup_tls_block(process, (unsigned)(thread-process->user_threads)+1, &tls_base, &tls_thread_pointer)) {
+        thread->used = false;
         return -1;
     }
 
@@ -2848,6 +2862,7 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
     fpu_init_state(&thread->fpu);
 
     if (!scheduler_spawn("uthread", process_user_thread_start, thread)) {
+        process_release_thread_tls(thread);
         thread->used = false;
         thread->active = false;
         return -1;
@@ -2866,6 +2881,7 @@ void process_thread_exit(uint64_t value) {
     thread->active = false;
     scheduler_wake_all(&thread->owner->thread_wait_queue);
     scheduler_clear_user_context();
+    process_release_thread_tls(thread);
     if (thread->detached) {
         thread->used = false;
     }

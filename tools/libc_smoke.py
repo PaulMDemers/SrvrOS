@@ -115,6 +115,7 @@ def main():
             for command_line, marker in [
                 ("libcprobe\n", b"libcprobe: ok"),
                 ("nodeprobe\n", b"nodeprobe: ok"),
+                ("tlsprobe\n", b"tlsprobe: ok"),
             ]:
                 send_serial_line(sock, command_line)
                 output += read_until(sock, marker, args.command_wait)
@@ -142,6 +143,7 @@ def main():
         "libcprobe: readiness semantics ok",
         "nodeprobe: libc helpers ok",
         "nodeprobe: ok",
+        "tlsprobe: ok",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

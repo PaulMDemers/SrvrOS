@@ -3,6 +3,8 @@
 #include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <srvros/sys.h>
+#include <unistd.h>
 
 #define ERRNO_WORKERS 4
 static unsigned ready, release_workers;
@@ -23,10 +25,17 @@ static void *errno_worker(void *arg) {
     return (void *)(uintptr_t)failed;
 }
 
+static uint64_t mapped_bytes(void) {
+    struct srv_process_info info;long index=0;
+    while((index=srv_proc_list(index,&info))>0)
+        if(info.pid==(uint64_t)getpid()) return info.user_mapped_bytes;
+    return 0;
+}
 int posix_errno_test(void) {
     /* Reuse pthread slots and verify a fresh zero value, including after the
      * creating thread has a nonzero errno. Check addresses as well as values. */
-    for(unsigned round=0;round<4;round++) {
+    uint64_t baseline=0;
+    for(unsigned round=0;round<16;round++) {
         pthread_t threads[ERRNO_WORKERS];
         __atomic_store_n(&ready,0,__ATOMIC_RELAXED);
         __atomic_store_n(&release_workers,0,__ATOMIC_RELAXED);
@@ -45,6 +54,10 @@ int posix_errno_test(void) {
             if(pthread_join(threads[i],&result) || result) failed=1;
         }
         if(failed || errno!=777) return -1;
+        uint64_t current=mapped_bytes();
+        if(!current) return -1;
+        if(!round) baseline=current;
+        else if(current!=baseline) return -1;
     }
     puts("threadstress: errno ok");
     return 0;
