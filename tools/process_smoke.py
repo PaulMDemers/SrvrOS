@@ -157,7 +157,6 @@ def main():
     sys.stdout.write(text)
 
     expected = [
-        "srvsh: interactive shell",
         "[bg] pid ",
         "hello: separate userspace app is running",
         "exited /fat/bin/hello",

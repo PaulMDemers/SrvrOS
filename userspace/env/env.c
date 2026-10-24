@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
             puts("env: wait failed");
             return 1;
         }
-        return status;
+        return WIFEXITED(status)?WEXITSTATUS(status):128+WTERMSIG(status);
     }
     for (size_t i = 0; environ[i] != 0; i++) {
         printf("%s\n", environ[i]);

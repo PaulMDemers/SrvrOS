@@ -2374,6 +2374,14 @@ build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspac
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
+.PHONY: test-posix-poll
+test-core: test-posix-poll
+test-posix-poll: build/tests/posix-poll-host$(HOST_EXE)
+	$<
+build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
 .PHONY: test-posix-dir
 test-core: test-posix-dir
 test-posix-dir: build/tests/posix-dir-host$(HOST_EXE)

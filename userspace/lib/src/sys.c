@@ -89,6 +89,14 @@ long srv_read(int fd, void *buffer, size_t length) {
     return srv_syscall3(SYS_READ, fd, (long)buffer, (long)length);
 }
 
+long srv_pread(int fd, void *buffer, size_t length, int64_t offset) {
+    return srv_syscall4(SYS_PREAD, fd, (long)buffer, (long)length, offset);
+}
+
+long srv_pwrite(int fd, const void *buffer, size_t length, int64_t offset) {
+    return srv_syscall4(SYS_PWRITE, fd, (long)buffer, (long)length, offset);
+}
+
 long srv_open(const char *path) {
     char full[CLI_PATH_MAX];
     return srv_syscall1(SYS_OPEN, (long)srv_make_path(path, full, sizeof(full)));
@@ -151,7 +159,7 @@ long srv_unix_unlink(const char *path) {
     return srv_syscall1(SYS_UNIX_UNLINK, (long)path);
 }
 
-long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms) {
+long srv_poll(struct srv_pollfd *fds, size_t nfds, int64_t timeout_ms) {
     return srv_syscall3(SYS_POLL, (long)fds, (long)nfds, timeout_ms);
 }
 
@@ -582,6 +590,16 @@ long srv_thread_self(void) {
 
 long srv_thread_detach(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_DETACH, (long)tid);
+}
+
+long srv_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out) {
+    return srv_syscall4(SYS_RLIMIT,(long)resource,(long)set,(long)out,sizeof(struct srv_rlimit));
+}
+long srv_usage(int64_t who,struct srv_usage *out) {
+    return srv_syscall3(SYS_USAGE,(long)who,(long)out,sizeof(*out));
+}
+long srv_thread_signal(uint64_t tid,uint64_t signal) {
+    return srv_syscall2(SYS_THREAD_SIGNAL,(long)tid,(long)signal);
 }
 
 long srv_thread_status(uint64_t tid) {

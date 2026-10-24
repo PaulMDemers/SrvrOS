@@ -62,6 +62,11 @@ static struct posix_socket sockets[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
 const struct in6_addr in6addr_any = {{0}};
 
+int __posix_socket_fork_ready(void) {
+    for(unsigned i=0;i<POSIX_SOCKET_MAX;i++) if(sockets[i].used) return 0;
+    return 1;
+}
+
 static struct posix_socket *socket_at(int fd) {
     if (fd < POSIX_SOCKET_BASE || fd >= POSIX_SOCKET_BASE + POSIX_SOCKET_MAX) {
         return 0;

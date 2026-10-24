@@ -23,7 +23,7 @@ long srv_write(int fd,const void *data,size_t size) {
     return size;
 }
 static const char *input;static size_t cursor;static int poll_error;static unsigned polls;
-long srv_poll(struct srv_pollfd *fds,size_t count,int timeout) {
+long srv_poll(struct srv_pollfd *fds,size_t count,int64_t timeout) {
     assert(count==1 && fds[0].fd==SRV_STDIN && fds[0].events==SRV_POLLIN && timeout==120);polls++;
     if(poll_error) return SRV_ERR_INTR;
     fds[0].revents=input[cursor]?SRV_POLLIN:0;return input[cursor]?1:0;

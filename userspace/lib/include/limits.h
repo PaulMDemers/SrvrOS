@@ -32,8 +32,12 @@
 #define OPEN_MAX 128
 #define IOV_MAX 16
 
-#define _POSIX_PATH_MAX PATH_MAX
-#define _POSIX_NAME_MAX NAME_MAX
-#define _POSIX_OPEN_MAX OPEN_MAX
+/* Standard minima, not aliases for this implementation's current limits.
+ * PATH_MAX is still below the POSIX minimum; no conformance is advertised. */
+#define _POSIX_PATH_MAX 256
+#define _POSIX_NAME_MAX 14
+#define _POSIX_OPEN_MAX 20
+#define _POSIX_THREAD_KEYS_MAX 128
+#define _POSIX_THREAD_DESTRUCTOR_ITERATIONS 4
 
 #endif

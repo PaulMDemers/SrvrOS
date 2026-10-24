@@ -7,9 +7,13 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
-static struct process first, second;
+static struct process first, second,clone;
+static unsigned destroyed_spaces;
+bool vmm_create_address_space(uint64_t *out) { *out=3;return true; }
+void vmm_destroy_address_space(uint64_t space) { assert(space==3);destroyed_spaces++; }
 static uint8_t frames[2048][4096];
-static unsigned allocated;
+static unsigned allocated, freed, fail_after;
+static bool freed_frames[2048];
 static bool interleave,allocating,releasing;
 static struct process *nested;
 void *scheduler_current_user_context(void) { return NULL; }
@@ -33,8 +37,11 @@ void pmm_free_frame_range(uint64_t address,uint64_t count) {
 static uint8_t image[9000];
 static struct elf64_program_header segment={.type=PT_LOAD,.flags=PF_W,
     .vaddr=0x500000,.filesz=sizeof(image),.memsz=12288};
-void console_printf(const char *format,...) { (void)format;assert(0); }
-void pmm_free_frame(uint64_t address) { (void)address;assert(0); }
+void console_printf(const char *format,...) { (void)format;assert(fail_after); }
+void pmm_free_frame(uint64_t address) {
+    assert(address && address%4096==0 && address/4096<=allocated);
+    assert(!freed_frames[address/4096]);freed_frames[address/4096]=true;freed++;
+}
 uint64_t pmm_alloc_frames_above_tagged(uint64_t count,uint64_t minimum,enum pmm_frame_tag tag) {
     assert(count==1 && minimum==PROCESS_USER_PAGE_MIN_PHYSICAL && tag==PMM_FRAME_USER);
     if(interleave) {
@@ -42,22 +49,80 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,uint64_t minimum,enum pmm_
         assert(load_segment(&second,image,sizeof(image),&segment));
         assert(map_user_stack(&second,0x1000000));
     }
+    if(fail_after && allocated==fail_after) return 0;
     assert(allocated+1<2048);return (uint64_t)++allocated*4096;
 }
 void *pmm_phys_to_virt(uint64_t physical) {
     assert(physical/4096<=allocated);return frames[physical/4096]+physical%4096;
 }
 bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64_t flags) {
-    assert(space==1 || space==2);assert(virt%4096==0 && physical%4096==0);
+    assert(space==1 || space==2 || space==3);assert(virt%4096==0 && physical%4096==0);
     assert(flags&VMM_PAGE_USER);return true;
 }
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t virt,uint64_t *physical) {
-    struct process *p=space==1?&first:&second;
+    struct process *p=space==1?&first:space==2?&second:&clone;
     for(unsigned i=0;i<p->mapping_count;i++) if(p->mappings[i].virtual_address==(virt&~4095ull)) {
         *physical=p->mappings[i].physical_address+(virt&4095);return true;
     }
     return false;
 }
+bool vmm_unmap_page_in_space(uint64_t space,uint64_t virt,uint64_t *physical) {
+    return vmm_virt_to_phys_in_space(space,virt,physical);
+}
+static uint8_t tls_byte(uint64_t address) {
+    uint64_t physical;assert(vmm_virt_to_phys_in_space(1,address,&physical));
+    return *(uint8_t*)pmm_phys_to_virt(physical);
+}
+static void tls_lifecycle(void) {
+    unsigned before=first.mapping_count;
+    first.tls_memsz=4096;first.tls_filesz=3;first.tls_align=16;
+    first.tls_template[0]=21;first.tls_template[1]=42;first.tls_template[2]=63;
+    assert(process_setup_tls_block(&first,0,&first.tls_base,&first.tls_thread_pointer));
+    assert(first.mapping_count==before+2);
+    uint64_t base=0,tp=0;
+    /* Failure on the second page must retire the first, without damaging main TLS. */
+    fail_after=allocated+1;unsigned free_before=freed;
+    assert(!process_setup_tls_block(&first,1,&base,&tp));fail_after=0;
+    assert(first.mapping_count==before+2 && freed==free_before+1);
+    struct process_user_thread worker={.owner=&first};
+    for(unsigned round=0;round<16;round++) {
+        assert(process_setup_tls_block(&first,1,&worker.tls_base,&worker.tls_thread_pointer));
+        assert(worker.tls_base==USER_TLS_BASE+8192 && worker.tls_thread_pointer==worker.tls_base+4096);
+        assert(tls_byte(worker.tls_base)==21 && tls_byte(worker.tls_base+1)==42 && tls_byte(worker.tls_base+2)==63);
+        assert(tls_byte(worker.tls_base+3)==0 && tls_byte(worker.tls_base+4095)==0);
+        uint64_t physical;assert(vmm_virt_to_phys_in_space(1,worker.tls_thread_pointer,&physical));
+        assert(*(uint64_t*)pmm_phys_to_virt(physical)==worker.tls_thread_pointer);
+        assert(!process_setup_tls_block(&first,1,&base,&tp));
+        assert(first.mapping_count==before+4);
+        process_release_thread_tls(&worker);
+        assert(!worker.tls_base && !worker.tls_thread_pointer && first.mapping_count==before+2);
+        assert(tls_byte(first.tls_base)==21);
+    }
+    assert(!process_setup_tls_block(&first,PROCESS_MAX_USER_THREADS+1,&base,&tp));
+    puts("process-loader: TLS initialized template, zero fill, isolation, rollback and slot reclamation PASS");
+}
+static void clone_lifecycle(void) {
+    unsigned parent_pages=first.mapping_count,free_before=freed;
+    fail_after=allocated+2;
+    assert(!process_clone_address_space(&clone,&first));
+    assert(clone.mapping_count==2 && first.mapping_count==parent_pages);
+    cleanup_process_address_space(&clone);fail_after=0;
+    assert(!clone.mapping_count && !clone.address_space && freed==free_before+2 && destroyed_spaces==1);
+    assert(process_clone_address_space(&clone,&first) && clone.mapping_count==parent_pages);
+    for(unsigned i=0;i<parent_pages;i++) {
+        assert(clone.mappings[i].virtual_address==first.mappings[i].virtual_address);
+        assert(clone.mappings[i].flags==first.mappings[i].flags);
+        assert(clone.mappings[i].physical_address!=first.mappings[i].physical_address);
+        assert(!memcmp(pmm_phys_to_virt(clone.mappings[i].physical_address),pmm_phys_to_virt(first.mappings[i].physical_address),4096));
+    }
+    uint8_t *child_byte=pmm_phys_to_virt(clone.mappings[0].physical_address);
+    uint8_t *parent_byte=pmm_phys_to_virt(first.mappings[0].physical_address);
+    uint8_t original=*parent_byte;*child_byte^=0xff;assert(*parent_byte==original);
+    cleanup_process_address_space(&clone);
+    assert(freed==free_before+2+parent_pages && first.mapping_count==parent_pages && destroyed_spaces==2);
+    puts("process-loader: fork private pages, flags, parent preservation and partial-copy rollback PASS");
+}
+
 int main(void) {
     allocating=true;
     struct process *p=alloc_process("first",false);
@@ -79,5 +144,7 @@ int main(void) {
     }
     for(unsigned i=0;i<first.mapping_count;i++)for(unsigned j=0;j<second.mapping_count;j++)
         assert(first.mappings[i].physical_address!=second.mappings[j].physical_address);
+    tls_lifecycle();
+    clone_lifecycle();
     puts("process-loader: PASS reserved process slots, publication/release interleaving, executable segment and stack ownership");
 }

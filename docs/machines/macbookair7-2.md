@@ -2,6 +2,81 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active scope: POSIX correctness and compatibility
+
+User authorizes sustained implementation of the POSIX plan before the desktop
+overhaul. Base `76a55dd` (merged architecture audit PR133), branch
+`device/macbookair7-2/posix-core`. First shared changes: libc error state,
+positional I/O syscalls/process-file operations, poll/select and signal/time
+contracts, guest semantic probes and local host/VM harnesses. Continue through
+the audit's compatibility blocks with explicit unsupported features rather than
+claiming certification. Desktop identity/capacity work is deferred.
+Pro PR19 Wi-Fi and Air6,1 PR132 combined device services remain independent;
+preserve their profiles and acceptance. Publish coherent commits and validate
+locally with Actions disabled. No native reboot is needed for the first blocks;
+installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252`, USB `37D8-C5D0`
+remain unchanged. Progress/evidence: `build/posix-core-20261024/`.
+
+Published implementation commits through `a9e63e5`: per-thread errno, kernel
+positional I/O, select/readiness corrections, interrupted/absolute sleep,
+reclaimed worker TLS, thread-directed signals, actual CPU accounting and peak
+mapped-memory usage. Focused host tests and full thread/libc/TLS/libuv guest
+suites pass for their respective blocks. Pthread key/read-write lock semantics
+now pass their semantic guest tests. A same-process scheduler CR3 regression
+exposed by stress is fixed in `fad4bf4`. Regular-file access/exclusive-create/shared flags and safe truncation pass the
+full core and thread VM suites. Kernel file-size limits, inheritance across
+spawn/exec, thread-directed SIGXFSZ and explicit unsupported priority controls
+also pass full core/thread validation; wider port regressions are running.
+Wait-status/child-group selection and pselect/ppoll mask restoration now pass
+full core/thread tests. Descriptor coherence and the broader profile remain
+in progress. Resource libc/libuv/utility suites pass; the full ports suite exposed
+an old poll fixture which sent its signal before waiting, now replaced by a
+delayed targeted signal and being rerun. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
+changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
+work. No native reboot has been armed or physical acceptance claimed.
+
+Integrated shared main `e79e220` as `1cd62ae`, retaining Air6,1 changes. The
+pre-fork image passes full local core, thread, ports (including SQLite/posixdemo),
+process, libuv, utility and libc/TLS VM suites. Expanded tests exposed outdated
+signal recipient/timing assumptions and an optional shell-banner assertion;
+corrected fixtures pass and original failures remain in local evidence. Native
+installed/recovery payloads are unchanged. PR134 remains a draft because the
+compatibility milestone is not complete.
+
+Next bounded block: replace the fork stub with eager private-address-space cloning,
+new child register/TLS/FPU continuation, inherited regular descriptors/pipes,
+atfork callbacks and guest failure/exec/reaping tests. Start with a single-thread
+CLI profile; refuse active-worker and unsupported pseudo-descriptor cases rather
+than copying inconsistent state. Shared-file coherence and general multithreaded
+fork remain separate acceptance. Touch process/syscall/usermode continuation,
+libc process glue and focused tests; no hardware profile changes or reboot.
+
+The first native fork VM fixture passes private memory/TLS, shared descriptors,
+parent/child returns, callback ordering, resource/mask inheritance, repeated
+reaping and fork/exec. Expanded exec-family/error/signal inheritance checks pass in the full
+`thread-fork-contracts.log` guest suite. Next shared-files block will separate cached contents from open
+description offsets, preserve bounded in-memory reads during owned I/O, and test
+cross-open writes/truncation/stat/close ordering and allocation failure. Native
+filesystem publication and unsupported unlink-while-open remain explicitly
+separate from this coherence block. The shared-content host tests, full core/build
+and full `thread-shared-files.log` suite pass, including four concurrent appenders.
+Main advanced to `36080fc` with Air6,1 documentation-only PR135; no runtime overlap.
+Ports and process/shell regressions also pass. The libuv duplex-spawn regression
+exposed missing execute metadata on an initramfs program; the loader correctly
+refuses it. Current follow-up preserves tar modes/stages executable ELF permissions.
+Orphan-file/lock lifetime host checks, full core/runtime-ELF tests and all six
+thread/libuv/ports/process/posixutils/libc VM regressions pass. Deleted open files
+retain data/identity/locks until close, pathname reuse stays isolated, and
+`tmpfile` creates an unlinked stream. A focused guest failure exposed libc
+turning a correct zero link count into one; the correction passes the rerun.
+Original failures remain in the evidence directory.
+Evidence backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+Next bounded scope: kernel-owned working directory inherited by fork/spawn and
+preserved by exec, checked path traversal, native shell/Terminal handoff, then
+directory descriptors and portable consumer tests. Touch process/syscall/libc,
+shell/Terminal and semantic tests; retain existing file and I/O guarantees.
+No reboot is needed. The next working-directory source is not yet validated.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor

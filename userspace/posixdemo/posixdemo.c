@@ -55,6 +55,10 @@ static volatile sig_atomic_t restart_handler_on_reader;
 
 int __posix_signal_dispatch_pending(void);
 
+static void *poll_signal_worker(void *target) {
+    usleep(30000);
+    return (void *)(uintptr_t)pthread_kill((pthread_t)target,SIGUSR1);
+}
 static void demo_signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGUSR2 || signum == SIGCHLD) {
         demo_signal_count++;
@@ -116,11 +120,10 @@ static void *pthread_signal_mask_worker(void *arg) {
 }
 
 static void *pthread_wait_signal_worker(void *arg) {
-    (void)arg;
     for (int i = 0; i < 8; i++) {
         sched_yield();
     }
-    kill(getpid(), SIGUSR2);
+    if(pthread_kill((pthread_t)arg,SIGUSR2)) return (void *)0xbad;
     return (void *)0x24;
 }
 
@@ -133,11 +136,10 @@ static void *pthread_slow_worker(void *arg) {
 }
 
 static void *pthread_cond_signal_worker(void *arg) {
-    (void)arg;
     for (int i = 0; i < 8; i++) {
         sched_yield();
     }
-    kill(getpid(), SIGUSR2);
+    if(pthread_kill((pthread_t)arg,SIGUSR2)) return (void *)0xbad;
     return (void *)0x25;
 }
 
@@ -329,7 +331,7 @@ static int pthread_cond_futex_test(void) {
         return -1;
     }
     demo_signal_count = 0;
-    if (pthread_create(&thread, 0, pthread_cond_signal_worker, 0) != 0) {
+    if (pthread_create(&thread, 0, pthread_cond_signal_worker, (void *)pthread_self()) != 0) {
         return -1;
     }
     if (clock_gettime(CLOCK_REALTIME, &timeout) != 0) {
@@ -1100,7 +1102,7 @@ int main(int argc, char **argv) {
     errno = 0;
     if (pipe(intr_pipe) < 0 ||
         signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
-        pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+        pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, (void *)pthread_self()) != 0 ||
         read(intr_pipe[0], buffer, 1) != -1 ||
         errno != EINTR ||
         demo_signal_count != 1 ||
@@ -1595,12 +1597,15 @@ int main(int argc, char **argv) {
     say("posixdemo: sigsuspend ok\n");
     demo_signal_count = 0;
     struct pollfd empty_poll;
+    pthread_t poll_sender;
+    void *poll_sender_result=NULL;
     errno = 0;
     if (signal(SIGUSR1, demo_signal_handler) == SIG_ERR ||
-        kill(self_pid, SIGUSR1) < 0 ||
-        poll(&empty_poll, 0, 1) != -1 ||
+        pthread_create(&poll_sender,NULL,poll_signal_worker,(void *)pthread_self()) != 0 ||
+        poll(&empty_poll, 0, 1000) != -1 ||
         errno != EINTR ||
         demo_signal_count != 1 ||
+        pthread_join(poll_sender,&poll_sender_result) != 0 || poll_sender_result ||
         signal(SIGUSR1, SIG_DFL) == SIG_ERR) {
         say("posixdemo: poll eintr failed\n");
         return 40;
@@ -1688,7 +1693,7 @@ int main(int argc, char **argv) {
     errno = 0;
     if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
         posix_spawnp(&child, "sleep", 0, 0, sleep_argv, environ) != 0 ||
-        pthread_create(&wait_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+        pthread_create(&wait_signal_thread, 0, pthread_wait_signal_worker, (void *)pthread_self()) != 0 ||
         waitpid(child, &child_status, 0) != -1 ||
         errno != EINTR ||
         demo_signal_count != 1 ||
@@ -1706,7 +1711,7 @@ int main(int argc, char **argv) {
     demo_signal_count = 0;
     errno = 0;
     if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
-        pthread_create(&wait_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+        pthread_create(&wait_signal_thread, 0, pthread_wait_signal_worker, (void *)pthread_self()) != 0 ||
         sleep(1) != 1 ||
         errno != EINTR ||
         demo_signal_count != 1 ||
@@ -2037,7 +2042,7 @@ int main(int argc, char **argv) {
     PTHREAD_CHECK(signal(SIGUSR2, demo_signal_handler) != SIG_ERR);
     demo_signal_count = 0;
     PTHREAD_CHECK(pthread_create(&worker, 0, pthread_slow_worker, 0) == 0);
-    PTHREAD_CHECK(pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, 0) == 0);
+    PTHREAD_CHECK(pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, (void *)pthread_self()) == 0);
     PTHREAD_CHECK(pthread_join(worker, &joined_value) == 0);
     PTHREAD_CHECK(joined_value == (void *)0x26);
     PTHREAD_CHECK(pthread_join(io_signal_thread, &io_signal_value) == 0);
@@ -2047,8 +2052,9 @@ int main(int argc, char **argv) {
     PTHREAD_CHECK(pthread_kill((pthread_t)(uintptr_t)999999, 0) == ESRCH);
     demo_signal_count = 0;
     PTHREAD_CHECK(pthread_kill(pthread_self(), SIGUSR2) == 0);
-    PTHREAD_CHECK(__posix_signal_dispatch_pending() > 0);
-    PTHREAD_CHECK(demo_signal_count != 0);
+    PTHREAD_CHECK(demo_signal_count == 1); /* Self-directed unblocked delivery completes before return. */
+    PTHREAD_CHECK(__posix_signal_dispatch_pending() == 0);
+    PTHREAD_CHECK(demo_signal_count == 1);
     PTHREAD_CHECK(signal(SIGUSR2, SIG_DFL) != SIG_ERR);
     PTHREAD_CHECK(pthread_heap_stress_test() == 0);
     PTHREAD_CHECK(pthread_key_delete(pthread_demo_key) == 0);
@@ -2331,7 +2337,7 @@ int main(int argc, char **argv) {
         demo_signal_count = 0;
         errno = 0;
         if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
-            pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+            pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, (void *)pthread_self()) != 0 ||
             accept(server, 0, 0) != -1 ||
             errno != EINTR ||
             demo_signal_count != 1 ||

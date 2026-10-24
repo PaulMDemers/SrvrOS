@@ -177,6 +177,10 @@ def main():
             send_serial_line(sock, "fsck /fat\n", args.key_delay)
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
+        except BaseException:
+            sys.stdout.write(output.decode("utf-8", "replace"))
+            sys.stdout.flush()
+            raise
         finally:
             try:
                 process.terminate()

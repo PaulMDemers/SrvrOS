@@ -12,13 +12,13 @@
 #define SRVROS_MAIN_STACK_TOP 0x1000000ull
 #define SRVROS_DYNAMIC_STACK_TOP 0x0ffff000ull
 #define PTHREAD_MAX_RECORDS 16
-#define PTHREAD_TLS_THREADS 16
 #define PTHREAD_TICKS_PER_SECOND 100
 
 int __posix_signal_dispatch_pending(void);
 
 struct pthread_key_slot {
     int used;
+    uint64_t generation;
     void (*destructor)(void *);
 };
 
@@ -37,15 +37,15 @@ struct pthread_record {
     struct pthread_start_record *start;
 };
 
-struct pthread_tls_slot {
-    int used;
-    pthread_t tid;
-    void *values[PTHREAD_KEYS_MAX];
-};
-
+struct pthread_key_value { void *value;uint64_t generation; };
 static struct pthread_key_slot pthread_keys[PTHREAD_KEYS_MAX];
 static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
-static struct pthread_tls_slot pthread_tls_slots[PTHREAD_TLS_THREADS];
+static _Thread_local struct pthread_key_value key_values[PTHREAD_KEYS_MAX];
+static unsigned key_lock;
+static void lock_keys(void) {
+    while(__atomic_exchange_n(&key_lock,1,__ATOMIC_ACQUIRE)) srv_yield();
+}
+static void unlock_keys(void) { __atomic_store_n(&key_lock,0,__ATOMIC_RELEASE); }
 
 static long pthread_tid_value(pthread_t thread) {
     return (long)(uintptr_t)thread;
@@ -151,43 +151,23 @@ static void pthread_reap_detached(void) {
     }
 }
 
-static struct pthread_tls_slot *pthread_tls_slot_for(pthread_t tid, int create) {
-    struct pthread_tls_slot *free_slot = 0;
-    for (int i = 0; i < PTHREAD_TLS_THREADS; i++) {
-        if (pthread_tls_slots[i].used && pthread_tls_slots[i].tid == tid) {
-            return &pthread_tls_slots[i];
-        }
-        if (!pthread_tls_slots[i].used && free_slot == 0) {
-            free_slot = &pthread_tls_slots[i];
-        }
-    }
-    if (!create || free_slot == 0) {
-        return 0;
-    }
-
-    free_slot->tid = tid;
-    for (int i = 0; i < PTHREAD_KEYS_MAX; i++) {
-        free_slot->values[i] = 0;
-    }
-    __atomic_store_n(&free_slot->used, 1, __ATOMIC_RELEASE);
-    return free_slot;
-}
-
 static void pthread_run_destructors(void) {
-    struct pthread_tls_slot *slot = pthread_tls_slot_for(pthread_self(), 0);
-    if (slot == 0) {
-        return;
-    }
-
-    for (pthread_key_t i = 0; i < PTHREAD_KEYS_MAX; i++) {
-        void *value = slot->values[i];
-        void (*destructor)(void *) = pthread_keys[i].destructor;
-        slot->values[i] = 0;
-        if (value != 0 && pthread_keys[i].used && destructor != 0) {
-            destructor(value);
+    /* A destructor may reinstall its value. Clear before calling it and make
+     * the mandated bounded number of passes, without holding the key lock. */
+    for(unsigned pass=0;pass<PTHREAD_DESTRUCTOR_ITERATIONS;pass++) {
+        int called=0;
+        for(pthread_key_t key=0;key<PTHREAD_KEYS_MAX;key++) {
+            lock_keys();
+            struct pthread_key_slot *slot=&pthread_keys[key];
+            struct pthread_key_value *local=&key_values[key];
+            void *value=local->value;
+            void (*destructor)(void *)=slot->used && slot->generation==local->generation?slot->destructor:NULL;
+            local->value=NULL;
+            unlock_keys();
+            if(value && destructor) { called=1;destructor(value); }
         }
+        if(!called) break;
     }
-    __atomic_store_n(&slot->used, 0, __ATOMIC_RELEASE);
 }
 
 static void pthread_start_trampoline(uint64_t raw_start) {
@@ -343,16 +323,13 @@ int pthread_equal(pthread_t left, pthread_t right) {
 }
 
 int pthread_kill(pthread_t thread, int sig) {
-    if (sig < 0 || sig >= 64) {
-        return EINVAL;
-    }
-    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
-        return ESRCH;
-    }
-    if (sig == 0) {
-        return 0;
-    }
-    return kill(getpid(), sig) == 0 ? 0 : ESRCH;
+    int saved_errno=errno;
+    if(sig<0 || sig>=64) return EINVAL;
+    long result=srv_thread_signal(pthread_tid_value(thread),(uint64_t)sig);
+    if(result==0 && sig && thread==pthread_self())
+        (void)__posix_signal_dispatch_pending();
+    errno=saved_errno;
+    return result<0?(int)-result:0;
 }
 
 int pthread_setname_np(pthread_t thread, const char *name) {
@@ -627,43 +604,50 @@ int pthread_rwlock_init(pthread_rwlock_t *rwlock, const pthread_rwlockattr_t *at
 }
 
 int pthread_rwlock_destroy(pthread_rwlock_t *rwlock) {
-    return rwlock == 0 ? EINVAL : 0;
+    if(!rwlock) return EINVAL;
+    return __atomic_load_n(&rwlock->state,__ATOMIC_ACQUIRE)?EBUSY:0;
 }
-
-int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
-    if (rwlock == 0) {
-        return EINVAL;
-    }
-    int expected = 0;
-    while (!__atomic_compare_exchange_n(&rwlock->state, &expected, 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
-        expected = 0;
-        sched_yield();
-    }
-    return 0;
-}
-
-int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
-    return pthread_rwlock_rdlock(rwlock);
-}
-
 int pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock) {
-    if (rwlock == 0) {
-        return EINVAL;
+    if(!rwlock) return EINVAL;
+    int state=__atomic_load_n(&rwlock->state,__ATOMIC_ACQUIRE);
+    for(;;) {
+        if(state<0) return EBUSY;
+        if(state==2147483647) return EAGAIN;
+        if(__atomic_compare_exchange_n(&rwlock->state,&state,state+1,0,__ATOMIC_ACQUIRE,__ATOMIC_RELAXED)) return 0;
     }
-    int expected = 0;
-    return __atomic_compare_exchange_n(&rwlock->state, &expected, 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE) ? 0 : EBUSY;
 }
-
 int pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
-    return pthread_rwlock_tryrdlock(rwlock);
+    if(!rwlock) return EINVAL;
+    int expected=0;
+    return __atomic_compare_exchange_n(&rwlock->state,&expected,-1,0,__ATOMIC_ACQUIRE,__ATOMIC_RELAXED)?0:EBUSY;
 }
-
-int pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
-    if (rwlock == 0) {
-        return EINVAL;
+int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+    for(;;) {
+        int result=pthread_rwlock_tryrdlock(rwlock);
+        if(result!=EBUSY) return result;
+        /* Waiting on the observed writer value closes the unlock/wait race. */
+        (void)pthread_futex_wait_absorbing_signals((uint32_t *)&rwlock->state,(uint32_t)-1,0);
     }
-    __atomic_store_n(&rwlock->state, 0, __ATOMIC_RELEASE);
-    return 0;
+}
+int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+    for(;;) {
+        int result=pthread_rwlock_trywrlock(rwlock);
+        if(result!=EBUSY) return result;
+        int state=__atomic_load_n(&rwlock->state,__ATOMIC_ACQUIRE);
+        if(state) (void)pthread_futex_wait_absorbing_signals((uint32_t *)&rwlock->state,(uint32_t)state,0);
+    }
+}
+int pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+    if(!rwlock) return EINVAL;
+    int state=__atomic_load_n(&rwlock->state,__ATOMIC_RELAXED);
+    for(;;) {
+        if(!state) return EPERM;
+        int next=state<0?0:state-1;
+        if(__atomic_compare_exchange_n(&rwlock->state,&state,next,0,__ATOMIC_RELEASE,__ATOMIC_RELAXED)) {
+            if(!next) (void)srv_futex_wake((uint32_t *)&rwlock->state,UINT64_MAX);
+            return 0;
+        }
+    }
 }
 
 int pthread_rwlockattr_init(pthread_rwlockattr_t *attr) {
@@ -810,57 +794,34 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
 }
 
 int pthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {
-    if (key == 0) {
-        return EINVAL;
+    if(!key) return EINVAL;
+    lock_keys();
+    for(pthread_key_t i=0;i<PTHREAD_KEYS_MAX;i++) if(!pthread_keys[i].used) {
+        struct pthread_key_slot *slot=&pthread_keys[i];
+        /* Never alias an old generation, even after theoretical wrap. */
+        if(slot->generation==UINT64_MAX) continue;
+        slot->generation++;slot->destructor=destructor;slot->used=1;*key=i;
+        unlock_keys();return 0;
     }
-    for (pthread_key_t i = 0; i < PTHREAD_KEYS_MAX; i++) {
-        int expected = 0;
-        if (__atomic_compare_exchange_n(&pthread_keys[i].used,
-                &expected,
-                1,
-                0,
-                __ATOMIC_ACQ_REL,
-                __ATOMIC_ACQUIRE)) {
-            pthread_keys[i].destructor = destructor;
-            *key = i;
-            return 0;
-        }
-    }
-    return EAGAIN;
+    unlock_keys();return EAGAIN;
 }
-
 int pthread_key_delete(pthread_key_t key) {
-    if (key >= PTHREAD_KEYS_MAX || !pthread_keys[key].used) {
-        return EINVAL;
-    }
-    for (int i = 0; i < PTHREAD_TLS_THREADS; i++) {
-        if (pthread_tls_slots[i].used) {
-            pthread_tls_slots[i].values[key] = 0;
-        }
-    }
-    pthread_keys[key].destructor = 0;
-    __atomic_store_n(&pthread_keys[key].used, 0, __ATOMIC_RELEASE);
-    return 0;
+    lock_keys();
+    if(key>=PTHREAD_KEYS_MAX || !pthread_keys[key].used) { unlock_keys();return EINVAL; }
+    pthread_keys[key].used=0;pthread_keys[key].destructor=NULL;
+    unlock_keys();return 0;
 }
-
 void *pthread_getspecific(pthread_key_t key) {
-    if (key >= PTHREAD_KEYS_MAX || !pthread_keys[key].used) {
-        return 0;
-    }
-    struct pthread_tls_slot *slot = pthread_tls_slot_for(pthread_self(), 0);
-    return slot != 0 ? slot->values[key] : 0;
+    lock_keys();void *value=NULL;
+    if(key<PTHREAD_KEYS_MAX && pthread_keys[key].used &&
+        key_values[key].generation==pthread_keys[key].generation) value=key_values[key].value;
+    unlock_keys();return value;
 }
-
 int pthread_setspecific(pthread_key_t key, const void *value) {
-    if (key >= PTHREAD_KEYS_MAX || !pthread_keys[key].used) {
-        return EINVAL;
-    }
-    struct pthread_tls_slot *slot = pthread_tls_slot_for(pthread_self(), 1);
-    if (slot == 0) {
-        return EAGAIN;
-    }
-    slot->values[key] = (void *)value;
-    return 0;
+    lock_keys();
+    if(key>=PTHREAD_KEYS_MAX || !pthread_keys[key].used) { unlock_keys();return EINVAL; }
+    key_values[key]=(struct pthread_key_value){(void *)value,pthread_keys[key].generation};
+    unlock_keys();return 0;
 }
 
 int sched_yield(void) {
@@ -874,14 +835,11 @@ int sched_getcpu(void) {
 }
 
 int sched_get_priority_min(int policy) {
-    (void)policy;
+    if(policy!=SCHED_OTHER) { errno=EINVAL;return -1; }
     return 0;
 }
 
-int sched_get_priority_max(int policy) {
-    (void)policy;
-    return 0;
-}
+int sched_get_priority_max(int policy) { return sched_get_priority_min(policy); }
 
 int __sched_cpu_count(const cpu_set_t *mask) {
     if (mask == 0) {

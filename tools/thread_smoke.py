@@ -2,6 +2,7 @@
 import argparse
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -29,6 +30,18 @@ def read_until(sock, marker, seconds):
     deadline = time.time() + seconds
     while marker not in data and time.time() < deadline:
         data += read_for(sock, 0.5)
+    return data
+
+
+def read_test_result(sock, seconds):
+    data = b""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        data += read_for(sock, 0.5)
+        if (b"threadstress: ok" in data or
+                re.search(rb"threadstress: [^\r\n]*failed[\r\n]", data) or
+                b"process: exited status=" in data):
+            break
     return data
 
 
@@ -100,7 +113,7 @@ def main():
             if args.test != "all":
                 command_line += f" {args.test}"
             sock.sendall((command_line + "\n").encode("ascii"))
-            output += read_until(sock, b"threadstress: ok", args.run_wait)
+            output += read_test_result(sock, args.run_wait)
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
         finally:
@@ -120,6 +133,19 @@ def main():
     if args.test == "all":
         expected.extend([
             "threadstress: yield ok",
+            "threadstress: errno ok",
+            "threadstress: positional ok",
+            "threadstress: open ok",
+            "threadstress: coherence ok",
+            "threadstress: orphan ok",
+            "threadstress: sleep ok",
+            "threadstress: usage ok",
+            "threadstress: resource ok",
+            "threadstress: wait ok",
+            "threadstress: fork ok",
+            "threadstress: masked poll ok",
+            "threadstress: pthread contracts ok",
+            "threadstress: targeted signal ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",

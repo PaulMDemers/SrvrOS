@@ -21,6 +21,8 @@ extern "C" {
 #define _SC_NPROCESSORS_CONF 5
 #define _SC_HOST_NAME_MAX 6
 #define _SC_LOGIN_NAME_MAX 7
+#define _SC_THREAD_KEYS_MAX 8
+#define _SC_THREAD_DESTRUCTOR_ITERATIONS 9
 
 #define _PC_PATH_MAX 1
 
@@ -68,6 +70,7 @@ char *getcwd(char *buffer, size_t size);
 int chdir(const char *path);
 int gethostname(char *name, size_t length);
 long pathconf(const char *path, int name);
+pid_t fork(void);
 pid_t getpid(void);
 pid_t getppid(void);
 uid_t getuid(void);
@@ -85,6 +88,10 @@ pid_t getsid(pid_t pid);
 pid_t setsid(void);
 int kill(pid_t pid, int sig);
 int execve(const char *path, char *const argv[], char *const envp[]);
+int execv(const char *path,char *const argv[]);
+int execl(const char *path,const char *arg,...);
+int execlp(const char *file,const char *arg,...);
+int execle(const char *path,const char *arg,...);
 int execvp(const char *file, char *const argv[]);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);

@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
+#include <limits.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -937,9 +939,13 @@ static int stty_main(int argc, char **argv) {
     return tcsetattr(STDIN_FILENO, TCSANOW, &t) == 0 ? 0 : 1;
 }
 
+static uint64_t elapsed_clock_us(void) {
+    struct timespec now;
+    return clock_gettime(CLOCK_MONOTONIC,&now)==0?(uint64_t)now.tv_sec*1000000+(uint64_t)now.tv_nsec/1000:0;
+}
 static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout, int report_time) {
     pid_t pid;
-    uint64_t start = (uint64_t)clock();
+    uint64_t start = elapsed_clock_us();
     int error = posix_spawnp(&pid, argv[0], 0, 0, argv, environ);
     if (error != 0) {
         fprintf(stderr, "%s: command not found\n", argv[0]);
@@ -954,8 +960,8 @@ static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout
         if (!use_timeout) {
             return 1;
         }
-        uint64_t now = (uint64_t)clock();
-        if (now - start >= timeout_seconds * 100u) {
+        uint64_t now = elapsed_clock_us();
+        if (now - start >= timeout_seconds * 1000000ull) {
             srv_kill((int64_t)pid);
             (void)waitpid(pid, &status, 0);
             return 124;
@@ -963,10 +969,10 @@ static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout
         usleep(10000);
     }
     if (report_time) {
-        uint64_t end = (uint64_t)clock();
-        fprintf(stderr, "real %llu ticks\n", (unsigned long long)(end - start));
+        uint64_t end = elapsed_clock_us();
+        fprintf(stderr, "real %llu us\n", (unsigned long long)(end - start));
     }
-    return WIFEXITED(status) ? WEXITSTATUS(status) : status;
+    return WIFEXITED(status) ? WEXITSTATUS(status) : 128+WTERMSIG(status);
 }
 
 static int time_main(int argc, char **argv) {
@@ -1011,15 +1017,25 @@ static int nice_main(int argc, char **argv) {
         usage("nice");
         return 0;
     }
-    int first = 1;
-    if (argc > 3 && strcmp(argv[1], "-n") == 0) {
-        first = 3;
-    } else if (argc > 1 && argv[1][0] == '-' && isdigit((unsigned char)argv[1][1])) {
-        first = 2;
+    int first=1;
+    long increment=10;
+    const char *number=NULL;
+    if(argc>2 && !strcmp(argv[1],"-n")) { number=argv[2];first=3; }
+    else if(argc>1 && argv[1][0]=='-' && isdigit((unsigned char)argv[1][1])) { number=argv[1]+1;first=2; }
+    if(number) {
+        char *end;errno=0;increment=strtol(number,&end,10);
+        if(errno || !*number || *end || increment<INT_MIN || increment>INT_MAX) {
+            fprintf(stderr,"nice: invalid adjustment\n");return 1;
+        }
     }
-    if (argc <= first) {
-        usage("nice");
-        return 1;
+    if(argc<=first) { usage("nice");return 1; }
+    errno=0;int current=getpriority(PRIO_PROCESS,0);
+    if(current==-1 && errno) { perror("nice");return 1; }
+    long wanted=(long)current+increment;
+    if(wanted<-20) wanted=-20;
+    if(wanted>19) wanted=19;
+    if(setpriority(PRIO_PROCESS,0,(int)wanted)<0) {
+        fprintf(stderr,"nice: requested scheduling adjustment unavailable\n");return 1;
     }
     return spawn_and_wait(&argv[first], 0, 0, 0);
 }

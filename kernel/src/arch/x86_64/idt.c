@@ -196,7 +196,7 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     if ((frame->cs & 3)==3) scheduler_user_enter();
 }
 
-void isr_dispatch(struct isr_frame *frame) {
+static void isr_dispatch_inner(struct isr_frame *frame) {
     if (frame->vector == 255) {
         return;
     }
@@ -266,4 +266,13 @@ void isr_dispatch(struct isr_frame *frame) {
     console_write("last log lines:\n");
     bootlog_dump(2048);
     halt_forever();
+}
+
+/* Account privilege transitions independently of I/O admission: syscall-safe
+ * is not a CPU mode, and blocked time belongs to no userspace process. */
+void isr_dispatch(struct isr_frame *frame) {
+    bool user=(frame->cs & 3)==3;
+    if(user) scheduler_account_kernel_enter();
+    isr_dispatch_inner(frame);
+    if(user) scheduler_user_enter();
 }

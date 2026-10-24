@@ -337,7 +337,7 @@ static void *signal_worker(void *arg) {
     for (int i = 0; i < 8; i++) {
         sched_yield();
     }
-    kill(getpid(), SIGUSR2);
+    if(kill(getpid(), SIGUSR2)!=0 || shared_signal_count==0) return (void *)0xbad;
     return (void *)0x440;
 }
 
@@ -582,8 +582,30 @@ static int stdio_test(void) {
 }
 
 int cpu_load_capture(void);
+int posix_errno_test(void);
+int posix_positional_test(void);
+int posix_sleep_test(void);
+int posix_usage_test(void);
+int posix_resource_test(void);
+int posix_wait_test(void);
+int posix_fork_test(void);
+int posix_fork_exec_child(void);
+int posix_masked_poll_test(void);
+int posix_wait_child(const char *mode);
+int posix_resource_child(int again);
+int posix_open_test(void);
+int posix_coherence_test(void);
+int posix_orphan_test(void);
+int posix_pthread_contract_test(void);
+int posix_cpu_child(void);
+int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"fork-exec-child")) return posix_fork_exec_child();
+    if(argc==3 && !strcmp(argv[1],"wait-child")) return posix_wait_child(argv[2]);
+    if(argc==2 && !strcmp(argv[1],"resource-child")) return posix_resource_child(0);
+    if(argc==2 && !strcmp(argv[1],"resource-exec-child")) return posix_resource_child(1);
+    if(argc==2 && !strcmp(argv[1],"cpu-child")) return posix_cpu_child();
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
@@ -597,6 +619,19 @@ int main(int argc, char **argv) {
     } while (0)
 
     RUN_TEST("yield", yield_test);
+    RUN_TEST("errno", posix_errno_test);
+    RUN_TEST("positional", posix_positional_test);
+    RUN_TEST("open", posix_open_test);
+    RUN_TEST("coherence", posix_coherence_test);
+    RUN_TEST("orphan", posix_orphan_test);
+    RUN_TEST("sleep", posix_sleep_test);
+    RUN_TEST("usage", posix_usage_test);
+    RUN_TEST("resource", posix_resource_test);
+    RUN_TEST("wait", posix_wait_test);
+    RUN_TEST("fork", posix_fork_test);
+    RUN_TEST("masked poll", posix_masked_poll_test);
+    RUN_TEST("pthread contracts", posix_pthread_contract_test);
+    RUN_TEST("targeted signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);

@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -945,22 +946,16 @@ void uv_os_free_group(uv_group_t *grp) {
     memset(grp, 0, sizeof(*grp));
 }
 
-int uv_os_getpriority(uv_pid_t pid, int *priority) {
-    if (priority == 0) {
-        return UV_EINVAL;
-    }
-    if (pid < 0) {
-        return UV_ESRCH;
-    }
-    *priority = 0;
-    return 0;
+int uv_os_getpriority(uv_pid_t pid,int *priority) {
+    if(!priority) return UV_EINVAL;
+    errno=0;
+    int value=getpriority(PRIO_PROCESS,pid);
+    if(value==-1 && errno) return uv_translate_sys_error(errno);
+    *priority=value;return 0;
 }
-
-int uv_os_setpriority(uv_pid_t pid, int priority) {
-    if (pid < 0 || priority < UV_PRIORITY_HIGHEST || priority > UV_PRIORITY_LOW) {
-        return UV_EINVAL;
-    }
-    return 0;
+int uv_os_setpriority(uv_pid_t pid,int priority) {
+    if(priority<UV_PRIORITY_HIGHEST || priority>UV_PRIORITY_LOW) return UV_EINVAL;
+    return setpriority(PRIO_PROCESS,pid,priority)<0?uv_translate_sys_error(errno):0;
 }
 
 unsigned int uv_available_parallelism(void) {
@@ -1510,7 +1505,7 @@ static void run_process_exits(uv_loop_t *loop) {
             continue;
         }
         base->active = 0;
-        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : status;
+        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
         process->term_signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
         if (process->exit_cb != 0) {
             process->exit_cb(process, process->exit_status, process->term_signal);
