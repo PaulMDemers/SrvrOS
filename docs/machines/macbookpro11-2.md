@@ -5445,3 +5445,19 @@ bring-up regressions pass, as do ASan/UBSan and documentation checks. The strict
 collector rejects1000 malformed proofs; complete fixture76963bytes fits128KiB.
 Next: exact-stage VM, then install unarmed with existing recovery. Native central
 RF writes pending.
+
+
+Central RF candidate source `23cb72a`, release `d5f9b767d30876ce`, installed
+unarmed. Exact-stage GPT save/offline byte verification/automatic return and
+missing-workspace refusal/return passed; extended snapshot marker confirmed.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, with accepted RF read
+payload `63fb5a9f9addbb21` also retained. Older antenna payload `28c2ba352d59b843`
+removed from ESP only after full equality with its durable archive. Offline
+workspace clean263files/643clusters/105directories, zero leaks/mismatches/errors;
+unmounted. Payload, numeric plan/pinned references, host/sanitizer/collector
+checks, both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-central-23cb72a/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require all preceding proof and every central RF operation/readback; preserve
+failed response/guard receipts. RF write framing/readbacks remain native-pending,
+and calibration/connectivity remain untested. No reboot is armed.
