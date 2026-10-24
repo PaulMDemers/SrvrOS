@@ -2099,3 +2099,29 @@ and reboot. No ten-minute wait or automatic return. Prior native failure and
 before-fix VM evidence remain backed up separately. The old `a18d72aecdf808c7`
 three-minute capture EFI copy was removed only after durable payload verification;
 combined, ordinary-battery, console recovery and Ubuntu remain available.
+
+### Deadline retry failed on native reopen (2026-10-24)
+
+Run `227c377cefd26812`, release `06b0976a58151901` (PR136), again halted
+on its second desktop lifetime. First session `00065e9cec2debcc-00` completed
+cleanly at 234.640 seconds from boot: 87 battery attempts, 1,308 queries, balanced
+EC attachment, zero final heap/errors/denied, working brightness/audio and live
+CPU/fan samples. First setup took 4,766,350 us, including namespace load through
+the contract marker at 4,326,472 us and namespace initialization beginning at
+4,425,243 us.
+
+Second session `00065e9cfa6ff1bc-00` saved only its startup log. The photograph
+shows `HALTED operation deadline`, `setup=namespace-initialize`, elapsed
+5,047,305 us, `completed=0 in_flight=1`, zero errors/denied/EC error/queries and
+retained live state. Unlike the preceding photo, work was still active: PR136's
+completion repoll does not resolve this native startup overrun. Its synthetic
+completion-race regression remains valid but does not establish native repair.
+Next investigation should locate namespace/AML execution and wait time before
+changing the five-second bound; the current evidence does not identify a hang
+or distinguish execution cost from scheduling and firmware waits.
+
+All 283 preexisting files except metadata retain identical bytes. Five new log
+files were collected; no new document appeared. Offline checks pass at 288 files/
+838 clusters, with no leaks or mismatches. Ubuntu recovered with empty one-shot
+state. Logs, photograph and file hashes are backed up outside build. No reboot
+is armed; native combined reopen remains failed.
