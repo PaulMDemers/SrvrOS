@@ -535,6 +535,18 @@ int main(void) {
     subject.pending_signals=1ull<<SRV_SIGNAL_WINCH;
     assert(process_signal_mask_current(SRV_SIGNAL_UNBLOCK,1ull<<SRV_SIGNAL_WINCH,NULL));
     assert(process_signal_pending_current() && !subject.killed);
+    for(unsigned signal=0;signal<2;signal++) {
+        uint64_t bit=1ull<<(signal?SRV_SIGNAL_WINCH:SRV_SIGNAL_CHLD);
+        subject.signal_catch_mask=0;subject.main_signal_mask=bit;
+        subject.pending_signals=bit;subject.main_pending_signals=bit;
+        assert(process_signal_mask_current(SRV_SIGNAL_UNBLOCK,bit,NULL));
+        assert(!process_signal_pending_current() && !process_signal_pending_mask_current());
+        subject.signal_catch_mask=bit;subject.main_signal_mask=bit;
+        subject.pending_signals=bit;subject.main_pending_signals=bit;
+        subject.user_threads[0].pending_signals=bit;
+        assert(process_signal_config_current(signal?SRV_SIGNAL_WINCH:SRV_SIGNAL_CHLD,SRV_SIGNAL_DEFAULT));
+        assert(!process_signal_pending_mask_current() && !subject.user_threads[0].pending_signals);
+    }
     current_subject=NULL;
     targeted_signal_regression();
     cpu_usage_regression();

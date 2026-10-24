@@ -2700,6 +2700,8 @@ static bool process_signal_config_current_locked(uint64_t signal, uint64_t actio
         process_discard_signals(process,mask);
         return true;
     }
+    if (signal == SRV_SIGNAL_CHLD || signal == SRV_SIGNAL_WINCH)
+        process_discard_signals(process,mask);
     return true;
 }
 int64_t process_signal_action_current(uint64_t signal) {
@@ -2775,11 +2777,12 @@ static bool process_signal_mask_current_locked(uint64_t how, uint64_t set, uint6
 
     uint64_t unblocked = process_visible_pending(process) & ~next &
         ~(process->signal_catch_mask | process->signal_ignore_mask);
-    /* SIGWINCH has an ignored default disposition, including after an
-     * application unblocks a resize that arrived while it was masked. */
-    process->pending_signals &= ~(unblocked & (1ull << SRV_SIGNAL_WINCH));
-    *process_local_pending(process) &= ~(unblocked & (1ull << SRV_SIGNAL_WINCH));
-    unblocked &= ~((1ull << SRV_SIGNAL_CHLD) | (1ull << SRV_SIGNAL_WINCH));
+    /* Default-ignored signals can be retained while blocked for sigwait,
+     * but must not keep interrupting I/O after unmasking without a handler. */
+    uint64_t ignored_defaults=(1ull << SRV_SIGNAL_CHLD) | (1ull << SRV_SIGNAL_WINCH);
+    process->pending_signals &= ~(unblocked & ignored_defaults);
+    *process_local_pending(process) &= ~(unblocked & ignored_defaults);
+    unblocked &= ~ignored_defaults;
     if (unblocked != 0) {
         for (uint64_t signal = 1; signal < 64; signal++) {
             uint64_t mask = 1ull << signal;
