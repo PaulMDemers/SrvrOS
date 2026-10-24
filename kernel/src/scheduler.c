@@ -48,6 +48,7 @@ struct thread {
     struct fpu_state *user_fpu;
     uint64_t user_fs_base;
     uint64_t address_space;
+    uint64_t resume_address_space;
     uint64_t kernel_stack_top;
     uint8_t *stack;
     uint64_t stack_physical;
@@ -466,6 +467,7 @@ void scheduler_yield(void) {
     switching = true;
     struct thread *old = &threads[old_index];
     struct thread *next = &threads[next_index];
+    old->resume_address_space=vmm_current_address_space();
     if (old->user_context != NULL) {
         old->user_fs_base = read_fs_base();
     }
@@ -479,12 +481,12 @@ void scheduler_yield(void) {
     next->account_at=account_now;
     current_thread = next_index;
 
-    if (old->address_space != next->address_space) {
-        uint64_t next_address_space = thread_address_space(next);
-        if (next_address_space != 0) {
-            vmm_switch_address_space(next_address_space);
-        }
-    }
+    /* A kernel continuation can temporarily use the kernel CR3 while still
+     * belonging to a userspace process. Preserve the actual suspended CR3;
+     * comparing only process identity can return a sibling into unmapped code. */
+    uint64_t next_address_space=next->resume_address_space
+        ? next->resume_address_space : thread_address_space(next);
+    if(next_address_space) vmm_switch_address_space(next_address_space);
     uint64_t old_stack_top = thread_kernel_stack_top(old);
     uint64_t next_stack_top = thread_kernel_stack_top(next);
     if (old_stack_top != next_stack_top) {
@@ -540,6 +542,7 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
         thread->user_fpu = NULL;
         thread->user_fs_base = 0;
         thread->address_space = 0;
+        thread->resume_address_space=0;
         thread->kernel_stack_top = 0;
         thread->state = THREAD_DEAD;
     }
@@ -672,6 +675,7 @@ void scheduler_set_user_context_fpu(void *process,
     thread->user_context = process;
     thread->io_user_safe = false;
     thread->address_space = address_space;
+    thread->resume_address_space=address_space;
     thread->kernel_stack_top = kernel_stack_top;
     thread->user_fpu = user_fpu;
     thread->user_fs_base = process_fs_base(process);
@@ -703,6 +707,7 @@ void scheduler_clear_user_context(void) {
     thread->user_fpu = NULL;
     thread->user_fs_base = 0;
     thread->address_space = 0;
+    thread->resume_address_space=0;
     thread->kernel_stack_top = 0;
     fpu_set_current_user_state(NULL);
     write_fs_base(0);

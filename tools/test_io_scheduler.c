@@ -25,11 +25,19 @@ void fpu_switch_kernel_state(struct fpu_state *old,struct fpu_state *next,struct
     (void)old;(void)next;(void)user;
 }
 static unsigned switches;
+static bool address_space_test;
+static uint64_t expected_space,return_space;
 static bool completion_wait_test,completion_signal,completion_ready,reference=true;
 bool timer_reference_ready(void) { return reference; }
 static struct scheduler_wait_queue completion_queue;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(address_space_test) {
+        assert(old==&threads[0].context && next==&threads[1].context);
+        assert(current_thread==1 && actual_space==expected_space);
+        current_thread=0;actual_space=return_space;threads[0].state=THREAD_RUNNING;threads[1].state=THREAD_READY;
+        return;
+    }
     if(completion_wait_test) {
         assert(old==&threads[3].context && next==&threads[1].context);
         assert(current_thread==1 && threads[3].state==THREAD_BLOCKED);
@@ -102,8 +110,22 @@ static void test_cpu_accounting(void) {
     check_accounting=false;memset(threads,0,sizeof(threads));initialized=false;clock_us=0;
     puts("cpu-accounting: PASS user/kernel intervals, blocked-time exclusion, monotonic guard");
 }
+static void test_resume_address_space(void) {
+    memset(threads,0,sizeof(threads));initialized=true;current_thread=0;actual_space=1;
+    threads[0]=(struct thread){.state=THREAD_RUNNING,.address_space=2};
+    threads[1]=(struct thread){.state=THREAD_READY,.address_space=2};
+    address_space_test=true;expected_space=2;return_space=1;
+    scheduler_yield();assert(threads[0].resume_address_space==1 && actual_space==1);
+    /* Resume the sibling's temporary kernel continuation, even though its
+     * process identity still names address space two. */
+    actual_space=2;threads[1].resume_address_space=1;expected_space=1;return_space=2;
+    scheduler_yield();assert(threads[0].resume_address_space==2 && actual_space==2);
+    address_space_test=false;memset(threads,0,sizeof(threads));initialized=false;actual_space=1;
+    puts("scheduler-address-space: PASS same-process switch and temporary kernel CR3 preservation");
+}
 int main(void) {
     test_cpu_accounting();
+    test_resume_address_space();
     _Alignas(16) uint8_t stack[64];
     uint64_t rsp=initial_thread_stack((uint64_t)stack+sizeof(stack));
     assert((rsp&15)==8 && rsp==(uint64_t)stack+56 && *(uint64_t *)rsp==0);
