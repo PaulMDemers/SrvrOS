@@ -675,3 +675,23 @@ results remain readable, without fabricated transfer detail. Pro PR19 at
 `1f4d822` retains independent WCID Wi-Fi work; preserve its additional xHCI Wi-Fi
 state and capture recipes alongside storage timing. Next Air storage scope is
 pending-transfer event-service gaps. No sibling hardware acceptance is implied.
+
+## October 24 USB service-gap handoff
+
+Air PR129 adds sampled pending-transfer event-ring service bounds. Consume logger/
+comparison version 3 with version-2 transfer details; previous formats remain
+readable. Source `00ad3cc` passes host/VM checks and native Air7,2 release
+`46b9132589405099` passes all eighteen fixed-file operations, exact readback,
+prior-file preservation, offline allocation and recovery. A 5.724579-second
+operation included 33 slow CSW callbacks while the sampled service gap stayed
+within 13 us under continuous polling. Wait-mode maxima were 10011 us. These
+bounds exclude long checking lapses as the main cause for this run, without
+identifying controller/media behavior or excluding event backlog. Keep the
+20 ms policy and flush/readback protections; this bounded diagnostic is complete.
+
+Main `8ec864c` / Air6,1 PR128 screenshot receipts is integrated as `34934f6`.
+Combined-tree build/core and exact logger/screenshot and fixed-file capture VMs
+pass. The native source and installed payload above remain distinct from that
+VM-tested userspace update. Pro PR19 at `636ecf9` retains independent MAC/Wi-Fi
+state, harness and tests; preserve both shared-file edits on integration. No new
+native trial is armed and no sibling acceptance is implied.

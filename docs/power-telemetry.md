@@ -490,8 +490,9 @@ of 4 ms (historical capture) or 20 ms, and requires restoration in either case.
 
 ### Individual USB transfer timing
 
-The logger now emits `workspace-cost: version=2` and the fixed-file comparison
-emits `storage-wait: begin version=2`. Each save/sample has three `usb-timing`
+Initial individual timing uses `workspace-cost: version=2` and the fixed-file
+comparison uses `storage-wait: begin version=2`; the latest service-gap format is
+version 3, described below. Each save/sample has three `usb-timing`
 phase records keyed by its monotonic start: phase 0 is CBW, 1 is data chunks and
 2 is CSW. Historical version-1 results remain readable without inventing missing
 measurements. Version 2 requires all three records and exact agreement with the
@@ -575,8 +576,28 @@ Version-3 collectors refuse older or missing detail instead of calling it zero.
 These bounds measure how often software inspects the ring, not the controller's
 completion time. Even a small bound cannot establish when the target event was
 posted, exclude a backlog of other events, identify a device fault, or rank wait
-policies. Native comparison remains pending. Use the matched fixed-file recipe
-and require prior-file preservation plus offline allocation and recovery checks.
+policies.
+
+Air7,2 release `46b9132589405099` (compiled `00ad3cc`) completed all eighteen
+native measurements, exact offline readback and automatic return. All 1046 prior
+files retain their bytes except expected exFAT metadata; offline allocation and
+recovery pass. The maximum CSW callback was 281928 us. The slowest whole operation,
+5724579 us, included 33 CSW callbacks above 100 ms under continuous polling;
+286274049 ring checks / 1118319 timestamped samples bounded its maximum service
+gap to 13 us. Waiting modes recorded maximum sampled gaps of 10011 us, consistent
+with their existing tick-bounded service. Across 2124 CSW callbacks, total
+callback wall time was 10108415 us: 10103993 us before software observation and
+1403 us after it, with post-observation caller delay at most 3 us. No single
+transfer exceeded one second; five data callbacks also exceeded 100 ms.
+
+Thus long lapses between ring checks do not explain the observed long callbacks
+in this run. Controller/media behavior and event backlog remain possible. Slow
+callback incidence differed between policies (33 / 2 / 12 CSW callbacks over
+100 ms for polling / 4 ms / 20 ms), so one run cannot rank policy performance or
+energy. Keep the 20 ms default, deadlines, DMA quarantine, input service,
+verification and flush policy. The bounded diagnostic milestone is complete;
+further attribution can wait for a reproducible workload regression. This fixed
+fixture supplies no native interactive or normal-desktop logger acceptance.
 
 ### Refined default: native normal desktop result
 
