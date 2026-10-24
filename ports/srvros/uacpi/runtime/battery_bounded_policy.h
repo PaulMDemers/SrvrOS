@@ -19,7 +19,8 @@ static inline bool battery_bounded_files_entry(bool coherent,bool service,bool o
     bool capture,bool automatic,bool parked,bool mounted,bool ready) {
     return coherent&&service&&owner&&capture&&automatic&&parked&&!mounted&&ready;
 }
-/* Explicit short Home diagnostic only; mounted failures must never reset. */
+/* Exact held Home ownership; mounted failures must never reset.
+ * The caller separately admits a diagnostic or explicit ordinary owner. */
 static inline bool battery_bounded_home_entry(bool coherent,bool service,bool owner,
     bool diagnostic,bool held,bool automatic,bool image) {
     return coherent&&service&&owner&&diagnostic&&held&&!automatic&&!image;
@@ -38,6 +39,11 @@ static inline bool battery_bounded_home_desktop(bool diagnostic,bool controls,
 static inline bool battery_bounded_home_transitions(bool diagnostic,bool controls,
     bool continuous,bool desktop,bool capture,bool session,bool transitions) {
     return diagnostic&&controls&&continuous&&desktop&&capture&&!session&&transitions;
+}
+/* Explicit ordinary Home owner, distinct from every timed diagnostic. */
+static inline bool battery_owned_home_monitor(bool controls,bool continuous,
+    bool desktop,bool capture,bool session,bool transitions,bool diagnostic) {
+    return controls&&continuous&&desktop&&!capture&&session&&!transitions&&!diagnostic;
 }
 /* AML only: SBS bank transactions use the separately serialized sampler. */
 static inline bool battery_bounded_ec(bool write,uint64_t address,uint64_t value) {

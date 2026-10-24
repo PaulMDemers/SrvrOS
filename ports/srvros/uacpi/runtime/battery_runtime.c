@@ -98,8 +98,8 @@ static bool smbus_capture_parked(void) {
         workspace_parked_device()==smbus_capture_volume && !workspace_active() &&
         (smbus_files?workspace_image_ready():!workspace_image_busy() && !scheduler_io_active());
 }
-/* An explicit native diagnostic owns the mount through normal runtime return.
- * This grants no fatal reset, general AML unwind, or desktop-startup capability. */
+/* An explicit diagnostic or ordinary session owns the mount through runtime
+ * return. Neither grants fatal reset, general AML unwind or default startup. */
 static bool bounded_home, bounded_home_session, bounded_home_desktop, bounded_home_transitions;
 static bool air61_home_owned(void) {
     return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
@@ -110,7 +110,10 @@ static bool air61_home_owned(void) {
             battery_bounded_home_desktop(bounded_home_desktop,smbus_controls,continuous_home,
                 desktop_home,desktop_capture,desktop_session,desktop_transitions) ||
             battery_bounded_home_transitions(bounded_home_transitions,smbus_controls,continuous_home,
-                desktop_home,desktop_capture,desktop_session,desktop_transitions))
+                desktop_home,desktop_capture,desktop_session,desktop_transitions) ||
+            battery_owned_home_monitor(smbus_controls,continuous_home,desktop_home,desktop_capture,
+                desktop_session,desktop_transitions,bounded_home || bounded_home_session ||
+                bounded_home_desktop || bounded_home_transitions || desktop_work))
             &&!smbus_capture&&!smbus_study,
         mounted_home&&workspace_mount_hold_valid(smbus_workspace_hold),auto_return,workspace_image_busy());
 }
@@ -978,7 +981,7 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     }
     if(runtime.platform.bounded_samples_only && !air61_smbus_owned() && !air61_home_owned() && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
        workspace_parked_device()!=NULL,workspace_active(),workspace_image_busy(),scheduler_io_active())) {
-        console_write("battery: REFUSED bounded profile requires an admitted bounded diagnostic owner\n");return false;
+        console_write("battery: REFUSED restricted profile requires an admitted Home or diagnostic owner\n");return false;
     }
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
