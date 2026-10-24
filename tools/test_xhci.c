@@ -3311,6 +3311,107 @@ static void test_wifi_mac_tail(void){
  puts("xhci MAC tail: PASS read-only exact order, completed WCID prerequisites, one attempt and error quarantine");
 }
 
+static void test_wifi_mac_board(void){
+ for(unsigned target=0;target<4;target++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<34;fault++){
+  const unsigned header=0,profile=1;
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->bbp_after_mac_mode=true;m->mac_policy_validate=true;m->mac_fce_validate=true;
+  m->mac_route_mode=true;m->mac_route.complete=true;m->mac_route_submitted=true;
+  m->mac_policy_mode=true;m->mac_policy.complete=true;m->mac_policy_submitted=true;
+  m->mac_protect_mode=true;m->mac_protect.complete=true;m->mac_protect_submitted=true;
+  m->mac_contention_mode=true;m->mac_contention.complete=true;m->mac_contention_submitted=true;
+  m->mac_txsw_mode=true;m->mac_txsw.complete=true;m->mac_txsw_submitted=true;
+  m->mac_beacon_mode=true;m->mac_beacon.complete=true;m->mac_beacon_submitted=true;
+  m->mac_vht_mode=true;m->mac_vht.complete=true;m->mac_vht_submitted=true;
+  m->mac_buffer_mode=true;m->mac_buffer.complete=true;m->mac_buffer_submitted=true;
+  m->mac_fce_mode=true;m->mac_fce.complete=true;m->mac_fce_submitted=true;
+  m->mac_ampdu_mode=true;m->mac_ampdu.complete=true;m->mac_ampdu_submitted=true;
+
+  m->table=(struct mt76_bbp_table){.attempted=true,.complete=true,.reads=124,.chunks_attempted=3,.chunks_completed=3,.ack_validated=true};m->table_submitted=3;
+
+  m->bbp_switch_mode=true;m->bbp_switch=(struct mt76_bbp_switch){.attempted=true,.complete=true,.reads=88,.writes_attempted=20,.writes_completed=20};m->bbp_switch_submitted=20;
+  for(unsigned i=0;i<20;i++)m->bbp_switch.after[i]=mt76_bbp_switch_value(i);
+  m->dcoc_mode=true;m->dcoc_active=true;m->dcoc=(struct mt76_dcoc){.attempted=true,.command_attempted=true,.reads=13,.core={0xf000f200,0xf000f200}};
+
+  m->dcoc.complete=true;m->dcoc.ack_validated=true;m->dcoc.reads=26;m->dcoc_submitted=true;
+  for(unsigned i=0;i<9;i++)m->dcoc.after[i]=mt76_dcoc_value(i);
+  m->skey_mode=true;m->skey_active=true;m->skey_submitted=576;
+  m->skey=(struct mt76_skey){.attempted=true,.complete=true,.operations=576,.reads=448,.writes=128,.slots=64,.mode_verified=64,.key_zero=64};
+  m->wcid_mode=true;m->wcid_active=true;m->wcid_submitted=1792;
+  m->wcid=(struct mt76_wcid){.attempted=true,.complete=true,.operations=1792,.reads=1408,.writes=384,.slots=256,.attributes_zero=256,.addresses_zero=128};
+  m->mac_tail_mode=true;m->mac_tail_active=true;m->mac_tail_submitted=26;m->mac_tail=(struct mt76_mac_tail){.attempted=true,.complete=true,.reads=26};
+  const unsigned idx[4]={7,8,10,19};for(unsigned i=0;i<4;i++)m->mac_tail.values[idx[i]]=mt76_mac_fixed_initial(i);
+
+  m->mac_fixed_mode=m->mac_fixed_active=true;m->mac_fixed_submitted=32;
+  m->mac_fixed=(struct mt76_mac_fixed){.attempted=true,.complete=true,.operations=32,.reads=28,.writes=4,.verified=4};
+  for(unsigned i=0;i<4;i++)m->mac_fixed.after[i]=mt76_mac_fixed_value(i);
+  for(unsigned i=0;i<8;i++)m->mac_fixed.core[i]=0xf000f200;
+  m->efuse_map_mode=m->efuse_map_active=true;m->efuse_map.attempted=true;
+
+  m->efuse_map=(struct mt76_efuse_map){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2};
+  m->efuse_map_gate=(struct mt76_efuse_map_gate){.phase=15,.block=2,.submitted=26,.polls=2};
+  m->mac_address_mode=true;m->mac_address_validate_mode=profile;m->mac_header_active=header;m->mac_address_active=!header;
+  m->mac_header=(struct mt76_mac_header_result){.attempted=true,.complete=!header,.valid=!header,.reads=12,.writes=1,.polls=1,.blocks=1};
+  m->mac_header_gate=(struct mt76_efuse_map_gate){.phase=header?(write?4:0):15,.block=header?0:1,.submitted=header?0:13,.polls=header?0:1,.control=0x81e0a540};
+  const uint8_t private_header[16]={0x10,0x76,1,2,2,0x11,0x22,0x33,0x44,0x55};memcpy(m->mac_header_private,private_header,16);
+
+  m->mac_header_active=m->mac_address_active=false;memset(m->mac_header_private,0,16);
+  m->mac_address=(struct mt76_mac_address_result){.attempted=true,.complete=true,.operations=160,.reads=140,.writes=20,.verified=20};
+  m->mac_address_gate=(struct mt76_mac_address_gate){.captured_readback=true,.operations=160,.submitted=160};
+  for(unsigned i=0;i<40;i++)m->mac_address_gate.core[i]=0xf000f200;
+  const unsigned indexes[4]={4,5,20,21};for(unsigned i=0;i<4;i++)m->mac_tail.values[indexes[i]]=mt76_mac_board_initial(i);
+  m->mac_board_mode=m->mac_board_active=true;
+  unsigned op=8*target+(write?4:0);uint32_t address=write?mt76_mac_board_address(target):0x1004;
+  m->mac_board=(struct mt76_mac_board){.attempted=true,.operations=op};m->mac_board_submitted=op;
+  m->mac_board.before[target]=mt76_mac_board_initial(target);m->mac_board.core[target*2]=0xf000f200;
+  uint8_t data[4]={0};if(write)for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(mt76_mac_board_value(target)>>(8*j));
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  events[0]=control_event(0x9020,fault==31?6:1,0);
+  if(fault==1)m->mac_board_mode=false;
+  if(fault==2)m->mac_board_active=false;
+  if(fault==3)m->mac_address_validate_mode=false;
+  if(fault==4)m->mac_address.complete=false;
+  if(fault==5)m->mac_address.operations--;
+  if(fault==6)m->mac_address.reads--;
+  if(fault==7)m->mac_address.writes--;
+  if(fault==8)m->mac_address.verified--;
+  if(fault==9)m->mac_address_gate.captured_readback=false;
+  if(fault==10)m->mac_address_gate.operations--;
+  if(fault==11)m->mac_address_gate.submitted--;
+  if(fault==12)m->mac_address_gate.pending=true;
+  if(fault==13)m->mac_address_gate.failed=true;
+  if(fault==14)m->mac_header.complete=false;
+  if(fault==15)m->mac_header.valid=false;
+  if(fault==16)m->mac_header.blocks=0;
+  if(fault==17)m->mac_header.writes=0;
+  if(fault==18)m->mac_header_gate.phase=0;
+  if(fault==19)m->mac_header_gate.failed=true;
+  if(fault==20)m->mac_header_gate.pending=true;
+  if(fault==21)m->mac_address_gate.mac[target]=1;
+  if(fault==22)m->mac_address_gate.core[target]=0;
+  if(fault==23)m->mac_address_gate.dma[target]=1;
+  if(fault==24)m->mac_header_private[4]=1;
+  if(fault==25)m->mac_tail.values[indexes[target]]^=1;
+  if(fault==26)address++;
+  if(fault==27){if(write)data[0]^=1;else address++;}
+  if(fault==28)m->mac_board.attempted=false;
+  if(fault==29)m->mac_board.operations++;
+  if(fault==30)m->mac_board_submitted++;
+  if(fault==32)m->efuse_map.complete=false;
+  if(fault==33)m->mac_fixed_active=false;
+  bool ok=wifi_mac_board_transfer(d,op,write,address,data,4);assert(ok==(!fault));
+  if(!fault){assert(d->firmware.control_count==1 && m->mac_board_submitted==op+1);for(unsigned i=0;i<4;i++)assert(!buffer[i]);assert(!wifi_mac_board_transfer(d,op,write,address,data,4));}
+  else if(fault==31)assert(d->ep0_quarantined && d->firmware.failed && d->firmware.control_count==1 && m->mac_board_submitted==op+1);
+  else assert(!d->ep0_enqueue && !d->firmware.control_count);
+ }
+ puts("xhci board: PASS completed exact private MAC/header/map prerequisites, fixed targets/values/order, no replay, no USB on refusal, error quarantine");
+}
+
 static void test_wifi_mac_private(void){
  for(unsigned profile=0;profile<2;profile++)for(unsigned header=0;header<2;header++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<33;fault++){
   if(fault>=29 && (header || write))continue;
@@ -4407,6 +4508,7 @@ int main(int argc, char **argv) {
     test_wifi_bbp_after_mac();
     test_wifi_bbp_switch();
     test_wifi_dcoc();
+    test_wifi_mac_board();
     test_wifi_mac_private();
     test_wifi_efuse_map();
     test_wifi_mac_fixed();

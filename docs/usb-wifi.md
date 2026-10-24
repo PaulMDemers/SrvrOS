@@ -2300,3 +2300,34 @@ markers and saved return passed; no address bytes logged. This accepts the
 bounded address initialization on this adapter,not RF behavior,calibrated power,
 association or connectivity. Ubuntu recovery and offline filesystem/allocation
 checks passed. Preserve v55 failure history; next work is the board/PHY/RF audit.
+
+### Fixed board power and I/O prerequisites (v57)
+
+The opt-in `--wifi-mac-board` requires `--wifi-mac-address-validate` and stages
+`wifi-fw-v57`. After completed private address setup, it applies four fixed
+settings from the [Linux v7.0 MT7610 initialization table](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h).
+Four read-only Linux samples on this adapter corroborate the target values;
+the accepted v56 native snapshot supplies the exact required initial values.
+
+| Register | Required initial value | Write and exact readback |
+| --- | --- | --- |
+| PWR_PIN_CFG, 1204 | 0000000a | 00000000 |
+| IOCFG6, 0124 | a0140280 | a0040080 |
+| LDO0, 006c | 00a647a4 | 00a647b6 |
+| LDO1, 0070 | 6b006868 | 6b006464 |
+
+Each target requires MAC disabled, CORE=f000f200, idle/disabled DMA and the
+exact initial value before its single write. Exact readback and another MAC/CORE
+pair follow. Success requires 32 operations, 28 reads, four writes and four
+verifications. The independent native transfer admission checks the fixed address,
+direction, payload, prior observations, ownership and submission count. Failure
+stops without retry; uncertain USB completion retains quarantined DMA resources.
+Private mapped-header bytes must already be cleared, and every prior v56 phase
+must have completed. Saved receipts contain only these public register values.
+
+This is a board power/I/O trial, with physical acceptance pending. It adds no
+RF-bank, channel, rate-power, antenna, MAC-enable or DMA-configuration writes.
+Linux's live enabled-MAC observations are reference evidence, not native disabled
+state acceptance. Existing profiles remain unchanged. The strict collector
+requires the full earlier initialization proof and all new receipts; missing,
+duplicate or altered receipts cannot pass. RF and connectivity remain untested.

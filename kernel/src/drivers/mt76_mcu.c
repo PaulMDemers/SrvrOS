@@ -1298,3 +1298,50 @@ enum mt76_mcu_timing_status mt76_mac_fixed_apply(struct mt76_mac_fixed *s,const 
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Captured board power/IO prerequisites. Fixed allowlist, no RF/MAC/DMA enable. */
+static const uint32_t mac_board_addresses[4]={0x1204,0x124,0x6c,0x70};
+static const uint32_t mac_board_initial[4]={0xa,0xa0140280,0xa647a4,0x6b006868};
+static const uint32_t mac_board_values[4]={0,0xa0040080,0xa647b6,0x6b006464};
+uint32_t mt76_mac_board_address(unsigned i){return i<4?mac_board_addresses[i]:UINT32_MAX;}
+uint32_t mt76_mac_board_initial(unsigned i){return i<4?mac_board_initial[i]:UINT32_MAX;}
+uint32_t mt76_mac_board_value(unsigned i){return i<4?mac_board_values[i]:UINT32_MAX;}
+bool mt76_mac_board_request(unsigned op,bool *write,uint32_t *address,unsigned *length){
+    if(op>=32 || !write || !address || !length)return false;
+    unsigned step=op%8;*write=step==4;*length=4;
+    *address=step==0 || step==6?0x1004:step==1 || step==7?0x2000:step==2?0x208:mac_board_addresses[op/8];
+    return true;
+}
+bool mt76_mac_board_transfer_valid(const struct mt76_mac_board *s,unsigned op,bool write,uint32_t address,const uint8_t *data,unsigned length){
+    bool w;uint32_t a;unsigned n;
+    if(!s || !s->attempted || s->complete || !data || s->operations!=op ||
+        !mt76_mac_board_request(op,&w,&a,&n) || write!=w || address!=a || length!=n)return false;
+    if(write){
+        unsigned i=op/8;if(s->before[i]!=mac_board_initial[i] || s->dma[i]&15 || s->mac[i*2] || s->core[i*2]!=0xf000f200)return false;
+        for(unsigned j=0;j<4;j++)if(data[j]!=(uint8_t)(mac_board_values[i]>>(8*j)))return false;
+    }
+    return true;
+}
+enum mt76_mcu_timing_status mt76_mac_board_apply(struct mt76_mac_board *s,const struct mt76_mac_board_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned op=0;op<32;op++){
+        bool write;uint32_t address;unsigned length,i=op/8,step=op%8;uint8_t data[4]={0};
+        if(!mt76_mac_board_request(op,&write,&address,&length))return MT76_TIMING_REFUSED;
+        if(write)for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(mac_board_values[i]>>(8*j));
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->transfer(io->context,op,write,address,data,length))return MT76_TIMING_IO;
+        uint32_t value=0;for(unsigned j=0;j<4;j++)value|=(uint32_t)data[j]<<(8*j);
+        s->operations++;if(write)s->writes++;else s->reads++;
+        switch(step){
+        case 0:case 6:s->mac[i*2+(step==6)]=value;if(value)return MT76_TIMING_STATE;break;
+        case 1:case 7:s->core[i*2+(step==7)]=value;if(value!=0xf000f200)return MT76_TIMING_STATE;break;
+        case 2:s->dma[i]=value;if(value&15)return MT76_TIMING_STATE;break;
+        case 3:s->before[i]=value;if(value!=mac_board_initial[i])return MT76_TIMING_STATE;break;
+        case 5:s->after[i]=value;if(value!=mac_board_values[i])return MT76_TIMING_STATE;s->verified++;break;
+        default:break;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

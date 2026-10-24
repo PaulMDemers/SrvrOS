@@ -5164,3 +5164,17 @@ Actualbase d5bc4b3; fetchedmain e79e220 inspected (Air6,1 combined services plus
 independent window/API work). PR134 POSIX does not overlap this scope; PR19 owns
 this adapter work. Touch MCU plan,xHCI/main,staging and tests. Preserve the current
 accepted payload and verify exact-stage save/return before native installation.
+
+Implemented the opt-in v57 fixed board power/I/O plan with 32 operations,
+28 reads, four writes and four exact verifications. Eight MAC0/COREf000f200
+guard pairs, four disabled DMA checks and the recorded initial values are
+required. The native binding also checks completed v56 ownership and cleared
+private header storage; failures stop without retry and preserve uncertain DMA.
+Build, mt76 bring-up/upload/compact and xHCI tests passed, including each transfer
+failure/cancellation boundary, malformed requests and native ownership refusal.
+ASan/UBSan passed; 136 staging tests and 112 unchanged historical recipes passed.
+The collector's full prior native receipt plus synthetic board proof is 63591
+bytes; 80 missing/duplicate/corrupt cases and the prior run without board proof
+are rejected. Linux reference/read-only samples are retained locally. Next:
+exact-stage GPT save/return and missing-workspace rehearsal, then unarmed install.
+No native v57 acceptance, no reboot armed, and no RF/connectivity claim.
