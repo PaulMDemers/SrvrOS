@@ -270,7 +270,7 @@ struct xhci_wifi_mcu {
     bool efuse_map_mode,efuse_map_active;
     struct mt76_efuse_map efuse_map;
     struct mt76_efuse_map_gate efuse_map_gate;
-    bool mac_address_mode,mac_header_active,mac_address_active;
+    bool mac_address_mode,mac_address_validate_mode,mac_header_active,mac_address_active;
     uint8_t mac_header_private[16];
     struct mt76_mac_header_result mac_header;
     struct mt76_efuse_map_gate mac_header_gate;

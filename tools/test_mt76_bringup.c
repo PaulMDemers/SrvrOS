@@ -328,4 +328,48 @@ static void private_address_gate(void){
  }
  puts("private address gate: PASS exact order/direction/values, all transfer/cancel faults, no replay, independent guards");
 }
-int main(void) { private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+struct captured_address {struct address_fake f;struct mt76_mac_address_gate g;bool gate,mutate;unsigned target,bit;};
+static bool captured_address_auth(void *p){struct captured_address *f=p;return !f->g.failed && address_auth(&f->f);}
+static bool captured_address_transfer(void *p,unsigned op,bool w,uint32_t a,uint32_t *v){
+ struct captured_address *f=p;
+ if(f->gate && !mt76_mac_address_begin(&f->g,address_header,op,w,a,*v))return false;
+ bool ok=address_transfer(&f->f,op,w,a,v);
+ if(ok && op%8==5){if(op/8==1)*v&=0xffff;if(f->mutate && op/8==f->target)*v^=1u<<f->bit;}
+ return f->gate?mt76_mac_address_finish(&f->g,address_header,ok,*v):ok;
+}
+static enum mt76_capture_status captured_address_run(struct captured_address *f,struct mt76_mac_address_result *s,bool profile){
+ const struct mt76_efuse_map map={.attempted=true,.complete=true,.valid=true,.blocks=2,.writes=2};
+ const struct mt76_mac_address_io io={f,captured_address_auth,captured_address_transfer};
+ return mt76_mac_address_apply_profile(s,&io,&map,address_header,16,profile);
+}
+static void captured_address_init(struct captured_address *f,bool gate){
+ memset(f,0,sizeof *f);address_init(&f->f);f->gate=gate;f->g.captured_readback=true;
+}
+static void captured_address_profile(void){
+ for(unsigned gate=0;gate<2;gate++){
+  struct captured_address f;captured_address_init(&f,gate);struct mt76_mac_address_result s={0};
+  assert(captured_address_run(&f,&s,true)==MT76_CAPTURE_OK && s.complete && s.operations==160 && s.verified==20);
+  assert(f.f.words[1]==0xff5544 && f.f.words[3]==0x3f5544); /* Writes unchanged. */
+  for(unsigned target=0;target<20;target++)for(unsigned bit=0;bit<32;bit++){
+   captured_address_init(&f,gate);f.mutate=true;f.target=target;f.bit=bit;s=(struct mt76_mac_address_result){0};
+   assert(captured_address_run(&f,&s,true)!=MT76_CAPTURE_OK && !s.complete && f.f.calls==target*8+6);
+   if(gate)assert(f.g.failure==MT76_ADDRESS_MISMATCH);
+  }
+  for(unsigned n=1;n<=160;n++){
+   captured_address_init(&f,gate);f.f.fail=n;s=(struct mt76_mac_address_result){0};assert(captured_address_run(&f,&s,true)==MT76_CAPTURE_IO && !s.complete && f.f.calls==n);
+  }
+  for(unsigned n=1;n<=161;n++){
+   captured_address_init(&f,gate);f.f.deny=n;s=(struct mt76_mac_address_result){0};assert(captured_address_run(&f,&s,true)==MT76_CAPTURE_CANCELLED && !s.complete && f.f.auth==n);
+  }
+ }
+ /* Legacy write-equals-read semantics must still reject the captured mismatch. */
+ struct captured_address f;captured_address_init(&f,false);struct mt76_mac_address_result s={0};
+ assert(captured_address_run(&f,&s,false)==MT76_CAPTURE_BUSY && !s.complete && f.f.calls==14);
+ /* Both exact expectations reject a widened mask; old ff readback is refused
+  * by the new gate, even though it equals the requested write. */
+ struct mt76_mac_address_gate g={.captured_readback=true,.operations=13,.submitted=13};
+ assert(mt76_mac_address_begin(&g,address_header,13,false,0x100c,0));
+ assert(!mt76_mac_address_finish(&g,address_header,true,0xff5544) && g.failure==MT76_ADDRESS_MISMATCH);
+ puts("captured MAC profile: PASS unchanged writes, exact zero control readback, every target/bit mismatch, all failures/cancellation, legacy preserved");
+}
+int main(void) { captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

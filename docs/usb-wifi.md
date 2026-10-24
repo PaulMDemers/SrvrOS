@@ -2265,3 +2265,26 @@ readback mismatch,not accepted station/BSSID initialization or evidence by itsel
 that those bits may be ignored. Audit captured-device U2ME semantics before
 changing write values or verification masks. Prior prerequisite/header receipts,
 saved failure return and offline filesystem checks passed.
+
+### Captured station-control readback comparison
+
+The opt-in `--wifi-mac-address-validate` requires `--wifi-mac-address` and stages
+`wifi-fw-v56`. It preserves v55's writes and transport, but requires100c's exact
+captured readback: the private address low16 and zero upper16. No bits are ignored;
+any nonzero control readback or changed address bit refuses. Other targets,
+including1014,retain exact verification. The legacy v55 expectation is unchanged.
+The independent native gate and engine must select the same profile,after the
+existing exact ASIC/MAC/header/map prerequisites. A separate saved profile marker
+identifies this trial; successful completion still needs all160 operations and
+20 verified targets. Native v56 acceptance remains pending.
+
+This follows two cold SrvrOS captures and four read-only samples on the same
+adapter under Linux:100c upper16zero,1014 upper16=003f. Linux had enabled MAC and
+different DMA state,so it is corroborating evidence rather than a disabled-state
+acceptance test. Address bits were masked before saving Linux results. Upstream
+[MAC initialization](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
+still writes U2MEff; its
+[register definition](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+places that field in bits23:16. These sources do not establish universal read-only
+semantics. Preserve the reference write and scope the exact readback to this
+captured device,not sibling hardware. RF/channel/connectivity remain separate.

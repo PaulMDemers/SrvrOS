@@ -68,6 +68,11 @@ bool mt76_mac_address_target(unsigned target,const uint8_t *header,size_t size,u
 enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *,
     const struct mt76_mac_address_io *,const struct mt76_efuse_map *,const uint8_t *header,size_t size);
 
+/* Explicit captured7610 readback profile: keep write100c U2MEff, require
+ * read100c upper16zero. All other bits/targets remain exactly verified. */
+enum mt76_capture_status mt76_mac_address_apply_profile(struct mt76_mac_address_result *,
+    const struct mt76_mac_address_io *,const struct mt76_efuse_map *,const uint8_t *header,size_t size,bool captured_readback);
+
 /* Private logical block0 only. Output is cleared on entry/failure; caller
  * clears its successful output after use. Mode0 is fixed, never programming. */
 struct mt76_mac_header_result {bool attempted,complete,valid;unsigned reads,writes,polls,blocks;};
@@ -85,7 +90,7 @@ enum mt76_mac_address_failure {
  * Comparison receipts exclude factory-address bits. Public controls are
  * recorded only for station/BSSID high words (targets1/3), bits31:16. */
 struct mt76_mac_address_gate {
-    bool pending,failed;unsigned operations,submitted;
+    bool pending,failed,captured_readback;unsigned operations,submitted;
     enum mt76_mac_address_failure failure;
     bool compared,address_match,control_match;
     uint32_t expected_control,observed_control;

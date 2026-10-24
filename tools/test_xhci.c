@@ -3312,7 +3312,7 @@ static void test_wifi_mac_tail(void){
 }
 
 static void test_wifi_mac_private(void){
- for(unsigned header=0;header<2;header++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<32;fault++){
+ for(unsigned profile=0;profile<2;profile++)for(unsigned header=0;header<2;header++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<33;fault++){
   if(fault>=29 && (header || write))continue;
   reset_test();test_time=0;test_time_step=1000;
   struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
@@ -3354,14 +3354,14 @@ static void test_wifi_mac_private(void){
 
   m->efuse_map=(struct mt76_efuse_map){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2};
   m->efuse_map_gate=(struct mt76_efuse_map_gate){.phase=15,.block=2,.submitted=26,.polls=2};
-  m->mac_address_mode=true;m->mac_header_active=header;m->mac_address_active=!header;
+  m->mac_address_mode=true;m->mac_address_validate_mode=profile;m->mac_header_active=header;m->mac_address_active=!header;
   m->mac_header=(struct mt76_mac_header_result){.attempted=true,.complete=!header,.valid=!header,.reads=12,.writes=1,.polls=1,.blocks=1};
   m->mac_header_gate=(struct mt76_efuse_map_gate){.phase=header?(write?4:0):15,.block=header?0:1,.submitted=header?0:13,.polls=header?0:1,.control=0x81e0a540};
   const uint8_t private_header[16]={0x10,0x76,1,2,2,0x11,0x22,0x33,0x44,0x55};memcpy(m->mac_header_private,private_header,16);
   unsigned op=fault==29?13:write?4:0;uint32_t address=write?(header?0x24:0x1008):0x1004,value=0;
   if(fault==29)address=0x100c;
   m->mac_address=(struct mt76_mac_address_result){.attempted=true,.operations=op};
-  m->mac_address_gate=(struct mt76_mac_address_gate){.operations=op,.submitted=op};
+  m->mac_address_gate=(struct mt76_mac_address_gate){.captured_readback=profile,.operations=op,.submitted=op};
   if(write){if(header)assert(mt76_mac_header_command(m->mac_header_gate.control,&value));else value=0x33221102;}
   d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
   xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
@@ -3394,16 +3394,17 @@ static void test_wifi_mac_private(void){
   if(fault==25){if(header)m->mac_header_gate.phase=15;else m->mac_address.operations++;}
   if(fault==26){if(header)m->mac_header_gate.phase=6;else m->mac_header_private[4]|=1;}
   if(fault==27){if(header)m->mac_header_gate.phase=7;else m->mac_header_gate.submitted--;}
+  if(fault==32)m->mac_address_gate.captured_readback=!profile;
   bool ok=header?wifi_mac_header_transfer(d,write,address,&value):wifi_mac_address_transfer(d,op,write,address,&value);
   assert(ok==(!fault));
   if(!fault){assert(d->firmware.control_count==1 && !d->firmware.control_idt);for(unsigned i=0;i<4;i++)assert(!buffer[i]);assert(ring[1].parameter_low==(uint32_t)(uintptr_t)buffer);}
   else if(fault==28 || fault==30 || fault==31)assert(d->ep0_quarantined && d->firmware.failed && d->firmware.control_count==1);
   else if(fault==29){
    assert(m->mac_address_gate.failure==MT76_ADDRESS_MISMATCH && m->mac_address_gate.compared);
-   assert(!m->mac_address_gate.address_match && !m->mac_address_gate.control_match);
-   assert(m->mac_address_gate.expected_control==0xff0000 && !m->mac_address_gate.observed_control);
+   assert(!m->mac_address_gate.address_match && m->mac_address_gate.control_match==profile);
+   assert(m->mac_address_gate.expected_control==(profile?0:0xff0000) && !m->mac_address_gate.observed_control);
   }else assert(!d->ep0_enqueue);
-  if(!header && (!fault || fault>=28)){
+  if(!header && (!fault || (fault>=28 && fault<=31))){
    assert(m->mac_address_usb.attempted && m->mac_address_usb.operation==op);
    assert(m->mac_address_usb.ok==(!fault || fault==29));
    assert(m->mac_address_usb.actual==d->firmware.control_actual && m->mac_address_usb.cc==d->firmware.control_cc);

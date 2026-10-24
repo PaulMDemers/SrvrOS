@@ -5101,3 +5101,13 @@ upper16zero). Reject every other bit change; retain historical v55 semantics.
 No claim that U2ME is universally read-only or that RF/connectivity works. Native
 binding stays on the existing exact identity/header/map gate. Touch mt76/xHCI,
 main,staging and tests; no integration of unrelated main changes in this trial.
+
+Implemented opt-in v56 captured readback profile while retaining v55 unchanged.
+The engine and independent gate both require exact100c readback low16/upper0;
+requested write still includes U2MEff. Mode mismatch refuses before USB submission.
+Host tests pass for both gated and ungated engines:all20 targets/every bit,
+160 transfer failures,161 cancellation boundaries,unchanged writes and legacy
+refusal. Native build,mt76/upload/xHCI tests,ASan/UBSan,135 staging tests and110
+byte-identical historical Wi-Fi recipes passed. Collector fixture requires the
+new profile token/receipt and rejects both earlier native failures;62199 bytes.
+Next: exact-stage normal/missing-workspace rehearsal and unarmed installation.

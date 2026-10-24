@@ -235,6 +235,7 @@ bool mt76_mac_address_finish(struct mt76_mac_address_gate *g,const uint8_t h[16]
     else if(step==2){g->dma[target]=v;if(v&15){g->failure=MT76_ADDRESS_DMA;goto fail;}}
     else if(step==3){if(v==UINT32_MAX){g->failure=MT76_ADDRESS_ALL_ONES;goto fail;}g->previous=v;}
     else if(step==5){
+        if(g->captured_readback && target==1)expected&=0xffff;
         uint32_t public_mask=(target==1 || target==3)?0xffff0000u:0;
         g->compared=true;
         g->expected_control=expected&public_mask;g->observed_control=v&public_mask;
@@ -245,8 +246,8 @@ bool mt76_mac_address_finish(struct mt76_mac_address_gate *g,const uint8_t h[16]
     g->failure=MT76_ADDRESS_NONE;g->operations++;return true;
 fail:g->failed=true;return false;
 }
-enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *s,
-    const struct mt76_mac_address_io *io,const struct mt76_efuse_map *map,const uint8_t *header,size_t size){
+enum mt76_capture_status mt76_mac_address_apply_profile(struct mt76_mac_address_result *s,
+    const struct mt76_mac_address_io *io,const struct mt76_efuse_map *map,const uint8_t *header,size_t size,bool captured_readback){
     if(!s || s->attempted || !io || !io->authorize || !io->transfer || !map || !map->attempted ||
        !map->complete || !map->valid || map->blocks!=2 || map->writes!=2 || !mt76_mac_address_header_valid(header,size))return MT76_CAPTURE_REFUSED;
     *s=(struct mt76_mac_address_result){.attempted=true};uint8_t h[16];for(unsigned i=0;i<16;i++)h[i]=header[i];
@@ -265,13 +266,18 @@ enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *
         if((step==1 || step==7) && value!=0xf000f200){status=MT76_CAPTURE_BUSY;goto done;}
         if(step==2 && value&15){status=MT76_CAPTURE_BUSY;goto done;}
         if(step==3){if(value==UINT32_MAX){status=MT76_CAPTURE_BUSY;goto done;}previous=value;}
-        if(step==5){if(value!=expected){status=MT76_CAPTURE_BUSY;goto done;}s->verified++;}
+        if(step==5){if(captured_readback && target==1)expected&=0xffff;if(value!=expected){status=MT76_CAPTURE_BUSY;goto done;}s->verified++;}
     }
     if(!io->authorize(io->context)){status=MT76_CAPTURE_CANCELLED;goto done;}
     s->complete=true;status=MT76_CAPTURE_OK;
 done:
     for(unsigned i=0;i<sizeof h;i++)((volatile uint8_t *)h)[i]=0;
     return status;
+}
+
+enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *s,
+    const struct mt76_mac_address_io *io,const struct mt76_efuse_map *map,const uint8_t *header,size_t size){
+    return mt76_mac_address_apply_profile(s,io,map,header,size,false);
 }
 
 bool mt76_firmware_chunk(const uint8_t *image, size_t size, size_t index,
