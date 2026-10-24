@@ -4462,3 +4462,29 @@ after full archive equality. Workspace clean235files/601clusters, unmounted.
 Payload, VM receipts, tests, source audit, collector and run record archived
 under `~/.local/share/srvros/macbookpro11-2/wifi-bbp-switch-e26dedf/`.
 Next: attended cold adapter cycle; collect matching session first on return.
+
+### 2026-10-23 — v48 G/20 baseband switch returned
+
+Source `e26dedf`, release `9bc9e99df950ae78`, session
+`session-00065e8d6470043c-00`: all20 ordered direct USB writes completed with
+actual4/completed1;88 reads and all per-write/boundary MAC0/COREf000f200 guards
+passed. Every after value matched its fixed G/20 target (16 changed,4 already
+matched). All prior MAC/AMPDU and full-table prerequisites completed; the prior
+58-entry table still reported its four known mismatches. Both capture completion
+markers present. This establishes the bounded switch write/readback result on
+this adapter; it does not accept RF/channel selection or connectivity. The
+diagnostic retains its observational `register_acceptance=NOT_TESTED` label.
+
+Collector hardware predicates all passed initially, but recovery bookkeeping
+then failed because local readback variable `b` shadowed the hardware_boot
+module alias. Renamed that variable to `before_value` in the local collector
+and its generator; no predicate was changed. Rerun passed Ubuntu default,
+consumed one-shot, installed/known-good hashes and offline workspace checks:
+237files/604clusters, zero leaks/mismatches, unmounted. Original error and
+original/fixed collector copies are retained in the durable archive.
+
+Collection, summary, run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp-switch-e26dedf/`.
+No reboot armed. Next: implement the separately audited nine-entry CAL47..55
+DCOC table after the switch, with bounded MCU command ownership, exact ACK
+validation and guarded readback capture; keep RF/TX/RX enable separate.

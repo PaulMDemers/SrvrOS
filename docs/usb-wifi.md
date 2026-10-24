@@ -1998,3 +1998,12 @@ writes after v47 completes. Each write is preceded by MAC0/COREf000f200 checks;
 completion and transport ownership are required; attempted writes cannot retry.
 The full capture reports mismatches as observations (`register_acceptance=NOT_TESTED`).
 No RF/DCOC/channel/TX/RX enable is added. Native acceptance remains pending.
+
+The v48 native trial completed on Pro11,2:20 direct writes,88 reads and every
+MAC/CORE guard passed; all20 G/20 targets matched (16 changed,4 unchanged).
+All preceding prerequisites and both completion markers passed. The earlier
+full-table four mismatches remain separately recorded. Recovery/filesystem
+checks passed after a local collector variable-shadowing fix; validation
+predicates were unchanged. This is bounded write/readback evidence, not RF
+or connectivity acceptance. Next is the separate nine-entry CAL47..55 DCOC
+stage with exact MCU framing/ACK and guarded observations.
