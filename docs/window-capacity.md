@@ -14,6 +14,10 @@ frame is published. Unreserved spares may be reclaimed under pressure; a buffer
 promised to an outstanding CONFIGURE is retained. A replacement allocation must
 fit the budget before the previous spare is released. Closing a window frees
 both caches. A failed allocation keeps the published frame and input owner.
+If a redraw needs a reclaimed spare and allocation fails, RELEASE_RETRY releases
+the kernel seal without publishing or acknowledging input. The client retains
+its document/canvas and requests another frame after five ticks (50 ms), while
+continuing to process input. Invalid surface copies still retire the client.
 
 Resize reserves a private destination before changing geometry/generation.
 The client allocates a new current-size canvas and kernel surface before

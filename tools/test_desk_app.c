@@ -55,6 +55,17 @@ static void refused_resize(void) {
         assert(desk_app_poll(&a,&event)==2 && desk_app_poll(&a,&event)==1);
         assert(a.pixels==pixels && a.surface==surface && pixels[0]==77 && a.generation==gen+1);
     }
+    struct desk_canvas canvas;pixels[0]=88;
+    assert(desk_app_present(&a)==1);
+    receive(DESK_RELEASE,a.generation);incoming.surface=surface;incoming.serial=a.pending+1;incoming.value=DESK_RELEASE_RETRY;
+    assert(desk_app_poll(&a,&event)==2 && a.pending && !a.retry_after);
+    incoming.serial=a.pending;queued=1;
+    assert(desk_app_poll(&a,&event)==2 && !a.pending && a.dirty && !a.failed);
+    assert(a.pixels==pixels && pixels[0]==88 && !desk_app_canvas(&a,&canvas));
+    ticks+=4;assert(!desk_app_canvas(&a,&canvas));
+    ticks++;assert(desk_app_canvas(&a,&canvas)==1 && desk_app_present(&a)==1 && !a.retry_after);
+    receive(DESK_RELEASE,a.generation);incoming.surface=surface;incoming.serial=a.pending;
+    assert(desk_app_poll(&a,&event)==2 && !a.pending && !a.dirty);
     desk_app_close(&a);
 }
 int main(void) {

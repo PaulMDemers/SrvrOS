@@ -74,7 +74,7 @@ int main(int argc,char **argv) {
     open.width=600; open.height=320;
     strcpy(open.text,"Type study");
     if (desk_send(0,&open)!=0) { srv_puts("deskclient: no compositor\n"); return 1; }
-    uint64_t server=0,surface=0,serial=0,generation=0,pending=0,pending_gen=0;
+    uint64_t server=0,surface=0,serial=0,generation=0,pending=0,pending_gen=0,retry_after=0;
     uint64_t last=srv_ticks(),frames=0,input_serial=0;
     uint32_t width=0,height=0,*pixels=desk_pixels_alloc(DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
     if(!pixels) return 1;
@@ -105,6 +105,7 @@ int main(int argc,char **argv) {
                        p.generation==pending_gen) {
                 feedback_release(&feedback,p.serial,srv_ticks());
                 pending=0; last=srv_ticks();
+                if(p.value==DESK_RELEASE_RETRY) { dirty=1;retry_after=last+5; }
             }
             else if (p.type==DESK_POINTER && height && p.generation==generation &&
                      configure.generation==generation) {
@@ -155,9 +156,9 @@ int main(int argc,char **argv) {
             }
             if (surface) gui_surface_destroy(surface);
             surface=next_surface; width=configure.width; height=configure.height;
-            generation=configure.generation; layout(&scrollbar,&size_button,width,height); dirty=1;
+            generation=configure.generation; retry_after=0; layout(&scrollbar,&size_button,width,height); dirty=1;
         }
-        if (dirty && !pending && surface) {
+        if (dirty && !pending && surface && (uint64_t)srv_ticks()>=retry_after) {
             struct desk_canvas c;
             desk_canvas_init(&c,pixels,width,height,width);
             draw(&c,input,large,&scrollbar,&size_button,feedback.active);

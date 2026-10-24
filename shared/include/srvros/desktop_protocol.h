@@ -12,6 +12,7 @@
 #define DESK_MAX_HEIGHT 900
 #define DESK_CLIPBOARD_BYTES 65536
 #define DESK_MAX_WINDOWS 16
+#define DESK_RELEASE_RETRY 1u
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
@@ -36,7 +37,9 @@ struct desk_packet {
 };
 _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
 /* COMMIT publishes the entire surface and seals it against writes/destruction.
- * RELEASE acknowledges a private compositor snapshot, not scanout completion.
+ * RELEASE.value=0 acknowledges a private snapshot, not scanout completion.
+ * RELEASE_RETRY releases the seal without publishing; retain app state and
+ * redraw after a bounded delay. It does not acknowledge input_serial.
  * RESIZE_REFUSED carries the failed CONFIGURE generation and retained canvas
  * width/height. The server may restore the last published geometry with a fresh
  * generation; stale refusals cannot undo a later resize.

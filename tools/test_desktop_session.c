@@ -178,6 +178,14 @@ static void buffer_budget(void) {
     uint64_t before=s.cache_bytes;
     assert(!cache_prepare(&s,3,DESK_MAX_WIDTH,DESK_MAX_HEIGHT) && s.cache_bytes==before);
     for(int i=0;i<DESKD_WINDOWS;i++)assert(s.scene.windows[i].pixels[0]==100u+(unsigned)i);
+    s.clients[3].pid=42;s.clients[3].generation=7;s.clients[3].present_input=12;
+    s.scene.windows[3].frame=(struct desk_rect){0,0,DESK_MAX_WIDTH+2,DESK_MAX_HEIGHT+45};
+    struct desk_packet commit=desk_packet_new(DESK_COMMIT);
+    commit.generation=7;commit.width=DESK_MAX_WIDTH;commit.height=DESK_MAX_HEIGHT;
+    commit.surface=7;commit.serial=99;commit.input_serial=13;
+    incoming(&s,42,&commit);
+    assert(s.clients[3].release.type==DESK_RELEASE && s.clients[3].release.value==DESK_RELEASE_RETRY);
+    assert(!s.clients[3].closing && s.clients[3].present_input==12 && s.scene.windows[3].pixels[0]==103);
     s.clients[0].awaiting=0;
     assert(cache_prepare(&s,3,DESK_MAX_WIDTH,DESK_MAX_HEIGHT) && s.cache_bytes<=DESKD_CACHE_BUDGET);
     cache_free(&s);assert(!s.cache_bytes && allocations-frees==balance);

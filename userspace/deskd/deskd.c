@@ -252,7 +252,7 @@ static void memory_notice(struct session *s) {
     if(s->memory_notice_serial && now-s->memory_notice_at<100)return;
     s->memory_notice_at=now;
     struct desk_notification text={0};strcpy(text.title,"Window memory");
-    strcpy(text.message,"Resize unavailable. Close a window and try again.");
+    strcpy(text.message,"Memory is low. Close a window and try again.");
     uint64_t id;long us=srv_monotonic_us();
     if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX-2,DESK_APP_SYSTEM,
        ++s->memory_notice_serial,us<0?0:(uint64_t)us,DESK_NOTICE_WARNING,&text,&id)>0) {
@@ -907,14 +907,19 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     if (p->type!=DESK_COMMIT) return;
     /* A conforming client has at most one unreleased commit. */
     if (c->release.type) { desk_log("deskd: closing pid=%llu reason=unreleased-buffer\n",(unsigned long long)pid);close_client(s,i); return; }
-    c->release=*p; c->release.type=DESK_RELEASE; c->progress=srv_ticks();
+    c->release=*p; c->release.type=DESK_RELEASE;c->release.value=0; c->progress=srv_ticks();
     if (p->generation!=c->generation || p->width!=(uint32_t)(w->frame.w-2) ||
         p->height!=(uint32_t)(w->frame.h-45) || c->closing) {
         desk_log("deskd: stale commit released pid=%llu\n",(unsigned long long)pid); return;
     }
     /* Keep displaying the front until a complete copy succeeds. */
     uint32_t *next=cache_prepare(s,i,p->width,p->height);
-    if (!next || p->width>DESK_MAX_WIDTH || p->height>DESK_MAX_HEIGHT ||
+    if (!next) {
+        c->release.value=DESK_RELEASE_RETRY;memory_notice(s);
+        desk_log("deskd: deferred frame pid=%llu reason=cache-memory\n",(unsigned long long)pid);
+        return;
+    }
+    if (p->width>DESK_MAX_WIDTH || p->height>DESK_MAX_HEIGHT ||
         gui_surface_copy(p->surface,0,0,p->width,p->height,next,p->width)!=0) {
         desk_log("deskd: closing pid=%llu reason=surface-copy\n",(unsigned long long)pid);
         close_client(s,i); return;

@@ -33,7 +33,7 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
                 desk_pixels_free(a->pixels,a->width,a->height);
             }
             a->pixels=pixels;a->surface=surface;a->width=a->configure.width;a->height=a->configure.height;
-            a->generation=a->configure.generation;a->dirty=1;a->last=srv_ticks();
+            a->generation=a->configure.generation;a->retry_after=0;a->dirty=1;a->last=srv_ticks();
             *event=a->configure;return 1;
         }
     }
@@ -48,8 +48,11 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
         }
         if(p.type==DESK_CONFIGURE)return 2;
         if(p.type==DESK_RELEASE && p.surface==a->surface && p.serial==a->pending && p.generation==a->pending_generation) {
-            a->pending=0;a->last=srv_ticks();return 2;
+            a->pending=0;a->last=srv_ticks();
+            if(p.value==DESK_RELEASE_RETRY) { a->dirty=1;a->retry_after=a->last+5; }
+            return 2;
         }
+        if(p.type==DESK_RELEASE)return 2;
         if(p.type==DESK_CLOSE) { a->closed=1;*event=p;return 1; }
         if(p.type==DESK_MENU_ACTION) {
             int valid=0;
@@ -78,7 +81,8 @@ int desk_app_wait(struct desk_app *a,uint64_t ticks) {
 
 int desk_app_canvas(struct desk_app *a,struct desk_canvas *canvas) {
     if(a->failed || a->closed) return -1;
-    if(!a->dirty || a->pending || !a->surface || a->generation!=a->configure.generation) return 0;
+    if(!a->dirty || a->pending || !a->surface || a->generation!=a->configure.generation ||
+       (a->retry_after && (uint64_t)srv_ticks()<a->retry_after)) return 0;
     return desk_canvas_init(canvas,a->pixels,a->width,a->height,a->width)?-1:1;
 }
 int desk_app_present(struct desk_app *a) {
@@ -92,7 +96,7 @@ int desk_app_present(struct desk_app *a) {
         if((uint64_t)srv_ticks()-a->send_since>500) { a->failed=1;return -1; }
         return 0;
     }
-    a->send_since=0;a->pending=++a->serial;a->pending_generation=a->generation;a->dirty=0;a->last=srv_ticks();return 1;
+    a->retry_after=0;a->send_since=0;a->pending=++a->serial;a->pending_generation=a->generation;a->dirty=0;a->last=srv_ticks();return 1;
 }
 int desk_app_title(struct desk_app *a,const char *title) {
     if(!a->server) return -1;
