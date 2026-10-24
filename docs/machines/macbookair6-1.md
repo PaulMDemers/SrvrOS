@@ -1983,3 +1983,58 @@ reopen with `desktop battery`, then exit and `reboot`. No timed completion or
 automatic return. The obsolete `2cd5b8604f2406c5` EFI copy was removed only after
 its durable payload/trial hashes matched; accepted ordinary battery, console
 recovery and Ubuntu remain preserved. Combined native acceptance is pending.
+
+### Combined session returned (2026-10-24)
+
+Run `2319b6df4b7f2dbd`, release `1ae70fcf03ab6152`, produced one session
+`00065e9bf077c2fc-00` with a clean exit snapshot at 1315.719 seconds from boot.
+All four providers were enabled with networking off. Battery reached generation
+500 over 500 attempts (one rejected sample), 7,492 events, two alarms and two
+acknowledgements; generation advanced past invalid-through 227. Runtime retired
+with zero heap/errors/denied and 531 handled/zero unclaimed SCI deliveries. The
+12-member peak lifetime drained and released. This does not identify the early
+rejected sample's cause: retained rotating logs do not cover the whole session.
+
+Final sensor snapshots show 1,312 fan samples with zero failures and 1,315 thermal
+samples. Audio records four starts/three completions, volume 68, no final error;
+PCM has zero owner/queue/underruns. The user confirms everything worked normally, including sound and brightness.
+The fourth audio start has no completion count; its exact stopping action is
+not separately recorded.
+A new 11-byte `ten-minute-demo.txt` persisted; prior bytes except metadata remain
+unchanged. Offline fsck/allocation pass at 277 files/823 clusters with no leaks
+or bitmap mismatches. Ubuntu returned with empty one-shot state; evidence and
+hashes are backed up outside build. No reboot is armed.
+
+The user confirms that desktop close/reopen was not attempted. This accepts
+the observed combined session with battery, brightness, audio and sensors,
+file persistence and clean exit. Combined-provider desktop reopen remains
+untested on this machine; multi-hour endurance is also outside this result.
+
+## Combined close/reopen follow-up scope (2026-10-24)
+
+Integration baseline `e79e220`; retain accepted v71 release `1ae70fcf03ab6152`
+(compiled source `59c1836`) for a focused two-session native check. No runtime or
+staging changes: rerun combined HDA/battery exit/reopen VM and exact staged GPT
+rehearsal, then use a fresh run record and USB baseline. Publish the preceding
+combined-session acceptance and this scope. PR134 POSIX work and PR19 Wi-Fi
+remain independent; neither is imported into this accepted payload. Check file
+persistence, provider availability, battery lifetime retirement and normal exit
+on both sides of `desktop battery`. Multi-hour endurance is not this test.
+
+### Reopen trial ready (PR135)
+
+Fresh rehearsal source `ef184f3` differs from compiled `59c1836` only in
+documentation. The unchanged combined HDA/battery GPT VM passes normal
+exit/reopen with fresh lifetime, exact saved files, retired PCM and clean
+allocation. Exact installed v71 release `1ae70fcf03ab6152` separately passes
+GRUB→Limine GPT boot, Q35 native-profile refusal, working HDA, normal exit/reopen,
+file/allocation checks and monitor reboot. Documentation checks pass.
+
+Unarmed run `c655eca6a4f00313` uses the new 277-file/823-cluster baseline and
+`reopen-services.txt`. Briefly exercise brightness, audio, sensors and battery;
+save the document and return to console. Enter `desktop battery`, reopen the
+document and exercise the providers again. Exit normally, then `reboot`. No
+ten-minute wait or automatic return is required. The preceding combined native
+run remains independently backed up; this new run has its own backup directory.
+Ubuntu and console recovery stay unchanged. Physical reopen acceptance awaits
+the returned evidence and user observations.
