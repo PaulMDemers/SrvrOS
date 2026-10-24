@@ -2,6 +2,28 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Current candidate: 20 ms normal desktop validation
+
+Source `4896805` changes the default poll-before-wait threshold to 20 ms and
+preserves historical 4 ms diagnostic collection. Main `bbdbefb` is integrated;
+the staging conflict was resolved by retaining both the descriptive storage
+comparison recipe and Air6,1 v68. Full local build/core/docs passes. Networked
+post-idle drag, typing and exact save pass. Source `c258822` additionally lowers
+the USB copy fixture write limit to 128 KiB/s: the previous 1 MiB/s run exercised
+no waits at 20 ms and therefore failed its coverage assertion. The revised run
+exercises 2,648 waits / 25.795 seconds of helper wall time, with zero transport
+errors, concurrent typing, exact binary/document readback, collision protection,
+rename and clean exit. The stalled USB quarantine/keyboard regression passes.
+
+Exact EFI/GPT v26 `f340e0695d1e2492` saves six valid logger-cost records,
+verifies persisted bytes and resets automatically. Missing-workspace return
+also passes. The next physical run measures the normal one-minute desktop
+logger workload with the 20 ms default; no input is required. All 1033 existing
+USB files were hashed and offline allocation/fsck pass. Recovery remains
+`9aa8dbf6fbda8252`. Run/reboot state and collector are under
+`build/storage-wait20-20261023` with outside-build backups before arming.
+PR118 stays draft until that normal-workload result is reviewed.
+
 ### Controlled native result and 20 ms candidate
 
 Release `2218ef4113730414`, source `7347ccc`, returned automatically in
