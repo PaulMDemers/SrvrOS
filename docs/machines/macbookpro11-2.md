@@ -5610,3 +5610,35 @@ Next: attended cold adapter cycle, then collect matching release/session FIRST.
 Require the complete prior proof and every direct-selector/poll/guard receipt;
 classify disagreement with MCU reads without promoting central RF initialization.
 No reboot armed. Calibration and connectivity remain untested.
+
+
+### 2026-10-24 — direct RF read comparison collected
+
+Source `697111b`, release `032ade0806c417ab`, session
+`session-00065e9e44b46d9c-00` passed the strict v63 collector. Direct reads of
+RF0:6/1/2/6/22 returned0/1/17/0/0, matching the preceding MCU observations.
+Each target required one idle and one completion poll, with exact returned
+bank/register identity. All45 operations/submissions,40 reads,5 read selectors
+and30 guards passed; every guard remained MAC0/COREf000f200/DMA40000050.
+No additional RF data writes occurred. The strict central prefix still reports
+state4 and only5 verified entries; it remains unaccepted.
+
+Both completion markers and the full77073-byte startup snapshot passed. This
+accepts the bounded direct read transport/observation only. Agreement with MCU
+reads points away from reply decoding, but does not distinguish an ignored write
+from RF0:6 semantics or missing initialization prerequisites. Next investigate
+the write path and prerequisites before changing strict acceptance or continuing
+the table. Calibration, scanning, association/security and connectivity remain
+pending.
+
+Collection `build/bringup/wifi-rf-csr/collection/collection-p_feovej`, strict
+receipts and complete evidence are archived with the payload under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-csr-697111b/`.
+Ubuntu default, consumed one-shot and current/known-good recovery hashes verified.
+Offline workspace clean269files/652clusters/108directories, zero leaks, allocation
+mismatches or errors; unmounted. No reboot armed.
+
+Fetched main `211f17c2` includes Air6,1 attended-reopen PR139; this native source
+retains integration base `d5bc4b3`. Air7,2 POSIX PR134 `61fc814a` remains separate.
+This return closeout updates evidence/documentation only; no new candidate is
+installed or armed.

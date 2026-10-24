@@ -2595,3 +2595,19 @@ The saved log retains every USB result, final selector/identity, poll counts and
 guard values. The strict collector checks their order and counts against the
 full initialization prefix. Even the maximum-poll fixture fits128KiB. Completion
 accepts only this comparison; central RF setup and connectivity remain pending.
+
+Native v63 source `697111b`, release `032ade0806c417ab`, session
+`session-00065e9e44b46d9c-00` passed the strict comparison collector. Direct
+RF0:6/1/2/6/22 values were0/1/17/0/0, agreeing with the preceding MCU reads.
+Every target needed one idle poll and one completion poll. All45 transfers,
+40 reads,5 read selectors and30 guard reads passed; no RF data write was added.
+The CSR words retained the requested bank/register identities. Both completion
+markers and the full77073-byte startup snapshot passed, as did Ubuntu recovery
+and offline filesystem/allocation checks.
+
+This accepts direct RF read-selector transport on this captured adapter in this
+bounded state, not central RF initialization. Agreement between the two paths
+points away from an MCU reply-decoding error but does not distinguish an ignored
+write from RF hardware semantics or missing initialization prerequisites. Next
+investigate the write path and those prerequisites before relaxing any readback
+rule or continuing the table. Calibration and connectivity remain untested.
