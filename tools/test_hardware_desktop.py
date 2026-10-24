@@ -498,7 +498,7 @@ class CollectionTests(unittest.TestCase):
             out,report=desktop.collect(root/'usb','37d8c5d0',root/'out');item=report['sessions'][0]
             self.assertEqual(item['battery_home_desktop']['screenshot']['width'],2);self.assertFalse(item['attention'])
             self.assertEqual((out/item['session']/image.name).read_bytes(),bmp)
-            for bad in (proof.replace(b'clean=yes',b'clean=NO'),proof.replace(b'0x189c',b'0x62f'),proof.replace(shot,b''),proof+shot,proof.replace(b'Screen-1-2-3.bmp',b'../private.bmp')):
+            for bad in (proof.replace(b'clean=yes',b'clean=NO'),proof.replace(b'0x189c',b'0x62f'),proof.replace(shot,b''),proof.replace(shot.splitlines(keepends=True)[0],b''),proof+shot,proof.replace(b'Screen-1-2-3.bmp',b'../private.bmp')):
                 (folder/'exit.log').write_bytes(bad)
                 _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
             (folder/'exit.log').write_bytes(proof)

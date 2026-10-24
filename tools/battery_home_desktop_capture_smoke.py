@@ -9,6 +9,7 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from vm_sockets import connect_unix
 from battery_home_desktop_records import check_capture
+from hardware_desktop import verify_home_desktop_screenshot
 
 CASES={'completion':83,'profile-refusal':15,'uncertain-ack':79,'query-refusal':75,'no-transition':83,'early-exit':83,'work-overrun':83}
 
@@ -108,10 +109,15 @@ def main():
                         assert logs=={'boot.log','exit.log','session-a.log','session-b.log'}
                         result.update(check_capture(saved,vm=True,transitions=args.transitions,work=args.work))
                         shots=list(final.entries(final.read('srvros-work/Screenshots')));assert len(shots)==(3 if args.transitions else 1)
+                        images=tmp/'collected-home/Screenshots';images.mkdir(parents=True)
                         for index,(name,_) in enumerate(shots):
                             bmp=final.read('srvros-work/Screenshots/'+name);assert bmp[:2]==b'BM'
                             assert struct.unpack_from('<ii',bmp,18)==(1280,800)
                             (out/f'desktop-{index}.bmp').write_bytes(bmp)
+                            (images/name).write_bytes(bmp)
+                        # Use the physical collector's strict receipt + image checks,
+                        # including normal non-traced attended desktops.
+                        result['screenshot']=verify_home_desktop_screenshot(images.parent,saved.decode(),out,3 if args.transitions else 1)
                     else:
                         assert (b'battery-home-work-capture' if args.work else b'battery-home-transitions-capture' if args.transitions else b'battery-home-desktop-capture')+b': returned=yes clean=NO' in saved
                         assert b'laptop-capture: completed=NO' in saved and b'battery-controls: PASS' not in saved
