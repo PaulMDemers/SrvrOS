@@ -15,6 +15,16 @@ No native reboot or firmware/driver gate change is planned. Installed/recovery
 payloads remain unchanged. USB logger timing variability stays a separate next
 scope until this failure is explained. Local evidence: `build/tcp-readiness-20261023`.
 
+Diagnosis: timestamped serial plus QEMU packet capture shows SYN/SYN-ACK/ACK
+complete while the guest listener times out. `handle_tcp` only called
+`ensure_pending_connection` from its payload path, so an empty completed
+handshake never became acceptable. This is a transport readiness defect, not
+stdout buffering or a reason to loosen the test. The new packet-level host
+regression fails on the old kernel and passes after queueing a validated final
+ACK. It covers repeated readiness/draining, subsequent payload/FIN, invalid
+ACK/sequence and full pending queue refusal. Full build/core and original VM
+readiness/descriptor/web regressions are in progress. No hardware change armed.
+
 ### Network idle milestone accepted for the bounded workload
 
 Release `27b239f96a183fb8`, compiled source `ceaa2ce`, returned automatically in
