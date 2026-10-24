@@ -347,7 +347,7 @@ idle. This recipe omits the ordinary battery owner and does not exercise physica
 input after idle or ordinary Home battery-service efficiency. Accept the bounded
 polling reduction and persistence; keep those other acceptance questions open.
 
-### Logger cost records (diagnostic; native evidence pending)
+### Logger cost records
 
 With power telemetry requested and a reference clock available, the workspace
 logger measures each existing snapshot save. `workspace-cost: version=1` reports
@@ -372,4 +372,40 @@ completed idle window. Straddling/startup/after-idle operations are excluded;
 missing, malformed, conflicting or failed in-window evidence yields null. Totals
 cover the recorded saves only, not the full idle interval or lost tail records.
 This supplies attribution evidence; it does not change the unresolved efficiency
-conclusion above or accept a new physical release.
+conclusion above. Native acceptance is bounded to the named capture below.
+
+#### First native logger timing capture
+
+Air7,2 release `9c57ca38a3771eef`, source `1f93899`, session
+`session-00065e8bb03c4641-00` passed automatic return, complete capture, screenshot,
+file preservation, offline filesystem/allocation and recovery checks. Six
+completed periodic records inside the 60.009-second idle window cover 136,678
+snapshot bytes and **3.005369 seconds** of save wall time.
+
+| Logger stage | Recorded total |
+| --- | ---: |
+| Preparation | 0.325 ms |
+| Write | 2,985.075 ms |
+| Verification | 14.184 ms |
+| Sync | 5.785 ms |
+
+USB callback time is nested within these stages: CBW 4.554 ms, data 546.660 ms,
+CSW **2,437.047 ms** (691 CBW/CSW calls, 2,200 data calls, no callback failures).
+The callback sums cover 99.43% of save wall time, and status callbacks 81.09%.
+One save lasted 2.002016 seconds, with 1.938771 seconds across 108 status calls;
+others lasted 0.149–0.343 seconds. An aggregate two-second save is not a single
+transfer timeout. These measurements locate time in transport callbacks but do
+not isolate media, firmware, scheduling or the longest individual request.
+
+The whole idle window recorded 95.00% idle timer samples, 19,401 switches and one
+frame. The logger had 282 samples over the separate 52.819-second worker interval;
+those samples are not measured runtime. Package average was **6.949 W** over
+52.999 seconds (368.323 J), versus 6.946 W in the uninstrumented predecessor.
+Temperature fell 76–73 C. No energy saving is established; comparison includes
+probe overhead and unsolved run-to-run variation. Native physical input after
+idle and ordinary Home battery efficiency remain separate acceptance tasks.
+
+Next investigate bounded USB-completion waiting and individual request costs,
+while preserving input service, deadlines, DMA quarantine, verification and
+flush policy. Avoid attributing this cost to rendering or reducing persistence
+merely to improve the idle score.
