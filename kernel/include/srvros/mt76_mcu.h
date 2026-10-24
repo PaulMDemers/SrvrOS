@@ -403,4 +403,18 @@ size_t mt76_rf_central_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_central_admit(const struct mt76_rf_central *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_central_apply(struct mt76_rf_central *s,
     const struct mt76_mcu_timing_io *io);
+/* Read-only comparison after a deliberately bounded six-write central prefix.
+ * Complete means observation only; central initialization remains incomplete. */
+struct mt76_rf_six {
+    bool attempted,complete;
+    unsigned operations,reads,requests;
+    int received;
+    uint32_t guards[6][3],words[5][4];
+    uint8_t values[5];
+};
+bool mt76_rf_six_prefix_valid(const struct mt76_rf_central *s,enum mt76_mcu_timing_status status);
+uint32_t mt76_rf_six_guard_address(unsigned operation);
+size_t mt76_rf_six_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_six_admit(const struct mt76_rf_six *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_six_apply(struct mt76_rf_six *s,const struct mt76_mcu_timing_io *io);
 #endif

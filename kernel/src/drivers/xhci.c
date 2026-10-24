@@ -276,6 +276,10 @@ struct xhci_wifi_mcu {
     bool rf_central_mode,rf_central_active;
     unsigned rf_central_submitted;
     struct mt76_rf_central rf_central;
+    bool rf_six_mode,rf_six_active;
+    unsigned rf_six_submitted;
+    enum mt76_mcu_timing_status rf_central_status;
+    struct mt76_rf_six rf_six;
     bool ant_init_mode,ant_fields_active,ant_init_active;
     struct mt76_ant_fields ant_fields;
     struct mt76_efuse_map_gate ant_fields_gate;

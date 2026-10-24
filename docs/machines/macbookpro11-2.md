@@ -5505,3 +5505,16 @@ PR134 POSIX d5d0fa1 are separate scopes; integration base remainsd5bc4b3.
 Next checkpoint: engine/binding fault tests and strict observational collector,
 then exact-stage VM and unarmed installation. Observation completion must never
 be labeled central-table or RF-function acceptance.
+
+
+Implemented v62's capped central prefix and five fixed read-only comparisons.
+The strict central engine is unchanged. Both the prefix authorizer and native
+transfer admission reject operations after the first45 submissions; the observation admits only the
+exact sixth-read mismatch or deliberate post-match cancellation. Host tests cover
+every response byte/bit, transport/cancellation boundary, all256 observed byte
+values and known control mismatches. The full saved-proof fixture is69766bytes;
+306 malformed observations are refused, including attempts to claim central
+completion. All141 staging tests and122 historical recipe comparisons pass.
+Native binding tests, full build, MCU/bring-up regressions, ASan/UBSan and docs
+checks pass. Final source regression and exact-stage VM checks precede unarmed
+installation; no hardware acceptance or new install yet.

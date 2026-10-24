@@ -2518,3 +2518,33 @@ The saved complete70943-byte snapshot, recovery checks and both offline filesyst
 checks passed. Next investigate RF0:6 semantics and sequencing with bounded
 observations; do not mask the mismatch or continue the table without evidence.
 Calibration, radio function and connectivity remain untested.
+
+
+### Bounded RF0:6 comparison (v62 candidate)
+
+`--wifi-rf-six` requires `--wifi-rf-central`. The ordinary v61 strict engine is
+unchanged. The v62 authorizer and native submission checks independently cap its
+prefix at45 submissions: six writes and six reads with the first five entries
+verified, stopping before the sixth entry's final guards or any later entry.
+If the sixth read returns41, the strict engine is deliberately cancelled at that
+boundary. Any other eight-bit value retains its state-mismatch result. Only these
+exact states, with six validated write echoes, correct sixth response framing,
+33 prior guard reads and all earlier initialization proof, admit the comparison.
+Transport/framing failures, other cancellations or earlier mismatches refuse.
+
+The separate comparison performs fresh MAC0/COREf000f200/disabled-DMA guards,
+then five CMD10 reads in order: RF0:6, RF0:1, RF0:2, RF0:6 and RF0:22, using
+sequences6–10. Each is followed by another guard triplet. RF0:1/2/22 must match
+1/17/0; the two RF0:6 values are observations only. Success requires23 operations,
+18 guard reads and5 exact-framed replies, with zero additional writes. No retry,
+RF0:6 rewrite, later table initialization, trim, calibration or traffic is added.
+
+The logs explicitly say `observation_only=1` and `central_complete=0`, retain the
+initial sixth reply plus all five comparison replies, and distinguish checked
+guards from unexecuted slots. Overall capture completion means this bounded
+observation finished, never that central initialization or RF function passed.
+The Linux reference writes RF0:6=41 without immediate verification, but gives no
+readback exemption establishing that zero is correct. The exposed mt76 debugfs
+interface on this Ubuntu adapter provides generic MMIO regidx/regval only, so
+no unsupported live-driver RF access was attempted. Compare the native repeated
+values and controls before changing any strict acceptance rule.

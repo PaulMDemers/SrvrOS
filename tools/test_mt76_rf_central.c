@@ -48,6 +48,8 @@ int main(void){
   }
  }
  for(unsigned n=1;n<=353;n++){f=(struct fake){.received=16,.deny=n};s=(struct mt76_rf_central){0};assert(run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.ops==n-1);}
+ f=(struct fake){.received=16,.deny=46};s=(struct mt76_rf_central){0};
+ assert(run(&f,&s)==MT76_TIMING_CANCELLED && f.ops==45 && mt76_rf_six_prefix_valid(&s,MT76_TIMING_CANCELLED));
  for(int n=0;n<=1025;n++)if(n!=16){f=(struct fake){.received=n};s=(struct mt76_rf_central){0};assert(run(&f,&s)==MT76_TIMING_REPLY && !s.complete && f.ops==4);}
  assert(mt76_rf_central_apply(NULL,NULL)==MT76_TIMING_REFUSED);
  puts("mt76 RF central: PASS 44 writes/readbacks, exact packets, 352 failures/353 cancellations, guard and all response-bit mutations, no retry");

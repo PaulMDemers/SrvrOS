@@ -1544,3 +1544,69 @@ enum mt76_mcu_timing_status mt76_rf_central_apply(struct mt76_rf_central *s,cons
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+bool mt76_rf_six_prefix_valid(const struct mt76_rf_central *s,enum mt76_mcu_timing_status status){
+    if(!s || !s->attempted || s->complete || s->reads!=33 || s->exchanges!=12 || s->acks!=6 || s->received!=16 ||
+       s->words[0]!=0x4a050008 || s->words[1]!=0x80000006 || s->words[2]>255 || s->words[3]!=0x4a050008)return false;
+    if(s->words[2]==0x41){
+        if(status!=MT76_TIMING_CANCELLED || s->operations!=45 || s->verified!=6 || s->values[5]!=0x41)return false;
+    }else if(status!=MT76_TIMING_STATE || s->operations!=44 || s->verified!=5)return false;
+    for(unsigned i=0;i<5;i++)if(s->values[i]!=rf_central_values[i])return false;
+    for(unsigned i=0;i<11;i++)for(unsigned n=0;n<3;n++)if(!rf_central_guard_valid(n,s->guards[i][n]))return false;
+    return true;
+}
+static const uint8_t rf_six_regs[5]={6,1,2,6,22};
+uint32_t mt76_rf_six_guard_address(unsigned op){
+    static const uint32_t addresses[3]={0x1004,0x2000,0x208};
+    if(op>=23 || (op>=3 && (op-3)%4==0))return UINT32_MAX;
+    return addresses[op<3?op:(op-4)%4];
+}
+size_t mt76_rf_six_packet(unsigned op,uint8_t *out,size_t capacity){
+    if(op<3 || op>=23 || (op-3)%4)return 0;
+    unsigned i=(op-3)/4;uint8_t payload[8]={rf_six_regs[i],0,0,0x80,0,0,0,0};
+    return mt76_mcu_encode(10,6+i,payload,8,out,capacity);
+}
+static bool rf_six_reply_valid(const struct mt76_rf_six *s,unsigned i){
+    uint32_t h=0x4a000008u|((6+i)<<16),v=s->words[i][2];
+    return s->words[i][0]==h && s->words[i][1]==(0x80000000u|rf_six_regs[i]) && s->words[i][3]==h &&
+        v<=255 && s->values[i]==v && (i==0 || i==3 || v==(i==1?1u:i==2?17u:0u));
+}
+bool mt76_rf_six_admit(const struct mt76_rf_six *s,unsigned op){
+    if(!s || !s->attempted || s->complete || op>=23 || s->operations!=op)return false;
+    unsigned requests=op<4?0:(op-4)/4+1;
+    if(s->requests!=requests || s->reads!=op-requests)return false;
+    for(unsigned i=0;i<requests;i++)if(!rf_six_reply_valid(s,i))return false;
+    for(unsigned i=0;i<op;i++)if(mt76_rf_six_guard_address(i)!=UINT32_MAX){
+        unsigned b=i<3?0:(i-4)/4+1,n=i<3?i:(i-4)%4;
+        if(!rf_central_guard_valid(n,s->guards[b][n]))return false;
+    }
+    return requests==0 || s->received==16;
+}
+enum mt76_mcu_timing_status mt76_rf_six_apply(struct mt76_rf_six *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_six){.attempted=true,.received=-1};
+    for(unsigned op=0;op<23;op++){
+        if(!mt76_rf_six_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint32_t address=mt76_rf_six_guard_address(op);
+        if(address!=UINT32_MAX){
+            unsigned b=op<3?0:(op-4)/4+1,n=op<3?op:(op-4)%4;
+            if(!io->read(io->context,address,&s->guards[b][n]))return MT76_TIMING_IO;
+            s->reads++;s->operations++;
+            if(!rf_central_guard_valid(n,s->guards[b][n]))return MT76_TIMING_STATE;
+        }else{
+            unsigned i=(op-3)/4;uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+            if(mt76_rf_six_packet(op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);s->requests++;
+            for(unsigned n=0;n<4;n++)if(s->received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)s->words[i][n]|=(uint32_t)reply[4*n+b]<<(8*b);
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|((6+i)<<16);
+            if(s->received!=16 || s->words[i][0]!=h || s->words[i][1]!=(0x80000000u|rf_six_regs[i]) || s->words[i][3]!=h || s->words[i][2]>255)return MT76_TIMING_REPLY;
+            s->values[i]=(uint8_t)s->words[i][2];
+            if(!rf_six_reply_valid(s,i))return MT76_TIMING_STATE;
+            s->operations++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}
