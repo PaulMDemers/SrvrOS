@@ -4157,3 +4157,24 @@ zero allocation errors, unmounted; no one-shot armed. Run/collector:
 Next: readiness-confirmed cold adapter cycle, automatic capture/return and
 collection of matching session. Full-word5/03ff0223 validation only; no generalized
 bit mask, BBP table or RF/connectivity acceptance.
+
+
+### 2026-10-23 — v45 exact FCE profile validation passed natively
+
+Collected release `7301441289281aaf`, source `538fee1`, new session
+`00065e8bc3faaa90-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence14 sent24/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads8, one batch completed,
+ack_mask1. FCE0800 remained5 and L2 routing080c remained03ff0223. Exact validation
+reported complete1, write_mismatch_mask1, exact_profile1; observation marker absent.
+Initial/final MAC0 and COREf000f200 verified, with both completion markers saved.
+No BBP table ran. Acceptance is limited to the captured write1/read5 profile on
+7392:a711; no generalized bit mask or RF/connectivity acceptance.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-fce-validate-538fee1/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean229files/592clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining MAC prerequisites before revisiting the full baseband
+table and its four unresolved readbacks. Scanning and connectivity remain untested.

@@ -1856,7 +1856,7 @@ were recorded. This is evidence for an exact captured-profile validator, not a
 proof of bit2 semantics or permission to ignore arbitrary bits. RF/connectivity
 remain untested.
 
-### Exact FCE captured-profile validation (v45; native result pending)
+### Exact FCE captured-profile validation (v45; native accepted)
 
 `--wifi-mac-fce-validate` requires the v44 prerequisite flags and selects a
 separate validator. The same sequence14 pair writes1/03ff0223, with mandatory
@@ -1868,4 +1868,14 @@ semantics. v44 observation behavior remains unchanged and selectable.
 
 Success emits `wifi-mac-fce-validation` with complete1/exact_profile1; observation
 records cannot satisfy collection. No additional writes, retry, BBP table or
-RF/MAC TX/RX enable follows. Native validation of v45 remains pending.
+RF/MAC TX/RX enable follows.
+
+Pro11,2 source `538fee1`, release `7301441289281aaf`, session
+`00065e8bc3faaa90-00` passed on 2026-10-23. Sequence14 returned the exact ACK;
+all eight reads completed with full-word readbacks5/03ff0223, mismatch_mask1 and
+exact_profile1. Initial/final MAC0 and COREf000f200, all preceding initialization
+groups and both completion markers passed. The prepared collector passed unchanged.
+Ubuntu recovery and payload hashes verified; offline workspace checks found229files,
+592clusters and zero allocation errors. Acceptance covers this captured write1/read5
+profile only; it establishes no general writable-bit mask. Remaining MAC/baseband
+initialization, scanning and connectivity remain open.
