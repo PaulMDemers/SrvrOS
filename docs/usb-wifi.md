@@ -2177,8 +2177,8 @@ Raw map bytes are cleared after analysis and never logged by the engine.
 Host tests cover fixed mode/address construction and preservation,all I/O and
 cancellation boundaries,guard failures,mode/address/kick corruption,poll timeout,
 unmapped/empty evidence,threshold cases,fragmented zero spans and padding exclusion.
-Native transport must independently enforce the same two-block read-command
-allowlist,ownership and quarantine before physical acceptance can be attempted.
+The native transport independently enforces the same two-block read-command
+allowlist,ownership and quarantine.
 
 ### Physical EFUSE map trial
 
@@ -2192,5 +2192,8 @@ EFUSE mode0 admission remains unchanged. Modes2/3 are never generated.
 Saved receipts include operation/poll counts, four MAC/CORE guards, two DMA
 readings and map summary arithmetic; private map bytes are cleared and not logged.
 A completed read is distinct from a valid map. This stage does not accept RF,
-calibrated power, scanning, association or connectivity. Native acceptance is
-pending; failures remain failures rather than weakening the physical-map checks.
+calibrated power, scanning, association or connectivity. On the captured Pro11,2
+adapter, release `b34ed974d2fa3095` passed native map validation:24 reads,two
+mode1 commands,two polls,both blocks,and all guards. Nine zero entries span
+1e0–1e8; the reference span calculation yields20 used entries (an estimate,not
+a general programmed-entry count). Private MAC setup and PHY/RF remain pending.

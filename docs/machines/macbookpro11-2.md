@@ -4895,3 +4895,23 @@ tests,VM receipts,collector and run/checkpoint are archived outside build under
 `~/.local/share/srvros/macbookpro11-2/wifi-efuse-map-40556a2/`.
 Next: attended cold adapter cycle; collect the matching new session FIRST after
 return. No physical EFUSE validity or Wi-Fi connectivity acceptance yet.
+
+
+### 2026-10-24 — v54 physical EFUSE map native result
+
+Source `40556a2`,release `b34ed974d2fa3095`,session
+`session-00065e9a3fdde0f0-00` passed the prepared collector unchanged. Status0,
+complete1,valid1:24 reads,two mode1 read commands,two polls,two blocks,
+26 submissions,terminal phase15,no failure. Four MAC0/COREf000f200 guard pairs
+and both DMA40000050 readings passed. All earlier prerequisites and both final
+completion markers passed. Summary:9 zeros,first480,last488,span9,
+reference_used20. No raw map bytes logged. This accepts physical-map validity
+on this adapter,not RF/calibrated-power/association/connectivity.
+
+Collection `build/bringup/wifi-efuse-map/collection/collection-0e8ujmdp` archived
+with run/checkpoint and hashes under `~/.local/share/srvros/macbookpro11-2/
+wifi-efuse-map-40556a2/`. Ubuntu default,consumed one-shot,payload/recovery hashes
+verified. Workspace clean249files/622clusters,no leaks or allocation mismatch,
+unmounted. No reboot armed. Next: audit private MAC programming and PHY/RF
+prerequisites using the validated logical calibration and physical-map evidence;
+board IO/supply,DMA ownership and calibrated power remain separately scoped.
