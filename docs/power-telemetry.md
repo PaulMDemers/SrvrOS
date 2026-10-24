@@ -505,3 +505,25 @@ establish optimality or physical interactive acceptance. Package power measured
 6.786 W over 51.999 seconds versus baseline 6.949 W, but this thermally unmatched
 single pair does not establish savings. Ordinary Home battery efficiency remains
 a separate study; this capture deliberately kept the battery service off.
+
+
+### Network notification readiness (candidate)
+
+The selected provider may advertise a side-effect-free `rx_wake_ready` callback.
+It is true only when receive notifications and transmit servicing can progress
+independently of the network worker: e1000 requires initialized rings and enabled
+IRQs; ECM requires a ready device, operational controller, running xHCI service
+and no input probe. Absent/false callbacks retain one-tick polling. With readiness,
+the empty receive worker waits on its existing notification-generation predicate
+for at most 50 ticks (the existing recovery period). TCP timer work is unchanged.
+Missed notification delivery still reaches a recovery poll; this is not a new
+controller interrupt path and does not slow the USB input service.
+
+ECM notification endpoints can send repeated link/speed reports without packets.
+The USB service already consumes these independently; only a link state change
+or fault wakes stack waiters. Receive completions still signal immediately.
+Initial QEMU evidence found roughly 33 stack wakeups/second with repeated reports
+before this filtering, despite zero packets. Retain that failed idle-ceiling run;
+it is separate from the refined candidate's acceptance. Full functional traffic,
+cable recovery, fallback and idle measurements precede a native capture. No
+energy reduction or physical responsiveness is assumed from fewer switches.

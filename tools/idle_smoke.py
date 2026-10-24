@@ -96,7 +96,9 @@ def main():
                     return {f'{slot.decode()}:{name.decode()}': {'ticks': int(ticks), 'switches': int(switches)} for slot,name,ticks,switches in
                         re.findall(rb'scheduler: thread=(\d+) name=(\S+) state=\d+ sampled_ticks=(\d+) switches=(\d+)', output[start:])}
                 wait(b'srv> ', 100); command_line('latency reset'); drain(2)
+                if args.network or args.usb_network:command_line('net'); command_line('xhci')
                 before = snapshot(); measure('console'); after = snapshot()
+                if args.network or args.usb_network:command_line('net'); command_line('xhci')
                 metrics['console']['threads'] = {name: {key: values[key]-before.get(name, {}).get(key, 0) for key in values} for name,values in after.items()}
                 if args.max_network_wakes is not None:
                     workers=[v for k,v in metrics['console']['threads'].items() if k.endswith(':net-poll')]

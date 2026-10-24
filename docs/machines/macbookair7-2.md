@@ -19,6 +19,13 @@ service fallback, cable recovery and input/file coexistence coverage. Publish
 measured worker activity before selecting a native unattended capture. No energy
 saving or physical acceptance is inferred; no new reboot is armed.
 
+Initial implementation `6555944` passes full local build/core checks and an
+e1000 idle/input VM at 1.995 network switches/second. The ECM idle ceiling fails
+at 32.715/s: diagnostic counters show repeated link/speed notifications, no
+received packets. Refine ECM to signal only changed link state/faults from its
+existing independent service; receive completions still signal immediately.
+The failed observation is retained under `build/network-idle-20261023`.
+
 ### Storage completion wait milestone accepted for bounded workload
 
 Release `f340e0695d1e2492`, compiled source `c258822`, returned automatically in

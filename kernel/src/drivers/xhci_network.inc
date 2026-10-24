@@ -5,6 +5,7 @@ static void network_fail(struct xhci_device *d,const char *reason) {
     struct xhci_network *n=d->network;if(n->failed) return;
     n->ready=false;n->failed=true;n->errors++;n->link.known=true;n->link.up=false;
     d->stage="network-quarantined";
+    net_notify_rx(); /* Publish link loss before waking network waiters. */
     console_printf("xhci-network: slot=%u quarantined reason=%s tx=%u rx=%u\n",(uint64_t)d->slot_id,reason,n->tx_packets,n->rx_packets);
 }
 static void network_post(struct xhci_device *d,unsigned index,uint32_t length) {
@@ -22,7 +23,10 @@ static bool network_event(struct xhci_device *d,uint8_t dci,uint64_t pointer,uin
         if(e->pending && e->hw.dci==dci && e->trb==pointer) {
             e->pending=false;e->done=true;e->completion=completion;e->remaining=remaining;
             if(i==2) d->network->notify_completed_us=timer_monotonic_us();
-            if(i==1 || i==2) net_notify_rx();
+            /* The independent USB service consumes link notifications and
+             * signals actual state changes. Repeated speed/link reports do
+             * not make receive work; waking here would recreate idle polling. */
+            if(i==1) net_notify_rx();
             return true;
         }
     }

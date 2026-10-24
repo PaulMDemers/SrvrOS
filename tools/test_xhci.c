@@ -845,13 +845,23 @@ static void test_network_transport(void) {
     memcpy(n.ep[2].buffer,speed,sizeof(speed));
     unsigned notification_wakes=net_wakeups;
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));
-    assert(net_wakeups==notification_wakes+1 && n.notify_completed_us==test_time);
+    assert(net_wakeups==notification_wakes && n.notify_completed_us==test_time);
     network_service(&d);
     assert(n.notifications==0 && !n.link.downstream_bps);
     n.config.notify_data_interface=true;
     memcpy(n.ep[2].buffer,speed,sizeof(speed));
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));network_service(&d);
     assert(n.notifications==1 && n.link.downstream_bps==1000000000);
+    assert(net_wakeups==notification_wakes); /* Speed updates alone do not wake RX. */
+    uint8_t up[]={0xa1,0,1,0,1,0,0,0};
+    memcpy(n.ep[2].buffer,up,sizeof(up));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(up)));network_service(&d);
+    assert(n.link.up && net_wakeups==notification_wakes+1);
+    for(unsigned i=0;i<20;i++) {
+        memcpy(n.ep[2].buffer,up,sizeof(up));
+        assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(up)));network_service(&d);
+    }
+    assert(net_wakeups==notification_wakes+1); /* Repeated link-up reports stay quiet. */
     uint8_t frame[1514];memset(frame,0x5a,sizeof(frame));
     assert(!network_send(&d,frame,13) && !network_send(&d,frame,1515));
     for(unsigned i=0;i<XHCI_NET_QUEUE;i++) assert(network_send(&d,frame,64));
