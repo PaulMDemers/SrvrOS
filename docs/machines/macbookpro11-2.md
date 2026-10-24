@@ -4608,3 +4608,22 @@ readiness inspected, separate from this bounded Wi-Fi work.
 Next: attended cold adapter cycle, then collect the matching session FIRST.
 Require operations576/submitted576, reads448/writes128, slots64 and both
 mode_verified64/key_zero64 plus all prior checks. RF/connectivity not tested.
+
+### 2026-10-24 — v50 shared-key reset native result
+
+Source `1997865`, release `420bc4d5e39c8e04`, session
+`session-00065e8e2bef4841-00` completed. The prepared collector passed unchanged:
+576 operations/submissions,448 reads,128 writes,64 completed slots,
+64 verified cipher-mode updates and64 verified zero-data slots. Exact DCOC
+readbacks and all earlier prerequisites passed; both completion markers present.
+No key bytes were logged. This accepts the fixed shared-key reset on the captured
+adapter, not WCID initialization, RF, scanning, association or connectivity.
+
+Ubuntu default, consumed one-shot and installed/known-good payload hashes pass.
+Workspace clean241files/610clusters with zero leaks/allocation mismatches,
+unmounted. Collection and updated run/checkpoint/hashes are archived outside
+build under `~/.local/share/srvros/macbookpro11-2/wifi-skey-1997865/`.
+No reboot armed. Next bounded scope: reference WCID station-table reset
+(256 attributes and128 address entries), retaining fixed ranges, guards,
+zero-only writes/verification and no retries. Pairwise keys/IV and RF remain
+separate; do not infer their reset from successful shared-slot initialization.
