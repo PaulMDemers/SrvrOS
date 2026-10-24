@@ -5089,3 +5089,15 @@ Only prepare a bounded native comparison if evidence supports it; preserve
 one-attempt writes and strict address verification. Actual base remains d5bc4b3;
 fetched main76a55dd includes independent window capacity and desktop API docs.
 PR132 Air6,1 combined services and PR134 POSIX work do not overlap this audit.
+
+Read-only Linux comparison on the attached7392:a711/ASIC76100002/MAC76502000
+returned100c upper16=0 and1014 upper16=003f in all four samples. Linux had MACc,
+COREf000f200,DMA30; these are live-driver observations,not disabled-state evidence.
+Factory address halfwords were masked before persistence; debugfs selector was
+restored. Pinned/upstream Linux still writes100c U2MEff,without exact readback.
+Together with two cold SrvrOS failures,this supports a distinct v56 comparison:
+keep100c write unchanged but require its exact captured readback (private low16,
+upper16zero). Reject every other bit change; retain historical v55 semantics.
+No claim that U2ME is universally read-only or that RF/connectivity works. Native
+binding stays on the existing exact identity/header/map gate. Touch mt76/xHCI,
+main,staging and tests; no integration of unrelated main changes in this trial.
