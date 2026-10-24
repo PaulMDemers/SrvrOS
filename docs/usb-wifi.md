@@ -2564,3 +2564,34 @@ argues against a one-off response mix-up, but does not establish RF0:6 semantics
 or justify accepting the central table. Next investigate the register's access
 and initialization requirements before changing its readback rule or continuing
 RF initialization. Calibration, scanning and connectivity remain untested.
+
+### Direct RF-CSR comparison (v63 candidate)
+
+`--wifi-rf-csr` requires `--wifi-rf-six` and its complete preceding proof. It
+compares the MCU observations with five fixed direct RF-CSR reads, in order
+RF0:6/1/2/6/22. The [Linux RF access definitions and read path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+define the bank/register selector, busy bit and returned identity. The original
+[vendor RF access implementation](https://github.com/GregersP/mediatek_mt7610u_sta_driver_linux-64bit/blob/95fd2aa84ad774b3a8d1636c32420d8676dcc347/phy/rlt_rf.c)
+also provides direct access on USB when in-band MCU access is not selected.
+This is a reference for a diagnostic hypothesis, not prior acceptance of direct
+RF access on this adapter. The [vendor chip initialization/calibration source](https://github.com/GregersP/mediatek_mt7610u_sta_driver_linux-64bit/blob/95fd2aa84ad774b3a8d1636c32420d8676dcc347/chips/mt76x0.c)
+describes RF0:6 as an amplitude setting and reads/modifies it during calibration;
+it does not establish that zero is a valid readback of41. No vendor implementation
+is imported into the diagnostic.
+
+For each target, three fresh MAC0/COREf000f200/disabled-DMA guards precede up to32
+idle polls at0500. One fixed selector write then starts a read, with RF-CSR WR
+and data bits clear. Up to32 completion polls must end with the requested bank
+and register identity; the three guards are repeated afterward. Controls RF0:1/2/22
+must read1/17/0; both RF0:6 values are observations. These five selector writes
+do not write RF register data. There are no additional central-table writes,
+RF retries, calibration triggers, channel selection or traffic.
+
+Independent native admission validates the complete v62 proof and exact current
+operation/selector; transport uncertainty retains existing DMA quarantine. There
+are30 guard reads,5 selectors and10–320 polls (45–355 total transfers). All-ones,
+busy exhaustion, identity/control mismatch or any I/O error stops the diagnostic.
+The saved log retains every USB result, final selector/identity, poll counts and
+guard values. The strict collector checks their order and counts against the
+full initialization prefix. Even the maximum-poll fixture fits128KiB. Completion
+accepts only this comparison; central RF setup and connectivity remain pending.

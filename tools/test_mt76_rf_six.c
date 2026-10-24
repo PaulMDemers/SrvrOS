@@ -35,6 +35,9 @@ int main(void){
    assert(!mt76_rf_six_prefix_valid(&bad,status));
   }
   struct fake f={.received=16,.first=value,.later=255-value};struct mt76_rf_six o={0};assert(run(&f,&o)==MT76_TIMING_OK && o.complete && o.operations==23 && o.reads==18 && o.requests==5 && f.ops==23 && f.auth==24);
+  assert(mt76_rf_six_complete_valid(&o));
+  for(unsigned i=0;i<18;i++){o.guards[i/3][i%3]^=1;assert(!mt76_rf_six_complete_valid(&o));o.guards[i/3][i%3]^=1;}
+  for(unsigned i=0;i<5;i++)for(unsigned n=0;n<4;n++){o.words[i][n]^=0x100;assert(!mt76_rf_six_complete_valid(&o));o.words[i][n]^=0x100;}
   assert(run(&f,&o)==MT76_TIMING_REFUSED);
  }
  for(unsigned op=0;op<23;op++){

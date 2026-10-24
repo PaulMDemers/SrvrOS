@@ -417,4 +417,23 @@ uint32_t mt76_rf_six_guard_address(unsigned operation);
 size_t mt76_rf_six_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_six_admit(const struct mt76_rf_six *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_six_apply(struct mt76_rf_six *s,const struct mt76_mcu_timing_io *io);
+
+/* Fixed read-selector diagnostic, never sets RF-CSR WR or RF data bits.
+ * 32 idle and 32 completion polls per target; one attempt, no recovery retry. */
+struct mt76_rf_csr {
+    bool attempted,complete;
+    unsigned operations,reads,writes,index,phase;
+    unsigned polls[5][2];
+    uint32_t guards[10][3],idle[5],result[5];
+};
+struct mt76_rf_csr_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*transfer)(void *context,unsigned operation,bool write,uint32_t address,uint32_t *value);
+};
+bool mt76_rf_six_complete_valid(const struct mt76_rf_six *s);
+uint32_t mt76_rf_csr_selector(unsigned index);
+bool mt76_rf_csr_request(const struct mt76_rf_csr *s,bool *write,uint32_t *address,uint32_t *value);
+enum mt76_mcu_timing_status mt76_rf_csr_apply(struct mt76_rf_csr *s,const struct mt76_rf_csr_io *io);
+
 #endif

@@ -1610,3 +1610,68 @@ enum mt76_mcu_timing_status mt76_rf_six_apply(struct mt76_rf_six *s,const struct
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+bool mt76_rf_six_complete_valid(const struct mt76_rf_six *s){
+    if(!s || !s->attempted || !s->complete || s->operations!=23 || s->reads!=18 || s->requests!=5 || s->received!=16)return false;
+    for(unsigned i=0;i<5;i++)if(!rf_six_reply_valid(s,i))return false;
+    for(unsigned b=0;b<6;b++)for(unsigned n=0;n<3;n++)if(!rf_central_guard_valid(n,s->guards[b][n]))return false;
+    return true;
+}
+uint32_t mt76_rf_csr_selector(unsigned i){return i<5?0x80000000u|((uint32_t)rf_six_regs[i]<<8):UINT32_MAX;}
+static bool rf_csr_result_valid(unsigned i,uint32_t v){
+    if(i>=5 || (v&0xc003ff00u)!=(mt76_rf_csr_selector(i)&0x3ff00u))return false;
+    unsigned value=v&255;
+    return i==0 || i==3 || value==(i==1?1u:i==2?17u:0u);
+}
+bool mt76_rf_csr_request(const struct mt76_rf_csr *s,bool *write,uint32_t *address,uint32_t *value){
+    if(!s || !write || !address || !value || !s->attempted || s->complete || s->index>=5 || s->phase>8)return false;
+    unsigned ops=0,writes=0;
+    for(unsigned i=0;i<=s->index;i++){
+        unsigned phase=i<s->index?9:s->phase;
+        unsigned p=s->polls[i][0],q=s->polls[i][1];
+        if(p>32 || q>32 || (phase<3 && p) || (phase<5 && q))return false;
+        if(phase==3 && p && (s->idle[i]==UINT32_MAX || !(s->idle[i]&0x80000000u)))return false;
+        if(phase==5 && q && (s->result[i]==UINT32_MAX || !(s->result[i]&0x80000000u)))return false;
+        if((phase==3 && p==32) || (phase==5 && q==32))return false;
+        if(phase>3 && (!p || s->idle[i]&0x80000000u))return false;
+        if(phase>5 && (!q || !rf_csr_result_valid(i,s->result[i])))return false;
+        for(unsigned n=0;n<3;n++){
+            if(phase>n && !rf_central_guard_valid(n,s->guards[2*i][n]))return false;
+            if(phase>6+n && !rf_central_guard_valid(n,s->guards[2*i+1][n]))return false;
+        }
+        unsigned guard_reads=phase<3?phase:3;
+        if(phase>6)guard_reads+=phase-6;
+        ops+=guard_reads+p+q+(phase>4);writes+=phase>4;
+    }
+    if(s->operations!=ops || s->writes!=writes || s->reads!=ops-writes)return false;
+    *write=s->phase==4;*value=*write?mt76_rf_csr_selector(s->index):0;
+    *address=s->phase<3?mt76_rf_probe_read_address(s->phase):s->phase>=6?mt76_rf_probe_read_address(s->phase-6):0x500;
+    return true;
+}
+enum mt76_mcu_timing_status mt76_rf_csr_apply(struct mt76_rf_csr *s,const struct mt76_rf_csr_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_csr){.attempted=true};
+    while(s->index<5){
+        bool write;uint32_t address,value;
+        if(!mt76_rf_csr_request(s,&write,&address,&value))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->transfer(io->context,s->operations,write,address,&value))return MT76_TIMING_IO;
+        s->operations++;if(write)s->writes++;else s->reads++;
+        unsigned i=s->index,phase=s->phase;
+        if(phase<3 || phase>=6){
+            unsigned n=phase<3?phase:phase-6;s->guards[2*i+(phase>=6)][n]=value;
+            if(!rf_central_guard_valid(n,value))return MT76_TIMING_STATE;
+            s->phase++;
+        }else if(write)s->phase++;
+        else{
+            unsigned which=phase==5;
+            s->polls[i][which]++;if(which)s->result[i]=value;else s->idle[i]=value;
+            if(value==UINT32_MAX)return MT76_TIMING_STATE;
+            if(value&0x80000000u){if(s->polls[i][which]==32)return MT76_TIMING_STATE;}
+            else{if(which && !rf_csr_result_valid(i,value))return MT76_TIMING_STATE;s->phase++;}
+        }
+        if(s->phase==9){s->index++;s->phase=0;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

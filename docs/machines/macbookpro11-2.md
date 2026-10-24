@@ -5580,3 +5580,13 @@ retain historical v61/v62 behavior. Source base remains d5bc4b3; fetched main
 Next checkpoint: fault-tested fixed selector admission and exact-stage VM, then
 unarmed installation. Direct USB RF-CSR access remains a hardware hypothesis;
 observation completion must not accept central initialization or calibration.
+
+Implemented fixed RF-CSR selector admission and the v63 comparison after the
+completed v62 observation. Host checks cover every normal I/O/cancellation
+boundary, delayed/busy polling bounds, malformed identities/controls, state
+accounting and no replay. Native binding checks cover every selector bit,
+prior-proof/ownership faults and USB quarantine. ASan/UBSan and142 staging tests
+pass;124 historical Wi-Fi recipes are byte-identical. The strict full-prefix
+collector rejects611 malformed proofs; normal/max-poll fixtures are77072/115161
+bytes. Build and exact-stage VM checks precede unarmed installation. Direct
+RF-CSR transport and values remain physically untested.
