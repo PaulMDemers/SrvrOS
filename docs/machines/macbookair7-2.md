@@ -2,37 +2,22 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: measured desktop power and worker wakeups
+### Active scope: message-driven idle Text client
 
-Base `7638d57` (merged PR102), branch `device/macbookair7-2/power-idle`.
-First establish a fresh matched desktop baseline with the existing read-only
-package-energy capture and new bounded per-worker scheduler accounting. Then
-target measured polling costs, preserving input, storage, audio and battery
-lifetimes. Scope: scheduler diagnostics, workspace checkpoint logging, collector,
-local fixtures and power documentation. No CPU policy, firmware gates or suspend
-changes. Pro PR19 `26a283b` retains USB Wi-Fi ownership; its xHCI/main/staging
-changes are outside this first diagnostic block. Actions remain disabled.
+Worker-attributed native baseline below is accepted. Next bounded change on
+`device/macbookair7-2/power-idle` adds an interruptible GUI receive-readiness wait
+and a reusable client helper. Only quiescent Text opts in, with a 100 ms maximum
+maintenance deadline; input/close messages wake immediately. File/clipboard work,
+unfinished frame/menu/title publication and diagnostic workloads keep their
+existing cadence. Compositor, xHCI, network polling and CPU policy stay unchanged.
 
-[PR106](https://github.com/PaulMDemers/SrvrOS/pull/106), implementation `7e0d8b9`,
-adds per-lifetime timeout/queue wake counters and strict covered-window collection.
-Full build/core/docs and 25 desktop collector tests pass locally. The ordinary
-networked VM idles, accepts USB keyboard input and saves the exact typed bytes.
-Exact EFI/GPT power stage `dc7c0eaea0dca69b` completes desktop capture, screenshot,
-save/unmount/reset; unavailable VM power remains null. Six complete worker
-snapshots cover 50.258 seconds, with no partial lifetimes. A missing-workspace
-rehearsal returns automatically without starting measurement. VM polling counts
-are not physical energy or native input acceptance.
-
-The next native run uses that unchanged v26 automatic recipe with the new
-accounting. No input is required; keep AC and the attached USB devices unchanged.
-It measures Text idle for one minute, saves diagnostics and returns to Ubuntu.
-The ordinary Home battery owner is excluded; this is an attribution baseline,
-not an energy improvement or ordinary battery-service efficiency claim. Preserve
-accepted recovery `9aa8dbf6fbda8252`, record native brightness/device state and
-collect matching evidence before changing polling. Local run/arming state is in
-`build/power-idle-20261023/checkpoint.json`; payload/evidence backups survive
-build cleanup under the unit's local application-data directory. Native baseline
-and repeated matched comparison remain pending.
+Scope: GUI transport, additive syscall/wrapper, client helper and Text admission,
+with queue/teardown/signal/race fixtures and exact idle/save/reopen VM regression.
+Main `7d2b903` was consumed (Air6,1 evidence/docs only); Pro PR19 `960e9a6` owns
+USB Wi-Fi, without overlapping GUI/syscall changes. PR106 remains draft while
+this measured follow-up is validated. Actions are disabled. Baseline release
+`dc7c0eaea0dca69b` remains installed, recovery `9aa8dbf6fbda8252` retained,
+USB unmounted and no new reboot armed. Energy reduction remains unproven.
 
 ### Native worker/power baseline accepted
 
