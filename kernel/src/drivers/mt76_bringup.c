@@ -61,41 +61,44 @@ fail:
     return failure;
 }
 
-static bool efuse_read_command(uint32_t previous,unsigned block,bool header,uint32_t *command){
-    if(!command || block>=(header?1u:2u) || previous==UINT32_MAX || (previous&EFUSE_KICK))return false;
-    *command=(previous&~(EFUSE_ADDRESS|EFUSE_MODE))|((header?0:0x1e0u+16u*block)<<16)|(header?0:1u<<6)|EFUSE_KICK;
+static bool efuse_read_command(uint32_t previous,unsigned block,unsigned profile,uint32_t *command){
+    if(!command || block>=(profile==1?1u:2u) || previous==UINT32_MAX || (previous&EFUSE_KICK))return false;
+    *command=(previous&~(EFUSE_ADDRESS|EFUSE_MODE))|((profile==1?0:(profile==2?0x20u:0x1e0u)+16u*block)<<16)|(profile?0:1u<<6)|EFUSE_KICK;
     return true;
 }
-bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command){return efuse_read_command(previous,block,false,command);}
-bool mt76_mac_header_command(uint32_t previous,uint32_t *command){return efuse_read_command(previous,0,true,command);}
+bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command){return efuse_read_command(previous,block,0,command);}
+bool mt76_mac_header_command(uint32_t previous,uint32_t *command){return efuse_read_command(previous,0,1,command);}
 /* Phases: guards, initial control, command, poll, busy delay, settle,
  * completion control, four data words, final guards, done. */
-static bool efuse_begin(struct mt76_efuse_map_gate *g,bool header,bool write,uint32_t address,uint32_t value){
+static bool efuse_begin(struct mt76_efuse_map_gate *g,unsigned profile,bool write,uint32_t address,uint32_t value){
     if(!g || g->failed)return false;
     unsigned p=g->phase;uint32_t a=p==0 || p==13?0x1004:p==1 || p==14?0x2000:p==2?0x208:p>=9 && p<=12?0x28+(p-9)*4:0x24;
-    if(g->pending || g->block>=(header?1u:2u) || p>14 || p==6 || p==7 || write!=(p==4) || address!=a ||
-       (p==5 && g->polls>=1024) || (write && (!efuse_read_command(g->control,g->block,header,&g->command) || value!=g->command))){g->failed=true;return false;}
+    if(g->pending || g->block>=(profile==1?1u:2u) || p>14 || p==6 || p==7 || write!=(p==4) || address!=a ||
+       (p==5 && g->polls>=1024) || (write && (!efuse_read_command(g->control,g->block,profile,&g->command) || value!=g->command))){g->failed=true;return false;}
     g->pending=true;g->submitted++;if(p==5)g->polls++;return true;
 }
-static bool efuse_finish(struct mt76_efuse_map_gate *g,bool header,bool ok,uint32_t v){
+static bool efuse_finish(struct mt76_efuse_map_gate *g,unsigned profile,bool ok,uint32_t v){
     if(!g || g->failed)return false;
-    if(!g->pending || !ok || g->block>=(header?1u:2u)){g->failed=true;return false;}
+    if(!g->pending || !ok || g->block>=(profile==1?1u:2u)){g->failed=true;return false;}
     g->pending=false;unsigned p=g->phase,b=g->block;
     if(p==0 || p==13){g->mac[b*2+(p==13)]=v;if(v)goto fail;}
     else if(p==1 || p==14){g->core[b*2+(p==14)]=v;if(v!=0xf000f200)goto fail;}
     else if(p==2){g->dma[b]=v;if(v&15)goto fail;}
-    else if(p==3){g->control=v;if(!efuse_read_command(v,b,header,&g->command))goto fail;}
+    else if(p==3){g->control=v;if(!efuse_read_command(v,b,profile,&g->command))goto fail;}
     else if(p==5){if(v==UINT32_MAX)goto fail;g->phase=v&EFUSE_KICK?6:7;return true;}
-    else if(p==8){if(v==UINT32_MAX || v&EFUSE_KICK || (v&EFUSE_MODE)!=(header?0:1u<<6) ||
+    else if(p==8){if(v==UINT32_MAX || v&EFUSE_KICK || (v&EFUSE_MODE)!=(profile?0:1u<<6) ||
         (v&EFUSE_ADDRESS)!=(g->command&EFUSE_ADDRESS) || (v&63)==63)goto fail;}
-    if(p==14){g->block++;g->phase=g->block==(header?1u:2u)?15:0;}else g->phase++;
+    if(p==14){g->block++;g->phase=g->block==(profile==1?1u:2u)?15:0;}else g->phase++;
     return true;
 fail:g->failed=true;return false;
 }
-bool mt76_efuse_map_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,false,w,a,v);}
-bool mt76_mac_header_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,true,w,a,v);}
-bool mt76_efuse_map_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,false,ok,v);}
-bool mt76_mac_header_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,true,ok,v);}
+bool mt76_efuse_map_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,0,w,a,v);}
+bool mt76_mac_header_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,1,w,a,v);}
+bool mt76_efuse_map_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,0,ok,v);}
+bool mt76_mac_header_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,1,ok,v);}
+bool mt76_ant_fields_command(uint32_t previous,unsigned block,uint32_t *command){return efuse_read_command(previous,block,2,command);}
+bool mt76_ant_fields_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,2,w,a,v);}
+bool mt76_ant_fields_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,2,ok,v);}
 bool mt76_efuse_map_delay(struct mt76_efuse_map_gate *g,uint32_t us){
     if(!g || g->failed)return false;
     if(g->pending || !((g->phase==6 && us==1000) || (g->phase==7 && us==2))){g->failed=true;return false;}
@@ -425,4 +428,47 @@ enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *sessi
     if (value!=0x20) return MT76_UPLOAD_REFUSED;
     session->prepared=true;
     return MT76_UPLOAD_OK;
+}
+
+bool mt76_ant_fields_valid(const struct mt76_ant_fields *s){return s && s->attempted && s->complete && s->blocks==2 && s->writes==2 && s->polls>=2 && s->polls<=1024 && s->reads==22+s->polls && s->antenna==0x17ff && s->cfg1==0xffef && s->nic0==0xfd11 && s->nic1==0x1004;}
+enum mt76_capture_status mt76_capture_ant_fields(const struct mt76_efuse_map_io *io,
+    const struct mt76_identity *identity,struct mt76_ant_fields *s){
+    if(!s || s->attempted || !io || !io->authorize || !io->registers.read || !io->registers.write ||
+       !io->registers.delay || !identity || identity->asic!=0x76100002 || identity->mac!=0x76502000)return MT76_CAPTURE_REFUSED;
+    *s=(struct mt76_ant_fields){.attempted=true};uint8_t data[32]={0};enum mt76_capture_status result=MT76_CAPTURE_IO;
+    const struct mt76_register_io *r=&io->registers;uint32_t v,command;
+#define MAP_AUTH() do{if(!io->authorize(r->context)){result=MT76_CAPTURE_CANCELLED;goto done;}}while(0)
+#define MAP_READ(a) do{MAP_AUTH();if(!r->read(r->context,(a),&v))goto done;s->reads++;}while(0)
+#define MAP_GUARDS() do{MAP_READ(0x1004);if(v){result=MT76_CAPTURE_BUSY;goto done;}MAP_READ(0x2000);if(v!=0xf000f200){result=MT76_CAPTURE_BUSY;goto done;}}while(0)
+    for(unsigned block=0;block<2;block++){
+        MAP_GUARDS();MAP_READ(0x208);if(v&15){result=MT76_CAPTURE_BUSY;goto done;}
+        MAP_READ(EFUSE_CTRL);
+        if(!mt76_ant_fields_command(v,block,&command)){result=MT76_CAPTURE_BUSY;goto done;}
+        MAP_AUTH();if(!r->write(r->context,EFUSE_CTRL,command))goto done;s->writes++;
+        for(;;){
+            if(s->polls==EFUSE_POLL_BUDGET){result=MT76_CAPTURE_TIMEOUT;goto done;}
+            s->polls++;MAP_READ(EFUSE_CTRL);if(v==UINT32_MAX){result=MT76_CAPTURE_BUSY;goto done;}if(!(v&EFUSE_KICK))break;
+            MAP_AUTH();if(!r->delay(r->context,1000)){result=MT76_CAPTURE_CANCELLED;goto done;}
+        }
+        MAP_AUTH();if(!r->delay(r->context,2)){result=MT76_CAPTURE_CANCELLED;goto done;}
+        MAP_READ(EFUSE_CTRL);
+        if(v==UINT32_MAX || v&EFUSE_KICK || (v&EFUSE_MODE)!=0 || (v&EFUSE_ADDRESS)!=(command&EFUSE_ADDRESS)){
+            result=MT76_CAPTURE_BUSY;goto done;
+        }
+        if((v&63)==63){result=MT76_CAPTURE_EMPTY;goto done;}
+        for(unsigned word=0;word<4;word++){MAP_READ(EFUSE_DATA+word*4);for(unsigned byte=0;byte<4;byte++)data[block*16+word*4+byte]=(uint8_t)(v>>(8*byte));}
+        MAP_GUARDS();s->blocks++;
+    }
+    MAP_AUTH();s->complete=true;
+    s->antenna=(uint16_t)data[2]|((uint16_t)data[3]<<8);s->cfg1=(uint16_t)data[4]|((uint16_t)data[5]<<8);
+    s->nic0=(uint16_t)data[20]|((uint16_t)data[21]<<8);s->nic1=(uint16_t)data[22]|((uint16_t)data[23]<<8);
+    s->valid=mt76_ant_fields_valid(s);
+    result=s->valid?MT76_CAPTURE_OK:MT76_CAPTURE_REFUSED;
+done:
+    if(result!=MT76_CAPTURE_OK)s->antenna=s->cfg1=s->nic0=s->nic1=0;
+    for(unsigned i=0;i<sizeof data;i++)((volatile uint8_t *)data)[i]=0;
+    return result;
+#undef MAP_AUTH
+#undef MAP_READ
+#undef MAP_GUARDS
 }

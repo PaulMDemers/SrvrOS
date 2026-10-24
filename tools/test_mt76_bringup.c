@@ -372,4 +372,51 @@ static void captured_address_profile(void){
  assert(!mt76_mac_address_finish(&g,address_header,true,0xff5544) && g.failure==MT76_ADDRESS_MISMATCH);
  puts("captured MAC profile: PASS unchanged writes, exact zero control readback, every target/bit mismatch, all failures/cancellation, legacy preserved");
 }
-int main(void) { captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+static void fields_init(struct map_fake *f){map_init(f);memset(f->bytes,0,32);f->bytes[2]=0xff;f->bytes[3]=0x17;f->bytes[4]=0xef;f->bytes[5]=0xff;f->bytes[20]=0x11;f->bytes[21]=0xfd;f->bytes[22]=4;f->bytes[23]=0x10;}
+static bool fields_write(void *p,uint32_t a,uint32_t v){struct map_fake *f=p;if(!map_step(f))return false;
+ assert(a==0x24 && f->writes<2 && ((v>>6)&3)==0 && ((v>>16)&0x3ff)==0x20+16*f->writes && (v&(1u<<30)));
+ assert((v&~((0x3ffu<<16)|(3u<<6)|(1u<<30)))==(f->ctrl&~((0x3ffu<<16)|(3u<<6)|(1u<<30))));f->block=f->writes++;f->ctrl=v;return true;}
+struct af_map {struct map_fake f;struct mt76_efuse_map_gate g;};
+static bool af_read(void *p,uint32_t a,uint32_t *v){struct af_map *f=p;*v=0;if(!mt76_ant_fields_begin(&f->g,false,a,0))return false;bool ok=map_read(&f->f,a,v);return mt76_ant_fields_finish(&f->g,ok,*v);}
+static bool af_write(void *p,uint32_t a,uint32_t v){struct af_map *f=p;if(!mt76_ant_fields_begin(&f->g,true,a,v))return false;return mt76_ant_fields_finish(&f->g,fields_write(&f->f,a,v),v);}
+static bool af_delay(void *p,uint32_t us){struct af_map *f=p;return mt76_efuse_map_delay(&f->g,us) && map_delay(&f->f,us);}
+static bool af_auth(void *p){struct af_map *f=p;return !f->g.failed && map_auth(&f->f);}
+static enum mt76_capture_status af_run(struct af_map *f,struct mt76_ant_fields *s){
+ const struct mt76_identity id={.asic=0x76100002,.mac=0x76502000};const struct mt76_efuse_map_io io={{f,af_read,af_write,af_delay},af_auth};return mt76_capture_ant_fields(&io,&id,s);
+}
+static void ant_fields_test(void){
+ struct af_map f={0};fields_init(&f.f);struct mt76_ant_fields s={0};
+ assert(af_run(&f,&s)==MT76_CAPTURE_OK && f.g.phase==15 && f.g.block==2 && f.g.submitted==26 && f.g.polls==2 && !f.g.pending && !f.g.failed);
+ unsigned calls=f.f.calls,auth=f.f.auth;
+ for(unsigned i=0;i<4;i++)assert(f.g.mac[i]==0 && f.g.core[i]==0xf000f200);
+ for(unsigned i=0;i<2;i++)assert(f.g.dma[i]==0x40000050);
+ assert(!mt76_ant_fields_begin(&f.g,false,0x1004,0));
+ for(unsigned n=1;n<=calls;n++){f=(struct af_map){0};fields_init(&f.f);f.f.fail=n;s=(struct mt76_ant_fields){0};assert(af_run(&f,&s)!=MT76_CAPTURE_OK && !s.complete && f.f.calls==n);}
+ for(unsigned n=1;n<=auth;n++){f=(struct af_map){0};fields_init(&f.f);f.f.deny=n;s=(struct mt76_ant_fields){0};assert(af_run(&f,&s)==MT76_CAPTURE_CANCELLED && !s.complete && f.f.auth==n);}
+ f=(struct af_map){0};fields_init(&f.f);f.f.stuck=true;s=(struct mt76_ant_fields){0};assert(af_run(&f,&s)==MT76_CAPTURE_TIMEOUT && f.g.polls==1024 && !s.complete);
+ /* Independently reject direction/address changes at every transfer phase. */
+ for(unsigned p=0;p<15;p++)if(p!=6 && p!=7){
+  uint32_t a=p==0 || p==13?0x1004:p==1 || p==14?0x2000:p==2?0x208:p>=9 && p<=12?0x28+4*(p-9):0x24;
+  struct mt76_efuse_map_gate g={.phase=p};assert(!mt76_ant_fields_begin(&g,p!=4,a,0) && g.failed);
+  g=(struct mt76_efuse_map_gate){.phase=p};assert(!mt76_ant_fields_begin(&g,p==4,a+1,0));
+  g=(struct mt76_efuse_map_gate){.phase=p,.pending=true};assert(!mt76_ant_fields_begin(&g,p==4,a,0));
+ }
+ for(unsigned b=0;b<2;b++){
+  uint32_t command;assert(mt76_ant_fields_command(0x8000a500,b,&command));
+  for(unsigned bit=0;bit<32;bit++){struct mt76_efuse_map_gate g={.phase=4,.block=b,.control=0x8000a500};assert(!mt76_ant_fields_begin(&g,true,0x24,command^(1u<<bit)) && g.failed);}
+ }
+ struct mt76_efuse_map_gate g={0};assert(!mt76_ant_fields_finish(&g,true,0));
+ g=(struct mt76_efuse_map_gate){.phase=5,.polls=1024};assert(!mt76_ant_fields_begin(&g,false,0x24,0));
+ for(unsigned p=0;p<=15;p++){g=(struct mt76_efuse_map_gate){.phase=p};assert(!mt76_efuse_map_delay(&g,3));}
+ for(unsigned word=0;word<4;word++)for(unsigned bit=0;bit<16;bit++){
+  const unsigned offsets[4]={2,4,20,22};f=(struct af_map){0};fields_init(&f.f);f.f.bytes[offsets[word]+bit/8]^=1u<<(bit%8);s=(struct mt76_ant_fields){0};
+  assert(af_run(&f,&s)==MT76_CAPTURE_REFUSED && s.complete && !s.valid && !s.antenna && !s.cfg1 && !s.nic0 && !s.nic1);
+ }
+ f=(struct af_map){0};fields_init(&f.f);f.f.unmapped=true;s=(struct mt76_ant_fields){0};assert(af_run(&f,&s)!=MT76_CAPTURE_OK && !s.valid && !s.antenna);
+ for(unsigned i=0;i<2;i++)for(unsigned bit=0;bit<32;bit++)if(bit==6 || bit==7 || (bit>=16 && bit<=25) || bit==30){
+  f=(struct af_map){0};fields_init(&f.f);f.f.ctrl_fault_call=i?22:8;f.f.ctrl_flip=1u<<bit;s=(struct mt76_ant_fields){0};assert(af_run(&f,&s)!=MT76_CAPTURE_OK && !s.valid);
+ }
+ puts("Antenna fields: PASS fixed logical20/30, all field-bit mutations, unmapped/control refusal; ordered sequence, single submission, exact preserved command, faults, cancellation, timeout, guard receipts");
+}
+
+int main(void) { ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

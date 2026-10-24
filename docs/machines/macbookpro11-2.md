@@ -5288,3 +5288,18 @@ writes. Touch bounded EFUSE/mt76 plans,xHCI/main,staging and tests. Preserve old
 EFUSE modes/profile behavior and fit the full saved proof within the exit log.
 Actualbase d5bc4b3; fetchedmain36080fc unchanged. PR136 Air6,1 battery deadline
 and PR134 POSIX scopes inspected; independent from this PR19 adapter work.
+
+Implemented fresh logical20/30 capture with exact four-field validation, followed
+by the five fixed reference-order writes. Forty initialization operations include
+35 reads,five writes and five verifications, ten MAC/CORE guard pairs and five
+disabled-DMA checks. Separate native gates enforce completed snapshot/board
+ownership, mapped-read command modes/order, fresh fields and exact write bytes.
+Failures stop without retry; uncertain USB DMA remains quarantined. Old EFUSE
+profiles retain their semantics. Native build,mt76 bring-up/upload/compact and
+xHCI checks passed, including each new failure/cancellation boundary, all64
+configuration field bits, payload mutations, unmapped/control refusals and
+no-USB ownership refusal. Bring-up and compact ASan/UBSan checks passed;138
+staging tests and116 unchanged historical recipes passed. Full saved-proof
+fixture65044bytes with51 negative cases; compact new guard summaries retain
+counts and exact per-target before/after values. Next: exact-stage GPT VM normal
+and missing-workspace checks,then unarmed installation. Native v59 pending.

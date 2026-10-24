@@ -354,4 +354,20 @@ struct mt76_ant_snapshot {bool attempted,complete;unsigned reads;uint32_t values
 uint32_t mt76_ant_snapshot_address(unsigned index);
 uint32_t mt76_ant_snapshot_request(unsigned operation);
 enum mt76_mcu_timing_status mt76_ant_snapshot_capture(struct mt76_ant_snapshot *s,const struct mt76_mcu_timing_io *io);
+struct mt76_ant_init {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[5],after[5],dma[5],mac[10],core[10];
+};
+struct mt76_ant_init_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*transfer)(void *context,unsigned operation,bool write,uint32_t address,uint8_t *data,unsigned length);
+};
+uint32_t mt76_ant_init_address(unsigned index);
+uint32_t mt76_ant_init_initial(unsigned index);
+uint32_t mt76_ant_init_value(unsigned index);
+bool mt76_ant_init_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
+bool mt76_ant_init_transfer_valid(const struct mt76_ant_init *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_ant_init_apply(struct mt76_ant_init *s,const struct mt76_ant_init_io *io);
 #endif

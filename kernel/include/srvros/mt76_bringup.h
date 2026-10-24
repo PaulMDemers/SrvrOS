@@ -148,4 +148,11 @@ struct mt76_prepare_io {
 enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *session,
     const struct mt76_prepare_io *io, const struct mt76_identity *identity);
 bool mt76_firmware_verified(const uint8_t *image, size_t size);
+/* Two mapped logical configuration blocks20/30; no factory address bytes. */
+struct mt76_ant_fields {bool attempted,complete,valid;unsigned reads,writes,polls,blocks;uint16_t antenna,cfg1,nic0,nic1;};
+bool mt76_ant_fields_valid(const struct mt76_ant_fields *);
+bool mt76_ant_fields_command(uint32_t previous,unsigned block,uint32_t *command);
+bool mt76_ant_fields_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
+bool mt76_ant_fields_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
+enum mt76_capture_status mt76_capture_ant_fields(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_ant_fields *);
 #endif

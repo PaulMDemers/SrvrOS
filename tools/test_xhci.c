@@ -3417,6 +3417,84 @@ static void test_wifi_mac_board(void){
 }
 
 
+static void antenna_ready_fixture(struct xhci_device *d){
+ mac_board_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->mac_board=(struct mt76_mac_board){.attempted=true,.complete=true,.operations=32,.reads=28,.writes=4,.verified=4};m->mac_board_submitted=32;
+ for(unsigned i=0;i<4;i++){m->mac_board.before[i]=mt76_mac_board_initial(i);m->mac_board.after[i]=mt76_mac_board_value(i);}
+ for(unsigned i=0;i<8;i++)m->mac_board.core[i]=0xf000f200;
+ m->ant_init_mode=m->ant_snapshot_mode=m->ant_snapshot_active=true;
+ m->ant_snapshot=(struct mt76_ant_snapshot){.attempted=true,.complete=true,.reads=11,.core={0xf000f200,0xf000f200}};m->ant_snapshot_submitted=11;
+ for(unsigned i=0;i<5;i++)m->ant_snapshot.values[i]=mt76_ant_init_initial(i);
+}
+static void test_wifi_ant_init(void){
+ for(unsigned target=0;target<5;target++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<34;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];antenna_ready_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->ant_fields=(struct mt76_ant_fields){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2,.antenna=0x17ff,.cfg1=0xffef,.nic0=0xfd11,.nic1=0x1004};
+  m->ant_fields_gate=(struct mt76_efuse_map_gate){.phase=15,.block=2,.submitted=26,.polls=2};for(unsigned i=0;i<4;i++)m->ant_fields_gate.core[i]=0xf000f200;
+  m->ant_init_active=true;unsigned op=target*8+(write?4:0);uint32_t address=write?mt76_ant_init_address(target):0x1004;
+  m->ant_init=(struct mt76_ant_init){.attempted=true,.operations=op};m->ant_init_submitted=op;m->ant_init.before[target]=mt76_ant_init_initial(target);m->ant_init.core[2*target]=0xf000f200;
+  uint8_t data[4]={0};if(write)for(unsigned i=0;i<4;i++)data[i]=(uint8_t)(mt76_ant_init_value(target)>>(8*i));
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==33?6:1,0);
+  if(fault==1)m->ant_init_mode=false;
+  if(fault==2)m->ant_init_active=false;
+  if(fault==3)m->ant_fields_active=true;
+  if(fault==4)m->ant_snapshot.complete=false;
+  if(fault==5)m->ant_snapshot.reads--;
+  if(fault==6)m->ant_snapshot_submitted--;
+  if(fault==7)m->ant_snapshot.values[target]^=1;
+  if(fault==8)m->ant_snapshot.mac[target%2]=1;
+  if(fault==9)m->ant_snapshot.core[target%2]=0;
+  if(fault==10)m->ant_snapshot.dma[target%2]=1;
+  if(fault==11)m->ant_fields.valid=false;
+  if(fault==12)m->ant_fields.complete=false;
+  if(fault==13)m->ant_fields.antenna^=1;
+  if(fault==14)m->ant_fields.cfg1^=1;
+  if(fault==15)m->ant_fields.nic0^=1;
+  if(fault==16)m->ant_fields.nic1^=1;
+  if(fault==17)m->ant_fields.reads--;
+  if(fault==18)m->ant_fields_gate.phase=0;
+  if(fault==19)m->ant_fields_gate.block=0;
+  if(fault==20)m->ant_fields_gate.pending=true;
+  if(fault==21)m->ant_fields_gate.failed=true;
+  if(fault==22)m->ant_fields_gate.submitted--;
+  if(fault==23)m->ant_fields_gate.polls++;
+  if(fault==24)m->ant_fields_gate.mac[target%4]=1;
+  if(fault==25)m->ant_fields_gate.core[target%4]=0;
+  if(fault==26)m->ant_fields_gate.dma[target%2]=1;
+  if(fault==27)m->ant_init_submitted++;
+  if(fault==28)address++;
+  if(fault==29){if(write)data[0]^=1;else address++;}
+  if(fault==30)m->mac_board.complete=false;
+  if(fault==31)m->ant_init.complete=true;
+  if(fault==32)m->ant_init.attempted=false;
+  bool ok=wifi_ant_init_transfer(d,op,write,address,data,4);assert(ok==(!fault));
+  if(!fault){assert(d->firmware.control_count==1 && m->ant_init_submitted==op+1);assert(!wifi_ant_init_transfer(d,op,write,address,data,4));}
+  else if(fault==33)assert(d->ep0_quarantined && d->firmware.failed && d->firmware.control_count==1);
+  else assert(!d->ep0_enqueue && !d->firmware.control_count);
+ }
+ for(unsigned block=0;block<2;block++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<9;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];antenna_ready_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->ant_fields_active=true;m->ant_fields.attempted=true;m->ant_fields_gate=(struct mt76_efuse_map_gate){.phase=write?4:0,.block=block,.control=0x8000a500};
+  uint32_t address=write?0x24:0x1004,value=0;if(write)assert(mt76_ant_fields_command(0x8000a500,block,&value));
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==8?6:1,0);
+  if(fault==1)m->ant_fields_active=false;
+  if(fault==2)m->ant_init_active=true;
+  if(fault==3)m->ant_fields.complete=true;
+  if(fault==4)m->ant_fields_gate.failed=true;
+  if(fault==5)m->ant_fields.attempted=false;
+  if(fault==6)address++;
+  if(fault==7){if(write)value^=1;else m->ant_fields_gate.pending=true;}
+  bool ok=wifi_ant_fields_transfer(d,write,address,&value);assert(ok==(!fault));
+  if(!fault){assert(d->firmware.control_count==1);assert(!wifi_ant_fields_transfer(d,write,address,&value));}
+  else if(fault==8)assert(d->ep0_quarantined && d->firmware.failed && d->firmware.control_count==1);
+  else assert(!d->ep0_enqueue && !d->firmware.control_count);
+ }
+ puts("xhci antenna setup: PASS fresh fields/snapshot/board admission, exact requests, no replay or USB on refusal, failure quarantine");
+}
 static void test_wifi_ant_snapshot(void){
  for(unsigned op=0;op<11;op++)for(unsigned fault=0;fault<27;fault++){
   reset_test();test_time=0;test_time_step=1000;
@@ -4559,6 +4637,7 @@ int main(int argc, char **argv) {
     test_wifi_dcoc();
     test_wifi_mac_board();
     test_wifi_ant_snapshot();
+    test_wifi_ant_init();
     test_wifi_mac_private();
     test_wifi_efuse_map();
     test_wifi_mac_fixed();

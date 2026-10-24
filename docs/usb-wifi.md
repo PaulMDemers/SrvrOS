@@ -2385,3 +2385,32 @@ copy Linux's full WLAN or CMB values: its enabled-driver state differs. Next
 work is bounded antenna initialization with fresh mapped-field validation,
 exact starting-state checks and readbacks. This result accepts observation only;
 antenna function, RF calibration and connectivity remain untested.
+
+### Fresh configuration and antenna setup (v59)
+
+`--wifi-ant-init` requires `--wifi-ant-snapshot` and stages `wifi-fw-v59`.
+The completed snapshot must exactly match the cold values above. The new stage
+reads mapped logical EFUSE blocks20/30 only, with two mode-zero read commands,
+bounded polling, four MAC/CORE guard pairs and two disabled-DMA checks. It
+requires fresh antenna17ff,cfg1ffef,NIC0fd11,NIC11004 before permitting antenna
+writes. These blocks contain no factory MAC address. Unmapped blocks, changed
+fields or completion-control mode/address mismatches refuse; EFUSE programming
+modes are never issued. Historical physical-map and private-header reads keep
+their original block/mode constraints.
+
+The fixed register plan follows the five targets in the preceding table in
+order. Each has a fresh initial-value read and MAC0/COREf000f200/disabled-DMA
+checks, one write, exact readback and another MAC/CORE pair. Success requires
+40 operations,35 reads,five writes and five verifications. Native transport
+independently admits only the next request and exact payload after completed
+snapshot/board/private-address ownership and fresh configuration validation.
+No retry follows a failure; uncertain completion retains quarantined DMA.
+
+Saved receipts include configuration completion/counts, aggregate guard-error
+counts, initialization counts and every before/after value. A zero guard-error
+count is insufficient by itself: the collector also requires all operation
+counts, exact values and the full earlier proof. Compact new receipts keep the
+combined fixture within the existing 64KiB exit snapshot; old receipts remain
+unchanged. Physical acceptance is pending. This initializes antenna registers;
+RF-bank tables, channel selection, calibration, radio traffic and connectivity
+remain separate work.

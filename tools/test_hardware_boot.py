@@ -61,6 +61,14 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_wifi_ant_init_profile(self):
+        v="ram-usb-wifi-fw-v59-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-ant-init=1",config)
+        self.assertIn("srvros.wifi-ant-snapshot=1",config)
+        self.assertNotIn("srvros.wifi-ant-init=1",boot.limine_config("0123456789abcdef",v.replace("v59-","v58-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_ant_init=True)
+
     def test_wifi_ant_snapshot_profile(self):
         v="ram-usb-wifi-fw-v58-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

@@ -270,6 +270,11 @@ struct xhci_wifi_mcu {
     bool efuse_map_mode,efuse_map_active;
     struct mt76_efuse_map efuse_map;
     struct mt76_efuse_map_gate efuse_map_gate;
+    bool ant_init_mode,ant_fields_active,ant_init_active;
+    struct mt76_ant_fields ant_fields;
+    struct mt76_efuse_map_gate ant_fields_gate;
+    struct mt76_ant_init ant_init;
+    unsigned ant_init_submitted;
     bool ant_snapshot_mode,ant_snapshot_active;
     unsigned ant_snapshot_submitted;
     struct mt76_ant_snapshot ant_snapshot;
