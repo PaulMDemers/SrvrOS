@@ -4245,3 +4245,23 @@ all existing all-ones refusals and v45 behavior. No retry, BBP table or RF enabl
 Touch MCU/xHCI/main/staging/tests. Integrated base4a991df; fetched2702b41 adds
 Air6,1 continuous desktop scope. PR118 draft edits storage waiting, not Wi-Fi
 control/MCU dispatch; retain its existing shared storage path unchanged.
+
+### 2026-10-23 — v46 AMPDU length initialization installed, unarmed
+
+Source `9fa1ff6`, release `e14f396f3d59c1b6`. Build, compact/xHCI host tests,
+ASan/UBSan,120 boot-profile tests and493 documentation links passed. All90 earlier
+Wi-Fi boot recipes remain byte-identical. The collector rejects64 readback
+mutations,40 transfer failures and two incomplete captures. Exact-stage GPT VM
+saved diagnostics, verified offline bytes/allocation and returned; missing-workspace
+VM returned without probing. Native acceptance remains pending.
+
+Run/collector: `build/bringup/wifi-mac-ampdu/run.json`,
+`build/bringup/collect_wifi_mac_ampdu_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-ampdu-9fa1ff6/`.
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved, accepted
+integrated `9fadb1185a7592ea` retained. Earlier7301441289281aaf removed from ESP
+only after full equality with its durable archive. Workspace0E53-5900 clean231files/
+595clusters, zero allocation errors and unmounted. No one-shot armed. Next:
+readiness-confirmed cold adapter cycle, automatic save/return and collection of
+matching session. Sequence15, eight exact transfer receipts and strict post-write
+readbacks required; no BBP table, RF or connectivity acceptance.
