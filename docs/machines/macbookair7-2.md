@@ -2,6 +2,24 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: bounded storage completion waits
+
+Branch `device/macbookair7-2/storage-wait` starts at main `4a991df` (PR116
+Air6,1 acceptance docs). Pro PR19 `3ea205a` was inspected: it adds Wi-Fi/control
+dispatch before the existing storage branch, but does not change storage bulk
+submission, completion or scheduler I/O helpers. This Air branch owns the narrow
+storage wait change: a per-device completion queue, wake after a matching bulk
+completion, and an owner/address-space-checked scheduler wait of at most one tick
+after four milliseconds of polling. Preserve the fast path, command deadline,
+clock-stall fallback, DMA quarantine and input service. No Wi-Fi/control path
+edits; this published scope is the shared-file coordination notice.
+
+Require race/ownership/refusal and delayed-completion/timeout/HID host fixtures,
+full local checks, exact EFI/GPT capture/recovery, and input during slow-copy VM
+coverage before a matched native logger-cost capture. Compare cost, idle samples
+and throughput; do not infer power savings. Recovery stays `9aa8dbf6fbda8252`;
+installed `9c57ca38a3771eef` is unchanged and no reboot is armed.
+
 ### Active checkpoint: native logger cost captured
 
 Branch `device/macbookair7-2/logger-timing` starts at main `180b542` (PR112).
