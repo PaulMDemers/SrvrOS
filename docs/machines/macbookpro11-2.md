@@ -5303,3 +5303,16 @@ staging tests and116 unchanged historical recipes passed. Full saved-proof
 fixture65044bytes with51 negative cases; compact new guard summaries retain
 counts and exact per-target before/after values. Next: exact-stage GPT VM normal
 and missing-workspace checks,then unarmed installation. Native v59 pending.
+
+Antenna initialization source `eaf911c`, release `28c2ba352d59b843` installed
+unarmed. Exact-stage GPT capture/save/automatic-return and missing-workspace
+refusal/return passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained;
+completed antenna snapshot `4964d0724ea58faa` retained. Older board payload
+`69718a055422766a` removed from ESP only after full equality with its durable
+archive. Offline workspace clean259files/637clusters,zero leaks/mismatches;
+unmounted. Payload,reference/configuration derivation,host tests,strict collector,
+VM receipts and run/checkpoint archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-init-eaf911c/`.
+Next: attended cold adapter cycle,then matching release/session collection FIRST.
+Require full earlier proof,fresh exact mapped fields and all40 operations/five
+exact target verifications. No native antenna-write acceptance or reboot armed.
