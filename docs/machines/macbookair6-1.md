@@ -2249,3 +2249,63 @@ The obsolete failed `06b0976a58151901` EFI copy is retired for space only after
 its durable payload backup is hash-verified. Prior accepted payloads and the
 previous automated diagnostic remain preserved. Native improvement is pending
 returned evidence; this does not yet resolve the attended intermittent failure.
+
+### Automated heap trial result (2026-10-24)
+
+Run `c741adb1f4bd0f75`, release `4efd82574f07eb30`, runtime source `e7b29e7`
+(merged through PR138, `27f0870`) passes both automated native desktop lifetimes.
+Sessions `00065e9dea272465-00` and `00065e9deb7d9404-00` completed startup in
+3,604,290 and 3,618,725 us, respectively, versus 4,796,986 and 4,917,553 us in
+the preceding diagnostic. This run is 24.86%/26.41% faster and leaves at least
+1,381,275 us below the unchanged five-second startup deadline. This is an
+observed paired-run improvement, not a worst-case bound under interactive load.
+
+Fresh battery generations 7/6 and epochs 1/2 each retired with balanced attach/
+detach, zero final heap/errors/denied and released desktop lifetimes. Queries
+were 105/90, with one notification in each lifetime. All 296 prior files except
+mutable `.srvros/meta` retain identical contents; eight new session logs bring
+the clean filesystem to 304 files/858 clusters, with no leaks or FAT/bitmap
+mismatches. Automatic Ubuntu return and collection completed; all 303 durable
+trial backup files were hash-verified. The collector is disabled and GRUB's
+one-shot entry is empty; no reboot remains armed.
+
+This accepts the short automated startup/reopen/retirement trial with the heap
+optimization and preserved full integrity checks. It does not yet accept the
+previously failing attended reopen under Text/file/audio work or extended
+endurance. Next useful coverage is an attended combined desktop session followed
+by close/reopen and resumed Text/file work, retaining the same startup deadline.
+
+## Attended heap-fix reopen scope (2026-10-24)
+
+Base main `27f0870`, preserving collected PR138 physical evidence. Prepare the
+existing untimed v71 combined desktop recipe with the validated heap fix; no
+runtime, firmware, deadline or shared subsystem change is planned. Rehearse
+Text/Files/audio and normal close/reopen plus the exact staged GPT boot path.
+The attended run must save a new document, browse it in the separate Files app,
+close the desktop normally, reopen with `desktop battery`, and resume file work.
+PR134 `d5d0fa1` owns POSIX and PR19 `b02be44` owns Wi-Fi; neither is imported.
+The previous automated run is collected, backed up and unarmed. Preserve Ubuntu
+and console recovery; report ready without starting this attended run.
+
+### Attended reopen ready (PR139)
+
+Source `5d858df`, v71 release `9851d427b042227b`, run `f4f57726a0d1824d` uses
+the exact native kernel/initramfs bytes accepted in the prior automated heap
+trial, with the existing untimed combined-session configuration. Full build/core,
+77 staging tests and docs checks pass. The combined Text/Files/audio normal VM
+and exact staged GPT GRUB→Limine profile-refusal VM pass, including clean
+close/reopen, provider/PCM teardown, offline allocation and monitor reboot.
+Q35's expected native-profile refusal is not physical acceptance. The previous
+full smoke and nine-case battery matrix remain evidence for the unchanged code.
+
+The attended checklist is in the current battery guide: ten minutes with a new
+`heap-reopen.txt`, separate Files dock app and battery/brightness/audio/sensor
+checks; Return to console, `desktop battery`, then reopen/append/save/reopen the
+document and repeat checks for at least two minutes. Save, exit, unmount and
+reboot manually. There is no timer or completion prompt. USB baseline is 304
+files/858 clusters, unchanged and clean. Ubuntu default and console recovery
+`c35475f62f154f1e` remain verified. Superseded startup diagnostic `837ce4f6bfab6775`
+is removed from EFI only after its durable payload backup is hash-verified;
+the latest accepted automatic release `4efd82574f07eb30` remains available.
+Payload and trial evidence are backed up outside build. This run is ready but
+unarmed; attended reopen acceptance remains pending its return.

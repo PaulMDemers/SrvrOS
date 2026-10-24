@@ -798,3 +798,30 @@ allocation/recycling lifecycles and prints wall time, validation/search visits
 and payload checksums. It is a deterministic workload shape, not a captured AML
 allocation trace. Host timing is informative rather than a CI threshold; native
 startup timing and clean retirement remain the acceptance evidence.
+
+Native release `4efd82574f07eb30` completed both automated lifetimes in the
+October 24 trial: startup took 3.604/3.619 seconds, versus 4.797/4.918 seconds
+before the heap change, with fresh samples and clean retirement. Full integrity
+checks and the five-second deadline remain intact. This accepts the short
+automated lifecycle; attended combined-session reopen and endurance still need
+revalidation. See the machine record for the evidence scope.
+
+### Attended reopen after the heap fix
+
+Use the untimed v71 recipe above. Keep Home USB attached and start on AC.
+There is no automatic completion prompt. In the first desktop, spend at least
+ten minutes on Text/Files and provider checks. Save a new `heap-reopen.txt` in
+Home containing `First session before reopening.`; close/reopen it to verify.
+Open the separate Files app from the dock folder icon and browse to the document
+(Text's Open dialog does not exercise Files). Check Settings brightness, Audio
+WAV playback/volume/Stop and System battery/AC, temperature and fan freshness.
+
+Save work and stop audio, select Return to console, then enter `desktop battery`
+at `srv>`. Wait for fresh battery data. Reopen the document in Text, append
+`Second session after reopening.`, save and close/reopen it to verify both lines.
+Browse it again in Files, repeat the provider checks and use this second session
+for at least two minutes. Save, Return to console, run `workspace unmount`, and
+then `reboot`. Photograph any terminal halt before manually restarting. The
+returned evidence must include both clean lifetime retirements, document content
+and separate Files activity; the prior automated pass does not substitute for
+this attended acceptance.
