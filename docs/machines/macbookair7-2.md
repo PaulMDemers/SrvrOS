@@ -18,7 +18,13 @@ and delayed redraw under pressure. Protocol v12 requires a matched image. Native
 acceptance is pending the attended capacity trial; Help includes a persistent
 checklist. Pro PR19 at `d0a0b57` remains independent Wi-Fi work; Air6,1 PR131
 at `75ddde8` changes opt-in battery startup and separate staging/tests.
-Neither overlaps the compositor/client/menu changes. No native test is armed;
+Neither overlaps the compositor/client/menu changes. At `b96e990` the full local
+build/core/docs checks, sixteen-window exact text/screenshot/cleanup workload,
+800x600 and 1440x900 arrange tests and 640x480 compositor lifecycle tests pass.
+The exact staged two-session desktop persistence rehearsal passes for
+`bf68e4e9b88b8ae7`; its sixty-round workload, saved text/preferences, logger
+snapshots and both clean unmounts pass. Physical acceptance remains pending.
+No native test is armed;
 current automatic payload `46b9132589405099`, recovery `9aa8dbf6fbda8252`.
 Publish this branch/PR, validate one build/VM at a time, then prepare a physical
 trial with explicit on-screen instructions if human interaction is required.
