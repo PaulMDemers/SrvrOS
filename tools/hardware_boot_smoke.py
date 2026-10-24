@@ -169,7 +169,7 @@ def main():
     battery_home_session=bool(probe and manifest["config_version"].startswith("ram-usb-v49-"))
     battery_home=bool(probe and manifest["config_version"].startswith(("ram-usb-v48-","ram-usb-v65-")))
     battery_smbus_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v63-"))
-    battery_smbus_files=bool(probe and manifest["config_version"].startswith(("ram-usb-v47-","ram-usb-v64-","ram-usb-v65-")))
+    battery_smbus_files=bool(probe and manifest["config_version"].startswith(("ram-usb-v47-","ram-usb-v64-")))
     battery_smbus=bool(probe and manifest["config_version"].startswith(("ram-usb-v46-","ram-usb-v62-")))
     battery_query=bool(probe and manifest["config_version"].startswith("ram-usb-v45-"))
     battery_controls=bool(probe and manifest["config_version"].startswith("ram-usb-v44-"))
