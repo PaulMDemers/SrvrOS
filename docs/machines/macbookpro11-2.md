@@ -5213,3 +5213,14 @@ Offline workspace clean257files/634clusters,102directories,zero leaks or
 allocation mismatches; workspace unmounted and no reboot armed. Next: audit
 PHY antenna selection and RF/calibration prerequisites. Acceptance is bounded to
 the four settings on this captured device; no sibling or usable-Wi-Fi claim.
+
+Active scope: antenna prerequisite observation after accepted v57 board setup.
+Linux v7.0 antenna selection touches WLAN_FUN_CTRL80,CMB20,CSR_EE_CFG1 104,
+COEXCFG0 40 and COEXCFG3 4c, using EEPROM22/24/42 and board band capabilities.
+Capture all five cold native values with MAC0/COREf000f200 and disabled DMA at
+both boundaries before planning writes. New v58 adds only eleven fixed reads;
+no antenna/RF/channel writes or enablement. Touch mt76/xHCI/main, staging and
+tests; preserve completed board/private-address prerequisites and prior recipes.
+Actual integration base remains d5bc4b3; fetchedmain36080fc adds Air6,1 reopen
+documentation since e79e220. PR134 POSIX and Air6,1 service trials are independent
+of this bounded PR19 scope. Next checkpoint: host/VM-tested unarmed capture.
