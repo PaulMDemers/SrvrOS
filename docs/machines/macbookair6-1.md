@@ -1389,3 +1389,46 @@ consumed one-shot and candidate/recovery hashes pass. USB is unmounted, no reboo
 is armed, and evidence is backed up separately from the failed preparation.
 Next scope is explicit mounted Home ownership before ordinary desktop battery
 startup. No acceptance is inferred for the later PR102 filesystem implementation.
+
+## Explicit mounted Home sampling scope (2026-10-23)
+
+From main `7d2b903`, own only the Air6,1 short held-Home diagnostic admission,
+normal-return refusal boundary, distinct boot recipe and directed tests. Reuse
+the mount hold and serialized service/retirement; no desktop clients or ordinary
+startup. Reset remains disabled with mounted storage; uncertain runtime halts
+without filesystem cleanup. PR106 power measurement and PR19 Wi-Fi remain
+independent. Consume PR102 filesystem baseline with fresh build and exact-stage
+checks; no native acceptance is inherited for the new payload.
+
+## Mounted Home candidate ready (2026-10-23)
+
+Release `30b0d713f1a9ed55`, clean compiled source `c69cd23`, uses v65 short
+held-Home sampling. Exact firmware/access gates remain unchanged. It enables
+neither desktop clients nor ordinary service; uncertain faults retain the mount
+and halt, with no automatic reset or live filesystem cleanup. Native acceptance
+remains pending.
+
+Full rebuild/USB image, core/desktop suites, exhaustive admission/query-receipt
+checks, 69 staging tests, 24 collector tests and four receipt tests pass. Eight
+Air6,1 mounted ownership VMs cover normal/alarms, effect-free refusal, unsupported
+platform/profile, unmounted entry and two retained-fault cases. Four full-boot
+captures cover success/alarm, saved query refusal and uncertain acknowledgement
+halt. Air7,2 Home and Air6,1 image/file regressions pass. Exact staged EFI/GPT
+and missing-workspace rehearsals pass. An initial harness classification wrongly
+expected image revocation for v65; checker fix `d3a1f9e` separates the profiles
+and the repeated exact run passes. That failed harness evidence is retained.
+
+The existing used image and all 218 USB file contents are unchanged. Offline
+fsck/allocation/headroom pass (527 clusters, zero leaks/mismatches/errors).
+Installed/recovery hashes, Ubuntu default and empty one-shot verify. Console
+recovery `c35475f62f154f1e`, accepted image capture `fc1d1f4c45d30252`, AC capture,
+short sampling and desktop telemetry remain retained. Superseded audio-only EFI
+payload `0533c0dfc63d104f` was removed only after verifying its independent backup.
+Run, payload and VM evidence are backed up outside build. USB is unmounted and
+no reboot is armed.
+
+Keep AC/USB connected; no typing or charger changes are required. Expect a few
+fresh samples with Home held, then retirement, saved logs and Ubuntu return.
+If it halts, photograph the screen and report it; do not treat a reset or missing
+completion as success. Collect matching `battery_home`, unchanged prior files,
+filesystem/allocation and recovery evidence before another trial.

@@ -15,8 +15,9 @@ from battery_home_records import check
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--case',choices=('normal','alarm','query-refusal','native-refusal','unmounted-refusal','profile-refusal','runtime-fault','effect-refusal'),default='normal')
+    p.add_argument('--air61',action='store_true')
     args=p.parse_args();root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('battery-home-'+args.case);out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-home-'+('air61-' if args.air61 else '')+args.case);out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-home-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -28,9 +29,9 @@ def main():
         fixture.add_directory_files('battery-study',{'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as f:f.write(mbr);f.seek(2048*512);f.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str({'normal':62,'alarm':63,'query-refusal':75,'native-refusal':62,'unmounted-refusal':62,'profile-refusal':15,'runtime-fault':69,'effect-refusal':82}[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_AIR61 1\n' if args.air61 else '')+'#define BATTERY_FAULT '+str({'normal':62,'alarm':63,'query-refusal':75,'native-refusal':62,'unmounted-refusal':62,'profile-refusal':15,'runtime-fault':69,'effect-refusal':82}[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='native-refusal' else 'vm.elf')
+        kernel=root/('build/acpi-air61-battery' if args.air61 else 'build/acpi-battery')/('srvros.elf' if args.case=='native-refusal' else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
              '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
@@ -64,7 +65,7 @@ def main():
                     serial.sendall(b'dmesg 65536\necho HOME_BOUNDARY_END\n');snapshot=wait_for(b'\nHOME_BOUNDARY_END\r\n')
                     starts=list(re.finditer(rb'^HOME_BOUNDARY_BEGIN\r?\n',snapshot,re.M));assert len(starts)==1
                     data=snapshot[starts[0].end():];(out/'boot.log').write_bytes(data)
-                    result=check(data,args.case)
+                    result=check(data,args.case,query_policy=3 if args.air61 else 2)
                     serial.sendall(b'run /fat/bin/deskd --smoke\n');wait_for(b'deskd: exited ')
                     if args.case!='unmounted-refusal':
                         serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')

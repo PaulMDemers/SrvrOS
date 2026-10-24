@@ -19,6 +19,11 @@ static inline bool battery_bounded_files_entry(bool coherent,bool service,bool o
     bool capture,bool automatic,bool parked,bool mounted,bool ready) {
     return coherent&&service&&owner&&capture&&automatic&&parked&&!mounted&&ready;
 }
+/* Explicit short Home diagnostic only; mounted failures must never reset. */
+static inline bool battery_bounded_home_entry(bool coherent,bool service,bool owner,
+    bool diagnostic,bool held,bool automatic,bool image) {
+    return coherent&&service&&owner&&diagnostic&&held&&!automatic&&!image;
+}
 /* AML only: SBS bank transactions use the separately serialized sampler. */
 static inline bool battery_bounded_ec(bool write,uint64_t address,uint64_t value) {
     return write?(address==0x10&&!value):address==0x60;

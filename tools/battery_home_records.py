@@ -3,7 +3,8 @@ import re
 from serial_records import complete_lines
 
 
-def check(data, case='normal', vm=True):
+def check(data, case='normal', vm=True, query_policy=2):
+    assert query_policy in (2,3)
     assert case in ('normal','alarm','query-refusal','native-refusal','unmounted-refusal','profile-refusal')
     data=complete_lines(data.replace(b'\r\n',b'\n'))
     def rows(prefix, pattern):
@@ -37,7 +38,7 @@ def check(data, case='normal', vm=True):
     if unavailable:
         assert kind==b'unavailable' and (generation,events,alarms,acks,state,error)==(0,0,0,0,5,3)
         assert snapshot==(0,0,0,0)
-        assert b'battery: REFUSED platform/resource ownership preflight' in data if case=='native-refusal' else b'battery-native-smbus: REFUSED captured controller profile' in data
+        assert b'battery: REFUSED platform/resource ownership preflight' in data if case=='native-refusal' else any(x in data for x in (b'battery-native-smbus: REFUSED captured controller profile',b'battery: REFUSED bounded profile requires an admitted bounded diagnostic owner'))
         for bad in (b'battery-service: retired',b'battery-home-return:',b'battery-query-return:',b'battery-recovery-resources:',b'battery-smbus: event='):
             assert bad not in data
     else:
@@ -69,7 +70,7 @@ def check(data, case='normal', vm=True):
         assert len(restores)==2 and {(int(p,16),int(v,16)) for p,v,_ in restores}==({(0x62f,0x40),(0x62e,4)} if vm else {(0x189c,0x40),(0x189e,4)})
         if case=='query-refusal':
             assert kind==b'query-refused' and (state,error)==(6,5)
-            one(b'battery-query-policy:',rb'battery-query-policy: policy=2 code=255 class=4; dispatch=refused')
+            one(b'battery-query-policy:',rb'battery-query-policy: policy='+str(query_policy).encode()+rb' code=255 class=4; dispatch=refused')
             receipt=tuple(map(int,one(b'battery-query-return:',rb'battery-query-return: sequence=(\d+) generation=(\d+) code=255 transfer=1 aml_calls=0 aml_returns=0 effects=0 completed_before=(\d+) completed_after=(\d+) notifications_before=(\d+) notifications_after=(\d+) idle=1; refused=yes')))
             seq,gen,before,after,nb,na=receipt
             assert seq>0 and gen==generation and after>before and na==nb==retired[3]
