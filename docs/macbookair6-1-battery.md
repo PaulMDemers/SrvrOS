@@ -546,3 +546,20 @@ This accepts only the explicit bounded generated Home session. Continuous
 monitoring, physical input latency and gauge calibration require separate trials;
 ordinary desktop battery startup remains disabled. See the unit record for the
 matching release, recovery and evidence state.
+
+## Bounded continuous Home candidate (v67)
+
+The explicit `--battery-air61 --battery-home-desktop` laptop capture admits only
+this timed desktop diagnostic to the Air6,1 mounted ownership profile. It opens
+ordinary Home/Text for 180 seconds, saves a screenshot and periodic logs, then
+retires clients, runtime and logger before releasing Home and returning. The
+existing 240-second capture watchdog and 10-second Stop bound remain; Air6,1
+adds a 4096-event ceiling. Firmware/query permissions are unchanged. Ordinary
+startup, indefinite sessions and attended Home AC transitions remain excluded.
+
+Keep AC/USB connected and provide no input. No fresh study directory is needed;
+preserve all prior files. Require the exact native stage/refusal rehearsals,
+strict `battery_home_desktop` receipt, matching screenshot and all log files,
+file-content preservation, clean offline allocation and Ubuntu recovery. A
+halt or missing completion is failure/incomplete evidence. Mounted uncertain
+faults must halt without reset or storage cleanup. Native acceptance is pending.
