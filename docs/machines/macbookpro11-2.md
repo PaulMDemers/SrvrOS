@@ -5518,3 +5518,19 @@ completion. All141 staging tests and122 historical recipe comparisons pass.
 Native binding tests, full build, MCU/bring-up regressions, ASan/UBSan and docs
 checks pass. Final source regression and exact-stage VM checks precede unarmed
 installation; no hardware acceptance or new install yet.
+
+
+RF0:6 comparison source `c69c064`, release `f44fa8061c8014a5`, installed unarmed.
+Final native binding regression and full build passed. Exact-stage GPT capture/
+save/offline verification/automatic return and missing-workspace refusal/return
+passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained. Failed central
+trial `d5f9b767d30876ce` retained for evidence; accepted RF-read payload
+`63fb5a9f9addbb21` removed from ESP only after full durable-backup equality.
+Offline workspace clean265files/646clusters/106directories, zero leaks/mismatches
+or errors; unmounted. Payload, pinned references, host/sanitizer/collector tests,
+both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-six-c69c064/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require bounded prefix and all read-only comparison receipts; classify the three
+RF0:6 values independently of central-table acceptance. No reboot armed; native
+observation pending, calibration and connectivity untested.
