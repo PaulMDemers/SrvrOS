@@ -4337,3 +4337,38 @@ Workspace0E53-5900 clean235files/601clusters, zero leaks/mismatches, unmounted.
 Collection, comparison, run/checkpoint and hashes archived outside build under
 `~/.local/share/srvros/macbookpro11-2/wifi-bbp-after-mac-88809f0/`.
 No reboot armed.
+
+Active scope 2026-10-23: audit the four persistent BBP mismatches after v47.
+Compare pinned Linux register tables, initialization ordering and vendor-authored
+register uses; capture fresh read-only Linux values if useful. Publish findings
+and a bounded next diagnostic. No new native writes or acceptance relaxation.
+Touch this unit record/current Wi-Fi guide only until evidence justifies code.
+Integration base remains4a991df; fetched main54862de adds Air6,1 documentation.
+PR118 storage-wait remains separate; PR19 owns this Wi-Fi work.
+
+### 2026-10-23 — post-v47 read-only audit
+
+Four fresh Linux7.0.0-38-generic samples on the same7392:a711 adapter read
+TXBE10=38e30, TXBE17=fb3fee3c, RXO21=0 and RXO24=0: all four exactly match
+v47. MAC=0c and CORE=f000f200. This differs from older Linux samples where
+TXBE10 was0. The Ubuntu run followed SrvrOS without confirmed adapter power
+loss, so warm state and later Linux initialization remain confounders.
+Only debugfs read-address selection and register reads were used; selector
+restored, no register writes, driver unbind or reset.
+
+Pinned [Linux v7.0 initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+writes the BBP table, then the G-band20MHz switch table and DCOC table; it does
+not test equality of these four readbacks. The vendor-authored source mirrored
+at [commit4f1f50e](https://github.com/xtknight/mt7610u-linksys-ae6000-wifi-fixes/tree/4f1f50e3b5e5230f36a13f33112873765389dab3)
+likewise initializes them, without documenting their bit-level readback semantics
+in the inspected definitions/uses. These facts do not establish that a mismatch
+is harmless, nor accept native RF/connectivity. No predicates were relaxed.
+
+Next diagnostic: power-cycle only the Wi-Fi adapter while Ubuntu remains up,
+then repeat the same read-only samples with dynamic PHY discovery and exact
+descriptor/driver/model gates. This controls adapter power history without a
+new SrvrOS write trial. Collector prepared locally as
+`build/bringup/bbp-post-mac-audit/capture-cold.py`. Cold results pending.
+Raw audit and source hashes archived outside build under
+`~/.local/share/srvros/macbookpro11-2/bbp-post-mac-audit-c223f58/`.
+No reboot armed; installed payload remains6d6d0b1a49c3de4b.

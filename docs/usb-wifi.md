@@ -1952,3 +1952,11 @@ from the earlier before/after capture (fb3fec3c); causality is not established.
 Thus MAC initialization through AMPDU did not resolve the table mismatches.
 Register acceptance remains NOT_TESTED. The next investigation is reference
 register semantics and initialization ordering, before any new native writes.
+
+A subsequent read-only Ubuntu capture found all four values identical to v47
+(including TXBE10=38e30), unlike older Linux TXBE10=0 samples. Since this Ubuntu
+boot followed SrvrOS without confirmed adapter power loss, the next comparison
+is a cold adapter cycle under Linux, not another native table write. The pinned
+Linux initialization writes the table without requiring these four readbacks
+to equal the written values. Their readback semantics remain unresolved; neither
+the current Linux match nor complete table transport accepts RF/connectivity.
