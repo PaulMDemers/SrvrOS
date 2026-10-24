@@ -1969,3 +1969,25 @@ Warm carryover alone is insufficient to explain them; TXBE17 varies, and its
 semantics remain undocumented by this audit. No native acceptance predicate
 changes follow from this observation. Next audit the reference BBP switch/DCOC
 stages and ownership/RF boundaries before a bounded continuation.
+
+### Next continuation: fixed G-band20MHz baseband switch
+
+The [Linuxv7.0 initialization sequence](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+applies the [bandwidth/band table](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals.h)
+after the full BBP table. Its G-band20MHz selector chooses20 entries (19 AGC
+registers and RXFE0), using direct USB request6 writes with four-byte LE data.
+The subsequent nine-entry CAL47..55 DCOC table uses MCU random-write; later
+EEPROM/PHY initialization reaches RF configuration. These are separate stages.
+
+The next bounded implementation is the full20-entry switch group after v47,
+with fixed address/value/ordering admission, exact transport receipts, disabled
+MAC/CORE guards and before/after observations. It must not allocate another
+MCU sequence or enable TX/RX. DCOC and RF/channel work remain subsequent scope.
+Native implementation and acceptance of this stage are pending.
+
+Fresh live Linux samples differ from19 of29 switch/DCOC initial targets. Many
+match A-band variants, including valid all-ones values in AGC51/53/55. That does
+not justify admitting all-ones in the proposed G/20 stage, whose fixed values
+are all non-all-ones. Runtime samples are comparison evidence, not initialization
+expectations or proof of association. Exact selection/transport fixtures and
+the source audit are archived in the Pro11,2 evidence directory.

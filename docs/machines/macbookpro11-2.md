@@ -4400,3 +4400,45 @@ bounded continuation. Do not spend another boot trying to force equality
 without evidence that equality is required. Existing strict diagnostics remain
 unchanged. Cold samples/comparison archived alongside the previous audit in
 `bbp-post-mac-audit-c223f58`; installed release unchanged, no reboot armed.
+
+Active scope 2026-10-23: source-backed BBP switch/DCOC audit after cold Linux
+comparison. Derive exact G-band20MHz selection, transport and later RF boundary;
+prepare fixtures and read-only Linux inventory. Current source9b01d39, actual
+integration base4a991df; fetched main7b0d1a0 carries Air6,1 acceptance docs.
+PR118 is no longer open; inspect its status before any integration (not assumed
+merged here). PR123 owns network-idle work; PR19 remains this Wi-Fi scope.
+No shared transport edits or native writes in this audit.
+
+### 2026-10-23 — next BBP stage audit completed
+
+Pinned Linuxv7.0 `mt76x0_init_bbp()` orders full BBP table, G-band20MHz
+switch settings, then DCOC. The exact selector yields20 entries: AGC4/6/8/12/13/14/
+26/27/28/31/32/33/35/39/43/51/53/55/58 and RXFE0. All selected values are
+non-all-ones. Linux writes each through direct USB request6, value0, register
+index and a four-byte little-endian payload. This step needs no MCU sequence
+reuse. The following DCOC table contains CAL47..55 (nine entries), sent through
+MCU random-write. EEPROM and PHY/RF initialization occur later.
+
+Checked exact selection/count/order/address range, transport definitions and
+20 generated setup/data fixtures. Four fresh read-only Linux samples covered
+32 registers (29 targets plus ASIC/MAC/CORE); selector restored.18 switch values
+and CAL47 differ from initialization defaults. Most switch differences match
+the source A-band variants, including all-ones AGC51/53/55. This illustrates
+later band-dependent state; it does not prove an active channel or link. Keep
+native G/20 all-ones rejection unchanged because that selected table has no
+all-ones targets. Do not import live A-band values into the G/20 trial.
+
+Selected next implementation: one explicit20-entry G/20 direct-write stage
+after v47 completion, with all prerequisite ownership gates, MAC0/COREf000f200
+guards, exact setup/payload admission, one attempt per entry, transport receipts
+and before/after readbacks. No arbitrary register API. Table observation remains
+distinct from exact readback acceptance. Abort on transfer/ownership/guard
+failure and preserve the saved result. DCOC, RF/channel selection and TX/RX
+enable are excluded from this first continuation. This is the reference's
+initial baseband default, not a regulatory/channel or connectivity acceptance.
+
+Audit sources, derived tables, packet fixtures, live samples and hashes archived
+outside build under `~/.local/share/srvros/macbookpro11-2/bbp-switch-audit-9b01d39/`.
+No new native candidate installed or boot armed. Actual integration base4a991df;
+fetched main7b0d1a0 includes merged PR118 storage-wait (merge9087fd8), which
+is not incorporated in this device checkout. Open PR123 owns network polling.
