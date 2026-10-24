@@ -135,6 +135,23 @@ class CollectionTests(unittest.TestCase):
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
 
+    def test_logger_individual_transfer_records(self):
+        from workspace_cost import logger_cost
+        from test_storage_wait_result import CaptureTests
+        text=CaptureTests().detailed()
+        detail='\n'.join(l.replace('scope=comparison','scope=logger') for l in text.splitlines()
+                         if l.startswith('usb-timing:') and 'id=1000000 ' in l)
+        row=('workspace-cost: version=2 name=session-a.log start_us=1000000 end_us=1001000 bytes=100 '
+             'prepare_us=100 write_us=600 verify_us=100 sync_us=200 cbw_calls=2 cbw_us=100 '
+             'data_calls=8 data_us=200 csw_calls=2 csw_us=300 failures=0 ok=1 valid=1')
+        result=logger_cost(row+'\n'+detail,999999,2000000)
+        self.assertIsNotNone(result);self.assertEqual(len(result['records'][0]['transfers']),3)
+        self.assertEqual(logger_cost(row+'\n'+detail+'\n'+detail,999999,2000000),result)
+        for bad in (row,row+'\n'+detail.replace('phase=1','phase=0'),
+                    row+'\n'+detail.replace('callback_us=100','callback_us=101'),
+                    row+'\n'+detail.replace('observed_calls=2','observed_calls=0')):
+            self.assertIsNone(logger_cost(bad,999999,2000000))
+
     def test_logger_cost_requires_complete_idle_and_valid_bounded_records(self):
         header=("desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=1 fb_bytes=9000 measured=yes\n"
                 "desktop-idle-window: start_us=10000000 end_us=70000000\n"

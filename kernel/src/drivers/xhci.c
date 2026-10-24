@@ -290,6 +290,8 @@ struct xhci_device {
     bool bulk_pending, bulk_done, bulk_failed;
     struct scheduler_wait_queue bulk_wait;
     uint64_t bulk_wait_calls,bulk_wait_us;
+    bool bulk_timed;
+    struct usb_bulk_timing bulk_timing;
     const char *bulk_reason;
     uint64_t bulk_elapsed_us, bulk_spins;
     uint32_t bulk_length;
@@ -1940,6 +1942,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
         device->bulk_completion = completion;
         device->bulk_remaining = remaining;
+        if(device->bulk_timed)device->bulk_timing.observed=timer_monotonic_us();
         device->bulk_done = true;
         device->bulk_pending = false;
         scheduler_wake_all(&device->bulk_wait);
@@ -2221,6 +2224,8 @@ static bool storage_bulk_ready(void *context) {
 static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t length,uint32_t *actual) {
     struct xhci_device *d=context;
     if(d->bulk_failed || d->bulk_pending || !length || length>PMM_FRAME_SIZE) return false;
+    d->bulk_timing=(struct usb_bulk_timing){0};
+    d->bulk_timed=usb_storage_timing_enabled();
     struct xhci_bulk_endpoint *ep=&d->bulk_ep[in?1:0];
     d->bulk_reason="pending"; d->bulk_length=length; d->bulk_elapsed_us=0; d->bulk_spins=0;
     d->bulk_completion=0; d->bulk_remaining=0;
@@ -2230,6 +2235,7 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
     d->bulk_trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
     d->bulk_dci=ep->dci; d->bulk_done=false; d->bulk_pending=true;
+    if(d->bulk_timed)d->bulk_timing.submitted=timer_monotonic_us();
     db_write32(d->slot_id,ep->dci);
     uint64_t start=timer_monotonic_us(), last=start, clock_at=start;
     uint64_t spins=0, stalled_spins=0;
@@ -2237,6 +2243,10 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         struct xhci_trb event;
         if(poll_event(&event)) dispatch_transfer_event(&event);
         if(d->bulk_done) {
+            if(d->bulk_timed) {
+                d->bulk_timing.resumed=timer_monotonic_us();
+                d->bulk_timing.seen=true;
+            }
             if(d->bulk_completion!=1 && d->bulk_completion!=13) { d->bulk_reason="completion-code"; break; }
             if(d->bulk_remaining>length) { d->bulk_reason="invalid-residue"; break; }
             d->bulk_reason="completed";
@@ -2279,6 +2289,9 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         (uint64_t)ep->dci,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_done);
     return false;
 }
+static void storage_bulk_timing(void *context,struct usb_bulk_timing *out) {
+    *out=((struct xhci_device *)context)->bulk_timing;
+}
 static void storage_bulk_diagnostics(void *context) {
     struct xhci_device *d=context;
     console_printf("xhci-storage: reason=%s slot=%u dci=%u cc=%u done=%u pending=%u\n",
@@ -2293,6 +2306,7 @@ static bool enumerate_storage(struct xhci_device *d) {
     d->configured=true; xhci.configured_devices++;
     d->stage="storage-probe";
     d->storage.diagnose=storage_bulk_diagnostics;
+    d->storage.transfer_timing=storage_bulk_timing;
     bool ready=usb_storage_attach(&d->storage,d,storage_bulk_transfer,storage_writable);
     d->stage=ready?"storage-ready":(d->bulk_failed?"storage-quarantined":"storage-no-media-or-unsupported");
     console_printf("xhci: storage slot=%u vendor=%x product=%x stage=%s\n",(uint64_t)d->slot_id,

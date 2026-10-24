@@ -657,3 +657,21 @@ Main `c4265f8` is consumed, preserving Air6,1 PR124's attended capture. Pro PR19
 `9b0d63c` keeps independent Wi-Fi ownership. This work does not edit xHCI, broaden
 hardware gates or change physical installed/recovery payloads. USB logger timing
 remains a separate follow-up; TCP acceptance does not establish power savings.
+
+## October 24 USB timing handoff
+
+Air PR127 instruments matching storage completion events and synchronous caller
+resumption, with per-BOT-phase maxima and slow-transfer counts. Source `ce1c537`
+passes local build/core, directed host regressions, USB copy/input and quarantine
+VMs, and exact staged logger/comparison collection. Native Air7,2 release
+`b824d64a95b27a3b` passes eighteen fixed-file operations, exact readback, prior-file
+preservation and offline allocation/recovery checks. Long CSW wall times preceded
+software event observation; caller resumption took at most 20 us after observation.
+This does not distinguish controller/media delay from delayed event servicing.
+Keep the 20 ms threshold and existing timeout/quarantine/flush policy.
+
+Consume the version-2 collector with a matched kernel. Historical version-1
+results remain readable, without fabricated transfer detail. Pro PR19 at
+`1f4d822` retains independent WCID Wi-Fi work; preserve its additional xHCI Wi-Fi
+state and capture recipes alongside storage timing. Next Air storage scope is
+pending-transfer event-service gaps. No sibling hardware acceptance is implied.

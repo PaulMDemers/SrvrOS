@@ -370,6 +370,9 @@ void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;
 void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
     mouse_inject_trackpad(x,y,buttons); last_pointer.wheel_x=wx; last_pointer.wheel_y=wy;
 }
+static bool trace_bulk;
+static uint64_t resume_delay;
+bool usb_storage_timing_enabled(void) { return trace_bulk; }
 static uint64_t test_time, test_time_step=1000, complete_at;
 static struct xhci_device *complete_device;
 uint64_t timer_monotonic_us(void) {
@@ -405,7 +408,9 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
         dispatch_transfer_event(&key);wait_keyboard=false;
     }
     test_time=deadline*10000;
-    (void)timer_monotonic_us();poll_hid_events_once();return true;
+    (void)timer_monotonic_us();poll_hid_events_once();
+    if(d->bulk_done)test_time+=resume_delay;
+    return true;
 }
 static void test_storage(void) {
     reset_test();
@@ -448,7 +453,12 @@ static void test_storage(void) {
     events[0]=(struct xhci_trb){.parameter_low=0x9990,.status=1u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)|1};
     events[1]=(struct xhci_trb){.parameter_low=0xa000,.status=(13u<<24)|56,.control=(32u<<10)|(2u<<24)|(5u<<16)|1};
     events[2]=(struct xhci_trb){.parameter_low=0x9000,.status=1u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    disk->bulk_timed=true;
+    dispatch_transfer_event(&events[0]);assert(!disk->bulk_timing.observed);
     poll_hid_events_once();
+    assert(disk->bulk_timing.observed && !disk->bulk_timing.seen);
+    uint64_t observed=disk->bulk_timing.observed;
+    dispatch_transfer_event(&events[2]);assert(disk->bulk_timing.observed==observed);
     assert(injected==1 && kbd->hid_reports==1 && !kbd->interrupt_pending);
     assert(disk->bulk_done && !disk->bulk_pending && disk->bulk_completion==1);
     /* A successful HID completion rearms immediately, including when consumed
@@ -519,10 +529,17 @@ static void test_storage_wait(void) {
     xhci.devices[1]=(struct xhci_device){.present=true,.slot_id=2,.hid_keyboard=true,.interrupt_pending=true,
         .interrupt_trb=0xa000,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=report};
     uint32_t actual=0;unsigned before=injected;wait_calls=bulk_wakes=0;
+    trace_bulk=true;
     complete_device=d;complete_at=test_time+2000;
     assert(storage_bulk_transfer(d,true,caller,13,&actual) && !wait_calls && actual==13);
+    struct usb_bulk_timing sample;storage_bulk_timing(d,&sample);
+    assert(sample.seen && sample.observed-sample.submitted>=2000 && sample.resumed-sample.observed==3);
+    resume_delay=12345;
     complete_device=d;complete_at=test_time+500000;wait_keyboard=true;
     assert(storage_bulk_transfer(d,true,caller,13,&actual) && wait_calls>20);
+    storage_bulk_timing(d,&sample);
+    assert(sample.seen && sample.observed-sample.submitted>=500000 && sample.resumed-sample.observed==resume_delay+2*test_time_step);
+    resume_delay=0;
     assert(injected==before+1 && bulk_wakes==2 && actual==13 && caller[0]==0x5a);
     assert(d->bulk_wait_calls==wait_calls && d->bulk_wait_us>400000);
     assert(d->bulk_ep[1].enqueue==2 && !d->bulk_pending && !d->bulk_failed);
@@ -530,6 +547,8 @@ static void test_storage_wait(void) {
     assert(!storage_bulk_transfer(d,true,caller,13,&actual));
     assert(wait_calls>waited && test_time-start>=2000000 && test_time-start<2020000);
     assert(d->bulk_failed && d->bulk_pending && !strcmp(d->bulk_reason,"deadline"));
+    storage_bulk_timing(d,&sample);assert(!sample.seen && !sample.observed && !sample.resumed);
+    trace_bulk=false;
     uint64_t enqueue=d->bulk_ep[1].enqueue;
     assert(!storage_bulk_transfer(d,true,caller,13,&actual) && d->bulk_ep[1].enqueue==enqueue);
     d->bulk_failed=d->bulk_pending=false;wait_refused=true;

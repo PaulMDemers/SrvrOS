@@ -1,9 +1,10 @@
 """Validate logger wall-time records wholly inside a completed idle window."""
 import re
+from usb_timing import transfer_records, sample_transfers
 
 FIELDS = ('start_us end_us bytes prepare_us write_us verify_us sync_us '
           'cbw_calls cbw_us data_calls data_us csw_calls csw_us failures ok valid').split()
-PATTERN = re.compile(r'^workspace-cost: version=1 name=(boot\.log|session-[ab]\.log|exit\.log) '
+PATTERN = re.compile(r'^workspace-cost: version=(1|2) name=(boot\.log|session-[ab]\.log|exit\.log) '
                      + ' '.join(k + r'=([0-9]{1,20})' for k in FIELDS) + '$')
 
 
@@ -11,16 +12,19 @@ def logger_cost(text, start, end):
     if not 0 <= start < end < 2**64:
         return None
     records = {}
+    transfers=transfer_records(text,"logger")
+    if transfers is None:return None
     for line in text.splitlines():
         if not line.startswith('workspace-cost:'):
             continue
         match = PATTERN.fullmatch(line)
         if not match:
             return None
-        r = dict(zip(FIELDS, map(int, match.groups()[1:])))
+        r = dict(zip(FIELDS, map(int, match.groups()[2:])))
         if any(v >= 2**64 for v in r.values()):
             return None
-        r['name'] = match[1]
+        r['name'] = match[2]
+        r['version'] = int(match[1])
         # Incomplete/straddling saves and screenshot/exit writes aren't idle.
         if r['start_us'] < start or r['end_us'] > end:
             continue
@@ -34,6 +38,9 @@ def logger_cost(text, start, end):
                 sum(r[k] for k in ('cbw_us', 'data_us', 'csw_us')) > io or
                 any(r[p+'_us'] and not r[p+'_calls'] for p in ('cbw', 'data', 'csw'))):
             return None
+        if r['version']==2:
+            r['transfers']=sample_transfers(transfers,r['start_us'],r)
+            if r['transfers'] is None:return None
         old = records.setdefault(r['start_us'], r)
         if old != r:
             return None

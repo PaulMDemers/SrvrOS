@@ -11,6 +11,7 @@ static uint64_t save_irq(void);
 static void restore_irq(uint64_t flags);
 static bool timing_active;
 static struct usb_storage_timing timing;
+bool usb_storage_timing_enabled(void) { return timing_active; }
 bool usb_storage_timing_begin(void) {
     uint64_t flags=save_irq();
     bool ok=!timing_active && timer_reference_ready();
@@ -22,16 +23,41 @@ void usb_storage_timing_end(struct usb_storage_timing *out) {
     if(out) *out=timing_active?timing:(struct usb_storage_timing){0};
     timing_active=false;restore_irq(flags);
 }
+static void timing_add(uint64_t *sum,uint64_t value) {
+    if(value>UINT64_MAX-*sum) timing.valid=false;
+    else *sum+=value;
+}
+static void timing_max(uint64_t *maximum,uint64_t value) {
+    if(value>*maximum)*maximum=value;
+}
 static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
                        uint32_t length,uint32_t *actual) {
     if(!timing_active) return s->bulk(s->context,in,data,length,actual);
     uint64_t start=timer_monotonic_us();
     bool ok=s->bulk(s->context,in,data,length,actual);
     uint64_t end=timer_monotonic_us();
-    timing.calls[phase]++;
-    if(!ok) timing.failures++;
-    if(end<start || end-start>UINT64_MAX-timing.us[phase]) timing.valid=false;
-    else timing.us[phase]+=end-start;
+    timing_add(&timing.calls[phase],1);
+    if(!ok) timing_add(&timing.failures,1);
+    if(end<start) { timing.valid=false;return ok; }
+    uint64_t elapsed=end-start;
+    struct usb_storage_phase_timing *p=&timing.phase[phase];
+    timing_add(&timing.us[phase],elapsed);timing_max(&p->max_us,elapsed);
+    if(elapsed>20000)timing_add(&p->over20ms,1);
+    if(elapsed>100000)timing_add(&p->over100ms,1);
+    if(elapsed>1000000)timing_add(&p->over1s,1);
+    if(s->transfer_timing) {
+        struct usb_bulk_timing sample={0};s->transfer_timing(s->context,&sample);
+        if(sample.seen) {
+            if(sample.submitted<start || sample.observed<sample.submitted ||
+               sample.resumed<sample.observed || sample.resumed>end)timing.valid=false;
+            else {
+                uint64_t observe=sample.observed-sample.submitted,resume=sample.resumed-sample.observed;
+                timing_add(&p->observed_calls,1);
+                timing_add(&p->observe_us,observe);timing_add(&p->resume_us,resume);
+                timing_max(&p->observe_max_us,observe);timing_max(&p->resume_max_us,resume);
+            }
+        } else if(ok) timing.valid=false; /* An instrumented success must have an event. */
+    }
     return ok;
 }
 

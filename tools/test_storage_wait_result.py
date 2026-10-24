@@ -9,6 +9,33 @@ class CaptureTests(unittest.TestCase):
                 lines.append(f'storage-wait: sample round={r} position={p} poll_us={policy} bytes=32768 elapsed_us=10000 sampled_ticks=1 idle_ticks=0 cbw_calls=2 cbw_us=100 data_calls=8 data_us=200 csw_calls=2 csw_us=300 failures=0 ok=1')
         lines.append('storage-wait: complete=yes samples=18 restored=yes elapsed_us=180001')
         return '\n'.join(lines)
+    def detailed(self):
+        from usb_timing import FIELDS
+        lines=self.fixture().replace('version=1','version=2').splitlines();out=[lines[0]]
+        for i,line in enumerate(lines[1:-1]):
+            start=1000000+i*20000
+            out.append(line.replace(' bytes=',f' start_us={start} bytes='))
+            for phase,calls,total in ((0,2,100),(1,8,200),(2,2,300)):
+                values=(start,phase,calls,total,total//calls,0,0,0,calls,total//2,total//4,total//2//calls+1,total//4//calls+1,1)
+                out.append('usb-timing: version=1 scope=comparison '+' '.join(f'{k}={v}' for k,v in zip(FIELDS,values)))
+        return '\n'.join(out+[lines[-1]])
+
+    def test_individual_timing(self):
+        text=self.detailed();result=capture_result(text)
+        self.assertIsNotNone(result);self.assertEqual(result['version'],2)
+        self.assertEqual(len(result['records'][0]['transfers']),3)
+        # Missing/duplicate/mispaired phases, impossible counts/durations, overflow,
+        # malformed trailers and incomplete observed events cannot pass as v2.
+        row=next(l for l in text.splitlines() if l.startswith('usb-timing:'))
+        for bad in (text.replace(row+'\n',''),text+'\n'+row,
+                    text.replace('phase=2','phase=1'),text.replace('observed_calls=2','observed_calls=1'),
+                    text.replace('resume_us=25','resume_us=999'),text.replace('max_us=50','max_us=999'),
+                    text.replace('over20ms=0','over20ms=1'),text.replace('valid=1','valid=0'),
+                    text.replace('observe_us=50','observe_us=18446744073709551616'),
+                    text.replace(row,row+' junk'),text.replace('start_us=1000000','start_us=999'),
+                    text.replace('start_us=1020000','start_us=1000001')):
+            self.assertIsNone(capture_result(bad),bad[:300])
+
     def test_complete(self):
         result=capture_result(self.fixture());self.assertIsNotNone(result)
         self.assertEqual([p['count'] for p in result['policies']],[6,6,6])

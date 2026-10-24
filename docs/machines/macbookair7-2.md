@@ -2,6 +2,61 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Individual USB timing: bounded native result
+
+Starting from merged main `76f98c4`, this unit is instrumenting synchronous USB
+storage callbacks to distinguish submission-to-software-event-observation from
+observation-to-caller-resumption. Neither interval is pure hardware/device time.
+Scope: xHCI storage request/event bookkeeping, BOT timing aggregates, workspace
+logger/counterbalanced capture records, collectors and directed host/VM tests.
+Keep the 20 ms poll threshold, two-second deadline, DMA quarantine, input service,
+readback and flush policies unchanged. Inspect individual maxima and slow-request
+counts before deciding whether a scheduling or transport change is justified.
+Pro PR19 was rechecked at `1893150`: WCID Wi-Fi structs/capture work is separate
+from the synchronous storage bookkeeping here; both must survive integration.
+
+Source `ce1c537` passes the full local build/core suite, directed clock/order/
+overflow/stale-event and parser regressions, throttled 4 MiB USB copy with input
+and exact readback, and timeout/quarantine VM checks. The exact EFI/GPT idle VM
+persists six logger saves with complete per-phase timestamps. The fixed-file VM
+persists all eighteen version-2 samples / 54 phase records and exact payload;
+missing-workspace automatic return also passes. These validate instrumentation
+and workflow, not physical latency or improved performance.
+
+PR127 candidate `b824d64a95b27a3b`, compiled `ce1c537`, returned automatically in
+`session-00065e8e6e515108-00`. All 18 measurements / 54 phase records pass, with
+exact offline fixture bytes, zero callback failures and unchanged bytes for all
+1043 previous files except expected exFAT metadata. Only boot/exit logs and the
+fixture were added. Offline checks pass at 1046 files / 2523 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot and recovery
+`9aa8dbf6fbda8252` are verified; USB is unmounted and no reboot is armed.
+
+Across 2124 CSW callbacks, 17 exceeded 100 ms and none exceeded one second.
+Maximum callback time was 307216 us; total was 5121771 us, including 5117657 us
+before software event observation and only 1616 us after observation. Maximum
+observed-event-to-caller delay was 20 us. The longest operation, 2427278 us,
+included twelve CSW callbacks above 100 ms, rather than one transfer exceeding
+the two-second timeout. Two data callbacks also exceeded 100 ms (maximum 173286 us).
+The software observation boundary still includes controller/media and event-ring
+service delay, so this does not identify a device fault or establish hardware
+completion latency. It excludes large post-observation caller delays for this run.
+
+| Poll-before-wait | Median operation | Maximum operation | CSW callbacks >100 ms |
+| --- | --- | --- | --- |
+| Poll only | 256.757 ms | 447.558 ms | 3 |
+| 4 ms | 263.926 ms | 628.466 ms | 2 |
+| 20 ms | 181.353 ms | 2427.278 ms | 12 |
+
+Unequal tail incidence in one boot cannot rank policies; retain the normal 20 ms
+threshold. The bounded instrumentation/workflow milestone is complete. Sustained
+normal-desktop logger timing remains covered by VM rather than this native fixed
+fixture. Next storage scope is bounding event-service gaps while a transfer is
+pending, to further distinguish device/controller delay from event servicing.
+Local evidence and collector are in `build/storage-timing-20261024`, backed up
+outside build under the release's pending-trial archive. The installed payload
+is the automatic comparison, not an ordinary desktop session. Fetch the actual
+integration baseline and active Pro scope before starting another change.
+
 ### TCP readiness and e1000 receive ownership follow-up
 
 PR125 resolves the legacy readiness failure retained by the network-idle
