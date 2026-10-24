@@ -503,6 +503,13 @@ def verify_home_desktop_screenshot(workspace, text, saved, count=1):
 
 
 
+def battery_home_work_result(exit_text):
+    from battery_home_desktop_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-work'):return None
+    try:return check_capture(exit_text.encode(),work=True)
+    except (AssertionError,ValueError):return None
+
+
 def battery_home_transitions_result(exit_text):
     from battery_home_desktop_records import check_capture
     if not battery_overlap_recipe(exit_text,'battery-home-transitions'):return None
@@ -668,6 +675,15 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_work_proof=battery_home_work_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-work(?:\s|$)',text) and home_work_proof is None:
+            attention.append('collection: attended Home work missing, invalid or incomplete')
+        if home_work_proof:
+            try:
+                if set(payload)!=set(FILES):raise ValueError('Home work periodic logs missing')
+                home_work_proof['screenshot']=verify_home_desktop_screenshot(workspace,payload['exit.log'].decode('utf-8',errors='replace'),saved)
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_work_proof=None
         home_transitions_proof=battery_home_transitions_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-home-transitions(?:\s|$)',text) and home_transitions_proof is None:
             attention.append('collection: guided Home AC transitions missing, invalid or incomplete')
@@ -786,7 +802,7 @@ def collect(mount, volume, output):
             "desktop_worker_sample": desktop_worker_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_smbus_transitions":smbus_transitions_proof,"battery_query": query_proof,
+            "battery_home_work":home_work_proof,"battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_smbus_transitions":smbus_transitions_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

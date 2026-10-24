@@ -371,6 +371,21 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
         self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-air61-battery/srvros.elf')
 
+    def test_air61_home_work_is_isolated(self):
+        with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='6ada85bb',battery_home_work=True)
+        version='ram-usb-v69-laptop-probe-6ada85bb-auto-return'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=battery-home-work ',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        for name in ('battery_home','battery_home_session','battery_home_desktop','battery_home_transitions','hold_on_failure','battery_service','battery_smbus_files','battery_smbus','battery_transitions','desktop_battery'):
+            with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='6ada85bb',battery_air61=True,battery_home_work=True,**{name:True})
+        for name in ('limine-binary/BOOTX64.EFI','acpi-air61-battery/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(laptop_probe_volume='6ada85bb',battery_air61=True,battery_home_work=True)
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-air61-battery/srvros.elf')
+
     def test_air61_battery_preflight(self):
         version="ram-usb-v60-laptop-probe-6ada85bb-auto-return"
         release=self.payload("preflight",version)
