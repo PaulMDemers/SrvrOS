@@ -26,6 +26,20 @@ struct mt76_efuse_capture {
 enum mt76_capture_status mt76_capture_efuse(const struct mt76_register_io *io,
     const struct mt76_identity *identity, struct mt76_efuse_capture *out);
 
+/* Physical usage-map read only: exactly two blocks at 1e0 and 1f0.
+ * Mode1 is read, modes2/3 are never generated. No native caller yet.
+ * authorize must pin identity, exclusive ownership and current initialization.
+ * Each callback is bounded; failures are one-shot with no transfer retry. */
+struct mt76_efuse_map_io {struct mt76_register_io registers;bool (*authorize)(void *);};
+struct mt76_efuse_map {
+    bool attempted,complete,valid;
+    unsigned reads,writes,polls,blocks,zero_count,first_zero,last_zero,free_span,reference_used;
+};
+bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command);
+bool mt76_efuse_map_analyze(const uint8_t *bytes,size_t length,struct mt76_efuse_map *state);
+enum mt76_capture_status mt76_capture_efuse_map(const struct mt76_efuse_map_io *io,
+    const struct mt76_identity *identity,struct mt76_efuse_map *state);
+
 /* Pure ordered plan: bulk ILM, bulk DLM, then activation IVB control payload.
  * Caller must verify pinned hash, device/ownership and every transfer before
  * advancing. This function does not execute or authorize any transfer. */

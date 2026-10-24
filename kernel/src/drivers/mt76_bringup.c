@@ -61,6 +61,66 @@ fail:
     return failure;
 }
 
+bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command){
+    if(!command || block>=2 || previous==UINT32_MAX || (previous&EFUSE_KICK))return false;
+    *command=(previous&~(EFUSE_ADDRESS|EFUSE_MODE))|((0x1e0u+16u*block)<<16)|(1u<<6)|EFUSE_KICK;
+    return true;
+}
+bool mt76_efuse_map_analyze(const uint8_t *bytes,size_t length,struct mt76_efuse_map *s){
+    if(!bytes || length!=32 || !s)return false;
+    s->zero_count=s->first_zero=s->last_zero=s->free_span=s->reference_used=0;s->valid=false;
+    bool meaningful=false;
+    for(unsigned i=0;i<29;i++){
+        if(bytes[i]!=0 && bytes[i]!=0xff)meaningful=true;
+        if(!bytes[i]){if(!s->zero_count)s->first_zero=0x1e0+i;s->last_zero=0x1e0+i;s->zero_count++;}
+    }
+    /* Match upstream span arithmetic, including no-zero => span1. This is
+     * not a count of actual used entries. Padding bytes29..31 are excluded. */
+    s->free_span=s->last_zero-s->first_zero+1;
+    s->reference_used=29-s->free_span;
+    /* Reject unavailable/all-ff evidence even though span arithmetic alone
+     * would pass it. A native refusal must remain visible, not relaxed. */
+    s->valid=meaningful && s->reference_used>=5;
+    return s->valid;
+}
+enum mt76_capture_status mt76_capture_efuse_map(const struct mt76_efuse_map_io *io,
+    const struct mt76_identity *identity,struct mt76_efuse_map *s){
+    if(!s || s->attempted || !io || !io->authorize || !io->registers.read || !io->registers.write ||
+       !io->registers.delay || !identity || identity->asic!=0x76100002 || identity->mac!=0x76502000)return MT76_CAPTURE_REFUSED;
+    *s=(struct mt76_efuse_map){.attempted=true};uint8_t data[32]={0};enum mt76_capture_status result=MT76_CAPTURE_IO;
+    const struct mt76_register_io *r=&io->registers;uint32_t v,command;
+#define MAP_AUTH() do{if(!io->authorize(r->context)){result=MT76_CAPTURE_CANCELLED;goto done;}}while(0)
+#define MAP_READ(a) do{MAP_AUTH();if(!r->read(r->context,(a),&v))goto done;s->reads++;}while(0)
+#define MAP_GUARDS() do{MAP_READ(0x1004);if(v){result=MT76_CAPTURE_BUSY;goto done;}MAP_READ(0x2000);if(v!=0xf000f200){result=MT76_CAPTURE_BUSY;goto done;}}while(0)
+    for(unsigned block=0;block<2;block++){
+        MAP_GUARDS();MAP_READ(0x208);if(v&15){result=MT76_CAPTURE_BUSY;goto done;}
+        MAP_READ(EFUSE_CTRL);
+        if(!mt76_efuse_map_command(v,block,&command)){result=MT76_CAPTURE_BUSY;goto done;}
+        MAP_AUTH();if(!r->write(r->context,EFUSE_CTRL,command))goto done;s->writes++;
+        for(;;){
+            if(s->polls==EFUSE_POLL_BUDGET){result=MT76_CAPTURE_TIMEOUT;goto done;}
+            s->polls++;MAP_READ(EFUSE_CTRL);if(v==UINT32_MAX){result=MT76_CAPTURE_BUSY;goto done;}if(!(v&EFUSE_KICK))break;
+            MAP_AUTH();if(!r->delay(r->context,1000)){result=MT76_CAPTURE_CANCELLED;goto done;}
+        }
+        MAP_AUTH();if(!r->delay(r->context,2)){result=MT76_CAPTURE_CANCELLED;goto done;}
+        MAP_READ(EFUSE_CTRL);
+        if(v==UINT32_MAX || v&EFUSE_KICK || (v&EFUSE_MODE)!=(1u<<6) || (v&EFUSE_ADDRESS)!=(command&EFUSE_ADDRESS)){
+            result=MT76_CAPTURE_BUSY;goto done;
+        }
+        if((v&63)==63){result=MT76_CAPTURE_EMPTY;goto done;}
+        for(unsigned word=0;word<4;word++){MAP_READ(EFUSE_DATA+word*4);for(unsigned byte=0;byte<4;byte++)data[block*16+word*4+byte]=(uint8_t)(v>>(8*byte));}
+        MAP_GUARDS();s->blocks++;
+    }
+    MAP_AUTH();s->complete=true;
+    result=mt76_efuse_map_analyze(data,sizeof data,s)?MT76_CAPTURE_OK:MT76_CAPTURE_EMPTY;
+done:
+    for(unsigned i=0;i<sizeof data;i++)((volatile uint8_t *)data)[i]=0;
+    return result;
+#undef MAP_AUTH
+#undef MAP_READ
+#undef MAP_GUARDS
+}
+
 bool mt76_firmware_chunk(const uint8_t *image, size_t size, size_t index,
     struct mt76_fw_chunk *out) {
     if (!out) return false;

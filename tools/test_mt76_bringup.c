@@ -114,4 +114,59 @@ static void firmware(void) {
     assert(!mt76_firmware_chunk(NULL,0,0,&c));
     assert(!mt76_firmware_chunk(NULL,0,0,NULL));
 }
-int main(void) { efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+struct map_fake {unsigned calls,auth,fail,deny,corrupt,delays,writes,block;bool stuck,unmapped;uint32_t ctrl,ctrl_flip;unsigned ctrl_fault_call;uint8_t bytes[32];};
+static bool map_step(struct map_fake *f){return ++f->calls!=f->fail;}
+static bool map_auth(void *p){struct map_fake *f=p;return ++f->auth!=f->deny;}
+static bool map_read(void *p,uint32_t a,uint32_t *v){
+ struct map_fake *f=p;if(!map_step(f))return false;
+ if(a==0x1004)*v=0;
+ else if(a==0x2000)*v=0xf000f200;
+ else if(a==0x208)*v=0x40000050;
+ else if(a==0x24){if(!f->stuck)f->ctrl&=~(1u<<30);if(f->unmapped)f->ctrl|=63;*v=f->ctrl;}
+ else {assert(a>=0x28 && a<=0x34 && !(a&3));unsigned start=f->block*16+a-0x28;*v=0;for(unsigned j=0;j<4;j++)*v|=(uint32_t)f->bytes[start+j]<<(8*j);}
+ if(f->corrupt==f->calls)*v^=1;
+ if(a==0x24 && f->ctrl_fault_call==f->calls)*v^=f->ctrl_flip;
+ return true;
+}
+static bool map_write(void *p,uint32_t a,uint32_t v){
+ struct map_fake *f=p;if(!map_step(f))return false;
+ assert(a==0x24 && f->writes<2 && ((v>>6)&3)==1 && ((v>>16)&0x3ff)==0x1e0+16*f->writes && (v&(1u<<30)));
+ assert((v&~((0x3ffu<<16)|(3u<<6)|(1u<<30)))==(f->ctrl&~((0x3ffu<<16)|(3u<<6)|(1u<<30))));
+ f->block=f->writes++;f->ctrl=v;return true;
+}
+static bool map_delay(void *p,uint32_t us){struct map_fake *f=p;assert(us==2 || us==1000);f->delays++;return map_step(f);}
+static void map_init(struct map_fake *f){memset(f,0,sizeof *f);f->ctrl=0x8000a500;for(unsigned i=0;i<5;i++)f->bytes[i]=i+1;}
+static enum mt76_capture_status map_run(struct map_fake *f,struct mt76_efuse_map *s){
+ const struct mt76_identity id={.asic=0x76100002,.mac=0x76502000};const struct mt76_efuse_map_io io={{f,map_read,map_write,map_delay},map_auth};return mt76_capture_efuse_map(&io,&id,s);
+}
+static void efuse_map(void){
+ struct map_fake f;struct mt76_efuse_map s={0};map_init(&f);
+ assert(map_run(&f,&s)==MT76_CAPTURE_OK && s.complete && s.valid && s.blocks==2 && s.reads==24 && s.writes==2 && s.polls==2 && s.zero_count==24 && s.free_span==24 && s.reference_used==5 && f.delays==2);
+ unsigned calls=f.calls,auth=f.auth;assert(map_run(&f,&s)==MT76_CAPTURE_REFUSED && f.calls==calls);
+ for(unsigned n=1;n<=calls;n++){map_init(&f);f.fail=n;s=(struct mt76_efuse_map){0};assert(map_run(&f,&s)!=MT76_CAPTURE_OK && !s.complete && !s.valid && f.calls==n);assert(map_run(&f,&s)==MT76_CAPTURE_REFUSED);}
+ for(unsigned n=1;n<=auth;n++){map_init(&f);f.deny=n;s=(struct mt76_efuse_map){0};assert(map_run(&f,&s)==MT76_CAPTURE_CANCELLED && !s.complete && f.auth==n);}
+ map_init(&f);f.stuck=true;s=(struct mt76_efuse_map){0};assert(map_run(&f,&s)==MT76_CAPTURE_TIMEOUT && s.polls==1024 && s.writes==1 && !s.complete);
+ map_init(&f);f.unmapped=true;s=(struct mt76_efuse_map){0};assert(map_run(&f,&s)==MT76_CAPTURE_EMPTY && !s.complete);
+ for(unsigned n=1;n<=3;n++){map_init(&f);f.corrupt=n;s=(struct mt76_efuse_map){0};assert(map_run(&f,&s)==MT76_CAPTURE_BUSY && !s.writes);}
+ const unsigned control_calls[]={8,22};
+ for(unsigned i=0;i<2;i++)for(unsigned bit=0;bit<32;bit++)if(bit==6 || bit==7 || (bit>=16 && bit<=25) || bit==30){
+  map_init(&f);f.ctrl_fault_call=control_calls[i];f.ctrl_flip=1u<<bit;s=(struct mt76_efuse_map){0};assert(map_run(&f,&s)==MT76_CAPTURE_BUSY && !s.complete && f.calls==control_calls[i]);
+ }
+ uint8_t data[32];memset(data,0,sizeof data);s=(struct mt76_efuse_map){0};assert(!mt76_efuse_map_analyze(data,32,&s) && s.free_span==29);
+ memset(data,0xff,sizeof data);assert(!mt76_efuse_map_analyze(data,32,&s));
+ memset(data,1,sizeof data);assert(mt76_efuse_map_analyze(data,32,&s) && s.free_span==1 && s.reference_used==28);
+ data[0]=data[28]=0;assert(!mt76_efuse_map_analyze(data,32,&s) && s.zero_count==2 && s.free_span==29);
+ for(unsigned occupied=0;occupied<=29;occupied++){
+  memset(data,0,sizeof data);memset(data,1,occupied);bool ok=mt76_efuse_map_analyze(data,32,&s);assert(ok==(occupied>=5));
+  unsigned span=s.free_span;memset(data+29,0xff,3);assert(mt76_efuse_map_analyze(data,32,&s)==ok && s.free_span==span);
+ }
+ assert(!mt76_efuse_map_analyze(data,31,&s));
+ uint32_t command;assert(!mt76_efuse_map_command(UINT32_MAX,0,&command) && !mt76_efuse_map_command(1u<<30,0,&command) && !mt76_efuse_map_command(0,2,&command));
+ for(unsigned bit=0;bit<32;bit++)for(unsigned block=0;block<2;block++){
+  uint32_t old=1u<<bit;if(bit==30)continue;assert(mt76_efuse_map_command(old,block,&command));
+  assert(((command>>6)&3)==1 && ((command>>16)&0x3ff)==0x1e0+16*block && (command&(1u<<30)));
+  assert(!((old^command)&~((0x3ffu<<16)|(3u<<6)|(1u<<30))));
+ }
+ puts("EFUSE map: PASS physical mode1/two fixed blocks, span boundaries, padding exclusion, no programming modes, IO/cancellation/guard failures, timeout and no retry");
+}
+int main(void) { efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

@@ -4829,3 +4829,34 @@ EEPROM fallback,using read-only mode and fixed map range. Logical EEPROM capture
 already exists but does not establish physical-map validity. Remaining board
 IO/supply,DMA ownership,calibrated power,private MAC setup and PHY/RF remain open.
 Do not infer the15 deferred reference-default differences are all mandatory writes.
+
+Active scope: physical EFUSE usage-map engine and host validation. Fixed physical
+read mode1 at1e0/1f0 only, bounded polling, reference span semantics, no fuse
+programming. Preserve existing logical capture unchanged; native wiring follows
+validated engine. Base4a991df,fetchedmain468ca20,PR19 owns this Wi-Fi scope.
+
+### 2026-10-24 — physical EFUSE map engine host validation
+
+Implemented a separate physical usage-map engine; existing logical EFUSE capture
+remains unchanged. Exact mode1 commands address only1e0/1f0,preserve other control
+fields,and cannot generate programming modes. Each block checks MAC0,COREf000f200
+and disabled/idle DMA; polling has a shared1024-read budget with cancellation.
+Completion requires matching mode/address,kick clear,and mapped output.
+
+Map analysis uses the reference first-to-last zero span across29 bytes,excluding
+three padding bytes. `reference_used` is29-minus-span,not an actual used-entry
+count. Preserve upstream no-zero span1 arithmetic but reject uninformative all-ff
+and unmapped data explicitly. A complete read can still fail validity; no native
+acceptance is implied. Private scratch bytes are cleared after analysis.
+
+Native build,physical/logical EFUSE and firmware-upload host tests,ASan/UBSan and
+493 docs links passed. Tests cover every callback/cancellation fault,bounded busy
+polling,guard failures,26 mode/address/kick corruption cases,all threshold counts,
+fragmented zeros,padding exclusion and fixed command-bit preservation.
+An initial fake-register test inconsistently modeled AOUT bits; corrected its
+stored control state to match returned values. Production checks were not relaxed.
+No native binding,profile,install or reboot in this work block; installed accepted
+release remainsadd8a479ff406c0d. Next: add the independent native two-block transport
+allowlist after completed v53,then exact-stage VM and hardware validation.
+Engine/tests/logs archived outside build under
+`~/.local/share/srvros/macbookpro11-2/efuse-map-engine-fec5fd9/`.

@@ -2155,3 +2155,27 @@ Eight guard pairs and four before/after/DMA observations accompany exact counts
 in the saved log. The collector requires exact initial/final values and all prior
 stages. No calibrated power,DMA configuration,board supply or RF-enable writes
 are included. Hardware acceptance remains pending until a matching native run.
+
+### Physical EFUSE usage-map engine (host validation)
+
+The isolated `mt76_capture_efuse_map` engine permits only physical-read mode1
+at1e0/1f0. It preserves other control fields,checks captured identity,and guards
+MAC0/COREf000f200 plus DMA enable/busy bits before each request. Two blocks are
+read with a shared1024-poll budget,2us settle delays,and no transfer retries.
+Completion must echo physical mode and the requested block,with kick clear and
+mapped output. Programming modes2/3 cannot be generated. Existing logical capture
+is unchanged. No native caller or boot profile is added by this engine work.
+
+The29-byte map excludes the last three transfer padding bytes. The reference
+check uses the first-to-last zero span,not zero count; its no-zero case has span1.
+The summary names `reference_used` as the reference's29-minus-span estimate,
+not the actual number of programmed entries. Require estimate>=5 plus meaningful
+map evidence; all-ff/unmapped data is refused even though span arithmetic alone
+could pass it. Capture completion and map validity remain separate states.
+Raw map bytes are cleared after analysis and never logged by the engine.
+
+Host tests cover fixed mode/address construction and preservation,all I/O and
+cancellation boundaries,guard failures,mode/address/kick corruption,poll timeout,
+unmapped/empty evidence,threshold cases,fragmented zero spans and padding exclusion.
+Native transport must independently enforce the same two-block read-command
+allowlist,ownership and quarantine before physical acceptance can be attempted.
