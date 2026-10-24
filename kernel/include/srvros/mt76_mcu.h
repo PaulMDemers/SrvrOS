@@ -302,4 +302,16 @@ struct mt76_skey_io {
 bool mt76_skey_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
 bool mt76_skey_transfer_valid(const struct mt76_skey *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
 enum mt76_mcu_timing_status mt76_skey_reset(struct mt76_skey *s,const struct mt76_skey_io *io);
+struct mt76_wcid {
+    bool attempted,complete;
+    unsigned operations,reads,writes,slots,attributes_zero,addresses_zero;
+};
+struct mt76_wcid_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*transfer)(void *context,unsigned operation,bool write,uint32_t address,uint8_t *data,unsigned length);
+};
+bool mt76_wcid_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
+bool mt76_wcid_transfer_valid(const struct mt76_wcid *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_wcid_reset(struct mt76_wcid *s,const struct mt76_wcid_io *io);
 #endif

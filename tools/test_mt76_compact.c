@@ -981,7 +981,45 @@ static void test_skey(void){
  bool w;uint32_t a;unsigned n;assert(!mt76_skey_request(576,&w,&a,&n));
  puts("Shared-key reset: PASS64 slots, exact576 operations, cipher preservation, zero verification, every transfer/cancellation/failure and no retry");
 }
-int main(void){test_skey();test_dcoc();test_bbp_switch();
+struct wcid_fake {unsigned ops,auth,fail,deny,bad;uint8_t attributes[256][4],addresses[128][8];};
+static bool wcid_auth(void *p){struct wcid_fake *f=p;return ++f->auth!=f->deny;}
+static bool wcid_transfer(void *p,unsigned op,bool write,uint32_t address,uint8_t *data,unsigned length){
+ struct wcid_fake *f=p;assert(op==f->ops++);
+ unsigned slot=op<128*8?op/8:128+(op-128*8)/6;
+ unsigned step=op<128*8?op%8:(op-128*8)%6,last=slot<128?7:5;
+ bool attr=step==2 || step==3,addr=slot<128 && (step==4 || step==5);
+ bool w=step==2 || (addr && step==4);unsigned n=addr?8:4;
+ uint32_t a=attr?0xa800+4*slot:addr?0x1800+8*slot:step==0 || step==last-1?0x1004:0x2000;
+ assert(write==w && address==a && length==n);
+ if(f->fail==op+1)return false;
+ if(attr || addr){uint8_t *memory=attr?f->attributes[slot]:f->addresses[slot];
+  if(write){for(unsigned i=0;i<n;i++)assert(!data[i]);memcpy(memory,data,n);}else memcpy(data,memory,n);
+ }else word(data,a==0x1004?0:0xf000f200);
+ if(f->bad==op+1 && !write)data[n-1]^=1;
+ return true;
+}
+static void wcid_fake_init(struct wcid_fake *f){memset(f,0,sizeof *f);memset(f->attributes,0xa5,sizeof f->attributes);memset(f->addresses,0xa5,sizeof f->addresses);}
+static enum mt76_mcu_timing_status wcid_run(struct wcid_fake *f,struct mt76_wcid *s){const struct mt76_wcid_io io={f,wcid_auth,wcid_transfer};return mt76_wcid_reset(s,&io);}
+static void test_wcid(void){
+ struct wcid_fake f;struct mt76_wcid s={0};wcid_fake_init(&f);
+ assert(wcid_run(&f,&s)==MT76_TIMING_OK && s.complete && s.operations==1792 && s.reads==1408 && s.writes==384 && s.slots==256 && s.attributes_zero==256 && s.addresses_zero==128);
+ for(unsigned i=0;i<256;i++)for(unsigned j=0;j<4;j++)assert(!f.attributes[i][j]);
+ for(unsigned i=0;i<128;i++)for(unsigned j=0;j<8;j++)assert(!f.addresses[i][j]);
+ assert(wcid_run(&f,&s)==MT76_TIMING_REFUSED && f.ops==1792);
+ for(unsigned n=1;n<=1792;n++){wcid_fake_init(&f);f.fail=n;s=(struct mt76_wcid){0};assert(wcid_run(&f,&s)==MT76_TIMING_IO && f.ops==n && !s.complete);assert(wcid_run(&f,&s)==MT76_TIMING_REFUSED);}
+ for(unsigned n=1;n<=1793;n++){wcid_fake_init(&f);f.deny=n;s=(struct mt76_wcid){0};assert(wcid_run(&f,&s)==MT76_TIMING_CANCELLED && f.auth==n && !s.complete);}
+ for(unsigned op=0;op<1792;op++){
+  bool w;uint32_t a;unsigned n;uint8_t data[8]={0};assert(mt76_wcid_request(op,&w,&a,&n));
+  if(!w){wcid_fake_init(&f);f.bad=op+1;s=(struct mt76_wcid){0};assert(wcid_run(&f,&s)==MT76_TIMING_STATE && f.ops==op+1 && !s.complete);}
+  s=(struct mt76_wcid){.attempted=true,.operations=op,.slots=op<1024?op/8:128+(op-1024)/6};
+  assert(mt76_wcid_transfer_valid(&s,op,w,a,data,n));
+  assert(!mt76_wcid_transfer_valid(&s,op,!w,a,data,n) && !mt76_wcid_transfer_valid(&s,op,w,a+1,data,n) && !mt76_wcid_transfer_valid(&s,op,w,a,data,n-1));
+  if(w)for(unsigned i=0;i<n;i++){data[i]=1;assert(!mt76_wcid_transfer_valid(&s,op,w,a,data,n));data[i]=0;}
+ }
+ bool w;uint32_t a;unsigned n;assert(!mt76_wcid_request(1792,&w,&a,&n));
+ puts("WCID reset: PASS256 attributes/128 addresses, exact1792 operations, zero verification, every transfer/cancellation/read failure and no retry");
+}
+int main(void){test_wcid();test_skey();test_dcoc();test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();

@@ -4627,3 +4627,9 @@ No reboot armed. Next bounded scope: reference WCID station-table reset
 (256 attributes and128 address entries), retaining fixed ranges, guards,
 zero-only writes/verification and no retries. Pairwise keys/IV and RF remain
 separate; do not infer their reset from successful shared-slot initialization.
+
+Active scope v51: fixed WCID reset after accepted shared-key reset. Reset256
+attributes and128 address entries with zero-only writes/readbacks, guards and
+no retries. Touch mt76/xHCI/main/profiles/tests; no pairwise/IV or RF enable.
+Actual base4a991df; fetchedmain76f98c4 includes separate PR125 TCP readiness.
+Next checkpoint: local validation and exact-stage VM before native trial.

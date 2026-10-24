@@ -2063,3 +2063,18 @@ The saved summary reports operation, slot and verification counts without key
 bytes. There are no initial key-memory reads, WCID/pairwise/IV writes, RF or
 TX/RX enable. All 64 mode and zero verifications plus prior-stage checks are
 required for native acceptance. Host/VM checks alone do not accept hardware.
+
+### Fixed WCID station reset diagnostic (v51)
+
+`--wifi-wcid` requires the shared-key profile and exact completion counts for
+all 64 slots. In reference order it writes and verifies 256 zero attributes at
+a800–abfc and 128 eight-byte zero address entries at1800–1bf8. Entries128–255
+have no address write. Each entry starts and ends with MAC0/COREf000f200 guards;
+the fixed plan totals1792 operations (1408 reads and384 writes). Ownership,
+address, direction, length, order and zero-only payload are checked per transfer.
+There is one attempt per operation, with failure stopping the sequence.
+
+Only aggregate verification counts are logged. This stage does not touch
+pairwise-key or IV tables and does not enable RF, transmit or receive. Hardware
+acceptance requires all256 attributes and128 addresses verified, all earlier
+prerequisites, both capture completion markers and clean save/recovery checks.

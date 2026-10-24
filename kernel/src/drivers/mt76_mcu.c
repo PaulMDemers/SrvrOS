@@ -1178,3 +1178,49 @@ enum mt76_mcu_timing_status mt76_skey_reset(struct mt76_skey *s,const struct mt7
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Reference WCID reset: 256 attributes, only the first 128 address entries. */
+static unsigned wcid_slot(unsigned op){return op<1024?op/8:128+(op-1024)/6;}
+static unsigned wcid_step(unsigned op){return op<1024?op%8:(op-1024)%6;}
+bool mt76_wcid_request(unsigned op,bool *write,uint32_t *address,unsigned *length){
+    if(op>=1792 || !write || !address || !length)return false;
+    unsigned slot=wcid_slot(op),step=wcid_step(op),last=slot<128?7:5;
+    *write=step==2 || (slot<128 && step==4);*length=(slot<128 && (step==4 || step==5))?8:4;
+    if(step==0 || step==last-1)*address=0x1004;
+    else if(step==1 || step==last)*address=0x2000;
+    else if(step==2 || step==3)*address=0xa800+slot*4;
+    else *address=0x1800+slot*8;
+    return true;
+}
+bool mt76_wcid_transfer_valid(const struct mt76_wcid *s,unsigned op,bool write,uint32_t address,const uint8_t *data,unsigned length){
+    bool w;uint32_t a;unsigned n;
+    if(!s || !s->attempted || s->complete || !data || s->operations!=op || s->slots!=wcid_slot(op) ||
+        !mt76_wcid_request(op,&w,&a,&n) || write!=w || address!=a || length!=n)return false;
+    if(write)for(unsigned i=0;i<n;i++)if(data[i])return false;
+    return true;
+}
+enum mt76_mcu_timing_status mt76_wcid_reset(struct mt76_wcid *s,const struct mt76_wcid_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned op=0;op<1792;op++){
+        bool write;uint32_t address;unsigned length;uint8_t data[8]={0};
+        if(!mt76_wcid_request(op,&write,&address,&length))return MT76_TIMING_REFUSED;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        bool ok=io->transfer(io->context,op,write,address,data,length);
+        uint32_t value=0;for(unsigned i=0;i<4;i++)value|=(uint32_t)data[i]<<(8*i);
+        bool zero=true;for(unsigned i=0;i<length;i++)if(data[i])zero=false;
+        for(unsigned i=0;i<8;i++)((volatile uint8_t *)data)[i]=0;
+        if(!ok)return MT76_TIMING_IO;
+        s->operations++;if(write)s->writes++;else s->reads++;
+        unsigned slot=wcid_slot(op),step=wcid_step(op),last=slot<128?7:5;
+        if(step==0 || step==last-1){if(value)return MT76_TIMING_STATE;}
+        else if(step==1 || step==last){if(value!=0xf000f200)return MT76_TIMING_STATE;}
+        else if(!write){
+            if(!zero)return MT76_TIMING_STATE;
+            if(step==3)s->attributes_zero++;else s->addresses_zero++;
+        }
+        if(step==last)s->slots++;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}
