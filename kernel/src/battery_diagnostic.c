@@ -94,3 +94,7 @@ __attribute__((weak)) bool battery_home_transitions_diagnostic_run(void *rsdp,st
 __attribute__((weak)) bool battery_smbus_transition_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     (void)rsdp;(void)map;console_write("battery: unavailable in this kernel\n");return false;
 }
+
+__attribute__((weak)) bool battery_home_work_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    (void)rsdp;(void)map;console_write("battery-home-work: REFUSED diagnostic kernel required\n");return false;
+}
