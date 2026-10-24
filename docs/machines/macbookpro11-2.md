@@ -3949,3 +3949,22 @@ initialization values. Sequence11 two-pair command, eight guarded reads; no
 beacon upload/timer enable, MAC TX/RX, RF or BBP table. Touch MCU/xHCI/main/
 staging/tests. Base22fd266; fetched main7d2b903, PR106 power and PR109 Air6,1
 Home policy remain separate; preserve their existing capture profiles.
+
+### 2026-10-23 — v41 beacon-offset candidate installed, unarmed
+
+Source `c9e2ab6`, release `015cce9347654d25`. Build, compact/xHCI tests,
+ASan/UBSan, 97 boot-profile tests and docs checks passed. Collector rejects64
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Normal VM repeated to retain its shared receipt after the
+missing-workspace run replaced it. Native acceptance pending for this pair.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v40
+`656e4b9c37ae4baf` retained; v39 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean219files/577clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-beacon/run.json`,
+`build/bringup/collect_wifi_mac_beacon_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-beacon-c9e2ab6/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
