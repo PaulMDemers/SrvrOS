@@ -5243,3 +5243,16 @@ historical recipes passed. Collector fixture uses the full accepted v57 receipt
 plus synthetic antenna observations,64354bytes;47 missing/duplicate/corrupt cases
 are rejected. Targets are observations, not exact-value acceptance. Next:
 exact-stage GPT save/return and missing-workspace rehearsal, then unarmed install.
+
+Antenna snapshot source `1d291a7`, release `4964d0724ea58faa` installed unarmed.
+Exact-stage GPT capture/save/return and missing-workspace refusal/return passed.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted board payload
+`69718a055422766a` retained. Older private-MAC payload `be58d4957e3c4d7a` removed
+from ESP only after exact comparison to its durable archive. Offline workspace
+clean257files/634clusters,zero leaks/mismatches; unmounted. Payload, Linux source
+hashes/read-only samples, calibration-word audit, tests, collector, VM receipts
+and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-1d291a7/`.
+Next: attended cold adapter cycle; collect matching release/session FIRST after
+return. Require full v57 proof and eleven-read antenna snapshot with both guard
+sets. Physical observation pending; no antenna or RF functionality accepted.
