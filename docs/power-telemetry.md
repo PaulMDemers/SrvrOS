@@ -263,3 +263,21 @@ The legacy v26 capture excludes the ordinary Home battery owner; its result
 must not be labeled whole-desktop battery-service efficiency. A fresh v26
 baseline is the first bounded attribution step, followed by matched repeated
 captures before claiming savings. No CPU policy or deeper-idle change is made.
+
+### October 23 worker-attributed Air baseline
+
+Release `dc7c0eaea0dca69b` (`7e0d8b9`) completed the v26 capture with six valid
+energy checkpoints spanning 50.999 seconds inside 59.999 seconds of Text idle:
+341.451 J, 6.695 W package average, 2,064 MHz CPU0 active frequency. Scheduler idle
+samples were 97.60%. Six worker snapshots spanned 51.269 seconds: compositor,
+xHCI input and one client each had roughly 100 deadline wakes per second;
+network had 95.65 deadline plus 1.97 signal wakes per second. No partial lifetimes,
+rejected energy samples or collector attention. The screenshot and all original
+files are preserved; offline allocation and recovery pass.
+
+Native brightness was 14%, AC was connected before boot, the USB Ethernet and
+workspace were attached, and audio was idle. The ordinary battery owner was off.
+Package temperature fell 74–71 C during the covered interval. This is accepted
+measurement evidence, not thermal equilibrium, whole-laptop power or savings
+against the older October 19 capture. Repeat matched controls before claiming
+an improvement. See the machine record for the exact evidence/session.

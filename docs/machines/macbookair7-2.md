@@ -34,6 +34,33 @@ collect matching evidence before changing polling. Local run/arming state is in
 build cleanup under the unit's local application-data directory. Native baseline
 and repeated matched comparison remain pending.
 
+### Native worker/power baseline accepted
+
+Release `dc7c0eaea0dca69b`, compiled `7e0d8b9`, session
+`session-00065e8ac591746a-00` returned automatically with complete logs, no
+collector attention and a verified 1440x900 screenshot. The 59.999-second Text
+idle window recorded 97.60% CPU0 idle samples, 30,487 switches and one frame.
+Six energy checkpoints covered 50.999 seconds: 341.451 J package energy,
+6.695 W average package power and 2,064 MHz CPU0 active frequency. Six worker
+snapshots covered 51.269 seconds with no partial lifetimes. Bootstrap (the
+foreground compositor), xHCI input and one userspace client each woke about
+100 times/second; network polling had 95.65 deadline and 1.97 signal wakes/second.
+These transitions are not hardware wakeups or per-thread energy attribution.
+
+AC was connected before boot; native brightness stayed at 14%, audio was idle,
+the Ethernet adapter and USB workspace stayed attached, and the battery owner
+was disabled by this diagnostic recipe. Package temperature fell from 74 to
+71 C inside the covered interval: this is a short post-boot baseline, not thermal
+equilibrium or a comparison with October 19. No energy saving is claimed.
+
+All 1005 original files were preserved except expected filesystem metadata;
+only four logs and one screenshot were added. Offline allocation is clean at
+1010 files / 2245 clusters, no leaks/mismatches; fsck and Ubuntu recovery pass.
+Current is `dc7c0eaea0dca69b`, previous remains `9aa8dbf6fbda8252`; the one-shot
+is consumed, USB unmounted and no reboot armed. One obsolete unreferenced EFI
+payload was hash-archived before removal to make installation space. Raw evidence
+and payloads survive cleanup in the local pending-trials directory for this release.
+
 ### Previous checkpoint: filesystem scale milestone complete
 
 [PR102](https://github.com/PaulMDemers/SrvrOS/pull/102) replaces the old static
