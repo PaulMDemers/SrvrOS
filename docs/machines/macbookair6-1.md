@@ -1389,3 +1389,13 @@ consumed one-shot and candidate/recovery hashes pass. USB is unmounted, no reboo
 is armed, and evidence is backed up separately from the failed preparation.
 Next scope is explicit mounted Home ownership before ordinary desktop battery
 startup. No acceptance is inferred for the later PR102 filesystem implementation.
+
+## Explicit mounted Home sampling scope (2026-10-23)
+
+From main `7d2b903`, own only the Air6,1 short held-Home diagnostic admission,
+normal-return refusal boundary, distinct boot recipe and directed tests. Reuse
+the mount hold and serialized service/retirement; no desktop clients or ordinary
+startup. Reset remains disabled with mounted storage; uncertain runtime halts
+without filesystem cleanup. PR106 power measurement and PR19 Wi-Fi remain
+independent. Consume PR102 filesystem baseline with fresh build and exact-stage
+checks; no native acceptance is inherited for the new payload.
