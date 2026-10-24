@@ -4014,3 +4014,23 @@ errors, unmounted; no one-shot armed. Run/collector:
 `~/.local/share/srvros/macbookpro11-2/wifi-mac-vht-af42f25/`.
 Next: readiness-confirmed cold adapter cycle, automatic capture/return and
 collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v42 VHT protection/fallback passed natively
+
+Collected release `a5200b9a725a2ae5`, source `af42f25`, new session
+`00065e8b2132c5a9-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence12 sent40/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads12, one batch completed,
+ack_mask1. TX_PROT_CFG6/7/8 changed e3f02004/e3f02084/e3f02104 to
+ e3f42004/e3f42084/e3f42104; VHT_HT_FBK_CFG1 edcba988->edcba980.
+All four matched exact reference targets, including the two that differed under
+active Linux. Initial/final MAC0 and COREf000f200 verified. Both completion
+markers saved; no BBP table ran. Acceptance is limited to this bounded group on
+captured7392:a711; RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-vht-af42f25/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean223files/583clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining reference MAC prerequisites before revisiting the
+full baseband table and its unresolved readbacks.

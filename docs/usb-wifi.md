@@ -1787,7 +1787,7 @@ were verified. Both completion markers and all preceding bounded groups passed.
 This accepts only the initialization pair; operational beacon layout and
 RF/connectivity remain untested.
 
-### VHT protection/fallback (v42; native result pending)
+### VHT protection/fallback (v42; accepted on captured adapter)
 
 `--wifi-mac-vht` requires v41 prerequisites. One sequence12, 40-byte packet
 writes TX_PROT_CFG6/7/8 (13e0/13e4/13e8) to e3f42004/e3f42084/e3f42104
@@ -1801,3 +1801,10 @@ Four read-only same-adapter Linux samples agree on the first/fourth target;
 active Linux13e4/13e8 have an extra10000. Runtime settings are not cold-init
 acceptance: this trial requires the exact reference values, without masks or
 alternative accepted values. Physical acceptance remains pending.
+
+Pro11,2 source `af42f25`, release `a5200b9a725a2ae5`, session
+`00065e8b2132c5a9-00` passed natively on 2026-10-23. All four readbacks matched
+exact initialization targets, with sequence12 ACK, twelve reads, initial/final
+MAC0/COREf000f200 and both completion markers verified. All preceding bounded
+groups passed. The active-Linux differences required no acceptance exception;
+RF/connectivity remain untested.
