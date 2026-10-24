@@ -109,6 +109,7 @@ struct process_user_thread {
     uint64_t return_value;
     uint64_t signal_mask;
     uint64_t pending_signals;
+    uint64_t user_us,system_us;
     struct process *owner;
     struct process_context context;
     struct fpu_state fpu;
@@ -194,6 +195,8 @@ struct process {
     uint64_t pending_signals;
     uint64_t main_signal_mask;
     uint64_t main_pending_signals;
+    uint64_t user_us,system_us,main_user_us,main_system_us;
+    uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t session_id;
@@ -413,6 +416,46 @@ static bool process_apply_spawn_file_actions(struct process *child,
     struct process *parent,
     const struct process_spawn_file_action *actions,
     uint64_t action_count);
+
+void process_account_cpu(void *raw_process,void *raw_thread,bool user,uint64_t elapsed) {
+    struct process *process=raw_process;
+    struct process_user_thread *thread=raw_thread;
+    if(!process || !process->allocated) return;
+    if(user) process->user_us+=elapsed;else process->system_us+=elapsed;
+    if(thread && thread->owner==process) {
+        if(user) thread->user_us+=elapsed;else thread->system_us+=elapsed;
+    } else {
+        if(user) process->main_user_us+=elapsed;else process->main_system_us+=elapsed;
+    }
+}
+static void process_account_child(struct process *parent,struct process *child) {
+    if(!parent || !child) return;
+    uint64_t irq=process_irq_save();
+    parent->child_user_us+=child->user_us+child->child_user_us;
+    parent->child_system_us+=child->system_us+child->child_system_us;
+    uint64_t peak=child->peak_mapped_bytes>child->child_peak_bytes?child->peak_mapped_bytes:child->child_peak_bytes;
+    if(peak>parent->child_peak_bytes) parent->child_peak_bytes=peak;
+    process_irq_restore(irq);
+}
+int64_t process_usage(int64_t who,struct srv_usage *out) {
+    struct process *process=process_current();
+    if(!process || !out || (who!=SRV_USAGE_SELF && who!=SRV_USAGE_CHILDREN && who!=SRV_USAGE_THREAD)) return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();scheduler_account_now();
+    *out=(struct srv_usage){.resolution_us=timer_reference_ready()?1:10000};
+    if(who==SRV_USAGE_CHILDREN) {
+        out->user_us=process->child_user_us;out->system_us=process->child_system_us;
+        out->peak_mapped_bytes=process->child_peak_bytes;
+    } else if(who==SRV_USAGE_SELF) {
+        out->user_us=process->user_us;out->system_us=process->system_us;
+        out->peak_mapped_bytes=process->peak_mapped_bytes;
+    } else {
+        struct process_user_thread *thread=scheduler_current_user_thread_context();
+        out->user_us=thread && thread->owner==process?thread->user_us:process->main_user_us;
+        out->system_us=thread && thread->owner==process?thread->system_us:process->main_system_us;
+        out->peak_mapped_bytes=process->peak_mapped_bytes;
+    }
+    process_irq_restore(irq);return 0;
+}
 
 static struct process_user_thread *process_current_user_thread(void) {
     return (struct process_user_thread *)scheduler_current_user_thread_context();
@@ -1093,6 +1136,8 @@ static bool map_process_page(struct process *process, uint64_t virtual_page, uin
         .physical_address = physical,
         .flags = flags,
     };
+    uint64_t bytes=process->mapping_count*PAGE_SIZE;
+    if(bytes>process->peak_mapped_bytes) process->peak_mapped_bytes=bytes;
 
     return true;
 }
@@ -1634,6 +1679,7 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
     }
 
     int64_t status = (int64_t)child->exit_status;
+    process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
@@ -1685,6 +1731,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     }
 
     int64_t status = (int64_t)child->exit_status;
+    process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
@@ -1785,6 +1832,7 @@ int64_t process_spawn_exec(const char *path,
     }
 
     int64_t status = (int64_t)child->exit_status;
+    process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
@@ -1816,6 +1864,8 @@ static void move_process_image(struct process *destination, struct process *sour
         destination->tls_template[i] = source->tls_template[i];
     }
     destination->mapping_count = load_process_u64(&source->mapping_count);
+    if(source->peak_mapped_bytes>destination->peak_mapped_bytes)
+        destination->peak_mapped_bytes=source->peak_mapped_bytes;
     for (uint64_t i = 0; i < source->mapping_count; i++) {
         destination->mappings[i].virtual_address = load_process_u64(&source->mappings[i].virtual_address);
         destination->mappings[i].physical_address = load_process_u64(&source->mappings[i].physical_address);
@@ -2361,6 +2411,7 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
             uint64_t waited_pid = process->pid,status = process->exit_status;
             if (status_out != NULL) *status_out = status;
             process_record_exit_status(waited_pid, status);
+            process_account_child(process_current(),process);
             release_process(process);
             struct process_wait_request any={.owner=request.owner};
             if (find_reapable_process(&any) == NULL) process_clear_current_signal(SRV_SIGNAL_CHLD);

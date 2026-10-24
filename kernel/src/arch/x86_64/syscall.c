@@ -2538,6 +2538,14 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+static int64_t syscall_usage(int64_t who,struct srv_usage *out,uint64_t size) {
+    if(size!=sizeof(*out) || !out || !user_buffer_ok(out,size,true)) return SRV_ERR_FAULT;
+    struct srv_usage snapshot;
+    int64_t result=process_usage(who,&snapshot);
+    if(result==0) *out=snapshot;
+    return result;
+}
+
 static int64_t syscall_scheduler_status(struct srv_scheduler_status *out,uint64_t size) {
     if(size!=sizeof(*out) || !user_buffer_ok(out,sizeof(*out),true)) return -1;
     struct scheduler_stats stats;scheduler_snapshot(&stats);
@@ -3000,6 +3008,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
+        return;
+    case SYS_USAGE:
+        frame->rax=(uint64_t)syscall_usage((int64_t)frame->rdi,(struct srv_usage *)frame->rsi,frame->rdx);
         return;
     case SYS_THREAD_SIGNAL:
         frame->rax = (uint64_t)process_thread_signal(frame->rdi,frame->rsi);

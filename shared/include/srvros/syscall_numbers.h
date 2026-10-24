@@ -140,10 +140,18 @@
 #define SYS_PREAD 138
 #define SYS_PWRITE 139
 #define SYS_THREAD_SIGNAL 140
+#define SYS_USAGE 141
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
 #define SYS_SMC_STATUS 129
+
+#define SRV_USAGE_SELF 0
+#define SRV_USAGE_CHILDREN -1
+#define SRV_USAGE_THREAD 1
+struct srv_usage {
+    uint64_t user_us, system_us, peak_mapped_bytes, resolution_us;
+};
 
 #define SRV_ABI_VERSION 1
 

@@ -212,6 +212,7 @@ long srv_thread_self(void);
 long srv_thread_detach(uint64_t tid);
 long srv_thread_status(uint64_t tid);
 long srv_thread_signal(uint64_t tid,uint64_t signal);
+long srv_usage(int64_t who,struct srv_usage *out);
 long srv_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);
 long srv_futex_wake(uint32_t *address, uint64_t max_count);
 void srv_puts(const char *text);

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
+extern int __posix_signal_dispatch_pending(void);
 static struct sigaction signal_actions[64];
 static _Thread_local volatile sig_atomic_t signal_dispatching;
 static unsigned actions_lock;
@@ -78,10 +79,10 @@ int kill(pid_t pid, int sig) {
         errno = ESRCH;
         return -1;
     }
+    (void)__posix_signal_dispatch_pending();
     return 0;
 }
 
-extern int __posix_signal_dispatch_pending(void);
 int raise(int sig) {
     if(!signal_valid(sig)) { errno=EINVAL;return -1; }
     long result=srv_thread_signal((uint64_t)srv_thread_self(),(uint64_t)sig);

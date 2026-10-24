@@ -96,23 +96,14 @@ int getrusage(int who, struct rusage *usage) {
         errno = EINVAL;
         return -1;
     }
-    memset(usage, 0, sizeof(*usage));
-    if (who == RUSAGE_CHILDREN) {
-        return 0;
-    }
-
-    uint64_t ticks = srv_ticks();
-    long ticks_per_second = sysconf(_SC_CLK_TCK);
-    if (ticks_per_second <= 0) {
-        ticks_per_second = 100;
-    }
-    usage->ru_utime.tv_sec = (time_t)(ticks / (uint64_t)ticks_per_second);
-    usage->ru_utime.tv_usec = (suseconds_t)(((ticks % (uint64_t)ticks_per_second) * 1000000ull) /
-        (uint64_t)ticks_per_second);
-
-    struct srv_meminfo info;
-    if (srv_meminfo(&info) == 0) {
-        usage->ru_maxrss = (long)(info.used_bytes / 1024u);
-    }
+    struct srv_usage snapshot;
+    long result=srv_usage(who,&snapshot);
+    if(result<0) { errno=(int)-result;return -1; }
+    memset(usage,0,sizeof(*usage));
+    usage->ru_utime.tv_sec=(time_t)(snapshot.user_us/1000000);
+    usage->ru_utime.tv_usec=(suseconds_t)(snapshot.user_us%1000000);
+    usage->ru_stime.tv_sec=(time_t)(snapshot.system_us/1000000);
+    usage->ru_stime.tv_usec=(suseconds_t)(snapshot.system_us%1000000);
+    usage->ru_maxrss=(long)((snapshot.peak_mapped_bytes+1023)/1024);
     return 0;
 }

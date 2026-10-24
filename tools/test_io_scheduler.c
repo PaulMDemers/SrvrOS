@@ -82,7 +82,28 @@ static void test_completion_wait(void) {
     completion_wait_test=false;io_depth=0;
     puts("io-completion-wait: PASS owner/address/timer/bound refusal, ready/race, early wake, expiry, gate retained and idle fallback");
 }
+static uint64_t user_charged,system_charged;
+static bool check_accounting;
+void process_account_cpu(void *process,void *thread,bool user,uint64_t elapsed) {
+    if(!check_accounting) return;
+    assert(process==(void*)42 && thread==(void*)43);
+    if(user) user_charged+=elapsed;else system_charged+=elapsed;
+}
+static void test_cpu_accounting(void) {
+    memset(threads,0,sizeof(threads));initialized=true;current_thread=0;clock_us=100;
+    threads[0].user_context=(void*)42;threads[0].user_thread_context=(void*)43;
+    threads[0].account_at=100;check_accounting=true;
+    clock_us=140;scheduler_user_enter();assert(system_charged==40 && user_charged==0);
+    clock_us=240;scheduler_account_kernel_enter();assert(user_charged==100);
+    clock_us=250;scheduler_account_now();assert(system_charged==50);
+    /* Model switch-out / switch-in: only the actual running interval is charged. */
+    threads[0].account_at=10000;clock_us=10020;scheduler_account_now();assert(system_charged==70);
+    clock_us=10010;scheduler_account_now();assert(system_charged==70); /* No wrap on bad clock. */
+    check_accounting=false;memset(threads,0,sizeof(threads));initialized=false;clock_us=0;
+    puts("cpu-accounting: PASS user/kernel intervals, blocked-time exclusion, monotonic guard");
+}
 int main(void) {
+    test_cpu_accounting();
     _Alignas(16) uint8_t stack[64];
     uint64_t rsp=initial_thread_stack((uint64_t)stack+sizeof(stack));
     assert((rsp&15)==8 && rsp==(uint64_t)stack+56 && *(uint64_t *)rsp==0);

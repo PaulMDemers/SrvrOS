@@ -2,6 +2,7 @@
 #include <srvros/sys.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/times.h>
 #include <time.h>
 #include <unistd.h>
 #include <utime.h>
@@ -21,7 +22,20 @@ time_t time(time_t *out) {
 }
 
 clock_t clock(void) {
-    return (clock_t)srv_ticks();
+    struct srv_usage usage;
+    long result=srv_usage(SRV_USAGE_SELF,&usage);
+    if(result<0) { errno=(int)-result;return (clock_t)-1; }
+    return (clock_t)(usage.user_us+usage.system_us);
+}
+
+clock_t times(struct tms *buffer) {
+    struct srv_usage self,children;
+    long result=srv_usage(SRV_USAGE_SELF,&self);
+    if(result==0) result=srv_usage(SRV_USAGE_CHILDREN,&children);
+    if(result<0) { errno=(int)-result;return (clock_t)-1; }
+    if(buffer) *buffer=(struct tms){self.user_us/10000,self.system_us/10000,
+        children.user_us/10000,children.system_us/10000};
+    return (clock_t)(srv_monotonic_us()/10000); /* _SC_CLK_TCK is 100. */
 }
 
 int utime(const char *path, const struct utimbuf *times) {
@@ -47,6 +61,13 @@ int utime(const char *path, const struct utimbuf *times) {
 }
 
 int clock_gettime(int clock_id, struct timespec *tp) {
+    if(tp && (clock_id==CLOCK_PROCESS_CPUTIME_ID || clock_id==CLOCK_THREAD_CPUTIME_ID)) {
+        struct srv_usage usage;
+        long result=srv_usage(clock_id==CLOCK_THREAD_CPUTIME_ID?SRV_USAGE_THREAD:SRV_USAGE_SELF,&usage);
+        if(result<0) { errno=(int)-result;return -1; }
+        uint64_t us=usage.user_us+usage.system_us;
+        tp->tv_sec=(time_t)(us/1000000);tp->tv_nsec=(long)(us%1000000)*1000;return 0;
+    }
     if (tp == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
         errno = EINVAL;
         return -1;
@@ -60,6 +81,13 @@ int clock_gettime(int clock_id, struct timespec *tp) {
 }
 
 int clock_getres(int clock_id, struct timespec *tp) {
+    if(clock_id==CLOCK_PROCESS_CPUTIME_ID || clock_id==CLOCK_THREAD_CPUTIME_ID) {
+        struct srv_usage usage;
+        long result=srv_usage(SRV_USAGE_SELF,&usage);
+        if(result<0) { errno=(int)-result;return -1; }
+        if(tp) { tp->tv_sec=0;tp->tv_nsec=(long)usage.resolution_us*1000; }
+        return 0;
+    }
     if (tp == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
         errno = EINVAL;
         return -1;

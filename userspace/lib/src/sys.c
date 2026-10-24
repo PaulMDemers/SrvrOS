@@ -592,6 +592,9 @@ long srv_thread_detach(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_DETACH, (long)tid);
 }
 
+long srv_usage(int64_t who,struct srv_usage *out) {
+    return srv_syscall3(SYS_USAGE,(long)who,(long)out,sizeof(*out));
+}
 long srv_thread_signal(uint64_t tid,uint64_t signal) {
     return srv_syscall2(SYS_THREAD_SIGNAL,(long)tid,(long)signal);
 }

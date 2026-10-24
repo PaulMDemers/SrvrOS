@@ -57,6 +57,8 @@ struct thread {
     uint64_t blocked_deadline_ticks;
     uint64_t switches;
     uint64_t sampled_ticks;
+    uint64_t account_at;
+    bool account_user;
     uint64_t timeout_wakes, signal_wakes;
 };
 
@@ -97,6 +99,28 @@ static void irq_restore(uint64_t flags) {
     }
 #endif
 }
+
+static void account_current_at(uint64_t now) {
+    struct thread *thread=&threads[current_thread];
+    if(thread->user_context && now>=thread->account_at)
+        process_account_cpu(thread->user_context,thread->user_thread_context,
+            thread->account_user,now-thread->account_at);
+    thread->account_at=now;
+}
+void scheduler_account_now(void) {
+    uint64_t flags=irq_save();
+    if(initialized) account_current_at(timer_monotonic_us());
+    irq_restore(flags);
+}
+static void account_transition(bool user) {
+    uint64_t flags=irq_save();
+    if(initialized) {
+        account_current_at(timer_monotonic_us());
+        threads[current_thread].account_user=user;
+    }
+    irq_restore(flags);
+}
+void scheduler_account_kernel_enter(void) { account_transition(false); }
 
 static uint64_t thread_kernel_stack_top(const struct thread *thread) {
     if (thread->kernel_stack_top != 0) {
@@ -180,7 +204,7 @@ void scheduler_io_set_user_safe(bool safe) {
     irq_restore(flags);
 }
 
-void scheduler_user_enter(void) { scheduler_io_set_user_safe(true); }
+void scheduler_user_enter(void) { account_transition(true);scheduler_io_set_user_safe(true); }
 
 static bool io_available(void *arg) {
     (void)arg;
@@ -437,6 +461,8 @@ void scheduler_yield(void) {
         return;
     }
 
+    uint64_t account_now=timer_monotonic_us();
+    account_current_at(account_now);
     switching = true;
     struct thread *old = &threads[old_index];
     struct thread *next = &threads[next_index];
@@ -450,6 +476,7 @@ void scheduler_yield(void) {
     next->state = THREAD_RUNNING;
     next->switches++;
     context_switches++;
+    next->account_at=account_now;
     current_thread = next_index;
 
     if (old->address_space != next->address_space) {
@@ -506,6 +533,8 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
         }
         thread->blocked_queue = NULL;
         thread->blocked_deadline_ticks = 0;
+        if(i==current_thread) account_current_at(timer_monotonic_us());
+        thread->account_user=false;
         thread->user_context = NULL;
         thread->user_thread_context = NULL;
         thread->user_fpu = NULL;
@@ -638,6 +667,8 @@ void scheduler_set_user_context_fpu(void *process,
     }
 
     struct thread *thread = &threads[current_thread];
+    account_current_at(timer_monotonic_us());
+    thread->account_user=false;
     thread->user_context = process;
     thread->io_user_safe = false;
     thread->address_space = address_space;
@@ -664,6 +695,8 @@ void scheduler_clear_user_context(void) {
     }
 
     struct thread *thread = &threads[current_thread];
+    account_current_at(timer_monotonic_us());
+    thread->account_user=false;
     thread->user_context = NULL;
     thread->io_user_safe = false;
     thread->user_thread_context = NULL;

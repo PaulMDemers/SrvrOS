@@ -937,9 +937,13 @@ static int stty_main(int argc, char **argv) {
     return tcsetattr(STDIN_FILENO, TCSANOW, &t) == 0 ? 0 : 1;
 }
 
+static uint64_t elapsed_clock_us(void) {
+    struct timespec now;
+    return clock_gettime(CLOCK_MONOTONIC,&now)==0?(uint64_t)now.tv_sec*1000000+(uint64_t)now.tv_nsec/1000:0;
+}
 static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout, int report_time) {
     pid_t pid;
-    uint64_t start = (uint64_t)clock();
+    uint64_t start = elapsed_clock_us();
     int error = posix_spawnp(&pid, argv[0], 0, 0, argv, environ);
     if (error != 0) {
         fprintf(stderr, "%s: command not found\n", argv[0]);
@@ -954,8 +958,8 @@ static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout
         if (!use_timeout) {
             return 1;
         }
-        uint64_t now = (uint64_t)clock();
-        if (now - start >= timeout_seconds * 100u) {
+        uint64_t now = elapsed_clock_us();
+        if (now - start >= timeout_seconds * 1000000ull) {
             srv_kill((int64_t)pid);
             (void)waitpid(pid, &status, 0);
             return 124;
@@ -963,8 +967,8 @@ static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout
         usleep(10000);
     }
     if (report_time) {
-        uint64_t end = (uint64_t)clock();
-        fprintf(stderr, "real %llu ticks\n", (unsigned long long)(end - start));
+        uint64_t end = elapsed_clock_us();
+        fprintf(stderr, "real %llu us\n", (unsigned long long)(end - start));
     }
     return WIFEXITED(status) ? WEXITSTATUS(status) : status;
 }

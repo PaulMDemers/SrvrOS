@@ -337,7 +337,7 @@ static void *signal_worker(void *arg) {
     for (int i = 0; i < 8; i++) {
         sched_yield();
     }
-    kill(getpid(), SIGUSR2);
+    if(kill(getpid(), SIGUSR2)!=0 || shared_signal_count==0) return (void *)0xbad;
     return (void *)0x440;
 }
 
@@ -585,9 +585,12 @@ int cpu_load_capture(void);
 int posix_errno_test(void);
 int posix_positional_test(void);
 int posix_sleep_test(void);
+int posix_usage_test(void);
+int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"cpu-child")) return posix_cpu_child();
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
@@ -604,6 +607,7 @@ int main(int argc, char **argv) {
     RUN_TEST("errno", posix_errno_test);
     RUN_TEST("positional", posix_positional_test);
     RUN_TEST("sleep", posix_sleep_test);
+    RUN_TEST("usage", posix_usage_test);
     RUN_TEST("targeted signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);

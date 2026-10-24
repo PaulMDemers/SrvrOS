@@ -184,6 +184,27 @@ static void targeted_signal_regression(void) {
     current_subject=NULL;current_worker=NULL;
     puts("process-output-host: targeted signal queues, masks, shared consumption, ignored/zombie delivery PASS");
 }
+void scheduler_account_now(void) {}
+bool timer_reference_ready(void) { return true; }
+static void cpu_usage_regression(void) {
+    memset(&subject,0,sizeof(subject));subject.allocated=true;current_subject=&subject;current_worker=NULL;
+    subject.user_threads[0].owner=&subject;
+    process_account_cpu(&subject,NULL,true,100);process_account_cpu(&subject,NULL,false,25);
+    process_account_cpu(&subject,&subject.user_threads[0],true,300);
+    process_account_cpu(&subject,&subject.user_threads[0],false,50);
+    subject.peak_mapped_bytes=8192;struct srv_usage usage;
+    assert(!process_usage(SRV_USAGE_SELF,&usage) && usage.user_us==400 && usage.system_us==75 && usage.peak_mapped_bytes==8192);
+    assert(!process_usage(SRV_USAGE_THREAD,&usage) && usage.user_us==100 && usage.system_us==25);
+    current_worker=&subject.user_threads[0];
+    assert(!process_usage(SRV_USAGE_THREAD,&usage) && usage.user_us==300 && usage.system_us==50);
+    static struct process child;memset(&child,0,sizeof(child));child.user_us=600;child.system_us=70;
+    child.child_user_us=100;child.child_system_us=10;child.peak_mapped_bytes=4096;child.child_peak_bytes=16384;
+    process_account_child(&subject,&child);
+    assert(!process_usage(SRV_USAGE_CHILDREN,&usage) && usage.user_us==700 && usage.system_us==80 && usage.peak_mapped_bytes==16384);
+    assert(process_usage(7,&usage)==SRV_ERR_INVAL && process_usage(0,NULL)==SRV_ERR_INVAL);
+    current_subject=NULL;current_worker=NULL;
+    puts("process-usage: PASS process/main/worker isolation and reaped descendant accumulation");
+}
 int main(void) {
     positional_regression();
     snapshot_read_regression();
@@ -274,5 +295,6 @@ int main(void) {
     assert(process_signal_pending_current() && !subject.killed);
     current_subject=NULL;
     targeted_signal_regression();
+    cpu_usage_regression();
     puts("process-output-host: PASS (20,000 pipe reference transfers, wrap/backpressure/EOF/rights, 1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
 }
