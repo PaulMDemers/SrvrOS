@@ -4808,3 +4808,24 @@ Actualbase4a991df,fetchedmain468ca20; unrelated window-capacity work inspected.
 Next: attended cold adapter cycle,then collect matching session FIRST and require
 four exact before/after values,eight MAC/CORE guards,four DMA checks,all previous
 prerequisites and clean recovery. Radio/connectivity remain untested.
+
+### 2026-10-24 — v53 fixed MAC controls native result
+
+Source `88be3c3`,release `add8a479ff406c0d`,session
+`session-00065e99d8c02515-00` completed. Prepared collector passed unchanged:
+32 operations/submissions,28 reads,four writes,four exact verifications.
+1218/1220 changed00550055→00500055,13c0 changed18181818→0,
+1238 changed003700c8→001700c8. All eight MAC0/COREf000f200 guard pairs
+passed; all four DMA readings remained40000050 with enable/busy bits clear.
+Preceding snapshot initial values,all earlier prerequisites and both completion
+markers passed. This accepts these four fixed controls,not RF or connectivity.
+
+Ubuntu default,consumed one-shot and installed/known-good hashes verified.
+Workspace clean247files/619clusters,zero leaks/allocation mismatches,unmounted.
+Collection,run/checkpoint,validation and hashes archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-fixed-88be3c3/`. No reboot armed.
+Next bounded scope: physical EFUSE usage-map validation needed by the reference
+EEPROM fallback,using read-only mode and fixed map range. Logical EEPROM capture
+already exists but does not establish physical-map validity. Remaining board
+IO/supply,DMA ownership,calibrated power,private MAC setup and PHY/RF remain open.
+Do not infer the15 deferred reference-default differences are all mandatory writes.
