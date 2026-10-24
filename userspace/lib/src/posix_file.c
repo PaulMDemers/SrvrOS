@@ -54,7 +54,7 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
     st->st_blocks = info->blocks != 0 ? info->blocks : (info->size + 511) / 512;
 }
 
-static int translate_open_flags(int flags, uint64_t *srv_flags) {
+int __posix_translate_open_flags(int flags, uint64_t *srv_flags) {
     if(flags&~(O_ACCMODE|O_CREAT|O_EXCL|O_TRUNC|O_APPEND|O_NONBLOCK|O_NOFOLLOW|O_DIRECTORY|O_CLOEXEC)) { errno=EINVAL;return -1; }
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
@@ -96,7 +96,7 @@ int open(const char *path, int flags, ...) {
         va_end(args);
     }
     if (__posix_make_path(path, full, sizeof(full)) < 0 ||
-        translate_open_flags(flags, &srv_flags) < 0) {
+        __posix_translate_open_flags(flags, &srv_flags) < 0) {
         return -1;
     }
 

@@ -22,21 +22,6 @@ typedef struct {
 } posix_spawn_file_action_t;
 
 typedef struct {
-    int stdin_fd;
-    int stdout_fd;
-    int stderr_fd;
-    int stdin_action;
-    int stdout_action;
-    int stderr_action;
-    int stdin_oflag;
-    int stdout_oflag;
-    int stderr_oflag;
-    mode_t stdin_mode;
-    mode_t stdout_mode;
-    mode_t stderr_mode;
-    char stdin_path[SRV_PATH_MAX];
-    char stdout_path[SRV_PATH_MAX];
-    char stderr_path[SRV_PATH_MAX];
     size_t action_count;
     size_t action_capacity;
     posix_spawn_file_action_t *dynamic_actions;

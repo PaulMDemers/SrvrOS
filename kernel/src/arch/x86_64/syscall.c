@@ -662,37 +662,7 @@ static int64_t syscall_open(const char *user_path) {
 static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
-    if(!(flags&(SRV_OPEN_READ|SRV_OPEN_WRITE)) ||
-        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC|SRV_OPEN_DIRECTORY|SRV_OPEN_PERMISSIONS|SRV_OPEN_MODE_MASK))) return SRV_ERR_INVAL;
-    if((flags&SRV_OPEN_MODE_MASK) && !(flags&SRV_OPEN_PERMISSIONS)) return SRV_ERR_INVAL;
-    if((flags&SRV_OPEN_DIRECTORY) && (flags&(SRV_OPEN_CREATE|SRV_OPEN_WRITE|SRV_OPEN_TRUNC))) return SRV_ERR_INVAL;
-    /* Hold filesystem admission across lookup, exclusive create and descriptor
-     * publication. O_EXCL must not be a userspace stat/create race. */
-    if(!scheduler_io_begin()) return SRV_ERR_IO;
-    int64_t result;
-    if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write(process_current(),path,flags);
-    else {
-        const struct vfs_node *node=vfs_lookup(path);const uint8_t *data;uint64_t size;
-        if(!node) result=SRV_ERR_NOENT;
-        else if((flags&SRV_OPEN_DIRECTORY) && node->type!=VFS_NODE_DIRECTORY) result=SRV_ERR_NOTDIR;
-        else if(node->type==VFS_NODE_DIRECTORY) {
-            result=process_file_alloc(process_current(),node,NULL,0);
-            if(result>=0) {
-                (void)process_file_set_flags(process_current(),result,(flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
-                (void)process_file_set_fd_flags(process_current(),result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
-            }
-        }
-        else if(!vfs_read_all(node,&data,&size)) result=SRV_ERR_IO;
-        else {
-            result=process_file_alloc(process_current(),node,data,size);
-            if(result<0) result=SRV_ERR_MFILE;
-            else {
-                (void)process_file_set_flags(process_current(),result,((flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags&SRV_OPEN_APPEND)?SRV_FD_APPEND:0));
-                (void)process_file_set_fd_flags(process_current(),result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
-            }
-        }
-    }
-    scheduler_io_end();return result;
+    return process_file_open_flags(process_current(),path,flags);
 }
 
 static int64_t syscall_close(uint64_t fd) {
@@ -874,12 +844,16 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     const char *argv[MAX_EXEC_ARGS];
     const char *envp[MAX_EXEC_ENV];
     struct process_spawn_file_action file_actions[SRV_SPAWN_FILE_ACTION_MAX];
+    char action_paths[SRV_SPAWN_FILE_ACTION_MAX][MAX_PATH_LENGTH];
     uint64_t argc = 0;
     uint64_t envc = 0;
     uint64_t flags;
     int64_t result;
 
     if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
+    if(request.flags&~(SRV_EXEC_BACKGROUND|SRV_EXEC_REPLACE|SRV_EXEC_SET_SIGNAL_DEFAULT|SRV_EXEC_SET_SIGNAL_MASK|SRV_EXEC_INHERIT_FILES)) return SRV_ERR_INVAL;
+    if((request.flags&SRV_EXEC_REPLACE) && (request.file_action_count || (request.flags&SRV_EXEC_INHERIT_FILES))) return SRV_ERR_INVAL;
+    if((request.flags&SRV_EXEC_INHERIT_FILES) && (request.stdin_fd!=-1 || request.stdout_fd!=-1 || request.stderr_fd!=-1)) return SRV_ERR_INVAL;
     int64_t error=copy_exec_string(request.path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
     if(!error) error=copy_user_string_vector(request.argv,vector_storage,&used,&budget,argv,MAX_EXEC_ARGS,&argc);
     if(!error) error=copy_user_string_vector(request.envp,vector_storage,&used,&budget,envp,MAX_EXEC_ENV,&envc);
@@ -887,6 +861,11 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     if(request.file_action_count>SRV_SPAWN_FILE_ACTION_MAX) return SRV_ERR_INVAL;
     if(request.file_action_count && !copy_from_user(file_actions,request.file_actions,
         request.file_action_count*sizeof(file_actions[0]))) return SRV_ERR_FAULT;
+    for(uint64_t i=0;i<request.file_action_count;i++) if(file_actions[i].type==SRV_SPAWN_FILE_ACTION_OPEN) {
+        error=copy_exec_string(file_actions[i].path,action_paths[i],sizeof(action_paths[i]),SRV_ERR_NAMETOOLONG);
+        if(error) return error;
+        file_actions[i].path=action_paths[i];
+    }
     if (argc == 0) {
         uint64_t path_bytes=1;while(path[path_bytes-1]) path_bytes++;
         if(path_bytes+sizeof(uint64_t)>budget) return SRV_ERR_2BIG;

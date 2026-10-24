@@ -4,31 +4,21 @@ Updated: 2026-10-24. State: **active reference machine; partial device acceptanc
 
 ### Active scope: POSIX correctness and compatibility
 
-Next runtime block owns exec argument/environment marshalling and budget queries,
-then small-pipe-write atomicity and inherited creation masks. Those two changes
-pass host/core, focused/full thread VMs and exFAT hardening: SIGPIPE/EPIPE, requested-space waits, process umask,
-creation-time exFAT mode initialization, and trailing-slash mkdir resolution. The
-first mkdir guest attempt exposed a stale syscall operation bound; the corrected
-retry passes. Desktop Files exposed a stale Home-versus-/fat fixture assumption;
-its explicit-navigation retry passes, as does the Terminal regression. Stdio
-registry pinning and concurrent close/flush pass focused/full thread VMs and
-local core/build. Descriptor ownership and standard-stream reuse now pass core/build, focused
-and full thread tests. Application regressions are next, followed by full-table
-POSIX spawn inheritance and ordered actions. Main advanced to documentation-only
-`211f17c`; integration is pending this code checkpoint. Pro PR19 `ccc5a17`
-remains independent RF/Wi-Fi work. Touch shared ABI
-limits, syscall/process/libc and focused tests. Full core/build and focused/full thread VMs pass the exec block. The first VM
-stayed at Limine; its incomplete log is retained and the harness now refuses to
-send commands before the OS prompt. Main advanced to `27f0870` with
-Air6,1 PR138's validated heap search; consumed as `fcac611` after exec commit `670ddac`.
-Pro PR19 `b02be44` remains independent Wi-Fi work. No physical trial is armed.
+Current block: complete native descriptor inheritance and ordered POSIX spawn
+file actions; then kernel vectored I/O (combined PIPE_BUF atomicity, one-read
+semantics, checked vectors and positional operations). Descriptor core, focused/
+full thread tests and Terminal/Files/process/ports/libuv regressions pass. Spawn
+core/build and focused/full thread suites pass; application regressions are in
+progress. Touch shared ABI, syscall/process/libc and semantic tests. Main's
+documentation-only `211f17c` is consumed as `88c2cbb`; Pro PR19 `ccc5a17`
+remains independent RF/Wi-Fi work. No physical trial is armed.
 
 
 Current consumer follow-up: complete binary64 printf formatting and keep Lua upstream
 tests unmodified; compare against host libc and rerun guest consumers. The first
 post-path libuv run exceeded its short harness deadline; a diagnostic 60-second
 run completes. Preserve both receipts and investigate timing before changing defaults.
-Descriptor inheritance, argument budgets and asynchronous signals remain unfinished.
+Descriptor inheritance and argument budgets now have guest coverage; general asynchronous signal frames remain unfinished.
 
 
 User authorizes sustained implementation of the POSIX plan before the desktop

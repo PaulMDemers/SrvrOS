@@ -606,6 +606,8 @@ int posix_pipe_atomic_test(void);
 int posix_umask_test(void);
 int posix_stdio_registry_test(void);
 int posix_descriptor_test(void);
+int posix_spawn_actions_test(void);
+int posix_spawn_actions_child(int,char **);
 int posix_umask_child(void);
 int posix_exec_vectors_child(int argc,char **argv);
 int posix_path_child(void);
@@ -615,6 +617,7 @@ int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc>=2 && !strcmp(argv[1],"spawn-actions-child")) return posix_spawn_actions_child(argc,argv);
     if(argc==2 && !strcmp(argv[1],"umask-child")) return posix_umask_child();
     if(argc>1 && (!strcmp(argv[1],"exec-vectors-child") || !strcmp(argv[1],"exec-budget-child"))) return posix_exec_vectors_child(argc,argv);
     if(argc==2 && !strcmp(argv[1],"path-child")) return posix_path_child();
@@ -657,6 +660,7 @@ int main(int argc, char **argv) {
     RUN_TEST("umask", posix_umask_test);
     RUN_TEST("stdio-registry", posix_stdio_registry_test);
     RUN_TEST("descriptors", posix_descriptor_test);
+    RUN_TEST("spawn-actions", posix_spawn_actions_test);
     RUN_TEST("masked poll", posix_masked_poll_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("targeted signal", posix_targeted_signal_test);

@@ -88,6 +88,8 @@ struct srv_spawn_file_action {
     int32_t reserved;
     int64_t fd;
     int64_t new_fd;
+    const char *path;
+    uint64_t open_flags;
 };
 
 long srv_scheduler_status(struct srv_scheduler_status *out);

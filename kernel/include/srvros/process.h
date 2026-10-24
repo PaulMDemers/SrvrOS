@@ -49,6 +49,8 @@ struct process_spawn_file_action {
     int32_t reserved;
     int64_t fd;
     int64_t new_fd;
+    const char *path;
+    uint64_t open_flags;
 };
 
 struct process;
@@ -169,6 +171,7 @@ int64_t process_file_alloc(struct process *process,
     const struct vfs_node *node,
     const uint8_t *data,
     uint64_t size);
+int64_t process_file_open_flags(struct process *process,const char *path,uint64_t flags);
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags);
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);

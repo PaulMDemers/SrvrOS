@@ -416,6 +416,9 @@ bool process_exit_status(uint64_t pid, uint64_t *status_out) {
     return found;
 }
 static bool process_file_clone_entry(struct process_file *target, const struct process_file *source);
+static int64_t process_path_context_for(struct process *,uint64_t,const char *,char *,uint64_t);
+static int64_t process_inherit_files(struct process *,struct process *);
+static int64_t process_posix_spawn_actions(struct process *,const struct process_spawn_file_action *,uint64_t);
 static int64_t process_file_close_entry(struct process *process, struct process_file *file);
 static void process_file_release_entry(struct process_file *file);
 static int64_t process_file_dup_into(struct process *process, const struct process_file *source, uint64_t target_index);
@@ -1821,7 +1824,11 @@ int64_t process_spawn_exec(const char *path,
 
     int64_t error=load_elf_image_checked(path,child,USER_STACK_TOP,&child->entry);
     if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
-    if(!error && (!process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd) ||
+    if(!error && (signal_flags&SRV_EXEC_INHERIT_FILES)) {
+        error=process_inherit_files(child,parent);
+        if(!error) error=process_posix_spawn_actions(child,file_actions,file_action_count);
+        if(!error) close_cloexec_files(child);
+    } else if(!error && (!process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd) ||
         !process_apply_spawn_file_actions(child,parent,file_actions,file_action_count))) error=SRV_ERR_BADF;
     if(error) {
         cleanup_process_address_space(child);
@@ -2110,6 +2117,46 @@ bool process_start_background(const char *path) {
 }
 
 
+
+/* POSIX spawn starts from the complete table; native GUI spawn deliberately
+ * retains its explicit-transfer contract. These entries own independent refs. */
+static int64_t process_inherit_files(struct process *child,struct process *parent) {
+    (void)cleanup_process_files(child);
+    uint64_t irq=process_irq_save();int64_t result=0;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used &&
+        !process_file_clone_entry(&child->files[i],&parent->files[i])) { result=SRV_ERR_NOMEM;break; }
+    process_irq_restore(irq);return result;
+}
+static int64_t process_posix_spawn_actions(struct process *child,
+    const struct process_spawn_file_action *actions,uint64_t count) {
+    if(count>SRV_SPAWN_FILE_ACTION_MAX || (count && !actions)) return SRV_ERR_INVAL;
+    for(uint64_t i=0;i<count;i++) {
+        const struct process_spawn_file_action *a=&actions[i];
+        if(a->reserved || a->fd<0 || a->fd>=PROCESS_MAX_OPEN_FILES) return SRV_ERR_BADF;
+        if(a->type==SRV_SPAWN_FILE_ACTION_CLOSE) {
+            if(process_file_at(child,(uint64_t)a->fd)) (void)process_file_close(child,(uint64_t)a->fd);
+        } else if(a->type==SRV_SPAWN_FILE_ACTION_DUP2) {
+            int64_t result=process_file_dup2(child,(uint64_t)a->fd,(uint64_t)a->new_fd);
+            if(result<0) return result;
+            /* Spawn's same-FD action also clears CLOEXEC, unlike plain dup2. */
+            (void)process_file_set_fd_flags(child,(uint64_t)a->new_fd,0);
+        } else if(a->type==SRV_SPAWN_FILE_ACTION_OPEN) {
+            char path[PROCESS_PATH_MAX];
+            int64_t result=process_path_context_for(child,SRV_PATH_RESOLVE,a->path,path,sizeof(path));
+            if(result<0) return result;
+            if(process_file_at(child,(uint64_t)a->fd)) (void)process_file_close(child,(uint64_t)a->fd);
+            result=process_file_open_flags(child,path,a->open_flags);
+            if(result<0) return result;
+            if(result!=a->fd) {
+                int64_t opened=result;
+                result=process_file_dup2(child,(uint64_t)opened,(uint64_t)a->fd);
+                (void)process_file_close(child,(uint64_t)opened);
+                if(result<0) return result;
+            }
+        } else return SRV_ERR_INVAL;
+    }
+    return 0;
+}
 
 static bool process_apply_stdio_fds(struct process *process, int64_t input, int64_t output, int64_t error) {
     return process_configure_stdio_fds(process,process,input,output,error);
@@ -2825,8 +2872,7 @@ uint64_t process_current_kill_status(void) {
 /* Resolve every traversed component before folding dot/dot-dot. A regular
  * file followed by /.. must fail, not escape into its parent. The final name
  * may be absent so create operations can use the same checked resolver. */
-int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
-    struct process *process=process_current();
+static int64_t process_path_context_for(struct process *process,uint64_t operation,const char *path,char *out,uint64_t capacity) {
     if(!process) return SRV_ERR_INVAL;
     char resolved[PROCESS_PATH_MAX];
     if(operation==SRV_PATH_GETCWD) {
@@ -2875,6 +2921,10 @@ int64_t process_path_context(uint64_t operation,const char *path,char *out,uint6
     if(capacity<size) return SRV_ERR_RANGE;
     for(uint64_t i=0;i<size;i++) out[i]=resolved[i];
     return 0;
+}
+
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
+    return process_path_context_for(process_current(),operation,path,out,capacity);
 }
 
 bool process_has_open_vfs_prefix(const char *prefix) {
@@ -3881,6 +3931,40 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
         }
     }
     return ok?0:SRV_ERR_IO;
+}
+
+int64_t process_file_open_flags(struct process *process,const char *path,uint64_t flags) {
+    if(!(flags&(SRV_OPEN_READ|SRV_OPEN_WRITE)) ||
+        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC|SRV_OPEN_DIRECTORY|SRV_OPEN_PERMISSIONS|SRV_OPEN_MODE_MASK))) return SRV_ERR_INVAL;
+    if((flags&SRV_OPEN_MODE_MASK) && !(flags&SRV_OPEN_PERMISSIONS)) return SRV_ERR_INVAL;
+    if((flags&SRV_OPEN_DIRECTORY) && (flags&(SRV_OPEN_CREATE|SRV_OPEN_WRITE|SRV_OPEN_TRUNC))) return SRV_ERR_INVAL;
+    /* Hold filesystem admission across lookup, exclusive create and descriptor
+     * publication. O_EXCL must not be a userspace stat/create race. */
+    if(!scheduler_io_begin()) return SRV_ERR_IO;
+    int64_t result;
+    if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write(process,path,flags);
+    else {
+        const struct vfs_node *node=vfs_lookup(path);const uint8_t *data;uint64_t size;
+        if(!node) result=SRV_ERR_NOENT;
+        else if((flags&SRV_OPEN_DIRECTORY) && node->type!=VFS_NODE_DIRECTORY) result=SRV_ERR_NOTDIR;
+        else if(node->type==VFS_NODE_DIRECTORY) {
+            result=process_file_alloc(process,node,NULL,0);
+            if(result>=0) {
+                (void)process_file_set_flags(process,result,(flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
+                (void)process_file_set_fd_flags(process,result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
+            }
+        }
+        else if(!vfs_read_all(node,&data,&size)) result=SRV_ERR_IO;
+        else {
+            result=process_file_alloc(process,node,data,size);
+            if(result<0) result=SRV_ERR_MFILE;
+            else {
+                (void)process_file_set_flags(process,result,((flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags&SRV_OPEN_APPEND)?SRV_FD_APPEND:0));
+                (void)process_file_set_fd_flags(process,result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
+            }
+        }
+    }
+    scheduler_io_end();return result;
 }
 
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags) {

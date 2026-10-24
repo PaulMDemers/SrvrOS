@@ -60,6 +60,7 @@ static FILE stderr_file = {.fd = STDERR_FILENO, .owned=1, .writable=1, .buffer_m
     .references=1};
 static FILE *open_streams=&stdin_file;
 static pthread_mutex_t stream_registry_lock=PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t popen_lock=PTHREAD_MUTEX_INITIALIZER;
 
 FILE *stdin = &stdin_file;
 FILE *stdout = &stdout_file;
@@ -2063,14 +2064,14 @@ FILE *tmpfile64(void) {
     return tmpfile();
 }
 
-FILE *popen(const char *command, const char *mode) {
+static FILE *popen_locked(const char *command, const char *mode) {
     if (command == 0 || mode == 0 || (mode[0] != 'r' && mode[0] != 'w') || mode[1] != '\0') {
         errno = EINVAL;
         return 0;
     }
 
     int fds[2];
-    if (pipe(fds) < 0) {
+    if (pipe2(fds,O_CLOEXEC) < 0) {
         return 0;
     }
 
@@ -2099,10 +2100,19 @@ FILE *popen(const char *command, const char *mode) {
     }
 
     int action_error = posix_spawn_file_actions_adddup2(&actions, close_fd, target_fd);
-    /* Native spawn currently copies only requested standard streams, not the
-     * parent's descriptor table. Closing parent-numbered pipe ends here can
-     * close the child's freshly allocated standard-stream backing slot. Add
-     * ordered close actions when spawn has a unified inherited FD namespace. */
+    if(!action_error && parent_fd!=target_fd) action_error=posix_spawn_file_actions_addclose(&actions,parent_fd);
+    if(!action_error && close_fd!=target_fd) action_error=posix_spawn_file_actions_addclose(&actions,close_fd);
+    size_t count=0;FILE **snapshot=snapshot_streams(&count);
+    if(!snapshot && count==SIZE_MAX) action_error=ENOMEM;
+    else {
+        for(size_t i=0;i<count;i++) {
+            FILE *scan=snapshot[i];flockfile(scan);
+            if(!action_error && !scan->closing && scan->popen_pid>0 && scan->fd!=target_fd)
+                action_error=posix_spawn_file_actions_addclose(&actions,scan->fd);
+            funlockfile(scan);release_stream(scan);
+        }
+        free(snapshot);
+    }
     if (action_error != 0) {
         posix_spawn_file_actions_destroy(&actions);
         close(fds[0]);
@@ -2122,6 +2132,7 @@ FILE *popen(const char *command, const char *mode) {
         return 0;
     }
 
+    (void)fcntl(parent_fd,F_SETFD,0);
     FILE *stream = fdopen(parent_fd, stream_mode);
     if (stream == 0) {
         int saved = errno;
@@ -2130,21 +2141,30 @@ FILE *popen(const char *command, const char *mode) {
         errno = saved;
         return 0;
     }
-    stream->popen_pid = child;
+    flockfile(stream);stream->popen_pid = child;funlockfile(stream);
+    return stream;
+}
+
+FILE *popen(const char *command,const char *mode) {
+    /* Keep the previous-popen-stream snapshot and publication ordered between
+     * concurrent callers. General descriptor/exec synchronization remains the
+     * application's responsibility. */
+    pthread_mutex_lock(&popen_lock);FILE *stream=popen_locked(command,mode);pthread_mutex_unlock(&popen_lock);
     return stream;
 }
 
 int pclose(FILE *stream) {
-    if (stream == 0 || stream->popen_pid <= 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    pid_t child = stream->popen_pid;
-    stream->popen_pid = 0;
-    int close_result = fclose(stream);
-    int status = 0;
-    if (waitpid(child, &status, 0) != child) {
-        return -1;
-    }
-    return close_result == 0 ? status : -1;
+    if(!stream) { errno=EINVAL;return -1; }
+    /* Serialize removal with popen's child-close snapshot. Otherwise a stream
+     * removed before its buffered close finishes could leak into a new child. */
+    pthread_mutex_lock(&popen_lock);flockfile(stream);
+    pid_t child=stream->popen_pid;
+    if(child<=0) { funlockfile(stream);pthread_mutex_unlock(&popen_lock);errno=EINVAL;return -1; }
+    stream->popen_pid=0;
+    int close_result=fclose(stream),close_errno=errno;
+    pthread_mutex_unlock(&popen_lock);
+    int status=0;
+    if(waitpid(child,&status,0)!=child) return -1;
+    if(close_result) { errno=close_errno;return -1; }
+    return status;
 }

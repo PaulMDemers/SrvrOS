@@ -23,8 +23,20 @@ published under IRQ exclusion before retiring the previous endpoint, and native
 standard-stream swaps snapshot all sources first. Fcntl, stat, positional I/O,
 TTY identity and close-on-exec use the real entries. Host pipe/PTY lifetime tests,
 focused guest reuse/redirection/close checks and the full thread suite pass.
-POSIX spawn inheritance and action ordering remain the next block; native spawn
-still has its explicit-transfer profile. Socket/eventfd adapters remain separate.
+POSIX spawn now inherits the complete native descriptor table and applies close,
+dup2 and open actions in their recorded order before closing CLOEXEC entries.
+Child opens use the child's directory and creation mask without allocating a
+temporary descriptor in the parent. A closed source cannot be resurrected from
+the parent by a later action. Native GUI spawn retains its explicit-transfer
+profile; socket/eventfd adapters remain separate. Focused and full guest tests
+cover inherited files/pipes, shared offsets, CLOEXEC, closed standard descriptors,
+ordered redirects, failed actions and a full parent descriptor table.
+
+`popen` creates temporary pipes with CLOEXEC and closes prior popen streams in
+each child. Creation and pclose descriptor retirement are serialized, with the
+lock released before waiting for a child. Two simultaneous writable popen streams
+verify that closing the first can receive EOF and finish while the second stays
+open. These semantics do not provide general pseudo-descriptor inheritance.
 
 Global `fflush(NULL)` now snapshots and pins the stream registry before taking
 individual FILE locks. Concurrent fclose removes the stream from that registry
