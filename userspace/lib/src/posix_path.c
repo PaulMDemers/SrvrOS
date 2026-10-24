@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -7,7 +8,7 @@
 #include <sys/stat.h>
 #include <srvros/sys.h>
 
-#define POSIX_PATH_MAX 160
+#define POSIX_PATH_MAX SRV_PATH_MAX
 
 int __posix_make_path(const char *path, char *out, size_t capacity) {
     if(!path || !out) { errno=EFAULT;return -1; }

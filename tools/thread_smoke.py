@@ -140,6 +140,7 @@ def main():
             "threadstress: coherence ok",
             "threadstress: orphan ok",
             "threadstress: path ok",
+            "threadstress: path-limits ok",
             "threadstress: directory ok",
             "threadstress: rename ok",
             "threadstress: stdio-access ok",

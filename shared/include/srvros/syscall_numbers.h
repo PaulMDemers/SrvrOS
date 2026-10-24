@@ -1,6 +1,7 @@
 #ifndef SRVROS_SYSCALL_NUMBERS_H
 #define SRVROS_SYSCALL_NUMBERS_H
 
+#include <srvros/path_limits.h>
 #include <stdint.h>
 
 #define SYS_WRITE 1
@@ -148,7 +149,7 @@
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
-struct srv_dirent { uint64_t inode,type; char name[160]; };
+struct srv_dirent { uint64_t inode,type; char name[SRV_NAME_MAX + 1]; };
 #define SRV_PATH_GETCWD 0
 #define SRV_PATH_CHDIR 1
 #define SRV_PATH_RESOLVE 2

@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <spawn.h>
@@ -8,7 +9,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define POSIX_PATH_MAX 160
+#define POSIX_PATH_MAX SRV_PATH_MAX
 #define SPAWN_ACTION_DUP2 0
 #define SPAWN_ACTION_CLOSE 1
 #define SPAWN_ACTION_OPEN 2
@@ -260,9 +261,23 @@ int posix_spawnp(pid_t *pid,
     return denied?EACCES:ENOENT;
 }
 
+static int exec_shell_fallback(const char *path,char *const argv[]) {
+    char *shell_args[17]={"sh",(char *)path};
+    unsigned count=2;
+    if(argv[0]) for(unsigned i=1;argv[i];i++) {
+        if(count==16) { errno=E2BIG;return -1; }
+        shell_args[count++]=argv[i];
+    }
+    shell_args[count]=NULL;
+    return execve("/fat/bin/sh",shell_args,environ);
+}
+
 int execvp(const char *file,char *const argv[]) {
     if(!file || !*file || !argv) { errno=EINVAL;return -1; }
-    if(strchr(file,'/')) return execve(file,argv,environ);
+    if(strchr(file,'/')) {
+        execve(file,argv,environ);
+        return errno==ENOEXEC?exec_shell_fallback(file,argv):-1;
+    }
     const char *path=getenv("PATH");
     if(!path) path="/fat/bin:/:/fat";
     int denied=0;
@@ -274,6 +289,7 @@ int execvp(const char *file,char *const argv[]) {
         if(length) memcpy(candidate,path,length);else candidate[0]='.';
         candidate[directory]='/';memcpy(candidate+directory+1,file,name+1);
         execve(candidate,argv,environ);
+        if(errno==ENOEXEC) return exec_shell_fallback(candidate,argv);
         if(errno==EACCES) denied=1;
         else if(errno!=ENOENT && errno!=ENOTDIR) return -1;
         if(!path[length]) break;

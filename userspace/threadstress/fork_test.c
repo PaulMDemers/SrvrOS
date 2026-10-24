@@ -119,6 +119,21 @@ int posix_fork_test(void) {
     CHECK(chmod("/fat/fork-invalid.tmp",0600)==0);
     CHECK(execv("/fat/fork-invalid.tmp",emptyargs)==-1 && errno==EACCES);
     CHECK(unlink("/fat/fork-invalid.tmp")==0);
+    const char *script="/fat/fork-script.tmp";
+    file=open(script,O_CREAT|O_TRUNC|O_WRONLY,0700);
+    const char program[]="exit \"$1\"\n";
+    CHECK(file>=0 && write(file,program,sizeof(program)-1)==sizeof(program)-1 && close(file)==0);
+    for(unsigned mode=0;mode<2;mode++) {
+        child=fork();CHECK(child>=0);
+        if(!child) {
+            char *arguments[]={"custom-name","37",NULL};
+            if(mode) { setenv("PATH","/fat",1);execvp("fork-script.tmp",arguments); }
+            else execvp(script,arguments);
+            _exit(113);
+        }
+        CHECK(waitpid(child,&status,0)==child && WIFEXITED(status) && WEXITSTATUS(status)==37);
+    }
+    CHECK(unlink(script)==0);
     pthread_t worker;worker_ready=worker_release=0;
     CHECK(pthread_create(&worker,NULL,held_worker,NULL)==0);
     while(!__atomic_load_n(&worker_ready,__ATOMIC_ACQUIRE)) sched_yield();

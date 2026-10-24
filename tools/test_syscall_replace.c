@@ -27,7 +27,7 @@ int main(void) {
     invalid=content;assert(syscall_fs_write(path,content,4)<0 && calls==1);invalid=NULL;
     assert(syscall_fs_write(NULL,content,4)<0 && calls==1);
     assert(syscall_fs_write(path,content,MAX_SYSCALL_COPY+1)<0 && calls==1);
-    char long_path[160];memset(long_path,'a',sizeof(long_path));assert(syscall_fs_write(long_path,content,4)<0 && calls==1);
+    char long_path[MAX_PATH_LENGTH];memset(long_path,'a',sizeof(long_path));assert(syscall_fs_write(long_path,content,4)<0 && calls==1);
     write_failure=1;assert(syscall_fs_write(path,content,2)<0 && saved_length==4);write_failure=0;
     assert(syscall_fs_write(path,NULL,0)==0 && saved_length==0 && calls==3);
     assert(allocations==frees);

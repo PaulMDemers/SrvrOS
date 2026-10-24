@@ -601,6 +601,7 @@ int posix_directory_test(void);
 int posix_rename_test(void);
 int posix_stdio_access_test(void);
 int posix_path_child(void);
+int posix_path_limits_test(void);
 int posix_pthread_contract_test(void);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
@@ -631,6 +632,7 @@ int main(int argc, char **argv) {
     RUN_TEST("coherence", posix_coherence_test);
     RUN_TEST("orphan", posix_orphan_test);
     RUN_TEST("path", posix_path_test);
+    RUN_TEST("path-limits", posix_path_limits_test);
     RUN_TEST("directory", posix_directory_test);
     RUN_TEST("rename", posix_rename_test);
     RUN_TEST("stdio-access", posix_stdio_access_test);

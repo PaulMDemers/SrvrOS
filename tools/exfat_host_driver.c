@@ -15,6 +15,7 @@
 #include <linux/fs.h>
 #endif
 #include <srvros/block.h>
+#include <srvros/path_limits.h>
 #include <srvros/exfat.h>
 #include <srvros/vfs.h>
 #include <srvros/autotest_storage.h>
@@ -328,6 +329,22 @@ int main(int argc, char **argv) {
         assert(!vfs_lookup("/vol/from/source") && vfs_lookup("/vol/to/target")->metadata.inode==inode);
         equal("/vol/to/target",(const uint8_t *)"source",6);
         puts("replacement rename preserves source inode and contents across remount PASS");
+    } else if(!strcmp(argv[2],"long-path")) {
+        char base[SRV_PATH_MAX]="/vol",path[SRV_PATH_MAX+1];
+        for(unsigned level=0;level<4;level++) {
+            size_t n=strlen(base);base[n++]='/';memset(base+n,'a'+level,200);base[n+200]=0;
+            assert(exfat_create_directory(base));
+        }
+        size_t n=strlen(base);memcpy(path,base,n);path[n++]='/';
+        memset(path+n,'z',SRV_PATH_MAX-1-n);path[SRV_PATH_MAX-1]=0;
+        assert(exfat_write_file(path,(const uint8_t *)"long",4));
+        uint64_t inode=vfs_lookup(path)->metadata.inode;
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal(path,(const uint8_t *)"long",4);assert(vfs_lookup(path)->metadata.inode==inode);
+        path[SRV_PATH_MAX-1]='q';path[SRV_PATH_MAX]=0;
+        assert(!exfat_write_file(path,(const uint8_t *)"bad",3));
+        path[SRV_PATH_MAX-1]=0;equal(path,(const uint8_t *)"long",4);
+        puts("maximum path survives remount; overlong writes do not alias PASS");
     } else if(!strcmp(argv[2],"cross-directory")) {
         assert(exfat_create_directory("/vol/from") && exfat_create_directory("/vol/to"));
         assert(exfat_write_file("/vol/from/long-source-name",(const uint8_t *)"move",4));

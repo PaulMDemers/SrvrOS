@@ -1,6 +1,7 @@
 #ifndef SRVROS_PROCESS_H
 #define SRVROS_PROCESS_H
 
+#include <srvros/path_limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -40,7 +41,7 @@ struct process_file {
     uint64_t flags;
     bool dirty;
     bool failed;
-    char path[160];
+    char path[SRV_PATH_MAX];
 };
 
 struct process_spawn_file_action {

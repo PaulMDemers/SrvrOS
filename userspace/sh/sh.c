@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <errno.h>
 #include <srvros/cli.h>
 #include <srvros/conio.h>
 #include <srvros/sys.h>
@@ -5508,7 +5509,19 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return apropos_command(args);
     }
     if (cli_streq(command, "exit")) {
-        srv_exit(finish_workspace_history(args[0] != '\0' ? (int)parse_u64(args) : (int)last_status));
+        char words[EXPANDED_LINE_MAX],*values[2];
+        cli_copy(words,sizeof(words),args);
+        int count=split_words(words,values,2);
+        if(count<0 || count>1) { cli_puts("exit: too many arguments\n");return 2; }
+        long long status=(long long)last_status;
+        if(count) {
+            char *end;errno=0;status=strtoll(values[0],&end,10);
+            if(errno==ERANGE || end==values[0] || *end) {
+                cli_puts("exit: numeric argument required\n");
+                srv_exit(finish_workspace_history(2));
+            }
+        }
+        srv_exit(finish_workspace_history((unsigned char)status));
     }
     if (cli_streq(command, "exec")) {
         if (background) {

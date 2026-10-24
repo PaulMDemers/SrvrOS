@@ -1,4 +1,5 @@
 #ifndef SRVROS_POSIX_LIMITS_H
+#include <srvros/path_limits.h>
 #define SRVROS_POSIX_LIMITS_H
 
 #define CHAR_BIT 8
@@ -25,15 +26,14 @@
 #define LLONG_MAX 9223372036854775807LL
 #define ULLONG_MAX 18446744073709551615ULL
 
-#define PATH_MAX 160
-#define NAME_MAX 95
+#define PATH_MAX SRV_PATH_MAX
+#define NAME_MAX SRV_NAME_MAX
 #define HOST_NAME_MAX 63
 #define LOGIN_NAME_MAX 32
-#define OPEN_MAX 128
+#define OPEN_MAX SRV_OPEN_MAX
 #define IOV_MAX 16
 
-/* Standard minima, not aliases for this implementation's current limits.
- * PATH_MAX is still below the POSIX minimum; no conformance is advertised. */
+/* Standard minima, not aliases for this implementation's current limits. */
 #define _POSIX_PATH_MAX 256
 #define _POSIX_NAME_MAX 14
 #define _POSIX_OPEN_MAX 20

@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <srvros/devices.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
@@ -33,7 +34,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MAX_PATH_LENGTH 160
+#define MAX_PATH_LENGTH SRV_PATH_MAX
 #define MAX_SYSCALL_COPY (256 * 1024)
 #define MAX_POLL_FDS 64
 #define MAX_EXEC_ARGS 16

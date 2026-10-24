@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <srvros/audio.h>
 #include "arch/x86_64/isr_frame.h"
 #include <srvros/console.h>
@@ -56,7 +57,7 @@ _Static_assert(sizeof(struct isr_frame)==176 && offsetof(struct isr_frame,rip)==
 #define PROCESS_MAX_ARGS 16
 #define PROCESS_MAX_ENV 64
 #define PROCESS_ARGS_MAX 256
-#define PROCESS_PATH_MAX 160
+#define PROCESS_PATH_MAX SRV_PATH_MAX
 #define PROCESS_WRITE_BUFFER_MAX (16 * 1024 * 1024)
 #define PROCESS_MAX_WRITE_FILES 64
 #define PROCESS_MAX_READ_FILES 128
@@ -3024,6 +3025,7 @@ int64_t process_path_context(uint64_t operation,const char *path,char *out,uint6
                 if(length>1) length--;
                 resolved[length]=0;continue;
             }
+            if(count>SRV_NAME_MAX) return SRV_ERR_NAMETOOLONG;
             uint64_t slash=length>1?1:0;
             if(length+slash+count>=sizeof(resolved)) return SRV_ERR_NAMETOOLONG;
             if(slash) resolved[length++]='/';

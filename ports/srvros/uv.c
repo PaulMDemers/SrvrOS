@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include "uv.h"
 
 #include <arpa/inet.h>
@@ -45,7 +46,7 @@
 #define UV_HANDLE_SIGNAL UV_SIGNAL
 #define UV_MAX_STDIO_HANDLES 32
 #define UV_SCANDIR_INITIAL_CAPACITY 8
-#define UV_REALPATH_MAX 160
+#define UV_REALPATH_MAX SRV_PATH_MAX
 #define UV_WORKER_POOL_SIZE 4
 
 static uv_loop_t default_loop;

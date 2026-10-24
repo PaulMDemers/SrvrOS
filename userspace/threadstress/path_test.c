@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <spawn.h>
@@ -11,7 +12,7 @@
 
 #define CHECK(x) do { if(!(x)) { printf("threadstress: path line=%d errno=%d\n",__LINE__,errno);return -1;} } while(0)
 int posix_path_child(void) {
-    char cwd[160];
+    char cwd[PATH_MAX];
     if(!getcwd(cwd,sizeof(cwd)) || strcmp(cwd,"/fat/posix-cwd")) return 17;
     int fd=open("value",O_RDONLY);char data[4]={0};
     if(fd<0 || read(fd,data,3)!=3 || strcmp(data,"cwd") || close(fd)) return 18;
@@ -19,7 +20,7 @@ int posix_path_child(void) {
 }
 static void *change_worker(void *unused) { (void)unused;return (void *)(long)chdir("/"); }
 int posix_path_test(void) {
-    char initial[160],cwd[160];CHECK(getcwd(initial,sizeof(initial)));
+    char initial[PATH_MAX],cwd[PATH_MAX];CHECK(getcwd(initial,sizeof(initial)));
     CHECK(setenv("PWD","/not-the-cwd",1)==0);
     CHECK(getcwd(cwd,sizeof(cwd)) && !strcmp(cwd,initial));
     CHECK(mkdir("/fat/posix-cwd",0700)==0 || errno==EEXIST);
@@ -33,7 +34,7 @@ int posix_path_test(void) {
     CHECK(open("value/../wrong",O_CREAT|O_WRONLY,0600)==-1 && errno==ENOTDIR);
     CHECK(open("missing/../wrong",O_CREAT|O_WRONLY,0600)==-1 && errno==ENOENT);
     CHECK(chdir("")==-1 && errno==ENOENT);
-    char huge[200];memset(huge,'x',sizeof(huge)-1);huge[sizeof(huge)-1]=0;
+    char huge[PATH_MAX+1];memset(huge,'x',sizeof(huge)-1);huge[sizeof(huge)-1]=0;
     CHECK(open(huge,O_CREAT|O_WRONLY,0600)==-1 && errno==ENAMETOOLONG);
     CHECK(getcwd(cwd,sizeof(cwd)) && !strcmp(cwd,"/fat/posix-cwd"));
     pid_t child=fork();CHECK(child>=0);

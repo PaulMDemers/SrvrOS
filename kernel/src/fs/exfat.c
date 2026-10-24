@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <srvros/console.h>
 #include <srvros/block.h>
 #include <srvros/exfat.h>
@@ -11,7 +12,7 @@
 #define EXFAT_MAX_VOLUMES 4
 #define EXFAT_MAX_FILES 8192
 #define EXFAT_MAX_DIRS 2048
-#define EXFAT_MAX_PATH 160
+#define EXFAT_MAX_PATH SRV_PATH_MAX
 #define EXFAT_MAX_FILE_ENTRIES 19
 /* Every mounted node can require a path, eight full-width decimal fields,
  * separators and a newline. Keep serialization capacity tied to node limits. */
@@ -397,12 +398,16 @@ static void append_ascii_name(char *path, uint64_t *offset, uint64_t capacity, c
     }
 }
 
-static void build_child_path(char *path,
+static bool build_child_path(char *path,
     uint64_t capacity,
     const char *parent,
     const struct exfat_stream_entry *stream,
     const struct exfat_name_entry *names,
     uint64_t name_entry_count) {
+    uint64_t parent_length=0;while(parent[parent_length]) parent_length++;
+    uint64_t separator=parent_length && parent[parent_length-1]!='/'?1:0;
+    if(!stream->name_length || stream->name_length>name_entry_count*15 ||
+       parent_length+separator+stream->name_length>=capacity) return false;
     uint64_t path_offset = append_parent_path(path, capacity, parent);
     uint64_t remaining = stream->name_length;
     for (uint64_t i = 0; i < name_entry_count && remaining > 0; i++) {
@@ -411,6 +416,7 @@ static void build_child_path(char *path,
         remaining -= count;
     }
     path[path_offset] = '\0';
+    return true;
 }
 
 static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
@@ -512,12 +518,12 @@ static bool register_file(struct exfat_mount *mount,
     }
 
     if(!reserve_tables(mount,index+1,mount->dir_count) || !vfs_reserve_nodes(1)) return false;
-    build_child_path(path_slot(mount, index),
+    if(!build_child_path(path_slot(mount, index),
         EXFAT_MAX_PATH,
         parent,
         stream,
         names,
-        name_entry_count);
+        name_entry_count)) return false;
 
     (*file_slot(mount, index)) = (struct exfat_file) {
         .volume = &mount->volume,
@@ -674,7 +680,7 @@ static bool scan_directory(const char *path,
                 uint64_t absolute_stream_entry_offset = (const uint8_t *)stream - cluster_buffer + offset;
                 if ((file_entry->file_attributes & EXFAT_ATTR_DIRECTORY) != 0) {
                     char child_path[EXFAT_MAX_PATH];
-                    build_child_path(child_path, sizeof(child_path), path, stream, names, name_entry_count);
+                    if(!build_child_path(child_path, sizeof(child_path), path, stream, names, name_entry_count)) { ok=false;goto out; }
                     if (!register_directory(mount,
                         child_path,
                         stream->first_cluster,
@@ -813,6 +819,8 @@ static struct exfat_mount *find_mount_and_index_for_file(const char *path, uint6
 
 static bool valid_ascii_basename(const char *path) {
     if (!path) return false;
+    uint64_t length=0;while(length<EXFAT_MAX_PATH && path[length]) length++;
+    if(length==EXFAT_MAX_PATH) return false;
     const char *name = path;
     for (const char *p = path; *p; p++) if (*p == '/') name = p + 1;
     if (!*name || streq(name, ".") || streq(name, "..")) return false;

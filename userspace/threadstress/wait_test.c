@@ -50,5 +50,9 @@ int posix_wait_test(void) {
     CHECK(child(&pid,"255",NULL)==0 && waitpid(pid,NULL,0)==pid);
     int command_status=system("exit 200");
     CHECK(command_status!=-1 && WIFEXITED(command_status) && WEXITSTATUS(command_status)==200);
+    command_status=system("exit '-1'");
+    CHECK(command_status!=-1 && WIFEXITED(command_status) && WEXITSTATUS(command_status)==255);
+    command_status=system("exit 'bad'");
+    CHECK(command_status!=-1 && WIFEXITED(command_status) && WEXITSTATUS(command_status)==2);
     puts("threadstress: wait ok");return 0;
 }

@@ -1,6 +1,7 @@
 #ifndef SRVROS_POSIX_STDIO_H
 #define SRVROS_POSIX_STDIO_H
 
+#include <srvros/path_limits.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <sys/types.h>
@@ -11,7 +12,7 @@
 #define SEEK_END 2
 
 #define BUFSIZ 1024
-#define FILENAME_MAX 160
+#define FILENAME_MAX SRV_PATH_MAX
 #define L_tmpnam FILENAME_MAX
 #define TMP_MAX 10000
 

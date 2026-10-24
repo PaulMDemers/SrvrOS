@@ -1,6 +1,7 @@
 #ifndef SRVROS_POSIX_SPAWN_H
 #define SRVROS_POSIX_SPAWN_H
 
+#include <srvros/path_limits.h>
 #include <sys/types.h>
 #include <signal.h>
 
@@ -17,7 +18,7 @@ typedef struct {
     int newfd;
     int oflag;
     mode_t mode;
-    char path[160];
+    char path[SRV_PATH_MAX];
 } posix_spawn_file_action_t;
 
 typedef struct {
@@ -33,9 +34,9 @@ typedef struct {
     mode_t stdin_mode;
     mode_t stdout_mode;
     mode_t stderr_mode;
-    char stdin_path[160];
-    char stdout_path[160];
-    char stderr_path[160];
+    char stdin_path[SRV_PATH_MAX];
+    char stdout_path[SRV_PATH_MAX];
+    char stderr_path[SRV_PATH_MAX];
     size_t action_count;
     size_t action_capacity;
     posix_spawn_file_action_t *dynamic_actions;

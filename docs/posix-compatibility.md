@@ -72,8 +72,10 @@ search in execvp/spawnp including empty components. Argument overflow returns
 `E2BIG`; invalid ELF, missing file and execute permissions have distinct errors.
 Exec preserves ignored dispositions, pending signals and masks, resets caught
 handlers and closes CLOEXEC descriptors. Replacing a process with workers is
-explicitly refused until worker teardown can be implemented safely. Shell fallback
-for non-ELF execvp input and wider argument/path capacity remain open.
+explicitly refused until worker teardown can be implemented safely. `execvp` and
+`execlp` now invoke `/fat/bin/sh` for executable text rejected with ENOEXEC,
+preserving the script path and remaining arguments. Wider argument/environment
+capacity remains open.
 
 The working directory is now kernel process state: shared by a process's threads,
 inherited by fork/spawn and preserved by exec independently of `PWD`. The shell
@@ -143,8 +145,22 @@ signals have catchable dispositions, but this does not add hardware exception
 recovery or a profiling timer. Unsupported stop/continue requests fail instead
 of accidentally terminating the target. Stop/resume job control remains open.
 Thread-specific storage supports 128 keys, with exhaustion and repeated-use tests.
-The `_POSIX_*` minimum constants no longer alias local limits; the 160-byte path
-bound remains below the standard minimum and is an explicit compatibility gap.
+The `_POSIX_*` minimum constants no longer alias local limits. Filesystem/process
+paths now use a shared 1,024-byte capacity (including NUL), and components and
+descriptor directory entries support 255-byte names. `PATH_MAX`, `FILENAME_MAX`,
+CLI/libuv buffers and spawn-action paths agree; native GUI message payloads retain
+their separate bounds. The larger directory-read structure requires matched
+kernel/userspace builds. This is still a bound on the resolved absolute path,
+not unbounded traversal through directory descriptors.
+
+`pathconf` and `fpathconf` validate the target and report the selected path/name,
+link and option limits rather than confusing `_PC_PATH_MAX` with page size.
+`OPEN_MAX` now matches the 67 descriptor slots reported by sysconf. The exFAT
+importer rejects an overlong child path without registering a truncated alias.
+Guest tests exercise exact-boundary paths, long names, streams, rename and
+directory enumeration; host tests check remount persistence and bounded import.
+The exec fallback regression also corrected quoted `exit` arguments in the shell;
+negative statuses wrap to eight bits and invalid numeric operands fail.
 
 Resource limit changes are process-wide, including all workers. The current
 root-only profile may raise a previously lowered hard file-size limit. Unsupported

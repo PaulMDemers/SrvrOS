@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <srvros/sys.h>
@@ -27,7 +28,7 @@ int __posix_signal_dispatch_pending(void);
 int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
 
-#define POSIX_PATH_MAX 160
+#define POSIX_PATH_MAX SRV_PATH_MAX
 #define POSIX_FD_DUP_TEMP_MAX 80
 
 static mode_t current_umask;

@@ -402,7 +402,7 @@ static void path_context_regression(void) {
     strcpy(out,"unchanged");
     assert(process_path_context(SRV_PATH_GETCWD,NULL,out,3)==SRV_ERR_RANGE && !strcmp(out,"unchanged"));
     assert(!process_path_context(SRV_PATH_RESOLVE,"../../../../new",out,sizeof(out)) && !strcmp(out,"/new"));
-    char huge[160];memset(huge,'a',159);huge[159]=0;
+    char huge[SRV_NAME_MAX+2];memset(huge,'a',sizeof(huge)-1);huge[sizeof(huge)-1]=0;
     assert(process_path_context(SRV_PATH_RESOLVE,huge,out,sizeof(out))==SRV_ERR_NAMETOOLONG);
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/test/dir"));
     long fd=process_file_alloc(&subject,&path_nodes[2],NULL,0);assert(fd==3);

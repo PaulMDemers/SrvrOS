@@ -58,6 +58,14 @@ def main():
             assert fs.read('empty') == b'' and fs.read('truncated') == b''
             assert fs.read('A-much-longer-renamed-file.txt') == bytes((i*17+3)&255 for i in range(9))
             print(f'operations {cluster}: create/grow/shrink/empty/rename/move/delete PASS',flush=True)
+            long_path=directory/'long.img'
+            format_image(long_path,cluster)
+            print(command(DRIVER,long_path,'long-path').strip(),flush=True)
+            clean(long_path)
+            fs=ExfatFixture(long_path.read_bytes())
+            base='/'.join(letter*200 for letter in 'abcd')
+            name='z'*(1023-len('/vol/'+base+'/'))
+            assert fs.read(base+'/'+name)==b'long'
             cross=directory/'cross.img'
             format_image(cross,cluster)
             print(command(DRIVER,cross,'cross-directory').strip(),flush=True)

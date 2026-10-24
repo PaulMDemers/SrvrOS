@@ -117,6 +117,17 @@ checked directory import, pathconf/fpathconf and semantic guest/remount tests.
 General descriptor inheritance, atomic mode/umask creation and asynchronous
 signals remain required follow-ups before the compatibility milestone can close.
 
+Published through `d5d0fa1`, consuming main `4f8acd2`. Consumer block completes
+all thread/process/libc/ports/Lua-files/libuv/utility checks locally. Current
+1,024-byte path/255-byte name and exec-shell-fallback candidate passes full core
+and full thread VM tests; exhaustive exFAT remount/fault checks pass, including
+long paths on 4K/128K clusters and independent offline traversal.
+The first fallback test exposed quoted shell exit operands returning zero;
+corrected parsing passes the full guest suite. Remaining boundaries include
+resolved-absolute-path capacity, native GUI message limits, 16 arguments/256-byte
+strings, general FD inheritance and atomic mode/umask creation. No hardware test
+or desktop architecture change is claimed by these compatibility results.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor

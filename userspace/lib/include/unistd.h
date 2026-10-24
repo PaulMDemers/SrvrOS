@@ -25,6 +25,11 @@ extern "C" {
 #define _SC_THREAD_DESTRUCTOR_ITERATIONS 9
 
 #define _PC_PATH_MAX 1
+#define _PC_NAME_MAX 2
+#define _PC_LINK_MAX 3
+#define _PC_NO_TRUNC 4
+#define _PC_CHOWN_RESTRICTED 5
+#define _PC_SYMLINK_MAX 7
 
 #define F_OK 0
 #define X_OK 1
@@ -73,6 +78,7 @@ int fchdir(int fd);
 int faccessat(int fd,const char *path,int mode,int flags);
 int gethostname(char *name, size_t length);
 long pathconf(const char *path, int name);
+long fpathconf(int fd, int name);
 pid_t fork(void);
 pid_t getpid(void);
 pid_t getppid(void);
