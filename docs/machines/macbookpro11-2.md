@@ -4785,3 +4785,26 @@ Exact captured initial values,32 operations/28 reads/four writes,MAC/CORE guards
 and disabled/idle DMA check per target. No retries or calibrated-power/DMA writes.
 Touch mt76/xHCI/main/profiles/tests. Actualbase4a991df; fetchedmain468ca20,
 other-machine window capacity work separate. Next checkpoint exact-stage VM.
+
+### 2026-10-24 — v53 fixed MAC controls candidate
+
+Source `88be3c3`,release `add8a479ff406c0d`,installed unarmed. Four settings
+1218/1220→00500055,13c0→0,1238→001700c8 require exact captured initial values
+both in the preceding snapshot and immediate pre-write reads.32 operations
+contain28 reads/four writes with MAC/CORE guards and disabled/idle DMA checks.
+No retries,calibrated-power,board-supply,DMA-configuration or RF-enable writes.
+
+Native build,compact/xHCI tests,ASan/UBSan,127 boot-profile tests,104 unchanged
+historical recipes,collector fixture/48 rejection cases and493 docs links pass.
+Exact-stage GPT VM saved/verified logs and returned; missing workspace returned
+without starting the probe. Physical write/readback acceptance remains pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted snapshot
+`619ce12c1d5d0f0b` retained. WCID `71bf958aa703f6b3` removed from ESP only after
+full archive equality. Workspace clean245files/616clusters,unmounted.
+Payload,audit,tests,VM receipt,collector and run/checkpoint archived outside build
+at `~/.local/share/srvros/macbookpro11-2/wifi-mac-fixed-88be3c3/`.
+Actualbase4a991df,fetchedmain468ca20; unrelated window-capacity work inspected.
+Next: attended cold adapter cycle,then collect matching session FIRST and require
+four exact before/after values,eight MAC/CORE guards,four DMA checks,all previous
+prerequisites and clean recovery. Radio/connectivity remain untested.
