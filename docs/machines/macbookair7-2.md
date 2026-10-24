@@ -2,37 +2,57 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active scope: message-driven idle Text client
+### Active checkpoint: first idle Text optimization accepted
 
-Worker-attributed native baseline below is accepted. Next bounded change on
-`device/macbookair7-2/power-idle` adds an interruptible GUI receive-readiness wait
-and a reusable client helper. Only quiescent Text opts in, with a 100 ms maximum
-maintenance deadline; input/close messages wake immediately. File/clipboard work,
-unfinished frame/menu/title publication and diagnostic workloads keep their
-existing cadence. Compositor, xHCI, network polling and CPU policy stay unchanged.
+Branch `device/macbookair7-2/power-idle`, PR106 adds measured worker diagnostics
+and an interruptible GUI receive-readiness wait. Only quiescent Text opts in,
+with a 100 ms maximum maintenance deadline; input/close messages wake immediately.
+File/clipboard work, unfinished frame/menu/title publication and diagnostic
+workloads keep their existing cadence. Compositor, xHCI, network polling and CPU
+policy are unchanged. The shared client helper is available for future callers
+that explicitly exclude their own timers/jobs.
 
-Scope: GUI transport, additive syscall/wrapper, client helper and Text admission,
-with queue/teardown/signal/race fixtures and exact idle/save/reopen VM regression.
-Main `7d2b903` was consumed (Air6,1 evidence/docs only); Pro PR19 `960e9a6` owns
-USB Wi-Fi, without overlapping GUI/syscall changes. PR106 remains draft while
-this measured follow-up is validated. Actions are disabled. Baseline release
-`dc7c0eaea0dca69b` remains installed, recovery `9aa8dbf6fbda8252` retained,
-USB unmounted and no new reboot armed. Energy reduction remains unproven.
+Native release `7afccbd6fbc3cfd4`, compiled `d6f3136`, session
+`session-00065e8b0600c122-00` returned automatically with complete capture evidence
+and no attention items. The 59.999-second Text idle window recorded 97.85% CPU0
+idle samples, 25,102 switches and one frame. Its stable Text worker fell from
+100.00 to 10.01 switches/second (510 switches over 50.960 seconds), about 90% less
+activity. Total window switches fell 17.66% versus the baseline below. Other
+input/compositor polling stayed at 100 Hz. These are software transitions, not
+hardware wakeups or measured thread runtime.
 
-GUI wait implementation `d6f3136` passes full local build/core/docs and directed
-queue/signal/race/teardown/client-publication fixtures. Exact EFI/GPT v26 stage
-`7afccbd6fbc3cfd4` passes persistence, screenshot and automatic reset, plus missing
-workspace return. The same VM window reduces the formerly busy client from
-98.31 to 9.96 switches/second (4941/50.258 seconds versus 502/50.378 seconds),
-with no partial lifetimes. Networked ordinary VM typing/save after idle passes.
-This is software-activity evidence only; VM energy remains unavailable.
+Six energy checkpoints covered 51.000 seconds: 346.927 J, 6.802 W package average
+and 2,054 MHz CPU0 active frequency. Baseline was 6.695 W; **no energy saving is
+established**. Candidate package temperature fell 75–72 C, versus 74–71 C in the
+baseline, so neither was at thermal equilibrium. AC was connected before boot,
+brightness stayed at 14%, Ethernet/workspace remained attached and audio idle.
+The v26 diagnostic omits the ordinary battery owner. Physical post-idle typing
+was not requested or exercised; native input latency remains outside this capture.
 
-A matching unattended native candidate capture is prepared under
-`build/power-gui-wait-20261023`. It needs no interaction and retains the accepted
-recovery. Collect that exact release after return; require original file
-preservation, idle/worker/energy evidence and clean allocation/recovery. Compare
-raw temperature/device state and repeat matched controls before claiming power
-savings. Local run records own installation and arming state.
+All 1010 original files were preserved except expected filesystem metadata;
+only four logs and one screenshot were added. Offline fsck and independent
+allocation pass at 1015 files / 2290 clusters, zero leaks/mismatches. The 1440x900
+screenshot was reviewed. Ubuntu recovery/default and consumed one-shot pass;
+installed current is `7afccbd6fbc3cfd4`, previous `9aa8dbf6fbda8252`. USB is unmounted
+and no reboot is armed. Evidence and payloads survive build cleanup in local
+pending-trials and reviewed-evidence directories for this release.
+
+Implementation passes full local build/core/docs and queue/signal/race/teardown/
+publication fixtures. Exact EFI/GPT v26 VM capture, screenshot, persistence,
+automatic return and missing-workspace recovery pass. Ordinary networked VM
+post-idle typing and exact save pass. VM client switches fell 98.31 to 9.96 per
+second; unavailable VM energy remains null. After native collection, main
+`de449b3` (Air6,1 PR109 mounted Home diagnostic) was consumed as `1f7c5f2` without
+conflict. Pro PR19 `af42f25` retains USB Wi-Fi scope. Actions remain disabled;
+integrated full build/core/docs and networked post-idle input/save passed. Its v26
+payload is byte-identical to the native release; exact EFI/GPT completion and
+missing-workspace return were revalidated. No sibling or new battery acceptance
+is implied.
+
+The bounded first optimization is complete. Next power work should target the
+remaining measured compositor/device wake sources with input/IO latency evidence;
+repeat matched, thermally controlled captures before claiming energy savings.
+Dynamic desktop/window capacity remains a separate planned milestone.
 
 ### Native worker/power baseline accepted
 

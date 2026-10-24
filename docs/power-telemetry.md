@@ -288,6 +288,20 @@ Implementation `d6f3136` adds the [client wait contract](native-desktop.md#quies
 The exact v26 VM captures reduce the idle Text worker from 98.31 to 9.96 context
 switches per second; typing and exact save after idle, screenshot persistence and
 automatic return pass. Other device polling is unchanged. This is a measured
-software-activity reduction, not a power result. Native candidate
-`7afccbd6fbc3cfd4` is prepared for the same unattended capture; energy comparison
-and repeated physical acceptance remain pending.
+software-activity reduction, not a power result. Native release
+`7afccbd6fbc3cfd4` completed the same unattended capture in
+`session-00065e8b0600c122-00`. Text switches fell from 100.00 to 10.01/second
+(510 over 50.960 seconds), about 90%; total 60-second-window switches fell
+30,487 to 25,102 (17.66%). Idle timer samples rose 97.60% to 97.85%. Other input
+and compositor polling remained 100 Hz. USB preservation, screenshot, offline
+allocation, clean exit and Ubuntu recovery all passed.
+
+Package average was **6.802 W**, compared with baseline 6.695 W: this pair does
+not demonstrate energy savings. Six candidate checkpoints covered 51.000 seconds,
+346.927 J and 2,054 MHz CPU0 active frequency. Package temperature fell 75–72 C
+versus baseline 74–71 C; neither interval was thermally settled. Device settings
+and diagnostic recipe matched, including the disabled ordinary battery owner.
+Accept reduced idle software activity only. Physical typing after idle remains
+untested by this unattended capture; VM typing/save is separate evidence.
+The next optimization needs preserved input/IO behavior and measured activity;
+repeat thermally controlled comparisons before making a power claim.
