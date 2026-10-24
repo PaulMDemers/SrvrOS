@@ -13,12 +13,28 @@ Sample timestamps at most once per 256 ring checks to limit diagnostic overhead;
 submission and matching dispatch close the interval. These are software sampling
 bounds, not hardware completion timestamps. Preserve waits/deadlines, DMA
 quarantine, input service, readback and flush. The normal 20 ms policy stays.
-Pro PR19 at `7e70c51` retains separate Wi-Fi work; Air6,1 PR128 screenshot-receipt
-scope is outside these storage files. No pending native run. Installed comparison
-`b824d64a95b27a3b` and recovery `9aa8dbf6fbda8252` remain as collected.
-Next checkpoint: injected event-service hiatus and steady-poll tests, complete
-versioned collection in an exact-stage VM, then an unattended fixed-file native
-comparison with prior-file preservation and automatic Ubuntu return.
+Pro PR19 was rechecked at `d80fb47`: additional MAC-observation Wi-Fi state,
+capture recipes and tests remain separate from the storage path. Preserve both
+changes on integration. Air6,1 PR128 screenshot-receipt changes are independent;
+its collector regression edits are in another part of the shared test file.
+
+Source `00ad3cc` passes the full local build/core suite, injected steady/pause and
+clock/saturation checks, versioned collector regressions, throttled USB copy with
+input/exact readback, and timeout/quarantine VM checks. An exact staged idle VM
+persists six logger snapshots with complete service-gap fields. The staged
+fixed-file VM passes all 18 version-3 samples / 54 version-2 transfer records,
+exact payload and policy restoration. Missing-workspace automatic return passes.
+These are workflow/instrumentation results; native timing acceptance is pending.
+
+PR129 candidate `46b9132589405099` is prepared for an unattended fixed-file
+comparison, with no human interaction. Pre-trial baseline is automatic payload
+`b824d64a95b27a3b`; recovery remains `9aa8dbf6fbda8252`. Local run/reboot state and
+collector are in `build/storage-service-gaps-20261024/checkpoint.json`. Require
+version 3, all 54 matching service-gap records, exact fixture, prior-file
+preservation, offline allocation and Ubuntu recovery. Compare maximum sampled
+service gaps and final intervals against long observation intervals; do not call
+a small bound a controller completion timestamp or proof against event backlog.
+The recipe saves and returns automatically on handled failure as well as success.
 
 ### Individual USB timing: bounded native result
 
