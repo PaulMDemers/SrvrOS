@@ -17,7 +17,6 @@ def main():
     parser.add_argument('--case',choices=CASES,default='completion')
     parser.add_argument('--air61',action='store_true')
     parser.add_argument('--transitions',action='store_true');args=parser.parse_args()
-    assert not (args.air61 and args.transitions)
     assert args.transitions or args.case!='no-transition'
     root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-'+('transitions' if args.transitions else 'desktop')+'-capture-'+('air61-' if args.air61 else '')+args.case)
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()

@@ -577,3 +577,22 @@ logger/mount retirement completed cleanly. Prior-file preservation and offline
 filesystem/allocation checks pass. This accepts v67's explicit bounded capture;
 ordinary startup, attended Home AC transitions, long endurance and calibrated
 gauge accuracy require separate work and evidence.
+
+## Attended Home AC candidate (v68)
+
+Stage `--battery-air61 --battery-home-transitions` only for the explicit attended
+capture. A separate capability admits Air6,1 to this bounded Home lifecycle;
+ordinary startup and indefinite sessions stay off. Existing firmware/query
+permissions, held mount, retirement ordering and mounted-fault halt policy are
+unchanged. Three phases require three fresh stable readings each, with ordered
+distinct generations and matching AC/current/indicator text. Each phase saves a
+screenshot. Phase timeouts remain two minutes and the owner watchdog eight
+minutes; the Air6,1 event ceiling remains 4096.
+
+Start connected to AC. Keep USB connected throughout. Follow the screen prompts:
+wait for the connected phase, unplug only AC when asked, then reconnect AC when
+asked. No keyboard input is required. Successful or cleanly retired incomplete
+captures save and return; uncertain mounted faults halt for a photograph. Collect
+strict `battery_home_transitions` proof, all logs and three distinct screenshots,
+prior-file hashes, offline allocation and recovery checks. Native acceptance is
+pending; the accepted idle capture does not accept transition behavior.

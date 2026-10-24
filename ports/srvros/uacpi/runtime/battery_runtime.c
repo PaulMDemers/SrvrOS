@@ -100,7 +100,7 @@ static bool smbus_capture_parked(void) {
 }
 /* An explicit native diagnostic owns the mount through normal runtime return.
  * This grants no fatal reset, general AML unwind, or desktop-startup capability. */
-static bool bounded_home, bounded_home_session, bounded_home_desktop;
+static bool bounded_home, bounded_home_session, bounded_home_desktop, bounded_home_transitions;
 static bool air61_home_owned(void) {
     return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
         runtime.platform.smbus_capture_profile && battery_bounded_home_entry(runtime.transition_mode,
@@ -108,6 +108,8 @@ static bool air61_home_owned(void) {
             (battery_bounded_home_session(bounded_home_session,smbus_controls,continuous_home,
                 desktop_home,desktop_capture,desktop_session)) ||
             battery_bounded_home_desktop(bounded_home_desktop,smbus_controls,continuous_home,
+                desktop_home,desktop_capture,desktop_session,desktop_transitions) ||
+            battery_bounded_home_transitions(bounded_home_transitions,smbus_controls,continuous_home,
                 desktop_home,desktop_capture,desktop_session,desktop_transitions))
             &&!smbus_capture&&!smbus_study,
         mounted_home&&workspace_mount_hold_valid(smbus_workspace_hold),auto_return,workspace_image_busy());
@@ -789,7 +791,7 @@ static void smbus_query_work(void) {
     if(!smbus_owned() || !runtime.service_mode ||
        runtime.sampler.active || runtime.sampler.waiting || runtime.lease ||
        (runtime.sampler.transaction.ec && runtime.sampler.transaction.phase!=8))unsafe("SMBus event ownership");
-    if(bounded_home_desktop && runtime.platform.bounded_samples_only && runtime.events.totals.events>=4096u)unsafe("bounded desktop event limit");
+    if((bounded_home_desktop || bounded_home_transitions) && runtime.platform.bounded_samples_only && runtime.events.totals.events>=4096u)unsafe("bounded desktop event limit");
     if(!continuous_home && (smbus_capture || mounted_home) && runtime.events.totals.events>=(smbus_transitions?4096u:(smbus_files || smbus_controls)?512u:128u))unsafe("SMBus capture event limit");
     if(!continuous_home && mounted_home && smbus_controls && home_session_events>=512)unsafe("Home session event limit");
     struct ec_smbus_event event={0};runtime.lease=true;
@@ -2290,14 +2292,18 @@ bool battery_home_desktop_session_run(void *rsdp,struct limine_memmap_response *
     return ok;
 }
 bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    if(bounded_home_desktop || bounded_home || bounded_home_session || auto_return)return false;
+    if(bounded_home_desktop || bounded_home_transitions || bounded_home || bounded_home_session || auto_return)return false;
     bounded_home_desktop=true;
     bool ok=home_desktop_capture_run(rsdp,map,false);
     bounded_home_desktop=false;
     return ok;
 }
 bool battery_home_transitions_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return home_desktop_capture_run(rsdp,map,true);
+    if(bounded_home_transitions || bounded_home_desktop || bounded_home || bounded_home_session || auto_return)return false;
+    bounded_home_transitions=true;
+    bool ok=home_desktop_capture_run(rsdp,map,true);
+    bounded_home_transitions=false;
+    return ok;
 }
 bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     /* Only this bounded diagnostic admits Air6,1 across repeated lifetimes.
