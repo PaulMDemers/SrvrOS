@@ -37,5 +37,9 @@ rollback without allocation, close/reopen and scrolling menus. The updated
 `tools/desktop_capacity_smoke.py` targets sixteen apps, seventeenth refusal,
 slot reuse, exact saved text, screenshot work at capacity and process cleanup.
 Arrange and compositor fixtures cover repeated generations, maximize/restore,
-sealed surfaces and input. VM and physical acceptance are pending for this
-candidate; see the reference machine record before claiming native support.
+sealed surfaces and input. The sixteen-window persistence/cleanup VM, arrange fixtures at 800x600 and
+1440x900 and compositor lifecycle fixture at 640x480 pass at `18280b8`. The
+sixteen-window run recorded 49564560 peak cache bytes (about 47.3 MiB) and zero
+bytes after retirement, versus the prior roughly 79 MiB eager reservation for
+eight slots. This is compositor pixel memory only, not whole-system usage.
+Physical acceptance remains pending; see the reference machine record.
