@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#define difftime test_difftime
 #define gmtime_r test_gmtime_r
 #define localtime_r test_localtime_r
 #define gmtime test_gmtime
@@ -14,6 +15,7 @@
 #define mktime test_mktime
 #define tzset test_tzset
 #include "../userspace/lib/src/posix_calendar.c"
+#undef difftime
 #undef gmtime_r
 #undef localtime_r
 #undef gmtime
@@ -35,6 +37,11 @@ static void stamp(time_t seconds) {
     else { assert(errno==reference_error && errno==EOVERFLOW);assert(!memcmp(&actual,&before,sizeof(actual))); }
 }
 int main(void) {
+    assert(test_difftime(INT64_MAX,INT64_MAX-3)==3.0);
+    assert(test_difftime(INT64_MIN,INT64_MIN+3)==-3.0);
+    assert(test_difftime(1,-1)==2.0 && test_difftime(-1,1)==-2.0);
+    assert(test_difftime(INT64_MAX,INT64_MIN)==(double)UINT64_MAX);
+    assert(test_difftime(INT64_MIN,INT64_MAX)==-(double)UINT64_MAX);
     setenv("TZ","UTC",1);tzset();
     int64_t first=srv_civil_days(1600,1,1),last=srv_civil_days(2401,1,1);
     for(int64_t day=first;day<last;day++) stamp(day*86400+45296);

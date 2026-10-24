@@ -1,6 +1,9 @@
 .section .text
 .global setjmp
+.global _setjmp
 .type setjmp, @function
+.type _setjmp, @function
+_setjmp:
 setjmp:
     mov %rbx, 0(%rdi)
     mov %rbp, 8(%rdi)
@@ -16,7 +19,10 @@ setjmp:
     ret
 
 .global longjmp
+.global _longjmp
 .type longjmp, @function
+.type _longjmp, @function
+_longjmp:
 longjmp:
     mov 0(%rdi), %rbx
     mov 8(%rdi), %rbp

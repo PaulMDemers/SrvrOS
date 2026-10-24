@@ -37,6 +37,7 @@ extern "C" {
 #endif
 
 time_t time(time_t *out);
+double difftime(time_t end, time_t beginning);
 struct tm *gmtime(const time_t *timer);
 struct tm *localtime(const time_t *timer);
 struct tm *localtime_r(const time_t *timer, struct tm *result);
