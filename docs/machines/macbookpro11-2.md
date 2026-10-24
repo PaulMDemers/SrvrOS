@@ -4309,3 +4309,31 @@ ESP only after byte-for-byte archive verification. Payload, checks, collector
 and run record archived outside build under `wifi-bbp-after-mac-88809f0`.
 Physical result pending; next is an attended cold adapter cycle. After return,
 collect the new matching session first and compare all58 observations with v31.
+
+### 2026-10-23 — v47 post-MAC baseband observation returned
+
+Source `88809f0`, release `6d6d0b1a49c3de4b`, native session
+`session-00065e8d0bce2741-00` completed. The prepared collector passed unchanged:
+all prior MAC/AMPDU prerequisites, three200/200/88-byte chunks, deliberate
+sequence6 reuse with exact ACK,124 reads, four MAC0/COREf000f200 guard pairs,
+58 observations and both completion markers.54 targets matched; the same four
+targets as v31 remained mismatched:
+
+- TXBE10/2728: expected0, before37fff, after38e30.
+- TXBE17/2744: expected0, before/afterfb3fee3c (v31fb3fec3c).
+- RXO21/2954: expected1, before/after0.
+- RXO24/2960: expected6, before/after0.
+
+All other before/after values exactly match v31. This single comparison does
+not establish the cause of the TXBE17 difference. MAC initialization through
+AMPDU did not resolve the four mismatches; table completion remains observation
+only, with register acceptance and RF/connectivity NOT_TESTED. Do not widen
+acceptance predicates based on this run. Next: audit these four register
+definitions and initialization ordering against the reference driver before
+selecting a bounded diagnostic; avoid repeating unchanged table trials.
+
+Ubuntu default, consumed one-shot, installed/known-good payload hashes verified.
+Workspace0E53-5900 clean235files/601clusters, zero leaks/mismatches, unmounted.
+Collection, comparison, run/checkpoint and hashes archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp-after-mac-88809f0/`.
+No reboot armed.

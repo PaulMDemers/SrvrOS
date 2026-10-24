@@ -1943,3 +1943,12 @@ All124 reads and all58 before/after values are retained. Completion remains
 observation only (`register_acceptance=NOT_TESTED`), including any mismatches.
 The old v31 and v46 profiles retain their behavior. No RF or connectivity
 acceptance is claimed; physical v47 results are pending.
+
+The v47 native run on Pro11,2 completed with all prerequisites,124 reads and
+58 observations validated. The same four v31 mismatches remain: TXBE10/2728
+read38e30 instead of0, TXBE17/2744 readfb3fee3c instead of0, RXO21/2954
+read0 instead of1, and RXO24/2960 read0 instead of6. Only TXBE17 differed
+from the earlier before/after capture (fb3fec3c); causality is not established.
+Thus MAC initialization through AMPDU did not resolve the table mismatches.
+Register acceptance remains NOT_TESTED. The next investigation is reference
+register semantics and initialization ordering, before any new native writes.
