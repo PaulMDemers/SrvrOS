@@ -974,3 +974,15 @@ retirement order, prior-file preservation and offline filesystem/allocation
 checks. A missing image or timeout is incomplete evidence. The saved indicator
 and AC/current changes establish transition behavior only, not calibrated gauge
 accuracy. See the [v52 contract](battery-home-lifecycle.md#guided-home-ac-transitions-v52).
+
+### Air6,1 short mounted Home trial
+
+After accepted exclusive-image coexistence, the explicit Air6,1 v65 command is
+`stage --laptop-probe-volume <this-unit-uuid> --battery-air61 --battery-home`.
+Build `acpi-air61-battery-kernel`, rehearse the exact stage with `--probe-check`
+and the actual partition table, and retain recovery. It holds normal Home during
+short sampling without desktop clients. Normal completion/refusal saves and
+returns; uncertain runtime faults halt with Home retained and never reset mounted
+storage. Keep AC/USB connected. Follow the [Air6,1 audit](macbookair6-1-battery.md#explicit-mounted-home-candidate-v65)
+and collect `battery_home` plus file/allocation proof before another trial.
+Native acceptance is pending; ordinary battery startup remains off.
