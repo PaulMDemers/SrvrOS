@@ -1944,3 +1944,14 @@ This accepts opt-in monitoring beyond eight minutes with clean native retirement
 and a persisted document, not multi-hour endurance or a reopen receipt absent
 from retained logs. Default battery startup remains off. The reported 16-window
 result belongs to another machine.
+
+## Combined built-in services scope (2026-10-24)
+
+Base `bc0edb9` includes ordinary Air6,1 admission and shared 16-window support.
+Objective: a distinct opt-in Air6,1 ordinary session combining battery, panel
+brightness, HDA audio and read-only CPU/SMC sensors, without USB networking or
+the optional AML probe. Scope: staging recipes, combined-session VM harness and
+this unit's current guides. Reuse existing exact device gates and lifetimes;
+no driver permission changes. Pro Wi-Fi and Air7,2 desktop API work remain
+independent. Next checkpoint: combined audio/absent-provider/exit/reopen and
+refusal VM coverage, exact staged GPT rehearsal, then an unarmed attended test.
