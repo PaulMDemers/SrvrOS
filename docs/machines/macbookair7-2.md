@@ -2,6 +2,21 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active scope: desktop window capacity and memory
+
+Base `468ca20`. Replace eager full-screen compositor cache pairs with bounded
+buffers allocated for live window sizes. Preserve the published frame and input
+ownership on failed growth, release buffers when a window retires, and test
+allocation/copy failures. Audit process, GUI queue/surface, menu and launcher
+budgets before raising the client limit toward sixteen; exercise opening beyond
+eight windows, repeated maximize/restore, close/reopen and pressure refusal.
+Scope: compositor/client buffer lifecycle, shared desktop capacity/protocol if
+needed, GUI resource budgets, host/VM regressions and current desktop guides.
+Pro PR19 at `636ecf9` remains independent Wi-Fi work. No native test is pending;
+current automatic payload `46b9132589405099`, recovery `9aa8dbf6fbda8252`.
+Publish this branch/PR, validate one build/VM at a time, then prepare a physical
+trial with explicit on-screen instructions if human interaction is required.
+
 ### Pending USB event-service gaps: bounded native result
 
 Based on `bf1b9a6` / PR127, this unit added conservative bounds on
