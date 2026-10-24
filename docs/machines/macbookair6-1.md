@@ -1789,3 +1789,17 @@ superseded Start/Stop EFI copy was removed only after independent backup hashes
 matched; accepted continuous and AC payloads remain installed. The next boot
 must collect its own screenshot, periodic/final logs, input/file receipts, new
 file contents, prior-file hashes and clean offline allocation before acceptance.
+
+### Integrated candidate after MR123
+
+Main `92722b7` landed during validation and is consumed by `6f25115`. The sole
+merge conflict was the boot-smoke result dictionary; both attended-work and
+network-probe fields are retained. Final v69 release `78fe53e8cacdb1ba` supersedes
+the never-installed `8245e30a2e9019ec` candidate. Rebuild/core/desktop and all
+105 staging/collector/receipt tests pass again. Completion (305.423 seconds,
+generation 1→123, 3,944 events, seven members), early exit, both refusals, the AC
+transition regression and both exact staged GPT/missing-Home checks pass on the
+integrated source. The eight-minute overrun receipt remains from `022d468`;
+battery runtime/desktop sources and the initramfs are unchanged by integration.
+The earlier stage and evidence remain preserved. Native acceptance is still
+pending; the same unarmed run and 251-file baseline apply to this final payload.
