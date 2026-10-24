@@ -505,3 +505,11 @@ across three lifetimes. Final close retires an active service. Require the stric
 session receipt, five files containing `AA`, preservation of every previous
 non-metadata file, clean offline allocation and Ubuntu recovery. Native v66
 acceptance remains pending; successful v65 and other machines do not supply it.
+
+The first v66 native session `00065e8b68f3ad24-00` failed before its first save:
+12 edits generated, 11 presented, one Start still waiting for fresh generation 2.
+The first-save helper rejects a waiting control, pointing to a test sequencing
+race. Runtime retired cleanly with 30 events; prior file contents, offline
+allocation and Ubuntu recovery passed. This does not accept bounded Home desktop
+coexistence. Preserve the failed session and reproduce delayed sample readiness
+before fixing the generated control/save ordering.
