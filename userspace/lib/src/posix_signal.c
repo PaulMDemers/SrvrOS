@@ -19,7 +19,7 @@ static int signal_valid(int signum) {
 
 static int signal_supported(int signum) {
     return signum == SIGINT ||
-        signum == SIGQUIT ||
+        signum == SIGQUIT || signum == SIGABRT || signum == SIGSEGV || signum == SIGPROF ||
         signum == SIGUSR1 ||
         signum == SIGUSR2 ||
         signum == SIGPIPE || signum == SIGXFSZ ||
@@ -38,9 +38,6 @@ static int signal_action_is_handler(sighandler_t handler) {
 
 static int signal_apply_action(int signum, sighandler_t handler) {
     if (!signal_supported(signum)) {
-        if (handler == SIG_DFL || handler == SIG_IGN) {
-            return 0;
-        }
         errno = EINVAL;
         return -1;
     }
@@ -75,8 +72,9 @@ int kill(pid_t pid, int sig) {
         errno = EINVAL;
         return -1;
     }
-    if (srv_kill_signal((int64_t)pid, (uint64_t)sig) < 0) {
-        errno = ESRCH;
+    long result=srv_kill_signal((int64_t)pid,(uint64_t)sig);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result : ESRCH;
         return -1;
     }
     (void)__posix_signal_dispatch_pending();

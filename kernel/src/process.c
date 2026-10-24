@@ -535,13 +535,19 @@ static bool process_all_threads_block_signal(struct process *process,uint64_t bi
 
 static uint64_t process_supported_signal_mask(void) {
     return (1ull << SRV_SIGNAL_HUP) | (1ull << SRV_SIGNAL_WINCH) | (1ull << SRV_SIGNAL_INT) |
-        (1ull << SRV_SIGNAL_QUIT) |
+        (1ull << SRV_SIGNAL_QUIT) | (1ull << SRV_SIGNAL_ABRT) |
+        (1ull << SRV_SIGNAL_SEGV) | (1ull << SRV_SIGNAL_PROF) |
         (1ull << SRV_SIGNAL_USR1) |
         (1ull << SRV_SIGNAL_USR2) |
         (1ull << SRV_SIGNAL_PIPE) | (1ull << SRV_SIGNAL_XFSZ) |
         (1ull << SRV_SIGNAL_ALRM) |
         (1ull << SRV_SIGNAL_TERM) |
         (1ull << SRV_SIGNAL_CHLD);
+}
+
+bool process_signal_is_supported(uint64_t signal) {
+    return signal==0 || signal==SRV_SIGNAL_KILL ||
+        (signal<64 && (process_supported_signal_mask() & (1ull<<signal))!=0);
 }
 
 static void process_apply_signal_defaults(struct process *process, uint64_t signal_default) {
@@ -2524,7 +2530,7 @@ bool process_kill_pid(uint64_t pid) {
 }
 
 bool process_signal_pid(uint64_t pid, uint64_t signal) {
-    if (signal >= 64) {
+    if (!process_signal_is_supported(signal)) {
         return false;
     }
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
@@ -2542,7 +2548,7 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
 }
 
 bool process_signal_target(int64_t pid, uint64_t signal) {
-    if (signal >= 64) {
+    if (pid==INT64_MIN || !process_signal_is_supported(signal)) {
         return false;
     }
     if (pid > 0) {

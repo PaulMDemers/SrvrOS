@@ -1981,7 +1981,8 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
 }
 
 static int64_t syscall_kill(int64_t pid, uint64_t signal) {
-    return process_signal_target(pid, signal) ? 0 : -1;
+    if(!process_signal_is_supported(signal)) return SRV_ERR_INVAL;
+    return process_signal_target(pid,signal)?0:SRV_ERR_SRCH;
 }
 
 static int64_t syscall_signal_config(uint64_t signal, uint64_t action) {

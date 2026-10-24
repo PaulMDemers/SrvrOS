@@ -21,6 +21,8 @@ extern "C" {
 #define _SC_NPROCESSORS_CONF 5
 #define _SC_HOST_NAME_MAX 6
 #define _SC_LOGIN_NAME_MAX 7
+#define _SC_THREAD_KEYS_MAX 8
+#define _SC_THREAD_DESTRUCTOR_ITERATIONS 9
 
 #define _PC_PATH_MAX 1
 

@@ -36,6 +36,15 @@ profile, not completed POSIX conformance.
 | Wait status distinguishes exit values 0–255 from signals; any-child/current-group/specific-group selectors and `wait()` | `threadstress/wait_test.c`; high exit values, self-signal, nohang, group isolation, reaping and system status | Stop/continue events and waitid remain unsupported; native monitor wait status stays unchanged |
 | `pselect`/`ppoll` temporary masks, error restoration and wide poll deadlines | `threadstress/masked_poll_test.c`, host poll/core and full thread VM suite | Atomicity relies on the current cooperative handler ABI; an asynchronous signal-frame implementation must introduce a kernel masked wait first. Poll still has a 64-entry bound. |
 
+`abort()` now raises SIGABRT, including when the signal was ignored or a handler
+returns; wait status identifies signal termination. Explicit SIGSEGV/SIGPROF
+signals have catchable dispositions, but this does not add hardware exception
+recovery or a profiling timer. Unsupported stop/continue requests fail instead
+of accidentally terminating the target. Stop/resume job control remains open.
+Thread-specific storage supports 128 keys, with exhaustion and repeated-use tests.
+The `_POSIX_*` minimum constants no longer alias local limits; the 160-byte path
+bound remains below the standard minimum and is an explicit compatibility gap.
+
 Resource limit changes are process-wide, including all workers. The current
 root-only profile may raise a previously lowered hard file-size limit. Unsupported
 finite policies return `EOPNOTSUPP` instead of changing an unenforced libc array.

@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <srvros/sys.h>
 #include <sys/random.h>
@@ -108,6 +109,8 @@ int getpagesize(void) {
 
 long sysconf(int name) {
     switch (name) {
+    case _SC_THREAD_KEYS_MAX: return PTHREAD_KEYS_MAX;
+    case _SC_THREAD_DESTRUCTOR_ITERATIONS: return PTHREAD_DESTRUCTOR_ITERATIONS;
     case _SC_PAGESIZE:
         return SRVROS_PAGE_SIZE;
     case _SC_NPROCESSORS_ONLN:

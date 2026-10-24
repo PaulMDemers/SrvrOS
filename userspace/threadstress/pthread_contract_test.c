@@ -3,6 +3,7 @@
 #include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <unistd.h>
 
 static pthread_key_t key;
 static unsigned ready,release_workers,destructor_calls[4],bad_destructor;
@@ -84,5 +85,17 @@ int posix_pthread_contract_test(void) {
     CHECK(pthread_getschedparam((pthread_t)(uintptr_t)0x123456,&policy,&param)==ESRCH);
     CHECK(sched_get_priority_min(SCHED_OTHER)==0 && sched_get_priority_max(SCHED_OTHER)==0);
     CHECK(sched_get_priority_min(SCHED_RR)==-1 && errno==EINVAL);
+    pthread_key_t keys[PTHREAD_KEYS_MAX],extra;
+    CHECK(PTHREAD_KEYS_MAX>=128 && sysconf(_SC_THREAD_KEYS_MAX)==PTHREAD_KEYS_MAX);
+    CHECK(sysconf(_SC_THREAD_DESTRUCTOR_ITERATIONS)==PTHREAD_DESTRUCTOR_ITERATIONS);
+    for(unsigned i=0;i<PTHREAD_KEYS_MAX;i++) {
+        CHECK(pthread_key_create(&keys[i],NULL)==0);
+        CHECK(pthread_setspecific(keys[i],(void *)(uintptr_t)(i+1))==0);
+    }
+    CHECK(pthread_key_create(&extra,NULL)==EAGAIN);
+    for(unsigned i=0;i<PTHREAD_KEYS_MAX;i++) {
+        CHECK(pthread_getspecific(keys[i])==(void *)(uintptr_t)(i+1));
+        CHECK(pthread_key_delete(keys[i])==0);
+    }
     puts("threadstress: pthread contracts ok");return 0;
 }

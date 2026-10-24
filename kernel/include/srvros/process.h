@@ -121,6 +121,7 @@ uint64_t process_list(uint64_t start_index,
 uint64_t process_list_details(uint64_t start_index, uint64_t *pid_out,
     const char **name_out, const char **state_out, uint64_t *parent_out, uint64_t *mapped_bytes_out);
 bool process_kill_pid(uint64_t pid);
+bool process_signal_is_supported(uint64_t signal);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
 bool process_signal_target(int64_t pid, uint64_t signal);
 bool process_signal_config_current(uint64_t signal, uint64_t action);

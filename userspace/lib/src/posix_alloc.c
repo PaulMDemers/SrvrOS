@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <spawn.h>
+#include <signal.h>
 #include <stdio.h>
 #include <srvros/sys.h>
 #include <stdint.h>
@@ -643,9 +644,15 @@ int system(const char *command) {
 }
 
 void abort(void) {
-    void *ra0 = __builtin_return_address(0);
-    fprintf(stderr, "abort: ra0=%p\n", ra0);
-    _exit(134);
+    sigset_t set;sigemptyset(&set);sigaddset(&set,SIGABRT);
+    (void)sigprocmask(SIG_UNBLOCK,&set,NULL);
+    (void)raise(SIGABRT);
+    /* A caught handler may return, and an ignored disposition must not make
+     * abort return. Reset the action and unblock again after the callback. */
+    (void)signal(SIGABRT,SIG_DFL);
+    (void)sigprocmask(SIG_UNBLOCK,&set,NULL);
+    (void)raise(SIGABRT);
+    _exit(127); /* Only reached if the native signal service itself failed. */
 }
 
 void exit(int status) {
