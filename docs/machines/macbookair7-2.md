@@ -16,6 +16,26 @@ main capture dispatch, staging/collection tests and documentation. Pro PR19
 `2a4079a` was inspected; its Wi-Fi/control-dispatch changes do not overlap storage
 bulk waiting. No hardware wait-policy refinement is accepted in advance.
 
+Controlled comparison implementation `7347ccc` consumes main `2702b41` and
+passes full local build/core/docs, policy owner/pending/quarantine refusal,
+controlled completion-delay matrix, logger corruption/flush-failure restoration,
+and strict parser/offline-fixture tests. A 5 ms injected completion is detected
+at 5.001 ms with polling or a 20 ms threshold, but at 10.006 ms with a 4 ms
+threshold. This establishes possible tick quantization, not native media latency.
+Fresh USB copy/input/persistence and stalled-transfer quarantine VM checks pass.
+Exact EFI/GPT `2218ef4113730414` completes all 18 measurements, persists the
+fixture exactly, unmounts and resets; missing-workspace automatic return passes.
+
+Next native run is the dedicated `--storage-wait-capture` profile. No typing,
+trackpad interaction or screenshots are needed; it saves a new fixture and logs
+and returns automatically on handled completion/failure. All 1030 existing USB
+files were hashed; offline fsck/allocation pass. Recovery remains
+`9aa8dbf6fbda8252`; the old baseline `9c57ca38a3771eef` was hash-verified into
+archived EFI storage before removing its unreferenced EFI copy for space.
+Run/reboot state: `build/storage-compare-20261023/checkpoint.json`, also backed up
+outside build before arming. Default 4 ms policy remains unchanged pending these
+measurements; PR118 remains draft.
+
 ### Active scope: bounded storage completion waits
 
 Branch `device/macbookair7-2/storage-wait` starts at main `4a991df` (PR116
