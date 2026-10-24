@@ -49,7 +49,7 @@ def check(data,case='normal',home=False,vm=True,query_policy=2):
     if unavailable:
         assert len(requests)==len(dispatch)==1 and not observed
         reason=(b'battery: REFUSED platform/resource ownership preflight' if case=='refusal' else b'battery-native-smbus: REFUSED captured controller profile') if home else b'battery-smbus-study: REFUSED model ownership profile'
-        assert reason in data or (home and case=='profile-refusal' and b'battery: REFUSED bounded profile requires an admitted bounded diagnostic owner' in data)
+        assert reason in data or (home and case=='profile-refusal' and any(x in data for x in (b'battery: REFUSED bounded profile requires an admitted bounded diagnostic owner',b'battery: REFUSED restricted profile requires an admitted Home or diagnostic owner')))
         if home:check_home_returns(data,0)
         assert outcome==[(b'NO',b'1',b'5')] and controls==[(b'FAIL',b'1',b'1')]
         assert b'desktools: file-result' not in data and b'battery-smbus: event=' not in data
