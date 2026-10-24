@@ -1930,3 +1930,16 @@ This accepts the bounded write/readback on this adapter; it does not establish
 reset semantics, aggregation performance, RF or connectivity. The complete
 collection and hashes are archived outside build. Remaining MAC prerequisites
 and the four unresolved full-table BBP readbacks are still open.
+
+### Post-MAC baseband observation candidate (v47)
+
+The opt-in `srvros.wifi-bbp-after-mac=1` profile repeats the existing 58-entry
+baseband table after all accepted MAC groups through AMPDU initialization.
+Every prerequisite must be complete, submitted and inactive. The unchanged
+200/200/88-byte packets use sequences0/0/6 after sequence15 has completed.
+The final exact address/value ACK distinguishes this response from the earlier
+sequence6 routing response; replay tests reject that response and sequence15.
+All124 reads and all58 before/after values are retained. Completion remains
+observation only (`register_acceptance=NOT_TESTED`), including any mismatches.
+The old v31 and v46 profiles retain their behavior. No RF or connectivity
+acceptance is claimed; physical v47 results are pending.

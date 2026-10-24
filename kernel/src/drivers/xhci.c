@@ -250,6 +250,7 @@ struct xhci_wifi_mcu {
     bool txbe_observe_active, txbe_first_active, txbe_first_submitted, txbe_second_mode;
     bool clock_mode,clock_active,clock_submitted,clock_pair_mode;
     struct mt76_clock_probe clock;
+    bool bbp_after_mac_mode;
     bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
     struct mt76_mac_snapshot mac_snapshot;
     bool mac_route_mode,mac_route_active,mac_route_submitted;

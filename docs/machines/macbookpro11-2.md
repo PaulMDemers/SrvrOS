@@ -4286,3 +4286,14 @@ No reboot armed. Acceptance is bounded to this register write/readback, not
 reset semantics, aggregation performance or connectivity. Next: remaining MAC
 prerequisites before revisiting the four unresolved baseband readbacks. Further
 MCU commands require deliberate sequence identifier reuse after15; do not use16.
+
+
+Active scope 2026-10-23: v47 full BBP observation after accepted MAC/AMPDU chain.
+Reuse the existing58-entry/three-chunk observation engine after every bounded MAC
+step completes. Exact legacy table ACK uses sequence6, deliberately reused only
+after all prior responses have been consumed; route's sequence6 ACK has a different
+address/value and must be rejected. No new table values or RF enable. Require
+all prerequisite modes/completions/submissions/inactive owners throughout table
+reads/exchanges. Preserve v31 and v46 behavior. Touch xHCI/main/staging/tests;
+collector reports mismatches without accepting them. Base4a991df, fetchedbbdbefb
+adds Air6,1 AC work; PR118 remains draft storage-wait scope, kept separate.

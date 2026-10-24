@@ -2756,6 +2756,112 @@ static void test_wifi_full_table(void){
  puts("xhci full BBP: PASS exact fixed chunks, no response for first chunks, ownership, no retry and quarantine");
 }
 
+static void test_wifi_bbp_after_mac(void){
+ for(unsigned chunk=0;chunk<3;chunk++)for(unsigned fault=0;fault<69;fault++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[200],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->bbp_after_mac_mode=true;m->mac_policy_validate=true;m->mac_fce_validate=true;
+  m->mac_route_mode=true;m->mac_route.complete=true;m->mac_route_submitted=true;
+  m->mac_policy_mode=true;m->mac_policy.complete=true;m->mac_policy_submitted=true;
+  m->mac_protect_mode=true;m->mac_protect.complete=true;m->mac_protect_submitted=true;
+  m->mac_contention_mode=true;m->mac_contention.complete=true;m->mac_contention_submitted=true;
+  m->mac_txsw_mode=true;m->mac_txsw.complete=true;m->mac_txsw_submitted=true;
+  m->mac_beacon_mode=true;m->mac_beacon.complete=true;m->mac_beacon_submitted=true;
+  m->mac_vht_mode=true;m->mac_vht.complete=true;m->mac_vht_submitted=true;
+  m->mac_buffer_mode=true;m->mac_buffer.complete=true;m->mac_buffer_submitted=true;
+  m->mac_fce_mode=true;m->mac_fce.complete=true;m->mac_fce_submitted=true;
+  m->mac_ampdu_mode=true;m->mac_ampdu.complete=true;m->mac_ampdu_submitted=true;
+  m->table=(struct mt76_bbp_table){.attempted=true,.reads=62,.chunks_attempted=chunk+1,.chunks_completed=chunk};m->table_submitted=chunk;
+  f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+  m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+  if(fault==1)m->table_mode=false;
+  if(fault==2)m->table_active=false;
+  if(fault==3)m->clock.complete=false;
+  if(fault==4)m->clock.written=false;
+  if(fault==5)m->clock_submitted=false;
+  if(fault==6)m->clock.pbf_after=0x80000;
+  if(fault==7)m->bbp.pbf=0x80000;
+  if(fault==8)m->compact_limit=11;
+  if(fault==9)m->compact_next=3;
+  if(fault==10)m->compact[1].complete=false;
+  if(fault==11)m->pending=true;
+  if(fault==12)m->timing.ack_validated=false;
+  if(fault==13)m->table.reads=61;
+  if(fault==14)m->table.chunks_attempted++;
+  if(fault==15)m->table.chunks_completed++;
+  if(fault==16)m->table.ack_validated=true;
+  if(fault==17)m->table.complete=true;
+  if(fault==18)m->table.attempted=false;
+  if(fault==19)m->clock_active=true;
+  if(fault==20)m->compact[2].attempted=true;
+  if(fault==21)events[0].status=6u<<24;
+  if(fault==22){if(chunk<2)continue;events[1].status=6u<<24;}
+  if(fault==25)m->mac_raw_mode=true;
+  if(fault==26)m->bbp_after_mac_mode=false;
+  if(fault==23)m->mac_snapshot_mode=true;
+  if(fault==24){m->mac_snapshot_mode=true;m->mac_snapshot.complete=true;m->mac_snapshot_active=true;}
+  if(fault==27)m->mac_route_mode=false;
+  if(fault==28)m->mac_route.complete=false;
+  if(fault==29)m->mac_route_submitted=false;
+  if(fault==30)m->mac_route_active=true;
+  if(fault==31)m->mac_policy_mode=false;
+  if(fault==32)m->mac_policy.complete=false;
+  if(fault==33)m->mac_policy_submitted=false;
+  if(fault==34)m->mac_policy_active=true;
+  if(fault==35)m->mac_protect_mode=false;
+  if(fault==36)m->mac_protect.complete=false;
+  if(fault==37)m->mac_protect_submitted=false;
+  if(fault==38)m->mac_protect_active=true;
+  if(fault==39)m->mac_contention_mode=false;
+  if(fault==40)m->mac_contention.complete=false;
+  if(fault==41)m->mac_contention_submitted=false;
+  if(fault==42)m->mac_contention_active=true;
+  if(fault==43)m->mac_txsw_mode=false;
+  if(fault==44)m->mac_txsw.complete=false;
+  if(fault==45)m->mac_txsw_submitted=false;
+  if(fault==46)m->mac_txsw_active=true;
+  if(fault==47)m->mac_beacon_mode=false;
+  if(fault==48)m->mac_beacon.complete=false;
+  if(fault==49)m->mac_beacon_submitted=false;
+  if(fault==50)m->mac_beacon_active=true;
+  if(fault==51)m->mac_vht_mode=false;
+  if(fault==52)m->mac_vht.complete=false;
+  if(fault==53)m->mac_vht_submitted=false;
+  if(fault==54)m->mac_vht_active=true;
+  if(fault==55)m->mac_buffer_mode=false;
+  if(fault==56)m->mac_buffer.complete=false;
+  if(fault==57)m->mac_buffer_submitted=false;
+  if(fault==58)m->mac_buffer_active=true;
+  if(fault==59)m->mac_fce_mode=false;
+  if(fault==60)m->mac_fce.complete=false;
+  if(fault==61)m->mac_fce_submitted=false;
+  if(fault==62)m->mac_fce_active=true;
+  if(fault==63)m->mac_ampdu_mode=false;
+  if(fault==64)m->mac_ampdu.complete=false;
+  if(fault==65)m->mac_ampdu_submitted=false;
+  if(fault==66)m->mac_ampdu_active=true;
+  if(fault==67)m->mac_policy_validate=false;
+  if(fault==68)m->mac_fce_validate=false;
+  size_t length=mt76_bbp_table_packet(chunk,packet,sizeof packet);
+  if(!fault){
+   uint32_t value;assert(!wifi_table_read(d,0x1000,&value));
+   for(unsigned i=0;i<length;i++)for(unsigned bit=0;bit<8;bit++){packet[i]^=1u<<bit;assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==-1);packet[i]^=1u<<bit;}
+   assert(wifi_table_exchange(d,packet,length-1,reply,sizeof reply)==-1);
+  }
+  if(fault && fault!=13 && fault!=14 && fault!=15 && fault!=16 && fault!=17 && fault!=18 && fault!=21 && fault!=22 && fault!=26)assert(!wifi_table_capture_owned(d));
+  assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==(fault?-1:chunk<2?0:16));
+  if(!fault){assert(!memcmp(tx,packet,length) && m->table_submitted==chunk+1);assert(m->response.enqueue==(chunk==2?1u:0u));assert(wifi_table_exchange(d,packet,length,reply,sizeof reply)==-1);}
+  else if(fault==21 || fault==22)assert(m->table_submitted==chunk+1 && f->failed && d->ep0_quarantined);
+  else assert(!f->ep.enqueue && !m->response.enqueue);
+ }
+ puts("xhci BBP after MAC: PASS exact fixed chunks, no response for first chunks, ownership, no retry and quarantine");
+}
+
 static void test_wifi_mac_route(void){
  for(unsigned fault=0;fault<23;fault++){
   reset_test();test_time=0;test_time_step=1000;
@@ -3601,6 +3707,7 @@ int main(int argc, char **argv) {
     test_wifi_mac_policy();
     test_wifi_mac_route();
     test_wifi_full_table();
+    test_wifi_bbp_after_mac();
     test_wifi_clock();
     test_wifi_txbe_direct();
     test_wifi_txbe_access_reads();

@@ -273,7 +273,7 @@ static void test_clock_pair(void){
  puts("clock pair: PASS exact ordered 24-byte packet, eight reads, all failures/cancellation, reply and target guards");
 }
 
-struct table_fake {unsigned reads,auth,fail,deny,ones,badguard,chunk;bool badreply,nonzero;};
+struct table_fake {unsigned reads,auth,fail,deny,ones,badguard,chunk,replay;bool badreply,nonzero;};
 static bool table_auth(void *p){struct table_fake *f=p;return ++f->auth!=f->deny;}
 static bool table_read_test(void *p,uint32_t a,uint32_t *v){
  struct table_fake *f=p;unsigned n=f->reads%62;assert(f->reads<124);
@@ -288,7 +288,10 @@ static int table_exchange_test(void *p,const uint8_t *packet,size_t length,uint8
  uint8_t expected[200];assert(length==mt76_bbp_table_packet(f->chunk,expected,sizeof expected) && !memcmp(packet,expected,length));
  unsigned chunk=f->chunk++;if(f->fail==125+chunk)return -1;
  if(chunk<2)return 0;
- word(reply,0x4a060008);word(reply+4,0x412938);word(reply+8,0x60612);word(reply+12,0x4a060008);if(f->badreply)reply[2]^=1;return 16;
+ word(reply,0x4a060008);word(reply+4,0x412938);word(reply+8,0x60612);word(reply+12,0x4a060008);if(f->badreply)reply[2]^=1;
+ if(f->replay==1){word(reply+4,0x41080c);word(reply+8,0x03ff0223);}
+ if(f->replay==2){word(reply,0x4a0f0008);word(reply+4,0x411030);word(reply+8,0xaaa99887);word(reply+12,0x4a0f0008);}
+ return 16;
 }
 static enum mt76_mcu_timing_status table_run(struct table_fake *f,struct mt76_bbp_table *s){const struct mt76_mcu_timing_io io={f,table_auth,table_read_test,table_exchange_test};return mt76_bbp_table_capture(s,&io);}
 static void test_full_table(void){
@@ -298,6 +301,7 @@ static void test_full_table(void){
  for(unsigned n=1;n<=128;n++){f=(struct table_fake){.deny=n};s=(struct mt76_bbp_table){0};assert(table_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete);}
  for(unsigned n=1;n<=124;n++){f=(struct table_fake){.ones=n};s=(struct mt76_bbp_table){0};assert(table_run(&f,&s)==MT76_TIMING_STATE && !s.complete);unsigned i=(n-1)%62;if(i<2 || i>=60){f=(struct table_fake){.badguard=n};s=(struct mt76_bbp_table){0};assert(table_run(&f,&s)==MT76_TIMING_STATE && !s.complete);}}
  f=(struct table_fake){.badreply=true};s=(struct mt76_bbp_table){0};assert(table_run(&f,&s)==MT76_TIMING_REPLY && !s.complete);
+ for(unsigned replay=1;replay<=2;replay++){f=(struct table_fake){.replay=replay};s=(struct mt76_bbp_table){0};assert(table_run(&f,&s)==MT76_TIMING_REPLY && !s.complete && s.reads==62 && !s.ack_validated);}
  f=(struct table_fake){.nonzero=true};s=(struct mt76_bbp_table){0};assert(table_run(&f,&s)==MT76_TIMING_OK && s.complete && s.mismatches==1 && s.after[37]==0x38e30);
  uint8_t packet[200];assert(mt76_bbp_table_packet(0,packet,sizeof packet)==200 && packet[2]==0xc0);assert(mt76_bbp_table_packet(2,packet,sizeof packet)==88 && packet[2]==0xc6);assert(!mt76_bbp_table_packet(3,packet,sizeof packet));assert(!mt76_bbp_table_packet(0,packet,199));assert(!mt76_bbp_table_read_allowed(0x273c+1));assert(!mt76_mcu_register_packet(true,0,(const struct mt76_mcu_register_pair[]){{0x2728,0}},1,packet,sizeof packet));
  puts("BBP table: PASS all read/transport/cancel/guard failures, mismatch accounting and no generic seq0 admission");

@@ -905,9 +905,27 @@ static bool wifi_table_owned(void *context){
         m->bbp.complete && m->bbp.core==0xf000f200 && m->bbp.pbf==0x80c00 &&
         m->identity_validated && m->write_validated && m->timing.complete && m->timing.ack_validated && d->firmware.radio_reset.prepared;
 }
+/* All previous responses are consumed before reusing the table's sequence6.
+ * Its exact address/value ACK differs from the earlier route ACK. */
+static bool wifi_table_capture_owned(void *context){
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(!wifi_table_owned(d))return false;
+    if(!m->bbp_after_mac_mode)return true;
+    return !m->mac_raw_mode && !m->mac_snapshot_mode && m->mac_policy_validate && m->mac_fce_validate &&
+        m->mac_route_mode && m->mac_route.complete && m->mac_route_submitted && !m->mac_route_active &&
+        m->mac_policy_mode && m->mac_policy.complete && m->mac_policy_submitted && !m->mac_policy_active &&
+        m->mac_protect_mode && m->mac_protect.complete && m->mac_protect_submitted && !m->mac_protect_active &&
+        m->mac_contention_mode && m->mac_contention.complete && m->mac_contention_submitted && !m->mac_contention_active &&
+        m->mac_txsw_mode && m->mac_txsw.complete && m->mac_txsw_submitted && !m->mac_txsw_active &&
+        m->mac_beacon_mode && m->mac_beacon.complete && m->mac_beacon_submitted && !m->mac_beacon_active &&
+        m->mac_vht_mode && m->mac_vht.complete && m->mac_vht_submitted && !m->mac_vht_active &&
+        m->mac_buffer_mode && m->mac_buffer.complete && m->mac_buffer_submitted && !m->mac_buffer_active &&
+        m->mac_fce_mode && m->mac_fce.complete && m->mac_fce_submitted && !m->mac_fce_active &&
+        m->mac_ampdu_mode && m->mac_ampdu.complete && m->mac_ampdu_submitted && !m->mac_ampdu_active;
+}
 static bool wifi_table_read(void *context,uint32_t address,uint32_t *value){
     struct xhci_device *d=context;
-    if(!value || !wifi_table_owned(d) || !mt76_bbp_table_read_allowed(address))return false;
+    if(!value || !wifi_table_capture_owned(d) || !mt76_bbp_table_read_allowed(address))return false;
     struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};int actual=0;
     if(!wifi_fw_control(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_mcu_fail(d);
     *value=0;for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
@@ -916,7 +934,7 @@ static bool wifi_table_read(void *context,uint32_t address,uint32_t *value){
 static int wifi_table_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_bbp_table *s=&m->table;
     unsigned chunk=m->table_submitted;uint8_t allowed[200];
-    if(m->mac_route_mode || m->mac_raw_mode || (m->mac_snapshot_mode && (!m->mac_snapshot.complete || m->mac_snapshot_active)) || !wifi_table_owned(d) || !packet || !reply || capacity<MT76_MCU_RESPONSE_MAX || chunk>=3 ||
+    if((m->mac_route_mode && !m->bbp_after_mac_mode) || m->mac_raw_mode || (m->mac_snapshot_mode && (!m->mac_snapshot.complete || m->mac_snapshot_active)) || !wifi_table_capture_owned(d) || !packet || !reply || capacity<MT76_MCU_RESPONSE_MAX || chunk>=3 ||
         !s->attempted || s->complete || s->ack_validated || s->reads!=62 || s->chunks_attempted!=chunk+1 || s->chunks_completed!=chunk ||
         length!=mt76_bbp_table_packet(chunk,allowed,sizeof allowed))return -1;
     for(unsigned i=0;i<length;i++)if(packet[i]!=allowed[i])return -1;
@@ -1424,7 +1442,8 @@ static bool wifi_mcu_mac_snapshot(struct xhci_device *d){
 static bool wifi_mcu_table_capture(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_bbp_table *s=&m->table;
     m->table_active=true;
-    const struct mt76_mcu_timing_io io={d,wifi_table_owned,wifi_table_read,wifi_table_exchange};
+    if(m->bbp_after_mac_mode)console_printf("wifi-bbp-after-mac: prerequisites=%u sequence_reuse=6\n",(uint64_t)wifi_table_capture_owned(d));
+    const struct mt76_mcu_timing_io io={d,wifi_table_capture_owned,wifi_table_read,wifi_table_exchange};
     enum mt76_mcu_timing_status status=mt76_bbp_table_capture(s,&io);m->table_active=false;
     console_printf("wifi-bbp-table: status=%u attempted=%u complete=%u reads=%u attempted_chunks=%u submitted=%u completed_chunks=%u ack_validated=%u mismatches=%u register_acceptance=NOT_TESTED\n",(uint64_t)status,(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->reads,(uint64_t)s->chunks_attempted,(uint64_t)m->table_submitted,(uint64_t)s->chunks_completed,(uint64_t)s->ack_validated,(uint64_t)s->mismatches);
     for(unsigned i=0;i<4;i++)console_printf("wifi-bbp-table-guard: index=%u mac=%x core=%x\n",(uint64_t)i,(uint64_t)s->mac[i],(uint64_t)s->core[i]);
@@ -1554,9 +1573,9 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             if(write_probe && !wifi_mcu_capture_write(d))saved=false;
             else if(pair_probe && !wifi_mcu_capture_pair(d,timing))saved=false;
             else if(compact) {
-                m->clock_pair_mode=observe==8;m->table_mode=observe>=9 && observe<=24;m->mac_route_mode=observe>=12 && observe<=24;m->mac_policy_mode=observe>=13 && observe<=24;m->mac_policy_validate=observe>=15 && observe<=24;m->mac_protect_mode=observe>=16 && observe<=24;m->mac_contention_mode=observe>=17 && observe<=24;m->mac_txsw_mode=observe>=18 && observe<=24;m->mac_beacon_mode=observe>=19 && observe<=24;m->mac_vht_mode=observe>=20 && observe<=24;m->mac_buffer_mode=observe>=21 && observe<=24;m->mac_fce_mode=observe>=22 && observe<=24;m->mac_fce_validate=observe==23 || observe==24;m->mac_ampdu_mode=observe==24;m->mac_policy_observe=observe==14;m->mac_snapshot_mode=observe==10 || observe==11;m->mac_raw_mode=observe==11;
+                m->clock_pair_mode=observe==8;m->table_mode=observe>=9 && observe<=25;m->mac_route_mode=observe>=12 && observe<=25;m->mac_policy_mode=observe>=13 && observe<=25;m->mac_policy_validate=observe>=15 && observe<=25;m->mac_protect_mode=observe>=16 && observe<=25;m->mac_contention_mode=observe>=17 && observe<=25;m->mac_txsw_mode=observe>=18 && observe<=25;m->mac_beacon_mode=observe>=19 && observe<=25;m->mac_vht_mode=observe>=20 && observe<=25;m->mac_buffer_mode=observe>=21 && observe<=25;m->mac_fce_mode=observe>=22 && observe<=25;m->mac_fce_validate=observe>=23 && observe<=25;m->mac_ampdu_mode=observe==24 || observe==25;m->bbp_after_mac_mode=observe==25;m->mac_policy_observe=observe==14;m->mac_snapshot_mode=observe==10 || observe==11;m->mac_raw_mode=observe==11;
                 if(!wifi_mcu_initialize_compact(d,m->table_mode?2:5+agc_steps,(observe==6 || observe==7 || observe==8 || m->table_mode)))saved=false;
-                else if(m->table_mode){if(!wifi_mcu_clock_enable(d) || !wifi_mcu_probe_bbp(d) || m->bbp.pbf!=0x80c00 || (m->mac_snapshot_mode && !wifi_mcu_mac_snapshot(d)) || (m->mac_route_mode && !wifi_mcu_mac_route(d)) || (m->mac_policy_mode && !wifi_mcu_mac_policy(d)) || (m->mac_protect_mode && !wifi_mcu_mac_protect(d)) || (m->mac_contention_mode && !wifi_mcu_mac_contention(d)) || (m->mac_txsw_mode && !wifi_mcu_mac_txsw(d)) || (m->mac_beacon_mode && !wifi_mcu_mac_beacon(d)) || (m->mac_vht_mode && !wifi_mcu_mac_vht(d)) || (m->mac_buffer_mode && !wifi_mcu_mac_buffer(d)) || (m->mac_fce_mode && !wifi_mcu_mac_fce(d)) || (m->mac_ampdu_mode && !wifi_mcu_mac_ampdu(d)) || (!m->mac_route_mode && !m->mac_raw_mode && !wifi_mcu_table_capture(d)))saved=false;}
+                else if(m->table_mode){if(!wifi_mcu_clock_enable(d) || !wifi_mcu_probe_bbp(d) || m->bbp.pbf!=0x80c00 || (m->mac_snapshot_mode && !wifi_mcu_mac_snapshot(d)) || (m->mac_route_mode && !wifi_mcu_mac_route(d)) || (m->mac_policy_mode && !wifi_mcu_mac_policy(d)) || (m->mac_protect_mode && !wifi_mcu_mac_protect(d)) || (m->mac_contention_mode && !wifi_mcu_mac_contention(d)) || (m->mac_txsw_mode && !wifi_mcu_mac_txsw(d)) || (m->mac_beacon_mode && !wifi_mcu_mac_beacon(d)) || (m->mac_vht_mode && !wifi_mcu_mac_vht(d)) || (m->mac_buffer_mode && !wifi_mcu_mac_buffer(d)) || (m->mac_fce_mode && !wifi_mcu_mac_fce(d)) || (m->mac_ampdu_mode && !wifi_mcu_mac_ampdu(d)) || ((m->bbp_after_mac_mode || (!m->mac_route_mode && !m->mac_raw_mode)) && !wifi_mcu_table_capture(d)))saved=false;}
                 else if(observe==4 || observe==5 || observe==6 || observe==7) { if(!wifi_mcu_txbe_access(d,observe==5 || observe==7))saved=false; }
                 else if(observe==2 || observe==3) { if(!wifi_mcu_txbe_first(d,observe==3))saved=false; }
                 else if(observe==1 && !wifi_mcu_observe_txbe(d))saved=false;
@@ -1660,3 +1679,5 @@ bool xhci_wifi_capture_mac_fce(void) { return wifi_capture_mcu(true,true,true,tr
 bool xhci_wifi_capture_mac_fce_validate(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,23); }
 
 bool xhci_wifi_capture_mac_ampdu(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,24); }
+
+bool xhci_wifi_capture_bbp_after_mac(void) { return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,25); }
