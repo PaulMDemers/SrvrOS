@@ -217,6 +217,7 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_sync_all(void);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
+bool process_open_file_size(const char *path,uint64_t *size);
 int64_t process_file_stat(struct process *process,
     uint64_t fd,
     struct vfs_metadata *metadata_out,

@@ -25,8 +25,8 @@ profile, not completed POSIX conformance.
 | Contract now implemented | Regression evidence | Remaining boundary |
 | --- | --- | --- |
 | Per-thread `errno`, initialized/zero TLS, reclaimed worker TLS | `threadstress/errno_test.c`, `test_process_loader.c`, guest `tlsprobe`; simultaneous workers and 16 reuse rounds with stable mapped bytes | Existing bounded worker slots remain |
-| Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate opens still use independent snapshots; cross-open coherence remains unfinished |
-| Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | General inode/open-description coherence, directory descriptors and all open flags remain incomplete |
+| Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate opens now share contents; private offsets remain in each open description |
+| Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | Cross-open content coherence is implemented; orphan inodes, directory descriptors and all open flags remain incomplete |
 | `select` ready-bit counts, masks, EBADF, timeout validation, IPv4 socket FD range | `test_posix_poll.c`, `libcprobe/readiness.c`; guest uses an explicit supported e1000 | `FD_SETSIZE=1024` accommodates current sockets, not all pseudo-FDs; poll remains bounded to 64 entries |
 | Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`; aliased remainder, signal interruption, no early completion | Timing remains subject to timer resolution and scheduling |
 | Thread-directed signals, blocked `raise`, per-thread dispatch guard, one-shot handler reset | `threadstress/targeted_signal_test.c`, host process-output tests, full thread and libuv guest suites | Handlers are still dispatched at libc checkpoints; no general asynchronous signal trampoline, altstack or siginfo frames |
@@ -35,6 +35,16 @@ profile, not completed POSIX conformance.
 | Kernel-owned file-size limits inherited by spawn and retained by exec; short writes at the boundary, EFBIG and thread-directed SIGXFSZ | `threadstress/resource_test.c`, full thread VM suite and local core tests | Other finite policy limits are explicitly unsupported; stack/core report fixed platform values, unspecified policies report infinity. Backend file capacity is separate from the policy limit. |
 | Wait status distinguishes exit values 0–255 from signals; any-child/current-group/specific-group selectors and `wait()` | `threadstress/wait_test.c`; high exit values, self-signal, nohang, group isolation, reaping and system status | Stop/continue events and waitid remain unsupported; native monitor wait status stays unchanged |
 | `pselect`/`ppoll` temporary masks, error restoration and wide poll deadlines | `threadstress/masked_poll_test.c`, host poll/core and full thread VM suite | Atomicity relies on the current cooperative handler ABI; an asynchronous signal-frame implementation must introduce a kernel masked wait first. Poll still has a 64-entry bound. |
+
+Separate opens now retain one in-memory content object, with independent offsets
+and status flags. Readers observe writes and truncation from other opens before
+flush; stat/fstat report the live size. Read-only fsync flushes shared dirty data,
+and closing one writer cannot overwrite another writer's changes. Bounded reads
+remain allocation-free under IRQ exclusion during owned I/O. Host failure/lifetime
+tests and a full guest thread suite, including four independent atomic appenders,
+pass. Native whole-file replacement/append refuses a live open path to avoid
+invalidating that content. Open-path unlink/rename still needs orphan identities;
+this does not implement power-loss atomicity or a general inode filesystem.
 
 Native `fork()` now implements a bounded single-thread CLI profile: eager private
 pages with copied TLS/FPU/register continuation, inherited regular-file and pipe

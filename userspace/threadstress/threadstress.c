@@ -594,6 +594,7 @@ int posix_masked_poll_test(void);
 int posix_wait_child(const char *mode);
 int posix_resource_child(int again);
 int posix_open_test(void);
+int posix_coherence_test(void);
 int posix_pthread_contract_test(void);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
@@ -620,6 +621,7 @@ int main(int argc, char **argv) {
     RUN_TEST("errno", posix_errno_test);
     RUN_TEST("positional", posix_positional_test);
     RUN_TEST("open", posix_open_test);
+    RUN_TEST("coherence", posix_coherence_test);
     RUN_TEST("sleep", posix_sleep_test);
     RUN_TEST("usage", posix_usage_test);
     RUN_TEST("resource", posix_resource_test);

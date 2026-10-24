@@ -952,6 +952,9 @@ static int64_t syscall_fs_write(const char *user_path, const uint8_t *buffer, ui
         return -1;
     }
 
+    /* Native whole-file publication must not invalidate a live POSIX content
+     * object. Callers can close their handles or use descriptor writes. */
+    if(process_has_open_vfs_prefix(path)) return SRV_ERR_AGAIN;
     /* A zero-byte replacement is still one directory publication. Do not open
      * O_TRUNC first: the old contents survive until exFAT publishes this data. */
     if (length == 0) return exfat_write_file(path, NULL, 0) ? 0 : -1;
@@ -982,6 +985,7 @@ static int64_t syscall_fs_append(const char *user_path, const uint8_t *buffer, u
         length > MAX_SYSCALL_COPY) {
         return -1;
     }
+    if(process_has_open_vfs_prefix(path)) return SRV_ERR_AGAIN;
     if (length != 0) {
         copy = kmalloc(length);
         if (copy == NULL) {
@@ -1045,6 +1049,7 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
         return -1;
     }
 
+    (void)process_open_file_size(path,&copy.size);
     copy.abi_version = SRV_ABI_VERSION;
     copy.struct_size = sizeof(copy);
     copy.inode = metadata.inode;
@@ -2503,7 +2508,7 @@ static int64_t syscall_sync(void) {
     return result;
 }
 
-/* Already-open read-only files own a retained memory snapshot. Their read
+/* Already-open read-only files retain shared in-memory contents. Their read
  * path only copies bytes and advances the shared cursor under IRQ exclusion;
  * it does not resolve a path, touch a block device, allocate, or close a ref.
  * Keep this narrow: no redirected stdio, writable handles, or unbounded copy. */

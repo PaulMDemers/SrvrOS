@@ -151,27 +151,28 @@ struct process_unix_listener {
     struct process_unix_pending queue[PROCESS_UNIX_ACCEPT_QUEUE];
 };
 
-struct process_write_file {
-    bool used;
+/* One content object per open pathname; offsets/status belong to descriptions.
+ * Unlink/rename of open paths remains refused until orphan inode support exists. */
+struct process_file_content {
     uint64_t refs;
-    uint64_t open_flags;
+    const struct vfs_node *node;
     const uint8_t *data;
-    uint64_t size;
-    uint64_t offset;
-    uint64_t capacity;
-    bool dirty;
-    bool failed;
+    uint64_t size,capacity;
+    bool owned,dirty,failed;
     char path[PROCESS_PATH_MAX];
 };
-
+struct process_write_file {
+    bool used;
+    uint64_t refs,open_flags,offset;
+    struct process_file_content *content;
+    char path[PROCESS_PATH_MAX];
+};
 struct process_read_file {
     bool used;
     uint64_t refs;
     const struct vfs_node *node;
-    const uint8_t *data;
-    uint64_t size;
-    uint64_t offset;
-    uint64_t status_flags;
+    struct process_file_content *content;
+    uint64_t offset,status_flags;
     char path[PROCESS_PATH_MAX];
 };
 
@@ -310,6 +311,7 @@ void gdt_set_kernel_stack(uint64_t stack_top);
 
 static struct process processes[PROCESS_MAX_PROCESSES];
 static uint64_t system_reaper_pid;
+static struct process_file_content file_contents[PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES];
 static struct process_write_file write_files[PROCESS_MAX_WRITE_FILES];
 static struct process_read_file read_files[PROCESS_MAX_READ_FILES];
 static struct process_pipe pipes[PROCESS_MAX_PIPES];
@@ -3581,11 +3583,57 @@ int64_t process_file_pty_pair(struct process *process,uint64_t fds_out[2]) {
     fds_out[0]=index[0]+3;fds_out[1]=index[1]+3;return 0;
 }
 
+static struct process_file_content *content_find(const char *path) {
+    for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++)
+        if(file_contents[i].refs && process_path_equal(file_contents[i].path,path)) return &file_contents[i];
+    return NULL;
+}
+bool process_open_file_size(const char *path,uint64_t *size) {
+    struct process_file_content *content=content_find(path);
+    if(!content) return false;
+    *size=content->size;return true;
+}
+/* Takes the retained VFS snapshot even when a content object already exists. */
+static struct process_file_content *content_acquire(const struct vfs_node *node,
+    const char *path,const uint8_t *data,uint64_t size) {
+    struct process_file_content *content=content_find(path);
+    if(content) {
+        content->refs++;
+        if(data) vfs_release_data(node,data);
+        return content;
+    }
+    for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++) if(!file_contents[i].refs) {
+        content=&file_contents[i];
+        *content=(struct process_file_content){.refs=1,.node=node,.data=data,.size=size};
+        if(copy_process_path(content->path,sizeof(content->path),path)) return content;
+        content->refs=0;break;
+    }
+    if(data) vfs_release_data(node,data);
+    return NULL;
+}
+static int64_t content_flush(struct process_file_content *content) {
+    if(content->failed) return SRV_ERR_IO;
+    if(!content->dirty) return 0;
+    if(!exfat_write_file(content->path,content->data,content->size)) {
+        content->failed=true;return SRV_ERR_IO;
+    }
+    content->dirty=false;return 0;
+}
+static int64_t content_release(struct process_file_content *content) {
+    if(!content || !content->refs) return SRV_ERR_BADF;
+    if(--content->refs) return 0;
+    int64_t result=content_flush(content);
+    if(content->data) {
+        if(content->owned) kfree((void *)content->data);
+        else if(content->node) vfs_release_data(content->node,content->data);
+    }
+    *content=(struct process_file_content){0};return result;
+}
 int64_t process_file_alloc(struct process *process,
     const struct vfs_node *node,
     const uint8_t *data,
     uint64_t size) {
-    if (process == NULL || node == NULL || data == NULL) {
+    if (process == NULL || node == NULL || (data == NULL && size != 0)) {
         return -1;
     }
 
@@ -3613,6 +3661,8 @@ int64_t process_file_alloc(struct process *process,
         return -1;
     }
 
+    struct process_file_content *content=content_acquire(node,node->path,data,size);
+    if(!content) return SRV_ERR_NOMEM;
     struct process_read_file *read = &read_files[handle - 1];
     uint8_t *read_bytes = (uint8_t *)read;
     for (uint64_t i = 0; i < sizeof(*read); i++) {
@@ -3621,8 +3671,7 @@ int64_t process_file_alloc(struct process *process,
     read->used = true;
     read->refs = 1;
     read->node = node;
-    read->data = data;
-    read->size = size;
+    read->content = content;
     read->offset = 0;
     (void)copy_process_path(read->path, sizeof(read->path), node->path);
 
@@ -3634,8 +3683,7 @@ int64_t process_file_alloc(struct process *process,
     file->used = true;
     file->type = PROCESS_FILE_VFS;
     file->node = node;
-    file->data = data;
-    file->size = size;
+    /* Contents are resolved through the description, never a stale pointer. */
     file->handle = handle;
     file->flags = 0;
     (void)copy_process_path(file->path, sizeof(file->path), node->path);
@@ -3668,9 +3716,7 @@ static void read_file_close(uint64_t handle) {
     if (file->refs > 0) {
         return;
     }
-    if (file->node != NULL && file->data != NULL) {
-        vfs_release_data(file->node, file->data);
-    }
+    (void)content_release(file->content);
     uint8_t *bytes = (uint8_t *)file;
     for (uint64_t i = 0; i < sizeof(*file); i++) {
         bytes[i] = 0;
@@ -3701,18 +3747,18 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
             process_irq_restore(flags);
             return -1;
         }
-        size = read->size;
+        size = read->content->size;
         offset = read->offset;
-        data = read->data;
+        data = read->content->data;
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
         if (write == NULL || !(write->open_flags & SRV_OPEN_READ)) {
             process_irq_restore(flags);
             return -1;
         }
-        size = write->size;
+        size = write->content->size;
         offset = write->offset;
-        data = write->data;
+        data = write->content->data;
     }
 
     uint64_t remaining = offset <= size ? size - offset : 0;
@@ -3799,13 +3845,13 @@ static bool file_lock_range_for_fd(struct process_file *file,
             if (read == NULL) {
                 return false;
             }
-            base = read->size;
+            base = read->content->size;
         } else if (file->type == PROCESS_FILE_VFS_WRITE) {
             struct process_write_file *write = write_file_at(file->handle);
             if (write == NULL) {
                 return false;
             }
-            base = write->size;
+            base = write->content->size;
         } else {
             base = file->size;
         }
@@ -3915,41 +3961,26 @@ static void write_file_ref(uint64_t handle) {
     }
 }
 
-static bool ensure_write_capacity(struct process_write_file *file, uint64_t needed) {
-    if (file == NULL) {
-        return false;
+static bool ensure_write_capacity(struct process_write_file *file,uint64_t needed) {
+    if(!file || !file->content) return false;
+    struct process_file_content *content=file->content;
+    if(content->owned && needed<=content->capacity) return true;
+    uint64_t capacity=content->capacity?content->capacity:4096;
+    if(needed<content->size) needed=content->size;
+    if(needed>PROCESS_WRITE_BUFFER_MAX) return false;
+    while(capacity<needed) capacity*=2;
+    uint8_t *next=kmalloc(capacity);
+    if(!next) return false;
+    for(uint64_t i=0;i<content->size;i++) next[i]=content->data[i];
+    for(uint64_t i=content->size;i<capacity;i++) next[i]=0;
+    uint64_t irq=process_irq_save();
+    const uint8_t *previous=content->data;bool owned=content->owned;
+    content->data=next;content->capacity=capacity;content->owned=true;
+    if(previous) {
+        if(owned) kfree((void *)previous);
+        else if(content->node) vfs_release_data(content->node,previous);
     }
-    if (needed <= file->capacity) {
-        return true;
-    }
-
-    uint64_t capacity = file->capacity == 0 ? 4096 : file->capacity;
-    while (capacity < needed) {
-        uint64_t next = capacity * 2;
-        if (next <= capacity) {
-            return false;
-        }
-        capacity = next;
-    }
-
-    uint8_t *next_data = kmalloc(capacity);
-    if (next_data == NULL) {
-        return false;
-    }
-
-    for (uint64_t i = 0; i < file->size; i++) {
-        next_data[i] = file->data[i];
-    }
-    for (uint64_t i = file->size; i < capacity; i++) {
-        next_data[i] = 0;
-    }
-
-    if (file->data != NULL) {
-        kfree((void *)file->data);
-    }
-    file->data = next_data;
-    file->capacity = capacity;
-    return true;
+    process_irq_restore(irq);return true;
 }
 
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags) {
@@ -3972,7 +4003,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     if(exists && node->type==VFS_NODE_DIRECTORY) return SRV_ERR_ISDIR;
     if (!exists && (flags & SRV_OPEN_CREATE) == 0) return SRV_ERR_NOENT;
 
-    if (exists && !trunc && !vfs_read_all(node, &old_data, &old_size)) {
+    if (exists && !content_find(path) && !vfs_read_all(node, &old_data, &old_size)) {
         return SRV_ERR_IO;
     }
 
@@ -3997,43 +4028,21 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         return SRV_ERR_IO;
     }
 
-    struct process_write_file *write = write_file_at(handle);
-    if (write == NULL ||
-        !copy_process_path(write->path, sizeof(write->path), path) ||
-        (old_size != 0 && !ensure_write_capacity(write, old_size))) {
-        if (old_data != NULL) {
-            vfs_release_data(node, old_data);
-        }
-        if (write != NULL && write->data != NULL) {
-            kfree((void *)write->data);
-        }
-        if (write != NULL) {
-            write->used = false;
-        }
-        return SRV_ERR_IO;
+    struct process_write_file *write=write_file_at(handle);
+    write->content=content_acquire(node,path,old_data,old_size);
+    if(!write->content || !copy_process_path(write->path,sizeof(write->path),path)) {
+        if(write->content) (void)content_release(write->content);
+        *write=(struct process_write_file){0};return SRV_ERR_NOMEM;
     }
-
-    for (uint64_t j = 0; j < old_size; j++) {
-        ((uint8_t *)write->data)[j] = old_data[j];
+    if((flags&SRV_OPEN_WRITE) && !ensure_write_capacity(write,write->content->size)) {
+        (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_NOMEM;
     }
-    write->size = trunc ? 0 : old_size;
-    write->open_flags = flags;
-    write->offset = append ? write->size : 0;
-    write->dirty = false;
-    if (old_data != NULL) {
-        vfs_release_data(node, old_data);
+    if(ensure_empty && !exfat_write_file(path,NULL,0)) {
+        (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_IO;
     }
-    if (ensure_empty && !exfat_write_file(path, NULL, 0)) {
-        if (write->data != NULL) {
-            kfree((void *)write->data);
-        }
-        uint8_t *write_bytes = (uint8_t *)write;
-        for (uint64_t j = 0; j < sizeof(*write); j++) {
-            write_bytes[j] = 0;
-        }
-        return SRV_ERR_IO;
-    }
-
+    if(ensure_empty) { write->content->size=0;write->content->dirty=false; }
+    write->open_flags=flags;
+    write->offset=append?write->content->size:0;
     struct process_file *file = &process->files[free_index];
     uint8_t *bytes = (uint8_t *)file;
     for (uint64_t j = 0; j < sizeof(*file); j++) {
@@ -4082,7 +4091,7 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         return 0;
     }
 
-    uint64_t position=(write->open_flags & SRV_OPEN_APPEND)?write->size:write->offset;
+    uint64_t position=(write->open_flags & SRV_OPEN_APPEND)?write->content->size:write->offset;
     int64_t allowed=process_fsize_write(process,position,length);
     if(allowed<0) { process_irq_restore(flags);return allowed; }
     length=(uint64_t)allowed;
@@ -4091,13 +4100,13 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
     }
     uint64_t needed=position+length;
     if(!ensure_write_capacity(write,needed)) { process_irq_restore(flags);return SRV_ERR_NOMEM; }
-    for(uint64_t i=write->size;i<position;i++) ((uint8_t *)write->data)[i]=0;
-    copy_bytes((uint8_t *)write->data+position,buffer,length);
+    for(uint64_t i=write->content->size;i<position;i++) ((uint8_t *)write->content->data)[i]=0;
+    copy_bytes((uint8_t *)write->content->data+position,buffer,length);
     write->offset=needed;
-    if (write->offset > write->size) {
-        write->size = write->offset;
+    if (write->offset > write->content->size) {
+        write->content->size = write->offset;
     }
-    write->dirty = true;
+    write->content->dirty = true;
     process_irq_restore(flags);
     return (int64_t)length;
 }
@@ -4135,11 +4144,11 @@ int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer
     if (file->type==PROCESS_FILE_VFS) {
         struct process_read_file *read=read_file_at(file->handle);
         if (!read) { result=SRV_ERR_BADF; goto done; }
-        data=read->data; size=read->size;
+        data=read->content->data; size=read->content->size;
     } else if (file->type==PROCESS_FILE_VFS_WRITE) {
         struct process_write_file *write=write_file_at(file->handle);
         if (!write || !(write->open_flags&SRV_OPEN_READ)) { result=SRV_ERR_BADF; goto done; }
-        data=write->data; size=write->size;
+        data=write->content->data; size=write->content->size;
     } else { result=SRV_ERR_SPIPE; goto done; }
     uint64_t position=(uint64_t)offset;
     uint64_t count=position<size?size-position:0;
@@ -4176,10 +4185,10 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
     if (!ensure_write_capacity(write,end)) { result=SRV_ERR_NOMEM; goto done; }
     /* Reserve first. A failed request must not poison or discard earlier writes.
      * O_APPEND intentionally does not affect a positional write. */
-    for (uint64_t i=write->size;i<position;i++) ((uint8_t *)write->data)[i]=0;
-    for (uint64_t i=0;i<length;i++) ((uint8_t *)write->data)[position+i]=buffer[i];
-    if (end>write->size) write->size=end;
-    write->dirty=true;
+    for (uint64_t i=write->content->size;i<position;i++) ((uint8_t *)write->content->data)[i]=0;
+    for (uint64_t i=0;i<length;i++) ((uint8_t *)write->content->data)[position+i]=buffer[i];
+    if (end>write->content->size) write->content->size=end;
+    write->content->dirty=true;
     result=(int64_t)length;
 done:
     process_irq_restore(irq);
@@ -4314,9 +4323,7 @@ static int64_t write_file_close(uint64_t handle) {
         result = -1;
     }
 
-    if (write->data != NULL) {
-        kfree((void *)write->data);
-    }
+    if(content_release(write->content)<0) result=SRV_ERR_IO;
     uint8_t *bytes = (uint8_t *)write;
     for (uint64_t i = 0; i < sizeof(*write); i++) {
         bytes[i] = 0;
@@ -4332,13 +4339,13 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
     if(file->type!=PROCESS_FILE_VFS_WRITE) goto done;
     struct process_write_file *write=write_file_at(file->handle);
     if(!write || !(write->open_flags&SRV_OPEN_WRITE)) goto done;
-    if(length>write->size && length>process->fsize_limit.current) {
+    if(length>write->content->size && length>process->fsize_limit.current) {
         process_fsize_signal(process);result=SRV_ERR_FBIG;goto done;
     }
     if(length>PROCESS_WRITE_BUFFER_MAX) { result=SRV_ERR_FBIG;goto done; }
     if(!ensure_write_capacity(write,length)) { result=SRV_ERR_NOMEM;goto done; }
-    for(uint64_t i=write->size;i<length;i++) ((uint8_t *)write->data)[i]=0;
-    write->size=length;write->dirty=true;result=0;
+    for(uint64_t i=write->content->size;i<length;i++) ((uint8_t *)write->content->data)[i]=0;
+    write->content->size=length;write->content->dirty=true;result=0;
 done:
     process_irq_restore(irq);return result;
 }
@@ -4360,8 +4367,11 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
         if (file == NULL) {
             return -1;
         }
-        if (file->type == PROCESS_FILE_VFS ||
-            file->type == PROCESS_FILE_STDIO ||
+        if(file->type==PROCESS_FILE_VFS) {
+            struct process_read_file *read=read_file_at(file->handle);
+            return read?content_flush(read->content):SRV_ERR_BADF;
+        }
+        if (file->type == PROCESS_FILE_STDIO ||
             file->type == PROCESS_FILE_PTY_MASTER || file->type == PROCESS_FILE_PTY_SLAVE ||
             file->type == PROCESS_FILE_PIPE_READ ||
             file->type == PROCESS_FILE_PIPE_WRITE ||
@@ -4376,28 +4386,13 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
     if (write == NULL) {
         return -1;
     }
-    if (write->failed) {
-        return -1;
-    }
-    if (!write->dirty) {
-        return 0;
-    }
-
-    bool ok = exfat_write_file(write->path, write->data, write->size);
-    /* An I/O failure must not trigger deletion of the existing file. The
-     * filesystem overwrite path already handles growth and truncation. */
-    if (!ok) {
-        write->failed = true;
-        return -1;
-    }
-    write->dirty = false;
-    return 0;
+    return content_flush(write->content);
 }
 
 int64_t process_file_sync_all(void) {
     int64_t result = 0;
     for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES; i++) {
-        if (write_files[i].used && write_files[i].dirty && process_file_flush(NULL, i + 1) < 0) {
+        if (write_files[i].used && write_files[i].content->dirty && process_file_flush(NULL, i + 1) < 0) {
             result = -1;
         }
     }
@@ -4966,10 +4961,10 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
         if ((events & SRV_POLLIN) != 0) {
             revents |= SRV_POLLIN;
         }
-        if ((events & SRV_POLLOUT) != 0 && !write->failed) {
+        if ((events & SRV_POLLOUT) != 0 && !write->content->failed) {
             revents |= SRV_POLLOUT;
         }
-        if (write->failed) {
+        if (write->content->failed) {
             revents |= SRV_POLLERR;
         }
         return revents;
@@ -5185,8 +5180,7 @@ static bool process_file_clone_entry(struct process_file *target, const struct p
     target->used = true;
     target->type = PROCESS_FILE_VFS;
     target->node = read->node;
-    target->data = read->data;
-    target->size = read->size;
+    /* Shared content is reached through the retained description. */
     target->handle = source->handle;
     target->flags = source->flags;
     (void)copy_process_path(target->path, sizeof(target->path), source->path);
@@ -5628,7 +5622,7 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
             return -1;
         }
         current_offset = read->offset;
-        current_size = read->size;
+        current_size = read->content->size;
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
         if (write == NULL) {
@@ -5636,7 +5630,7 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
             return -1;
         }
         current_offset = write->offset;
-        current_size = write->size;
+        current_size = write->content->size;
     }
 
     int64_t base;
@@ -5651,9 +5645,11 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
         return -1;
     }
 
+    if((offset>0 && base>INT64_MAX-offset) || (offset<0 && base<INT64_MIN-offset)) {
+        process_irq_restore(flags);return SRV_ERR_INVAL;
+    }
     int64_t target = base + offset;
-    if (target < 0 ||
-        (file->type == PROCESS_FILE_VFS && (uint64_t)target > current_size)) {
+    if (target < 0) {
         process_irq_restore(flags);
         return -1;
     }
@@ -5718,7 +5714,7 @@ int64_t process_file_stat(struct process *process,
             if (write == NULL) {
                 return -1;
             }
-            *size_out = write->size;
+            *size_out = write->content->size;
             if (!vfs_stat(write->path, metadata_out, NULL, type_out)) {
                 if (metadata_out != NULL) {
                     *metadata_out = (struct vfs_metadata) {
@@ -5734,7 +5730,7 @@ int64_t process_file_stat(struct process *process,
         if (read == NULL) {
             return -1;
         }
-        *size_out = read->size;
+        *size_out = read->content->size;
         if (read->node != NULL) {
             *type_out = (uint64_t)read->node->type;
             if (metadata_out != NULL) {
@@ -6038,8 +6034,8 @@ static bool mmap_file_source(struct process *process,
         if (read == NULL) {
             return false;
         }
-        *data_out = read->data;
-        *size_out = read->size;
+        *data_out = read->content->data;
+        *size_out = read->content->size;
         return true;
     }
     if (file->type == PROCESS_FILE_VFS_WRITE) {
@@ -6047,8 +6043,8 @@ static bool mmap_file_source(struct process *process,
         if (write == NULL) {
             return false;
         }
-        *data_out = write->data;
-        *size_out = write->size;
+        *data_out = write->content->data;
+        *size_out = write->content->size;
         return true;
     }
     return false;

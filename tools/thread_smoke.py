@@ -123,6 +123,7 @@ def main():
             "threadstress: errno ok",
             "threadstress: positional ok",
             "threadstress: open ok",
+            "threadstress: coherence ok",
             "threadstress: sleep ok",
             "threadstress: usage ok",
             "threadstress: resource ok",

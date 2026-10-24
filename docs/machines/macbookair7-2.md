@@ -58,7 +58,11 @@ reaping and fork/exec. Expanded exec-family/error/signal inheritance checks pass
 description offsets, preserve bounded in-memory reads during owned I/O, and test
 cross-open writes/truncation/stat/close ordering and allocation failure. Native
 filesystem publication and unsupported unlink-while-open remain explicitly
-separate from this coherence block. No reboot is needed.
+separate from this coherence block. The shared-content host tests, full core/build
+and full `thread-shared-files.log` suite pass, including four concurrent appenders.
+Main advanced to `36080fc` with Air6,1 documentation-only PR135; no runtime overlap.
+Next: orphan-file lifetime and portable consumer tests, preserving shared-content
+and native desktop I/O guarantees. No reboot is needed.
 
 ### Desktop architecture, scalable windows and POSIX audit
 
