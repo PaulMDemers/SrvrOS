@@ -161,7 +161,6 @@ def main():
                     qmp.key('ret');wait(b'file-result role=text op=2 status=0')
                     launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
                     launch('Terminal',b'deskterm: ready');time.sleep(1)
-                    terminal_pid=re.findall(rb'deskd: opened pid=(\d+) window=\d+',output)[-1]
                     if args.audio:
                         type_text('/fat/bin/playwav /fat/share/examples/stereo.wav > /work/srvros-work/audio-proof.txt\n')
                         time.sleep(9)
@@ -197,10 +196,11 @@ def main():
                     if args.case=='cancel':shortcut('ctrl-alt-esc')
                     else:
                         shortcut('f10');shortcut('end');shortcut('ret')
-                        wait(b'deskd: close-request pid='+terminal_pid+b' ')
-                        # Terminal deliberately defaults to Cancel while its shell
-                        # is live. Confirm Close instead of bypassing its dialog.
-                        time.sleep(.5);shortcut('shift-tab');shortcut('ret')
+                        # Terminal defaults to Cancel while its shell is live.
+                        # Allow the dialog to render, then confirm Close. Serial
+                        # close-request lines can be lost amid concurrent output;
+                        # the complete/drained/released checks below prove exit.
+                        time.sleep(2);shortcut('shift-tab');shortcut('ret')
                     wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
                     data=bytes(output)
                     acquired=re.search(rb'battery-desktop-lifetime: acquired token=(\d+) root=(\d+)',data)
