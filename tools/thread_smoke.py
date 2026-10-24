@@ -125,6 +125,7 @@ def main():
             "threadstress: open ok",
             "threadstress: sleep ok",
             "threadstress: usage ok",
+            "threadstress: resource ok",
             "threadstress: pthread contracts ok",
             "threadstress: targeted signal ok",
             "threadstress: mutex ok",

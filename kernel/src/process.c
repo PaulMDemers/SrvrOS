@@ -198,6 +198,7 @@ struct process {
     uint64_t main_pending_signals;
     uint64_t user_us,system_us,main_user_us,main_system_us;
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
+    struct srv_rlimit fsize_limit;
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t session_id;
@@ -438,6 +439,29 @@ static void process_account_child(struct process *parent,struct process *child) 
     if(peak>parent->child_peak_bytes) parent->child_peak_bytes=peak;
     process_irq_restore(irq);
 }
+/* Limits belong to the process, survive exec and are inherited by spawn.
+ * Unsupported finite policies must not silently succeed. */
+int64_t process_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out) {
+    struct process *process=process_current();
+    if(!process || resource>9) return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();
+    struct srv_rlimit value={UINT64_MAX,UINT64_MAX};
+    if(resource==SRV_RLIMIT_FSIZE) value=process->fsize_limit;
+    else if(resource==SRV_RLIMIT_STACK) value=(struct srv_rlimit){USER_STACK_PAGES*PAGE_SIZE,USER_STACK_PAGES*PAGE_SIZE};
+    else if(resource==SRV_RLIMIT_CORE) value=(struct srv_rlimit){0,0};
+    int64_t result=0;
+    if(set) {
+        if(set->current>set->maximum) result=SRV_ERR_INVAL;
+        else if(resource==SRV_RLIMIT_FSIZE) {
+            /* Single-user root profile: raising a previously lowered hard limit
+             * is permitted. The backing filesystem has independent size limits. */
+            process->fsize_limit=*set;value=*set;
+        } else if(set->current!=value.current || set->maximum!=value.maximum) result=SRV_ERR_NOTSUP;
+    }
+    if(!result && out) *out=value;
+    process_irq_restore(irq);return result;
+}
+
 int64_t process_usage(int64_t who,struct srv_usage *out) {
     struct process *process=process_current();
     if(!process || !out || (who!=SRV_USAGE_SELF && who!=SRV_USAGE_CHILDREN && who!=SRV_USAGE_THREAD)) return SRV_ERR_INVAL;
@@ -514,7 +538,7 @@ static uint64_t process_supported_signal_mask(void) {
         (1ull << SRV_SIGNAL_QUIT) |
         (1ull << SRV_SIGNAL_USR1) |
         (1ull << SRV_SIGNAL_USR2) |
-        (1ull << SRV_SIGNAL_PIPE) |
+        (1ull << SRV_SIGNAL_PIPE) | (1ull << SRV_SIGNAL_XFSZ) |
         (1ull << SRV_SIGNAL_ALRM) |
         (1ull << SRV_SIGNAL_TERM) |
         (1ull << SRV_SIGNAL_CHLD);
@@ -645,6 +669,7 @@ static void clear_process(struct process *process) {
     for (uint64_t i = 0; i < sizeof(*process); i++) {
         bytes[i] = 0;
     }
+    process->fsize_limit=(struct srv_rlimit){UINT64_MAX,UINT64_MAX};
 }
 
 static struct process_lifetime *lifetime_find(uint64_t token) {
@@ -725,6 +750,7 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     process->active=true;process->detached=detached;process->pid=pid;
     process->lifetime=token;
     process->parent_pid=process_pid(parent);
+    if(parent) process->fsize_limit=parent->fsize_limit;
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
     process->controlling_tty=parent?parent->controlling_tty:0;
@@ -3909,6 +3935,20 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     return (int64_t)(free_index + 3);
 }
 
+static void process_fsize_signal(struct process *process) {
+    if(process==process_current()) (void)process_thread_signal(process_thread_self(),SRV_SIGNAL_XFSZ);
+    else (void)process_queue_signal_locked(process,SRV_SIGNAL_XFSZ);
+}
+
+/* Return a short write at the soft boundary, and signal only when no byte
+ * fits. Zero-byte writes never extend the file or generate a signal. */
+static int64_t process_fsize_write(struct process *process,uint64_t position,uint64_t length) {
+    if(!length) return 0;
+    uint64_t limit=process->fsize_limit.current;
+    if(position>=limit) { process_fsize_signal(process);return SRV_ERR_FBIG; }
+    return (int64_t)(length>limit-position?limit-position:length);
+}
+
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
     struct process_file *endpoint=process_file_at(process,fd);
     if(endpoint && (endpoint->type==PROCESS_FILE_PTY_MASTER || endpoint->type==PROCESS_FILE_PTY_SLAVE))
@@ -3930,6 +3970,9 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
     }
 
     uint64_t position=(write->open_flags & SRV_OPEN_APPEND)?write->size:write->offset;
+    int64_t allowed=process_fsize_write(process,position,length);
+    if(allowed<0) { process_irq_restore(flags);return allowed; }
+    length=(uint64_t)allowed;
     if(position>PROCESS_WRITE_BUFFER_MAX || length>PROCESS_WRITE_BUFFER_MAX-position) {
         process_irq_restore(flags);return SRV_ERR_FBIG;
     }
@@ -4010,6 +4053,9 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
     if (!write || !(write->open_flags & SRV_OPEN_WRITE)) { result=SRV_ERR_BADF; goto done; }
     if (!length) { result=0; goto done; }
     uint64_t position=(uint64_t)offset;
+    result=process_fsize_write(process,position,length);
+    if(result<0) goto done;
+    length=(uint64_t)result;
     if (position>PROCESS_WRITE_BUFFER_MAX || length>PROCESS_WRITE_BUFFER_MAX-position) {
         result=SRV_ERR_FBIG; goto done;
     }
@@ -4173,6 +4219,9 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
     if(file->type!=PROCESS_FILE_VFS_WRITE) goto done;
     struct process_write_file *write=write_file_at(file->handle);
     if(!write || !(write->open_flags&SRV_OPEN_WRITE)) goto done;
+    if(length>write->size && length>process->fsize_limit.current) {
+        process_fsize_signal(process);result=SRV_ERR_FBIG;goto done;
+    }
     if(length>PROCESS_WRITE_BUFFER_MAX) { result=SRV_ERR_FBIG;goto done; }
     if(!ensure_write_capacity(write,length)) { result=SRV_ERR_NOMEM;goto done; }
     for(uint64_t i=write->size;i<length;i++) ((uint8_t *)write->data)[i]=0;

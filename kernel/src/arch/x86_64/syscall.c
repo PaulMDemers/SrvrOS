@@ -2553,6 +2553,16 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+static int64_t syscall_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out,uint64_t size) {
+    if(size!=sizeof(struct srv_rlimit) || (!set && !out) ||
+       (set && !user_buffer_ok(set,size,false)) || (out && !user_buffer_ok(out,size,true))) return SRV_ERR_FAULT;
+    struct srv_rlimit input={0},output;
+    if(set) input=*set;
+    int64_t result=process_rlimit(resource,set?&input:NULL,&output);
+    if(!result && out) *out=output;
+    return result;
+}
+
 static int64_t syscall_usage(int64_t who,struct srv_usage *out,uint64_t size) {
     if(size!=sizeof(*out) || !out || !user_buffer_ok(out,size,true)) return SRV_ERR_FAULT;
     struct srv_usage snapshot;
@@ -3023,6 +3033,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
+        return;
+    case SYS_RLIMIT:
+        frame->rax=(uint64_t)syscall_rlimit(frame->rdi,(const struct srv_rlimit *)frame->rsi,(struct srv_rlimit *)frame->rdx,frame->rcx);
         return;
     case SYS_USAGE:
         frame->rax=(uint64_t)syscall_usage((int64_t)frame->rdi,(struct srv_usage *)frame->rsi,frame->rdx);

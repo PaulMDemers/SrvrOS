@@ -586,12 +586,16 @@ int posix_errno_test(void);
 int posix_positional_test(void);
 int posix_sleep_test(void);
 int posix_usage_test(void);
+int posix_resource_test(void);
+int posix_resource_child(int again);
 int posix_open_test(void);
 int posix_pthread_contract_test(void);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"resource-child")) return posix_resource_child(0);
+    if(argc==2 && !strcmp(argv[1],"resource-exec-child")) return posix_resource_child(1);
     if(argc==2 && !strcmp(argv[1],"cpu-child")) return posix_cpu_child();
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
@@ -611,6 +615,7 @@ int main(int argc, char **argv) {
     RUN_TEST("open", posix_open_test);
     RUN_TEST("sleep", posix_sleep_test);
     RUN_TEST("usage", posix_usage_test);
+    RUN_TEST("resource", posix_resource_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("targeted signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);

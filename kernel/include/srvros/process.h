@@ -244,6 +244,7 @@ int64_t process_thread_status(uint64_t tid);
 int64_t process_thread_signal(uint64_t tid,uint64_t signal);
 /* CPU0 scheduler-owned accounting, while IRQs are masked. */
 void process_account_cpu(void *process,void *thread,bool user,uint64_t elapsed_us);
+int64_t process_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out);
 int64_t process_usage(int64_t who,struct srv_usage *out);
 uint64_t process_thread_self(void);
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);

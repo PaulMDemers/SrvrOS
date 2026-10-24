@@ -181,10 +181,7 @@ ssize_t write(int fd, const void *buffer, size_t length) {
                 errno = EINTR;
                 return -1;
             }
-            if (__posix_signal_dispatch_pending() != 0) {
-                errno = EINTR;
-                return -1;
-            }
+            (void)__posix_signal_dispatch_pending();
             errno = result < -1 ? (int)-result : EBADF;
             return -1;
         }
@@ -219,6 +216,7 @@ ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
         errno = ESPIPE; return -1;
     }
     long result = srv_pwrite(fd,buffer,length,offset);
+    (void)__posix_signal_dispatch_pending();
     if (result<0) { errno=(int)-result; return -1; }
     return (ssize_t)result;
 }
@@ -853,6 +851,7 @@ int ftruncate(int fd, off_t length) {
         return -1;
     }
     long result=srv_ftruncate(fd,(uint64_t)length);
+    (void)__posix_signal_dispatch_pending();
     if (result < 0) {
         errno = result < -1 ? (int)-result : EBADF;
         return -1;

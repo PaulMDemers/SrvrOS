@@ -23,8 +23,11 @@ reclaimed worker TLS, thread-directed signals, actual CPU accounting and peak
 mapped-memory usage. Focused host tests and full thread/libc/TLS/libuv guest
 suites pass for their respective blocks. Pthread key/read-write lock semantics
 now pass their semantic guest tests. A same-process scheduler CR3 regression
-exposed by stress is fixed in `fad4bf4`. Limits/open-file semantics and the broader profile are still
-in progress. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
+exposed by stress is fixed in `fad4bf4`. Regular-file access/exclusive-create/shared flags and safe truncation pass the
+full core and thread VM suites. Kernel file-size limits, inheritance across
+spawn/exec, thread-directed SIGXFSZ and explicit unsupported priority controls
+also pass full core/thread validation; wider port regressions are running.
+Wait-status semantics, descriptor coherence and the broader profile remain in progress. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
 changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
 work. No native reboot has been armed or physical acceptance claimed.
 

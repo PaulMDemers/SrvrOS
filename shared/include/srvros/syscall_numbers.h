@@ -141,6 +141,7 @@
 #define SYS_PWRITE 139
 #define SYS_THREAD_SIGNAL 140
 #define SYS_USAGE 141
+#define SYS_RLIMIT 142
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -149,6 +150,11 @@
 #define SRV_USAGE_SELF 0
 #define SRV_USAGE_CHILDREN -1
 #define SRV_USAGE_THREAD 1
+struct srv_rlimit { uint64_t current, maximum; };
+#define SRV_RLIMIT_FSIZE 1
+#define SRV_RLIMIT_STACK 3
+#define SRV_RLIMIT_CORE 4
+
 struct srv_usage {
     uint64_t user_us, system_us, peak_mapped_bytes, resolution_us;
 };
@@ -269,6 +275,8 @@ struct srv_winsize {
     uint16_t ypixel;
 };
 
+#define SRV_ERR_PERM -1
+#define SRV_ERR_NOTSUP -95
 #define SRV_ERR_NOENT -2
 #define SRV_ERR_SRCH -3
 #define SRV_ERR_INTR -4
@@ -438,6 +446,7 @@ struct srv_meminfo {
 #define SRV_SIGNAL_CONT 18
 #define SRV_SIGNAL_STOP 19
 #define SRV_SIGNAL_TSTP 20
+#define SRV_SIGNAL_XFSZ 25
 
 #define SRV_SIGNAL_DEFAULT 0
 #define SRV_SIGNAL_CATCH 1

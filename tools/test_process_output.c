@@ -51,7 +51,7 @@ bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *siz
 }
 static struct process subject;
 static void setup(unsigned refs) {
-    memset(&subject,0,sizeof(subject));memset(write_files,0,sizeof(write_files));
+    clear_process(&subject);memset(write_files,0,sizeof(write_files));
     saves=0;fail_save=false;saved_size=0;
     uint64_t handle=write_file_alloc();assert(handle==1);
     write_files[0].open_flags=SRV_OPEN_READ|SRV_OPEN_WRITE;
@@ -60,7 +60,7 @@ static void setup(unsigned refs) {
     subject.stdout_redirect=true;subject.stdout_fd=3;
 }
 static void pipe_regression(void) {
-    memset(&subject,0,sizeof(subject));memset(pipes,0,sizeof(pipes));uint64_t fds[2];
+    clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
     assert(!process_file_pipe(&subject,fds) && fds[0]==3 && fds[1]==4);
     subject.files[0].flags=subject.files[1].flags=SRV_FD_NONBLOCK;
     static uint8_t input[PROCESS_PIPE_CAPACITY+512],output[PROCESS_PIPE_CAPACITY+512],model[PROCESS_PIPE_CAPACITY];
@@ -99,7 +99,7 @@ static void pipe_regression(void) {
 static void snapshot_read_regression(void) {
     static uint8_t data[32777],out[16386];
     for(unsigned i=0;i<sizeof(data);i++)data[i]=(uint8_t)(i*37);
-    memset(&subject,0,sizeof(subject));memset(read_files,0,sizeof(read_files));
+    clear_process(&subject);memset(read_files,0,sizeof(read_files));
     read_files[0]=(struct process_read_file){.used=true,.refs=2,.data=data,.size=sizeof(data)};
     subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS,.handle=1};
     subject.files[1]=subject.files[0];
@@ -114,7 +114,7 @@ static void snapshot_read_regression(void) {
     read_files[0].offset=UINT64_MAX;assert(!process_file_read(&subject,4,out+1,16));
     read_files[0].used=false;assert(process_file_read(&subject,4,out+1,16)==-1);
     assert(process_file_read(&subject,5,out+1,16)==-1);
-    memset(read_files,0,sizeof(read_files));memset(&subject,0,sizeof(subject));
+    memset(read_files,0,sizeof(read_files));clear_process(&subject);
 }
 static void positional_regression(void) {
     setup(2);
@@ -154,10 +154,10 @@ static void positional_regression(void) {
     subject.files[2].used=false;
     assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0);
     assert(saved_size==9 && !memcmp(saved,"Hello\0\0\0!",9));
-    memset(&subject,0,sizeof(subject));
+    clear_process(&subject);
 }
 static void targeted_signal_regression(void) {
-    memset(&subject,0,sizeof(subject));subject.active=true;current_subject=&subject;
+    clear_process(&subject);subject.active=true;current_subject=&subject;
     uint64_t bit=1ull<<SRV_SIGNAL_USR1;
     subject.main_signal_mask=bit;
     for(unsigned i=0;i<2;i++) subject.user_threads[i]=(struct process_user_thread){
@@ -198,7 +198,7 @@ static void targeted_signal_regression(void) {
 void scheduler_account_now(void) {}
 bool timer_reference_ready(void) { return true; }
 static void cpu_usage_regression(void) {
-    memset(&subject,0,sizeof(subject));subject.allocated=true;current_subject=&subject;current_worker=NULL;
+    clear_process(&subject);subject.allocated=true;current_subject=&subject;current_worker=NULL;
     subject.user_threads[0].owner=&subject;
     process_account_cpu(&subject,NULL,true,100);process_account_cpu(&subject,NULL,false,25);
     process_account_cpu(&subject,&subject.user_threads[0],true,300);
@@ -217,7 +217,7 @@ static void cpu_usage_regression(void) {
     puts("process-usage: PASS process/main/worker isolation and reaped descendant accumulation");
 }
 static void open_flags_regression(void) {
-    memset(&subject,0,sizeof(subject));memset(write_files,0,sizeof(write_files));
+    clear_process(&subject);memset(write_files,0,sizeof(write_files));
     opening=fixture_exists=true;memcpy(saved,"seed",4);saved_size=4;saves=0;
     assert(process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_EXCL)==SRV_ERR_EXIST && saves==0);
     long fd=process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE);assert(fd==3);
@@ -280,7 +280,7 @@ int main(void) {
     assert(process_input_write(&subject,(const uint8_t *)"stdin",5)==5 && saves==0);
     assert(process_file_flush(&subject,0)==0 && saves==1);
     assert(finish_process_files(&subject,0)==0 && saves==1);
-    memset(&subject,0,sizeof(subject));
+    clear_process(&subject);
     assert(process_fd_is_console(&subject,0,true) && process_fd_is_console(&subject,1,false));
     assert(!process_fd_is_console(&subject,0,false) && !process_fd_is_console(&subject,1,true));
     assert(!process_fd_is_console(&subject,3,false));
@@ -301,7 +301,7 @@ int main(void) {
     assert(finish_process_files(&subject,0)==0 && pipes[0].write_refs==0);
     /* PTY duplicates retain endpoints; stdio resolves to the slave and
      * last-master close queues HUP only for its own terminal session. */
-    memset(&subject,0,sizeof(subject));uint64_t fds[2];
+    clear_process(&subject);uint64_t fds[2];
     assert(process_file_pty_pair(&subject,fds)==0 && fds[0]==3 && fds[1]==4);
     uint64_t handle=process_tty_handle(&subject,3);assert(handle && process_tty_handle(&subject,4)==handle);
     subject.stdin_redirect=true;subject.stdin_fd=4;subject.stdout_redirect=true;subject.stdout_fd=4;

@@ -124,7 +124,8 @@ def main():
         "time true\n"
         "timeout 1 sleep 2 || echo timeout-killed-ok\n"
         "nohup echo nohup-ok\n"
-        "nice -n 5 echo nice-ok\n"
+        "nice -n 0 echo nice-ok\n"
+        "nice -n 5 true || echo nice-unsupported-ok\n"
         "echo posixutils-done\n"
         "exit\n"
     )
@@ -213,6 +214,7 @@ def main():
         "timeout-killed-ok",
         "nohup-ok",
         "nice-ok",
+        "nice-unsupported-ok",
         "posixutils-done",
     ]
     lines = {line.strip() for line in text.splitlines()}

@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
+#include <limits.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -1015,15 +1017,25 @@ static int nice_main(int argc, char **argv) {
         usage("nice");
         return 0;
     }
-    int first = 1;
-    if (argc > 3 && strcmp(argv[1], "-n") == 0) {
-        first = 3;
-    } else if (argc > 1 && argv[1][0] == '-' && isdigit((unsigned char)argv[1][1])) {
-        first = 2;
+    int first=1;
+    long increment=10;
+    const char *number=NULL;
+    if(argc>2 && !strcmp(argv[1],"-n")) { number=argv[2];first=3; }
+    else if(argc>1 && argv[1][0]=='-' && isdigit((unsigned char)argv[1][1])) { number=argv[1]+1;first=2; }
+    if(number) {
+        char *end;errno=0;increment=strtol(number,&end,10);
+        if(errno || !*number || *end || increment<INT_MIN || increment>INT_MAX) {
+            fprintf(stderr,"nice: invalid adjustment\n");return 1;
+        }
     }
-    if (argc <= first) {
-        usage("nice");
-        return 1;
+    if(argc<=first) { usage("nice");return 1; }
+    errno=0;int current=getpriority(PRIO_PROCESS,0);
+    if(current==-1 && errno) { perror("nice");return 1; }
+    long wanted=(long)current+increment;
+    if(wanted<-20) wanted=-20;
+    if(wanted>19) wanted=19;
+    if(setpriority(PRIO_PROCESS,0,(int)wanted)<0) {
+        fprintf(stderr,"nice: requested scheduling adjustment unavailable\n");return 1;
     }
     return spawn_and_wait(&argv[first], 0, 0, 0);
 }

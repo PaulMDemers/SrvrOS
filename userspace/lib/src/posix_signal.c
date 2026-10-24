@@ -22,7 +22,7 @@ static int signal_supported(int signum) {
         signum == SIGQUIT ||
         signum == SIGUSR1 ||
         signum == SIGUSR2 ||
-        signum == SIGPIPE ||
+        signum == SIGPIPE || signum == SIGXFSZ ||
         signum == SIGALRM ||
         signum == SIGTERM ||
         signum == SIGCHLD || signum == SIGHUP || signum == SIGWINCH;

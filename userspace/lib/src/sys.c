@@ -592,6 +592,9 @@ long srv_thread_detach(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_DETACH, (long)tid);
 }
 
+long srv_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out) {
+    return srv_syscall4(SYS_RLIMIT,(long)resource,(long)set,(long)out,sizeof(struct srv_rlimit));
+}
 long srv_usage(int64_t who,struct srv_usage *out) {
     return srv_syscall3(SYS_USAGE,(long)who,(long)out,sizeof(*out));
 }

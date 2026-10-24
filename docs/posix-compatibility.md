@@ -25,12 +25,23 @@ profile, not completed POSIX conformance.
 | Contract now implemented | Regression evidence | Remaining boundary |
 | --- | --- | --- |
 | Per-thread `errno`, initialized/zero TLS, reclaimed worker TLS | `threadstress/errno_test.c`, `test_process_loader.c`, guest `tlsprobe`; simultaneous workers and 16 reuse rounds with stable mapped bytes | Existing bounded worker slots remain |
-| Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate open descriptions still use snapshots; general open/write flags need more work |
+| Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate opens still use independent snapshots; cross-open coherence remains unfinished |
+| Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | General inode/open-description coherence, directory descriptors and all open flags remain incomplete |
 | `select` ready-bit counts, masks, EBADF, timeout validation, IPv4 socket FD range | `test_posix_poll.c`, `libcprobe/readiness.c`; guest uses an explicit supported e1000 | `FD_SETSIZE=1024` accommodates current sockets, not all pseudo-FDs; poll remains bounded to 64 entries |
 | Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`; aliased remainder, signal interruption, no early completion | Timing remains subject to timer resolution and scheduling |
 | Thread-directed signals, blocked `raise`, per-thread dispatch guard, one-shot handler reset | `threadstress/targeted_signal_test.c`, host process-output tests, full thread and libuv guest suites | Handlers are still dispatched at libc checkpoints; no general asynchronous signal trampoline, altstack or siginfo frames |
 | Process/thread CPU clocks, `clock`, `times`, reaped-child CPU totals and peak mapped memory | `threadstress/usage_test.c`, scheduler and process host fixtures; busy/sleeping workers, child wait and peak retention | CPU0 accounting uses the monotonic reference; auxiliary rusage counters remain zero, and this is not an energy measurement |
 | Shared-reader/exclusive-writer locks, thread-local key values, key generation reuse and repeated destructors | `threadstress/pthread_contract_test.c`; concurrent readers, blocked writer, destructor reinstallation and deleted/recreated keys | Bounded keys/workers; reader-preference locking, no real-time scheduling policy |
+
+| Kernel-owned file-size limits inherited by spawn and retained by exec; short writes at the boundary, EFBIG and thread-directed SIGXFSZ | `threadstress/resource_test.c`, full thread VM suite and local core tests | Other finite policy limits are explicitly unsupported; stack/core report fixed platform values, unspecified policies report infinity. Backend file capacity is separate from the policy limit. |
+
+Resource limit changes are process-wide, including all workers. The current
+root-only profile may raise a previously lowered hard file-size limit. Unsupported
+finite policies return `EOPNOTSUPP` instead of changing an unenforced libc array.
+Priority queries validate process identity and report the supported zero priority;
+nonzero changes and group/user priority operations are explicitly unsupported.
+The `nice` utility and libuv adapter propagate those errors instead of claiming
+an adjustment happened. This is a restricted scheduler, not a nice-aware one.
 
 `sigaction` refuses unsupported delivery flags rather than accepting them as
 working. Pending thread signals are private to their target; process-directed
