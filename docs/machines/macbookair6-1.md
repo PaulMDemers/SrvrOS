@@ -1602,3 +1602,28 @@ startup, indefinite sessions and attended Home transitions stay excluded. Keep
 firmware/query permissions unchanged. PR19 Wi-Fi has independent staging changes;
 preserve its recipes and avoid xHCI/network files. Previous run is collected;
 this trial requires its own evidence and must preserve all current USB files.
+
+## Continuous Home candidate validated (2026-10-23)
+
+Release `a18d72aecdf808c7`, clean compiled source `503dd05`, selects v67.
+Full build/USB image and core/desktop suites pass, as do exhaustive native
+admission checks, 71 staging, 26 collector and four continuous receipt tests.
+Air6,1 completion ran 189.6 seconds, advanced generation 1→76 with 2440 events,
+saved the desktop screenshot and periodic/final logs, and retired five clients
+and runtime cleanly. Profile/query refusals and uncertain-acknowledgement halt
+cases pass. Air7,2 continuous capture and Air6,1 delayed Start/save regressions
+pass. Exact EFI/GPT save/unmount/return and missing-workspace rehearsals pass.
+The VM screenshot was inspected; native indicator accuracy remains untested.
+
+Run `eddc64efe16de005` preserves all 234 USB files unchanged, including the
+accepted and failed study artifacts. Offline fsck/allocation/headroom pass with
+548 clusters and no leaks/mismatches/errors. The failed initial v66 EFI copy
+`f60d9b426e2693f3` was removed only after verifying its independent backup;
+accepted v66 `7fe7d3d20d91997c`, short Home and console recovery remain retained.
+Payload and evidence backups are outside build. Final installation and unarmed
+state are recorded in the run/launch files; native acceptance is pending.
+
+Keep AC/USB connected and provide no input. Allow three minutes plus startup,
+screenshot saving and retirement before automatic Ubuntu return. Photograph any
+halt. Collect the matching strict `battery_home_desktop` proof, all four logs,
+new screenshot, prior-file hashes and offline allocation before another run.
