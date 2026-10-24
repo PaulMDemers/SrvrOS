@@ -307,14 +307,42 @@ The next optimization needs preserved input/IO behavior and measured activity;
 repeat thermally controlled comparisons before making a power claim.
 
 
-### Compositor follow-up (native acceptance pending)
+### Compositor follow-up: polling reduction, overall efficiency unresolved
 
 PR112 adds a [combined server wait](native-desktop.md#quiescent-compositor-waits)
 without changing hardware polling. Source `92edfcb`, v26 release
-`dc06bc673689e011`, records 499 compositor switches over 50.170 seconds in the
-exact EFI/GPT VM (9.946/second). Post-idle titlebar drag and typing/exact save,
+`dc06bc673689e011`, passes VM post-idle titlebar drag and typing/exact save,
 context menus/clipboard, input during a guarded 4 MiB+17-byte copy, clean capture
-and missing-workspace recovery pass. Power remains unavailable in VM. The Air7,2
-matching unattended capture is prepared; collect its named session and preserve
-files/recovery before accepting native behavior. This idle recipe does not
-exercise physical input or ordinary Home battery-service efficiency.
+and missing-workspace recovery. The exact EFI/GPT VM records 9.946 compositor
+switches/second; power remains unavailable in VM.
+
+The matching Air7,2 session `session-00065e8b5e2897aa-00` returned automatically,
+with complete capture, clean exit, reviewed screenshot, all prior files preserved
+and clean offline filesystem/allocation/recovery checks. The native compositor
+records **540 switches over 53.920 seconds (10.015/second)**, down from 100.00.
+Text stays at 10.015/second; hardware input polling stays at 100/second.
+
+| Measurement | Original baseline | Text wait | Compositor wait |
+| --- | ---: | ---: | ---: |
+| Idle window (seconds) | 59.999 | 59.999 | 60.010 |
+| Total scheduler switches | 30,487 | 25,102 | 19,278 |
+| CPU0 idle timer samples | 97.60% | 97.85% | **92.88%** |
+| Logger timer samples / worker interval | 127 / 51.269 s | 96 / 50.960 s | **392 / 53.920 s** |
+| Covered package average | 6.695 W | 6.802 W | **6.946 W** |
+| Covered energy interval | 50.999 s | 51.000 s | 54.000 s |
+| Package temperature over energy interval | 74–71 C | 75–72 C | 76–73 C |
+
+The additional reduction in total switches is about 23.2%, but overall idle
+samples worsened and package power was 144 mW higher. **No overall CPU efficiency
+or energy saving is established.** These non-equilibrium single runs do not
+isolate causality. The logger accounts for most additional busy samples;
+its path writes, reads back and flushes each snapshot, and USB completion waits
+poll while periodically yielding. Existing counters cannot separate waiting
+from filesystem work. Measure checkpoint duration and transfer wait, and repeat
+matched captures before changing that path or assigning a cause.
+
+Candidate covered energy is 375.135 J, active CPU0 frequency 2,086 MHz. AC was
+connected before boot, brightness 14%, Ethernet and workspace attached, audio
+idle. This recipe omits the ordinary battery owner and does not exercise physical
+input after idle or ordinary Home battery-service efficiency. Accept the bounded
+polling reduction and persistence; keep those other acceptance questions open.
