@@ -2,7 +2,86 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: filesystem scale milestone complete
+### Active checkpoint: first idle Text optimization accepted
+
+Branch `device/macbookair7-2/power-idle`, PR106 adds measured worker diagnostics
+and an interruptible GUI receive-readiness wait. Only quiescent Text opts in,
+with a 100 ms maximum maintenance deadline; input/close messages wake immediately.
+File/clipboard work, unfinished frame/menu/title publication and diagnostic
+workloads keep their existing cadence. Compositor, xHCI, network polling and CPU
+policy are unchanged. The shared client helper is available for future callers
+that explicitly exclude their own timers/jobs.
+
+Native release `7afccbd6fbc3cfd4`, compiled `d6f3136`, session
+`session-00065e8b0600c122-00` returned automatically with complete capture evidence
+and no attention items. The 59.999-second Text idle window recorded 97.85% CPU0
+idle samples, 25,102 switches and one frame. Its stable Text worker fell from
+100.00 to 10.01 switches/second (510 switches over 50.960 seconds), about 90% less
+activity. Total window switches fell 17.66% versus the baseline below. Other
+input/compositor polling stayed at 100 Hz. These are software transitions, not
+hardware wakeups or measured thread runtime.
+
+Six energy checkpoints covered 51.000 seconds: 346.927 J, 6.802 W package average
+and 2,054 MHz CPU0 active frequency. Baseline was 6.695 W; **no energy saving is
+established**. Candidate package temperature fell 75–72 C, versus 74–71 C in the
+baseline, so neither was at thermal equilibrium. AC was connected before boot,
+brightness stayed at 14%, Ethernet/workspace remained attached and audio idle.
+The v26 diagnostic omits the ordinary battery owner. Physical post-idle typing
+was not requested or exercised; native input latency remains outside this capture.
+
+All 1010 original files were preserved except expected filesystem metadata;
+only four logs and one screenshot were added. Offline fsck and independent
+allocation pass at 1015 files / 2290 clusters, zero leaks/mismatches. The 1440x900
+screenshot was reviewed. Ubuntu recovery/default and consumed one-shot pass;
+installed current is `7afccbd6fbc3cfd4`, previous `9aa8dbf6fbda8252`. USB is unmounted
+and no reboot is armed. Evidence and payloads survive build cleanup in local
+pending-trials and reviewed-evidence directories for this release.
+
+Implementation passes full local build/core/docs and queue/signal/race/teardown/
+publication fixtures. Exact EFI/GPT v26 VM capture, screenshot, persistence,
+automatic return and missing-workspace recovery pass. Ordinary networked VM
+post-idle typing and exact save pass. VM client switches fell 98.31 to 9.96 per
+second; unavailable VM energy remains null. After native collection, main
+`de449b3` (Air6,1 PR109 mounted Home diagnostic) was consumed as `1f7c5f2` without
+conflict. Pro PR19 `af42f25` retains USB Wi-Fi scope. Actions remain disabled;
+integrated full build/core/docs and networked post-idle input/save passed. Its v26
+payload is byte-identical to the native release; exact EFI/GPT completion and
+missing-workspace return were revalidated. No sibling or new battery acceptance
+is implied.
+
+The bounded first optimization is complete. Next power work should target the
+remaining measured compositor/device wake sources with input/IO latency evidence;
+repeat matched, thermally controlled captures before claiming energy savings.
+Dynamic desktop/window capacity remains a separate planned milestone.
+
+### Native worker/power baseline accepted
+
+Release `dc7c0eaea0dca69b`, compiled `7e0d8b9`, session
+`session-00065e8ac591746a-00` returned automatically with complete logs, no
+collector attention and a verified 1440x900 screenshot. The 59.999-second Text
+idle window recorded 97.60% CPU0 idle samples, 30,487 switches and one frame.
+Six energy checkpoints covered 50.999 seconds: 341.451 J package energy,
+6.695 W average package power and 2,064 MHz CPU0 active frequency. Six worker
+snapshots covered 51.269 seconds with no partial lifetimes. Bootstrap (the
+foreground compositor), xHCI input and one userspace client each woke about
+100 times/second; network polling had 95.65 deadline and 1.97 signal wakes/second.
+These transitions are not hardware wakeups or per-thread energy attribution.
+
+AC was connected before boot; native brightness stayed at 14%, audio was idle,
+the Ethernet adapter and USB workspace stayed attached, and the battery owner
+was disabled by this diagnostic recipe. Package temperature fell from 74 to
+71 C inside the covered interval: this is a short post-boot baseline, not thermal
+equilibrium or a comparison with October 19. No energy saving is claimed.
+
+All 1005 original files were preserved except expected filesystem metadata;
+only four logs and one screenshot were added. Offline allocation is clean at
+1010 files / 2245 clusters, no leaks/mismatches; fsck and Ubuntu recovery pass.
+Current is `dc7c0eaea0dca69b`, previous remains `9aa8dbf6fbda8252`; the one-shot
+is consumed, USB unmounted and no reboot armed. One obsolete unreferenced EFI
+payload was hash-archived before removal to make installation space. Raw evidence
+and payloads survive cleanup in the local pending-trials directory for this release.
+
+### Previous checkpoint: filesystem scale milestone complete
 
 [PR102](https://github.com/PaulMDemers/SrvrOS/pull/102) replaces the old static
 filesystem tables with stable demand allocation, direct VFS enumeration,

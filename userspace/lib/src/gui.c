@@ -30,6 +30,10 @@ int gui_send(const struct gui_message *message) {
     return (int)srv_syscall1(SYS_GUI_SEND, (long)&copy);
 }
 
+int gui_wait(uint64_t expected_server,uint64_t ticks) {
+    return (int)srv_syscall2(SYS_GUI_WAIT,expected_server,ticks);
+}
+
 int gui_recv(struct gui_message *message) {
     if (message != 0) {
         message->abi_version = SRV_ABI_VERSION;

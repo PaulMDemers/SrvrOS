@@ -78,6 +78,8 @@ uint64_t scheduler_current_thread_id(void);
 uint64_t scheduler_thread_count(void);
 uint64_t scheduler_preemptions(void);
 void scheduler_print_status(void);
+/* Bounded timestamped per-lifetime counters; diagnostic capture only. */
+void scheduler_print_activity(void);
 void scheduler_snapshot(struct scheduler_stats *out);
 bool scheduler_start_idle_worker(void);
 

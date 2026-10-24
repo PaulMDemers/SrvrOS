@@ -21,6 +21,7 @@ int main(void) {
     frame.rax=SYS_POINTER_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_STATUS;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_CONTROL;assert(syscall_io_safe(&frame));
+    frame.rax=SYS_GUI_WAIT;assert(syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_OPEN,SYS_CLOSE,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,
         SYS_KILL,SYS_SPAWN,SYS_MMAP,SYS_MUNMAP,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {

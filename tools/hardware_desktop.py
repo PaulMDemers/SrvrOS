@@ -361,6 +361,16 @@ def desktop_idle_sample(exit_text):
             "scope":"CPU0 scheduler samples with Text open and periodic device/USB logs; not energy or interactive acceptance"}
 
 
+def desktop_worker_sample(exit_text):
+    from scheduler_activity import worker_activity
+    idle=desktop_idle_sample(exit_text)
+    windows=re.findall(r"^desktop-idle-window: start_us=([0-9]{1,20}) end_us=([0-9]{1,20})$",exit_text,re.M)
+    if not idle or len(windows)!=1:return None
+    start,end=map(int,windows[0])
+    if end-start!=idle["elapsed_us"]:return None
+    return worker_activity(exit_text,start,end)
+
+
 def power_idle_sample(exit_text):
     """Derive only the covered interval inside a completed desktop idle window.
 
@@ -747,6 +757,7 @@ def collect(mount, volume, output):
             "attention": attention,
             "devices": device_summaries(text),
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "desktop_worker_sample": desktop_worker_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_smbus_transitions":smbus_transitions_proof,"battery_query": query_proof,

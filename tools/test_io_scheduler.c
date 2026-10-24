@@ -185,6 +185,31 @@ int main(void) {
     held_wait.waiters=(1ull<<3)|(1ull<<4);scheduler_wake_all(&held_wait);wake_expired_waits();
     assert(scheduler_service_pair_quarantined(10,11) && next_ready_thread(5)==5);
     assert(!scheduler_quarantine_noncurrent_services(10,11));
+    /* Deadline expiry and explicit queue wake are distinct transitions. */
+    memset(threads,0,sizeof(threads));
+    struct scheduler_wait_queue diagnostic_wait={.waiters=6};
+    clock_us=100000;
+    threads[1]=(struct thread){.state=THREAD_BLOCKED,.name="test worker",
+        .identity=41,.blocked_queue=&diagnostic_wait,.blocked_deadline_ticks=10};
+    threads[2]=(struct thread){.state=THREAD_BLOCKED,.name="peer",
+        .identity=42,.blocked_queue=&diagnostic_wait,.blocked_deadline_ticks=11};
+    wake_expired_waits();wake_expired_waits();
+    assert(threads[1].timeout_wakes==1 && !threads[1].signal_wakes);
+    assert(threads[2].state==THREAD_BLOCKED && diagnostic_wait.waiters==4);
+    assert(scheduler_wake_count(&diagnostic_wait,1)==1);
+    assert(!scheduler_wake_count(&diagnostic_wait,1));
+    clock_us=200000;wake_expired_waits();
+    assert(threads[2].signal_wakes==1 && !threads[2].timeout_wakes);
+    struct activity_sample samples[SCHEDULER_MAX_THREADS];uint64_t at=0;
+    assert(activity_snapshot(samples,&at)==2 && at==clock_us);
+    assert(samples[0].identity==41 && samples[0].slot==1 && samples[0].timeouts==1);
+    assert(!strcmp(samples[0].name,"test_worker") && samples[1].signals==1);
+    /* Slot reuse starts a fresh identity/counter lifetime, with a copied name. */
+    threads[1].state=THREAD_DEAD;assert(scheduler_spawn("replacement",empty_worker,NULL));
+    assert(!threads[1].timeout_wakes && !threads[1].signal_wakes);
+    assert(!strcmp(samples[0].name,"test_worker"));
+    assert(activity_snapshot(samples,&at)==2 && samples[0].identity!=41);
+    puts("scheduler-activity: PASS expiry/signal transitions, no double counts, stable snapshots, slot reuse");
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");

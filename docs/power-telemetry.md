@@ -235,3 +235,73 @@ and recovery 9.293 W over 21.000 seconds. Initial idle power remains unavailable
 because eligible checkpoints cover less than ten seconds. Logged temperature
 peaked at 81 C; no diagnostic stop occurred. See the machine record for the
 session and limits; this is a short single-worker console result.
+
+## Worker attribution for matched comparisons
+
+The explicit read-only power capture now records a bounded CPU0 scheduler
+snapshot at each device checkpoint. Each row carries a boot-lifetime identity,
+reusable slot, copied name, timer samples, context switches into the thread,
+deadline-expiry wakes and explicit wait-queue wakes. A wake is counted only when
+a blocked thread becomes ready. An already-ready thread is not counted again;
+slot reuse resets counters and receives a new identity. No userspace ABI or
+scheduling deadline changes. Ordinary boots with power telemetry disabled do
+not emit these additional records.
+
+`hardware_desktop.py` adds `desktop_worker_sample` to collection. It requires a
+completed desktop capture and at least three complete, strictly ordered
+snapshots covering 20 seconds within its measurement window. Missing rows,
+duplicate identities/slots, counter regressions and changed identity bindings
+refuse attribution. Only lifetimes present throughout that covered interval
+receive deltas; partial lifetimes are listed separately. Later screenshot work
+is excluded. Keep the full raw log; a missing summary is incomplete evidence.
+
+These are software transitions, **not hardware wakeups, elapsed CPU runtime or
+energy**. Timer sampling can miss short workers. The measurement logger itself
+uses CPU and USB and appears in the results. Compare candidates with the same
+instrumentation, logging cadence, workload, panel setting, AC and adapter states.
+The legacy v26 capture excludes the ordinary Home battery owner; its result
+must not be labeled whole-desktop battery-service efficiency. A fresh v26
+baseline is the first bounded attribution step, followed by matched repeated
+captures before claiming savings. No CPU policy or deeper-idle change is made.
+
+### October 23 worker-attributed Air baseline
+
+Release `dc7c0eaea0dca69b` (`7e0d8b9`) completed the v26 capture with six valid
+energy checkpoints spanning 50.999 seconds inside 59.999 seconds of Text idle:
+341.451 J, 6.695 W package average, 2,064 MHz CPU0 active frequency. Scheduler idle
+samples were 97.60%. Six worker snapshots spanned 51.269 seconds: compositor,
+xHCI input and one client each had roughly 100 deadline wakes per second;
+network had 95.65 deadline plus 1.97 signal wakes per second. No partial lifetimes,
+rejected energy samples or collector attention. The screenshot and all original
+files are preserved; offline allocation and recovery pass.
+
+Native brightness was 14%, AC was connected before boot, the USB Ethernet and
+workspace were attached, and audio was idle. The ordinary battery owner was off.
+Package temperature fell 74–71 C during the covered interval. This is accepted
+measurement evidence, not thermal equilibrium, whole-laptop power or savings
+against the older October 19 capture. Repeat matched controls before claiming
+an improvement. See the machine record for the exact evidence/session.
+
+### First follow-up: idle Text queue wait
+
+Implementation `d6f3136` adds the [client wait contract](native-desktop.md#quiescent-client-message-waits).
+The exact v26 VM captures reduce the idle Text worker from 98.31 to 9.96 context
+switches per second; typing and exact save after idle, screenshot persistence and
+automatic return pass. Other device polling is unchanged. This is a measured
+software-activity reduction, not a power result. Native release
+`7afccbd6fbc3cfd4` completed the same unattended capture in
+`session-00065e8b0600c122-00`. Text switches fell from 100.00 to 10.01/second
+(510 over 50.960 seconds), about 90%; total 60-second-window switches fell
+30,487 to 25,102 (17.66%). Idle timer samples rose 97.60% to 97.85%. Other input
+and compositor polling remained 100 Hz. USB preservation, screenshot, offline
+allocation, clean exit and Ubuntu recovery all passed.
+
+Package average was **6.802 W**, compared with baseline 6.695 W: this pair does
+not demonstrate energy savings. Six candidate checkpoints covered 51.000 seconds,
+346.927 J and 2,054 MHz CPU0 active frequency. Package temperature fell 75–72 C
+versus baseline 74–71 C; neither interval was thermally settled. Device settings
+and diagnostic recipe matched, including the disabled ordinary battery owner.
+Accept reduced idle software activity only. Physical typing after idle remains
+untested by this unattended capture; VM typing/save is separate evidence.
+The next optimization needs preserved input/IO behavior and measured activity;
+repeat thermally controlled comparisons before making a power claim.

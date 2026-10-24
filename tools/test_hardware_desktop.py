@@ -135,6 +135,19 @@ class CollectionTests(unittest.TestCase):
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
 
+    def test_worker_window_requires_completed_desktop(self):
+        from test_scheduler_activity import block
+        header=("desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=1 fb_bytes=9000 measured=yes\n"
+                "desktop-idle-window: start_us=10000000 end_us=70000000\n"
+                "desktop-idle: completed=yes screenshot=yes\ndesktop-idle-capture: returned=yes clean=yes\n")
+        rows=''.join(block(at,i,i*200,i*100,i*50) for i,at in enumerate((20000000,30000000,40000000)))
+        result=desktop.desktop_worker_sample(header+rows)
+        self.assertEqual(result['workers'][0]['switches'],400)
+        for bad in (header,header.replace('clean=yes','clean=NO')+rows,
+                    header.replace('end_us=70000000','end_us=69999999')+rows,
+                    header+rows+"worker-snapshot: us=80000000 count=1 version=1\n"):
+            self.assertIsNone(desktop.desktop_worker_sample(bad))
+
     def test_transition_summary_requires_all_phases_and_retirement(self):
         rows=[]
         for phase in range(3):

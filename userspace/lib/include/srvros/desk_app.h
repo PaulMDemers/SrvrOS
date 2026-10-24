@@ -22,6 +22,9 @@ int desk_app_open(struct desk_app *app,const char *title,uint32_t width,uint32_t
  * only after the old sealed frame is released and the new surface exists.
  * Caller can receive one internal event per call; service in bounded batches. */
 int desk_app_poll(struct desk_app *app,struct desk_packet *event);
+/* Only a fully published/clean client may wait: 1 message, 0 timeout, -1
+ * ineligible/error. Caller must exclude its own jobs/timers and use a short fallback. */
+int desk_app_wait(struct desk_app *app,uint64_t ticks);
 /* 1 caller may draw into canvas; 0 waiting/clean, -1 failure. */
 int desk_app_canvas(struct desk_app *app,struct desk_canvas *canvas);
 int desk_app_present(struct desk_app *app);
