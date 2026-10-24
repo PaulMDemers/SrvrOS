@@ -251,6 +251,8 @@ enum mt76_mcu_timing_status mt76_mac_beacon_apply(struct mt76_mcu_mac *s,
 size_t mt76_mac_fce_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_mac_fce_observe(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask);
+enum mt76_mcu_timing_status mt76_mac_fce_validate(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask);
 
 enum mt76_mcu_timing_status mt76_mac_policy_observe(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask);

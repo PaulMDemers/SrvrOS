@@ -4130,3 +4130,11 @@ Workspace clean227files/589clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: use the captured write1/read5 evidence when defining strict profile
 validation; do not infer a general writable-bit mask. Remaining MAC/baseband
 initialization and RF/connectivity remain untested.
+
+Active scope 2026-10-23: v45 exact FCE captured-profile validation after v44.
+Reuse sequence14 pair0800=1/080c=03ff0223 with the same captured starts and
+MAC/CORE guards. Require complete readback5/03ff0223 and mismatch_mask1;
+reject every other full word, no masked bits. Preserve v44 observation semantics.
+Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched main180b542 with compositor
+idle changes; PR114 battery Start/save and PR115 logger timing remain separate.
+No new register writes, BBP table or RF enable in this trial.

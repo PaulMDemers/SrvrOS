@@ -942,3 +942,14 @@ enum mt76_mcu_timing_status mt76_mac_fce_observe(struct mt76_mcu_mac *s,
     s->complete=true;return MT76_TIMING_OK;
 #undef MAC_READ
 }
+
+/* Exact write1/read5 profile captured on 7392:a711; no writable-bit mask inferred. */
+enum mt76_mcu_timing_status mt76_mac_fce_validate(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io,uint32_t *mismatch_mask) {
+    enum mt76_mcu_timing_status status=mt76_mac_fce_observe(s,io,mismatch_mask);
+    if(status!=MT76_TIMING_OK)return status;
+    if(s->after[0]!=5 || s->after[1]!=0x03ff0223 || *mismatch_mask!=1){
+        s->complete=false;return MT76_TIMING_STATE;
+    }
+    return MT76_TIMING_OK;
+}

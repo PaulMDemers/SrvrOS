@@ -80,6 +80,7 @@ bool xhci_wifi_capture_mac_beacon(void);
 bool xhci_wifi_capture_mac_vht(void);
 bool xhci_wifi_capture_mac_buffer(void);
 bool xhci_wifi_capture_mac_fce(void);
+bool xhci_wifi_capture_mac_fce_validate(void);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

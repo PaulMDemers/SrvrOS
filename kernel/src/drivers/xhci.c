@@ -262,7 +262,7 @@ struct xhci_wifi_mcu {
     struct mt76_mcu_mac mac_vht;
     struct mt76_mcu_mac mac_buffer;
     struct mt76_mcu_mac mac_fce;
-    bool mac_fce_mode,mac_fce_active,mac_fce_submitted;
+    bool mac_fce_mode,mac_fce_active,mac_fce_submitted,mac_fce_validate;
     bool mac_buffer_mode,mac_buffer_active,mac_buffer_submitted;
     bool mac_vht_mode,mac_vht_active,mac_vht_submitted;
     bool mac_beacon_mode,mac_beacon_active,mac_beacon_submitted;

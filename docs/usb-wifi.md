@@ -1855,3 +1855,17 @@ both completion markers passed. Mismatch mask1 and register acceptance NOT_TESTE
 were recorded. This is evidence for an exact captured-profile validator, not a
 proof of bit2 semantics or permission to ignore arbitrary bits. RF/connectivity
 remain untested.
+
+### Exact FCE captured-profile validation (v45; native result pending)
+
+`--wifi-mac-fce-validate` requires the v44 prerequisite flags and selects a
+separate validator. The same sequence14 pair writes1/03ff0223, with mandatory
+starts5/03ff0223. All eight reads, exact ACK and MAC0/COREf000f200 guards remain.
+The validator requires full-word readbacks5/03ff0223 and mismatch_mask1; it rejects
+all other words, including write-target1. There is no writable-bit mask. Evidence
+is the v44 native write1/read5 capture on this exact adapter, not inferred bit
+semantics. v44 observation behavior remains unchanged and selectable.
+
+Success emits `wifi-mac-fce-validation` with complete1/exact_profile1; observation
+records cannot satisfy collection. No additional writes, retry, BBP table or
+RF/MAC TX/RX enable follows. Native validation of v45 remains pending.

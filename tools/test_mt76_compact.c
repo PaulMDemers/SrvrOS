@@ -787,7 +787,31 @@ static void test_mac_fce(void){
 }
 
 
+static void test_mac_fce_validate(void){
+ for(unsigned fail=0;fail<=9;fail++)for(unsigned deny=0;deny<=10;deny++){
+  struct fce_fake f={.vary=true,.target=5,.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};uint32_t mask=0;
+  const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_fce_validate(&s,&io,&mask);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && mask==1 && s.reads==8 && s.after[0]==5 && s.after[1]==0x03ff0223 && f.op==9 && f.auth==10);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_fce_validate(&s,&io,&mask)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bit=0;bit<32;bit++){
+  struct fce_fake f={.vary=true,.target=5u^(1u<<bit)};struct mt76_mcu_mac s={0};uint32_t mask=0;
+  const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  assert(mt76_mac_fce_validate(&s,&io,&mask)==MT76_TIMING_STATE && !s.complete && s.reads==8 && s.after[0]==f.target);
+ }
+ for(unsigned bad=1;bad<=9;bad++)if(bad<3 || bad>4){
+  struct fce_fake f={.vary=true,.target=5,.bad=bad};struct mt76_mcu_mac s={0};uint32_t mask=0;
+  const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  assert(mt76_mac_fce_validate(&s,&io,&mask)==(bad==5?MT76_TIMING_REPLY:MT76_TIMING_STATE) && !s.complete);
+ }
+ {struct fce_fake f={0};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};assert(mt76_mac_fce_validate(&s,&io,0)==MT76_TIMING_REFUSED && !s.attempted && !f.op);}
+ puts("MAC FCE validation: PASS exact write1/read5, 32 rejected full-word mutations, guards/ACK/IO/cancellation and no retry");
+}
+
 int main(void){
+ test_mac_fce_validate();
  test_mac_fce();
  test_mac_buffer();
  test_mac_vht();
