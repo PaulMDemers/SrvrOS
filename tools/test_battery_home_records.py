@@ -21,6 +21,11 @@ def fixture(case='normal'):
     return b'\n'.join(rows)+b'\n'
 
 class Proof(unittest.TestCase):
+    def test_air61_refusal_policy_identity(self):
+        data=fixture('query-refusal').replace(b'policy=2',b'policy=3')
+        self.assertEqual(check(data,'query-refusal',query_policy=3)['status'],'PASS')
+        with self.assertRaises(AssertionError):check(data,'query-refusal')
+
     def test_complete_and_corrupt(self):
         for case in ('normal','alarm','query-refusal'):
             data=fixture(case);self.assertEqual(check(data,case)['status'],'PASS')

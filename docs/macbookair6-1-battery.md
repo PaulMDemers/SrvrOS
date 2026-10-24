@@ -449,3 +449,34 @@ input latency, longer endurance and gauge accuracy remain unaccepted. The next
 boundary is explicit mounted Home ownership and normal-return retirement, before
 ordinary desktop integration. Preserve the failed fragmented-image session as
 separate evidence; it is not reclassified by this successful retry.
+
+## Explicit mounted Home candidate (v65)
+
+`--battery-air61 --battery-home --laptop-probe-volume 6ADA-85BB` selects the
+separate short diagnostic. The normal outer Home filesystem remains mounted,
+logging pauses, and the owner acquires the existing exact device/parent/generation
+hold. No desktop clients or concurrent file workload are started. It waits up to
+30 seconds for fresh generation 3 with natural events, bounded to 128 events,
+then stops within the existing 10-second deadline and releases the hold only
+after runtime retirement. The existing disposable image is left untouched.
+
+Admission requires the exact Air6,1 firmware profile, coherent service owner,
+the explicit short diagnostic flag, a valid mounted hold, no image lease and
+automatic fault reset disabled. Other Home/desktop/control/continuous entry paths
+remain refused. Guards verify that unmount, scratch and image conversion cannot
+escape the hold. There are no new AML/register permissions.
+
+The existing query-return proof now recognizes Air6,1 only inside this held
+short scope. It requires a completed transfer and worker callback, balanced AML
+calls/returns, no recorded attempted effects, quiet sources and idle resources.
+An acknowledged alarm followed by refusal has effects and cannot use this return.
+Normal success or checked refusal retires before log save/unmount/Ubuntu return.
+Uncertain runtime failure retains the mount and HALTS; no reset or filesystem
+cleanup is attempted. Photograph a halt and report it; missing completion is
+failed/incomplete. Keep AC and USB connected and do not interact during sampling.
+
+Native mounted-Home acceptance remains pending. Require the matching strict
+`battery_home` receipt, prior-file preservation, offline filesystem/allocation
+and consumed one-shot before any desktop integration. The newer filesystem
+baseline is validated locally but does not inherit the earlier image payload's
+physical acceptance.

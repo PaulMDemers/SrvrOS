@@ -100,12 +100,19 @@ static bool smbus_capture_parked(void) {
 }
 /* An explicit native diagnostic owns the mount through normal runtime return.
  * This grants no fatal reset, general AML unwind, or desktop-startup capability. */
+static bool bounded_home;
+static bool air61_home_owned(void) {
+    return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
+        runtime.platform.smbus_capture_profile && battery_bounded_home_entry(runtime.transition_mode,
+        runtime.service_mode,owner==OWNER_SERVICE,bounded_home&&!smbus_capture&&!smbus_controls&&!smbus_study,
+        mounted_home&&workspace_mount_hold_valid(smbus_workspace_hold),auto_return,workspace_image_busy());
+}
 static bool mounted_home_owned(void) {
     return mounted_home && workspace_mount_hold_valid(smbus_workspace_hold) && !workspace_image_busy();
 }
 static bool native_query_return_scope(void) {
-    return runtime.platform.query_policy==BATTERY_QUERY_AIR72 &&
-        (capture_storage_parked() || (mounted_home_owned() && runtime.platform.smbus_capture_profile));
+    return air61_home_owned() || (runtime.platform.query_policy==BATTERY_QUERY_AIR72 &&
+        (capture_storage_parked() || (mounted_home_owned() && runtime.platform.smbus_capture_profile)));
 }
 static bool air61_smbus_owned(void) {
     if(runtime.platform.query_policy!=BATTERY_QUERY_AIR61 || !runtime.platform.bounded_samples_only ||
@@ -118,7 +125,7 @@ static bool air61_smbus_owned(void) {
         capture,auto_return,smbus_capture_parked(),workspace_active(),workspace_image_busy(),scheduler_io_active());
 }
 static bool smbus_owned(void) {
-    return air61_smbus_owned() || (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&
+    return air61_smbus_owned() || air61_home_owned() || (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&
         (smbus_workspace_hold?workspace_mount_hold_valid(smbus_workspace_hold):!workspace_active())) ||
         ((smbus_capture_parked() || mounted_home_owned()) && runtime.platform.smbus_capture_profile &&
          runtime.platform.query_policy==BATTERY_QUERY_AIR72);
@@ -961,9 +968,9 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(smbus_transitions && (runtime.platform.query_policy!=BATTERY_QUERY_AIR61 || !air61_smbus_owned())) {
         console_write("battery: REFUSED Air6,1 parked AC transition owner\n");return false;
     }
-    if(runtime.platform.bounded_samples_only && !air61_smbus_owned() && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
+    if(runtime.platform.bounded_samples_only && !air61_smbus_owned() && !air61_home_owned() && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
        workspace_parked_device()!=NULL,workspace_active(),workspace_image_busy(),scheduler_io_active())) {
-        console_write("battery: REFUSED bounded profile requires parked automatic sampling or short SMBus capture\n");return false;
+        console_write("battery: REFUSED bounded profile requires an admitted bounded diagnostic owner\n");return false;
     }
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
@@ -2084,7 +2091,7 @@ bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map) 
         console_write("battery-home: REFUSED mounted ownership\n");return false;
     }
     if(!mounted_study_acquire()){console_write("battery-home: REFUSED mount hold\n");return false;}
-    mounted_home=true;
+    mounted_home=bounded_home=true;
     console_write("battery-home: begin limit=128 mounted=yes clients=0; startup=disabled\n");
     bool started=battery_service_start(rsdp,map),observed=false,guarded=false;
     uint64_t until=timer_monotonic_us()+30000000;
@@ -2116,7 +2123,7 @@ bool battery_home_diagnostic_run(void *rsdp,struct limine_memmap_response *map) 
         outcome,final.epoch,final.sample.generation,runtime.events.totals.events,runtime.events.totals.alarms,runtime.events.totals.acknowledgements,
         (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
     if(!retired)unsafe("Home retirement proof");
-    mounted_study_release();mounted_home=false;
+    mounted_study_release();mounted_home=bounded_home=false;
     return complete;
 }
 /* Disposable model study: the command thread owns an unrelated storage scope
