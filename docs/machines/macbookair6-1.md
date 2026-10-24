@@ -1654,3 +1654,15 @@ This accepts the explicit three-minute continuous capture only. Ordinary battery
 startup, longer endurance, attended input latency and gauge accuracy remain
 unaccepted. Next is a separately bounded attended Home AC unplug/reconnect trial
 to verify desktop indicator updates and retirement across power transitions.
+
+## Attended Home AC transition scope (2026-10-23)
+
+From main `d5c080d`, own only Air6,1 admission to the existing attended Home
+AC transition capture, its separate v68 recipe and directed tests. Keep exact
+firmware/query permissions, mount/client ownership and checked retirement;
+ordinary startup and indefinite sessions remain excluded. Preserve the existing
+three fresh readings per phase, two-minute phase limit and 480-second capture
+watchdog, plus the Air6,1 4096-event ceiling. PR118 owns USB wait work and PR19
+Wi-Fi; avoid their driver files and preserve their independent recipes. The v67
+run is collected/accepted. This trial starts on AC, prompts for unplug/reconnect,
+and must retain USB throughout; each phase saves its own screenshot.
