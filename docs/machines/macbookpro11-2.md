@@ -5461,3 +5461,33 @@ Next: attended cold adapter cycle, then collect matching release/session FIRST.
 Require all preceding proof and every central RF operation/readback; preserve
 failed response/guard receipts. RF write framing/readbacks remain native-pending,
 and calibration/connectivity remain untested. No reboot is armed.
+
+
+### 2026-10-24 — central RF trial stopped at register0:6
+
+Source `23cb72a`, release `d5f9b767d30876ce`, session
+`session-00065e9da8109959-00` failed strict completion. RF0:1–5 readbacks matched;
+the sixth write echo validated but RF0:6 read back00 instead of41. Its response
+words were `4a050008/80000006/00000000/4a050008`. All12 USB exchanges completed
+(sent16/received16/cc13/residue1008). State4 stopped at44 operations/45 submissions,
+33 guard reads,12 exchanges,6 validated write echoes and5 verified readbacks.
+No later entry was attempted; both completion markers are NO. This is saved
+failure evidence, not acceptance of the central table or radio function.
+
+The last reached pre-write guard was MAC0/COREf000f200/DMA40000050; its paired
+post-read guard was not reached. `guard_errors=77` includes77 unexecuted guard
+slots, not77 measured failures. Preserve this distinction in future diagnostics.
+Full startup snapshot70943bytes retained. Collection
+`build/bringup/wifi-rf-central/collection/collection-cl_8izlk`, strict rejection,
+classified failure and recovery receipts are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-central-23cb72a/`.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean265files/646clusters/106directories, zero leaks, allocation
+mismatches or errors; unmounted. No reboot armed.
+
+Next bounded scope: investigate RF0:6 zero readback versus write41, including
+reference semantics and sequencing, before any continuation or acceptance change.
+Separate completed guard observations from unexecuted slots in failure reporting.
+Fetched main remains4f8acd2; actual candidate integration base remainsd5bc4b3.
+New Air6,1 heap-startup and updated Air7,2 POSIX work remain independent scopes.
+Calibration, scanning, association/security and connectivity remain pending.

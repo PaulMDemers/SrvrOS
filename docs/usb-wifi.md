@@ -2498,3 +2498,23 @@ the full earlier proof, both completion markers and a complete 128KiB-bounded
 startup snapshot. Host/synthetic results do not accept RF writes on hardware.
 Band-specific tables, fresh frequency offset, calibration, receiver setup,
 channels, scanning and connectivity remain separate work.
+
+
+Native v61 source `23cb72a`, release `d5f9b767d30876ce`, session
+`session-00065e9da8109959-00` **failed** strict completion at RF0:6. The first
+five entries (RF0:1–5) matched their readbacks. All twelve command exchanges
+completed with sent16/received16/cc13/residue1008; six write echoes validated.
+The sixth read returned `4a050008/80000006/00000000/4a050008`: exact framing and
+address, but value00 instead of41. State4 stopped the engine at44 completed
+operations/45 submissions,33 guard reads,12 exchanges,6 echoes and5 verifications.
+No later table entry was attempted. Both overall completion markers are NO.
+The strict collector rejected this run; central RF initialization is not accepted.
+
+The current pre-write boundary remained MAC0/COREf000f200/DMA40000050. The
+post-read boundary was not reached. The summary's `guard_errors=77` counts
+unexecuted zero-initialized guard slots, not77 observed guard failures; use the
+operation count and boundary receipts when interpreting this failed candidate.
+The saved complete70943-byte snapshot, recovery checks and both offline filesystem
+checks passed. Next investigate RF0:6 semantics and sequencing with bounded
+observations; do not mask the mismatch or continue the table without evidence.
+Calibration, radio function and connectivity remain untested.
