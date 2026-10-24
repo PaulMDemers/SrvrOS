@@ -1854,3 +1854,27 @@ correctly refuses it. The earlier completion VM checked BMP dimensions but
 never invoked that collector helper. Keep both incomplete trials as evidence.
 The next attempt must use the Files folder icon in the dock and wait for the
 five-minute completion prompt before normal menu exit.
+
+### Corrected candidate validated (PR128)
+
+Source `aff686d`, v69 release `2cd5b8604f2406c5`, emits capture dimensions
+without tracing. The unchanged strict screenshot verifier rejects both original
+physical and completion-VM evidence, then accepts the corrected non-traced VM.
+Full build/core, 74 staging, 27 collector and five receipt tests pass. Completion
+ran 306.107 seconds, generation 1→123, with 3,944 events and seven lifetime
+members; Text/Files receipts, screenshot, saved logs and offline allocation pass.
+Early exit remains incomplete; the three-phase AC regression verifies all three
+screenshots. Exact staged GPT rehearsal refuses unsupported Q35 hardware,
+saves/unmounts/returns; missing Home returns before probing.
+
+The next unarmed run `eab752f59fb68762` uses the preserved 262-file/773-cluster
+USB baseline and a new `attended-receipt.txt`. Keep AC/USB connected; open the
+Files folder icon in the dock, browse Home, and wait for the five-minute Complete
+prompt before saving and exiting through the normal menu. Both earlier trials
+remain incomplete and backed up separately. The obsolete parked AC payload's
+EFI copy was removed only after independent backup hashes matched; console
+recovery and the newer accepted Home AC payload remain installed. Ordinary
+battery startup remains off; physical acceptance of this correction is pending.
+
+Final scope review retains main `bf1b9a6`. Air7,2 storage-service-gap work and
+Pro PR19 `d80fb47` remain independent; no competing driver changes are included.
