@@ -2,6 +2,19 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: reproduce and resolve legacy TCP readiness failure
+
+Base `92722b7` includes merged PR123. Inspecting Pro PR19 `fbafa66` and Air6,1
+PR124 `6f25115` shows independent Wi-Fi and attended Home capture work. This
+scope owns `tools/tcp_ready_smoke.py`, its disposable VM evidence and, only if
+required by a reproducer, socket readiness/notification code and focused tests.
+First capture packet and serial timing on the unchanged kernel to distinguish
+host harness, guest application and transport/poll failures. Preserve the current
+10-second guest assertions; do not count delayed or missing markers as success.
+No native reboot or firmware/driver gate change is planned. Installed/recovery
+payloads remain unchanged. USB logger timing variability stays a separate next
+scope until this failure is explained. Local evidence: `build/tcp-readiness-20261023`.
+
 ### Network idle milestone accepted for the bounded workload
 
 Release `27b239f96a183fb8`, compiled source `ceaa2ce`, returned automatically in
