@@ -5432,3 +5432,16 @@ Fetched main4f8acd2 and PR134 e4b7b02 inspected; actual integration base d5bc4b3
 Air6,1 startup/timing and POSIX remain independent scopes; preserve their changes
 during integration. Next checkpoint: fault-tested bounded engine/native admission,
 then exact-stage VM and unarmed installation before an attended cold trial.
+
+
+Implemented the fixed central RF engine and v61 native admission. The 44-entry
+plan matches the pinned numeric USB MT7610 reference. Host engine checks cover
+all352 I/O failures,353 cancellation boundaries, all response-bit mutations and
+short/oversized replies. Native binding tests cover88 exact commands,264 guards,
+missing/altered prerequisites, every request-byte bit, duplicate submissions and
+DMA quarantine. All140 staging tests pass; the historical profiles retain their
+behavior (120 historical recipes byte-identical). Native build and MCU/compact/
+bring-up regressions pass, as do ASan/UBSan and documentation checks. The strict
+collector rejects1000 malformed proofs; complete fixture76963bytes fits128KiB.
+Next: exact-stage VM, then install unarmed with existing recovery. Native central
+RF writes pending.

@@ -2467,3 +2467,34 @@ observation only; it does not establish calibrated frequency trim or radio funct
 The next work is bounded RF-table initialization, fresh
 frequency-offset validation, DAC/VCO calibration and receiver setup; scanning,
 802.11 association/security and network integration remain later milestones.
+
+
+### Fixed central RF initialization (v61 candidate)
+
+`--wifi-rf-central` requires `--wifi-rf-probe` and its entire initialization
+chain. The v60 response must be exact and RF0:22 must still read zero. This
+stage programs the 44 fixed central bank0 settings, in reference order, with
+the USB MT7610 R3=73 and R21=12 values. Numeric settings and ordering follow
+[Linux v7.0 central RF initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h)
+and its [USB/model patches](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c).
+There is no caller-supplied register plan. RF0:22 frequency trim and the later
+DAC reset/VCO trigger sequence are excluded; R4 is written with its trigger bit
+clear. The central table includes the reference ADC/DAC startup configuration.
+
+Each entry uses three fresh MAC0/COREf000f200/disabled-DMA guards, one sequence-
+numbered CMD12 write, one CMD10 readback, and three final guards. Sequence numbers
+advance from nine and wrap through one to fifteen, never zero. Each response must
+have the exact 16-byte framing, current sequence, RF address and byte value. The
+write echo is a candidate contract; independent readback must also match.
+The native binding checks the complete preceding proof, every operation/count,
+exact payload and prior readbacks before submitting. Failures stop without retry
+and uncertain USB DMA stays quarantined. Ordinary desktop startup is unchanged.
+
+Success requires 352 operations/submissions, 264 guard reads, 88 command exchanges,
+44 write echoes and 44 verified readbacks with zero guard errors. Saved receipts
+retain every transport result and every target/readback; failure receipts include
+the current response words and guard values. The collector requires all of those,
+the full earlier proof, both completion markers and a complete 128KiB-bounded
+startup snapshot. Host/synthetic results do not accept RF writes on hardware.
+Band-specific tables, fresh frequency offset, calibration, receiver setup,
+channels, scanning and connectivity remain separate work.

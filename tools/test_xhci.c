@@ -3502,6 +3502,93 @@ static void test_wifi_rf_probe(void) {
  }
  puts("xhci RF probe: PASS antenna ownership, fixed read-only payload/order, no retry/USB on refusal and failure quarantine");
 }
+static void rf_central_fixture(struct xhci_device *d,unsigned op){
+ rf_probe_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->rf_central_mode=m->rf_central_active=true;m->rf_central_submitted=op;
+ m->rf_probe=(struct mt76_rf_probe){.attempted=true,.request_attempted=true,.reply_valid=true,.complete=true,.reads=6,.received=16,.core={0xf000f200,0xf000f200},.words={0x4a080008,0x80000016,0,0x4a080008}};
+ m->rf_probe_reads=6;m->rf_probe_submitted=true;
+ unsigned i=op/8,step=op%8;
+ struct mt76_rf_central *s=&m->rf_central;
+ *s=(struct mt76_rf_central){.attempted=true,.operations=op,.reads=i*6+(step<3?step:3)+(step>5?step-5:0),.exchanges=i*2+(step>3)+(step>4),.acks=i+(step>3),.verified=i+(step>4),.received=16};
+ for(unsigned j=0;j<44;j++){s->values[j]=mt76_rf_central_value(j);s->guards[2*j][1]=s->guards[2*j+1][1]=0xf000f200;}
+ if(step>=4){uint32_t h=0x4a000008|(mt76_rf_central_sequence(i,step==4)<<16);s->words[0]=s->words[3]=h;s->words[1]=mt76_rf_central_address(i);s->words[2]=mt76_rf_central_value(i);}
+}
+static void test_wifi_rf_central(void){
+ for(unsigned op=0;op<352;op++)if(op%8==3 || op%8==4){
+  unsigned faults=(op==3 || op==348)?35:1;
+  for(unsigned fault=0;fault<faults;fault++){
+   reset_test();test_time=0;test_time_step=1000;
+   struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[16],reply[1024];
+   struct xhci_device *d=&xhci.devices[0];rf_central_fixture(d,op);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;struct mt76_rf_central *s=&m->rf_central;
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+   m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   if(fault==1)m->rf_central_mode=false;
+   if(fault==2)m->rf_central_active=false;
+   if(fault==3)m->rf_probe_mode=false;
+   if(fault==4)m->rf_probe.complete=false;
+   if(fault==5)m->rf_probe.reply_valid=false;
+   if(fault==6)m->rf_probe.reads--;
+   if(fault==7)m->rf_probe_reads--;
+   if(fault==8)m->rf_probe_submitted=false;
+   if(fault==9)m->rf_probe.value=1;
+   if(fault==10)m->rf_probe.words[2]=1;
+   if(fault==11)m->rf_probe.words[0]^=1;
+   if(fault==12)m->rf_probe.words[1]^=1;
+   if(fault==13)m->rf_probe.words[3]^=1;
+   if(fault==14)m->rf_probe.received=15;
+   if(fault==15)m->rf_probe.mac[1]=1;
+   if(fault==16)m->rf_probe.core[1]=0;
+   if(fault==17)m->rf_probe.dma[1]=1;
+   if(fault==18)m->ant_init.complete=false;
+   if(fault==19)s->attempted=false;
+   if(fault==20)s->complete=true;
+   if(fault==21)s->operations++;
+   if(fault==22)s->reads++;
+   if(fault==23)s->exchanges++;
+   if(fault==24)s->acks++;
+   if(fault==25)s->verified++;
+   if(fault==26)s->guards[2*(op/8)][0]=1;
+   if(fault==27)s->guards[2*(op/8)][1]=0;
+   if(fault==28)s->guards[2*(op/8)][2]=1;
+   if(fault==29)m->rf_central_submitted++;
+   if(fault==30)m->pending=true;
+   if(fault==31){if(op==348)s->values[0]^=1;else m->rf_probe.request_attempted=false;}
+   if(fault==32){if(op==348)s->words[2]^=1;else m->rf_probe.attempted=false;}
+   if(fault==33)events[0].status=6u<<24;
+   if(fault==34)events[1].status=6u<<24;
+   assert(mt76_rf_central_packet(op,packet,sizeof packet)==16);
+   if(!fault){
+    for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_rf_central_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}
+    assert(wifi_rf_central_exchange(d,packet,15,reply,1024)==-1);
+    assert(wifi_rf_central_exchange(d,packet,16,reply,1023)==-1);
+   }
+   assert(wifi_rf_central_exchange(d,packet,16,reply,1024)==(fault?-1:16));
+   if(!fault){assert(m->rf_central_submitted==op+1 && !memcmp(tx,packet,16));assert(wifi_rf_central_exchange(d,packet,16,reply,1024)==-1);}
+   else if(fault>=33)assert(m->rf_central_submitted==op+1 && m->failed && f->failed && !freed);
+   else assert(!f->ep.enqueue && !m->response.enqueue);
+  }
+ }
+ for(unsigned op=0;op<352;op++)if(op%8<3 || op%8>=5)for(unsigned fault=0;fault<6;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];rf_central_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==5?6:1,0);
+  uint32_t a=mt76_rf_central_guard_address(op),v;
+  if(fault==1)a++;
+  if(fault==2)m->rf_central_submitted++;
+  if(fault==3)m->rf_central_mode=false;
+  if(fault==4)m->rf_central.complete=true;
+  assert(wifi_rf_central_read(d,a,&v)==!fault);
+  if(!fault){assert(m->rf_central_submitted==op+1 && d->firmware.control_type==0xc0 && d->firmware.control_request==7);assert(!wifi_rf_central_read(d,a,&v));}
+  else if(fault==5)assert(d->ep0_quarantined && d->firmware.failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_rf_central());
+ puts("xhci RF central: PASS 88 fixed commands/264 guard admissions, prerequisite faults, all payload-bit mutations, no retry and DMA quarantine");
+}
+
 static void test_wifi_ant_init(void){
  for(unsigned target=0;target<5;target++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<34;fault++){
   reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
@@ -4714,6 +4801,7 @@ int main(int argc, char **argv) {
     test_wifi_mac_board();
     test_wifi_ant_snapshot();
     test_wifi_rf_probe();
+    test_wifi_rf_central();
     test_wifi_ant_init();
     test_wifi_mac_private();
     test_wifi_efuse_map();

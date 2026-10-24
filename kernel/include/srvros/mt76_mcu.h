@@ -372,7 +372,7 @@ bool mt76_ant_init_transfer_valid(const struct mt76_ant_init *s,unsigned operati
 enum mt76_mcu_timing_status mt76_ant_init_apply(struct mt76_ant_init *s,const struct mt76_ant_init_io *io);
 
 /* Fixed USB RF0:22 observation only, Linux v7.0 RF map. No arbitrary RF writes.
- * Reply framing is a candidate contract, not native RF/calibration acceptance. */
+ * Reply framing observed in release63fb5a9f9addbb21; calibration untested. */
 struct mt76_rf_probe {
     bool attempted,request_attempted,reply_valid,complete;
     unsigned reads;
@@ -383,5 +383,24 @@ struct mt76_rf_probe {
 size_t mt76_rf_probe_packet(uint8_t *out,size_t capacity);
 uint32_t mt76_rf_probe_read_address(unsigned index);
 enum mt76_mcu_timing_status mt76_rf_probe_apply(struct mt76_rf_probe *s,
+    const struct mt76_mcu_timing_io *io);
+/* Fixed MT7610 USB central-bank numeric settings. No caller-supplied table,
+ * frequency trim, channel selection or MAC enable. One write/read pair per entry. */
+#define MT76_RF_CENTRAL_COUNT 44u
+#define MT76_RF_CENTRAL_OPS (MT76_RF_CENTRAL_COUNT*8u)
+struct mt76_rf_central {
+    bool attempted,complete;
+    unsigned operations,reads,exchanges,acks,verified;
+    int received;
+    uint32_t guards[MT76_RF_CENTRAL_COUNT*2][3],words[4];
+    uint8_t values[MT76_RF_CENTRAL_COUNT];
+};
+uint32_t mt76_rf_central_address(unsigned index);
+unsigned mt76_rf_central_value(unsigned index);
+unsigned mt76_rf_central_sequence(unsigned index,bool write);
+uint32_t mt76_rf_central_guard_address(unsigned operation);
+size_t mt76_rf_central_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_central_admit(const struct mt76_rf_central *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_central_apply(struct mt76_rf_central *s,
     const struct mt76_mcu_timing_io *io);
 #endif

@@ -1461,3 +1461,86 @@ enum mt76_mcu_timing_status mt76_rf_probe_apply(struct mt76_rf_probe *s,
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Numeric MT7610 USB central RF settings, Linux v7.0 initvals_phy.h/phy.c.
+ * Register0:22 trim and the subsequent DAC/VCO calibration sequence are absent.
+ * No Linux implementation is imported; this fixed admission engine is local. */
+static const uint8_t rf_central_regs[MT76_RF_CENTRAL_COUNT]={
+    1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,19,20,21,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,64,65,66,67,68,69,70,71,72,73
+};
+static const uint8_t rf_central_values[MT76_RF_CENTRAL_COUNT]={
+    0x01,0x11,0x73,0x30,0x00,0x41,0x00,0x00,0x00,0x0c,0x00,0x00,0x00,0x00,0x00,0x20,0x22,0x12,0x00,0x33,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2f,0x00,0x80,0x01,0x04,0x00,0x08,0x08,0x40,0xd0,0x93
+};
+uint32_t mt76_rf_central_address(unsigned i){return i<MT76_RF_CENTRAL_COUNT?0x80000000u|rf_central_regs[i]:UINT32_MAX;}
+unsigned mt76_rf_central_value(unsigned i){return i<MT76_RF_CENTRAL_COUNT?rf_central_values[i]:UINT32_MAX;}
+unsigned mt76_rf_central_sequence(unsigned i,bool write){return i<MT76_RF_CENTRAL_COUNT?(8+2*i+(!write))%15+1:0;}
+uint32_t mt76_rf_central_guard_address(unsigned op){
+    static const uint32_t addresses[3]={0x1004,0x2000,0x208};
+    unsigned step=op%8;
+    return op<MT76_RF_CENTRAL_OPS && (step<3 || step>=5)?addresses[step<3?step:step-5]:UINT32_MAX;
+}
+size_t mt76_rf_central_packet(unsigned op,uint8_t *out,size_t capacity){
+    unsigned i=op/8,step=op%8;uint8_t payload[8]={0};
+    if(i>=MT76_RF_CENTRAL_COUNT || (step!=3 && step!=4))return 0;
+    uint32_t address=mt76_rf_central_address(i);
+    for(unsigned b=0;b<4;b++)payload[b]=(uint8_t)(address>>(8*b));
+    if(step==3)payload[4]=rf_central_values[i];
+    return mt76_mcu_encode(step==3?12:10,mt76_rf_central_sequence(i,step==3),payload,8,out,capacity);
+}
+static bool rf_central_guard_valid(unsigned n,uint32_t v){
+    return n==0?v==0:n==1?v==0xf000f200:v!=UINT32_MAX && !(v&15);
+}
+bool mt76_rf_central_admit(const struct mt76_rf_central *s,unsigned op){
+    if(!s || !s->attempted || s->complete || op>=MT76_RF_CENTRAL_OPS || s->operations!=op)return false;
+    unsigned i=op/8,step=op%8;
+    if(s->reads!=i*6+(step<3?step:3)+(step>5?step-5:0) ||
+       s->exchanges!=i*2+(step>3)+(step>4) || s->acks!=i+(step>3) || s->verified!=i+(step>4))return false;
+    /* Recheck completed proof, not merely the aggregate counts. */
+    for(unsigned j=0;j<i;j++){
+        if(s->values[j]!=rf_central_values[j])return false;
+        for(unsigned b=0;b<2;b++)for(unsigned n=0;n<3;n++)
+            if(!rf_central_guard_valid(n,s->guards[2*j+b][n]))return false;
+    }
+    for(unsigned n=0;n<3;n++){
+        if(step>n && !rf_central_guard_valid(n,s->guards[2*i][n]))return false;
+        if(step>5+n && !rf_central_guard_valid(n,s->guards[2*i+1][n]))return false;
+    }
+    if(step>4 && s->values[i]!=rf_central_values[i])return false;
+    if(step>=4){
+        uint32_t h=0x4a000008u|(mt76_rf_central_sequence(i,step==4)<<16);
+        if(s->received!=16 || s->words[0]!=h || s->words[3]!=h ||
+           s->words[1]!=mt76_rf_central_address(i) || s->words[2]!=rf_central_values[i])return false;
+    }
+    return true;
+}
+enum mt76_mcu_timing_status mt76_rf_central_apply(struct mt76_rf_central *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_central){.attempted=true,.received=-1};
+    for(unsigned op=0;op<MT76_RF_CENTRAL_OPS;op++){
+        if(!mt76_rf_central_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        unsigned i=op/8,step=op%8;
+        if(step<3 || step>=5){
+            unsigned boundary=2*i+(step>=5),n=step<3?step:step-5;
+            if(!io->read(io->context,mt76_rf_central_guard_address(op),&s->guards[boundary][n]))return MT76_TIMING_IO;
+            s->reads++;s->operations++;
+            if(!rf_central_guard_valid(n,s->guards[boundary][n]))return MT76_TIMING_STATE;
+        }else{
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+            if(mt76_rf_central_packet(op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);s->exchanges++;
+            for(unsigned n=0;n<4;n++){
+                s->words[n]=0;
+                if(s->received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)s->words[n]|=(uint32_t)reply[4*n+b]<<(8*b);
+            }
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|(mt76_rf_central_sequence(i,step==3)<<16);
+            if(s->received!=16 || s->words[0]!=h || s->words[3]!=h || s->words[1]!=mt76_rf_central_address(i) || s->words[2]>255)return MT76_TIMING_REPLY;
+            if(s->words[2]!=rf_central_values[i])return MT76_TIMING_STATE;
+            if(step==3)s->acks++;else{s->values[i]=(uint8_t)s->words[2];s->verified++;}
+            s->operations++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}
