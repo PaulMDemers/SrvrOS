@@ -2023,3 +2023,27 @@ both completion markers passed; recovery and offline workspace checks passed.
 This is bounded DCOC table evidence, not RF calibration or connectivity acceptance.
 Next audit the remaining MAC/security-table prerequisites and PHY/RF entry
 against the existing device calibration/regulatory captures before continuing.
+
+### Post-DCOC initialization roadmap
+
+The [Linuxv7.0 MAC helpers](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
+and [register layout](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+define the next non-RF stage:64 shared-key slots across eight cipher-mode words.
+Each slot receives a masked cipher-field clear and32 zero bytes. The following
+WCID initialization clears256 attributes but only128 eight-byte addresses; it
+does not clear pairwise-key or IV memory in that helper.
+
+The selected continuation is shared-key reset with fixed USB address admission,
+guards, no retry and zero verification without logging key bytes. Its high
+addresses must not widen the generic MCU register-write interface. Station
+reset is separate. Derived operation plans,64 zero-only fixtures and100 seeded
+mode-preservation checks are archived; native implementation is pending.
+
+22 reference MAC-table addresses still lack corresponding initialization stages;
+baseband table completion is not complete MAC initialization. Remaining controls,
+physical EFUSE-map validation, private MAC-address setup and PHY/RF entry need
+separate evidence. Existing logical calibration and US confirmation are retained.
+[EEPROM initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c)
+distinguishes external-image loading from its physical-EFUSE fallback; logical
+decode alone does not validate the latter. No RF/channel/TX/RX enable follows
+from this audit.

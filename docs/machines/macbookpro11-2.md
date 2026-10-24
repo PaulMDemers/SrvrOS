@@ -4533,3 +4533,50 @@ Next: audit remaining reference MAC/security-table prerequisites and the entry
 into PHY/RF initialization against existing captured calibration/regulatory
 evidence, then choose a bounded next stage. Do not infer full MAC or RF readiness
 from completion of these baseband tables.
+
+Active scope: post-v49 reference MAC/security/EEPROM/PHY entry audit.
+Derive exact reset ranges and identify remaining gates from saved calibration
+evidence; no native writes, security-key reads or RF enable in this audit.
+Current sourcefbafa66, actual integration base4a991df; fetchedmain92722b7
+includes PR123 network-idle. OpenPR124 Air6,1 capture is separate from PR19.
+
+### 2026-10-23 — post-DCOC prerequisites audit
+
+Pinned Linuxv7.0 initializes64 shared-key slots (16 interfaces ×4 keys), then
+256 WCID attributes and only128 WCID address entries. Null-key setup clears
+one cipher nibble with a read/modify/write and writes32 zero bytes per shared
+slot. Eight unique mode words cover the64 slots. WCID setup clears attributes
+for all256 indices, but returns before address memory for indices128..255.
+It does not clear pairwise-key or IV memory in that function; do not infer
+those resets or add broad SRAM clearing.
+
+Derived ranges: shared slotsac00–afff andb400–b7ff, mode wordsb000–b00c
+andb3f0–b3fc, WCID attributesa800–abfc and address entries1800–1bf8.
+Exact reference loops total512 writes/4352 payload bytes, including64 mode
+updates.100 seeded randomized cases checked nibble preservation and final
+mode clearing; range/count checks and64 zero-only USB setup/data fixtures
+passed. No live security memory was read and no hardware writes were sent.
+
+Implementation coverage audit leaves22 MAC reference table addresses untouched:
+102c,0208,1380,1608,1204,0124,0a44,1218,1220,13b0,13c0,1314,1318,131c,
+1320,1324,13d4,13d8,13dc,1238,006c,0070. Coverage means touched by a staged
+implementation, not proof of exact full reference ordering or field equivalence.
+These include power/PA/LDO/DMA-related settings and must not be bulk copied.
+
+The existing logical calibration/receive/transmit audits remain useful; physical
+EFUSE usage-map validation is distinct and still open. The reference's EEPROM
+load path can use an externally supplied valid image; its EFUSE fallback performs
+physical-map checks before logical data. It also programs the MAC address before
+PHY entry. PHY init selects antenna state before RF tables/frequency/DAC work.
+United States confirmation already exists; no new country question is needed.
+Actual channel/power/regulatory validation remains required before transmit.
+
+Selected next bounded implementation: reference-order64 shared-slot cipher
+nibble clears plus64 zero32-byte writes, exact high-address USB allowlist,
+MAC/CORE/ownership guards, no retries, zero verification without key-byte dumps.
+Do not widen the general MCU register range. WCID reset, remaining MAC controls,
+physical EFUSE and PHY/RF work remain separate tracked stages.
+Audit/fixtures/source hashes archived at
+`~/.local/share/srvros/macbookpro11-2/post-dcoc-audit-fbafa66/`.
+No candidate installed or reboot armed by this audit. Main92722b7 fetched but
+actual device integration base remains4a991df; PR124 remains separate.
