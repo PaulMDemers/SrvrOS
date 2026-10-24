@@ -82,6 +82,15 @@ and tests pass. Next: descriptor-backed directories/openat/fchdir and real
 file timestamp updates. Main remains `36080fc`; Air6,1 PR136 battery deadline and
 Pro PR19 `d7fb8f9` Wi-Fi changes do not overlap this compatibility block.
 
+Current directory/timestamp candidate passes focused host and guest tests; broader
+VM regressions are running. Next bounded compatibility scope is a pinned Lua
+5.4.8 consumer gate with its unmodified file tests, enabling the OS library and
+POSIX build profile. Its rename expectations also require reviewing exFAT
+cross-directory placement and replacement publication. Air owns any resulting
+shared `kernel/src/fs/exfat.c`, process-content identity, libc stdio and regression
+fixes in PR134. Preserve the native guarded file-manager rename contract and
+quarantine on uncertain I/O; no native USB trial or acceptance is implied.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor
