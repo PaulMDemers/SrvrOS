@@ -1960,3 +1960,12 @@ is a cold adapter cycle under Linux, not another native table write. The pinned
 Linux initialization writes the table without requiring these four readbacks
 to equal the written values. Their readback semantics remain unresolved; neither
 the current Linux match nor complete table transport accepts RF/connectivity.
+
+The user-confirmed10-second cold adapter cycle under Ubuntu produced four
+consistent samples: TXBE10=38e30, TXBE17=ff3fef3c, RXO21=0 and RXO24=0.
+PHY re-enumerated fromphy1 tophy2; exact descriptor/model/driver gates passed.
+Thus all four table-equality mismatches also occur after cold Linux initialization.
+Warm carryover alone is insufficient to explain them; TXBE17 varies, and its
+semantics remain undocumented by this audit. No native acceptance predicate
+changes follow from this observation. Next audit the reference BBP switch/DCOC
+stages and ownership/RF boundaries before a bounded continuation.

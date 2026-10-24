@@ -4372,3 +4372,31 @@ new SrvrOS write trial. Collector prepared locally as
 Raw audit and source hashes archived outside build under
 `~/.local/share/srvros/macbookpro11-2/bbp-post-mac-audit-c223f58/`.
 No reboot armed; installed payload remains6d6d0b1a49c3de4b.
+
+### 2026-10-23 — cold Linux BBP comparison
+
+User confirmed Wi-Fi unplugged for10seconds and reconnected under Ubuntu.
+Exact model/descriptor/driver gates passed; PHY changed fromphy1 tophy2.
+Four read-only samples consistently returned:
+
+| Register | Warm Linux / v47 | Cold Linux | Table target |
+| --- | --- | --- | --- |
+| TXBE10/2728 | 38e30 | 38e30 | 0 |
+| TXBE17/2744 | fb3fee3c | ff3fef3c | 0 |
+| RXO21/2954 | 0 | 0 | 1 |
+| RXO24/2960 | 0 | 0 | 6 |
+
+ASIC76502000, MAC0c, COREf000f200 and TXBE9=20000000 were stable.
+Debugfs selector restored; no register writes or driver reset performed by
+the capture. Normal Linux enumeration followed the physical reconnection.
+All four equality mismatches also occur after cold Linux initialization; warm
+SrvrOS carryover alone does not explain them. TXBE17 varies between captures.
+This does not document register semantics or establish native acceptance.
+No initialization-time Linux trace or connection/traffic test was captured.
+
+Next: audit the reference G-band20MHz BBP switch and DCOC stages that follow
+the full table, including RF/ownership boundaries, before implementing a
+bounded continuation. Do not spend another boot trying to force equality
+without evidence that equality is required. Existing strict diagnostics remain
+unchanged. Cold samples/comparison archived alongside the previous audit in
+`bbp-post-mac-audit-c223f58`; installed release unchanged, no reboot armed.
