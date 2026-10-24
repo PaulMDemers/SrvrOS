@@ -2276,7 +2276,7 @@ including1014,retain exact verification. The legacy v55 expectation is unchanged
 The independent native gate and engine must select the same profile,after the
 existing exact ASIC/MAC/header/map prerequisites. A separate saved profile marker
 identifies this trial; successful completion still needs all160 operations and
-20 verified targets. Native v56 acceptance remains pending.
+20 verified targets. Native v56 acceptance is recorded below.
 
 This follows two cold SrvrOS captures and four read-only samples on the same
 adapter under Linux:100c upper16zero,1014 upper16=003f. Linux had enabled MAC and
@@ -2288,3 +2288,15 @@ still writes U2MEff; its
 places that field in bits23:16. These sources do not establish universal read-only
 semantics. Preserve the reference write and scope the exact readback to this
 captured device,not sibling hardware. RF/channel/connectivity remain separate.
+
+
+On the captured Pro11,2 Edimax adapter,release `be58d4957e3c4d7a` (source87395a2,
+session `session-00065e9b722cf305-00`) passed v56:160 ordered operations,
+140 reads,20 writes and20 exact verifications. Both station/BSSID words and all
+eight unique table pairs passed,including the captured100c readback and strict
+1014 fields. Forty MAC0/COREf000f200 guard pairs and20 disabled/idle DMA checks
+passed. Private mapped header acquisition,prior prerequisites,both completion
+markers and saved return passed; no address bytes logged. This accepts the
+bounded address initialization on this adapter,not RF behavior,calibrated power,
+association or connectivity. Ubuntu recovery and offline filesystem/allocation
+checks passed. Preserve v55 failure history; next work is the board/PHY/RF audit.

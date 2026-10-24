@@ -5124,3 +5124,29 @@ local tests,collector,VM receipts and run/checkpoint are archived outside build 
 Next: attended cold adapter cycle,then collect matching release/session FIRST.
 Require exact-profile marker and all160 operations/20 verifications plus prior
 prerequisites,save/unmount and recovery. No native v56 acceptance or reboot armed.
+
+### 2026-10-24 — exact private MAC initialization accepted
+
+Source `87395a2`,release `be58d4957e3c4d7a`,session
+`session-00065e9b722cf305-00` passed the strict v56 collector. Fresh private
+mapped header completed12reads/1write/1poll/13submissions; valid and cleared.
+Address initialization completed160operations/160submissions,140reads,20writes,
+20exact verifications,gate failure0. The explicit captured profile records
+100c write00ff0000/read00000000; no observed bits are ignored. Station/BSSID
+words and eight unique table pairs passed. Forty MAC0/COREf000f200 guard pairs
+and20 disabled/idle DMA checks passed. Final USB receipt operation159,actual4,
+cc1,residue0,stage3,no timeout/quarantine. All earlier prerequisites and both
+completion markers passed. Factory address remains private.
+
+This accepts the scoped station/BSSID initialization on this adapter,including
+combined1014 final fields and one pass over eight unique table pairs. It does
+not accept RF/channel/power,association or connectivity. Earlier v55 failures
+remain preserved; no blanket sibling-device or baseband-table acceptance.
+
+Collection `build/bringup/wifi-mac-control/collection/collection-47tepf09`
+archived with run/checkpoint,strict collector and hashes under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-control-87395a2/`.
+Ubuntu default,consumed one-shot,installed/recovery payload hashes verified.
+Offline workspace clean255files/631clusters,zero leaks/allocation mismatches;
+unmounted,no reboot armed. Next: audit board IO/supply and PHY/RF/calibration
+prerequisites; retain exact-profile evidence before advancing to radio work.
