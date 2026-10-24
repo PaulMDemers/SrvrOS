@@ -42,7 +42,7 @@ def main():
     if args.linger_seconds<0 or args.linger_seconds>900 or (args.linger_seconds and (not args.boot_session or args.case!='normal')):parser.error('linger requires normal boot session, 0..900 seconds')
     if args.air61 and not args.boot_session:parser.error('Air6,1 requires boot session')
     if args.case.startswith('reopen-') and (not args.boot_session or args.stage):parser.error('reopen deadline cases require unstaged boot session')
-    if args.automatic and (not args.boot_session or not args.air61 or not args.services or args.case not in ('normal','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air6,1 boot and startup case')
+    if args.automatic and (not args.boot_session or not args.air61 or not args.services or args.case not in ('normal','cancel','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air6,1 boot and startup case')
     entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if args.audio and not args.services:parser.error('audio requires services')
     if args.services and not args.boot_session:parser.error('services requires boot-session')
@@ -139,6 +139,8 @@ def main():
                 def launch(name,marker):
                     shortcut('meta_l-spc');type_text(name);qmp.key('ret');wait(marker)
                 if args.automatic:
+                    if args.case=='cancel':
+                        wait(b'desktools: text history=multi-step');shortcut('ctrl-alt-esc')
                     if args.case=='reopen-busy':
                         wait(b'battery: HALTED operation deadline',100)
                         assert output.count(b'battery-desktop-lifetime: released')==1
@@ -146,13 +148,13 @@ def main():
                         assert re.search(rb'battery-startup: kind=sleep-ms .*active=1 active_us=[1-9][0-9]* argument=6000',output)
                         assert process.poll() is None
                     else:
-                        expected=b'FAIL' if args.case=='profile-refusal' else b'PASS'
+                        expected=b'FAIL' if args.case in ('profile-refusal','cancel') else b'PASS'
                         wait(b'desktop-reopen-test: result='+expected+b' unmounted=yes; returning to Ubuntu',120)
                         assert process.wait(timeout=30)==0
                         assert output.count(b'battery-desktop-lifetime: released')==2
                         if args.case!='profile-refusal':
-                            assert output.count(b'battery-startup: kind=alloc-bytes')==2
-                            assert output.count(b'battery: setup=complete')==2
+                            if args.case!='cancel':assert output.count(b'battery-startup: kind=alloc-bytes')==2
+                            if args.case!='cancel':assert output.count(b'battery: setup=complete')==2
                             assert b'battery: HALTED' not in output
                     stop_process(process)
                     disk=stick.read_bytes()
@@ -169,7 +171,8 @@ def main():
                             assert 'exit.log' in names
                             log=final.read(folder+'/exit.log');(out/(str(index)+'-exit.log')).write_bytes(log)
                             assert b'battery-desktop-lifetime: released' in log
-                            assert b'battery-reopen-test: sample' in log
+                            if args.case=='cancel' and index==0:assert b'battery-reopen-test: sample' not in log
+                            else:assert b'battery-reopen-test: sample' in log
                     volume.write_bytes(disk[2048*512:volume_end]);(out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0

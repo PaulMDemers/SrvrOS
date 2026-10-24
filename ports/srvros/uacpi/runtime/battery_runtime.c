@@ -1805,7 +1805,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
                 state.epoch,state.sample.generation,(uint64_t)!!(state.flags&BATTERY_CACHE_FRESH),ok?"yes":"NO");
             break; /* Normal lifetime revocation/drain below; no app edits. */
         }
-        if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
+        if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0 && !desktop_reopen_test;break;}
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
         uacpi_kernel_sleep(10);
     }

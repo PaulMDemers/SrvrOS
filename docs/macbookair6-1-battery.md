@@ -775,7 +775,9 @@ old exit text inherited by a new boot log is not second-session completion.
 
 Disposable validation uses `battery_home_desktop_smoke.py --boot-session --air61
 --services --audio --automatic --workspace-table gpt` with cases `normal`,
-`reopen-completed`, `reopen-busy` and `profile-refusal`. The busy case must halt
+`reopen-completed`, `reopen-busy`, `cancel` and `profile-refusal`.
+The automatic `cancel` case exits the first desktop early and requires failure,
+with normal teardown and a second session; early exit cannot count as a pass. The busy case must halt
 with an active 6000 ms sleep and only the first lifetime released. Exact-stage
 Q35 uses `--case profile-refusal --stage RELEASE`: two cleanly retired unavailable
 sessions and automatic recovery are harness success, never hardware acceptance.
