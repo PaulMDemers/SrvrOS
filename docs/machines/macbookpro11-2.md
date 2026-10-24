@@ -5150,3 +5150,17 @@ Ubuntu default,consumed one-shot,installed/recovery payload hashes verified.
 Offline workspace clean255files/631clusters,zero leaks/allocation mismatches;
 unmounted,no reboot armed. Next: audit board IO/supply and PHY/RF/calibration
 prerequisites; retain exact-profile evidence before advancing to radio work.
+
+Active scope: remaining board power/IO prerequisites before PHY antenna/RF work.
+Fresh read-only Linux samples on this adapter confirm1204=0,124=a0040080,
+6c=00a647b6,70=6b006464; all four match Linux v7.0's MT7610 initialization table.
+Accepted v56's native snapshot still has1204=a,124=a0140280,6c=00a647a4,
+70=6b006868. The live Linux MAC/DMA state differs and is not a disabled-state
+acceptance. Original debugfs selector restored; no Linux device register writes.
+Prepare opt-in v57:four fixed writes with exact prior/readback checks,MAC0,
+COREf000f200 and idle/disabled DMA around each target,after completed v56.
+No RF bank,channel,power-rate,antenna,MAC-enable or DMA-configuration writes.
+Actualbase d5bc4b3; fetchedmain e79e220 inspected (Air6,1 combined services plus
+independent window/API work). PR134 POSIX does not overlap this scope; PR19 owns
+this adapter work. Touch MCU plan,xHCI/main,staging and tests. Preserve the current
+accepted payload and verify exact-stage save/return before native installation.
