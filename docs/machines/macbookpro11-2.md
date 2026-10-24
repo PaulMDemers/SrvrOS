@@ -5316,3 +5316,32 @@ VM receipts and run/checkpoint archived outside build under
 Next: attended cold adapter cycle,then matching release/session collection FIRST.
 Require full earlier proof,fresh exact mapped fields and all40 operations/five
 exact target verifications. No native antenna-write acceptance or reboot armed.
+
+
+### 2026-10-24 — antenna register initialization accepted
+
+Source `eaf911c`, release `28c2ba352d59b843`, session
+`session-00065e9d031419f8-00` passed the strict v59 collector. Fresh mapped
+EFUSE20/30 configuration matched the captured profile: 24 reads, two read-command
+writes, two polls, two blocks and 26 submissions; no guard errors. The antenna
+engine completed 40 operations/submissions, 35 reads, five writes and five exact
+target verifications, with no guard errors. Before/after values in reference order:
+WLAN80 ff000003→ff000003, CMB20 00c01fff→00c007ff, CFG1 104 0033ffef→0033ffef,
+COEX0 40 6f008847→6f008843 and COEX3 4c 1→19. Full earlier initialization proof
+and both completion markers passed. This accepts register setup on this adapter;
+RF performance, radio calibration, channels, scanning and connectivity remain untested.
+
+Collection `build/bringup/wifi-antenna-init/collection/collection-0k5432fp`
+archived with strict receipts, payload and run/checkpoint under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-init-eaf911c/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload hashes
+verified. Offline workspace clean: 261 files, 640 clusters, 104 directories,
+zero leaks, allocation mismatches or errors. Workspace unmounted; no reboot armed.
+The complete exit snapshot is 65045 bytes, leaving only 491 bytes of the 64KiB
+limit: resolve proof-log capacity before extending the capture chain.
+
+Next bounded scope: audit RF-bank initialization/calibration transport and the
+saved-proof capacity. No new candidate is staged. Fetched main `85d5939` includes
+Air6,1 deadline PR136; this trial remains based on `d5bc4b3`. PR134 POSIX and the
+Air6,1 startup-timing branch remain separate work; inspect dependencies before
+shared implementation rather than attributing their changes to this native run.

@@ -2411,6 +2411,19 @@ counts, initialization counts and every before/after value. A zero guard-error
 count is insufficient by itself: the collector also requires all operation
 counts, exact values and the full earlier proof. Compact new receipts keep the
 combined fixture within the existing 64KiB exit snapshot; old receipts remain
-unchanged. Physical acceptance is pending. This initializes antenna registers;
+unchanged. The native result below accepts these five register targets only.
+This initializes antenna registers;
 RF-bank tables, channel selection, calibration, radio traffic and connectivity
 remain separate work.
+
+
+Source `eaf911c`, release `28c2ba352d59b843`, session
+`session-00065e9d031419f8-00` passed the strict v59 collector on the captured
+Pro11,2/Edimax adapter. Fresh mapped configuration completed with 24 reads,
+two read-command writes, two polls and 26 submissions. Antenna initialization
+completed all 40 operations/submissions, 35 reads, five writes and five exact
+verifications, with zero guard errors. Readbacks in table order were ff000003,
+00c007ff, 0033ffef, 6f008843 and 00000019. All earlier prerequisites and both
+completion markers passed. Saved logs, automatic return, Ubuntu recovery and
+both offline filesystem checks passed. RF-bank initialization and calibration
+are next; antenna RF performance, scanning and connectivity remain untested.
