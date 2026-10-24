@@ -18,7 +18,7 @@ Require race/ownership/refusal and delayed-completion/timeout/HID host fixtures,
 full local checks, exact EFI/GPT capture/recovery, and input during slow-copy VM
 coverage before a matched native logger-cost capture. Compare cost, idle samples
 and throughput; do not infer power savings. Recovery stays `9aa8dbf6fbda8252`;
-installed `9c57ca38a3771eef` is unchanged and no reboot is armed.
+the pretrial installed baseline was `9c57ca38a3771eef`.
 
 Implementation `3687a98` is in draft PR118. Full local build/core/docs and
 scheduler/xHCI host tests pass. Networked post-idle drag/type/save passes. The
@@ -38,6 +38,42 @@ Run/reboot state is recorded in `build/storage-wait-20261023/checkpoint.json`
 and copied outside build before arming. Pro PR19 `a2db9de` and Air6,1 PR117
 `503dd05` were rechecked; neither changes the storage bulk wait or scheduler
 helper. No native acceptance or energy saving is claimed before collection.
+
+### Native storage wait result: functional pass, performance pending
+
+Release `58a61b892c43d2f5`, source `3687a98`, returned automatically in
+`session-00065e8c5b4cfd37-00`. The 60.009-second desktop capture completed,
+saved its screenshot and logs, exited cleanly and consumed the one-shot boot.
+All 1025 previous files were preserved except expected filesystem metadata;
+only four logs and one screenshot were added. Offline fsck and independent
+allocation pass at 1030 files / 2425 clusters, zero leaks or mismatches.
+The saved 1440x900 desktop screenshot was reviewed. Ubuntu default, EFI order
+and previous recovery `9aa8dbf6fbda8252` remain intact. USB is unmounted;
+current is `58a61b892c43d2f5`, and no reboot is armed.
+
+CPU0 idle samples rose from 95.00% to 98.77%. Logger samples fell from
+282 over 52.819 seconds to 56 over 45.699 seconds (5.34% to 1.23% of
+those separate worker windows). The candidate logger recorded 518 timer wakes,
+consistent with exercising timed waits. Compositor activity stayed at 10.000
+switches/second, with one frame in the idle window.
+
+However, five completed saves (106,942 bytes) cost **5.889351 seconds**, compared
+with six baseline saves (136,678 bytes) costing **3.005369 seconds**. Candidate
+save durations were 2.049146, 2.505198, 0.992459, 0.171650 and 0.170898 seconds.
+USB status callbacks consumed 5.374180 seconds across 572 calls, with zero
+callback failures. This is not a single-transfer timeout. A one-tick polling
+wait can delay noticing completion; the current evidence does not separate
+that added latency from flash/media variability. It does not qualify a throughput
+improvement. Keep PR118 **draft** pending a controlled latency comparison and
+wait-policy refinement; functional success is not performance acceptance.
+
+Package power observed 6.765 W over 45.999 seconds versus 6.949 W over
+52.999 seconds previously. Different coverage, temperatures and a single pair
+prevent a power-saving claim. No physical interactive input or ordinary battery
+service acceptance is added. Evidence and comparison are in
+`build/storage-wait-20261023`, backed up under this release outside build.
+Main advanced to `2702b41` (Air6,1 continuous Home capture PR117); inspected but
+not yet consumed by this candidate. Pro PR19 remains `a2db9de`.
 
 ### Active checkpoint: native logger cost captured
 

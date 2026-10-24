@@ -441,3 +441,11 @@ accepted helper calls. They include a call that discovers completion before
 blocking and yielded service time; they are not a CPU sleep-time counter. The
 USB large-copy VM fixture requires nonzero calls and more than 10 ms of observed
 helper wall time, in addition to input overlap and exact persisted bytes.
+
+The first native candidate `58a61b892c43d2f5` completed capture, persistence and
+recovery with no USB callback failures. Idle samples improved (95.00% to 98.77%),
+but five saves took 5.889351 seconds versus six baseline saves taking 3.005369
+seconds. The records contain different byte totals and coverage. Completion
+polling latency and media variability are not yet separated; PR118 remains
+draft and the wait policy is not performance-qualified. See the reference
+[machine record](machines/macbookair7-2.md) for exact observations and limits.
