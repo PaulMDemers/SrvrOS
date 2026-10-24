@@ -1803,3 +1803,25 @@ integrated source. The eight-minute overrun receipt remains from `022d468`;
 battery runtime/desktop sources and the initramfs are unchanged by integration.
 The earlier stage and evidence remain preserved. Native acceptance is still
 pending; the same unarmed run and 251-file baseline apply to this final payload.
+
+## Attended Home work first return: incomplete
+
+Close out evidence on main `c4265f8`; no shared runtime changes. Run
+`e787736ee4592483`, session `00065e8e0a5dafa7-00`, release `78fe53e8cacdb1ba`
+(compiled `6f25115`) exited through the normal menu after 211.554 seconds.
+The five-minute minimum and screenshot phase were not reached. There were 25
+key presses and 1,225 pointer events. Text saved and reopened an 11-byte new
+file successfully, but there is no Files-app listing receipt. The result is
+incomplete, not accepted; whether the early exit was intentional is pending
+human confirmation. No driver fault is inferred from this alone.
+
+Battery generation advanced 2→81 with 1,231 events, two alarms/acknowledgements/
+cache invalidations and 86 handled/zero unclaimed SCI deliveries. Four lifetime
+members drained; runtime detach was 1/1 with zero heap/errors/denied. Logger and
+mount retirement completed and the failed report was saved before Ubuntu return.
+All 251 prior files retain their bytes except expected metadata; four logs and
+the new Text file bring the total to 256. Offline fsck/allocation pass with 734
+clusters and zero leaks/mismatches/errors. Installed/recovery hashes, Ubuntu
+default and consumed one-shot pass; USB is unmounted. Evidence is preserved
+outside build. No retry is armed; five-minute attended work acceptance remains
+pending, and ordinary battery startup remains disabled.
