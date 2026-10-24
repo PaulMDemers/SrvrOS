@@ -15,9 +15,11 @@ CASES={'completion':83,'profile-refusal':15,'uncertain-ack':79,'query-refusal':7
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=CASES,default='completion')
+    parser.add_argument('--air61',action='store_true')
     parser.add_argument('--transitions',action='store_true');args=parser.parse_args()
+    assert not (args.air61 and args.transitions)
     assert args.transitions or args.case!='no-transition'
-    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-'+('transitions' if args.transitions else 'desktop')+'-capture-'+args.case)
+    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-'+('transitions' if args.transitions else 'desktop')+'-capture-'+('air61-' if args.air61 else '')+args.case)
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-desktop-capture-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -27,9 +29,9 @@ def main():
         fixture=ExfatFixture(volume.read_bytes());fixture.add_directory_files('srvros-work',{'.workspace':MARKER,'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text(f'#define BATTERY_FAULT {84 if args.transitions and args.case=="completion" else CASES[args.case]}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_AIR61 1\n' if args.air61 else '')+f'#define BATTERY_FAULT {84 if args.transitions and args.case=="completion" else CASES[args.case]}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery/vm.elf';initramfs=root/'build/initramfs.tar'
+        kernel=root/('build/acpi-air61-battery/vm.elf' if args.air61 else 'build/acpi-battery/vm.elf');initramfs=root/'build/initramfs.tar'
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-desktop srvros.capture-failure=reboot'
         if args.transitions:cmdline=cmdline.replace('battery-home-desktop','battery-home-transitions')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline=cmdline)
