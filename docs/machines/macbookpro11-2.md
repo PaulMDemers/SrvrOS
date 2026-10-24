@@ -5058,3 +5058,26 @@ zero leaks/mismatches,unmounted. Candidate,collectors,tests,VM receipts and run
 record archived outside build under `~/.local/share/srvros/macbookpro11-2/
 wifi-mac-address-diagnostic-df4a0c5/`. Await attended cold adapter cycle; collect
 matching session before further work. No new physical acceptance or reboot armed.
+
+### 2026-10-24 — MAC diagnostic isolates control-field mismatch
+
+Source `df4a0c5`, release `d1d3486f342b9121`, session
+`session-00065e9b2722160a-00` saved the new diagnostic and returned to Ubuntu.
+Address initialization still fails at operation13,target1/register100c readback:
+13 completed operations,14 submissions,two writes,one verified target.
+The dedicated USB receipt reports success,actual4,cc1,residue0,stage3,no timeout
+and no quarantine. Gate failure8 identifies an exact readback mismatch: factory
+address bits match; public upper control bits expected00ff0000,observed00000000.
+Private header acquisition and all prior prerequisite receipts passed. Both final
+capture markers explicitly report NO; full station/BSSID setup remains unaccepted.
+No factory address bytes were logged. The pinned Linux reference writes U2ME
+bits23:16 as ff; this result alone does not establish whether those bits are
+readable,writable or device-specific. Audit their semantics before changing masks.
+
+Strict-success collection rejected this run as intended. Classified failure,
+full collection `collection-57bm3u7l`,run/checkpoint and hashes are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-address-diagnostic-df4a0c5/`.
+Ubuntu default,consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean253files/628clusters,zero leaks/allocation mismatches;
+unmounted,no reboot armed. Next: scoped100c control-field audit/comparison.
+PHY/RF,association and connectivity remain untested.

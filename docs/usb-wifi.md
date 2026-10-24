@@ -2256,3 +2256,12 @@ bits remain private. Comparison fields clear at each admitted operation, so a
 later guard failure cannot reuse a prior comparison. The strict write sequence,
 exact verification, one-attempt transport and automatic failure return are
 unchanged. These diagnostics do not accept a failed initialization.
+
+The Pro11,2 native diagnostic (`d1d3486f342b9121`) isolates the100c failure:
+USB read succeeded with4 bytes,cc1,no residue/timeout/quarantine; factory-address
+bits matched,while public control bits read00000000 versus requested00ff0000.
+Gate failure8 stopped the unchanged strict sequence. This is a confirmed control
+readback mismatch,not accepted station/BSSID initialization or evidence by itself
+that those bits may be ignored. Audit captured-device U2ME semantics before
+changing write values or verification masks. Prior prerequisite/header receipts,
+saved failure return and offline filesystem checks passed.
