@@ -3531,20 +3531,30 @@ static int validate_spawn_stdio(const uv_stdio_container_t *stdio, int index) {
         return UV_EINVAL;
     }
     if ((flags & UV_INHERIT_FD) != 0) {
-        return stdio[index].data.fd >= 0 ? 0 : UV_EBADF;
+        return fcntl(stdio[index].data.fd,F_GETFD)<0?uv_error_from_errno():0;
     }
     if ((flags & (UV_INHERIT_STREAM | UV_CREATE_PIPE)) != 0 && stdio[index].data.stream == 0) {
         return UV_EINVAL;
     }
+    if(flags&UV_INHERIT_STREAM) {
+        uv_os_fd_t fd;int error=uv_fileno((const uv_handle_t *)stdio[index].data.stream,&fd);
+        if(error) return error;
+        if(fcntl(fd,F_GETFD)<0) return uv_error_from_errno();
+    }
     return 0;
 }
 
-static int spawn_dup2_and_close(posix_spawn_file_actions_t *actions, int old_fd, int new_fd) {
-    int error = posix_spawn_file_actions_adddup2(actions, old_fd, new_fd);
-    if (error != 0 || old_fd == new_fd || new_fd < 3) {
-        return error;
+static int spawn_map_fd(posix_spawn_file_actions_t *actions,int old_fd,int new_fd,
+    int target_count,int snapshots[],int sources[]) {
+    sources[new_fd]=old_fd;
+    /* Actions run in order in the child. Preserve a low source before another
+     * target can replace it; CLOEXEC retires the snapshot after all actions. */
+    if(old_fd<target_count && old_fd!=new_fd) {
+        int copy=fcntl(old_fd,F_DUPFD_CLOEXEC,target_count);
+        if(copy<0) return errno;
+        snapshots[new_fd]=copy;old_fd=copy;
     }
-    return posix_spawn_file_actions_addclose(actions, old_fd);
+    return posix_spawn_file_actions_adddup2(actions,old_fd,new_fd);
 }
 
 static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
@@ -3552,7 +3562,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
     int index,
     int parent_fds[],
     int child_fds[],
-    uv_pipe_t *parent_pipes[]) {
+    uv_pipe_t *parent_pipes[],int target_count,int snapshots[],int sources[]) {
     int flags = stdio[index].flags;
     int target_fd = index;
     parent_fds[index] = -1;
@@ -3562,7 +3572,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         return posix_spawn_file_actions_addclose(actions, target_fd);
     }
     if ((flags & UV_INHERIT_FD) != 0) {
-        return spawn_dup2_and_close(actions, stdio[index].data.fd, target_fd);
+        return spawn_map_fd(actions,stdio[index].data.fd,target_fd,target_count,snapshots,sources);
     }
     if ((flags & UV_INHERIT_STREAM) != 0) {
         uv_os_fd_t fd = -1;
@@ -3570,7 +3580,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         if (error < 0) {
             return -error;
         }
-        return spawn_dup2_and_close(actions, fd, target_fd);
+        return spawn_map_fd(actions,fd,target_fd,target_count,snapshots,sources);
     }
     if ((flags & UV_CREATE_PIPE) != 0) {
         int fds[2];
@@ -3608,7 +3618,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
                 return EINVAL;
             }
             parent_pipes[index] = pipe_handle;
-            return spawn_dup2_and_close(actions, child_fds[index], target_fd);
+            return spawn_map_fd(actions,child_fds[index],target_fd,target_count,snapshots,sources);
         }
         if (pipe_handle == 0 || pipe2(fds, O_CLOEXEC) < 0) {
             return errno != 0 ? errno : EINVAL;
@@ -3633,7 +3643,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             return EINVAL;
         }
         parent_pipes[index] = pipe_handle;
-        return spawn_dup2_and_close(actions, child_fds[index], target_fd);
+        return spawn_map_fd(actions,child_fds[index],target_fd,target_count,snapshots,sources);
     }
     return EINVAL;
 }
@@ -3649,6 +3659,7 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     posix_spawn_file_actions_t actions;
     int parent_fds[UV_MAX_STDIO_HANDLES];
     int child_fds[UV_MAX_STDIO_HANDLES];
+    int snapshots[UV_MAX_STDIO_HANDLES],sources[UV_MAX_STDIO_HANDLES];
     uv_pipe_t *parent_pipes[UV_MAX_STDIO_HANDLES];
     int actions_ready = 0;
     int cwd_changed = 0;
@@ -3677,6 +3688,7 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     for (int i = 0; i < UV_MAX_STDIO_HANDLES; i++) {
         parent_fds[i] = -1;
         child_fds[i] = -1;
+        snapshots[i]=sources[i]=-1;
         parent_pipes[i] = 0;
     }
     if (posix_spawn_file_actions_init(&actions) != 0) {
@@ -3684,10 +3696,17 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     }
     actions_ready = 1;
     for (int i = 0; i < options->stdio_count; i++) {
-        error = configure_spawn_stdio(&actions, options->stdio, i, parent_fds, child_fds, parent_pipes);
+        error = configure_spawn_stdio(&actions,options->stdio,i,parent_fds,child_fds,parent_pipes,options->stdio_count,snapshots,sources);
         if (error != 0) {
             goto out;
         }
+    }
+    /* All consumers have their source before any extra original is closed. */
+    for(int i=0;i<options->stdio_count;i++) {
+        int fd=sources[i];
+        if(fd<options->stdio_count || (fcntl(fd,F_GETFD)&FD_CLOEXEC)) continue;
+        int repeated=0;for(int j=0;j<i;j++) if(sources[j]==fd) repeated=1;
+        if(!repeated && (error=posix_spawn_file_actions_addclose(&actions,fd))) goto out;
     }
     if (options->cwd != 0) {
         if (getcwd(saved_cwd, sizeof(saved_cwd)) == 0 || chdir(options->cwd) < 0) {
@@ -3710,6 +3729,7 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
         process->handle.active = 1;
     }
 out:
+    for(int i=0;i<UV_MAX_STDIO_HANDLES;i++) if(snapshots[i]>=0) close(snapshots[i]);
     if (actions_ready) {
         posix_spawn_file_actions_destroy(&actions);
     }

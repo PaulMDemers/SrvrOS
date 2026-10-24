@@ -18,6 +18,13 @@ For porting guidance, start with the [supported application profile](posix-suppo
 
 ## Implementation progress after the audit
 
+The libuv adapter now snapshots low-numbered spawn sources before child actions
+can replace them, and closes extra originals only after all mappings. A guest
+swap of two inherited files failed before the correction and passes afterward,
+with shared offsets and parent CLOEXEC flags retained. The first fixture exceeded
+its low-FD precondition after earlier consumer tests; the isolated early fixture
+reproduced the actual mapping bug. Both receipts are retained.
+
 Pipe, PTY and native Unix-listener nonblocking status now belongs to the shared
 endpoint rather than each FD. Duplicates, fork and spawn see the same status;
 CLOEXEC remains per descriptor and opposite endpoints remain independent.
