@@ -21,6 +21,19 @@ uint64_t pmm_alloc_frames_tagged(uint64_t n,enum pmm_frame_tag tag) {
     uint64_t p=cursor;cursor+=n*PMM_FRAME_SIZE;return p;
 }
 void *pmm_phys_to_virt(uint64_t p) { assert(p<sizeof(arena));return arena+p; }
+static uint64_t block_count(void) {
+    uint64_t n=0;for(struct heap_block *b=head;b;b=b->next)n++;return n;
+}
+static void allocation_must_halt(void) {
+    expect_halt=true;
+    if(!setjmp(trapped)){(void)kmalloc(16);assert(!"corruption accepted");}
+    expect_halt=false;
+}
+static void free_must_halt(void *p) {
+    expect_halt=true;
+    if(!setjmp(trapped)){kfree(p);assert(!"invalid free accepted");}
+    expect_halt=false;
+}
 int main(void) {
     heap_init();
     assert(!kmalloc(0) && !kmalloc(SIZE_MAX) && !kmalloc(SIZE_MAX-1024));
@@ -41,5 +54,26 @@ int main(void) {
     struct heap_block *next=head->next;head->next=head;expect_halt=true;
     if(!setjmp(trapped)) { heap_validate_locked("cycle-test");assert(!"cycle accepted"); }
     head->next=next;expect_halt=false;heap_validate_locked("restored");
-    puts("heap: PASS 6000 live allocations, fragmentation, 16-byte alignment, overflow/OOM and real cycle rejection");
+    /* A fit at the head must not hide corruption later in the chain. */
+    void *a=kmalloc(64),*b=kmalloc(64),*c=kmalloc(64);assert(a&&b&&c);
+    kfree(a);
+    struct heap_block *hb=payload_block(b),*hc=payload_block(c);
+    struct heap_block saved_b=*hb,saved_c=*hc,saved_head=*head;
+    hc->magic=0;allocation_must_halt();*hc=saved_c;
+    hc->prev=head;allocation_must_halt();*hc=saved_c;
+    hc->next=head;allocation_must_halt();*hc=saved_c;
+    hb->next=(struct heap_block *)1;allocation_must_halt();*hb=saved_b;
+    hb->size=(uintptr_t)hc-(uintptr_t)hb;allocation_must_halt();*hb=saved_b;
+    assert(!memcmp(head,&saved_head,sizeof(saved_head)));
+    /* Both full passes still visit every block; selection uses first fit. */
+    uint64_t before_count=block_count(),before_visits=validation_visits;
+    assert(kmalloc(64)==a);
+    assert(validation_visits-before_visits==before_count+block_count());
+    assert(!search_visits);
+    before_count=block_count();before_visits=validation_visits;kfree(b);
+    assert(validation_visits-before_visits==before_count+block_count());
+    free_must_halt(b); /* already-free block, with the rest of the heap valid */
+    free_must_halt((unsigned char *)c+16);
+    kfree(a);kfree(c);assert(!heap_used_bytes());
+    puts("heap: PASS 6000 live allocations, fragmentation, 16-byte alignment, overflow/OOM, full entry/exit validation, distal corruption and invalid-free rejection");
 }

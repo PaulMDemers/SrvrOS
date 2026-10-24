@@ -3588,3 +3588,10 @@ build/tests/stdio-float-host$(HOST_EXE): tools/test_stdio_float.c userspace/lib/
 
 # Private formatter header also participates in userspace incremental builds.
 build/userspace/lib/src/posix_stdio.c.o: userspace/lib/src/stdio_float.h
+
+.PHONY: bench-heap-startup
+bench-heap-startup: build/tests/heap-startup-bench$(HOST_EXE)
+	$<
+build/tests/heap-startup-bench$(HOST_EXE): tools/bench_heap_startup.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

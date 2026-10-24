@@ -21,6 +21,9 @@ _Static_assert(sizeof(struct heap_block)%HEAP_ALIGNMENT==0,"heap payload alignme
 
 static struct heap_block *head;
 static uint64_t total_bytes;
+#ifdef SRVROS_HEAP_HOST_TEST
+static uint64_t validation_visits, search_visits;
+#endif
 
 static uint64_t irq_save(void) {
     uint64_t flags;
@@ -69,11 +72,18 @@ static bool heap_pointer_looks_kernel(void *ptr) {
 #endif
 }
 
-static void heap_validate_locked(const char *where) {
+/* Selection never short-circuits validation: even a first-block fit must
+ * validate the entire chain before any mutation. Both full validation passes
+ * remain; the former separate first-fit traversal is redundant. */
+static struct heap_block *heap_scan_locked(const char *where, uint64_t wanted) {
+    struct heap_block *candidate = NULL;
     struct heap_block *previous = NULL;
     uint64_t blocks = 0;
 
     for (struct heap_block *block = head; block != NULL; block = block->next) {
+#ifdef SRVROS_HEAP_HOST_TEST
+        validation_visits++;
+#endif
         if (!heap_pointer_looks_kernel(block) || !block_is_valid(block)) {
             console_printf("heap: corrupt block where=%s block=%x prev=%x blocks=%u\n",
                 where,
@@ -109,11 +119,18 @@ static void heap_validate_locked(const char *where) {
                 (uint64_t)block->next);
             halt_forever();
         }
+        if (wanted && !candidate && block->free && block->size >= wanted)
+            candidate = block;
         previous = block;
         blocks++;
         /* The strict ascending next-address check above rejects every cycle.
          * A fixed allocation count would reject legitimate large namespaces. */
     }
+    return candidate;
+}
+
+static void heap_validate_locked(const char *where) {
+    (void)heap_scan_locked(where, 0);
 }
 
 static void insert_block_sorted(struct heap_block *block) {
@@ -179,16 +196,6 @@ static void split_block(struct heap_block *block, uint64_t wanted) {
     block->next = rest;
 }
 
-static struct heap_block *find_free_block(uint64_t size) {
-    for (struct heap_block *block = head; block != NULL; block = block->next) {
-        if (block->free && block->size >= size) {
-            return block;
-        }
-    }
-
-    return NULL;
-}
-
 static struct heap_block *extend_heap(uint64_t payload_size) {
     uint64_t needed = align_up_u64(payload_size + sizeof(struct heap_block), PMM_FRAME_SIZE);
     if (needed < HEAP_MIN_CHUNK_SIZE) {
@@ -242,9 +249,8 @@ void *kmalloc(size_t size) {
     }
 
     uint64_t flags = irq_save();
-    heap_validate_locked("kmalloc-enter");
     uint64_t wanted = align_up_u64(size, HEAP_ALIGNMENT);
-    struct heap_block *block = find_free_block(wanted);
+    struct heap_block *block = heap_scan_locked("kmalloc-enter", wanted);
     if (block == NULL) {
         block = extend_heap(wanted);
         if (block == NULL) {
