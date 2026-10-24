@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling with normal USB Home mounted is physically accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Mounted Home coexistence, desktop ownership, sustained sampling and gauge accuracy; ordinary desktop remains off |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; continuous desktop ownership, sustained sampling and gauge accuracy remain open; ordinary startup stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -1563,3 +1563,31 @@ installed. Payload and evidence backups live outside build. Run
 connected with no input; normal completion returns to Ubuntu, uncertain mounted
 faults halt for a photograph. Native acceptance and ordinary battery startup
 remain pending/off respectively; collect this matching run before another trial.
+
+
+## Bounded Home Start/save retry accepted (2026-10-23)
+
+Close out this unit's run on main `adf40df` (MR114), touching only this record
+and the current battery guide. PR115 logger timing and PR19 Wi-Fi remain
+independent. Session `00065e8bbf429e4a-00`, release `7fe7d3d20d91997c` /
+compiled `5086cba`, passes the strict native Home-session receipt.
+
+The first checkpoint deferred at serial 12 until Start observed fresh generation
+2, then submitted its write. All 60 edits, five exact `AA` files, 20 worker
+operations and five controls across three lifetimes completed. The service
+processed 180 events with zero alarms; SCI totals are 12 handled/zero unclaimed.
+Every lifetime detached cleanly with zero heap/errors/denied; all three clients
+retired, the final active service retired, and Home released before saved return.
+
+All 226 prior USB files retain their bytes except expected `.srvros/meta`;
+five study files and three logs bring the total to 234. Offline fsck and
+allocation/headroom pass: 548 clusters, no leaks/mismatches/errors. Installed
+payload/recovery hashes and Ubuntu default pass; the one-shot is consumed and
+USB is unmounted. Matching raw evidence, exact study bytes and verification
+records are backed up outside build. No next trial or reboot is armed.
+
+This accepts the bounded generated Home/Text/control workload only. Physical
+input latency, continuous desktop monitoring and gauge accuracy remain separate.
+Ordinary battery startup stays off. Next is a bounded continuous Home desktop
+trial, reusing the existing ownership/retirement contract and requiring its own
+Air6,1 fixture and native acceptance before any ordinary-startup change.
