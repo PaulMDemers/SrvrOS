@@ -2,6 +2,39 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Controlled native result and 20 ms candidate
+
+Release `2218ef4113730414`, source `7347ccc`, returned automatically in
+`session-00065e8ca277c1a9-00`. All 18 counterbalanced 32 KiB overwrite/readback/
+flush operations passed, and the final fixture matched exactly after Ubuntu
+return. All 1030 previous files were preserved except expected filesystem
+metadata. Only boot/exit logs and the fixture were added; offline fsck and
+allocation pass at 1033 files / 2429 clusters, zero leaks or mismatches.
+Ubuntu default, consumed one-shot and previous `9aa8dbf6fbda8252` are verified.
+
+| Policy | Median save | Range | Total, six saves | Idle timer samples |
+| --- | --- | --- | --- | --- |
+| Polling | 251.303 ms | 171.657–717.536 ms | 1.895296 s | 0 / 189 |
+| Wait after 4 ms | 172.592 ms | 171.819–330.844 ms | 1.193865 s | 16 / 120 |
+| Wait after 20 ms | 171.813 ms | 171.635–334.427 ms | 1.351771 s | 29 / 135 |
+
+Each policy has fast operations around 172 ms and slower outliers. The first
+polling sample was 718 ms despite an unmeasured allocation/warm-up write.
+One boot and six samples per policy do not establish that one threshold is
+optimal, or that the earlier logger regression was caused wholly by sleeping.
+Different stall incidence also prevents ranking CPU efficiency from these totals.
+Both wait policies admitted idle during some stalls, with zero callback failures.
+
+Choose **20 ms as the next conservative candidate**, preserving polling for
+5–15 ms completions that the host fixture showed could be delayed by the 4 ms
+threshold. Normal desktop logger latency/idle must still be measured before
+merging PR118; no energy or physical interactive acceptance is claimed.
+Current installed is `2218ef4113730414`; USB is unmounted and no reboot is armed
+at collection. Evidence under `build/storage-compare-20261023` is backed up
+outside build. Follow-up scope: default threshold, test/collector compatibility,
+docs and matched desktop validation. Consume main `bbdbefb` (Air6,1 PR120)
+before staging. Pro PR19 `5e98a56` retains nonoverlapping Wi-Fi/control dispatch.
+
 ### Active follow-up: controlled storage wait comparison
 
 Consume main `2702b41` (Air6,1 continuous Home capture) before the next build.
