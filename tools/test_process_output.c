@@ -5,7 +5,8 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
-static bool opening,fixture_exists;
+static bool opening,fixture_exists,fail_delete;
+static unsigned deletes;
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
 static bool fail_save;
@@ -19,6 +20,7 @@ void *scheduler_current_user_context(void) { return current_subject; }
 void *scheduler_current_user_thread_context(void) { return current_worker; }
 void net_process_wake(struct process *process) { (void)process; }
 void keyboard_wake_waiters(void) {}
+void scheduler_yield(void) { assert(0); }
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
 __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue, bool (*ready)(void *), void *arg) {
     (void)queue;struct process_pipe *pipe=arg;
@@ -48,6 +50,19 @@ const struct vfs_node *vfs_lookup(const char *path) {
 }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
     assert(opening && node==&fixture_node);*data=saved;*size=saved_size;return true;
+}
+bool exfat_delete_file(const char *path) {
+    assert(opening && !strcmp(path,"/test/output"));
+    if(fail_delete) return false;
+    fixture_exists=false;deletes++;return true;
+}
+bool vfs_stat(const char *path,struct vfs_metadata *metadata,uint64_t *size,uint64_t *type) {
+    assert(opening && !strcmp(path,"/test/output"));
+    if(!fixture_exists) return false;
+    if(metadata) *metadata=fixture_node.metadata;
+    if(size) *size=saved_size;
+    if(type) *type=VFS_NODE_FILE;
+    return true;
 }
 static struct process subject;
 static void setup(unsigned refs) {
@@ -289,6 +304,46 @@ static void coherence_regression(void) {
     opening=false;
     puts("process-content: PASS independent opens, reader promotion, OOM preservation, truncate/offset/flush/close lifetime");
 }
+static void orphan_lock_regression(void) {
+    clear_process(&subject);subject.pid=100;
+    opening=fixture_exists=true;fixture_node.metadata=(struct vfs_metadata){.inode=42,.mode=VFS_MODE_IFREG|0600,.nlink=1};
+    memcpy(saved,"seed",4);saved_size=4;deletes=0;
+    int reader=process_file_alloc(&subject,&fixture_node,saved,saved_size);
+    fail_alloc=true;assert(process_unlink_file("/test/output")==SRV_ERR_NOMEM && !deletes);fail_alloc=false;
+    fail_delete=true;assert(process_unlink_file("/test/output")==SRV_ERR_IO && !deletes);fail_delete=false;
+    int writer=process_file_open_write(&subject,"/test/output",SRV_OPEN_READ|SRV_OPEN_WRITE);
+    struct process other=subject;other.pid=101;
+    struct srv_flock lock={.type=SRV_F_WRLCK,.start=0,.len=100};
+    assert(!process_file_set_lock(&subject,writer,&lock,false));
+    lock.type=SRV_F_UNLCK;lock.start=40;lock.len=20;
+    assert(!process_file_set_lock(&subject,writer,&lock,false));
+    lock=(struct srv_flock){.type=SRV_F_WRLCK,.start=20,.len=1};
+    assert(!process_file_get_lock(&other,reader,&lock) && lock.type==SRV_F_WRLCK && lock.start==0 && lock.len==40 && lock.pid==100);
+    lock=(struct srv_flock){.type=SRV_F_WRLCK,.start=45,.len=1};
+    assert(!process_file_get_lock(&other,reader,&lock) && lock.type==SRV_F_UNLCK);
+    lock=(struct srv_flock){.type=SRV_F_WRLCK,.start=70,.len=1};
+    assert(!process_file_get_lock(&other,reader,&lock) && lock.start==60 && lock.len==40);
+    assert(!process_unlink_file("/test/output") && deletes==1 && !content_find("/test/output"));
+    struct vfs_metadata metadata;uint64_t size,type;
+    assert(!process_file_stat(&subject,reader,&metadata,&size,&type) && metadata.inode==42 && !metadata.nlink && size==4);
+    int replacement=process_file_open_write(&subject,"/test/output",SRV_OPEN_CREATE|SRV_OPEN_WRITE);
+    assert(replacement>=0 && process_file_write(&subject,replacement,(const uint8_t *)"new",3)==3);
+    lock=(struct srv_flock){.type=SRV_F_WRLCK,.start=0,.len=1};
+    other.files[replacement-3]=subject.files[replacement-3];
+    assert(!process_file_get_lock(&other,replacement,&lock) && lock.type==SRV_F_UNLCK);
+    assert(process_file_write(&subject,writer,(const uint8_t *)"old!",4)==4 && !process_file_close(&subject,writer));
+    uint8_t data[4];assert(process_file_pread(&subject,reader,data,4,0)==4 && !memcmp(data,"old!",4));
+    assert(!process_file_close(&subject,reader) && !process_file_close(&subject,replacement));
+    assert(saved_size==3 && !memcmp(saved,"new",3));
+    /* A table-full split must leave every existing range unchanged. */
+    static struct process_file_content identities[PROCESS_MAX_FILE_LOCKS];
+    memset(file_locks,0,sizeof(file_locks));
+    for(unsigned i=0;i<PROCESS_MAX_FILE_LOCKS;i++) assert(!file_lock_update(i+1,&identities[i],0,100,SRV_F_WRLCK));
+    struct process_file_lock before[PROCESS_MAX_FILE_LOCKS];memcpy(before,file_locks,sizeof(before));
+    assert(file_lock_update(1,&identities[0],40,60,SRV_F_UNLCK)==SRV_ERR_NOLCK && !memcmp(before,file_locks,sizeof(before)));
+    memset(file_locks,0,sizeof(file_locks));opening=false;
+    puts("process-orphan: PASS unlink rollback, retained inode/locks, pathname reuse isolation, last-close and lock split exhaustion");
+}
 int main(void) {
     positional_regression();
     snapshot_read_regression();
@@ -382,5 +437,6 @@ int main(void) {
     cpu_usage_regression();
     open_flags_regression();
     coherence_regression();
+    orphan_lock_regression();
     puts("process-output-host: PASS (20,000 pipe reference transfers, wrap/backpressure/EOF/rights, 1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
 }

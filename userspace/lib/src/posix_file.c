@@ -41,7 +41,7 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
     if ((st->st_mode & S_IFMT) == 0) {
         st->st_mode = info->type == 1 ? (S_IFDIR | 0755) : (S_IFREG | 0644);
     }
-    st->st_nlink = info->nlink != 0 ? info->nlink : 1;
+    st->st_nlink = info->nlink; /* Zero is meaningful for an open, unlinked file. */
     st->st_uid = info->uid;
     st->st_gid = info->gid;
     st->st_atime = (time_t)info->atime;
@@ -634,7 +634,7 @@ int fcntl(int fd, int command, ...) {
                     errno = EINTR;
                     return -1;
                 }
-                errno = EBADF;
+                errno = result < -1 ? (int)-result : EBADF;
                 return -1;
             }
             break;
@@ -912,11 +912,12 @@ int unlink(const char *path) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_unlink(full) < 0) {
+    long result=srv_unlink(full);
+    if (result < 0) {
         if (srv_unix_unlink(full) == 0) {
             return 0;
         }
-        errno = ENOENT;
+        errno = result < -1 ? (int)-result : EIO;
         return -1;
     }
     return 0;
@@ -1002,6 +1003,7 @@ int mkostemp(char *template_path, int flags) {
             (void)fchmod(fd, 0600);
             return fd;
         }
+        if(errno!=EEXIST) return -1;
     }
     errno = EEXIST;
     return -1;

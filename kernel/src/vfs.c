@@ -319,7 +319,10 @@ void vfs_init(void) {
     uint64_t skipped=0;
     for (uint64_t i = 0; i < initramfs_file_count() && node_count < VFS_MAX_NODES; i++) {
         const struct initramfs_file *file = initramfs_file_at(i);
-        if(!file || !boot_parents(file->path) || !vfs_register_file(file->path, file->size, file, initramfs_read_all)) skipped++;
+        if(!file || !boot_parents(file->path)) { skipped++;continue; }
+        struct vfs_metadata metadata=default_metadata(file->path,VFS_NODE_FILE);
+        metadata.mode=VFS_MODE_IFREG|file->mode;
+        if(!vfs_register_file_with_metadata(file->path,file->size,file,initramfs_read_all,NULL,&metadata)) skipped++;
     }
 
     console_printf("vfs: mounted initramfs nodes=%u skipped=%u\n", node_count, skipped);

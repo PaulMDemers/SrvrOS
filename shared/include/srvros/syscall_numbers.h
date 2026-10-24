@@ -287,6 +287,7 @@ struct srv_winsize {
 #define SRV_ERR_ACCES -13
 #define SRV_ERR_NOTDIR -20
 #define SRV_ERR_NAMETOOLONG -36
+#define SRV_ERR_NOLCK -37
 #define SRV_ERR_BADF -9
 #define SRV_ERR_AGAIN -11
 #define SRV_ERR_NOMEM -12

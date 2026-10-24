@@ -134,6 +134,7 @@ void initramfs_init(const void *address, uint64_t size) {
                     .path = paths[file_count],
                     .data = file_data,
                     .size = file_size,
+                    .mode = parse_octal(header->mode,sizeof(header->mode)) & 07777,
                 };
                 file_count++;
             } else {

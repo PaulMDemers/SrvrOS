@@ -1112,14 +1112,8 @@ static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mti
 
 static int64_t syscall_unlink(const char *user_path) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
-    if (process_has_open_vfs_prefix(path)) {
-        return -1;
-    }
-
-    return exfat_delete_file(path) ? 0 : -1;
+    if(!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
+    return process_unlink_file(path);
 }
 
 static int64_t syscall_mkdir(const char *user_path) {

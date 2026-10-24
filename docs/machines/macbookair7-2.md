@@ -61,8 +61,21 @@ filesystem publication and unsupported unlink-while-open remain explicitly
 separate from this coherence block. The shared-content host tests, full core/build
 and full `thread-shared-files.log` suite pass, including four concurrent appenders.
 Main advanced to `36080fc` with Air6,1 documentation-only PR135; no runtime overlap.
-Next: orphan-file lifetime and portable consumer tests, preserving shared-content
-and native desktop I/O guarantees. No reboot is needed.
+Ports and process/shell regressions also pass. The libuv duplex-spawn regression
+exposed missing execute metadata on an initramfs program; the loader correctly
+refuses it. Current follow-up preserves tar modes/stages executable ELF permissions.
+Orphan-file/lock lifetime host checks, full core/runtime-ELF tests and all six
+thread/libuv/ports/process/posixutils/libc VM regressions pass. Deleted open files
+retain data/identity/locks until close, pathname reuse stays isolated, and
+`tmpfile` creates an unlinked stream. A focused guest failure exposed libc
+turning a correct zero link count into one; the correction passes the rerun.
+Original failures remain in the evidence directory.
+Evidence backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+Next bounded scope: kernel-owned working directory inherited by fork/spawn and
+preserved by exec, checked path traversal, native shell/Terminal handoff, then
+directory descriptors and portable consumer tests. Touch process/syscall/libc,
+shell/Terminal and semantic tests; retain existing file and I/O guarantees.
+No reboot is needed. The next working-directory source is not yet validated.
 
 ### Desktop architecture, scalable windows and POSIX audit
 

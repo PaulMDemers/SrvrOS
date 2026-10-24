@@ -1573,7 +1573,7 @@ FILE *fopen(const char *path, const char *mode) {
         errno = EINVAL;
         return 0;
     }
-    int fd = open(path, info.flags);
+    int fd = open(path, info.flags, 0666);
     if (fd < 0) {
         return 0;
     }
@@ -2124,9 +2124,13 @@ char *tmpnam(char *buffer) {
 }
 
 FILE *tmpfile(void) {
-    char name[L_tmpnam];
-    tmpnam(name);
-    return fopen(name, "w");
+    char name[]="/fat/tmp-XXXXXX";
+    int fd=mkstemp(name);
+    if(fd<0) return NULL;
+    if(unlink(name)<0) { int saved=errno;close(fd);errno=saved;return NULL; }
+    FILE *stream=fdopen(fd,"w+");
+    if(!stream) { int saved=errno;close(fd);errno=saved; }
+    return stream;
 }
 
 FILE *tmpfile64(void) {
