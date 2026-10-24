@@ -709,3 +709,27 @@ then `desktop battery` to check provider availability after reopening. Exit agai
 and enter `reboot` at `srv>`. There is no automatic completion prompt or return.
 Headphone routing and AC unplug/reconnect may be exercised while attended; no
 low-charge drain, fan writes or suspend is requested.
+
+### Reopen startup deadline boundary
+
+The first native combined reopen attempt halted at the five-second setup budget
+while its failure display reported setup complete and no work in flight. The
+operation loop used a stale timed-drain result: completion could occur while the
+owner was descheduled before the deadline check. It now performs a nonblocking
+completion poll at expiry, preserving callback error checks and the unchanged
+budget/containment for unfinished work. This matches the worker's existing
+completion-first wait semantics; it does not grant active work extra time.
+
+Disposable regression commands (after building the Air6,1 VM kernel):
+
+```sh
+python3 tools/battery_home_desktop_smoke.py --boot-session --air61 --services \
+  --audio --workspace-table gpt --case reopen-completed
+python3 tools/battery_home_desktop_smoke.py --boot-session --air61 --services \
+  --audio --workspace-table gpt --case reopen-busy
+```
+
+The first delays the second-lifetime owner past its deadline after a pending
+drain while the worker completes; the original code reproduces the halt. The
+second keeps setup unfinished and must still halt with ownership retained.
+These scheduling hooks are VM-only. The native retry remains required.

@@ -2038,3 +2038,64 @@ ten-minute wait or automatic return is required. The preceding combined native
 run remains independently backed up; this new run has its own backup directory.
 Ubuntu and console recovery stay unchanged. Physical reopen acceptance awaits
 the returned evidence and user observations.
+
+### Reopen trial failed (2026-10-24)
+
+Run `c655eca6a4f00313` on unchanged v71 `1ae70fcf03ab6152` completed its first
+session `00065e9c895ac1d7-00` with clean retirement at 87.970 seconds from boot.
+The user confirms all providers worked and the document was saved. Brightness
+16/44/78 and one completed audio test are logged, with live CPU/fan data and
+no final audio/SMC errors. New `reopn-services.txt` persisted (four bytes).
+
+After `desktop battery`, session `00065e9c8f025226-00` saved its startup log,
+but halted before a periodic/final snapshot. The user's photograph reports
+`HALTED operation deadline`, setup `complete`, elapsed 5,037,205 us, zero
+errors/denied/EC error/queries and retained live state. The source gives namespace
+setup a 5,000 ms operation budget. Completion timing and deadline handling need
+investigation; this evidence does not yet identify a driver or scheduler defect.
+Do not widen the budget or claim native reopen acceptance from VM passes.
+
+All 277 prior file bytes except metadata are preserved. Offline fsck/allocation
+pass at 283 files/831 clusters with no leaks or mismatches. Ubuntu returned with
+empty one-shot state. Both sessions, the photograph and file hashes are backed
+up independently outside build. No reboot is armed. First-session combined
+acceptance remains valid; native combined reopen is now a recorded failure.
+
+## Reopen deadline investigation scope (2026-10-24)
+
+Base `36080fc`. Investigate the stale worker-drain result between a timed slice
+and the outer battery operation deadline. The native photograph reports setup
+complete and no in-flight work at containment; reproduce that boundary using
+VM-only second-lifetime scheduling hooks before changing production behavior.
+Scope: battery operation loop, disposable battery VM model and desktop regression
+harness, plus this record. Preserve the five-second setup budget and live-state
+containment for still-running work. PR134 owns POSIX/scheduler changes; avoid
+scheduler edits. PR19 Wi-Fi is independent. Next checkpoint: failing regression,
+completion-vs-busy proof, combined exit/reopen and exact staged GPT rehearsal.
+
+### Deadline completion fix validated (PR136)
+
+Source `faacdf2` adds a nonblocking worker completion poll at operation expiry,
+retaining the five-second setup budget, callback error checks and busy-work
+containment. A VM-only second-lifetime fixture reproduces the old failure:
+setup complete at 5.364 seconds, no work in flight, zero EC errors/queries, then
+operation-deadline HALT. With the fix it drains both lifetimes cleanly. A separate
+six-second setup fixture still halts and retains the second lifetime. This
+proves the stale-observation defect and is consistent with the native photo;
+native confirmation is pending rather than inferred from the model.
+
+Full build/core, 76 staging tests, documentation checks and nine combined GPT
+VM cases pass: both deadline regressions, normal playback/exit/reopen, pending
+save, runtime fault retention, opt-out, missing Home, absent providers and Air7,2
+regression. Exact staged v71 release `06b0976a58151901` passes GRUB→Limine GPT
+boot with native-profile refusal, HDA, app/file work, exit/reopen, clean allocation
+and monitor reboot. No scheduler or firmware permission changes. PR134 POSIX
+and PR19 Wi-Fi remain independent; main is `36080fc`.
+
+Unarmed run `227c377cefd26812` retains 283 files/831 clusters and uses new
+`deadline-reopen.txt`. Briefly check providers and save, return to console,
+enter `desktop battery`, reopen the document and check providers, then exit
+and reboot. No ten-minute wait or automatic return. Prior native failure and
+before-fix VM evidence remain backed up separately. The old `a18d72aecdf808c7`
+three-minute capture EFI copy was removed only after durable payload verification;
+combined, ordinary-battery, console recovery and Ubuntu remain available.
