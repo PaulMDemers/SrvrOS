@@ -1,39 +1,47 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
-### Active scope: reproduce and resolve legacy TCP readiness failure
+### TCP readiness and e1000 receive ownership follow-up
 
-Base `92722b7` includes merged PR123. Inspecting Pro PR19 `fbafa66` and Air6,1
-PR124 `6f25115` shows independent Wi-Fi and attended Home capture work. This
-scope owns `tools/tcp_ready_smoke.py`, its disposable VM evidence and, only if
-required by a reproducer, socket readiness/notification code and focused tests.
-First capture packet and serial timing on the unchanged kernel to distinguish
-host harness, guest application and transport/poll failures. Preserve the current
-10-second guest assertions; do not count delayed or missing markers as success.
-No native reboot or firmware/driver gate change is planned. Installed/recovery
-payloads remain unchanged. USB logger timing variability stays a separate next
-scope until this failure is explained. Local evidence: `build/tcp-readiness-20261023`.
+PR125 resolves the legacy readiness failure retained by the network-idle
+milestone. Packet capture on the accepted kernel showed SYN/SYN-ACK/ACK complete
+before the listener timed out: only arriving payload queued a connection for
+acceptance. The fix queues a validated final ACK, independently of data, once.
+Invalid handshakes remain hidden and queue exhaustion resets/retires the new
+connection. Original guest deadlines and host payload ordering are unchanged.
 
-Diagnosis: timestamped serial plus QEMU packet capture shows SYN/SYN-ACK/ACK
-complete while the guest listener times out. `handle_tcp` only called
-`ensure_pending_connection` from its payload path, so an empty completed
-handshake never became acceptable. This is a transport readiness defect, not
-stdout buffering or a reason to loosen the test. The new packet-level host
-regression fails on the old kernel and passes after queueing a validated final
-ACK. It covers repeated readiness/draining, subsequent payload/FIN, invalid
-ACK/sequence and full pending queue refusal. Full build/core and original VM
-readiness/descriptor/web regressions are in progress. No hardware change armed.
+Compatibility testing also exposed e1000 receive-ring reentrancy: a woken
+application could poll the DMA descriptor still owned by the outer callback.
+The accepted baseline reproduced intermittent HTTP stalls too. An atomic,
+non-spinning receive-owner guard prevents duplicate dispatch or skipping the next
+packet, including direct monitor polling. Both packet-level TCP and nested-poll
+host regressions fail before their respective fixes and pass afterward.
 
-The initial TCP fix passes original readiness/lifetime and ECM traffic VMs,
-but e1000 web traffic exposes a receive-ring reentrancy hazard: dispatch can
-wake a process that polls before the original callback returns the descriptor.
-A nested-poll host reproducer fails on the driver. Scope now also includes
-`e1000.c`, a non-spinning receive-owner guard and its focused regression;
-Pro Wi-Fi/xHCI and Air6,1 capture code remain untouched. The legacy web harness
-also expects absent log markers on the accepted release, separately from the
-candidate's actual HTTP traffic failure. Both failures remain in local evidence;
-validation is incomplete until the transport regression is resolved.
+At source `4e9e7ad`, full local build/core passes; original readiness and
+descriptor-lifetime VMs pass. ECM traffic passes against the same TCP change
+(before the e1000-only guard): DHCP/DNS/HTTP, UDP echoes, TCP serving, cable
+recovery, shared keyboard and removal quarantine. Refined e1000 HTTP requests,
+slow-peer coexistence and closed-port refusal pass. The web fixture now explicitly
+syncs buffered open service logs before reading them and requires successful
+sync; all previous content assertions remain. Corrected web fixtures pass with
+shorter and default host waits. The idle/input/save fixture passes at 2.095
+network switches/second, with titlebar drag, mixed-case typing and exact save.
+
+Main `c4265f8` (Air6,1 PR124) is merged as `3a94ab2`; Pro PR19 `9b0d63c`
+retains independent Wi-Fi work. Combined-tree build/core and original readiness,
+web serving/log readback and idle/input/exact-save VMs pass. Network activity
+remains about two switches/second. No physical reboot, installed-payload replacement or
+sibling acceptance is implied; installed Air release remains `27b239f96a183fb8`,
+recovery `9aa8dbf6fbda8252`. Details and commands are in
+[TCP readiness](../tcp-readiness.md). Raw failed and successful comparisons stay
+under `build/tcp-readiness-20261023`, with an outside-build archive at closeout.
+
+USB logger variability is the next separate scope. Multi-second saves also
+occurred before network idle changes; aggregate CSW time cannot distinguish
+media delay from completion/scheduling delay. Preserve verification and flush
+policy, and measure individual transfer/owner timing in a controlled comparison
+before changing thresholds. No new hardware test is armed.
 
 ### Network idle milestone accepted for the bounded workload
 

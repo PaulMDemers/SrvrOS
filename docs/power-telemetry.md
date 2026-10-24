@@ -550,6 +550,7 @@ versus 98.30%, package power 6.840 W versus 6.786 W, and five saves took 7.94243
 versus six in 1.883555 s. Candidate saves ranged 200.222–3792.337 ms with zero
 callback failures; 7.531335 s was in CSW callbacks, including scheduling time.
 The cause of this run's slower USB saves is unresolved. Preserve the evidence
-for controlled storage timing follow-up. The legacy TCP readiness fixture also
-fails identically on accepted and candidate kernels; narrower passing traffic
-fixtures do not resolve that preexisting issue.
+for controlled storage timing follow-up. At that checkpoint the legacy TCP readiness fixture also failed on both kernels.
+The subsequent [TCP readiness follow-up](tcp-readiness.md) fixes passive-open
+queueing and e1000 receive ownership, with directed host/VM coverage. That fix
+does not explain USB save variability or establish energy savings.
