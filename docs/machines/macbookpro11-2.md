@@ -5111,3 +5111,16 @@ refusal. Native build,mt76/upload/xHCI tests,ASan/UBSan,135 staging tests and110
 byte-identical historical Wi-Fi recipes passed. Collector fixture requires the
 new profile token/receipt and rejects both earlier native failures;62199 bytes.
 Next: exact-stage normal/missing-workspace rehearsal and unarmed installation.
+
+Exact-profile source `87395a2`,release `be58d4957e3c4d7a` installed unarmed.
+Exact-stage GPT normal capture/save/return and missing-workspace refusal/return
+passed. Ubuntu default/EFI order unchanged; known-good `e47dca3a6b30c6c1` retained.
+Failed diagnostic `d1d3486f342b9121` retained and archived. Older failed private
+address payload `fbedd261796dd08f` removed from ESP only after full equality with
+its durable backup. Offline workspace clean253files/628clusters,zero leaks or
+allocation mismatches,unmounted. Payload,read-only Linux evidence/reference hashes,
+local tests,collector,VM receipts and run/checkpoint are archived outside build in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-control-87395a2/`.
+Next: attended cold adapter cycle,then collect matching release/session FIRST.
+Require exact-profile marker and all160 operations/20 verifications plus prior
+prerequisites,save/unmount and recovery. No native v56 acceptance or reboot armed.
