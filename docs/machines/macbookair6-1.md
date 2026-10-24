@@ -1927,3 +1927,20 @@ Console recovery remains `c35475f62f154f1e`; the superseded `78fe53e8cacdb1ba`
 EFI copy was removed only after its independent backup matched. Corrected
 capture and accepted recovery payloads remain available. Main is still `468ca20`;
 Air7,2 PR130 and Pro PR19 `d0a0b57` retain independent scopes.
+
+### Ordinary monitoring physical result (2026-10-24)
+
+Run `d34f847c1520e40c`, release `87bf9866baa3f8bc`, session
+`00065e9aafda5da4-00` returned with a clean exit snapshot at 797.659 seconds
+from boot, beyond the former eight-minute deadline. Battery generation reached
+304 with 4,553 events and no alarms. Runtime retired with zero heap, errors or
+denied operations; the six-member peak lifetime drained and released. A new
+nine-byte `test.txt` persisted; prior file bytes except workspace metadata are
+unchanged. Offline fsck/allocation pass: 272 files, 817 clusters, no leaks or
+bitmap mismatches. Ubuntu returned with an empty one-shot entry. Evidence and
+hashes are backed up outside build.
+
+This accepts opt-in monitoring beyond eight minutes with clean native retirement
+and a persisted document, not multi-hour endurance or a reopen receipt absent
+from retained logs. Default battery startup remains off. The reported 16-window
+result belongs to another machine.
