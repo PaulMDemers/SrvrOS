@@ -527,3 +527,11 @@ before this filtering, despite zero packets. Retain that failed idle-ceiling run
 it is separate from the refined candidate's acceptance. Full functional traffic,
 cable recovery, fallback and idle measurements precede a native capture. No
 energy reduction or physical responsiveness is assumed from fewer switches.
+
+
+Use `tools/hardware_boot_smoke.py --probe-check --probe-network` with the v26
+stage to attach an ECM adapter to the exact EFI/GPT rehearsal and require a
+network worker below ten switches/second over at least twenty seconds. The
+ordinary probe fixture has no supported adapter and cannot validate network
+activity. Missing-workspace return remains a separate case. Traffic and
+post-idle input checks use the dedicated network/idle fixtures.
