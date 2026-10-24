@@ -94,6 +94,29 @@ shared `kernel/src/fs/exfat.c`, process-content identity, libc stdio and regress
 fixes in PR134. Preserve the native guarded file-manager rename contract and
 quarantine on uncertain I/O; no native USB trial or acceptance is implied.
 
+The next consumer block passes the focused rename and stdio-access guest tests
+and pinned Lua file/date tests plus subprocess output/EOF/exit checks. It adds
+regular-file replacement/open-handle lifetime, exact binary32/64 parsing, missing
+OS-library primitives and noninteractive shell output cleanup. Full local
+regressions are running. Fault injection explicitly exposes non-atomic dirty
+rename recovery: fsck can retain the source and truncate the duplicate target.
+Do not claim journaled/old-or-new recovery. Original failure logs and images are
+under the existing evidence directory. Main advanced to `85d5939` (Air6,1 PR136
+battery deadline); integrate after this checkpoint. Air6,1 PR137 startup timing
+and Pro PR19 `b754d92` Wi-Fi remain outside this compatibility scope.
+
+The ports regression exposed a native spawn namespace collision: closing a
+parent-numbered pipe descriptor could close a newly allocated child standard
+stream. Removing those invalid close actions restores the full ports probe;
+ordered inherited file actions require a separate descriptor-table block.
+The default-ignored signal cleanup also has a focused host regression. Remaining
+Lua/libuv/utility checks are running. Main is now `4f8acd2` (Air6,1 startup timing);
+PR138 heap optimization and Pro PR19 `d5010dc` Wi-Fi are separate active scopes.
+Next bounded block is path/limit accuracy and exec fallback: shared path capacity,
+checked directory import, pathconf/fpathconf and semantic guest/remount tests.
+General descriptor inheritance, atomic mode/umask creation and asynchronous
+signals remain required follow-ups before the compatibility milestone can close.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor

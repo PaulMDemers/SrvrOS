@@ -599,6 +599,7 @@ int posix_orphan_test(void);
 int posix_path_test(void);
 int posix_directory_test(void);
 int posix_rename_test(void);
+int posix_stdio_access_test(void);
 int posix_path_child(void);
 int posix_pthread_contract_test(void);
 int posix_cpu_child(void);
@@ -632,6 +633,7 @@ int main(int argc, char **argv) {
     RUN_TEST("path", posix_path_test);
     RUN_TEST("directory", posix_directory_test);
     RUN_TEST("rename", posix_rename_test);
+    RUN_TEST("stdio-access", posix_stdio_access_test);
     RUN_TEST("sleep", posix_sleep_test);
     RUN_TEST("usage", posix_usage_test);
     RUN_TEST("resource", posix_resource_test);

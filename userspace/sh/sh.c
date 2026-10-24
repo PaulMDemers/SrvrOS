@@ -31,7 +31,7 @@ static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
 };
 static size_t path_count = 3;
 static uint64_t last_status = 0;
-static int workspace_interactive, history_dirty;
+static int workspace_interactive, history_dirty, shell_interactive;
 static uint64_t shell_pid = 0;
 static uint64_t substitution_counter = 0;
 static int shell_argc = 1;
@@ -5344,9 +5344,7 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
     }
     wait_pipeline_pids(pids, segment_count, &final_status);
     (void)srv_proc_group(0, 0, 1);
-    cli_puts("status ");
-    cli_putn(final_status);
-    cli_puts("\n");
+    if(shell_interactive) { cli_puts("status ");cli_putn(final_status);cli_puts("\n"); }
     return final_status;
 }
 
@@ -5744,9 +5742,7 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return 126;
     }
     (void)srv_proc_group(0, shell_pid, 1);
-    cli_puts("status ");
-    cli_putn((uint64_t)status);
-    cli_puts("\n");
+    if(shell_interactive) { cli_puts("status ");cli_putn((uint64_t)status);cli_puts("\n"); }
     return (uint64_t)status;
 }
 
@@ -6847,6 +6843,7 @@ int main(int argc, char **argv) {
         break;
     }
 
+    shell_interactive=command_text==NULL && script_path==NULL && isatty(STDIN_FILENO);
     if (positional_start > 0 && positional_start < argc) {
         shell_argv = &argv[positional_start];
         shell_argc = argc - positional_start;

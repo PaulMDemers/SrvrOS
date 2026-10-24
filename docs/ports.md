@@ -239,7 +239,7 @@ dotted IPv4 address or DNS name and issuing kernel-backed echo requests.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>`, `lua <script.lua>`, stdin-fed chunks, and a
 linenoise-backed interactive REPL when launched from a TTY. It opens the base,
-coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
+coroutine, table, math, string, UTF-8, debug, IO, OS, and package libraries. It
 uses Lua's normal double-number profile backed by srvros `math.h`, `float.h`,
 and floating `snprintf` support. `package` is configured for pure Lua modules
 under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
@@ -425,8 +425,13 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
 - The kernel enables FPU/SSE/SSE2 and saves/restores per-process plus
   per-scheduler-thread `fxsave64` state. Kernel C and userspace C both build
   with SSE enabled; only the low-level FPU handoff file is forced no-SSE.
-- Lua now runs its normal floating-number profile with `math` enabled. The `os`
-  library and native dynamic loading remain disabled for now.
+- Lua uses its normal floating-number profile and POSIX configuration, with
+  `math` and `os` enabled. Native dynamic loading remains disabled. Its pinned
+  upstream file/date tests run with `_port=true, _soft=true`; this omits host
+  shell/platform assumptions and large-memory cases, not a claim that the whole
+  Lua suite or POSIX conformance passes. `tools/lua_upstream_smoke.py` records the
+  upstream revision/test hash and separately verifies read/write `popen`, EOF
+  and process exit status on disposable VM media.
 
 ## Upstream Repos
 

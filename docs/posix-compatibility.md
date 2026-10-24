@@ -26,7 +26,7 @@ profile, not completed POSIX conformance.
 | --- | --- | --- |
 | Per-thread `errno`, initialized/zero TLS, reclaimed worker TLS | `threadstress/errno_test.c`, `test_process_loader.c`, guest `tlsprobe`; simultaneous workers and 16 reuse rounds with stable mapped bytes | Existing bounded worker slots remain |
 | Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate opens now share contents; private offsets remain in each open description |
-| Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | Cross-open content coherence is implemented; directory descriptors and all open flags remain incomplete |
+| Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | Cross-open content coherence is implemented; directory descriptors now work; unsupported open flags fail explicitly |
 | `select` ready-bit counts, masks, EBADF, timeout validation, IPv4 socket FD range | `test_posix_poll.c`, `libcprobe/readiness.c`; guest uses an explicit supported e1000 | `FD_SETSIZE=1024` accommodates current sockets, not all pseudo-FDs; poll remains bounded to 64 entries |
 | Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`; aliased remainder, signal interruption, no early completion | Timing remains subject to timer resolution and scheduling |
 | Thread-directed signals, blocked `raise`, per-thread dispatch guard, one-shot handler reset | `threadstress/targeted_signal_test.c`, host process-output tests, full thread and libuv guest suites | Handlers are still dispatched at libc checkpoints; no general asynchronous signal trampoline, altstack or siginfo frames |
@@ -49,8 +49,8 @@ closing the deleted file cannot overwrite it. `tmpfile` uses exclusive creation
 followed by unlink. Record-lock range changes split/merge correctly and preserve
 the original locks when the bounded lock table is exhausted. Retaining an
 unlinked read-only snapshot currently requires memory within the 16 MiB file
-buffer bound; allocation failure leaves the name intact. Rename of open files
-still needs implementation. This does not implement power-loss atomicity or a
+buffer bound; allocation failure leaves the name intact. Regular-file rename now follows open content identities, including replacement: the
+displaced target becomes an orphan, and the source keeps its inode and locks. This does not implement power-loss atomicity or a
 general inode filesystem.
 
 The orphan/lock/tempfile block passes host failure tests, full local core and
@@ -90,8 +90,8 @@ relative open/stat/chmod/access/mkdir/unlink/rename adapters are implemented.
 Dup/fork share a directory's position; readdir reports real inode numbers and
 `.`/`..`, preserves errno at EOF, and propagates backend failures. Directory
 handles pin the current pathname against rename/removal; open-directory orphan
-identities remain a restriction. The existing rename backend's replacement and
-non-empty-directory limitations are not changed by adding `renameat`.
+identities remain a restriction. Directory replacement/subtree rename is not
+implemented by the descriptor-relative `renameat` adapter.
 
 `futimens`, `utimensat`, `utime` and `utimes` now update metadata rather than
 returning success without a change. NOW/OMIT are resolved atomically in the kernel,
@@ -101,6 +101,41 @@ Host tests, full core, focused and full thread tests, ports, process, libuv,
 utilities, libc and directory VM regressions pass. One process run did not leave
 the bootloader; its log is retained. Serial harnesses now run headlessly and the
 process harness refuses to send commands before the monitor is ready; rerun passed.
+
+Regular-file replacement rename now publishes the source over an existing target
+without first unlinking the target. Open source handles follow the new name;
+open target handles retain their old data and zero link count until last close.
+Allocation failure leaves names intact; an I/O error after publication reconciles
+the live identities even though the syscall fails. Native guarded file-manager
+rename remains non-overwriting. Cross-directory moves of short names now allocate
+records in the destination directory, fixing a move that disappeared on remount.
+Directory subtree/replacement rename and open-directory lifetime remain pending.
+
+This is serialized runtime namespace publication, **not power-loss atomicity**.
+An injected failure between writing the destination record and retiring the source
+can leave duplicate cluster references on dirty media. The writer quarantines
+further mutations. Offline `fsck.exfat` can keep the source and truncate the
+replacement target to zero; it must not be described as old-or-new atomic
+recovery. The fault fixture retains this distinction and checks source contents,
+unrelated data, dirty admission and clean post-repair allocation separately.
+A journal or recovery transaction is still needed for stronger durability.
+
+The Lua consumer exposed missing `_setjmp`/`_longjmp` and `difftime`, unsupported
+hexadecimal number parsing, buffered writes incorrectly accepted on read-only
+streams, and shell status text contaminating `popen` output. These are corrected.
+C-locale `strtod`/`strtof` use an exact integer ratio and final nearest/ties-even
+rounding, including hex input, subnormals, infinity/NaN, long inputs and end
+pointers; exact host comparisons and sanitizers pass. `strtold` still widens
+binary64, and alternate rounding modes/extended precision remain gaps.
+Descriptor-backed stdio validates access at admission, preserves fdopen offsets,
+sets append status, and uses fstat for renamed/unlinked streams. Formatted output
+propagates errors. Noninteractive shell commands no longer append native status messages. Native
+spawn currently copies requested standard streams rather than the full parent FD
+table. Parent-numbered close actions can collide with private standard-stream
+backing slots; ordered inherited descriptors remain a required follow-up.
+Pinned Lua 5.4.8's unmodified `files.lua` passes its portable/soft profile, followed
+by explicit read/write popen, EOF and exit-status checks. This is a selected
+consumer gate, not all upstream tests or a completed compatibility milestone.
 
 `abort()` now raises SIGABRT, including when the signal was ignored or a handler
 returns; wait status identifies signal termination. Explicit SIGSEGV/SIGPROF

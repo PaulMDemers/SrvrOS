@@ -1935,11 +1935,18 @@ int main(int argc, char **argv) {
     say("posixdemo: spawn ok\n");
 
     FILE *pipe_stream = popen("echo popen-read", "r");
-    if (pipe_stream == 0 ||
-        fgets(buffer, sizeof(buffer), pipe_stream) == 0 ||
-        strcmp(buffer, "popen-read\n") != 0 ||
-        pclose(pipe_stream) != 0) {
-        say("posixdemo: popen read failed\n");
+    if (!pipe_stream) {
+        say("posixdemo: popen open failed errno=");say_u64(errno);say("\n");
+        return 43;
+    }
+    char *pipe_line=fgets(buffer,sizeof(buffer),pipe_stream);
+    int pipe_read_errno=errno,pipe_eof=feof(pipe_stream),pipe_error=ferror(pipe_stream);
+    int pipe_status=pclose(pipe_stream);
+    if (!pipe_line || strcmp(buffer,"popen-read\n") != 0 || pipe_status != 0) {
+        say("posixdemo: popen read failed errno=");say_u64(pipe_read_errno);
+        say(" eof=");say_u64(pipe_eof);say(" error=");say_u64(pipe_error);
+        say(" status=");say_u64((uint64_t)(int64_t)pipe_status);
+        say(" data=[");say(pipe_line?buffer:"<null>");say("]\n");
         return 43;
     }
     pipe_stream = popen("cat > /fat/posixdemo/popen-write.txt", "w");

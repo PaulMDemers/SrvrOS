@@ -36,6 +36,7 @@ static void open_srvros_libs(lua_State *L) {
     open_lib(L, LUA_COLIBNAME, luaopen_coroutine);
     open_lib(L, LUA_TABLIBNAME, luaopen_table);
     open_lib(L, LUA_IOLIBNAME, luaopen_io);
+    open_lib(L, LUA_OSLIBNAME, luaopen_os);
     open_lib(L, LUA_LOADLIBNAME, luaopen_package);
     open_lib(L, LUA_MATHLIBNAME, luaopen_math);
     open_lib(L, LUA_STRLIBNAME, luaopen_string);
@@ -117,6 +118,12 @@ int main(int argc, char **argv) {
         return 1;
     }
     open_srvros_libs(L);
+    int script=argc>=2 && strcmp(argv[1],"-e")?1:0;
+    lua_createtable(L,argc,script);
+    for(int i=0;i<argc;i++) {
+        lua_pushstring(L,argv[i]);lua_rawseti(L,-2,i-script);
+    }
+    lua_setglobal(L,"arg");
 
     int result;
     if (argc >= 3 && strcmp(argv[1], "-e") == 0) {

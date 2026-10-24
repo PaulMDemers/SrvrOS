@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <math.h>
+#include <limits.h>
 #include <spawn.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -18,7 +19,9 @@ struct FILE {
     int eof;
     int error;
     int owned;
+    int allocated;
     int append;
+    int readable, writable;
     int has_unget;
     unsigned char unget;
     int buffer_mode;
@@ -45,9 +48,9 @@ enum {
     FILE_OP_WRITE = 2,
 };
 
-static FILE stdin_file = {.fd = STDIN_FILENO, .buffer_mode = _IOFBF, .known_size = -1};
-static FILE stdout_file = {.fd = STDOUT_FILENO, .buffer_mode = _IOLBF, .known_size = -1};
-static FILE stderr_file = {.fd = STDERR_FILENO, .buffer_mode = _IONBF, .known_size = -1};
+static FILE stdin_file = {.fd = STDIN_FILENO, .readable=1, .buffer_mode = _IOFBF, .known_size = -1};
+static FILE stdout_file = {.fd = STDOUT_FILENO, .writable=1, .buffer_mode = _IOLBF, .known_size = -1};
+static FILE stderr_file = {.fd = STDERR_FILENO, .writable=1, .buffer_mode = _IONBF, .known_size = -1};
 static FILE *open_streams;
 static int stdio_initialized;
 
@@ -163,6 +166,7 @@ struct out_stream {
     size_t used;
     size_t total;
     FILE *file;
+    int failed;
 };
 
 static void out_char(struct out_stream *out, char c) {
@@ -171,6 +175,7 @@ static void out_char(struct out_stream *out, char c) {
     } else if (out->file != 0) {
         if (fwrite(&c, 1, 1, out->file) != 1) {
             out->file->error = 1;
+            out->failed=1;
         }
     }
     out->total++;
@@ -580,7 +585,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         }
         case 'f': {
             char number[128];
-            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
+            struct out_stream temp = {.buffer=number,.capacity=sizeof(number)};
             number[0] = '\0';
             if (long_count == 3) {
                 out_double_fixed(&temp, (double)va_arg(args, long double), precision, 0);
@@ -595,7 +600,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         case 'g':
         case 'G': {
             char number[128];
-            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
+            struct out_stream temp = {.buffer=number,.capacity=sizeof(number)};
             number[0] = '\0';
             if (long_count == 3) {
                 out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
@@ -610,7 +615,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         case 'e':
         case 'E': {
             char number[128];
-            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
+            struct out_stream temp = {.buffer=number,.capacity=sizeof(number)};
             number[0] = '\0';
             if (long_count == 3) {
                 out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
@@ -653,11 +658,12 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         size_t nul = out->used < out->capacity ? out->used : out->capacity - 1;
         out->buffer[nul] = '\0';
     }
-    return (int)out->total;
+    if(out->total>INT_MAX) { errno=EOVERFLOW;return -1; }
+    return out->failed?-1:(int)out->total;
 }
 
 int vfprintf(FILE *stream, const char *format, va_list args) {
-    struct out_stream out = {0, 0, 0, 0, stream};
+    struct out_stream out = {.file=stream};
     flockfile(stream);
     int result = format_to(&out, format, args);
     funlockfile(stream);
@@ -741,7 +747,7 @@ int vprintf(const char *format, va_list args) {
 }
 
 int vsnprintf(char *buffer, size_t size, const char *format, va_list args) {
-    struct out_stream out = {buffer, size, 0, 0, 0};
+    struct out_stream out = {.buffer=buffer,.capacity=size};
     return format_to(&out, format, args);
 }
 
@@ -1364,34 +1370,28 @@ static int mode_to_flags(const char *mode, struct mode_info *info) {
     if (mode == 0 || mode[0] == '\0') {
         return -1;
     }
-    int plus = 0;
-    for (const char *scan = mode + 1; *scan != '\0'; scan++) {
-        if (*scan == '+') {
-            plus = 1;
-        }
+    int plus=0,binary=0,exclusive=0,cloexec=0;
+    for(const char *scan=mode+1;*scan;scan++) {
+        if(*scan=='+' && !plus) plus=1;
+        else if(*scan=='b' && !binary) binary=1;
+        else if(*scan=='x' && !exclusive && mode[0]=='w') exclusive=1;
+        else if(*scan=='e' && !cloexec) cloexec=1;
+        else return -1;
     }
-    info->append = mode[0] == 'a';
-    if (mode[0] == 'r') {
-        info->flags = plus ? O_RDWR : O_RDONLY;
-        return 0;
-    }
-    if (mode[0] == 'w') {
-        info->flags = (plus ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC;
-        return 0;
-    }
-    if (mode[0] == 'a') {
-        info->flags = (plus ? O_RDWR : O_WRONLY) | O_CREAT | O_APPEND;
-        return 0;
-    }
-    return -1;
+    info->append=mode[0]=='a';
+    if(mode[0]=='r') info->flags=plus?O_RDWR:O_RDONLY;
+    else if(mode[0]=='w') info->flags=(plus?O_RDWR:O_WRONLY)|O_CREAT|O_TRUNC;
+    else if(mode[0]=='a') info->flags=(plus?O_RDWR:O_WRONLY)|O_CREAT|O_APPEND;
+    else return -1;
+    if(exclusive) info->flags|=O_EXCL;
+    if(cloexec) info->flags|=O_CLOEXEC;
+    return 0;
 }
 
 static long refresh_size(FILE *stream) {
-    if (stream == 0 || stream->path[0] == '\0') {
-        return stream != 0 ? stream->known_size : -1;
-    }
+    if(!stream) return -1;
     struct stat st;
-    if (stat(stream->path, &st) == 0) {
+    if (fstat(stream->fd, &st) == 0 && S_ISREG(st.st_mode)) {
         stream->known_size = (long)st.st_size;
     }
     return stream->known_size;
@@ -1495,8 +1495,9 @@ static int sync_underlying_after_read(FILE *stream) {
 }
 
 static int prepare_read(FILE *stream) {
-    if (stream == 0) {
+    if (stream == 0 || !stream->readable) {
         errno = EBADF;
+        if(stream) stream->error=1;
         return EOF;
     }
     if (stream->last_op == FILE_OP_WRITE && flush_write_buffer(stream) < 0) {
@@ -1511,8 +1512,9 @@ static int prepare_read(FILE *stream) {
 }
 
 static int prepare_write(FILE *stream) {
-    if (stream == 0) {
+    if (stream == 0 || !stream->writable) {
         errno = EBADF;
+        if(stream) stream->error=1;
         return EOF;
     }
     if (stream->last_op == FILE_OP_READ && sync_underlying_after_read(stream) < 0) {
@@ -1536,15 +1538,27 @@ FILE *fdopen(int fd, const char *mode) {
         errno = EINVAL;
         return 0;
     }
+    int flags=fcntl(fd,F_GETFL);
+    if(flags<0) return NULL;
+    int access=flags&O_ACCMODE, requested=info.flags&O_ACCMODE;
+    if((requested!=O_WRONLY && access==O_WRONLY) || (requested!=O_RDONLY && access==O_RDONLY)) {
+        errno=EINVAL;return NULL;
+    }
     FILE *stream = malloc(sizeof(FILE));
     if (stream == 0) {
         return 0;
+    }
+    if(info.append && !(flags&O_APPEND) && fcntl(fd,F_SETFL,flags|O_APPEND)<0) {
+        free(stream);return NULL;
     }
     stream->fd = fd;
     stream->eof = 0;
     stream->error = 0;
     stream->owned = 1;
-    stream->append = info.append;
+    stream->allocated = 1;
+    stream->append = info.append || (flags&O_APPEND);
+    stream->readable=requested!=O_WRONLY;
+    stream->writable=requested!=O_RDONLY;
     stream->has_unget = 0;
     stream->unget = 0;
     stream->buffer_mode = _IOFBF;
@@ -1556,6 +1570,9 @@ FILE *fdopen(int fd, const char *mode) {
     stream->write_len = 0;
     stream->last_op = FILE_OP_NONE;
     stream->position = 0;
+    int saved_errno=errno;off_t position=lseek(fd,0,SEEK_CUR);
+    if(position>=0) stream->position=position;
+    errno=saved_errno;
     stream->known_size = -1;
     stream->popen_pid = 0;
     stream->lock = 0;
@@ -1607,7 +1624,7 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
         errno = EINVAL;
         return 0;
     }
-    int fd = open(path, info.flags);
+    int fd = open(path, info.flags, 0666);
     if (fd < 0) {
         return 0;
     }
@@ -1619,6 +1636,8 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
     stream->eof = 0;
     stream->error = 0;
     stream->append = info.append;
+    stream->readable=(info.flags&O_ACCMODE)!=O_WRONLY;
+    stream->writable=(info.flags&O_ACCMODE)!=O_RDONLY;
     stream->unget = 0;
     reset_buffer_state(stream);
     stream->position = 0;
@@ -1642,7 +1661,7 @@ int fclose(FILE *stream) {
     flockfile(stream);
     int flush_result = fflush(stream);
     int result = stream->owned ? close(stream->fd) : 0;
-    if (stream->owned) {
+    if (stream->allocated) {
         unregister_stream(stream);
         if (stream->buffer_owned) {
             free(stream->buffer);
@@ -2027,7 +2046,7 @@ int fseek(FILE *stream, long offset, int whence) {
     if (whence == SEEK_SET) {
         target = offset;
     } else if (whence == SEEK_CUR) {
-        target = stream->position + offset;
+        if(__builtin_add_overflow(stream->position,offset,&target)) { errno=EOVERFLOW;funlockfile(stream);return -1; }
     } else if (whence == SEEK_END) {
         long size = refresh_size(stream);
         if (size < 0) {
@@ -2035,7 +2054,7 @@ int fseek(FILE *stream, long offset, int whence) {
             funlockfile(stream);
             return -1;
         }
-        target = size + offset;
+        if(__builtin_add_overflow(size,offset,&target)) { errno=EOVERFLOW;funlockfile(stream);return -1; }
     } else {
         errno = EINVAL;
         funlockfile(stream);
@@ -2173,6 +2192,10 @@ FILE *popen(const char *command, const char *mode) {
     }
 
     int action_error = posix_spawn_file_actions_adddup2(&actions, close_fd, target_fd);
+    /* Native spawn currently copies only requested standard streams, not the
+     * parent's descriptor table. Closing parent-numbered pipe ends here can
+     * close the child's freshly allocated standard-stream backing slot. Add
+     * ordered close actions when spawn has a unified inherited FD namespace. */
     if (action_error != 0) {
         posix_spawn_file_actions_destroy(&actions);
         close(fds[0]);
