@@ -35,6 +35,14 @@ delayed targeted signal and being rerun. Main advanced to `e79e220` with Air6,1 
 changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
 work. No native reboot has been armed or physical acceptance claimed.
 
+Next bounded block: replace the fork stub with eager private-address-space cloning,
+new child register/TLS/FPU continuation, inherited regular descriptors/pipes,
+atfork callbacks and guest failure/exec/reaping tests. Start with a single-thread
+CLI profile; refuse active-worker and unsupported pseudo-descriptor cases rather
+than copying inconsistent state. Shared-file coherence and general multithreaded
+fork remain separate acceptance. Touch process/syscall/usermode continuation,
+libc process glue and focused tests; no hardware profile changes or reboot.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor
