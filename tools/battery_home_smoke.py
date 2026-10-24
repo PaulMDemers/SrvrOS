@@ -65,7 +65,7 @@ def main():
                     serial.sendall(b'dmesg 65536\necho HOME_BOUNDARY_END\n');snapshot=wait_for(b'\nHOME_BOUNDARY_END\r\n')
                     starts=list(re.finditer(rb'^HOME_BOUNDARY_BEGIN\r?\n',snapshot,re.M));assert len(starts)==1
                     data=snapshot[starts[0].end():];(out/'boot.log').write_bytes(data)
-                    result=check(data,args.case)
+                    result=check(data,args.case,query_policy=3 if args.air61 else 2)
                     serial.sendall(b'run /fat/bin/deskd --smoke\n');wait_for(b'deskd: exited ')
                     if args.case!='unmounted-refusal':
                         serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')
