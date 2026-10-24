@@ -2519,6 +2519,7 @@ bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_ou
     } else {
         return false;
     }
+    next &= ~((1ull << 9) | (1ull << 19)); /* SIGKILL/SIGSTOP cannot be blocked. */
     process_set_current_signal_mask(process, next);
 
     uint64_t unblocked = process->pending_signals & ~next &

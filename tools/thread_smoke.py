@@ -122,6 +122,7 @@ def main():
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",
+            "threadstress: sleep ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",

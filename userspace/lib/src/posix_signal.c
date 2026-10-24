@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 static struct sigaction signal_actions[64];
-static volatile sig_atomic_t signal_dispatching;
+static _Thread_local volatile sig_atomic_t signal_dispatching;
 
 static int signal_valid(int signum) {
     return signum > 0 && signum < (int)(sizeof(sigset_t) * 8);
@@ -124,6 +124,10 @@ static int signal_dispatch_pending(int *restartable_out) {
         }
 
         struct sigaction action = signal_actions[signum];
+        if (action.sa_flags & SA_RESETHAND) {
+            struct sigaction reset={.sa_handler=SIG_DFL};
+            if (sigaction(signum,&reset,NULL)<0) continue;
+        }
         uint64_t handler_mask = (uint64_t)(action.sa_mask | signal_mask_for(signum));
         uint64_t old_mask = 0;
         if (srv_signal_mask(SRV_SIGNAL_BLOCK, handler_mask, &old_mask) < 0) {
@@ -157,7 +161,10 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
         errno = EINVAL;
         return -1;
     }
-    if (act != 0 && (act->sa_flags & ~(SA_RESTART | SA_SIGINFO | SA_ONSTACK | SA_RESETHAND)) != 0) {
+    /* A successful registration must describe delivery we actually implement.
+     * Alternate stacks and siginfo/context frames need a kernel trampoline. */
+    if (act != 0 && (signum==SIGKILL || signum==SIGSTOP ||
+        (act->sa_flags & ~(SA_RESTART | SA_RESETHAND)) != 0 || act->sa_handler==SIG_ERR)) {
         errno = EINVAL;
         return -1;
     }

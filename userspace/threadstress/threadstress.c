@@ -584,6 +584,7 @@ static int stdio_test(void) {
 int cpu_load_capture(void);
 int posix_errno_test(void);
 int posix_positional_test(void);
+int posix_sleep_test(void);
 
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
@@ -601,6 +602,7 @@ int main(int argc, char **argv) {
     RUN_TEST("yield", yield_test);
     RUN_TEST("errno", posix_errno_test);
     RUN_TEST("positional", posix_positional_test);
+    RUN_TEST("sleep", posix_sleep_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);
