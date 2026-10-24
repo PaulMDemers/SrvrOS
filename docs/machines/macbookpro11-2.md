@@ -5045,3 +5045,16 @@ readback-bit mismatches,all160 transport failures,guard classification,stale
 receipt clearing,short transfer/timeout quarantine and receipt survival after
 shared controller metadata changes. Strict collector fixtures reject missing or
 altered new receipts and the prior failed native log. Physical diagnosis pending.
+
+Diagnostic source `df4a0c5`,release `d1d3486f342b9121` installed unarmed.
+Exact-stage GPT normal save/return and missing-workspace refusal/return passed.
+The unchanged v55 recipe includes the new receipts; its combined host fixture
+is62029 bytes. Strict-success fixture and failure-classification tests passed;
+classification never promotes a failed run. Ubuntu default/EFI order unchanged,
+known-good `e47dca3a6b30c6c1` retained,failed `fbedd261796dd08f` retained and
+archived. Accepted map payload `b34ed974d2fa3095` removed from ESP only after
+full equality with its durable backup. Offline workspace clean251files/625clusters,
+zero leaks/mismatches,unmounted. Candidate,collectors,tests,VM receipts and run
+record archived outside build under `~/.local/share/srvros/macbookpro11-2/
+wifi-mac-address-diagnostic-df4a0c5/`. Await attended cold adapter cycle; collect
+matching session before further work. No new physical acceptance or reboot armed.
