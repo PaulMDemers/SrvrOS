@@ -1467,3 +1467,29 @@ Preserve the exact mount through every epoch and client/runtime retirement.
 Ordinary/continuous desktop admission stays off, and uncertain mounted failures
 halt without cleanup/reset. PR19 Wi-Fi remains independent. The prior v65 run
 is collected and archived; this new payload requires its own physical evidence.
+
+
+## Bounded Home session candidate validated (2026-10-23)
+
+Release `f60d9b426e2693f3`, clean compiled source `12aad26`, uses v66
+`battery-home-session`. Full build/USB image, core/desktop suites, 70 staging
+tests, 25 collector tests, 78 receipt tests and exhaustive admission checks pass.
+Six Air6,1 boot fixtures cover completion, query/profile refusal, two retained
+faults and delayed EC setup with throttled USB writes. Completion proves five
+controls/three lifetimes, 60 edits/five cycles/20 operations and exact saved
+bytes. Slow checkpoints took 7.99–8.29 seconds without changing deadlines.
+Air7,2 Home-session and Air6,1 short-Home regressions pass. Exact EFI/GPT and
+missing-workspace rehearsals pass; the latter intentionally emits no standard
+result JSON, so its PASS output and serial evidence are retained separately.
+
+All 221 existing USB files were preserved while adding a fresh `battery-study`
+anchor. Offline allocation/headroom pass: 222 files, 533 clusters, no leaks or
+mismatches. Superseded passive preflight EFI payload `9b528e09c13e1d4b` was
+removed only after verifying its independent payload backup to make install
+space. Console recovery and accepted runtime captures remain retained.
+
+Physical acceptance is pending. Keep AC/USB connected and provide no input;
+normal completion/refusal saves and returns to Ubuntu. Photograph any halt.
+Require matching `battery_home_session`, five saved files containing `AA`,
+unchanged prior file contents, clean allocation and consumed one-shot. Final
+installation and unarmed state are recorded in the local run/launch records.
