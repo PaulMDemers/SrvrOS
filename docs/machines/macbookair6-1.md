@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture, are physically accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions, longer endurance and gauge accuracy remain open; ordinary startup stays off |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -1717,3 +1717,35 @@ Installed/recovery hashes and Ubuntu default pass, the one-shot is consumed,
 and USB is unmounted. Raw evidence and screenshot are backed up outside build.
 No retry or reboot is armed. Preserve this run while resolving the phase-1 cause;
 ordinary startup and attended Home transition acceptance remain disabled/pending.
+
+
+## Attended Home AC retry accepted (2026-10-23)
+
+Close out this unit's evidence on main `54862de` (MR121); no shared runtime
+changes. PR118 USB wait and PR19 Wi-Fi remain independent. The user confirmed
+that AC was not unplugged in the first v68 attempt. That incomplete evidence
+remains preserved; an explicitly authorized same-payload retry used a fresh run
+record and the 244-file baseline without source changes.
+
+Run `f36692208f9cb16f`, session `00065e8d108fab51-00`, release
+`5cd210467e3a10fd` / compiled `fe85b9c`, passes the strict native transition
+receipt. In 47.686 seconds sampling advanced generation 1→18. Connected phase
+accepted generations 1–3 (`AC · 98%`, current 0); disconnected phase accepted
+7–9 (`97%`, −1,329,000 µA); reconnected phase accepted 14–16 (`AC · 97%`,
+current 0). All three 1366×768 screenshots were copied, hash-verified and
+visually inspected. They confirm the indicator and prompt states; percentage
+calibration and sustained charging behavior are not claimed.
+
+The service processed 272 events, including two alarms/acknowledgements/cache
+invalidations. All 19 SCI deliveries were handled with zero unclaimed. Five
+lifetime members retired, service detach was 1/1 with zero heap/errors/denied,
+and logger/mount retirement preceded saved return. All 244 prior files retain
+their bytes except expected metadata; four logs and three screenshots bring the
+total to 251. Offline fsck/allocation/headroom pass: 728 clusters and zero leaks,
+mismatches or errors. Installed/recovery hashes and Ubuntu default pass; one-shot
+is consumed, USB is unmounted and no new trial is armed. Retry evidence is backed
+up separately outside build, preserving the original incomplete run.
+
+This accepts bounded attended desktop power transitions and indicator updates.
+Ordinary battery startup remains disabled. Longer attended desktop/file/input
+coexistence and endurance remain separate before any startup promotion.
