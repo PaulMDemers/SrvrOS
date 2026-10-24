@@ -62,8 +62,13 @@ CPU/firmware policy or hardware profile changes. Evidence is under
 outside build in this release's pending-trials/reviewed-evidence directories.
 Installed current is `dc06bc673689e011`, previous recovery `9aa8dbf6fbda8252`;
 Ubuntu remains default, USB is unmounted and no reboot is armed. Actions remain
-disabled. Next power work should measure the logging/storage cost and repeat
-matched captures; dynamic window capacity follows the bounded idle work.
+disabled. Integrated source `beba433` passes full local build/core/docs and a
+fresh networked post-idle pointer/typing/exact-save VM regression. Re-staging v26
+produces the same release: kernel, initramfs and EFI loader hashes match the
+native-tested payload exactly, so the existing exact-stage VM receipts remain
+applicable. Shared Air6,1 diagnostic changes do not confer sibling acceptance.
+Next power work should measure the logging/storage cost and repeat matched
+captures; dynamic window capacity follows the bounded idle work.
 
 ### Historical checkpoint: first idle Text optimization accepted
 
