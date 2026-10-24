@@ -596,3 +596,11 @@ captures save and return; uncertain mounted faults halt for a photograph. Collec
 strict `battery_home_transitions` proof, all logs and three distinct screenshots,
 prior-file hashes, offline allocation and recovery checks. Native acceptance is
 pending; the accepted idle capture does not accept transition behavior.
+
+The first v68 native session `00065e8ccdec4fb4-00` on release
+`5cd210467e3a10fd` is incomplete: connected phase 0 and its screenshot passed,
+but phase 1 timed out without three accepted disconnected readings. Sampling
+continued through generation 51 and retirement/storage/recovery checks passed.
+This does not accept attended Home transitions. User observations of AC removal
+and indicator behavior are needed before attributing the timeout or preparing
+a retry; preserve the logs and single screenshot.

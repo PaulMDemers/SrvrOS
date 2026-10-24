@@ -1695,3 +1695,25 @@ is required. Each phase allows two minutes; normal completion or checked
 incompletion saves and returns. Photograph any halt. Collect matching strict
 transition proof, all logs/three screenshots, previous file hashes and offline
 allocation before another run. Ordinary startup remains disabled.
+
+## Attended Home AC first run incomplete (2026-10-23)
+
+Close out native evidence only on main `bbdbefb` (MR120); PR118 USB wait and
+PR19 Wi-Fi work remain independent. Session `00065e8ccdec4fb4-00`, release
+`5cd210467e3a10fd` / compiled `fe85b9c`, is incomplete, not accepted. Connected
+phase 0 passed at generations 1–3 (`AC · 98%`, current zero), and one screenshot
+saved. After prompting for phase 1, the capture timed out without accepting
+three fresh disconnected readings. There is no reconnect-phase evidence. Human
+observations of unplugging and the indicator are pending; do not infer a driver
+fault or missed user action from this receipt alone.
+
+Sampling reached generation 51 with 765 events, zero alarms and 51 handled/zero
+unclaimed SCI deliveries. All five lifetime members retired; service detach was
+1/1 with zero heap/errors/denied, logger retired, Home released and the failed
+report saved before Ubuntu return. All 239 prior files retain their bytes except
+expected metadata; four logs and one screenshot bring the total to 244. Offline
+fsck/allocation/headroom pass: 624 clusters and zero leaks/mismatches/errors.
+Installed/recovery hashes and Ubuntu default pass, the one-shot is consumed,
+and USB is unmounted. Raw evidence and screenshot are backed up outside build.
+No retry or reboot is armed. Preserve this run while resolving the phase-1 cause;
+ordinary startup and attended Home transition acceptance remain disabled/pending.
