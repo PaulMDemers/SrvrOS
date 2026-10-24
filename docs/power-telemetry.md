@@ -409,3 +409,35 @@ Next investigate bounded USB-completion waiting and individual request costs,
 while preserving input service, deadlines, DMA quarantine, verification and
 flush policy. Avoid attributing this cost to rendering or reducing persistence
 merely to improve the idle score.
+
+### Bounded storage completion wait (candidate)
+
+The storage bulk path polls directly for the first four milliseconds, retaining
+its one-millisecond service yields. Thereafter it may block on its per-device
+completion queue until a matching event or the next timer tick. The existing
+HID/network worker can drain events and wake the owner; a one-tick retry also
+allows progress when no input worker is polling. The queue is woken only after
+completion code/residue/done state has been published for the matching slot,
+endpoint and TRB. Wrong and stale events do not complete the transfer.
+
+The scheduler helper requires an active I/O owner in its recorded address space,
+enabled services and a running/reference-ready timer. It refuses deadlines more
+than one tick ahead; readiness and expiry are rechecked with IRQs masked before
+blocking. It retains the I/O gate, excluding unaudited filesystem work and the
+owner's sibling user threads while eligible services, other audited processes
+and idle can run. It returns with IRQs masked. Refusal falls back to the existing
+yield/poll loop. Normal scheduler/timer delivery is required for timed blocking.
+
+The original two-second reference-clock deadline and stopped-clock spin budget
+are not renewed by a sleep. A failed transfer still quarantines its pinned DMA
+buffer/rings with no retry or reuse. This candidate changes neither flushing nor
+verification nor controller interrupt routing. Waits can add up to one timer
+tick of polling latency (plus scheduling delay) to a slow completion; validate
+throughput as well as CPU samples. Device callback wall time includes sleeping
+and must not be relabeled CPU work. Native efficiency acceptance is pending.
+
+The `xhci` storage status includes cumulative `wait_calls` and `wait_us` for
+accepted helper calls. They include a call that discovers completion before
+blocking and yielded service time; they are not a CPU sleep-time counter. The
+USB large-copy VM fixture requires nonzero calls and more than 10 ms of observed
+helper wall time, in addition to input overlap and exact persisted bytes.

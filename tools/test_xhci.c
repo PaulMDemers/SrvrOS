@@ -384,8 +384,28 @@ uint64_t timer_monotonic_us(void) {
     }
     return test_time;
 }
-bool scheduler_io_active(void) { return false; }
+static bool test_io_active,wait_refused,wait_keyboard;
+static unsigned wait_calls,bulk_wakes;
+uint64_t timer_ticks(void) { return test_time/10000; }
+bool scheduler_io_active(void) { return test_io_active; }
 bool scheduler_io_yield(void) { return false; }
+void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
+bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
+    scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
+    struct xhci_device *d=arg;
+    assert(q==&d->bulk_wait && test_io_active && deadline==timer_ticks()+1);
+    wait_calls++;
+    if(wait_refused)return false;
+    if(ready(arg))return true;
+    if(wait_keyboard) {
+        struct xhci_device *kbd=&xhci.devices[1];
+        struct xhci_trb key={.parameter_low=(uint32_t)kbd->interrupt_trb,.status=(13u<<24)|56,
+            .control=(32u<<10)|(2u<<24)|(5u<<16)|1};
+        dispatch_transfer_event(&key);wait_keyboard=false;
+    }
+    test_time=deadline*10000;
+    (void)timer_monotonic_us();poll_hid_events_once();return true;
+}
 static void test_storage(void) {
     reset_test();
     uint8_t descriptor[44], input[4096], output[4096]={0};
@@ -484,6 +504,37 @@ static void test_storage(void) {
     assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
     assert(disk->bulk_ep[1].enqueue==enqueue);
     test_time_step=1000;
+}
+
+static void test_storage_wait(void) {
+    reset_test();test_time=100000;test_time_step=3;test_io_active=true;
+    struct xhci_trb events[64]={0},ring[64]={0};
+    uint8_t bounce[4096]={0x5a},caller[512]={0},report[64]={0,0,4};
+    xhci.event_ring=events;xhci.event_cycle=true;xhci.event_ring_phys=0x1000;xhci.rt_base=0x2000;
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.bulk_buffer=bounce,.bulk_buffer_phys=0x10000};
+    d->bulk_ep[1]=(struct xhci_bulk_endpoint){.dci=3,.ring=ring,.ring_phys=0x9000,.cycle=true};
+    xhci.devices[1]=(struct xhci_device){.present=true,.slot_id=2,.hid_keyboard=true,.interrupt_pending=true,
+        .interrupt_trb=0xa000,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=report};
+    uint32_t actual=0;unsigned before=injected;wait_calls=bulk_wakes=0;
+    complete_device=d;complete_at=test_time+2000;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual) && !wait_calls && actual==13);
+    complete_device=d;complete_at=test_time+500000;wait_keyboard=true;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual) && wait_calls>20);
+    assert(injected==before+1 && bulk_wakes==2 && actual==13 && caller[0]==0x5a);
+    assert(d->bulk_wait_calls==wait_calls && d->bulk_wait_us>400000);
+    assert(d->bulk_ep[1].enqueue==2 && !d->bulk_pending && !d->bulk_failed);
+    uint64_t start=test_time;unsigned waited=wait_calls;
+    assert(!storage_bulk_transfer(d,true,caller,13,&actual));
+    assert(wait_calls>waited && test_time-start>=2000000 && test_time-start<2020000);
+    assert(d->bulk_failed && d->bulk_pending && !strcmp(d->bulk_reason,"deadline"));
+    uint64_t enqueue=d->bulk_ep[1].enqueue;
+    assert(!storage_bulk_transfer(d,true,caller,13,&actual) && d->bulk_ep[1].enqueue==enqueue);
+    d->bulk_failed=d->bulk_pending=false;wait_refused=true;
+    complete_device=d;complete_at=test_time+10000;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual)); /* bounded poll fallback */
+    wait_refused=false;test_io_active=false;test_time_step=1000;
+    puts("xhci-storage-wait: PASS fast path, delayed completion/HID, wake, bounded deadline, no retry and refusal fallback");
 }
 
 static void test_pro_trackpad(const char *fixture) {
@@ -858,6 +909,7 @@ int main(int argc, char **argv) {
     test_network_transport();
     test_device_inventory();
     test_storage();
+    test_storage_wait();
     test_root_ports();
     test_scratchpads();
     test_handoff();
