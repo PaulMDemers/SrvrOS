@@ -111,13 +111,13 @@ static void setup(unsigned refs) {
     write_files[0].content->owned=true;
     write_files[0].open_flags=SRV_OPEN_READ|SRV_OPEN_WRITE;
     write_files[0].refs=refs;strcpy(write_files[0].path,"/test/output");
-    subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
-    subject.stdout_redirect=true;subject.stdout_fd=3;
+    subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
+    assert(process_file_dup2(&subject,3,1)==1);
 }
 static void pipe_regression(void) {
     clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
     assert(!process_file_pipe(&subject,fds) && fds[0]==3 && fds[1]==4);
-    subject.files[0].flags=subject.files[1].flags=SRV_FD_NONBLOCK;
+    subject.files[3].flags=subject.files[4].flags=SRV_FD_NONBLOCK;
     static uint8_t input[PROCESS_PIPE_CAPACITY+512],output[PROCESS_PIPE_CAPACITY+512],model[PROCESS_PIPE_CAPACITY];
     size_t size=0;unsigned seed=12345,sequence=0;
     for(unsigned iteration=0;iteration<20000;iteration++) {
@@ -147,7 +147,7 @@ static void pipe_regression(void) {
      * tests the requested size, not merely whether any byte fits. */
     assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY-20)==PROCESS_PIPE_CAPACITY-20);
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_ERR_AGAIN);
-    subject.files[0].flags=subject.files[1].flags=0;
+    subject.files[3].flags=subject.files[4].flags=0;
     pipe_wait_mode=1;
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_PIPE_BUF && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,PROCESS_PIPE_CAPACITY)==SRV_PIPE_BUF);
@@ -167,8 +167,8 @@ static void snapshot_read_regression(void) {
     static struct process_file_content content;
     content=(struct process_file_content){.refs=1,.data=data,.size=sizeof(data)};
     read_files[0]=(struct process_read_file){.used=true,.refs=2,.content=&content};
-    subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS,.handle=1};
-    subject.files[1]=subject.files[0];
+    subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS,.handle=1};
+    subject.files[4]=subject.files[3];
     memset(out,0xa5,sizeof(out));
     assert(process_file_read(&subject,3,out+1,16384)==16384);
     assert(out[0]==0xa5 && out[16385]==0xa5 && !memcmp(out+1,data,16384));
@@ -185,7 +185,7 @@ static void snapshot_read_regression(void) {
 static void positional_regression(void) {
     setup(2);
     write_files[0].open_flags=SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_APPEND;
-    subject.files[1]=subject.files[0];
+    subject.files[4]=subject.files[3];
     assert(process_file_write(&subject,3,(const uint8_t *)"hello",5)==5);
     assert(process_file_pwrite(&subject,4,(const uint8_t *)"H",1,0)==1);
     assert(write_files[0].offset==5 && write_files[0].content->size==5);
@@ -214,11 +214,11 @@ static void positional_regression(void) {
         write_files[0].offset==5 && write_files[0].content->dirty && !write_files[0].content->failed);
     write_files[0].open_flags=SRV_OPEN_WRITE;
     assert(process_file_pread(&subject,3,out,1,0)==SRV_ERR_BADF);
-    subject.files[2]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_READ};
+    subject.files[5]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_READ};
     assert(process_file_pread(&subject,5,out,1,0)==SRV_ERR_SPIPE);
     assert(process_file_pwrite(&subject,5,out,1,0)==SRV_ERR_SPIPE);
-    subject.files[2].used=false;
-    assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0);
+    subject.files[5].used=false;
+    assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0 && process_file_close(&subject,1)==0);
     assert(saved_size==9 && !memcmp(saved,"Hello\0\0\0!",9));
     clear_process(&subject);
 }
@@ -299,7 +299,7 @@ static void open_flags_regression(void) {
     assert(process_file_get_flags(&subject,fd)==(SRV_FD_WRITE|SRV_FD_NONBLOCK));
     assert(process_file_get_fd_flags(&subject,fd)==SRV_FD_CLOEXEC);
     assert(process_file_seek(&subject,fd,0,0)==0 && process_file_write(&subject,fd,(const uint8_t *)"Z",1)==1);
-    struct process_write_file *write=write_file_at(subject.files[0].handle);fail_alloc=true;
+    struct process_write_file *write=write_file_at(subject.files[3].handle);fail_alloc=true;
     write->offset=write->content->capacity;
     assert(process_file_write(&subject,fd,(const uint8_t *)"!",1)==SRV_ERR_NOMEM && !write->content->failed);
     assert(process_file_truncate(&subject,fd,write->content->capacity+1)==SRV_ERR_NOMEM && !write->content->failed && write->content->size==5);
@@ -388,7 +388,7 @@ static void orphan_lock_regression(void) {
     int replacement=process_file_open_write(&subject,"/test/output",SRV_OPEN_CREATE|SRV_OPEN_WRITE);
     assert(replacement>=0 && process_file_write(&subject,replacement,(const uint8_t *)"new",3)==3);
     lock=(struct srv_flock){.type=SRV_F_WRLCK,.start=0,.len=1};
-    other.files[replacement-3]=subject.files[replacement-3];
+    other.files[replacement]=subject.files[replacement];
     assert(!process_file_get_lock(&other,replacement,&lock) && lock.type==SRV_F_UNLCK);
     assert(process_file_write(&subject,writer,(const uint8_t *)"old!",4)==4 && !process_file_close(&subject,writer));
     uint8_t data[4];assert(process_file_pread(&subject,reader,data,4,0)==4 && !memcmp(data,"old!",4));
@@ -463,10 +463,37 @@ static void rename_failure_regression(void) {
     }
     puts("process-rename: PASS OOM preserves names and post-publication EIO reconciles open identities");
 }
+static void descriptor_regression(void) {
+    clear_process(&subject);memset(pipes,0,sizeof(pipes));
+    uint64_t a[2],b[2];uint8_t byte;
+    assert(!process_file_pipe(&subject,a) && a[0]==3 && a[1]==4);
+    assert(process_file_dup2(&subject,4,1)==1 && !process_file_close(&subject,4));
+    assert(!process_file_pipe(&subject,b) && b[0]==4 && b[1]==5);
+    assert(process_output_write(&subject,1,(const uint8_t *)"a",1)==1);
+    assert(process_file_pipe_read(&subject,3,&byte,1)==1 && byte=='a');
+    assert(process_file_dup2(&subject,1,0)==0);
+    assert(process_file_get_flags(&subject,0)==SRV_FD_WRITE);
+    assert(process_apply_stdio_fds(&subject,-1,2,1));
+    assert(process_fd_is_console(&subject,1,false) && !process_fd_is_console(&subject,2,false));
+    assert(process_output_write(&subject,2,(const uint8_t *)"b",1)==1);
+    assert(process_file_pipe_read(&subject,3,&byte,1)==1 && byte=='b');
+    assert(!process_file_set_fd_flags(&subject,2,SRV_FD_CLOEXEC));
+    close_cloexec_files(&subject);
+    assert(!process_file_at(&subject,2) && process_file_get_fd_flags(&subject,2)==SRV_ERR_BADF);
+    assert(process_file_dup2(&subject,2,2)==SRV_ERR_BADF);
+    assert(process_file_dup2(&subject,99,1)==SRV_ERR_BADF && process_fd_is_console(&subject,1,false));
+    assert(!process_file_close(&subject,0));
+    assert(process_file_dup(&subject,1)==0 && process_fd_is_console(&subject,0,false));
+    assert(process_file_pipe_read(&subject,3,&byte,1)==0);
+    assert(cleanup_process_files(&subject));
+    for(unsigned i=0;i<PROCESS_MAX_PIPES;i++) assert(!pipes[i].used);
+    clear_process(&subject);
+}
 int main(void) {
     rename_failure_regression();
     orphan_io_failure_regression();
     path_context_regression();
+    descriptor_regression();
     positional_regression();
     snapshot_read_regression();
     pipe_regression();
@@ -479,7 +506,7 @@ int main(void) {
     assert(write_file_close(1)==0 && saves==1);
     setup(1);assert(process_output_write(&subject,1,(const uint8_t *)"first",5)==5);
     assert(process_file_flush(&subject,1)==0 && saves==1 && saved_size==5);
-    subject.stderr_redirect=true;subject.stderr_fd=3;
+    assert(process_file_dup2(&subject,3,2)==2);
     assert(process_output_write(&subject,2,(const uint8_t *)"second",6)==6);
     assert(finish_process_files(&subject,0)==0 && saves==2 && saved_size==11);
     assert(!memcmp(saved,"firstsecond",11));
@@ -488,9 +515,9 @@ int main(void) {
     setup(1);assert(process_output_write(&subject,1,(const uint8_t *)"bad",3)==3);
     fail_save=true;assert(finish_process_files(&subject,7)==7);
     setup(1);assert(process_output_write(&subject,1,(const uint8_t *)"bad",3)==3);
-    subject.stdout_redirect=false;fail_save=true;
+    assert(process_file_close(&subject,1)==0);fail_save=true;
     assert(finish_process_files(&subject,0)==1); /* Last-close failure too. */
-    setup(1);subject.stdin_redirect=true;subject.stdin_fd=3;
+    setup(1);assert(process_file_dup2(&subject,3,0)==0);
     assert(process_input_write(&subject,(const uint8_t *)"stdin",5)==5 && saves==0);
     assert(process_file_flush(&subject,0)==0 && saves==1);
     assert(finish_process_files(&subject,0)==0 && saves==1);
@@ -498,17 +525,17 @@ int main(void) {
     assert(process_fd_is_console(&subject,0,true) && process_fd_is_console(&subject,1,false));
     assert(!process_fd_is_console(&subject,0,false) && !process_fd_is_console(&subject,1,true));
     assert(!process_fd_is_console(&subject,3,false));
-    subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=1};
+    subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=1};
     assert(process_fd_is_console(&subject,3,false));
-    subject.stdout_redirect=true;subject.stdout_fd=-1;
-    assert(!process_fd_is_console(&subject,1,false) && !process_fd_is_console(&subject,3,false));
-    subject.stdout_fd=3;
+    assert(process_file_close(&subject,1)==0);
+    /* A duplicate owns its endpoint even after the source descriptor closes. */
+    assert(!process_fd_is_console(&subject,1,false) && process_fd_is_console(&subject,3,false));
+    assert(process_file_dup2(&subject,3,1)==1);
     assert(process_fd_is_console(&subject,1,false));
-    subject.stdout_redirect=false;
     assert(process_output_write(&subject,1,(const uint8_t *)"tty",3)==-2);
     pipes[0]=(struct process_pipe){.used=true,.refs=2,.read_refs=1,.write_refs=1};
-    subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_WRITE,.handle=1};
-    subject.stdout_redirect=true;subject.stdout_fd=3;
+    subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_WRITE,.handle=1};
+    assert(process_file_dup2(&subject,3,1)==1);
     assert(!process_fd_is_console(&subject,1,false) && !process_fd_is_console(&subject,3,false));
     assert(process_output_write(&subject,1,(const uint8_t *)"pipe",4)==4);
     assert(pipes[0].size==4 && !memcmp(pipes[0].buffer,"pipe",4));
@@ -518,17 +545,17 @@ int main(void) {
     clear_process(&subject);uint64_t fds[2];
     assert(process_file_pty_pair(&subject,fds)==0 && fds[0]==3 && fds[1]==4);
     uint64_t handle=process_tty_handle(&subject,3);assert(handle && process_tty_handle(&subject,4)==handle);
-    subject.stdin_redirect=true;subject.stdin_fd=4;subject.stdout_redirect=true;subject.stdout_fd=4;
+    assert(process_file_dup2(&subject,4,0)==0 && process_file_dup2(&subject,4,1)==1);
     assert(process_tty_handle(&subject,0)==handle && process_tty_handle(&subject,1)==handle);
     assert(!process_fd_is_console(&subject,0,true) && !process_fd_is_console(&subject,1,false));
-    subject.files[0].flags=SRV_FD_NONBLOCK;subject.files[1].flags=SRV_FD_NONBLOCK;
+    subject.files[3].flags=SRV_FD_NONBLOCK;subject.files[4].flags=SRV_FD_NONBLOCK;
     uint8_t buffer[32];assert(pty_read(handle,true,buffer,sizeof(buffer),true)==SRV_ERR_AGAIN);
     assert(pty_write(handle,true,(const uint8_t *)"line\n",5,true)==5);
     assert(pty_read(handle,false,buffer,sizeof(buffer),true)==5 && !memcmp(buffer,"line\n",5));
     assert(process_output_write(&subject,1,(const uint8_t *)"out\n",4)==4);
     assert(pty_read(handle,true,buffer,sizeof(buffer),true)==11 && !memcmp(buffer,"line\r\nout\r\n",11));
     assert(process_file_flush(&subject,1)==0);
-    struct process_file copy={0};assert(process_file_clone_entry(&copy,&subject.files[0]));
+    struct process_file copy={0};assert(process_file_clone_entry(&copy,&subject.files[3]));
     processes[0]=(struct process){.allocated=true,.active=true,.pid=101,.signal_catch_mask=(1ull<<SRV_SIGNAL_INT)|(1ull<<SRV_SIGNAL_HUP),.controlling_tty=handle,.process_group=101};
     processes[1]=(struct process){.allocated=true,.active=true,.pid=102,.controlling_tty=handle+256,.process_group=102};
     assert(process_tty_set_group(&subject,4,101) && !process_tty_set_group(&subject,4,102));
@@ -541,6 +568,7 @@ int main(void) {
     process_file_release_entry(&copy);
     assert(pty_state(handle)->master_closed && (processes[0].pending_signals&(1ull<<SRV_SIGNAL_HUP)));
     assert(!processes[1].pending_signals);
+    assert(process_file_close(&subject,0)==0 && process_file_close(&subject,1)==0);
     assert(process_file_close(&subject,4)==0 && !pty_state(handle));
     assert(process_file_pty_pair(&subject,fds)==0 && process_tty_handle(&subject,fds[0])!=handle);
     assert(process_file_close(&subject,fds[0])==0 && process_file_close(&subject,fds[1])==0);

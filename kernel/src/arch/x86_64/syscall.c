@@ -387,42 +387,17 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return -1;
     }
 
-    if (fd == 0) {
-        int64_t redirected = process_input_write(process_current(), (const uint8_t *)buffer, length);
-        return redirected != -2 ? redirected : -1;
-    }
-
-    if (fd != 1 && fd != 2) {
-        struct process_file *file = process_file_at(process_current(), fd);
-        if (file == NULL) {
-            return -1;
-        }
-        if (file->type == PROCESS_FILE_STDIO && (file->handle == 1 || file->handle == 2)) {
-            int64_t redirected = process_output_write(process_current(), file->handle, (const uint8_t *)buffer, length);
-            if (redirected != -2) {
-                return redirected;
-            }
-            return console_write_user(buffer, length);
-        }
-        if (file->type == PROCESS_FILE_VFS_WRITE || file->type == PROCESS_FILE_PTY_MASTER ||
-            file->type == PROCESS_FILE_PTY_SLAVE) {
-            return process_file_write(process_current(), fd, (const uint8_t *)buffer, length);
-        }
-        if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
-            return process_file_pipe_write(process_current(), fd, (const uint8_t *)buffer, length);
-        }
-        if (file->type == PROCESS_FILE_NET_CONNECTION) {
-            return net_respond(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
-        }
-        return -1;
-    }
-
-    int64_t redirected = process_output_write(process_current(), fd, (const uint8_t *)buffer, length);
-    if (redirected != -2) {
-        return redirected;
-    }
-
-    return console_write_user(buffer, length);
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO)
+        return file->handle==1 || file->handle==2?console_write_user(buffer,length):SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_VFS_WRITE || file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)
+        return process_file_write(process_current(),fd,(const uint8_t *)buffer,length);
+    if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
+        return process_file_pipe_write(process_current(),fd,(const uint8_t *)buffer,length);
+    if(file->type==PROCESS_FILE_NET_CONNECTION)
+        return net_respond(file->handle,buffer,length,process_file_nonblocking(process_current(),fd));
+    return SRV_ERR_BADF;
 }
 
 static char tty_filter_input(char c) {
@@ -536,14 +511,6 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
     if (!user_buffer_ok(buffer, length, true)) {
         return -1;
-    }
-
-    if (fd == 0) {
-        int64_t redirected = process_stdin_read(process_current(), (uint8_t *)buffer, length);
-        if (redirected != -2) {
-            return redirected;
-        }
-        return tty_read_console(buffer, length);
     }
 
     struct process_file *file = process_file_at(process_current(), fd);

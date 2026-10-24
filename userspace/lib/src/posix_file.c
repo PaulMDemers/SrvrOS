@@ -372,7 +372,7 @@ int dup(int fd) {
     }
     long result = srv_dup(fd);
     if (result < 0) {
-        errno = EBADF;
+        errno = result==-1?EBADF:(int)-result;
         return -1;
     }
     __posix_socket_note_dup(fd, (int)result);
@@ -386,14 +386,14 @@ int dup2(int old_fd, int new_fd) {
             errno = EBADF;
             return -1;
         }
-        if (old_fd >= 3 && fcntl(old_fd, F_GETFD) < 0) {
+        if (fcntl(old_fd, F_GETFD) < 0) {
             return -1;
         }
         return new_fd;
     }
     long result = srv_dup2(old_fd, new_fd);
     if (result < 0) {
-        errno = old_fd < 0 || new_fd < 0 ? EBADF : ENOSYS;
+        errno = result==-1?EBADF:(int)-result;
         return -1;
     }
     __posix_socket_note_dup(old_fd, new_fd);
@@ -497,9 +497,6 @@ int fcntl(int fd, int command, ...) {
         return fcntl_dupfd(fd, minimum, command == F_DUPFD_CLOEXEC);
     }
     if (command == F_GETFD) {
-        if (fd >= 0 && fd < 3) {
-            return 0;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             long flags = __posix_eventfd_fcntl(fd, SRV_F_GETFD, 0);
             if (flags < 0) {
@@ -527,9 +524,6 @@ int fcntl(int fd, int command, ...) {
         int flags = va_arg(args, int);
         va_end(args);
         uint64_t srv_flags = (flags & FD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
-        if (fd >= 0 && fd < 3) {
-            return 0;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             return __posix_eventfd_fcntl(fd, SRV_F_SETFD, srv_flags);
         }
@@ -543,9 +537,6 @@ int fcntl(int fd, int command, ...) {
         return 0;
     }
     if (command == F_GETFL) {
-        if (fd >= 0 && fd < 3) {
-            return fd == 0 ? O_RDONLY : O_WRONLY;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             long flags = __posix_eventfd_fcntl(fd, SRV_F_GETFL, 0);
             if (flags < 0) {
@@ -574,9 +565,6 @@ int fcntl(int fd, int command, ...) {
         int flags = va_arg(args, int);
         va_end(args);
         uint64_t srv_flags = ((flags & O_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags & O_APPEND)?SRV_FD_APPEND:0);
-        if (fd >= 0 && fd < 3) {
-            return 0;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             return __posix_eventfd_fcntl(fd, SRV_F_SETFL, srv_flags);
         }

@@ -235,15 +235,6 @@ struct process {
     uint64_t kernel_stack_physical;
     uint64_t kernel_stack_frames;
     uint64_t kernel_stack_top;
-    bool stdout_redirect;
-    bool stdout_append;
-    bool stdout_written;
-    bool stdin_redirect;
-    int64_t stdin_fd;
-    int64_t stdout_fd;
-    bool stderr_redirect;
-    int64_t stderr_fd;
-    char stdout_path[PROCESS_PATH_MAX];
     char name[PROCESS_NAME_MAX];
     char executable_path[PROCESS_PATH_MAX];
     bool fork_resume;
@@ -425,6 +416,7 @@ bool process_exit_status(uint64_t pid, uint64_t *status_out) {
     return found;
 }
 static bool process_file_clone_entry(struct process_file *target, const struct process_file *source);
+static int64_t process_file_close_entry(struct process *process, struct process_file *file);
 static void process_file_release_entry(struct process_file *file);
 static int64_t process_file_dup_into(struct process *process, const struct process_file *source, uint64_t target_index);
 static bool process_apply_spawn_file_actions(struct process *child,
@@ -698,6 +690,7 @@ static void clear_process(struct process *process) {
     }
     process->fsize_limit=(struct srv_rlimit){UINT64_MAX,UINT64_MAX};
     process->cwd[0]='/';
+    for(unsigned i=0;i<3;i++) process->files[i]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=i};
 }
 
 static struct process_lifetime *lifetime_find(uint64_t token) {
@@ -1281,44 +1274,32 @@ static bool cleanup_process_files(struct process *process) {
         if (!process->files[i].used) {
             continue;
         }
-        if (process_file_close(process, i + 3) < 0) ok = false;
+        if (process_file_close(process, i) < 0) ok = false;
     }
     return ok;
 }
 
 static uint64_t finish_process_files(struct process *process, uint64_t status) {
-    /* Redirections can share their write handle with the waiting parent.
-     * Publish them before reporting exit, even when this is not the last close.
-     * Per-character stdout writes must not each rewrite an exFAT file. */
-    bool ok = true;
-    int64_t fds[] = {process->stdin_redirect ? process->stdin_fd : -1,
-        process->stdout_redirect ? process->stdout_fd : -1,
-        process->stderr_redirect ? process->stderr_fd : -1};
-    for (unsigned i = 0; i < 3; i++) {
-        struct process_file *file = fds[i] >= 3 ? process_file_at(process, (uint64_t)fds[i]) : NULL;
-        if (file && file->type == PROCESS_FILE_VFS_WRITE &&
-            process_file_flush(process, (uint64_t)fds[i]) < 0) ok = false;
+    bool ok=true;
+    /* Flush redirected standard files even when a parent still owns a copy. */
+    for(unsigned i=0;i<3;i++) {
+        struct process_file *file=process_file_at(process,i);
+        if(file && file->type==PROCESS_FILE_VFS_WRITE && process_file_flush(process,i)<0) ok=false;
     }
-    if (!cleanup_process_files(process)) ok = false;
-    return status != 0 || ok ? status : 1;
+    if(!cleanup_process_files(process)) ok=false;
+    return status!=0 || ok?status:1;
 }
 
-static bool file_is_exec_stdio_redirect(struct process *process, uint64_t fd) {
-    return process != NULL &&
-        ((process->stdin_redirect && process->stdin_fd == (int64_t)fd) ||
-            (process->stdout_redirect && process->stdout_fd == (int64_t)fd) ||
-            (process->stderr_redirect && process->stderr_fd == (int64_t)fd));
-}
+
 
 static void close_cloexec_files(struct process *process) {
     if (process == NULL) {
         return;
     }
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
-        uint64_t fd = i + 3;
+        uint64_t fd = i;
         if (process->files[i].used &&
-            (process->files[i].flags & SRV_FD_CLOEXEC) != 0 &&
-            !file_is_exec_stdio_redirect(process, fd)) {
+            (process->files[i].flags & SRV_FD_CLOEXEC) != 0) {
             (void)process_file_close(process, fd);
         }
     }
@@ -1850,8 +1831,7 @@ int64_t process_spawn_exec(const char *path,
         return error;
     }
 
-    struct process_file *terminal_input=child->stdin_redirect && child->stdin_fd>=3?
-        process_file_at(child,(uint64_t)child->stdin_fd):NULL;
+    struct process_file *terminal_input=process_file_at(child,0);
     if(terminal_input && terminal_input->type==PROCESS_FILE_PTY_SLAVE)
         child->controlling_tty=terminal_input->handle;
     if (process_group == UINT64_MAX) {
@@ -2077,11 +2057,7 @@ int64_t process_fork(const struct isr_frame *frame) {
     /* alloc_process inherited the caller mask, resource limits and group/session;
      * pending signals, alarms, usage and other threads start empty. */
     child->fpu=parent->fpu;
-    child->stdin_redirect=parent->stdin_redirect;child->stdin_fd=parent->stdin_fd;
-    child->stdout_redirect=parent->stdout_redirect;child->stdout_fd=parent->stdout_fd;
-    child->stderr_redirect=parent->stderr_redirect;child->stderr_fd=parent->stderr_fd;
-    child->stdout_append=parent->stdout_append;child->stdout_written=parent->stdout_written;
-    copy_bytes((uint8_t *)child->stdout_path,(const uint8_t *)parent->stdout_path,sizeof(child->stdout_path));
+    (void)cleanup_process_files(child);
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used) {
         uint64_t irq=process_irq_save();
         bool copied=process_file_clone_entry(&child->files[i],&parent->files[i]);
@@ -2133,124 +2109,17 @@ bool process_start_background(const char *path) {
     return true;
 }
 
-static bool process_fd_available(struct process *process, int64_t fd) {
-    return fd < 3 || process_file_at(process, (uint64_t)fd) != NULL;
+
+
+static bool process_apply_stdio_fds(struct process *process, int64_t input, int64_t output, int64_t error) {
+    return process_configure_stdio_fds(process,process,input,output,error);
 }
 
-static bool process_apply_stdio_fds(struct process *process,
-    int64_t stdin_fd,
-    int64_t stdout_fd,
-    int64_t stderr_fd) {
-    if (process == NULL) {
-        return false;
-    }
-    if (stdin_fd == PROCESS_STDIO_CLOSED_FD) {
-        process->stdin_redirect = true;
-        process->stdin_fd = -1;
-    } else if (stdin_fd >= 0 && stdin_fd != 0) {
-        if (!process_fd_available(process, stdin_fd)) {
-            return false;
-        }
-        process->stdin_redirect = true;
-        process->stdin_fd = stdin_fd;
-    }
-    if (stdout_fd == PROCESS_STDIO_CLOSED_FD) {
-        process->stdout_redirect = true;
-        process->stdout_fd = -1;
-    } else if (stdout_fd >= 0 && stdout_fd != 1) {
-        if (!process_fd_available(process, stdout_fd)) {
-            return false;
-        }
-        process->stdout_redirect = true;
-        process->stdout_fd = stdout_fd;
-    }
-    if (stderr_fd == PROCESS_STDIO_CLOSED_FD) {
-        process->stderr_redirect = true;
-        process->stderr_fd = -1;
-    } else if (stderr_fd >= 0 && stderr_fd != 2) {
-        if (!process_fd_available(process, stderr_fd)) {
-            return false;
-        }
-        process->stderr_redirect = true;
-        process->stderr_fd = stderr_fd;
-    }
-    return true;
-}
 
-static int64_t process_clone_fd_from(struct process *target, struct process *source_process, int64_t source_fd) {
-    struct process_file stdio_source;
-    struct process_file *source = NULL;
-    if (target == NULL || source_process == NULL || source_fd < 0) {
-        return -1;
-    }
 
-    if (source_fd < 3) {
-        if (source_fd == 0 && source_process->stdin_redirect) {
-            source_fd = source_process->stdin_fd;
-        } else if (source_fd == 1 && source_process->stdout_redirect) {
-            source_fd = source_process->stdout_fd;
-        } else if (source_fd == 2 && source_process->stderr_redirect) {
-            source_fd = source_process->stderr_fd;
-        }
-    }
-    if (source_fd < 0) {
-        return -1;
-    }
-
-    if (source_fd < 3) {
-        uint8_t *bytes = (uint8_t *)&stdio_source;
-        for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
-            bytes[i] = 0;
-        }
-        stdio_source.used = true;
-        stdio_source.type = PROCESS_FILE_STDIO;
-        stdio_source.handle = (uint64_t)source_fd;
-        source = &stdio_source;
-    } else {
-        source = process_file_at(source_process, (uint64_t)source_fd);
-    }
-    if (source == NULL) {
-        return -1;
-    }
-
-    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
-        if (!target->files[i].used) {
-            return process_file_dup_into(target, source, i);
-        }
-    }
-    return -1;
-}
-
-static struct process_file *process_fd_source(struct process *process,
-    int64_t fd,
-    struct process_file *stdio_source,
-    bool resolve_stdio_redirect) {
-    if (process == NULL || fd < 0) {
-        return NULL;
-    }
-    if (resolve_stdio_redirect && fd < 3) {
-        if (fd == 0 && process->stdin_redirect) {
-            fd = process->stdin_fd;
-        } else if (fd == 1 && process->stdout_redirect) {
-            fd = process->stdout_fd;
-        } else if (fd == 2 && process->stderr_redirect) {
-            fd = process->stderr_fd;
-        }
-    }
-    if (fd < 0) {
-        return NULL;
-    }
-    if (fd < 3) {
-        uint8_t *bytes = (uint8_t *)stdio_source;
-        for (uint64_t i = 0; i < sizeof(*stdio_source); i++) {
-            bytes[i] = 0;
-        }
-        stdio_source->used = true;
-        stdio_source->type = PROCESS_FILE_STDIO;
-        stdio_source->handle = (uint64_t)fd;
-        return stdio_source;
-    }
-    return process_file_at(process, (uint64_t)fd);
+static struct process_file *process_fd_source(struct process *process, int64_t fd,
+    struct process_file *unused, bool resolve) {
+    (void)unused;(void)resolve;return fd>=0?process_file_at(process,(uint64_t)fd):NULL;
 }
 
 static bool process_spawn_dup2_action(struct process *child,
@@ -2260,8 +2129,8 @@ static bool process_spawn_dup2_action(struct process *child,
     if (child == NULL ||
         parent == NULL ||
         old_fd < 0 ||
-        new_fd < 3 ||
-        new_fd >= 3 + PROCESS_MAX_OPEN_FILES) {
+        new_fd < 0 ||
+        new_fd >= PROCESS_MAX_OPEN_FILES) {
         return false;
     }
     if (old_fd == new_fd && process_file_at(child, (uint64_t)new_fd) != NULL) {
@@ -2269,7 +2138,7 @@ static bool process_spawn_dup2_action(struct process *child,
     }
 
     struct process_file parent_stdio;
-    struct process_file *source = old_fd >= 3 ? process_file_at(child, (uint64_t)old_fd) : NULL;
+    struct process_file *source = process_file_at(child, (uint64_t)old_fd);
     if (source == NULL) {
         source = process_fd_source(parent, old_fd, &parent_stdio, true);
     }
@@ -2278,7 +2147,7 @@ static bool process_spawn_dup2_action(struct process *child,
     }
 
     struct process_file source_copy = *source;
-    uint64_t target_index = (uint64_t)new_fd - 3;
+    uint64_t target_index = (uint64_t)new_fd;
     if (child->files[target_index].used && process_file_close(child, (uint64_t)new_fd) < 0) {
         return false;
     }
@@ -2301,7 +2170,7 @@ static bool process_apply_spawn_file_actions(struct process *child,
     for (uint64_t i = 0; i < action_count; i++) {
         const struct process_spawn_file_action *action = &actions[i];
         if (action->type == SRV_SPAWN_FILE_ACTION_CLOSE) {
-            if (action->fd >= 3 && action->fd < 3 + PROCESS_MAX_OPEN_FILES &&
+            if (action->fd >= 0 && action->fd < PROCESS_MAX_OPEN_FILES &&
                 process_file_at(child, (uint64_t)action->fd) != NULL &&
                 process_file_close(child, (uint64_t)action->fd) < 0) {
                 return false;
@@ -2317,96 +2186,35 @@ static bool process_apply_spawn_file_actions(struct process *child,
     return true;
 }
 
-static bool process_inherit_stdio_redirect(struct process *child,
-    struct process *parent,
-    bool parent_redirect,
-    int64_t parent_fd,
-    bool *child_redirect,
-    int64_t *child_fd) {
-    if (!parent_redirect) {
-        return true;
-    }
-    if (parent_fd < 0) {
-        *child_redirect = true;
-        *child_fd = -1;
-        return true;
-    }
-    int64_t fd = process_clone_fd_from(child, parent, parent_fd);
-    if (fd < 0) {
-        return false;
-    }
-    *child_redirect = true;
-    *child_fd = fd;
-    return true;
-}
 
-static bool process_configure_stdio_fds(struct process *child,
-    struct process *parent,
-    int64_t stdin_fd,
-    int64_t stdout_fd,
-    int64_t stderr_fd) {
-    if (stdin_fd == PROCESS_STDIO_CLOSED_FD) {
-        child->stdin_redirect = true;
-        child->stdin_fd = -1;
-    } else if (stdin_fd >= 0 && stdin_fd != 0) {
-        int64_t fd = process_clone_fd_from(child, parent, stdin_fd);
-        if (fd < 0) {
-            return false;
-        }
-        child->stdin_redirect = true;
-        child->stdin_fd = fd;
-    } else if (stdin_fd < 0 &&
-        !process_inherit_stdio_redirect(child,
-            parent,
-            parent->stdin_redirect,
-            parent->stdin_fd,
-            &child->stdin_redirect,
-            &child->stdin_fd)) {
-        return false;
-    }
 
-    if (stdout_fd == PROCESS_STDIO_CLOSED_FD) {
-        child->stdout_redirect = true;
-        child->stdout_fd = -1;
-    } else if (stdout_fd >= 0 && stdout_fd != 1) {
-        int64_t fd = process_clone_fd_from(child, parent, stdout_fd);
-        if (fd < 0) {
-            return false;
-        }
-        child->stdout_redirect = true;
-        child->stdout_fd = fd;
-    } else if (stdout_fd < 0 &&
-        !process_inherit_stdio_redirect(child,
-            parent,
-            parent->stdout_redirect,
-            parent->stdout_fd,
-            &child->stdout_redirect,
-            &child->stdout_fd)) {
-        return false;
+static bool process_configure_stdio_fds(struct process *child, struct process *parent,
+    int64_t input, int64_t output, int64_t error) {
+    if(!child) return false;
+    if(!parent) parent=child;
+    int64_t fds[3]={input,output,error};
+    struct process_file snapshots[3]={{0}};
+    bool change[3]={false,false,false},ok=true;
+    /* Snapshot all sources first: swapping stdout/stderr cannot make one
+     * redirection observe the other's newly replaced slot. */
+    uint64_t irq=process_irq_save();
+    for(unsigned i=0;i<3;i++) {
+        if(parent==child && (fds[i]==-1 || fds[i]==(int64_t)i)) continue;
+        change[i]=true;
+        if(fds[i]==PROCESS_STDIO_CLOSED_FD) continue;
+        int64_t source_fd=fds[i]<0?(int64_t)i:fds[i];
+        struct process_file *source=process_file_at(parent,(uint64_t)source_fd);
+        if(!source) { if(fds[i]<0) continue;ok=false;break; }
+        if(!process_file_clone_entry(&snapshots[i],source)) { ok=false;break; }
+        snapshots[i].flags&=~SRV_FD_CLOEXEC;
     }
-
-    if (stderr_fd == PROCESS_STDIO_CLOSED_FD) {
-        child->stderr_redirect = true;
-        child->stderr_fd = -1;
-    } else if (stderr_fd >= 0 && stderr_fd != 2) {
-        int64_t fd = process_clone_fd_from(child, parent, stderr_fd);
-        if (fd < 0) {
-            return false;
-        }
-        child->stderr_redirect = true;
-        child->stderr_fd = fd;
-    } else if (stderr_fd < 0 &&
-        !process_inherit_stdio_redirect(child,
-            parent,
-            parent->stderr_redirect,
-            parent->stderr_fd,
-            &child->stderr_redirect,
-            &child->stderr_fd)) {
-        return false;
+    process_irq_restore(irq);
+    if(!ok) { for(unsigned i=0;i<3;i++) if(snapshots[i].used) process_file_release_entry(&snapshots[i]);return false; }
+    for(unsigned i=0;i<3;i++) if(change[i]) {
+        if(process_file_at(child,i)) (void)process_file_close(child,i);
+        child->files[i]=snapshots[i];
     }
-
-    struct process_file *terminal=child->stdin_redirect && child->stdin_fd>=3?
-        process_file_at(child,(uint64_t)child->stdin_fd):NULL;
+    struct process_file *terminal=process_file_at(child,0);
     if(terminal && terminal->type==PROCESS_FILE_PTY_SLAVE) child->controlling_tty=terminal->handle;
     return true;
 }
@@ -3465,152 +3273,60 @@ bool process_current_quiet(void) {
 }
 
 bool process_set_stdout_redirect(struct process *process, const char *path, bool append) {
-    if (process == NULL || path == NULL || path[0] == '\0') {
-        return false;
-    }
-
-    uint64_t flags = SRV_OPEN_WRITE | SRV_OPEN_CREATE | (append ? SRV_OPEN_APPEND : SRV_OPEN_TRUNC);
-    int64_t fd = process_file_open_write(process, path, flags);
-    if (fd < 0 || !copy_process_path(process->stdout_path, sizeof(process->stdout_path), path)) {
-        if (fd >= 0) {
-            (void)process_file_close(process, (uint64_t)fd);
-        }
-        return false;
-    }
-    process->stdout_redirect = true;
-    process->stdout_append = append;
-    process->stdout_written = false;
-    process->stdout_fd = fd;
-    return true;
+    if(!process || !path || !path[0]) return false;
+    uint64_t flags=SRV_OPEN_WRITE|SRV_OPEN_CREATE|(append?SRV_OPEN_APPEND:SRV_OPEN_TRUNC);
+    int64_t fd=process_file_open_write(process,path,flags);
+    if(fd<0) return false;
+    int64_t result=process_file_dup2(process,(uint64_t)fd,1);
+    if(fd!=1) (void)process_file_close(process,(uint64_t)fd);
+    return result==1;
 }
 
 bool process_fd_is_console(struct process *process, uint64_t fd, bool input) {
-    if (!process) return false;
-    if (fd>=3) {
-        struct process_file *file=process_file_at(process,fd);
-        if (!file || file->type!=PROCESS_FILE_STDIO) return false;
-        fd=file->handle;
-    }
-    if (input ? fd!=0 : (fd!=1 && fd!=2)) return false;
-    bool redirected=input ? process->stdin_redirect :
-        fd==1 ? process->stdout_redirect : process->stderr_redirect;
-    if (!redirected) return true;
-    int64_t target=input ? process->stdin_fd : fd==1 ? process->stdout_fd : process->stderr_fd;
-    if (target<3) return false;
-    struct process_file *file=process_file_at(process,(uint64_t)target);
+    struct process_file *file=process_file_at(process,fd);
     return file && file->type==PROCESS_FILE_STDIO &&
-        (input ? file->handle==0 : (file->handle==1 || file->handle==2));
+        (input?file->handle==0:(file->handle==1 || file->handle==2));
 }
 
 int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t length) {
-    if (process == NULL || !process->stdin_redirect) {
-        return -2;
-    }
-    if (buffer == NULL && length != 0) {
-        return -1;
-    }
-    if (length == 0) {
-        return 0;
-    }
-
-    struct process_file *file = process_file_at(process, (uint64_t)process->stdin_fd);
-    if (file == NULL) {
-        return -1;
-    }
-    if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
-        return process_file_pipe_read(process, (uint64_t)process->stdin_fd, buffer, length);
-    }
-    if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
-        return -2;
-    }
-    return process_file_read(process, (uint64_t)process->stdin_fd, buffer, length);
+    struct process_file *file=process_file_at(process,0);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO) return file->handle==0?-2:SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_PIPE_READ || file->type==PROCESS_FILE_PIPE_DUPLEX)
+        return process_file_pipe_read(process,0,buffer,length);
+    return process_file_read(process,0,buffer,length);
 }
 
 int64_t process_input_write(struct process *process, const uint8_t *buffer, uint64_t length) {
-    if (process == NULL || !process->stdin_redirect) {
-        return -2;
-    }
-    if (buffer == NULL) {
-        return -1;
-    }
-    if (length == 0) {
-        return 0;
-    }
-
-    struct process_file *file = process_file_at(process, (uint64_t)process->stdin_fd);
-    if (file == NULL) {
-        return -1;
-    }
-    if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
-        return process_file_pipe_write(process, (uint64_t)process->stdin_fd, buffer, length);
-    }
-    if (file->type == PROCESS_FILE_VFS_WRITE || file->type == PROCESS_FILE_PTY_MASTER ||
-        file->type == PROCESS_FILE_PTY_SLAVE) {
-        return process_file_write(process, (uint64_t)process->stdin_fd, buffer, length);
-    }
-    return -1;
+    struct process_file *file=process_file_at(process,0);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO) return file->handle==1 || file->handle==2?-2:SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
+        return process_file_pipe_write(process,0,buffer,length);
+    return process_file_write(process,0,buffer,length);
 }
 
 int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
-    bool redirected;
-    int64_t target_fd;
-    if (process == NULL || (fd != 1 && fd != 2)) {
-        return -2;
-    }
-    redirected = fd == 2 ? process->stderr_redirect : process->stdout_redirect;
-    target_fd = fd == 2 ? process->stderr_fd : process->stdout_fd;
-    if (!redirected) {
-        return -2;
-    }
-    if (buffer == NULL) {
-        return -1;
-    }
-    if (length == 0) {
-        return 0;
-    }
-
-    struct process_file *file = process_file_at(process, (uint64_t)target_fd);
-    if (file == NULL) {
-        return -1;
-    }
-    if (file->type == PROCESS_FILE_STDIO && (file->handle == 1 || file->handle == 2)) {
-        return -2;
-    }
-
-    int64_t written = (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) ?
-        process_file_pipe_write(process, (uint64_t)target_fd, buffer, length) :
-        process_file_write(process, (uint64_t)target_fd, buffer, length);
-    if (written < 0) {
-        return written;
-    }
-    process->stdout_written = true;
-    return written;
+    struct process_file *file=process_file_at(process,fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO) return file->handle==1 || file->handle==2?-2:SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
+        return process_file_pipe_write(process,fd,buffer,length);
+    return process_file_write(process,fd,buffer,length);
 }
 
 struct process_file *process_file_at(struct process *process, uint64_t fd) {
-    if (process == NULL || fd < 3 || fd >= 3 + PROCESS_MAX_OPEN_FILES) {
+    if (process == NULL || fd >= PROCESS_MAX_OPEN_FILES) {
         return NULL;
     }
 
-    struct process_file *file = &process->files[fd - 3];
+    struct process_file *file = &process->files[fd];
     return file->used ? file : NULL;
 }
 
 uint64_t process_tty_handle(struct process *process,uint64_t fd) {
-    if(!process) return 0;
-    for(unsigned depth=0;depth<4;depth++) {
-        if(fd<=2) {
-            bool redirected=fd==0?process->stdin_redirect:fd==1?process->stdout_redirect:process->stderr_redirect;
-            int64_t target=fd==0?process->stdin_fd:fd==1?process->stdout_fd:process->stderr_fd;
-            if(!redirected || target<3) return 0;
-            fd=(uint64_t)target;
-        }
-        struct process_file *file=process_file_at(process,fd);if(!file) return 0;
-        if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE) return file->handle;
-        if(file->type!=PROCESS_FILE_STDIO) return 0;
-        fd=file->handle;
-    }
-    return 0;
+    struct process_file *file=process_file_at(process,fd);
+    return file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)?file->handle:0;
 }
 struct pty_model *process_tty_model(struct process *process,uint64_t fd) {
     return pty_state(process_tty_handle(process,fd));
@@ -3643,7 +3359,7 @@ int64_t process_file_pty_pair(struct process *process,uint64_t fds_out[2]) {
     uint64_t handle=pty_create();if(!handle) return -1;
     process->files[index[0]]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_MASTER,.handle=handle};
     process->files[index[1]]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_SLAVE,.handle=handle};
-    fds_out[0]=index[0]+3;fds_out[1]=index[1]+3;return 0;
+    fds_out[0]=index[0];fds_out[1]=index[1];return 0;
 }
 
 static struct process_file_content *content_find(const char *path) {
@@ -3752,7 +3468,7 @@ int64_t process_file_alloc(struct process *process,
     file->handle = handle;
     file->flags = 0;
     (void)copy_process_path(file->path, sizeof(file->path), node->path);
-    return (int64_t)(free_index + 3);
+    return (int64_t)(free_index);
 }
 
 static struct process_read_file *read_file_at(uint64_t handle) {
@@ -4240,7 +3956,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     file->flags = ((flags & SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0) |
         ((flags & SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
     (void)copy_process_path(file->path, sizeof(file->path), path);
-    return (int64_t)(free_index + 3);
+    return (int64_t)(free_index);
 }
 
 static void process_fsize_signal(struct process *process) {
@@ -4300,21 +4016,8 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
 /* Resolve inherited standard descriptors and their duplicates without turning
  * a console/pipe into a seekable stream. Bound traversal of malformed chains. */
 static int64_t positional_fd(struct process *process, uint64_t fd) {
-    if (!process) return SRV_ERR_BADF;
-    for (unsigned depth=0;depth<4;depth++) {
-        if (fd<3) {
-            bool redirected=fd==0?process->stdin_redirect:fd==1?process->stdout_redirect:process->stderr_redirect;
-            int64_t target=fd==0?process->stdin_fd:fd==1?process->stdout_fd:process->stderr_fd;
-            if (!redirected) return SRV_ERR_SPIPE;
-            if (target<3) return SRV_ERR_BADF;
-            fd=(uint64_t)target;
-        }
-        struct process_file *file=process_file_at(process,fd);
-        if (!file) return SRV_ERR_BADF;
-        if (file->type!=PROCESS_FILE_STDIO) return (int64_t)fd;
-        fd=file->handle;
-    }
-    return SRV_ERR_BADF;
+    struct process_file *file=process_file_at(process,fd);
+    return !file?SRV_ERR_BADF:file->type==PROCESS_FILE_STDIO?SRV_ERR_SPIPE:(int64_t)fd;
 }
 
 int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer,
@@ -4542,14 +4245,6 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
     if (process == NULL) {
         write = write_file_at(fd);
     } else {
-        if (fd < 3) {
-            bool redirected = fd == 0 ? process->stdin_redirect :
-                fd == 1 ? process->stdout_redirect : process->stderr_redirect;
-            int64_t target = fd == 0 ? process->stdin_fd :
-                fd == 1 ? process->stdout_fd : process->stderr_fd;
-            if (!redirected || target < 3) return -1;
-            fd = (uint64_t)target;
-        }
         struct process_file *file = process_file_at(process, fd);
         if (file == NULL) {
             return -1;
@@ -4649,8 +4344,8 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
     write_file->used = true;
     write_file->type = PROCESS_FILE_PIPE_WRITE;
     write_file->handle = handle;
-    fds_out[0] = read_index + 3;
-    fds_out[1] = write_index + 3;
+    fds_out[0] = read_index;
+    fds_out[1] = write_index;
     return 0;
 }
 
@@ -4703,8 +4398,8 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
     second_file->type = PROCESS_FILE_PIPE_DUPLEX;
     second_file->handle = pipe_ab;
     second_file->aux_handle = pipe_ba;
-    fds_out[0] = first_index + 3;
-    fds_out[1] = second_index + 3;
+    fds_out[0] = first_index;
+    fds_out[1] = second_index;
     return 0;
 }
 
@@ -4858,7 +4553,7 @@ int64_t process_unix_bind(struct process *process, const char *path) {
     file->type = PROCESS_FILE_UNIX_LISTENER;
     file->handle = listener_index + 1;
     (void)copy_process_path(file->path, sizeof(file->path), path);
-    return (int64_t)(fd_index + 3);
+    return (int64_t)(fd_index);
 }
 
 int64_t process_unix_listen(struct process *process, uint64_t fd, uint64_t backlog) {
@@ -4922,7 +4617,7 @@ int64_t process_unix_connect(struct process *process, const char *path) {
     pending->used = true;
     scheduler_wake_all(&unix_wait_queue);
     process_file_poll_wake();
-    return (int64_t)(fd_index + 3);
+    return (int64_t)(fd_index);
 }
 
 int64_t process_unix_accept(struct process *process, uint64_t fd) {
@@ -4977,7 +4672,7 @@ int64_t process_unix_accept(struct process *process, uint64_t fd) {
         bytes[i] = 0;
     }
     process_file_poll_wake();
-    return (int64_t)(fd_index + 3);
+    return (int64_t)(fd_index);
 }
 
 int64_t process_unix_unlink(const char *path) {
@@ -5108,21 +4803,6 @@ static bool file_lock_wait_ready(void *arg) {
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events) {
     if (process == NULL) {
         return SRV_POLLNVAL;
-    }
-
-    if (fd == 0) {
-        if (process->stdin_redirect) {
-            return process->stdin_fd >= 3 ? process_file_poll(process, process->stdin_fd, events) : SRV_POLLNVAL;
-        }
-        return (events & SRV_POLLIN) != 0 ? SRV_POLLIN : 0;
-    }
-    if (fd == 1 || fd == 2) {
-        bool redirected = fd == 2 ? process->stderr_redirect : process->stdout_redirect;
-        int64_t target_fd = fd == 2 ? process->stderr_fd : process->stdout_fd;
-        if (redirected) {
-            return target_fd >= 3 ? process_file_poll(process, target_fd, events) : SRV_POLLNVAL;
-        }
-        return (events & SRV_POLLOUT) != 0 ? SRV_POLLOUT : 0;
     }
 
     struct process_file *file = process_file_at(process, (uint64_t)fd);
@@ -5261,7 +4941,7 @@ int64_t process_handle_alloc(struct process *process,
             file->used = true;
             file->type = type;
             file->handle = handle;
-            return (int64_t)(i + 3);
+            return (int64_t)(i);
         }
     }
 
@@ -5423,88 +5103,42 @@ static int64_t process_file_dup_into(struct process *process, const struct proce
     if (!process_file_clone_entry(&process->files[target_index], source)) {
         return -1;
     }
-    return (int64_t)(target_index + 3);
+    return (int64_t)(target_index);
 }
 
 int64_t process_file_dup(struct process *process, uint64_t old_fd) {
-    struct process_file stdio_source;
-    struct process_file *source = NULL;
-    if (old_fd < 3) {
-        uint8_t *bytes = (uint8_t *)&stdio_source;
-        for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
-            bytes[i] = 0;
-        }
-        stdio_source.used = true;
-        stdio_source.type = PROCESS_FILE_STDIO;
-        stdio_source.handle = old_fd;
-        source = &stdio_source;
-    } else {
-        source = process_file_at(process, old_fd);
-    }
-    if (process == NULL || source == NULL) {
-        return -1;
-    }
-
-    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
-        if (!process->files[i].used) {
-            return process_file_dup_into(process, source, i);
+    uint64_t irq=process_irq_save();
+    struct process_file *source=process_file_at(process,old_fd);
+    int64_t result=SRV_ERR_BADF;
+    if(source) {
+        result=SRV_ERR_MFILE;
+        for(uint64_t i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(!process->files[i].used) {
+            result=process_file_dup_into(process,source,i);
+            if(result>=0) process->files[i].flags&=~SRV_FD_CLOEXEC;
+            break;
         }
     }
-    return -1;
+    process_irq_restore(irq);return result;
 }
 
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd) {
-    if (process == NULL) {
-        return -1;
-    }
-    if (old_fd == new_fd) {
-        return old_fd < 3 || process_file_at(process, old_fd) != NULL ? (int64_t)new_fd : -1;
-    }
-    if (new_fd < 3 || new_fd >= 3 + PROCESS_MAX_OPEN_FILES) {
-        return -1;
-    }
-
-    struct process_file stdio_source;
-    struct process_file *source = NULL;
-    if (old_fd < 3) {
-        uint8_t *bytes = (uint8_t *)&stdio_source;
-        for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
-            bytes[i] = 0;
-        }
-        stdio_source.used = true;
-        stdio_source.type = PROCESS_FILE_STDIO;
-        stdio_source.handle = old_fd;
-        source = &stdio_source;
-    } else {
-        source = process_file_at(process, old_fd);
-    }
-    if (source == NULL) {
-        return -1;
-    }
-
-    uint64_t target_index = new_fd - 3;
-    if (process->files[target_index].used) {
-        if (process_file_close(process, new_fd) < 0) {
-            return -1;
-        }
-    }
-    return process_file_dup_into(process, source, target_index);
+    uint64_t irq=process_irq_save();
+    struct process_file *source=process_file_at(process,old_fd);
+    if(!source || new_fd>=PROCESS_MAX_OPEN_FILES) { process_irq_restore(irq);return SRV_ERR_BADF; }
+    if(old_fd==new_fd) { process_irq_restore(irq);return (int64_t)new_fd; }
+    struct process_file replacement={0};
+    if(!process_file_clone_entry(&replacement,source)) { process_irq_restore(irq);return SRV_ERR_NOMEM; }
+    replacement.flags&=~SRV_FD_CLOEXEC;
+    struct process_file retired=process->files[new_fd];
+    process->files[new_fd]=replacement;
+    process_irq_restore(irq);
+    if(retired.used) (void)process_file_close_entry(process,&retired);
+    return (int64_t)new_fd;
 }
 
 static const struct process_file *process_file_source_for_fd(struct process *process,
-    uint64_t fd,
-    struct process_file *stdio_source) {
-    if (fd < 3) {
-        uint8_t *bytes = (uint8_t *)stdio_source;
-        for (uint64_t i = 0; i < sizeof(*stdio_source); i++) {
-            bytes[i] = 0;
-        }
-        stdio_source->used = true;
-        stdio_source->type = PROCESS_FILE_STDIO;
-        stdio_source->handle = fd;
-        return stdio_source;
-    }
-    return process_file_at(process, fd);
+    uint64_t fd, struct process_file *unused) {
+    (void)unused;return process_file_at(process,fd);
 }
 
 int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count) {
@@ -5608,7 +5242,7 @@ int64_t process_file_recv_rights(struct process *process,
             }
             return -1;
         }
-        delivered[i] = (int32_t)(target_index + 3);
+        delivered[i] = (int32_t)(target_index);
     }
 
     for (uint64_t i = 0; i < deliver; i++) {
@@ -5636,7 +5270,8 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd) {
             ((write->open_flags&SRV_OPEN_APPEND)?SRV_FD_APPEND:0) |
             ((write->open_flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
     }
-    uint64_t access=file->type==PROCESS_FILE_PIPE_READ?SRV_FD_READ:
+    uint64_t access=file->type==PROCESS_FILE_STDIO?(file->handle==0?SRV_FD_READ:SRV_FD_WRITE):
+        file->type==PROCESS_FILE_PIPE_READ?SRV_FD_READ:
         file->type==PROCESS_FILE_PIPE_WRITE?SRV_FD_WRITE:SRV_FD_READ|SRV_FD_WRITE;
     return access|(file->flags&SRV_FD_NONBLOCK);
 }
@@ -5661,7 +5296,7 @@ int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t fl
 int64_t process_file_get_fd_flags(struct process *process, uint64_t fd) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL) {
-        return fd < 3 ? 0 : -1;
+        return SRV_ERR_BADF;
     }
     return (file->flags & SRV_FD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
 }
@@ -5669,7 +5304,7 @@ int64_t process_file_get_fd_flags(struct process *process, uint64_t fd) {
 int64_t process_file_set_fd_flags(struct process *process, uint64_t fd, uint64_t flags) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL) {
-        return fd < 3 ? 0 : -1;
+        return SRV_ERR_BADF;
     }
     file->flags = (file->flags & ~SRV_FD_CLOEXEC) | (flags & SRV_FD_CLOEXEC);
     return 0;
@@ -5744,12 +5379,7 @@ int64_t process_file_set_lock(struct process *process, uint64_t fd, const struct
     }
 }
 
-int64_t process_file_close(struct process *process, uint64_t fd) {
-    struct process_file *file = process_file_at(process, fd);
-    if (file == NULL) {
-        return -1;
-    }
-
+static int64_t process_file_close_entry(struct process *process, struct process_file *file) {
     int64_t result = 0;
     struct process_file_content *lock_content=NULL;
     if (process != NULL && file_content_for_fd(file,&lock_content)) {
@@ -5786,6 +5416,15 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
         bytes[i] = 0;
     }
     return result;
+}
+
+int64_t process_file_close(struct process *process, uint64_t fd) {
+    uint64_t irq=process_irq_save();
+    struct process_file *file=process_file_at(process,fd);
+    if(!file) { process_irq_restore(irq);return SRV_ERR_BADF; }
+    struct process_file retired=*file;*file=(struct process_file){0};
+    process_irq_restore(irq);
+    return process_file_close_entry(process,&retired);
 }
 
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence) {
@@ -5863,27 +5502,12 @@ int64_t process_file_stat(struct process *process,
     if (process == NULL || size_out == NULL || type_out == NULL) {
         return -1;
     }
-    if (fd < 3) {
-        bool redirected=fd==0?process->stdin_redirect:fd==1?process->stdout_redirect:process->stderr_redirect;
-        int64_t target=fd==0?process->stdin_fd:fd==1?process->stdout_fd:process->stderr_fd;
-        if(redirected) {
-            if(target<3) return -1;
-            return process_file_stat(process,(uint64_t)target,metadata_out,size_out,type_out);
-        }
-        *size_out = 0;
-        *type_out = 0;
-        if (metadata_out != NULL) {
-            *metadata_out = (struct vfs_metadata) {
-                .inode = fd + 1,
-                .mode = VFS_MODE_IFCHR | 0600,
-                .nlink = 1,
-            };
-        }
+    struct process_file *file=process_file_at(process,fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO) {
+        *size_out=0;*type_out=0;
+        if(metadata_out) *metadata_out=(struct vfs_metadata){.inode=file->handle+1,.mode=VFS_MODE_IFCHR|0600,.nlink=1};
         return 0;
-    }
-    struct process_file *file = process_file_at(process, fd);
-    if (file == NULL) {
-        return -1;
     }
 
     if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE) {

@@ -52,11 +52,11 @@ enum {
 };
 
 static FILE stdin_file,stdout_file,stderr_file;
-static FILE stdin_file = {.fd = STDIN_FILENO, .readable=1, .buffer_mode = _IOFBF, .known_size = -1,
+static FILE stdin_file = {.fd = STDIN_FILENO, .owned=1, .readable=1, .buffer_mode = _IOFBF, .known_size = -1,
     .next=&stdout_file,.references=1};
-static FILE stdout_file = {.fd = STDOUT_FILENO, .writable=1, .buffer_mode = _IOLBF, .known_size = -1,
+static FILE stdout_file = {.fd = STDOUT_FILENO, .owned=1, .writable=1, .buffer_mode = _IOLBF, .known_size = -1,
     .next=&stderr_file,.references=1};
-static FILE stderr_file = {.fd = STDERR_FILENO, .writable=1, .buffer_mode = _IONBF, .known_size = -1,
+static FILE stderr_file = {.fd = STDERR_FILENO, .owned=1, .writable=1, .buffer_mode = _IONBF, .known_size = -1,
     .references=1};
 static FILE *open_streams=&stdin_file;
 static pthread_mutex_t stream_registry_lock=PTHREAD_MUTEX_INITIALIZER;
@@ -164,7 +164,7 @@ static FILE **snapshot_streams(size_t *count) {
     pthread_mutex_lock(&stream_registry_lock);
     size_t n=0;for(FILE *s=open_streams;s;s=s->next) n++;
     FILE **snapshot=n?malloc(n*sizeof(*snapshot)):NULL;
-    if(n && !snapshot) { pthread_mutex_unlock(&stream_registry_lock);errno=ENOMEM;*count=0;return NULL; }
+    if(n && !snapshot) { pthread_mutex_unlock(&stream_registry_lock);errno=ENOMEM;*count=SIZE_MAX;return NULL; }
     size_t i=0;
     for(FILE *s=open_streams;s;s=s->next) { s->references++;snapshot[i++]=s; }
     pthread_mutex_unlock(&stream_registry_lock);*count=n;return snapshot;
@@ -1568,25 +1568,21 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
 
 int fclose(FILE *stream) {
     if(!stream) { errno=EBADF;return EOF; }
-    flockfile(stream);
-    if(stream->allocated) unregister_stream(stream);
+    flockfile(stream);unregister_stream(stream);
     int flush_result=fflush(stream);
     int result=stream->owned?close(stream->fd):0;
-    if(stream->allocated) {
-        if(stream->buffer_owned) free(stream->buffer);
-        stream->buffer=NULL;stream->buffer_owned=0;stream->fd=-1;
-        stream->readable=stream->writable=0;
-        /* Destruction consumes any recursive lock held by the closing caller.
-         * Waiting snapshot flushers must be allowed to retire their pins. */
-        stream->lock_depth=1;funlockfile(stream);release_stream(stream);
-    } else funlockfile(stream);
+    if(stream->buffer_owned) free(stream->buffer);
+    stream->buffer=NULL;stream->buffer_owned=0;stream->fd=-1;
+    stream->readable=stream->writable=0;
+    /* Destruction consumes recursive locks held by the closing caller. */
+    stream->lock_depth=1;funlockfile(stream);release_stream(stream);
     return flush_result<0 || result<0?EOF:0;
 }
 
 int fflush(FILE *stream) {
     if (stream == 0) {
         size_t count=0;FILE **snapshot=snapshot_streams(&count);
-        if(!snapshot) return EOF; /* Standard streams keep the registry nonempty. */
+        if(!snapshot && count==SIZE_MAX) return EOF;
         int result=0;
         for(size_t i=0;i<count;i++) {
             FILE *scan=snapshot[i];flockfile(scan);

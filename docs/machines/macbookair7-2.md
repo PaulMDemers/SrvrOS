@@ -12,7 +12,11 @@ first mkdir guest attempt exposed a stale syscall operation bound; the corrected
 retry passes. Desktop Files exposed a stale Home-versus-/fat fixture assumption;
 its explicit-navigation retry passes, as does the Terminal regression. Stdio
 registry pinning and concurrent close/flush pass focused/full thread VMs and
-local core/build. Next block unifies descriptor ownership/inheritance/redirection. Touch shared ABI
+local core/build. Descriptor ownership and standard-stream reuse now pass core/build, focused
+and full thread tests. Application regressions are next, followed by full-table
+POSIX spawn inheritance and ordered actions. Main advanced to documentation-only
+`211f17c`; integration is pending this code checkpoint. Pro PR19 `ccc5a17`
+remains independent RF/Wi-Fi work. Touch shared ABI
 limits, syscall/process/libc and focused tests. Full core/build and focused/full thread VMs pass the exec block. The first VM
 stayed at Limine; its incomplete log is retained and the harness now refuses to
 send commands before the OS prompt. Main advanced to `27f0870` with

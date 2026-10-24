@@ -605,6 +605,7 @@ int posix_exec_vectors_test(void);
 int posix_pipe_atomic_test(void);
 int posix_umask_test(void);
 int posix_stdio_registry_test(void);
+int posix_descriptor_test(void);
 int posix_umask_child(void);
 int posix_exec_vectors_child(int argc,char **argv);
 int posix_path_child(void);
@@ -655,6 +656,7 @@ int main(int argc, char **argv) {
     RUN_TEST("pipe-atomic", posix_pipe_atomic_test);
     RUN_TEST("umask", posix_umask_test);
     RUN_TEST("stdio-registry", posix_stdio_registry_test);
+    RUN_TEST("descriptors", posix_descriptor_test);
     RUN_TEST("masked poll", posix_masked_poll_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("targeted signal", posix_targeted_signal_test);

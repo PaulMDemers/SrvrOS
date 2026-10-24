@@ -16,13 +16,23 @@ This reference choice is a development target, not certification.
 
 ## Implementation progress after the audit
 
+Descriptors 0, 1 and 2 now occupy the same kernel table as other descriptors.
+Close releases their numbers for reuse; dup/dup2 copy endpoint ownership rather
+than retaining a reference to a mutable standard-stream slot. Replacement is
+published under IRQ exclusion before retiring the previous endpoint, and native
+standard-stream swaps snapshot all sources first. Fcntl, stat, positional I/O,
+TTY identity and close-on-exec use the real entries. Host pipe/PTY lifetime tests,
+focused guest reuse/redirection/close checks and the full thread suite pass.
+POSIX spawn inheritance and action ordering remain the next block; native spawn
+still has its explicit-transfer profile. Socket/eventfd adapters remain separate.
+
 Global `fflush(NULL)` now snapshots and pins the stream registry before taking
 individual FILE locks. Concurrent fclose removes the stream from that registry
 and defers allocation release until pinned flushers retire; closing under an
 explicit recursive flockfile cannot strand them. Registry locks never span FILE
 locks or I/O. FILE/pthread mutex owner fields use atomic access. The three-writer
-plus global-flusher guest race and full thread suite pass. Standard-descriptor
-close semantics still depend on the pending descriptor unification.
+plus global-flusher guest race and full thread suite pass. The subsequent descriptor block makes fclose of standard streams close their
+real descriptor, and permits a successful global flush with an empty registry.
 
 Small pipe writes through `write` are atomic up to `PIPE_BUF=4096`: blocking
 writers wait for the whole record, nonblocking writers return EAGAIN without

@@ -155,6 +155,7 @@ def main():
             "threadstress: pipe-atomic ok",
             "threadstress: umask ok",
             "threadstress: stdio-registry ok",
+            "threadstress: descriptors ok",
             "threadstress: masked poll ok",
             "threadstress: pthread contracts ok",
             "threadstress: targeted signal ok",
