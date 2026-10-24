@@ -4214,3 +4214,23 @@ archive equality. Workspace0E53-5900 clean229files/592clusters, zero allocation
 errors and unmounted. No one-shot armed; native integrated acceptance pending.
 Next: readiness-confirmed cold adapter cycle, automatic save/return, collect the
 matching session before further implementation. RF/connectivity remains untested.
+
+
+### 2026-10-23 — integrated v45 regression passed natively
+
+Collected release `9fadb1185a7592ea`, source `e1e595c` (main4a991df integrated),
+new session `00065e8c5588a9b9-00`. Prepared collector passed unchanged: all prior
+firmware/reset/timing, compact0/1, clock/readiness and bounded MAC groups passed.
+FCE sequence14 sent24/received16 cc13/residue1008 with exact ACK, complete1
+reads8, one batch completed and ack_mask1. Full-word readbacks5/03ff0223,
+write_mismatch_mask1 and exact_profile1 verified. Initial/final MAC0 and
+COREf000f200 plus both completion markers saved. No full BBP table or RF ran.
+
+Complete collection/run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-integrated-e1e595c/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace0E53-5900 clean231files/595clusters, zero leaks/mismatches, unmounted.
+No reboot armed. This accepts the prior Wi-Fi initialization sequence on the
+integrated baseline, not general desktop or battery behavior. Next: remaining
+MAC prerequisites before revisiting the four unresolved baseband readbacks.
+Scanning, association and connectivity remain untested.

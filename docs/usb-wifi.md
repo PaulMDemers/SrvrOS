@@ -1886,7 +1886,12 @@ initialization, scanning and connectivity remain open.
 The Pro branch now incorporates main `4a991df`, including storage scaling,
 workspace log admission/timing and GUI waits. Integration preserves all90 firmware
 boot recipes and all91 current main boot recipes exactly; no Wi-Fi register
-sequence, firmware or native model gate changes. An unchanged v45 diagnostic will
-validate this combined baseline before further MAC initialization work. Earlier
-v45 physical acceptance belongs to source538fee1; it does not accept the merged
-payload. Battery work and its Air-specific hardware acceptance remain separate.
+sequence, firmware or native model gate changes. The unchanged v45 diagnostic passed natively on Pro11,2: source `e1e595c`,
+release `9fadb1185a7592ea`, session `00065e8c5588a9b9-00` (2026-10-23).
+The prepared collector passed unchanged, including all preceding groups, exact FCE
+readbacks5/03ff0223, MAC0/COREf000f200 guards and both completion markers.
+Ubuntu recovery/payload hashes and clean offline allocation verified (231files,
+595clusters, zero errors). The full collection is archived outside build.
+Acceptance remains bounded to this initialization sequence; four full-table BBP
+readbacks, remaining MAC prerequisites and RF/connectivity are still unresolved.
+Battery work and its Air-specific hardware acceptance remain separate.
