@@ -4449,3 +4449,16 @@ Use direct request6 writes, exact fixed order,88 reads with MAC/CORE guards
 before every write, one attempt, full receipts and observational readbacks.
 Retain all prerequisite gates and old profiles. No DCOC/RF/TX/RX enable.
 Base4a991df; main7b0d1a0/merged storage-wait not yet integrated; PR123 separate.
+
+Prepared v48 source `e26dedf`, release `9bc9e99df950ae78`, installed unarmed.
+Native build, compact/xHCI tests, ASan/UBSan,122 boot-profile tests,94 unchanged
+historical recipes, collector fixture/45 rejection cases and493 documentation
+links passed. Exact-stage GPT VM saved verified logs and returned; missing
+workspace returned without starting the probe. Full fixture log is below the
+65536-byte retained tail. Native result pending.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; previous observation
+`6d6d0b1a49c3de4b` retained. AMPDU `e14f396f3d59c1b6` removed from ESP only
+after full archive equality. Workspace clean235files/601clusters, unmounted.
+Payload, VM receipts, tests, source audit, collector and run record archived
+under `~/.local/share/srvros/macbookpro11-2/wifi-bbp-switch-e26dedf/`.
+Next: attended cold adapter cycle; collect matching session first on return.
