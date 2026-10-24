@@ -2108,3 +2108,17 @@ After device initialization come USB data RX/TX,802.11 frame handling, scanning,
 authentication/association and WPA2/key lifecycle, followed by DHCP/DNS/ping/HTTP,
 reconnect and UI acceptance. Existing Ethernet success does not accept the
 wireless link layer. No percentage or number of remaining boots is established.
+
+### Post-WCID MAC observation implementation (v52)
+
+`--wifi-mac-tail` requires the completed WCID profile and exact prior counts.
+It reads the22 audited targets in fixed order between MAC0/COREf000f200 guards,
+26 reads total. Each USB request is read-only request7, length4, with exact
+address/order/ownership checks and one attempt. Errors stop; uncertain DMA
+ownership remains quarantined. No new writes or RF enable are added.
+
+Logs contain two boundary guards and22 indexed address/value observations.
+Target all-ones values are counted and retained without accepting them as valid
+settings. The collector requires exact ordering/counts, all previous prerequisites,
+both completion markers and recovery/filesystem checks; register acceptance stays
+NOT_TESTED. Prior boot recipes retain their exact configuration.

@@ -1019,7 +1019,33 @@ static void test_wcid(void){
  bool w;uint32_t a;unsigned n;assert(!mt76_wcid_request(1792,&w,&a,&n));
  puts("WCID reset: PASS256 attributes/128 addresses, exact1792 operations, zero verification, every transfer/cancellation/read failure and no retry");
 }
-int main(void){test_wcid();test_skey();test_dcoc();test_bbp_switch();
+static const uint32_t tail_reference[26]={0x1004,0x2000,0x102c,0x208,0x1380,0x1608,0x1204,0x124,0xa44,0x1218,0x1220,0x13b0,0x13c0,0x1314,0x1318,0x131c,0x1320,0x1324,0x13d4,0x13d8,0x13dc,0x1238,0x6c,0x70,0x1004,0x2000};
+struct tail_fake {unsigned reads,auth,fail,deny,bad;bool ones;};
+static bool tail_auth(void *p){struct tail_fake *f=p;return ++f->auth!=f->deny;}
+static bool tail_read(void *p,uint32_t address,uint32_t *value){
+ struct tail_fake *f=p;unsigned op=f->reads++;assert(op<26 && address==tail_reference[op]);
+ if(f->fail==op+1)return false;
+ *value=address==0x1004?0:address==0x2000?0xf000f200:f->ones?UINT32_MAX:address^0xa5a5;
+ if(f->bad==op+1)*value^=1;
+ return true;
+}
+static enum mt76_mcu_timing_status tail_run(struct tail_fake *f,struct mt76_mac_tail *s){
+ const struct mt76_mcu_timing_io io={.context=f,.authorize=tail_auth,.read=tail_read};return mt76_mac_tail_capture(s,&io);
+}
+static void test_mac_tail(void){
+ struct tail_fake f={0};struct mt76_mac_tail s={0};
+ assert(tail_run(&f,&s)==MT76_TIMING_OK && s.complete && s.reads==26 && !s.all_ones && f.auth==27);
+ for(unsigned i=0;i<22;i++)assert(s.values[i]==(tail_reference[i+2]^0xa5a5) && mt76_mac_tail_address(i)==tail_reference[i+2]);
+ assert(tail_run(&f,&s)==MT76_TIMING_REFUSED && f.reads==26);
+ f=(struct tail_fake){.ones=true};s=(struct mt76_mac_tail){0};assert(tail_run(&f,&s)==MT76_TIMING_OK && s.all_ones==22);
+ for(unsigned n=1;n<=26;n++){f=(struct tail_fake){.fail=n};s=(struct mt76_mac_tail){0};assert(tail_run(&f,&s)==MT76_TIMING_IO && !s.complete && f.reads==n);assert(tail_run(&f,&s)==MT76_TIMING_REFUSED);}
+ for(unsigned n=1;n<=27;n++){f=(struct tail_fake){.deny=n};s=(struct mt76_mac_tail){0};assert(tail_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.auth==n);}
+ const unsigned edges[]={1,2,25,26};for(unsigned i=0;i<4;i++){f=(struct tail_fake){.bad=edges[i]};s=(struct mt76_mac_tail){0};assert(tail_run(&f,&s)==MT76_TIMING_STATE && !s.complete && f.reads==edges[i]);}
+ for(unsigned i=0;i<26;i++)assert(mt76_mac_tail_request(i)==tail_reference[i]);
+ assert(mt76_mac_tail_address(22)==UINT32_MAX && mt76_mac_tail_request(26)==UINT32_MAX);
+ puts("MAC tail: PASS22 ordered observations,26 reads, all-ones targets, IO/cancellation/guard failures and no retry");
+}
+int main(void){test_mac_tail();test_wcid();test_skey();test_dcoc();test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();

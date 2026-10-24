@@ -314,4 +314,8 @@ struct mt76_wcid_io {
 bool mt76_wcid_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
 bool mt76_wcid_transfer_valid(const struct mt76_wcid *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
 enum mt76_mcu_timing_status mt76_wcid_reset(struct mt76_wcid *s,const struct mt76_wcid_io *io);
+struct mt76_mac_tail {bool attempted,complete;unsigned reads,all_ones;uint32_t values[22],mac[2],core[2];};
+uint32_t mt76_mac_tail_address(unsigned index);
+uint32_t mt76_mac_tail_request(unsigned operation);
+enum mt76_mcu_timing_status mt76_mac_tail_capture(struct mt76_mac_tail *s,const struct mt76_mcu_timing_io *io);
 #endif

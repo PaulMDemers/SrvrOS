@@ -261,6 +261,9 @@ struct xhci_wifi_mcu {
     bool wcid_mode,wcid_active;
     unsigned wcid_submitted;
     struct mt76_wcid wcid;
+    bool mac_tail_mode,mac_tail_active;
+    unsigned mac_tail_submitted;
+    struct mt76_mac_tail mac_tail;
     bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
     struct mt76_mac_snapshot mac_snapshot;
     bool mac_route_mode,mac_route_active,mac_route_submitted;

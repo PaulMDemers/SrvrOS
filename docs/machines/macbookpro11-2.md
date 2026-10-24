@@ -4699,3 +4699,8 @@ Offline checks/26 fixtures/source hashes archived outside build under
 `~/.local/share/srvros/macbookpro11-2/post-wcid-audit-1f4d822/`.
 Installed accepted release remains71bf958aa703f6b3, no reboot armed.
 Fetchedmain76f98c4 and PR127 storage timing are separate; actual base4a991df.
+
+Active scope v52: fixed22-target post-WCID MAC observation,26 reads total.
+Preserve MAC0/COREf000f200 guards; all-ones targets remain observations. No writes,
+RF enable or acceptance inferred. Touch mt76/xHCI/main/profiles/tests. Actual
+base4a991df; other machine storage-timing work remains separate.

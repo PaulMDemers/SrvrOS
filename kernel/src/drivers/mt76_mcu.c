@@ -1224,3 +1224,30 @@ enum mt76_mcu_timing_status mt76_wcid_reset(struct mt76_wcid *s,const struct mt7
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Fixed post-WCID observations. Target values do not authorize writes. */
+static const uint32_t mac_tail_addresses[22]={0x102c,0x208,0x1380,0x1608,0x1204,0x124,0xa44,0x1218,0x1220,0x13b0,0x13c0,0x1314,0x1318,0x131c,0x1320,0x1324,0x13d4,0x13d8,0x13dc,0x1238,0x6c,0x70};
+uint32_t mt76_mac_tail_address(unsigned i){return i<22?mac_tail_addresses[i]:UINT32_MAX;}
+uint32_t mt76_mac_tail_request(unsigned op){
+    if(op>=26)return UINT32_MAX;
+    if(op==0 || op==24)return 0x1004;
+    if(op==1 || op==25)return 0x2000;
+    return mac_tail_addresses[op-2];
+}
+enum mt76_mcu_timing_status mt76_mac_tail_capture(struct mt76_mac_tail *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned op=0;op<26;op++){
+        uint32_t address=mt76_mac_tail_request(op),*value;
+        if(op==0 || op==24)value=&s->mac[op==24];
+        else if(op==1 || op==25)value=&s->core[op==25];
+        else value=&s->values[op-2];
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+        s->reads++;
+        if((address==0x1004 && *value) || (address==0x2000 && *value!=0xf000f200))return MT76_TIMING_STATE;
+        if(*value==UINT32_MAX)s->all_ones++;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}
