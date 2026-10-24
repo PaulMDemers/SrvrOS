@@ -5419,3 +5419,16 @@ Fetched main `4f8acd2` includes Air6,1 startup-timing PR137 and was inspected,
 but is not integrated into this native candidate (integration base `d5bc4b3`).
 Preserve its shared startup/staging changes and PR134 POSIX scope during future
 integration; do not attribute them to this run.
+
+
+Active scope (2026-10-24): implement the fixed 44-entry central RF-bank table
+following the accepted v60 read transport. Preserve the USB MT7610 settings from
+the pinned Linux v7.0 numeric reference, with one ordered write/readback pair per
+entry and MAC/CORE/disabled-DMA guards. Do not add arbitrary RF commands, frequency
+trim, channel selection or MAC traffic. Touch mt76 MCU/xHCI, dedicated v61 staging,
+main dispatch and host/collector tests through PR19. RF write response framing and
+register readbacks are candidate contracts until native evidence accepts them.
+Fetched main4f8acd2 and PR134 e4b7b02 inspected; actual integration base d5bc4b3.
+Air6,1 startup/timing and POSIX remain independent scopes; preserve their changes
+during integration. Next checkpoint: fault-tested bounded engine/native admission,
+then exact-stage VM and unarmed installation before an attended cold trial.
