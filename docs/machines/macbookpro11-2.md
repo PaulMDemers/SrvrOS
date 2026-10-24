@@ -4633,3 +4633,26 @@ attributes and128 address entries with zero-only writes/readbacks, guards and
 no retries. Touch mt76/xHCI/main/profiles/tests; no pairwise/IV or RF enable.
 Actual base4a991df; fetchedmain76f98c4 includes separate PR125 TCP readiness.
 Next checkpoint: local validation and exact-stage VM before native trial.
+
+### 2026-10-24 — v51 WCID reset candidate
+
+Source `666a4d3`, release `71bf958aa703f6b3`, installed unarmed. The fixed
+reset covers256 attributes and128 eight-byte addresses in reference order,
+with1792 operations (1408 reads/384 writes), per-entry MAC/CORE guards,
+zero verification and one attempt per transfer. Completed shared-key reset is
+required; pairwise-key/IV tables and RF remain outside this stage.
+
+Native build, compact/xHCI failure tests, ASan/UBSan,125 boot-profile tests,
+100 unchanged historical Wi-Fi recipes, collector fixture/15 rejection cases
+and493 documentation links passed. Exact-stage GPT VM saved and verified logs
+and returned; missing workspace returned without entering the probe.
+Physical WCID acceptance remains pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained. Accepted shared-key
+release `420bc4d5e39c8e04` retained; DCOC `51c771ce50036ef4` removed from ESP
+only after full archive equality. Workspace clean241files/610clusters, unmounted.
+Payload, audit, tests, VM receipt, collector and run/checkpoint are archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-wcid-666a4d3/` outside build.
+Next: attended cold adapter cycle, then collect matching session FIRST and
+require256 attribute/128 address verifications plus all prior checks.
+Actual integration base4a991df; fetchedmain76f98c4 contains separate TCP work.
