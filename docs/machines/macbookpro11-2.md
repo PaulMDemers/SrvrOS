@@ -4043,3 +4043,21 @@ regidx without device writes/reset/unbind. Sequence13 four-pair command,12reads,
 final MAC0/COREf000f200. No PBF reset, DMA configuration, BBP table or RF enable.
 Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched maince1c0a6; Air6,1
 Home-session PR111 and Air7,2 compositor-idle work separate.
+
+### 2026-10-23 — v43 packet-buffer candidate installed, unarmed
+
+Source `9d1ba79`, release `246fade6686cd2fa`. Build, compact/xHCI tests,
+ASan/UBSan, 99 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v42
+`a5200b9a725a2ae5` retained; v41 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean223files/583clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-buffer/run.json`,
+`build/bringup/collect_wifi_mac_buffer_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-buffer-9d1ba79/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
