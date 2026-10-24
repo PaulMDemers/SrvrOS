@@ -2,6 +2,21 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active scope: POSIX correctness and compatibility
+
+User authorizes sustained implementation of the POSIX plan before the desktop
+overhaul. Base `76a55dd` (merged architecture audit PR133), branch
+`device/macbookair7-2/posix-core`. First shared changes: libc error state,
+positional I/O syscalls/process-file operations, poll/select and signal/time
+contracts, guest semantic probes and local host/VM harnesses. Continue through
+the audit's compatibility blocks with explicit unsupported features rather than
+claiming certification. Desktop identity/capacity work is deferred.
+Pro PR19 Wi-Fi and Air6,1 PR132 combined device services remain independent;
+preserve their profiles and acceptance. Publish coherent commits and validate
+locally with Actions disabled. No native reboot is needed for the first blocks;
+installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252`, USB `37D8-C5D0`
+remain unchanged. Progress/evidence: `build/posix-core-20261024/`.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor
