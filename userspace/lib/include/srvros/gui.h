@@ -61,6 +61,8 @@ int gui_send(const struct gui_message *message);
 int gui_recv(struct gui_message *message);
 /* Interruptible client readiness, at most 100 ticks. Does not consume a message. */
 int gui_wait(uint64_t expected_server,uint64_t ticks);
+/* Server only: wait for messages/structured keys/pointer, maximum 10 ticks. */
+int gui_server_wait(uint64_t ticks);
 int gui_surface_create(uint64_t width, uint64_t height, uint64_t flags, uint64_t *surface_id_out);
 int gui_surface_destroy(uint64_t surface_id);
 int gui_surface_blit(uint64_t surface_id, uint64_t x, uint64_t y,

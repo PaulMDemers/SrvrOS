@@ -150,7 +150,13 @@ static void push_event(uint8_t usage,uint8_t modifiers,bool caps,bool down,bool 
     }
     event_queue[(event_head+event_count++)%128]=e;
     scheduler_wake_all(&keyboard_wait_queue);
+    process_file_poll_wake();
     keyboard_irq_restore(flags);
+}
+bool keyboard_events_pending(void) {
+    uint64_t flags=keyboard_irq_save();
+    bool pending=event_mode && event_count;
+    keyboard_irq_restore(flags);return pending;
 }
 bool keyboard_read_event(struct srv_key_event *out) {
     uint64_t flags=keyboard_irq_save();

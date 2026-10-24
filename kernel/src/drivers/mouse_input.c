@@ -1,6 +1,7 @@
 #include <srvros/mouse.h>
 #include <limits.h>
 #include <srvros/scheduler.h>
+#include <srvros/process.h>
 #include <srvros/timer.h>
 
 /* One CPU currently owns input. IRQ exclusion also covers producers reached
@@ -68,6 +69,7 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         queue[0]=(struct mouse_event){.flags=MOUSE_CANCEL};
         queued_first[0]=queued_last[0]=0;
         scheduler_wake_all(&input_waiters);
+        process_file_poll_wake();
         unlock(flags); return;
     }
     queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
@@ -77,6 +79,7 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         source==1?timer_monotonic_us():0;
     count++;
     scheduler_wake_all(&input_waiters);
+    process_file_poll_wake();
     unlock(flags);
 }
 void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,0,0,buttons); }
@@ -139,6 +142,7 @@ void mouse_cancel_trackpad(void) {
         queue[0]=(struct mouse_event){.buttons=buttons,.flags=MOUSE_CANCEL|buttons};
         queued_first[0]=queued_last[0]=0;
         scheduler_wake_all(&input_waiters);
+        process_file_poll_wake();
     }
     unlock(flags);
 }

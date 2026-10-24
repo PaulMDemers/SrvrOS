@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--seconds', type=int, default=10, choices=range(5, 61), metavar='5..60')
     parser.add_argument('--output', type=Path, default=Path('build/review/idle'))
     parser.add_argument('--network', action='store_true')
+    parser.add_argument('--pointer-check', action='store_true', help='Verify titlebar drag after desktop idle before typing/save')
     parser.add_argument('--max-host-cpu', type=float, help='Maximum percent of one host CPU in either idle phase')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
@@ -93,6 +94,22 @@ def main():
                 metrics['console']['threads'] = {name: {key: values[key]-before.get(name, {}).get(key, 0) for key in values} for name,values in after.items()}
                 serial.sendall(b'run /fat/bin/deskd --apps-trace\n'); wait(b'desktools: starting role=text'); wait(b'deskd: commit'); drain(2)
                 measure('desktop')
+                if args.pointer_check:
+                    from PIL import Image
+                    qmp.call('screendump', {'filename': str(out/'before-drag.ppm')})
+                    # First Text frame starts at (32,64), pointer at (24,56).
+                    # Compare the actual title pixels at their translated location;
+                    # a changed screenshot alone would also pass for cursor motion.
+                    before_image=Image.open(out/'before-drag.ppm').convert('RGB')
+                    title=before_image.crop((40,70,110,100))
+                    assert len(set(title.getdata()))>1, 'Missing initial Text title'
+                    qmp.mouse(126,28);drain(.3)
+                    qmp.mouse(0,0,1);qmp.mouse(120,60);qmp.mouse(0,0,0);drain(1)
+                    qmp.call('screendump', {'filename': str(out/'after-drag.ppm')})
+                    after_image=Image.open(out/'after-drag.ppm').convert('RGB')
+                    assert after_image.crop((160,130,230,160)).tobytes()==title.tobytes(), 'Post-idle titlebar drag not presented'
+                    assert after_image.crop((40,70,110,100)).tobytes()!=title.tobytes(), 'Window did not leave old position'
+                    metrics['post_idle_pointer']='PASS titlebar drag +120,+60; VM functional check, not physical latency'
                 # Verify a USB key remains deliverable after the idle interval.
                 qmp.key('a'); qmp.key('b', True); drain(.5)
                 qmp.call('human-monitor-command', {'command-line': 'sendkey ctrl-l'}); drain(.3)
