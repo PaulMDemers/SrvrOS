@@ -169,4 +169,38 @@ static void efuse_map(void){
  }
  puts("EFUSE map: PASS physical mode1/two fixed blocks, span boundaries, padding exclusion, no programming modes, IO/cancellation/guard failures, timeout and no retry");
 }
-int main(void) { efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+struct gated_map {struct map_fake f;struct mt76_efuse_map_gate g;};
+static bool gated_read(void *p,uint32_t a,uint32_t *v){struct gated_map *f=p;*v=0;if(!mt76_efuse_map_begin(&f->g,false,a,0))return false;bool ok=map_read(&f->f,a,v);return mt76_efuse_map_finish(&f->g,ok,*v);}
+static bool gated_write(void *p,uint32_t a,uint32_t v){struct gated_map *f=p;if(!mt76_efuse_map_begin(&f->g,true,a,v))return false;return mt76_efuse_map_finish(&f->g,map_write(&f->f,a,v),v);}
+static bool gated_delay(void *p,uint32_t us){struct gated_map *f=p;return mt76_efuse_map_delay(&f->g,us) && map_delay(&f->f,us);}
+static bool gated_auth(void *p){struct gated_map *f=p;return !f->g.failed && map_auth(&f->f);}
+static enum mt76_capture_status gated_run(struct gated_map *f,struct mt76_efuse_map *s){
+ const struct mt76_identity id={.asic=0x76100002,.mac=0x76502000};const struct mt76_efuse_map_io io={{f,gated_read,gated_write,gated_delay},gated_auth};return mt76_capture_efuse_map(&io,&id,s);
+}
+static void efuse_gate(void){
+ struct gated_map f={0};map_init(&f.f);struct mt76_efuse_map s={0};
+ assert(gated_run(&f,&s)==MT76_CAPTURE_OK && f.g.phase==15 && f.g.block==2 && f.g.submitted==26 && f.g.polls==2 && !f.g.pending && !f.g.failed);
+ unsigned calls=f.f.calls,auth=f.f.auth;
+ for(unsigned i=0;i<4;i++)assert(f.g.mac[i]==0 && f.g.core[i]==0xf000f200);
+ for(unsigned i=0;i<2;i++)assert(f.g.dma[i]==0x40000050);
+ assert(!mt76_efuse_map_begin(&f.g,false,0x1004,0));
+ for(unsigned n=1;n<=calls;n++){f=(struct gated_map){0};map_init(&f.f);f.f.fail=n;s=(struct mt76_efuse_map){0};assert(gated_run(&f,&s)!=MT76_CAPTURE_OK && !s.complete && f.f.calls==n);}
+ for(unsigned n=1;n<=auth;n++){f=(struct gated_map){0};map_init(&f.f);f.f.deny=n;s=(struct mt76_efuse_map){0};assert(gated_run(&f,&s)==MT76_CAPTURE_CANCELLED && !s.complete && f.f.auth==n);}
+ f=(struct gated_map){0};map_init(&f.f);f.f.stuck=true;s=(struct mt76_efuse_map){0};assert(gated_run(&f,&s)==MT76_CAPTURE_TIMEOUT && f.g.polls==1024 && !s.complete);
+ /* Independently reject direction/address changes at every transfer phase. */
+ for(unsigned p=0;p<15;p++)if(p!=6 && p!=7){
+  uint32_t a=p==0 || p==13?0x1004:p==1 || p==14?0x2000:p==2?0x208:p>=9 && p<=12?0x28+4*(p-9):0x24;
+  struct mt76_efuse_map_gate g={.phase=p};assert(!mt76_efuse_map_begin(&g,p!=4,a,0) && g.failed);
+  g=(struct mt76_efuse_map_gate){.phase=p};assert(!mt76_efuse_map_begin(&g,p==4,a+1,0));
+  g=(struct mt76_efuse_map_gate){.phase=p,.pending=true};assert(!mt76_efuse_map_begin(&g,p==4,a,0));
+ }
+ for(unsigned b=0;b<2;b++){
+  uint32_t command;assert(mt76_efuse_map_command(0x8000a500,b,&command));
+  for(unsigned bit=0;bit<32;bit++){struct mt76_efuse_map_gate g={.phase=4,.block=b,.control=0x8000a500};assert(!mt76_efuse_map_begin(&g,true,0x24,command^(1u<<bit)) && g.failed);}
+ }
+ struct mt76_efuse_map_gate g={0};assert(!mt76_efuse_map_finish(&g,true,0));
+ g=(struct mt76_efuse_map_gate){.phase=5,.polls=1024};assert(!mt76_efuse_map_begin(&g,false,0x24,0));
+ for(unsigned p=0;p<=15;p++){g=(struct mt76_efuse_map_gate){.phase=p};assert(!mt76_efuse_map_delay(&g,3));}
+ puts("EFUSE native gate: PASS ordered sequence, single submission, exact preserved command, faults, cancellation, timeout, guard receipts");
+}
+int main(void) { efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

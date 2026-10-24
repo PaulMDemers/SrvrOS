@@ -66,6 +66,35 @@ bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command){
     *command=(previous&~(EFUSE_ADDRESS|EFUSE_MODE))|((0x1e0u+16u*block)<<16)|(1u<<6)|EFUSE_KICK;
     return true;
 }
+/* Phases: guards, initial control, command, poll, busy delay, settle,
+ * completion control, four data words, final guards, done. */
+bool mt76_efuse_map_begin(struct mt76_efuse_map_gate *g,bool write,uint32_t address,uint32_t value){
+    if(!g || g->failed)return false;
+    unsigned p=g->phase;uint32_t a=p==0 || p==13?0x1004:p==1 || p==14?0x2000:p==2?0x208:p>=9 && p<=12?0x28+(p-9)*4:0x24;
+    if(g->pending || g->block>=2 || p>14 || p==6 || p==7 || write!=(p==4) || address!=a ||
+       (p==5 && g->polls>=1024) || (write && (!mt76_efuse_map_command(g->control,g->block,&g->command) || value!=g->command))){g->failed=true;return false;}
+    g->pending=true;g->submitted++;if(p==5)g->polls++;return true;
+}
+bool mt76_efuse_map_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){
+    if(!g || g->failed)return false;
+    if(!g->pending || !ok || g->block>=2){g->failed=true;return false;}
+    g->pending=false;unsigned p=g->phase,b=g->block;
+    if(p==0 || p==13){g->mac[b*2+(p==13)]=v;if(v)goto fail;}
+    else if(p==1 || p==14){g->core[b*2+(p==14)]=v;if(v!=0xf000f200)goto fail;}
+    else if(p==2){g->dma[b]=v;if(v&15)goto fail;}
+    else if(p==3){g->control=v;if(!mt76_efuse_map_command(v,b,&g->command))goto fail;}
+    else if(p==5){if(v==UINT32_MAX)goto fail;g->phase=v&EFUSE_KICK?6:7;return true;}
+    else if(p==8){if(v==UINT32_MAX || v&EFUSE_KICK || (v&EFUSE_MODE)!=(1u<<6) ||
+        (v&EFUSE_ADDRESS)!=(g->command&EFUSE_ADDRESS) || (v&63)==63)goto fail;}
+    if(p==14){g->block++;g->phase=g->block==2?15:0;}else g->phase++;
+    return true;
+fail:g->failed=true;return false;
+}
+bool mt76_efuse_map_delay(struct mt76_efuse_map_gate *g,uint32_t us){
+    if(!g || g->failed)return false;
+    if(g->pending || !((g->phase==6 && us==1000) || (g->phase==7 && us==2))){g->failed=true;return false;}
+    g->phase=g->phase==6?5:8;return true;
+}
 bool mt76_efuse_map_analyze(const uint8_t *bytes,size_t length,struct mt76_efuse_map *s){
     if(!bytes || length!=32 || !s)return false;
     s->zero_count=s->first_zero=s->last_zero=s->free_span=s->reference_used=0;s->valid=false;

@@ -2179,3 +2179,18 @@ cancellation boundaries,guard failures,mode/address/kick corruption,poll timeout
 unmapped/empty evidence,threshold cases,fragmented zero spans and padding exclusion.
 Native transport must independently enforce the same two-block read-command
 allowlist,ownership and quarantine before physical acceptance can be attempted.
+
+### Physical EFUSE map trial
+
+The opt-in `--wifi-efuse-map` extends `--wifi-mac-fixed` as the distinct
+`wifi-fw-v54` capture. It reads physical mode1 blocks1e0/1f0 after the complete
+v53 chain. A separate native transport state machine validates ordering, exactly
+two preserved-control commands, bounded polling, delays and MAC/CORE/DMA guards.
+Each USB transfer is attempted once; uncertain DMA stays quarantined. Logical
+EFUSE mode0 admission remains unchanged. Modes2/3 are never generated.
+
+Saved receipts include operation/poll counts, four MAC/CORE guards, two DMA
+readings and map summary arithmetic; private map bytes are cleared and not logged.
+A completed read is distinct from a valid map. This stage does not accept RF,
+calibrated power, scanning, association or connectivity. Native acceptance is
+pending; failures remain failures rather than weakening the physical-map checks.

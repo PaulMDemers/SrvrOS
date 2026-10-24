@@ -4860,3 +4860,27 @@ release remainsadd8a479ff406c0d. Next: add the independent native two-block tran
 allowlist after completed v53,then exact-stage VM and hardware validation.
 Engine/tests/logs archived outside build under
 `~/.local/share/srvros/macbookpro11-2/efuse-map-engine-fec5fd9/`.
+
+Active scope v54: independent native physical EFUSE map transport after accepted
+v53. Restrict control commands to mode1 and blocks1e0/1f0, enforce ordered reads,
+one-attempt transfers and prior MAC ownership; log summaries only. Touch mt76,
+xHCI/main and capture profiles/tests. Base4a991df, fetchedmain468ca20; PR130
+window capacity and PR131 Air6,1 battery remain separate. Next checkpoint:
+transport fault tests, exact-stage VM and an unarmed hardware candidate.
+
+### 2026-10-24 — v54 native physical EFUSE map preparation
+
+The native binding now requires completed v53 and its exact four readbacks,
+all guards and disabled/idle DMA. A separate transport gate consumes each
+submission before USB access, validates both preserved mode1 commands and the
+ordered control/poll/delay/data sequence, and retains failure/quarantine state.
+Only the fixed physical usage map is read; no raw bytes are logged. Summary
+validity remains distinct from completed transport and RF/connectivity acceptance.
+
+Host engine/transport fault tests, ASan/UBSan,128 profile tests,106 unchanged
+historical Wi-Fi recipes and collector fixtures/38 rejection cases pass. Native
+xHCI admission/error tests cover prior-stage refusal and one-shot quarantine.
+The four-guard/two-DMA receipts and bounded poll accounting are required by the
+prepared collector. Exact-stage VM and native results remain separate gates.
+Actualbase4a991df,fetchedmain468ca20. PR130 window capacity and PR131 Air6,1
+battery profiles inspected; preserve their independent shared staging changes.

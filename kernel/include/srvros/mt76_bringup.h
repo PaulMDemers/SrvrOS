@@ -27,7 +27,7 @@ enum mt76_capture_status mt76_capture_efuse(const struct mt76_register_io *io,
     const struct mt76_identity *identity, struct mt76_efuse_capture *out);
 
 /* Physical usage-map read only: exactly two blocks at 1e0 and 1f0.
- * Mode1 is read, modes2/3 are never generated. No native caller yet.
+ * Mode1 is read, modes2/3 are never generated.
  * authorize must pin identity, exclusive ownership and current initialization.
  * Each callback is bounded; failures are one-shot with no transfer retry. */
 struct mt76_efuse_map_io {struct mt76_register_io registers;bool (*authorize)(void *);};
@@ -35,6 +35,17 @@ struct mt76_efuse_map {
     bool attempted,complete,valid;
     unsigned reads,writes,polls,blocks,zero_count,first_zero,last_zero,free_span,reference_used;
 };
+/* Independent native transport sequencing. Zero-init once, terminal on error.
+ * begin consumes admission BEFORE submission; finish consumes one completion.
+ * No private map data is retained here. */
+struct mt76_efuse_map_gate {
+    bool pending,failed;
+    unsigned phase,block,submitted,polls;
+    uint32_t control,command,mac[4],core[4],dma[2];
+};
+bool mt76_efuse_map_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
+bool mt76_efuse_map_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
+bool mt76_efuse_map_delay(struct mt76_efuse_map_gate *,uint32_t us);
 bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command);
 bool mt76_efuse_map_analyze(const uint8_t *bytes,size_t length,struct mt76_efuse_map *state);
 enum mt76_capture_status mt76_capture_efuse_map(const struct mt76_efuse_map_io *io,
