@@ -6,7 +6,9 @@
 
 #include <sys/time.h>
 
-#define FD_SETSIZE 128
+/* Includes the current socket adapter's 1000..1007 descriptors. This does not
+ * increase the number of simultaneously polled descriptors or kernel files. */
+#define FD_SETSIZE 1024
 
 typedef struct fd_set {
     uint64_t bits[(FD_SETSIZE + 63) / 64];

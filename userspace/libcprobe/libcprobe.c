@@ -269,6 +269,7 @@ static int check_process_info(void) {
     puts("libcprobe: process details and legacy-size ABI ok");return 0;
 }
 
+int check_posix_readiness(void);
 int main(void) {
     puts("libcprobe: start");
     if (check_string_helpers() != 0 ||
@@ -277,7 +278,7 @@ int main(void) {
         check_stdio_lines() != 0 ||
         check_temp_env() != 0 ||
         check_time_wchar() != 0 ||
-        check_process_info() != 0) {
+        check_process_info() != 0 || check_posix_readiness() != 0) {
         return 1;
     }
     puts("libcprobe: ok");

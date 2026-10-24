@@ -93,6 +93,8 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
+            "-netdev", "user,id=net0",
+            "-device", "e1000,netdev=net0",
             "-monitor", "none", "-display", "none",
             "-qmp", f"unix:{temp_dir}/qmp,server=on,wait=off",
             "-no-reboot",
@@ -137,6 +139,7 @@ def main():
         "libcprobe: temp/env ok",
         "libcprobe: time/wchar ok",
         "libcprobe: ok",
+        "libcprobe: readiness semantics ok",
         "nodeprobe: libc helpers ok",
         "nodeprobe: ok",
     ]

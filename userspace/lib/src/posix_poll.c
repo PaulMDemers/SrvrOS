@@ -50,7 +50,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     }
 
     int dispatched_before = __posix_signal_dispatch_pending();
-    long result = srv_poll(srv_fds, nfds, pre_ready != 0 ? 0 : timeout);
+    long result = srv_poll(srv_fds, nfds, pre_ready != 0 || dispatched_before != 0 ? 0 : timeout);
     int dispatched_after = __posix_signal_dispatch_pending();
     if (result < 0) {
         errno = EINVAL;
@@ -88,13 +88,11 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     return ready;
 }
 
-static int timeval_to_ms(struct timeval *timeout) {
+static int timeval_to_ms(const struct timeval *timeout) {
     if (timeout == 0) {
         return -1;
     }
-    if (timeout->tv_sec < 0 || timeout->tv_usec < 0) {
-        return -1;
-    }
+    if (timeout->tv_sec > 2147483647 / 1000) return 2147483647;
     int64_t ms = timeout->tv_sec * 1000 + (timeout->tv_usec + 999) / 1000;
     return ms > 2147483647 ? 2147483647 : (int)ms;
 }
@@ -107,10 +105,11 @@ int select(int nfds,
     struct pollfd fds[POSIX_POLL_MAX];
     fd_set read_result;
     fd_set write_result;
+    fd_set except_result;
     int count = 0;
-    (void)exceptfds;
 
-    if (nfds < 0 || nfds > FD_SETSIZE) {
+    if (nfds < 0 || nfds > FD_SETSIZE || (timeout &&
+        (timeout->tv_sec<0 || timeout->tv_usec<0 || timeout->tv_usec>=1000000))) {
         errno = EINVAL;
         return -1;
     }
@@ -123,6 +122,7 @@ int select(int nfds,
         if (writefds != 0 && FD_ISSET(fd, writefds)) {
             events |= POLLOUT;
         }
+        if (exceptfds != 0 && FD_ISSET(fd, exceptfds)) events |= POLLPRI;
         if (events != 0) {
             if (count >= POSIX_POLL_MAX) {
                 errno = EINVAL;
@@ -142,12 +142,20 @@ int select(int nfds,
 
     FD_ZERO(&read_result);
     FD_ZERO(&write_result);
+    FD_ZERO(&except_result);
+    int bits=0;
     for (int i = 0; i < count; i++) {
-        if ((fds[i].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+        if (fds[i].revents & POLLNVAL) { errno=EBADF; return -1; }
+        if ((fds[i].events & POLLIN) && (fds[i].revents & (POLLIN | POLLHUP | POLLERR))) {
             FD_SET(fds[i].fd, &read_result);
+            bits++;
         }
-        if ((fds[i].revents & (POLLOUT | POLLERR)) != 0) {
+        if ((fds[i].events & POLLOUT) && (fds[i].revents & (POLLOUT | POLLERR))) {
             FD_SET(fds[i].fd, &write_result);
+            bits++;
+        }
+        if ((fds[i].events & POLLPRI) && (fds[i].revents & POLLPRI)) {
+            FD_SET(fds[i].fd,&except_result); bits++;
         }
     }
 
@@ -157,5 +165,6 @@ int select(int nfds,
     if (writefds != 0) {
         memcpy(writefds, &write_result, sizeof(*writefds));
     }
-    return result;
+    if (exceptfds != 0) memcpy(exceptfds,&except_result,sizeof(*exceptfds));
+    return bits;
 }

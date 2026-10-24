@@ -15,6 +15,7 @@ struct pollfd {
 };
 
 #define POLLIN SRV_POLLIN
+#define POLLPRI 0x0002
 #define POLLOUT SRV_POLLOUT
 #define POLLERR SRV_POLLERR
 #define POLLHUP SRV_POLLHUP
