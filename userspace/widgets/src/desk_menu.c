@@ -20,7 +20,7 @@ int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
             for(unsigned j=0;j<i;j++) if((items[j].flags&DESK_MENU_HEADING) && !strcmp(items[j].label,p->label)) return 0;
             rows=0;
         } else {
-            if(!groups || ++rows>12) return 0;
+            if(!groups || ++rows>32) return 0;
             if(p->flags&DESK_MENU_SEPARATOR) {
                 if(p->flags!=DESK_MENU_SEPARATOR || p->id || p->label[0] || p->shortcut[0]) return 0;
             } else {
@@ -31,7 +31,7 @@ int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
     }
     return !count || rows>0;
 }
-void desk_menu_cancel(struct desk_menu *m) { m->open=m->selected=-1;m->armed=0; }
+void desk_menu_cancel(struct desk_menu *m) { m->open=m->selected=-1;m->armed=0;m->scroll=0; }
 void desk_menu_init(struct desk_menu *m) { *m=(struct desk_menu){0};desk_menu_cancel(m); }
 int desk_menu_configure(struct desk_menu *m,const struct desk_menu_item *items,unsigned count,
     struct desk_rect bar,struct desk_rect bounds,const struct desk_font *font) {
@@ -46,9 +46,10 @@ int desk_menu_configure(struct desk_menu *m,const struct desk_menu_item *items,u
 static unsigned end(const struct desk_menu *m) {
     return m->open+1<(int)m->groups?m->headings[m->open+1]:m->count;
 }
+static void reveal(struct desk_menu *m);
 int desk_menu_replace(struct desk_menu *m,const struct desk_menu_item *items,unsigned count) {
     if(!desk_menu_valid(items,count)) return -1;
-    struct desk_menu_item old[13],selected={0};unsigned old_count=0;int armed=m->armed;
+    struct desk_menu_item old[33],selected={0};unsigned old_count=0;int armed=m->armed,scroll=m->scroll;
     if(m->open>=0 && m->open<(int)m->groups) {
         unsigned first=m->headings[m->open];old_count=end(m)-first;
         memcpy(old,m->items+first,old_count*sizeof(old[0]));
@@ -58,13 +59,13 @@ int desk_menu_replace(struct desk_menu *m,const struct desk_menu_item *items,uns
     if(!old_count) return 0;
     for(unsigned g=0;g<m->groups;g++) if(!strcmp(m->items[m->headings[g]].label,old[0].label)) {
         m->open=g;unsigned first=m->headings[g],last=end(m);
-        if(last-first==old_count && !memcmp(m->items+first,old,old_count*sizeof(old[0]))) m->armed=armed;
+        if(last-first==old_count && !memcmp(m->items+first,old,old_count*sizeof(old[0]))) { m->armed=armed;m->scroll=scroll; }
         if(selected.id) for(unsigned i=first+1;i<last;i++)
             if(!(m->items[i].flags&DESK_MENU_DISABLED) && !memcmp(&m->items[i],&selected,sizeof(selected))) m->selected=i;
         break;
     }
     if(m->open<0 && m->groups) m->open=0;
-    return 0;
+    reveal(m);return 0;
 }
 static int enabled(const struct desk_menu *m,int i) {
     return i>=0 && i<(int)m->count && !(m->items[i].flags&(DESK_MENU_HEADING|DESK_MENU_SEPARATOR|DESK_MENU_DISABLED));
@@ -95,9 +96,29 @@ struct desk_rect desk_menu_popup(const struct desk_menu *m) {
 struct desk_rect desk_menu_row(const struct desk_menu *m,unsigned index) {
     struct desk_rect p=desk_menu_popup(m);
     if(m->open<0 || index<=m->headings[m->open] || index>=end(m)) return (struct desk_rect){0};
-    int y=p.y+4;
+    int y=p.y+4-m->scroll;
     for(unsigned i=m->headings[m->open]+1;i<index;i++) y+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
     return desk_intersect(p,(struct desk_rect){p.x+4,y,p.w>8?p.w-8:0,m->items[index].flags&DESK_MENU_SEPARATOR?9:30});
+}
+struct desk_menu_result desk_menu_scroll(struct desk_menu *m,int pixels) {
+    if(m->open<0)return (struct desk_menu_result){0};
+    int height=0;for(unsigned i=m->headings[m->open]+1;i<end(m);i++)height+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
+    int limit=height-desk_menu_popup(m).h+8;if(limit<0)limit=0;
+    if(pixels>4096)pixels=4096;
+    if(pixels< -4096)pixels=-4096;
+    int before=m->scroll;m->scroll+=pixels;
+    if(m->scroll<0)m->scroll=0;
+    if(m->scroll>limit)m->scroll=limit;
+    m->armed=0;m->selected=-1;
+    return (struct desk_menu_result){.consumed=1,.redraw=m->scroll!=before};
+}
+static void reveal(struct desk_menu *m) {
+    if(m->open<0 || m->selected<0)return;
+    int y=0;for(unsigned i=m->headings[m->open]+1;i<(unsigned)m->selected;i++)y+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
+    int visible=desk_menu_popup(m).h-8;
+    if(y<m->scroll)m->scroll=y;
+    if(y+30>m->scroll+visible)m->scroll=y+30-visible;
+    if(m->scroll<0)m->scroll=0;
 }
 static int step(struct desk_menu *m,int from,int direction) {
     int first=m->headings[m->open]+1,last=end(m),i=from;
@@ -119,8 +140,8 @@ struct desk_menu_result desk_menu_pointer(struct desk_menu *m,struct desk_widget
     if(heading>=0) {
         if(e.pressed) {
             if(m->open==heading) desk_menu_cancel(m);
-            else { m->open=heading;m->selected=-1;m->armed=1; }
-        } else if(m->open>=0 && heading!=m->open) { m->open=heading;m->selected=-1; }
+            else { m->open=heading;m->selected=-1;m->scroll=0;m->armed=1; }
+        } else if(m->open>=0 && heading!=m->open) { m->open=heading;m->selected=-1;m->scroll=0; }
         if(!e.down) m->armed=0;
         r.consumed=1;
     } else if(m->open>=0) {
@@ -149,7 +170,7 @@ struct desk_menu_result desk_menu_key(struct desk_menu *m,const struct srv_key_e
     r.redraw=1;
     if(k->usage==SRV_KEY_ESCAPE || k->usage==SRV_KEY_F10) desk_menu_cancel(m);
     else if(k->usage==SRV_KEY_LEFT || k->usage==SRV_KEY_RIGHT) {
-        m->open=(m->open+(k->usage==SRV_KEY_RIGHT?1:m->groups-1))%m->groups;
+        m->open=(m->open+(k->usage==SRV_KEY_RIGHT?1:m->groups-1))%m->groups;m->scroll=0;
         m->selected=step(m,m->headings[m->open],1);m->armed=0;
     } else if(k->usage==SRV_KEY_UP || k->usage==SRV_KEY_DOWN) {
         m->selected=step(m,m->selected<0?(int)m->headings[m->open]:m->selected,k->usage==SRV_KEY_DOWN?1:-1);
@@ -167,7 +188,7 @@ struct desk_menu_result desk_menu_key(struct desk_menu *m,const struct srv_key_e
             if(a==b) { m->selected=i;break; }
         }
     } else r.redraw=0;
-    return r;
+    reveal(m);return r;
 }
 void desk_menu_bar_draw(struct desk_canvas *c,const struct desk_menu *m,const struct desk_theme *t) {
     for(unsigned g=0;g<m->groups;g++) {

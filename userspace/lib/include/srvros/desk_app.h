@@ -8,7 +8,7 @@
 /* One-window client transport. Independent of the widget library and app data.
  * Application controls its bounded event batches and sleep cadence. */
 struct desk_app {
-    uint64_t server,surface,serial,generation,pending,pending_generation,last,input_serial,send_since;
+    uint64_t server,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
     struct desk_packet configure;
     struct desk_menu_item menus[DESK_APP_MENU_ITEMS];
     uint64_t menu_revision;
@@ -19,7 +19,8 @@ struct desk_app {
 };
 int desk_app_open(struct desk_app *app,const char *title,uint32_t width,uint32_t height);
 /* Return 1 app event, 0 empty, 2 handled/discarded transport event, -1 failure. CONFIGURE is emitted
- * only after the old sealed frame is released and the new surface exists.
+ * only after the old sealed frame is released and the new canvas/surface exist.
+ * Failed growth retains the old canvas and asks the server to restore geometry.
  * Caller can receive one internal event per call; service in bounded batches. */
 int desk_app_poll(struct desk_app *app,struct desk_packet *event);
 /* Only a fully published/clean client may wait: 1 message, 0 timeout, -1

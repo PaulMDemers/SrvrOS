@@ -2,21 +2,23 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v11 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v12 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 11
+#define DESK_PROTOCOL_VERSION 12
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 /* Bounded surfaces cover the initial 1440x900 laptop target. */
 #define DESK_MAX_WIDTH 1440
 #define DESK_MAX_HEIGHT 900
 #define DESK_CLIPBOARD_BYTES 65536
+#define DESK_MAX_WINDOWS 16
+#define DESK_RELEASE_RETRY 1u
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO, DESK_RESIZE_REFUSED
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_SKETCH, DESK_APP_NETWORK, DESK_APP_FIND, DESK_APP_COUNT=12 };
@@ -35,7 +37,12 @@ struct desk_packet {
 };
 _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
 /* COMMIT publishes the entire surface and seals it against writes/destruction.
- * RELEASE acknowledges a private compositor snapshot, not scanout completion.
+ * RELEASE.value=0 acknowledges a private snapshot, not scanout completion.
+ * RELEASE_RETRY releases the seal without publishing; retain app state and
+ * redraw after a bounded delay. It does not acknowledge input_serial.
+ * RESIZE_REFUSED carries the failed CONFIGURE generation and retained canvas
+ * width/height. The server may restore the last published geometry with a fresh
+ * generation; stale refusals cannot undo a later resize.
  * CONFIGURE generations prevent an old-sized frame replacing a newer resize.
  * SCROLL uses signed x/y viewport-pixel deltas (positive right/down); only the
  * server may send it, targeting the window under the pointer without focus change.

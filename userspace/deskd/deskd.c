@@ -25,12 +25,16 @@
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
+struct pixel_cache { uint32_t *pixels,width,height; };
+#define DESKD_CACHE_BUDGET (96ull*1024*1024)
 struct client {
     uint64_t pid,generation,progress,present_input;
     int configure,awaiting,closing,close_requested,preferences_dirty;
     struct desk_packet release,brightness_reply,audio_reply;
     struct desk_packet input[DESK_INPUT_QUEUE];
     unsigned input_head,input_count,input_dropped;
+    struct desk_rect resize_origin,resize_restore;
+    int resize_maximized;
     uint64_t input_since;
     int input_blocked;
     uint64_t control_since;
@@ -68,22 +72,47 @@ struct session {
     int capture_pending,capture_success;
     unsigned capture_finished;
     uint64_t capture_serial;
-    uint32_t *cache[DESKD_WINDOWS][2];
+    struct pixel_cache cache[DESKD_WINDOWS][2];
+    uint64_t cache_bytes,cache_peak,memory_notice_at,memory_notice_serial;
 };
-/* Two bounded caches per window: failed partial copies never touch the front.
- * Allocate once before the worker starts, not mmap/munmap on every commit. */
-static void cache_free(struct session *s) {
-    for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) {
-        desk_pixels_free(s->cache[i][j],DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
-        s->cache[i][j]=0;
+/* Only live windows own caches. A private spare receives each whole frame;
+ * published pixels remain untouched until copy succeeds. Budget includes both. */
+static void cache_drop(struct session *s,int i,int j) {
+    struct pixel_cache *c=&s->cache[i][j];
+    if(c->pixels) {
+        s->cache_bytes-=(uint64_t)c->width*c->height*4;
+        desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
     }
 }
-static int cache_init(struct session *s) {
-    for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) {
-        s->cache[i][j]=desk_pixels_alloc(DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
-        if(!s->cache[i][j]) { cache_free(s); return -1; }
-    }
-    return 0;
+static void cache_retire(struct session *s,int i) {
+    for(int j=0;j<2;j++)cache_drop(s,i,j);
+}
+static void cache_free(struct session *s) {
+    for(int i=0;i<DESKD_WINDOWS;i++)cache_retire(s,i);
+}
+static int cache_init(struct session *s) { (void)s;return 0; }
+static void cache_reclaim(struct session *s,int keep) {
+    for(int i=0;i<DESKD_WINDOWS;i++)if(i!=keep && !s->clients[i].awaiting)for(int j=0;j<2;j++)
+        if(s->cache[i][j].pixels!=s->scene.windows[i].pixels)cache_drop(s,i,j);
+}
+static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned height) {
+    if(!width || !height || width>DESK_MAX_WIDTH || height>DESK_MAX_HEIGHT)return NULL;
+    int j=s->scene.windows[i].pixels==s->cache[i][0].pixels?1:0;
+    struct pixel_cache *c=&s->cache[i][j];uint64_t bytes=(uint64_t)width*height*4;
+    if(c->pixels && (uint64_t)c->width*c->height*4>=bytes)return c->pixels;
+    if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)cache_reclaim(s,i);
+    if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)return NULL;
+    uint32_t *pixels=desk_pixels_alloc(width,height);
+    if(!pixels) { cache_reclaim(s,i);pixels=desk_pixels_alloc(width,height); }
+    if(!pixels)return NULL;
+    cache_drop(s,i,j);
+    *c=(struct pixel_cache){pixels,width,height};s->cache_bytes+=bytes;
+    if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
+    return pixels;
+}
+static void cache_trim(struct session *s,int i,uint64_t bytes) {
+    for(int j=0;j<2;j++)if(s->cache[i][j].pixels!=s->scene.windows[i].pixels &&
+        (uint64_t)s->cache[i][j].width*s->cache[i][j].height*4>bytes)cache_drop(s,i,j);
 }
 static int clamp(int64_t v,int lo,int hi) { return v<lo?lo:v>hi?hi:v; }
 static void close_client(struct session *s,int i);
@@ -208,6 +237,7 @@ static void forget(struct session *s,int i) {
     struct desktop_window *w=&s->scene.windows[i];
     damage_window(s,i);
     desk_log("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
+    cache_retire(s,i);
     memset(w,0,sizeof(*w)); memset(&s->clients[i],0,sizeof(s->clients[i]));
     if(s->scene.apps) desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
     if (s->scene.focus==i) {
@@ -216,14 +246,37 @@ static void forget(struct session *s,int i) {
     }
     global_menu_rebuild(s);
 }
-static void configure(struct session *s,int i,int width,int height) {
+static void memory_notice(struct session *s) {
+    if(!s->scene.apps)return;
+    uint64_t now=srv_ticks();
+    if(s->memory_notice_serial && now-s->memory_notice_at<100)return;
+    s->memory_notice_at=now;
+    struct desk_notification text={0};strcpy(text.title,"Window memory");
+    strcpy(text.message,"Memory is low. Close a window and try again.");
+    uint64_t id;long us=srv_monotonic_us();
+    if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX-2,DESK_APP_SYSTEM,
+       ++s->memory_notice_serial,us<0?0:(uint64_t)us,DESK_NOTICE_WARNING,&text,&id)>0) {
+        desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);notifications_damage(s);
+    }
+}
+static int configure(struct session *s,int i,int width,int height) {
+    if(!cache_prepare(s,i,width,height)) {
+        snprintf(s->scene.notice,sizeof(s->scene.notice),"Not enough memory to resize this window.");memory_notice(s);
+        desk_log("deskd: resize refused pid=%llu reason=cache-memory bytes=%llu\n",(unsigned long long)s->clients[i].pid,(unsigned long long)s->cache_bytes);
+        return 0;
+    }
+    if(!s->clients[i].awaiting) {
+        s->clients[i].resize_origin=s->scene.windows[i].frame;
+        s->clients[i].resize_restore=s->scene.windows[i].restore;
+        s->clients[i].resize_maximized=s->scene.windows[i].maximized;
+    }
     if (s->pointer_pid==s->clients[i].pid) pointer_cancel(s);
     struct client *c=&s->clients[i];
     struct desktop_window *w=&s->scene.windows[i];
     damage_window(s,i);
     w->frame.w=width+2; w->frame.h=height+45;
     c->generation++; c->configure=1; c->awaiting=1; c->progress=srv_ticks();
-    damage_window(s,i);
+    damage_window(s,i);return 1;
 }
 static void minimize(struct session *s,int i) {
     damage_window(s,i);s->scene.windows[i].minimized=1;focus(s,-1);
@@ -236,14 +289,15 @@ static void minimize(struct session *s,int i) {
 static void maximize(struct session *s,int i) {
     struct desktop_window *w=&s->scene.windows[i];damage_window(s,i);
     if(w->maximized) {
-        struct desk_rect restore=w->restore;w->frame.x=restore.x;w->frame.y=restore.y;
-        configure(s,i,restore.w-2,restore.h-45);w->maximized=0;
+        struct desk_rect restore=w->restore;
+        if(!configure(s,i,restore.w-2,restore.h-45))return;
+        w->frame.x=restore.x;w->frame.y=restore.y;w->maximized=0;
     } else {
-        w->restore=w->frame;
+        struct desk_rect original=w->frame;
         int width=clamp(s->damage.width-18,280,DESK_MAX_WIDTH);
         int height=clamp(s->damage.height-177,240,DESK_MAX_HEIGHT);
-        w->frame.x=(s->damage.width-width-2)/2;w->frame.y=52;
-        configure(s,i,width,height);w->maximized=1;
+        if(!configure(s,i,width,height))return;
+        w->restore=original;w->frame.x=(s->damage.width-width-2)/2;w->frame.y=52;w->maximized=1;
     }
     global_menu_rebuild(s);
     if(s->trace) desk_log("deskd: zoom pid=%llu maximized=%d frame=%d,%d,%d,%d\n",(unsigned long long)s->clients[i].pid,w->maximized,w->frame.x,w->frame.y,w->frame.w,w->frame.h);
@@ -254,10 +308,11 @@ static void arrange_window(struct session *s,int i,unsigned placement) {
     if(!desktop_window_placement(s->damage.width,s->damage.height,original,placement,&target)) return;
     if(s->pointer_pid==s->clients[i].pid) pointer_cancel(s);
     damage_window(s,i);
-    if(!w->maximized) w->restore=w->frame;
+    struct desk_rect restore=w->maximized?w->restore:w->frame;
     int resize=w->frame.w!=target.w || w->frame.h!=target.h;
-    w->frame.x=target.x;w->frame.y=target.y;w->maximized=placement!=DESKTOP_CENTER;
-    if(resize) configure(s,i,target.w-2,target.h-45);else damage_window(s,i);
+    if(resize && !configure(s,i,target.w-2,target.h-45))return;
+    w->restore=restore;w->frame.x=target.x;w->frame.y=target.y;w->maximized=placement!=DESKTOP_CENTER;
+    damage_window(s,i);
     global_menu_rebuild(s);
     if(s->trace) desk_log("deskd: arranged pid=%llu mode=%u frame=%d,%d,%d,%d generation=%llu\n",
         (unsigned long long)s->clients[i].pid,placement,w->frame.x,w->frame.y,w->frame.w,w->frame.h,(unsigned long long)s->clients[i].generation);
@@ -767,15 +822,27 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         w->frame.x=32+24*(i%4); w->frame.y=64+24*(i%4);
         if(!s->scene.apps) { w->frame.x=32+40*i;w->frame.y=64+36*i; }
         memcpy(w->title,p->text,sizeof(p->text)); w->title[sizeof(p->text)]=0;
-        configure(s,i,clamp(p->width,280,s->damage.width-w->frame.x-8<DESK_MAX_WIDTH?
+        if(!configure(s,i,clamp(p->width,280,s->damage.width-w->frame.x-8<DESK_MAX_WIDTH?
             s->damage.width-w->frame.x-8:DESK_MAX_WIDTH),
             clamp(p->height,240,s->damage.height-w->frame.y-(s->scene.apps?125:85)<DESK_MAX_HEIGHT?
-            s->damage.height-w->frame.y-(s->scene.apps?125:85):DESK_MAX_HEIGHT));
+            s->damage.height-w->frame.y-(s->scene.apps?125:85):DESK_MAX_HEIGHT))) { close_client(s,i);return; }
         focus(s,i);
         desk_log("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
         return;
     }
     struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
+    if(p->type==DESK_RESIZE_REFUSED) {
+        if(c->awaiting && p->generation==c->generation && w->pixels &&
+           p->width==(unsigned)w->width && p->height==(unsigned)w->height) {
+            struct desk_rect origin=c->resize_origin,restore=c->resize_restore;int maximized=c->resize_maximized;
+            damage_window(s,i);
+            if(configure(s,i,w->width,w->height)) {
+                w->frame=origin;w->restore=restore;w->maximized=maximized;damage_window(s,i);memory_notice(s);
+                desk_log("deskd: resize restored pid=%llu generation=%llu\n",(unsigned long long)pid,(unsigned long long)c->generation);
+            }
+        }
+        return;
+    }
     if (p->type==DESK_CLOSE) { forget(s,i); return; }
     if(p->type==DESK_NOTIFY) { notification_received(s,i,p);return; }
     if(p->type==DESK_MENU_SET) {
@@ -840,14 +907,19 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     if (p->type!=DESK_COMMIT) return;
     /* A conforming client has at most one unreleased commit. */
     if (c->release.type) { desk_log("deskd: closing pid=%llu reason=unreleased-buffer\n",(unsigned long long)pid);close_client(s,i); return; }
-    c->release=*p; c->release.type=DESK_RELEASE; c->progress=srv_ticks();
+    c->release=*p; c->release.type=DESK_RELEASE;c->release.value=0; c->progress=srv_ticks();
     if (p->generation!=c->generation || p->width!=(uint32_t)(w->frame.w-2) ||
         p->height!=(uint32_t)(w->frame.h-45) || c->closing) {
         desk_log("deskd: stale commit released pid=%llu\n",(unsigned long long)pid); return;
     }
     /* Keep displaying the front until a complete copy succeeds. */
-    uint32_t *next=w->pixels==s->cache[i][0]?s->cache[i][1]:s->cache[i][0];
-    if (!next || p->width>DESK_MAX_WIDTH || p->height>DESK_MAX_HEIGHT ||
+    uint32_t *next=cache_prepare(s,i,p->width,p->height);
+    if (!next) {
+        c->release.value=DESK_RELEASE_RETRY;memory_notice(s);
+        desk_log("deskd: deferred frame pid=%llu reason=cache-memory\n",(unsigned long long)pid);
+        return;
+    }
+    if (p->width>DESK_MAX_WIDTH || p->height>DESK_MAX_HEIGHT ||
         gui_surface_copy(p->surface,0,0,p->width,p->height,next,p->width)!=0) {
         desk_log("deskd: closing pid=%llu reason=surface-copy\n",(unsigned long long)pid);
         close_client(s,i); return;
@@ -855,7 +927,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     c->present_input=p->input_serial;
     int first_frame=w->pixels==NULL || c->awaiting;
     w->pixels=next; w->width=p->width; w->height=p->height;
-    c->awaiting=0;
+    c->awaiting=0;cache_trim(s,i,(uint64_t)p->width*p->height*4);
     damage_window(s,i);
     if (s->trace && (!s->scene.apps || first_frame)) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
         (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
@@ -1478,6 +1550,7 @@ int main(int argc,char **argv) {
                 if(apps) global_menu_result(&s,desk_menu_pointer(&s.scene.menu,(struct desk_widget_event){.type=DESK_WIDGET_CANCEL}));
             }
             if(apps && drag<0 && resize<0 && !s.pointer_pid && !(e.flags&MOUSE_CANCEL)) {
+                if(e.wheel_y)global_menu_result(&s,desk_menu_scroll(&s.scene.menu,e.wheel_y));
                 struct desk_menu_result result=desk_menu_pointer(&s.scene.menu,(struct desk_widget_event){
                     .type=DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,
                     .pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)});
@@ -1764,6 +1837,7 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);
+    if(s.trace)desk_log("deskd: cache peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu windows=%u\n",(unsigned long long)s.cache_peak,(unsigned long long)s.cache_bytes,(unsigned long long)DESKD_CACHE_BUDGET,DESKD_WINDOWS);
     desk_pixels_free(pixels,width,height); gfx_console_mute(0);
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);

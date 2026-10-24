@@ -53,8 +53,7 @@ run /fat/bin/deskd --scale=2
 
 At a 2880×1800 boot framebuffer this gives a 1440×900 logical desktop. Windows,
 controls, pointer movement, hit testing and damage use logical pixels; the final
-copy expands each pixel to a 2×2 block. Client surfaces and the eight-window
-cache allocation stay the same size. This is integer enlargement of the existing
+copy expands each pixel to a 2×2 block. Client surfaces and window-cache budgets use logical dimensions. This is integer enlargement of the existing
 raster toolkit, not new higher-resolution font rendering or GPU acceleration.
 The mode requires at least 640×480 logical pixels; other scales are rejected.
 `--scale=1` selects the existing behavior. It can accompany `--apps-trace` or a
@@ -94,28 +93,25 @@ Mac keyboard's Command key, or the Meta/Windows key in a VM.
 | Return to the monitor | SrvrOS → Return to console |
 
 The launcher lists open windows as well as app launch entries. Select an existing
-window to resume it; choose the app entry to open another instance. Eight client
-windows can be open at once. A full desktop asks you to close a window before
-opening another app. The [eight-window menu](assets/screenshots/native-desktop-window-menu.png)
-shows the desktop at its current client limit.
+window to resume it; choose the app entry to open another instance. Sixteen client
+windows can be open at once, subject to process and memory availability. A full
+desktop asks you to close a window before opening another app.
 
-This is a software capacity limit, not a MacBook hardware limit. The compositor
-reserves eight client slots and two maximum-size 1440×900 pixel caches per slot:
-about 79 MiB for those caches alone. The kernel separately bounds GUI queues to
-16 and surfaces to 32. Raising only the client constant would increase the
-up-front memory cost and eventually hit those other limits. The intended next
-step is demand-sized window buffers, coordinated queue/surface capacity and
-graceful allocation failure under memory pressure; this device milestone keeps
-the existing limit.
+The compositor now allocates buffers for live window sizes instead of reserving
+eight full-screen cache pairs at startup. Published and private buffers share a
+96 MiB pixel-cache budget. Failed growth retains the old frame; clients can
+refuse a resize and return to their last working size without discarding document
+state. Closing a window releases its caches. Oversized Window menus scroll with
+the wheel, and keyboard selection remains visible.
 
-A capacity follow-up should first allocate caches for live windows at their
-actual size, while retaining the old front buffer until a replacement frame is
-complete. Failed growth must leave the displayed frame and input ownership
-intact. Then coordinate client slots, GUI queues/surfaces and process resources
-under a memory budget. Validate opening beyond eight windows, repeated maximize/
-restore, close/reopen and allocation failure without leaks or lost input before
-raising the advertised limit. There will still be a resource ceiling, but it
-should be an intentional policy rather than eight preallocated full-screen pairs.
+Kernel capacity is 32 GUI queues and 64 surfaces, with the existing 64 process
+slots. Workers and terminal shells consume extra resources, so sixteen is an
+intentional ceiling rather than a guarantee under every memory/workload mix.
+See [window capacity and ownership](window-capacity.md) for protocol v12,
+allocation guarantees and exact validation. Sixteen-window persistence and
+resize/lifecycle VMs pass. Air7,2 physically accepts sixteen-window opening,
+saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; native pressure
+injection/cache totals were not measured in that round.
 
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size

@@ -1,11 +1,12 @@
 #ifndef DESKD_SCENE_H
 #define DESKD_SCENE_H
+#include <srvros/desktop_protocol.h>
 #include <srvros/desk_render.h>
 #include <srvros/desk_menu.h>
 #include <srvros/desk_popup.h>
 #include <srvros/desk_palette.h>
 #include "notification_view.h"
-#define DESKD_WINDOWS 8
+#define DESKD_WINDOWS DESK_MAX_WINDOWS
 #define DESK_INPUT_QUEUE 64
 struct desktop_window {
     struct desk_rect frame;

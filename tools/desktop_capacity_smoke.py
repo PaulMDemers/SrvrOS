@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise all eight desktop slots, launch refusal/reuse and input under load in a disposable VM."""
+"""Exercise all sixteen desktop slots, launch refusal/reuse and input under load in a disposable VM."""
 import os
 import re
 from pathlib import Path
@@ -67,7 +67,7 @@ def main():
                 if not baseline_processes: raise RuntimeError("Missing baseline process snapshot")
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"deskd: commit")
-                applications=[("Files",1),("Calculator",3),("Terminal",6),("Preview",7),("Sketch",10),("Clock",9),("Find Files",12)]
+                applications=[("Files",1),("Calculator",3),("Terminal",6),("Preview",7),("Sketch",10),("Clock",9),("Find Files",12),("Calculator",3),("Clock",9),("Help",8),("Settings",5),("Files",1),("Preview",7),("Text",2),("Calculator",3)]
                 pids=[]
                 def launch(name,number):
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text(name+" new app");qmp.key("ret");wait(f"launcher application={number}".encode())
@@ -79,23 +79,23 @@ def main():
                     if name=="Terminal":
                         type_text("exit\n");wait(b"deskterm: shell exited status=0")
                     shortcut("meta_l-alt-"+("left" if index%2 else "right"));wait(b"arranged pid="+pid)
-                shot("eight-windows")
-                # Window heading contains all eight entries plus its commands.
+                shot("sixteen-windows")
+                # Window heading contains all sixteen entries plus its commands.
                 shortcut("f10");shortcut("left");shot("full-window-menu");shortcut("esc");shortcut("esc")
                 launch("System",4)
                 # Reopening the launcher is an ordered event fence. Refusal must
-                # leave exactly eight windows, with no ninth process registered.
-                shortcut("meta_l-spc");wait(b"launcher opened items=20");shot("capacity-refused");shortcut("esc")
-                assert len(re.findall(rb"deskd: opened pid=",output))==8
+                # leave exactly sixteen windows, with no seventeenth process registered.
+                shortcut("meta_l-spc");wait(b"launcher opened items=28");shot("capacity-refused");shortcut("esc")
+                assert len(re.findall(rb"deskd: opened pid=",output))==16
                 # Free the last slot and prove the previously refused app opens.
                 shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
                 launch("System",4);start=consumed;wait(b"deskd: commit")
                 registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
-                assert registered and registered[-1][1]==b"7"
+                assert registered and registered[-1][1]==b"15"
                 shortcut("meta_l-alt-left");wait(b"arranged pid="+registered[-1][0]);shot("reused-slot")
                 # Focus the existing Text window; do not consume another slot.
-                shortcut("meta_l-spc");wait(b"launcher opened items=20");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
-                type_text("Eight windows remain responsive.")
+                shortcut("meta_l-spc");wait(b"launcher opened items=28");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
+                type_text("Sixteen windows remain responsive.")
                 shortcut("ctrl-l");type_text("/fat/capacity-proof.txt");shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80);shot("capacity-capture")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",90);wait(b"srv> ")
@@ -107,6 +107,8 @@ def main():
                     if processes==baseline_processes: break
                     if time.monotonic()>cleanup_deadline: raise RuntimeError("Process set did not return to baseline after full-session cleanup")
                     time.sleep(.5)
+                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows=16",output)
+                assert cache and int(cache[2])==0 and 0<int(cache[1])<=int(cache[3])
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
@@ -114,12 +116,12 @@ def main():
                 stop_process(process);(out/"serial.log").write_bytes(output)
             from exfat_test_image import ExfatFixture
             fixture=ExfatFixture((tmp/"disk.exfat").read_bytes())
-            assert fixture.read("capacity-proof.txt")==b"Eight windows remain responsive."
+            assert fixture.read("capacity-proof.txt")==b"Sixteen windows remain responsive."
             screenshots=re.findall(rb"deskd: screenshot saved status=0 path=([^\r\n ]+)",output)
             assert len(screenshots)==1
             capture=fixture.read(screenshots[0].decode().removeprefix("/fat/"))
             assert capture[:2]==b"BM" and len(capture)>width*height*3
-    print(f"desktop-capacity: PASS eight simultaneous clients, ninth launch refusal, slot reuse, full Window menu, exact saved text, screenshot worker at capacity and complete cleanup. Evidence: {out}")
+    print(f"desktop-capacity: PASS sixteen simultaneous clients, seventeenth launch refusal, slot reuse, full Window menu, exact saved text, screenshot worker at capacity and complete cleanup. Evidence: {out}")
 
 
 if __name__=="__main__": main()
