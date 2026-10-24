@@ -6,6 +6,7 @@ and clean runtime retirement. A bounded minute of battery sampling alongside
 Text saves/reads in an exclusive USB image is also accepted. Short mounted Home
 sampling and a bounded generated Home/Text session with repeated Start/Stop
 and a three-minute continuous Home desktop capture are accepted on this unit.
+Bounded attended Home AC unplug/reconnect and indicator updates are also accepted.
 Battery gauge accuracy, broader alarm behavior, longer endurance and ordinary
 desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
@@ -604,3 +605,19 @@ continued through generation 51 and retirement/storage/recovery checks passed.
 This does not accept attended Home transitions. User observations of AC removal
 and indicator behavior are needed before attributing the timeout or preparing
 a retry; preserve the logs and single screenshot.
+
+
+## Attended Home AC retry physically accepted
+
+The user confirmed AC was not removed during the first v68 attempt. A fresh
+same-payload retry, session `00065e8d108fab51-00` on release `5cd210467e3a10fd`,
+completed on October 23. Connected, unplugged and reconnected phases each passed
+three fresh readings; verified screenshots show `AC · 98%` → `97%` → `AC · 97%`.
+Current was negative while unplugged and nonnegative on AC. Two observed alarms
+were acknowledged with cache invalidation; all 19 SCI deliveries were handled
+and client/runtime/logger/mount retirement was clean. Prior-file preservation,
+offline filesystem/allocation and Ubuntu recovery checks pass. The first attempt
+remains incomplete history, not a hardware regression or acceptance claim.
+
+This accepts the explicit bounded desktop transition capture only. Gauge
+calibration, longer endurance and ordinary battery startup remain separate.
