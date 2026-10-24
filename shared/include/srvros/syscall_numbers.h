@@ -139,6 +139,7 @@
 #define SYS_GUI_SERVER_WAIT 137
 #define SYS_PREAD 138
 #define SYS_PWRITE 139
+#define SYS_THREAD_SIGNAL 140
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -255,6 +256,7 @@ struct srv_winsize {
     uint16_t ypixel;
 };
 
+#define SRV_ERR_SRCH -3
 #define SRV_ERR_INTR -4
 #define SRV_ERR_IO -5
 #define SRV_ERR_BADF -9

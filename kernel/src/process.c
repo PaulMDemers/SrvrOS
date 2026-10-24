@@ -108,6 +108,7 @@ struct process_user_thread {
     uint64_t tls_thread_pointer;
     uint64_t return_value;
     uint64_t signal_mask;
+    uint64_t pending_signals;
     struct process *owner;
     struct process_context context;
     struct fpu_state fpu;
@@ -192,6 +193,7 @@ struct process {
     uint64_t signal_ignore_mask;
     uint64_t pending_signals;
     uint64_t main_signal_mask;
+    uint64_t main_pending_signals;
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t session_id;
@@ -433,6 +435,36 @@ static void process_set_current_signal_mask(struct process *process, uint64_t ma
     }
 }
 
+/* Process-directed signals are eligible in any unmasked thread. A targeted
+ * pending signal is visible and consumable only by its destination thread. */
+static uint64_t *process_local_pending(struct process *process) {
+    struct process_user_thread *thread=process_current_user_thread();
+    return thread && thread->owner==process && thread->used
+        ? &thread->pending_signals : &process->main_pending_signals;
+}
+static uint64_t process_visible_pending(struct process *process) {
+    return process->pending_signals | *process_local_pending(process);
+}
+static void process_consume_signal_bit(struct process *process,uint64_t bit) {
+    uint64_t *local=process_local_pending(process);
+    if (*local & bit) *local &= ~bit;
+    else process->pending_signals &= ~bit;
+}
+static void process_discard_signals(struct process *process,uint64_t bits) {
+    process->pending_signals &= ~bits;
+    process->main_pending_signals &= ~bits;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+        process->user_threads[i].pending_signals &= ~bits;
+}
+static bool process_all_threads_block_signal(struct process *process,uint64_t bit) {
+    if (!(process->main_signal_mask & bit)) return false;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) {
+        struct process_user_thread *thread=&process->user_threads[i];
+        if(thread->used && thread->active && !(thread->signal_mask & bit)) return false;
+    }
+    return true;
+}
+
 static uint64_t process_supported_signal_mask(void) {
     return (1ull << SRV_SIGNAL_HUP) | (1ull << SRV_SIGNAL_WINCH) | (1ull << SRV_SIGNAL_INT) |
         (1ull << SRV_SIGNAL_QUIT) |
@@ -451,7 +483,7 @@ static void process_apply_signal_defaults(struct process *process, uint64_t sign
     uint64_t mask = signal_default & process_supported_signal_mask();
     process->signal_catch_mask &= ~mask;
     process->signal_ignore_mask &= ~mask;
-    process->pending_signals &= ~mask;
+    process_discard_signals(process,mask);
 }
 
 static void process_wake_for_signal(struct process *process) {
@@ -469,7 +501,7 @@ static void process_wake_for_signal(struct process *process) {
     process_futex_wake_process(process);
 }
 
-static bool process_queue_signal(struct process *process, uint64_t signal) {
+static bool process_queue_signal_locked(struct process *process, uint64_t signal) {
     if (process == NULL || !process->active || signal == 0 || signal >= 64) {
         return false;
     }
@@ -478,7 +510,7 @@ static bool process_queue_signal(struct process *process, uint64_t signal) {
         return true;
     }
     if ((process->signal_catch_mask & mask) != 0 ||
-        (process->main_signal_mask & mask) != 0) {
+        process_all_threads_block_signal(process,mask)) {
         process->pending_signals |= mask;
         process_wake_for_signal(process);
         return true;
@@ -490,6 +522,11 @@ static bool process_queue_signal(struct process *process, uint64_t signal) {
     process->kill_signal = signal;
     process_wake_for_signal(process);
     return true;
+}
+static bool process_queue_signal(struct process *process, uint64_t signal) {
+    uint64_t irq=process_irq_save();
+    bool result=process_queue_signal_locked(process,signal);
+    process_irq_restore(irq);return result;
 }
 
 static void process_notify_parent_child_exit(struct process *child) {
@@ -1831,7 +1868,7 @@ int64_t process_exec_replace(const char *path,
     fpu_init_state(&process->fpu);
     process->signal_catch_mask = 0;
     process->signal_ignore_mask = 0;
-    process->pending_signals = 0;
+    process_discard_signals(process,~0ull);
     if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
         process_apply_signal_defaults(process, signal_default);
     }
@@ -2452,7 +2489,7 @@ bool process_signal_target(int64_t pid, uint64_t signal) {
     return matched;
 }
 
-bool process_signal_config_current(uint64_t signal, uint64_t action) {
+static bool process_signal_config_current_locked(uint64_t signal, uint64_t action) {
     struct process *process = process_current();
     if (process == NULL || signal == 0 || signal >= 64 ||
         ((process_supported_signal_mask() & (1ull << signal)) == 0) ||
@@ -2470,42 +2507,52 @@ bool process_signal_config_current(uint64_t signal, uint64_t action) {
     }
     if (action == SRV_SIGNAL_IGNORE) {
         process->signal_ignore_mask |= mask;
-        process->pending_signals &= ~mask;
+        process_discard_signals(process,mask);
         return true;
     }
     return true;
 }
+bool process_signal_config_current(uint64_t signal, uint64_t action) {
+    uint64_t irq=process_irq_save();
+    bool result=process_signal_config_current_locked(signal,action);
+    process_irq_restore(irq);return result;
+}
 
 bool process_signal_pending_current(void) {
     struct process *process = process_current();
-    return process != NULL && (process->pending_signals & ~process_current_signal_mask(process)) != 0;
+    return process != NULL && (process_visible_pending(process) & ~process_current_signal_mask(process)) != 0;
 }
 
 uint64_t process_signal_pending_mask_current(void) {
     struct process *process = process_current();
-    return process != NULL ? process->pending_signals : 0;
+    return process != NULL ? process_visible_pending(process) : 0;
 }
 
-uint64_t process_signal_poll_current(void) {
+static uint64_t process_signal_poll_current_locked(void) {
     struct process *process = process_current();
     if (process == NULL) {
         return 0;
     }
-    uint64_t pending = process->pending_signals;
+    uint64_t pending = process_visible_pending(process);
     if (pending == 0) {
         return 0;
     }
     for (uint64_t signal = 1; signal < 64; signal++) {
         uint64_t mask = 1ull << signal;
         if ((pending & mask) != 0) {
-            process->pending_signals &= ~mask;
+            process_consume_signal_bit(process,mask);
             return signal;
         }
     }
     return 0;
 }
+uint64_t process_signal_poll_current(void) {
+    uint64_t irq=process_irq_save();
+    uint64_t result=process_signal_poll_current_locked();
+    process_irq_restore(irq);return result;
+}
 
-bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_out) {
+static bool process_signal_mask_current_locked(uint64_t how, uint64_t set, uint64_t *oldset_out) {
     struct process *process = process_current();
     if (process == NULL) {
         return false;
@@ -2529,17 +2576,18 @@ bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_ou
     next &= ~((1ull << 9) | (1ull << 19)); /* SIGKILL/SIGSTOP cannot be blocked. */
     process_set_current_signal_mask(process, next);
 
-    uint64_t unblocked = process->pending_signals & ~next &
+    uint64_t unblocked = process_visible_pending(process) & ~next &
         ~(process->signal_catch_mask | process->signal_ignore_mask);
     /* SIGWINCH has an ignored default disposition, including after an
      * application unblocks a resize that arrived while it was masked. */
     process->pending_signals &= ~(unblocked & (1ull << SRV_SIGNAL_WINCH));
+    *process_local_pending(process) &= ~(unblocked & (1ull << SRV_SIGNAL_WINCH));
     unblocked &= ~((1ull << SRV_SIGNAL_CHLD) | (1ull << SRV_SIGNAL_WINCH));
     if (unblocked != 0) {
         for (uint64_t signal = 1; signal < 64; signal++) {
             uint64_t mask = 1ull << signal;
             if ((unblocked & mask) != 0) {
-                process->pending_signals &= ~mask;
+                process_consume_signal_bit(process,mask);
                 process->killed = true;
                 process->kill_signal = signal;
                 break;
@@ -2548,21 +2596,31 @@ bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_ou
     }
     return true;
 }
+bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_out) {
+    uint64_t irq=process_irq_save();
+    bool result=process_signal_mask_current_locked(how,set,oldset_out);
+    process_irq_restore(irq);return result;
+}
 
-uint64_t process_signal_consume_current(uint64_t mask) {
+static uint64_t process_signal_consume_current_locked(uint64_t mask) {
     struct process *process = process_current();
     if (process == NULL || mask == 0) {
         return 0;
     }
-    uint64_t pending = process->pending_signals & mask;
+    uint64_t pending = process_visible_pending(process) & mask;
     for (uint64_t signal = 1; signal < 64; signal++) {
         uint64_t signal_mask = 1ull << signal;
         if ((pending & signal_mask) != 0) {
-            process->pending_signals &= ~signal_mask;
+            process_consume_signal_bit(process,signal_mask);
             return signal;
         }
     }
     return 0;
+}
+uint64_t process_signal_consume_current(uint64_t mask) {
+    uint64_t irq=process_irq_save();
+    uint64_t result=process_signal_consume_current_locked(mask);
+    process_irq_restore(irq);return result;
 }
 
 bool process_set_group(uint64_t pid, uint64_t group) {
@@ -2942,6 +3000,32 @@ int64_t process_thread_status(uint64_t tid) {
         return -1;
     }
     return thread->active ? 1 : 0;
+}
+
+int64_t process_thread_signal(uint64_t tid,uint64_t signal) {
+    struct process *process=process_current();
+    if(signal>=64 || (signal && signal!=9 &&
+        !(process_supported_signal_mask() & (1ull<<signal)))) return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();
+    struct process_user_thread *thread=process_find_user_thread(process,tid);
+    int64_t result=SRV_ERR_SRCH;
+    if(!process || !process->active || (tid!=1 && !thread)) goto done;
+    result=0;
+    /* A joinable exited thread still has a valid ID (POSIX.1-2024), but
+     * cannot receive delivery. Never apply its signal to another thread. */
+    if(!signal || (thread && !thread->active)) goto done;
+    uint64_t bit=1ull<<signal;
+    if(process->signal_ignore_mask & bit) goto done;
+    uint64_t mask=thread?thread->signal_mask:process->main_signal_mask;
+    if((process->signal_catch_mask | mask) & bit) {
+        uint64_t *pending=thread?&thread->pending_signals:&process->main_pending_signals;
+        *pending |= bit;
+    } else if(signal!=SRV_SIGNAL_CHLD && signal!=SRV_SIGNAL_WINCH) {
+        process->killed=true;process->kill_signal=signal;
+    }
+    process_wake_for_signal(process);
+done:
+    process_irq_restore(irq);return result;
 }
 
 uint64_t process_thread_self(void) {

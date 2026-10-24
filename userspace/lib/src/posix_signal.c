@@ -6,6 +6,11 @@
 
 static struct sigaction signal_actions[64];
 static _Thread_local volatile sig_atomic_t signal_dispatching;
+static unsigned actions_lock;
+static void lock_actions(void) {
+    while(__atomic_exchange_n(&actions_lock,1,__ATOMIC_ACQUIRE)) srv_yield();
+}
+static void unlock_actions(void) { __atomic_store_n(&actions_lock,0,__ATOMIC_RELEASE); }
 
 static int signal_valid(int signum) {
     return signum > 0 && signum < (int)(sizeof(sigset_t) * 8);
@@ -76,20 +81,13 @@ int kill(pid_t pid, int sig) {
     return 0;
 }
 
+extern int __posix_signal_dispatch_pending(void);
 int raise(int sig) {
-    if (!signal_valid(sig) || !signal_supported(sig)) {
-        errno = EINVAL;
-        return -1;
-    }
-    sighandler_t handler = signal_actions[sig].sa_handler;
-    if (handler == SIG_IGN) {
-        return 0;
-    }
-    if (signal_action_is_handler(handler)) {
-        handler(sig);
-        return 0;
-    }
-    return kill(getpid(), sig);
+    if(!signal_valid(sig)) { errno=EINVAL;return -1; }
+    long result=srv_thread_signal((uint64_t)srv_thread_self(),(uint64_t)sig);
+    if(result<0) { errno=(int)-result;return -1; }
+    (void)__posix_signal_dispatch_pending();
+    return 0;
 }
 
 static int signal_dispatch_pending(int *restartable_out) {
@@ -113,21 +111,22 @@ static int signal_dispatch_pending(int *restartable_out) {
     for (int signum = 1; signum < 64; signum++) {
         uint64_t mask = (uint64_t)signal_mask_for(signum);
         if ((pending & mask) == 0 || (blocked & mask) != 0 ||
-            !signal_supported(signum) ||
-            !signal_action_is_handler(signal_actions[signum].sa_handler)) {
+            !signal_supported(signum)) {
             continue;
         }
 
+        lock_actions();
+        struct sigaction action = signal_actions[signum];
+        if(!signal_action_is_handler(action.sa_handler)) { unlock_actions();continue; }
         uint64_t polled = 0;
         if (srv_signal_consume(mask, &polled) < 0 || polled != (uint64_t)signum) {
-            continue;
+            unlock_actions();continue;
         }
-
-        struct sigaction action = signal_actions[signum];
         if (action.sa_flags & SA_RESETHAND) {
-            struct sigaction reset={.sa_handler=SIG_DFL};
-            if (sigaction(signum,&reset,NULL)<0) continue;
+            signal_actions[signum]=(struct sigaction){.sa_handler=SIG_DFL};
+            (void)signal_apply_action(signum,SIG_DFL);
         }
+        unlock_actions();
         uint64_t handler_mask = (uint64_t)(action.sa_mask | signal_mask_for(signum));
         uint64_t old_mask = 0;
         if (srv_signal_mask(SRV_SIGNAL_BLOCK, handler_mask, &old_mask) < 0) {
@@ -169,15 +168,16 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
         return -1;
     }
 
-    if (oldact != 0) {
-        *oldact = signal_actions[signum];
+    struct sigaction replacement;
+    if(act) replacement=*act; /* act and oldact may alias. */
+    lock_actions();
+    struct sigaction previous=signal_actions[signum];
+    if(act && signal_apply_action(signum,replacement.sa_handler)<0) {
+        unlock_actions();return -1;
     }
-    if (act != 0) {
-        if (signal_apply_action(signum, act->sa_handler) < 0) {
-            return -1;
-        }
-        signal_actions[signum] = *act;
-    }
+    if(act) signal_actions[signum]=replacement;
+    if(oldact) *oldact=previous;
+    unlock_actions();
     return 0;
 }
 
@@ -276,10 +276,8 @@ int sigwait(const sigset_t *set, int *sig) {
         for (int signum = 1; signum < 64; signum++) {
             if ((wanted & (uint64_t)signal_mask_for(signum)) != 0) {
                 uint64_t polled = 0;
-                if (srv_signal_consume((uint64_t)signal_mask_for(signum), &polled) < 0 ||
-                    polled != (uint64_t)signum) {
-                    return EINVAL;
-                }
+                if (srv_signal_consume((uint64_t)signal_mask_for(signum), &polled) < 0) return EINVAL;
+                if(polled != (uint64_t)signum) continue;
                 *sig = signum;
                 return 0;
             }

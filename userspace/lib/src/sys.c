@@ -592,6 +592,10 @@ long srv_thread_detach(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_DETACH, (long)tid);
 }
 
+long srv_thread_signal(uint64_t tid,uint64_t signal) {
+    return srv_syscall2(SYS_THREAD_SIGNAL,(long)tid,(long)signal);
+}
+
 long srv_thread_status(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_STATUS, (long)tid);
 }

@@ -3001,6 +3001,9 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
         return;
+    case SYS_THREAD_SIGNAL:
+        frame->rax = (uint64_t)process_thread_signal(frame->rdi,frame->rsi);
+        return;
     case SYS_THREAD_STATUS:
         frame->rax = (uint64_t)process_thread_status(frame->rdi);
         return;

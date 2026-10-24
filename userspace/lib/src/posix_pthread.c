@@ -343,16 +343,13 @@ int pthread_equal(pthread_t left, pthread_t right) {
 }
 
 int pthread_kill(pthread_t thread, int sig) {
-    if (sig < 0 || sig >= 64) {
-        return EINVAL;
-    }
-    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
-        return ESRCH;
-    }
-    if (sig == 0) {
-        return 0;
-    }
-    return kill(getpid(), sig) == 0 ? 0 : ESRCH;
+    int saved_errno=errno;
+    if(sig<0 || sig>=64) return EINVAL;
+    long result=srv_thread_signal(pthread_tid_value(thread),(uint64_t)sig);
+    if(result==0 && sig && thread==pthread_self())
+        (void)__posix_signal_dispatch_pending();
+    errno=saved_errno;
+    return result<0?(int)-result:0;
 }
 
 int pthread_setname_np(pthread_t thread, const char *name) {

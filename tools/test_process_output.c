@@ -11,9 +11,10 @@ static bool fail_alloc;
 static uint8_t saved[4096];
 static size_t saved_size;
 static struct process *current_subject;
+static struct process_user_thread *current_worker;
 static unsigned pipe_wait_mode;
 void *scheduler_current_user_context(void) { return current_subject; }
-void *scheduler_current_user_thread_context(void) { return NULL; }
+void *scheduler_current_user_thread_context(void) { return current_worker; }
 void net_process_wake(struct process *process) { (void)process; }
 void keyboard_wake_waiters(void) {}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
@@ -144,6 +145,45 @@ static void positional_regression(void) {
     assert(saved_size==9 && !memcmp(saved,"Hello\0\0\0!",9));
     memset(&subject,0,sizeof(subject));
 }
+static void targeted_signal_regression(void) {
+    memset(&subject,0,sizeof(subject));subject.active=true;current_subject=&subject;
+    uint64_t bit=1ull<<SRV_SIGNAL_USR1;
+    subject.main_signal_mask=bit;
+    for(unsigned i=0;i<2;i++) subject.user_threads[i]=(struct process_user_thread){
+        .used=true,.active=true,.tid=10+i,.owner=&subject,.signal_mask=bit};
+    assert(process_signal_config_current(SRV_SIGNAL_USR1,SRV_SIGNAL_CATCH));
+    assert(process_thread_signal(10,SRV_SIGNAL_USR1)==0);
+    assert(!process_signal_pending_mask_current());
+    current_worker=&subject.user_threads[1];assert(!process_signal_pending_mask_current());
+    current_worker=&subject.user_threads[0];assert(process_signal_pending_mask_current()==bit);
+    assert(!process_signal_pending_current());
+    assert(process_signal_consume_current(bit)==SRV_SIGNAL_USR1);
+    assert(!process_signal_consume_current(bit));
+    assert(process_queue_signal(&subject,SRV_SIGNAL_USR1));
+    assert(process_thread_signal(10,SRV_SIGNAL_USR1)==0);
+    assert(process_signal_consume_current(bit)==SRV_SIGNAL_USR1);
+    assert(subject.pending_signals==bit); /* Targeted delivery leaves process delivery pending. */
+    current_worker=&subject.user_threads[1];assert(process_signal_consume_current(bit)==SRV_SIGNAL_USR1);
+    assert(process_thread_signal(1,SRV_SIGNAL_USR1)==0);
+    assert(!process_signal_pending_mask_current());
+    current_worker=NULL;assert(process_signal_pending_mask_current()==bit);
+    assert(process_signal_mask_current(SRV_SIGNAL_UNBLOCK,bit,NULL));assert(process_signal_pending_current());
+    assert(process_signal_poll_current()==SRV_SIGNAL_USR1);
+    assert(process_thread_signal(10,SRV_SIGNAL_USR1)==0);
+    assert(process_thread_signal(11,SRV_SIGNAL_USR1)==0);
+    assert(process_signal_config_current(SRV_SIGNAL_USR1,SRV_SIGNAL_IGNORE));
+    assert(!subject.user_threads[0].pending_signals && !subject.user_threads[1].pending_signals);
+    subject.user_threads[0].active=false;
+    assert(process_thread_signal(10,0)==0 && process_thread_signal(10,9)==0 && !subject.killed);
+    subject.user_threads[0].used=false;assert(process_thread_signal(10,0)==SRV_ERR_SRCH);
+    assert(process_thread_signal(11,64)==SRV_ERR_INVAL);
+    assert(process_thread_signal(11,19)==SRV_ERR_INVAL); /* Stop/resume not implemented. */
+    assert(process_signal_config_current(SRV_SIGNAL_USR1,SRV_SIGNAL_DEFAULT));
+    subject.main_signal_mask=bit;subject.user_threads[1].signal_mask=0;
+    assert(process_queue_signal(&subject,SRV_SIGNAL_USR1) && subject.killed);
+    current_subject=NULL;current_worker=NULL;
+    puts("process-output-host: targeted signal queues, masks, shared consumption, ignored/zombie delivery PASS");
+}
 int main(void) {
     positional_regression();
     snapshot_read_regression();
@@ -233,5 +273,6 @@ int main(void) {
     assert(process_signal_mask_current(SRV_SIGNAL_UNBLOCK,1ull<<SRV_SIGNAL_WINCH,NULL));
     assert(process_signal_pending_current() && !subject.killed);
     current_subject=NULL;
+    targeted_signal_regression();
     puts("process-output-host: PASS (20,000 pipe reference transfers, wrap/backpressure/EOF/rights, 1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
 }
