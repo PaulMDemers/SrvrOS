@@ -15,7 +15,7 @@ def capture_result(text):
     ends=re.findall(r'storage-wait: complete=(\S+) samples=(\d+) restored=(\S+) elapsed_us=(\d+)',text)
     records=[dict(zip(FIELDS,map(int,m))) for m in re.findall(PATTERN,text)]
     if len(starts)!=1 or len(ends)!=1 or len(records)!=18:return None
-    if ends[0][:3]!=('yes','18','yes') or starts[0][1]!='4000':return None
+    if ends[0][:3]!=('yes','18','yes') or starts[0][1] not in ('4000','20000'):return None
     for i,r in enumerate(records):
         if (r['round'],r['position'],r['poll_us'])!=(i//3,i%3,ORDER[i//3][i%3]):return None
         if r['bytes']!=32768 or r['ok']!=1 or r['failures'] or not r['elapsed_us']:return None
@@ -27,5 +27,5 @@ def capture_result(text):
         rows=[r for r in records if r['poll_us']==policy];times=[r['elapsed_us'] for r in rows]
         ticks=sum(r['sampled_ticks'] for r in rows);idle=sum(r['idle_ticks'] for r in rows)
         groups.append(dict(poll_us=policy,count=len(rows),total_us=sum(times),median_us=statistics.median(times),min_us=min(times),max_us=max(times),sampled_ticks=ticks,idle_ticks=idle,idle_sample_percent=100*idle/ticks if ticks else None,csw_us=sum(r['csw_us'] for r in rows)))
-    return dict(path=starts[0][0],records=records,policies=groups,elapsed_us=int(ends[0][3]),
+    return dict(path=starts[0][0],original_poll_us=int(starts[0][1]),records=records,policies=groups,elapsed_us=int(ends[0][3]),
         scope='Same 32 KiB overwrite/readback/flush, six balanced orders in one boot. Includes metadata and yielded work. Timer samples are not CPU runtime; no physical input or power acceptance.')

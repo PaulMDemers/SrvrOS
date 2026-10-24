@@ -12,6 +12,10 @@ class CaptureTests(unittest.TestCase):
     def test_complete(self):
         result=capture_result(self.fixture());self.assertIsNotNone(result)
         self.assertEqual([p['count'] for p in result['policies']],[6,6,6])
+    def test_refined_entry_policy(self):
+        result=capture_result(self.fixture().replace("original_us=4000","original_us=20000"))
+        self.assertEqual(result["original_poll_us"],20000)
+
     def test_refuse_incomplete_or_invalid(self):
         text=self.fixture()
         for bad in (text.replace('complete=yes','complete=NO'),text.replace('restored=yes','restored=NO'),text+'\n'+text,text.replace('round=5','round=4'),text.replace('idle_ticks=0','idle_ticks=2'),text.replace('csw_us=300','csw_us=999999'),text.replace('failures=0','failures=1'),text.replace('bytes=32768','bytes=8'),text.replace('elapsed_us=10000','elapsed_us=0'),text.replace('original_us=4000','original_us=0'),'\n'.join(text.splitlines()[:-2])):

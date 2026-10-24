@@ -412,7 +412,7 @@ merely to improve the idle score.
 
 ### Bounded storage completion wait (candidate)
 
-The storage bulk path polls directly for the first four milliseconds, retaining
+The refined storage bulk candidate polls directly for the first twenty milliseconds, retaining
 its one-millisecond service yields. Thereafter it may block on its per-device
 completion queue until a matching event or the next timer tick. The existing
 HID/network worker can drain events and wake the owner; a one-tick retry also
@@ -476,3 +476,13 @@ injection covers timer quantization separately from physical media variability.
 VM timings validate the workflow only. Native results must precede selecting a
 new default policy; neither CPU timer samples nor callback wall time alone prove
 power savings or interactive responsiveness.
+
+The native fixed-file comparison `2218ef4113730414` passed all 18 measurements
+and exact offline readback. Median operation times were 251.303 ms polling,
+172.592 ms with 4 ms polling and 171.813 ms with 20 ms polling. Stalls appeared
+under all policies, with unequal incidence. This single run does not prove an
+optimal threshold or rank energy efficiency. Choose 20 ms conservatively to
+avoid tick-quantization penalties on common short completions, while still
+allowing longer stalls to sleep. Validate the normal desktop logging workload
+before promoting this candidate. The diagnostic parser accepts entry policies
+of 4 ms (historical capture) or 20 ms, and requires restoration in either case.

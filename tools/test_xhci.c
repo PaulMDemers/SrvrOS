@@ -508,6 +508,7 @@ static void test_storage(void) {
 }
 
 static void test_storage_wait(void) {
+    assert(storage_poll_us==20000);storage_poll_us=4000; /* Retain initial-policy regression cases. */
     reset_test();test_time=100000;test_time_step=3;test_io_active=true;
     struct xhci_trb events[64]={0},ring[64]={0};
     uint8_t bounce[4096]={0x5a},caller[512]={0},report[64]={0,0,4};
@@ -555,13 +556,14 @@ static void test_storage_wait(void) {
             duration[mode]=test_time-began;
             assert(duration[mode]>=delay[i] && duration[mode]<=delay[i]+10020);
             if(!policies[mode] || delay[i]<policies[mode])assert(wait_calls==before_wait);
+            if(policies[mode] && delay[i]>policies[mode]+10000)assert(wait_calls>before_wait);
         }
         if(delay[i]==5000)assert(duration[1]>duration[0]+4000 && duration[2]<duration[0]+20);
         printf("storage-wait-latency: device_us=%llu poll_us=%llu wait4_us=%llu wait20_us=%llu\n",
             (unsigned long long)delay[i],(unsigned long long)duration[0],
             (unsigned long long)duration[1],(unsigned long long)duration[2]);
     }
-    assert(xhci_storage_wait_policy(4000,&old));
+    assert(xhci_storage_wait_policy(20000,&old));
     test_io_active=false;test_time_step=1000;
     puts("xhci-storage-wait: PASS fast path, delayed completion/HID, wake, bounded deadline, no retry and refusal fallback");
 }

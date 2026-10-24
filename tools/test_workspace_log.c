@@ -10,7 +10,7 @@ static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
-static uint64_t test_policy=4000;
+static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
 bool usb_storage_timing_begin(void) { assert(!tracing);tracing=true;return true; }
@@ -84,13 +84,13 @@ int main(void) {
     busy=false;assert(workspace_log_quiesce(0) && !workspace_log_active());
     mounted=true;assert(workspace_log_start());
     unsigned old_writes=writes;assert(workspace_storage_wait_capture());
-    assert(writes==old_writes+19 && !enabled && !tracing && test_policy==4000);
+    assert(writes==old_writes+19 && !enabled && !tracing && test_policy==20000);
     assert(!workspace_storage_wait_capture() && writes==old_writes+19); /* collision */
     assert(workspace_log_start());corrupt=true;old_writes=writes;
-    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==4000 && !tracing);corrupt=false;
+    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);corrupt=false;
     assert(workspace_log_start());sync_ok=false;old_writes=writes;
-    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==4000 && !tracing);sync_ok=true;
+    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);sync_ok=true;
     assert(workspace_log_start());io_ok=false;old_writes=writes;
-    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==4000 && !tracing);io_ok=true;
+    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);io_ok=true;
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }

@@ -2206,7 +2206,7 @@ static bool configure_bulk_endpoints(struct xhci_device *d) {
     return submit_command_trb(&cmd,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0);
 }
 /* Diagnostic caller holds the IRQ-masked I/O gate. Zero selects polling. */
-static uint64_t storage_poll_us=4000;
+static uint64_t storage_poll_us=20000;
 bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous) {
     if(!previous || !scheduler_io_active() || scheduler_io_busy() ||
        (poll_us!=0 && poll_us!=4000 && poll_us!=20000))return false;
@@ -2253,7 +2253,7 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
             clock_at=now;
             if(stalled_spins>=XHCI_TRANSFER_TIMEOUT) { d->bulk_reason="clock-stalled"; break; }
             if(now-last>=1000 && scheduler_io_active()) {
-                /* Keep ordinary sub-4ms completions on the fast path. Slow
+                /* Keep ordinary sub-20ms completions on the fast path. Slow
                  * commands retain their DMA/gate while eligible services and
                  * idle run. A matching completion wakes early; one tick bounds
                  * re-polling even without a HID worker. The original transfer
