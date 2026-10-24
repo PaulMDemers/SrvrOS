@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated October 23, 2026. The goal is a pleasant native desktop on the MacBook
+Updated October 24, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -60,13 +60,22 @@ audio or battery regressions. Temperature and idle percentage alone are not ener
 
 ## 5. Make the desktop less constrained
 
-Replace eight preallocated window-cache pairs with demand-sized buffers and align
-process, queue and surface budgets. Handle allocation failure before raising the
-limit. Continue reusable controls, keyboard accessibility, app save/recovery and
-text coverage. Native-density typography is separate from current 2× pixel scaling.
+The desktop replaces eager cache pairs with demand-allocated window
+buffers under a 96 MiB compositor pixel budget. Client canvases also use current
+sizes. Matched protocol v12 supports failed-resize refusal and restoration, and
+coordinated budgets allow sixteen windows. Local host and VM tests pass for
+allocation pressure, sixteen apps, a refused seventeenth launch, menus, exact
+saved text, screenshots, resize and cleanup. Air7,2 accepts sixteen-window
+opening, saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; the round
+contains no native cache totals or pressure injection.
+See [window capacity](window-capacity.md).
 
-**Done when:** workloads beyond eight windows, resizing, close/reopen and memory
-pressure preserve documents, input and resource stability.
+Continue reusable controls, keyboard accessibility, app save/recovery and text
+coverage. Native-density typography is separate from current 2x pixel scaling.
+
+**Done when:** the native trial confirms workloads beyond eight windows,
+resizing and close/reopen preserve documents and input. Host allocation-pressure
+coverage and VM resource cleanup remain distinct from native interaction.
 
 ## 6. Suspend and expand hardware deliberately
 

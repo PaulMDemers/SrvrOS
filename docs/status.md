@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-23. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-10-24. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -40,7 +40,10 @@ cases were subsequently exercised in the October 23 follow-up; tap refinement is
 validated in the same round.
 Earlier unexpected app closures are not conclusively explained by these fixes.
 
-Current limits include eight client windows, software rendering and bounded
+Air7,2 accepts sixteen-window opening, saved document integrity and clean exit
+at `bf68e4e9b88b8ae7` (2026-10-24); allocation-pressure preservation and cache
+retirement have host/VM evidence, without native cache totals in that round.
+Current limits include sixteen client windows, software rendering and bounded
 client surfaces up to 1440×900 logical pixels. Explicit 2× scaling passes VM
 checks at 2880×1800, but is pixel enlargement, not a high-density font renderer
 or Retina Mac acceptance. See the [desktop guide](native-desktop.md) and [device parity ledger](device-parity.md).

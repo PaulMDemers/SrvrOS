@@ -2,6 +2,63 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Desktop window capacity: native result and integration
+
+On return from `bf68e4e9b88b8ae7`, tester reports all sixteen windows opened
+well. Session `session-00065e9a46b48da1-00` registers slots 0–15, saves
+`capacity-proof.txt`, retires the desktop normally and saves its exit snapshot.
+All 1049 prior files retain their bytes except expected exFAT metadata; offline
+filesystem/allocation checks and Ubuntu/default/recovery checks pass. No new
+screenshot was saved. This non-trace session omits cache totals and per-frame
+commit traces, so native cache retirement and pressure injection are unmeasured;
+those mechanisms have host/VM coverage. Acceptance here is sixteen-window
+opening and saved-file/clean-exit integrity, not an additional physical resize,
+pressure-failure or screenshot claim.
+
+Collection initially flagged the normal exact `trackpad-tap-reject` movement
+counter because its generic rule treats `reason=` as actionable. Correct that
+specific expected telemetry with regression tests while retaining malformed,
+unknown and actual failure lines. Keep the original collection receipt and
+review the saved evidence again; no rerun is needed to correct host analysis.
+Integrated main `d5bc4b3` (Air6,1 PR131) as `e22f328`, preserving its battery
+gates and staging work. Full local build/core/docs and the sixteen-window VM
+regression pass on that integration. PR130 is ready for baseline promotion;
+GitHub Actions remain disabled. Raw/reviewed evidence and the accepted payload
+survive `make distclean` in local pending-trials/reviewed-evidence storage.
+No reboot is armed. Installed payload remains `bf68e4e9b88b8ae7`; source merge
+validation does not silently install a different native image.
+
+### Window capacity implementation checkpoint
+
+Base `468ca20`. Replace eager full-screen compositor cache pairs with bounded
+buffers allocated for live window sizes. Preserve the published frame and input
+ownership on failed growth, release buffers when a window retires, and test
+allocation/copy failures. Audit process, GUI queue/surface, menu and launcher
+budgets before raising the client limit toward sixteen; exercise opening beyond
+eight windows, repeated maximize/restore, close/reopen and pressure refusal.
+Scope: compositor/client buffer lifecycle, shared desktop capacity/protocol if
+needed, GUI resource budgets, host/VM regressions and current desktop guides.
+Candidate implementation and local tests cover sixteen windows, 96 MiB bounded
+private cache storage, current-size client canvases, transactional resize refusal,
+and delayed redraw under pressure. Protocol v12 requires a matched image. Native
+acceptance is pending the attended capacity trial; Help includes a persistent
+checklist. Pro PR19 at `d0a0b57` remains independent Wi-Fi work; Air6,1 PR131
+at `75ddde8` changes opt-in battery startup and separate staging/tests.
+Neither overlaps the compositor/client/menu changes. At `b96e990` the full local
+build/core/docs checks, sixteen-window exact text/screenshot/cleanup workload,
+800x600 and 1440x900 arrange tests and 640x480 compositor lifecycle tests pass.
+The exact staged two-session desktop persistence rehearsal passes for
+`bf68e4e9b88b8ae7`; its sixty-round workload, saved text/preferences, logger
+snapshots and both clean unmounts pass. Physical acceptance remains pending.
+Installed attended candidate `bf68e4e9b88b8ae7` (compiled `b96e990`), recovery
+`9aa8dbf6fbda8252`. Ubuntu remains the default; native acceptance awaits the
+capacity round. No timer closes this interactive desktop; tester exits and
+reboots from the monitor. Local run/collector:
+`build/window-capacity-20261024/run.json` and `collect-native.py`; durable payload
+and recovery are under the local pending-trials archive outside `build`.
+Publish this branch/PR, validate one build/VM at a time, then prepare a physical
+trial with explicit on-screen instructions if human interaction is required.
+
 ### Pending USB event-service gaps: bounded native result
 
 Based on `bf1b9a6` / PR127, this unit added conservative bounds on

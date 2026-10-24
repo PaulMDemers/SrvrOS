@@ -4,6 +4,14 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_pointer_movement_tap_counter_is_not_a_runtime_failure(self):
+        row="trackpad-tap-reject: reason=movement count=77 two_finger=22 max_age_us=100008 max_travel=506"
+        self.assertFalse(desktop.needs_attention(row))
+        for bad in (row+" error=1",row.replace("reason=movement","reason=clock"),
+                    row.replace("count=77","count=bad"),"deskd: closing pid=42 reason=surface-copy",
+                    "deskd: deferred frame pid=42 reason=cache-memory"):
+            self.assertTrue(desktop.needs_attention(bad))
+
     def test_battery_preflight_requires_complete_bounded_evidence(self):
         header='battery-preflight: model=MacBookAir6,1 pm1_control=0x0 pm1_status=0x1 pm1_enable=0x0 ec_status=0x0 SCI=9 EC_GPE=0x4e\n'
         rows=''.join(f'battery-preflight: gpe_byte={i} status=0x0 enable=0x0\n' for i in range(16))

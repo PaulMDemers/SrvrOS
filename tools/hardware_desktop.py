@@ -570,6 +570,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    # Moving contacts must not become taps. This exact cumulative counter is
+    # expected during pointer work; other reason/failure lines remain actionable.
+    if re.fullmatch(r"trackpad-tap-reject: reason=movement count=[0-9]{1,10} two_finger=[0-9]{1,10} max_age_us=[0-9]{1,10} max_travel=[0-9]{1,10}",line):
+        return False
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
