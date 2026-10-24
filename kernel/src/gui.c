@@ -265,6 +265,18 @@ int64_t gui_recv(struct gui_message *message) {
     return result;
 }
 
+int64_t gui_server_ready(void) {
+    struct process *process=process_current();
+    if(!process) return -1;
+    uint64_t flags=irq_save(),pid=process_pid(process);
+    int64_t result=-1;
+    if(server_pid && pid==server_pid) {
+        struct gui_queue *queue=queue_for_pid(pid,false);
+        result=(queue && queue->count) || keyboard_events_pending() || mouse_pending();
+    }
+    irq_restore(flags);return result;
+}
+
 int64_t gui_client_ready(uint64_t expected_server) {
     struct process *process=process_current();
     if(!process || !expected_server) return -1;

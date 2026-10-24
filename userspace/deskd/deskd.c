@@ -960,6 +960,26 @@ static void service(struct session *s) {
             s->children[i]=0;
     }
 }
+/* Only idle maintenance may move to the 100 ms cadence. Publication, retries,
+ * transfers and input capture retain the old tick. Incoming work is separately
+ * checked atomically by the kernel immediately before blocking. */
+static int session_quiescent(const struct session *s) {
+    if(s->exiting || s->damage.count || s->capture.busy || s->capture_pending ||
+       s->preferences.loading || s->preferences.dirty || s->preferences.job.busy ||
+       s->pointer_pid || s->pointer_blocked || clipboard.writer) return 0;
+    for(unsigned i=0;i<DESK_CLIPBOARD_PEERS;i++)
+        if(clipboard.peers[i].reading || clipboard.peers[i].reply.type) return 0;
+    for(unsigned i=0;i<DESKD_WINDOWS;i++) {
+        const struct client *c=&s->clients[i];
+        if(s->children[i] && !c->pid) return 0;
+        if(!c->pid) continue;
+        if(c->configure || c->awaiting || c->closing || c->close_requested ||
+           c->preferences_dirty || c->release.type || c->brightness_reply.type ||
+           c->audio_reply.type || c->input_count || c->input_blocked ||
+           c->control_blocked || c->pointer_cancel_pending || c->notice_ack_pending) return 0;
+    }
+    return 1;
+}
 static int hit(struct session *s,int x,int y) {
     int order[DESKD_WINDOWS];desktop_stack(&s->scene,order);
     for(int n=DESKD_WINDOWS-1;n>=0;n--) {
@@ -1547,7 +1567,8 @@ int main(int argc,char **argv) {
         if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
-        if (s.damage.count) frames++;
+        int painted=s.damage.count!=0;
+        if (painted) frames++;
         if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent) {
             if(control_files && coexist_sent!=coexist_ack && !(coexist_sent%12))
                 desk_log("desktop-coexist: file-checkpoint serial=%llu elapsed_us=%llu\n",
@@ -1643,7 +1664,10 @@ int main(int argc,char **argv) {
             }
         }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
-        srv_sleep_ticks(1);
+        if(!apps || coexist || control_capture || battery_guided || hardware_trial ||
+           quit || painted || buttons || drag>=0 || resize>=0 || pending_key ||
+           !session_quiescent(&s) || gui_server_wait(10)<0)
+            srv_sleep_ticks(1);
     }
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
     if(battery_guided) {

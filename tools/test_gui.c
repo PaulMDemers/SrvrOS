@@ -10,7 +10,9 @@ void process_file_poll_wake(void) { poll_wakes++; }
 int audio_request(unsigned op,unsigned value) { return op==1 && value==0?0:-1; }
 int backlight_percent(unsigned value) { brightness_calls++;return value?(int)value:14; }
 static uint64_t current_pid=1;
-static bool keyboard_events;
+static bool keyboard_events,keys_pending,pointer_pending;
+bool keyboard_events_pending(void) { return keys_pending; }
+bool mouse_pending(void) { return pointer_pending; }
 static unsigned pointer_speed=3;static bool pointer_accel,pointer_typing;static unsigned pointer_flags;
 void mouse_trackpad_settings(unsigned speed,unsigned options) { pointer_speed=speed;pointer_flags=options;pointer_accel=options&SRV_POINTER_ACCELERATION;pointer_typing=options&SRV_POINTER_DISABLE_WHILE_TYPING; }
 void keyboard_set_event_mode(bool enabled) { keyboard_events=enabled; }
@@ -132,9 +134,17 @@ int main(void) {
     assert(gui_register_server()==-1 && server_pid==0);
     protocol_tests();
     current_pid=1; assert(gui_register_server()==0);
+    assert(gui_server_ready()==0);
+    keys_pending=true;assert(gui_server_ready()==1 && keys_pending);keys_pending=false;
+    pointer_pending=true;assert(gui_server_ready()==1 && pointer_pending);pointer_pending=false;
+    assert(gui_server_ready()==0);
+    struct gui_message open=packet_message(DESK_OPEN,0,0,0);
+    current_pid=2;assert(gui_server_ready()==-1 && gui_send(&open)==0);
+    current_pid=1;assert(gui_server_ready()==1);
+    struct gui_message queued;assert(gui_recv(&queued)==1 && gui_server_ready()==0);
     assert(gui_client_ready(1)==-1); /* Server cannot sleep on client messages. */
     gui_process_cleanup(2);assert(queue_for_pid(2,false)==NULL);
-    current_pid=0;assert(gui_client_ready(1)==-1);
+    current_pid=0;assert(gui_client_ready(1)==-1 && gui_server_ready()==-1);
     current_pid=2;assert(gui_client_ready(0)==-1 && gui_client_ready(99)==-1);
     assert(gui_client_ready(1)==0 && queue_for_pid(2,false)==NULL); /* No allocation. */
     current_pid=1;

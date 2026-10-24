@@ -2,7 +2,8 @@
 #include <stdio.h>
 #define SRVROS_MOUSE_TEST_HOST
 #include "../kernel/src/drivers/mouse_input.c"
-static unsigned wakes;
+static unsigned wakes,poll_wakes;
+void process_file_poll_wake(void) { poll_wakes++; }
 static uint64_t test_us;
 uint64_t timer_monotonic_us(void) { return test_us; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==mouse_wait_queue());wakes++; }
@@ -25,10 +26,10 @@ int main(void) {
     input_timing_add(&saturated,1,2);assert(saturated.count==UINT64_MAX && !saturated.total_us);
     saturated=(struct input_timing){.total_us=UINT64_MAX};
     input_timing_add(&saturated,1,2);assert(!saturated.count);
-    test_us=0;wakes=0;
+    test_us=0;wakes=poll_wakes=0;
     assert(!mouse_pending());
-    mouse_inject_trackpad(1,0,0);assert(mouse_pending() && wakes==1);
-    mouse_inject_trackpad(1,0,0);assert(wakes==1); /* Existing readiness needs no second notification. */
+    mouse_inject_trackpad(1,0,0);assert(mouse_pending() && wakes==1 && poll_wakes==1);
+    mouse_inject_trackpad(1,0,0);assert(wakes==1 && poll_wakes==1); /* Existing readiness needs no second notification. */
     next(2,0,0);assert(!mouse_pending());
     unsigned speed,options;
     mouse_trackpad_get_settings(&speed,&options);assert(speed==3 && options==0);
@@ -90,5 +91,6 @@ int main(void) {
     for(unsigned i=0;i<65;i++)mouse_inject_trackpad(0,0,(i&1)?0:1);
     e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
     mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    assert(wakes==poll_wakes); /* Enqueue, overflow and cancellation notify both paths. */
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }

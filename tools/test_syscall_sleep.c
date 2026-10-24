@@ -6,6 +6,7 @@ static uint64_t now;
 static unsigned waits,yields,spurious;
 static bool killed,signaled,no_scheduler,pointer;
 static int64_t gui_ready;
+int64_t gui_server_ready(void) { return gui_ready; }
 int64_t gui_client_ready(uint64_t server) { assert(server==42);return gui_ready; }
 bool mouse_pending(void) { return pointer; }
 static int interrupt;
@@ -60,6 +61,20 @@ int main(void) {
     signaled=false;interrupt=1;assert(syscall_gui_wait(42,10)==-1);
     killed=false;interrupt=0;no_scheduler=true;assert(syscall_gui_wait(42,3)==0 && now==523);
     now=UINT64_MAX-5;before=waits;assert(syscall_gui_wait(42,6)==-1 && waits==before);
+    now=700;no_scheduler=false;gui_ready=0;before=waits;
+    assert(syscall_gui_server_wait(11)==-1 && syscall_gui_server_wait(0)==0 && waits==before);
+    assert(syscall_gui_server_wait(10)==0 && now==710);
+    spurious=3;assert(syscall_gui_server_wait(10)==0 && now==720);
+    gui_ready=-1;before=waits;assert(syscall_gui_server_wait(10)==-1 && waits==before);
+    gui_ready=1;assert(syscall_gui_server_wait(10)==1 && waits==before);
+    gui_ready=0;arrive_at_check=true;assert(syscall_gui_server_wait(10)==1 && now==720);
+    gui_ready=0;interrupt=4;assert(syscall_gui_server_wait(10)==1);
+    gui_ready=0;interrupt=5;assert(syscall_gui_server_wait(10)==-1);
+    gui_ready=0;interrupt=2;assert(syscall_gui_server_wait(10)==SRV_ERR_INTR);
+    signaled=false;interrupt=1;assert(syscall_gui_server_wait(10)==-1);
+    killed=false;interrupt=0;no_scheduler=true;assert(syscall_gui_server_wait(3)==0 && now==723);
+    now=UINT64_MAX-5;assert(syscall_gui_server_wait(6)==-1);
+    puts("gui-server-wait: PASS readiness/race, deadline, refusal, signal/exit and fallback");
     puts("gui-wait: PASS bounded deadline, ready/arrival race, spurious wake, peer loss, signal/cancel and fallback");
     puts("pointer-wait: PASS ready input, arrival during wait, deadline, signals/exit and fallback");
     puts("syscall-sleep: PASS deadline blocking, spurious wakes, signals/cancel, zero/overflow and early-boot fallback");
