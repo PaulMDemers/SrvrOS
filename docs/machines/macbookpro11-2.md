@@ -3986,3 +3986,13 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean221files/580clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: review remaining reference MAC prerequisites before revisiting the
 full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v42 VHT protection/fallback after accepted v41.
+Registers13e0/13e4/13e8/1358: captured startse3f02004/e3f02084/e3f02104/edcba988,
+reference targetse3f42004/e3f42084/e3f42104/edcba980. Four live Linux samples
+match first/fourth; middle targets have extra10000 in active Linux, not a
+cold-init expectation. Keep exact reference targets; no widened mask. Read-only
+audit restored regidx and did not reset/unbind/write device registers. Sequence12,
+four-pair packet,12reads and final MAC0/COREf000f200; no BBP table or RF enable.
+Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched mainde449b3 (Air6,1 Home),
+PR106 Text polling/power separate; existing battery capture profiles preserved.

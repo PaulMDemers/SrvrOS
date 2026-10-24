@@ -862,3 +862,13 @@ size_t mt76_mac_beacon_packet(uint8_t *out,size_t capacity){
 }
 enum mt76_mcu_timing_status mt76_mac_beacon_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_beacon_plan,11,true,2,2);}
+
+/* Final mt76x0 VHT protection and fallback table values; MAC remains off. */
+static const struct mt76_mcu_register_pair mac_vht_plan[4]={
+    {0x13e0,0xe3f42004},{0x13e4,0xe3f42084},{0x13e8,0xe3f42104},{0x1358,0xedcba980}
+};
+size_t mt76_mac_vht_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,12,mac_vht_plan,4,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_vht_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_vht_plan,12,true,4,4);}

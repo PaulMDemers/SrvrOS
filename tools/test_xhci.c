@@ -3041,6 +3041,78 @@ static void test_wifi_mac_txsw(void){
  puts("xhci MAC TX controls: PASS exact packet, precondition gates, ownership, no retry and quarantine");
 }
 
+static void test_wifi_mac_vht(void){
+ for(unsigned fault=0;fault<44;fault++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[200],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->mac_route.complete=true;m->mac_route_submitted=true;
+  m->mac_policy_validate=true;m->mac_policy.complete=true;m->mac_policy_submitted=true; m->mac_protect.complete=true;m->mac_protect_submitted=true; m->mac_contention.complete=true;m->mac_contention_submitted=true; m->mac_beacon.complete=true;m->mac_beacon_submitted=true;m->mac_txsw.complete=true;m->mac_txsw_submitted=true; m->mac_vht_mode=true;m->mac_vht_active=true;
+  m->mac_vht=(struct mt76_mcu_mac){.attempted=true,.reads=6,.batches_attempted=1,.mac_before=0,.core_before=0xf000f200,.before={0xe3f02004,0xe3f02084,0xe3f02104,0xedcba988}};
+
+  f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+  m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+  if(fault==1)m->mac_vht_mode=false;
+  if(fault==2)m->mac_vht_active=false;
+  if(fault==3)m->mac_raw_mode=true;
+  if(fault==4)m->mac_snapshot_mode=true;
+  if(fault==5)m->mac_vht_submitted=true;
+  if(fault==6)m->mac_vht.before[0]^=1;
+  if(fault==7)m->mac_vht.before[1]^=1;
+  if(fault==8)m->mac_vht.mac_before=1;
+  if(fault==9)m->mac_vht.core_before=0;
+  if(fault==10)m->mac_vht.reads=3;
+  if(fault==11)m->mac_vht.batches_attempted=0;
+  if(fault==12)m->mac_vht.batches_completed=1;
+  if(fault==13)m->mac_vht.ack_mask=1;
+  if(fault==14)m->mac_vht.complete=true;
+  if(fault==15)m->mac_vht.attempted=false;
+  if(fault==16)m->table.attempted=true;
+  if(fault==17)m->table_submitted=1;
+  if(fault==18)m->pending=true;
+  if(fault==19)m->compact[2].attempted=true;
+  if(fault==20)m->clock.complete=false;
+  if(fault==21)events[0].status=6u<<24;
+  if(fault==22)events[1].status=6u<<24;
+  if(fault==23)m->mac_vht.before[2]^=1;
+  if(fault==24)m->mac_vht.before[3]^=1;
+  if(fault==25)m->mac_route.complete=false;
+  if(fault==26)m->mac_route_submitted=false;
+  if(fault==27)m->mac_route_active=true;
+  if(fault==28)m->mac_policy_validate=false;
+  if(fault==29)m->mac_policy.complete=false;
+  if(fault==30)m->mac_policy_submitted=false;
+  if(fault==31)m->mac_policy_active=true;
+  if(fault==32)m->mac_protect.complete=false;
+  if(fault==33)m->mac_protect_submitted=false;
+  if(fault==34)m->mac_protect_active=true;
+  if(fault==35)m->mac_contention.complete=false;
+  if(fault==36)m->mac_contention_submitted=false;
+  if(fault==37)m->mac_contention_active=true;
+  if(fault==38)m->mac_txsw.complete=false;
+  if(fault==39)m->mac_txsw_submitted=false;
+  if(fault==40)m->mac_txsw_active=true;
+  if(fault==41)m->mac_beacon.complete=false;
+  if(fault==42)m->mac_beacon_submitted=false;
+  if(fault==43)m->mac_beacon_active=true;
+  size_t length=mt76_mac_vht_packet(packet,sizeof packet);
+  if(!fault){
+   uint32_t value;assert(!wifi_mac_vht_read(d,0x1000,&value));
+   for(unsigned i=0;i<length;i++)for(unsigned bit=0;bit<8;bit++){packet[i]^=1u<<bit;assert(wifi_mac_vht_exchange(d,packet,length,reply,sizeof reply)==-1);packet[i]^=1u<<bit;}
+   assert(wifi_mac_vht_exchange(d,packet,length-1,reply,sizeof reply)==-1);
+  }
+  assert(wifi_mac_vht_exchange(d,packet,length,reply,sizeof reply)==(fault?-1:16));
+  if(!fault){assert(!memcmp(tx,packet,length) && m->mac_vht_submitted);assert(m->response.enqueue==1u);assert(wifi_mac_vht_exchange(d,packet,length,reply,sizeof reply)==-1);}
+  else if(fault==21 || fault==22)assert(m->mac_vht_submitted && f->failed && d->ep0_quarantined);
+  else assert(!f->ep.enqueue && !m->response.enqueue);
+ }
+ puts("xhci MAC VHT protection: PASS exact packet, precondition gates, ownership, no retry and quarantine");
+}
+
 static void test_wifi_mac_beacon(void){
  for(unsigned fault=0;fault<39;fault++){
   reset_test();test_time=0;test_time_step=1000;
@@ -3277,6 +3349,7 @@ int main(int argc, char **argv) {
     test_wifi_compact_binding();
     test_wifi_compact_reads();
     test_wifi_txbe_observe();
+    test_wifi_mac_vht();
     test_wifi_mac_beacon();
     test_wifi_mac_txsw();
     test_wifi_mac_contention();

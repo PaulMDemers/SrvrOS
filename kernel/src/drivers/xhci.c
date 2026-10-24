@@ -259,6 +259,8 @@ struct xhci_wifi_mcu {
     struct mt76_mcu_mac mac_contention;
     struct mt76_mcu_mac mac_txsw;
     struct mt76_mcu_mac mac_beacon;
+    struct mt76_mcu_mac mac_vht;
+    bool mac_vht_mode,mac_vht_active,mac_vht_submitted;
     bool mac_beacon_mode,mac_beacon_active,mac_beacon_submitted;
     bool mac_txsw_mode,mac_txsw_active,mac_txsw_submitted;
     bool mac_contention_mode,mac_contention_active,mac_contention_submitted;

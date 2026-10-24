@@ -623,6 +623,45 @@ static void test_mac_txsw(void){
  puts("MAC txsw: PASS exact ordered 40-byte packet, twelve reads, all failures/cancellation, reply and target guards");
 }
 
+struct vht_fake {unsigned op,auth,fail,deny,bad,ones;};
+static bool vht_auth(void *p){struct vht_fake *f=p;return ++f->auth!=f->deny;}
+static bool vht_read(void *p,uint32_t a,uint32_t *v){
+ struct vht_fake *f=p;
+ const uint32_t addresses[]={0x1004,0x2000,0x13e0,0x13e4,0x13e8,0x1358,0,0x13e0,0x13e4,0x13e8,0x1358,0x1004,0x2000};
+ const uint32_t values[]={0,0xf000f200,0xe3f02004,0xe3f02084,0xe3f02104,0xedcba988,0,0xe3f42004,0xe3f42084,0xe3f42104,0xedcba980,0,0xf000f200};
+ assert(f->op<13 && a==addresses[f->op]);*v=values[f->op];f->op++;
+ if(f->bad==f->op)*v^=1;
+ if(f->ones==f->op)*v=UINT32_MAX;
+ return f->fail!=f->op;
+}
+static int vht_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t cap){
+ struct vht_fake *f=p;const uint8_t expected[]={0x20,0,0xcc,0x50,0xe0,0x13,0x41,0,0x04,0x20,0xf4,0xe3,0xe4,0x13,0x41,0,0x84,0x20,0xf4,0xe3,0xe8,0x13,0x41,0,0x04,0x21,0xf4,0xe3,0x58,0x13,0x41,0,0x80,0xa9,0xcb,0xed,0,0,0,0};
+ assert(f->op==6 && n==40 && cap>=16 && !memcmp(data,expected,40));f->op++;
+ if(f->fail==f->op)return -1;
+ word(reply,0x4a0c0008);word(reply+4,0x4113e0);word(reply+8,0xe3f42004);word(reply+12,0x4a0c0008);
+ if(f->bad==7)reply[2]^=1;
+ return 16;
+}
+static void test_mac_vht(void){
+ for(unsigned fail=0;fail<=13;fail++)for(unsigned deny=0;deny<=14;deny++){
+  struct vht_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,vht_auth,vht_read,vht_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_vht_apply(&s,&io);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==12 && s.ack_mask==1 && s.batches_completed==1 && f.op==13 && f.auth==14);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_vht_apply(&s,&io)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bad=1;bad<=13;bad++)if((bad<3 || bad>6)){
+  struct vht_fake f={.bad=bad};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,vht_auth,vht_read,vht_exchange};
+  assert(mt76_mac_vht_apply(&s,&io)==(bad==7?MT76_TIMING_REPLY:MT76_TIMING_STATE));assert(!s.complete);
+ }
+ for(unsigned ones=1;ones<=13;ones++)if(ones!=7){
+  struct vht_fake f={.ones=ones};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,vht_auth,vht_read,vht_exchange};
+  assert(mt76_mac_vht_apply(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ puts("MAC vht: PASS exact ordered 40-byte packet, twelve reads, all failures/cancellation, reply and target guards");
+}
+
 struct beacon_fake {unsigned op,auth,fail,deny,bad,ones;};
 static bool beacon_auth(void *p){struct beacon_fake *f=p;return ++f->auth!=f->deny;}
 static bool beacon_read(void *p,uint32_t a,uint32_t *v){
@@ -664,6 +703,7 @@ static void test_mac_beacon(void){
 
 
 int main(void){
+ test_mac_vht();
  test_mac_beacon();
  test_mac_txsw();
  test_mac_contention();

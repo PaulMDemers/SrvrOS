@@ -1786,3 +1786,18 @@ both expected offset readbacks, all eight reads and final MAC0/COREf000f200
 were verified. Both completion markers and all preceding bounded groups passed.
 This accepts only the initialization pair; operational beacon layout and
 RF/connectivity remain untested.
+
+### VHT protection/fallback (v42; native result pending)
+
+`--wifi-mac-vht` requires v41 prerequisites. One sequence12, 40-byte packet
+writes TX_PROT_CFG6/7/8 (13e0/13e4/13e8) to e3f42004/e3f42084/e3f42104
+and VHT_HT_FBK_CFG1 (1358) to edcba980. Mandatory captured starts are
+e3f02004/e3f02084/e3f02104/edcba988. These are the final four entries in the
+Linux v7.0 mt76x0 MAC initialization table referenced above. Exact ACK, four
+readbacks, twelve reads and initial/final MAC0/COREf000f200 are required.
+There is no retry, BBP table or RF/MAC TX/RX enable after this group.
+
+Four read-only same-adapter Linux samples agree on the first/fourth target;
+active Linux13e4/13e8 have an extra10000. Runtime settings are not cold-init
+acceptance: this trial requires the exact reference values, without masks or
+alternative accepted values. Physical acceptance remains pending.
