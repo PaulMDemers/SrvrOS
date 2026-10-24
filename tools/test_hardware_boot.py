@@ -216,6 +216,26 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(manifest['config_version'],version)
         self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-battery/srvros.elf')
 
+    def test_air61_ordinary_battery_profile(self):
+        version='ram-usb-v70-desktop-6ada85bb'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
+        for flag in ('srvros.desktop=session','srvros.battery=on','srvros.workspace-volume=6ada85bb'):
+            self.assertIn(flag,cfg)
+        for option in ('capture','aml','laptop-services','audio','smc','sensors','usb-network'):
+            self.assertNotIn('srvros.'+option+'=',cfg)
+        base=dict(desktop_volume='6ada85bb',desktop_battery=True,battery_air61=True)
+        for extra in ({'desktop_scale':2},{'desktop_services':True},{'laptop_probe_volume':'6ada85bb'},
+                      {'battery_home_work':True},{'hold_on_failure':True},{'desktop_basic':True}):
+            with self.assertRaises(ValueError):boot.stage(**(base|extra))
+        with self.assertRaises(ValueError):boot.stage(desktop_volume='6ada85bb',battery_air61=True)
+        for name in ('limine-binary/BOOTX64.EFI','acpi-air61-battery/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(**base)
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-air61-battery/srvros.elf')
+
     def test_integrated_desktop_profile(self):
         version="ram-usb-v55-desktop-37d8c5d0"
         cfg=boot.limine_config("0123456789abcdef",version)

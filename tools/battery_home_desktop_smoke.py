@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Ordinary Home apps, periodic logs and battery ownership on disposable Q35 USB."""
-import argparse, hashlib, json, os, re, struct, subprocess, tempfile, time
+import argparse, hashlib, json, os, re, struct, subprocess, tempfile, time, binascii
+import uuid as uuidlib
+from mk_usb_image import gpt_entry, gpt_header
 from pathlib import Path
 from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
@@ -28,22 +30,27 @@ def service_snapshot(data,audio):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal','missing-workspace','runtime-missing','opt-out','clock-missing'),default='normal')
+    parser.add_argument('--air61',action='store_true',help='use exact Air6,1 ownership fixture/kernel')
+    parser.add_argument('--linger-seconds',type=int,default=0,help='keep normal session live before normal menu exit')
+    parser.add_argument('--workspace-table',choices=('mbr','gpt'),default='mbr')
     parser.add_argument('--boot-session',action='store_true',help='exercise ordinary opt-in boot, then reopen from monitor')
     parser.add_argument('--stage',help='exact v54/v55 native stage; requires --boot-session --case profile-refusal on Q35')
     parser.add_argument("--services",action="store_true",help="exercise combined optional laptop services with ordinary battery ownership")
     parser.add_argument("--audio",action="store_true",help="attach HDA and play bundled PCM during the combined session")
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
+    if args.linger_seconds<0 or args.linger_seconds>900 or (args.linger_seconds and (not args.boot_session or args.case!='normal')):parser.error('linger requires normal boot session, 0..900 seconds')
+    if args.air61 and (not args.boot_session or args.services):parser.error('Air6,1 requires separate boot session without services')
     entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if args.audio and not args.services:parser.error('audio requires services')
     if args.services and not args.boot_session:parser.error('services requires boot-session')
     if entry_refusal and not args.boot_session:parser.error('entry refusal cases require --boot-session')
     if args.stage and (not args.boot_session or args.case!='profile-refusal'):parser.error('stage requires --boot-session --case profile-refusal')
-    out=root/'build/review'/('battery-home-desktop-'+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case);out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case);out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-home-apps-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
         fault={'normal':83,'cancel':83,'profile-refusal':15,'runtime-fault':79,'refusal':83}.get(args.case,83)
-        (tmp/'battery.asl').write_text(f'#define BATTERY_FAULT {fault}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_AIR61 1\n' if args.air61 else '')+f'#define BATTERY_FAULT {fault}\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         with volume.open('wb') as f:f.truncate(128*1024*1024)
         subprocess.run(['/usr/sbin/mkfs.exfat','-c','128K',str(volume)],check=True,stdout=subprocess.DEVNULL)
@@ -52,15 +59,24 @@ def main():
             import hardware_boot as boot
             assert boot.RELEASE_RE.fullmatch(args.stage),'invalid staged release'
             stage=boot.STAGE/args.stage;manifest=boot.verify(stage)
-            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-'))
+            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-'))
             assert args.services==manifest['config_version'].startswith('ram-usb-v55-'),'services flag must match staged profile'
+            assert args.air61==manifest['config_version'].startswith('ram-usb-v70-'),'Air6,1 flag must match staged profile'
             uuid=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1]
         subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+uuid,str(volume)],check=True,stdout=subprocess.DEVNULL)
         marker=f'SRVROS-WORKSPACE-V1 {uuid}\n'.encode()
         fixture=ExfatFixture(volume.read_bytes());fixture.add_directory_files('srvros-work',{'.workspace':marker,'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as f:f.write(mbr);f.seek(2048*512);f.write(fixture.data)
-        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='refusal' else 'vm.elf')
+        if args.workspace_table=='gpt':
+            last=2048+len(fixture.data)//512-1;backup=last+33;entries=bytearray(128*128)
+            entries[:128]=gpt_entry(uuidlib.UUID('ebd0a0a2-b9e5-4433-87c0-68b6b72699c7'),uuidlib.uuid4(),2048,last,'Workspace')
+            crc=binascii.crc32(entries)&0xffffffff;guid=uuidlib.uuid4();mbr[450]=0xee;struct.pack_into('<II',mbr,454,1,0xffffffff)
+            with stick.open('wb') as f:
+                f.write(mbr);f.write(gpt_header(1,backup,34,last,2,128,crc,guid));f.write(entries)
+                f.seek(2048*512);f.write(fixture.data);f.write(entries);f.write(gpt_header(backup,1,34,last,backup-32,128,crc,guid))
+        original_disk=stick.read_bytes();volume_end=2048*512+len(fixture.data)
+        kernel=root/('build/acpi-air61-battery' if args.air61 else 'build/acpi-battery')/('srvros.elf' if args.case=='refusal' else 'vm.elf')
         if args.case=='runtime-missing':kernel=root/'build/kernel/srvros.elf'
         initramfs=root/'build/initramfs.tar'
         cmdline=f'srvros.storage=ram srvros.workspace-volume={uuid} srvros.desktop=session srvros.battery=on' if args.boot_session else None
@@ -128,7 +144,7 @@ def main():
                     serial.sendall(b'workspace mount 51525354\n');wait(b'workspace: ready at /work/srvros-work');wait(b'\nsrv> ')
                     serial.sendall(b'acpiruntime battery-home-desktop\n')
                 if stage:assert b'SRVROS_GRUB_CHAINLOAD_TEST' in output
-                result={'case':args.case,'boot_session':args.boot_session,'stage':args.stage,'physical_acceptance':False,'services':args.services,'audio':args.audio}
+                result={'case':args.case,'boot_session':args.boot_session,'stage':args.stage,'physical_acceptance':False,'services':args.services,'audio':args.audio,'air61':args.air61,'workspace_table':args.workspace_table}
                 if entry_refusal:
                     result['entry_refused']=True
                 elif args.case=='refusal' and not args.boot_session:
@@ -168,7 +184,18 @@ def main():
                         assert b'file-result role=text op=2' not in output[pending_at:]
                         qmp.call('cont')
                         result['exit_with_submitted_save']=True
-                    shortcut('ctrl-alt-esc');wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
+                    if args.linger_seconds:
+                        began=time.monotonic()
+                        while time.monotonic()-began<args.linger_seconds:
+                            assert process.poll() is None
+                            output.extend(read_for(serial,.2));(out/'serial.log').write_bytes(output)
+                            assert b'battery: HALTED' not in output and b'desktop-session: returned' not in output
+                        stamps=[int(v) for v in re.findall(rb'workspace-log: snapshot=session-[ab]\.log monotonic_us=(\d+)',output)]
+                        assert stamps[-1]-stamps[0]>=(args.linger_seconds-15)*1000000
+                        result['live_log_span_us']=stamps[-1]-stamps[0]
+                    if args.case=='cancel':shortcut('ctrl-alt-esc')
+                    else:shortcut('f10');shortcut('end');shortcut('ret')
+                    wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
                     data=bytes(output)
                     acquired=re.search(rb'battery-desktop-lifetime: acquired token=(\d+) root=(\d+)',data)
                     drained=re.search(rb'battery-desktop-lifetime: drained token=(\d+) members=0 peak=(\d+) revoked=yes',data)
@@ -208,10 +235,10 @@ def main():
                     output.extend(read_for(serial,.1));result['monitor_reboot']=True
                     result['manifest_sha256']=hashlib.sha256((stage/'manifest.json').read_bytes()).hexdigest()
                     result['boot_path']='GRUB -> staged Limine -> native kernel'
-                stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
-                if entry_refusal or (args.case=='refusal' and not args.boot_session):assert disk[2048*512:]==bytes(fixture.data)
+                stop_process(process);disk=stick.read_bytes();assert disk[:2048*512]==original_disk[:2048*512] and disk[volume_end:]==original_disk[volume_end:]
+                if entry_refusal or (args.case=='refusal' and not args.boot_session):assert disk[2048*512:volume_end]==bytes(fixture.data)
                 elif args.case!='runtime-fault':
-                    final=ExfatFixture(disk[2048*512:]);assert final.read('srvros-work/.workspace')==marker and final.read('srvros-work/anchor.txt')==ANCHOR
+                    final=ExfatFixture(disk[2048*512:volume_end]);assert final.read('srvros-work/.workspace')==marker and final.read('srvros-work/anchor.txt')==ANCHOR
                     assert final.read('srvros-work/desktop-proof.txt')==(b'Ordinary Home desktop. Pending save.' if args.case=='cancel' else b'Ordinary Home desktop.')
                     assert {n for n,_ in final.entries(final.chain(final.root))}=={'srvros-work','.srvros'}
                     assert {n for n,_ in final.entries(final.read('srvros-work'))}==({'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}|({'audio-proof.txt'} if args.audio else set()))
@@ -232,7 +259,7 @@ def main():
                     assert b'battery-desktop-lifetime: released' in exitlog and b'workspace-log: snapshot=exit.log' in exitlog
                     result['saved_logs']=sorted(names)
                 if args.case!='runtime-fault':
-                    volume.write_bytes(disk[2048*512:]);(out/'fsck.txt').write_text(check_clean_image(volume))
+                    volume.write_bytes(disk[2048*512:volume_end]);(out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result['offline_allocation']='PASS'

@@ -15,7 +15,36 @@ passive firmware handoff state with AC connected on 2026-10-23. It is a prerequi
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
 
-## Next attended work capture (native acceptance pending)
+## Opt-in ordinary desktop monitoring (native acceptance pending)
+
+Use the distinct v70 profile for a desktop that runs until you choose to exit:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume 6ADA-85BB \
+  --desktop-battery --battery-air61
+```
+
+This selects the exact Air6,1 runtime and the existing ordinary Home session.
+It has no five-minute completion prompt, eight-minute halt or diagnostic event
+quota. Each firmware transaction and retirement operation remains bounded;
+uncertain live ownership still halts instead of freeing active state. Sampling,
+periodic USB logs, the cached battery indicator and System Start/Stop controls
+share the inherited desktop lifetime and exact mount hold. Firmware/EC/query
+permissions are unchanged. Normal boot without this opt-in stays off.
+
+Keep the USB connected. Use Text and Files normally; save a new file and reopen
+it. For the first trial, leave the session running beyond eight minutes, then
+save all work and select **SrvrOS > Return to console** whenever finished.
+At `srv>` enter **`reboot`** to flush/unmount and return to Ubuntu. There is no
+automatic timed return. `desktop battery` at the console can reopen monitoring
+against the same mounted Home. This profile does not enable additional audio,
+brightness or sensor services; their combined coexistence is a separate step.
+
+The prior bounded attended test remains incomplete by user choice. Its capture
+receipt fix is physically verified; that evidence does not substitute for clean
+retirement of this new ordinary profile.
+
+## Historical attended work capture (incomplete)
 
 The explicit Air6,1 v69 `--battery-home-work` recipe runs ordinary Home apps
 with battery sampling and periodic USB logs. Keep AC and USB connected. Spend

@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-storage-wait|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -109,7 +109,7 @@ def limine_config(release, version=CONFIG_VERSION):
             cmdline += f" srvros.desktop-release={release} srvros.laptop-services=brightness"
         if version.startswith(("ram-usb-v57-","ram-usb-v59-")): cmdline += " srvros.audio=hda"
         if version.startswith("ram-usb-v59-"): cmdline += " srvros.sensors=cpu srvros.smc=read-only"
-        if version.startswith(("ram-usb-v54-","ram-usb-v55-")):
+        if version.startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-")):
             cmdline = cmdline.replace("srvros.desktop=trial", "srvros.desktop=session")
             cmdline += f" srvros.desktop-release={release} srvros.battery=on"
         if version.startswith("ram-usb-v55-"):
@@ -185,7 +185,11 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Storage wait comparison requires its own automatic laptop probe profile")
     if battery_home_work and not battery_air61:raise ValueError("Attended Home work currently requires Air6,1 profile")
-    if battery_air61:
+    if battery_air61 and desktop_battery:
+        allowed={"desktop_volume", "desktop_battery", "battery_air61", "repeat", "desktop_scale"}
+        if not desktop_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
+            raise ValueError("Air6,1 ordinary battery requires its own unscaled desktop profile")
+    elif battery_air61:
         allowed={"laptop_probe_volume", "battery_air61", "battery_smbus", "battery_transitions", "battery_smbus_files", "battery_home", "battery_home_session", "battery_home_desktop", "battery_home_transitions", "battery_home_work", "repeat", "desktop_scale"}
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Air6,1 battery requires its own automatic sampling or bounded SMBus profile")
@@ -245,7 +249,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v{58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
+        version = f"ram-usb-v{70 if battery_air61 and desktop_battery else 58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
@@ -426,7 +430,7 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-")):
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-")):
         print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
@@ -487,13 +491,13 @@ def main():
     parser.add_argument("--desktop-battery",action="store_true",help="ordinary Home session with explicit battery monitoring; Ctrl+Alt+Esc exits")
     parser.add_argument("--desktop-services",action="store_true",help="add existing brightness, HDA, read-only sensors and ECM discovery to --desktop-battery")
     parser.add_argument("--battery-preflight",action="store_true",help="passive Air6,1 PM1/GPE/EC-status capture; no live battery sampling")
-    parser.add_argument("--battery-air61",action="store_true",help="isolated Air6,1 sampling; add --battery-smbus for short capture or --battery-transitions for attended AC")
+    parser.add_argument("--battery-air61",action="store_true",help="exact Air6,1 battery kernel; use a capture or --desktop-battery --desktop-volume")
     parser.add_argument("--storage-wait-capture",action="store_true",help="counterbalanced fixed-file USB polling/wait comparison; saves and returns automatically")
     args = parser.parse_args()
     if args.storage_wait_capture and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("--storage-wait-capture requires stage --laptop-probe-volume")
-    if args.battery_air61 and (args.action != "stage" or not args.laptop_probe_volume):
-        parser.error("--battery-air61 requires stage --laptop-probe-volume")
+    if args.battery_air61 and (args.action != "stage" or not (args.laptop_probe_volume or (args.desktop_battery and args.desktop_volume))):
+        parser.error("--battery-air61 requires stage with a laptop probe or explicit battery desktop volume")
     if args.battery_preflight and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("--battery-preflight requires stage --laptop-probe-volume")
     if args.desktop_services and (args.action != "stage" or not args.desktop_battery):
