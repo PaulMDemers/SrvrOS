@@ -986,3 +986,10 @@ returns; uncertain runtime faults halt with Home retained and never reset mounte
 storage. Keep AC/USB connected. Follow the [Air6,1 audit](macbookair6-1-battery.md#explicit-mounted-home-candidate-v65)
 and collect `battery_home` plus file/allocation proof before another trial.
 Native acceptance is pending; ordinary battery startup remains off.
+
+
+Air6,1 v65 release `30b0d713f1a9ed55` completed the short mounted Home trial
+on October 23 (session `00065e8b198ee6ba-00`): three fresh samples, 45 events,
+clean retirement/release, preserved prior file contents and clean offline
+allocation. This accepts that bounded no-client diagnostic only; ordinary
+Air6,1 desktop battery startup remains off. See the [unit record](machines/macbookair6-1.md).

@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling with normal USB Home mounted is physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -1432,3 +1432,27 @@ fresh samples with Home held, then retirement, saved logs and Ubuntu return.
 If it halts, photograph the screen and report it; do not treat a reset or missing
 completion as success. Collect matching `battery_home`, unchanged prior files,
 filesystem/allocation and recovery evidence before another trial.
+
+## Mounted Home sampling accepted (2026-10-23)
+
+Close out the authorized v65 run on main `de449b3` (MR109). Scope is this
+unit's evidence and current status; PR106 power work and PR19 Wi-Fi remain
+independent. No shared runtime or device admission changes are needed.
+
+Release `30b0d713f1a9ed55`, compiled `c69cd23`, session
+`00065e8b198ee6ba-00` completes the strict native `battery_home` receipt:
+three fresh generations, 45 completion events, three handled/zero unclaimed SCI
+deliveries and no alarms. Runtime retires with attach/detach 1/1 and zero
+heap/errors/denied; the same Home mount is held through retirement, then released.
+The completed capture saves its exit log and returns to Ubuntu.
+
+All 218 prior files survive; only expected `.srvros/meta` changes, with three
+new logs. Offline fsck and allocation/headroom pass: 221 files, 531 clusters,
+zero leaks/mismatches/errors. Candidate/recovery hashes and Ubuntu default pass;
+the one-shot is consumed. Raw logs, strict receipt, file comparison and recovery
+checks are backed up outside build. USB is unmounted and no reboot is armed.
+
+This accepts short mounted Home sampling only, with no desktop clients or AC
+changes. Ordinary desktop startup remains off; sustained coexistence and gauge
+accuracy are not accepted. Next is the explicit bounded Home desktop session
+with Text saves and repeated Start/Stop before ordinary desktop integration.
