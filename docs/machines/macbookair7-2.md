@@ -2,6 +2,20 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active scope: individual USB completion timing
+
+Starting from merged main `76f98c4`, this unit is instrumenting synchronous USB
+storage callbacks to distinguish submission-to-software-event-observation from
+observation-to-caller-resumption. Neither interval is pure hardware/device time.
+Scope: xHCI storage request/event bookkeeping, BOT timing aggregates, workspace
+logger/counterbalanced capture records, collectors and directed host/VM tests.
+Keep the 20 ms poll threshold, two-second deadline, DMA quarantine, input service,
+readback and flush policies unchanged. Inspect individual maxima and slow-request
+counts before deciding whether a scheduling or transport change is justified.
+Pro PR19 at `904d2ed` adds unit documentation since `a226d43`; its independent
+Wi-Fi enablement is outside this scope. No pending native run or reboot is armed;
+installed `27b239f96a183fb8` and recovery `9aa8dbf6fbda8252` remain unchanged.
+
 ### TCP readiness and e1000 receive ownership follow-up
 
 PR125 resolves the legacy readiness failure retained by the network-idle
