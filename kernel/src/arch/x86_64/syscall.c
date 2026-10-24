@@ -1158,10 +1158,7 @@ static int64_t syscall_rename(const char *user_old_path, const char *user_new_pa
         !copy_user_string(user_new_path, new_path, sizeof(new_path))) {
         return -1;
     }
-    if (process_has_open_vfs_prefix(old_path) || process_has_open_vfs_prefix(new_path)) {
-        return -1;
-    }
-    return exfat_rename(old_path, new_path) ? 0 : -1;
+    return process_rename_file(old_path,new_path);
 }
 
 /* The syscall gate serializes filesystem continuations on this single-core

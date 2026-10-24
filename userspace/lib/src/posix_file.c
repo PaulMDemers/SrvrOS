@@ -1085,8 +1085,9 @@ int rename(const char *old_path, const char *new_path) {
         __posix_make_path(new_path, new_full, sizeof(new_full)) < 0) {
         return -1;
     }
-    if (srv_rename(old_full, new_full) < 0) {
-        errno = EIO;
+    long result=srv_rename(old_full,new_full);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result:EIO;
         return -1;
     }
     return 0;

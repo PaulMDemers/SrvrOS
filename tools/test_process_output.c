@@ -5,8 +5,19 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
-static bool opening,fixture_exists,fail_delete,path_fixture;
+static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture;
 static unsigned deletes;
+static bool rename_fixture,rename_fail_after_publish;
+static unsigned rename_calls;
+static struct vfs_node rename_source,rename_target;
+static char rename_path[160];
+bool exfat_same_mount(const char *a,const char *b) { return !strncmp(a,"/test/",6) && !strncmp(b,"/test/",6); }
+bool exfat_replace_file(const char *a,const char *b,bool *published) {
+    assert(rename_fixture && !strcmp(a,rename_source.path) && !strcmp(b,rename_target.path));rename_calls++;
+    strcpy(rename_path,b);rename_source.path=rename_path;rename_target.used=false;*published=true;
+    return !rename_fail_after_publish;
+}
+bool exfat_rename(const char *a,const char *b) { (void)a;(void)b;assert(0);return false; }
 static struct vfs_node path_nodes[]={
     {.path="/",.type=VFS_NODE_DIRECTORY,.metadata={.inode=1}},
     {.path="/test",.type=VFS_NODE_DIRECTORY,.metadata={.inode=2}},
@@ -42,6 +53,7 @@ __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue
     pipe_wait_mode=0;return ready(arg);
 }
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
+    if(rename_fixture) { assert((node==&rename_source || node==&rename_target) && data);return; }
     assert(opening && node==&fixture_node && data==saved);
 }
 int64_t net_hold(uint64_t handle) { (void)handle; assert(0);return -1; }
@@ -56,6 +68,11 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     return true;
 }
 const struct vfs_node *vfs_lookup(const char *path) {
+    if(rename_fixture) {
+        if(rename_source.used && !strcmp(path,rename_source.path)) return &rename_source;
+        if(rename_target.used && !strcmp(path,rename_target.path)) return &rename_target;
+        return NULL;
+    }
     if(path_fixture) {
         for(unsigned i=0;i<7;i++) if(!strcmp(path,path_nodes[i].path)) return &path_nodes[i];
         if(!strcmp(path,"/test/output")) return &fixture_node;
@@ -69,7 +86,7 @@ bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *siz
 bool exfat_delete_file(const char *path) {
     assert(opening && !strcmp(path,"/test/output"));
     if(fail_delete) return false;
-    fixture_exists=false;deletes++;return true;
+    fixture_exists=false;deletes++;return !fail_delete_after;
 }
 bool vfs_stat(const char *path,struct vfs_metadata *metadata,uint64_t *size,uint64_t *type) {
     assert(opening && !strcmp(path,"/test/output"));
@@ -319,6 +336,18 @@ static void coherence_regression(void) {
     opening=false;
     puts("process-content: PASS independent opens, reader promotion, OOM preservation, truncate/offset/flush/close lifetime");
 }
+static void orphan_io_failure_regression(void) {
+    clear_process(&subject);opening=fixture_exists=true;
+    fixture_node.metadata=(struct vfs_metadata){.inode=41,.mode=VFS_MODE_IFREG|0600,.nlink=1};
+    memcpy(saved,"seed",4);saved_size=4;
+    int reader=process_file_alloc(&subject,&fixture_node,saved,saved_size);assert(reader>=0);
+    fail_delete_after=true;assert(process_unlink_file("/test/output")==SRV_ERR_IO);fail_delete_after=false;
+    assert(!fixture_exists && !content_find("/test/output"));
+    struct vfs_metadata metadata;uint64_t size,type;
+    assert(!process_file_stat(&subject,reader,&metadata,&size,&type) && metadata.inode==41 && !metadata.nlink && size==4);
+    assert(!process_file_close(&subject,reader));opening=false;
+    puts("process-unlink: PASS post-removal I/O failure retains orphan identity");
+}
 static void orphan_lock_regression(void) {
     clear_process(&subject);subject.pid=100;
     opening=fixture_exists=true;fixture_node.metadata=(struct vfs_metadata){.inode=42,.mode=VFS_MODE_IFREG|0600,.nlink=1};
@@ -395,7 +424,29 @@ static void path_context_regression(void) {
     path_fixture=false;current_subject=NULL;
     puts("process-cwd: PASS checked traversal, errors and unchanged state on failure");
 }
+static void rename_failure_regression(void) {
+    for(unsigned post_error=0;post_error<2;post_error++) {
+        rename_fixture=true;rename_fail_after_publish=post_error;rename_calls=0;
+        rename_source=(struct vfs_node){.used=true,.path="/test/source",.type=VFS_NODE_FILE,.metadata={.inode=51,.nlink=1}};
+        rename_target=(struct vfs_node){.used=true,.path="/test/target",.type=VFS_NODE_FILE,.metadata={.inode=52,.nlink=1}};
+        struct process_file_content *source=content_acquire(&rename_source,rename_source.path,(const uint8_t *)"source",6);
+        struct process_file_content *target=content_acquire(&rename_target,rename_target.path,(const uint8_t *)"target",6);
+        assert(source && target);fail_alloc=true;
+        assert(process_rename_file("/test/source","/test/target")==SRV_ERR_NOMEM && !rename_calls);
+        assert(vfs_lookup("/test/source")==&rename_source && vfs_lookup("/test/target")==&rename_target);
+        fail_alloc=false;
+        assert(process_rename_file("/test/source","/test/target")== (post_error?SRV_ERR_IO:0) && rename_calls==1);
+        assert(content_find("/test/target")==source && !content_find("/test/source"));
+        assert(source->node==&rename_source && !source->unlinked && !memcmp(source->data,"source",6));
+        assert(target->unlinked && !target->node && !target->orphan_metadata.nlink && target->orphan_metadata.inode==52);
+        assert(!memcmp(target->data,"target",6) && !content_release(target) && !content_release(source));
+        rename_fixture=false;
+    }
+    puts("process-rename: PASS OOM preserves names and post-publication EIO reconciles open identities");
+}
 int main(void) {
+    rename_failure_regression();
+    orphan_io_failure_regression();
     path_context_regression();
     positional_regression();
     snapshot_read_regression();

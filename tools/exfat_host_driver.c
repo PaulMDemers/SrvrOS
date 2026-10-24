@@ -209,6 +209,7 @@ int main(int argc, char **argv) {
         uint8_t data[4096];for(unsigned i=0;i<4096;i++)data[i]=(uint8_t)i;
         assert(exfat_write_file("/vol/scratch.bin",data,4096));
         assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
+        assert(exfat_write_file("/vol/target.txt",(const uint8_t *)"old-target",10));
         assert(exfat_unmount("/vol"));assert(fsync(fd)==0);close(fd);return 0;
     }
     if(!strcmp(argv[2],"scratch-range")||!strcmp(argv[2],"scratch-refuse")) {
@@ -314,6 +315,19 @@ int main(int argc, char **argv) {
         assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
         assert(vfs_lookup(path) && exfat_is_writable("/vol"));
         printf("directory table exhaustion and recovery PASS directories=%u\n",count);
+    } else if(!strcmp(argv[2],"replace-ops")) {
+        assert(exfat_create_directory("/vol/from") && exfat_create_directory("/vol/to"));
+        assert(exfat_write_file("/vol/from/source",(const uint8_t *)"source",6));
+        assert(exfat_write_file("/vol/to/target",(const uint8_t *)"target",6));
+        uint64_t inode=vfs_lookup("/vol/from/source")->metadata.inode;bool published;
+        assert(!exfat_rename("/vol/from/source","/vol/to/target"));
+        assert(exfat_replace_file("/vol/from/source","/vol/to/target",&published) && published);
+        assert(!vfs_lookup("/vol/from/source") && vfs_lookup("/vol/to/target")->metadata.inode==inode);
+        equal("/vol/to/target",(const uint8_t *)"source",6);
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        assert(!vfs_lookup("/vol/from/source") && vfs_lookup("/vol/to/target")->metadata.inode==inode);
+        equal("/vol/to/target",(const uint8_t *)"source",6);
+        puts("replacement rename preserves source inode and contents across remount PASS");
     } else if(!strcmp(argv[2],"cross-directory")) {
         assert(exfat_create_directory("/vol/from") && exfat_create_directory("/vol/to"));
         assert(exfat_write_file("/vol/from/long-source-name",(const uint8_t *)"move",4));
@@ -375,10 +389,14 @@ int main(int argc, char **argv) {
     } else if(!strcmp(argv[2],"seed")) {
         assert(exfat_write_file("/vol/keep.txt",(const uint8_t *)"original",8));
         assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
-    } else if(!strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename")) {
+        assert(exfat_write_file("/vol/target.txt",(const uint8_t *)"old-target",10));
+    } else if(!strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename") || !strcmp(argv[2],"replace")) {
         bool ok;
         if(!strcmp(argv[2],"create")) ok=exfat_write_file("/vol/new.txt",(const uint8_t *)"new-file-data",13);
         else if(!strcmp(argv[2],"delete")) ok=exfat_delete_file("/vol/keep.txt");
+        else if(!strcmp(argv[2],"replace")) { bool published=false;ok=exfat_replace_file("/vol/keep.txt","/vol/target.txt",&published);
+            assert(published==(!vfs_lookup("/vol/keep.txt")));
+        }
         else if(!strcmp(argv[2],"rename")) ok=exfat_rename("/vol/keep.txt","/vol/renamed-with-a-longer-name.txt");
         else ok=exfat_write_file("/vol/keep.txt",(const uint8_t *)"replacement-data",16);
         printf("operation=%s writes=%u flushes=%u\n",ok?"PASS":"FAIL",writes,flushes);

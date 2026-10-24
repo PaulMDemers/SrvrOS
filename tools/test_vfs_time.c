@@ -82,6 +82,18 @@ int main(void) {
         const struct vfs_node *a=vfs_node_at(i);assert(a && a->metadata.inode);
         for(uint64_t j=0;j<i;j++) assert(a->metadata.inode!=vfs_node_at(j)->metadata.inode);
     }
+    /* Replacement publishes without allocating and keeps the source node/inode. */
+    static char replacement_path[32]="/replace-source";
+    assert(vfs_register_file(replacement_path,3,NULL,read_test));
+    assert(vfs_register_file("/replace-target",3,NULL,read_test));
+    const struct vfs_node *replacement=vfs_lookup(replacement_path);uint64_t replacement_inode=replacement->metadata.inode;
+    uint64_t before_replace=vfs_count();fail_alloc=true;
+    assert(!vfs_replace_file_path("/replace-source","/replace-target",replacement_path,2));
+    assert(vfs_lookup("/replace-source")==replacement && vfs_count()==before_replace);
+    assert(vfs_replace_file_path("/replace-source","/replace-target",replacement_path,sizeof(replacement_path)));
+    assert(!vfs_lookup("/replace-source") && vfs_lookup("/replace-target")==replacement &&
+        replacement->metadata.inode==replacement_inode && vfs_count()==before_replace-1);
+    fail_alloc=false;
     /* Cross the previous 4096-node ceiling without moving referenced nodes. */
     static char names[6000][32];
     const struct vfs_node *retained=file;

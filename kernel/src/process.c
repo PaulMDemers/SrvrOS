@@ -4086,12 +4086,63 @@ int64_t process_unlink_file(const char *path) {
         struct process_write_file temporary={.content=content};
         if(!ensure_write_capacity(&temporary,content->size)) return SRV_ERR_NOMEM;
     }
-    if(!exfat_delete_file(path)) return SRV_ERR_IO;
-    if(content) {
+    bool ok=exfat_delete_file(path);
+    /* Metadata/flush can fail after the backend removes the live name. Do not
+     * leave that content indexed by a pathname which can now be reused. */
+    if(content && !vfs_lookup(path)) {
         content->unlinked=true;content->node=NULL;content->dirty=false;
         metadata.nlink=0;content->orphan_metadata=metadata;
     }
-    return 0;
+    return ok?0:SRV_ERR_IO;
+}
+
+int64_t process_rename_file(const char *old_path,const char *new_path) {
+    const struct vfs_node *source=vfs_lookup(old_path),*target=vfs_lookup(new_path);
+    if(!source) return SRV_ERR_NOENT;
+    if(process_path_equal(old_path,new_path)) return 0;
+    if(!exfat_same_mount(old_path,new_path)) return SRV_ERR_XDEV;
+    if(source->type==VFS_NODE_DIRECTORY) {
+        if(target && target->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+        if(path_under_prefix(new_path,old_path)) return SRV_ERR_INVAL;
+        if(process_has_open_vfs_prefix(old_path) || process_has_open_vfs_prefix(new_path)) return SRV_ERR_BUSY;
+        /* Directory subtree/replacement transactions are a separate backend
+         * contract. Preserve the existing empty, unused directory operation. */
+        if(target) return SRV_ERR_NOTSUP;
+        return exfat_rename(old_path,new_path)?0:SRV_ERR_IO;
+    }
+    if(target && target->type==VFS_NODE_DIRECTORY) return SRV_ERR_ISDIR;
+    uint64_t source_inode=source->metadata.inode;
+    struct vfs_metadata target_metadata=target?target->metadata:(struct vfs_metadata){0};
+    struct process_file_content *source_content=content_find(old_path),*target_content=content_find(new_path);
+    struct process_file_content *contents[2]={source_content,target_content};
+    /* Promote retained backend snapshots before their directory slots can be
+     * retired or reused. OOM leaves both names and contents unchanged. */
+    for(unsigned i=0;i<2;i++) if(contents[i] && !contents[i]->owned) {
+        struct process_write_file temporary={.content=contents[i]};
+        if(!ensure_write_capacity(&temporary,contents[i]->size)) return SRV_ERR_NOMEM;
+    }
+    if(source_content && content_flush(source_content)<0) return SRV_ERR_IO;
+    bool published=false;
+    bool ok=target?exfat_replace_file(old_path,new_path,&published):exfat_rename(old_path,new_path);
+    const struct vfs_node *renamed=vfs_lookup(new_path);
+    if(!target) published=!vfs_lookup(old_path) && renamed && renamed->metadata.inode==source_inode;
+    if(published) {
+        if(target_content) {
+            target_content->unlinked=true;target_content->node=NULL;target_content->dirty=false;
+            target_metadata.nlink=0;target_content->orphan_metadata=target_metadata;
+        }
+        if(source_content) {
+            (void)copy_process_path(source_content->path,sizeof(source_content->path),new_path);
+            source_content->node=renamed;
+            for(unsigned i=0;i<PROCESS_MAX_READ_FILES;i++) if(read_files[i].used && read_files[i].content==source_content) {
+                read_files[i].node=renamed;
+                (void)copy_process_path(read_files[i].path,sizeof(read_files[i].path),new_path);
+            }
+            for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES;i++) if(write_files[i].used && write_files[i].content==source_content)
+                (void)copy_process_path(write_files[i].path,sizeof(write_files[i].path),new_path);
+        }
+    }
+    return ok?0:SRV_ERR_IO;
 }
 
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags) {

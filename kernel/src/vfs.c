@@ -441,6 +441,21 @@ bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
     return true;
 }
 
+bool vfs_replace_file_path(const char *old_path, const char *new_path,
+    char *storage, uint64_t capacity) {
+    if(!old_path || !new_path || !storage || !capacity) return false;
+    struct vfs_node *source=mutable_lookup(old_path), *target=mutable_lookup(new_path);
+    if(!source || !target || source==target || source->type!=VFS_NODE_FILE ||
+        target->type!=VFS_NODE_FILE) return false;
+    uint64_t length=0;while(length<capacity && new_path[length]) length++;
+    if(length==capacity) return false;
+    if(!vfs_unregister_path(new_path)) return false;
+    for(uint64_t i=0;i<=length;i++) storage[i]=new_path[i];
+    source->path=storage;
+    source->metadata.ctime=metadata_time();
+    return true;
+}
+
 bool vfs_unregister_path(const char *path) {
     if (path == NULL) {
         return false;

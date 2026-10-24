@@ -64,6 +64,11 @@ def main():
             clean(cross)
             fs=ExfatFixture(cross.read_bytes())
             assert fs.read('to/a')==b'move' and fs.read('to/b') is not None
+            replace=directory/'replace.img'
+            format_image(replace,cluster)
+            print(command(DRIVER,replace,'replace-ops').strip(),flush=True)
+            clean(replace)
+            fs=ExfatFixture(replace.read_bytes());assert fs.read('to/target')==b'source'
         for mode in ('timestamps', 'capacity', 'file-capacity', 'dir-capacity'):
             image=directory/(mode+'.img')
             format_image(image,'4K')
@@ -95,12 +100,13 @@ def main():
             before=work.read_bytes(); command(DRIVER,work,'readonly')
             assert work.read_bytes()==before
         print('dirty/media-error/no-flush/foreign-owner refusal PASS',flush=True)
-        for operation in ('overwrite','create','delete','rename'):
+        for operation in ('overwrite','create','delete','rename','replace'):
             sparse_copy(seed,work)
             output=command(DRIVER,work,operation); clean(work)
             total=int(re.search(r'operation=PASS writes=(\d+)',output)[1])
             flush_total=int(re.search(r'operation=PASS writes=\d+ flushes=(\d+)',output)[1])
             for mode,count in (('flush-failure',flush_total),('failure',total),('power-cut',total)):
+                replacement_recovered_aliases=0
                 for boundary in range(1,count+1):
                     sparse_copy(seed,work)
                     output=command(DRIVER,work,operation,boundary if mode=='failure' else 0,
@@ -124,10 +130,27 @@ def main():
                         assert fs.read('keep.txt')==b'original'
                         if 'new.txt' in names:assert fs.read('new.txt')==b'new-file-data'
                     if operation=='delete' and 'keep.txt' in names:assert fs.read('keep.txt')==b'original'
+                    if operation=='replace':
+                        present=[name for name in ('keep.txt','target.txt') if name in names]
+                        assert present and any(fs.read(name)==b'original' for name in present)
+                        if 'target.txt' in names:
+                            target=fs.read('target.txt')
+                            if target==b'':
+                                # There is no rename journal. A cut between the
+                                # destination write and source retirement leaves
+                                # duplicate cluster references. fsck can retain
+                                # source and truncate that alias; never count this
+                                # as old-or-new atomic recovery. Require the source
+                                # payload and unrelated anchor to survive intact.
+                                assert dirty and 'keep.txt' in names and fs.read('keep.txt')==b'original'
+                                replacement_recovered_aliases+=1
+                            else:assert target in (b'original',b'old-target')
                     if operation=='rename':
                         present=[name for name in ('keep.txt','renamed-with-a-longer-name.txt') if name in names]
                         assert present and any(fs.read(name)==b'original' for name in present)
                 print(f'{operation} {mode}: all {count} boundaries, readonly remount and offline recovery PASS',flush=True)
+                if replacement_recovered_aliases:
+                    print(f'replace {mode}: NON-ATOMIC recovery at {replacement_recovered_aliases} boundaries; source retained, duplicate target truncated by fsck',flush=True)
     print('exfat-hardening: PASS',flush=True)
 
 

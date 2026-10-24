@@ -3442,3 +3442,60 @@ bool exfat_rename(const char *old_path, const char *new_path) {
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(old_path), old_path, 0, 0) &&
         exfat_rename_impl(old_path, new_path));
 }
+
+/* Replace the destination directory record with the source's allocation, then
+ * retire the source record. This is serialized runtime rename, not a journal:
+ * interrupted media stays dirty/quarantined and needs offline recovery. Keep
+ * both original records until publication so a recoverable write error can
+ * restore them. Never implement replacement by deleting the target first. */
+bool exfat_replace_file(const char *old_path,const char *new_path,bool *published) {
+    if(!published) return false;
+    *published=false;
+    if(!old_path || !new_path) return false;
+    uint64_t source_index=0,target_index=0;
+    struct exfat_mount *mount=find_mount_and_index_for_file(old_path,&source_index);
+    if(!mount || mount!=find_mount_and_index_for_file(new_path,&target_index) ||
+        source_index==target_index || !valid_ascii_basename(new_path)) return false;
+    struct exfat_file *source=file_slot(mount,source_index), *target=file_slot(mount,target_index);
+    const char *name=new_path;for(const char *p=new_path;*p;p++) if(*p=='/') name=p+1;
+    uint8_t entries[EXFAT_ENTRY_SIZE*EXFAT_MAX_FILE_ENTRIES];
+    uint8_t old_source[EXFAT_ENTRY_SIZE*EXFAT_MAX_FILE_ENTRIES];
+    uint8_t old_target[EXFAT_ENTRY_SIZE*EXFAT_MAX_FILE_ENTRIES];
+    uint64_t count,names,source_count=(uint64_t)source->secondary_count+1;
+    uint64_t target_count=(uint64_t)target->secondary_count+1;
+    if(!build_file_entry_set(entries,name,source->first_cluster,source->size,0x20,
+        source->no_fat_chain,&count,&names) || count>target_count ||
+        source_count>EXFAT_MAX_FILE_ENTRIES || target_count>EXFAT_MAX_FILE_ENTRIES) return false;
+    struct mutation_scope scope;
+    if(!mutation_begin(mount,&scope,old_path,0,0)) return false;
+    bool ok=false;
+    uint64_t source_offset=source->file_entry_offset,target_offset=target->file_entry_offset;
+    if(!read_entry_run(&mount->volume,source_offset,source_count,old_source) ||
+        !read_entry_run(&mount->volume,target_offset,target_count,old_target)) goto done;
+    if(!volume_write(&mount->volume,target_offset,entries,count*EXFAT_ENTRY_SIZE) ||
+        (count<target_count && !write_inactive_entry_run(&mount->volume,
+            target_offset+count*EXFAT_ENTRY_SIZE,target_count-count)) ||
+        !volume_flush(&mount->volume) || !write_deleted_entry_set(source) ||
+        !volume_flush(&mount->volume)) goto restore;
+    if(!vfs_replace_file_path(old_path,new_path,path_slot(mount,source_index),EXFAT_MAX_PATH)) goto restore;
+    *published=true;
+    struct exfat_file retired=*target;
+    source->file_entry_offset=target_offset;
+    source->stream_entry_offset=target_offset+EXFAT_ENTRY_SIZE;
+    source->secondary_count=(uint8_t)(count-1);
+    clear_file_slot(mount,target_index);
+    /* Once published, an I/O error can no longer promise unchanged names.
+     * Tell the process layer to reconcile open identities even on failure. */
+    ok=free_file_clusters(&retired) && exfat_sync_mount_metadata(mount);
+    goto done;
+restore:
+    (void)restore_entry_run(&mount->volume,target_offset,old_target,target_count);
+    (void)restore_entry_run(&mount->volume,source_offset,old_source,source_count);
+done:
+    return mutation_end(&scope,ok);
+}
+
+bool exfat_same_mount(const char *first,const char *second) {
+    struct exfat_mount *mount=first?find_mount_for_path(first):NULL;
+    return mount && second && mount==find_mount_for_path(second);
+}

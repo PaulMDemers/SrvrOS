@@ -141,6 +141,7 @@ def main():
             "threadstress: orphan ok",
             "threadstress: path ok",
             "threadstress: directory ok",
+            "threadstress: rename ok",
             "threadstress: sleep ok",
             "threadstress: usage ok",
             "threadstress: resource ok",
