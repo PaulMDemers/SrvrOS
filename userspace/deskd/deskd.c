@@ -723,7 +723,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) {
         s->capture_success=0;s->capture_finished++;capture_notice(s,0,"The capture worker could not start.");
     }
-    else if(s->trace) desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
+    else desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
     global_menu_rebuild(s);
 }
 static void notification_received(struct session *s,int i,const struct desk_packet *p) {
