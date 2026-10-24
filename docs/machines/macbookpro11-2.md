@@ -4495,3 +4495,17 @@ One80-byte MCU write, deliberate sequence7 reuse after all earlier replies,
 exact first address/value ACK;26 guarded reads and mismatch observations.
 No retries, RF/channel selection or TX/RX enable. Base4a991df, fetchedmain7b0d1a0;
 PR123 network-idle and PR124 Air6,1 capture remain separate.
+
+Prepared v49 source `cf84f67`, release `51c771ce50036ef4`, installed unarmed.
+Native build, compact/xHCI tests, ASan/UBSan,123 boot-profile tests,96 unchanged
+historical recipes, collector fixture/23 rejection cases and493 documentation
+links passed. Collector test also checks that readback parsing preserves its
+hardware_boot module binding. Exact-stage GPT VM saved/verified logs and
+returned; missing workspace returned without starting the probe.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted G/20
+`9bc9e99df950ae78` retained. Earlier observation `6d6d0b1a49c3de4b` removed
+from ESP only after full archive equality. Workspace clean237files/604clusters,
+unmounted. Payload, VM receipts, tests, audit, collector and run record archived
+under `~/.local/share/srvros/macbookpro11-2/wifi-dcoc-cf84f67/`.
+Physical result pending. Next: attended cold adapter cycle; collect matching
+session first after return, including nine readbacks and all prerequisites.
