@@ -1591,3 +1591,14 @@ input latency, continuous desktop monitoring and gauge accuracy remain separate.
 Ordinary battery startup stays off. Next is a bounded continuous Home desktop
 trial, reusing the existing ownership/retirement contract and requiring its own
 Air6,1 fixture and native acceptance before any ordinary-startup change.
+
+## Bounded continuous desktop scope (2026-10-23)
+
+From main `4a991df`, including MR115 logger timing and MR116 native closeout,
+own only Air6,1 admission to the explicit three-minute Home desktop capture,
+its separate v67 stage and directed fixtures. Preserve the 240-second watchdog,
+checked client/runtime/logger retirement and mounted-fault halt policy. Ordinary
+startup, indefinite sessions and attended Home transitions stay excluded. Keep
+firmware/query permissions unchanged. PR19 Wi-Fi has independent staging changes;
+preserve its recipes and avoid xHCI/network files. Previous run is collected;
+this trial requires its own evidence and must preserve all current USB files.
