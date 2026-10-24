@@ -5025,3 +5025,13 @@ Offline workspace checks passed:251 files,625 clusters,no leaks or allocation
 mismatches. Workspace unmounted; no reboot armed. Next: add privacy-preserving
 transport versus mismatch diagnostics for100c before another bounded trial.
 PHY/RF,association and connectivity remain untested.
+
+Active scope: diagnose the failed v55 second-word verification without changing
+register values, masks or retries. Add gate failure classification and a captured
+USB receipt before later cleanup overwrites controller diagnostics; expose only
+comparison booleans and public control bits, never factory-address bits. Touch
+mt76/xHCI and their host tests, retaining the same v55 boot recipe. Actual base
+is d5bc4b3; fetched main bc0edb9 remains the separate window-capacity change.
+The Air desktop API audit branch has no overlapping Wi-Fi changes; PR19 remains
+this unit's shared-code scope. Next checkpoint: host fault/privacy checks and
+exact-stage normal/missing-workspace rehearsal before a cold native comparison.
