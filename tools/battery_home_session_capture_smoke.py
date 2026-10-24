@@ -18,11 +18,12 @@ def main():
     parser.add_argument('--case',choices=CASES,default='completion')
     parser.add_argument('--slow-connect',action='store_true',help='Add four seconds to each fixture EC connection')
     parser.add_argument('--slow-storage',action='store_true',help='Throttle disposable USB to ten writes/second during desktop work')
+    parser.add_argument('--air61',action='store_true')
     args=parser.parse_args()
     assert not args.slow_connect or args.case=='completion'
     assert not args.slow_storage or args.case=='completion'
     capture=b'battery-home-session-capture'
-    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-session-capture-'+args.case+('-slow-connect' if args.slow_connect else '')+('-slow-storage' if args.slow_storage else ''))
+    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-session-capture-'+('air61-' if args.air61 else '')+args.case+('-slow-connect' if args.slow_connect else '')+('-slow-storage' if args.slow_storage else ''))
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-home-capture-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -34,9 +35,9 @@ def main():
         fixture.add_directory_files('battery-study',{'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text(('#define BATTERY_CONNECT_DELAY 1\n' if args.slow_connect else '')+'#define BATTERY_FAULT '+str(CASES[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_AIR61 1\n' if args.air61 else '')+('#define BATTERY_CONNECT_DELAY 1\n' if args.slow_connect else '')+'#define BATTERY_FAULT '+str(CASES[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery'/'vm.elf'
+        kernel=root/('build/acpi-air61-battery' if args.air61 else 'build/acpi-battery')/'vm.elf'
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-session srvros.capture-failure=reboot'
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar',cmdline=cmdline)
         fatal=args.case in ('uncertain-ack','effect-refusal')
@@ -81,7 +82,7 @@ def main():
             disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
             volume.write_bytes(disk[2048*512:])
             case='normal' if args.case=='completion' else args.case
-            def checker(raw,vm=True):return check_capture(raw,vm=True,case=case)
+            def checker(raw,vm=True):return check_capture(raw,vm=True,case=case,query_policy=3 if args.air61 else 2)
             saved=verify_image(volume.read_bytes(),data,args.case=='completion',checker=checker,capture=capture,compare_serial=False,study='complete' if args.case=='completion' else 'incomplete' if args.case=='query-refusal' else 'untouched')
             (out/'exit.log').write_bytes(saved)
             result.update(checker(saved))

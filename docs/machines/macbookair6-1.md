@@ -1456,3 +1456,70 @@ This accepts short mounted Home sampling only, with no desktop clients or AC
 changes. Ordinary desktop startup remains off; sustained coexistence and gauge
 accuracy are not accepted. Next is the explicit bounded Home desktop session
 with Text saves and repeated Start/Stop before ordinary desktop integration.
+
+## Bounded Home desktop session scope (2026-10-23)
+
+From actual main `ce1c0a6` (including PR106 Text polling changes), own only
+Air6,1 admission to the existing bounded Home controls/file diagnostic, its v66
+recipe and directed validation. Reuse three service lifetimes, five control
+requests, 60 Text edits/five saves, 512 aggregate events and existing deadlines.
+Preserve the exact mount through every epoch and client/runtime retirement.
+Ordinary/continuous desktop admission stays off, and uncertain mounted failures
+halt without cleanup/reset. PR19 Wi-Fi remains independent. The prior v65 run
+is collected and archived; this new payload requires its own physical evidence.
+
+
+## Bounded Home session candidate validated (2026-10-23)
+
+Release `f60d9b426e2693f3`, clean compiled source `12aad26`, uses v66
+`battery-home-session`. Full build/USB image, core/desktop suites, 70 staging
+tests, 25 collector tests, 78 receipt tests and exhaustive admission checks pass.
+Six Air6,1 boot fixtures cover completion, query/profile refusal, two retained
+faults and delayed EC setup with throttled USB writes. Completion proves five
+controls/three lifetimes, 60 edits/five cycles/20 operations and exact saved
+bytes. Slow checkpoints took 7.99–8.29 seconds without changing deadlines.
+Air7,2 Home-session and Air6,1 short-Home regressions pass. Exact EFI/GPT and
+missing-workspace rehearsals pass; the latter intentionally emits no standard
+result JSON, so its PASS output and serial evidence are retained separately.
+
+All 221 existing USB files were preserved while adding a fresh `battery-study`
+anchor. Offline allocation/headroom pass: 222 files, 533 clusters, no leaks or
+mismatches. Superseded passive preflight EFI payload `9b528e09c13e1d4b` was
+removed only after verifying its independent payload backup to make install
+space. Console recovery and accepted runtime captures remain retained.
+
+Physical acceptance is pending. Keep AC/USB connected and provide no input;
+normal completion/refusal saves and returns to Ubuntu. Photograph any halt.
+Require matching `battery_home_session`, five saved files containing `AA`,
+unchanged prior file contents, clean allocation and consumed one-shot. Final
+installation and unarmed state are recorded in the local run/launch records.
+
+## Bounded Home session failed, clean retirement (2026-10-23)
+
+Close out only this unit's native evidence on main `db10404` (MR111).
+PR112 owns compositor idle work and PR19 Wi-Fi; no shared implementation changes
+are made in this closeout. Session `00065e8b68f3ad24-00`, release
+`f60d9b426e2693f3` / compiled `12aad26`, is **failed**, not accepted.
+
+The generated workload stopped at 12 generated/11 presented edits, zero saves
+and one Start request. Initial EC setup took 4.941 seconds. At failure the Start
+was still waiting for fresh generation 2; Text reached its first save with
+`waiting=1`, and `tool_file_capture_begin` rejects a pending control. This points
+to a diagnostic sequencing race, requiring a reproducer with delayed second
+sample before implementing a fix. The existing slow-setup/storage VM did not
+cover this native readiness ordering. Do not simply widen hardware permissions
+or classify the clean return as workload success.
+
+The service completed generation 2/30 events, with two handled and zero unclaimed
+SCI deliveries, then retired: attach/detach 1/1, zero heap/errors/denied. Three
+clients retire, Home releases, the failed report is saved and Ubuntu returns.
+All 222 prior files are unchanged except expected `.srvros/meta`; three new logs
+bring the total to 225. The study still contains only its original anchor; no
+Text output was saved. Offline fsck/allocation/headroom pass (537 clusters,
+zero leaks/mismatches/errors), installed/recovery hashes pass and the one-shot
+is consumed. Raw evidence, study contents and file checks are backed up outside
+build. USB is unmounted; no reboot is armed and no retry is prepared.
+
+Next: make generated saves wait for initial Start readiness, reproduce delayed
+fresh generation 2, and rerun directed session tests before preparing a retry.
+Keep this failed evidence and existing study directory intact during preparation.

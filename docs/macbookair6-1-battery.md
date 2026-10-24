@@ -480,3 +480,36 @@ Native mounted-Home acceptance remains pending. Require the matching strict
 and consumed one-shot before any desktop integration. The newer filesystem
 baseline is validated locally but does not inherit the earlier image payload's
 physical acceptance.
+
+
+The v65 native session `00065e8b198ee6ba-00` on release `30b0d713f1a9ed55`
+now accepts this short mounted boundary: three fresh samples, 45 events, clean
+retirement and preserved prior file contents with clean offline allocation.
+
+## Bounded Home desktop session candidate (v66)
+
+The explicit `--battery-air61 --battery-home-session` profile reuses the existing
+bounded Home controls/file diagnostic. A dedicated flag lives only across that
+entry and the exact held mount; it admits three Start/Stop lifetimes with Text
+jobs pending during control requests. It grants no ordinary or continuous
+startup capability. The existing 512 aggregate event cap, 110-second owner
+watchdog, 90-second generated study and 10-second Stop deadline remain intact.
+No firmware, AML/register or codec permissions change. Every service epoch must
+retire through the checked Home return, and clients retire before final mount
+release. The normal-return proof is available inside this explicit scope;
+uncertain live failures still halt without mounted cleanup/reset.
+
+A fresh root `battery-study` directory is mandatory. The generated workload
+makes 60 edits and five exact file cycles (20 operations), issuing five controls
+across three lifetimes. Final close retires an active service. Require the strict
+session receipt, five files containing `AA`, preservation of every previous
+non-metadata file, clean offline allocation and Ubuntu recovery. Native v66
+acceptance remains pending; successful v65 and other machines do not supply it.
+
+The first v66 native session `00065e8b68f3ad24-00` failed before its first save:
+12 edits generated, 11 presented, one Start still waiting for fresh generation 2.
+The first-save helper rejects a waiting control, pointing to a test sequencing
+race. Runtime retired cleanly with 30 events; prior file contents, offline
+allocation and Ubuntu recovery passed. This does not accept bounded Home desktop
+coexistence. Preserve the failed session and reproduce delayed sample readiness
+before fixing the generated control/save ordering.
