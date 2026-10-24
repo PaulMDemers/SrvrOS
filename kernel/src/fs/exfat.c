@@ -2953,6 +2953,9 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         return false;
     }
 
+    struct exfat_directory *old_parent=NULL;
+    const char *old_name=NULL;
+    if(find_mount_and_parent_directory(old_path,&old_parent,&old_name)!=mount || !old_parent) return false;
     struct exfat_file *file = file_slot(mount, index);
     uint8_t entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     uint64_t entry_count;
@@ -2971,12 +2974,15 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
     uint64_t old_entry_count = (uint64_t)file->secondary_count + 1;
     uint64_t old_directory_offset = file->file_entry_offset;
     uint64_t directory_offset = file->file_entry_offset;
+    /* Entry width alone says nothing about its parent directory. Moving even
+     * a shorter name must allocate a record in the destination directory. */
+    bool relocate=parent!=old_parent || entry_count>old_entry_count;
     uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     uint8_t displaced_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     if (!read_entry_run(&mount->volume, old_directory_offset, old_entry_count, old_entries)) {
         return false;
     }
-    if (entry_count > old_entry_count) {
+    if (relocate) {
         if (!directory_free_offset(&mount->volume, parent, entry_count, &directory_offset)) {
             return false;
         }
@@ -2988,14 +2994,14 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
     }
 
     if (!volume_write(&mount->volume, directory_offset, entries, entry_count * EXFAT_ENTRY_SIZE)) {
-        if (entry_count > old_entry_count) {
+        if (relocate) {
             (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
         } else {
             (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
         }
         return false;
     }
-    if (entry_count < old_entry_count) {
+    if (!relocate && entry_count < old_entry_count) {
         uint64_t extra_offset = directory_offset + entry_count * EXFAT_ENTRY_SIZE;
         if (!write_inactive_entry_run(&mount->volume,
                 extra_offset,
@@ -3003,7 +3009,7 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
             (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
             return false;
         }
-    } else if (entry_count > old_entry_count) {
+    } else if (relocate) {
         if (!write_deleted_entry_set(file)) {
             (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
             return false;
@@ -3011,7 +3017,7 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
     }
 
     if (!vfs_unregister_path(old_path)) {
-        if (entry_count > old_entry_count) {
+        if (relocate) {
             (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
             (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
         } else {
@@ -3039,7 +3045,7 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         return true;
     }
 
-    if (entry_count > old_entry_count) {
+    if (relocate) {
         (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
         (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
     } else {
@@ -3075,6 +3081,9 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
         return false;
     }
 
+    struct exfat_directory *old_parent=NULL;
+    const char *old_name=NULL;
+    if(find_mount_and_parent_directory(old_path,&old_parent,&old_name)!=mount || !old_parent) return false;
     struct exfat_directory *directory = dir_slot(mount, index);
     uint8_t entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     uint64_t entry_count;
@@ -3094,12 +3103,15 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
     uint64_t old_entry_count = (uint64_t)directory->secondary_count + 1;
     uint64_t old_directory_offset = directory->file_entry_offset;
     uint64_t directory_offset = directory->file_entry_offset;
+    /* Entry width alone says nothing about its parent directory. Moving even
+     * a shorter name must allocate a record in the destination directory. */
+    bool relocate=parent!=old_parent || entry_count>old_entry_count;
     uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     uint8_t displaced_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     if (!read_entry_run(&mount->volume, old_directory_offset, old_entry_count, old_entries)) {
         return false;
     }
-    if (entry_count > old_entry_count) {
+    if (relocate) {
         if (!directory_free_offset(&mount->volume, parent, entry_count, &directory_offset)) {
             return false;
         }
@@ -3111,14 +3123,14 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
     }
 
     if (!volume_write(&mount->volume, directory_offset, entries, entry_count * EXFAT_ENTRY_SIZE)) {
-        if (entry_count > old_entry_count) {
+        if (relocate) {
             (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
         } else {
             (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
         }
         return false;
     }
-    if (entry_count < old_entry_count) {
+    if (!relocate && entry_count < old_entry_count) {
         uint64_t extra_offset = directory_offset + entry_count * EXFAT_ENTRY_SIZE;
         if (!write_inactive_entry_run(&mount->volume,
                 extra_offset,
@@ -3126,7 +3138,7 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
             (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
             return false;
         }
-    } else if (entry_count > old_entry_count) {
+    } else if (relocate) {
         if (!write_deleted_entries(&mount->volume,
                 old_directory_offset,
                 directory->secondary_count)) {
@@ -3136,7 +3148,7 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
     }
 
     if (!vfs_unregister_path(old_path)) {
-        if (entry_count > old_entry_count) {
+        if (relocate) {
             (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
             (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
         } else {
@@ -3157,7 +3169,7 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
         return true;
     }
 
-    if (entry_count > old_entry_count) {
+    if (relocate) {
         (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
         (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
     } else {

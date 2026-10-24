@@ -314,6 +314,19 @@ int main(int argc, char **argv) {
         assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
         assert(vfs_lookup(path) && exfat_is_writable("/vol"));
         printf("directory table exhaustion and recovery PASS directories=%u\n",count);
+    } else if(!strcmp(argv[2],"cross-directory")) {
+        assert(exfat_create_directory("/vol/from") && exfat_create_directory("/vol/to"));
+        assert(exfat_write_file("/vol/from/long-source-name",(const uint8_t *)"move",4));
+        assert(exfat_create_directory("/vol/from/long-directory-name"));
+        assert(exfat_rename("/vol/from/long-source-name","/vol/to/a"));
+        assert(exfat_rename("/vol/from/long-directory-name","/vol/to/b"));
+        equal("/vol/to/a",(const uint8_t *)"move",4);
+        assert(!vfs_lookup("/vol/from/long-source-name") && vfs_lookup("/vol/to/b"));
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal("/vol/to/a",(const uint8_t *)"move",4);
+        assert(vfs_lookup("/vol/to/b") && !vfs_lookup("/vol/from/a") && !vfs_lookup("/vol/from/b"));
+        assert(exfat_delete_directory("/vol/from"));
+        puts("cross-directory short file/directory rename survives remount PASS");
     } else if(!strcmp(argv[2],"ops")) {
         uint8_t data[270000]; for(unsigned i=0;i<sizeof(data);i++) data[i]=(uint8_t)(i*17+3);
         assert(exfat_create_directory("/vol/Directory"));

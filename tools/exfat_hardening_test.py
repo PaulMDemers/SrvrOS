@@ -58,6 +58,12 @@ def main():
             assert fs.read('empty') == b'' and fs.read('truncated') == b''
             assert fs.read('A-much-longer-renamed-file.txt') == bytes((i*17+3)&255 for i in range(9))
             print(f'operations {cluster}: create/grow/shrink/empty/rename/move/delete PASS',flush=True)
+            cross=directory/'cross.img'
+            format_image(cross,cluster)
+            print(command(DRIVER,cross,'cross-directory').strip(),flush=True)
+            clean(cross)
+            fs=ExfatFixture(cross.read_bytes())
+            assert fs.read('to/a')==b'move' and fs.read('to/b') is not None
         for mode in ('timestamps', 'capacity', 'file-capacity', 'dir-capacity'):
             image=directory/(mode+'.img')
             format_image(image,'4K')
