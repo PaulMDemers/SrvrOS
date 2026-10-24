@@ -61,6 +61,14 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_wifi_ant_snapshot_profile(self):
+        v="ram-usb-wifi-fw-v58-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-ant-snapshot=1",config)
+        self.assertIn("srvros.wifi-mac-board=1",config)
+        self.assertNotIn("srvros.wifi-ant-snapshot=1",boot.limine_config("0123456789abcdef",v.replace("v58-","v57-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_ant_snapshot=True)
+
     def test_v43_collision_exact_legacy_variants(self):
         version='ram-usb-v43-laptop-probe-37d8c5d0-auto-return'
         release=self.payload('legacy',version);directory=self.stage/release

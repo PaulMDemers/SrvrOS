@@ -5224,3 +5224,22 @@ tests; preserve completed board/private-address prerequisites and prior recipes.
 Actual integration base remains d5bc4b3; fetchedmain36080fc adds Air6,1 reopen
 documentation since e79e220. PR134 POSIX and Air6,1 service trials are independent
 of this bounded PR19 scope. Next checkpoint: host/VM-tested unarmed capture.
+
+The accepted MAC-redacted calibration image confirms mapped EEPROM22=17ff,
+24=ffef,34=fd11,36=1004,42=ffff. Linux's single-antenna branch ignores NIC2
+diversity flags and derives antenna low07ff. Four fresh read-only Linux samples
+give WLANff000413,CMB00e007ff,CFG10033ffef,COEX06f008843,COEX300000019.
+WLAN bit4 differs from the prior live Linux capture; no full-register cold
+initial value is inferred. Debugfs selector restored, no Linux register writes.
+Implemented v58 eleven-read observation with both boundary guard sets and exact
+prior board-completion admission. Physical observation remains pending; no new
+antenna writes or usable-Wi-Fi acceptance.
+
+Native build and mt76 bring-up/upload/compact/xHCI checks passed. Snapshot tests
+cover every read failure, cancellation boundary, guard bit, all-ones refusal and
+replay; native tests cover each operation and failed prior-board ownership with
+no USB request on refusal. ASan/UBSan,137 staging tests and114 byte-identical
+historical recipes passed. Collector fixture uses the full accepted v57 receipt
+plus synthetic antenna observations,64354bytes;47 missing/duplicate/corrupt cases
+are rejected. Targets are observations, not exact-value acceptance. Next:
+exact-stage GPT save/return and missing-workspace rehearsal, then unarmed install.

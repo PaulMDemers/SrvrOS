@@ -2341,3 +2341,26 @@ both completion markers, saved exit log, Ubuntu recovery and offline filesystem
 checks passed. This accepts these four fixed settings on this adapter only.
 PHY antenna selection, RF tables/calibration, channel/regulatory setup, data
 transfers, association, authentication and usable Wi-Fi remain separate work.
+
+### Antenna prerequisite observation (v58)
+
+`--wifi-ant-snapshot` requires `--wifi-mac-board` and stages `wifi-fw-v58`.
+After all v57 prerequisites pass, it reads WLAN_FUN_CTRL80, CMB20, CSR_EE_CFG1
+104, COEXCFG0 40 and COEXCFG3 4c, with MAC0/COREf000f200 and disabled/idle DMA
+checks before and after. The eleven-read engine has no write callback. Native
+admission checks exact read order, single submission and completed board values,
+counts and guard observations, plus the existing private-address ownership chain.
+All-ones reads, guard changes, failed transfers or cancellation stop the capture;
+uncertain USB completion preserves quarantined resources. Five indexed values
+and two boundary receipts are saved. Completion accepts observation only.
+
+The [Linux v7.0 antenna selection](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+uses these registers with EEPROM22/24/42 and board band capabilities. This unit's
+accepted mapped calibration has antenna17ff, cfg1ffef, NIC0fd11, NIC11004,
+NIC2ffff: single antenna and a both-band hint; NIC2's diversity flags are not used
+by the single-antenna branch. Linux clears antenna bits14/12, giving low07ff.
+These decoded fields do not authorize channels or transmission. Fresh Linux
+samples corroborate CMB low07ff and CFG1 lowffef, but WLAN changed bit4 between
+live samples from separate runs. Preserve unrelated bits and obtain the cold
+native starting state before designing antenna writes. No antenna/RF writes
+are added in v58; physical observation is pending.

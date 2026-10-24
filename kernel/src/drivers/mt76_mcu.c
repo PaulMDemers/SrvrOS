@@ -1345,3 +1345,32 @@ enum mt76_mcu_timing_status mt76_mac_board_apply(struct mt76_mac_board *s,const 
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Observe antenna prerequisites; this plan has no write callback. */
+static const uint32_t ant_snapshot_addresses[5]={0x80,0x20,0x104,0x40,0x4c};
+uint32_t mt76_ant_snapshot_address(unsigned i){return i<5?ant_snapshot_addresses[i]:UINT32_MAX;}
+uint32_t mt76_ant_snapshot_request(unsigned op){
+    if(op>=11)return UINT32_MAX;
+    if(op==0 || op==9)return 0x1004;
+    if(op==1 || op==10)return 0x2000;
+    if(op==2 || op==8)return 0x208;
+    return ant_snapshot_addresses[op-3];
+}
+enum mt76_mcu_timing_status mt76_ant_snapshot_capture(struct mt76_ant_snapshot *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned op=0;op<11;op++){
+        uint32_t address=mt76_ant_snapshot_request(op),*value;
+        if(op==0 || op==9)value=&s->mac[op==9];
+        else if(op==1 || op==10)value=&s->core[op==10];
+        else if(op==2 || op==8)value=&s->dma[op==8];
+        else value=&s->values[op-3];
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->read(io->context,address,value))return MT76_TIMING_IO;
+        s->reads++;
+        if(*value==UINT32_MAX || (address==0x1004 && *value) ||
+           (address==0x2000 && *value!=0xf000f200) || (address==0x208 && (*value&15)))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

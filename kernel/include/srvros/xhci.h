@@ -93,6 +93,7 @@ bool xhci_wifi_capture_efuse_map(void);
 bool xhci_wifi_capture_mac_address(void);
 bool xhci_wifi_capture_mac_address_validate(void);
 bool xhci_wifi_capture_mac_board(void);
+bool xhci_wifi_capture_ant_snapshot(void);
 /* Diagnostic-only: IRQ-masked I/O owner, no outstanding/failed bulk DMA.
  * Select 0 (poll), 4000 or 20000 us; restore previous after the capture. */
 bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous);

@@ -350,4 +350,8 @@ uint32_t mt76_mac_board_value(unsigned index);
 bool mt76_mac_board_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
 bool mt76_mac_board_transfer_valid(const struct mt76_mac_board *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
 enum mt76_mcu_timing_status mt76_mac_board_apply(struct mt76_mac_board *s,const struct mt76_mac_board_io *io);
+struct mt76_ant_snapshot {bool attempted,complete;unsigned reads;uint32_t values[5],mac[2],core[2],dma[2];};
+uint32_t mt76_ant_snapshot_address(unsigned index);
+uint32_t mt76_ant_snapshot_request(unsigned operation);
+enum mt76_mcu_timing_status mt76_ant_snapshot_capture(struct mt76_ant_snapshot *s,const struct mt76_mcu_timing_io *io);
 #endif

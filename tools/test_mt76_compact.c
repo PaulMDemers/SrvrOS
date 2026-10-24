@@ -1109,7 +1109,33 @@ static void test_mac_board(void){
  bool w;uint32_t a;unsigned n;assert(!mt76_mac_board_request(32,&w,&a,&n));
  puts("MAC fixed: PASS four exact initial/target values,32 operations, every IO/cancel/read fault, DMA guards, write mutation refusal and no retry");
 }
-int main(void){test_mac_board();test_mac_fixed();test_mac_tail();test_wcid();test_skey();test_dcoc();test_bbp_switch();
+
+struct ant_fake {unsigned reads,auth,fail,deny,bad;uint32_t corrupt;};
+static bool ant_auth(void *p){struct ant_fake *f=p;return ++f->auth!=f->deny;}
+static bool ant_read(void *p,uint32_t a,uint32_t *v){
+ struct ant_fake *f=p;const uint32_t expected[11]={0x1004,0x2000,0x208,0x80,0x20,0x104,0x40,0x4c,0x208,0x1004,0x2000};
+ assert(f->reads<11 && a==expected[f->reads]);f->reads++;if(f->reads==f->fail)return false;
+ *v=a==0x1004?0:a==0x2000?0xf000f200:a==0x208?0x40000050:a^0x12345600;
+ if(f->reads==f->bad)*v=f->corrupt;
+ return true;
+}
+static enum mt76_mcu_timing_status ant_run(struct ant_fake *f,struct mt76_ant_snapshot *s){const struct mt76_mcu_timing_io io={.context=f,.authorize=ant_auth,.read=ant_read};return mt76_ant_snapshot_capture(s,&io);}
+static void test_ant_snapshot(void){
+ struct ant_fake f={0};struct mt76_ant_snapshot s={0};assert(ant_run(&f,&s)==MT76_TIMING_OK && s.complete && s.reads==11 && f.reads==11);
+ const uint32_t a[5]={0x80,0x20,0x104,0x40,0x4c};for(unsigned i=0;i<5;i++){assert(mt76_ant_snapshot_address(i)==a[i] && s.values[i]==(a[i]^0x12345600));}
+ assert(ant_run(&f,&s)==MT76_TIMING_REFUSED && f.reads==11);
+ for(unsigned n=1;n<=11;n++){f=(struct ant_fake){.fail=n};s=(struct mt76_ant_snapshot){0};assert(ant_run(&f,&s)==MT76_TIMING_IO && !s.complete && s.reads==n-1 && f.reads==n);}
+ for(unsigned n=1;n<=12;n++){f=(struct ant_fake){.deny=n};s=(struct mt76_ant_snapshot){0};assert(ant_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.reads==n-1);}
+ for(unsigned n=1;n<=11;n++){f=(struct ant_fake){.bad=n,.corrupt=UINT32_MAX};s=(struct mt76_ant_snapshot){0};assert(ant_run(&f,&s)==MT76_TIMING_STATE && !s.complete && f.reads==n);}
+ const unsigned guard[6]={1,2,3,9,10,11};
+ for(unsigned i=0;i<6;i++)for(unsigned bit=0;bit<(i==2 || i==3?4u:32u);bit++){
+  uint32_t value=i==1 || i==5?0xf000f200:0;f=(struct ant_fake){.bad=guard[i],.corrupt=value^(1u<<bit)};s=(struct mt76_ant_snapshot){0};assert(ant_run(&f,&s)==MT76_TIMING_STATE && !s.complete && f.reads==guard[i]);
+ }
+ assert(mt76_ant_snapshot_request(11)==UINT32_MAX && mt76_ant_snapshot_address(5)==UINT32_MAX);
+ puts("antenna snapshot: PASS eleven fixed reads, all transfer/cancel faults, exact guard bits, all-ones rejection and no replay");
+}
+
+int main(void){test_ant_snapshot();test_mac_board();test_mac_fixed();test_mac_tail();test_wcid();test_skey();test_dcoc();test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();
