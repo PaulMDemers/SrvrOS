@@ -4727,3 +4727,27 @@ Actual integration base4a991df; fetchedmainbf1b9a6 includes PR127 storage timing
 and PR128 screenshot receipt work is separate. Next: attended cold adapter cycle,
 then collect matching session FIRST and compare all22 observations with reference
 semantics. No register acceptance or connectivity claim from capture completion.
+
+### 2026-10-24 — v52 post-WCID MAC native observations
+
+Source `4ba7963`, release `619ce12c1d5d0f0b`, session
+`session-00065e9176bea5a2-00` completed. Prepared collector passed unchanged:
+26 reads/submissions,22 ordered observations,zero all-ones targets,both exact
+MAC0/COREf000f200 guard pairs,all prior prerequisites and both completion markers.
+This accepts the bounded capture, not the target register settings or RF.
+
+Three targets match reference defaults:1380=002400ca,1608=0,0a44=0.
+Nineteen differ:102c=00031e46,0208=40000050,1204=0000000a,
+0124=a0140280,1218/1220=00550055,13b0=2f2f1b1b,13c0=18181818,
+1314/1318/131c/1320/1324/13d4/13d8/13dc=0,1238=003700c8,
+006c=00a647a4,0070=6b006868. WPDMA0208 has TX/RX enable and busy bits
+clear; its clock-gate-disable,writeback and burst configuration differ from the
+reference table value30. Do not overwrite these fields just to match that value.
+
+Ubuntu default,consumed one-shot and installed/known-good hashes verified.
+Workspace clean245files/616clusters,zero leaks/allocation mismatches,unmounted.
+Collection,comparison JSON,run/checkpoint and hashes archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-tail-4ba7963/`. No reboot armed.
+Next: reconcile the19 differences with reference field semantics and firmware/USB
+ownership,then group appropriate MAC writes; keep board power/PA/LDO and calibrated
+TX settings separately justified. Physical EFUSE and PHY/RF gates remain open.
