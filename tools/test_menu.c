@@ -62,5 +62,15 @@ int main(void) {
     for(unsigned i=STRIDE*H;i<sizeof(pixels)/sizeof(*pixels);i++) assert(pixels[i]==0xdeadbeef);
     assert(!desk_menu_configure(&m,NULL,0,(struct desk_rect){0,0,W,44},(struct desk_rect){0,0,W,H},&desk_font_16));
     assert(m.open<0 && !key(SRV_KEY_F10).consumed);
+    struct desk_menu_item many[25]={{.flags=DESK_MENU_HEADING,.label="Window"}};
+    for(unsigned i=1;i<25;i++) { many[i].id=i;snprintf(many[i].label,sizeof(many[i].label),"Window %u",i); }
+    assert(!desk_menu_configure(&m,many,25,(struct desk_rect){0,0,400,44},(struct desk_rect){0,0,640,480},&desk_font_16));
+    key(SRV_KEY_F10);key(SRV_KEY_END);
+    struct desk_rect last=desk_menu_row(&m,24),popup=desk_menu_popup(&m);
+    assert(m.selected==24 && m.scroll>0 && last.h==30 && last.y+last.h<=popup.y+popup.h);
+    assert(!desk_menu_replace(&m,many,25) && desk_menu_row(&m,24).h==30);
+    assert(desk_menu_scroll(&m,-4096).consumed && !m.scroll && desk_menu_row(&m,1).h==30);
+    assert(desk_menu_scroll(&m,4096).redraw && desk_menu_row(&m,24).h==30);
+    desk_menu_cancel(&m);
     puts("menu: PASS snapshot validation, pointer release/drag/cancel, disabled rows, keyboard traversal, clipping/tiled rendering and guards");
 }

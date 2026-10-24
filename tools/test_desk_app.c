@@ -7,12 +7,12 @@
 #include <srvros/sys.h>
 
 static uint64_t ticks=1,next_surface=10,source=42;
-static int alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result;
+static int alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
 int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
 static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
 int desk_process_alive(uint64_t pid) { assert(pid==42);return alive; }
-uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { return calloc((size_t)w*h,4); }
+uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { return pixel_failure?NULL:calloc((size_t)w*h,4); }
 void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;free(p); }
 struct desk_packet desk_packet_new(uint32_t type) {
     return (struct desk_packet){.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
@@ -25,7 +25,7 @@ int desk_receive(uint64_t *sender,struct desk_packet *p) {
     queued=0;*sender=source;*p=incoming;return 1;
 }
 int gui_surface_create(uint64_t w,uint64_t h,uint64_t flags,uint64_t *id) {
-    assert(w>=280 && h>=240 && flags==DESK_SURFACE_STREAM);*id=next_surface++;created++;return 0;
+    assert(w>=280 && h>=240 && flags==DESK_SURFACE_STREAM);if(surface_failure)return -1;*id=next_surface++;created++;return 0;
 }
 int gui_surface_destroy(uint64_t id) { assert(id>=10);destroyed++;return 0; }
 int gui_surface_blit(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,const uint32_t *p,uint64_t stride) {
@@ -33,6 +33,29 @@ int gui_surface_blit(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,con
 }
 static void receive(unsigned type,uint64_t generation) {
     incoming=desk_packet_new(type);incoming.generation=generation;queued=1;
+}
+static void refused_resize(void) {
+    struct desk_app a;struct desk_packet event;
+    assert(!desk_app_open(&a,"Pressure",400,300) && !a.pixels);
+    receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;
+    assert(desk_app_poll(&a,&event)==2 && desk_app_poll(&a,&event)==1);
+    uint32_t *pixels=a.pixels;uint64_t surface=a.surface;pixels[0]=77;
+    for(unsigned phase=0;phase<2;phase++) {
+        unsigned gen=2+phase*2;
+        receive(DESK_CONFIGURE,gen);incoming.width=600;incoming.height=500;
+        assert(desk_app_poll(&a,&event)==2);
+        if(!phase)pixel_failure=1;else surface_failure=1;
+        assert(desk_app_poll(&a,&event)==2 && !a.failed && a.pixels==pixels && a.surface==surface && pixels[0]==77);
+        full=1;assert(desk_app_poll(&a,&event)>=0 && a.configure.generation==gen);
+        full=0;assert(desk_app_poll(&a,&event)>=0 && last_sent.type==DESK_RESIZE_REFUSED && last_sent.generation==gen);
+        pixel_failure=surface_failure=0;
+        receive(DESK_CONFIGURE,gen);incoming.width=600;incoming.height=500;
+        assert(desk_app_poll(&a,&event)==2 && a.configure.generation==a.generation); /* Stale. */
+        receive(DESK_CONFIGURE,gen+1);incoming.width=400;incoming.height=300;
+        assert(desk_app_poll(&a,&event)==2 && desk_app_poll(&a,&event)==1);
+        assert(a.pixels==pixels && a.surface==surface && pixels[0]==77 && a.generation==gen+1);
+    }
+    desk_app_close(&a);
 }
 int main(void) {
     struct desk_app stable={.server=42,.surface=1,.generation=7,.configure={.generation=7}};
@@ -92,5 +115,6 @@ int main(void) {
     desk_app_close(&a);assert(destroyed==2 && !a.pixels);
     alive=1;assert(!desk_app_open(&a,"Timeout",400,300));ticks+=501;
     assert(desk_app_poll(&a,&event)<0 && a.failed);desk_app_close(&a);
+    refused_resize();
     puts("desk-app: PASS ownership, release-before-resize, stale input, retry, launch chunks, close veto, server loss and timeout");
 }

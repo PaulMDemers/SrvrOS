@@ -3,7 +3,7 @@
 #include <srvros/desk_widgets.h>
 #include <srvros/desktop_menu.h>
 #include <srvros/key_event.h>
-#define DESK_MENU_ITEMS 64
+#define DESK_MENU_ITEMS 96
 #define DESK_MENU_GROUPS 8
 /* Owned bounded menu snapshot. No allocation, IPC, filesystem or callbacks.
  * Configure cancels an open menu. Coordinates are canvas-local. An open menu
@@ -16,10 +16,11 @@ struct desk_menu {
     unsigned headings[DESK_MENU_GROUPS];
     struct desk_rect bar,bounds;
     const struct desk_font *font;
-    int open,selected,armed;
+    int open,selected,armed,scroll;
 };
 struct desk_menu_result { uint32_t action; int consumed,redraw; };
 int desk_menu_valid(const struct desk_menu_item *items,unsigned count);
+struct desk_menu_result desk_menu_scroll(struct desk_menu *menu,int pixels);
 void desk_menu_init(struct desk_menu *menu);
 int desk_menu_configure(struct desk_menu *menu,const struct desk_menu_item *items,unsigned count,
     struct desk_rect bar,struct desk_rect bounds,const struct desk_font *font);
