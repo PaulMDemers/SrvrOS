@@ -5081,3 +5081,11 @@ Ubuntu default,consumed one-shot and installed/recovery payload hashes verified.
 Offline workspace clean253files/628clusters,zero leaks/allocation mismatches;
 unmounted,no reboot armed. Next: scoped100c control-field audit/comparison.
 PHY/RF,association and connectivity remain untested.
+
+Active scope: audit the100c U2ME mismatch using pinned upstream source and a
+read-only Linux comparison on this same adapter. Mask factory-address bytes
+before persistence. No Linux register writes,driver reset or changed radio state.
+Only prepare a bounded native comparison if evidence supports it; preserve
+one-attempt writes and strict address verification. Actual base remains d5bc4b3;
+fetched main76a55dd includes independent window capacity and desktop API docs.
+PR132 Air6,1 combined services and PR134 POSIX work do not overlap this audit.
