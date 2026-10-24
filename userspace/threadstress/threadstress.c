@@ -586,6 +586,7 @@ int posix_errno_test(void);
 int posix_positional_test(void);
 int posix_sleep_test(void);
 int posix_usage_test(void);
+int posix_open_test(void);
 int posix_pthread_contract_test(void);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
@@ -607,6 +608,7 @@ int main(int argc, char **argv) {
     RUN_TEST("yield", yield_test);
     RUN_TEST("errno", posix_errno_test);
     RUN_TEST("positional", posix_positional_test);
+    RUN_TEST("open", posix_open_test);
     RUN_TEST("sleep", posix_sleep_test);
     RUN_TEST("usage", posix_usage_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);

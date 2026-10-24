@@ -58,11 +58,9 @@ static int translate_open_flags(int flags, uint64_t *srv_flags) {
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
 
-    if (access == O_RDONLY) {
-        *srv_flags = SRV_OPEN_READ;
-        return 0;
-    }
-    if (access == O_RDWR) {
+    if(access==O_ACCMODE || (access==O_RDONLY && (flags&O_TRUNC))) { errno=EINVAL;return -1; }
+    if(access==O_RDONLY) out|=SRV_OPEN_READ;
+    else if (access == O_RDWR) {
         out |= SRV_OPEN_READ | SRV_OPEN_WRITE;
     } else {
         out |= SRV_OPEN_WRITE;
@@ -79,6 +77,8 @@ static int translate_open_flags(int flags, uint64_t *srv_flags) {
     if ((flags & O_NONBLOCK) != 0) {
         out |= SRV_OPEN_NONBLOCK;
     }
+    if(flags&O_EXCL) out|=SRV_OPEN_EXCL;
+    if(flags&O_CLOEXEC) out|=SRV_OPEN_CLOEXEC;
     *srv_flags = out;
     return 0;
 }
@@ -100,23 +100,13 @@ int open(const char *path, int flags, ...) {
 
     struct srv_stat before;
     int existed = srv_stat(full, &before) == 0;
-    if ((flags & O_CREAT) != 0 && (flags & O_EXCL) != 0 && existed) {
-        errno = EEXIST;
-        return -1;
-    }
-    long fd = (flags & O_ACCMODE) == O_RDONLY ? srv_open(full) : srv_open_mode(full, srv_flags);
+    long fd = srv_open_mode(full, srv_flags);
     if (fd < 0) {
-        errno = (flags & O_CREAT) != 0 ? EIO : ENOENT;
+        errno = fd < -1 ? (int)-fd : EIO;
         return -1;
     }
     if ((flags & O_CREAT) != 0 && !existed) {
         (void)srv_chmod(full, create_mode & ~current_umask);
-    }
-    if ((flags & O_NONBLOCK) != 0) {
-        (void)srv_fcntl((int)fd, SRV_F_SETFL, SRV_FD_NONBLOCK);
-    }
-    if ((flags & O_CLOEXEC) != 0) {
-        (void)srv_fcntl((int)fd, SRV_F_SETFD, SRV_FD_CLOEXEC);
     }
     return (int)fd;
 }
@@ -195,7 +185,7 @@ ssize_t write(int fd, const void *buffer, size_t length) {
                 errno = EINTR;
                 return -1;
             }
-            errno = EBADF;
+            errno = result < -1 ? (int)-result : EBADF;
             return -1;
         }
         (void)__posix_signal_dispatch_pending();
@@ -579,14 +569,15 @@ int fcntl(int fd, int command, ...) {
             errno = EBADF;
             return -1;
         }
-        return (flags & SRV_FD_NONBLOCK) != 0 ? O_NONBLOCK : 0;
+        int access=(flags&SRV_FD_WRITE)?((flags&SRV_FD_READ)?O_RDWR:O_WRONLY):O_RDONLY;
+        return access|((flags&SRV_FD_NONBLOCK)?O_NONBLOCK:0)|((flags&SRV_FD_APPEND)?O_APPEND:0);
     }
     if (command == F_SETFL) {
         va_list args;
         va_start(args, command);
         int flags = va_arg(args, int);
         va_end(args);
-        uint64_t srv_flags = (flags & O_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+        uint64_t srv_flags = ((flags & O_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags & O_APPEND)?SRV_FD_APPEND:0);
         if (fd >= 0 && fd < 3) {
             return 0;
         }
@@ -861,8 +852,9 @@ int ftruncate(int fd, off_t length) {
         errno = EINVAL;
         return -1;
     }
-    if (srv_ftruncate(fd, (uint64_t)length) < 0) {
-        errno = EBADF;
+    long result=srv_ftruncate(fd,(uint64_t)length);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result : EBADF;
         return -1;
     }
     return 0;

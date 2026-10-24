@@ -14,7 +14,51 @@ measure overall conformance. See the official
 and [general interface requirements](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html).
 This reference choice is a development target, not certification.
 
-## What exists today
+## Implementation progress after the audit
+
+Work is on `device/macbookair7-2/posix-core`, draft PR134. Desktop overhaul is
+explicitly deferred while this compatibility milestone is implemented. The
+original audit below describes `bc0edb9`; the following fixes supersede its
+corresponding defect descriptions. This is still a partial compatibility
+profile, not completed POSIX conformance.
+
+| Contract now implemented | Regression evidence | Remaining boundary |
+| --- | --- | --- |
+| Per-thread `errno`, initialized/zero TLS, reclaimed worker TLS | `threadstress/errno_test.c`, `test_process_loader.c`, guest `tlsprobe`; simultaneous workers and 16 reuse rounds with stable mapped bytes | Existing bounded worker slots remain |
+| Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate open descriptions still use snapshots; general open/write flags need more work |
+| `select` ready-bit counts, masks, EBADF, timeout validation, IPv4 socket FD range | `test_posix_poll.c`, `libcprobe/readiness.c`; guest uses an explicit supported e1000 | `FD_SETSIZE=1024` accommodates current sockets, not all pseudo-FDs; poll remains bounded to 64 entries |
+| Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`; aliased remainder, signal interruption, no early completion | Timing remains subject to timer resolution and scheduling |
+| Thread-directed signals, blocked `raise`, per-thread dispatch guard, one-shot handler reset | `threadstress/targeted_signal_test.c`, host process-output tests, full thread and libuv guest suites | Handlers are still dispatched at libc checkpoints; no general asynchronous signal trampoline, altstack or siginfo frames |
+| Process/thread CPU clocks, `clock`, `times`, reaped-child CPU totals and peak mapped memory | `threadstress/usage_test.c`, scheduler and process host fixtures; busy/sleeping workers, child wait and peak retention | CPU0 accounting uses the monotonic reference; auxiliary rusage counters remain zero, and this is not an energy measurement |
+| Shared-reader/exclusive-writer locks, thread-local key values, key generation reuse and repeated destructors | `threadstress/pthread_contract_test.c`; concurrent readers, blocked writer, destructor reinstallation and deleted/recreated keys | Bounded keys/workers; reader-preference locking, no real-time scheduling policy |
+
+`sigaction` refuses unsupported delivery flags rather than accepting them as
+working. Pending thread signals are private to their target; process-directed
+signals remain shared and consumable by an eligible thread. Ignoring a signal
+clears pending instances across all threads. A joinable exited thread retains a
+valid ID but receives no signal, matching the
+[Issue 8 pthread_kill contract](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/pthread_kill.html).
+
+`clock()` now counts process CPU microseconds (`CLOCKS_PER_SEC=1000000`);
+`times()` uses `_SC_CLK_TCK=100`. Consumers needing elapsed time must use
+`CLOCK_MONOTONIC`; the native `time`/`timeout` utilities have been corrected.
+CPU charging follows userspace/kernel transitions and scheduler switches, so
+sleeping time and another worker's execution are not charged to the caller.
+
+Pthread scheduling queries report the supported `SCHED_OTHER` / priority-zero
+contract; unsupported policies or nonzero priorities fail instead of succeeding
+without effect. The stress expansion also exposed a scheduler address-space bug:
+a same-process switch could inherit a temporary kernel CR3. Suspended threads
+now retain their actual address space, independently of process identity, with
+a deterministic host fixture and passing full thread/libc guest regressions.
+
+Local logs are under `build/posix-core-20261024/`; Actions remain disabled.
+The initial socket-readiness fixture failed because Q35's default NIC was not
+supported; its failed log is retained, and the corrected explicit-e1000 run
+passed. These VM results do not accept a new native payload. Installed hardware
+and recovery releases remain unchanged.
+
+## Original audit baseline (bc0edb9)
 
 Paths below are relative to `userspace/lib/src/` unless stated otherwise.
 “Implemented subset” means real operations exist, not that every corner case
@@ -41,7 +85,7 @@ silent semantic substitutions are a different problem.
 | Linux extensions | `posix_node_compat.c`: eventfd and poll-backed epoll adapters | Separate portability surface, not POSIX requirements; inotify ENOSYS, no Linux syscall ABI |
 | libuv / Node | `ports/srvros/uv.c` adapter and selected upstream source | Adapter is not full upstream libuv; historical Node execution is not a current reproduced full runtime port |
 
-## High-priority semantic findings
+## Original semantic findings and remaining priorities
 
 ### P0. Thread-local error state
 

@@ -17,6 +17,17 @@ locally with Actions disabled. No native reboot is needed for the first blocks;
 installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252`, USB `37D8-C5D0`
 remain unchanged. Progress/evidence: `build/posix-core-20261024/`.
 
+Published implementation commits through `a9e63e5`: per-thread errno, kernel
+positional I/O, select/readiness corrections, interrupted/absolute sleep,
+reclaimed worker TLS, thread-directed signals, actual CPU accounting and peak
+mapped-memory usage. Focused host tests and full thread/libc/TLS/libuv guest
+suites pass for their respective blocks. Pthread key/read-write lock semantics
+now pass their semantic guest tests. A same-process scheduler CR3 regression
+exposed by stress is fixed in `fad4bf4`. Limits/open-file semantics and the broader profile are still
+in progress. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
+changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
+work. No native reboot has been armed or physical acceptance claimed.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor

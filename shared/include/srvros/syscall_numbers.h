@@ -187,6 +187,8 @@ struct srv_file_change {
 #define SRV_OPEN_TRUNC 0x08
 #define SRV_OPEN_APPEND 0x10
 #define SRV_OPEN_NONBLOCK 0x20
+#define SRV_OPEN_EXCL 0x40
+#define SRV_OPEN_CLOEXEC 0x80
 
 #define SRV_SPAWN_FILE_ACTION_DUP2 1
 #define SRV_SPAWN_FILE_ACTION_CLOSE 2
@@ -201,6 +203,9 @@ struct srv_file_change {
 #define SRV_F_SETLKW 7
 #define SRV_FD_NONBLOCK 0x01
 #define SRV_FD_CLOEXEC 0x02
+#define SRV_FD_READ 0x04
+#define SRV_FD_WRITE 0x08
+#define SRV_FD_APPEND 0x10
 
 #define SRV_F_RDLCK 1
 #define SRV_F_WRLCK 2
@@ -264,6 +269,7 @@ struct srv_winsize {
     uint16_t ypixel;
 };
 
+#define SRV_ERR_NOENT -2
 #define SRV_ERR_SRCH -3
 #define SRV_ERR_INTR -4
 #define SRV_ERR_IO -5
@@ -271,7 +277,10 @@ struct srv_winsize {
 #define SRV_ERR_AGAIN -11
 #define SRV_ERR_NOMEM -12
 #define SRV_ERR_FAULT -14
+#define SRV_ERR_EXIST -17
+#define SRV_ERR_ISDIR -21
 #define SRV_ERR_INVAL -22
+#define SRV_ERR_MFILE -24
 #define SRV_ERR_FBIG -27
 #define SRV_ERR_SPIPE -29
 

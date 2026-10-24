@@ -693,14 +693,29 @@ static int64_t syscall_open(const char *user_path) {
 
 static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
+    if (!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
+    if(!(flags&(SRV_OPEN_READ|SRV_OPEN_WRITE)) ||
+        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC))) return SRV_ERR_INVAL;
+    /* Hold filesystem admission across lookup, exclusive create and descriptor
+     * publication. O_EXCL must not be a userspace stat/create race. */
+    if(!scheduler_io_begin()) return SRV_ERR_IO;
+    int64_t result;
+    if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write(process_current(),path,flags);
+    else {
+        const struct vfs_node *node=vfs_lookup(path);const uint8_t *data;uint64_t size;
+        if(!node) result=SRV_ERR_NOENT;
+        else if(node->type==VFS_NODE_DIRECTORY) result=SRV_ERR_ISDIR;
+        else if(!vfs_read_all(node,&data,&size)) result=SRV_ERR_IO;
+        else {
+            result=process_file_alloc(process_current(),node,data,size);
+            if(result<0) result=SRV_ERR_MFILE;
+            else {
+                (void)process_file_set_flags(process_current(),result,((flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags&SRV_OPEN_APPEND)?SRV_FD_APPEND:0));
+                (void)process_file_set_fd_flags(process_current(),result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
+            }
+        }
     }
-
-    if ((flags & SRV_OPEN_WRITE) != 0) {
-        return process_file_open_write(process_current(), path, flags);
-    }
-    return syscall_open(user_path);
+    scheduler_io_end();return result;
 }
 
 static int64_t syscall_close(uint64_t fd) {

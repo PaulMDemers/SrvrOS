@@ -168,6 +168,7 @@ struct process_read_file {
     const uint8_t *data;
     uint64_t size;
     uint64_t offset;
+    uint64_t status_flags;
     char path[PROCESS_PATH_MAX];
 };
 
@@ -3566,7 +3567,7 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
         data = read->data;
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
-        if (write == NULL) {
+        if (write == NULL || !(write->open_flags & SRV_OPEN_READ)) {
             process_irq_restore(flags);
             return -1;
         }
@@ -3815,9 +3816,9 @@ static bool ensure_write_capacity(struct process_write_file *file, uint64_t need
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags) {
     if (process == NULL ||
         path == NULL ||
-        (flags & SRV_OPEN_WRITE) == 0 ||
-        ((flags & SRV_OPEN_TRUNC) != 0 && (flags & SRV_OPEN_APPEND) != 0)) {
-        return -1;
+        (flags & (SRV_OPEN_READ|SRV_OPEN_WRITE)) == 0 ||
+        ((flags & SRV_OPEN_TRUNC) && !(flags & SRV_OPEN_WRITE))) {
+        return SRV_ERR_INVAL;
     }
 
     const struct vfs_node *node = vfs_lookup(path);
@@ -3828,15 +3829,12 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     bool trunc = (flags & SRV_OPEN_TRUNC) != 0;
     bool ensure_empty = trunc || (!exists && (flags & SRV_OPEN_CREATE) != 0);
 
-    if (!exists && (flags & SRV_OPEN_CREATE) == 0) {
-        return -1;
-    }
-    if (exists && !trunc && !append && (flags & SRV_OPEN_READ) == 0) {
-        append = true;
-    }
+    if(exists && (flags & SRV_OPEN_CREATE) && (flags & SRV_OPEN_EXCL)) return SRV_ERR_EXIST;
+    if(exists && node->type==VFS_NODE_DIRECTORY) return SRV_ERR_ISDIR;
+    if (!exists && (flags & SRV_OPEN_CREATE) == 0) return SRV_ERR_NOENT;
 
     if (exists && !trunc && !vfs_read_all(node, &old_data, &old_size)) {
-        return -1;
+        return SRV_ERR_IO;
     }
 
     uint64_t free_index = PROCESS_MAX_OPEN_FILES;
@@ -3848,10 +3846,8 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         break;
     }
     if (free_index == PROCESS_MAX_OPEN_FILES) {
-        if (old_data != NULL) {
-            vfs_release_data(node, old_data);
-        }
-        return -1;
+        if (old_data != NULL) vfs_release_data(node, old_data);
+        return SRV_ERR_MFILE;
     }
 
     uint64_t handle = write_file_alloc();
@@ -3859,7 +3855,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         if (old_data != NULL) {
             vfs_release_data(node, old_data);
         }
-        return -1;
+        return SRV_ERR_IO;
     }
 
     struct process_write_file *write = write_file_at(handle);
@@ -3875,7 +3871,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         if (write != NULL) {
             write->used = false;
         }
-        return -1;
+        return SRV_ERR_IO;
     }
 
     for (uint64_t j = 0; j < old_size; j++) {
@@ -3883,7 +3879,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     }
     write->size = trunc ? 0 : old_size;
     write->open_flags = flags;
-    write->offset = append ? old_size : 0;
+    write->offset = append ? write->size : 0;
     write->dirty = false;
     if (old_data != NULL) {
         vfs_release_data(node, old_data);
@@ -3896,7 +3892,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         for (uint64_t j = 0; j < sizeof(*write); j++) {
             write_bytes[j] = 0;
         }
-        return -1;
+        return SRV_ERR_IO;
     }
 
     struct process_file *file = &process->files[free_index];
@@ -3907,7 +3903,8 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     file->used = true;
     file->type = PROCESS_FILE_VFS_WRITE;
     file->handle = handle;
-    file->flags = (flags & SRV_OPEN_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+    file->flags = ((flags & SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0) |
+        ((flags & SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
     (void)copy_process_path(file->path, sizeof(file->path), path);
     return (int64_t)(free_index + 3);
 }
@@ -3923,7 +3920,7 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         return -1;
     }
     struct process_write_file *write = write_file_at(file->handle);
-    if (write == NULL) {
+    if (write == NULL || !(write->open_flags & SRV_OPEN_WRITE)) {
         process_irq_restore(flags);
         return -1;
     }
@@ -3932,21 +3929,15 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         return 0;
     }
 
-    uint64_t needed = write->offset + length;
-    if (needed < write->offset || needed > PROCESS_WRITE_BUFFER_MAX || !ensure_write_capacity(write, needed)) {
-        write->failed = true;
-        process_irq_restore(flags);
-        return -1;
+    uint64_t position=(write->open_flags & SRV_OPEN_APPEND)?write->size:write->offset;
+    if(position>PROCESS_WRITE_BUFFER_MAX || length>PROCESS_WRITE_BUFFER_MAX-position) {
+        process_irq_restore(flags);return SRV_ERR_FBIG;
     }
-
-    for (uint64_t i = write->size; i < write->offset; i++) {
-        ((uint8_t *)write->data)[i] = 0;
-    }
-    for (uint64_t i = 0; i < length; i++) {
-        ((uint8_t *)write->data)[write->offset + i] = buffer[i];
-    }
-
-    write->offset += length;
+    uint64_t needed=position+length;
+    if(!ensure_write_capacity(write,needed)) { process_irq_restore(flags);return SRV_ERR_NOMEM; }
+    for(uint64_t i=write->size;i<position;i++) ((uint8_t *)write->data)[i]=0;
+    copy_bytes((uint8_t *)write->data+position,buffer,length);
+    write->offset=needed;
     if (write->offset > write->size) {
         write->size = write->offset;
     }
@@ -4016,7 +4007,7 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
         result=file->type==PROCESS_FILE_VFS?SRV_ERR_BADF:SRV_ERR_SPIPE; goto done;
     }
     struct process_write_file *write=write_file_at(file->handle);
-    if (!write) { result=SRV_ERR_BADF; goto done; }
+    if (!write || !(write->open_flags & SRV_OPEN_WRITE)) { result=SRV_ERR_BADF; goto done; }
     if (!length) { result=0; goto done; }
     uint64_t position=(uint64_t)offset;
     if (position>PROCESS_WRITE_BUFFER_MAX || length>PROCESS_WRITE_BUFFER_MAX-position) {
@@ -4175,25 +4166,19 @@ static int64_t write_file_close(uint64_t handle) {
 }
 
 int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length) {
-    struct process_file *file = process_file_at(process, fd);
-    if (file == NULL || file->type != PROCESS_FILE_VFS_WRITE || length > PROCESS_WRITE_BUFFER_MAX) {
-        return -1;
-    }
-
-    struct process_write_file *write = write_file_at(file->handle);
-    if (write == NULL) {
-        return -1;
-    }
-    if (length > write->capacity && !ensure_write_capacity(write, length)) {
-        write->failed = true;
-        return -1;
-    }
-    for (uint64_t i = write->size; i < length; i++) {
-        ((uint8_t *)write->data)[i] = 0;
-    }
-    write->size = length;
-    write->dirty = true;
-    return 0;
+    uint64_t irq=process_irq_save();
+    int64_t resolved=positional_fd(process,fd),result=SRV_ERR_BADF;
+    if(resolved<0) goto done;
+    struct process_file *file=process_file_at(process,(uint64_t)resolved);
+    if(file->type!=PROCESS_FILE_VFS_WRITE) goto done;
+    struct process_write_file *write=write_file_at(file->handle);
+    if(!write || !(write->open_flags&SRV_OPEN_WRITE)) goto done;
+    if(length>PROCESS_WRITE_BUFFER_MAX) { result=SRV_ERR_FBIG;goto done; }
+    if(!ensure_write_capacity(write,length)) { result=SRV_ERR_NOMEM;goto done; }
+    for(uint64_t i=write->size;i<length;i++) ((uint8_t *)write->data)[i]=0;
+    write->size=length;write->dirty=true;result=0;
+done:
+    process_irq_restore(irq);return result;
 }
 
 int64_t process_file_flush(struct process *process, uint64_t fd) {
@@ -5285,20 +5270,40 @@ int64_t process_file_recv_rights(struct process *process,
 }
 
 int64_t process_file_get_flags(struct process *process, uint64_t fd) {
-    struct process_file *file = process_file_at(process, fd);
-    if (file == NULL) {
-        return -1;
+    struct process_file *file=process_file_at(process,fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_VFS) {
+        struct process_read_file *read=read_file_at(file->handle);
+        return read?(int64_t)(SRV_FD_READ|read->status_flags):SRV_ERR_BADF;
     }
-    return (int64_t)file->flags;
+    if(file->type==PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write=write_file_at(file->handle);
+        if(!write) return SRV_ERR_BADF;
+        return ((write->open_flags&SRV_OPEN_READ)?SRV_FD_READ:0) |
+            ((write->open_flags&SRV_OPEN_WRITE)?SRV_FD_WRITE:0) |
+            ((write->open_flags&SRV_OPEN_APPEND)?SRV_FD_APPEND:0) |
+            ((write->open_flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
+    }
+    uint64_t access=file->type==PROCESS_FILE_PIPE_READ?SRV_FD_READ:
+        file->type==PROCESS_FILE_PIPE_WRITE?SRV_FD_WRITE:SRV_FD_READ|SRV_FD_WRITE;
+    return access|(file->flags&SRV_FD_NONBLOCK);
 }
-
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags) {
-    struct process_file *file = process_file_at(process, fd);
-    if (file == NULL) {
-        return -1;
+    struct process_file *file=process_file_at(process,fd);
+    if(!file) return SRV_ERR_BADF;
+    uint64_t irq=process_irq_save();
+    if(file->type==PROCESS_FILE_VFS) {
+        struct process_read_file *read=read_file_at(file->handle);
+        if(!read) { process_irq_restore(irq);return SRV_ERR_BADF; }
+        read->status_flags=flags&(SRV_FD_NONBLOCK|SRV_FD_APPEND);
+    } else if(file->type==PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write=write_file_at(file->handle);
+        if(!write) { process_irq_restore(irq);return SRV_ERR_BADF; }
+        write->open_flags=(write->open_flags&~(SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK)) |
+            ((flags&SRV_FD_APPEND)?SRV_OPEN_APPEND:0) | ((flags&SRV_FD_NONBLOCK)?SRV_OPEN_NONBLOCK:0);
     }
-    file->flags = (file->flags & SRV_FD_CLOEXEC) | (flags & SRV_FD_NONBLOCK);
-    return 0;
+    file->flags=(file->flags&SRV_FD_CLOEXEC)|(flags&SRV_FD_NONBLOCK);
+    process_irq_restore(irq);return 0;
 }
 
 int64_t process_file_get_fd_flags(struct process *process, uint64_t fd) {

@@ -5,6 +5,8 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
+static bool opening,fixture_exists;
+static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
 static bool fail_save;
 static bool fail_alloc;
@@ -28,7 +30,7 @@ __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue
     pipe_wait_mode=0;return ready(arg);
 }
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
-    (void)node; (void)data; assert(0);
+    assert(opening && node==&fixture_node && data==saved);
 }
 int64_t net_hold(uint64_t handle) { (void)handle; assert(0);return -1; }
 int64_t net_close(uint64_t handle) { (void)handle; assert(0); return -1; }
@@ -37,13 +39,22 @@ void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(!strcmp(path,"/test/output")); saves++;
     if (fail_save) return false;
-    assert(size<=sizeof(saved));memcpy(saved,data,size);saved_size=size;return true;
+    assert(size<=sizeof(saved));if(size) memcpy(saved,data,size);saved_size=size;
+    if(opening) fixture_exists=true;
+    return true;
+}
+const struct vfs_node *vfs_lookup(const char *path) {
+    assert(opening && !strcmp(path,"/test/output"));return fixture_exists?&fixture_node:NULL;
+}
+bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
+    assert(opening && node==&fixture_node);*data=saved;*size=saved_size;return true;
 }
 static struct process subject;
 static void setup(unsigned refs) {
     memset(&subject,0,sizeof(subject));memset(write_files,0,sizeof(write_files));
     saves=0;fail_save=false;saved_size=0;
     uint64_t handle=write_file_alloc();assert(handle==1);
+    write_files[0].open_flags=SRV_OPEN_READ|SRV_OPEN_WRITE;
     write_files[0].refs=refs;strcpy(write_files[0].path,"/test/output");
     subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
     subject.stdout_redirect=true;subject.stdout_fd=3;
@@ -205,6 +216,42 @@ static void cpu_usage_regression(void) {
     current_subject=NULL;current_worker=NULL;
     puts("process-usage: PASS process/main/worker isolation and reaped descendant accumulation");
 }
+static void open_flags_regression(void) {
+    memset(&subject,0,sizeof(subject));memset(write_files,0,sizeof(write_files));
+    opening=fixture_exists=true;memcpy(saved,"seed",4);saved_size=4;saves=0;
+    assert(process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_EXCL)==SRV_ERR_EXIST && saves==0);
+    long fd=process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE);assert(fd==3);
+    uint8_t byte;assert(process_file_read(&subject,fd,&byte,1)<0);
+    assert(process_file_write(&subject,fd,(const uint8_t *)"X",1)==1 && process_file_close(&subject,fd)==0);
+    assert(saved_size==4 && !memcmp(saved,"Xeed",4));
+    fd=process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE|SRV_OPEN_APPEND|SRV_OPEN_CLOEXEC);
+    assert(fd==3 && process_file_seek(&subject,fd,0,0)==0);
+    assert(process_file_write(&subject,fd,(const uint8_t *)"Y",1)==1);
+    long alias=process_file_dup(&subject,fd);assert(alias==4);
+    assert(process_file_get_flags(&subject,alias)==(SRV_FD_WRITE|SRV_FD_APPEND));
+    assert(process_file_set_flags(&subject,alias,SRV_FD_NONBLOCK)==0);
+    assert(process_file_get_flags(&subject,fd)==(SRV_FD_WRITE|SRV_FD_NONBLOCK));
+    assert(process_file_get_fd_flags(&subject,fd)==SRV_FD_CLOEXEC);
+    assert(process_file_seek(&subject,fd,0,0)==0 && process_file_write(&subject,fd,(const uint8_t *)"Z",1)==1);
+    struct process_write_file *write=write_file_at(subject.files[0].handle);fail_alloc=true;
+    write->offset=write->capacity;
+    assert(process_file_write(&subject,fd,(const uint8_t *)"!",1)==SRV_ERR_NOMEM && !write->failed);
+    assert(process_file_truncate(&subject,fd,write->capacity+1)==SRV_ERR_NOMEM && !write->failed && write->size==5);
+    fail_alloc=false;
+    assert(process_file_close(&subject,alias)==0 && process_file_close(&subject,fd)==0);
+    assert(saved_size==5 && !memcmp(saved,"ZeedY",5));
+    fd=process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND);
+    assert(fd==3 && process_file_seek(&subject,fd,0,1)==0);
+    assert(process_file_write(&subject,fd,(const uint8_t *)"T",1)==1 && process_file_close(&subject,fd)==0 && saved_size==1 && saved[0]=='T');
+    fixture_exists=false;
+    fd=process_file_open_write(&subject,"/test/output",SRV_OPEN_READ|SRV_OPEN_CREATE|SRV_OPEN_EXCL);
+    assert(fd==3 && fixture_exists && !saved_size);
+    assert(process_file_read(&subject,fd,&byte,1)==0 && process_file_write(&subject,fd,&byte,1)<0);
+    assert(process_file_truncate(&subject,fd,1)==SRV_ERR_BADF);
+    assert(process_file_pwrite(&subject,fd,&byte,1,0)==SRV_ERR_BADF && process_file_close(&subject,fd)==0);
+    opening=false;
+    puts("process-open: PASS offset/access/append flags, exclusive refusal, readonly create, failed-write preservation");
+}
 int main(void) {
     positional_regression();
     snapshot_read_regression();
@@ -296,5 +343,6 @@ int main(void) {
     current_subject=NULL;
     targeted_signal_regression();
     cpu_usage_regression();
+    open_flags_regression();
     puts("process-output-host: PASS (20,000 pipe reference transfers, wrap/backpressure/EOF/rights, 1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
 }
