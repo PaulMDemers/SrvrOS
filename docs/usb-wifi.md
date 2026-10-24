@@ -1747,7 +1747,7 @@ with all preceding bounded initialization checks passing. This accepts this grou
 on captured7392:a711; remaining MAC/BBP initialization and RF/connectivity are
 outside its scope.
 
-### TX software controls (v40; native result pending)
+### TX software controls (v40; accepted on captured adapter)
 
 `--wifi-mac-txsw` requires v39 prerequisites. One sequence10, 40-byte packet
 writes TX_SW0_1330=601, TX_SW1_1334=40000, TX_SW2_1338=0 and header translation
@@ -1757,3 +1757,25 @@ writes. Four read-only same-adapter Linux samples agreed on601/40000/0; active
 Linux beacon offsets differed from the init table and remain deferred. Exact ACK,
 four readbacks, twelve reads and final MAC0/COREf000f200 are required; no retry,
 RF enable or BBP table follows. Header translation is explicitly kept disabled.
+
+Pro11,2 source `e6e83ab`, release `656e4b9c37ae4baf`, session
+`00065e8acd64d0df-00` passed natively on 2026-10-23: exact sequence10 ACK,
+all twelve reads and four expected targets, final MAC0/COREf000f200 and both
+capture completion markers. Prior bounded groups passed; RF remains untested.
+
+### Beacon-offset initialization (v41; native result pending)
+
+`--wifi-mac-beacon` requires v40 prerequisites. One sequence11, 24-byte packet
+writes041c=f8f0e8e0 and0420=6f77d0c8 from mandatory captured starts ece8e4e0/
+fcf8f4f0. Exact ACK, eight reads and initial/final MAC0/COREf000f200 are required.
+No retry, beacon upload/timer enable, BBP table or RF/MAC TX/RX enable follows.
+
+These are the Linux v7.0 common initialization table values, not the eventual
+USB beacon layout. `mt76x02u_init_beacon_config` selects five 1600-byte slots;
+`mt76x02_set_beacon_offsets` packs offsets in 64-byte units. That produces the
+live Linux readbacks4b321900/64 captured previously, explaining the difference
+without treating the live values as cold initialization requirements. This trial
+only accepts the table writes; operational beacon configuration remains separate.
+References: [initialization table](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h),
+[USB layout](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_usb_core.c),
+[offset packing](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_beacon.c).

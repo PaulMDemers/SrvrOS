@@ -3941,3 +3941,11 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean219files/577clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: review remaining reference MAC prerequisites, including beacon
 layout, before revisiting the full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v41 beacon-offset initialization after accepted v40.
+Captured041c/0420 starts ece8e4e0/fcf8f4f0; reference common table writes
+f8f0e8e0/6f77d0c8. Live Linux beacon offsets are later USB layout, not these
+initialization values. Sequence11 two-pair command, eight guarded reads; no
+beacon upload/timer enable, MAC TX/RX, RF or BBP table. Touch MCU/xHCI/main/
+staging/tests. Base22fd266; fetched main7d2b903, PR106 power and PR109 Air6,1
+Home policy remain separate; preserve their existing capture profiles.

@@ -852,3 +852,13 @@ size_t mt76_mac_txsw_packet(uint8_t *out,size_t capacity){
 }
 enum mt76_mcu_timing_status mt76_mac_txsw_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_txsw_plan,10,true,4,4);}
+
+/* Common-table beacon SRAM offsets only; no beacon upload or MAC enable. */
+static const struct mt76_mcu_register_pair mac_beacon_plan[2]={
+    {0x041c,0xf8f0e8e0},{0x0420,0x6f77d0c8}
+};
+size_t mt76_mac_beacon_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,11,mac_beacon_plan,2,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_beacon_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_beacon_plan,11,true,2,2);}

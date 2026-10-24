@@ -588,6 +588,15 @@ class InstallTests(unittest.TestCase):
         for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock','wifi_clock_direct'):
             with self.assertRaises(ValueError):boot.stage(wifi_clock_pair=True,wifi_txbe_start=True,**{conflict:True})
 
+    def test_wifi_mac_beacon_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v41-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-beacon','mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_beacon=True)
+        self.assertNotIn('srvros.wifi-mac-beacon=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v40-laptop-probe-0e535900-auto-return'))
+
     def test_wifi_mac_txsw_profile(self):
         cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v40-laptop-probe-0e535900-auto-return')
         for flag in ('mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):

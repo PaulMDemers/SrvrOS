@@ -623,8 +623,48 @@ static void test_mac_txsw(void){
  puts("MAC txsw: PASS exact ordered 40-byte packet, twelve reads, all failures/cancellation, reply and target guards");
 }
 
+struct beacon_fake {unsigned op,auth,fail,deny,bad,ones;};
+static bool beacon_auth(void *p){struct beacon_fake *f=p;return ++f->auth!=f->deny;}
+static bool beacon_read(void *p,uint32_t a,uint32_t *v){
+ struct beacon_fake *f=p;
+ const uint32_t addresses[]={0x1004,0x2000,0x041c,0x0420,0,0x041c,0x0420,0x1004,0x2000};
+ const uint32_t values[]={0,0xf000f200,0xece8e4e0,0xfcf8f4f0,0,0xf8f0e8e0,0x6f77d0c8,0,0xf000f200};
+ assert(f->op<9 && a==addresses[f->op]);*v=values[f->op];f->op++;
+ if(f->bad==f->op)*v^=1;
+ if(f->ones==f->op)*v=UINT32_MAX;
+ return f->fail!=f->op;
+}
+static int beacon_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t cap){
+ struct beacon_fake *f=p;const uint8_t expected[]={0x10,0,0xcb,0x50,0x1c,0x04,0x41,0,0xe0,0xe8,0xf0,0xf8,0x20,0x04,0x41,0,0xc8,0xd0,0x77,0x6f,0,0,0,0};
+ assert(f->op==4 && n==24 && cap>=16 && !memcmp(data,expected,24));f->op++;
+ if(f->fail==f->op)return -1;
+ word(reply,0x4a0b0008);word(reply+4,0x41041c);word(reply+8,0xf8f0e8e0);word(reply+12,0x4a0b0008);
+ if(f->bad==5)reply[2]^=1;
+ return 16;
+}
+static void test_mac_beacon(void){
+ for(unsigned fail=0;fail<=9;fail++)for(unsigned deny=0;deny<=10;deny++){
+  struct beacon_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,beacon_auth,beacon_read,beacon_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_beacon_apply(&s,&io);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==8 && s.ack_mask==1 && s.batches_completed==1 && f.op==9 && f.auth==10);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_beacon_apply(&s,&io)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bad=1;bad<=9;bad++)if((bad<3 || bad>4)){
+  struct beacon_fake f={.bad=bad};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,beacon_auth,beacon_read,beacon_exchange};
+  assert(mt76_mac_beacon_apply(&s,&io)==(bad==5?MT76_TIMING_REPLY:MT76_TIMING_STATE));assert(!s.complete);
+ }
+ for(unsigned ones=1;ones<=9;ones++)if(ones!=5){
+  struct beacon_fake f={.ones=ones};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,beacon_auth,beacon_read,beacon_exchange};
+  assert(mt76_mac_beacon_apply(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ puts("MAC beacon: PASS exact ordered 24-byte packet, eight reads, all failures/cancellation, reply and target guards");
+}
+
 
 int main(void){
+ test_mac_beacon();
  test_mac_txsw();
  test_mac_contention();
  test_mac_protect();
