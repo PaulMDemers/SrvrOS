@@ -1955,3 +1955,31 @@ this unit's current guides. Reuse existing exact device gates and lifetimes;
 no driver permission changes. Pro Wi-Fi and Air7,2 desktop API work remain
 independent. Next checkpoint: combined audio/absent-provider/exit/reopen and
 refusal VM coverage, exact staged GPT rehearsal, then an unarmed attended test.
+
+### Combined candidate validated (PR132)
+
+Source `59c1836`, v71 release `1ae70fcf03ab6152`, combines the ordinary Air6,1
+battery owner with brightness, HDA and read-only CPU/SMC providers; USB networking
+and optional AML probing remain off. Full build/core, 76 staging tests and docs
+checks pass. Seven GPT VM cases pass: audio/normal exit/reopen, pending save,
+fault retention, opt-out, missing Home, absent providers and Air7,2 regression.
+The normal Air6,1 run records 712 battery events and ten lifetime members; PCM
+has no remaining owner/queue or underruns. Exact staged GRUB→Limine GPT rehearsal
+passes with Q35 native-profile refusal, working HDA, apps, clean exit/reopen,
+offline allocation and monitor reboot.
+
+Two earlier Air7,2 runs timed out waiting for a missing serial close-request
+receipt; the first saved screen shows Terminal's expected confirmation dialog.
+Their evidence remains retained. The harness now confirms Close after a short
+UI settling period and retains all completion, lifetime, runtime, logger and
+file-integrity assertions; the full final matrix passes. No runtime deadlines
+or hardware gates changed. Main advanced to `76a55dd` with documentation-only
+architecture work; no tested binary changes are needed for that integration.
+
+Unarmed run `2319b6df4b7f2dbd` preserves 272 files/817 clusters and reserves
+`combined-services.txt`. Exercise brightness, Audio playback/volume/Stop, System
+CPU/fan/battery freshness, and Text/Files for at least ten minutes; exit and
+reopen with `desktop battery`, then exit and `reboot`. No timed completion or
+automatic return. The obsolete `2cd5b8604f2406c5` EFI copy was removed only after
+its durable payload/trial hashes matched; accepted ordinary battery, console
+recovery and Ubuntu remain preserved. Combined native acceptance is pending.
