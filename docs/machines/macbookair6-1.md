@@ -2138,3 +2138,36 @@ live storage; a photograph/manual recovery may remain necessary on failure.
 PR134 (`d9876eb`) owns POSIX/scheduler and PR19 (`7873b63`) owns Wi-Fi; neither
 scope is imported. Validate timing accounting, completed/busy startup regressions,
 automated success/refusal/failure and exact staged GPT boot before installation.
+
+### Automated startup diagnostic ready (PR137)
+
+Final runtime source `582cc59`, v72 release `837ce4f6bfab6775`, records fixed-size
+setup-worker sleep/stall/semaphore/EC wall times and sampled allocation/free
+cost, including active waits at containment. Existing phase markers remain.
+The five-second deadline and hardware permissions are unchanged. The explicit
+reopen diagnostic runs two 20-second app lifetimes with fresh battery samples,
+normal retirement and log saving; it rejects early manual exit. Ordinary desktop
+sessions retain no timer. Fatal mounted ownership still halts without storage
+writes/reset; normal diagnostic completion unmounts and returns to Ubuntu.
+
+Full build/core, 77 staging tests and docs checks pass. On `4b41c06`, ordinary
+Air6,1 save/audio/reopen, pending-save and runtime-fault cases and the Air7,2
+combined regression pass. The final change only makes early diagnostic exit
+incomplete; full core and all five automatic cases pass on `582cc59`: early exit,
+normal, completed-at-expiry, still-busy containment and profile refusal. Exact
+staged GRUB→Limine GPT boot passes two refused-but-cleanly-retired Q35 sessions,
+unchanged fixture files, clean allocation and automatic recovery. Refusal is
+expected VM coverage, not native acceptance. Main remains `85d5939`; PR134
+`e4b7b02` and PR19 `67575f0` retain separate POSIX and Wi-Fi scopes. Shared staging/
+boot files need both independent profiles preserved in later integration.
+
+Run `d3d219186d3bc6e6` retains the 288-file/838-cluster USB baseline and requires
+no human input or document edits. A machine-local one-shot Ubuntu service collects
+matching sessions, requires both fresh-sample/retirement receipts, verifies prior
+file hashes and offline allocation, backs up evidence and disables itself after
+recovery. A halt still requires a photograph/manual restart. The user explicitly
+authorizes automated reboot without another permission gate. Installed payload
+hashes and Ubuntu default are verified; console recovery `c35475f62f154f1e` remains.
+The obsolete `fc1d1f4c45d30252` EFI image-capture copy was removed for space only
+after its durable payload backup was hash-verified. Native reopen remains failed
+pending this diagnostic's returned evidence; this is not a claimed native fix.
