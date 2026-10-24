@@ -4949,3 +4949,14 @@ BSSID upper-bit preservation and repeat refusal. Private header copy is cleared.
 Native private block acquisition,independent admission and transport buffer
 clearing remain pending. Next checkpoint: exact-stage merged Wi-Fi VM regression,
 then native private-address wiring; no new physical run is armed.
+
+Host-plan source `800afcf`,merged v54 regression release `88bbc5ece4477c0f`:
+final native build/mt76/xHCI regressions and133 profile tests passed; all108
+historical Wi-Fi and92 mainline recipes compare unchanged. Exact-stage normal
+VM saved/verified diagnostics and returned. This is VM-only evidence; no install
+or hardware boot was requested. Plan/audit/reference hashes,tests and staged
+payload are archived outside build at
+`~/.local/share/srvros/macbookpro11-2/mac-address-plan-800afcf/`.
+Missing-workspace exact-stage refusal/return also passed. All local validation
+is complete for this checkpoint; physical factory-address programming remains
+pending native wiring and its own trial. Installed v54 and recovery unchanged.
