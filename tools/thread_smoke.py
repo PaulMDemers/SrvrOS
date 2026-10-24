@@ -120,6 +120,7 @@ def main():
     if args.test == "all":
         expected.extend([
             "threadstress: yield ok",
+            "threadstress: errno ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",
