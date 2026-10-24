@@ -1537,3 +1537,29 @@ The delayed-generation-2 fixture reproduced the same 11-edit/zero-save failure
 before the Text fix. PR112 merged while this work was underway; main `180b542`
 has now been integrated without overlap. Rebuild and session regressions include
 its compositor idle-wait changes; no prior native acceptance is inherited.
+
+## Start/save retry ready for physical validation (2026-10-23)
+
+Release `7fe7d3d20d91997c`, clean compiled source `5086cba`, fixes generated
+checkpoint sequencing without changing runtime permissions or deadlines. The
+four-second delayed-generation fixture reproduces the old 11-edit/zero-save
+failure; with the fix it verifies fresh Start before write submission, all
+60 edits/five exact saves and three service lifetimes. An excessive eight-second
+delay still fails the existing Start deadline without submitting a write.
+
+Full build/USB image, core/desktop, 70 staging, 25 collector and 78 receipt tests
+pass. Seven Air6,1 session fixtures cover normal/delayed completion, slow setup
+and storage, query/profile refusal and retained faults. Air7,2 delayed-session
+and Air6,1 short-Home regressions pass. Exact EFI/GPT save/unmount/return and
+missing-workspace refusal rehearsals pass. PR114 includes main `180b542`;
+PR115 logger timing and PR19 Wi-Fi are independent and not included.
+
+The failed study is preserved as `battery-study-failed-73239eaf664ab4ca`; a fresh
+anchor brings the USB baseline to 226 files/539 clusters with clean allocation.
+Superseded short SMBus payload `bfde0423543f20d0` was removed from EFI only after
+verifying its durable backup; accepted mounted Home and console recovery remain
+installed. Payload and evidence backups live outside build. Run
+`9055d4b29173fe40` records final installation and unarmed state. Keep AC/USB
+connected with no input; normal completion returns to Ubuntu, uncertain mounted
+faults halt for a photograph. Native acceptance and ordinary battery startup
+remain pending/off respectively; collect this matching run before another trial.
