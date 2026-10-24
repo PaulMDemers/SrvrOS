@@ -2,6 +2,20 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active follow-up: controlled storage wait comparison
+
+Consume main `2702b41` (Air6,1 continuous Home capture) before the next build.
+PR118 remains draft. Add an explicitly staged unattended diagnostic that writes
+and verifies the same 32 KiB file in its new session directory, comparing polling,
+4 ms and 20 ms wait thresholds in counterbalanced order. Pause periodic logging
+while measuring; retain per-phase USB costs, CPU samples and exact readback.
+Restore the original policy on every handled exit, persist results, and use the
+existing automatic return path. Ordinary desktop startup does not run it.
+This scope touches xHCI diagnostic policy controls, workspace logging/capture,
+main capture dispatch, staging/collection tests and documentation. Pro PR19
+`2a4079a` was inspected; its Wi-Fi/control-dispatch changes do not overlap storage
+bulk waiting. No hardware wait-policy refinement is accepted in advance.
+
 ### Active scope: bounded storage completion waits
 
 Branch `device/macbookair7-2/storage-wait` starts at main `4a991df` (PR116
