@@ -305,3 +305,16 @@ Accept reduced idle software activity only. Physical typing after idle remains
 untested by this unattended capture; VM typing/save is separate evidence.
 The next optimization needs preserved input/IO behavior and measured activity;
 repeat thermally controlled comparisons before making a power claim.
+
+
+### Compositor follow-up (native acceptance pending)
+
+PR112 adds a [combined server wait](native-desktop.md#quiescent-compositor-waits)
+without changing hardware polling. Source `92edfcb`, v26 release
+`dc06bc673689e011`, records 499 compositor switches over 50.170 seconds in the
+exact EFI/GPT VM (9.946/second). Post-idle titlebar drag and typing/exact save,
+context menus/clipboard, input during a guarded 4 MiB+17-byte copy, clean capture
+and missing-workspace recovery pass. Power remains unavailable in VM. The Air7,2
+matching unattended capture is prepared; collect its named session and preserve
+files/recovery before accepting native behavior. This idle recipe does not
+exercise physical input or ordinary Home battery-service efficiency.

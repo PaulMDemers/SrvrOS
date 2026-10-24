@@ -13,12 +13,28 @@ messages must wake it immediately; unfinished frame/input/control publication,
 clipboard/preferences/capture work and timed diagnostic workloads retain the
 existing cadence. A 100 ms maintenance cap bounds unrelated housekeeping.
 
+PR112 implementation `92edfcb` passes the full local build/core suite and directed
+wait/ownership/race/publication tests. Networked VM post-idle pointer drag and
+USB typing/exact save pass; contextual menus, clipboard selection/isolation and
+file actions pass. The 4 MiB+17-byte guarded-copy VM also passes input overlap,
+exact text/binary readback, collision preservation and rename. Exact EFI/GPT v26
+`dc06bc673689e011` passes saved capture, screenshot, automatic reset and missing
+workspace recovery. Six worker checkpoints show 499 compositor switches over
+50.170 seconds (9.946/second), with no partial lifetimes. VM power is unavailable.
+
+A matching unattended native capture is prepared under
+`build/compositor-idle-20261023`; local run/checkpoint records own installation
+and reboot state. It needs no interaction, saves to this unit's USB and returns
+automatically. Require completed worker/energy evidence, file preservation,
+offline allocation and Ubuntu/recovery checks on return. Native input latency
+and power savings are not accepted from the VM or this unattended idle recipe.
+
 Touched subsystems: GUI transport/syscall, input queue wake notifications,
 compositor idle admission and directed host/VM fixtures. No xHCI/network polling,
 CPU/firmware policy or hardware profile changes. Require race/signal/ownership
 coverage, post-idle typing/pointer/save regression and measured worker reduction
-before a matched unattended native trial. Existing current `7afccbd6fbc3cfd4`
-and recovery `9aa8dbf6fbda8252` stay installed; no reboot is armed. Actions disabled.
+before a matched unattended native trial. Prior accepted current is `7afccbd6fbc3cfd4`; retain recovery
+`9aa8dbf6fbda8252` when installing the candidate. Actions remain disabled.
 
 ### Active checkpoint: first idle Text optimization accepted
 
