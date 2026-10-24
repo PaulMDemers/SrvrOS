@@ -1129,3 +1129,52 @@ enum mt76_mcu_timing_status mt76_dcoc_capture(struct mt76_dcoc *s,const struct m
 #undef DCOC_READ
 #undef DCOC_GUARD
 }
+
+/* Fixed shared-key reset only. No WCID/pairwise key/IV or RF admission. */
+bool mt76_skey_request(unsigned op,bool *write,uint32_t *address,unsigned *length){
+    if(op>=576 || !write || !address || !length)return false;
+    unsigned slot=op/9,step=op%9,vif=slot/4,key=slot%4;
+    *write=step==3 || step==5;*length=(step==5 || step==6)?32:4;
+    if(step==0 || step==7)*address=0x1004;
+    else if(step==1 || step==8)*address=0x2000;
+    else if(step==5 || step==6)*address=(vif&8?0xb400:0xac00)+(4*(vif&7)+key)*32;
+    else *address=(vif&8?0xb3f0:0xb000)+((vif&7)/2)*4;
+    return true;
+}
+bool mt76_skey_transfer_valid(const struct mt76_skey *s,unsigned op,bool write,uint32_t address,const uint8_t *data,unsigned length){
+    bool w;uint32_t a;unsigned n;
+    if(!s || !s->attempted || s->complete || !data || s->operations!=op || s->slots!=op/9 ||
+        !mt76_skey_request(op,&w,&a,&n) || write!=w || address!=a || length!=n)return false;
+    if(write)for(unsigned i=0;i<n;i++)if(data[i]!=(op%9==3?(uint8_t)(s->mode_expected>>(8*i)):0))return false;
+    return true;
+}
+enum mt76_mcu_timing_status mt76_skey_reset(struct mt76_skey *s,const struct mt76_skey_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    s->attempted=true;
+    for(unsigned op=0;op<576;op++){
+        bool write;uint32_t address;unsigned length;uint8_t data[32]={0};
+        if(!mt76_skey_request(op,&write,&address,&length))return MT76_TIMING_REFUSED;
+        if(op%9==3)for(unsigned i=0;i<4;i++)data[i]=(uint8_t)(s->mode_expected>>(8*i));
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        bool ok=io->transfer(io->context,op,write,address,data,length);
+        uint32_t value=0;for(unsigned i=0;i<4;i++)value|=(uint32_t)data[i]<<(8*i);
+        bool zero=true;for(unsigned i=0;i<length;i++)if(data[i])zero=false;
+        for(unsigned i=0;i<32;i++)((volatile uint8_t *)data)[i]=0;
+        if(!ok)return MT76_TIMING_IO;
+        s->operations++;if(write)s->writes++;else s->reads++;
+        switch(op%9){
+        case 0:case 7:if(value)return MT76_TIMING_STATE;break;
+        case 1:case 8:if(value!=0xf000f200)return MT76_TIMING_STATE;break;
+        case 2:{
+            if(value==UINT32_MAX)return MT76_TIMING_STATE;
+            unsigned slot=op/9,shift=4*(slot%4+4*((slot/4)&1));s->mode_expected=value&~(15u<<shift);break;
+        }
+        case 4:if(value!=s->mode_expected)return MT76_TIMING_STATE;s->mode_verified++;break;
+        case 6:if(!zero)return MT76_TIMING_STATE;s->key_zero++;break;
+        default:break;
+        }
+        if(op%9==8)s->slots++;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

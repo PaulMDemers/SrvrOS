@@ -255,6 +255,9 @@ struct xhci_wifi_mcu {
     struct mt76_bbp_switch bbp_switch;
     bool dcoc_mode,dcoc_active,dcoc_submitted;
     struct mt76_dcoc dcoc;
+    bool skey_mode,skey_active;
+    unsigned skey_submitted;
+    struct mt76_skey skey;
     bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
     struct mt76_mac_snapshot mac_snapshot;
     bool mac_route_mode,mac_route_active,mac_route_submitted;

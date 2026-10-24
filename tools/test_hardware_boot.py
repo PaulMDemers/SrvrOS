@@ -840,6 +840,13 @@ class InstallTests(unittest.TestCase):
         for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock','wifi_clock_direct'):
             with self.assertRaises(ValueError):boot.stage(wifi_clock_pair=True,wifi_txbe_start=True,**{conflict:True})
 
+    def test_wifi_skey_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v50-laptop-probe-0e535900-auto-return')
+        for flag in ('skey','dcoc','bbp-switch','bbp-after-mac'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-skey=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v49-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_skey=True)
+
     def test_wifi_dcoc_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v49-laptop-probe-0e535900-auto-return')
         for flag in ('dcoc','bbp-switch','bbp-after-mac','mac-ampdu','bbp-table'):

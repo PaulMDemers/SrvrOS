@@ -943,7 +943,45 @@ static void test_dcoc(void){
  assert(mt76_dcoc_address(9)==UINT32_MAX && mt76_dcoc_value(9)==UINT32_MAX && !mt76_dcoc_read_allowed(0x2800));
  puts("DCOC: PASS exact80-byte packet/ACK, stale policy reply rejection,26 reads, all IO/guard/cancellation failures and no retry");
 }
-int main(void){test_dcoc();test_bbp_switch();
+struct skey_fake {unsigned ops,auth,fail,deny,bad;uint32_t modes[8];uint8_t keys[64][32];};
+static bool skey_auth(void *p){struct skey_fake *f=p;return ++f->auth!=f->deny;}
+static bool skey_transfer(void *p,unsigned op,bool write,uint32_t address,uint8_t *data,unsigned length){
+ struct skey_fake *f=p;assert(op==f->ops++);unsigned slot=op/9,step=op%9,vif=slot/4,key=slot%4,idx=vif/2;
+ uint32_t mode=(vif<8?0xb000:0xb3f0)+((vif%8)/2)*4;
+ uint32_t addr=(vif<8?0xac00:0xb400)+(vif%8)*128+key*32;
+ unsigned n=(step==5 || step==6)?32:4;bool w=step==3 || step==5;
+ uint32_t a=step==0 || step==7?0x1004:step==1 || step==8?0x2000:step==5 || step==6?addr:mode;
+ assert(write==w && address==a && length==n);
+ if(f->fail==op+1)return false;
+ if(step==3){uint32_t v=0;for(unsigned i=0;i<4;i++)v|=(uint32_t)data[i]<<(8*i);assert(v==(f->modes[idx]&~(15u<<(key*4+(vif%2)*16))));f->modes[idx]=v;}
+ else if(step==5){for(unsigned i=0;i<32;i++)assert(!data[i]);memcpy(f->keys[slot],data,32);}
+ else if(step==6)memcpy(data,f->keys[slot],32);
+ else if(!write)word(data,step==0 || step==7?0:step==1 || step==8?0xf000f200:f->modes[idx]);
+ if(f->bad==op+1 && !write)data[0]^=1;
+ return true;
+}
+static void skey_fake_init(struct skey_fake *f){memset(f,0,sizeof *f);for(unsigned i=0;i<8;i++)f->modes[i]=0x12345678u+i;memset(f->keys,0xa5,sizeof f->keys);}
+static enum mt76_mcu_timing_status skey_run(struct skey_fake *f,struct mt76_skey *s){const struct mt76_skey_io io={f,skey_auth,skey_transfer};return mt76_skey_reset(s,&io);}
+static void test_skey(void){
+ struct skey_fake f;struct mt76_skey s={0};skey_fake_init(&f);
+ assert(skey_run(&f,&s)==MT76_TIMING_OK && s.complete && s.operations==576 && s.reads==448 && s.writes==128 && s.slots==64 && s.mode_verified==64 && s.key_zero==64);
+ for(unsigned i=0;i<8;i++)assert(!f.modes[i]);
+ for(unsigned i=0;i<64;i++)for(unsigned j=0;j<32;j++)assert(!f.keys[i][j]);
+ assert(skey_run(&f,&s)==MT76_TIMING_REFUSED && f.ops==576);
+ for(unsigned n=1;n<=576;n++){skey_fake_init(&f);f.fail=n;s=(struct mt76_skey){0};assert(skey_run(&f,&s)==MT76_TIMING_IO && f.ops==n && !s.complete);assert(skey_run(&f,&s)==MT76_TIMING_REFUSED);}
+ for(unsigned n=1;n<=577;n++){skey_fake_init(&f);f.deny=n;s=(struct mt76_skey){0};assert(skey_run(&f,&s)==MT76_TIMING_CANCELLED && f.auth==n && !s.complete);}
+ for(unsigned n=1;n<=576;n++){unsigned step=(n-1)%9;if(step==2 || step==3 || step==5)continue;skey_fake_init(&f);f.bad=n;s=(struct mt76_skey){0};assert(skey_run(&f,&s)==MT76_TIMING_STATE && f.ops==n && !s.complete);}
+ skey_fake_init(&f);f.modes[0]=UINT32_MAX;s=(struct mt76_skey){0};assert(skey_run(&f,&s)==MT76_TIMING_STATE && f.ops==3);
+ for(unsigned op=0;op<576;op++){
+  bool w;uint32_t a;unsigned n;uint8_t data[32]={0};assert(mt76_skey_request(op,&w,&a,&n));s=(struct mt76_skey){.attempted=true,.operations=op,.slots=op/9};
+  assert(mt76_skey_transfer_valid(&s,op,w,a,data,n));
+  assert(!mt76_skey_transfer_valid(&s,op,!w,a,data,n) && !mt76_skey_transfer_valid(&s,op,w,a+1,data,n) && !mt76_skey_transfer_valid(&s,op,w,a,data,n-1));
+  if(w)for(unsigned i=0;i<n;i++){data[i]=1;assert(!mt76_skey_transfer_valid(&s,op,w,a,data,n));data[i]=0;}
+ }
+ bool w;uint32_t a;unsigned n;assert(!mt76_skey_request(576,&w,&a,&n));
+ puts("Shared-key reset: PASS64 slots, exact576 operations, cipher preservation, zero verification, every transfer/cancellation/failure and no retry");
+}
+int main(void){test_skey();test_dcoc();test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();

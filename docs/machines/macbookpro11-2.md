@@ -4580,3 +4580,9 @@ Audit/fixtures/source hashes archived at
 `~/.local/share/srvros/macbookpro11-2/post-dcoc-audit-fbafa66/`.
 No candidate installed or reboot armed by this audit. Main92722b7 fetched but
 actual device integration base remains4a991df; PR124 remains separate.
+
+Active scope v50: fixed64 shared-key reset slots after exact DCOC readbacks.
+Reference-order cipher nibble clear and32-byte zero write, zero-only verification;
+576 bounded operations,448 reads/128 writes, no key data logs or retries.
+Touch pure engine/xHCI/main/profiles/tests. Base4a991df; fetchedmainc4265f8
+and openPR125 TCP are separate. Preserve existing profiles and RF-disable gates.

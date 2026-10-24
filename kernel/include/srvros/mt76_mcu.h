@@ -289,4 +289,17 @@ uint32_t mt76_dcoc_value(unsigned index);
 bool mt76_dcoc_read_allowed(uint32_t address);
 size_t mt76_dcoc_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_dcoc_capture(struct mt76_dcoc *s,const struct mt76_mcu_timing_io *io);
+struct mt76_skey {
+    bool attempted,complete;
+    unsigned operations,reads,writes,slots,mode_verified,key_zero;
+    uint32_t mode_expected;
+};
+struct mt76_skey_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*transfer)(void *context,unsigned operation,bool write,uint32_t address,uint8_t *data,unsigned length);
+};
+bool mt76_skey_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
+bool mt76_skey_transfer_valid(const struct mt76_skey *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_skey_reset(struct mt76_skey *s,const struct mt76_skey_io *io);
 #endif

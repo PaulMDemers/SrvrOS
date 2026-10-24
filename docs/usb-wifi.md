@@ -2047,3 +2047,19 @@ separate evidence. Existing logical calibration and US confirmation are retained
 distinguishes external-image loading from its physical-EFUSE fallback; logical
 decode alone does not validate the latter. No RF/channel/TX/RX enable follows
 from this audit.
+
+### Fixed shared-key reset diagnostic (v50)
+
+`--wifi-skey` requires the complete DCOC profile and exact nine-register DCOC
+readbacks. It resets only the reference's 64 shared-key slots: for each slot,
+read MAC/CORE guards, clear its cipher nibble while preserving other fields,
+verify the mode word, write 32 zero bytes, verify all bytes are zero, and recheck
+the guards. The fixed plan contains 576 operations (448 reads and 128 writes).
+Mode words are limited to b000–b00c and b3f0–b3fc; shared slots to ac00–afff and
+b400–b7ff. Each control transfer has one attempt and an exact length check.
+Failures stop the sequence; uncertain DMA ownership retains quarantine.
+
+The saved summary reports operation, slot and verification counts without key
+bytes. There are no initial key-memory reads, WCID/pairwise/IV writes, RF or
+TX/RX enable. All 64 mode and zero verifications plus prior-stage checks are
+required for native acceptance. Host/VM checks alone do not accept hardware.
