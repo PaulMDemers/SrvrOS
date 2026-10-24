@@ -5178,3 +5178,17 @@ bytes; 80 missing/duplicate/corrupt cases and the prior run without board proof
 are rejected. Linux reference/read-only samples are retained locally. Next:
 exact-stage GPT save/return and missing-workspace rehearsal, then unarmed install.
 No native v57 acceptance, no reboot armed, and no RF/connectivity claim.
+
+Candidate source `3af56f0`, release `69718a055422766a` is installed unarmed.
+Exact-stage GPT capture/save/automatic-return and missing-workspace refusal/return
+VM checks passed. Ubuntu remains the default; known-good `e47dca3a6b30c6c1` and
+accepted private-MAC payload `be58d4957e3c4d7a` are retained. Failed diagnostic
+`d1d3486f342b9121` was removed from the ESP only after full equality with its
+durable backup. Offline workspace checks passed with 255 files/631 clusters and
+zero allocation leaks/mismatches; the workspace is unmounted. Payload, Linux
+reference/sample evidence, tests, strict collector, VM receipts and run/checkpoint
+are archived outside build in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-board-3af56f0/`.
+Next: attended cold adapter cycle, then collect the matching release/session
+first. Require all prior v56 proof plus the four exact board settings and saved
+completion/recovery evidence. Physical board-setting acceptance remains pending.
