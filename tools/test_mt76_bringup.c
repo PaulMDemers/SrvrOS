@@ -203,4 +203,48 @@ static void efuse_gate(void){
  for(unsigned p=0;p<=15;p++){g=(struct mt76_efuse_map_gate){.phase=p};assert(!mt76_efuse_map_delay(&g,3));}
  puts("EFUSE native gate: PASS ordered sequence, single submission, exact preserved command, faults, cancellation, timeout, guard receipts");
 }
-int main(void) { efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+/* Synthetic locally administered address only; no captured identity fixture. */
+static const uint8_t address_header[16]={0x10,0x76,1,2,2,0x11,0x22,0x33,0x44,0x55};
+struct address_fake {unsigned calls,auth,fail,deny,corrupt;uint32_t words[20];};
+static bool address_auth(void *p){struct address_fake *f=p;return ++f->auth!=f->deny;}
+static bool address_transfer(void *p,unsigned op,bool write,uint32_t a,uint32_t *v){
+ struct address_fake *f=p;unsigned target=op/8,step=op%8;assert(op==f->calls && op<160 && write==(step==4));
+ if(++f->calls==f->fail)return false;
+ uint32_t expected_a=target<4?0x1008+4*target:0x1090+4*(target-4);
+ if(step==0 || step==6){assert(a==0x1004);*v=0;}
+ else if(step==1 || step==7){assert(a==0x2000);*v=0xf000f200;}
+ else if(step==2){assert(a==0x208);*v=0x40000050;}
+ else {assert(a==expected_a);if(write)f->words[target]=*v;else *v=f->words[target];}
+ if(f->calls==f->corrupt)*v^=1;
+ return true;
+}
+static void address_init(struct address_fake *f){memset(f,0,sizeof *f);for(unsigned i=0;i<20;i++)f->words[i]=0xa5001234+i;}
+static enum mt76_capture_status address_run(struct address_fake *f,struct mt76_mac_address_result *s,const uint8_t *h){
+ const struct mt76_efuse_map map={.attempted=true,.complete=true,.valid=true,.blocks=2,.writes=2};
+ const struct mt76_mac_address_io io={f,address_auth,address_transfer};return mt76_mac_address_apply(s,&io,&map,h,16);
+}
+static void mac_address(void){
+ struct address_fake f;address_init(&f);struct mt76_mac_address_result s={0};
+ assert(address_run(&f,&s,address_header)==MT76_CAPTURE_OK && s.complete && s.operations==160 && s.reads==140 && s.writes==20 && s.verified==20);
+ assert(f.words[0]==0x33221102 && f.words[1]==0xff5544 && f.words[2]==0x33221102 && f.words[3]==0x3f5544);
+ for(unsigned i=4;i<20;i++)assert(f.words[i]==(i&1?0xa5000000:0));
+ assert(address_run(&f,&s,address_header)==MT76_CAPTURE_REFUSED && f.calls==160);
+ for(unsigned n=1;n<=160;n++){address_init(&f);f.fail=n;s=(struct mt76_mac_address_result){0};assert(address_run(&f,&s,address_header)==MT76_CAPTURE_IO && !s.complete && f.calls==n);}
+ for(unsigned n=1;n<=161;n++){address_init(&f);f.deny=n;s=(struct mt76_mac_address_result){0};assert(address_run(&f,&s,address_header)==MT76_CAPTURE_CANCELLED && !s.complete && f.auth==n);}
+ for(unsigned n=1;n<=160;n++)if((n-1)%8!=3 && (n-1)%8!=4){address_init(&f);f.corrupt=n;s=(struct mt76_mac_address_result){0};assert(address_run(&f,&s,address_header)==MT76_CAPTURE_BUSY && !s.complete && f.calls==n);}
+ for(unsigned i=0;i<20;i++){address_init(&f);f.words[i]=UINT32_MAX;s=(struct mt76_mac_address_result){0};assert(address_run(&f,&s,address_header)==MT76_CAPTURE_BUSY && !s.complete && f.calls==i*8+4);}
+ uint8_t h[16];uint32_t a,v;
+ assert(!mt76_mac_address_header_valid(NULL,16) && !mt76_mac_address_header_valid(address_header,15));
+ for(unsigned i=0;i<4;i++){memcpy(h,address_header,16);h[i]^=1;assert(!mt76_mac_address_header_valid(h,16));}
+ memcpy(h,address_header,16);memset(h+4,0,6);assert(!mt76_mac_address_header_valid(h,16));
+ memset(h+4,0xff,6);assert(!mt76_mac_address_header_valid(h,16));
+ for(unsigned b=1;b<256;b+=2){memcpy(h,address_header,16);h[4]=(uint8_t)b;assert(!mt76_mac_address_header_valid(h,16));}
+ memcpy(h,address_header,16);h[4]=0;assert(mt76_mac_address_header_valid(h,16));
+ for(unsigned i=5;i<20;i+=2)for(unsigned bit=0;bit<32;bit++){assert(mt76_mac_address_target(i,address_header,16,1u<<bit,&a,&v));assert(a==0x1090+4*(i-4) && v==((1u<<bit)&0xffff0000));}
+ assert(!mt76_mac_address_target(20,address_header,16,0,&a,&v));
+ address_init(&f);s=(struct mt76_mac_address_result){0};assert(address_run(&f,&s,NULL)==MT76_CAPTURE_REFUSED && !f.calls);
+ const struct mt76_mac_address_io io={&f,address_auth,address_transfer};struct mt76_efuse_map map={0};
+ assert(mt76_mac_address_apply(&s,&io,&map,address_header,16)==MT76_CAPTURE_REFUSED && !f.calls);
+ puts("private MAC plan: PASS 20 unique targets/160 operations, synthetic address only, exact control fields, high-bit preservation, invalid identity/map, all faults/cancellations/guards, no retry");
+}
+int main(void) { mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

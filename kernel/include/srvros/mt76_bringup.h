@@ -51,6 +51,23 @@ bool mt76_efuse_map_analyze(const uint8_t *bytes,size_t length,struct mt76_efuse
 enum mt76_capture_status mt76_capture_efuse_map(const struct mt76_efuse_map_io *io,
     const struct mt76_identity *identity,struct mt76_efuse_map *state);
 
+/* Private address setup plan after verified physical map and a fresh mapped
+ * logical block0. The 16-byte header contains the factory address at4..9;
+ * never log header, command/readback values or transport buffers. Invalid
+ * factory addresses refuse; this diagnostic does not generate replacements.
+ * Caller must independently enforce ownership and exact native I/O admission.
+ * No native caller yet. Result contains counters only, no address bytes. */
+struct mt76_mac_address_result {bool attempted,complete;unsigned operations,reads,writes,verified;};
+struct mt76_mac_address_io {
+    void *context;
+    bool (*authorize)(void *);
+    bool (*transfer)(void *,unsigned operation,bool write,uint32_t address,uint32_t *value);
+};
+bool mt76_mac_address_header_valid(const uint8_t *header,size_t size);
+bool mt76_mac_address_target(unsigned target,const uint8_t *header,size_t size,uint32_t previous,uint32_t *address,uint32_t *value);
+enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *,
+    const struct mt76_mac_address_io *,const struct mt76_efuse_map *,const uint8_t *header,size_t size);
+
 /* Pure ordered plan: bulk ILM, bulk DLM, then activation IVB control payload.
  * Caller must verify pinned hash, device/ownership and every transfer before
  * advancing. This function does not execute or authorize any transfer. */

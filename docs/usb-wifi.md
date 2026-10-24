@@ -2197,3 +2197,26 @@ adapter, release `b34ed974d2fa3095` passed native map validation:24 reads,two
 mode1 commands,two polls,both blocks,and all guards. Nine zero entries span
 1e0–1e8; the reference span calculation yields20 used entries (an estimate,not
 a general programmed-entry count). Private MAC setup and PHY/RF remain pending.
+
+### Private factory-address plan
+
+The next host-tested engine consumes a fresh mapped logical block0 after the
+accepted physical-map check. It accepts the captured7610/version2/FAE1 header and
+a nonzero unicast address at offsets4..9; locally administered addresses are
+permitted, but invalid addresses refuse instead of generating a random fallback.
+Historical calibration logs redact these bytes and cannot supply this input.
+
+The reference programs1008/100c (station address/U2ME mask),1010/1014 (BSSID and
+MBSS/beacon fields),then clears eight unique BSSID pairs1090..10cc. Its16-iteration
+loop masks the index to7; the proposed engine performs one verified pass over
+those eight pairs. It combines the two1014 operations into the same final value
+while MAC is disabled. High16 bits of each BSSID table high word are preserved.
+These are explicit plan differences,not claimed hardware acceptance.
+
+Twenty targets each require MAC0/COREf000f200 and disabled/idle DMA,initial target
+read,one write,exact verification,and final MAC/CORE guards:160 operations,
+140 reads/20 writes. All-ones initial targets refuse. Result receipts contain
+counters only,not address bytes. Every failed operation stops without retry.
+The private header copy is cleared on exit. Native logical-block acquisition,
+independent transport admission and scratch clearing remain to be implemented;
+there is no native caller or new physical acceptance for this engine yet.

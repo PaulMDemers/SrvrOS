@@ -4924,3 +4924,28 @@ profiles and exact old Wi-Fi recipes. Installed accepted v54 remains unchanged.
 The next MAC step must read factory bytes privately at boot: saved calibration
 logs redact offsets4..9. Do not substitute an address from another host or a
 portable fixture. RF/TX enable and channel/calibrated-power work remain separate.
+
+### 2026-10-24 — integrated baseline and private MAC plan
+
+Merged actual main `d5bc4b3` at `ee3e03b`,retaining the Pro Wi-Fi dispatch alongside
+storage-wait diagnostics and Air6,1 ordinary battery profiles.133 profile tests,
+108 byte-identical historical Wi-Fi recipes and full native build/core suite
+passed. Installed accepted v54 remains `b34ed974d2fa3095`; newer source does not
+inherit that payload's physical acceptance. PR130 window work remains separate.
+
+Reference audit confirms EEPROM logical block0 offsets4..9 supply the factory
+address. The existing saved capture redacts them,so future native code must
+read a fresh mapped block privately. Implemented the host-only20-target plan:
+station/BSSID words1008..1014 and eight unique BSSID table pairs1090..10cc.
+Require captured7610/version2/FAE1 and nonzero unicast address; no random fallback.
+Twenty guarded one-shot writes/140 reads verify exact results. BSSID high-word
+upper bits are preserved; raw address/readback values stay out of result state.
+The engine combines1014 fields and visits each masked table slot once; these
+final-state equivalences still require native validation. No RF/PHY enable.
+
+Synthetic-address tests and ASan/UBSan cover all160 I/O failures,161 cancellation
+boundaries,guard/readback faults,all-ones target refusal,invalid headers/addresses,
+BSSID upper-bit preservation and repeat refusal. Private header copy is cleared.
+Native private block acquisition,independent admission and transport buffer
+clearing remain pending. Next checkpoint: exact-stage merged Wi-Fi VM regression,
+then native private-address wiring; no new physical run is armed.

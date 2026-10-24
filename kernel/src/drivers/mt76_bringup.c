@@ -150,6 +150,47 @@ done:
 #undef MAP_GUARDS
 }
 
+bool mt76_mac_address_header_valid(const uint8_t *h,size_t size){
+    if(!h || size!=16 || h[0]!=0x10 || h[1]!=0x76 || h[2]!=1 || h[3]!=2 || (h[4]&1))return false;
+    uint8_t any=0;for(unsigned i=4;i<10;i++)any|=h[i];return any!=0;
+}
+bool mt76_mac_address_target(unsigned target,const uint8_t *h,size_t size,uint32_t previous,uint32_t *address,uint32_t *value){
+    if(!address || !value || target>=20 || !mt76_mac_address_header_valid(h,size))return false;
+    uint32_t low=(uint32_t)h[4]|(uint32_t)h[5]<<8|(uint32_t)h[6]<<16|(uint32_t)h[7]<<24;
+    uint32_t high=(uint32_t)h[8]|(uint32_t)h[9]<<8;
+    if(target<4){*address=0x1008+4*target;*value=target==0 || target==2?low:high|(target==1?0xff0000:0x3f0000);}
+    else {*address=0x1090+4*(target-4);*value=target&1?previous&0xffff0000:0;}
+    return true;
+}
+enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *s,
+    const struct mt76_mac_address_io *io,const struct mt76_efuse_map *map,const uint8_t *header,size_t size){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer || !map || !map->attempted ||
+       !map->complete || !map->valid || map->blocks!=2 || map->writes!=2 || !mt76_mac_address_header_valid(header,size))return MT76_CAPTURE_REFUSED;
+    *s=(struct mt76_mac_address_result){.attempted=true};uint8_t h[16];for(unsigned i=0;i<16;i++)h[i]=header[i];
+    uint32_t previous=0,expected=0,value=0,address=0;enum mt76_capture_status status=MT76_CAPTURE_IO;
+    for(unsigned op=0;op<160;op++){
+        unsigned target=op/8,step=op%8;bool write=step==4;
+        if(!mt76_mac_address_target(target,h,sizeof h,previous,&address,&expected)){status=MT76_CAPTURE_REFUSED;goto done;}
+        if(step==0 || step==6)address=0x1004;
+        else if(step==1 || step==7)address=0x2000;
+        else if(step==2)address=0x208;
+        value=write?expected:0;
+        if(!io->authorize(io->context)){status=MT76_CAPTURE_CANCELLED;goto done;}
+        if(!io->transfer(io->context,op,write,address,&value))goto done;
+        s->operations++;if(write)s->writes++;else s->reads++;
+        if((step==0 || step==6) && value){status=MT76_CAPTURE_BUSY;goto done;}
+        if((step==1 || step==7) && value!=0xf000f200){status=MT76_CAPTURE_BUSY;goto done;}
+        if(step==2 && value&15){status=MT76_CAPTURE_BUSY;goto done;}
+        if(step==3){if(value==UINT32_MAX){status=MT76_CAPTURE_BUSY;goto done;}previous=value;}
+        if(step==5){if(value!=expected){status=MT76_CAPTURE_BUSY;goto done;}s->verified++;}
+    }
+    if(!io->authorize(io->context)){status=MT76_CAPTURE_CANCELLED;goto done;}
+    s->complete=true;status=MT76_CAPTURE_OK;
+done:
+    for(unsigned i=0;i<sizeof h;i++)((volatile uint8_t *)h)[i]=0;
+    return status;
+}
+
 bool mt76_firmware_chunk(const uint8_t *image, size_t size, size_t index,
     struct mt76_fw_chunk *out) {
     if (!out) return false;
