@@ -4,6 +4,13 @@ Updated: 2026-10-24. State: **active reference machine; partial device acceptanc
 
 ### Active scope: POSIX correctness and compatibility
 
+Current consumer follow-up: complete binary64 printf formatting and keep Lua upstream
+tests unmodified; compare against host libc and rerun guest consumers. The first
+post-path libuv run exceeded its short harness deadline; a diagnostic 60-second
+run completes. Preserve both receipts and investigate timing before changing defaults.
+Descriptor inheritance, argument budgets and asynchronous signals remain unfinished.
+
+
 User authorizes sustained implementation of the POSIX plan before the desktop
 overhaul. Base `76a55dd` (merged architecture audit PR133), branch
 `device/macbookair7-2/posix-core`. First shared changes: libc error state,

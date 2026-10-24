@@ -3577,3 +3577,14 @@ test-battery-startup-timing: build/tests/battery-startup-timing$(HOST_EXE)
 build/tests/battery-startup-timing$(HOST_EXE): tools/test_battery_startup_timing.c ports/srvros/uacpi/runtime/battery_startup_timing.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-stdio-float
+test-core: test-stdio-float
+test-stdio-float: build/tests/stdio-float-host$(HOST_EXE)
+	$<
+build/tests/stdio-float-host$(HOST_EXE): tools/test_stdio_float.c userspace/lib/src/stdio_float.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_stdio_float.c -lm -o $@
+
+# Private formatter header also participates in userspace incremental builds.
+build/userspace/lib/src/posix_stdio.c.o: userspace/lib/src/stdio_float.h

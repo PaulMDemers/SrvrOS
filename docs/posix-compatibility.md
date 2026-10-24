@@ -16,6 +16,20 @@ This reference choice is a development target, not certification.
 
 ## Implementation progress after the audit
 
+Binary64 printf now emits `%a/A`, `%e/E`, `%f/F`, and `%g/G` using exact
+expansion and nearest/ties-even rounding, with sign/padding, alternate form,
+subnormals and large precision. Integer precision is no longer silently limited
+to a 95-character temporary. Host edge cases and 12,000 random comparisons,
+guest formatting tests and the unmodified Lua strings/UTF-8/bitwise portable/soft
+suites pass. Two explicit carry fixtures use the standard significant-digit rule
+rather than glibc 2.43's lost alternate-form zeroes (`%#.2g` of 99.5 and `%#.3g`
+of 999.5). See the [WG14 clarification](https://open-std.org/JTC1/SC22/WG14/issues/c99/issue0233.html).
+Non-default rounding, full long-double precision, wide-character/positional
+formats and locale-dependent formatting remain unaccepted. A libuv run exceeded
+the short harness deadline; the retained 60-second diagnostic and a subsequent
+normal-deadline run both pass, without relaxing the default.
+
+
 Work is on `device/macbookair7-2/posix-core`, draft PR134. Desktop overhaul is
 explicitly deferred while this compatibility milestone is implemented. The
 original audit below describes `bc0edb9`; the following fixes supersede its

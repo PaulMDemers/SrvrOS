@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "stdio_float.h"
 
 struct FILE {
     int fd;
@@ -181,29 +182,6 @@ static void out_char(struct out_stream *out, char c) {
     out->total++;
 }
 
-static void out_text(struct out_stream *out, const char *text) {
-    while (text != 0 && *text != '\0') {
-        out_char(out, *text++);
-    }
-}
-
-static void out_unsigned(struct out_stream *out, unsigned long long value, unsigned base, int uppercase) {
-    char digits[32];
-    const char *alphabet = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
-    size_t count = 0;
-    if (value == 0) {
-        out_char(out, '0');
-        return;
-    }
-    while (value > 0 && count < sizeof(digits)) {
-        digits[count++] = alphabet[value % base];
-        value /= base;
-    }
-    while (count > 0) {
-        out_char(out, digits[--count]);
-    }
-}
-
 static void out_repeat(struct out_stream *out, char ch, int count) {
     while (count-- > 0) {
         out_char(out, ch);
@@ -281,7 +259,6 @@ static void out_integer_field(struct out_stream *out,
     int alternate,
     int zero_pad) {
     char digits[64];
-    char field[96];
     size_t digit_count = build_unsigned_digits(digits, sizeof(digits), magnitude, base, uppercase);
     if (precision == 0 && magnitude == 0) {
         digit_count = 0;
@@ -299,96 +276,50 @@ static void out_integer_field(struct out_stream *out,
             prefix[prefix_count++] = ' ';
         }
     }
-    if (alternate && magnitude != 0) {
-        if (base == 8) {
-            if (digit_count == 0 || digits[0] != '0') {
-                prefix[prefix_count++] = '0';
-            }
-        } else if (base == 16) {
-            prefix[prefix_count++] = '0';
-            prefix[prefix_count++] = uppercase ? 'X' : 'x';
-        }
+    int precision_zeroes=precision>(int)digit_count?precision-(int)digit_count:0;
+    if(alternate && base==8 && (!digit_count || digits[0]!='0') && !precision_zeroes)
+        precision_zeroes=1;
+    if(alternate && base==16 && magnitude) {
+        prefix[prefix_count++]='0';prefix[prefix_count++]=uppercase?'X':'x';
     }
-
-    int precision_zeroes = precision > (int)digit_count ? precision - (int)digit_count : 0;
-    char pad = (zero_pad && !left_adjust && precision < 0) ? '0' : ' ';
-    if (pad == '0') {
-        int body_width = width - (int)prefix_count;
-        for (size_t i = 0; i < prefix_count; i++) {
-            out_char(out, prefix[i]);
-        }
-        out_field(out, digits, digit_count, body_width, 0, '0');
-        return;
-    }
-
-    size_t used = 0;
-    for (size_t i = 0; i < prefix_count && used + 1 < sizeof(field); i++) {
-        field[used++] = prefix[i];
-    }
-    while (precision_zeroes-- > 0 && used + 1 < sizeof(field)) {
-        field[used++] = '0';
-    }
-    for (size_t i = 0; i < digit_count && used + 1 < sizeof(field); i++) {
-        field[used++] = digits[i];
-    }
-    out_field(out, field, used, width, left_adjust, ' ');
+    size_t length=prefix_count+(size_t)precision_zeroes+digit_count;
+    if(length>INT_MAX) { errno=EOVERFLOW;out->failed=1;return; }
+    int padding=width>(int)length?width-(int)length:0;
+    int zeros=zero_pad && !left_adjust && precision<0;
+    if(!left_adjust && !zeros) out_repeat(out,' ',padding);
+    for(size_t i=0;i<prefix_count;i++) out_char(out,prefix[i]);
+    if(zeros) out_repeat(out,'0',padding);
+    out_repeat(out,'0',precision_zeroes);
+    for(size_t i=0;i<digit_count;i++) out_char(out,digits[i]);
+    if(left_adjust) out_repeat(out,' ',padding);
 }
 
-static void out_double_fixed(struct out_stream *out, double value, int precision, int trim) {
-    if (isnan(value)) {
-        out_text(out, "nan");
-        return;
-    }
-    if (isinf(value)) {
-        if (value < 0.0) {
-            out_char(out, '-');
-        }
-        out_text(out, "inf");
-        return;
-    }
-    if (precision < 0) {
-        precision = 6;
-    }
-    if (precision > 18) {
-        precision = 18;
-    }
-    if (value < 0.0) {
-        out_char(out, '-');
-        value = -value;
-    }
-
-    unsigned long long integer = (unsigned long long)value;
-    double fraction = value - (double)integer;
-    out_unsigned(out, integer, 10, 0);
-    if (precision == 0) {
-        return;
-    }
-
-    char digits[18];
-    for (int i = 0; i < precision; i++) {
-        fraction *= 10.0;
-        int digit = (int)fraction;
-        if (digit < 0) {
-            digit = 0;
-        } else if (digit > 9) {
-            digit = 9;
-        }
-        digits[i] = (char)('0' + digit);
-        fraction -= (double)digit;
-    }
-    int count = precision;
-    if (trim) {
-        while (count > 0 && digits[count - 1] == '0') {
-            count--;
-        }
-    }
-    if (count == 0) {
-        return;
-    }
-    out_char(out, '.');
-    for (int i = 0; i < count; i++) {
-        out_char(out, digits[i]);
-    }
+static void float_put(void *context, char c) { out_char(context,c); }
+struct float_output { struct out_stream *out; int skip; };
+static void float_body_put(void *context,char c) {
+    struct float_output *body=context;
+    if(body->skip) { body->skip--;return; }
+    out_char(body->out,c);
+}
+static void out_float_field(struct out_stream *out,double value,char spec,int precision,
+    int width,int left,int plus,int space,int alternate,int zero) {
+    if(precision>INT_MAX-1100) { errno=EOVERFLOW;out->failed=1;return; }
+    char sign=signbit(value)?'-':plus?'+':space?' ':0;
+    size_t body=fp_format(0,0,value,spec,precision,alternate);
+    size_t length=body+(sign!=0);
+    if(length>INT_MAX || out->total>(size_t)INT_MAX-length) { errno=EOVERFLOW;out->failed=1;return; }
+    int padding=width>(int)length?width-(int)length:0;
+    if(!isfinite(value)) zero=0;
+    if(!left && !zero) out_repeat(out,' ',padding);
+    if(sign) out_char(out,sign);
+    if(!left && zero) {
+        int hex=(spec=='a' || spec=='A') && isfinite(value);
+        if(hex) { out_char(out,'0');out_char(out,spec=='A'?'X':'x'); }
+        out_repeat(out,'0',padding);
+        struct float_output result={out,hex?2:0};
+        fp_format(float_body_put,&result,value,spec,precision,alternate);
+    } else fp_format(float_put,out,value,spec,precision,alternate);
+    if(left) out_repeat(out,' ',padding);
 }
 
 static int format_to(struct out_stream *out, const char *format, va_list args) {
@@ -446,6 +377,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             format++;
         } else {
             while (*format >= '0' && *format <= '9') {
+                if(width>(INT_MAX-(*format-'0'))/10) { errno=EOVERFLOW;return -1; }
                 width = width * 10 + (*format - '0');
                 format++;
             }
@@ -460,12 +392,17 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
                 format++;
             } else {
                 while (*format >= '0' && *format <= '9') {
+                    if(precision>(INT_MAX-(*format-'0'))/10) { errno=EOVERFLOW;return -1; }
                     precision = precision * 10 + (*format - '0');
                     format++;
                 }
             }
         }
 
+        if(width<0) {
+            if(width==INT_MIN) { errno=EOVERFLOW;return -1; }
+            width=-width;left_adjust=1;zero_pad=0;
+        }
         int long_count = 0;
         int short_count = 0;
         while (*format == 'h') {
@@ -476,7 +413,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             long_count++;
             format++;
         }
-        if (*format == 'z' || *format == 't') {
+        if (*format == 'z' || *format == 't' || *format == 'j') {
             long_count = 1;
             format++;
         } else if (*format == 'L') {
@@ -583,48 +520,11 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             out_integer_field(out, value, 0, 8, 0, 0, width, precision, left_adjust, 0, 0, alternate, zero_pad);
             break;
         }
-        case 'f': {
-            char number[128];
-            struct out_stream temp = {.buffer=number,.capacity=sizeof(number)};
-            number[0] = '\0';
-            if (long_count == 3) {
-                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 0);
-            } else {
-                out_double_fixed(&temp, va_arg(args, double), precision, 0);
-            }
-            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
-            size_t length = strlen(number);
-            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
-            break;
-        }
-        case 'g':
-        case 'G': {
-            char number[128];
-            struct out_stream temp = {.buffer=number,.capacity=sizeof(number)};
-            number[0] = '\0';
-            if (long_count == 3) {
-                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
-            } else {
-                out_double_fixed(&temp, va_arg(args, double), precision, 1);
-            }
-            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
-            size_t length = strlen(number);
-            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
-            break;
-        }
-        case 'e':
-        case 'E': {
-            char number[128];
-            struct out_stream temp = {.buffer=number,.capacity=sizeof(number)};
-            number[0] = '\0';
-            if (long_count == 3) {
-                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
-            } else {
-                out_double_fixed(&temp, va_arg(args, double), precision, 1);
-            }
-            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
-            size_t length = strlen(number);
-            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
+        case 'f': case 'F': case 'g': case 'G':
+        case 'e': case 'E': case 'a': case 'A': {
+            double value=long_count==3?(double)va_arg(args,long double):va_arg(args,double);
+            out_float_field(out,value,format[-1],precision,width,left_adjust,
+                plus_sign,space_sign,alternate,zero_pad);
             break;
         }
         case 'p': {
@@ -1010,7 +910,8 @@ int vsscanf(const char *text, const char *format, va_list args) {
         }
         int width = 0;
         while (*format >= '0' && *format <= '9') {
-            width = width * 10 + (*format - '0');
+            if(width>(INT_MAX-(*format-'0'))/10) { errno=EOVERFLOW;return -1; }
+                width = width * 10 + (*format - '0');
             format++;
         }
         int short_count = 0;

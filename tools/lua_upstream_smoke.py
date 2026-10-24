@@ -34,14 +34,17 @@ def main():
         raise RuntimeError('Lua revision changed: review the test/profile pin before updating it')
     subprocess.run(['git', '-C', str(upstream), 'diff', '--quiet', 'HEAD', '--'], check=True)
     test = upstream/'testes'/(args.test+'.lua')
+    dependencies = [upstream/'testes'/'bwcoercion.lua'] if args.test=='bitwise' else []
     receipt = {'upstream': 'Lua 5.4.8', 'revision': revision,
                'test': str(test.relative_to(ROOT)), 'sha256': hashlib.sha256(test.read_bytes()).hexdigest(),
+               'dependencies': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
                'profile': {'_port': True, '_soft': True}, 'process_check': True, 'environment': {'PATH': '/fat/bin'}}
     print(json.dumps(receipt, sort_keys=True), flush=True)
     with tempfile.TemporaryDirectory(prefix='srvros-lua-upstream-') as temporary:
         directory = Path(temporary)
         driver = directory/'luatest.lua'
         driver.write_text('''_port=true; _soft=true
+package.path="/fat/bin/?.lua;"..package.path
 print("lua-upstream: begin")
 dofile("/fat/bin/upstream.lua")
 print("lua-upstream: upstream passed")
@@ -65,6 +68,7 @@ print("lua-upstream: complete")
         command=['python3', str(ROOT/'tools/mk_exfat_image.py'), str(disk)]
         command += [f'{name}={ROOT}/build/userspace/{name}.elf' for name in ('lua','sh','cat','true','false','env','printf')]
         command += [f'upstream.lua={test}', f'luatest.lua={driver}']
+        command += [f'{p.name}={p}' for p in dependencies]
         subprocess.run(command, cwd=ROOT, check=True)
         with socket.socket() as reservation:
             reservation.bind(('127.0.0.1', 0));port=reservation.getsockname()[1]

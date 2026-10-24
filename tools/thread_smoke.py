@@ -144,6 +144,7 @@ def main():
             "threadstress: directory ok",
             "threadstress: rename ok",
             "threadstress: stdio-access ok",
+            "threadstress: stdio-format ok",
             "threadstress: sleep ok",
             "threadstress: usage ok",
             "threadstress: resource ok",
