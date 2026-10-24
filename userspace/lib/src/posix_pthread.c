@@ -505,7 +505,7 @@ int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr) 
     }
     mutex->locked = 0;
     mutex->type = attr != 0 ? attr->type : PTHREAD_MUTEX_DEFAULT;
-    mutex->owner = 0;
+    __atomic_store_n(&mutex->owner, 0, __ATOMIC_RELAXED);
     mutex->depth = 0;
     return 0;
 }
@@ -520,7 +520,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
     }
     pthread_t self = pthread_self();
     if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) != 0 &&
-        mutex->owner == self) {
+        __atomic_load_n(&mutex->owner, __ATOMIC_RELAXED) == self) {
         if (mutex->type == PTHREAD_MUTEX_RECURSIVE) {
             mutex->depth++;
             return 0;
@@ -539,7 +539,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
         expected = 0;
         (void)pthread_futex_wait_absorbing_signals((uint32_t *)&mutex->locked, 1, 0);
     }
-    mutex->owner = self;
+    __atomic_store_n(&mutex->owner, self, __ATOMIC_RELAXED);
     mutex->depth = 1;
     return 0;
 }
@@ -550,7 +550,7 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex) {
     }
     pthread_t self = pthread_self();
     if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) != 0 &&
-        mutex->owner == self &&
+        __atomic_load_n(&mutex->owner, __ATOMIC_RELAXED) == self &&
         mutex->type == PTHREAD_MUTEX_RECURSIVE) {
         mutex->depth++;
         return 0;
@@ -565,7 +565,7 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex) {
     if (!locked) {
         return EBUSY;
     }
-    mutex->owner = self;
+    __atomic_store_n(&mutex->owner, self, __ATOMIC_RELAXED);
     mutex->depth = 1;
     return 0;
 }
@@ -580,14 +580,14 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex) {
     }
     if (mutex->type != PTHREAD_MUTEX_NORMAL &&
         mutex->type != PTHREAD_MUTEX_DEFAULT &&
-        mutex->owner != self) {
+        __atomic_load_n(&mutex->owner, __ATOMIC_RELAXED) != self) {
         return EPERM;
     }
-    if (mutex->type == PTHREAD_MUTEX_RECURSIVE && mutex->owner == self && mutex->depth > 1) {
+    if (mutex->type == PTHREAD_MUTEX_RECURSIVE && __atomic_load_n(&mutex->owner, __ATOMIC_RELAXED) == self && mutex->depth > 1) {
         mutex->depth--;
         return 0;
     }
-    mutex->owner = 0;
+    __atomic_store_n(&mutex->owner, 0, __ATOMIC_RELAXED);
     mutex->depth = 0;
     __atomic_store_n(&mutex->locked, 0, __ATOMIC_RELEASE);
     (void)srv_futex_wake((uint32_t *)&mutex->locked, 1);

@@ -10,8 +10,9 @@ pass host/core, focused/full thread VMs and exFAT hardening: SIGPIPE/EPIPE, requ
 creation-time exFAT mode initialization, and trailing-slash mkdir resolution. The
 first mkdir guest attempt exposed a stale syscall operation bound; the corrected
 retry passes. Desktop Files exposed a stale Home-versus-/fat fixture assumption;
-its explicit-navigation retry is underway. Next block synchronizes stdio registry
-lifetimes, then unifies descriptor inheritance/redirection. Touch shared ABI
+its explicit-navigation retry passes, as does the Terminal regression. Stdio
+registry pinning and concurrent close/flush pass focused/full thread VMs and
+local core/build. Next block unifies descriptor ownership/inheritance/redirection. Touch shared ABI
 limits, syscall/process/libc and focused tests. Full core/build and focused/full thread VMs pass the exec block. The first VM
 stayed at Limine; its incomplete log is retained and the harness now refuses to
 send commands before the OS prompt. Main advanced to `27f0870` with

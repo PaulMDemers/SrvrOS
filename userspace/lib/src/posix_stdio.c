@@ -41,6 +41,8 @@ struct FILE {
     unsigned lock_depth;
     char path[FILENAME_MAX];
     struct FILE *next;
+    size_t references; /* Registry snapshot pins plus the live stream owner. */
+    int closing;
 };
 
 enum {
@@ -49,11 +51,15 @@ enum {
     FILE_OP_WRITE = 2,
 };
 
-static FILE stdin_file = {.fd = STDIN_FILENO, .readable=1, .buffer_mode = _IOFBF, .known_size = -1};
-static FILE stdout_file = {.fd = STDOUT_FILENO, .writable=1, .buffer_mode = _IOLBF, .known_size = -1};
-static FILE stderr_file = {.fd = STDERR_FILENO, .writable=1, .buffer_mode = _IONBF, .known_size = -1};
-static FILE *open_streams;
-static int stdio_initialized;
+static FILE stdin_file,stdout_file,stderr_file;
+static FILE stdin_file = {.fd = STDIN_FILENO, .readable=1, .buffer_mode = _IOFBF, .known_size = -1,
+    .next=&stdout_file,.references=1};
+static FILE stdout_file = {.fd = STDOUT_FILENO, .writable=1, .buffer_mode = _IOLBF, .known_size = -1,
+    .next=&stderr_file,.references=1};
+static FILE stderr_file = {.fd = STDERR_FILENO, .writable=1, .buffer_mode = _IONBF, .known_size = -1,
+    .references=1};
+static FILE *open_streams=&stdin_file;
+static pthread_mutex_t stream_registry_lock=PTHREAD_MUTEX_INITIALIZER;
 
 FILE *stdin = &stdin_file;
 FILE *stdout = &stdout_file;
@@ -73,7 +79,7 @@ void flockfile(FILE *stream) {
     }
     pthread_t self = pthread_self();
     if (__atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) != 0 &&
-        stream->lock_owner == self) {
+        __atomic_load_n(&stream->lock_owner, __ATOMIC_RELAXED) == self) {
         stream->lock_depth++;
         return;
     }
@@ -87,7 +93,7 @@ void flockfile(FILE *stream) {
         expected = 0;
         (void)srv_futex_wait((uint32_t *)&stream->lock, 1, 0);
     }
-    stream->lock_owner = self;
+    __atomic_store_n(&stream->lock_owner, self, __ATOMIC_RELAXED);
     stream->lock_depth = 1;
 }
 
@@ -97,7 +103,7 @@ int ftrylockfile(FILE *stream) {
     }
     pthread_t self = pthread_self();
     if (__atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) != 0 &&
-        stream->lock_owner == self) {
+        __atomic_load_n(&stream->lock_owner, __ATOMIC_RELAXED) == self) {
         stream->lock_depth++;
         return 0;
     }
@@ -110,7 +116,7 @@ int ftrylockfile(FILE *stream) {
             __ATOMIC_RELAXED)) {
         return -1;
     }
-    stream->lock_owner = self;
+    __atomic_store_n(&stream->lock_owner, self, __ATOMIC_RELAXED);
     stream->lock_depth = 1;
     return 0;
 }
@@ -118,47 +124,50 @@ int ftrylockfile(FILE *stream) {
 void funlockfile(FILE *stream) {
     if (stream == 0 ||
         __atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) == 0 ||
-        stream->lock_owner != pthread_self()) {
+        __atomic_load_n(&stream->lock_owner, __ATOMIC_RELAXED) != pthread_self()) {
         return;
     }
     if (stream->lock_depth > 1) {
         stream->lock_depth--;
         return;
     }
-    stream->lock_owner = 0;
+    __atomic_store_n(&stream->lock_owner, 0, __ATOMIC_RELAXED);
     stream->lock_depth = 0;
     __atomic_store_n(&stream->lock, 0, __ATOMIC_RELEASE);
     (void)srv_futex_wake((uint32_t *)&stream->lock, 1);
 }
 
-static void ensure_stdio_initialized(void) {
-    if (stdio_initialized) {
-        return;
-    }
-    stdin_file.next = &stdout_file;
-    stdout_file.next = &stderr_file;
-    stderr_file.next = 0;
-    open_streams = &stdin_file;
-    stdio_initialized = 1;
-}
-
+/* Registry locking never spans a FILE lock or stream I/O. A close removes the
+ * owner, but snapshot pins keep its allocation alive until blocked flushers can
+ * acquire the FILE lock, observe closing, and release their pins. */
 static void register_stream(FILE *stream) {
-    ensure_stdio_initialized();
-    stream->next = open_streams;
-    open_streams = stream;
+    pthread_mutex_lock(&stream_registry_lock);
+    stream->references=1;stream->closing=0;
+    stream->next=open_streams;open_streams=stream;
+    pthread_mutex_unlock(&stream_registry_lock);
 }
-
 static void unregister_stream(FILE *stream) {
-    ensure_stdio_initialized();
-    FILE **slot = &open_streams;
-    while (*slot != 0) {
-        if (*slot == stream) {
-            *slot = stream->next;
-            stream->next = 0;
-            return;
-        }
-        slot = &(*slot)->next;
-    }
+    pthread_mutex_lock(&stream_registry_lock);
+    FILE **slot=&open_streams;
+    while(*slot && *slot!=stream) slot=&(*slot)->next;
+    if(*slot) *slot=stream->next;
+    stream->next=NULL;stream->closing=1;
+    pthread_mutex_unlock(&stream_registry_lock);
+}
+static void release_stream(FILE *stream) {
+    pthread_mutex_lock(&stream_registry_lock);
+    int destroy=--stream->references==0 && stream->closing && stream->allocated;
+    pthread_mutex_unlock(&stream_registry_lock);
+    if(destroy) free(stream);
+}
+static FILE **snapshot_streams(size_t *count) {
+    pthread_mutex_lock(&stream_registry_lock);
+    size_t n=0;for(FILE *s=open_streams;s;s=s->next) n++;
+    FILE **snapshot=n?malloc(n*sizeof(*snapshot)):NULL;
+    if(n && !snapshot) { pthread_mutex_unlock(&stream_registry_lock);errno=ENOMEM;*count=0;return NULL; }
+    size_t i=0;
+    for(FILE *s=open_streams;s;s=s->next) { s->references++;snapshot[i++]=s; }
+    pthread_mutex_unlock(&stream_registry_lock);*count=n;return snapshot;
 }
 
 struct out_stream {
@@ -1477,7 +1486,7 @@ FILE *fdopen(int fd, const char *mode) {
     stream->known_size = -1;
     stream->popen_pid = 0;
     stream->lock = 0;
-    stream->lock_owner = 0;
+    __atomic_store_n(&stream->lock_owner, 0, __ATOMIC_RELAXED);
     stream->lock_depth = 0;
     stream->path[0] = '\0';
     stream->next = 0;
@@ -1500,6 +1509,7 @@ FILE *fopen(const char *path, const char *mode) {
         close(fd);
         return 0;
     }
+    flockfile(stream);
     stream->append = info.append;
     remember_path(stream, path);
     long size = refresh_size(stream);
@@ -1508,6 +1518,7 @@ FILE *fopen(const char *path, const char *mode) {
             stream->position = size;
         }
     }
+    funlockfile(stream);
     return stream;
 }
 
@@ -1520,14 +1531,15 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
         errno = EBADF;
         return 0;
     }
+    flockfile(stream);
     struct mode_info info;
     if (mode_to_flags(mode, &info) < 0) {
         errno = EINVAL;
-        return 0;
+        funlockfile(stream);return 0;
     }
     int fd = open(path, info.flags, 0666);
     if (fd < 0) {
-        return 0;
+        funlockfile(stream);return 0;
     }
     (void)fflush(stream);
     if (stream->owned) {
@@ -1551,41 +1563,37 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
         }
     }
     stream->owned = 1;
-    return stream;
+    funlockfile(stream);return stream;
 }
 
 int fclose(FILE *stream) {
-    if (stream == 0) {
-        errno = EBADF;
-        return EOF;
-    }
+    if(!stream) { errno=EBADF;return EOF; }
     flockfile(stream);
-    int flush_result = fflush(stream);
-    int result = stream->owned ? close(stream->fd) : 0;
-    if (stream->allocated) {
-        unregister_stream(stream);
-        if (stream->buffer_owned) {
-            free(stream->buffer);
-        }
-        free(stream);
-    } else {
-        funlockfile(stream);
-    }
-    return flush_result < 0 || result < 0 ? EOF : 0;
+    if(stream->allocated) unregister_stream(stream);
+    int flush_result=fflush(stream);
+    int result=stream->owned?close(stream->fd):0;
+    if(stream->allocated) {
+        if(stream->buffer_owned) free(stream->buffer);
+        stream->buffer=NULL;stream->buffer_owned=0;stream->fd=-1;
+        stream->readable=stream->writable=0;
+        /* Destruction consumes any recursive lock held by the closing caller.
+         * Waiting snapshot flushers must be allowed to retire their pins. */
+        stream->lock_depth=1;funlockfile(stream);release_stream(stream);
+    } else funlockfile(stream);
+    return flush_result<0 || result<0?EOF:0;
 }
 
 int fflush(FILE *stream) {
     if (stream == 0) {
-        ensure_stdio_initialized();
-        int result = 0;
-        for (FILE *scan = open_streams; scan != 0; scan = scan->next) {
-            flockfile(scan);
-            if (scan->write_len != 0 && flush_write_buffer(scan) < 0) {
-                result = EOF;
-            }
-            funlockfile(scan);
+        size_t count=0;FILE **snapshot=snapshot_streams(&count);
+        if(!snapshot) return EOF; /* Standard streams keep the registry nonempty. */
+        int result=0;
+        for(size_t i=0;i<count;i++) {
+            FILE *scan=snapshot[i];flockfile(scan);
+            if(!scan->closing && scan->write_len && flush_write_buffer(scan)<0) result=EOF;
+            funlockfile(scan);release_stream(scan);
         }
-        return result;
+        free(snapshot);return result;
     }
     flockfile(stream);
     if (stream->last_op == FILE_OP_READ) {
@@ -1990,8 +1998,10 @@ int fseeko(FILE *stream, off_t offset, int whence) {
 
 void rewind(FILE *stream) {
     if (stream != 0) {
+        flockfile(stream);
         (void)fseek(stream, 0, SEEK_SET);
         clearerr(stream);
+        funlockfile(stream);
     }
 }
 

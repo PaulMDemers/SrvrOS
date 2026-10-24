@@ -16,6 +16,14 @@ This reference choice is a development target, not certification.
 
 ## Implementation progress after the audit
 
+Global `fflush(NULL)` now snapshots and pins the stream registry before taking
+individual FILE locks. Concurrent fclose removes the stream from that registry
+and defers allocation release until pinned flushers retire; closing under an
+explicit recursive flockfile cannot strand them. Registry locks never span FILE
+locks or I/O. FILE/pthread mutex owner fields use atomic access. The three-writer
+plus global-flusher guest race and full thread suite pass. Standard-descriptor
+close semantics still depend on the pending descriptor unification.
+
 Small pipe writes through `write` are atomic up to `PIPE_BUF=4096`: blocking
 writers wait for the whole record, nonblocking writers return EAGAIN without
 publishing a prefix, and a missing reader generates SIGPIPE/EPIPE. Larger writes
