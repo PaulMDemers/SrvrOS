@@ -1749,3 +1749,15 @@ up separately outside build, preserving the original incomplete run.
 This accepts bounded attended desktop power transitions and indicator updates.
 Ordinary battery startup remains disabled. Longer attended desktop/file/input
 coexistence and endurance remain separate before any startup promotion.
+
+## Attended desktop/file/input scope (2026-10-23)
+
+From main `7b0d1a0`, including merged MR118 USB waits and MR122 AC acceptance,
+own an explicit Air6,1 attended Home capture: five-minute minimum work interval,
+periodic sampling/logging, screenshot and normal user-requested desktop exit.
+An eight-minute owner overrun must halt with the mount retained, not force away
+unsaved work. Require physical-input counts and successful ordinary Text save/open
+receipts, preserving prior files. Ordinary startup remains off; firmware/query
+permissions stay unchanged. PR123 network polling and PR19 Wi-Fi are independent;
+preserve their main/staging recipes and avoid driver edits. Previous AC retry is
+collected and accepted; this trial needs its own run and native evidence.
