@@ -2038,3 +2038,37 @@ ten-minute wait or automatic return is required. The preceding combined native
 run remains independently backed up; this new run has its own backup directory.
 Ubuntu and console recovery stay unchanged. Physical reopen acceptance awaits
 the returned evidence and user observations.
+
+### Reopen trial failed (2026-10-24)
+
+Run `c655eca6a4f00313` on unchanged v71 `1ae70fcf03ab6152` completed its first
+session `00065e9c895ac1d7-00` with clean retirement at 87.970 seconds from boot.
+The user confirms all providers worked and the document was saved. Brightness
+16/44/78 and one completed audio test are logged, with live CPU/fan data and
+no final audio/SMC errors. New `reopn-services.txt` persisted (four bytes).
+
+After `desktop battery`, session `00065e9c8f025226-00` saved its startup log,
+but halted before a periodic/final snapshot. The user's photograph reports
+`HALTED operation deadline`, setup `complete`, elapsed 5,037,205 us, zero
+errors/denied/EC error/queries and retained live state. The source gives namespace
+setup a 5,000 ms operation budget. Completion timing and deadline handling need
+investigation; this evidence does not yet identify a driver or scheduler defect.
+Do not widen the budget or claim native reopen acceptance from VM passes.
+
+All 277 prior file bytes except metadata are preserved. Offline fsck/allocation
+pass at 283 files/831 clusters with no leaks or mismatches. Ubuntu returned with
+empty one-shot state. Both sessions, the photograph and file hashes are backed
+up independently outside build. No reboot is armed. First-session combined
+acceptance remains valid; native combined reopen is now a recorded failure.
+
+## Reopen deadline investigation scope (2026-10-24)
+
+Base `36080fc`. Investigate the stale worker-drain result between a timed slice
+and the outer battery operation deadline. The native photograph reports setup
+complete and no in-flight work at containment; reproduce that boundary using
+VM-only second-lifetime scheduling hooks before changing production behavior.
+Scope: battery operation loop, disposable battery VM model and desktop regression
+harness, plus this record. Preserve the five-second setup budget and live-state
+containment for still-running work. PR134 owns POSIX/scheduler changes; avoid
+scheduler edits. PR19 Wi-Fi is independent. Next checkpoint: failing regression,
+completion-vs-busy proof, combined exit/reopen and exact staged GPT rehearsal.
