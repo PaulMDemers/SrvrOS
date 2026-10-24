@@ -3568,3 +3568,10 @@ test-battery-startup-timing: build/tests/battery-startup-timing$(HOST_EXE)
 build/tests/battery-startup-timing$(HOST_EXE): tools/test_battery_startup_timing.c ports/srvros/uacpi/runtime/battery_startup_timing.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: bench-heap-startup
+bench-heap-startup: build/tests/heap-startup-bench$(HOST_EXE)
+	$<
+build/tests/heap-startup-bench$(HOST_EXE): tools/bench_heap_startup.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

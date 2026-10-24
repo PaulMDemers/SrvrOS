@@ -2171,3 +2171,81 @@ hashes and Ubuntu default are verified; console recovery `c35475f62f154f1e` rema
 The obsolete `fc1d1f4c45d30252` EFI image-capture copy was removed for space only
 after its durable payload backup was hash-verified. Native reopen remains failed
 pending this diagnostic's returned evidence; this is not a claimed native fix.
+
+### Automated startup timing result (2026-10-24)
+
+Run `d3d219186d3bc6e6`, release `837ce4f6bfab6775`, passes the automated
+two-session check. Sessions `00065e9d64761993-00` and `00065e9d65e8d7a2-00`
+each reached fresh battery generation 6 and retired epochs 1/2 with balanced
+attachment and zero final heap/errors/denied. Normal Ubuntu return and the
+one-shot collector completed; the collector disabled itself. All 288 prior
+files except metadata retain identical bytes; eight new logs bring the clean
+filesystem to 296 files/848 clusters. One-shot boot state is empty. Evidence
+and hashes are backed up outside build; no new reboot is armed.
+
+First startup took 4,796,986 us; reopening took 4,917,553 us, only 82,447 us below
+the unchanged five-second deadline. Namespace load alone took 4,455,910 us in
+the second lifetime. Neither startup called AML sleep or stall. Second-start
+semaphore wall time totaled 10,906 us and four EC byte transfers totaled 312 us.
+Allocation made 18,847 calls, with 295 sampled calls totaling 61,586 us; free
+made 7,411 calls, with 116 samples totaling 14,180 us. These sampled wall times
+are not exact totals or CPU measurements. The allocator's whole-heap validation
+on both entry and exit, plus its linear free-block search, is a strong next
+investigation target; establish cost and preserve integrity checks in any fix.
+
+This accepts only the short automated startup/reopen/retirement sequence. It
+does not resolve the prior attended failure or establish sufficient timing
+margin under interactive load. No timeout increase or allocator change was
+made in this run.
+
+## Allocator startup investigation scope (2026-10-24)
+
+Base `4f8acd2`, retaining the collected startup result. Profile/replay the real
+allocator and remove redundant allocation traversal while preserving full
+before/after heap validation, free checks and the five-second battery deadline.
+Scope: kernel heap allocation traversal, deterministic host integrity/performance
+regressions and this machine's v72 automated startup trial. Avoid scheduler,
+firmware and EC changes. PR134 `e4b7b02` has no heap implementation changes;
+PR19 `807fb51` remains independent Wi-Fi scope. Publish measured old/new work
+counts and reject corrupt heaps even when a suitable early free block exists.
+Native timing improvement remains pending the next automated trial.
+
+### Heap traversal trial ready (PR138)
+
+Runtime source `e7b29e7`, v72 release `4efd82574f07eb30`, selects the first
+fitting free block during the existing full entry validation walk. It finishes
+that entire walk before mutation and retains the complete exit walk and both
+free walks. First-fit, splitting/coalescing, metadata, firmware permissions and
+the five-second startup deadline remain unchanged. Later corrupt blocks must
+still halt even when an earlier suitable free block exists.
+
+Three sequential alternating baseline/candidate replay pairs (two lifetimes
+each, 18,847 allocations and 7,411 frees during each setup) reduce median host
+setup time from 5.707 s to 4.856 s, about 14.9%. Cleanup/free time is similar
+(1.272 s versus 1.294 s). Full validation visits and payload checksums match
+exactly; about 105.45 million redundant search visits disappear per lifetime.
+This is a deterministic namespace-sized workload, not a captured AML trace or
+native timing prediction. Native timing margin remains to be measured.
+
+On clean `e7b29e7`, full build/core, general smoke (including 481 CLI commands),
+77 staging tests and docs checks pass. Nine battery VM cases pass: automatic
+early exit, normal, completed-at-expiry, busy containment and profile refusal;
+ordinary combined desktop save/reopen, pending-save cancellation, runtime fault;
+and the Air7,2 combined regression. Exact staged GPT GRUB→Limine boot passes
+two refused-but-cleanly-retired sessions, clean allocation and automatic return.
+Q35 profile refusal is expected and is not native acceptance. Refreshed main
+is `4f8acd2`; PR134 `d5d0fa1` still has no heap implementation change and PR19
+`d5010dc` remains independent Wi-Fi scope.
+
+Run `c741adb1f4bd0f75` uses this unit's USB `6ADA-85BB`, preserving all 296
+files/848 clusters. The automated trial opens two 20-second desktop lifetimes,
+requires fresh samples and clean retirement, then returns to Ubuntu. The one-shot
+collector checks saved sessions, startup timings, prior hashes and offline
+allocation, backs up evidence outside build and disables itself. No human input
+is required. User authorization permits this automated reboot without asking;
+fatal mounted ownership still halts and requires a photograph/manual recovery.
+Ubuntu remains default and console recovery `c35475f62f154f1e` is retained.
+The obsolete failed `06b0976a58151901` EFI copy is retired for space only after
+its durable payload backup is hash-verified. Prior accepted payloads and the
+previous automated diagnostic remain preserved. Native improvement is pending
+returned evidence; this does not yet resolve the attended intermittent failure.

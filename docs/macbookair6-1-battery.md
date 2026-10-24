@@ -781,3 +781,20 @@ with normal teardown and a second session; early exit cannot count as a pass. Th
 with an active 6000 ms sleep and only the first lifetime released. Exact-stage
 Q35 uses `--case profile-refusal --stage RELEASE`: two cleanly retired unavailable
 sessions and automatic recovery are harness success, never hardware acceptance.
+
+### Heap traversal follow-up
+
+The startup follow-up folds first-fit selection into the existing full entry
+validation pass. Finding a candidate never ends the scan: corrupt metadata later
+in the chain still halts before mutation. Full post-mutation validation remains,
+as do both free-side passes, invalid-free checks, block layout and allocation
+policy. The battery deadline is unchanged. This removes redundant search work;
+it does not replace integrity validation with sampling or defer it to idle time.
+
+`make test-heap` covers 6,000 live allocations, fragmentation, first-fit reuse,
+entry/exit visit counts, distal corruption despite an early fit, invalid frees,
+overflow and OOM. `make bench-heap-startup` runs two namespace-sized synthetic
+allocation/recycling lifecycles and prints wall time, validation/search visits
+and payload checksums. It is a deterministic workload shape, not a captured AML
+allocation trace. Host timing is informative rather than a CI threshold; native
+startup timing and clean retirement remain the acceptance evidence.
