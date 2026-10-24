@@ -17,8 +17,19 @@ and host tests; no xHCI edits. Pro PR19 `603b7a6` owns USB Wi-Fi/xHCI work and h
 no overlapping generic storage/logger edits. Air6,1 PR114 `f3e0763` changes its
 battery/Text generated trial and has no overlap. Require host phase/failure tests,
 full local build/core/docs and exact-stage saved/missing-workspace VM checks
-before a new native capture. Installed/recovery remain the preceding accepted
-releases; no new reboot is armed. No efficiency improvement is claimed.
+before a new native capture. PR115 implementation `1f93899` passes the full local
+build/core/docs and directed host cases (failure, nested refusal, clock regression,
+overflow, phase attribution and collector rejection). Networked post-idle drag,
+typing and exact save pass. Exact EFI/GPT v26 `9c57ca38a3771eef` saves six valid
+in-window periodic cost records, verifies persisted bytes, exits cleanly and
+resets automatically. These VM timings are not native performance evidence.
+
+The matching unattended native capture is prepared under
+`build/logger-timing-20261023`; its local checkpoint owns install/reboot state.
+Require saved cost records, worker/energy evidence, preservation of all 1020
+existing files and offline allocation/recovery checks. Retain previous recovery
+`9aa8dbf6fbda8252`; Ubuntu stays default. No input is needed and the diagnostic
+returns automatically. No efficiency improvement is claimed.
 
 ### Active checkpoint: compositor polling reduction verified
 
