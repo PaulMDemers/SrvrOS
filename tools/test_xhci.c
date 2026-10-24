@@ -2923,6 +2923,74 @@ static void test_wifi_bbp_switch(void){
  puts("xhci BBP switch: PASS fixed payload/order, ownership, table prerequisites, no retry and error quarantine");
 }
 
+static void test_wifi_dcoc(void){
+ for(unsigned fault=0;fault<28;fault++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[80]={0},rx[1024]={0},packet[80],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->bbp_after_mac_mode=true;m->mac_policy_validate=true;m->mac_fce_validate=true;
+  m->mac_route_mode=true;m->mac_route.complete=true;m->mac_route_submitted=true;
+  m->mac_policy_mode=true;m->mac_policy.complete=true;m->mac_policy_submitted=true;
+  m->mac_protect_mode=true;m->mac_protect.complete=true;m->mac_protect_submitted=true;
+  m->mac_contention_mode=true;m->mac_contention.complete=true;m->mac_contention_submitted=true;
+  m->mac_txsw_mode=true;m->mac_txsw.complete=true;m->mac_txsw_submitted=true;
+  m->mac_beacon_mode=true;m->mac_beacon.complete=true;m->mac_beacon_submitted=true;
+  m->mac_vht_mode=true;m->mac_vht.complete=true;m->mac_vht_submitted=true;
+  m->mac_buffer_mode=true;m->mac_buffer.complete=true;m->mac_buffer_submitted=true;
+  m->mac_fce_mode=true;m->mac_fce.complete=true;m->mac_fce_submitted=true;
+  m->mac_ampdu_mode=true;m->mac_ampdu.complete=true;m->mac_ampdu_submitted=true;
+
+  m->table=(struct mt76_bbp_table){.attempted=true,.complete=true,.reads=124,.chunks_attempted=3,.chunks_completed=3,.ack_validated=true};m->table_submitted=3;
+
+  m->bbp_switch_mode=true;m->bbp_switch=(struct mt76_bbp_switch){.attempted=true,.complete=true,.reads=88,.writes_attempted=20,.writes_completed=20};m->bbp_switch_submitted=20;
+  for(unsigned i=0;i<20;i++)m->bbp_switch.after[i]=mt76_bbp_switch_value(i);
+  m->dcoc_mode=true;m->dcoc_active=true;m->dcoc=(struct mt76_dcoc){.attempted=true,.command_attempted=true,.reads=13,.core={0xf000f200,0xf000f200}};
+  f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+  m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+  if(fault==1)m->dcoc_mode=false;
+  if(fault==2)m->dcoc_active=false;
+  if(fault==3)m->bbp_switch_active=true;
+  if(fault==4)m->bbp_switch.complete=false;
+  if(fault==5)m->bbp_switch.reads--;
+  if(fault==6)m->bbp_switch.writes_attempted--;
+  if(fault==7)m->bbp_switch.writes_completed--;
+  if(fault==8)m->bbp_switch_submitted--;
+  if(fault==9)m->bbp_switch.mismatches=1;
+  if(fault==10)m->bbp_switch.after[19]^=1;
+  if(fault==11)m->bbp_switch.attempted=false;
+  if(fault==12)m->table.complete=false;
+  if(fault==13)m->mac_ampdu.complete=false;
+  if(fault==14)m->pending=true;
+  if(fault==15)m->dcoc_submitted=true;
+  if(fault==16)m->dcoc.attempted=false;
+  if(fault==17)m->dcoc.command_attempted=false;
+  if(fault==18)m->dcoc.complete=true;
+  if(fault==19)m->dcoc.ack_validated=true;
+  if(fault==20)m->dcoc.reads--;
+  if(fault==21)m->dcoc.mac[0]=1;
+  if(fault==22)m->dcoc.mac[1]=1;
+  if(fault==23)m->dcoc.core[0]=0;
+  if(fault==24)m->dcoc.core[1]=0;
+  if(fault==25)events[0].status=6u<<24;
+  if(fault==26)events[1].status=6u<<24;
+  if(fault==27)m->bbp_switch_mode=false;
+  assert(mt76_dcoc_packet(packet,80)==80);
+  if(!fault){
+   for(unsigned i=0;i<80;i++)for(unsigned bit=0;bit<8;bit++){packet[i]^=1u<<bit;assert(wifi_dcoc_exchange(d,packet,80,reply,1024)==-1);packet[i]^=1u<<bit;}
+   assert(wifi_dcoc_exchange(d,packet,79,reply,1024)==-1);uint32_t v;assert(!wifi_dcoc_read(d,0x2800,&v));
+  }
+  assert(wifi_dcoc_exchange(d,packet,80,reply,1024)==(fault?-1:16));
+  if(!fault){assert(m->dcoc_submitted && !memcmp(tx,packet,80));assert(wifi_dcoc_exchange(d,packet,80,reply,1024)==-1);}
+  else if(fault==25 || fault==26)assert(m->dcoc_submitted && f->failed && d->ep0_quarantined);
+  else assert(!f->ep.enqueue && !m->response.enqueue);
+ }
+ puts("xhci DCOC: PASS exact packet, switch prerequisites, ownership, guards, no retry and quarantine");
+}
+
 static void test_wifi_mac_route(void){
  for(unsigned fault=0;fault<23;fault++){
   reset_test();test_time=0;test_time_step=1000;
@@ -3770,6 +3838,7 @@ int main(int argc, char **argv) {
     test_wifi_full_table();
     test_wifi_bbp_after_mac();
     test_wifi_bbp_switch();
+    test_wifi_dcoc();
     test_wifi_clock();
     test_wifi_txbe_direct();
     test_wifi_txbe_access_reads();

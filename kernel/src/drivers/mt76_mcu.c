@@ -1076,3 +1076,56 @@ enum mt76_mcu_timing_status mt76_bbp_switch_apply(struct mt76_bbp_switch *s,cons
 #undef SWITCH_READ
 #undef SWITCH_GUARD
 }
+
+/* Reference DCOC defaults, not a calibration command or RF enable. */
+static const struct mt76_mcu_register_pair dcoc_plan[9]={
+    {0x2cbc,0x10f0},
+    {0x2cc0,0x8080},
+    {0x2cc4,0xf07},
+    {0x2cc8,0x40},
+    {0x2ccc,0x404},
+    {0x2cd0,0x80803},
+    {0x2cd4,0x704},
+    {0x2cd8,0x2828},
+    {0x2cdc,0x5050},
+};
+uint32_t mt76_dcoc_address(unsigned i){return i<9?dcoc_plan[i].address:UINT32_MAX;}
+uint32_t mt76_dcoc_value(unsigned i){return i<9?dcoc_plan[i].value:UINT32_MAX;}
+bool mt76_dcoc_read_allowed(uint32_t a){
+    if(a==0x1004 || a==0x2000)return true;
+    for(unsigned i=0;i<9;i++)if(a==dcoc_plan[i].address)return true;
+    return false;
+}
+size_t mt76_dcoc_packet(uint8_t *out,size_t capacity){return mt76_mcu_register_packet(true,7,dcoc_plan,9,out,capacity);}
+static enum mt76_mcu_timing_status dcoc_read(struct mt76_dcoc *s,const struct mt76_mcu_timing_io *io,uint32_t a,uint32_t *v){
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!io->read(io->context,a,v))return MT76_TIMING_IO;
+    s->reads++;return *v==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
+}
+enum mt76_mcu_timing_status mt76_dcoc_capture(struct mt76_dcoc *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    s->attempted=true;enum mt76_mcu_timing_status status;
+#define DCOC_READ(a,v) do{status=dcoc_read(s,io,a,v);if(status!=MT76_TIMING_OK)return status;}while(0)
+#define DCOC_GUARD(m,c) do{DCOC_READ(0x1004,m);if(*(m))return MT76_TIMING_STATE;DCOC_READ(0x2000,c);if(*(c)!=0xf000f200)return MT76_TIMING_STATE;}while(0)
+    for(unsigned stage=0;stage<2;stage++){
+        DCOC_GUARD(&s->mac[stage*2],&s->core[stage*2]);
+        for(unsigned i=0;i<9;i++)DCOC_READ(dcoc_plan[i].address,stage?&s->after[i]:&s->before[i]);
+        DCOC_GUARD(&s->mac[stage*2+1],&s->core[stage*2+1]);
+        if(!stage){
+            if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+            uint8_t packet[80],reply[MT76_MCU_RESPONSE_MAX];
+            if(mt76_dcoc_packet(packet,sizeof packet)!=80)return MT76_TIMING_REFUSED;
+            s->command_attempted=true;int received=io->exchange(io->context,packet,80,reply,sizeof reply);
+            if(received<0)return MT76_TIMING_IO;
+            if(received!=16)return MT76_TIMING_REPLY;
+            const uint32_t words[]={0x4a070008,0x412cbc,0x10f0,0x4a070008};
+            for(unsigned i=0;i<16;i++)if(reply[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return MT76_TIMING_REPLY;
+            s->ack_validated=true;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    for(unsigned i=0;i<9;i++)if(s->after[i]!=dcoc_plan[i].value)s->mismatches++;
+    s->complete=true;return MT76_TIMING_OK;
+#undef DCOC_READ
+#undef DCOC_GUARD
+}

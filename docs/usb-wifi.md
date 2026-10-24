@@ -2007,3 +2007,11 @@ checks passed after a local collector variable-shadowing fix; validation
 predicates were unchanged. This is bounded write/readback evidence, not RF
 or connectivity acceptance. Next is the separate nine-entry CAL47..55 DCOC
 stage with exact MCU framing/ACK and guarded observations.
+
+The v49 candidate adds the fixed nine-entry CAL47..55 DCOC table after
+exact G/20 switch readbacks. It uses one80-byte MCU random-write packet and
+26 guarded reads. Sequence7 is deliberately reused after all previous responses;
+the exact ACK address/value (412cbc/10f0) rejects the earlier policy response.
+Ownership and prerequisite completion are checked throughout; no retries or
+RF/channel/TX/RX enable are added. Mismatches remain observations rather than
+accepted register targets. Native results pending.

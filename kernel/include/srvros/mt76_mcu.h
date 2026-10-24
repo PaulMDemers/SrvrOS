@@ -278,4 +278,15 @@ uint32_t mt76_bbp_switch_address(unsigned index);
 uint32_t mt76_bbp_switch_value(unsigned index);
 bool mt76_bbp_switch_read_allowed(uint32_t address);
 enum mt76_mcu_timing_status mt76_bbp_switch_apply(struct mt76_bbp_switch *s,const struct mt76_bbp_switch_io *io);
+#define MT76_DCOC_ENTRIES 9
+struct mt76_dcoc {
+    bool attempted, complete, command_attempted, ack_validated;
+    unsigned reads, mismatches;
+    uint32_t before[9], after[9], mac[4], core[4];
+};
+uint32_t mt76_dcoc_address(unsigned index);
+uint32_t mt76_dcoc_value(unsigned index);
+bool mt76_dcoc_read_allowed(uint32_t address);
+size_t mt76_dcoc_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_dcoc_capture(struct mt76_dcoc *s,const struct mt76_mcu_timing_io *io);
 #endif

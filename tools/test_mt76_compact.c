@@ -897,7 +897,53 @@ static void test_bbp_switch(void){
  assert(mt76_bbp_switch_apply(NULL,NULL)==MT76_TIMING_REFUSED);
  puts("BBP switch: PASS20 ordered writes,88 reads, every IO/cancellation/all-ones/guard failure, no retry, mismatch observations");
 }
-int main(void){test_bbp_switch();
+static const uint32_t dcoc_addr[9]={0x2cbc,0x2cc0,0x2cc4,0x2cc8,0x2ccc,0x2cd0,0x2cd4,0x2cd8,0x2cdc};
+static const uint32_t dcoc_value[9]={0x10f0,0x8080,0xf07,0x40,0x404,0x80803,0x704,0x2828,0x5050};
+struct dcoc_fake {unsigned reads,commands,auth,fail_read,deny,ones,bad,reply_bit;bool fail_command,mismatch,old_reply,short_reply;};
+static bool dcoc_auth(void *p){struct dcoc_fake *f=p;return ++f->auth!=f->deny;}
+static bool dcoc_fake_read(void *p,uint32_t a,uint32_t *v){
+ struct dcoc_fake *f=p;unsigned n=f->reads++,x=n%13;
+ assert(f->commands==(n>=13));
+ if(x==0 || x==11){assert(a==0x1004);*v=0;}
+ else if(x==1 || x==12){assert(a==0x2000);*v=0xf000f200;}
+ else{assert(a==dcoc_addr[x-2]);*v=n<13?0:dcoc_value[x-2];if(f->mismatch && n>=13)*v^=1;}
+ if(f->ones==n+1)*v=UINT32_MAX;
+ if(f->bad==n+1)*v^=1;
+ return f->fail_read!=n+1;
+}
+static void dcoc_fixture(uint8_t *p){
+ memset(p,0,80);word(p,0x50c70048);
+ for(unsigned i=0;i<9;i++){word(p+4+8*i,0x410000+dcoc_addr[i]);word(p+8+8*i,dcoc_value[i]);}
+}
+static int dcoc_fake_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t capacity){
+ struct dcoc_fake *f=p;uint8_t expected[80];dcoc_fixture(expected);assert(n==80 && capacity>=16 && f->reads==13 && !f->commands && !memcmp(data,expected,80));f->commands++;
+ if(f->fail_command)return -1;
+ word(reply,0x4a070008);word(reply+4,f->old_reply?0x411350:0x412cbc);word(reply+8,f->old_reply?0x1020:0x10f0);word(reply+12,0x4a070008);
+ if(f->reply_bit)reply[(f->reply_bit-1)/8]^=1u<<((f->reply_bit-1)%8);
+ return f->short_reply?15:16;
+}
+static enum mt76_mcu_timing_status dcoc_run(struct dcoc_fake *f,struct mt76_dcoc *s){const struct mt76_mcu_timing_io io={f,dcoc_auth,dcoc_fake_read,dcoc_fake_exchange};return mt76_dcoc_capture(s,&io);}
+static void test_dcoc(void){
+ struct dcoc_fake f={0};struct mt76_dcoc s={0};uint8_t p[80],e[80];dcoc_fixture(e);
+ assert(mt76_dcoc_packet(p,80)==80 && !memcmp(p,e,80));assert(!mt76_dcoc_packet(p,79) && !mt76_dcoc_packet(NULL,80));
+ assert(dcoc_run(&f,&s)==MT76_TIMING_OK && s.complete && s.reads==26 && s.ack_validated && !s.mismatches && f.commands==1 && f.auth==28);
+ assert(dcoc_run(&f,&s)==MT76_TIMING_REFUSED && f.commands==1);
+ for(unsigned n=1;n<=26;n++){
+  f=(struct dcoc_fake){.fail_read=n};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_IO && f.reads==n && !s.complete);
+  f=(struct dcoc_fake){.ones=n};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_STATE && f.reads==n && !s.complete);
+  unsigned x=(n-1)%13;if(x<2 || x>=11){f=(struct dcoc_fake){.bad=n};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_STATE && f.reads==n);}
+ }
+ for(unsigned n=1;n<=28;n++){f=(struct dcoc_fake){.deny=n};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_CANCELLED && f.auth==n && !s.complete);}
+ for(unsigned n=1;n<=128;n++){f=(struct dcoc_fake){.reply_bit=n};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_REPLY && !s.complete && s.reads==13);}
+ f=(struct dcoc_fake){.old_reply=true};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_REPLY);
+ f=(struct dcoc_fake){.short_reply=true};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_REPLY);
+ f=(struct dcoc_fake){.fail_command=true};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_IO && f.commands==1);assert(dcoc_run(&f,&s)==MT76_TIMING_REFUSED);
+ f=(struct dcoc_fake){.mismatch=true};s=(struct mt76_dcoc){0};assert(dcoc_run(&f,&s)==MT76_TIMING_OK && s.mismatches==9);
+ for(unsigned i=0;i<9;i++){assert(mt76_dcoc_address(i)==dcoc_addr[i] && mt76_dcoc_value(i)==dcoc_value[i]);assert(mt76_dcoc_read_allowed(dcoc_addr[i]));}
+ assert(mt76_dcoc_address(9)==UINT32_MAX && mt76_dcoc_value(9)==UINT32_MAX && !mt76_dcoc_read_allowed(0x2800));
+ puts("DCOC: PASS exact80-byte packet/ACK, stale policy reply rejection,26 reads, all IO/guard/cancellation failures and no retry");
+}
+int main(void){test_dcoc();test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();

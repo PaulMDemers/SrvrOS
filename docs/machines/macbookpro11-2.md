@@ -4488,3 +4488,10 @@ Collection, summary, run/checkpoint and hashes archived under
 No reboot armed. Next: implement the separately audited nine-entry CAL47..55
 DCOC table after the switch, with bounded MCU command ownership, exact ACK
 validation and guarded readback capture; keep RF/TX/RX enable separate.
+
+Active scope: v49 fixed nine-entry CAL47..55 DCOC observation after exact
+v48 switch readbacks. Touch mt76 engine, xHCI/main, boot profiles and tests.
+One80-byte MCU write, deliberate sequence7 reuse after all earlier replies,
+exact first address/value ACK;26 guarded reads and mismatch observations.
+No retries, RF/channel selection or TX/RX enable. Base4a991df, fetchedmain7b0d1a0;
+PR123 network-idle and PR124 Air6,1 capture remain separate.
