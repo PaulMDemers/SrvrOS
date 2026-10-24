@@ -1749,3 +1749,57 @@ up separately outside build, preserving the original incomplete run.
 This accepts bounded attended desktop power transitions and indicator updates.
 Ordinary battery startup remains disabled. Longer attended desktop/file/input
 coexistence and endurance remain separate before any startup promotion.
+
+## Attended desktop/file/input scope (2026-10-23)
+
+From main `7b0d1a0`, including merged MR118 USB waits and MR122 AC acceptance,
+own an explicit Air6,1 attended Home capture: five-minute minimum work interval,
+periodic sampling/logging, screenshot and normal user-requested desktop exit.
+An eight-minute owner overrun must halt with the mount retained, not force away
+unsaved work. Require physical-input counts and successful ordinary Text save/open
+receipts, preserving prior files. Ordinary startup remains off; firmware/query
+permissions stay unchanged. PR123 network polling and PR19 Wi-Fi are independent;
+preserve their main/staging recipes and avoid driver edits. Previous AC retry is
+collected and accepted; this trial needs its own run and native evidence.
+
+## Attended Home work candidate (2026-10-23; native pending)
+
+Source `022d468`, v69 release `8245e30a2e9019ec`, prepares a five-minute
+attended Home session with continuous battery sampling, typing, Text save/reopen
+and Files work. At five minutes it saves a screenshot and prompts for normal
+SrvrOS > Return to console; dirty Text retains its close veto. An eight-minute
+owner deadline halts with live ownership retained. Ordinary startup and native
+firmware/query gates remain unchanged. See the current battery guide for steps.
+
+Local core/desktop build tests, 74 staging tests, 26 collector tests and five
+strict receipt tests pass. Directed Air6,1 Q35 cases cover completion, early
+exit, unsaved-work overrun, platform refusal and query refusal. Completion ran
+305.895 seconds, generation 1→123, with 3,944 events and seven lifetime members;
+Text bytes, directory metadata, filesystem/allocation and full retirement pass.
+The overrun retains live ownership without reset or a completion claim; periodic
+sampling continued through 479 seconds. Native-style collector recipe negatives
+and the existing three-phase AC capture regression pass. Exact staged GPT boot
+refuses native hardware in Q35, saves/unmounts/returns; missing Home returns before
+starting the probe. These are VM results, not native endurance acceptance.
+
+Run `e787736ee4592483` preserves the accepted 251-file USB baseline (728 clusters,
+zero leaks/mismatches/errors). `attended-work.txt` is available as a new file.
+Ubuntu and console recovery `c35475f62f154f1e` remain the recovery plan. The
+superseded Start/Stop EFI copy was removed only after independent backup hashes
+matched; accepted continuous and AC payloads remain installed. The next boot
+must collect its own screenshot, periodic/final logs, input/file receipts, new
+file contents, prior-file hashes and clean offline allocation before acceptance.
+
+### Integrated candidate after MR123
+
+Main `92722b7` landed during validation and is consumed by `6f25115`. The sole
+merge conflict was the boot-smoke result dictionary; both attended-work and
+network-probe fields are retained. Final v69 release `78fe53e8cacdb1ba` supersedes
+the never-installed `8245e30a2e9019ec` candidate. Rebuild/core/desktop and all
+105 staging/collector/receipt tests pass again. Completion (305.423 seconds,
+generation 1→123, 3,944 events, seven members), early exit, both refusals, the AC
+transition regression and both exact staged GPT/missing-Home checks pass on the
+integrated source. The eight-minute overrun receipt remains from `022d468`;
+battery runtime/desktop sources and the initramfs are unchanged by integration.
+The earlier stage and evidence remain preserved. Native acceptance is still
+pending; the same unarmed run and 251-file baseline apply to this final payload.

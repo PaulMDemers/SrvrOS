@@ -15,6 +15,31 @@ passive firmware handoff state with AC connected on 2026-10-23. It is a prerequi
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
 
+## Next attended work capture (native acceptance pending)
+
+The explicit Air6,1 v69 `--battery-home-work` recipe runs ordinary Home apps
+with battery sampling and periodic USB logs. Keep AC and USB connected. Spend
+at least five minutes typing, saving a **new** `attended-work.txt` in Home,
+reopening it in Text, and browsing Files. Preserve existing files. A reminder
+appears at four minutes; at five minutes it takes a screenshot and asks you to
+save all work and choose **SrvrOS > Return to console** within two minutes.
+The normal menu exit allows unsaved Text to veto closing. Do not use the
+emergency keyboard exit as completion. Successful retirement saves the final
+report, unmounts and returns to Ubuntu automatically.
+
+The owner halts at eight minutes with live mount/runtime retained; it does not
+force-close dirty editors to make a passing report. Photograph a halt before
+manual recovery. The strict collector requires elapsed time, generation advances,
+keyboard/pointer activity, successful Text save then read, a Files listing,
+screenshot, periodic logs and full retirement. File hashes and offline allocation
+must also be checked after return. VM success does not accept native endurance.
+Ordinary battery startup remains disabled; EC/SCI/firmware gates are unchanged.
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume 6ADA-85BB \
+  --battery-air61 --battery-home-work
+```
+
 ## Captured evidence (2026-10-23)
 
 The fresh DSDT/ECDT/FADT are byte-identical to this unit's October 22 capture.

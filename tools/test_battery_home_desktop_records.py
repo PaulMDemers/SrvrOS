@@ -53,7 +53,34 @@ def transitions_fixture():
     return data[:begin]+b''.join(phases)+b'desktop-ac: completed=yes phases=3 screenshots=3\n'+data[end:]
 
 
+def work_fixture():
+    data=fixture().replace(b'battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none',
+        b'battery-home-work-capture: begin seconds=300 watchdog_seconds=480 startup=disabled input=typing-files')
+    start=data.index(b'desktop-idle: elapsed');end=data.index(b'battery-home-desktop-sample:')
+    data=data[:start]+b"""desktop-work: begin minimum_us=300000000 deadline_us=480000000
+desktools: file-result role=text op=2 status=0 bytes=0
+desktools: file-result role=text op=1 status=0 bytes=20
+desktools: file-result role=files op=3 status=0 bytes=100
+desktop-work: ready-to-exit screenshot=yes
+desktop-work: completed=yes elapsed_us=301000000 keys=40 pointer_events=5 screenshot=yes normal_exit=1
+"""+data[end:]
+    return data.replace(b'battery-home-desktop-sample:',b'battery-home-work-sample:').replace(b'battery-home-desktop-capture: returned',b'battery-home-work-capture: returned').replace(b'elapsed_us=190000000',b'elapsed_us=302000000')
+
+
 class Records(unittest.TestCase):
+    def test_work_requires_duration_input_io_and_normal_exit(self):
+        data=work_fixture();check_capture(data,vm=True,work=True)
+        for old,new in ((b'elapsed_us=301000000',b'elapsed_us=299000000'),(b'elapsed_us=302000000',b'elapsed_us=480000000'),
+                        (b'keys=40',b'keys=0'),(b'pointer_events=5',b'pointer_events=0'),(b'normal_exit=1',b'normal_exit=0'),
+                        (b'op=2 status=0',b'op=2 status=-1'),(b'op=1 status=0',b'op=1 status=-1'),
+                        (b'role=files op=3',b'role=files op=8'),(b'last_gen=66',b'last_gen=60')):
+            with self.subTest(old=old),self.assertRaises(AssertionError):check_capture(data.replace(old,new),vm=True,work=True)
+        with self.assertRaises(AssertionError):check_capture(data,vm=True)
+        for row in data.splitlines(keepends=True):
+            if row.startswith(b'desktop-work:'):
+                for bad in (data.replace(row,b''),data+row):
+                    with self.assertRaises(AssertionError):check_capture(bad,vm=True,work=True)
+
     def test_transitions_require_ordered_distinct_samples_and_saved_images(self):
         data=transitions_fixture();result=check_capture(data,vm=True,transitions=True)
         self.assertEqual([p['ac'] for p in result['phases']],[True,False,True])
