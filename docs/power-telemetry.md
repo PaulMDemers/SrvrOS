@@ -522,8 +522,25 @@ Directed host fixtures inject delayed event delivery and a separate known caller
 resumption delay, verify stale/duplicate event exclusion, retain the original
 bounded timeout/quarantine checks, and reject missing or inconsistent persisted
 records. These measurements do not change the 20 ms normal wait threshold,
-verification or flush policy. Native attribution of the variable CSW tail remains
-pending; use the controlled comparison before proposing another wait-policy change.
+verification or flush policy.
+
+Air7,2 release `b824d64a95b27a3b` completed all 18 native operations and exact
+readback. All 1043 prior files retain their bytes except expected exFAT metadata;
+offline allocation and recovery checks pass. Across 2124 CSW callbacks, total
+wall time was 5121771 us: 5117657 us preceded software event observation, and
+1616 us followed it. The maximum callback was 307216 us; maximum post-observation
+caller delay was 20 us. Seventeen CSW callbacks exceeded 100 ms, none one second.
+The 2427278 us operation included twelve separate slow CSW callbacks, consistent
+with the earlier multi-second aggregate durations without a single transfer
+crossing its two-second deadline. Two data callbacks also exceeded 100 ms.
+
+This narrows attribution to the interval before event observation for this run.
+Controller/media latency and delayed event-ring servicing remain unresolved.
+The six operations per policy had unequal slow-transfer incidence (3 / 2 / 12
+CSW callbacks over 100 ms for polling / 4 ms / 20 ms); a single run cannot rank
+policy performance. Keep the 20 ms default. The next diagnostic should bound
+pending-transfer event-service gaps before changing transport or scheduler policy.
+Normal-desktop input and package energy were not measured by this fixed fixture.
 
 ### Refined default: native normal desktop result
 
