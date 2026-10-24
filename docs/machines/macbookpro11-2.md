@@ -4983,3 +4983,22 @@ SHA256 rather than stubbing or weakening firmware admission.
 Actualbase remains d5bc4b3. Fetchedmain bc0edb9 adds independent window capacity
 and collector display metadata; inspected and deferred from this bounded Wi-Fi
 candidate. Installed accepted v54 remains unchanged until staging/install checks.
+
+Source `825735c`,release `fbedd261796dd08f` installed unarmed. Native build,
+mt76/upload/xHCI regressions,ASan/UBSan,134 profile tests,108 unchanged historical
+Wi-Fi recipes and collector fixture/159 rejection cases passed. Private-header
+faults clear output; native transport tests reject bad ownership/commands,verify
+DMA rather than IDT,and retain timeout quarantine. The combined fixture is61766
+bytes,leaving space in the bounded saved exit log. Exact-stage GPT VM normal
+save/return and missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted physical-map
+`b34ed974d2fa3095` retained. Older fixed-controls `add8a479ff406c0d` removed from
+ESP only after full archived-payload equality. Workspace clean249files/622clusters,
+zero leaks/allocation mismatches,unmounted. Payload,reference audit,tests,VM
+receipts,collector and run/checkpoint archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-address-825735c/`.
+Next: attended cold adapter cycle,then collect matching session FIRST. Require
+mapped valid private header,160 address operations/20 exact verifications,all
+prior prerequisites,guard groups,save/unmount and recovery. Physical station/
+BSSID programming,PHY/RF and connectivity remain unaccepted until their evidence.

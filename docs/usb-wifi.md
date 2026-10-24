@@ -2218,8 +2218,8 @@ read,one write,exact verification,and final MAC/CORE guards:160 operations,
 140 reads/20 writes. All-ones initial targets refuse. Result receipts contain
 counters only,not address bytes. Every failed operation stops without retry.
 The private header copy is cleared on exit. Native logical-block acquisition,
-independent transport admission and scratch clearing remain to be implemented;
-there is no native caller or new physical acceptance for this engine yet.
+independent transport admission and scratch clearing are implemented by the
+explicit trial below; physical acceptance remains pending.
 
 ### Native private-address trial
 
