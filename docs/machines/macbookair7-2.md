@@ -20,6 +20,25 @@ coverage before a matched native logger-cost capture. Compare cost, idle samples
 and throughput; do not infer power savings. Recovery stays `9aa8dbf6fbda8252`;
 installed `9c57ca38a3771eef` is unchanged and no reboot is armed.
 
+Implementation `3687a98` is in draft PR118. Full local build/core/docs and
+scheduler/xHCI host tests pass. Networked post-idle drag/type/save passes. The
+new USB mode of the throttled large-copy VM preserves a 4 MiB+17 byte binary,
+typed document, collision target and renamed file; input overlaps the copy.
+It exercises 272 accepted waits / 1,896,206 us helper wall time with zero USB
+errors. The stalled USB VM retains keyboard progress and bounded quarantine.
+Exact EFI/GPT v26 `58a61b892c43d2f5` persists six valid logger-cost records,
+verifies offline file bytes, unmounts and resets. Missing workspace also returns
+without starting the probe. VM observations do not establish native efficiency.
+
+Native preparation: all 1025 existing USB files hashed; offline fsck and allocation
+pass; actual Air7,2 inventory captured. Recovery remains `9aa8dbf6fbda8252`.
+The next unattended one-minute capture compares logger costs, idle/worker samples
+and package energy with accepted `9c57ca38a3771eef`; no input is required.
+Run/reboot state is recorded in `build/storage-wait-20261023/checkpoint.json`
+and copied outside build before arming. Pro PR19 `a2db9de` and Air6,1 PR117
+`503dd05` were rechecked; neither changes the storage bulk wait or scheduler
+helper. No native acceptance or energy saving is claimed before collection.
+
 ### Active checkpoint: native logger cost captured
 
 Branch `device/macbookair7-2/logger-timing` starts at main `180b542` (PR112).
