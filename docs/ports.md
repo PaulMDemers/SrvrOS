@@ -4,6 +4,12 @@ srvros is moving toward a POSIX-shaped userspace compatibility layer. The goal i
 not to clone Unix in the kernel; the goal is to make portable C libraries see a
 familiar API while the kernel keeps a compact srvros syscall ABI.
 
+For current semantic support and known gaps, read the
+[October 24 POSIX audit](posix-compatibility.md). The inventories below describe
+available interfaces and porting history, not a conformance claim. Several
+exported functions are restricted, explicit ENOSYS stubs or successful
+placeholders; larger ports must check behavior as well as compilation.
+
 `make srvros-sysroot` exports the current userspace porting surface to
 `build/sysroot/srvros`. The sysroot contains shared and userspace headers,
 `crt0.o`, `app.ld`, and `libsrvros.a`, giving larger ports a stable package to
