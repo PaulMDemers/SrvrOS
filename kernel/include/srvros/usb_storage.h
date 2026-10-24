@@ -11,7 +11,8 @@ typedef bool (*usb_bulk_fn)(void *, bool, void *, uint32_t, uint32_t *);
  * dispatch time, not the controller's hardware completion time. */
 struct usb_bulk_timing {
     uint64_t submitted, observed, resumed;
-    bool seen;
+    uint64_t service_checks,service_samples,service_gap_max_us,completion_gap_us;
+    bool seen,service_valid;
 };
 struct usb_storage {
     void *context;
@@ -38,6 +39,7 @@ struct usb_storage {
 struct usb_storage_phase_timing {
     uint64_t max_us, over20ms, over100ms, over1s;
     uint64_t observed_calls, observe_us, resume_us, observe_max_us, resume_max_us;
+    uint64_t service_checks,service_samples,service_gap_max_us,completion_gap_max_us;
 };
 struct usb_storage_timing {
     uint64_t calls[3], us[3], failures;

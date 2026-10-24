@@ -9,16 +9,35 @@ class CaptureTests(unittest.TestCase):
                 lines.append(f'storage-wait: sample round={r} position={p} poll_us={policy} bytes=32768 elapsed_us=10000 sampled_ticks=1 idle_ticks=0 cbw_calls=2 cbw_us=100 data_calls=8 data_us=200 csw_calls=2 csw_us=300 failures=0 ok=1')
         lines.append('storage-wait: complete=yes samples=18 restored=yes elapsed_us=180001')
         return '\n'.join(lines)
-    def detailed(self):
-        from usb_timing import FIELDS
-        lines=self.fixture().replace('version=1','version=2').splitlines();out=[lines[0]]
+    def detailed(self,version=2):
+        from usb_timing import FIELDS,SERVICE_FIELDS
+        lines=self.fixture().replace('version=1',f'version={version}').splitlines();out=[lines[0]]
         for i,line in enumerate(lines[1:-1]):
             start=1000000+i*20000
             out.append(line.replace(' bytes=',f' start_us={start} bytes='))
             for phase,calls,total in ((0,2,100),(1,8,200),(2,2,300)):
                 values=(start,phase,calls,total,total//calls,0,0,0,calls,total//2,total//4,total//2//calls+1,total//4//calls+1,1)
-                out.append('usb-timing: version=1 scope=comparison '+' '.join(f'{k}={v}' for k,v in zip(FIELDS,values)))
+                fields=FIELDS
+                if version==3:
+                    fields=FIELDS[:-1]+SERVICE_FIELDS+FIELDS[-1:]
+                    values=values[:-1]+(calls*256,calls,total//2//calls+1,1)+values[-1:]
+                out.append(f'usb-timing: version={2 if version==3 else 1} scope=comparison '+' '.join(f'{k}={v}' for k,v in zip(fields,values)))
         return '\n'.join(out+[lines[-1]])
+
+    def test_service_gap_records(self):
+        text=self.detailed(3);result=capture_result(text)
+        self.assertIsNotNone(result);self.assertEqual(result['version'],3)
+        self.assertTrue(all(len(r['transfers'])==3 and r['transfers'][0]['version']==2 for r in result['records']))
+        for bad in (text.replace(' service_checks=512',''),text.replace('service_samples=2','service_samples=0'),
+                    text.replace('service_checks=512','service_checks=0'),
+                    text.replace('service_gap_max_us=26','service_gap_max_us=0'),
+                    text.replace('completion_gap_max_us=1','completion_gap_max_us=999'),
+                    text.replace('service_checks=512','service_checks=18446744073709551616'),
+                    self.detailed().replace('begin version=2','begin version=3')):
+            self.assertIsNone(capture_result(bad),bad[:300])
+        # All earlier formats remain readable with no synthetic service fields.
+        self.assertIsNotNone(capture_result(self.fixture()))
+        self.assertIsNotNone(capture_result(self.detailed()))
 
     def test_individual_timing(self):
         text=self.detailed();result=capture_result(text)

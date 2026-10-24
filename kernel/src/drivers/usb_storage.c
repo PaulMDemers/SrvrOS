@@ -54,6 +54,16 @@ static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
                 uint64_t observe=sample.observed-sample.submitted,resume=sample.resumed-sample.observed;
                 timing_add(&p->observed_calls,1);
                 timing_add(&p->observe_us,observe);timing_add(&p->resume_us,resume);
+                if(!sample.service_valid || !sample.service_checks ||
+                   sample.service_samples!=(sample.service_checks-1)/256+1 ||
+                   sample.service_gap_max_us>observe || sample.completion_gap_us>sample.service_gap_max_us ||
+                   observe/(sample.service_samples+1)+(observe%(sample.service_samples+1)!=0)>sample.service_gap_max_us)timing.valid=false;
+                else {
+                    timing_add(&p->service_checks,sample.service_checks);
+                    timing_add(&p->service_samples,sample.service_samples);
+                    timing_max(&p->service_gap_max_us,sample.service_gap_max_us);
+                    timing_max(&p->completion_gap_max_us,sample.completion_gap_us);
+                }
                 timing_max(&p->observe_max_us,observe);timing_max(&p->resume_max_us,resume);
             }
         } else if(ok) timing.valid=false; /* An instrumented success must have an event. */

@@ -145,20 +145,27 @@ static bool timing_bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual
 static void test_transfer_timing(void) {
     reset();storage.context=&storage;storage.bulk=timing_bulk;storage.transfer_timing=get_timing;
     uint32_t actual;struct usb_storage_timing out;
-    clock_us=100;fake_timing=(struct usb_bulk_timing){.submitted=110,.observed=1000110,.resumed=1100110,.seen=true};
+    clock_us=100;fake_timing=(struct usb_bulk_timing){.submitted=110,.observed=1000110,.resumed=1100110,.seen=true,.service_valid=true,.service_checks=512,.service_samples=2,.service_gap_max_us=500000,.completion_gap_us=500000};
     assert(usb_storage_timing_begin() && usb_storage_timing_enabled());
     assert(timed_bulk(&storage,2,true,NULL,13,&actual));usb_storage_timing_end(&out);
     assert(out.valid && out.phase[2].max_us==1200000 && out.phase[2].observed_calls==1);
     assert(out.phase[2].observe_us==1000000 && out.phase[2].resume_us==100000);
     assert(out.phase[2].over20ms==1 && out.phase[2].over100ms==1 && out.phase[2].over1s==1);
+    assert(out.phase[2].service_checks==512 && out.phase[2].service_samples==2);
+    assert(out.phase[2].service_gap_max_us==500000 && out.phase[2].completion_gap_max_us==500000);
     assert(!usb_storage_timing_enabled());
-    for(unsigned bad=0;bad<6;bad++) {
-        clock_us=100;fake_timing=(struct usb_bulk_timing){110,1000110,1100110,true};
+    for(unsigned bad=0;bad<11;bad++) {
+        clock_us=100;fake_timing=(struct usb_bulk_timing){.submitted=110,.observed=1000110,.resumed=1100110,.seen=true,.service_valid=true,.service_checks=512,.service_samples=2,.service_gap_max_us=500000,.completion_gap_us=500000};
         if(bad==0)fake_timing.submitted=99;
         if(bad==1)fake_timing.observed=109;
         if(bad==2)fake_timing.resumed=1000109;
         if(bad==3)fake_timing.resumed=1200101;
         if(bad==4)fake_timing.seen=false;
+        if(bad==6)fake_timing.service_valid=false;
+        if(bad==7)fake_timing.service_samples=3;
+        if(bad==8)fake_timing.service_gap_max_us=1000001;
+        if(bad==9)fake_timing.completion_gap_us=500001;
+        if(bad==10)fake_timing.service_gap_max_us=100000;
         assert(usb_storage_timing_begin());
         if(bad==5)timing.phase[2].observe_us=UINT64_MAX;
         assert(timed_bulk(&storage,2,true,NULL,13,&actual));usb_storage_timing_end(&out);assert(!out.valid);

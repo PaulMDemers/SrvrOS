@@ -135,6 +135,24 @@ class CollectionTests(unittest.TestCase):
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
 
+    def test_logger_service_gap_version(self):
+        from workspace_cost import logger_cost
+        from test_storage_wait_result import CaptureTests
+        text=CaptureTests().detailed(3)
+        detail='\n'.join(l.replace('scope=comparison','scope=logger') for l in text.splitlines()
+                         if l.startswith('usb-timing:') and 'id=1000000 ' in l)
+        row=('workspace-cost: version=3 name=session-a.log start_us=1000000 end_us=1001000 bytes=100 '
+             'prepare_us=100 write_us=600 verify_us=100 sync_us=200 cbw_calls=2 cbw_us=100 '
+             'data_calls=8 data_us=200 csw_calls=2 csw_us=300 failures=0 ok=1 valid=1')
+        result=logger_cost(row+'\n'+detail,999999,2000000)
+        self.assertIsNotNone(result)
+        self.assertEqual(result['records'][0]['transfers'][0]['service_checks'],512)
+        old=CaptureTests().detailed()
+        old_detail='\n'.join(l.replace('scope=comparison','scope=logger') for l in old.splitlines()
+                         if l.startswith('usb-timing:') and 'id=1000000 ' in l)
+        for bad in (row,row+'\n'+old_detail,row+'\n'+detail.replace('service_gap_max_us=26','service_gap_max_us=0')):
+            self.assertIsNone(logger_cost(bad,999999,2000000))
+
     def test_logger_individual_transfer_records(self):
         from workspace_cost import logger_cost
         from test_storage_wait_result import CaptureTests

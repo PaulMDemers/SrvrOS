@@ -371,7 +371,7 @@ void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint
     mouse_inject_trackpad(x,y,buttons); last_pointer.wheel_x=wx; last_pointer.wheel_y=wy;
 }
 static bool trace_bulk;
-static uint64_t resume_delay;
+static uint64_t resume_delay,service_pause;
 bool usb_storage_timing_enabled(void) { return trace_bulk; }
 static uint64_t test_time, test_time_step=1000, complete_at;
 static struct xhci_device *complete_device;
@@ -407,7 +407,7 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
             .control=(32u<<10)|(2u<<24)|(5u<<16)|1};
         dispatch_transfer_event(&key);wait_keyboard=false;
     }
-    test_time=deadline*10000;
+    test_time=deadline*10000+service_pause;service_pause=0;
     (void)timer_monotonic_us();poll_hid_events_once();
     if(d->bulk_done)test_time+=resume_delay;
     return true;
@@ -517,6 +517,21 @@ static void test_storage(void) {
     test_time_step=1000;
 }
 
+static void test_service_gap_edges(void) {
+    struct xhci_device d={0};
+    test_time=100;test_time_step=0;complete_device=NULL;
+    d.bulk_timing.service_valid=true;d.bulk_service_at=100;storage_timing_device=&d;
+    storage_service_check();assert(d.bulk_timing.service_checks==1 && d.bulk_timing.service_samples==1);
+    for(unsigned i=0;i<255;i++)storage_service_check();
+    assert(d.bulk_timing.service_checks==256 && d.bulk_timing.service_samples==1);
+    test_time=100100;storage_service_check();
+    assert(d.bulk_timing.service_gap_max_us==100000 && d.bulk_timing.service_samples==2);
+    storage_service_sample(&d,100101,true);assert(d.bulk_timing.completion_gap_us==1);
+    storage_service_sample(&d,99,false);assert(!d.bulk_timing.service_valid);
+    d.bulk_timing.service_valid=true;d.bulk_timing.service_checks=UINT64_MAX;
+    storage_service_check();assert(!d.bulk_timing.service_valid && d.bulk_timing.service_checks==UINT64_MAX);
+    storage_timing_device=NULL;test_time_step=1000;
+}
 static void test_storage_wait(void) {
     assert(storage_poll_us==20000);storage_poll_us=4000; /* Retain initial-policy regression cases. */
     reset_test();test_time=100000;test_time_step=3;test_io_active=true;
@@ -539,15 +554,23 @@ static void test_storage_wait(void) {
     assert(storage_bulk_transfer(d,true,caller,13,&actual) && wait_calls>20);
     storage_bulk_timing(d,&sample);
     assert(sample.seen && sample.observed-sample.submitted>=500000 && sample.resumed-sample.observed==resume_delay+2*test_time_step);
+    assert(sample.service_valid && sample.service_checks>=sample.service_samples);
+    assert(sample.service_samples==(sample.service_checks-1)/256+1);
+    assert(sample.service_gap_max_us<11000 && sample.completion_gap_us<=sample.service_gap_max_us);
+    assert(!storage_timing_device);
     resume_delay=0;
-    assert(injected==before+1 && bulk_wakes==2 && actual==13 && caller[0]==0x5a);
+    complete_device=d;complete_at=test_time+500000;service_pause=75000;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual));
+    storage_bulk_timing(d,&sample);
+    assert(sample.service_valid && sample.service_gap_max_us>=75000 && sample.service_gap_max_us<86000);
+    assert(injected==before+1 && bulk_wakes==3 && actual==13 && caller[0]==0x5a);
     assert(d->bulk_wait_calls==wait_calls && d->bulk_wait_us>400000);
-    assert(d->bulk_ep[1].enqueue==2 && !d->bulk_pending && !d->bulk_failed);
+    assert(d->bulk_ep[1].enqueue==3 && !d->bulk_pending && !d->bulk_failed);
     uint64_t start=test_time;unsigned waited=wait_calls;
     assert(!storage_bulk_transfer(d,true,caller,13,&actual));
     assert(wait_calls>waited && test_time-start>=2000000 && test_time-start<2020000);
     assert(d->bulk_failed && d->bulk_pending && !strcmp(d->bulk_reason,"deadline"));
-    storage_bulk_timing(d,&sample);assert(!sample.seen && !sample.observed && !sample.resumed);
+    storage_bulk_timing(d,&sample);assert(!sample.seen && !sample.observed && !sample.resumed && !storage_timing_device);
     trace_bulk=false;
     uint64_t enqueue=d->bulk_ep[1].enqueue;
     assert(!storage_bulk_transfer(d,true,caller,13,&actual) && d->bulk_ep[1].enqueue==enqueue);
@@ -976,6 +999,7 @@ int main(int argc, char **argv) {
     test_network_transport();
     test_device_inventory();
     test_storage();
+    test_service_gap_edges();
     test_storage_wait();
     test_root_ports();
     test_scratchpads();
