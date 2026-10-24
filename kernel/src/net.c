@@ -2160,10 +2160,16 @@ static void net_worker(void *arg) {
             continue;
         }
         rx_worker_empty_polls++;
-        /* Receive IRQs/USB completions wake the worker. A short deadline also
-         * services providers without reliable IRQ delivery; checking the
-         * generation under the scheduler lock avoids a lost empty-poll wake. */
-        if(!scheduler_wait_timeout(&rx_wait_queue,rx_signaled,&generation,timer_ticks()+1)) scheduler_yield();
+        /* A live independent IRQ/USB service already signals receive work.
+         * Keep the existing recovery bound for lost notifications; providers
+         * without that path still need each-tick polling. TCP timers and USB
+         * transmit servicing remain independent of this empty receive wait.
+         * Check the pre-poll generation under the scheduler lock to avoid a
+         * notification lost between the empty poll and blocking. */
+        uint64_t now=timer_ticks();
+        uint64_t interval=net_device_rx_wake_ready()?NET_RX_RECOVERY_TICKS:1;
+        uint64_t deadline=now>UINT64_MAX-interval?UINT64_MAX:now+interval;
+        if(!scheduler_wait_timeout(&rx_wait_queue,rx_signaled,&generation,deadline)) scheduler_yield();
     }
 }
 

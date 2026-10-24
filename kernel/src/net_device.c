@@ -55,3 +55,7 @@ unsigned net_device_inventory(struct srv_net_adapter_info *out,unsigned capacity
     }
     return count;
 }
+
+bool net_device_rx_wake_ready(void) {
+    return selected && selected->rx_wake_ready && selected->rx_wake_ready(selected->context);
+}

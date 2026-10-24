@@ -373,6 +373,7 @@ struct xhci_state {
 
 static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
+static bool xhci_poll_worker_started;
 
 static bool network_enabled;
 static uint64_t network_count;
@@ -2489,7 +2490,8 @@ static void enumerate_connected_ports(void) {
         (void)enumerate_port(i);
     }
     if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count) {
-        if (!scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready)) {
+        xhci_poll_worker_started=scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready);
+        if (!xhci_poll_worker_started) {
             console_write("xhci: hid poll worker failed\n");
         }
     }

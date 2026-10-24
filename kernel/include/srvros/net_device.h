@@ -19,6 +19,11 @@ struct net_device_ops {
     bool (*send)(void *context,const uint8_t *frame,uint16_t length);
     uint64_t (*poll)(void *context,uint64_t budget,bool verbose);
     bool (*link)(void *context,struct net_device_link *out);
+    /* Optional, side-effect-free live readiness. True means an independent IRQ
+     * or service calls net_notify_rx for receive work; TX servicing must also
+     * progress without net_worker polling. False/absent keeps one-tick polling.
+     * A bounded recovery poll remains even when notifications are available. */
+    bool (*rx_wake_ready)(void *context);
 };
 bool net_device_register(const struct net_device_ops *ops);
 bool net_device_select(void);
@@ -29,4 +34,5 @@ const uint8_t *net_device_mac(void);
 bool net_device_send(const uint8_t *frame,uint16_t length);
 uint64_t net_device_poll(uint64_t budget,bool verbose);
 bool net_device_link(struct net_device_link *out);
+bool net_device_rx_wake_ready(void);
 #endif
