@@ -2072,3 +2072,30 @@ harness, plus this record. Preserve the five-second setup budget and live-state
 containment for still-running work. PR134 owns POSIX/scheduler changes; avoid
 scheduler edits. PR19 Wi-Fi is independent. Next checkpoint: failing regression,
 completion-vs-busy proof, combined exit/reopen and exact staged GPT rehearsal.
+
+### Deadline completion fix validated (PR136)
+
+Source `faacdf2` adds a nonblocking worker completion poll at operation expiry,
+retaining the five-second setup budget, callback error checks and busy-work
+containment. A VM-only second-lifetime fixture reproduces the old failure:
+setup complete at 5.364 seconds, no work in flight, zero EC errors/queries, then
+operation-deadline HALT. With the fix it drains both lifetimes cleanly. A separate
+six-second setup fixture still halts and retains the second lifetime. This
+proves the stale-observation defect and is consistent with the native photo;
+native confirmation is pending rather than inferred from the model.
+
+Full build/core, 76 staging tests, documentation checks and nine combined GPT
+VM cases pass: both deadline regressions, normal playback/exit/reopen, pending
+save, runtime fault retention, opt-out, missing Home, absent providers and Air7,2
+regression. Exact staged v71 release `06b0976a58151901` passes GRUB→Limine GPT
+boot with native-profile refusal, HDA, app/file work, exit/reopen, clean allocation
+and monitor reboot. No scheduler or firmware permission changes. PR134 POSIX
+and PR19 Wi-Fi remain independent; main is `36080fc`.
+
+Unarmed run `227c377cefd26812` retains 283 files/831 clusters and uses new
+`deadline-reopen.txt`. Briefly check providers and save, return to console,
+enter `desktop battery`, reopen the document and check providers, then exit
+and reboot. No ten-minute wait or automatic return. Prior native failure and
+before-fix VM evidence remain backed up separately. The old `a18d72aecdf808c7`
+three-minute capture EFI copy was removed only after durable payload verification;
+combined, ordinary-battery, console recovery and Ubuntu remain available.
