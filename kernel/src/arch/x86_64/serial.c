@@ -18,7 +18,7 @@
 #define SERIAL_TX_SPIN_LIMIT 1000000
 #endif
 
-static bool serial_ready;
+static bool serial_ready, tx_stalled;
 static char rx_buffer[SERIAL_BUFFER_SIZE];
 static volatile uint64_t rx_read_index;
 static volatile uint64_t rx_write_index;
@@ -56,6 +56,7 @@ static void drain_rx_fifo(void) {
 
 bool serial_init(void) {
     serial_ready = false;
+    tx_stalled = false;
     rx_read_index = 0;
     rx_write_index = 0;
 
@@ -142,13 +143,18 @@ static void serial_irq_restore(uint64_t flags) {
 void serial_putc(char c) {
     if (!serial_ready) return;
     if (c == '\n') serial_putc('\r');
-    for (uint64_t spins = 0; spins < SERIAL_TX_SPIN_LIMIT; spins++) {
+    /* A transmit timeout is not a failed device probe. Keep receiving input,
+     * and while stalled use one readiness check per later byte rather than
+     * repeating the full spin budget. The first ready byte resumes output. */
+    uint64_t limit=tx_stalled?1:SERIAL_TX_SPIN_LIMIT;
+    for (uint64_t spins = 0; spins < limit; spins++) {
         /* Test and write atomically, but allow interrupts/preemption between
          * attempts when the caller permits them. Never force-enable IRQs in an
          * interrupt handler, early boot, or another subsystem's critical section. */
         uint64_t flags = serial_irq_save();
         if (!serial_ready) { serial_irq_restore(flags); return; }
         if (tx_empty()) {
+            tx_stalled=false;
             outb(COM1, (uint8_t)c);
             serial_irq_restore(flags);
             return;
@@ -157,7 +163,7 @@ void serial_putc(char c) {
         __asm__ volatile ("pause");
     }
     uint64_t flags = serial_irq_save();
-    serial_ready = false;
+    tx_stalled = true;
     serial_irq_restore(flags);
 }
 

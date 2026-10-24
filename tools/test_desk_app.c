@@ -7,7 +7,8 @@
 #include <srvros/sys.h>
 
 static uint64_t ticks=1,next_surface=10,source=42;
-static int alive=1,queued,full,created,destroyed,blits,sends;
+static int alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result;
+int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
 static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
 int desk_process_alive(uint64_t pid) { assert(pid==42);return alive; }
@@ -34,6 +35,16 @@ static void receive(unsigned type,uint64_t generation) {
     incoming=desk_packet_new(type);incoming.generation=generation;queued=1;
 }
 int main(void) {
+    struct desk_app stable={.server=42,.surface=1,.generation=7,.configure={.generation=7}};
+    assert(desk_app_wait(&stable,10)==0 && waits==1);
+    wait_result=1;assert(desk_app_wait(&stable,10)==1 && waits==2);
+    wait_result=-1;assert(desk_app_wait(&stable,10)==-1 && waits==3);
+    assert(desk_app_wait(NULL,10)==-1 && desk_app_wait(&stable,101)==-1);
+    struct desk_app blocked=stable;
+#define REFUSE(field,value) do { blocked=stable;blocked.field=value;assert(desk_app_wait(&blocked,10)==-1 && waits==3); } while(0)
+    REFUSE(server,0);REFUSE(surface,0);REFUSE(generation,8);REFUSE(closed,1);REFUSE(failed,1);
+    REFUSE(dirty,1);REFUSE(pending,1);REFUSE(send_since,1);REFUSE(menu_pending,1);
+#undef REFUSE
     struct desk_app a;struct desk_packet event;struct desk_canvas canvas;
     assert(!desk_app_open(&a,"Test",400,300));assert(last_sent.type==DESK_OPEN);
     assert(!desk_app_canvas(&a,&canvas));

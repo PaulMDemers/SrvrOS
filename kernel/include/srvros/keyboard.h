@@ -18,6 +18,7 @@ struct keyboard_hid_state {
 };
 void keyboard_set_event_mode(bool enabled);
 bool keyboard_read_event(struct srv_key_event *event);
+bool keyboard_events_pending(void);
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state);
 void keyboard_repeat_hid(struct keyboard_hid_state *state, uint64_t now_us);
 bool keyboard_try_read_char(char *out);

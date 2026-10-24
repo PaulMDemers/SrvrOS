@@ -24,6 +24,8 @@ WELCOME = b'echo "Hello from the persistent USB workspace"\n'
 def prepare(uuid):
     volume = host.volume_id(uuid)
     mount = host.volume_mount(volume)
+    from hardware_log_archive import require_headroom
+    require_headroom(mount)
     folder = mount/'srvros-work'
     if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
         raise ValueError('Workspace path is not a regular directory')

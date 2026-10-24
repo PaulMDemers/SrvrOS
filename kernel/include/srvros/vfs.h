@@ -59,7 +59,10 @@ bool vfs_register_file_with_metadata(const char *path,
     const struct vfs_metadata *metadata);
 bool vfs_register_directory_with_metadata(const char *path, const struct vfs_metadata *metadata);
 uint64_t vfs_count(void);
+/* Budget headroom; allocation may still fail. Reserve under filesystem exclusion
+ * before publishing nodes or mutating disk. Existing node addresses never move. */
 uint64_t vfs_free_nodes(void);
+bool vfs_reserve_nodes(uint64_t additional);
 const struct vfs_node *vfs_node_at(uint64_t index);
 const struct vfs_node *vfs_lookup(const char *path);
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size);

@@ -30,8 +30,8 @@ def staged_capture(release):
     source=staged_boot.STAGE/release
     manifest=staged_boot.verify(source)
     match=staged_boot.TRACKPAD_RE.fullmatch(manifest['config_version'])
-    if not match or not manifest['config_version'].startswith(('ram-usb-v10-', 'ram-usb-v11-', 'ram-usb-v12-')):
-        raise ValueError('Exact rehearsal requires a v10 capture, v11 pointer or v12 gesture stage')
+    if not match or not manifest['config_version'].startswith(('ram-usb-v10-', 'ram-usb-v11-', 'ram-usb-v12-', 'ram-usb-v50-')):
+        raise ValueError('Exact rehearsal requires a v10 capture, v11 pointer or v12 gesture or v50 tap/typing stage')
     return source,manifest,match[1],match[2]
 
 
@@ -62,19 +62,20 @@ def main():
     parser.add_argument('--io-rounds',type=int,default=16,choices=range(16,129),metavar='16..128')
     parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
-    parser.add_argument('--release',help='verify and boot this exact v10/v11/v12 stage through GRUB')
+    parser.add_argument('--release',help='verify and boot this exact v10/v11/v12/v50 stage through GRUB')
     parser.add_argument('--workspace-table',choices=('mbr','gpt'),default='mbr')
     args=parser.parse_args()
     args.gestures |= args.desktop_io
     args.pointer |= args.gestures
     root=Path(__file__).resolve().parents[1]
     logs=root/((f'build/review/desktop-io-trial-{args.io_rounds}' if args.io_rounds>16 else 'build/review/desktop-io-trial') if args.desktop_io else 'build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
-    run='0123456789abcdef'; release='fedcba9876543210';stage=None
+    run='0123456789abcdef'; release='fedcba9876543210';stage=None;tap_typing=False
     if args.release:
         if args.pointer or args.gestures or args.desktop_io:
             parser.error('--release infers its profile; omit pointer/gesture/desktop options')
         stage,manifest,stage_uuid,run=staged_capture(args.release);release=args.release
-        args.gestures=manifest['config_version'].startswith('ram-usb-v12-')
+        tap_typing=manifest['config_version'].startswith('ram-usb-v50-')
+        args.gestures=tap_typing or manifest['config_version'].startswith('ram-usb-v12-')
         args.pointer=args.gestures or manifest['config_version'].startswith('ram-usb-v11-')
         logs=root/'build/review'/f'trackpad-stage-{release}';logs.mkdir(parents=True,exist_ok=True)
     receipt=logs/'trackpad-result.json';receipt.unlink(missing_ok=True)
@@ -154,6 +155,7 @@ def main():
                         if interactive:
                             if args.pointer:
                                 wait(b'deskd: opened')
+                                if tap_typing: wait(b'deskd: tap/typing options=14')
                                 qmp=QMP(qmppath)
                                 if args.desktop_io:
                                     wait(b'deskd: trial ready; Space starts USB work')
@@ -197,6 +199,7 @@ def main():
                                 wait(b'deskd: exited')
                                 qmp.stream.close(); qmp.sock.close()
                             wait(b'trackpad-test: ready for gestures')
+                            if tap_typing: wait(b'trackpad-test: tap/typing console options=14')
                             if args.gestures:
                                 wait(b'TYPING: NOT YET (0 frames)   BROAD: NOT YET (0 frames)')
                                 # Trial typing can fill the buffer; Escape must clear it
@@ -226,7 +229,8 @@ def main():
         saved=ExfatFixture(volume.read_bytes())
         report=saved.read(f'srvros-work/trackpad-{run}.txt')
         complete=saved.read(f'srvros-work/trackpad-{run}.done')
-        fields=validate_result({'run':run,'release':release,'pointer':args.pointer,'gestures':args.gestures},report,complete)
+        fields=validate_result({'run':run,'release':release,'pointer':args.pointer,'gestures':args.gestures,'tap_typing':tap_typing},report,complete)
+        if tap_typing: assert fields['tap_typing_trial']=='INCOMPLETE' and fields['input_policy_options']=='14'
         if args.gestures: assert fields['gesture_trial']=='INCOMPLETE' and fields['gesture_scroll_events']=='0'
         if args.pointer: assert fields['desktop_exit']=='PASS' and fields['pointer_trial']=='INCOMPLETE'
         if args.desktop_io:
@@ -266,7 +270,8 @@ def main():
     receipt.write_text(json.dumps({'status':'PASS','release':release,'run':run,
         'manifest_sha256':staged_boot.digest(stage/'manifest.json') if stage else None,
         'exact_stage':bool(stage),'workspace_table':args.workspace_table,
-        'pointer':args.pointer,'gestures':args.gestures,
+        'pointer':args.pointer,'gestures':args.gestures,'tap_typing':tap_typing,
+        'tap_typing_trial':fields.get('tap_typing_trial'),
         'desktop_exit':fields.get('desktop_exit'),'pointer_trial':fields.get('pointer_trial'),
         'gesture_trial':fields.get('gesture_trial'),
         'report_status':fields['status'],'saved':True,'unmounted':True,

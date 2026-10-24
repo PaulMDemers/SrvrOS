@@ -36,4 +36,6 @@ void desk_terminal_feed(struct desk_terminal *terminal,const void *bytes,size_t 
 const struct desk_term_line *desk_terminal_line(const struct desk_terminal *terminal,unsigned row);
 unsigned desk_terminal_history(const struct desk_terminal *terminal);
 size_t desk_terminal_reply(struct desk_terminal *terminal,void *bytes,size_t capacity);
+/* Flatten unbracketed clipboard line breaks in place; never submit input. */
+size_t desk_terminal_paste_normalize(const struct desk_terminal *terminal,char *text,size_t size);
 #endif

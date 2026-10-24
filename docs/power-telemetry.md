@@ -235,3 +235,177 @@ and recovery 9.293 W over 21.000 seconds. Initial idle power remains unavailable
 because eligible checkpoints cover less than ten seconds. Logged temperature
 peaked at 81 C; no diagnostic stop occurred. See the machine record for the
 session and limits; this is a short single-worker console result.
+
+## Worker attribution for matched comparisons
+
+The explicit read-only power capture now records a bounded CPU0 scheduler
+snapshot at each device checkpoint. Each row carries a boot-lifetime identity,
+reusable slot, copied name, timer samples, context switches into the thread,
+deadline-expiry wakes and explicit wait-queue wakes. A wake is counted only when
+a blocked thread becomes ready. An already-ready thread is not counted again;
+slot reuse resets counters and receives a new identity. No userspace ABI or
+scheduling deadline changes. Ordinary boots with power telemetry disabled do
+not emit these additional records.
+
+`hardware_desktop.py` adds `desktop_worker_sample` to collection. It requires a
+completed desktop capture and at least three complete, strictly ordered
+snapshots covering 20 seconds within its measurement window. Missing rows,
+duplicate identities/slots, counter regressions and changed identity bindings
+refuse attribution. Only lifetimes present throughout that covered interval
+receive deltas; partial lifetimes are listed separately. Later screenshot work
+is excluded. Keep the full raw log; a missing summary is incomplete evidence.
+
+These are software transitions, **not hardware wakeups, elapsed CPU runtime or
+energy**. Timer sampling can miss short workers. The measurement logger itself
+uses CPU and USB and appears in the results. Compare candidates with the same
+instrumentation, logging cadence, workload, panel setting, AC and adapter states.
+The legacy v26 capture excludes the ordinary Home battery owner; its result
+must not be labeled whole-desktop battery-service efficiency. A fresh v26
+baseline is the first bounded attribution step, followed by matched repeated
+captures before claiming savings. No CPU policy or deeper-idle change is made.
+
+### October 23 worker-attributed Air baseline
+
+Release `dc7c0eaea0dca69b` (`7e0d8b9`) completed the v26 capture with six valid
+energy checkpoints spanning 50.999 seconds inside 59.999 seconds of Text idle:
+341.451 J, 6.695 W package average, 2,064 MHz CPU0 active frequency. Scheduler idle
+samples were 97.60%. Six worker snapshots spanned 51.269 seconds: compositor,
+xHCI input and one client each had roughly 100 deadline wakes per second;
+network had 95.65 deadline plus 1.97 signal wakes per second. No partial lifetimes,
+rejected energy samples or collector attention. The screenshot and all original
+files are preserved; offline allocation and recovery pass.
+
+Native brightness was 14%, AC was connected before boot, the USB Ethernet and
+workspace were attached, and audio was idle. The ordinary battery owner was off.
+Package temperature fell 74–71 C during the covered interval. This is accepted
+measurement evidence, not thermal equilibrium, whole-laptop power or savings
+against the older October 19 capture. Repeat matched controls before claiming
+an improvement. See the machine record for the exact evidence/session.
+
+### First follow-up: idle Text queue wait
+
+Implementation `d6f3136` adds the [client wait contract](native-desktop.md#quiescent-client-message-waits).
+The exact v26 VM captures reduce the idle Text worker from 98.31 to 9.96 context
+switches per second; typing and exact save after idle, screenshot persistence and
+automatic return pass. Other device polling is unchanged. This is a measured
+software-activity reduction, not a power result. Native release
+`7afccbd6fbc3cfd4` completed the same unattended capture in
+`session-00065e8b0600c122-00`. Text switches fell from 100.00 to 10.01/second
+(510 over 50.960 seconds), about 90%; total 60-second-window switches fell
+30,487 to 25,102 (17.66%). Idle timer samples rose 97.60% to 97.85%. Other input
+and compositor polling remained 100 Hz. USB preservation, screenshot, offline
+allocation, clean exit and Ubuntu recovery all passed.
+
+Package average was **6.802 W**, compared with baseline 6.695 W: this pair does
+not demonstrate energy savings. Six candidate checkpoints covered 51.000 seconds,
+346.927 J and 2,054 MHz CPU0 active frequency. Package temperature fell 75–72 C
+versus baseline 74–71 C; neither interval was thermally settled. Device settings
+and diagnostic recipe matched, including the disabled ordinary battery owner.
+Accept reduced idle software activity only. Physical typing after idle remains
+untested by this unattended capture; VM typing/save is separate evidence.
+The next optimization needs preserved input/IO behavior and measured activity;
+repeat thermally controlled comparisons before making a power claim.
+
+
+### Compositor follow-up: polling reduction, overall efficiency unresolved
+
+PR112 adds a [combined server wait](native-desktop.md#quiescent-compositor-waits)
+without changing hardware polling. Source `92edfcb`, v26 release
+`dc06bc673689e011`, passes VM post-idle titlebar drag and typing/exact save,
+context menus/clipboard, input during a guarded 4 MiB+17-byte copy, clean capture
+and missing-workspace recovery. The exact EFI/GPT VM records 9.946 compositor
+switches/second; power remains unavailable in VM.
+
+The matching Air7,2 session `session-00065e8b5e2897aa-00` returned automatically,
+with complete capture, clean exit, reviewed screenshot, all prior files preserved
+and clean offline filesystem/allocation/recovery checks. The native compositor
+records **540 switches over 53.920 seconds (10.015/second)**, down from 100.00.
+Text stays at 10.015/second; hardware input polling stays at 100/second.
+
+| Measurement | Original baseline | Text wait | Compositor wait |
+| --- | ---: | ---: | ---: |
+| Idle window (seconds) | 59.999 | 59.999 | 60.010 |
+| Total scheduler switches | 30,487 | 25,102 | 19,278 |
+| CPU0 idle timer samples | 97.60% | 97.85% | **92.88%** |
+| Logger timer samples / worker interval | 127 / 51.269 s | 96 / 50.960 s | **392 / 53.920 s** |
+| Covered package average | 6.695 W | 6.802 W | **6.946 W** |
+| Covered energy interval | 50.999 s | 51.000 s | 54.000 s |
+| Package temperature over energy interval | 74–71 C | 75–72 C | 76–73 C |
+
+The additional reduction in total switches is about 23.2%, but overall idle
+samples worsened and package power was 144 mW higher. **No overall CPU efficiency
+or energy saving is established.** These non-equilibrium single runs do not
+isolate causality. The logger accounts for most additional busy samples;
+its path writes, reads back and flushes each snapshot, and USB completion waits
+poll while periodically yielding. Existing counters cannot separate waiting
+from filesystem work. Measure checkpoint duration and transfer wait, and repeat
+matched captures before changing that path or assigning a cause.
+
+Candidate covered energy is 375.135 J, active CPU0 frequency 2,086 MHz. AC was
+connected before boot, brightness 14%, Ethernet and workspace attached, audio
+idle. This recipe omits the ordinary battery owner and does not exercise physical
+input after idle or ordinary Home battery-service efficiency. Accept the bounded
+polling reduction and persistence; keep those other acceptance questions open.
+
+### Logger cost records
+
+With power telemetry requested and a reference clock available, the workspace
+logger measures each existing snapshot save. `workspace-cost: version=1` reports
+its start/end, bytes and preparation/write/verification/sync microseconds, plus
+USB BOT callback counts and elapsed time for CBW, data and CSW phases. Timing is
+opt-in; it changes no transfer, timeout, cadence, validation or flush policy.
+The generic BOT wrapper is measured, so no controller-specific instrumentation
+is required. Failed callbacks are counted; regressing/overflowed clocks invalidate
+the record. A nested measurement scope refuses without resetting its owner.
+
+Wall time includes scheduler service, event dispatch and copies; USB totals are
+system-wide during that save, including other traffic if it runs. They are not
+CPU runtime or pure device latency. Sync may also flush other open files. Do not
+subtract these values and call the remainder CPU work. The probes themselves add
+clock-read and log-formatting overhead; compare instrumented runs with each other.
+
+A completed record is emitted before the **next** snapshot is copied, with no
+extra write. Thus exit.log contains earlier periodic operations, not its own
+write/flush measurement. The desktop collector exposes `desktop_logger_cost`
+only for valid, successful, nonoverlapping periodic records wholly inside a
+completed idle window. Straddling/startup/after-idle operations are excluded;
+missing, malformed, conflicting or failed in-window evidence yields null. Totals
+cover the recorded saves only, not the full idle interval or lost tail records.
+This supplies attribution evidence; it does not change the unresolved efficiency
+conclusion above. Native acceptance is bounded to the named capture below.
+
+#### First native logger timing capture
+
+Air7,2 release `9c57ca38a3771eef`, source `1f93899`, session
+`session-00065e8bb03c4641-00` passed automatic return, complete capture, screenshot,
+file preservation, offline filesystem/allocation and recovery checks. Six
+completed periodic records inside the 60.009-second idle window cover 136,678
+snapshot bytes and **3.005369 seconds** of save wall time.
+
+| Logger stage | Recorded total |
+| --- | ---: |
+| Preparation | 0.325 ms |
+| Write | 2,985.075 ms |
+| Verification | 14.184 ms |
+| Sync | 5.785 ms |
+
+USB callback time is nested within these stages: CBW 4.554 ms, data 546.660 ms,
+CSW **2,437.047 ms** (691 CBW/CSW calls, 2,200 data calls, no callback failures).
+The callback sums cover 99.43% of save wall time, and status callbacks 81.09%.
+One save lasted 2.002016 seconds, with 1.938771 seconds across 108 status calls;
+others lasted 0.149–0.343 seconds. An aggregate two-second save is not a single
+transfer timeout. These measurements locate time in transport callbacks but do
+not isolate media, firmware, scheduling or the longest individual request.
+
+The whole idle window recorded 95.00% idle timer samples, 19,401 switches and one
+frame. The logger had 282 samples over the separate 52.819-second worker interval;
+those samples are not measured runtime. Package average was **6.949 W** over
+52.999 seconds (368.323 J), versus 6.946 W in the uninstrumented predecessor.
+Temperature fell 76–73 C. No energy saving is established; comparison includes
+probe overhead and unsolved run-to-run variation. Native physical input after
+idle and ordinary Home battery efficiency remain separate acceptance tasks.
+
+Next investigate bounded USB-completion waiting and individual request costs,
+while preserving input service, deadlines, DMA quarantine, verification and
+flush policy. Avoid attributing this cost to rendering or reducing persistence
+merely to improve the idle score.

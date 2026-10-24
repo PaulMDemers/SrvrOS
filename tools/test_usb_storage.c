@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 static unsigned depth;
+static uint64_t clock_us;
+static bool reference=true,regress_clock;
+uint64_t timer_monotonic_us(void) { return clock_us; }
+bool timer_reference_ready(void) { return reference; }
 static bool irq_enabled, foreign, boot;
 static uint64_t usb_test_irq_save(void) { bool f=irq_enabled; irq_enabled=false; return f; }
 static void usb_test_irq_restore(uint64_t f) { irq_enabled=f; }
@@ -34,7 +38,7 @@ static unsigned gpt_scans, mbr_scans, gpt_found;
 uint64_t block_register_gpt_partitions(struct block_device *d) { assert(d==&block); gpt_scans++; return gpt_found; }
 uint64_t block_register_mbr_partitions(struct block_device *d) { assert(d==&block); mbr_scans++; return 0; }
 static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
-    assert(ctx==&storage); calls++; *actual=n;
+    assert(ctx==&storage); if(regress_clock) clock_us--; else clock_us+=(phase+1)*10; calls++; *actual=n;
     if(fault==1) return false;
     if((fault==10 && phase==2) || (fault==11 && phase==1)) { *actual=0;return false; }
     if(fault==12 && phase==2) { *actual=0;phase=0;return true; }
@@ -132,7 +136,29 @@ static void test_segment_faults(void) {
         assert(!block.read(&block,0,buffer,512) && calls==before && !depth && !storage.busy);
     }
 }
+static void test_timing(void) {
+    reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+    struct usb_storage_timing out;
+    reference=false;assert(!usb_storage_timing_begin());reference=true;
+    assert(usb_storage_timing_begin());assert(!usb_storage_timing_begin());
+    uint8_t bytes[8192];assert(read_blocks(&block,0,bytes,sizeof(bytes)));
+    usb_storage_timing_end(&out);
+    assert(out.valid && out.calls[0]==1 && out.calls[1]==2 && out.calls[2]==1);
+    assert(out.us[0]==10 && out.us[1]==40 && out.us[2]==30 && !out.failures);
+    assert(usb_storage_timing_begin());assert(flush(&block));usb_storage_timing_end(&out);
+    assert(out.valid && out.calls[0]==1 && out.calls[1]==0 && out.calls[2]==1);
+    assert(usb_storage_timing_begin());fault=10;
+    assert(!read_blocks(&block,0,bytes,512));usb_storage_timing_end(&out);
+    assert(out.valid && out.failures==1 && out.calls[2]==1 && storage.failed);
+    usb_storage_timing_end(&out);assert(!out.valid);
+    reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+    assert(usb_storage_timing_begin());timing.us[0]=UINT64_MAX;
+    assert(flush(&block));usb_storage_timing_end(&out);assert(!out.valid);
+    assert(usb_storage_timing_begin());regress_clock=true;
+    assert(flush(&block));usb_storage_timing_end(&out);assert(!out.valid);regress_clock=false;
+}
 int main(void) {
+    test_timing();
     test_segment_faults();
     test_batches();
     reset(); gpt_found=1; assert(usb_storage_attach(&storage,&storage,bulk,false));

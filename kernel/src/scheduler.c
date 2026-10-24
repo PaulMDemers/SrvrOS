@@ -57,6 +57,7 @@ struct thread {
     uint64_t blocked_deadline_ticks;
     uint64_t switches;
     uint64_t sampled_ticks;
+    uint64_t timeout_wakes, signal_wakes;
 };
 
 void scheduler_context_switch(struct scheduler_context *old_context, struct scheduler_context *new_context);
@@ -544,6 +545,7 @@ uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_c
         if (woken < max_count) {
             queue->waiters &= ~(1ull << i);
             threads[i].state = THREAD_READY;
+            threads[i].signal_wakes++;
             threads[i].blocked_queue = NULL;
             threads[i].blocked_deadline_ticks = 0;
             woken++;
@@ -572,6 +574,7 @@ static void wake_expired_waits(void) {
         thread->blocked_queue = NULL;
         thread->blocked_deadline_ticks = 0;
         thread->state = THREAD_READY;
+        thread->timeout_wakes++;
     }
 }
 
@@ -700,6 +703,48 @@ void scheduler_print_status(void) {
         console_printf("scheduler: thread=%u name=%s state=%u sampled_ticks=%u switches=%u\n",
             (uint64_t)i,sample[i].name?sample[i].name:"unknown",(uint64_t)sample[i].state,
             sample[i].ticks,sample[i].switches);
+}
+
+/* Diagnostic-only, one bounded CPU0 snapshot; no output while IRQs are masked.
+ * Copy names as well as counters: a process may retire before printing ends.
+ * Identity, not the reusable slot or name, identifies a thread lifetime. */
+struct activity_sample {
+    char name[32];
+    uint64_t slot, identity, state, ticks, switches, timeouts, signals;
+};
+static unsigned activity_snapshot(struct activity_sample *out, uint64_t *at) {
+    unsigned count=0;
+    uint64_t flags=irq_save();
+    *at=timer_monotonic_us();
+    if(initialized) for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) {
+        const struct thread *t=&threads[i];
+        if(t->state==THREAD_UNUSED) continue;
+        struct activity_sample *v=&out[count++];
+        *v=(struct activity_sample){.slot=i,.identity=t->identity,.state=t->state,
+            .ticks=t->sampled_ticks,.switches=t->switches,
+            .timeouts=t->timeout_wakes,.signals=t->signal_wakes};
+        const char *name=t->name?t->name:"unknown";
+        unsigned j=0;
+        for(;j<sizeof(v->name)-1 && name[j];j++) {
+            unsigned char c=(unsigned char)name[j];
+            v->name[j]=(c>32 && c<127)?(char)c:'_';
+        }
+        v->name[j]=0;
+    }
+    irq_restore(flags);
+    return count;
+}
+void scheduler_print_activity(void) {
+    struct activity_sample rows[SCHEDULER_MAX_THREADS];
+    uint64_t at;
+    unsigned count=activity_snapshot(rows,&at);
+    console_printf("worker-snapshot: us=%u count=%u version=1\n",at,(uint64_t)count);
+    for(unsigned i=0;i<count;i++) {
+        const struct activity_sample *v=&rows[i];
+        console_printf("worker: us=%u slot=%u id=%u name=%s state=%u ticks=%u switches=%u timeouts=%u signals=%u\n",
+            at,v->slot,v->identity,v->name,v->state,v->ticks,v->switches,v->timeouts,v->signals);
+    }
+    console_printf("worker-snapshot-end: us=%u count=%u\n",at,(uint64_t)count);
 }
 
 void scheduler_snapshot(struct scheduler_stats *out) {

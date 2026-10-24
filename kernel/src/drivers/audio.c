@@ -156,7 +156,7 @@ void audio_init(void) {
     for(uint64_t i=0;i<pci_device_count();i++) {
         const struct pci_device *d=pci_device_at(i);
         if(d->class_code==4 && d->subclass==3 && d->vendor_id==0x8086 &&
-           (d->device_id==0x8c20||d->device_id==0x9ca0||d->device_id==0x2668||d->device_id==0x293e)) { device=d;break; }
+           (d->device_id==0x9c20||d->device_id==0x8c20||d->device_id==0x9ca0||d->device_id==0x2668||d->device_id==0x293e)) { device=d;break; }
     }
     if(!device || !timer_reference_ready()) { audio_print_status();return; }
     if(!pci_power_d0(device)) { status.error=HDA_POWER;audio_print_status();return; }
@@ -171,7 +171,7 @@ void audio_init(void) {
         }
     uint16_t command=pci_read_config16(device,4);
     pci_write_config16(device,4,command|6|0x400); /* DMA, MMIO; polling, no INTx. */
-    if(device->device_id==0x9ca0 || device->device_id==0x8c20) {
+    if(device->device_id==0x9c20 || device->device_id==0x9ca0 || device->device_id==0x8c20) {
         /* Intel PCH: class zero DMA and coherent (snooped) sample accesses.
          * Touch only the documented fields, with native-width PCI writes. */
         uint8_t traffic=pci_read_config8(device,0x44);
@@ -184,7 +184,7 @@ void audio_init(void) {
     }
     console_printf("audio: controller=%x bar=%x\n",(uint64_t)device->device_id,physical);
     bool ok=hda_core_reset(&controller,(struct hda_io){NULL,read_reg,write_reg,now,relax}) &&
-        hda_codec_discover(&codec,&controller,device->device_id==0x8c20?HDA_PRO11_2:device->device_id==0x9ca0?HDA_AIR7_2:HDA_GENERIC);
+        hda_codec_discover(&codec,&controller,device->device_id==0x9c20?HDA_AIR6_1:device->device_id==0x8c20?HDA_PRO11_2:device->device_id==0x9ca0?HDA_AIR7_2:HDA_GENERIC);
     if(!ok) { if(controller.error==HDA_OK) controller.error=HDA_UNSUPPORTED_CODEC;publish();audio_print_status();return; }
     bdl_phys=pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     pcm_phys=pmm_alloc_frames_tagged(PCM_PAGES,PMM_FRAME_DMA);

@@ -43,3 +43,12 @@ struct desk_battery_controls desk_battery_controls(const struct srv_battery_stat
     v.message=c->result<0?"Request failed. Refresh and try again.":s->state==SRV_BATTERY_UNAVAILABLE?"Battery monitoring could not start.":"Battery monitoring is stopped.";
     return v;
 }
+
+unsigned desk_battery_alert_update(struct desk_battery_alert *alert,const struct srv_battery_status *s) {
+    if(!alert || !desk_battery_view(s).fresh)return 0;
+    if((s->flags&SRV_BATTERY_AC_PRESENT) || s->soc>25) { alert->warned=0;return 0; }
+    if(s->soc>10 && alert->warned==2)alert->warned=1;
+    unsigned level=s->soc<=5?2:s->soc<=20?1:0;
+    if(level<=alert->warned)return 0;
+    alert->warned=level;return level;
+}

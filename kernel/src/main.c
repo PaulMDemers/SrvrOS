@@ -4,6 +4,7 @@
 #include <srvros/workspace_image.h>
 #include <srvros/workspace_log.h>
 #include <srvros/battery_diagnostic.h>
+#include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
@@ -461,10 +462,11 @@ void kmain(void) {
         hhdm_request.response != NULL ? hhdm_request.response->offset : 0);
     acpi_init(rsdp_request.response != NULL ? rsdp_request.response->address : NULL);
     load_initramfs();
-    vfs_init();
     test_pmm();
     heap_init();
     test_heap();
+    /* VFS imports may grow beyond the bootstrap node block. */
+    vfs_init();
     scheduler_init();
     workqueue_init();
     if (!scheduler_start_idle_worker()) {
@@ -617,10 +619,13 @@ void kmain(void) {
         xhci_print_boot_diagnostic();
     }
     bool guided_battery=cmdline_has_token(cmdline,"srvros.capture=battery-transitions");
+    bool home_transitions_battery=cmdline_has_token(cmdline,"srvros.capture=battery-home-transitions");
+    bool home_desktop_battery=home_transitions_battery || cmdline_has_token(cmdline,"srvros.capture=battery-home-desktop");
     bool home_session_battery=cmdline_has_token(cmdline,"srvros.capture=battery-home-session");
-    bool home_battery=home_session_battery || cmdline_has_token(cmdline,"srvros.capture=battery-home");
+    bool home_battery=home_desktop_battery || home_session_battery || cmdline_has_token(cmdline,"srvros.capture=battery-home");
     bool smbus_files_battery=cmdline_has_token(cmdline,"srvros.capture=battery-smbus-files");
-    bool smbus_battery=cmdline_has_token(cmdline,"srvros.capture=battery-smbus");
+    bool smbus_transitions_battery=cmdline_has_token(cmdline,"srvros.capture=battery-smbus-transitions");
+    bool smbus_battery=smbus_transitions_battery || cmdline_has_token(cmdline,"srvros.capture=battery-smbus");
     bool query_battery=cmdline_has_token(cmdline,"srvros.capture=battery-query");
     bool controls_battery=cmdline_has_token(cmdline,"srvros.capture=battery-controls");
     bool app_files_battery=cmdline_has_token(cmdline,"srvros.capture=battery-app-files");
@@ -641,7 +646,8 @@ void kmain(void) {
     bool automatic_wifi=automatic_wifi_firmware || automatic_wifi_calibration || cmdline_has_token(cmdline,"srvros.capture=wifi");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
-    if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
+    if(automatic_probe && cmdline_has_token(cmdline,"srvros.battery-preflight=air61")) laptop_battery_preflight();
+    else if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
@@ -741,14 +747,14 @@ void kmain(void) {
             console_printf("laptop-capture: battery media parked=%s fault-reset=%s\n",
                 workspace_parked?"yes":"NO",battery_prepared?"armed":"NO");
         }
-        if(home_battery && started) {
+        if(home_battery && !home_desktop_battery && started) {
             battery_prepared=workspace_log_pause() && battery_diagnostic_auto_return(false);
             console_printf("laptop-capture: battery Home mounted=%s logging-paused=%s fault-reset=disabled\n",
                 workspace_active()?"yes":"NO",battery_prepared?"yes":"NO");
         }
         if(automatic_battery && battery_prepared && started && init_ready && timer_running) {
-            sampled=(home_session_battery?battery_home_session_diagnostic_run:home_battery?battery_home_diagnostic_run:smbus_files_battery?battery_smbus_files_diagnostic_run:smbus_battery?battery_smbus_diagnostic_run:query_battery?battery_query_diagnostic_run:controls_battery?battery_controls_diagnostic_run:app_files_battery?battery_app_files_diagnostic_run:load_battery?battery_load_diagnostic_run:text_battery?battery_text_diagnostic_run:desktop_battery?battery_desktop_diagnostic_run:filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
-            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",home_session_battery?"battery-home-session-capture":home_battery?"battery-home-capture":smbus_files_battery?"battery-smbus-files-capture":smbus_battery?"battery-smbus-capture":query_battery?"battery-query-capture":controls_battery?"battery-controls-capture":app_files_battery?"battery-app-files-capture":load_battery?"battery-load-capture":text_battery?"battery-text-capture":desktop_battery?"battery-desktop-capture":service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
+            sampled=(smbus_transitions_battery?battery_smbus_transition_diagnostic_run:home_transitions_battery?battery_home_transitions_diagnostic_run:home_desktop_battery?battery_home_desktop_diagnostic_run:home_session_battery?battery_home_session_diagnostic_run:home_battery?battery_home_diagnostic_run:smbus_files_battery?battery_smbus_files_diagnostic_run:smbus_battery?battery_smbus_diagnostic_run:query_battery?battery_query_diagnostic_run:controls_battery?battery_controls_diagnostic_run:app_files_battery?battery_app_files_diagnostic_run:load_battery?battery_load_diagnostic_run:text_battery?battery_text_diagnostic_run:desktop_battery?battery_desktop_diagnostic_run:filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",smbus_transitions_battery?"battery-smbus-transitions-capture":home_transitions_battery?"battery-home-transitions-capture":home_desktop_battery?"battery-home-desktop-capture":home_session_battery?"battery-home-session-capture":home_battery?"battery-home-capture":smbus_files_battery?"battery-smbus-files-capture":smbus_battery?"battery-smbus-capture":query_battery?"battery-query-capture":controls_battery?"battery-controls-capture":app_files_battery?"battery-app-files-capture":load_battery?"battery-load-capture":text_battery?"battery-text-capture":desktop_battery?"battery-desktop-capture":service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
         }
         if(automatic_battery && return_on_failure) {
             if(filesystem_battery&&workspace_image_busy())(void)workspace_image_close();
@@ -814,29 +820,47 @@ void kmain(void) {
     }
     trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
-    if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
+    if (cmdline_has_token(cmdline, "srvros.desktop=session")) {
+        console_printf("desktop-session: providers brightness=%u audio=%u thermal=%u smc=%u ethernet=%u; kernel services persist across desktop exit\n",
+            (uint64_t)cmdline_has_token(cmdline,"srvros.laptop-services=brightness"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.audio=hda"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.sensors=cpu"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.smc=read-only"),
+            (uint64_t)cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
+        if(cmdline_has_token(cmdline,"srvros.battery=on"))desktop_battery_session_run();
+        else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
+    } else if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
         if (!workspace_active()) {
             console_write("desktop-trial: USB workspace unavailable; trial not started. Photograph this screen.\n");
         } else {
             console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
             console_printf("desktop-trial: boot options=%s\n",cmdline);
-            (void)workspace_log_start();
-            bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm");
-            bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
-            bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
-                (scaled?"--network-trial --scale=2":"--network-trial") :
-                (scaled?"--hardware-trial --scale=2":"--hardware-trial"));
-            audio_print_status();
-            thermal_print_status();
-            smc_print_status();
-            xhci_print_input_summary(); /* Include gesture counters in the saved exit snapshot. */
-            bool logs_saved=workspace_log_stop();
-            console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");
-            bool unmounted = workspace_unmount();
-            console_printf("desktop-trial: desktop returned=%s USB unmounted=%s\n", exited?"yes":"NO", unmounted?"yes":"NO");
-            console_write("This is a manual trial, not an automated pass. Photograph any failure.\n");
-            if (unmounted) console_write("When finished, type reboot to return to Ubuntu.\n");
-            else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+            if(!workspace_log_start()) {
+                console_write("desktop-trial: NOT STARTED; diagnostics unavailable. Archive old logs in Ubuntu and retry.\n");
+                bool unmounted=workspace_unmount();
+                console_printf("desktop-trial: USB unmounted=%s\n",unmounted?"yes":"NO");
+                if(unmounted) console_write("Type reboot to return to Ubuntu.\n");
+                else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+            } else {
+                /* Device checks retain ECM but start Help; legacy network trials keep their script. */
+                bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm") &&
+                    !cmdline_has_token(cmdline,"srvros.desktop-check=devices");
+                bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
+                bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
+                    (scaled?"--network-trial --scale=2":"--network-trial") :
+                    (scaled?"--hardware-trial --scale=2":"--hardware-trial"));
+                audio_print_status();
+                thermal_print_status();
+                smc_print_status();
+                xhci_print_input_summary(); /* Include gesture counters in the saved exit snapshot. */
+                bool logs_saved=workspace_log_stop();
+                console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");
+                bool unmounted = workspace_unmount();
+                console_printf("desktop-trial: desktop returned=%s USB unmounted=%s\n", exited?"yes":"NO", unmounted?"yes":"NO");
+                console_write("This is a manual trial, not an automated pass. Photograph any failure.\n");
+                if (unmounted) console_write("When finished, type reboot to return to Ubuntu.\n");
+                else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+            }
         }
     }
     monitor_run();

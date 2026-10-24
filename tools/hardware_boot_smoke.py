@@ -119,6 +119,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
+    parser.add_argument("--desktop-no-headroom", action="store_true", help="Verify safe desktop refusal at the exFAT file-slot limit")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
     parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
@@ -141,11 +142,17 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
+    if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-")):
+        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --services" if manifest["config_version"].startswith("ram-usb-v55-") else ""))
+    basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
+    if args.desktop_no_headroom and (not desktop or basic_desktop or args.audio_check):
+        parser.error("--desktop-no-headroom requires an ordinary desktop stage without audio checking")
+    session_run="0123456789abcdef"
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-"))):
-        parser.error("--audio-check requires a v21/v22 desktop stage")
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-"))):
+        parser.error("--audio-check requires an audio-enabled desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
@@ -157,12 +164,16 @@ def main():
     cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
+    battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
     power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
     auto_return=manifest["config_version"].endswith("-auto-return")
-    battery_home_session=bool(probe and manifest["config_version"].startswith("ram-usb-v49-"))
-    battery_home=bool(probe and manifest["config_version"].startswith("ram-usb-v48-"))
-    battery_smbus_files=bool(probe and manifest["config_version"].startswith("ram-usb-v47-"))
-    battery_smbus=bool(probe and manifest["config_version"].startswith("ram-usb-v46-"))
+    battery_home_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v52-"))
+    battery_home_desktop=bool(probe and manifest["config_version"].startswith("ram-usb-v51-"))
+    battery_home_session=bool(probe and manifest["config_version"].startswith(("ram-usb-v49-","ram-usb-v66-")))
+    battery_home=bool(probe and manifest["config_version"].startswith(("ram-usb-v48-","ram-usb-v65-")))
+    battery_smbus_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v63-"))
+    battery_smbus_files=bool(probe and manifest["config_version"].startswith(("ram-usb-v47-","ram-usb-v64-")))
+    battery_smbus=bool(probe and manifest["config_version"].startswith(("ram-usb-v46-","ram-usb-v62-")))
     battery_query=bool(probe and manifest["config_version"].startswith("ram-usb-v45-"))
     battery_controls=bool(probe and not wifi_calibration and manifest["config_version"].startswith("ram-usb-v44-"))
     battery_app_files=bool(probe and "srvros.capture=battery-app-files" in (source/"limine.conf").read_text())
@@ -171,10 +182,10 @@ def main():
     battery_desktop=bool(probe and manifest["config_version"].startswith("ram-usb-v40-"))
     battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
-    battery_capture=bool(probe and not wifi_calibration and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-")))
+    battery_capture=bool(probe and not wifi_calibration and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-")))
     battery_filesystem=battery_smbus_files or battery_app_files or battery_load or bool(probe and manifest["config_version"].startswith("ram-usb-v38-"))
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
-    battery_marker="battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
+    battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
@@ -203,7 +214,8 @@ def main():
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
-        if network_desktop:
+        device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
+        if network_desktop or device_checks:
             command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
@@ -220,6 +232,18 @@ def main():
                 from battery_filesystem_image import create
                 inner=temp/'inner.exfat';create(inner)
                 files['battery-fs.img']=inner.read_bytes()
+            if basic_desktop:
+                from desktop_session_workload import files as session_files
+                files.update(session_files(session_run))
+                from desktop_session_workload import refusal_files
+                files.update(refusal_files(session_run, session_run))
+                files.update({"collision-a.txt":b"saved alpha\n", "collision-b.txt":b"saved beta\n"})
+                metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t50000\t33188\t1\t0\t0\t100\t200\t300\n" for name in ("collision-a.txt","collision-b.txt"))
+                fixture.add_directory_files(".srvros",{"meta":metadata.encode()})
+            if args.desktop_no_headroom:
+                from hardware_log_archive import limits
+                files.update({f"fill{i:04d}":b"" for i in range(limits()[0]-3)})
+                fixture.add_directory_files(".srvros",{"meta":b"SRVROSMETA1\n"})
             fixture.add_directory_files("srvros-work",files)
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
@@ -247,6 +271,27 @@ def main():
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if args.desktop_no_headroom:
+                    text=wait_for(serial,lambda s:"desktop-trial: NOT STARTED" in s and "srv> " in s,process,args.boot_wait)
+                    assert "workspace-log: REFUSED insufficient file/directory slots" in text
+                    assert "desktop-trial: USB unmounted=yes" in text
+                    assert "/fat/bin/deskd" not in text
+                    with stick.open("rb") as stream:
+                        stream.seek(2048*512);saved=stream.read(len(fixture.data))
+                    volume.write_bytes(saved);check_clean_image(volume)
+                    final=ExfatFixture(saved)
+                    entries=dict(final.entries(final.read("srvros-work")))
+                    assert set(entries)==set(files), set(entries)-set(files)
+                    for name,payload in files.items():
+                        entry=entries[name]
+                        first=struct.unpack_from('<I',entry,52)[0]
+                        size=struct.unpack_from('<Q',entry,56)[0]
+                        assert final.chain(first,size,bool(entry[33]&2))==payload
+                    result=dict(status="PASS",release=release,manifest_sha256=boot.digest(source/"manifest.json"),
+                                desktop_no_headroom=True,workspace_table=args.workspace_table)
+                    (logs/"hardware-grub-result.json").write_text(json.dumps(result,indent=2)+"\n")
+                    print(f"hardware-grub-smoke: PASS ({release}); capacity refusal, no session created, clean unmount")
+                    return
                 if args.probe_check:
                     if args.probe_missing_workspace:
                         text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if auto_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
@@ -288,7 +333,12 @@ def main():
                         assert "laptop-capture: completed=NO" in text
                         assert "battery-native: REFUSED check=pci-gpu" in text
                         assert "battery: phase=" not in text
-                        if battery_home or battery_home_session:
+                        if battery_home_desktop or battery_home_transitions:
+                            assert "battery-workspace-controls: complete=NO" in text
+                            assert "battery-home-desktop: logger_retired=yes final_deferred=yes" in text
+                            assert text.index("battery-workspace-hold: released") < text.index("workspace: unmounted; USB writes disabled")
+                            assert text.count("workspace: ready at") == 1
+                        elif battery_home or battery_home_session:
                             assert "laptop-capture: battery Home mounted=yes logging-paused=yes fault-reset=disabled" in text
                             assert ("battery-workspace-controls: complete=NO" if battery_home_session else "battery-home: outcome=unavailable") in text
                             assert text.index("battery-workspace-hold: released") < text.index("workspace: unmounted; USB writes disabled")
@@ -312,7 +362,8 @@ def main():
                     else:
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
-                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
+                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -340,7 +391,7 @@ def main():
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
                         if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture):
-                            assert b"laptop-probe: unsupported chipset" in contents
+                            assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
                             assert b"input-usb: dev slot=" in contents
@@ -359,6 +410,12 @@ def main():
                         assert b"laptop-capture: completed=NO" in exit_log
                         assert b"srvros.usb-wifi=probe" in exit_log
                         assert b"srvros.aml=probe" not in exit_log
+                    if battery_preflight:
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        from hardware_desktop import battery_preflight_result
+                        assert battery_preflight_result(exit_log) is None
+                        assert "battery-preflight: complete" not in exit_log
+                        assert "aml-probe:" not in exit_log and "battery-native:" not in exit_log
                     if battery_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert (battery_marker+": returned=yes clean=NO").encode() in exit_log
@@ -407,6 +464,11 @@ def main():
                             assert "srvros.power=read-only" in exit_log
                             assert "desktop-idle-window: start_us=" in exit_log
                             assert power_idle_sample(exit_log) is None # Refused VM is never a power measurement.
+                            if 'worker-snapshot:' in exit_log:
+                                from hardware_desktop import desktop_worker_sample
+                                workers=desktop_worker_sample(exit_log)
+                                assert workers is not None, 'Incomplete worker attribution'
+                                (logs/'desktop-workers.json').write_text(json.dumps(workers,indent=2)+'\n')
                         capture=re.findall(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",exit_log)
                         assert len(capture)==1
                         image=stored.read(capture[0].removeprefix("/work/"))
@@ -418,8 +480,8 @@ def main():
                         (logs/"desktop-idle.bmp").write_bytes(image)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-                        "battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "probe":True,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
+                        "probe":True,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))
@@ -432,7 +494,7 @@ def main():
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
-                        for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                        for c in value: ui.key({">":"dot","$":"4","?":"slash",";":"semicolon"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
                     if network_desktop:
                         # Each saved phase is displayed by cat before its next gate.
                         def phase_cats(count):
@@ -519,19 +581,39 @@ def main():
                         return
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
-                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))
+                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
+                    if basic_desktop:
+                        shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
+                        wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                        time.sleep(.7)
+                        type_text(f"sh /work/srvros-work/session-{session_run}.sh; exit $?");ui.key("ret")
+                        workload_started=time.monotonic()
                     before=len(serial.read_text(errors="replace"))
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
-                    wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
+                    wait_for(serial,lambda s:("window=2" if basic_desktop else "window=1") in s[before:] and "desktools: starting role=text" in s[before:],process,30)
                     time.sleep(.7);type_text("Laptop trial AaZz09 saved on USB.")
                     shortcut("ctrl-s")
                     wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
                     wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                    if basic_desktop:
+                        before=len(serial.read_text(errors="replace"));shortcut("ctrl-o")
+                        wait_for(serial,lambda s:"picker ready mode=1" in s[before:],process,30)
+                        before=len(serial.read_text(errors="replace"));shortcut("alt-up")
+                        wait_for(serial,lambda s:"picker ready mode=1" in s[before:],process,30)
+                        before=len(serial.read_text(errors="replace"));type_text("srvros-work");ui.key("ret")
+                        wait_for(serial,lambda s:"picker ready mode=1" in s[before:],process,30)
+                        before=len(serial.read_text(errors="replace"));type_text("untitled");ui.key("ret")
+                        wait_for(serial,lambda s:"file-result role=text op=1 status=0" in s[before:],process,30)
                     shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
                     wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                    if basic_desktop:
+                        time.sleep(.7);type_text(f"sh /work/srvros-work/session-{session_run}.sh; echo $? > replay-active.txt");ui.key("ret")
                     for command_text in ("pwd > terminal-home.txt", "pwd >> terminal-home.txt",
                                          "pwd > /missing-pwd-dir/out", "echo $? > terminal-pwd-status.txt"):
                         time.sleep(.5);type_text(command_text);ui.key("ret")
+                    if device_checks:
+                        type_text("sh -c dhcp > device-dhcp.txt");ui.key("ret")
+                        wait_for(serial,lambda s:"net: dhcp ipv4=10.0.2.15" in s,process,30)
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"workspace-terminal.ppm")})
                     type_text("exit");ui.key("ret")
@@ -542,6 +624,11 @@ def main():
                     shot_log=wait_for(serial,lambda s:"deskd: screenshot saved status=0 path=" in s,process,90)
                     shot_path=re.search(r"deskd: screenshot saved status=0 path=(/work/srvros-work/Screenshots/[^\r\n]+)",shot_log)[1]
                     wait_for(serial,lambda s:"workspace-log: snapshot=session-" in s,process,30)
+                    if basic_desktop:
+                        # The foreground workload keeps its Terminal alive while Text saves,
+                        # the second Terminal writes, and screenshot capture runs independently.
+                        assert time.monotonic()-workload_started < 120, "Input did not overlap the paced workload"
+                        wait_for(serial,lambda s:s.count("deskterm: shell exited status=0") == 2,process,240)
                     shortcut("f10");shortcut("end");shortcut("ret")
                     wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
                     stored=verify_workspace(stick,volume,0)
@@ -549,15 +636,35 @@ def main():
                     assert stored.read("srvros-work/Untitled.txt")==b"Laptop trial AaZz09 saved on USB."
                     assert stored.read("srvros-work/terminal-home.txt")==b"/work/srvros-work\n"*2
                     assert stored.read("srvros-work/terminal-pwd-status.txt")==b"1\n"
+                    if device_checks:
+                        assert b"dhcp: 10.0.2.15" in stored.read("srvros-work/device-dhcp.txt")
+                        assert "net: provider=usb-ecm" in serial.read_text(errors="replace")
                     shot_bytes=stored.read(shot_path.removeprefix("/work/"))
                     assert shot_bytes[:2]==b"BM" and len(shot_bytes)==54+1280*800*4
                     assert struct.unpack_from("<II",shot_bytes,18)==(1280,800)
                     first_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",serial.read_text(errors="replace"))[1]
-                    assert b"laptop-probe: unsupported chipset" in stored.read(first_session.removeprefix("/work/")+"/boot.log")
+                    if basic_desktop:
+                        from desktop_session_workload import verify as verify_session
+                        session_proof=verify_session(lambda name:stored.read("srvros-work/"+name),session_run)
+                        assert stored.read("srvros-work/replay-active.txt")==b"1\n"
+                        metadata=stored.read(".srvros/meta").decode().splitlines()[1:]
+                        ids=[int(row.split("\t")[1]) for row in metadata if row]
+                        assert all(ids) and len(ids)==len(set(ids)), "Persisted file IDs collide"
+                        assert stored.read("srvros-work/collision-a.txt")==b"saved alpha\n"
+                        assert stored.read("srvros-work/collision-b.txt")==b"saved beta\n"
+                        session_proof.update(picker_reopen=True,home_reentry=True,unique_ids=True,active_replay_refused=True)
+                        boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log")
+                        assert b"laptop-probe:" not in boot_log and b"aml-probe:" not in boot_log
+                    else:
+                        assert b"laptop-probe: unsupported chipset" in stored.read(first_session.removeprefix("/work/")+"/boot.log")
                     assert b"deskd: exited" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
                     if args.audio_check:
                         assert b"workspace-devices: audio_state=2" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
-                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-")):
+                    if manifest.get("config_version", "").startswith("ram-usb-v59-"):
+                        boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log").decode()
+                        assert "smc: state=1" in boot_log and "thermal: state=1" in boot_log
+                        assert "aml-probe:" not in boot_log
+                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-")):
                         boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log").decode()
                         assert "smc: state=1" in boot_log and "thermal: state=1" in boot_log
                         if manifest["config_version"].startswith("ram-usb-v21-"):
@@ -717,7 +824,14 @@ def main():
                 try:
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
-                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))
+                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-", "ram-usb-v53-", "ram-usb-v56-", "ram-usb-v57-")))
+                    if basic_desktop:
+                        ui.call("human-monitor-command",{"command-line":"sendkey meta_l-spc"});time.sleep(.3)
+                        type_text("terminal new app");ui.key("ret")
+                        wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                        time.sleep(.7)
+                        type_text(f"sh /work/srvros-work/refusal-{session_run}.sh; echo $? > replay-complete.txt; exit");ui.key("ret")
+                        wait_for(serial,lambda s:"deskterm: shell exited status=0" in s,process,30)
                     for keys in ("f10","end","ret"):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
@@ -725,6 +839,12 @@ def main():
                     stored=verify_workspace(stick,volume,1)
                     assert stored.read("srvros-work/Untitled.txt")==b"Laptop trial AaZz09 saved on USB."
                     assert stored.read(shot_path.removeprefix("/work/"))==shot_bytes
+                    if basic_desktop:
+                        verify_session(lambda name:stored.read("srvros-work/"+name),session_run)
+                        assert stored.read("srvros-work/replay-complete.txt")==b"0\n"
+                        from desktop_session_workload import verify_refusal
+                        session_proof["refusal_receipt"]=verify_refusal(lambda name:stored.read("srvros-work/"+name),session_run,session_run)
+                        session_proof["completed_replay_refused"]=True
                     second_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1]
                     assert second_session!=first_session
                     from hardware_desktop import collect, FILES
@@ -742,7 +862,7 @@ def main():
                     destination,report=collect(recovered,desktop[1],logs/"desktop-collections")
                     assert len(report["sessions"])==2
                     assert all(item["exit_snapshot_present"] and item["desktop_exit_seen"] and not item["attention"] for item in report["sessions"])
-                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-")):
+                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-")):
                         for session in report["sessions"]:
                             devices=session["devices"]
                             assert set(devices)=={"audio","thermal","smc","pcm"}
@@ -758,7 +878,7 @@ def main():
                     except subprocess.TimeoutExpired: process.kill();process.wait()
     (logs/"hardware-grub-result.json").write_text(json.dumps({
         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-        "desktop":args.desktop_check,"audio":args.audio_check,
+        "desktop":args.desktop_check,"device_checks":device_checks,"desktop_session_workload":session_proof if basic_desktop else None,"audio":args.audio_check,
         "audio_codec_timer":args.audio_codec_timer if args.audio_check else None,
         "console":args.console_check,"kernel":args.kernel_check,
         "workspace_table":args.workspace_table,"responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"

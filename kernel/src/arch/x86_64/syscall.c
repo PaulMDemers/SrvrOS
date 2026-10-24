@@ -2408,6 +2408,42 @@ static int64_t syscall_pointer_wait(void) {
     }
 }
 
+struct gui_wait { struct sleep_wait sleep; uint64_t server; bool compositor; };
+static int64_t gui_wait_pending(const struct gui_wait *wait) {
+    return wait->compositor?gui_server_ready():gui_client_ready(wait->server);
+}
+static bool gui_wait_ready(void *arg) {
+    struct gui_wait *wait=arg;
+    return gui_wait_pending(wait)!=0 || sleep_finished(&wait->sleep);
+}
+static int64_t syscall_gui_wait_common(uint64_t server,uint64_t ticks,bool compositor) {
+    uint64_t start=timer_ticks();
+    if((!compositor && !server) || ticks>(compositor?10u:100u) || ticks>UINT64_MAX-start) return -1;
+    struct gui_wait wait={{start,ticks},server,compositor};
+#ifndef SRVROS_SYSCALL_SLEEP_HOST_TEST
+    __asm__ volatile ("sti" : : : "memory");
+#endif
+    for(;;) {
+        if(process_should_exit_current()) return -1;
+        if(process_signal_pending_current()) return SRV_ERR_INTR;
+        int64_t ready=gui_wait_pending(&wait);
+        if(ready) return ready;
+        if(timer_ticks()-start>=ticks) return 0;
+        /* Same queue as signals/exit and file readiness. GUI sends and server
+         * cleanup wake it too. The scheduler rechecks with IRQs masked, closing
+         * the race between the empty read and blocking. Unrelated wakes retry. */
+        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),gui_wait_ready,&wait,start+ticks))
+            scheduler_yield();
+    }
+}
+
+static int64_t syscall_gui_wait(uint64_t server,uint64_t ticks) {
+    return syscall_gui_wait_common(server,ticks,false);
+}
+static int64_t syscall_gui_server_wait(uint64_t ticks) {
+    return syscall_gui_wait_common(0,ticks,true);
+}
+
 static int64_t syscall_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
     if (entry == 0 ||
         stack_top < 16 ||
@@ -2483,7 +2519,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
      * Mapping/spawn/kill remain gated. */
-    case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
+    case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_BATTERY_CONTROL: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
@@ -2710,6 +2746,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SPAWN_BG:
         frame->rax = (uint64_t)syscall_spawn_bg((const char *)frame->rdi);
+        return;
+    case SYS_GUI_SERVER_WAIT:
+        frame->rax=(uint64_t)syscall_gui_server_wait(frame->rdi);
+        return;
+    case SYS_GUI_WAIT:
+        frame->rax=(uint64_t)syscall_gui_wait(frame->rdi,frame->rsi);
         return;
     case SYS_GUI_REGISTER:
         frame->rax = (uint64_t)syscall_gui_register();

@@ -114,6 +114,9 @@ class Records(unittest.TestCase):
                  b'battery-query-return: sequence=3 generation=2 code=255 transfer=1 aml_calls=0 aml_returns=0 effects=0 completed_before=6 completed_after=7 notifications_before=1 notifications_after=1 idle=1; refused=yes\n'
                  b'battery-recovery-resources: known=1 lease=0 ec_phase=6 poison=0 sample=0 waiting=0 smbus=0 api=0 aml=0 mutex=0 pending=0 facs=0 blocked=0\n')
         proof=proof.replace(b'battery-home-return:',receipt+b'battery-home-return:')
+        air61=proof.replace(b'policy=2',b'policy=3')
+        self.assertFalse(check(air61,'query-refusal',home=True,query_policy=3)['workload_complete'])
+        with self.assertRaises(AssertionError):check(air61,'query-refusal',home=True)
         result=check(proof,'query-refusal',home=True)
         self.assertFalse(result['workload_complete']);self.assertEqual(result['events'],2)
         # An expected Text failure must not be mistaken for a kernel failure

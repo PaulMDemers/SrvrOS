@@ -4,7 +4,8 @@ The Air's accepted v47 capture runs the real Text file worker alongside native
 SMBus completion events, but its outer workspace is parked. An exclusive image
 lease bounds which storage can change. Ordinary mounted Home removes that bound:
 apps, settings and logging can retain open files or asynchronous work. Native
-Home monitoring and automatic startup remain disabled outside the explicit diagnostic.
+Home monitoring remains default-off; the explicit ordinary session described below
+reuses the accepted continuous capture owner.
 The later v49 held-Home desktop session is now physically accepted on Air7,2:
 release `fd6f6b9d397c339f` completed three service lifetimes, all 60 generated
 edits and five exact file cycles, then retired before saving and unmounting.
@@ -294,9 +295,8 @@ not coalesce device operations. Per-query attempt/time budgets and all setup,
 transaction, drain and shutdown deadlines remain intact.
 
 The fixed System/compositor pair can run beyond the diagnostic 110 seconds and
-512 events. It is not the ordinary app session: arbitrary app churn still needs
-a replacement for the diagnostic retained descendant history, and native continuous
-monitoring needs its own physical trial. No reboot/staging option selects this
+512 events. The ordinary app session has a separate VM command described below; native continuous
+monitoring still needs its own physical trial. No reboot/staging option selects this
 VM path. The user-space `--battery-monitor` flag only changes the fixed System
 client's lifetime; it cannot acquire a battery runtime capability on its own.
 
@@ -319,24 +319,49 @@ parents or scanning the original process group is insufficient: Terminal jobs
 can change process groups or create sessions, and a parent can exit between
 owner polls. The group's purpose is job control, not a permanent mount owner.
 
-Before general desktop integration, add a kernel-created lifetime identity that
-is installed before publishing the root as runnable and inherited by every
-spawn/fork, preserved through exec, job-control group changes and reparenting.
-It must not be assignable through a userspace group/session syscall. Bound live
-membership by process slots rather than retaining an unbounded PID history.
-Revoke admission at desktop exit, stop/reap all members, retire the battery owner,
-and only then release the mount. Test more than 64 sequential app launches,
-parent-before-child exit, job-control changes, failed spawn and shutdown during
-an asynchronous file write. This is a proposed next mechanism, not implemented
-or accepted behavior.
+The kernel now provides `process_lifetime_create/spawn/revoke/drain/status/release`.
+An owner token is installed during slot reservation, before loading or publishing
+the root as runnable. All existing process allocation paths inherit it; exec,
+job-control changes and orphan reaping preserve it. There is no userspace setter.
+`fork()` remains unsupported; a future implementation must inherit this identity.
+The CPU0 process manager serializes publication with short IRQ-masked sections.
+
+Membership includes reserved slots and final resource destruction, not just
+processes visible to `ps`. Revocation blocks new reservations. Already admitted
+loads remain counted; drain requests cancellation and reaps completed detached
+processes. The owner polls a bounded pass until `members==0`; only then can a
+revoked token be released. Timeouts retain ownership. A released token is never
+reused, and token exhaustion refuses new owners. Peak simultaneous membership
+is separate from lifetime app count, so sequential launches do not exhaust a
+historical PID array. Kernel waits and lifetime drain claim a zombie before
+preemptible destruction to prevent competing reapers from releasing it twice.
+Final removal wakes waiters that slept while the zombie was already claimed.
+
+The continuous VM System session uses this owner, drains clients before stopping
+the battery service, and releases its process token before releasing the exact
+Home mount hold. Its `descendants` diagnostic field now reports peak simultaneous
+membership. Native bounded diagnostic owners retain their existing implementation.
+The monitor command still opens the fixed System client. The separate
+`battery-home-desktop` command opens ordinary apps. Ordinary startup remains unchanged.
+
+Host coverage exercises 512 sequential allocations, orphan/group/session changes,
+revocation during preparation and release, stale tokens, table limits and token
+exhaustion. The full-boot `lifetimetest` fixture exercises real executable churn,
+failed loads, synchronous/asynchronous spawn, `setsid`, exec and orphaned
+children/grandchildren; it drains the selected lifetime while leaving an unrelated
+process alive. `tools/process_lifetime_smoke.py` runs it twice and then runs the
+existing PTY regression. Each pass also runs 16 pairs of competing waiters,
+requiring exactly one successful reap per child. The ordinary Home VM session
+below adds periodic logging and shutdown with a submitted file write under this
+new owner. Native integration still requires physical evidence.
 
 The boot desktop path in `kernel/src/main.c` currently calls
 `process_run_elf_args` directly and owns logging/unmount around it. Integrate a
 session wrapper there only after the membership policy is proven. It must let
 unavailable battery hardware leave the desktop usable, preserve ordinary
 cached-only status reads, and retain mounted storage on uncertain ownership.
-Periodic workspace logging also needs explicit overlap validation: the accepted
-native v49 trial paused it. Finish that VM coverage before adding a native
+Periodic workspace logging now has VM overlap coverage below; the accepted
+native v49 trial paused it, so physical overlap acceptance remains pending. Finish that VM coverage before adding a native
 continuous-session recipe or changing the default startup path.
 
 During the VM rehearsal, one development payload lost its serial channel while
@@ -348,8 +373,8 @@ runs remain incomplete evidence; they do not satisfy filesystem collection.
 The harness now captures registers, UART availability and a screenshot on stalled
 output. Periodic and final summaries have one service-thread writer so a
 preempted owner cannot emit an older periodic snapshot after the final record.
-This ordering change is not a claim that the general UART transmit-timeout policy
-has been fixed; its channel-loss behavior remains a separate reliability issue.
+That ordering change did not fix the general UART transmit-timeout policy.
+The later ordinary Home work below adds bounded TX recovery while preserving RX.
 
 Local validation: `07c06da` passed all nine directed continuous-session cases.
 After integrating Air6,1 main `1b88c8a`, source `05a50bc` passed full build/both
@@ -357,3 +382,215 @@ kernels, a repeated extended session (1,680 events across two lifetimes), accept
 Home capture, pending-write cancellation, full core and documentation checks.
 This is VM/host evidence only. The prior native PR53 release remains installed;
 no ordinary startup or native continuous-service trial was enabled.
+
+The inherited-owner checkpoint `8ea35fd` integrates actual main `50b14fe` and
+passes full build/core/docs, the repeated process/PTY fixture, all nine continuous
+battery cases, and the existing Home capture/cancellation regressions. The latter
+still use the bounded diagnostic owner, so they are regression evidence rather
+than proof of ordinary logging/file overlap. Exact payloads and 99 evidence files
+are verified outside `build` in
+`~/.local/share/srvros/local-validation/process-lifetime-8ea35fde079a`.
+No native payload was installed and no physical acceptance was claimed.
+
+
+### Ordinary Home apps and periodic logs (VM only)
+
+`acpiruntime battery-home-desktop` admits only the disposable VM backend and an
+idle logger. It pins Home, starts periodic workspace snapshots and launches
+`deskd --home-apps` using the inherited kernel process lifetime. This is the
+normal launcher, Text, Files and Terminal with workspace Home/preferences, not
+the fixed System control fixture. Battery service starts once; apps only read
+cached state unless explicitly granted the existing scoped control capability.
+Unavailable battery hardware must leave the ordinary desktop usable.
+
+Exit revokes the control capability and process reservations, drains all lifetime
+members (including orphan jobs and file workers), stops battery work, then
+quiesces the periodic logger and saves its exit snapshot. Only after these steps
+and the runtime resource checks can the exact Home hold be released. A logger
+quiescence timeout retains the write and mount; it never fabricates completion.
+The final snapshot uses the existing bounded storage operations. The command
+returns to the monitor with Home still mounted, for inspection or explicit unmount.
+Native boot admission and `main.c`'s desktop startup path are unchanged.
+
+`tools/battery_home_desktop_smoke.py` uses a fresh disposable USB image. It opens
+apps through the launcher, saves Text and Terminal output, leaves session-changing
+Terminal descendants alive, checks periodic and final snapshots, then checks
+retirement ordering and offline filesystem allocation. The cancellation case
+requests desktop exit after a save is submitted and before its result is received.
+A submitted request proves outstanding app work, not physical USB DMA timing.
+Native refusal and uncertain-runtime cases must not claim clean cleanup.
+
+This workload reproduced permanent UART loss after a bounded TX spin timeout
+while desktop/battery/logging continued. TX timeout now preserves RX and uses a
+single readiness check per later byte while stalled; readiness resumes output.
+The timed-out bytes can still be lost: complete persisted logs and explicit
+completion records remain necessary evidence. Host fixtures check TX recovery,
+RX during the stall, bounded polling and preservation of the caller's IRQ state.
+
+
+Source `4351910` passed the full build, both battery kernels, full core suite,
+documentation checks and all five ordinary Home VM cases. Normal and submitted-save
+exit peaked at ten members, retired all members and processed 424/552 battery events; the unavailable
+profile remained usable with eleven peak members. Clean cases verified exact saved
+files, alternating and final logs, retirement ordering and offline allocation.
+The inherited-process/PTY, continuous alarm/restart and older bounded Home cancel
+regressions also passed. Durable evidence is under
+`~/.local/share/srvros/local-validation/home-desktop-43519102297f`.
+These checks do not enable or accept ordinary native startup.
+
+## Explicit automatic Home capture (v51)
+
+The `--battery-home-desktop` staging option selects a separate, automatic native
+capture. It starts the ordinary Home desktop with Text open and the battery
+service active, measures 180 seconds, saves a screenshot under Home/Screenshots,
+then exits. The logger stays active throughout and writes alternating periodic
+snapshots. This is an explicit capture only: ordinary startup and the native
+`acpiruntime battery-home-desktop` command remain disabled. Native controller,
+firmware and resource gates are unchanged.
+
+The inherited process lifetime covers Text, file workers and the screenshot
+worker. On exit it is revoked and drained before stopping the battery service.
+The runtime proves its held-source return and resource retirement before the
+process lifetime is released. Periodic logging then quiesces before releasing the
+mount hold. The outer capture writes the completion record into `exit.log`,
+unmounts and returns to Ubuntu. A platform or query refusal is a failed capture
+with a clean return when ownership permits it. Uncertain live runtime ownership
+still halts without claiming cleanup or writing a final report.
+
+No input is required; keep power and the designated USB workspace connected.
+The desktop has a 240-second supervisory deadline. Completion also requires at
+least 175 seconds of service observation and 30 fresh generation advances;
+the desktop's independent idle measurement must cover at least 179 seconds.
+These are continuity checks, not a maximum polling latency or power target.
+The screenshot worker has its existing 30-second deadline. Retirement retains
+the existing five-second process drain and 35-second service stop bounds.
+
+`battery_home_desktop_capture_smoke.py` exercises the actual boot capture on a
+disposable Q35 volume, including completion, profile/query refusal and uncertain
+acknowledgement. `battery_home_desktop_records.check_capture` validates saved
+receipts, generation progress, elapsed time, matching lifetime identity, resource
+restoration and shutdown order. Physical collection must additionally bind the
+log to its staged source/release and new session, verify the saved BMP and all
+pre-existing files, then run offline filesystem/allocation checks. A VM pass
+accepts neither physical gauge accuracy nor native AC transitions. An attended
+unplug/replug and indicator check still precedes ordinary native startup.
+
+
+Air7,2 v51 release `8666698f5e5d4ed5` has now passed this explicit native capture:
+201.276 seconds, 74 samples, 1,110 events, 74 handled/zero unclaimed SCI,
+five inherited members retired, four logs and a 1440x900 screenshot saved.
+Prior data and offline allocation checks passed. The screenshot shows `AC · 97%`;
+AC transitions and physical gauge accuracy still need attended acceptance.
+See the [machine record](machines/macbookair7-2.md) for source/session identities,
+validation and durable evidence. This does not enable ordinary startup.
+
+## Guided Home AC transitions (v52)
+
+`--battery-home-transitions` is a separate attended capture using the same held
+Home and inherited desktop lifetime as v51. Ordinary native startup remains off.
+Tell the tester before reboot: keep USB connected throughout, start with AC
+connected, unplug only at the second on-screen prompt, and reconnect only at the
+third. No keyboard input is required. Each instruction waits up to 120 seconds.
+
+The desktop reads the cached battery ABI once per second. Each phase requires
+three consecutive, distinct fresh generations in one epoch, with valid SOC,
+voltage, current and capacity. AC phases require AC present and nonnegative
+current; the unplugged phase requires AC absent and negative current. Duplicate
+cache reads do not advance progress; stale, invalid or skipped samples reset the
+streak. Epoch or timestamp regression fails the trial. Three phase receipts
+record the raw values and actual global indicator label.
+
+After each phase, the ordinary screenshot worker must save and verify its BMP
+before the next instruction appears. Its deadline is 30 seconds. The owner has
+a separate 480-second watchdog; existing process/runtime/logger retirement
+bounds are unchanged. On success, or a timeout with safely retired ownership,
+the capture saves logs, unmounts and returns to Ubuntu automatically. Uncertain
+live controller ownership still halts without attempting unsafe storage cleanup.
+A missed prompt is an incomplete trial, never a pass.
+
+Run `tools/host-env.sh python3 tools/battery_home_desktop_capture_smoke.py --transitions`
+for the disposable VM's automatic AC/discharge/AC sequence. Add `--case no-transition`
+to verify a missed unplug times out and returns safely; profile/query refusal and
+uncertain-ack cases remain available. Host tests exercise duplicate/stale samples,
+phase ordering and missing/corrupt screenshot collection. The physical collector
+requires all four logs and three distinct, verified screenshots in addition to
+the existing owner/resource retirement receipts. Bind them to the exact staged
+release/new session and check prior files and offline allocation after return.
+
+The VM supplies synthetic transitions. Native AC transition behavior requires
+the attended test; neither proves calibrated capacity, remaining runtime or
+battery health. Suspend/resume, thermal policy and ordinary startup are separate
+milestones. No firmware/resource gate changes are part of this capture.
+
+
+Air7,2 v52 release `c06f94a5893a402d` passed the attended AC/battery/AC sequence:
+three screenshots, 61.111 seconds, 339 events, two acknowledged alarms and
+51 handled/zero unclaimed SCI interrupts, followed by clean lifetime/runtime
+retirement, verified logs, unchanged prior data and clean offline allocation.
+This accepts the explicit native transition/indicator path. Ordinary native
+startup and calibrated gauge accuracy remain separate milestones. See the
+[machine record](machines/macbookair7-2.md) for source/session identities and
+why Ubuntu's absolute SOC differs from the relative SOC displayed here.
+
+## Opt-in ordinary Home startup
+
+The v54 `--desktop-battery` profile opens ordinary Home apps and starts battery
+monitoring without a capture timer, generated edits or forced desktop exit.
+This is an explicit opt-in; the default kernel/desktop remains unchanged. Exact
+native model, firmware and resource gates still apply. Unsupported hardware
+shows unavailable battery information and retains a usable desktop. Cache reads
+never initiate firmware work. Stale readings lose their percentage label; they
+are not displayed as a current charge estimate.
+
+Build and stage matched artifacts:
+
+```sh
+tools/host-env.sh make -j2 all usb-image acpi-battery-kernel acpi-battery-vm-kernel
+python3 tools/hardware_boot.py stage --desktop-volume YOUR-UUID --desktop-battery
+```
+
+The staged command line selects `srvros.desktop=session srvros.battery=on` and
+mounts the UUID-selected Home volume. It enables gestures but no unrelated audio,
+brightness, network, sensor or optional AML probe. This profile is separate from
+Air6,1's v53 basic desktop; it does not establish a sibling battery profile.
+The full-runtime kernel is required. Missing/unwritable Home or a runtime-less
+kernel refuses session entry and returns to the monitor. Missing reference clock
+or blocking context also refuses before any lifetime, logger or mount hold is acquired.
+
+Use **Ctrl+Alt+Esc** to exit. The owner revokes controls, drains the inherited app
+lifetime (including orphan jobs), stops battery work, finishes logging and then
+releases the mount hold. Home remains mounted. `desktop battery` opens another
+session; `reboot` flushes and unmounts before returning to Ubuntu. Unsaved app
+changes follow existing desktop close behavior. An uncertain live firmware owner
+still halts without pretending to release resources or writing a final log.
+This ordinary profile is interactive and does not automatically reboot.
+
+VM validation uses disposable disks only:
+
+```sh
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session
+# Repeat with --case cancel, profile-refusal, refusal, or runtime-fault.
+# Admission checks: --case missing-workspace, runtime-missing, opt-out, or clock-missing.
+# Exact staged native payload on Q35 must keep apps usable with battery unavailable:
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage RELEASE
+```
+
+Normal/clean-unavailable cases save real Text and Terminal files, keep orphan
+jobs owned, finish periodic logs, exit and reopen within the same boot. The
+pending-save case exits after submission. Offline checks verify file bytes,
+log lifetimes and allocation. The runtime-fault case must retain ownership and
+halt; it cannot count as a clean exit. The older command-only fixture remains
+VM-only. These checks do not establish native v54 acceptance; follow the device
+setup guide's exact-stage, recovery and run-record sequence before hardware use.
+
+
+Air7,2 release `fc5b73b074db7884` (source `a37ef21`) passed the attended ordinary
+Home trial on October 23. Two sessions saved/reopened a real Text document and
+showed `AC · 96%` in screenshots. Both inherited lifetimes and native runtimes
+retired cleanly; the tester confirmed normal input/apps and monitor reboot.
+Prior data stayed unchanged and offline allocation/recovery checks passed.
+The first logger/mount release is recorded in the second boot log; the final
+release follows its exit snapshot and is not claimed as a persisted receipt.
+This accepts ordinary opt-in startup, the cached indicator and exit/reopen on
+this unit. Default startup remains off. Calibration, battery life, suspend and
+sibling firmware remain outside this result. See the [machine record](machines/macbookair7-2.md).

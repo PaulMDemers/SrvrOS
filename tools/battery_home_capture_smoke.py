@@ -15,9 +15,10 @@ CASES={'completion':62,'alarm':63,'query-refusal':75,'uncertain-ack':69}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--air61',action='store_true')
     parser.add_argument('--case',choices=CASES,default='completion');args=parser.parse_args()
     capture=b'battery-home-capture'
-    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-capture-'+args.case)
+    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-capture-'+('air61-' if args.air61 else '')+args.case)
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-home-capture-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -28,9 +29,9 @@ def main():
         fixture.add_directory_files('srvros-work',entries)
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(CASES[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_AIR61 1\n' if args.air61 else '')+'#define BATTERY_FAULT '+str(CASES[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery'/'vm.elf'
+        kernel=root/('build/acpi-air61-battery' if args.air61 else 'build/acpi-battery')/'vm.elf'
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop-release=0123456789abcdef srvros.capture=battery-home srvros.capture-failure=reboot'
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar',cmdline=cmdline)
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
@@ -69,7 +70,7 @@ def main():
             def checker(raw,vm=True):return check_capture(raw,vm=True,case='alarm' if args.case=='alarm' else 'normal')
             saved=verify_image(volume.read_bytes(),data,args.case!='query-refusal',checker=checker,capture=capture,compare_serial=False)
             (out/'exit.log').write_bytes(saved)
-            result.update(check(saved,'query-refusal') if args.case=='query-refusal' else check_capture(saved,vm=True,case='alarm' if args.case=='alarm' else 'normal'))
+            result.update(check(saved,'query-refusal',query_policy=3 if args.air61 else 2) if args.case=='query-refusal' else check_capture(saved,vm=True,case='alarm' if args.case=='alarm' else 'normal'))
             (out/'fsck.txt').write_text(check_clean_image(volume))
             allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
             (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0

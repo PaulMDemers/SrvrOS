@@ -192,6 +192,7 @@ struct process {
     uint64_t pending_signals;
     uint64_t main_signal_mask;
     uint64_t process_group;
+    uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t session_id;
     uint64_t controlling_tty;
     uint64_t pid;
@@ -306,6 +307,14 @@ static struct process_exit_record exit_records[PROCESS_EXIT_STATUS_CACHE];
 /* Reserve slots while their large mapping arrays are initialized or cleared.
  * This keeps preemptible work outside the short publication critical section. */
 static bool process_slots_busy[PROCESS_MAX_PROCESSES];
+/* CPU0 process management: short IRQ-masked publication, preemptible loading
+ * and destruction. Members include reservations and final resource release. */
+struct process_lifetime {
+    uint64_t token, members, peak;
+    bool revoked, root_reserved;
+};
+static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
+static uint64_t next_lifetime = 1;
 static uint64_t next_pid = 1;
 static uint64_t next_exit_record_sequence;
 static struct scheduler_wait_queue process_wait_queue;
@@ -557,12 +566,74 @@ static void clear_process(struct process *process) {
     }
 }
 
-static struct process *alloc_process(const char *path, bool detached) {
+static struct process_lifetime *lifetime_find(uint64_t token) {
+    if (!token) return NULL;
+    for (unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)
+        if (process_lifetimes[i].token==token) return &process_lifetimes[i];
+    return NULL;
+}
+
+uint64_t process_lifetime_create(void) {
+    if (process_current()) return 0;
+    uint64_t flags=process_irq_save(),token=0;
+    for (unsigned i=0;next_lifetime && i<PROCESS_MAX_PROCESSES;i++) {
+        if (process_lifetimes[i].token) continue;
+        token=next_lifetime++; /* Exhaustion refuses; never reuse a stale token. */
+        process_lifetimes[i]=(struct process_lifetime){.token=token};
+        break;
+    }
+    process_irq_restore(flags);return token;
+}
+
+bool process_lifetime_revoke(uint64_t token) {
+    if (process_current()) return false;
+    uint64_t flags=process_irq_save();
+    struct process_lifetime *life=lifetime_find(token);
+    if (life) life->revoked=true;
+    process_irq_restore(flags);return life!=NULL;
+}
+
+bool process_lifetime_release(uint64_t token) {
+    if (process_current()) return false;
+    uint64_t flags=process_irq_save();
+    struct process_lifetime *life=lifetime_find(token);
+    bool ok=life && life->revoked && !life->members;
+    if (ok) *life=(struct process_lifetime){0};
+    process_irq_restore(flags);return ok;
+}
+
+bool process_lifetime_status(uint64_t token,struct process_lifetime_status *out) {
+    if (!out || process_current()) return false;
+    uint64_t flags=process_irq_save();
+    struct process_lifetime *life=lifetime_find(token);
+    if (life) *out=(struct process_lifetime_status){.members=life->members,.peak=life->peak,.revoked=life->revoked};
+    process_irq_restore(flags);return life!=NULL;
+}
+
+uint64_t process_lifetime_of(uint64_t pid) {
+    uint64_t flags=process_irq_save(),token=0;
+    for (unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)
+        if(processes[i].allocated && processes[i].pid==pid) { token=processes[i].lifetime;break; }
+    process_irq_restore(flags);return token;
+}
+
+static struct process *alloc_process_lifetime(const char *path,bool detached,uint64_t root_token) {
+    struct process *parent=process_current();
+    if (root_token && parent) return NULL;
+    uint64_t token=root_token?root_token:(parent?parent->lifetime:0);
     uint64_t flags=process_irq_save(),slot=PROCESS_MAX_PROCESSES,pid=0;
+    struct process_lifetime *life=lifetime_find(token);
+    if (token && (!life || life->revoked || (root_token && life->root_reserved))) {
+        process_irq_restore(flags);return NULL;
+    }
     for(uint64_t i=0;i<PROCESS_MAX_PROCESSES;i++) {
         if(!processes[i].allocated && !process_slots_busy[i]) {
             slot=i;process_slots_busy[i]=true;pid=next_pid++;
             if(!next_pid) next_pid=1;
+            if(life) {
+                life->members++;if(life->members>life->peak)life->peak=life->members;
+                if(root_token)life->root_reserved=true;
+            }
             break;
         }
     }
@@ -571,7 +642,7 @@ static struct process *alloc_process(const char *path, bool detached) {
     struct process *process=&processes[slot];
     clear_process(process);
     process->active=true;process->detached=detached;process->pid=pid;
-    struct process *parent=process_current();
+    process->lifetime=token;
     process->parent_pid=process_pid(parent);
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
@@ -591,11 +662,16 @@ static struct process *alloc_process(const char *path, bool detached) {
     return process;
 }
 
+static struct process *alloc_process(const char *path,bool detached) {
+    return alloc_process_lifetime(path,detached,0);
+}
+
 static void release_process(struct process *process) {
     if (process == NULL) {
         return;
     }
 
+    uint64_t token=process->lifetime;
     uint64_t slot=(uint64_t)(process-processes),flags=process_irq_save();
     process_slots_busy[slot]=true;
     process->allocated=false;
@@ -609,7 +685,13 @@ static void release_process(struct process *process) {
     }
 
     clear_process(process);
-    flags=process_irq_save();process_slots_busy[slot]=false;process_irq_restore(flags);
+    flags=process_irq_save();
+    struct process_lifetime *life=lifetime_find(token);
+    if(life) life->members--;
+    process_slots_busy[slot]=false;process_irq_restore(flags);
+    /* A competing waiter may have slept after another reaper claimed the
+     * zombie but before allocated was cleared. Publish target disappearance. */
+    scheduler_wake_all(&process_wait_queue);
 }
 
 static void release_process_runtime(struct process *process) {
@@ -1777,8 +1859,9 @@ static void background_process_thread(void *arg) {
         console_printf("bg: pid=%u exited status=%u\n", process->pid, process->exit_status);
     }
     release_process_runtime(process);
-    process->reapable = true;
     process_notify_parent_child_exit(process);
+    /* No access to process after publication: another thread may reap it. */
+    process->reapable = true;
     scheduler_wake_all(&process_wait_queue);
 }
 
@@ -2094,12 +2177,12 @@ static bool process_configure_stdio_fds(struct process *child,
     return true;
 }
 
-static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, const char *args, bool quiet) {
+static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, const char *args, bool quiet, uint64_t lifetime) {
     if (path == NULL || path[0] == '\0') {
         return -1;
     }
 
-    struct process *process = alloc_process(path, true);
+    struct process *process = alloc_process_lifetime(path, true, lifetime);
     if (process == NULL) {
         return -1;
     }
@@ -2127,12 +2210,17 @@ static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, co
     return (int64_t)pid;
 }
 
+int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args) {
+    if (!token || process_current()) return -1;
+    return process_spawn_background_elf_args_quiet_flag(path,args,true,token);
+}
+
 int64_t process_spawn_background_elf_args(const char *path, const char *args) {
-    return process_spawn_background_elf_args_quiet_flag(path, args, false);
+    return process_spawn_background_elf_args_quiet_flag(path, args, false, 0);
 }
 
 int64_t process_spawn_background_elf_args_quiet(const char *path, const char *args) {
-    return process_spawn_background_elf_args_quiet_flag(path, args, true);
+    return process_spawn_background_elf_args_quiet_flag(path, args, true, 0);
 }
 
 int64_t process_spawn_background_elf_args_fds(const char *path,
@@ -2220,7 +2308,10 @@ static bool process_wait_ready(void *arg) {
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
     struct process_wait_request request={.pid=pid,.owner=process_pid(process_current())};
     for (;;) {
+        uint64_t flags=process_irq_save();
         struct process *process = find_reapable_process(&request);
+        if(process) process->reapable=false;
+        process_irq_restore(flags);
         if (process != NULL) {
             uint64_t waited_pid = process->pid,status = process->exit_status;
             if (status_out != NULL) *status_out = status;
@@ -2235,6 +2326,30 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
         if (nohang) return 0;
         if (!scheduler_wait(&process_wait_queue, process_wait_ready, &request)) scheduler_yield();
     }
+}
+
+/* One nonblocking shutdown pass. Revocation prevents new reservations; refs
+ * remain through loading, pending I/O, thread exit, zombie reaping and release.
+ * A caller must keep its external resources until status.members is zero. */
+bool process_lifetime_drain(uint64_t token) {
+    if (process_current()) return false;
+    uint64_t flags=process_irq_save();
+    struct process_lifetime *life=lifetime_find(token);
+    if (!life || !life->revoked) { process_irq_restore(flags);return false; }
+    process_irq_restore(flags);
+    for (unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        flags=process_irq_save();
+        struct process *p=&processes[i];
+        bool reap=p->allocated && p->lifetime==token && p->detached && p->reapable;
+        if(reap) p->reapable=false;
+        else if(p->allocated && p->lifetime==token && p->active) {
+            /* Kernel cancellation is not a maskable user signal. */
+            p->killed=true;p->kill_signal=SRV_SIGNAL_KILL;process_wake_for_signal(p);
+        }
+        process_irq_restore(flags);
+        if(reap) release_process(p);
+    }
+    return true;
 }
 
 uint64_t process_list(uint64_t start_index,

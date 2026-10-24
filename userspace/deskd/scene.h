@@ -42,6 +42,7 @@ enum desktop_placement { DESKTOP_TILE_LEFT=1,DESKTOP_TILE_RIGHT,DESKTOP_CENTER }
  * honor client surface bounds, and leave output unchanged if there is no room. */
 int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
     unsigned placement,struct desk_rect *result);
+struct desk_rect desktop_battery_rect(int width,const char *clock);
 struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);

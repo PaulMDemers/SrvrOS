@@ -8,9 +8,23 @@ historical prototypes. Start the current desktop from the SrvrOS monitor:
 run /fat/bin/deskd
 ```
 
+For an explicitly enabled Home session with battery monitoring, use the full
+battery runtime and `desktop battery` after mounting Home. **Ctrl+Alt+Esc**
+returns to the monitor after app, battery and log cleanup; Home stays mounted
+for reopening. Default `deskd` startup does not start firmware work. See
+[ordinary Home startup](battery-home-lifecycle.md#opt-in-ordinary-home-startup)
+for the v54 boot profile and validation limits. Click the battery label to open
+System. Fresh discharging readings at 20% and 5% add low-charge notifications
+without stealing focus; stale/unavailable readings do not trigger alerts.
+Fresh AC power or recovery above 25% rearms the low warning; recovery above 10%
+rearms the critical warning. Notifications do not automatically suspend or power
+off the machine. The combined v55 provider profile is described in the
+[device parity ledger](device-parity.md).
+
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
-on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes
-and live sensor display. Physical two-finger pressing now selects secondary click at press;
+on Air7,2. The October 23 v55 trial accepted combined Home/battery, playback,
+brightness/volume, live sensors and save/exit/reopen. See the machine record for
+the exact payload and remaining listening/gesture checks. Physical two-finger pressing now selects secondary click at press;
 specific gesture cases still need confirmation. Secondary tapping is separate.
 The October 19 interactive round reported generally good behavior and recorded
 no recurrence of the earlier System input-timeout closure. That earlier cause
@@ -435,3 +449,60 @@ System/Sensors two-fan, Pause/Resume, screenshot and manual return checks.
 This is untimed; exit/unmount before reboot. Host formatting and VM boot checks
 are separate from native visible acceptance. Shared profile integration remains
 subject to review against the active Air branch.
+
+## Quiescent client message waits
+
+`desk_app_wait(app, ticks)` is a reusable client transport helper. It admits only
+a configured, clean window with no sealed frame, pending resize, failed send or
+unfinished menu publication. The application must separately exclude jobs,
+clipboard transactions, timers and diagnostic work that require shorter service.
+Text uses a ten-tick (100 ms) maintenance bound only when quiescent; other app
+roles and the compositor retain their existing cadence.
+
+The additive `SYS_GUI_WAIT` (136) takes the expected compositor PID and a maximum
+of 100 ticks. It returns 1 for pending messages, 0 on timeout, -1 for invalid
+arguments/lost server/cancellation, or `SRV_ERR_INTR` for a pending signal. It
+never consumes a packet. Server identity is checked on each wake; the server
+itself cannot use this client-only wait. Queued input, releases and close messages
+wake the client immediately; the maintenance bound is not input latency.
+
+The implementation reuses the signal/file-readiness wait queue. Message insertion
+and GUI process cleanup wake that queue; readiness is rechecked with interrupts
+masked before blocking. Spurious file/signal wakes only recheck the original
+deadline. This avoids a new private signal-delivery route, at the cost of waking
+unrelated readiness waiters. The syscall accesses only bounded GUI state and
+retains the existing audited storage-service scheduling rules. No pointers to
+userspace buffers or reusable GUI queue slots survive a wait.
+
+An ineligible/failed wait falls back to the prior one-tick client loop. Text's
+active save, clipboard, title/menu/frame publication and explicit diagnostic
+workloads keep that prior path. This changes no firmware, device polling or CPU
+policy. Native energy improvement requires a matched repeated comparison against
+the worker-attributed baseline; reduced timer wakes alone are not an energy result.
+
+### Quiescent compositor waits
+
+`SYS_GUI_SERVER_WAIT` (137), exposed as `gui_server_wait(ticks)`, is server-only.
+It observes the current server's incoming GUI queue, structured keyboard events
+and pointer events without consuming them or allocating queues. It returns 1
+when any source is ready, 0 at the deadline, and a negative result for invalid
+ownership, signals/exit or invalid bounds. The maximum is ten 100 Hz ticks;
+zero is a nonblocking readiness check. Registration/access policy is unchanged.
+
+The same IRQ-protected predicate is rechecked immediately before blocking.
+GUI publication, structured keyboard publication, pointer enqueue/overflow/cancel
+and process teardown wake the shared file-poll queue. Unrelated notifications
+recheck readiness without extending the original deadline. Coalescing an already
+queued pointer event needs no second wake because readiness never became false.
+This reuses signal/exit handling; it can also wake unrelated file-poll sleepers.
+No hardware polling interval or interrupt route is changed.
+
+Ordinary `deskd` uses the wait only when no frame was just painted, no button or
+drag/resize is active, and no input/control/frame reply, client startup/close,
+clipboard transfer, preference save or screenshot job needs progress. Those paths
+keep the one-tick cadence. Generated coexistence, legacy studies, battery-guided
+and hardware-trial timing recipes keep their prior cadence too; the explicit
+idle capture uses the new path. Clock, cached battery, notification and child
+housekeeping are bounded by the 100 ms idle maintenance cap. New timed features
+must update idle admission or supply an earlier deadline rather than assuming a
+10 ms loop. VM functional input checks are not physical latency acceptance.

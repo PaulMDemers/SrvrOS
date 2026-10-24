@@ -103,6 +103,7 @@ USER_DESKIO := build/userspace/deskio.elf
 USER_DESKTOOLS := build/userspace/desktools.elf
 USER_DESKTERM := build/userspace/deskterm.elf
 USER_CLOCKPROBE := build/userspace/clockprobe.elf
+USER_LIFETIMEPROBE := build/userspace/lifetimeprobe.elf
 USER_PTYPROBE := build/userspace/ptyprobe.elf
 USER_DESKSKETCH := build/userspace/desksketch.elf
 USER_SHOTWORKER := build/userspace/shotworker.elf
@@ -1682,9 +1683,9 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
+$(EXFAT_IMAGE): $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
-	$(PYTHON) tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
+	$(PYTHON) tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
@@ -2144,6 +2145,10 @@ build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exf
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/exfat_hardening_test.py
 
+.PHONY: test-exfat-scale
+test-exfat-scale: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/exfat_scale_test.py
+
 .PHONY: test-workspace
 test-workspace: build/tests/workspace-host$(HOST_EXE) build/tests/sync-command-host$(HOST_EXE)
 	build/tests/workspace-host$(HOST_EXE)
@@ -2255,7 +2260,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
@@ -2988,6 +2993,7 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
 	$(PYTHON) tools/test_hardware_boot.py
+	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py
 
 .PHONY: test-backlight
@@ -3303,7 +3309,7 @@ build/acpi-battery/vm.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UAC
 test-core: test-battery-native-policy
 test-battery-native-policy: build/tests/battery-native-policy$(HOST_EXE)
 	$<
-build/tests/battery-native-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h
+build/tests/battery-native-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h ports/srvros/uacpi/runtime/battery_bounded_policy.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 
@@ -3319,6 +3325,7 @@ build/tests/battery-event-hold$(HOST_EXE): tools/test_battery_event_hold.c ports
 test-core: test-battery-transition
 test-battery-transition: build/tests/battery-transition$(HOST_EXE)
 	$<
+	$(PYTHON) tools/test_battery_smbus_transition_records.py
 build/tests/battery-transition$(HOST_EXE): tools/test_battery_transition.c ports/srvros/uacpi/runtime/battery_transition.h kernel/include/srvros/sbs_sample.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
@@ -3425,9 +3432,9 @@ build/tests/mt76-prepare-host$(HOST_EXE): tools/test_mt76_prepare.c kernel/src/d
 test-core: test-battery-view
 test-battery-view: build/tests/battery-view$(HOST_EXE)
 	$<
-build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
+build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c kernel/src/drivers/battery_cache.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c userspace/widgets/src/battery.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c kernel/src/drivers/battery_cache.c userspace/widgets/src/battery.c -o $@
 
 .PHONY: test-mt76-firmware
 test-core: test-mt76-firmware
@@ -3478,6 +3485,7 @@ test-battery-controls-records:
 	$(PYTHON) tools/test_battery_workspace_controls_records.py
 	$(PYTHON) tools/test_battery_control_files_records.py
 	$(PYTHON) tools/test_battery_home_records.py
+	$(PYTHON) tools/test_battery_home_desktop_records.py
 
 .PHONY: test-battery-reset-policy
 test-core: test-battery-reset-policy
@@ -3581,3 +3589,85 @@ test-mt76-compact: build/tests/mt76-compact-host$(HOST_EXE)
 build/tests/mt76-compact-host$(HOST_EXE): tools/test_mt76_compact.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_compact.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-process-lifetime
+test-core: test-process-lifetime
+test-process-lifetime: build/tests/process-lifetime-host$(HOST_EXE)
+	$<
+build/tests/process-lifetime-host$(HOST_EXE): tools/test_process_lifetime.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+LIFETIMEPROBE_OBJ := build/userspace/lifetimeprobe/lifetimeprobe.c.o
+$(USER_LIFETIMEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+-include $(LIFETIMEPROBE_OBJ:.o=.d)
+
+.PHONY: test-desktop-battery-trial
+test-core: test-desktop-battery-trial
+test-desktop-battery-trial: build/tests/desktop-battery-trial$(HOST_EXE)
+	$<
+build/tests/desktop-battery-trial$(HOST_EXE): tools/test_desktop_battery_trial.c userspace/deskd/battery_trial.h shared/include/srvros/battery_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
+
+.PHONY: test-battery-preflight
+test-core: test-battery-preflight
+test-battery-preflight: build/tests/battery-preflight-host$(HOST_EXE)
+	$<
+build/tests/battery-preflight-host$(HOST_EXE): tools/test_battery_preflight.c kernel/src/drivers/laptop_probe.c kernel/include/srvros/laptop_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_battery_preflight.c -o $@
+
+# Air6,1 is a separate five-sample diagnostic binary, never a desktop profile.
+.PHONY: acpi-air61-battery-kernel
+acpi-air61-battery-kernel: build/acpi-air61-battery/srvros.elf
+build/acpi-air61-battery/srvros.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-air61-battery/battery_native_platform.o kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-air61-battery/battery_native_platform.o: ports/srvros/uacpi/runtime/battery_native_platform.c $(ZIG) $(UACPI_HEADERS) $(KERNEL_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -DSRVROS_BATTERY_AIR61 -c $< -o $@
+-include build/acpi-air61-battery/battery_native_platform.d
+
+.PHONY: test-air61-battery-policy
+test-core: test-air61-battery-policy
+test-air61-battery-policy: build/tests/air61-battery-policy$(HOST_EXE)
+	$<
+build/tests/air61-battery-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h ports/srvros/uacpi/runtime/battery_bounded_policy.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_BATTERY_AIR61 $< -o $@
+
+.PHONY: test-air61-battery-profile
+test-core: test-air61-battery-profile
+test-air61-battery-profile: build/tests/air61-battery-profile$(HOST_EXE)
+	$<
+build/tests/air61-battery-profile$(HOST_EXE): tools/test_air61_battery_profile.c ports/srvros/uacpi/runtime/battery_native_platform.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-battery-failure-display
+test-core: test-battery-failure-display
+test-battery-failure-display: build/tests/battery-failure-display$(HOST_EXE)
+	$<
+build/tests/battery-failure-display$(HOST_EXE): tools/test_battery_failure_display.c ports/srvros/uacpi/runtime/battery_failure_display.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-log-archive
+test-core: test-log-archive
+test-log-archive:
+	$(PYTHON) tools/test_hardware_log_archive.py
+
+.PHONY: acpi-air61-battery-vm-kernel
+acpi-air61-battery-vm-kernel: build/acpi-air61-battery/vm.elf
+build/acpi-air61-battery/vm.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-air61-battery/battery_vm_platform.o kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-air61-battery/battery_vm_platform.o: ports/srvros/uacpi/runtime/battery_vm_platform.c $(ZIG) $(UACPI_HEADERS) $(KERNEL_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -DSRVROS_BATTERY_AIR61 -c $< -o $@
+-include build/acpi-air61-battery/battery_vm_platform.d
+
+.PHONY: test-scheduler-activity
+test-scheduler-activity:
+	$(PYTHON) tools/test_scheduler_activity.py
+test-core: test-scheduler-activity

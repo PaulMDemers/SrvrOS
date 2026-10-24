@@ -12,7 +12,7 @@ records own observed configuration and acceptance for each model/unit.
 | Model | Record | Current evidence |
 | --- | --- | --- |
 | MacBookAir7,2 / A1466 | [macbookair7-2](macbookair7-2.md) | Active reference machine; partial device acceptance |
-| MacBookAir6,1 | [macbookair6-1](macbookair6-1.md) | Console, basic keyboard, bounded USB persistence and raw trackpad capture accepted; desktop pointer trial pending |
+| MacBookAir6,1 | [macbookair6-1](macbookair6-1.md) | Native desktop/input, bounded concurrent USB work, rerun refusal and speed/acceleration persistence accepted; brightness 5–100% and bounded speaker/headphone playback accepted; parked battery sampling, AC transitions, observed alarm refresh/retirement and bounded battery/Text USB-image coexistence and short mounted Home sampling accepted; desktop battery and full native endurance incomplete |
 | MacBookAir7,1 / A1465 | [macbookair7-1](macbookair7-1.md) | Planned; no local inventory or physical results |
 | MacBookPro11,2 / A1398 | [macbookpro11-2](macbookpro11-2.md) | Native apps, input, brightness, sound and read-only CPU/two-fan telemetry and captured USB Ethernet cable recovery/UI exercised; trackpad latency work deferred |
 | MacBookPro11,3 / A1398 | [macbookpro11-3](macbookpro11-3.md) | Planned; no local inventory or physical results |

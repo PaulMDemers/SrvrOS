@@ -14,8 +14,13 @@ static const uint8_t *find(const char *sig,size_t *size) {
     }
     *size=0;return NULL;
 }
+#ifdef SRVROS_LAPTOP_PROBE_HOST_TEST
+static uint8_t read8(uint16_t port);
+static uint16_t read16(uint16_t port);
+#else
 static uint8_t read8(uint16_t port) { uint8_t n;__asm__ volatile("inb %1,%0":"=a"(n):"Nd"(port));return n; }
 static uint16_t read16(uint16_t port) { uint16_t n;__asm__ volatile("inw %1,%0":"=a"(n):"Nd"(port));return n; }
+#endif
 static uint32_t pwm_read(void *context,unsigned reg) {
     uintptr_t va=(uintptr_t)context;
     return *(volatile uint32_t *)(va+(reg==0?0x250:4096+(reg==1?0x250:0x254)));
@@ -56,7 +61,41 @@ static bool pro_display_probe(bool brightness) {
     } else console_write("pro-backlight: no PWM writes, provider binding or EC access\n");
     return true;
 }
+static bool air61_display_probe(bool brightness) {
+    const struct pci_device *display=NULL;uint16_t pch=0;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);
+        if(p->vendor_id!=0x8086) continue;
+        if(p->device_id==0x0a26 && p->class_code==3) display=p;
+        if(p->device_id==0x9c43 && p->class_code==6 && p->subclass==1) pch=p->device_id;
+    }
+    if(!display) return false;
+    size_t n;const uint8_t *d=find("DSDT",&n);
+    if(!laptop_air61_display_match(display->device_id,pch,d,n)) {
+        console_write("air61-backlight: identity mismatch; no register access\n");return true;
+    }
+    uint32_t bar=display->bar[0];uint64_t base=bar&0xfffffff0u;
+    if((bar&7)==4) base|=(uint64_t)display->bar[1]<<32;
+    else if(bar&7) return true;
+    if(!base || base>0x000ffffffff00000ull || !(pci_read_config16(display,4)&2)) return true;
+    const uint64_t va=0xffffc001f3100000ull;
+    if(!vmm_map_page(va,base+0x48000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE) ||
+       !vmm_map_page(va+4096,base+0xc8000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(brightness?VMM_PAGE_WRITABLE:0))) {
+        console_write("air61-backlight: mapping unavailable\n");return true;
+    }
+    uint32_t cpu=*(volatile uint32_t *)(va+0x250),cd=*(volatile uint32_t *)(va+0x254);
+    uint32_t pchctl=*(volatile uint32_t *)(va+4096+0x250),pd=*(volatile uint32_t *)(va+4096+0x254);
+    struct laptop_backlight b=laptop_backlight_decode(cpu,cd,pchctl,pd);
+    console_printf("air61-backlight: read-only cpu_ctl=%x cpu_duty=%x pch_ctl=%x pch_duty=%x mode=%u duty=%u period=%u\n",
+        (uint64_t)cpu,(uint64_t)cd,(uint64_t)pchctl,(uint64_t)pd,(uint64_t)b.mode,(uint64_t)b.duty,(uint64_t)b.period);
+    if(brightness) {
+        bool ready=backlight_bind_profile((struct backlight_io){(void *)(uintptr_t)va,pwm_read,pwm_write},BACKLIGHT_AIR6_1);
+        console_printf("backlight: Air6,1 provider=%s initial_percent=%u; panel unchanged\n",ready?"ready":"unavailable",ready?(uint64_t)backlight_percent(0):0);
+    } else console_write("air61-backlight: no PWM writes, provider binding or EC access\n");
+    return true;
+}
 static void inspect(bool brightness) {
+    if(air61_display_probe(brightness)) return;
     if(pro_display_probe(brightness)) return;
     const struct pci_device *display=NULL;bool chipset=false;
     for(uint64_t i=0;i<pci_device_count();i++) {
@@ -96,3 +135,23 @@ static void inspect(bool brightness) {
 
 void laptop_probe(void) { inspect(false); }
 void laptop_brightness_init(void) { inspect(true); }
+
+void laptop_battery_preflight(void) {
+    uint16_t gpu=0,pch=0;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);
+        if(p->vendor_id!=0x8086||p->bus)continue;
+        if(p->device==2&&!p->function&&p->class_code==3)gpu=p->device_id;
+        if(p->device==31&&!p->function&&p->class_code==6&&p->subclass==1)pch=p->device_id;
+    }
+    size_t dn,en,fn;const uint8_t *d=find("DSDT",&dn),*e=find("ECDT",&en),*f=find("FACP",&fn);
+    if(!laptop_air61_power_resources(gpu,pch,d,dn,e,en,f,fn)) {
+        console_write("battery-preflight: REFUSED identity/resources; no register access\n");return;
+    }
+    console_printf("battery-preflight: model=MacBookAir6,1 pm1_control=%x pm1_status=%x pm1_enable=%x ec_status=%x SCI=9 EC_GPE=0x4e\n",
+        (uint64_t)read16(0x1804),(uint64_t)read16(0x1800),(uint64_t)read16(0x1802),(uint64_t)read8(0x66));
+    for(unsigned i=0;i<16;i++)
+        console_printf("battery-preflight: gpe_byte=%u status=%x enable=%x\n",
+            (uint64_t)i,(uint64_t)read8(0x1880+i),(uint64_t)read8(0x1890+i));
+    console_write("battery-preflight: complete reads=36 writes=0; no EC data/commands, AML, ACPI mode, SCI ownership or battery samples\n");
+}

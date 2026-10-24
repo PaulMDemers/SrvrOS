@@ -1879,3 +1879,14 @@ Ubuntu recovery and payload hashes verified; offline workspace checks found229fi
 592clusters and zero allocation errors. Acceptance covers this captured write1/read5
 profile only; it establishes no general writable-bit mask. Remaining MAC/baseband
 initialization, scanning and connectivity remain open.
+
+
+### Integrated baseline regression after v45
+
+The Pro branch now incorporates main `4a991df`, including storage scaling,
+workspace log admission/timing and GUI waits. Integration preserves all90 firmware
+boot recipes and all91 current main boot recipes exactly; no Wi-Fi register
+sequence, firmware or native model gate changes. An unchanged v45 diagnostic will
+validate this combined baseline before further MAC initialization work. Earlier
+v45 physical acceptance belongs to source538fee1; it does not accept the merged
+payload. Battery work and its Air-specific hardware acceptance remain separate.

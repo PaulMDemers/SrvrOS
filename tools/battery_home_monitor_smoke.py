@@ -12,7 +12,7 @@ from battery_workspace_controls_records import check_hold, check_home_returns
 from exfat_test_image import ExfatFixture, check_clean_image
 
 
-def check_rollups(data, epochs):
+def check_rollups(data, epochs, vm=True):
     rows=re.findall(rb'^battery-monitor-events: epoch=(\d+) at_us=(\d+) events=(\d+) alarms=(\d+) acknowledgements=(\d+) unknown=(\d+) invalidations=(\d+) saturated=(\d+) final=(\d+)\r?$',data,re.M)
     assert len(rows)==len(re.findall(rb'^battery-monitor-events:',data,re.M))
     rows=[tuple(map(int,r)) for r in rows]
@@ -20,9 +20,10 @@ def check_rollups(data, epochs):
     for forbidden in (b'battery: HALTED',b'battery-smbus: FAILED',b'contained fault; returning'):
         assert forbidden not in data
     assert rows and {r[0] for r in rows}==set(range(1,epochs+1))
-    retired=list(re.finditer(rb'^battery-service: retired epoch=(\d+) attempts=\d+ rejected=0 queries=(\d+) notifications=\d+ attached=1 detached=1 heap=0 errors=0 denied=0\r?$',data,re.M))
+    retired=list(re.finditer(rb'^battery-service: retired epoch=(\d+) attempts=\d+ rejected=0 queries=(\d+) notifications=\d+ attached=(\d+) detached=(\d+) heap=0 errors=0 denied=0\r?$',data,re.M))
     assert len(retired)==data.count(b'battery-service: retired ')==epochs
     assert [int(r[1]) for r in retired]==list(range(1,epochs+1))
+    assert all(int(r[3])==int(r[4])>0 and (not vm or int(r[3])==1) for r in retired)
     for epoch in range(1,epochs+1):
         values=[r for r in rows if r[0]==epoch]
         assert values[-1][-1]==1 and sum(r[-1] for r in values)==1
@@ -36,12 +37,25 @@ def check_rollups(data, epochs):
                 last=now
         summary=re.findall(rb'^battery-controls-events: epoch='+str(epoch).encode()+rb' events=(\d+) alarms=(\d+) acknowledgements=(\d+) unknown=(\d+) .*; drained=yes\r?$',data,re.M)
         assert len(summary)==1 and tuple(map(int,summary[0]))==values[-1][2:6]
-        assert int(retired[epoch-1][2])==values[-1][2]
+        assert int(retired[epoch-1][2])>=values[-1][2]
+        if vm:assert int(retired[epoch-1][2])==values[-1][2]
         final=re.search(rb'^battery-monitor-events: epoch='+str(epoch).encode()+rb' .* final=1\r?$',data,re.M)
         summary_at=data.index(b'battery-controls-events: epoch='+str(epoch).encode()+b' ')
         assert final and final.end()<summary_at<retired[epoch-1].start()
     assert b'smbus-e:' not in data and b'smbus-i:' not in data and b'battery-smbus: event=' not in data
     return rows
+
+
+def check_lifetime(data):
+    acquired=list(re.finditer(rb'^battery-desktop-lifetime: acquired token=(\d+) root=(\d+)\r?$',data,re.M))
+    drained=list(re.finditer(rb'^battery-desktop-lifetime: drained token=(\d+) members=0 peak=2 revoked=yes\r?$',data,re.M))
+    released=list(re.finditer(rb'^battery-desktop-lifetime: released token=(\d+) runtime_retired=yes\r?$',data,re.M))
+    assert len(acquired)==len(drained)==len(released)==1
+    a,d,r=acquired[0],drained[0],released[0]
+    assert int(a[1])>0 and a[1]==d[1]==r[1] and a.end()<d.start()<d.end()<r.start()
+    assert r.end()<data.index(b'battery-workspace-hold: released ')
+    retire=list(re.finditer(rb'^battery-service: retired .*$',data,re.M))
+    if retire:assert retire[-1].end()<r.start()
 
 
 def main():
@@ -132,6 +146,7 @@ def main():
                         assert b'; revoked=yes retired=yes' in data
                         assert b'retired=yes mounted=yes native=explicit' in data
                         check_hold(data,False if unavailable else None,automatic_start=True)
+                        check_lifetime(data)
                         epochs=2 if args.case in ('normal','alarm') else 0 if unavailable else 1
                         check_home_returns(data,epochs,refused=args.case=='query-refusal',continuous=True)
                         if args.case in ('normal','alarm'):

@@ -214,10 +214,65 @@ This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
 
-For the interactive desktop candidate, after a successful build:
+### Workspace log capacity and verified archival
+
+Free disk bytes and clean fsck are insufficient for creating new files: the
+current driver has 8192 file slots and 2048 directory slots per mounted volume,
+allocated on demand, with a shared 32768-node VFS budget. Older installed releases
+retain their old limits; use matching source and payload. See the
+[capacity contract](filesystem-capacity.md) for memory admission and lifetime rules.
+Metadata replacement also needs a temporary file slot. Check the entire mounted
+USB before staging, using this host's UUID:
 
 ```sh
-python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID"
+python3 tools/hardware_log_archive.py check --uuid "$SRVROS_USB_UUID"
+python3 tools/hardware_log_archive.py plan --uuid "$SRVROS_USB_UUID"
+```
+
+The default admission reserve is 32 files and 8 directories, plus missing
+metadata entries. Workspace preparation checks this reserve; automated tests
+reserve 64 files and 8 directories per round. These are point-in-time checks,
+not a capacity lease. The kernel logger independently checks the reserve before
+creating a session. An attended trial refuses to start without diagnostics and
+reports whether USB unmount succeeded, instead of opening a desktop with an
+empty log directory. Existing failure/return policy remains profile-specific.
+
+Archive only with an explicit command and a fresh destination on the Ubuntu
+filesystem, outside the checkout. Create its parent first:
+
+```sh
+mkdir -p "$HOME/.local/share/srvros/log-archives"
+python3 tools/hardware_log_archive.py archive --uuid "$SRVROS_USB_UUID" \
+  --destination "$HOME/.local/share/srvros/log-archives/UNIQUE-RUN" --prune
+```
+
+The bounded batch contains at most 32 old completed sessions and retains the
+newest 32 session names by timestamp. Incomplete sessions, unknown contents and
+user documents are preserved. Every selected file is copied, SHA-256 verified
+and flushed with a manifest on another device before its USB copy is removed.
+Omit `--prune` for archive-only operation. There is no automatic deletion during
+boot. If preserved evidence still fills the volume, stop and arrange additional
+verified archival rather than deleting unknown files or increasing driver limits.
+
+After archival, unmount and run both offline checks from the normal preflight
+sequence. Add `--require-headroom` to the allocation checker to validate the
+reserve with the real SrvrOS filesystem/VFS implementation:
+
+```sh
+sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-headroom
+```
+
+A disposable exact-stage negative rehearsal is available for an ordinary desktop
+trial: `tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check
+--desktop-no-headroom --workspace-table gpt`. It verifies capacity refusal,
+no session creation, preserved files and clean unmount; it does not replace the
+normal positive desktop rehearsal or physical acceptance.
+
+For the attended audio/Ethernet/input desktop candidate, after a successful build
+(see [device checks](device-acceptance.md) for the required human actions):
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" --desktop-device-checks
 SRVROS_RELEASE=$(cat build/hardware-boot/latest)
 cat "build/hardware-boot/$SRVROS_RELEASE/manifest.json"
 tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check --audio-check
@@ -247,12 +302,46 @@ not claim the unscaled harness's two-boot or bundled-WAV coverage. Speakers,
 headphone isolation and audible quality require the on-screen listening checks.
 Startup is silent; no optional AML, EC, SMC or HDMI audio is enabled.
 
+For the captured MacBookAir6,1, use `--desktop-volume "$SRVROS_USB_UUID"
+--desktop-basic --desktop-brightness --desktop-audio` for the distinct v57
+attended audio trial. It keeps the unscaled desktop and exact brightness profile,
+adding only analog HDA. The codec subsystem/revision/pin defaults are independently
+gated. Battery/AML and other optional laptop services remain off. See the
+[Air6,1 listening checklist](macbookair6-1-audio.md); bounded speaker/headphone playback is
+accepted, with full native endurance still incomplete.
+Use `--desktop-check --audio-check --workspace-table gpt` for its exact-stage VM.
+
+For Air6,1 read-only CPU/fan acceptance, add `--desktop-sensors` to that
+unscaled brightness/audio command. The distinct v59 recipe keeps battery/AML
+and networking off. See the [Air6,1 telemetry trial](macbookair6-1-telemetry.md)
+for captured resource gates and System/Sensors checks; native acceptance is pending.
+
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
 models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.
 Do not re-enable that probe in routine desktop startup. The separate v19
 `--laptop-probe-volume` profile is a bounded preflight capture; it is not the
 isolated AML interpreter diagnostic.
+
+The separate v54 **ordinary Home battery session** is an explicit opt-in:
+`--desktop-volume "$SRVROS_USB_UUID" --desktop-battery`. Build the full native
+battery runtime first and validate the exact stage with
+`battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage RELEASE`.
+It starts ordinary apps with no capture timer or automatic reboot. Exit with
+Ctrl+Alt+Esc, reopen with `desktop battery`, or use monitor `reboot` for a flushed,
+unmounted return. This path is physically accepted on the recorded Air7,2
+release; default startup stays off and siblings do not inherit its ownership. Follow the
+[session contract](battery-home-lifecycle.md#opt-in-ordinary-home-startup) and
+existing recovery/run-record steps before a hardware trial.
+
+The v55 combined profile adds `--desktop-services` to `--desktop-battery`.
+It enables the existing brightness, HDA, read-only CPU/SMC and ECM providers,
+without scaling or an isolated AML probe. Use `--services` with the ordinary
+battery VM harness, including its exact-stage run. Combined physical acceptance
+is recorded for Air7,2 release `9aa8dbf6fbda8252`; see
+[device parity](device-parity.md) for its scoped evidence and the attended checklist. Unsupported providers stay unavailable. Boot-scoped device
+workers remain available after desktop exit; app PCM, battery ownership and
+session logging retire before the Home hold releases.
 
 For a bounded unattended idle sample after the basic workspace is accepted:
 
@@ -333,6 +422,38 @@ installed release and previous USB session IDs. Copy the screenshots after the
 run. Keep a durable copy of accepted boot payloads outside `build` before cleanup.
 Shell variables do not survive reboot: retain this record and reload UUID/release
 from it on return. Do not rely on an old `latest` pointer as a machine identity.
+
+After the accepted passive capture, Air6,1's isolated **v61** `--battery-air61`
+profile uses `make acpi-air61-battery-kernel` for five AC-connected battery/AC
+samples. It requires automatic recovery and parked USB, and refuses desktop,
+service and transition entry. Keep AC connected; collect matching retirement
+and file-integrity evidence after automatic return. It does not widen Air7,2's
+native profile or ordinary startup. See the same Air6,1 audit below.
+
+For its query10 follow-up, use **v62** `--battery-air61 --battery-smbus`
+with the unit's `--laptop-probe-volume`. This short parked capture uses the
+existing host-event owner: at least one natural event and fresh generation 3,
+a 30-second window and 128-event cap. It never dispatches AML `_Q10`; ordinary
+service/Home/image/transition entry remains denied. Keep AC/USB connected and
+photograph a failure during the 30-second terminal pause. Require the shared
+SMBus event/cache/retirement proof and filesystem checks on return. Native
+Air6,1 short completion-event sampling/retirement is accepted; alarms and AC
+transitions remain separate. See its audit and machine record.
+
+For the attended **v63** AC trial, stage `--battery-air61 --battery-transitions`
+with the unit's laptop probe volume and native Air6,1 kernel. Rehearse the exact
+stage, preserve recovery and save the run record before boot. **Tell the user to
+start with AC connected, unplug only when UNPLUG AC appears, then reconnect when
+RECONNECT AC appears; USB stays connected throughout.** Each phase requires three
+coherent readings within 120 seconds. The parked service has a 4096-event cap;
+timeout saves an incomplete result and returns automatically. Faults retain the
+30-second photo/reset path. Require the matching `battery_smbus_transitions`
+receipt after return; ordinary desktop battery startup stays off.
+
+Air6,1 starts with the separate passive **v60** `--battery-preflight` profile
+on `--laptop-probe-volume`. It records exact-gated PM1/GPE/EC status only, saves
+logs and returns automatically. It does not admit the Air7,2 runtime or sample
+battery data. See the [Air6,1 battery audit](macbookair6-1-battery.md).
 
 The Air7,2 native battery candidate uses a separate **v31** profile and kernel:
 
@@ -609,6 +730,11 @@ sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
 udisksctl mount -b "$SRVROS_USB_PART"
 ```
 
+Ubuntu may remove an automatically created mount directory when the volume is
+unmounted. After remounting, resolve the current mountpoint again; scripts that
+mount explicitly must recreate and verify their empty mount directory first.
+Do not assume a path saved before unmount still exists.
+
 Require successful results from both checks. `fsck.exfat -n` alone can report
 clean while the allocation bitmap contains orphaned clusters: this occurred on
 the Air with exfatprogs 1.3.2. The additional helper runs the real SrvrOS
@@ -789,7 +915,7 @@ acknowledgement or cache-invalidation acceptance. Keep event counts and physical
 accuracy limits in the machine record rather than promoting all VM cases to
 hardware passes.
 
-## Parked SMBus with Text/file activity (Air7,2 v47)
+## Parked SMBus with Text/file activity (Air7,2 v47, Air6,1 v64)
 
 The separate `--battery-smbus-files` recipe uses the native diagnostic kernel,
 automatic return, and a fresh exclusive `battery-fs.img`. Follow the image
@@ -800,3 +926,101 @@ check outer-file preservation, both filesystems/allocation, and Ubuntu recovery.
 A valid v46 receipt does not accept v47. No physical interaction is required;
 missing completion, interrupted work, event-limit failure or quick reset is not
 a pass. Ordinary mounted Home and automatic battery startup stay off.
+
+For the captured Air6,1, build `acpi-air61-battery-kernel` and add
+`--battery-air61` to the `--battery-smbus-files` laptop probe command. This selects
+the separate v64 recipe and exact Air6,1 gate. Follow the same fresh-image and
+return checks; see the [Air6,1 audit](macbookair6-1-battery.md#bounded-usb-file-coexistence-candidate-v64).
+Bounded Air6,1 exclusive-image coexistence is accepted on release `fc1d1f4c45d30252`;
+ordinary mounted Home and startup remain unaccepted.
+
+### Automatic continuous Home battery trial
+
+For the reference Air's explicit continuous desktop trial, build both the normal
+image and native diagnostic kernel, then stage with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_VOLUME --battery-home-desktop`.
+This selects v51 and automatic return. Use the normal exact-stage VM, durable
+payload/evidence backup, verified install and one-shot Ubuntu recovery sequence
+above. The separate Q35 capture fixture validates the positive path; exact-stage
+VM rehearsal must refuse native hardware ownership and return cleanly.
+
+The run needs no input. It opens ordinary Home/Text for three minutes while the
+battery service and periodic logging run, saves a Home/Screenshots BMP, retires
+all inherited clients and firmware ownership, saves `exit.log`, unmounts and
+returns. Existing Home files and preferences must be preserved. No fresh
+`battery-study` directory is needed. Allow several minutes for boot, screenshot
+I/O and retirement. Only unresolved live ownership may halt; a clean refusal
+returns automatically and is not a pass.
+
+Collect the matching session before another run. Require the strict
+`battery_home_desktop_records.check_capture` result plus the new screenshot,
+source/release identity, prior-file hashes and offline filesystem checks.
+Physical typing and AC/gauge accuracy remain separate attended acceptance.
+See [the Home lifecycle contract](battery-home-lifecycle.md#explicit-automatic-home-capture-v51).
+
+
+The reference Air7,2 accepted v51 release `8666698f5e5d4ed5` with a complete
+201-second native session, periodic/final logs, screenshot and clean filesystem
+retirement. This accepts the explicit automatic workload on that unit only;
+ordinary startup, attended AC transitions and gauge accuracy remain separate.
+
+### Attended Home AC transition capture
+
+For the next battery/indicator checkpoint, stage
+`python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_VOLUME --battery-home-transitions`.
+This is v52, separate from v51's unattended idle capture. Validate the host and
+VM transition/refusal cases, then rehearse the exact native stage with
+`tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check` and
+`--probe-check --probe-missing-workspace`. Preserve recovery and save the normal
+run record before install/one-shot reboot.
+
+**Tell the user this test needs AC unplug/reconnect before triggering reboot.**
+Keep the designated USB connected throughout. Start on AC; follow the desktop's
+three prompts (connected, unplugged, reconnected). Each phase waits for three
+fresh readings, saves a screenshot, then advances. Each prompt has a two-minute
+limit; no 15-second photo window is involved. Successful or safely retired
+incomplete trials return to Ubuntu automatically. Uncertain live ownership
+retains the mount and halts visibly.
+
+Collect the matching new session first. Require `battery_home_transitions` proof,
+all four logs and all three verified screenshots, source/release identity,
+retirement order, prior-file preservation and offline filesystem/allocation
+checks. A missing image or timeout is incomplete evidence. The saved indicator
+and AC/current changes establish transition behavior only, not calibrated gauge
+accuracy. See the [v52 contract](battery-home-lifecycle.md#guided-home-ac-transitions-v52).
+
+### Air6,1 short mounted Home trial
+
+After accepted exclusive-image coexistence, the explicit Air6,1 v65 command is
+`stage --laptop-probe-volume <this-unit-uuid> --battery-air61 --battery-home`.
+Build `acpi-air61-battery-kernel`, rehearse the exact stage with `--probe-check`
+and the actual partition table, and retain recovery. It holds normal Home during
+short sampling without desktop clients. Normal completion/refusal saves and
+returns; uncertain runtime faults halt with Home retained and never reset mounted
+storage. Keep AC/USB connected. Follow the [Air6,1 audit](macbookair6-1-battery.md#explicit-mounted-home-candidate-v65)
+and collect `battery_home` plus file/allocation proof before another trial.
+Short mounted sampling is accepted below; ordinary battery startup remains off.
+
+
+Air6,1 v65 release `30b0d713f1a9ed55` completed the short mounted Home trial
+on October 23 (session `00065e8b198ee6ba-00`): three fresh samples, 45 events,
+clean retirement/release, preserved prior file contents and clean offline
+allocation. This accepts that bounded no-client diagnostic only; ordinary
+Air6,1 desktop battery startup remains off. See the [unit record](machines/macbookair6-1.md).
+
+
+### Air6,1 bounded Home controls and Text trial
+
+After collecting the short mounted trial, use
+`stage --laptop-probe-volume <this-unit-uuid> --battery-air61 --battery-home-session`
+for v66. It uses the Air6,1 kernel and the existing bounded generated Home
+session: three service lifetimes, five control requests and 60 edits/five Text
+file cycles. Create a fresh `battery-study` directory at the workspace volume
+root after preserving all prior files; refuse an existing directory rather than
+overwriting a previous study. Rehearse the exact GPT stage and missing-workspace
+path. Keep AC and USB connected; no input or charger changes are required.
+Normal completion or checked refusal saves/unmounts/returns, while uncertain
+runtime ownership halts with the mount retained. Collect the strict
+`battery_home_session` proof and exact saved `text-1.txt` through `text-5.txt`
+contents (`AA`), prior-file hashes and offline allocation before another trial.
+Ordinary desktop startup and continuous battery admission remain disabled.

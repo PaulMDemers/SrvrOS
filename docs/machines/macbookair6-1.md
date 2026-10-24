@@ -1,8 +1,8 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture accepted; desktop pointer trial prepared**.
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes are physically accepted.**
 
-## Identity and ownership
+## Initial inventory (2026-10-22)
 
 - Actual DMI model: MacBookAir6,1; firmware `122.0.0.0.0`.
   Marketing year and storage replacement history are not independently verified.
@@ -27,7 +27,7 @@ Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw
   missing/partial reads, including ACPI, HID descriptors, codecs and CPU policy.
   Raw firmware, EDID and device data remain local and ignored.
 
-## Active work and shared dependencies
+## Initial setup scope (historical)
 
 Bounded objective: provision the documented host toolchain, capture this unit,
 validate the unchanged integration baseline and prepare console/input bring-up.
@@ -42,10 +42,10 @@ Air6,1 transport reproducer exists; retain both branches' profile contracts.
 The captured 84-byte USB configuration is byte-identical to the existing
 Air7,2 `apple-05ac-0291-config.bin` fixture. Keyboard is boot interface 1,
 endpoint 0x82, packet 64, interval 8. This supports reuse of configuration
-parsing, not native transport or trackpad report acceptance. Current
-`parse_trackpad_config` explicitly refuses PID `0290`; descriptor similarity
-alone does not establish coordinate ranges, report format or mode switching.
-The existing CS4208 routes admit only subsystem `106b:7e00` or `106b:5e00`,
+parsing, not native transport or trackpad report acceptance. Initial `parse_trackpad_config` refused PID `0290`; subsequent exact-gated admission
+and native capture/gesture acceptance are recorded below. Descriptor similarity
+alone did not establish coordinate ranges, report format or mode switching.
+At initial inventory, the CS4208 routes admitted only subsystem `106b:7e00` or `106b:5e00`,
 not this unit's `106b:7100`. Backlight and SMC matching also target captured
 Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
@@ -53,14 +53,14 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 
 | Capability | State | Remaining work |
 | --- | --- | --- |
-| Boot/display | Visible native console accepted | Desktop and exact framebuffer/layout checks pending |
+| Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
-| Trackpad/gestures | PID not admitted | Captured report/transport evidence before profile |
-| USB workspace | Bounded monitor write/read and persistence accepted | Desktop/sustained I/O and hotplug not accepted |
-| Sound/routes | Not tested | Exact codec routing evidence and listening checks |
-| Brightness | Not tested | Exact firmware/register evidence |
-| Temperature/fan | Linux inventory only | Native read-only profile evidence |
-| Battery/AC | Not tested | Independent firmware audit; ordinary AML stays off |
+| Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
+| Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
+| Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
+| Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; continuous desktop ownership, sustained sampling and gauge accuracy remain open; ordinary startup stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -89,13 +89,15 @@ The first authorized one-shot returned to Ubuntu and was collected. No boot is
 armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
 console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
-## Next actions
+## Current objective and next actions
 
-1. Preserve accepted release `c35475f62f154f1e` and the collected USB test file.
-2. Plan bounded topcase report capture before an Air6,1 trackpad profile; native
-   pointer/gesture support remains unaccepted. Coordinate any shared xHCI work.
-3. Scope desktop, backlight, audio and EC/SCI enablement independently. Rebuild
-   and rehearse any new candidate while retaining the accepted console payload.
+Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
+Air6,1 AML initialization and query effects using private captured regions and
+synthetic EC state. Scope: separate diagnostic-native profile/policy, shared
+runtime only where a model-specific contract is required, staging/VM tests and
+Air6,1 docs. PR88 owns trackpad timing; PR19 owns Pro USB Wi-Fi. Preserve both.
+Next checkpoint is five bounded AC-connected samples with parked USB and full
+retirement. Ordinary desktop admission and charging controls remain disabled.
 
 ## First console trial prepared (2026-10-22)
 
@@ -294,3 +296,1298 @@ VM evidence have hash-verified durable backups. Ubuntu remains default and the
 one-shot is empty. At readiness, save `launch.json` and arm the installed entry
 without reinstalling. After manual restart collect this exact run first.
 No physical pointer/click/drag/scroll acceptance is claimed yet.
+
+
+## Native desktop pointer trial accepted (2026-10-22)
+
+Evidence-only follow-up on main `22fd266`, branch
+`device/macbookair6-1/pointer-evidence`; no driver or desktop changes. PR #19
+remains independent Wi-Fi work. The newly integrated battery changes are not
+part of the physically tested source below.
+
+The user reports “the trackpad works well” after run `e0d4f2a9d906c9b5`, release
+`e20382a7c8acbfe2`, clean implementation `ecb028c`. Collector validates report
+CRC/completion and changed host boot ID: `CAPTURED`, pointer/gesture trials
+`EXERCISED`, desktop exit and keyboard `PASS`. Over about 132 seconds, 5,009
+reports include 3,306 pointer motion events, 34 button edges, 792 held-drag
+frames, 505 scroll events and 63 lifts. There are zero malformed reports,
+driver errors, pointer cancels/queue overflows or dropped keyboard reports.
+
+This accepts the bounded desktop pointer, physical click/held drag and scrolling
+trial with positive overall usability feedback. Direction/speed were not rated
+separately. Typing suppression (zero frames), tap clicks (zero), and drag
+handoffs (zero) remain unexercised. Five broad-contact suppression frames do
+not establish general palm rejection. Sustained use and other applications
+remain outside this trial's acceptance.
+
+All 112 unrelated pre-test file hashes match; the request is correctly consumed,
+workspace metadata updated and only report/completion files added. Offline
+fsck is clean (116 files), allocation has 119 clusters and zero leaks/mismatches/
+errors. Durable report persistence is independently verified; on-screen unmount
+and halt are not separate fields in this report format. Evidence, completion,
+hashes and checks in `build/trackpad-tests/e0d4f2a9d906c9b5/` have a hash-verified
+backup outside build under release `e20382a7c8acbfe2`.
+
+Ubuntu default and installed payloads are verified, one-shot consumed. Current
+remains the accepted bounded v12 trial; previous console/USB recovery remains
+`c35475f62f154f1e`. No new test or reboot is prepared.
+
+## Active tap/typing trial (2026-10-22)
+
+Base `c6a9170`, owner `device/macbookair6-1/tap-typing`. v12 study startup leaves
+pointer options zero and compositor cleanup resets them: its zero tap/typing
+counters do not establish a device failure. Add explicit v50 tap/typing profile,
+study-only option setup and console restoration, coverage reporting/validation,
+exact-stage VM and focused host checks. Preserve old recipes and ordinary app
+preferences; no driver policy or firmware changes. PR #60 owns descendant
+lifetime work (possible nearby desktop edits); keep this change limited to trial
+startup. PR #19 Wi-Fi is independent. Prepare/merge/install unarmed and retain
+accepted console recovery; native tap/typing acceptance awaits this new run.
+
+Candidate v50 run `4eb6e6e65525268d`, release `f8e370a084725baa`, uses clean
+implementation `1977c8b7e8eb333197886340d66d9db4ec3a0ced`. Build/core, focused
+pointer/desktop/capture suites and 112 hardware-tool tests passed. Exact-stage
+GPT rehearsal passed desktop option setup/exit, console option restoration,
+CRC report/unmount, replay/read-only refusal and halt. Its tap/typing result
+correctly remains `INCOMPLETE` without Apple input. Desktop and console screens
+were visually inspected. No physical tap/typing acceptance yet.
+
+Physical USB UUID `6ADA-85BB` has an unconsumed request and 117 pre-test hashes;
+offline fsck is clean (117 files), allocation has 120 clusters and zero errors
+or leaks. Preserve console recovery `c35475f62f154f1e` and the durable accepted
+v12 payload/evidence `e20382a7c8acbfe2`. Trial instructions are in the
+[current guide](../macbookair6-1-trackpad.md#tap-to-click-and-typing-suppression-trial-v50).
+
+Legacy gesture/MBR regression also passed. Installed current is v50; previous
+remains console recovery via `--keep-previous`. Installed hashes, Ubuntu default
+and GRUB syntax verified; one-shot is empty. Run/checklist and exact VM evidence
+have hash-verified durable backups under release `f8e370a084725baa`. At readiness
+save `launch.json` and arm the already installed entry without reinstalling.
+Collect run `4eb6e6e65525268d` first after manual restart.
+
+## Tap/typing accepted; study feedback follow-up (2026-10-22)
+
+Run `4eb6e6e65525268d`, release `f8e370a084725baa`, source `1977c8b`: the user
+reports everything worked as intended, with one UI defect: tapping Text size
+activates it but lacks the brief pressed-color feedback seen on physical click.
+Collector verifies CRC/completion and host return; tap/typing, pointer and
+gesture trials are EXERCISED, keyboard/desktop exit PASS. Counts: 18 primary
+taps, 150 typing-suppressed frames, 326 scroll events, 2,484 reports, zero
+malformed reports/errors/cancels/queue overflows or dropped keys. This accepts
+bounded primary taps and typing suppression/recovery with positive user feedback.
+Secondary taps and broad-contact rejection remain unexercised in this run.
+
+All 115 unrelated file hashes are preserved; only expected consumed request,
+workspace metadata and report/completion changes occurred. Offline fsck and
+allocation pass. Evidence has a hash-verified durable backup under this release;
+Ubuntu returned and one-shot is empty. No new boot is prepared.
+
+Follow-up scope on base `14f17d2`, branch `device/macbookair6-1/tap-feedback`:
+fix only the Type study's visual activation feedback with presentation-aware
+expiry and regression tests. Its receive batch can consume both tap edges
+before drawing. Preserve immediate activation and input order; no driver,
+shared-widget or firmware policy changes. PR #19 Wi-Fi is independent. The
+newer integrated battery/lifetime work is outside the physical trial acceptance.
+
+The Type study now retains a visual-only activation pulse through the highlighted
+frame's compositor release, then clears it after ten ticks (about 100 ms).
+Press/release ordering, immediate activation and logical capture are unchanged.
+Resize/cancel clears the pulse. Host regression covers both tap edges before
+draw, highlighted/restored pixels, delayed/stale frame release and repeat/cancel.
+This fix is not yet physically retested and does not alter the installed v50.
+
+Feedback fix build/desktop host suite and compositor VM passed, including study
+activation, scrollbar capture, focus, drag/resize, client/server cleanup and
+console return/relaunch. Host pixel regression verifies the fast-tap highlight
+and its expiry. Logs: `build/review/air61-feedback-{build,host,compositor}.log`.
+No new hardware stage or installation was made; v50 remains installed unarmed.
+
+## Highlight verification preparation (2026-10-22)
+
+Base `52ef3ea`, branch `device/macbookair6-1/highlight-trial`: prepare a fresh
+v50 request with merged Type study feedback fix. No implementation changes;
+recheck build/host regression and exact-stage GPT VM, retain console recovery,
+install unarmed. Primary objective: light taps on Text size visibly highlight
+once, activate once, then restore; compare physical clicks and check repeated
+taps/cancel/resize do not leave the highlight stuck. Tap/typing checks remain
+enabled. PR #19 Wi-Fi remains independent. Prior run is collected and archived.
+
+Fresh run `cd54ca6d8f2cd4fb`, release `ab0bea06acccc443`, clean source `d15b5a7`
+is installed unarmed. Build/desktop/capture tests pass, including the batched-tap
+pixel/expiry regression; prior compositor integration covers the unchanged fix.
+Exact-stage v50 GPT rehearsal passes startup/options/exit, report/unmount,
+replay/read-only refusal and halt. Hardware coverage remains pending.
+
+USB UUID `6ADA-85BB`: 120 pre-test file hashes, clean fsck, allocation 123
+clusters with zero leaks/errors. `--keep-previous` retains console recovery
+`c35475f62f154f1e`; accepted tap/typing payload `f8e370a084725baa` is durably
+backed up. Installed hashes, Ubuntu default and GRUB syntax verified; next_entry
+empty. Run/checklist and VM evidence have hash-verified copies outside build.
+At readiness save launch.json and arm the installed entry without reinstalling.
+After manual restart collect this run and the user's visible-highlight feedback.
+
+
+## Native tap highlight verification accepted (2026-10-22)
+
+Evidence-only follow-up on base `9256faa`, branch
+`device/macbookair6-1/highlight-evidence`; no implementation changes. Open
+PR #66 AC/battery transitions and PR #19 Wi-Fi remain independent work.
+
+For run `cd54ca6d8f2cd4fb`, release `ab0bea06acccc443`, source `d15b5a7`, the
+user reports “The tapping and clicking both working great.” This is positive
+feedback for the requested highlight verification on the merged MR #64 fix.
+Visible feedback acceptance is user-reported; saved counters do not measure
+rendered button colors or pulse timing. Collector validates report CRC/completion
+and changed host boot ID: tap/typing, pointer and gesture trials EXERCISED,
+keyboard/desktop exit PASS. Counts include 11 primary taps, 20 button edges,
+32 typing-suppressed frames, 26 scroll events and 765 reports. No malformed
+reports, driver errors, pointer cancels/queue overflows or dropped keys.
+Secondary taps and broad-contact suppression remain unexercised in this run.
+
+All 118 unrelated pre-test files retain their hashes. Only the expected consumed
+request, metadata and report/completion changes occurred. Offline fsck is clean
+(122 files); allocation 125 clusters, zero leaks/mismatches/errors. Evidence and
+completion under `build/trackpad-tests/cd54ca6d8f2cd4fb/` have a hash-verified
+durable backup under release `ab0bea06acccc443`. Installed payloads and Ubuntu
+default are verified; one-shot consumed. Current remains this accepted bounded
+trial, previous remains console recovery `c35475f62f154f1e`. No new boot prepared.
+
+## Full desktop/USB session preparation (2026-10-22)
+
+Base `208423f`, branch `device/macbookair6-1/desktop-session`. Bounded objective:
+full workspace desktop with an attended, finite Terminal copy/sync/readback job
+while using Text, Files, window management and settings. Scope: additive v53
+input-only desktop staging, shared fixture/verification helper, exact-stage VM
+coverage and this unit's checklist. No kernel, driver or app behavior changes.
+PR #66 owns v52 AC/battery capture; PR #19 owns Wi-Fi. Their separate recipes
+and native gates remain unchanged. Prior highlight run is collected. Preserve
+console recovery `c35475f62f154f1e`; install unarmed after exact-stage validation.
+
+The initial [full desktop session checklist](../macbookair6-1-desktop-session.md)
+uses v53 release `306174ddfec763ef`, clean source `f8a498a`; VM tooling finalized
+at `819acd0`. Build, desktop host suite, staging/collector tests (56 installer
+checks, 22 collector checks) and docs pass. Exact-stage GPT VM passes 60 one-MiB
+copy/sync/readback rounds with concurrent Text save, Terminal writes and screenshot
+capture, plus exact retained bytes, session collection, two clean unmounts and
+preferences across a fresh VM boot. Two earlier harness failures (semicolon key
+mapping and outdated Settings coordinates) were corrected; neither was a native
+OS failure. Failed logs remain local. No native full desktop acceptance yet.
+
+Native run `23dadab462e9ed83` has fresh inputs and 124 pre-boot file hashes on
+UUID `6ADA-85BB`. Offline fsck is clean; allocation has 134 clusters, zero leaks,
+mismatches or errors. Install retains console recovery `c35475f62f154f1e` via
+`--keep-previous`. Installed hashes, Ubuntu default and empty one-shot are checked.
+Evidence/checklist live in `build/desktop-sessions/23dadab462e9ed83`, with durable
+payload and trial copies outside build under release `306174ddfec763ef`.
+
+At readiness recheck installed state, USB identity/input hashes and record the
+launch before arming. In the desktop Terminal run `sh session-23dadab462e9ed83.sh`,
+then use other apps while it advances. Save `notes-23dadab462e9ed83.txt`, wait for
+USB SESSION COMPLETE, save a screenshot, return to console and require clean
+log save/unmount before `reboot`. On return collect the matching new desktop
+session and verify workload/notes/preferences/prior files and both offline checks
+before staging another run. The preparation leaves reboot unarmed.
+
+MR #66 landed during preparation; consumed merged main `ddf4ebf` and retained
+both the v52 battery recipe and v53 basic desktop recipe. Combined source
+`f689b7c` rebuilds successfully; 57 staging/installer tests, 23 collector tests,
+the desktop suite and battery control/transition regressions pass. Initial
+release `306174ddfec763ef` is superseded by `9ddea14869c9ed6f`; the same unstarted
+USB run and inputs remain valid. Final exact-stage GPT rehearsal passes all 60 rounds, concurrent app saves,
+retained bytes, two clean exits/unmounts and fresh-boot preference persistence.
+The rebuilt release is installed unarmed with console recovery retained; installed
+hashes, Ubuntu default and empty one-shot are verified. Final payload and trial
+backups are hash-verified outside build under `9ddea14869c9ed6f`. The run command,
+checklist and physical acceptance scope above are unchanged.
+
+## Full desktop return: persistence confirmed, picker defect (2026-10-23)
+
+Evidence-only follow-up on merged main `80b567a`, branch
+`device/macbookair6-1/desktop-evidence`. PR #69 ordinary battery sessions and
+PR #19 Wi-Fi remain separate. No new payload or reboot is prepared.
+
+Run `23dadab462e9ed83`, release `9ddea14869c9ed6f`, returned to Ubuntu with a
+changed boot ID. Two matching sessions (`00065e7a277b701f-00` and
+`00065e7a391c3f26-00`) have exit snapshots, clean desktop exit and no collector
+attention flags. The user confirms restarting/rerunning after an interruption.
+The workload retains rounds 1–19 followed by 1–60, a completion marker and an
+exact final 1 MiB payload. Strict single-run verification correctly rejects the
+79-line round log; do not call the original uninterrupted trial a pass.
+
+The user reported Text claiming saves while files did not appear, and inability
+to reenter Home after navigating Up. Four newly saved text files exist on USB:
+`demo_test.txt`, `test-save-test.txt`, `test2.txt`, `t3.txt`. Logs report successful
+file writes and directory reads, but Home listings never reach picker-ready.
+Persisted `.srvros/meta` contains two duplicate-inode pairs within Home:
+639 for the first trackpad completion and a later request, 647 for another
+completion and the new session script. `desk_listing_decode` refuses duplicate
+inodes, rejecting the entire directory. Parent browsing can succeed, but entering
+Home again hits the same rejection. This is a metadata identity defect, not
+sufficient evidence to blame double-click timing or lost document writes.
+
+All 124 pre-boot file hashes are preserved except expected `.srvros/meta`.
+Offline fsck is clean (139 files); allocation traversal finds 160 clusters with
+zero leaks/mismatches/errors. Installed current/recovery hashes and Ubuntu default
+verify; one-shot is empty. Raw sessions, new files, metadata and return records
+are hash-verified outside build under the installed release's trial directory.
+No screenshot or saved desktop preferences was found; those checks remain open.
+Full desktop acceptance is withheld pending the picker fix and a fresh trial.
+
+Two follow-ups are needed: reproduce persisted/imported inode collisions and fix
+identity restoration while retaining strict listing validation; make the workload
+explicitly refuse an existing run directory. Its current `mkdir ... || exit 1`
+guard is insufficient because SrvrOS mkdir succeeds for existing directories.
+Preserve the interrupted and restarted evidence instead of rewriting round logs.
+
+## Identity and workload retry fix scope (2026-10-23)
+
+Base `58b354f`, branch `device/macbookair6-1/file-identities`. Fix duplicate VFS
+identities during metadata import/registration, preserving permissions/times and
+strict picker validation. Add collision/allocator regressions and a disposable
+VM fixture with duplicate persisted IDs, saved-file reopen and Home reentry.
+Fix the shell workload's existing-directory guard and exercise refusal without
+changing retained round evidence. Scope: VFS metadata, workload/rehearsal tools,
+tests and this unit's guide. PR #69 owns opt-in battery session startup; PR #19
+owns Wi-Fi. Neither owns VFS identity restoration. Prior native run is collected;
+retain its evidence and console recovery. Prepare a fresh v53 trial only after
+host tests and exact-stage VM pass, install unarmed, then merge under existing
+authorization. No firmware/profile gates are widened.
+
+The VFS now remaps imported zero/colliding IDs to unused live IDs across the
+whole node table; unique requested IDs and all other metadata fields are retained.
+Registration and metadata restoration share the rule; allocation skips used IDs
+and handles wraparound. The picker retains strict duplicate checks. The host
+regression fails against the old implementation at the collision assertion and
+passes on the fix, including file/directory import, repeated updates, zero and
+maximum IDs, wraparound and retained mode/time. Core and desktop suites pass.
+
+Exact-stage v53 GPT VM passes on release `db7ce82008f4b9a6`, clean source
+`78e285a`: seeded duplicate persisted IDs become unique, saved Text files reopen,
+Home Up/reentry works, all 60 copy/sync/readback rounds verify, and retries during
+the active workload and after a fresh boot return nonzero without changing the
+round log or final payload. Preferences, session logs and two clean unmounts pass.
+The guard explicitly tests directory existence before mkdir; it is a sequential
+rerun guard, not an atomic concurrent-job lock. Run one instance at a time.
+
+Fresh native run `f48940182e6911a0` is installed unarmed. Command:
+`sh session-f48940182e6911a0.sh`. Follow the updated full desktop checklist,
+including visible file listings, Up/double-click Home reentry, saved-file reopen
+and a second invocation that must print REFUSED without another round. Prior
+metadata/evidence remains untouched on USB so mount-time repair is exercised.
+There are 141 pre-boot hashes; fsck is clean and allocation has 169 clusters with
+zero leaks/mismatches/errors. Console recovery `c35475f62f154f1e`, installed hashes,
+Ubuntu default and empty one-shot are verified. Payload/trial evidence has a
+hash-verified durable copy outside build under the new release. Physical fix
+acceptance is pending; collect this fresh run before another trial.
+
+## File identity fix physical result (2026-10-23)
+
+Run `f48940182e6911a0`, release `db7ce82008f4b9a6` (clean source `78e285a`,
+merged PR #71), returned to Ubuntu. Matching session
+`session-00065e82d1e50247-00` has its exit snapshot and desktop exit with no
+collector attention. The user reports the file issues resolved during this run.
+All 172 persisted metadata IDs are nonzero and unique, including repair of the
+previous collisions. Two new text files persist. All 141 preboot file hashes
+are unchanged except the expected `.srvros/meta` repair/update.
+
+The workload verifies exactly rounds 1–60 once, 62,914,560 bytes copied, exact
+final readback and completion marker. Offline fsck is clean (150 files), and
+allocation traversal passes with 187 clusters and zero leaks, mismatches or
+errors. This accepts the reported file-listing/save/navigation fix and the
+bounded concurrent USB workload on this unit. Physical rerun refusal and
+preference persistence are not independently captured; their VM evidence remains
+valid but this report does not promote them to physical acceptance. No screenshot
+was saved. Broader gesture/session and optional device coverage remains open.
+
+Raw collection, changed/new files, hash report and offline checks are preserved
+under the run directory and hash-verified durable evidence outside build at
+`~/.local/share/srvros/evidence/db7ce82008f4b9a6/trial`. Run/launch records are
+returned-collected; GRUB one-shot is empty and USB is unmounted. No new trial
+is staged or armed. Next work should choose a bounded remaining acceptance scope.
+
+## Rerun refusal and preference persistence scope (2026-10-23)
+
+Base `5089172`, branch `device/macbookair6-1/rerun-preferences`. Prepare a focused
+attended follow-up using accepted release `db7ce82008f4b9a6` and the completed
+`f48940182e6911a0` workload. Preserve that workload; capture refusal stdout and
+exit status and compare its retained files with pre-test reference bytes. Save
+pointer speed 5/acceleration off through Settings, check reopening, then collect
+before a second boot verifies restoration. Scope is workload evidence helper,
+VM rehearsal and this unit's guide/record; no OS or firmware gate changes.
+PR #69 battery startup and PR #19 Wi-Fi remain separate. Re-run exact-stage GPT
+VM before readiness; retain Ubuntu default and console recovery. No reboot yet.
+
+Focused phase-1 run `359e52fa68fe19bf` is ready, installed-unarmed, reusing
+unchanged accepted release `db7ce82008f4b9a6` (OS source `78e285a`). Preparation
+helper/VM code `8441c88`, regression `b925cc3`: 57 staging tests, refusal preflight
+and collector regression, Settings/preferences host tests and docs checks pass.
+The exact-stage GPT VM passes two boots, saved preferences, the new refusal
+stdout/status/comparison receipt, 60 exact rounds, and two clean unmounts.
+Two initial fixture-construction attempts failed before boot because nested
+names are unsupported by the image builder; the final fixture uses flat names.
+
+Native command: `sh refusal-359e52fa68fe19bf.sh`. It checks completed workload
+`f48940182e6911a0`; require REFUSAL VERIFIED, then set Settings speed 5 and
+acceleration off, wait for ready and reopen Settings. Return to Ubuntu for
+collection before the separate restoration boot. All 150 prior files are
+preserved; seven fresh inputs bring the preboot count to 157. Offline checks
+pass (201 clusters, zero leaks/mismatches/errors). Installed payload and console
+recovery hashes, Ubuntu default and empty one-shot are verified. Local run and
+VM receipts are backed up outside build under the release's
+`refusal-preferences/359e52fa68fe19bf` directory. Physical acceptance is pending.
+
+### Refusal captured; preference restoration ready
+
+Phase 1 `359e52fa68fe19bf` returned with matching new session
+`session-00065e84b6a90e72-00`: exit snapshot/desktop exit present, no collector
+attention. The actual refusal stdout matches, exit status is 1, verification
+receipt passes, and the completed workload remains byte-for-byte unchanged.
+`desktop.conf` persists speed 5 and acceleration off. All 157 preboot files
+are unchanged except expected metadata updates. No screenshot was saved; visual
+reopen behavior was not separately reported. Offline fsck is clean (165 files),
+allocation passes with 210 clusters and zero leaks/mismatches/errors.
+
+Phase 2 `3559ab3a5aab1fb8` is ready on the same verified installed payload,
+with all 165 current file hashes recorded and no new USB inputs. Open Settings
+and confirm speed 5/acceleration off before any change; capture a screenshot if
+possible, return to console and reboot to Ubuntu. Do not rerun the workload or
+refusal wrapper. The existing exact-stage two-boot VM receipt remains applicable;
+no OS changes or new installation are involved. Both run records/evidence have
+verified durable backups. Ubuntu default/recovery are intact; one-shot is empty.
+Refusal and saved preference bytes are physically verified; restoration remains
+pending this second boot. Newly merged PR #69 is not part of this installed
+release; do not widen the trial to its battery startup behavior.
+
+### Preference restoration physically accepted (2026-10-23)
+
+Phase 2 `3559ab3a5aab1fb8` returned on unchanged release `db7ce82008f4b9a6`.
+New matching session `session-00065e84cfa28c9c-00` has its exit snapshot and
+desktop exit, with no collector attention. The user confirms settings persisted;
+the saved screenshot shows Trackpad speed 5 of 5 and acceleration unchecked.
+`desktop.conf` is byte-identical to phase 1, and the earlier refusal receipts and
+completed workload still verify. All 165 preboot files are preserved except the
+expected metadata update. New files are the four session logs and screenshot.
+Offline fsck is clean (170 files); allocation passes with 249 clusters and zero
+leaks/mismatches/errors. Evidence and screenshot have a hash-verified durable
+backup outside build. One-shot is empty, USB unmounted, and recovery verified.
+
+This closes the focused completed-workload rerun refusal and speed/acceleration
+persistence checks on this unit. It does not expand acceptance to every preference,
+concurrent script starts, optional hardware services or other Mac models. No
+new boot is staged or armed; both focused runs are collected.
+
+## Read-only brightness capture ready (2026-10-23)
+
+Implementation/source `a0f148a`, release `142dd83ded3d2da4`, run
+`b1bf2459dd0cd1f9`: exact GPU `0a26`, PCH `9c43`, 31,777-byte DSDT fingerprint
+`af9a47bc352dc6bf` admits only the read-only PWM capture. Current Ubuntu DSDT
+matches the inventory bytes. No EC/AML access, writable PWM mapping or provider
+binding is admitted on this profile. Native mode/period evidence is still pending.
+
+Full build/USB image and core suite pass, as do backlight tests, 58 staging tests
+and captured-firmware positive/negative tests (wrong chipset, length, checksum
+and checksum-correct modification refused). Exact-stage GPT v19 VM saves logs,
+checks retained file bytes and clean exFAT, then resets; the missing-workspace
+case returns without starting the probe. This is recovery-path validation, not
+native PWM acceptance. Docs and diff checks pass.
+
+Installed unarmed with console recovery `c35475f62f154f1e` retained; accepted
+desktop `db7ce82008f4b9a6` remains installed and independently backed up. One
+superseded EFI payload (`9ddea14869c9ed6f`) was removed only after verifying its
+complete independent backup. Ubuntu default and empty one-shot verified.
+All 170 USB files are recorded; offline fsck/allocation pass (249 clusters,
+zero leaks/mismatches/errors). Payload and run evidence are preserved outside
+build. This next boot is unattended: leave USB attached, allow automatic Ubuntu
+return, then collect before any write-enabled brightness implementation.
+
+
+## Native PWM capture result (2026-10-23)
+
+Run `b1bf2459dd0cd1f9`, release `142dd83ded3d2da4`, session
+`session-00065e85df9c8068-00` returned to Ubuntu with matching boot/exit logs,
+`completed=yes` and no collector attention. Exact Air6,1 admission succeeded:
+CPU control/duty `0/0`, PCH control `c0000000`, PCH duty `0ad904cc`;
+decoded mode 2 (PCH override), period 2777, duty 1228 (about 44% duty).
+The capture explicitly records no PWM writes, provider binding or EC access.
+This accepts read-only access, not panel adjustment or calibrated luminance.
+
+All 170 prior file hashes match except expected metadata update; only two
+session logs are new. Offline fsck is clean (172 files), allocation passes with
+252 clusters and zero leaks/mismatches/errors. Final saved/unmounted console
+messages are emitted after logging stops and are not present in the saved exit
+snapshot; retained logs, returned host state and offline integrity are recorded
+separately rather than claiming those console messages were captured.
+Evidence has a hash-verified backup outside build. One-shot is empty and USB
+unmounted; recovery remains verified. Next is an exact Air6,1 brightness provider
+preserving observed mode/period, with an attended visible adjustment trial.
+No new boot is staged or armed.
+
+## Brightness control scope (2026-10-23)
+
+Base `83a3f59`, branch `device/macbookair6-1/brightness-control`. Bind an explicit
+Air6,1 profile only behind the existing captured GPU/PCH/DSDT gate and observed
+CPU control 0, PCH control c0000000, period2777. Reuse bounded 5–100% duty writes,
+readback verification and drift quarantine. Discovery must leave the panel alone.
+Prepare a brightness-only unscaled desktop v56 via basic+brightness staging;
+no audio, EC/AML, battery or other optional service. Scope: backlight/profile,
+probe binding, staging/VM tests and this unit's docs. PR #76 reserves v55 for
+combined services; preserve that separate work when integrating shared staging.
+PR #19 remains Pro Wi-Fi work. Native visible adjustment remains unaccepted.
+
+### Attended brightness control ready
+
+Clean source `1cc5f82`, release `59086591e526632b`, run `19da744d205e2b2c`
+implements explicit Air6,1 control using the native captured period2777. The
+existing exact GPU/PCH/DSDT gate is retained. Discovery leaves duty unchanged;
+requests are bounded 5–100%, preserve mode/period and verify readback. Any mode,
+period or readback mismatch disables the provider. Read-only capture stays read-only.
+
+Full build/USB image, core and desktop suites, all-profile backlight tests,
+captured-firmware tests and 59 staging tests pass. Exact-stage GPT v56 VM passes
+two boots, Settings/preferences, Text saves, screenshots, diagnostic collection
+and clean unmounts. Unsupported Q35 brightness remains unavailable. These tests
+do not establish visible native adjustment. Docs/diff checks pass.
+
+Installed unarmed, console recovery retained, accepted desktop and prior capture
+backups verified. Superseded EFI payload `19eb394b28cbeef5` was removed only after
+verifying its independent backup. All 172 existing USB files are recorded;
+offline fsck/allocation pass (252 clusters, zero issues). Payload/run evidence
+is backed up outside build. Follow the attended brightness guide: inspect the
+initial level without a startup change; try 50/25/75/100/5 then50, confirm visible
+changes and responsive input, reopen Settings, screenshot and return manually.
+No battery/EC/AML/audio/network/sensor service is enabled. Native acceptance pending.
+
+
+## Native brightness adjustment accepted (2026-10-23)
+
+Run `19da744d205e2b2c`, release `59086591e526632b` (source `1cc5f82`), session
+`session-00065e863524e78f-00`: the user reports proper brightness operation
+throughout the range. Exact Air6,1 provider starts ready at 44%, with no discovery
+write. Logs contain 193 successful brightness readings spanning 5–100%, ending
+at 58%, with no unavailable result. The desktop exit snapshot is present and
+collector attention is empty. This accepts visible adjustment on this unit;
+no screenshot was saved, and final50/reopen or absence of a visible startup
+change is not separately claimed. Reboot persistence/calibrated luminance remain
+outside scope.
+
+Offline fsck is clean (176 files); allocation passes with 257 clusters and zero
+leaks/mismatches/errors. Prior files match except metadata and desktop.conf;
+the latter changed pointer speed5 to3 and acceleration0 to1. The user confirmed
+these changes were intentional; this is not a preference-persistence regression. Four new session logs are retained. Run/launch are collected,
+one-shot empty and USB unmounted. Evidence is backed up outside build; no new
+boot is staged or armed.
+
+## Audio listening candidate (2026-10-23)
+
+Implementation `8f3656a`, PR #82, v57 release `0533c0dfc63d104f` adds exact
+`9c20` / CS4208 `106b:7100` revision `100300` admission. Both observed pin
+pairs are validated before codec writes; speaker DAC3/pin12 and headphone
+DAC2/pin10 reuse muted startup, GPIO0 and the existing serialized worker.
+See the [route evidence and listening checklist](../macbookair6-1-audio.md).
+
+Full build/USB image, core and desktop host tests, 60 staging tests and docs
+checks passed. The exact staged GPT VM passed two desktop sessions, GUI file
+save/reopen, preference restoration, recorded 500 ms tone and six-second stereo
+WAV, zero underruns and silent tails. Native audio remains **not tested**;
+QEMU routing cannot establish this Air's sound quality or channel balance.
+
+The candidate retains accepted brightness and input, with battery/AML, SMC,
+sensors and networking off. Preserve accepted brightness `59086591e526632b`
+and previous console recovery `c35475f62f154f1e`. Local run
+`build/audio/42421979e85c44eb` holds 176 preboot file hashes and clean offline
+exFAT/allocation evidence. Ubuntu stays default; reboot is unarmed. Next action
+is the attended speaker/volume/channel/Stop test and optional manual headphones,
+followed by collection and file/allocation checks before acceptance.
+
+## Native audio return (2026-10-23)
+
+The user reports that sound worked properly on release `0533c0dfc63d104f`
+(compiled `8f3656a`). Two new sessions were collected: `00065e8718b76081-00`
+initialized audio and exited without test tones; `00065e874fca8c4d-00` completed
+three tones, a 1,152,000-byte WAV and cancellation of a second stream at byte
+609,188. Volume requests include 10% and 25%. Both sessions exited cleanly;
+audio ended ready, no error, no owner and zero underruns.
+
+This accepts basic audible speaker playback on this unit. Detailed left/right
+balance, absence of startup pops, headphone isolation and sustained playback are
+not separately confirmed. No headphone selection or connection was logged.
+The diagnostic literal `physical sound NOT_TESTED` is intentionally not an
+automatic acceptance flag; listening confirmation comes from the user.
+
+All 176 prior files remain, with only filesystem metadata changed and eight new
+session logs. Offline exFAT and allocation checks pass: 184 files, 267 clusters,
+zero leaks/mismatches/errors. Ubuntu return, empty one-shot, installed/recovery
+hashes and the independent payload backup are verified. Full return evidence is
+retained outside `build`; no new boot test is armed.
+
+## Headphone/extended playback ready (2026-10-23)
+
+The next attended trial reuses accepted release `0533c0dfc63d104f`, compiled
+`8f3656a`. No payload or hardware gate changed. Run `5a302d248eee397a` in local
+`build/audio/extended-20261023` has the headphone/extended checklist and a
+verified 60-second stereo WAV in USB Home's `audio-extended` directory. All 184
+existing files are preserved; the new baseline has 185 files. Offline exFAT and
+allocation checks pass: 356 clusters, no leaks/mismatches/errors.
+
+Targeted HDA, audio service/stream, WAV conversion and Settings host tests pass.
+The existing PCM VM harness completed five one-minute plays with zero guest
+underruns, exact recorded samples (maximum error zero), distinct stereo and USB
+input retained. Actual guest kernel/initramfs hashes match the accepted release;
+the newer harness checkout is recorded separately, not claimed as compiled code.
+The exact v57 GPT VM additionally passed two desktop sessions, GUI save/reopen,
+preferences, tone/WAV capture, durable logs and clean unmounts. These results do
+not accept physical headphones or extended native playback.
+
+Use the [extended checklist](../macbookair6-1-audio.md) to check manual headphone
+routing, jack indication, left/right isolation, five full one-minute plays,
+Stop/recovery and return to speakers. Console recovery `c35475f62f154f1e`
+remains previous; Ubuntu stays default. No reboot is armed. On return identify
+new sessions against this run's preboot hashes: the release ID is deliberately
+the same as the earlier accepted speaker trial. Preserve the prior trial evidence.
+
+## Headphone trial return (2026-10-23)
+
+The user reports all headphone and speaker audio worked as intended. New
+sessions `00065e879b6e0aac-00` and `00065e87be98c776-00` both exited cleanly.
+The first initialized without playback. The second records connected headphones,
+manual headphone selection at 10%, two headphone tones, a complete 1,152,000-byte
+channel WAV, subsequent Stop requests, selection back to speakers and a third
+completed tone. Audio ended ready with no owner, error or underruns.
+
+Three longer streams were canceled: handles 2/3 on headphones and 4 on speakers.
+No complete 11,520,000-byte one-minute stream is evidenced, so the five-minute
+native endurance target is **incomplete**, not passed. Headphones still reported
+connected at exit; disconnected-jack indication is not established. The user's
+listening report accepts bounded headphone/speaker operation; individual
+left/right and speaker-isolation observations were not separately enumerated.
+
+All 185 preboot files remain unchanged except `.srvros/meta`; eight new session
+logs were added. Offline exFAT/allocation checks pass: 193 files, 366 clusters,
+no leaks/mismatches/errors. Ubuntu returned with empty one-shot and verified
+payload/recovery hashes. Return evidence is retained in this run's separate
+backup outside `build`; the earlier speaker acceptance remains intact.
+
+The user explicitly confirmed the early stops were intentional, with no playback
+problem. They are not failures, but do not complete the full-duration target.
+
+## Read-only telemetry trial ready (2026-10-23)
+
+Release `eee15036f4172920`, compiled clean source `60fc97a`, is installed for
+attended run `3f703367ab650765`. MR87 adds captured CPU signature `40651` and
+the exact Air6,1 DSDT/GPU/PCH single-fan profile. The v59 unscaled desktop keeps
+brightness/audio and enables only CPU temperature and SMC fan reads. No fan
+control, EC/AML, battery, SMC MMIO or IRQ6 ownership is enabled. See the
+[telemetry checklist](../macbookair6-1-telemetry.md). Native readings remain pending.
+
+Full build, USB image, core/desktop host suites, 63 boot-profile tests and docs
+checks pass. The actual DSDT matcher passes. The exact staged GPT VM passes
+two desktop sessions, save/reopen, preferences, tone/WAV playback with zero
+underruns, saved device status and clean unmounts. Generic QEMU correctly
+reports thermal/SMC unavailable; this does not accept native readings.
+
+USB `6ADA-85BB` remains unmounted with a 193-file baseline; offline exFAT and
+allocation checks pass (366 clusters, zero leaks/mismatches/errors). Installed
+payload/recovery and independent backups are hash-verified. Console recovery
+`c35475f62f154f1e` and accepted audio `0533c0dfc63d104f` are retained. Ubuntu
+remains default and no reboot is armed. Run records, captures and VM evidence
+are stored locally and copied outside build before boot.
+
+## Read-only telemetry return (2026-10-23)
+
+The user reports all sensors displayed fine. Matching session
+`00065e8823afc352-00` on release `eee15036f4172920` ran about 82 seconds and
+exited cleanly with no collector attention. Saved snapshots show boot-core
+57–63 C, package 58–64 C and one fan at 1175–1231 RPM. Both providers reached
+81 samples; every saved device sample was less than one second old. SMC ended
+with 84 transactions, zero failures and error zero. Audio tone activity occurred
+with final audio ready/error zero; PCM stayed idle in the saved snapshots.
+
+This accepts basic native read-only temperature/fan display and fresh sampling.
+The full two-minute file/audio coexistence checklist, Pause/Refresh/reopen and
+screenshots are not independently established. No new document or screenshot
+was saved. This is not thermal calibration, fan-control or cooling acceptance.
+
+All 193 preboot files remain; only `.srvros/meta` changed and four matching
+session logs were added. Offline checks pass: 197 files, 371 clusters, no leaks,
+bitmap mismatches or errors. Ubuntu returned with an empty one-shot; installed
+candidate/recovery and backup hashes are verified. Run records and return logs
+are retained outside build under the candidate's evidence/trial directory.
+
+## Battery/AC passive preflight ready (2026-10-23)
+
+Run `10567bbea85fe3e2`, release `9b528e09c13e1d4b`, clean source `f6bab3e`,
+is installed unarmed. Fresh DSDT/ECDT/FADT match the original unit capture.
+Offline loading of nine AML tables with private GNVS/SMBus PCI snapshots matches
+the EC namespace/resources with zero errors, denials, writes or leaked allocations.
+Full initialization and runtime permissions remain unaudited; this result is not
+live battery telemetry. See the [battery bring-up note](../macbookair6-1-battery.md).
+
+The distinct v60 automatic test records only exact-gated PM1, GPE and EC-status
+reads, saves to USB, unmounts and returns to Ubuntu. Leave AC connected. It does
+not issue EC commands, read EC data, initialize AML or own SCI. Native handoff
+state is needed before a later bounded battery-sampling profile can be admitted.
+
+Build/USB image, core/desktop suites, 64 staging tests, 24 collector tests,
+passive-port host checks, actual resource-gate/mutation tests and docs checks
+pass. Exact-stage GPT VM confirms refusal without native access, saved logs,
+clean filesystem/unmount and automatic reset. Native preflight remains pending.
+USB has 197 baseline files; offline allocation passes with 371 clusters and
+zero leaks/mismatches/errors. Installed/independent payload hashes are verified;
+console recovery `c35475f62f154f1e` and accepted telemetry `eee15036f4172920`
+remain available. Ubuntu stays default with empty one-shot. Evidence is backed
+up outside build before boot; no reboot has been requested.
+
+## Battery/AC passive preflight return (2026-10-23)
+
+Matching session `00065e8886bf8b00-00`, release `9b528e09c13e1d4b`, records
+all 36 passive reads, zero writes and `completed=yes`, with no collector attention.
+Ubuntu returned on a new boot with empty one-shot. PM1 control/enable are zero,
+status is `8001`, and EC status is zero (idle at the snapshot). GPE enable
+byte 12 is `40`, byte 14 is `04`, and every other enable byte is zero: enabled
+sources `66` and `72` hexadecimal. Their pending status bytes were zero; other
+masked GPE status bits were set. Nothing was acknowledged or changed.
+
+This accepts the passive firmware handoff capture only. It does not prove
+battery/AC readings, event ownership, AML initialization or EC/SCI teardown.
+The complete snapshot is retained for the independent runtime audit.
+
+All 197 prior files remain; only `.srvros/meta` changed and two matching session
+logs were added. Offline exFAT/allocation checks pass: 199 files, 374 clusters,
+zero leaks/mismatches/errors. Installed and independent recovery/payload hashes
+are verified. Return records and logs are backed up outside build. No boot is armed.
+
+## Bounded battery/AC runtime ready (2026-10-23)
+
+The independent connected audit is complete for the first bounded profile;
+native operation remains pending. Release `674c597b082f2494`, clean source
+`308e4bd`, is installed unarmed for run `5b60eacb23867c83`. See the
+[runtime audit](../macbookair6-1-battery.md#connected-runtime-audit-and-bounded-sampling-candidate)
+for exact GNVS/PPMT/OpRegion, PCI, EC and query permissions. Offline initialization,
+allowed queries and EC detach pass in all four modeled lid/AC states. GPIO stays
+denied. `_Q10`, `_Q80`, absent Air7,2 methods and unknown queries are refused.
+
+v61 uses its own native binary and refuses service, transitions and mounted-USB
+entry. It parks USB, attempts five AC-connected samples, retires and saves logs
+before automatic Ubuntu return. The first native trial may expose another
+ownership/refusal condition; missing final logs remain failure/incomplete evidence.
+No desktop battery provider or charge-control access is admitted.
+
+Full build/USB image, native binaries, core/desktop suites, 65 staging tests,
+captured firmware/mutation tests and docs checks pass. QEMU passes five-sample
+success, denied access, transport fault, failed foreign-event restoration and
+EC-disconnect deadline containment; separate Global Lock handoff/release pass.
+The exact staged GPT VM refuses unsupported hardware, saves logs, unmounts and
+returns. These are runtime regression results, not native sampling acceptance.
+
+USB has 199 baseline files; offline exFAT/allocation pass (374 clusters, zero
+leaks/mismatches/errors). Installed/recovery and independent backup hashes pass;
+Ubuntu remains default with empty one-shot. Console recovery `c35475f62f154f1e`,
+accepted desktop telemetry `eee15036f4172920` and passive preflight
+`9b528e09c13e1d4b` are retained. Raw audit and run evidence are copied outside
+build before boot. Leave AC and USB connected for the automatic trial.
+
+## Bounded battery/AC runtime return (2026-10-23)
+
+Release `674c597b082f2494` (compiled `308e4bd`), matching session
+`00065e88fbc08db1-00`, returned without an exit log or five-sample completion
+receipt. The collector flags the missing exit. Saved `boot.log` and
+`session-a.log` end immediately before the unattended battery probe; they do
+not establish entry, sampling, retirement or the cause of the interruption.
+This trial is incomplete/failed acceptance, not a native battery pass.
+The user confirms automatic recovery; the screen reset too quickly to capture.
+
+All 199 prior USB files remain; only `.srvros/meta` changed and the two matching
+logs were added. Offline exFAT and allocation checks pass: 201 files, 377 clusters,
+zero leaks, bitmap mismatches or errors. Ubuntu returned on a new boot, with
+empty one-shot and installed payload/recovery hashes verified. Evidence and
+updated run records are retained outside build. No reboot is armed.
+
+Next work is to locate the stopping point using the screen observation and
+bounded diagnostics while keeping USB parked during uncertain EC/SCI ownership.
+Do not widen firmware permissions or enable desktop battery startup based on
+this result. The existing host/VM passes remain regression evidence only.
+
+## Failure-display follow-up scope (2026-10-23)
+
+Based on main `b17b80e`, this unit owns a bounded terminal failure display in
+shared `battery_runtime.c`, its small delay helper and host/VM tests. Other open
+work (Air7,2 PR88 input timing, Pro11,2 PR19 Wi-Fi) was inspected; no overlapping
+battery-runtime scope was found. Automatic contained faults retain the existing
+storage interlock and interrupt/source masking, enter the emergency console,
+show reason/setup/worker/EC details for 30 seconds, then reset. Clock failure
+shortens the pause through the existing per-delay iteration bound. Mounted/I/O
+faults still halt. No firmware permissions or successful sampling path change.
+Next checkpoint: host/VM validation and a new exact staged Air6,1 trial.
+
+## Failure-display candidate ready (2026-10-23)
+
+Release `b9a2d264ad3a0dd2`, clean source `453e063`, is installed unarmed.
+Full build/USB image, both native battery binaries, VM binary, core/desktop
+suites, 65 staging tests and docs checks pass. Host tests cover all 301 delay
+completion/failure boundaries. Q35 confirms readable framebuffer diagnostics,
+interrupts disabled and 30.009-second hold before automatic reset; a parked
+filesystem fault also resets after the hold with outside bytes preserved.
+An active scratch-I/O fault blocks reset and skips the delay, retaining storage;
+offline contents/exFAT pass. Normal sampling passes. The exact staged GPT VM
+refuses nonmatching native hardware, saves logs, unmounts and returns.
+
+The USB baseline is 201 files; offline allocation passes with 377 clusters and
+zero leaks/mismatches/errors. Current/recovery payload hashes and Ubuntu default
+are verified, with no one-shot armed. Console recovery `c35475f62f154f1e` and
+accepted desktop telemetry `eee15036f4172920` remain installed. The superseded
+`db7ce82008f4b9a6` payload was removed from EFI only after its independent backup
+was verified. New payload and evidence are backed up outside build.
+
+Leave AC and USB connected. If a failure screen appears, photograph its reason
+and progress during the 30-second pause before automatic Ubuntu return. This is
+another diagnostic attempt, not battery acceptance; a failure outside the
+instrumented path can still reset without a report. Collect the matching session
+before any further trial, and retain missing completion as incomplete/failure.
+
+## Failure-display native return (2026-10-23)
+
+Release `b9a2d264ad3a0dd2` (compiled `453e063`), session
+`00065e8929e2f258-00`, has boot/session-a logs but no final report. The user's
+photo now identifies terminal containment during `namespace-initialize`:
+`denied map address=0xfed1c000 bytes=16384`, operation region `\RCRB`, while
+executing `\_SB.PCI0.LPCB.HPET._STA`. The screen shows errors=4, denied=1,
+EC phase=6/error=0, queries=0, no SCI deliveries, worker completed=2/in-flight=0,
+and the photograph prompt before automatic reset. It confirms the diagnostic
+screen is visible on this unit; exact physical pause duration is not measured.
+Battery sampling and clean retirement remain unaccepted.
+
+The captured DSDT's HPET `_STA` reads HPAE in the DWORD at RCRB+`3404`
+(`fed1f404`). The original connected replay already explicitly allowed and
+logged this read with value `80`; the earlier claim that HPTC AML access was
+unneeded was an audit-summary/native-policy mistake. The Air6,1 gate currently
+excludes both the opaque RCRB mapping and that exact DWORD read. Next scope is
+to admit only the captured read, test width/address/write refusals and replay
+initialization; do not permit arbitrary RCRB accesses or writes. No code gate
+has been widened in this closeout.
+
+All 201 prior USB files remain; only `.srvros/meta` changed and two matching
+logs were added. Offline exFAT/allocation pass: 203 files, 380 clusters, zero
+leaks/mismatches/errors. Installed and independent payload/recovery hashes pass;
+Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
+are retained outside build. No reboot is armed.
+
+## HPTC correction scope (2026-10-23)
+
+Based on main `6e608b0`, this unit owns the native HPTC read correction in
+`battery_native_platform.c` and the shared pure predicate/profile tests.
+Open PR88 input timing and PR19 Wi-Fi were inspected; no overlapping battery
+scope was found. Admit the opaque captured RCRB region and only a 32-bit read
+at HPTC `fed1f404`, already sanity-checked by native admission. All other MMIO,
+widths and writes remain denied. Air7,2 retains its existing equivalent policy;
+GPIO stays denied for Air6,1. Re-run connected captures, host/VM checks and an
+exact staged five-sample trial with the existing 30-second failure display.
+
+## HPTC correction candidate ready (2026-10-23)
+
+Release `15f29b76df51bab0`, clean compiled source `9316f8a`, uses the captured
+HPTC DWORD read with the existing exact firmware/resource admission and bounded
+five-sample owner. Native sampling remains pending. GPIO, other chipset accesses
+and writes remain denied; the 30-second terminal failure display is retained.
+
+Full build/USB image, native/VM binaries, core/desktop suites, 65 staging tests
+and docs checks pass. Both compiled policy profiles exercise every RCRB byte,
+width and write refusal; the Air6,1 platform test checks mapping boundaries,
+actual memory-access refusal and captured table mutations. Connected replay in
+all four modeled lid/AC states initializes with zero errors/denials/leaks and
+reads only HPTC `fed1f404` for chipset MMIO. Removing that snapshot permission
+reproduces the HPET initialization failure. Q35 normal sampling and denied-access
+containment pass; exact staged GPT VM refuses nonmatching native hardware,
+saves logs, cleanly unmounts and returns. These are not physical acceptance.
+
+The 203-file USB baseline and offline allocation pass (380 clusters, zero
+leaks/mismatches/errors). Candidate/recovery hashes and Ubuntu default are
+verified; no one-shot is armed. Console recovery `c35475f62f154f1e`, accepted
+desktop telemetry `eee15036f4172920` and passive preflight remain installed.
+Failed superseded `674c597b082f2494` was removed from EFI after verifying its
+independent backup. New payload/run evidence is retained outside build.
+Leave AC and USB connected; photograph any failure during the 30-second pause.
+Collect the matching session and verify completion/retirement and USB integrity
+before another trial. Missing final logs remain failure/incomplete evidence.
+
+## HPTC retry native return (2026-10-23)
+
+Release `15f29b76df51bab0` (compiled `9316f8a`), session
+`00065e895200284c-00`, has boot/session-a logs but no final report. The user's
+photo shows namespace setup completed and the runtime reached `phase=sample`.
+The final interpreter counters are errors=0/denied=0. This confirms the narrow
+HPTC fix resolves the previous initialization denial on this unit; it does not
+accept sampling or clean runtime retirement.
+
+The first observed SCI query is decimal 16 (`0x10`), classified as OS-branch
+class 5 by Air6,1 policy 3 and refused before dispatch. Terminal reason is
+`query policy`. The query's Darwin branch notifies SMB0; its alternate branch
+acquires SMTX, reads SMBus state and can clear SSTS. The existing refusal is
+intentional; do not simply whitelist the AML method or assume a captured OSYS
+value makes every reachable branch safe. The shared runtime already has a
+separately owned SMBus host-event handler, but Air6,1 does not yet admit that
+profile. Next scope is an Air6,1-specific status/completion/alarm audit and
+bounded event-owner integration with tests, retaining exact firmware and storage
+gates. No event permissions are changed by this closeout.
+
+All 203 prior USB files remain, with only `.srvros/meta` changed and two matching
+logs added. Offline exFAT/allocation pass: 205 files, 383 clusters, zero leaks,
+bitmap mismatches or errors. Payload/recovery hashes and Ubuntu default pass;
+Ubuntu returned on a new boot with empty one-shot. Photo, logs and return records
+are backed up outside build. No reboot is armed.
+
+## Short SMBus capture scope (2026-10-23)
+
+Based on main `eeca0e8`, this unit owns bounded Air6,1 host-event admission in
+shared battery runtime/platform, v62 staging and directed host/VM tests.
+Air7,2 PR88 input timing and Pro11,2 PR19 Wi-Fi remain independent scopes.
+Reuse the existing serialized SMBus event/service/retirement mechanisms with
+exact Air6,1 firmware gates. Admit only the automatic short parked capture;
+retain v61 query refusal and reject mounted Home, image/files and ordinary
+service. No AML `_Q10` dispatch or general EC register permissions are added.
+
+## Short SMBus candidate ready (2026-10-23)
+
+Release `bfde0423543f20d0`, clean compiled source `63bc06f`, uses the v62
+short parked host-event capture. Main `2e2eb2b` / PR88 tap diagnostics was
+integrated without conflicts; Pro PR19 remains separate Wi-Fi work. Native
+battery sampling and runtime retirement remain unaccepted pending this trial.
+
+Full build/USB image, core/desktop suites, 66 staging tests and 476 local docs
+links pass. Seventeen Air6,1-policy VM cases cover completion, both OS branches'
+alarms, unknown/late events, controller errors/timeouts, descriptor and query
+refusals, old-profile refusal, no-event and native refusal. Each has clean offline
+allocation; successful cases verify saved receipts and retirement. Air7,2
+completion regression passes. After integration the full suites and Air6,1
+completion were repeated. The exact staged EFI/GPT VM refuses nonmatching
+hardware, saves logs, unmounts and returns. Captured-table replay has zero
+errors/denials/leaks. These are modeled evidence, not native acceptance.
+
+The 205-file USB baseline is unchanged; offline exFAT/allocation pass with
+383 clusters and zero leaks/mismatches/errors. Payload/recovery hashes, Ubuntu
+default and empty one-shot are verified. Console recovery `c35475f62f154f1e`,
+accepted desktop telemetry `eee15036f4172920` and passive preflight remain.
+Superseded failed `b9a2d264ad3a0dd2` was removed from EFI only after its independent
+backup was verified. New payload/run/VM evidence is backed up outside build.
+
+Keep AC and USB connected; no input is required. The capture waits up to
+30 seconds for a natural SMBus event and fresh sample generation 3 or later,
+with a 128-event ceiling. Photograph any failure during the 30-second display.
+Automatic Ubuntu return should follow; missing final evidence remains failure
+or incomplete. Collect this release and verify retirement and all prior files
+before another trial. No reboot is armed.
+
+## Short SMBus native return accepted (2026-10-23)
+
+Closeout scope from main `5d195a9`: record this unit's returned v62 evidence;
+no shared runtime or admission changes. Release `bfde0423543f20d0`, source
+`63bc06f`, session `00065e89a7794b63-00` passes the native SMBus receipt validator.
+Fresh generation 3, 45 completion events, three handled/zero unclaimed SCI
+deliveries, three sample attempts/zero rejected and balanced 1/1 attach/detach
+prove this bounded capture. Heap/errors/denied are zero; controller/resource
+retirement and foreign-mask restoration are recorded. A complete exit log and
+completed marker were saved. No alarms or acknowledgement writes occurred.
+
+Accept short parked battery sampling and clean retirement with AC connected.
+Gauge accuracy, alarms, AC transitions, sustained operation and desktop battery
+monitoring remain open; ordinary startup stays off. Next recommended work is a
+bounded attended AC unplug/reconnect capture with Air6,1 admission/query audit.
+
+All 205 previous files remain, with expected metadata change and three new logs.
+Offline fsck/allocation pass: 208 files, 387 clusters, zero leaks/mismatches/errors.
+Ubuntu returned with consumed one-shot; current/recovery hashes and default pass.
+Current stays `bfde0423543f20d0`, recovery `c35475f62f154f1e`. USB is unmounted;
+no reboot is armed. Matching logs, validation and return state are backed up
+outside build before another trial.
+
+## Attended parked AC transition scope (2026-10-23)
+
+From main `249bb97`, this unit owns the next bounded Air6,1 attended AC
+transition capture: shared battery capture consumer/admission, boot recipe,
+collector and directed host/VM tests. Reuse the accepted serialized service and
+host-event owner with USB parked; keep ordinary/Home/file ownership disabled.
+Audit captured AC query effects and retain exact firmware/access gates. PR99 log
+capacity guards are consumed; Pro PR19 remains independent Wi-Fi work. Prepare
+and validate before an attended unplug/reconnect trial; no reboot is armed.
+
+## Attended AC candidate ready (2026-10-23)
+
+Release `321ba9c91e681a4c`, clean source `95c5219`, prepares v63 with the existing
+parked SMBus service and exact Air6,1 firmware/access gates. It requires three
+coherent fresh samples in each connected/disconnected/reconnected phase, with a
+120-second deadline per phase and 4096-event ceiling. No native AC-transition
+acceptance is claimed yet; ordinary battery startup remains off.
+
+Full build/core/desktop, 67 staging tests, 24 collector checks, transition/cache
+and malformed receipt tests pass. Captured `_Q21`/`_PSR` replay in all four lid/AC
+states initializes/disconnects with zero errors/denials/leaks. Seven directed VM
+cases pass: normal transitions, mid-read incoherence, alarm refresh, unsupported
+query containment, profile refusal, native refusal and a real 120-second phase
+timeout. Short Air6,1 and Air7,2 capture regressions pass. An earlier alarm fixture
+reconnected before three fresh readings and correctly saved an incomplete result;
+its receipt and clean filesystem evidence are retained separately. The adjusted
+fixture completes after post-alarm stabilization. Exact staged EFI/GPT refuses
+nonmatching native hardware, saves, unmounts and returns automatically.
+
+The 208-file USB baseline is unchanged; fsck/allocation pass with 387 clusters
+and zero leaks/mismatches/errors. Candidate and recovery hashes, Ubuntu default
+and empty one-shot pass. Console recovery `c35475f62f154f1e`, accepted short
+capture `bfde0423543f20d0`, desktop telemetry and passive preflight are retained.
+Superseded failed HPTC trial `15f29b76df51bab0` was removed from EFI after its
+independent backup was verified. Payload, run and validation evidence are saved
+outside build. No reboot is armed.
+
+Start with AC connected. Wait for UNPLUG AC, unplug only the charger, then wait
+for RECONNECT AC and reconnect it. USB stays connected throughout. Prompts repeat
+every five seconds. Completion or phase timeout saves and returns to Ubuntu;
+photograph any fault during the 30-second pause. Collect the matching transition
+receipt and verify runtime retirement and USB integrity before another run.
+
+## Attended AC return closeout (2026-10-23)
+
+Scope from main `d753051`: record this unit's native v63 acceptance in the
+machine ledger and battery guide; no runtime or access-gate changes. Open PR102
+(Air7,2 filesystem scale) and PR19 (Pro Wi-Fi) remain independent work.
+
+Release `321ba9c91e681a4c`, source `95c5219`, session `00065e8a183ee909-00`
+passes the strict transition receipt: three fresh samples per connected,
+disconnected and reconnected phase, generations 1–3/5–7/10–12. Disconnected
+current is -1328000 µA; connected currents are zero. Twelve attempts have zero
+rejections; 182 events include two alarms/two acknowledgements, no unknowns.
+Attach/detach is 1/1 and retired heap/errors/denied are zero. Post-alarm freshness,
+resource restoration, complete exit log and Ubuntu return are verified.
+
+All 208 prior files are preserved except expected metadata replacement; three
+new logs produce 211 files. Offline checks pass with 391 clusters and zero
+leaks/mismatches/errors. Payload/recovery hashes and Ubuntu default pass; one-shot
+is consumed. USB is unmounted and no reboot is armed. Evidence is independently
+backed up outside build. Accept only bounded parked AC transitions and observed
+alarm refresh, not gauge accuracy, sustained service or desktop ownership.
+Next recommended scope is bounded mounted-USB/file coexistence before desktop
+battery integration; retain exact Air6,1 admission and serialized retirement.
+
+## Bounded battery/file coexistence scope (2026-10-23)
+
+From main `d7ed773`, this unit owns Air6,1 admission to the existing parked
+exclusive-image/Text file capture, its distinct v64 recipe and directed policy/VM
+checks. Reuse the serialized SMBus owner, 512-event ceiling and client/runtime/
+image retirement order. No new AML/register permissions, mounted Home admission
+or ordinary battery startup. PR102 filesystem scale and PR19 Wi-Fi remain
+independent; use this main baseline without importing either active change.
+Prepare a fresh disposable USB image, exact-stage checks and retained recovery
+before native acceptance. No reboot is armed.
+
+## Bounded battery/file candidate ready (2026-10-23)
+
+Release `fc1d1f4c45d30252`, clean source `cac24ef`, uses the v64 Air6,1
+exclusive-image capture. It preserves exact firmware/AML permissions and the
+512-event ceiling. Ordinary mounted Home and desktop battery startup remain off;
+physical battery/file coexistence is pending this trial.
+
+Full build/USB image, native/model kernels, core/desktop suites, 68 staging tests,
+24 collector tests, five strict file-receipt tests and exhaustive admission
+checks pass. Eight directed Air6,1 file VMs pass: full completion, recurring
+alarms, Stop during read/ack, uncertain acknowledgement containment, event limit,
+profile refusal and native refusal. Completion gives 60 edits/five file cycles
+and generation 25; recurring alarms complete with 15 acknowledgements and fresh
+generation 30. Both images and unrelated files verify. Three regressions pass:
+Air6,1 short capture/AC transitions and Air7,2 file capture. Exact staged EFI/GPT
+refuses unsupported native hardware, saves, unmounts and returns; missing USB
+also returns without starting the probe.
+
+The fresh 16 MiB image is the only added USB file. All 211 prior files are
+preserved; 212-file preboot baseline verifies. Offline fsck/allocation and
+headroom pass: 519 clusters, zero leaks/mismatches/errors. Installed candidate,
+recovery and independent payload hashes pass; Ubuntu is default and one-shot
+is empty. Console recovery `c35475f62f154f1e`, accepted AC capture
+`321ba9c91e681a4c`, short sampling and desktop telemetry remain retained.
+Superseded brightness-only EFI payload `59086591e526632b` was removed only after
+its complete independent backup was verified. Run/payload/VM evidence is saved
+outside build. USB is unmounted and no reboot is armed.
+
+Keep AC and USB connected; no input or charger changes are required. Expect
+60 automatic edits and five Text save/open cycles, then saved Ubuntu return.
+Photograph any fault. On return collect this release before further work and
+verify its complete receipt, exact inner image, all other files and both
+allocation graphs. A quick return alone is not acceptance.
+
+## Battery/file return closeout scope (2026-10-23)
+
+From main `7638d57` (including PR102 filesystem scale), this closeout only records
+the returned Air6,1 candidate and missed image preparation check. No shared
+runtime/filesystem changes; Pro PR19 Wi-Fi remains independent. The installed
+physical candidate predates PR102 and stays identified by its own source/release.
+
+## First battery/file return: image preparation refused (2026-10-23)
+
+Release `fc1d1f4c45d30252`, source `cac24ef`, session `00065e8a98eec3bc-00`
+saved `completed=NO` with `battery media parked=NO fault-reset=NO`. The exclusive
+image was refused before outer unmount, battery runtime entry or Text/file work.
+This is failed preparation, not coexistence acceptance or a runtime failure.
+
+The 16 MiB image has the correct size/valid length but its 128-cluster FAT chain
+jumps from cluster 392 to 394. The read-only native-driver `--battery-image`
+check reproduces `image-range: REFUSED`. General allocation and fsck passed
+before boot, but the dedicated contiguous-extent check was omitted. A valid
+filesystem and matching image bytes do not prove exclusive-range admission.
+
+All 212 prior files remain unchanged except expected `.srvros/meta`; the inner
+image is byte-identical to its fresh baseline. Three logs bring the total to
+215 files. Outer fsck/allocation pass (523 clusters, zero leaks/mismatches/errors);
+inner checks pass (two files, seven clusters). Payload/recovery hashes, Ubuntu
+default and consumed one-shot verify. USB is unmounted, no reboot is armed, and
+matching logs/image/layout/return evidence is independently backed up.
+
+Next prepare a fresh contiguous image, preserving this failed run's evidence,
+and require `check_exfat_allocation.py --uuid 6ADA-85BB --battery-image` to pass
+on the unmounted real drive before installation/boot. Do not relax exclusive
+range checks or treat another general allocation pass as a substitute. Any new
+payload built on the later integration baseline needs its own exact-stage
+validation; this run does not accept the filesystem-scale changes from PR102.
+
+## Contiguous-image retry scope (2026-10-23)
+
+From main `c43d27c`, this preparation only replaces the unused disposable image's
+allocation and repeats exact-payload/media checks. Reuse installed release
+`fc1d1f4c45d30252`, clean compiled source `cac24ef`, without rebuilding or importing
+PR102 filesystem changes. PR106 package-energy measurement and PR19 Wi-Fi remain
+independent. Preserve the failed native evidence and image bytes; no kernel or
+firmware permissions change. Native battery/file coexistence remains pending.
+
+Holding the original image while writing a new copy first encountered a second
+one-cluster gap. Holding both unused copies produced a contiguous 128-cluster
+image at byte offset 88473600 (first cluster 653, NoFatChain set). Both temporary
+files were removed only after byte comparison. Final real-drive `--battery-image`
+passes, independent FAT layout inspection has no breaks, and all 215 original
+file hashes still match. Offline fsck/allocation passes with 523 clusters and
+zero leaks/mismatches/errors. The retry prelaunch script now requires the extent
+check explicitly; a general filesystem pass cannot satisfy it.
+
+The repeated exact-stage EFI/GPT rehearsal passes: native platform refusal,
+saved diagnostics, verified disposable files, clean unmount and return. Installed
+candidate/recovery hashes, Ubuntu default and empty one-shot pass. The final
+prelaunch check verifies AC, unchanged host boot, USB UUID, all 215 file hashes,
+fsck and the required contiguous extent. Retry evidence has its own durable
+backup alongside the unchanged payload and failed run. USB is unmounted and no
+reboot is armed. Keep AC/USB connected; the automatic 60-edit/five-save test
+needs no input. Collect its matching session before any subsequent trial.
+
+## Battery/file coexistence native acceptance (2026-10-23)
+
+Closeout from main `94c9b15`: update only this unit's capability records and
+current guide. PR106 power measurement and PR19 Wi-Fi remain independent.
+Release `fc1d1f4c45d30252` / source `cac24ef`, retry `bcbabcafe3b8c68c`, session
+`00065e8ac0a116ff-00` passes the strict receipt and exact inner-image validation:
+60 edits, five file cycles/20 operations, fresh generation 24 and 360 completion
+events. All 24 SCI deliveries were handled, none unclaimed; no alarms occurred.
+Three descendants, runtime and image retire in order; attach/detach 1/1 and
+heap/errors/denied zero. This accepts bounded exclusive-image coexistence only.
+
+Prior files are preserved except intended image/meta changes; three new logs
+produce 218 files. Outer/inner fsck and allocation pass (527/14 clusters), no
+leaks/mismatches/errors; the image extent remains contiguous. Ubuntu default,
+consumed one-shot and candidate/recovery hashes pass. USB is unmounted, no reboot
+is armed, and evidence is backed up separately from the failed preparation.
+Next scope is explicit mounted Home ownership before ordinary desktop battery
+startup. No acceptance is inferred for the later PR102 filesystem implementation.
+
+## Explicit mounted Home sampling scope (2026-10-23)
+
+From main `7d2b903`, own only the Air6,1 short held-Home diagnostic admission,
+normal-return refusal boundary, distinct boot recipe and directed tests. Reuse
+the mount hold and serialized service/retirement; no desktop clients or ordinary
+startup. Reset remains disabled with mounted storage; uncertain runtime halts
+without filesystem cleanup. PR106 power measurement and PR19 Wi-Fi remain
+independent. Consume PR102 filesystem baseline with fresh build and exact-stage
+checks; no native acceptance is inherited for the new payload.
+
+## Mounted Home candidate ready (2026-10-23)
+
+Release `30b0d713f1a9ed55`, clean compiled source `c69cd23`, uses v65 short
+held-Home sampling. Exact firmware/access gates remain unchanged. It enables
+neither desktop clients nor ordinary service; uncertain faults retain the mount
+and halt, with no automatic reset or live filesystem cleanup. Native acceptance
+remains pending.
+
+Full rebuild/USB image, core/desktop suites, exhaustive admission/query-receipt
+checks, 69 staging tests, 24 collector tests and four receipt tests pass. Eight
+Air6,1 mounted ownership VMs cover normal/alarms, effect-free refusal, unsupported
+platform/profile, unmounted entry and two retained-fault cases. Four full-boot
+captures cover success/alarm, saved query refusal and uncertain acknowledgement
+halt. Air7,2 Home and Air6,1 image/file regressions pass. Exact staged EFI/GPT
+and missing-workspace rehearsals pass. An initial harness classification wrongly
+expected image revocation for v65; checker fix `d3a1f9e` separates the profiles
+and the repeated exact run passes. That failed harness evidence is retained.
+
+The existing used image and all 218 USB file contents are unchanged. Offline
+fsck/allocation/headroom pass (527 clusters, zero leaks/mismatches/errors).
+Installed/recovery hashes, Ubuntu default and empty one-shot verify. Console
+recovery `c35475f62f154f1e`, accepted image capture `fc1d1f4c45d30252`, AC capture,
+short sampling and desktop telemetry remain retained. Superseded audio-only EFI
+payload `0533c0dfc63d104f` was removed only after verifying its independent backup.
+Run, payload and VM evidence are backed up outside build. USB is unmounted and
+no reboot is armed.
+
+Keep AC/USB connected; no typing or charger changes are required. Expect a few
+fresh samples with Home held, then retirement, saved logs and Ubuntu return.
+If it halts, photograph the screen and report it; do not treat a reset or missing
+completion as success. Collect matching `battery_home`, unchanged prior files,
+filesystem/allocation and recovery evidence before another trial.
+
+## Mounted Home sampling accepted (2026-10-23)
+
+Close out the authorized v65 run on main `de449b3` (MR109). Scope is this
+unit's evidence and current status; PR106 power work and PR19 Wi-Fi remain
+independent. No shared runtime or device admission changes are needed.
+
+Release `30b0d713f1a9ed55`, compiled `c69cd23`, session
+`00065e8b198ee6ba-00` completes the strict native `battery_home` receipt:
+three fresh generations, 45 completion events, three handled/zero unclaimed SCI
+deliveries and no alarms. Runtime retires with attach/detach 1/1 and zero
+heap/errors/denied; the same Home mount is held through retirement, then released.
+The completed capture saves its exit log and returns to Ubuntu.
+
+All 218 prior files survive; only expected `.srvros/meta` changes, with three
+new logs. Offline fsck and allocation/headroom pass: 221 files, 531 clusters,
+zero leaks/mismatches/errors. Candidate/recovery hashes and Ubuntu default pass;
+the one-shot is consumed. Raw logs, strict receipt, file comparison and recovery
+checks are backed up outside build. USB is unmounted and no reboot is armed.
+
+This accepts short mounted Home sampling only, with no desktop clients or AC
+changes. Ordinary desktop startup remains off; sustained coexistence and gauge
+accuracy are not accepted. Next is the explicit bounded Home desktop session
+with Text saves and repeated Start/Stop before ordinary desktop integration.
+
+## Bounded Home desktop session scope (2026-10-23)
+
+From actual main `ce1c0a6` (including PR106 Text polling changes), own only
+Air6,1 admission to the existing bounded Home controls/file diagnostic, its v66
+recipe and directed validation. Reuse three service lifetimes, five control
+requests, 60 Text edits/five saves, 512 aggregate events and existing deadlines.
+Preserve the exact mount through every epoch and client/runtime retirement.
+Ordinary/continuous desktop admission stays off, and uncertain mounted failures
+halt without cleanup/reset. PR19 Wi-Fi remains independent. The prior v65 run
+is collected and archived; this new payload requires its own physical evidence.
+
+
+## Bounded Home session candidate validated (2026-10-23)
+
+Release `f60d9b426e2693f3`, clean compiled source `12aad26`, uses v66
+`battery-home-session`. Full build/USB image, core/desktop suites, 70 staging
+tests, 25 collector tests, 78 receipt tests and exhaustive admission checks pass.
+Six Air6,1 boot fixtures cover completion, query/profile refusal, two retained
+faults and delayed EC setup with throttled USB writes. Completion proves five
+controls/three lifetimes, 60 edits/five cycles/20 operations and exact saved
+bytes. Slow checkpoints took 7.99–8.29 seconds without changing deadlines.
+Air7,2 Home-session and Air6,1 short-Home regressions pass. Exact EFI/GPT and
+missing-workspace rehearsals pass; the latter intentionally emits no standard
+result JSON, so its PASS output and serial evidence are retained separately.
+
+All 221 existing USB files were preserved while adding a fresh `battery-study`
+anchor. Offline allocation/headroom pass: 222 files, 533 clusters, no leaks or
+mismatches. Superseded passive preflight EFI payload `9b528e09c13e1d4b` was
+removed only after verifying its independent payload backup to make install
+space. Console recovery and accepted runtime captures remain retained.
+
+Physical acceptance is pending. Keep AC/USB connected and provide no input;
+normal completion/refusal saves and returns to Ubuntu. Photograph any halt.
+Require matching `battery_home_session`, five saved files containing `AA`,
+unchanged prior file contents, clean allocation and consumed one-shot. Final
+installation and unarmed state are recorded in the local run/launch records.
+
+## Bounded Home session failed, clean retirement (2026-10-23)
+
+Close out only this unit's native evidence on main `db10404` (MR111).
+PR112 owns compositor idle work and PR19 Wi-Fi; no shared implementation changes
+are made in this closeout. Session `00065e8b68f3ad24-00`, release
+`f60d9b426e2693f3` / compiled `12aad26`, is **failed**, not accepted.
+
+The generated workload stopped at 12 generated/11 presented edits, zero saves
+and one Start request. Initial EC setup took 4.941 seconds. At failure the Start
+was still waiting for fresh generation 2; Text reached its first save with
+`waiting=1`, and `tool_file_capture_begin` rejects a pending control. This points
+to a diagnostic sequencing race, requiring a reproducer with delayed second
+sample before implementing a fix. The existing slow-setup/storage VM did not
+cover this native readiness ordering. Do not simply widen hardware permissions
+or classify the clean return as workload success.
+
+The service completed generation 2/30 events, with two handled and zero unclaimed
+SCI deliveries, then retired: attach/detach 1/1, zero heap/errors/denied. Three
+clients retire, Home releases, the failed report is saved and Ubuntu returns.
+All 222 prior files are unchanged except expected `.srvros/meta`; three new logs
+bring the total to 225. The study still contains only its original anchor; no
+Text output was saved. Offline fsck/allocation/headroom pass (537 clusters,
+zero leaks/mismatches/errors), installed/recovery hashes pass and the one-shot
+is consumed. Raw evidence, study contents and file checks are backed up outside
+build. USB is unmounted; no reboot is armed and no retry is prepared.
+
+Next: make generated saves wait for initial Start readiness, reproduce delayed
+fresh generation 2, and rerun directed session tests before preparing a retry.
+Keep this failed evidence and existing study directory intact during preparation.
+
+## Start/save sequencing repair scope (2026-10-23)
+
+From main `89b19ec`, own the generated Text capture's readiness sequencing and
+VM delayed-second-sample fixture/regression. Preserve all runtime admission,
+firmware permissions, owner/mount lifetime and deadlines. PR112 owns compositor
+idle work; this fix avoids its files. PR19 Wi-Fi remains independent. Reproduce
+the collected v66 failure before correcting the capture, then prepare a fresh
+study directory while archiving the previous failed study without overwrites.
+
+The delayed-generation-2 fixture reproduced the same 11-edit/zero-save failure
+before the Text fix. PR112 merged while this work was underway; main `180b542`
+has now been integrated without overlap. Rebuild and session regressions include
+its compositor idle-wait changes; no prior native acceptance is inherited.
+
+## Start/save retry ready for physical validation (2026-10-23)
+
+Release `7fe7d3d20d91997c`, clean compiled source `5086cba`, fixes generated
+checkpoint sequencing without changing runtime permissions or deadlines. The
+four-second delayed-generation fixture reproduces the old 11-edit/zero-save
+failure; with the fix it verifies fresh Start before write submission, all
+60 edits/five exact saves and three service lifetimes. An excessive eight-second
+delay still fails the existing Start deadline without submitting a write.
+
+Full build/USB image, core/desktop, 70 staging, 25 collector and 78 receipt tests
+pass. Seven Air6,1 session fixtures cover normal/delayed completion, slow setup
+and storage, query/profile refusal and retained faults. Air7,2 delayed-session
+and Air6,1 short-Home regressions pass. Exact EFI/GPT save/unmount/return and
+missing-workspace refusal rehearsals pass. PR114 includes main `180b542`;
+PR115 logger timing and PR19 Wi-Fi are independent and not included.
+
+The failed study is preserved as `battery-study-failed-73239eaf664ab4ca`; a fresh
+anchor brings the USB baseline to 226 files/539 clusters with clean allocation.
+Superseded short SMBus payload `bfde0423543f20d0` was removed from EFI only after
+verifying its durable backup; accepted mounted Home and console recovery remain
+installed. Payload and evidence backups live outside build. Run
+`9055d4b29173fe40` records final installation and unarmed state. Keep AC/USB
+connected with no input; normal completion returns to Ubuntu, uncertain mounted
+faults halt for a photograph. Native acceptance and ordinary battery startup
+remain pending/off respectively; collect this matching run before another trial.
+
+
+## Bounded Home Start/save retry accepted (2026-10-23)
+
+Close out this unit's run on main `adf40df` (MR114), touching only this record
+and the current battery guide. PR115 logger timing and PR19 Wi-Fi remain
+independent. Session `00065e8bbf429e4a-00`, release `7fe7d3d20d91997c` /
+compiled `5086cba`, passes the strict native Home-session receipt.
+
+The first checkpoint deferred at serial 12 until Start observed fresh generation
+2, then submitted its write. All 60 edits, five exact `AA` files, 20 worker
+operations and five controls across three lifetimes completed. The service
+processed 180 events with zero alarms; SCI totals are 12 handled/zero unclaimed.
+Every lifetime detached cleanly with zero heap/errors/denied; all three clients
+retired, the final active service retired, and Home released before saved return.
+
+All 226 prior USB files retain their bytes except expected `.srvros/meta`;
+five study files and three logs bring the total to 234. Offline fsck and
+allocation/headroom pass: 548 clusters, no leaks/mismatches/errors. Installed
+payload/recovery hashes and Ubuntu default pass; the one-shot is consumed and
+USB is unmounted. Matching raw evidence, exact study bytes and verification
+records are backed up outside build. No next trial or reboot is armed.
+
+This accepts the bounded generated Home/Text/control workload only. Physical
+input latency, continuous desktop monitoring and gauge accuracy remain separate.
+Ordinary battery startup stays off. Next is a bounded continuous Home desktop
+trial, reusing the existing ownership/retirement contract and requiring its own
+Air6,1 fixture and native acceptance before any ordinary-startup change.

@@ -4,6 +4,15 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_battery_preflight_requires_complete_bounded_evidence(self):
+        header='battery-preflight: model=MacBookAir6,1 pm1_control=0x0 pm1_status=0x1 pm1_enable=0x0 ec_status=0x0 SCI=9 EC_GPE=0x4e\n'
+        rows=''.join(f'battery-preflight: gpe_byte={i} status=0x0 enable=0x0\n' for i in range(16))
+        done='battery-preflight: complete reads=36 writes=0; no EC data/commands, AML, ACPI mode, SCI ownership or battery samples\n'
+        text=header+rows+done
+        self.assertFalse(desktop.battery_preflight_result(text)['battery_samples'])
+        for bad in (header+rows,rows+done,text.replace('gpe_byte=15','gpe_byte=14'),text.replace('ec_status=0x0','ec_status=0x100'),text+'battery-preflight: REFUSED',text+header):
+            self.assertIsNone(desktop.battery_preflight_result(bad))
+
     def test_automatic_return_does_not_clear_failure(self):
         self.assertTrue(desktop.needs_attention("laptop-capture: completed=NO"))
         self.assertTrue(desktop.needs_attention("battery: FAILED operation deadline"))
@@ -125,6 +134,41 @@ class CollectionTests(unittest.TestCase):
                     text+two.replace('energy=1638144','energy=3'),text.replace('mperf=20000000100','mperf=1'),
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
+
+    def test_logger_cost_requires_complete_idle_and_valid_bounded_records(self):
+        header=("desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=1 fb_bytes=9000 measured=yes\n"
+                "desktop-idle-window: start_us=10000000 end_us=70000000\n"
+                "desktop-idle: completed=yes screenshot=yes\ndesktop-idle-capture: returned=yes clean=yes\n")
+        row=("workspace-cost: version=1 name=session-a.log start_us=20000000 end_us=20000200 bytes=4000 "
+             "prepare_us=20 write_us=100 verify_us=30 sync_us=50 cbw_calls=2 cbw_us=10 "
+             "data_calls=2 data_us=40 csw_calls=2 csw_us=60 failures=0 ok=1 valid=1\n")
+        result=desktop.desktop_logger_cost(header+row)
+        self.assertEqual(result['totals']['elapsed_us'],200)
+        self.assertEqual(result['count'],1)
+        self.assertEqual(desktop.desktop_logger_cost(header+row+row),result)
+        outside=row.replace('start_us=20000000','start_us=80000000').replace('end_us=20000200','end_us=80000200')
+        self.assertEqual(desktop.desktop_logger_cost(header+row+outside),result)
+        for bad in (header, header.replace('clean=yes','clean=NO')+row,
+                    header+row.replace('valid=1','valid=0'),header+row.replace('ok=1','ok=0'),
+                    header+row.replace('sync_us=50','sync_us=51'),header+row.replace('csw_us=60','csw_us=600'),
+                    header+row.replace('bytes=4000','bytes=65537'),header+row.replace('failures=0','failures=1'),
+                    header+row.replace('version=1','version=2'),header+row.replace('cbw_calls=2','cbw_calls=0'),
+                    header+row+row.replace('bytes=4000','bytes=5000'),
+                    header+row+row.replace('start_us=20000000','start_us=20000100').replace('end_us=20000200','end_us=20000300')):
+            self.assertIsNone(desktop.desktop_logger_cost(bad),bad)
+
+    def test_worker_window_requires_completed_desktop(self):
+        from test_scheduler_activity import block
+        header=("desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=1 fb_bytes=9000 measured=yes\n"
+                "desktop-idle-window: start_us=10000000 end_us=70000000\n"
+                "desktop-idle: completed=yes screenshot=yes\ndesktop-idle-capture: returned=yes clean=yes\n")
+        rows=''.join(block(at,i,i*200,i*100,i*50) for i,at in enumerate((20000000,30000000,40000000)))
+        result=desktop.desktop_worker_sample(header+rows)
+        self.assertEqual(result['workers'][0]['switches'],400)
+        for bad in (header,header.replace('clean=yes','clean=NO')+rows,
+                    header.replace('end_us=70000000','end_us=69999999')+rows,
+                    header+rows+"worker-snapshot: us=80000000 count=1 version=1\n"):
+            self.assertIsNone(desktop.desktop_worker_sample(bad))
 
     def test_transition_summary_requires_all_phases_and_retirement(self):
         rows=[]
@@ -401,6 +445,58 @@ class CollectionTests(unittest.TestCase):
                 self.assertIsNone(item['battery_query'])
                 self.assertIn('collection: native query return missing, invalid or not exercised',item['attention'])
             self.assertIsNone(desktop.battery_query_result((boot+native).replace(b'srvros.capture=battery-query',b'srvros.capture=battery-query-other').decode()))
+
+    def test_continuous_home_desktop_collection_requires_saved_screenshot(self):
+        import struct
+        from test_battery_home_desktop_records import fixture
+        native=fixture().replace(b'0x62f',b'0x189c').replace(b'0x62e',b'0x189e')
+        boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-desktop\n'
+        shot=(b'deskd: screenshot captured path=/work/srvros-work/Screenshots/Screen-1-2-3.bmp width=2 height=2\n'
+              b'deskd: screenshot saved status=0 path=/work/srvros-work/Screenshots/Screen-1-2-3.bmp\n')
+        proof=boot+native.replace(b'desktop-idle: completed=',shot+b'desktop-idle: completed=')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);work=root/'usb/srvros-work';folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for name in desktop.FILES:(folder/name).write_bytes(proof if name=='exit.log' else boot)
+            images=work/'Screenshots';images.mkdir();image=images/'Screen-1-2-3.bmp'
+            bmp=bytearray(70);bmp[:2]=b'BM';struct.pack_into('<I',bmp,2,70);struct.pack_into('<IIiiHHI',bmp,10,54,40,2,2,1,32,0);image.write_bytes(bmp)
+            out,report=desktop.collect(root/'usb','37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_home_desktop']['screenshot']['width'],2);self.assertFalse(item['attention'])
+            self.assertEqual((out/item['session']/image.name).read_bytes(),bmp)
+            for bad in (proof.replace(b'clean=yes',b'clean=NO'),proof.replace(b'0x189c',b'0x62f'),proof.replace(shot,b''),proof+shot,proof.replace(b'Screen-1-2-3.bmp',b'../private.bmp')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
+            (folder/'exit.log').write_bytes(proof)
+            image.write_bytes(bmp[:-1])
+            _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
+            image.unlink();image.symlink_to(folder/'boot.log')
+            _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_desktop'])
+
+    def test_guided_home_transitions_require_all_three_images(self):
+        import struct
+        from test_battery_home_desktop_records import transitions_fixture
+        native=transitions_fixture().replace(b'0x62f',b'0x189c').replace(b'0x62e',b'0x189e')
+        boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-transitions\n'
+        proof=boot+native
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);work=root/'usb/srvros-work';folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for name in desktop.FILES:(folder/name).write_bytes(proof if name=='exit.log' else boot)
+            images=work/'Screenshots';images.mkdir()
+            bmp=bytearray(70);bmp[:2]=b'BM';struct.pack_into('<I',bmp,2,70);struct.pack_into('<IIiiHHI',bmp,10,54,40,2,2,1,32,0)
+            for i in range(3):(images/f'Screen-{i}.bmp').write_bytes(bmp)
+            out,report=desktop.collect(root/'usb','37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertFalse(item['attention']);self.assertEqual(len(item['battery_home_transitions']['screenshots']),3)
+            for i in range(3):
+                image=images/f'Screen-{i}.bmp';self.assertEqual((out/item['session']/image.name).read_bytes(),bmp)
+                for bad in (None,bmp[:-1]):
+                    if bad is None:image.unlink()
+                    else:image.write_bytes(bad)
+                    _,report=desktop.collect(root/'usb','37d8c5d0',root/'out')
+                    self.assertIsNone(report['sessions'][0]['battery_home_transitions'])
+                    image.write_bytes(bmp)
+            (folder/'session-a.log').unlink()
+            _,report=desktop.collect(root/'usb','37d8c5d0',root/'out');self.assertIsNone(report['sessions'][0]['battery_home_transitions'])
 
     def test_home_session_collects_exact_work_files_and_native_proof(self):
         from test_battery_control_files_records import fixture,home_fixture

@@ -1,4 +1,4 @@
-/* MacBookAir7,2 diagnostic binding. No startup callers in the normal kernel. */
+/* Compile-time isolated Air7,2 or Air6,1 diagnostic binding. */
 #include "battery_platform.h"
 #include "battery_native_policy.h"
 #include <srvros/acpi.h>
@@ -10,6 +10,19 @@
 #include <srvros/vmm.h>
 #include <uacpi/acpi.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
+#ifdef SRVROS_BATTERY_AIR61
+#define NATIVE_GPU 0x0a26
+#define NATIVE_LPC 0x9c43
+#define NATIVE_HDAU 0x0a0c
+#define NATIVE_SMBUS 0x9c22
+#define NATIVE_NAME "Air6,1"
+#else
+#define NATIVE_GPU 0x1626
+#define NATIVE_LPC 0x9cc3
+#define NATIVE_HDAU 0x160c
+#define NATIVE_SMBUS 0x9ca2
+#define NATIVE_NAME "Air7,2"
+#endif
 static struct battery_platform *platform;
 static struct limine_memmap_response *map;
 static uint64_t igdm;
@@ -74,6 +87,11 @@ static uint32_t pci_identity(unsigned dev,unsigned fn) {
 static bool aml_tables_match(void) {
     /* Exact captured SSDT set, including addresses used by its AML. */
     static const uint64_t hashes[]={
+#ifdef SRVROS_BATTERY_AIR61
+        0x6c2db56dacbefd59ull,0x18bd2a9b88157d59ull,0xf618f72a8b40868bull,
+        0xe1ba0445f3199e19ull,0xa47365ca5843bc23ull,0xddbe0a960dc9dd7dull,
+        0x525f3a818239b377ull,0x734cc31fa91987adull,
+#else
         0x7b1010f6c77d5eb9ull,
         0x3855ae741a19efe5ull,
         0x9a34aad14986eaf5ull,
@@ -82,6 +100,7 @@ static bool aml_tables_match(void) {
         0xec2802855c9ba1f7ull,
         0x196a92da329719e3ull,
         0x2d3515d0b8520937ull,
+#endif
     };
     unsigned seen=0;
     for(uint64_t i=0;i<acpi_table_count();i++) {
@@ -97,14 +116,18 @@ static bool aml_tables_match(void) {
     return seen==255?true:refuse("ssdt-set",seen,255);
 }
 bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_memmap_response *m) {
-    const struct pci_device *gpu=device(2,0,0x1626),*lpc=device(31,0,0x9cc3);
+    const struct pci_device *gpu=device(2,0,NATIVE_GPU),*lpc=device(31,0,NATIVE_LPC);
     if(!p||!rsdp)return refuse("arguments",(p?1u:0u)|(rsdp?2u:0u),3);
-    if(!gpu)return refuse("pci-gpu",pci_identity(2,0),0x16268086);
-    if(!lpc)return refuse("pci-lpc",pci_identity(31,0),0x9cc38086);
-    if(!device(3,0,0x160c))return refuse("pci-hdau",pci_identity(3,0),0x160c8086);
-    if(!device(31,3,0x9ca2))return refuse("pci-smbus",pci_identity(31,3),0x9ca28086);
+    if(!gpu)return refuse("pci-gpu",pci_identity(2,0),((uint32_t)NATIVE_GPU<<16|0x8086));
+    if(!lpc)return refuse("pci-lpc",pci_identity(31,0),((uint32_t)NATIVE_LPC<<16|0x8086));
+    if(!device(3,0,NATIVE_HDAU))return refuse("pci-hdau",pci_identity(3,0),((uint32_t)NATIVE_HDAU<<16|0x8086));
+    if(!device(31,3,NATIVE_SMBUS))return refuse("pci-smbus",pci_identity(31,3),((uint32_t)NATIVE_SMBUS<<16|0x8086));
     size_t dn,en,fn;const uint8_t *d=table("DSDT",&dn),*e=table("ECDT",&en),*f=table("FACP",&fn);
+#ifdef SRVROS_BATTERY_AIR61
+    if(!laptop_air61_power_resources(NATIVE_GPU,NATIVE_LPC,d,dn,e,en,f,fn))return refuse("air61-firmware-resources",0,1);
+#else
     if(!laptop_firmware_match(d,dn))return refuse("dsdt",d&&dn==35034?fingerprint(d,dn):0,0xe0f810cb41f75c0bull);
+ #endif
     if(!aml_tables_match())return false; /* Helper already printed the failed table check. */
     enum acpi_ec_resource_result result=acpi_ec_resources_parse(&p->ec,e,en,f,fn);
     if(result)return refuse("ec-resources",result,ACPI_EC_RESOURCES_OK);
@@ -119,7 +142,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     if(p->events.resources.pm2_control!=0x1850)return refuse("pm2-port",p->events.resources.pm2_control,0x1850);
     if(p->events.resources.timer!=0x1808)return refuse("timer-port",p->events.resources.timer,0x1808);
     map=m;
-    if(!require_nvs("gnvs",GNVS,0x282)||!require_nvs("pnvs",PNVS,BATTERY_PNVS_BYTES))return false;
+    if(!require_nvs("gnvs",GNVS,BATTERY_GNVS_BYTES)||!require_nvs("pnvs",PNVS,BATTERY_PNVS_BYTES))return false;
     igdm=*(const uint32_t *)pmm_phys_to_virt(GNVS+0x130);
     if(!igdm||(igdm&3))return refuse("igdm-address",igdm,0);
     uint32_t asls=pci_read_config32(gpu,0xfc);
@@ -175,8 +198,13 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     p->foreign_events[1]=(struct battery_event_hold){.status=0x188e,.enable=0x189e,.mask=4,.original=enabled[14]};
     if(ec&3)return refuse("ec-busy",ec,0);
     p->io=(struct ec_io){p,ec_status,ec_read,ec_command,ec_write};
-    p->query_policy=BATTERY_QUERY_AIR72;p->smbus_capture_profile=true;platform=p;
-    console_printf("battery-native: matched Air7,2 EC=%x/%x SCI=%u GPE=%x IGDM=%x mode=%u; foreign GPE66/GPE72 retained\n",
+#ifdef SRVROS_BATTERY_AIR61
+    p->query_policy=BATTERY_QUERY_AIR61;p->bounded_samples_only=true;p->smbus_capture_profile=true;
+#else
+    p->query_policy=BATTERY_QUERY_AIR72;p->smbus_capture_profile=true;
+#endif
+    platform=p;
+    console_printf("battery-native: matched " NATIVE_NAME " EC=%x/%x SCI=%u GPE=%x IGDM=%x mode=%u; foreign GPE66/GPE72 retained\n",
         (uint64_t)p->ec.data,(uint64_t)p->ec.command,(uint64_t)p->ec.sci,(uint64_t)p->ec.gpe,igdm,(uint64_t)(p->original_control&1));
     for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
         const struct battery_event_hold *h=&p->foreign_events[i];
@@ -200,14 +228,19 @@ void *battery_platform_map(uint64_t a,size_t n) {
 bool battery_platform_memory(void *ptr,unsigned bits,bool write,uint64_t *v) {
     if(!platform||!v||!(bits==8||bits==16||bits==32||bits==64))return false;
     uint64_t a=(uintptr_t)ptr-pmm_hhdm_offset();
-    bool allowed=battery_native_memory_allowed(igdm,platform->facs,a,bits,write,*v)||
-        (!write&&(uintptr_t)ptr==HPTC_VA+0x404&&bits==32);
+    bool allowed=battery_native_memory_allowed(igdm,platform->facs,a,bits,write,*v)
+        || battery_native_hptc_allowed((uintptr_t)ptr,HPTC_VA+0x404,bits,write)
+        ;
     if(!allowed)return false;
 #define MEM(B,T) if(bits==B){if(write)*(volatile T *)ptr=*v;else *v=*(volatile T *)ptr;}
     MEM(8,uint8_t) else MEM(16,uint16_t) else MEM(32,uint32_t) else MEM(64,uint64_t)
 #undef MEM
     return true;
 }
+#ifdef SRVROS_BATTERY_AIR61
+bool battery_platform_io_map(uint64_t a,size_t n) {(void)a;(void)n;return false;}
+bool battery_platform_io(uint64_t a,unsigned bits,bool write,uint32_t *v) {(void)a;(void)bits;(void)write;(void)v;return false;}
+#else
 bool battery_platform_io_map(uint64_t a,size_t n) {return platform&&a==0x800&&n==0x400;}
 bool battery_platform_io(uint64_t a,unsigned bits,bool write,uint32_t *v) {
     if(!platform||bits!=8||(a!=0xa74&&a!=0xb90))return false;
@@ -216,19 +249,20 @@ bool battery_platform_io(uint64_t a,unsigned bits,bool write,uint32_t *v) {
     if(write){if(!acpi_io_rule_write(&rule,a,bits,before,*v))return false;outb(a,*v);}else *v=before;
     return true;
 }
+#endif
 bool battery_platform_pci_open(uacpi_pci_address a,void **out) {
     if(!platform||a.segment||a.bus)return false;
     const struct pci_device *p=NULL;
-    if(a.device==31&&a.function==0)p=device(31,0,0x9cc3);
-    if(a.device==31&&a.function==3)p=device(31,3,0x9ca2);
-    if(a.device==3&&a.function==0)p=device(3,0,0x160c);
+    if(a.device==31&&a.function==0)p=device(31,0,NATIVE_LPC);
+    if(a.device==31&&a.function==3)p=device(31,3,NATIVE_SMBUS);
+    if(a.device==3&&a.function==0)p=device(3,0,NATIVE_HDAU);
     if(!p)return false;*out=(void *)p;return true;
 }
 bool battery_platform_pci_read(void *h,size_t o,unsigned bits,uint32_t *v) {
     const struct pci_device *p=h;if(!platform||!p)return false;
-    if(bits==8&&((p==device(3,0,0x160c)&&o<=1)||
-       (p==device(31,0,0x9cc3)&&((o>=0x60&&o<=0x63)||(o>=0x68&&o<=0x6b))))) {*v=pci_read_config8(p,o);return true;}
-    if(bits==32&&p==device(31,3,0x9ca2)&&o==0x20){*v=pci_read_config32(p,o);return true;}
+    if(bits==8&&((p==device(3,0,NATIVE_HDAU)&&o<=1)||
+       (p==device(31,0,NATIVE_LPC)&&((o>=0x60&&o<=0x63)||(o>=0x68&&o<=0x6b))))) {*v=pci_read_config8(p,o);return true;}
+    if(bits==32&&p==device(31,3,NATIVE_SMBUS)&&o==0x20){*v=pci_read_config32(p,o);return true;}
     return false;
 }
 

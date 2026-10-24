@@ -16,7 +16,7 @@ static bool sample(uint32_t *raw) {
 bool backlight_bind_profile(struct backlight_io io,enum backlight_profile profile) {
     available=false;
     if(!io.read || !io.write_duty) return false;
-    if(profile!=BACKLIGHT_AIR7_2 && profile!=BACKLIGHT_PRO11_2) return false;
+    if(profile!=BACKLIGHT_AIR7_2 && profile!=BACKLIGHT_PRO11_2 && profile!=BACKLIGHT_AIR6_1) return false;
     device=io;period=profile==BACKLIGHT_PRO11_2?1953:2777;available=true;uint32_t raw;
     return sample(&raw); /* Discovery never writes. */
 }

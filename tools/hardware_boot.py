@@ -24,9 +24,9 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-(?:wifi-fw-v(?:[1-9]|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45)|wifi-cal-v1|v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|42|43|44|45|46|47|48|49))-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37)-desktop-([0-9a-f]{8})")
-TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-(?:wifi-fw-v(?:[1-9]|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45)|wifi-cal-v1|v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66))-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59)-desktop-([0-9a-f]{8})")
+TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
 def digest(path):
@@ -60,9 +60,10 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
         if version.startswith("ram-usb-v24-"):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=aml srvros.aml=probe")
-        if version.startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-")):
+        if version.startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-")):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=battery")
+            if version.startswith("ram-usb-v63-"): cmdline += "-smbus-transitions"
             if version.startswith("ram-usb-v32-"): cmdline += "-transitions"
             if version.startswith("ram-usb-v33-"): cmdline += "-service"
             if version.startswith("ram-usb-v34-"): cmdline += "-usb-read"
@@ -70,10 +71,12 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
             if version.startswith("ram-usb-v38-"): cmdline += "-filesystem"
             if version.startswith("ram-usb-v40-"): cmdline += "-desktop srvros.trackpad=gestures"
             if version.startswith("ram-usb-v41-"): cmdline += "-text srvros.trackpad=gestures"
-            if version.startswith("ram-usb-v49-"): cmdline += "-home-session srvros.trackpad=gestures"
-            if version.startswith("ram-usb-v48-"): cmdline += "-home"
-            if version.startswith("ram-usb-v47-"): cmdline += "-smbus-files srvros.trackpad=gestures"
-            if version.startswith("ram-usb-v46-"): cmdline += "-smbus"
+            if version.startswith("ram-usb-v52-"): cmdline += "-home-transitions srvros.trackpad=gestures"
+            if version.startswith("ram-usb-v51-"): cmdline += "-home-desktop srvros.trackpad=gestures"
+            if version.startswith(("ram-usb-v49-","ram-usb-v66-")): cmdline += "-home-session srvros.trackpad=gestures"
+            if version.startswith(("ram-usb-v48-","ram-usb-v65-")): cmdline += "-home"
+            if version.startswith(("ram-usb-v47-","ram-usb-v64-")): cmdline += "-smbus-files srvros.trackpad=gestures"
+            if version.startswith(("ram-usb-v46-","ram-usb-v62-")): cmdline += "-smbus"
             if version.startswith("ram-usb-v45-"): cmdline += "-query"
             if version.startswith("ram-usb-v44-"): cmdline += "-controls srvros.trackpad=gestures"
             if version.startswith("ram-usb-v43-"): cmdline += "-app-files srvros.trackpad=gestures"
@@ -135,6 +138,7 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
         if version.startswith(("ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-")): cmdline += " srvros.wifi-mac-buffer=1"
         if version.startswith(("ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-")): cmdline += " srvros.wifi-mac-fce-observe=1"
         if version.startswith("ram-usb-wifi-fw-v45-"): cmdline += " srvros.wifi-mac-fce-validate=1"
+        if version.startswith("ram-usb-v60-"): cmdline += " srvros.battery-preflight=air61"
         if probe[2]: cmdline += " srvros.capture-failure=reboot"
         if version.startswith(("ram-usb-v27-","ram-usb-v28-")): cmdline += " srvros.capture=keyboard"
     elif desktop:
@@ -152,12 +156,27 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
         if version.startswith(("ram-usb-v31-","ram-usb-v36-","ram-usb-v37-")): cmdline += " srvros.audio=hda"
         if version.startswith(("ram-usb-v36-","ram-usb-v37-")): cmdline += " srvros.sensors=cpu srvros.smc=read-only"
         if version.startswith("ram-usb-v37-"): cmdline += " srvros.usb-network=ecm"
+        if version.startswith("ram-usb-v53-"):
+            cmdline += f" srvros.desktop-release={release}"
+        if version.startswith(("ram-usb-v56-","ram-usb-v57-","ram-usb-v59-")):
+            cmdline += f" srvros.desktop-release={release} srvros.laptop-services=brightness"
+        if version.startswith(("ram-usb-v57-","ram-usb-v59-")): cmdline += " srvros.audio=hda"
+        if version.startswith("ram-usb-v59-"): cmdline += " srvros.sensors=cpu srvros.smc=read-only"
+        if version.startswith(("ram-usb-v54-","ram-usb-v55-")):
+            cmdline = cmdline.replace("srvros.desktop=trial", "srvros.desktop=session")
+            cmdline += f" srvros.desktop-release={release} srvros.battery=on"
+        if version.startswith("ram-usb-v55-"):
+            cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only srvros.usb-network=ecm"
+        if version.startswith("ram-usb-v58-"):
+            cmdline += f" srvros.desktop-release={release} srvros.desktop-check=devices"
+            cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.usb-network=ecm srvros.sensors=cpu srvros.smc=read-only"
     elif trackpad:
         volume, run = trackpad.groups()
-        mode="gestures" if version.startswith(("ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
+        mode="gestures" if version.startswith(("ram-usb-v50-","ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={volume} srvros.trackpad={mode} "
                    f"srvros.trackpad-run={run} srvros.trackpad-release={release}")
         if version.startswith(("ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")): cmdline += f" srvros.desktop-io={run}"
+        if version.startswith("ram-usb-v50-"): cmdline += f" srvros.trackpad-policy={run}"
     elif autotest:
         volume, run = autotest.groups()
         cmdline = (f"srvros.storage=ram srvros.autotest-volume={volume} "
@@ -222,22 +241,38 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None, wifi_mac_startup=False, wifi_mcu_probe=False, wifi_radio_reset=False, wifi_write_probe=False, wifi_pair_probe=False, wifi_timing_probe=False, wifi_mac_basics=False, wifi_mac_format=False, wifi_bbp_ready=False, wifi_bbp_core=False, wifi_bbp_front=False, wifi_bbp_agc=False, wifi_bbp_batch=False, wifi_compact=False, wifi_agc_more=False, wifi_agc_next=False, wifi_agc_tail=False, wifi_rxc_start=False, wifi_rxc_tail=False, wifi_txbe_start=False, wifi_txbe_next=False, wifi_txbe_observe=False, wifi_txbe_first=False, wifi_txbe_second=False, wifi_txbe_access=False, wifi_txbe_direct=False, wifi_clock=False, wifi_clock_direct=False, wifi_clock_pair=False, wifi_bbp_table=False, wifi_mac_snapshot=False, wifi_mac_raw=False, wifi_mac_route=False, wifi_mac_policy=False, wifi_mac_policy_observe=False, wifi_mac_policy_validate=False, wifi_mac_protect=False, wifi_mac_contention=False, wifi_mac_txsw=False, wifi_mac_beacon=False, wifi_mac_vht=False, wifi_mac_buffer=False, wifi_mac_fce_observe=False, wifi_mac_fce_validate=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None, wifi_mac_startup=False, wifi_mcu_probe=False, wifi_radio_reset=False, wifi_write_probe=False, wifi_pair_probe=False, wifi_timing_probe=False, wifi_mac_basics=False, wifi_mac_format=False, wifi_bbp_ready=False, wifi_bbp_core=False, wifi_bbp_front=False, wifi_bbp_agc=False, wifi_bbp_batch=False, wifi_compact=False, wifi_agc_more=False, wifi_agc_next=False, wifi_agc_tail=False, wifi_rxc_start=False, wifi_rxc_tail=False, wifi_txbe_start=False, wifi_txbe_next=False, wifi_txbe_observe=False, wifi_txbe_first=False, wifi_txbe_second=False, wifi_txbe_access=False, wifi_txbe_direct=False, wifi_clock=False, wifi_clock_direct=False, wifi_clock_pair=False, wifi_bbp_table=False, wifi_mac_snapshot=False, wifi_mac_raw=False, wifi_mac_route=False, wifi_mac_policy=False, wifi_mac_policy_observe=False, wifi_mac_policy_validate=False, wifi_mac_protect=False, wifi_mac_contention=False, wifi_mac_txsw=False, wifi_mac_beacon=False, wifi_mac_vht=False, wifi_mac_buffer=False, wifi_mac_fce_observe=False, wifi_mac_fce_validate=False, battery_home_desktop=False, battery_home_transitions=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False):
     if (wifi_capture or wifi_calibration) and hold_on_failure:
         raise ValueError("Wi-Fi capture requires automatic return")
-    if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session) and hold_on_failure:
+    if battery_air61:
+        allowed={"laptop_probe_volume", "battery_air61", "battery_smbus", "battery_transitions", "battery_smbus_files", "battery_home", "battery_home_session", "repeat", "desktop_scale"}
+        if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
+            raise ValueError("Air6,1 battery requires its own automatic sampling or bounded SMBus profile")
+    if battery_preflight:
+        allowed={"laptop_probe_volume", "battery_preflight", "hold_on_failure", "repeat", "desktop_scale"}
+        if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
+            raise ValueError("Battery preflight requires its own unscaled laptop-probe profile")
+    if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions) and hold_on_failure:
         raise ValueError("USB overlap requires automatic checkpoint/return")
     if hold_on_failure and laptop_probe_volume is None:
         raise ValueError("Hold-on-failure requires a laptop probe profile")
     if battery_transitions and battery_capture:
         raise ValueError("Battery sample and transition captures are separate profiles")
+    if desktop_device_checks and (desktop_volume is None or desktop_scale != 1 or any((desktop_basic, desktop_battery, desktop_services, desktop_brightness, desktop_audio, desktop_sensors, desktop_network))):
+        raise ValueError("Device checks require their own unscaled desktop volume profile")
+    if desktop_services and not desktop_battery:
+        raise ValueError("Laptop services require the explicit ordinary battery desktop profile")
+    if desktop_battery and (desktop_volume is None or desktop_basic or desktop_scale != 1 or desktop_brightness or desktop_audio or desktop_sensors or desktop_network):
+        raise ValueError("Battery desktop requires its own unscaled Home profile")
+    if desktop_basic and (desktop_volume is None or desktop_scale != 1 or desktop_network):
+        raise ValueError("Basic desktop requires an unscaled volume; only explicit brightness/audio/sensors are optional")
     if desktop_network and not desktop_sensors:
         raise ValueError("desktop network requires the scaled sensor/audio profile")
     if desktop_sensors and not desktop_audio:
-        raise ValueError("desktop sensors require the scaled audio/brightness profile")
+        raise ValueError("desktop sensors require the explicit audio/brightness profile")
     if desktop_audio and not desktop_brightness:
-        raise ValueError("desktop audio requires explicit scaled brightness profile")
-    if desktop_brightness and (desktop_scale!=2 or desktop_volume is None):
+        raise ValueError("desktop audio requires explicit brightness profile")
+    if desktop_brightness and ((desktop_scale!=2 and not desktop_basic) or desktop_volume is None):
         raise ValueError("desktop brightness requires a scaled desktop volume")
     if desktop_scale not in (1,2) or (desktop_scale!=1 and desktop_volume is None):
         raise ValueError("Desktop scale requires desktop volume and scale 1 or 2")
@@ -287,11 +322,13 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
     if wifi_radio_reset and not wifi_mcu_probe: raise ValueError("Radio reset requires MCU probe")
     if wifi_mcu_probe and (not wifi_firmware_package or not wifi_mac_startup): raise ValueError("MCU probe requires firmware package and MAC startup")
     if wifi_mac_startup and not wifi_firmware_package: raise ValueError("MAC startup requires firmware package")
-    if (idle_capture or aml_capture or desktop_idle_capture or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or keyboard_capture or cpu_load_capture or wifi_capture or wifi_calibration or wifi_firmware_package) and laptop_probe_volume is None:
+    if (idle_capture or aml_capture or desktop_idle_capture or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions or keyboard_capture or cpu_load_capture or wifi_capture or wifi_calibration or wifi_firmware_package) and laptop_probe_volume is None:
         raise ValueError("Idle/AML capture requires a laptop probe volume")
-    if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture,battery_capture,battery_transitions,battery_service,battery_usb_read,battery_usb_write,battery_filesystem,battery_desktop,battery_text,battery_load,battery_app_files,battery_controls,battery_query,battery_smbus,battery_smbus_files,battery_home,battery_home_session,keyboard_capture,cpu_load_capture,wifi_capture,wifi_calibration,bool(wifi_firmware_package))))>1:
+    if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture,battery_capture,battery_transitions,battery_service,battery_usb_read,battery_usb_write,battery_filesystem,battery_desktop,battery_text,battery_load,battery_app_files,battery_controls,battery_query,battery_smbus,battery_smbus_files,battery_home,battery_home_session,battery_home_desktop,battery_home_transitions,keyboard_capture,cpu_load_capture,wifi_capture,wifi_calibration,bool(wifi_firmware_package))))>1:
         raise ValueError("Idle and AML captures are separate profiles")
-    gestures=gestures or desktop_io
+    if tap_typing and (desktop_io or trackpad_run is None):
+        raise ValueError("Tap/typing trial requires its own trackpad run")
+    gestures=gestures or desktop_io or tap_typing
     pointer=pointer or gestures
     if pointer and trackpad_run is None:
         raise ValueError("Pointer trial requires a trackpad run")
@@ -307,23 +344,23 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
     if trackpad_run is not None:
-        version = f"ram-usb-v{16 if desktop_io else 12 if gestures else 11 if pointer else 10}-trackpad-{workspace_volume}-{trackpad_run}"
+        version = f"ram-usb-v{50 if tap_typing else 16 if desktop_io else 12 if gestures else 11 if pointer else 10}-trackpad-{workspace_volume}-{trackpad_run}"
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v{37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
+        version = f"ram-usb-v{58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
-        version=f"ram-usb-v{39 if wifi_capture else 49 if battery_home_session else 48 if battery_home else 47 if battery_smbus_files else 46 if battery_smbus else 45 if battery_query else 44 if battery_controls else 43 if battery_app_files else 42 if battery_load else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        version=f"ram-usb-v{39 if wifi_capture else 66 if battery_air61 and battery_home_session else 65 if battery_air61 and battery_home else 64 if battery_air61 and battery_smbus_files else 63 if battery_air61 and battery_transitions else 62 if battery_air61 and battery_smbus else 61 if battery_air61 else 60 if battery_preflight else 52 if battery_home_transitions else 51 if battery_home_desktop else 49 if battery_home_session else 48 if battery_home else 47 if battery_smbus_files else 46 if battery_smbus else 45 if battery_query else 44 if battery_controls else 43 if battery_app_files else 42 if battery_load else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
         if wifi_calibration: version=f"ram-usb-wifi-cal-v1-laptop-probe-{laptop_probe_volume}"
         if wifi_firmware_package: version=f"ram-usb-wifi-fw-v{45 if wifi_mac_fce_validate else 44 if wifi_mac_fce_observe else 43 if wifi_mac_buffer else 42 if wifi_mac_vht else 41 if wifi_mac_beacon else 40 if wifi_mac_txsw else 39 if wifi_mac_contention else 38 if wifi_mac_protect else 37 if wifi_mac_policy_validate else 36 if wifi_mac_policy_observe else 35 if wifi_mac_policy else 34 if wifi_mac_route else 33 if wifi_mac_raw else 32 if wifi_mac_snapshot else 31 if wifi_bbp_table else 30 if wifi_clock_pair else 29 if wifi_clock_direct else 28 if wifi_clock else 27 if wifi_txbe_direct else 26 if wifi_txbe_access else 25 if wifi_txbe_second else 24 if wifi_txbe_first else 23 if wifi_txbe_observe else 22 if wifi_txbe_next else 21 if wifi_txbe_start else 20 if wifi_rxc_tail else 19 if wifi_rxc_start else 18 if wifi_agc_tail else 17 if wifi_agc_next else 16 if wifi_agc_more else 15 if wifi_compact else 14 if wifi_bbp_batch else 13 if wifi_bbp_agc else 12 if wifi_bbp_front else 11 if wifi_bbp_core else 10 if wifi_bbp_ready else 9 if wifi_mac_format else 8 if wifi_mac_basics else 7 if wifi_timing_probe else 6 if wifi_pair_probe else 5 if wifi_write_probe else 4 if wifi_radio_reset else 3 if wifi_mcu_probe else 2 if wifi_mac_startup else 1}-laptop-probe-{laptop_probe_volume}"
-        if not hold_on_failure and not battery_transitions and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
+        if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
-        "srvros.elf": ROOT / ("build/acpi-battery/srvros.elf" if (battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session) else "build/kernel/srvros.elf"),
+        "srvros.elf": ROOT / ("build/acpi-air61-battery/srvros.elf" if battery_air61 else "build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions) else "build/kernel/srvros.elf"),
         "initramfs.tar": ROOT / "build/initramfs.tar",
     }
     STAGE.mkdir(parents=True, exist_ok=True)
@@ -496,6 +533,8 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-")):
+        print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
     elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
@@ -516,10 +555,12 @@ def main():
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     parser.add_argument("--release", help="install this exact staged release")
     parser.add_argument("--keep-previous", action="store_true", help="retain the verified existing recovery entry during install")
+    parser.add_argument("--desktop-basic",action="store_true",help="unscaled desktop/input; optional --desktop-brightness, --desktop-audio and --desktop-sensors")
     parser.add_argument("--desktop-network",action="store_true",help="enable ECM on the scaled sensor desktop")
-    parser.add_argument("--desktop-sensors",action="store_true",help="enable read-only CPU and fan telemetry in the scaled audio desktop")
-    parser.add_argument("--desktop-audio",action="store_true",help="enable HDA in the scaled brightness trial")
+    parser.add_argument("--desktop-sensors",action="store_true",help="enable read-only CPU and fan telemetry in the explicit audio desktop")
+    parser.add_argument("--desktop-audio",action="store_true",help="enable HDA in the explicit brightness trial")
     parser.add_argument("--desktop-brightness",action="store_true",help="enable brightness only in the scaled desktop trial")
+    parser.add_argument("--desktop-device-checks", action="store_true", help="attended audio/Ethernet/input checklist with Help at startup; battery off")
     parser.add_argument("--desktop-scale",type=int,choices=(1,2),default=1,help="explicit desktop integer scale")
     parser.add_argument("--desktop-volume", type=compact_volume_uuid, help="stage an interactive native desktop trial for this compact USB UUID")
     parser.add_argument("--laptop-probe-volume", type=compact_volume_uuid, help="stage unattended laptop diagnostics on this prepared USB UUID")
@@ -576,6 +617,8 @@ def main():
     capture.add_argument("--cpu-load-capture",action="store_true",help="bounded idle/load/recovery diagnostic; save and return on handled failure")
     capture.add_argument("--keyboard-capture",action="store_true",help="guided typing test, save results and return automatically")
     capture.add_argument("--desktop-idle-capture",action="store_true",help="measure the desktop for 60 seconds, save screenshot/logs, unmount and return")
+    capture.add_argument("--battery-home-transitions",action="store_true",help="guided Home AC unplug/reconnect capture; input required, automatic return")
+    capture.add_argument("--battery-home-desktop",action="store_true",help="automatic 180-second ordinary Home desktop and battery capture")
     capture.add_argument("--battery-home-session",action="store_true",help="automatic held Home session with Text/file work; requires a fresh battery-study directory")
     capture.add_argument("--battery-home",action="store_true",help="automatic held mounted-Home battery boundary; no interactive input")
     capture.add_argument("--battery-smbus-files",action="store_true",help="automatic parked SMBus and Text file-worker capture; requires fresh image")
@@ -594,6 +637,10 @@ def main():
     capture.add_argument("--battery-capture",action="store_true",help="explicit native battery diagnostic kernel; save and return only after clean teardown")
     capture.add_argument("--aml-capture",action="store_true",help="run the isolated snapshot-only AML diagnostic with workspace logging; return only after clean completion")
     capture.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
+    parser.add_argument("--desktop-battery",action="store_true",help="ordinary Home session with explicit battery monitoring; Ctrl+Alt+Esc exits")
+    parser.add_argument("--desktop-services",action="store_true",help="add existing brightness, HDA, read-only sensors and ECM discovery to --desktop-battery")
+    parser.add_argument("--battery-preflight",action="store_true",help="passive Air6,1 PM1/GPE/EC-status capture; no live battery sampling")
+    parser.add_argument("--battery-air61",action="store_true",help="isolated Air6,1 sampling; add --battery-smbus for short capture or --battery-transitions for attended AC")
     args = parser.parse_args()
     if args.wifi_mac_fce_validate and (args.action != "stage" or not args.wifi_mac_fce_observe): parser.error("FCE validation requires stage --wifi-mac-fce-observe")
     if args.wifi_mac_fce_observe and (args.action != "stage" or not args.wifi_mac_buffer): parser.error("FCE observation requires stage --wifi-mac-buffer")
@@ -669,9 +716,17 @@ def main():
         parser.error("--wifi-mcu-probe requires stage --wifi-firmware-package --wifi-mac-startup")
     if args.wifi_mac_startup and (args.action != "stage" or not args.wifi_firmware_package):
         parser.error("--wifi-mac-startup requires stage --wifi-firmware-package")
+    if args.battery_air61 and (args.action != "stage" or not args.laptop_probe_volume):
+        parser.error("--battery-air61 requires stage --laptop-probe-volume")
+    if args.battery_preflight and (args.action != "stage" or not args.laptop_probe_volume):
+        parser.error("--battery-preflight requires stage --laptop-probe-volume")
+    if args.desktop_services and (args.action != "stage" or not args.desktop_battery):
+        parser.error("--desktop-services requires stage --desktop-battery --desktop-volume")
+    if args.desktop_battery and (args.action != "stage" or not args.desktop_volume):
+        parser.error("--desktop-battery requires stage --desktop-volume")
     if args.hold_on_failure and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("--hold-on-failure requires stage --laptop-probe-volume")
-    if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture or args.battery_transitions or args.battery_service or args.battery_usb_read or args.battery_usb_write or args.battery_filesystem or args.battery_desktop or args.battery_text or args.battery_load or args.battery_app_files or args.battery_controls or args.battery_query or args.battery_smbus or args.battery_smbus_files or args.battery_home or args.battery_home_session or args.keyboard_capture or args.cpu_load_capture or args.wifi_capture or args.wifi_calibration or args.wifi_firmware_package) and (args.action != "stage" or not args.laptop_probe_volume):
+    if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture or args.battery_transitions or args.battery_service or args.battery_usb_read or args.battery_usb_write or args.battery_filesystem or args.battery_desktop or args.battery_text or args.battery_load or args.battery_app_files or args.battery_controls or args.battery_query or args.battery_smbus or args.battery_smbus_files or args.battery_home or args.battery_home_session or args.battery_home_desktop or args.battery_home_transitions or args.keyboard_capture or args.cpu_load_capture or args.wifi_capture or args.wifi_calibration or args.wifi_firmware_package) and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("capture requires stage --laptop-probe-volume")
     if args.power_telemetry and (args.action != "stage" or not args.desktop_idle_capture):
         parser.error("--power-telemetry requires stage --desktop-idle-capture")
@@ -681,6 +736,8 @@ def main():
         parser.error("--keep-previous applies only to install")
     if args.release and args.action != "install":
         parser.error("--release applies only to install")
+    if args.desktop_device_checks and args.action != "stage":
+        parser.error("--desktop-device-checks applies only to stage")
     if args.desktop_network and args.action != "stage":
         parser.error("--desktop-network applies only to stage")
     if args.desktop_sensors and args.action != "stage":
@@ -695,7 +752,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home, battery_home_session=args.battery_home_session, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration, wifi_firmware_package=args.wifi_firmware_package, wifi_mac_startup=args.wifi_mac_startup, wifi_mcu_probe=args.wifi_mcu_probe, wifi_radio_reset=args.wifi_radio_reset, wifi_write_probe=args.wifi_write_probe, wifi_pair_probe=args.wifi_pair_probe, wifi_timing_probe=args.wifi_timing_probe, wifi_mac_basics=args.wifi_mac_basics, wifi_mac_format=args.wifi_mac_format, wifi_bbp_ready=args.wifi_bbp_ready, wifi_bbp_core=args.wifi_bbp_core, wifi_bbp_front=args.wifi_bbp_front, wifi_bbp_agc=args.wifi_bbp_agc, wifi_bbp_batch=args.wifi_bbp_batch, wifi_compact=args.wifi_compact, wifi_agc_more=args.wifi_agc_more, wifi_agc_next=args.wifi_agc_next, wifi_agc_tail=args.wifi_agc_tail, wifi_rxc_start=args.wifi_rxc_start, wifi_rxc_tail=args.wifi_rxc_tail, wifi_txbe_start=args.wifi_txbe_start, wifi_txbe_next=args.wifi_txbe_next, wifi_txbe_observe=args.wifi_txbe_observe, wifi_txbe_first=args.wifi_txbe_first, wifi_txbe_second=args.wifi_txbe_second, wifi_txbe_access=args.wifi_txbe_access, wifi_txbe_direct=args.wifi_txbe_direct, wifi_clock=args.wifi_clock, wifi_clock_direct=args.wifi_clock_direct, wifi_clock_pair=args.wifi_clock_pair, wifi_bbp_table=args.wifi_bbp_table, wifi_mac_snapshot=args.wifi_mac_snapshot, wifi_mac_raw=args.wifi_mac_raw, wifi_mac_route=args.wifi_mac_route, wifi_mac_policy=args.wifi_mac_policy, wifi_mac_policy_observe=args.wifi_mac_policy_observe, wifi_mac_policy_validate=args.wifi_mac_policy_validate, wifi_mac_protect=args.wifi_mac_protect, wifi_mac_contention=args.wifi_mac_contention, wifi_mac_txsw=args.wifi_mac_txsw, wifi_mac_beacon=args.wifi_mac_beacon, wifi_mac_vht=args.wifi_mac_vht, wifi_mac_buffer=args.wifi_mac_buffer, wifi_mac_fce_observe=args.wifi_mac_fce_observe, wifi_mac_fce_validate=args.wifi_mac_fce_validate)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration, wifi_firmware_package=args.wifi_firmware_package, wifi_mac_startup=args.wifi_mac_startup, wifi_mcu_probe=args.wifi_mcu_probe, wifi_radio_reset=args.wifi_radio_reset, wifi_write_probe=args.wifi_write_probe, wifi_pair_probe=args.wifi_pair_probe, wifi_timing_probe=args.wifi_timing_probe, wifi_mac_basics=args.wifi_mac_basics, wifi_mac_format=args.wifi_mac_format, wifi_bbp_ready=args.wifi_bbp_ready, wifi_bbp_core=args.wifi_bbp_core, wifi_bbp_front=args.wifi_bbp_front, wifi_bbp_agc=args.wifi_bbp_agc, wifi_bbp_batch=args.wifi_bbp_batch, wifi_compact=args.wifi_compact, wifi_agc_more=args.wifi_agc_more, wifi_agc_next=args.wifi_agc_next, wifi_agc_tail=args.wifi_agc_tail, wifi_rxc_start=args.wifi_rxc_start, wifi_rxc_tail=args.wifi_rxc_tail, wifi_txbe_start=args.wifi_txbe_start, wifi_txbe_next=args.wifi_txbe_next, wifi_txbe_observe=args.wifi_txbe_observe, wifi_txbe_first=args.wifi_txbe_first, wifi_txbe_second=args.wifi_txbe_second, wifi_txbe_access=args.wifi_txbe_access, wifi_txbe_direct=args.wifi_txbe_direct, wifi_clock=args.wifi_clock, wifi_clock_direct=args.wifi_clock_direct, wifi_clock_pair=args.wifi_clock_pair, wifi_bbp_table=args.wifi_bbp_table, wifi_mac_snapshot=args.wifi_mac_snapshot, wifi_mac_raw=args.wifi_mac_raw, wifi_mac_route=args.wifi_mac_route, wifi_mac_policy=args.wifi_mac_policy, wifi_mac_policy_observe=args.wifi_mac_policy_observe, wifi_mac_policy_validate=args.wifi_mac_policy_validate, wifi_mac_protect=args.wifi_mac_protect, wifi_mac_contention=args.wifi_mac_contention, wifi_mac_txsw=args.wifi_mac_txsw, wifi_mac_beacon=args.wifi_mac_beacon, wifi_mac_vht=args.wifi_mac_vht, wifi_mac_buffer=args.wifi_mac_buffer, wifi_mac_fce_observe=args.wifi_mac_fce_observe, wifi_mac_fce_validate=args.wifi_mac_fce_validate)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

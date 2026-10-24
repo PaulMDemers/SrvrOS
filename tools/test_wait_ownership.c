@@ -4,13 +4,15 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 static struct process *caller;
+static unsigned wakes;
+void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==&process_wait_queue);wakes++; }
 void *scheduler_current_user_context(void) { return caller; }
 void *scheduler_current_user_thread_context(void) { return NULL; }
 bool scheduler_wait(struct scheduler_wait_queue *q,bool (*ready)(void *),void *arg) { (void)q;(void)ready;(void)arg;assert(0);return false; }
 void scheduler_yield(void) { assert(0); }
 void pmm_free_frame_range(uint64_t physical,uint64_t frames) { (void)physical;(void)frames;assert(0); }
 static void setup(void) {
-    memset(processes,0,sizeof(processes));
+    wakes=0;memset(processes,0,sizeof(processes));
     processes[0]=(struct process){.allocated=true,.active=true,.pid=1};
     processes[1]=(struct process){.allocated=true,.active=true,.pid=10,.parent_pid=1};
     processes[2]=(struct process){.allocated=true,.detached=true,.reapable=true,.pid=11,.parent_pid=10,.exit_status=37};
@@ -34,6 +36,10 @@ int main(void) {
     setup();caller=&processes[1];processes[2].reapable=false;processes[2].active=true;
     assert(process_wait(11,&status,true)==0); /* Live owned child. */
     caller=&processes[3];assert(process_wait(0,&status,true)==-1);
+    setup();caller=&processes[1];processes[2].reapable=false; /* Already claimed by a competing reaper. */
+    assert(process_wait(11,&status,true)==0 && wakes==0);
+    release_process(&processes[2]);
+    assert(wakes==1 && process_wait(11,&status,true)==-1);
     setup();strcpy(processes[1].name,"sample");processes[1].mapping_count=17;
     uint64_t pid=0,parent=0,mapped=0;const char *name=NULL,*state=NULL;
     assert(process_list_details(1,&pid,&name,&state,&parent,&mapped)==2);

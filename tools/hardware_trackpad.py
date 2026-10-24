@@ -30,8 +30,9 @@ def folder_for(volume):
     return folder
 
 
-def prepare(uuid,pointer=False,gestures=False,desktop_io=False):
-    gestures=gestures or desktop_io
+def prepare(uuid,pointer=False,gestures=False,desktop_io=False,tap_typing=False):
+    if tap_typing and desktop_io: raise ValueError("Tap/typing and desktop I/O are separate trials")
+    gestures=gestures or desktop_io or tap_typing
     pointer=pointer or gestures
     volume = host.volume_id(uuid)
     folder = folder_for(volume)
@@ -40,11 +41,11 @@ def prepare(uuid,pointer=False,gestures=False,desktop_io=False):
     if request.exists() or request.is_symlink() or any((folder/f'trackpad-{run}{suffix}').exists() or
             (folder/f'trackpad-{run}{suffix}').is_symlink() for suffix in ('.txt','.done')):
         raise ValueError('Run identity collision')
-    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer,gestures=gestures,desktop_io=desktop_io)
+    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer,gestures=gestures,desktop_io=desktop_io,tap_typing=tap_typing)
     manifest = boot.verify(boot.STAGE/release)
     host.sync_file(request,f'SRVROS-TRACKPAD-V1 {run}\n'.encode(),exclusive=True)
     target = RUNS/run; target.mkdir(parents=True)
-    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io,'desktop_timing':desktop_io,'desktop_text':desktop_io,'desktop_timeline':desktop_io}
+    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'tap_typing':tap_typing,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io,'desktop_timing':desktop_io,'desktop_text':desktop_io,'desktop_timeline':desktop_io}
     host.sync_file(target/'manifest.json',(json.dumps(metadata,indent=2)+'\n').encode())
     host.sync_file(RUNS/'latest',(run+'\n').encode())
     os.sync()
@@ -71,7 +72,7 @@ def launch(run):
     release = metadata['release']; run = metadata['run']
     manifest = boot.verify(boot.STAGE/release)
     if manifest != metadata['boot_manifest'] or manifest['config_version'] != \
-            f"ram-usb-v{16 if metadata.get('desktop_timeline') else 15 if metadata.get('desktop_text') else 14 if metadata.get('desktop_timing') else 13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
+            f"ram-usb-v{50 if metadata.get('tap_typing') else 16 if metadata.get('desktop_timeline') else 15 if metadata.get('desktop_text') else 14 if metadata.get('desktop_timing') else 13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
         raise ValueError('Staged payload does not match the capture request')
     folder = folder_for(metadata['volume'])
     request = folder/f'trackpad-{run}.req'
@@ -144,6 +145,12 @@ def validate_result(metadata,data,completion):
         exercised=fields.get('pointer_trial')=='EXERCISED' and int(fields['gesture_scroll_events'])>0
         if fields.get('gesture_trial')!=('EXERCISED' if exercised else 'INCOMPLETE'):
             raise ValueError('Inconsistent gesture trial')
+    if metadata.get('tap_typing') or 'tap_typing_trial' in fields:
+        for key in ('tap_primary','tap_secondary','input_policy_options'):
+            if not re.fullmatch(r'[0-9]{1,20}',fields.get(key,'')): raise ValueError('Invalid tap/typing measurement')
+        exercised=fields.get('gesture_trial')=='EXERCISED' and fields['input_policy_options']=='14' and int(fields['tap_primary'])>0 and int(fields['gesture_typing_suppressed'])>0
+        if fields.get('tap_typing_trial')!=('EXERCISED' if exercised else 'INCOMPLETE'):
+            raise ValueError('Inconsistent tap/typing trial')
     return fields
 
 
@@ -209,13 +216,15 @@ def collect(run):
     print(f'Evidence: {RUNS/run}')
     if metadata.get('pointer'): print(f"Pointer trial: {fields['pointer_trial']} (physical feel still needs user feedback)")
     if metadata.get('gestures'): print(f"Gesture trial: {fields['gesture_trial']}; scroll events={fields['gesture_scroll_events']}; typing suppressed={fields['gesture_typing_suppressed']}; broad-contact suppressed={fields['gesture_palm_suppressed']}")
-    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED') and (not metadata.get('desktop_io') or result['desktop_io']['status']=='EXERCISED') and (not metadata.get('desktop_timing') or result['desktop_timing_gate']=='MET') and (not metadata.get('desktop_text') or result['desktop_text_gate']=='MET')
+    if metadata.get('tap_typing'): print(f"Tap/typing trial: {fields['tap_typing_trial']}; primary taps={fields['tap_primary']}; secondary taps={fields['tap_secondary']}")
+    return (not metadata.get('tap_typing') or fields['tap_typing_trial']=='EXERCISED') and fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED') and (not metadata.get('desktop_io') or result['desktop_io']['status']=='EXERCISED') and (not metadata.get('desktop_timing') or result['desktop_timing_gate']=='MET') and (not metadata.get('desktop_text') or result['desktop_text_gate']=='MET')
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('prepare','run','collect'))
     parser.add_argument('--desktop-io',action='store_true',help='Run desktop input with bounded USB file work')
+    parser.add_argument('--tap-typing',action='store_true',help='Explicit desktop tap-to-click and typing suppression trial')
     parser.add_argument('--gestures',action='store_true',help='Prepare scrolling and accidental-touch trial')
     parser.add_argument('--pointer',action='store_true',help='Prepare an interactive desktop pointer trial')
     parser.add_argument('--uuid'); parser.add_argument('--run')
@@ -223,7 +232,7 @@ if __name__=='__main__':
     try:
         if args.action=='prepare':
             if not args.uuid: parser.error('prepare requires --uuid')
-            prepare(args.uuid,args.pointer,args.gestures,args.desktop_io)
+            prepare(args.uuid,args.pointer,args.gestures,args.desktop_io,args.tap_typing)
         elif args.action=='run': launch(args.run)
         elif not collect(args.run): raise SystemExit(2)
     except (OSError,ValueError,RuntimeError,KeyError,subprocess.CalledProcessError) as error:

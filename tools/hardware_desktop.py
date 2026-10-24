@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import subprocess
+import struct
 import tempfile
 from pathlib import Path
 import hardware_test as host
@@ -360,6 +361,26 @@ def desktop_idle_sample(exit_text):
             "scope":"CPU0 scheduler samples with Text open and periodic device/USB logs; not energy or interactive acceptance"}
 
 
+def desktop_worker_sample(exit_text):
+    from scheduler_activity import worker_activity
+    idle=desktop_idle_sample(exit_text)
+    windows=re.findall(r"^desktop-idle-window: start_us=([0-9]{1,20}) end_us=([0-9]{1,20})$",exit_text,re.M)
+    if not idle or len(windows)!=1:return None
+    start,end=map(int,windows[0])
+    if end-start!=idle["elapsed_us"]:return None
+    return worker_activity(exit_text,start,end)
+
+
+def desktop_logger_cost(exit_text):
+    from workspace_cost import logger_cost
+    idle=desktop_idle_sample(exit_text)
+    windows=re.findall(r"^desktop-idle-window: start_us=([0-9]{1,20}) end_us=([0-9]{1,20})$",exit_text,re.M)
+    if not idle or len(windows)!=1:return None
+    start,end=map(int,windows[0])
+    if end-start!=idle["elapsed_us"]:return None
+    return logger_cost(exit_text,start,end)
+
+
 def power_idle_sample(exit_text):
     """Derive only the covered interval inside a completed desktop idle window.
 
@@ -457,6 +478,38 @@ def battery_app_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_home_desktop_result(exit_text):
+    from battery_home_desktop_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-desktop'):return None
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def verify_home_desktop_screenshot(workspace, text, saved, count=1):
+    """Copy only the exact, bounded screenshot named by this completed session."""
+    rows=re.findall(r'^deskd: screenshot saved status=0 path=/work/srvros-work/Screenshots/(Screen-[A-Za-z0-9-]+\.bmp)$',text,re.M)
+    captures=re.findall(r'^deskd: screenshot captured path=/work/srvros-work/Screenshots/(Screen-[A-Za-z0-9-]+\.bmp) width=(\d+) height=(\d+)$',text,re.M)
+    if len(rows)!=count or len(captures)!=count or len(set(rows))!=count or [r[0] for r in captures]!=rows:raise ValueError('Home desktop screenshot receipt missing or ambiguous')
+    result=[]
+    for name,(_,w,h) in zip(rows,captures):
+        folder=workspace/'Screenshots';image=folder/name
+        if folder.is_symlink() or image.is_symlink() or not image.is_file() or not 54<image.stat().st_size<=8*1024*1024+54:raise ValueError('Home desktop screenshot missing or unsafe')
+        data=image.read_bytes();width,height=int(w),int(h)
+        if len(data)!=54+width*height*4 or data[:2]!=b'BM' or struct.unpack_from('<I',data,2)[0]!=len(data) or struct.unpack_from('<IIiiHHI',data,10)!=(54,40,width,height,1,32,0):raise ValueError('Home desktop screenshot invalid')
+        copy=saved/name;copy.write_bytes(data)
+        if copy.read_bytes()!=data:raise OSError('Home desktop screenshot copy verification failed')
+        result.append(dict(name=name,width=width,height=height,sha256=hashlib.sha256(data).hexdigest()))
+    return result[0] if count==1 else result
+
+
+
+def battery_home_transitions_result(exit_text):
+    from battery_home_desktop_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-transitions'):return None
+    try:return check_capture(exit_text.encode(),transitions=True)
+    except (AssertionError,ValueError):return None
+
+
 def battery_home_session_result(exit_text):
     from battery_control_files_records import check_capture
     if not battery_overlap_recipe(exit_text,'battery-home-session'):return None
@@ -475,6 +528,13 @@ def battery_smbus_files_result(exit_text):
     from battery_native_smbus_records import check_files
     if not battery_overlap_recipe(exit_text,'battery-smbus-files'):return None
     try:return check_files(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
+def battery_smbus_transitions_result(exit_text):
+    from battery_smbus_transition_records import check
+    if not battery_overlap_recipe(exit_text,'battery-smbus-transitions'):return None
+    try:return check(exit_text.encode())
     except (AssertionError,ValueError):return None
 
 
@@ -520,6 +580,18 @@ def needs_attention(line):
     if kind=="pcm":return fields["pcm_state"]==6 or fields.get("underruns",0)>0
     if kind=="power":return fields.get("rejected",0)>0 or (fields.get("flags",0)&4)!=0
     return (kind in ("audio","smc") and fields[kind+"_state"]==4) or (kind=="thermal" and fields.get("flags",0)&8)!=0
+
+
+def battery_preflight_result(text):
+    header=re.findall(r"^battery-preflight: model=MacBookAir6,1 pm1_control=(0x[0-9a-f]+) pm1_status=(0x[0-9a-f]+) pm1_enable=(0x[0-9a-f]+) ec_status=(0x[0-9a-f]+) SCI=9 EC_GPE=0x4e$",text,re.M)
+    rows=re.findall(r"^battery-preflight: gpe_byte=(\d+) status=(0x[0-9a-f]+) enable=(0x[0-9a-f]+)$",text,re.M)
+    if len(header)!=1 or len(rows)!=16 or [int(r[0]) for r in rows]!=list(range(16)):
+        return None
+    if 'battery-preflight: complete reads=36 writes=0; no EC data/commands, AML, ACPI mode, SCI ownership or battery samples' not in text or 'battery-preflight: REFUSED' in text:
+        return None
+    values=[int(v,16) for v in header[0]]
+    if any(v>65535 for v in values[:3]) or values[3]>255 or any(int(v,16)>255 for row in rows for v in row[1:]):return None
+    return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
 
 
 def collect(mount, volume, output):
@@ -596,6 +668,24 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_transitions_proof=battery_home_transitions_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-transitions(?:\s|$)',text) and home_transitions_proof is None:
+            attention.append('collection: guided Home AC transitions missing, invalid or incomplete')
+        if home_transitions_proof:
+            try:
+                if set(payload)!=set(FILES):raise ValueError('Home transition periodic logs missing')
+                home_transitions_proof['screenshots']=verify_home_desktop_screenshot(workspace,payload['exit.log'].decode('utf-8',errors='replace'),saved,3)
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_transitions_proof=None
+        home_desktop_proof=battery_home_desktop_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-desktop(?:\s|$)',text) and home_desktop_proof is None:
+            attention.append('collection: continuous Home desktop completion missing, invalid or refused')
+        if home_desktop_proof:
+            try:
+                if set(payload)!=set(FILES):raise ValueError('Home desktop periodic logs missing')
+                home_desktop_proof['screenshot']=verify_home_desktop_screenshot(workspace,payload['exit.log'].decode('utf-8',errors='replace'),saved)
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_desktop_proof=None
         home_session_proof=battery_home_session_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-home-session(?:\s|$)',text) and home_session_proof is None:
             attention.append('collection: Home desktop-session completion missing, invalid or refused')
@@ -627,6 +717,9 @@ def collect(mount, volume, output):
                 smbus_files_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));smbus_files_proof=None
+        smbus_transitions_proof=battery_smbus_transitions_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-smbus-transitions' in text and smbus_transitions_proof is None:
+            attention.append('collection: parked AC transitions missing, invalid or incomplete')
         smbus_proof=battery_smbus_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-smbus(?:\s|$)',text) and smbus_proof is None:
             attention.append('collection: native SMBus completion missing, invalid or not exercised')
@@ -661,7 +754,11 @@ def collect(mount, volume, output):
             attention.append('collection: battery Text overlap completion missing or invalid')
         if 'srvros.capture=battery-desktop' in text and desktop_proof is None:
             attention.append('collection: battery desktop overlap completion missing or invalid')
+        preflight=battery_preflight_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.battery-preflight=air61' in text and preflight is None:
+            attention.append('collection: passive battery preflight missing, refused or incomplete')
         records.append({
+            "battery_preflight": preflight,
             "session": name,
             "releases": releases,
             "files": {key: hashlib.sha256(data).hexdigest() for key, data in payload.items()},
@@ -670,9 +767,11 @@ def collect(mount, volume, output):
             "attention": attention,
             "devices": device_summaries(text),
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "desktop_logger_cost": desktop_logger_cost(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "desktop_worker_sample": desktop_worker_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_home_transitions":home_transitions_proof,"battery_home_desktop":home_desktop_proof,"battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_smbus_transitions":smbus_transitions_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

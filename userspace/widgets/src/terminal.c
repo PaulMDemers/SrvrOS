@@ -304,3 +304,16 @@ size_t desk_terminal_reply(struct desk_terminal *t,void *data,size_t capacity) {
     if(!data) return 0;
     memcpy(data,t->reply,count);memmove(t->reply,t->reply+count,t->reply_size-count);t->reply_size-=count;return count;
 }
+
+size_t desk_terminal_paste_normalize(const struct desk_terminal *terminal,char *text,size_t size) {
+    if(terminal->bracketed_paste) return size;
+    size_t out=0;
+    for(size_t i=0;i<size;i++) {
+        char c=text[i];
+        if(c=='\r' || c=='\n') {
+            if(c=='\r' && i+1<size && text[i+1]=='\n') i++;
+            text[out++]=' ';
+        } else text[out++]=c;
+    }
+    return out;
+}

@@ -156,6 +156,9 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
 struct desk_rect desktop_clock_rect(int width,const char *clock) {
     int text=desk_text_width(&desk_font_16,clock);return (struct desk_rect){width-text-24,0,text+24,44};
 }
+struct desk_rect desktop_battery_rect(int width,const char *clock) {
+    struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-238,0,140,44};
+}
 struct desk_rect desktop_alert_rect(int width,const char *clock) {
     struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-94,0,90,44};
 }
@@ -187,7 +190,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
     if(!s->apps && s->battery[0])desk_label_draw(c,(struct desk_rect){c->width-180,12,164,24},&desk_font_16,s->battery,desk_theme_quiet.muted);
     if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->notice[0]?s->notice:s->trackpad_trial==3?s->io_status:
-        s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
+        s->trackpad_trial>=2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
         "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
     if (s->trackpad_trial>=2 && c->height>=700) {
@@ -203,6 +206,16 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
             "   Lift completely, then check normal movement, clicking, dragging and resizing.",
             "4. Press Escape for live filter counters and the final save instructions."
         };
+        const char *tap_steps[]={
+            "Tap-to-click and typing suppression - both enabled",
+            "1. Lightly tap Text size with one finger; it should activate once. Do not press.",
+            "2. Hold A and brush the pad without clicking: the pointer should stay still.",
+            "   Release A AND lift fully, then touch again: pointer movement should resume.",
+            "3. Repeat taps after typing. Scroll and physically click/drag: no extra click.",
+            "4. Optional: short two-finger taps. Long holds and scrolling must not tap.",
+            "5. Escape opens live tap/filter counters. Follow checks, clear, type AaZz09.",
+            "   Enter saves. Wait for USB unmount; the test halts for manual restart."
+        };
         const char *io_steps[]={
             s->io_next[0]?s->io_next:"Input + USB file work - keep testing while the status below says RUNNING",
             "1. Press Space to start USB work, then type, scroll, drag and resize.",
@@ -214,7 +227,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
             s->io_check[0]?s->io_check:"   Complete all coverage counters below before Escape."
         };
         for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
-            desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
+            desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==4?tap_steps[i]:s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
     }
     int order[DESKD_WINDOWS];desktop_stack(s,order);
     for(int n=0;n<DESKD_WINDOWS;n++) draw_window(c,&s->windows[order[n]],order[n]==s->focus,s->apps);

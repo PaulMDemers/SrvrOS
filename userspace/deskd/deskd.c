@@ -1,4 +1,5 @@
 #include <srvros/desk_battery.h>
+#include "battery_trial.h"
 #include <srvros/desk_log.h>
 #include <srvros/desk_paths.h>
 #include <srvros/desktop_apps.h>
@@ -51,6 +52,10 @@ struct session {
     uint64_t children[DESKD_WINDOWS];
     int child_apps[DESKD_WINDOWS],exiting,ram_text;
     uint64_t battery_tick,battery_reads,battery_first,battery_last;
+    struct srv_battery_status battery_status;
+    int battery_result;
+    struct desk_battery_alert battery_alert;
+    uint64_t battery_notice_serial;
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
@@ -342,11 +347,26 @@ static void battery_update(struct session *s,int force) {
     s->battery_tick=now;
     struct srv_battery_status value={0};
     long result=srv_battery_status(&value);
+    s->battery_status=value;s->battery_result=(int)result;
     struct desk_battery_view view=desk_battery_view(result?NULL:&value);
     if(view.fresh) {
         s->battery_reads++;
         if(!s->battery_first)s->battery_first=value.generation;
         s->battery_last=value.generation;
+    }
+    unsigned warning=desk_battery_alert_update(&s->battery_alert,result?NULL:&value);
+    if(warning && s->scene.apps && !s->exiting) {
+        struct desk_notification text={0};
+        strcpy(text.title,warning==2?"Battery very low":"Battery low");
+        snprintf(text.message,sizeof(text.message),"%u%% remaining. %s",value.soc,
+            warning==2?"Connect power now and save your work.":"Connect power soon.");
+        uint64_t id;long us=srv_monotonic_us();
+        if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX-1,DESK_APP_SYSTEM,
+            ++s->battery_notice_serial,us<0?0:(uint64_t)us,DESK_NOTICE_WARNING,&text,&id)>0) {
+            desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);
+            notifications_damage(s);
+            desk_log("deskd: battery notice level=%u soc=%u\n",warning,value.soc);
+        }
     }
     if(strcmp(view.label,s->scene.battery)) {
         strcpy(s->scene.battery,view.label);
@@ -940,6 +960,26 @@ static void service(struct session *s) {
             s->children[i]=0;
     }
 }
+/* Only idle maintenance may move to the 100 ms cadence. Publication, retries,
+ * transfers and input capture retain the old tick. Incoming work is separately
+ * checked atomically by the kernel immediately before blocking. */
+static int session_quiescent(const struct session *s) {
+    if(s->exiting || s->damage.count || s->capture.busy || s->capture_pending ||
+       s->preferences.loading || s->preferences.dirty || s->preferences.job.busy ||
+       s->pointer_pid || s->pointer_blocked || clipboard.writer) return 0;
+    for(unsigned i=0;i<DESK_CLIPBOARD_PEERS;i++)
+        if(clipboard.peers[i].reading || clipboard.peers[i].reply.type) return 0;
+    for(unsigned i=0;i<DESKD_WINDOWS;i++) {
+        const struct client *c=&s->clients[i];
+        if(s->children[i] && !c->pid) return 0;
+        if(!c->pid) continue;
+        if(c->configure || c->awaiting || c->closing || c->close_requested ||
+           c->preferences_dirty || c->release.type || c->brightness_reply.type ||
+           c->audio_reply.type || c->input_count || c->input_blocked ||
+           c->control_blocked || c->pointer_cancel_pending || c->notice_ack_pending) return 0;
+    }
+    return 1;
+}
 static int hit(struct session *s,int x,int y) {
     int order[DESKD_WINDOWS];desktop_stack(&s->scene,order);
     for(int n=DESKD_WINDOWS-1;n>=0;n--) {
@@ -952,6 +992,12 @@ static int hit(struct session *s,int x,int y) {
 }
 static int global_click(struct session *s,int x,int y) {
     if(!s->scene.apps) return 0;
+    if(s->scene.battery[0] && desk_widget_contains(desktop_battery_rect(s->damage.width,s->scene.clock),x,y)) {
+        for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid && !s->clients[i].closing && s->scene.windows[i].application==DESK_APP_SYSTEM) {
+            focus(s,i);return 1;
+        }
+        spawn_app(s,DESK_APP_SYSTEM,"");return 1;
+    }
     if(desk_widget_contains(desktop_alert_rect(s->damage.width,s->scene.clock),x,y)) { notifications_open(s);return 1; }
     if(desk_widget_contains(desktop_clock_rect(s->damage.width,s->scene.clock),x,y)) { calendar_open(s);return 1; }
     for(int app=1;app<=DESK_APP_COUNT;app++) {
@@ -1073,17 +1119,21 @@ int main(int argc,char **argv) {
     int coexist_files=coexist_workspace || (argc==2 && !strcmp(argv[1],"--coexist-files"));
     int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
-    int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
+    int battery_guided=argc==2 && !strcmp(argv[1],"--battery-transition-capture");
+    int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
+    int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
-    int apps=idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
+    int home_apps=argc==2 && !strcmp(argv[1],"--home-apps");
+    int apps=battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
+    int tap_typing=argc==2 && strcmp(argv[1],"--tap-typing-test")==0;
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -1096,8 +1146,8 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.ram_text=coexist_text || control_capture,.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
+    struct session s={.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+        .trace=battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
@@ -1108,10 +1158,16 @@ int main(int argc,char **argv) {
     desk_ui_window_focus(&s.scene.calendar_ui,0);
     if((apps || coexist_text) && gui_keyboard_mode(1)!=0) { gfx_console_mute(0);return 1; }
     if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,width,height); return 1; }
-    s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
+    s.scene.trackpad_trial=tap_typing?4:io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
+    if(tap_typing) {
+        if(gui_pointer_config(3,SRV_POINTER_TAPS|SRV_POINTER_DISABLE_WHILE_TYPING)!=0) {
+            gfx_console_mute(0);desk_pixels_free(pixels,width,height);return 1;
+        }
+        desk_log("deskd: tap/typing options=14\n");
+    }
     desk_damage_init(&s.damage,width,height);
-    if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
+    if(apps) { desktop_preferences_init_path(&s.preferences,(battery_guided || hardware_trial || idle_capture || home_apps)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }
     battery_update(&s,1);
     global_menu_rebuild(&s);
@@ -1121,6 +1177,7 @@ int main(int argc,char **argv) {
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
+    if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
@@ -1136,6 +1193,8 @@ int main(int argc,char **argv) {
     uint64_t coexist_limit=control_files?90000000:60000000;
     int coexist_complete=0,coexist_script_done=0;
     uint64_t coexist_keys=0,coexist_key_ack=0;
+    struct desk_battery_trial battery_trial={.began=(uint64_t)srv_monotonic_us()};
+    int battery_saving=0;unsigned battery_shot_serial=0;uint64_t battery_shot_due=0;
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1508,7 +1567,8 @@ int main(int argc,char **argv) {
         if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
-        if (s.damage.count) frames++;
+        int painted=s.damage.count!=0;
+        if (painted) frames++;
         if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent) {
             if(control_files && coexist_sent!=coexist_ack && !(coexist_sent%12))
                 desk_log("desktop-coexist: file-checkpoint serial=%llu elapsed_us=%llu\n",
@@ -1529,6 +1589,43 @@ int main(int argc,char **argv) {
             if(!coexist_complete) failed=1;
             quit=1;
         }
+        if(battery_guided && !failed) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            if(battery_saving) {
+                if(s.capture_finished>battery_shot_serial) {
+                    if(!s.capture_success)failed=1;
+                    else {
+                        desk_log("desktop-ac: screenshot phase=%u saved=yes\n",battery_trial.phase);
+                        desk_battery_trial_advance(&battery_trial,now);battery_saving=0;
+                        if(battery_trial.phase==3)quit=1;
+                        else {
+                            strcpy(s.scene.notice,battery_trial.phase==1?
+                                "2/3 Unplug AC now. Wait for battery readings and a saved screenshot. Keep USB connected.":
+                                "3/3 Reconnect AC now. Wait for AC readings; the test will save and return to Ubuntu.");
+                            desk_log("desktop-ac: prompt phase=%u\n",battery_trial.phase);
+                            desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+                        }
+                    }
+                } else if(now>=battery_shot_due)failed=1;
+            } else {
+                int ready=desk_battery_trial_step(&battery_trial,s.battery_result?NULL:&s.battery_status,now);
+                if(ready<0) {desk_log("desktop-ac: timeout-or-invalid phase=%u\n",battery_trial.phase);failed=1;}
+                else if(ready) {
+                    const struct srv_battery_status *v=&s.battery_status;
+                    desk_log("desktop-ac: accepted=%u stable=3 epoch=%llu first_gen=%llu last_gen=%llu ac=%u soc=%u current_ua=%lld voltage_uv=%llu remaining=%llu full=%llu unit=%u ac_us=%llu sampled_us=%llu age_us=%llu label=%s\n",
+                        battery_trial.phase,(unsigned long long)v->epoch,(unsigned long long)battery_trial.first_generation,
+                        (unsigned long long)v->generation,!!(v->flags&SRV_BATTERY_AC_PRESENT),v->soc,
+                        (long long)v->current_ua,(unsigned long long)v->voltage_uv,(unsigned long long)v->remaining_capacity,
+                        (unsigned long long)v->full_capacity,v->capacity_unit,(unsigned long long)v->ac_sampled_us,
+                        (unsigned long long)v->sampled_us,(unsigned long long)v->age_us,s.scene.battery);
+                    strcpy(s.scene.notice,battery_trial.phase==1?"Battery confirmed. Saving screenshot; keep AC unplugged until the next instruction.":
+                        "AC confirmed. Saving screenshot; keep AC connected until the next instruction.");
+                    desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+                    battery_saving=1;battery_shot_serial=s.capture_finished;battery_shot_due=now+30000000;
+                    capture_request(&s);
+                }
+            }
+        }
         if(idle_capture && !failed) {
             uint64_t now=srv_ticks();
             if(idle_phase && !s.clients[0].generation) failed=1;
@@ -1536,13 +1633,13 @@ int main(int argc,char **argv) {
                 if(!s.clients[0].generation) { if(now-start>=3000) failed=1; }
                 else if(srv_scheduler_status(&idle_before) || idle_before.version!=SRV_SCHEDULER_VERSION) failed=1;
                 else {
-                    idle_phase=1;idle_deadline=now+6000;idle_frames=frames;idle_bytes=bytes;
-                    desk_log("desktop-idle: measuring 60 seconds with Text open; no user input required\n");
+                    idle_phase=1;idle_deadline=now+(battery_idle?18000:6000);idle_frames=frames;idle_bytes=bytes;
+                    desk_log("desktop-idle: measuring %u seconds with Text open; no user input required\n",battery_idle?180:60);
                 }
             } else if(idle_phase==1 && now>=idle_deadline) {
                 struct srv_scheduler_status after={0};
                 if(srv_scheduler_status(&after) || after.version!=SRV_SCHEDULER_VERSION ||
-                   after.monotonic_us<idle_before.monotonic_us+59000000 ||
+                   after.monotonic_us<idle_before.monotonic_us+(battery_idle?179000000:59000000) ||
                    after.sampled_ticks<=idle_before.sampled_ticks || after.idle_ticks<idle_before.idle_ticks ||
                    after.idle_ticks-idle_before.idle_ticks>after.sampled_ticks-idle_before.sampled_ticks ||
                    after.switches<idle_before.switches || after.preemptions<idle_before.preemptions) failed=1;
@@ -1567,9 +1664,16 @@ int main(int argc,char **argv) {
             }
         }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
-        srv_sleep_ticks(1);
+        if(!apps || coexist || control_capture || battery_guided || hardware_trial ||
+           quit || painted || buttons || drag>=0 || resize>=0 || pending_key ||
+           !session_quiescent(&s) || gui_server_wait(10)<0)
+            srv_sleep_ticks(1);
     }
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
+    if(battery_guided) {
+        if(battery_trial.phase!=3)failed=1;
+        desk_log("desktop-ac: completed=%s phases=%u screenshots=%u\n",failed?"NO":"yes",battery_trial.phase,battery_trial.phase);
+    }
     if(idle_capture) {
         if(idle_phase!=3) failed=1;
         desk_log("desktop-idle: completed=%s screenshot=%s\n",failed?"NO":"yes",idle_phase==3?"yes":"NO");

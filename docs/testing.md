@@ -4,7 +4,10 @@ On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-de
 and update their [machine record](machines/README.md). A VM pass is not physical
 acceptance on any of the additional models. Ordinary desktop profiles exclude
 the optional AML probe. A later isolated Air7,2 resource probe completed cleanly;
-live native SCI/EC/battery service remains unaccepted. See [current status](status.md).
+native SCI/EC/battery acceptance is model- and profile-specific. See [current status](status.md).
+
+Filesystem capacity, stable allocation, exhaustion and large disposable-volume
+tests are described in the [capacity contract](filesystem-capacity.md).
 
 srvros has host tests for console/input/clock/storage logic and QEMU boot smoke tests. Each harness starts a fresh QEMU
 instance, connects to the serial console, drives monitor or shell commands, and
@@ -314,6 +317,14 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
   `wait`, `jobs -l`, `%+` job references, foreground/background pipeline job
   control, `kill -0` probes, `%job` process-group kill, and Ctrl-C interruption
   of CPU-bound processes and pipelines with `status 130`.
+- `process_lifetime_smoke.py`: disposable Q35 boot, two runs of the kernel
+  `lifetimetest` command (256 sequential apps total), failed spawn, synchronous
+  exec, orphaned descendants across `setsid`/exec/job groups, selected-lifetime
+  drain and unrelated-process survival, 32 competing waiter pairs with exactly
+  one successful reap per child, followed by the existing PTY fixture.
+  `make test-process-lifetime` covers preparation/release races and stale owner
+  tokens against the real kernel allocation paths. This does not accept native
+  battery ownership or ordinary desktop startup.
 - `process_pressure.py`: repeated foreground execs, multi-stage pipelines, many
   concurrent background sleeps, `jobs -l`, `wait`, and a final pipeline pass. It
   fails on process-table, scheduler-thread, pipe, or pipeline-spawn exhaustion
@@ -807,3 +818,23 @@ read-only transport and its actual worker, including failure invalidation.
 AML and SBS host tests do not establish live
 EC ownership. All VM storage is disposable. The staged GRUB/EFI desktop check
 should follow the build before installing a hardware candidate.
+
+
+## Ordinary Home desktop lifetime (disposable VM)
+
+Build both battery kernels and userspace before running these sequentially:
+
+```sh
+tools/host-env.sh make -j2 all acpi-battery-kernel acpi-battery-vm-kernel test-core
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case normal
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case cancel
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case profile-refusal
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case runtime-fault
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --case refusal
+```
+
+The normal apps use a disposable exFAT Home with periodic logging and the inherited
+process lifetime. Saved Text, Terminal and orphan receipts, logger files, drain
+ordering and offline allocation are checked. Runtime-fault success means expected
+containment with live ownership retained, not clean shutdown or filesystem
+acceptance. Results do not accept native continuous monitoring or battery accuracy.

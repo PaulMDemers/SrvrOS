@@ -2,10 +2,18 @@
 #define SRVROS_BATTERY_NATIVE_POLICY_H
 #include <stdbool.h>
 #include <stdint.h>
+#ifdef SRVROS_BATTERY_AIR61
+#define BATTERY_GNVS 0x8cd3ea90ull
+#define BATTERY_GNVS_BYTES 0x26du
+/* Air6,1 CpuPm PPMT, NOT Air7,2 PNVS. Captured length 0x003a. */
+#define BATTERY_PNVS 0x8cd1bf90ull
+#define BATTERY_PNVS_BYTES 0x3au
+#else
 #define BATTERY_GNVS 0x8ad28a90ull
+#define BATTERY_GNVS_BYTES 0x282u
 #define BATTERY_PNVS 0x8ad2af90ull
-/* Captured CpuSsdt OperationRegion length is hexadecimal 0x0053 (83 bytes). */
 #define BATTERY_PNVS_BYTES 0x53u
+#endif
 /* Captured GPE66 graphics/TCO SCI and GPE72 wake-alarm sources only. The runtime must lease and
  * restore it without acknowledging its status. Already active ACPI ownership
  * or any other enabled event is refused. This predicate grants no IO. */
@@ -17,9 +25,15 @@ static inline bool battery_native_gpe_admit(unsigned byte,uint8_t enabled,uint16
 static inline bool battery_native_contains(uint64_t b,uint64_t n,uint64_t a,uint64_t s) {
     return s&&a>=b&&a-b<=n&&s<=n-(a-b);
 }
+/* RCRB is an opaque AML mapping. Only this captured HPTC DWORD may be read;
+ * accepting the region mapping does not authorize its other registers. */
+static inline bool battery_native_hptc_allowed(uint64_t pointer,uint64_t hptc,
+    unsigned bits,bool write) {
+    return pointer==hptc && bits==32 && !write;
+}
 /* Shared by native mapping and read policy; writes remain independently gated. */
 static inline bool battery_native_nvs_contains(uint64_t igdm,uint64_t address,uint64_t bytes) {
-    return battery_native_contains(BATTERY_GNVS,0x282,address,bytes)||
+    return battery_native_contains(BATTERY_GNVS,BATTERY_GNVS_BYTES,address,bytes)||
         battery_native_contains(BATTERY_PNVS,BATTERY_PNVS_BYTES,address,bytes)||
         (igdm&&battery_native_contains(igdm,8192,address,bytes));
 }
