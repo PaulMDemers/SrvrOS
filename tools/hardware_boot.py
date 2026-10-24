@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-storage-wait|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -109,11 +109,13 @@ def limine_config(release, version=CONFIG_VERSION):
             cmdline += f" srvros.desktop-release={release} srvros.laptop-services=brightness"
         if version.startswith(("ram-usb-v57-","ram-usb-v59-")): cmdline += " srvros.audio=hda"
         if version.startswith("ram-usb-v59-"): cmdline += " srvros.sensors=cpu srvros.smc=read-only"
-        if version.startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-")):
+        if version.startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
             cmdline = cmdline.replace("srvros.desktop=trial", "srvros.desktop=session")
             cmdline += f" srvros.desktop-release={release} srvros.battery=on"
         if version.startswith("ram-usb-v55-"):
             cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only srvros.usb-network=ecm"
+        if version.startswith("ram-usb-v71-"):
+            cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only"
         if version.startswith("ram-usb-v58-"):
             cmdline += f" srvros.desktop-release={release} srvros.desktop-check=devices"
             cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.usb-network=ecm srvros.sensors=cpu srvros.smc=read-only"
@@ -186,7 +188,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             raise ValueError("Storage wait comparison requires its own automatic laptop probe profile")
     if battery_home_work and not battery_air61:raise ValueError("Attended Home work currently requires Air6,1 profile")
     if battery_air61 and desktop_battery:
-        allowed={"desktop_volume", "desktop_battery", "battery_air61", "repeat", "desktop_scale"}
+        allowed={"desktop_volume", "desktop_battery", "desktop_services", "battery_air61", "repeat", "desktop_scale"}
         if not desktop_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Air6,1 ordinary battery requires its own unscaled desktop profile")
     elif battery_air61:
@@ -249,7 +251,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v{70 if battery_air61 and desktop_battery else 58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
+        version = f"ram-usb-v{71 if battery_air61 and desktop_services else 70 if battery_air61 and desktop_battery else 58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
@@ -430,7 +432,7 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-")):
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
         print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
