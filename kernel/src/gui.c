@@ -92,6 +92,7 @@ static int64_t push_message(uint64_t target_pid, const struct gui_message *messa
     uint64_t index = (queue->head + queue->count) % GUI_QUEUE_DEPTH;
     queue->messages[index] = *message;
     queue->count++;
+    process_file_poll_wake();
     return 0;
 }
 
@@ -264,6 +265,18 @@ int64_t gui_recv(struct gui_message *message) {
     return result;
 }
 
+int64_t gui_client_ready(uint64_t expected_server) {
+    struct process *process=process_current();
+    if(!process || !expected_server) return -1;
+    uint64_t flags=irq_save(),pid=process_pid(process);
+    int64_t result=-1;
+    if(server_pid==expected_server && pid!=server_pid) {
+        struct gui_queue *queue=queue_for_pid(pid,false);
+        result=queue && queue->count?1:0;
+    }
+    irq_restore(flags);return result;
+}
+
 int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t flags) {
     if ((flags & ~(uint64_t)DESK_SURFACE_STREAM) || owner_pid == 0 || width == 0 || height == 0 ||
         width > GUI_SURFACE_MAX_PIXELS || height > GUI_SURFACE_MAX_PIXELS ||
@@ -433,6 +446,7 @@ void gui_process_cleanup(uint64_t pid) {
             surfaces[i].pixels = NULL;
         }
     }
+    process_file_poll_wake(); /* Includes client waits on a retiring server. */
     irq_restore(flags_saved);
     for (uint64_t i = 0; i < free_count; i++) {
         if (free_list[i] != NULL) {

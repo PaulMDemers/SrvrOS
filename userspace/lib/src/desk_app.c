@@ -54,6 +54,13 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
     if(a->server && !desk_process_alive(a->server)) { a->closed=1;return -1; }
     return 0;
 }
+int desk_app_wait(struct desk_app *a,uint64_t ticks) {
+    if(!a || !a->server || a->closed || a->failed || a->dirty || a->pending ||
+       !a->surface || a->generation!=a->configure.generation || a->send_since ||
+       a->menu_pending || ticks>100) return -1;
+    return gui_wait(a->server,ticks);
+}
+
 int desk_app_canvas(struct desk_app *a,struct desk_canvas *canvas) {
     if(a->failed || a->closed) return -1;
     if(!a->dirty || a->pending || !a->surface || a->generation!=a->configure.generation) return 0;

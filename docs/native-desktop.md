@@ -449,3 +449,33 @@ System/Sensors two-fan, Pause/Resume, screenshot and manual return checks.
 This is untimed; exit/unmount before reboot. Host formatting and VM boot checks
 are separate from native visible acceptance. Shared profile integration remains
 subject to review against the active Air branch.
+
+## Quiescent client message waits
+
+`desk_app_wait(app, ticks)` is a reusable client transport helper. It admits only
+a configured, clean window with no sealed frame, pending resize, failed send or
+unfinished menu publication. The application must separately exclude jobs,
+clipboard transactions, timers and diagnostic work that require shorter service.
+Text uses a ten-tick (100 ms) maintenance bound only when quiescent; other app
+roles and the compositor retain their existing cadence.
+
+The additive `SYS_GUI_WAIT` (136) takes the expected compositor PID and a maximum
+of 100 ticks. It returns 1 for pending messages, 0 on timeout, -1 for invalid
+arguments/lost server/cancellation, or `SRV_ERR_INTR` for a pending signal. It
+never consumes a packet. Server identity is checked on each wake; the server
+itself cannot use this client-only wait. Queued input, releases and close messages
+wake the client immediately; the maintenance bound is not input latency.
+
+The implementation reuses the signal/file-readiness wait queue. Message insertion
+and GUI process cleanup wake that queue; readiness is rechecked with interrupts
+masked before blocking. Spurious file/signal wakes only recheck the original
+deadline. This avoids a new private signal-delivery route, at the cost of waking
+unrelated readiness waiters. The syscall accesses only bounded GUI state and
+retains the existing audited storage-service scheduling rules. No pointers to
+userspace buffers or reusable GUI queue slots survive a wait.
+
+An ineligible/failed wait falls back to the prior one-tick client loop. Text's
+active save, clipboard, title/menu/frame publication and explicit diagnostic
+workloads keep that prior path. This changes no firmware, device polling or CPU
+policy. Native energy improvement requires a matched repeated comparison against
+the worker-attributed baseline; reduced timer wakes alone are not an energy result.

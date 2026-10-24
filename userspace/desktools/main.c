@@ -270,7 +270,12 @@ int main(int argc,char **argv) {
         }
         tool_menu_refresh(t);desk_app_menu_tick(&t->window);
         struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
-        srv_sleep_ticks(1);
+        /* Text has no periodic animation when quiescent. Queue readiness wakes
+         * it immediately on input/release/close; keep job/clipboard/diagnostic
+         * progress and unfinished publication on the existing one-tick path. */
+        if(t->role!=DESK_APP_TEXT || coexist || t->quit || t->closing ||
+           t->job.busy || t->clip.mode || t->title_dirty || desk_app_wait(&t->window,10)<0)
+            srv_sleep_ticks(1);
     }
     if(coexist) {
         for(unsigned i=0;i<captured;i++) capture_print("checkpoint",capture_states[i]);

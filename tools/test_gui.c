@@ -5,7 +5,8 @@
 #define SRVROS_GUI_HOST_TEST
 #include "../kernel/src/gui.c"
 
-static unsigned brightness_calls;
+static unsigned brightness_calls, poll_wakes;
+void process_file_poll_wake(void) { poll_wakes++; }
 int audio_request(unsigned op,unsigned value) { return op==1 && value==0?0:-1; }
 int backlight_percent(unsigned value) { brightness_calls++;return value?(int)value:14; }
 static uint64_t current_pid=1;
@@ -131,10 +132,18 @@ int main(void) {
     assert(gui_register_server()==-1 && server_pid==0);
     protocol_tests();
     current_pid=1; assert(gui_register_server()==0);
+    assert(gui_client_ready(1)==-1); /* Server cannot sleep on client messages. */
+    gui_process_cleanup(2);assert(queue_for_pid(2,false)==NULL);
+    current_pid=0;assert(gui_client_ready(1)==-1);
+    current_pid=2;assert(gui_client_ready(0)==-1 && gui_client_ready(99)==-1);
+    assert(gui_client_ready(1)==0 && queue_for_pid(2,false)==NULL); /* No allocation. */
+    current_pid=1;
     struct gui_message wheel=packet_message(DESK_SCROLL,2,0,0),received;
     current_pid=2; assert(gui_send(&wheel)==-1); /* Clients cannot forge input. */
     current_pid=1; assert(gui_send(&wheel)==0);
-    current_pid=2; assert(gui_recv(&received)==1 && received.source_pid==1);
+    current_pid=2;assert(gui_client_ready(1)==1 && poll_wakes);
+    assert(gui_recv(&received)==1 && received.source_pid==1);
+    assert(gui_client_ready(1)==0);
     wheel=packet_message(DESK_POINTER,2,0,0);
     assert(gui_send(&wheel)==-1);
     current_pid=1; assert(gui_send(&wheel)==0);
@@ -158,6 +167,11 @@ int main(void) {
     current_pid=1;assert(gui_send(&context)==0);
     current_pid=2;assert(gui_recv(&received)==1 && received.source_pid==1);
     gui_process_cleanup(1); gui_process_cleanup(2);
+    current_pid=2;unsigned wakes_before=poll_wakes;
+    gui_process_cleanup(1);
+    assert(poll_wakes>wakes_before && gui_client_ready(1)==-1);
+    current_pid=3;assert(gui_register_server()==0);
+    current_pid=2;assert(gui_client_ready(1)==-1 && gui_client_ready(3)==0);
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;
 }
