@@ -617,3 +617,25 @@ regressions pass. No energy savings, sibling acceptance or physical interactive
 latency are inferred. Main `54862de` adds only Air6,1 evidence since the tested
 build; Pro PR19 `c223f58` retains separate Wi-Fi scope. Actions remain disabled;
 local build/core/VM receipts and exact source are recorded in the Air record.
+
+
+## October 23 network idle handoff
+
+Air PR #123 supplies a live optional `net_device_ops.rx_wake_ready` contract.
+Providers without it retain one-tick polling. e1000 with rings/IRQs and ECM with
+an independent live xHCI service use notification-driven waits with the existing
+50-tick recovery bound. USB input/TX servicing, TCP timers and model gates remain
+unchanged. Repeated ECM link/speed notifications no longer wake receive work;
+actual link changes, faults and received packets still do. Future providers must
+not advertise readiness unless receive notifications and TX progress work
+independently of network polling. Missing notifications retain bounded recovery.
+
+Air7,2 release `27b239f96a183fb8` accepts bounded native idle activity at 2.137
+network switches/s, versus 97.13/s previously; it does not accept sibling hardware,
+energy savings or native input/traffic in that unattended recipe. Build/core,
+e1000/ECM idle/input/save, directed traffic/recovery and exact-stage capture pass
+locally; Actions remain disabled. Legacy TCP readiness fails on both baseline and
+candidate, and native USB save timing was worse this run without errors. Preserve
+both follow-ups; neither is a claimed fix. Pro PR19 `933f244` owns independent
+Wi-Fi work. Air6,1 PR124 `022d468` owns attended Home capture; retain its distinct
+hardware_boot_smoke capture branches when integrating the new ECM probe option.

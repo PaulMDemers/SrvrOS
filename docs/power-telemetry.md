@@ -505,3 +505,51 @@ establish optimality or physical interactive acceptance. Package power measured
 6.786 W over 51.999 seconds versus baseline 6.949 W, but this thermally unmatched
 single pair does not establish savings. Ordinary Home battery efficiency remains
 a separate study; this capture deliberately kept the battery service off.
+
+
+### Network notification readiness
+
+The selected provider may advertise a side-effect-free `rx_wake_ready` callback.
+It is true only when receive notifications and transmit servicing can progress
+independently of the network worker: e1000 requires initialized rings and enabled
+IRQs; ECM requires a ready device, operational controller, running xHCI service
+and no input probe. Absent/false callbacks retain one-tick polling. With readiness,
+the empty receive worker waits on its existing notification-generation predicate
+for at most 50 ticks (the existing recovery period). TCP timer work is unchanged.
+Missed notification delivery still reaches a recovery poll; this is not a new
+controller interrupt path and does not slow the USB input service.
+
+ECM notification endpoints can send repeated link/speed reports without packets.
+The USB service already consumes these independently; only a link state change
+or fault wakes stack waiters. Receive completions still signal immediately.
+Initial QEMU evidence found roughly 33 stack wakeups/second with repeated reports
+before this filtering, despite zero packets. Retain that failed idle-ceiling run;
+it is separate from the refined candidate's acceptance. Full functional traffic,
+cable recovery, fallback and idle measurements precede a native capture. No
+energy reduction or physical responsiveness is assumed from fewer switches.
+
+
+Use `tools/hardware_boot_smoke.py --probe-check --probe-network` with the v26
+stage to attach an ECM adapter to the exact EFI/GPT rehearsal and require a
+network worker below ten switches/second over at least twenty seconds. The
+ordinary probe fixture has no supported adapter and cannot validate network
+activity. Missing-workspace return remains a separate case. Traffic and
+post-idle input checks use the dedicated network/idle fixtures.
+
+
+Air7,2 native release `27b239f96a183fb8` completed the unattended one-minute
+capture with 102 network worker switches over 47.728 seconds (2.137/s), versus
+5005 over 51.529 seconds (97.13/s) in `f340e0695d1e2492`. xHCI input service
+remained 100 switches/s and the compositor about 10/s. Five completed saves,
+the desktop screenshot, exact prior-file preservation, clean offline allocation
+and automatic Ubuntu recovery passed. This accepts reduced redundant network
+worker activity for the bounded workload, not native traffic/input or energy.
+
+Do not infer a broader performance improvement: CPU0 idle samples were 97.52%
+versus 98.30%, package power 6.840 W versus 6.786 W, and five saves took 7.942433 s
+versus six in 1.883555 s. Candidate saves ranged 200.222–3792.337 ms with zero
+callback failures; 7.531335 s was in CSW callbacks, including scheduling time.
+The cause of this run's slower USB saves is unresolved. Preserve the evidence
+for controlled storage timing follow-up. The legacy TCP readiness fixture also
+fails identically on accepted and candidate kernels; narrower passing traffic
+fixtures do not resolve that preexisting issue.
