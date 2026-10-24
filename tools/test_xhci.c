@@ -822,6 +822,13 @@ static void test_network_transport(void) {
     *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS;
     struct xhci_network n={.ready=true};
     struct xhci_device d={.network=&n,.slot_id=1,.port_id=1};
+    xhci_poll_worker_started=false;xhci.operational=true;xhci_input_probe_active=false;
+    assert(!network_rx_wake_ready(&d));
+    xhci_poll_worker_started=true;assert(network_rx_wake_ready(&d));
+    xhci_input_probe_active=true;assert(!network_rx_wake_ready(&d));xhci_input_probe_active=false;
+    xhci.operational=false;assert(!network_rx_wake_ready(&d));xhci.operational=true;
+    n.ready=false;assert(!network_rx_wake_ready(&d));n.ready=true;
+    xhci_poll_worker_started=false;
     struct xhci_trb rings[3][XHCI_TRB_COUNT];uint8_t buffers[3][4096];
     memset(rings,0,sizeof(rings));memset(buffers,0,sizeof(buffers));
     for(unsigned i=0;i<3;i++) {

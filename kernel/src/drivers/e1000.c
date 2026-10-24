@@ -268,6 +268,9 @@ static void configure_rxtx(void) {
     rings_ready = true;
 }
 
+static bool device_rx_wake_ready(void *context) {
+    (void)context;return rings_ready && interrupts_enabled;
+}
 static bool device_send(void *context,const uint8_t *frame,uint16_t length) { (void)context;return e1000_send_frame(frame,length); }
 static uint64_t device_poll(void *context,uint64_t budget,bool verbose) { (void)context;return e1000_poll(budget,verbose); }
 static bool device_link(void *context,struct net_device_link *out) {
@@ -322,7 +325,7 @@ bool e1000_init(void) {
         return false;
     }
     configure_rxtx();
-    struct net_device_ops ops={.name="e1000",.priority=100,.send=device_send,.poll=device_poll,.link=device_link};
+    struct net_device_ops ops={.name="e1000",.priority=100,.send=device_send,.poll=device_poll,.link=device_link,.rx_wake_ready=device_rx_wake_ready};
     for(unsigned i=0;i<6;i++) ops.mac[i]=mac[i];
     if(!net_device_register(&ops)) console_write("e1000: network provider registration failed\n");
     console_printf("e1000: rx=%u tx=%u irq-ready\n",

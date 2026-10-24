@@ -106,6 +106,10 @@ static uint64_t network_poll(void *context,uint64_t budget,bool verbose) {
     }
     n->polling=false;event_irq_restore(flags);return received;
 }
+static bool network_rx_wake_ready(void *context) {
+    struct xhci_network *n=((struct xhci_device *)context)->network;
+    return n && n->ready && xhci_poll_worker_started && xhci.operational && !xhci_input_probe_active;
+}
 static bool network_link(void *context,struct net_device_link *out) {
     struct xhci_network *n=((struct xhci_device *)context)->network;
     if(!n) return false;
@@ -150,7 +154,7 @@ static bool network_configure(struct xhci_device *d,const struct usb_ecm_config 
     if(!submit_command_trb(&cmd,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0)) return false;
     struct usb_setup_packet filter={.request_type=0x21,.request=0x43,.value=0x0c,.index=config->control_interface};
     if(!control_transfer(d,&filter,0,0,false)) return false;
-    struct net_device_ops ops={.name="usb-ecm",.context=d,.priority=50,.send=network_send,.poll=network_poll,.link=network_link};
+    struct net_device_ops ops={.name="usb-ecm",.context=d,.priority=50,.send=network_send,.poll=network_poll,.link=network_link,.rx_wake_ready=network_rx_wake_ready};
     copy_bytes(ops.mac,n->mac,6);if(!net_device_register(&ops)) return false;
     d->configuration_value=config->configuration;d->interface_number=config->control_interface;d->configured=true;xhci.configured_devices++;
     n->ready=true;network_count++;d->stage="network-ready";
