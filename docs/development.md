@@ -105,6 +105,10 @@ The GitHub Actions workflow runs the base Linux build and smoke suite on
 Ubuntu 24.04 and retains logs. Local passing tests do not imply that the remote
 workflow has run, that all other harnesses pass, or that physical hardware works.
 
+TCP listener semantics and the directed host/VM regressions are documented in
+[TCP readiness](tcp-readiness.md). Run network fixtures separately from the
+baseline smoke suite; a passing baseline does not cover them.
+
 UEFI harnesses accept `OVMF_CODE=/path/to/firmware.fd` or `--ovmf`. Linux OVMF
 locations and the existing MSYS2 locations are searched by default.
 

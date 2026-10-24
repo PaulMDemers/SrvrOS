@@ -639,3 +639,21 @@ candidate, and native USB save timing was worse this run without errors. Preserv
 both follow-ups; neither is a claimed fix. Pro PR19 `933f244` owns independent
 Wi-Fi work. Air6,1 PR124 `022d468` owns attended Home capture; retain its distinct
 hardware_boot_smoke capture branches when integrating the new ECM probe option.
+
+
+## October 23 TCP readiness handoff
+
+Air PR #125 fixes passive-open accept readiness and e1000 receive callback
+ownership. Queue a validated final ACK once, even without payload. The e1000
+receive-owner guard refuses nested/competing polls without spinning or additional
+interrupt masking; it covers the direct monitor path as well as the network
+worker. Do not remove it when adjusting notification or scheduler behavior.
+Packet-level host regressions reproduce both old failures. See
+[TCP readiness](tcp-readiness.md) for the contract and directed local checks.
+
+The web fixture syncs buffered open service logs before separate-reader assertions;
+all HTTP/access-log checks remain. Do not infer a production logging policy change.
+Main `c4265f8` is consumed, preserving Air6,1 PR124's attended capture. Pro PR19
+`9b0d63c` keeps independent Wi-Fi ownership. This work does not edit xHCI, broaden
+hardware gates or change physical installed/recovery payloads. USB logger timing
+remains a separate follow-up; TCP acceptance does not establish power savings.

@@ -250,6 +250,10 @@ def main():
             except RuntimeError as exc:
                 post_error = exc
             closed_refused = closed_port_refused(closed_port, 3)
+            # The supervised server keeps its redirected log descriptor open.
+            # Publish buffered VFS writes before a separate reader checks logs;
+            # retain every access/body assertion and require successful sync.
+            output += send_command(sock, "sync; echo web-log-sync=$?", "web-log-sync=0", args.service_wait)
             sock.sendall(b"service webd tail 8\n")
             output += read_until(sock, b"webd: access POST / 405", args.service_wait)
             sock.sendall(b"service webd log\n")
@@ -307,6 +311,7 @@ def main():
         "enabled=true",
         "restart=always",
         "log /fat/var/log/webd.log",
+        "web-log-sync=0",
         "webd: access GET / 200",
         "webd: access GET /missing.txt 404",
         "webd: access POST / 405",

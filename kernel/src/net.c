@@ -1995,8 +1995,31 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
-    if (connection->state == TCP_STATE_SYN_RECEIVED && (flags & TCP_ACK) != 0) {
+    if (connection->state == TCP_STATE_SYN_RECEIVED) {
+        if ((flags & TCP_ACK) == 0) {
+            return;
+        }
+        /* We send no SYN payload: only the ACK of our SYN at the next peer
+         * sequence completes this passive open. Do not expose a half-open
+         * socket through listener readiness. */
+        if (seq != connection->remote_next) {
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            return;
+        }
+        if (ack != connection->local_seq) {
+            send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
+            return;
+        }
         connection->state = TCP_STATE_ESTABLISHED;
+        /* Accept readiness is connection readiness, not request-data readiness.
+         * A peer may wait for a server greeting before sending its first byte.
+         * Queue exactly once, including an empty final ACK; later payload uses
+         * the same connection and read waiters. */
+        if (!ensure_pending_connection(connection, dst_port)) {
+            send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
+            close_connection(connection);
+            return;
+        }
     }
 
     if ((flags & TCP_ACK) != 0) {
