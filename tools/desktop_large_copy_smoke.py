@@ -33,7 +33,7 @@ def main():
         (tmp/"disk.exfat").write_bytes(fixture.data)
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),cmdline='srvros.storage=ram srvros.usb-storage=rw' if args.usb else None)
         command=["qemu-system-x86_64","-M","q35","-m","512M","-cdrom",str(iso),"-boot","d",
-            "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw,bps_wr=1048576",
+            "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw,bps_wr={131072 if args.usb else 1048576}",
             "-device","ich9-ahci,id=ahci","-device","ide-hd,drive=disk,bus=ahci.0",
             "-device","qemu-xhci,id=xhci","-device","usb-kbd,bus=xhci.0",
             "-serial",f"tcp:127.0.0.1:{port},server=on,wait=off",
