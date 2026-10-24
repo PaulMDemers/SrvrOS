@@ -3,6 +3,7 @@
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
 #include <srvros/heap.h>
+#include <srvros/syscall_numbers.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -422,14 +423,20 @@ bool vfs_chmod(const char *path, uint64_t mode) {
     return true;
 }
 
+void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime) {
+    if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return;
+    uint64_t now=metadata_time();
+    if(atime!=SRV_TIME_OMIT) metadata->atime=atime==SRV_TIME_NOW?now:atime;
+    if(mtime!=SRV_TIME_OMIT) metadata->mtime=mtime==SRV_TIME_NOW?now:mtime;
+    metadata->ctime=now;
+}
 bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {
         return false;
     }
-    node->metadata.atime = atime;
-    node->metadata.mtime = mtime;
-    node->metadata.ctime = metadata_time();
+    if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return true;
+    vfs_metadata_utime(&node->metadata,atime,mtime);
     notify_metadata_changed(node);
     return true;
 }

@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <srvros/sys.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -38,26 +39,10 @@ clock_t times(struct tms *buffer) {
     return (clock_t)(srv_monotonic_us()/10000); /* _SC_CLK_TCK is 100. */
 }
 
-int utime(const char *path, const struct utimbuf *times) {
-    if (path == 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    time_t atime;
-    time_t mtime;
-    if (times != 0) {
-        atime = times->actime;
-        mtime = times->modtime;
-    } else {
-        atime = time(0);
-        if (atime == (time_t)-1) return -1;
-        mtime = atime;
-    }
-    if (srv_utime(path, (uint64_t)atime, (uint64_t)mtime) < 0) {
-        errno = ENOENT;
-        return -1;
-    }
-    return 0;
+int utime(const char *path,const struct utimbuf *times) {
+    struct timespec values[2];
+    if(times) { values[0]=(struct timespec){.tv_sec=times->actime};values[1]=(struct timespec){.tv_sec=times->modtime}; }
+    return utimensat(AT_FDCWD,path,times?values:NULL,0);
 }
 
 int clock_gettime(int clock_id, struct timespec *tp) {
@@ -176,19 +161,13 @@ int gettimeofday(struct timeval *tv, void *tz) {
     return 0;
 }
 
-int utimes(const char *path, const struct timeval times[2]) {
-    if (path == 0) {
-        errno = EINVAL;
-        return -1;
+int utimes(const char *path,const struct timeval times[2]) {
+    struct timespec values[2];
+    if(times) for(unsigned i=0;i<2;i++) {
+        if(times[i].tv_usec<0 || times[i].tv_usec>=1000000) { errno=EINVAL;return -1; }
+        values[i]=(struct timespec){.tv_sec=times[i].tv_sec,.tv_nsec=times[i].tv_usec*1000};
     }
-    if (times == 0) {
-        return utime(path, 0);
-    }
-    struct utimbuf buffer = {
-        .actime = times[0].tv_sec,
-        .modtime = times[1].tv_sec,
-    };
-    return utime(path, &buffer);
+    return utimensat(AT_FDCWD,path,times?values:NULL,0);
 }
 
 unsigned int sleep(unsigned int seconds) {

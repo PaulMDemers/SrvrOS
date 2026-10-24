@@ -55,6 +55,7 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
 }
 
 static int translate_open_flags(int flags, uint64_t *srv_flags) {
+    if(flags&~(O_ACCMODE|O_CREAT|O_EXCL|O_TRUNC|O_APPEND|O_NONBLOCK|O_NOFOLLOW|O_DIRECTORY|O_CLOEXEC)) { errno=EINVAL;return -1; }
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
 
@@ -79,6 +80,7 @@ static int translate_open_flags(int flags, uint64_t *srv_flags) {
     }
     if(flags&O_EXCL) out|=SRV_OPEN_EXCL;
     if(flags&O_CLOEXEC) out|=SRV_OPEN_CLOEXEC;
+    if(flags&O_DIRECTORY) out|=SRV_OPEN_DIRECTORY;
     *srv_flags = out;
     return 0;
 }
@@ -150,7 +152,7 @@ ssize_t read(int fd, void *buffer, size_t length) {
                 errno = EINTR;
                 return -1;
             }
-            errno = EBADF;
+            errno = result < -1 ? (int)-result : EBADF;
             return -1;
         }
         (void)__posix_signal_dispatch_pending();
@@ -1043,6 +1045,7 @@ char *mkdtemp(char *template_path) {
         if (mkdir(template_path, 0700) == 0) {
             return template_path;
         }
+        if(errno!=EEXIST) return NULL;
     }
     errno = EEXIST;
     return 0;
@@ -1053,8 +1056,9 @@ int mkdir(const char *path, mode_t mode) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_mkdir(full) < 0) {
-        errno = EIO;
+    long result=srv_mkdir(full);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result:EIO;
         return -1;
     }
     (void)srv_chmod(full, mode & ~current_umask);
@@ -1066,8 +1070,9 @@ int rmdir(const char *path) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_rmdir(full) < 0) {
-        errno = ENOTEMPTY;
+    long result=srv_rmdir(full);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result:EIO;
         return -1;
     }
     return 0;
@@ -1087,23 +1092,34 @@ int rename(const char *old_path, const char *new_path) {
     return 0;
 }
 
-int futimens(int fd, const struct timespec times[2]) {
-    (void)times;
-    struct stat st;
-    if (fstat(fd, &st) < 0) {
-        return -1;
+static int convert_file_times(const struct timespec times[2],uint64_t values[2]) {
+    for(unsigned i=0;i<2;i++) {
+        if(!times || times[i].tv_nsec==UTIME_NOW) values[i]=SRV_TIME_NOW;
+        else if(times[i].tv_nsec==UTIME_OMIT) values[i]=SRV_TIME_OMIT;
+        else {
+            if(times[i].tv_nsec<0 || times[i].tv_nsec>=1000000000) { errno=EINVAL;return -1; }
+            if(times[i].tv_sec<0) { errno=EOVERFLOW;return -1; }
+            /* The persistent metadata clock has one-second resolution. */
+            values[i]=(uint64_t)times[i].tv_sec;
+        }
     }
     return 0;
 }
-
-int utimensat(int dirfd, const char *path, const struct timespec times[2], int flags) {
-    (void)dirfd;
-    (void)times;
-    if (flags != 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    return path_exists_for_metadata(path);
+int futimens(int fd,const struct timespec times[2]) {
+    uint64_t values[2];if(convert_file_times(times,values)<0) return -1;
+    long result=srv_futime(fd,values[0],values[1]);
+    if(result<0) { errno=result < -1 ? (int)-result:EBADF;return -1; }
+    return 0;
+}
+int __posix_at_path(int fd,const char *path,char *out,size_t capacity);
+int utimensat(int fd,const char *path,const struct timespec times[2],int flags) {
+    if(flags&~AT_SYMLINK_NOFOLLOW) { errno=EINVAL;return -1; }
+    uint64_t values[2];if(convert_file_times(times,values)<0) return -1;
+    char full[POSIX_PATH_MAX];
+    if(__posix_at_path(fd,path,full,sizeof(full))<0) return -1;
+    long result=srv_utime(full,values[0],values[1]);
+    if(result<0) { errno=result < -1 ? (int)-result:ENOENT;return -1; }
+    return 0;
 }
 
 int posix_fadvise64(int fd, off_t offset, off_t length, int advice) {

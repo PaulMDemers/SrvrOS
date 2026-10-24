@@ -82,8 +82,11 @@ and tests pass. Next: descriptor-backed directories/openat/fchdir and real
 file timestamp updates. Main remains `36080fc`; Air6,1 PR136 battery deadline and
 Pro PR19 `d7fb8f9` Wi-Fi changes do not overlap this compatibility block.
 
-Current directory/timestamp candidate passes focused host and guest tests; broader
-VM regressions are running. Next bounded compatibility scope is a pinned Lua
+Directory/timestamp candidate passes full core, focused host/guest and all
+thread/libuv/ports/process/posixutils/libc/directory VM regressions. One process
+run stopped at the bootloader; headless rerun with checked admission passed.
+Unattended serial tests no longer open graphical windows. Directory handles
+pin paths; timestamp updates use real metadata with NOW/OMIT and second resolution. Next bounded compatibility scope is a pinned Lua
 5.4.8 consumer gate with its unmodified file tests, enabling the OS library and
 POSIX build profile. Its rename expectations also require reviewing exFAT
 cross-directory placement and replacement publication. Air owns any resulting

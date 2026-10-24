@@ -4185,7 +4185,11 @@ static void fs_execute(uv_fs_t *request) {
                 break;
             }
             struct dirent *entry;
-            while ((entry = readdir(dir)) != 0) {
+            int read_error=0;
+            for(;;) {
+                errno=0;entry=readdir(dir);
+                if(!entry) { if(errno) read_error=uv_error_from_errno();break; }
+                if(!strcmp(entry->d_name,".") || !strcmp(entry->d_name,"..")) continue;
                 int error = uv_scandir_append(request, entry);
                 if (error < 0) {
                     closedir(dir);
@@ -4193,8 +4197,8 @@ static void fs_execute(uv_fs_t *request) {
                     return;
                 }
             }
-            closedir(dir);
-            request->result = (ssize_t)request->dirent_count;
+            if(closedir(dir)<0 && !read_error) read_error=uv_error_from_errno();
+            request->result = read_error?read_error:(ssize_t)request->dirent_count;
             break;
         }
         case UV_FS_REALPATH: {

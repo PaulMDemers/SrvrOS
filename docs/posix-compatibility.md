@@ -84,6 +84,24 @@ to the shell. Full host/core tests, focused guest inheritance/failure tests and
 process/libuv VM regressions pass. Active working directories currently prevent
 namespace removal/rename; general directory inode lifetime is still pending.
 
+Directory streams now own real descriptors. `open(O_DIRECTORY)`, `fdopendir`,
+`dirfd`, directory cookies, `rewinddir`/`seekdir`/`telldir`, `fchdir` and descriptor-
+relative open/stat/chmod/access/mkdir/unlink/rename adapters are implemented.
+Dup/fork share a directory's position; readdir reports real inode numbers and
+`.`/`..`, preserves errno at EOF, and propagates backend failures. Directory
+handles pin the current pathname against rename/removal; open-directory orphan
+identities remain a restriction. The existing rename backend's replacement and
+non-empty-directory limitations are not changed by adding `renameat`.
+
+`futimens`, `utimensat`, `utime` and `utimes` now update metadata rather than
+returning success without a change. NOW/OMIT are resolved atomically in the kernel,
+including unlinked open files; invalid subsecond fields fail. Persistent metadata
+rounds down to whole seconds and cannot store dates before 1970 (EOVERFLOW).
+Host tests, full core, focused and full thread tests, ports, process, libuv,
+utilities, libc and directory VM regressions pass. One process run did not leave
+the bootloader; its log is retained. Serial harnesses now run headlessly and the
+process harness refuses to send commands before the monitor is ready; rerun passed.
+
 `abort()` now raises SIGABRT, including when the signal was ignored or a handler
 returns; wait status identifies signal termination. Explicit SIGSEGV/SIGPROF
 signals have catchable dispositions, but this does not add hardware exception

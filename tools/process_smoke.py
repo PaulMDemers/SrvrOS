@@ -55,7 +55,7 @@ def main():
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=20)
+    parser.add_argument("--boot-wait", type=float, default=30)
     parser.add_argument("--line-wait", type=float, default=3)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
@@ -87,6 +87,7 @@ def main():
             "-m", args.memory,
             "-cdrom", iso,
             "-boot", "d",
+            "-display", "none",
             "-serial", f"tcp:127.0.0.1:{port},server,nowait",
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
@@ -101,6 +102,9 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
+            if b"srv> " not in output:
+                sys.stdout.write(output.decode("utf-8", "replace"))
+                raise RuntimeError("process-smoke: monitor not ready; no commands sent")
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 5)
             for line in script.splitlines(True):

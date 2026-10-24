@@ -46,6 +46,13 @@ int main(void) {
     wall+=1000000;assert(vfs_chmod("/test",0600));assert(file->metadata.ctime==1792326899 && file->metadata.mtime==1792326898);
     wall+=1000000;assert(vfs_utime("/test",1000,2000));
     assert(file->metadata.atime==1000 && file->metadata.mtime==2000 && file->metadata.ctime==1792326900 && notifications==3);
+    assert(vfs_utime("/test",SRV_TIME_OMIT,SRV_TIME_NOW));
+    assert(file->metadata.atime==1000 && file->metadata.mtime==1792326900 && notifications==4);
+    assert(vfs_utime("/test",SRV_TIME_OMIT,SRV_TIME_OMIT) && notifications==4);
+    assert(vfs_utime("/test",1000,2000));
+    struct vfs_metadata orphan=file->metadata;
+    vfs_metadata_utime(&orphan,SRV_TIME_NOW,SRV_TIME_OMIT);
+    assert(orphan.atime==1792326900 && orphan.mtime==2000);
     struct vfs_metadata persisted=file->metadata;
     assert(vfs_register_file_with_metadata("/imported",3,NULL,read_test,NULL,&persisted));
     assert(vfs_lookup("/imported")->metadata.mtime==2000);

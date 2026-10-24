@@ -169,7 +169,7 @@ struct process_write_file {
     char path[PROCESS_PATH_MAX];
 };
 struct process_read_file {
-    bool used;
+    bool used,directory;
     uint64_t refs;
     const struct vfs_node *node;
     struct process_file_content *content;
@@ -3713,6 +3713,7 @@ int64_t process_file_alloc(struct process *process,
     read->used = true;
     read->refs = 1;
     read->node = node;
+    read->directory = node->type==VFS_NODE_DIRECTORY;
     read->content = content;
     read->offset = 0;
     (void)copy_process_path(read->path, sizeof(read->path), node->path);
@@ -3765,6 +3766,57 @@ static void read_file_close(uint64_t handle) {
     }
 }
 
+/* Directory cookies share the open description, so dup/fork observe the same
+ * position. Mutation during enumeration has the standard unspecified ordering;
+ * no entry cache or unrelated per-stream pathname scan is retained in libc. */
+int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    struct process_read_file *read=file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
+    if(!read || !read->directory) return SRV_ERR_NOTDIR;
+    const char *path=read->content->path;
+    if(operation==SRV_DIRECTORY_PATH) {
+        uint64_t length=0;while(path[length]) length++;
+        if(!out) return SRV_ERR_FAULT;
+        if(capacity<=length) return SRV_ERR_RANGE;
+        copy_process_path(out,capacity,path);return 0;
+    }
+    if(operation==SRV_DIRECTORY_CHDIR) return process_path_context(SRV_PATH_CHDIR,path,NULL,0);
+    if(operation!=SRV_DIRECTORY_READ || capacity!=sizeof(struct srv_dirent) || !out) return SRV_ERR_INVAL;
+    struct srv_dirent entry={0};
+    uint64_t length=0;while(path[length]) length++;
+    if(read->offset<2) {
+        bool parent=read->offset==1;
+        char parent_path[PROCESS_PATH_MAX];copy_process_path(parent_path,sizeof(parent_path),path);
+        if(parent) {
+            while(length>1 && parent_path[length-1]!='/') length--;
+            if(length>1) length--;
+            parent_path[length]=0;
+        }
+        const struct vfs_node *node=vfs_lookup(parent_path);
+        if(!node) return SRV_ERR_NOENT;
+        entry.inode=node->metadata.inode;entry.type=VFS_NODE_DIRECTORY;
+        entry.name[0]='.';if(parent) entry.name[1]='.';
+        read->offset++;
+    } else {
+        for(;;) {
+            const struct vfs_node *node=vfs_node_at(read->offset-2);
+            if(!node) return 0;
+            read->offset++;
+            uint64_t i=0;while(i<length && node->path[i]==path[i]) i++;
+            if(i!=length) continue;
+            if(length>1) { if(node->path[i]!='/') continue;i++; }
+            const char *name=node->path+i;
+            uint64_t count=0;while(name[count] && name[count]!='/') count++;
+            if(!count || name[count]=='/') continue;
+            if(count>=sizeof(entry.name)) return SRV_ERR_NAMETOOLONG;
+            entry.inode=node->metadata.inode;entry.type=node->type;
+            copy_process_path(entry.name,sizeof(entry.name),name);break;
+        }
+    }
+    *(struct srv_dirent *)out=entry;return 1;
+}
+
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
     struct process_file *endpoint=process_file_at(process,fd);
     if(endpoint && (endpoint->type==PROCESS_FILE_PTY_MASTER || endpoint->type==PROCESS_FILE_PTY_SLAVE))
@@ -3789,6 +3841,7 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
             process_irq_restore(flags);
             return -1;
         }
+        if(read->directory) { process_irq_restore(flags);return SRV_ERR_ISDIR; }
         size = read->content->size;
         offset = read->offset;
         data = read->content->data;
@@ -3855,6 +3908,7 @@ static bool file_lock_range_for_fd(struct process_file *file,
         return false;
     }
 
+    if(file->type==PROCESS_FILE_VFS && read_file_at(file->handle) && read_file_at(file->handle)->directory) return false;
     uint64_t base = 0;
     if (request->whence == 0) {
         base = 0;
@@ -4201,6 +4255,7 @@ int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer
     if (file->type==PROCESS_FILE_VFS) {
         struct process_read_file *read=read_file_at(file->handle);
         if (!read) { result=SRV_ERR_BADF; goto done; }
+        if(read->directory) { result=SRV_ERR_ISDIR;goto done; }
         data=read->content->data; size=read->content->size;
     } else if (file->type==PROCESS_FILE_VFS_WRITE) {
         struct process_write_file *write=write_file_at(file->handle);
@@ -5862,10 +5917,18 @@ int64_t process_file_chmod(struct process *process,uint64_t fd,uint64_t mode) {
     if(content->unlinked) { content->orphan_metadata.mode=VFS_MODE_IFREG|(mode&07777);return 0; }
     return vfs_chmod(content->path,mode)?0:SRV_ERR_IO;
 }
+int64_t process_path_utime(const char *path,uint64_t atime,uint64_t mtime) {
+    if(!vfs_lookup(path)) return SRV_ERR_NOENT;
+    if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return 0;
+    struct process_file_content *content=content_find(path);
+    if(content && content_flush(content)<0) return SRV_ERR_IO;
+    return vfs_utime(path,atime,mtime)?0:SRV_ERR_IO;
+}
 int64_t process_file_utime(struct process *process,uint64_t fd,uint64_t atime,uint64_t mtime) {
     struct process_file_content *content=NULL;
     if(!file_content_for_fd(process_file_at(process,fd),&content)) return SRV_ERR_BADF;
-    if(content->unlinked) { content->orphan_metadata.atime=atime;content->orphan_metadata.mtime=mtime;return 0; }
+    if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return 0;
+    if(content->unlinked) { vfs_metadata_utime(&content->orphan_metadata,atime,mtime);return 0; }
     if(content_flush(content)<0) return SRV_ERR_IO;
     return vfs_utime(content->path,atime,mtime)?0:SRV_ERR_IO;
 }
@@ -6067,7 +6130,7 @@ static bool mmap_file_source(struct process *process,
     }
     if (file->type == PROCESS_FILE_VFS) {
         struct process_read_file *read = read_file_at(file->handle);
-        if (read == NULL) {
+        if (read == NULL || read->directory) {
             return false;
         }
         *data_out = read->content->data;

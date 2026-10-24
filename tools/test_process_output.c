@@ -7,6 +7,16 @@
 
 static bool opening,fixture_exists,fail_delete,path_fixture;
 static unsigned deletes;
+static struct vfs_node path_nodes[]={
+    {.path="/",.type=VFS_NODE_DIRECTORY,.metadata={.inode=1}},
+    {.path="/test",.type=VFS_NODE_DIRECTORY,.metadata={.inode=2}},
+    {.path="/test/dir",.type=VFS_NODE_DIRECTORY,.metadata={.inode=3}},
+    {.path="/test/dir/a",.type=VFS_NODE_FILE,.metadata={.inode=4}},
+    {.path="/test/dir/sub",.type=VFS_NODE_DIRECTORY,.metadata={.inode=5}},
+    {.path="/test/dir/sub/b",.type=VFS_NODE_FILE,.metadata={.inode=6}},
+    {.path="/test/dir-elsewhere",.type=VFS_NODE_FILE,.metadata={.inode=7}},
+};
+const struct vfs_node *vfs_node_at(uint64_t i) { assert(path_fixture);return i<7?&path_nodes[i]:NULL; }
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
 static bool fail_save;
@@ -47,8 +57,7 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
 }
 const struct vfs_node *vfs_lookup(const char *path) {
     if(path_fixture) {
-        static struct vfs_node directory={.type=VFS_NODE_DIRECTORY};
-        if(!strcmp(path,"/") || !strcmp(path,"/test") || !strcmp(path,"/test/dir")) return &directory;
+        for(unsigned i=0;i<7;i++) if(!strcmp(path,path_nodes[i].path)) return &path_nodes[i];
         if(!strcmp(path,"/test/output")) return &fixture_node;
         return NULL;
     }
@@ -367,6 +376,22 @@ static void path_context_regression(void) {
     char huge[160];memset(huge,'a',159);huge[159]=0;
     assert(process_path_context(SRV_PATH_RESOLVE,huge,out,sizeof(out))==SRV_ERR_NAMETOOLONG);
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/test/dir"));
+    long fd=process_file_alloc(&subject,&path_nodes[2],NULL,0);assert(fd==3);
+    assert(process_has_open_vfs_prefix("/test/dir"));
+    long alias=process_file_dup(&subject,fd);assert(alias==4);
+    struct srv_dirent entry;
+    assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==1 && !strcmp(entry.name,".") && entry.inode==3);
+    assert(process_directory(SRV_DIRECTORY_READ,alias,&entry,sizeof(entry))==1 && !strcmp(entry.name,"..") && entry.inode==2);
+    assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==1 && !strcmp(entry.name,"a") && entry.inode==4);
+    assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==1 && !strcmp(entry.name,"sub") && entry.inode==5);
+    assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==0);
+    assert(process_file_read(&subject,fd,(uint8_t *)out,1)==SRV_ERR_ISDIR);
+    assert(process_file_pread(&subject,fd,(uint8_t *)out,1,0)==SRV_ERR_ISDIR);
+    assert(process_file_seek(&subject,alias,0,0)==0);
+    assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==1 && !strcmp(entry.name,"."));
+    assert(!process_directory(SRV_DIRECTORY_CHDIR,fd,NULL,0));
+    assert(!process_file_close(&subject,fd) && !process_file_close(&subject,alias));
+    assert(!process_has_open_vfs_prefix("/test/dir"));
     path_fixture=false;current_subject=NULL;
     puts("process-cwd: PASS checked traversal, errors and unchanged state on failure");
 }

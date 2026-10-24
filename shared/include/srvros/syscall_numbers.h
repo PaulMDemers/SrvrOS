@@ -144,6 +144,11 @@
 #define SYS_RLIMIT 142
 #define SYS_FORK 143
 #define SYS_PATH_CONTEXT 144
+#define SYS_DIRECTORY 145
+#define SRV_DIRECTORY_READ 0
+#define SRV_DIRECTORY_PATH 1
+#define SRV_DIRECTORY_CHDIR 2
+struct srv_dirent { uint64_t inode,type; char name[160]; };
 #define SRV_PATH_GETCWD 0
 #define SRV_PATH_CHDIR 1
 #define SRV_PATH_RESOLVE 2
@@ -192,6 +197,9 @@ struct srv_file_change {
     uint64_t length;
 };
 
+#define SRV_TIME_NOW (UINT64_MAX-1)
+#define SRV_TIME_OMIT UINT64_MAX
+
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
 #define SRV_OPEN_CREATE 0x04
@@ -200,6 +208,7 @@ struct srv_file_change {
 #define SRV_OPEN_NONBLOCK 0x20
 #define SRV_OPEN_EXCL 0x40
 #define SRV_OPEN_CLOEXEC 0x80
+#define SRV_OPEN_DIRECTORY 0x100
 
 #define SRV_SPAWN_FILE_ACTION_DUP2 1
 #define SRV_SPAWN_FILE_ACTION_CLOSE 2
@@ -290,6 +299,8 @@ struct srv_winsize {
 #define SRV_ERR_NOEXEC -8
 #define SRV_ERR_ACCES -13
 #define SRV_ERR_NOTDIR -20
+#define SRV_ERR_BUSY -16
+#define SRV_ERR_NOTEMPTY -39
 #define SRV_ERR_NAMETOOLONG -36
 #define SRV_ERR_RANGE -34
 #define SRV_ERR_NOLCK -37

@@ -496,36 +496,6 @@ int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param
 }
 
 
-int openat(int dirfd, const char *path, int flags, ...) {
-    (void)dirfd;
-    mode_t mode = 0;
-    if ((flags & O_CREAT) != 0) {
-        va_list ap;
-        va_start(ap, flags);
-        mode = (mode_t)va_arg(ap, int);
-        va_end(ap);
-    }
-    if (dirfd != AT_FDCWD) {
-        errno = ENOSYS;
-        return -1;
-    }
-    return open(path, flags, mode);
-}
-
-int unlinkat(int dirfd, const char *path, int flags) {
-    if (dirfd != AT_FDCWD || (flags & ~AT_REMOVEDIR) != 0) {
-        errno = ENOSYS;
-        return -1;
-    }
-    return (flags & AT_REMOVEDIR) != 0 ? rmdir(path) : unlink(path);
-}
-
-DIR *fdopendir(int fd) {
-    (void)fd;
-    errno = ENOSYS;
-    return 0;
-}
-
 ssize_t readlink(const char *path, char *buffer, size_t size) {
     (void)path;
     (void)buffer;

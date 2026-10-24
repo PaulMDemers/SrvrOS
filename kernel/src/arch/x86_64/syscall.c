@@ -695,7 +695,8 @@ static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
     if(!(flags&(SRV_OPEN_READ|SRV_OPEN_WRITE)) ||
-        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC))) return SRV_ERR_INVAL;
+        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC|SRV_OPEN_DIRECTORY))) return SRV_ERR_INVAL;
+    if((flags&SRV_OPEN_DIRECTORY) && (flags&(SRV_OPEN_CREATE|SRV_OPEN_WRITE|SRV_OPEN_TRUNC))) return SRV_ERR_INVAL;
     /* Hold filesystem admission across lookup, exclusive create and descriptor
      * publication. O_EXCL must not be a userspace stat/create race. */
     if(!scheduler_io_begin()) return SRV_ERR_IO;
@@ -704,7 +705,14 @@ static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
     else {
         const struct vfs_node *node=vfs_lookup(path);const uint8_t *data;uint64_t size;
         if(!node) result=SRV_ERR_NOENT;
-        else if(node->type==VFS_NODE_DIRECTORY) result=SRV_ERR_ISDIR;
+        else if((flags&SRV_OPEN_DIRECTORY) && node->type!=VFS_NODE_DIRECTORY) result=SRV_ERR_NOTDIR;
+        else if(node->type==VFS_NODE_DIRECTORY) {
+            result=process_file_alloc(process_current(),node,NULL,0);
+            if(result>=0) {
+                (void)process_file_set_flags(process_current(),result,(flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
+                (void)process_file_set_fd_flags(process_current(),result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
+            }
+        }
         else if(!vfs_read_all(node,&data,&size)) result=SRV_ERR_IO;
         else {
             result=process_file_alloc(process_current(),node,data,size);
@@ -1107,7 +1115,7 @@ static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mti
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-    return vfs_utime(path, atime, mtime) ? 0 : -1;
+    return process_path_utime(path,atime,mtime);
 }
 
 static int64_t syscall_unlink(const char *user_path) {
@@ -1121,7 +1129,8 @@ static int64_t syscall_mkdir(const char *user_path) {
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-    return exfat_create_directory(path) ? 0 : -1;
+    if(vfs_lookup(path)) return SRV_ERR_EXIST;
+    return exfat_create_directory(path) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_rmdir(const char *user_path) {
@@ -1129,10 +1138,17 @@ static int64_t syscall_rmdir(const char *user_path) {
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-    if (process_has_open_vfs_prefix(path)) {
-        return -1;
+    const struct vfs_node *directory=vfs_lookup(path);
+    if(!directory) return SRV_ERR_NOENT;
+    if(directory->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+    if(process_has_open_vfs_prefix(path)) return SRV_ERR_BUSY;
+    uint64_t length=0;while(path[length]) length++;
+    for(uint64_t i=0;;i++) {
+        const struct vfs_node *node=vfs_node_at(i);if(!node) break;
+        uint64_t j=0;while(j<length && path[j]==node->path[j]) j++;
+        if(j==length && node->path[j]=='/') return SRV_ERR_NOTEMPTY;
     }
-    return exfat_delete_directory(path) ? 0 : -1;
+    return exfat_delete_directory(path) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_rename(const char *user_old_path, const char *user_new_path) {
@@ -2546,6 +2562,19 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
+    if(operation==SRV_DIRECTORY_CHDIR) return process_directory(operation,fd,NULL,0);
+    union { struct srv_dirent entry; char path[MAX_PATH_LENGTH]; } result;
+    uint64_t size=operation==SRV_DIRECTORY_READ?sizeof(result.entry):MAX_PATH_LENGTH;
+    if(operation>SRV_DIRECTORY_CHDIR || (operation==SRV_DIRECTORY_READ && capacity!=size)) return SRV_ERR_INVAL;
+    if(capacity<size) size=capacity;
+    if(!out || !size || !user_buffer_ok(out,size,true)) return SRV_ERR_FAULT;
+    int64_t status=process_directory(operation,fd,&result,size);
+    if(status<0 || (operation==SRV_DIRECTORY_READ && !status)) return status;
+    if(operation==SRV_DIRECTORY_PATH) { size=0;while(result.path[size]) size++;size++; }
+    return copy_to_user(out,&result,size)?status:SRV_ERR_FAULT;
+}
+
 static int64_t syscall_path_context(uint64_t operation,const char *input,char *out,uint64_t capacity) {
     char path[MAX_PATH_LENGTH],result[MAX_PATH_LENGTH];
     if(operation>SRV_PATH_RESOLVE) return SRV_ERR_INVAL;
@@ -3041,6 +3070,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
+        return;
+    case SYS_DIRECTORY:
+        frame->rax=(uint64_t)syscall_directory(frame->rdi,frame->rsi,(void *)frame->rdx,frame->rcx);
         return;
     case SYS_PATH_CONTEXT:
         frame->rax=(uint64_t)syscall_path_context(frame->rdi,(const char *)frame->rsi,(char *)frame->rdx,frame->rcx);

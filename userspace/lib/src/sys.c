@@ -639,3 +639,7 @@ long srv_scheduler_status(struct srv_scheduler_status *out) {
 long srv_path_context(uint64_t operation,const char *path,char *out,size_t capacity) {
     return srv_syscall4(SYS_PATH_CONTEXT,(long)operation,(long)path,(long)out,(long)capacity);
 }
+
+long srv_directory(uint64_t operation,int fd,void *out,size_t capacity) {
+    return srv_syscall4(SYS_DIRECTORY,(long)operation,fd,(long)out,(long)capacity);
+}

@@ -14,13 +14,17 @@ extern "C" {
 struct dirent {
     ino_t d_ino;
     unsigned char d_type;
-    char d_name[96];
+    char d_name[256];
 };
 
 typedef struct DIR DIR;
 
 DIR *opendir(const char *path);
 DIR *fdopendir(int fd);
+int dirfd(DIR *dir);
+long telldir(DIR *dir);
+void seekdir(DIR *dir,long location);
+void rewinddir(DIR *dir);
 struct dirent *readdir(DIR *dir);
 struct dirent *readdir64(DIR *dir);
 int closedir(DIR *dir);
