@@ -4587,7 +4587,7 @@ Reference-order cipher nibble clear and32-byte zero write, zero-only verificatio
 Touch pure engine/xHCI/main/profiles/tests. Base4a991df; fetchedmainc4265f8
 and openPR125 TCP are separate. Preserve existing profiles and RF-disable gates.
 
-### 2026-10-24 — v50 shared-key reset candidate
+### 2026-10-23 — v50 shared-key reset candidate
 
 Source `1997865`, release `420bc4d5e39c8e04`, installed unarmed. The fixed
 64-slot reset follows exact DCOC readbacks, preserves unrelated cipher nibbles,
