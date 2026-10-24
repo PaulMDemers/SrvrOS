@@ -503,6 +503,10 @@ void kmain(void) {
     xhci_set_trackpad_pointer(gestures || cmdline_has_token(cmdline, "srvros.trackpad=pointer"));
     xhci_set_trackpad_capture(cmdline_has_token(cmdline, "srvros.trackpad=capture"));
     xhci_set_network_enabled(cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
+    xhci_set_wifi_probe_enabled(cmdline_has_token(cmdline,"srvros.usb-wifi=probe"));
+    xhci_set_wifi_mac_startup(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware") &&
+        cmdline_has_token(cmdline,"srvros.wifi-mac-startup=1"));
+    xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -639,6 +643,9 @@ void kmain(void) {
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
+    bool automatic_wifi_firmware=cmdline_has_token(cmdline,"srvros.capture=wifi-firmware");
+    bool automatic_wifi_calibration=cmdline_has_token(cmdline,"srvros.capture=wifi-calibration");
+    bool automatic_wifi=automatic_wifi_firmware || automatic_wifi_calibration || cmdline_has_token(cmdline,"srvros.capture=wifi");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
     if(automatic_probe && cmdline_has_token(cmdline,"srvros.battery-preflight=air61")) laptop_battery_preflight();
@@ -648,18 +655,91 @@ void kmain(void) {
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if (automatic_probe) {
+    if (automatic_probe || automatic_wifi) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
         xhci_print_boot_diagnostic();
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait;
+        if(automatic_wifi) {
+            xhci_print_status();
+            sampled=xhci_wifi_identity_ready();
+            if(automatic_wifi_firmware) {
+                const struct initramfs_file *firmware=initramfs_find("/firmware/mt7610e.bin");
+                sampled=started && init_ready && timer_running && sampled &&
+                    xhci_wifi_capture_firmware(firmware?firmware->data:0,firmware?firmware->size:0);
+                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-table=1"))
+                    sampled=cmdline_has_token(cmdline,"srvros.wifi-mac-address-validate=1")?xhci_wifi_capture_mac_address_validate():cmdline_has_token(cmdline,"srvros.wifi-mac-address=1")?xhci_wifi_capture_mac_address():cmdline_has_token(cmdline,"srvros.wifi-efuse-map=1")?xhci_wifi_capture_efuse_map():cmdline_has_token(cmdline,"srvros.wifi-mac-fixed=1")?xhci_wifi_capture_mac_fixed():cmdline_has_token(cmdline,"srvros.wifi-mac-tail=1")?xhci_wifi_capture_mac_tail():cmdline_has_token(cmdline,"srvros.wifi-wcid=1")?xhci_wifi_capture_wcid():cmdline_has_token(cmdline,"srvros.wifi-skey=1")?xhci_wifi_capture_skey():cmdline_has_token(cmdline,"srvros.wifi-dcoc=1")?xhci_wifi_capture_dcoc():cmdline_has_token(cmdline,"srvros.wifi-bbp-switch=1")?xhci_wifi_capture_bbp_switch():cmdline_has_token(cmdline,"srvros.wifi-bbp-after-mac=1")?xhci_wifi_capture_bbp_after_mac():cmdline_has_token(cmdline,"srvros.wifi-mac-ampdu=1")?xhci_wifi_capture_mac_ampdu():cmdline_has_token(cmdline,"srvros.wifi-mac-fce-validate=1")?xhci_wifi_capture_mac_fce_validate():cmdline_has_token(cmdline,"srvros.wifi-mac-fce-observe=1")?xhci_wifi_capture_mac_fce():cmdline_has_token(cmdline,"srvros.wifi-mac-buffer=1")?xhci_wifi_capture_mac_buffer():cmdline_has_token(cmdline,"srvros.wifi-mac-vht=1")?xhci_wifi_capture_mac_vht():cmdline_has_token(cmdline,"srvros.wifi-mac-beacon=1")?xhci_wifi_capture_mac_beacon():cmdline_has_token(cmdline,"srvros.wifi-mac-txsw=1")?xhci_wifi_capture_mac_txsw():cmdline_has_token(cmdline,"srvros.wifi-mac-contention=1")?xhci_wifi_capture_mac_contention():cmdline_has_token(cmdline,"srvros.wifi-mac-protect=1")?xhci_wifi_capture_mac_protect():cmdline_has_token(cmdline,"srvros.wifi-mac-policy-validate=1")?xhci_wifi_capture_mac_policy_validate():cmdline_has_token(cmdline,"srvros.wifi-mac-policy-observe=1")?xhci_wifi_capture_mac_policy_observe():cmdline_has_token(cmdline,"srvros.wifi-mac-policy=1")?xhci_wifi_capture_mac_policy():cmdline_has_token(cmdline,"srvros.wifi-mac-route=1")?xhci_wifi_capture_mac_route():cmdline_has_token(cmdline,"srvros.wifi-mac-raw=1")?xhci_wifi_capture_mac_raw():cmdline_has_token(cmdline,"srvros.wifi-mac-snapshot=1")?xhci_wifi_capture_mac_snapshot():xhci_wifi_capture_bbp_table();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-clock-pair=1"))
+                    sampled=xhci_wifi_capture_clock_pair();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-clock-direct=1"))
+                    sampled=xhci_wifi_capture_clock_direct();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-clock=1"))
+                    sampled=xhci_wifi_capture_clock();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-direct=1"))
+                    sampled=xhci_wifi_capture_txbe_direct();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-access=1"))
+                    sampled=xhci_wifi_capture_txbe_access();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-second=1"))
+                    sampled=xhci_wifi_capture_txbe_second();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-first=1"))
+                    sampled=xhci_wifi_capture_txbe_first();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-observe=1"))
+                    sampled=xhci_wifi_capture_txbe_observe();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-next=1"))
+                    sampled=xhci_wifi_capture_txbe_next();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-txbe-start=1"))
+                    sampled=xhci_wifi_capture_txbe_start();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-rxc-tail=1"))
+                    sampled=xhci_wifi_capture_rxc_tail();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-rxc-start=1"))
+                    sampled=xhci_wifi_capture_rxc_start();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-agc-tail=1"))
+                    sampled=xhci_wifi_capture_agc_tail();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-agc-next=1"))
+                    sampled=xhci_wifi_capture_agc_next();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-agc-more=1"))
+                    sampled=xhci_wifi_capture_agc_more();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-compact=1"))
+                    sampled=xhci_wifi_capture_compact();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-batch=1"))
+                    sampled=xhci_wifi_capture_bbp_batch();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-agc=1"))
+                    sampled=xhci_wifi_capture_bbp_agc();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-front=1"))
+                    sampled=xhci_wifi_capture_bbp_front();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-core=1"))
+                    sampled=xhci_wifi_capture_bbp_core();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-ready=1"))
+                    sampled=xhci_wifi_capture_bbp_ready();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mac-format=1"))
+                    sampled=xhci_wifi_capture_mac_format();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mac-basics=1"))
+                    sampled=xhci_wifi_capture_mac_basics();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-timing-probe=1"))
+                    sampled=xhci_wifi_capture_timing_probe();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-pair-probe=1"))
+                    sampled=xhci_wifi_capture_pair_probe();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-write-probe=1"))
+                    sampled=xhci_wifi_capture_write_probe();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-radio-reset=1"))
+                    sampled=xhci_wifi_capture_radio_reset();
+                else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-mcu-probe=1"))
+                    sampled=xhci_wifi_capture_mcu();
+                console_printf("wifi-firmware-capture: completed=%s; RF and connectivity NOT_TESTED\n",sampled?"yes":"NO");
+            }
+            if(automatic_wifi_calibration) {
+                sampled=started && init_ready && timer_running && sampled && xhci_wifi_capture_calibration();
+                console_printf("wifi-calibration-capture: completed=%s; calibration validity and connectivity NOT_TESTED\n",sampled?"yes":"NO");
+            }
+            console_printf("wifi-capture: identity=%s; connectivity NOT_TESTED\n",xhci_wifi_identity_ready()?"read":"unavailable");
+        }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -733,6 +813,13 @@ void kmain(void) {
             console_sync();timer_delay_us(250000);
             if(return_on_failure)arch_reboot_unattended();
             arch_reboot();
+        }
+        if (automatic_wifi_firmware) {
+            console_printf("wifi-held: logging=%u init=%u timer=%u sampled=%u saved=%u unmounted=%u\n",
+                (uint64_t)started,(uint64_t)init_ready,(uint64_t)timer_running,
+                (uint64_t)sampled,(uint64_t)saved,(uint64_t)unmounted);
+            console_write("Wi-Fi diagnostic stopped. Photograph this screen, including USB errors above.\n");
+            console_write("Hold the power button until off, then power on for Ubuntu. No commands needed.\n");
         }
         console_write("laptop-capture: HALTED - photograph this screen; restart manually\n");
         console_sync();__asm__ volatile("cli":::"memory");halt_forever();

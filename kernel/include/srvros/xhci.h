@@ -27,6 +27,71 @@ struct xhci_trackpad_capture {
 void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out);
 void xhci_trackpad_reset_capture(void);
 
+bool xhci_wifi_identity_ready(void);
+/* Call only in the explicit capture after logging and timer initialization. */
+bool xhci_wifi_capture_calibration(void);
+void xhci_set_wifi_probe_enabled(bool enabled);
+void xhci_set_wifi_firmware_enabled(bool enabled);
+void xhci_set_wifi_mac_startup(bool enabled);
+bool xhci_wifi_capture_firmware(const uint8_t *image, uint64_t size);
+/* One-shot read-only MCU transport diagnostic after successful firmware capture.
+ * Success validates the captured identity-read reply and disabled MAC only;
+ * it does not validate other MCU operations or RF functionality. */
+bool xhci_wifi_capture_mcu(void);
+/* Opt-in MAC/BBP reset followed by strict MCU identity-read capture. */
+bool xhci_wifi_capture_radio_reset(void);
+bool xhci_wifi_capture_write_probe(void);
+bool xhci_wifi_capture_pair_probe(void);
+bool xhci_wifi_capture_timing_probe(void);
+bool xhci_wifi_capture_mac_basics(void);
+bool xhci_wifi_capture_mac_format(void);
+bool xhci_wifi_capture_bbp_ready(void);
+bool xhci_wifi_capture_bbp_core(void);
+bool xhci_wifi_capture_bbp_front(void);
+bool xhci_wifi_capture_bbp_agc(void);
+bool xhci_wifi_capture_bbp_batch(void);
+bool xhci_wifi_capture_compact(void);
+bool xhci_wifi_capture_agc_more(void);
+bool xhci_wifi_capture_agc_next(void);
+bool xhci_wifi_capture_agc_tail(void);
+bool xhci_wifi_capture_rxc_start(void);
+bool xhci_wifi_capture_rxc_tail(void);
+bool xhci_wifi_capture_txbe_start(void);
+bool xhci_wifi_capture_txbe_next(void);
+bool xhci_wifi_capture_txbe_observe(void);
+bool xhci_wifi_capture_txbe_first(void);
+bool xhci_wifi_capture_txbe_second(void);
+bool xhci_wifi_capture_txbe_access(void);
+bool xhci_wifi_capture_txbe_direct(void);
+bool xhci_wifi_capture_clock(void);
+bool xhci_wifi_capture_clock_direct(void);
+bool xhci_wifi_capture_clock_pair(void);
+bool xhci_wifi_capture_bbp_table(void);
+bool xhci_wifi_capture_mac_snapshot(void);
+bool xhci_wifi_capture_mac_raw(void);
+bool xhci_wifi_capture_mac_route(void);
+bool xhci_wifi_capture_mac_policy(void);
+bool xhci_wifi_capture_mac_policy_observe(void);
+bool xhci_wifi_capture_mac_policy_validate(void);
+bool xhci_wifi_capture_mac_protect(void);
+bool xhci_wifi_capture_mac_contention(void);
+bool xhci_wifi_capture_mac_txsw(void);
+bool xhci_wifi_capture_mac_beacon(void);
+bool xhci_wifi_capture_mac_vht(void);
+bool xhci_wifi_capture_mac_buffer(void);
+bool xhci_wifi_capture_mac_fce(void);
+bool xhci_wifi_capture_mac_fce_validate(void);
+bool xhci_wifi_capture_mac_ampdu(void);
+bool xhci_wifi_capture_bbp_after_mac(void);
+bool xhci_wifi_capture_bbp_switch(void);
+bool xhci_wifi_capture_dcoc(void);
+bool xhci_wifi_capture_skey(void);
+bool xhci_wifi_capture_wcid(void);
+bool xhci_wifi_capture_mac_tail(void);
+bool xhci_wifi_capture_mac_fixed(void);
+bool xhci_wifi_capture_efuse_map(void);
+bool xhci_wifi_capture_mac_address(void);
+bool xhci_wifi_capture_mac_address_validate(void);
 /* Diagnostic-only: IRQ-masked I/O owner, no outstanding/failed bulk DMA.
  * Select 0 (poll), 4000 or 20000 us; restore previous after the capture. */
 bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous);
