@@ -292,6 +292,7 @@ struct xhci_device {
     uint64_t bulk_wait_calls,bulk_wait_us;
     bool bulk_timed;
     struct usb_bulk_timing bulk_timing;
+    uint64_t bulk_service_at;
     const char *bulk_reason;
     uint64_t bulk_elapsed_us, bulk_spins;
     uint32_t bulk_length;
@@ -1010,7 +1011,32 @@ static bool start_controller(void) {
     return wait_status_set(XHCI_USBSTS_HCH, false, XHCI_RESET_TIMEOUT);
 }
 
+/* CPU0 synchronous BOT ownership supplies at most one timed request. Sample
+ * every 256 actual ring checks; submission/dispatch close both ends. The largest
+ * interval between these points conservatively bounds the unsampled checks too.
+ * A clock read on every busy poll would perturb the diagnostic unnecessarily. */
+static struct xhci_device *storage_timing_device;
+static void storage_service_sample(struct xhci_device *d,uint64_t now,bool final) {
+    struct usb_bulk_timing *t=&d->bulk_timing;
+    if(now<d->bulk_service_at) { t->service_valid=false;return; }
+    uint64_t gap=now-d->bulk_service_at;
+    if(gap>t->service_gap_max_us)t->service_gap_max_us=gap;
+    if(final)t->completion_gap_us=gap;
+    d->bulk_service_at=now;
+}
+static void storage_service_check(void) {
+    struct xhci_device *d=storage_timing_device;
+    if(!d)return;
+    struct usb_bulk_timing *t=&d->bulk_timing;
+    if(t->service_checks==UINT64_MAX) { t->service_valid=false;return; }
+    if((t->service_checks++&255)==0) {
+        if(t->service_samples==UINT64_MAX)t->service_valid=false;
+        else t->service_samples++;
+        storage_service_sample(d,timer_monotonic_us(),false);
+    }
+}
 static bool poll_event(struct xhci_trb *event_out) {
+    storage_service_check();
     struct xhci_trb *event = &xhci.event_ring[xhci.event_dequeue];
     bool cycle = (((volatile struct xhci_trb *)event)->control & 1u) != 0;
     if (cycle != xhci.event_cycle) {
@@ -1942,7 +1968,11 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
         device->bulk_completion = completion;
         device->bulk_remaining = remaining;
-        if(device->bulk_timed)device->bulk_timing.observed=timer_monotonic_us();
+        if(device->bulk_timed) {
+            device->bulk_timing.observed=timer_monotonic_us();
+            storage_service_sample(device,device->bulk_timing.observed,true);
+            if(storage_timing_device==device)storage_timing_device=NULL;
+        }
         device->bulk_done = true;
         device->bulk_pending = false;
         scheduler_wake_all(&device->bulk_wait);
@@ -2235,7 +2265,12 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
     d->bulk_trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
     d->bulk_dci=ep->dci; d->bulk_done=false; d->bulk_pending=true;
-    if(d->bulk_timed)d->bulk_timing.submitted=timer_monotonic_us();
+    if(d->bulk_timed) {
+        d->bulk_timing.submitted=timer_monotonic_us();
+        d->bulk_service_at=d->bulk_timing.submitted;
+        d->bulk_timing.service_valid=true;
+        storage_timing_device=d;
+    }
     db_write32(d->slot_id,ep->dci);
     uint64_t start=timer_monotonic_us(), last=start, clock_at=start;
     uint64_t spins=0, stalled_spins=0;
@@ -2282,6 +2317,7 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         }
         __asm__ volatile("pause");
     }
+    if(storage_timing_device==d)storage_timing_device=NULL;
     /* Never reuse the buffer/rings: a timed-out DMA may still be active. */
     d->bulk_elapsed_us=timer_monotonic_us()-start; d->bulk_spins=spins;
     d->bulk_failed=true; d->stage="storage-quarantined";

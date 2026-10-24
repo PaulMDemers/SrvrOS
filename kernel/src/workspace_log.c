@@ -87,15 +87,16 @@ static struct {
 static void report_transfers(const char *scope,uint64_t id,const struct usb_storage_timing *t) {
     for(unsigned phase=0;phase<3;phase++) {
         const struct usb_storage_phase_timing *p=&t->phase[phase];
-        console_printf("usb-timing: version=1 scope=%s id=%u phase=%u calls=%u callback_us=%u max_us=%u over20ms=%u over100ms=%u over1s=%u observed_calls=%u observe_us=%u resume_us=%u observe_max_us=%u resume_max_us=%u valid=%u\n",
+        console_printf("usb-timing: version=2 scope=%s id=%u phase=%u calls=%u callback_us=%u max_us=%u over20ms=%u over100ms=%u over1s=%u observed_calls=%u observe_us=%u resume_us=%u observe_max_us=%u resume_max_us=%u service_checks=%u service_samples=%u service_gap_max_us=%u completion_gap_max_us=%u valid=%u\n",
             scope,id,(uint64_t)phase,t->calls[phase],t->us[phase],p->max_us,
             p->over20ms,p->over100ms,p->over1s,p->observed_calls,p->observe_us,p->resume_us,
-            p->observe_max_us,p->resume_max_us,(uint64_t)t->valid);
+            p->observe_max_us,p->resume_max_us,p->service_checks,p->service_samples,
+            p->service_gap_max_us,p->completion_gap_max_us,(uint64_t)t->valid);
     }
 }
 static void report_save(void) {
     if(!previous_save.pending) return;
-    console_printf("workspace-cost: version=2 name=%s start_us=%u end_us=%u bytes=%u prepare_us=%u write_us=%u verify_us=%u sync_us=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u valid=%u\n",
+    console_printf("workspace-cost: version=3 name=%s start_us=%u end_us=%u bytes=%u prepare_us=%u write_us=%u verify_us=%u sync_us=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u valid=%u\n",
         previous_save.name,previous_save.start,previous_save.end,previous_save.bytes,
         previous_save.prepare,previous_save.write,previous_save.verify,previous_save.sync,
         previous_save.usb.calls[0],previous_save.usb.us[0],
@@ -251,7 +252,7 @@ bool workspace_storage_wait_capture(void) {
     static const uint64_t policies[]={0,4000,20000};
     static const unsigned order[6][3]={{0,1,2},{1,2,0},{2,0,1},{2,1,0},{1,0,2},{0,2,1}};
     unsigned completed=0;uint64_t start=timer_monotonic_us();
-    console_printf("storage-wait: begin version=2 path=%s bytes=32768 rounds=6 policies=3 original_us=%u\n",file,original);
+    console_printf("storage-wait: begin version=3 path=%s bytes=32768 rounds=6 policies=3 original_us=%u\n",file,original);
     for(unsigned round=0;ok && round<6;round++)for(unsigned pos=0;ok && pos<3;pos++) {
         if(timer_monotonic_us()-start>180000000) { ok=false;break; }
         uint64_t policy=policies[order[round][pos]];

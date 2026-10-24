@@ -490,8 +490,9 @@ of 4 ms (historical capture) or 20 ms, and requires restoration in either case.
 
 ### Individual USB transfer timing
 
-The logger now emits `workspace-cost: version=2` and the fixed-file comparison
-emits `storage-wait: begin version=2`. Each save/sample has three `usb-timing`
+Initial individual timing uses `workspace-cost: version=2` and the fixed-file
+comparison uses `storage-wait: begin version=2`; the latest service-gap format is
+version 3, described below. Each save/sample has three `usb-timing`
 phase records keyed by its monotonic start: phase 0 is CBW, 1 is data chunks and
 2 is CSW. Historical version-1 results remain readable without inventing missing
 measurements. Version 2 requires all three records and exact agreement with the
@@ -541,6 +542,62 @@ CSW callbacks over 100 ms for polling / 4 ms / 20 ms); a single run cannot rank
 policy performance. Keep the 20 ms default. The next diagnostic should bound
 pending-transfer event-service gaps before changing transport or scheduler policy.
 Normal-desktop input and package energy were not measured by this fixed fixture.
+
+### Pending-transfer event-service gap bounds
+
+Logger and fixed-file comparison version 3 require `usb-timing: version=2`
+phase records. Older logger/comparison versions 1 and 2 remain readable, without
+inventing these new fields. For each phase, `service_checks` counts actual calls
+to inspect the event ring while a timed storage request is pending;
+`service_samples` counts timestamped checks (the first and every 256 thereafter).
+`service_gap_max_us` is the maximum interval between submission, those sampled
+checks and matching-event dispatch. `completion_gap_max_us` is the maximum final
+interval from the last sampled check through matching-event dispatch. These
+maxima can describe different requests.
+
+Sampling makes the reported maximum a conservative bound: omitted checks can
+only shorten the actual intervals between ring inspections. Include the initial
+and final intervals so a servicing hiatus cannot disappear at either boundary.
+The input worker and the synchronous caller share the actual `poll_event` hook;
+checks by either count. A matching completion closes the sample before waking
+the caller. Timeout clears the diagnostic owner without fabricating a completion
+or releasing DMA. Clock rollback, counter overflow, absent check coverage or
+impossible aggregate bounds invalidate collection. A request's sampled checks
+must equal `ceil(checks/256)`; phase totals retain the corresponding bounds.
+
+No extra polling or wakeups are introduced. An active timing scope adds a clock
+read at most every 256 ring checks; ordinary untimed I/O omits these samples.
+The original wait threshold, two-second deadline, stopped-clock budget, input
+service, quarantine, verification and flush policy remain in place. Host tests
+inject steady servicing with a 500 ms delayed completion, a separate 75 ms
+servicing pause, an independent caller-resumption delay, rollback and saturation.
+Version-3 collectors refuse older or missing detail instead of calling it zero.
+
+These bounds measure how often software inspects the ring, not the controller's
+completion time. Even a small bound cannot establish when the target event was
+posted, exclude a backlog of other events, identify a device fault, or rank wait
+policies.
+
+Air7,2 release `46b9132589405099` (compiled `00ad3cc`) completed all eighteen
+native measurements, exact offline readback and automatic return. All 1046 prior
+files retain their bytes except expected exFAT metadata; offline allocation and
+recovery pass. The maximum CSW callback was 281928 us. The slowest whole operation,
+5724579 us, included 33 CSW callbacks above 100 ms under continuous polling;
+286274049 ring checks / 1118319 timestamped samples bounded its maximum service
+gap to 13 us. Waiting modes recorded maximum sampled gaps of 10011 us, consistent
+with their existing tick-bounded service. Across 2124 CSW callbacks, total
+callback wall time was 10108415 us: 10103993 us before software observation and
+1403 us after it, with post-observation caller delay at most 3 us. No single
+transfer exceeded one second; five data callbacks also exceeded 100 ms.
+
+Thus long lapses between ring checks do not explain the observed long callbacks
+in this run. Controller/media behavior and event backlog remain possible. Slow
+callback incidence differed between policies (33 / 2 / 12 CSW callbacks over
+100 ms for polling / 4 ms / 20 ms), so one run cannot rank policy performance or
+energy. Keep the 20 ms default, deadlines, DMA quarantine, input service,
+verification and flush policy. The bounded diagnostic milestone is complete;
+further attribution can wait for a reproducible workload regression. This fixed
+fixture supplies no native interactive or normal-desktop logger acceptance.
 
 ### Refined default: native normal desktop result
 

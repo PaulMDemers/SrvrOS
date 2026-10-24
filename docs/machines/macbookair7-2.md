@@ -2,6 +2,74 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Pending USB event-service gaps: bounded native result
+
+Based on `bf1b9a6` / PR127, this unit added conservative bounds on
+intervals between timestamped event-ring checks while a measured storage request
+is pending, including the final interval through matching-event dispatch.
+Scope: xHCI poll/event bookkeeping, BOT timing aggregates, logger/comparison wire
+records and backward-compatible collectors, directed host and VM regressions.
+Sample timestamps at most once per 256 ring checks to limit diagnostic overhead;
+submission and matching dispatch close the interval. These are software sampling
+bounds, not hardware completion timestamps. Preserve waits/deadlines, DMA
+quarantine, input service, readback and flush. The normal 20 ms policy stays.
+Pro PR19 was rechecked at `636ecf9` (documentation since `d80fb47`): MAC Wi-Fi state,
+capture recipes and tests remain separate from the storage path. Preserve both
+changes on integration. Air6,1 PR128 screenshot-receipt changes are independent;
+its collector regression edits are in another part of the shared test file.
+
+Source `00ad3cc` passes the full local build/core suite, injected steady/pause and
+clock/saturation checks, versioned collector regressions, throttled USB copy with
+input/exact readback, and timeout/quarantine VM checks. An exact staged idle VM
+persists six logger snapshots with complete service-gap fields. The staged
+fixed-file VM passes all 18 version-3 samples / 54 version-2 transfer records,
+exact payload and policy restoration. Missing-workspace automatic return passes.
+These validate instrumentation and workflow; the native result follows below.
+
+PR129 release `46b9132589405099`, compiled `00ad3cc`, returned automatically in
+`session-00065e8eb5c8f180-00`. All 18 version-3 measurements / 54 complete phase
+records and exact offline fixture pass, with zero callback failures. All 1046
+prior files retain their bytes except expected exFAT metadata; only boot/exit
+logs and the fixture were added. Offline checks pass at 1049 files / 2527
+clusters, zero leaks, bitmap mismatches or errors. Ubuntu default, consumed
+one-shot and recovery `9aa8dbf6fbda8252` are verified. USB is unmounted; no new
+reboot is armed. The installed current payload remains the automatic comparison.
+
+Across 2124 CSW callbacks, 47 exceeded 100 ms and none exceeded one second.
+Total callback time was 10108415 us, including 10103993 us before software event
+observation and 1403 us after it. Maximum callback was 281928 us; maximum
+observed-event-to-caller delay was 3 us. Five data callbacks also exceeded 100 ms
+(maximum 175237 us). The slowest whole operation was 5724579 us: its 33 slow
+status callbacks occurred under continuous polling, with 286274049 actual ring
+checks and 1118319 timestamped samples; the maximum sampled gap was only 13 us.
+It was not one request exceeding the two-second deadline.
+
+| Poll-before-wait | Median operation | Maximum operation | CSW >100 ms | Maximum sampled CSW service gap |
+| --- | --- | --- | --- | --- |
+| Poll only | 264.755 ms | 5724.579 ms | 33 | 13 us |
+| 4 ms | 181.763 ms | 918.210 ms | 2 | 10011 us |
+| 20 ms | 181.765 ms | 2345.151 ms | 12 | 10011 us |
+
+The wait modes retain the expected approximately one-tick servicing bounds.
+These measurements exclude long lapses between software ring checks as the
+principal cause of this run's long callbacks. Controller/media behavior and any
+event backlog remain unresolved; no hardware completion timestamp or device
+fault is established. Unequal tail incidence in one boot cannot rank policies or
+energy efficiency. Keep the normal 20 ms threshold and verified flush/readback.
+This bounded diagnostic milestone is complete; further timing investigation can
+wait for a reproducible workload problem rather than changing transport policy
+from variable flash-drive tails alone. Physical interactive or normal-desktop
+logger acceptance is not supplied by this fixed-file run.
+
+Main `8ec864c` (Air6,1 PR128 screenshot receipts) was merged as `34934f6` after
+collection. Its storage kernel is unchanged from the native-tested source.
+Combined-tree local build/core, exact idle logger/screenshot capture and all
+18 fixed-file capture samples pass. This combined-tree validation is VM-only;
+the installed release and native source above remain distinct. Local evidence
+is in `build/storage-service-gaps-20261024`, with payload/results archived outside
+build at closeout. Fetch the actual integration baseline and active Pro scope
+before the next feature block.
+
 ### Individual USB timing: bounded native result
 
 Starting from merged main `76f98c4`, this unit is instrumenting synchronous USB

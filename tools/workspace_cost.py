@@ -4,7 +4,7 @@ from usb_timing import transfer_records, sample_transfers
 
 FIELDS = ('start_us end_us bytes prepare_us write_us verify_us sync_us '
           'cbw_calls cbw_us data_calls data_us csw_calls csw_us failures ok valid').split()
-PATTERN = re.compile(r'^workspace-cost: version=(1|2) name=(boot\.log|session-[ab]\.log|exit\.log) '
+PATTERN = re.compile(r'^workspace-cost: version=(1|2|3) name=(boot\.log|session-[ab]\.log|exit\.log) '
                      + ' '.join(k + r'=([0-9]{1,20})' for k in FIELDS) + '$')
 
 
@@ -38,8 +38,8 @@ def logger_cost(text, start, end):
                 sum(r[k] for k in ('cbw_us', 'data_us', 'csw_us')) > io or
                 any(r[p+'_us'] and not r[p+'_calls'] for p in ('cbw', 'data', 'csw'))):
             return None
-        if r['version']==2:
-            r['transfers']=sample_transfers(transfers,r['start_us'],r)
+        if r['version']>=2:
+            r['transfers']=sample_transfers(transfers,r['start_us'],r,2 if r['version']==3 else 1)
             if r['transfers'] is None:return None
         old = records.setdefault(r['start_us'], r)
         if old != r:
