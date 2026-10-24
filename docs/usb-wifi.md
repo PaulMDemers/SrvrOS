@@ -2363,4 +2363,25 @@ These decoded fields do not authorize channels or transmission. Fresh Linux
 samples corroborate CMB low07ff and CFG1 lowffef, but WLAN changed bit4 between
 live samples from separate runs. Preserve unrelated bits and obtain the cold
 native starting state before designing antenna writes. No antenna/RF writes
-are added in v58; physical observation is pending.
+are added in v58; physical observation completed as recorded below.
+
+Source `1d291a7`, release `4964d0724ea58faa`, session
+`session-00065e9ca514ef7a-00` completed all eleven reads and submissions, with
+zero writes in the snapshot. Both boundaries showed MAC0, COREf000f200 and
+DMA40000050. All earlier initialization prerequisites and both completion
+markers passed; saved logs, Ubuntu recovery and offline filesystem checks passed.
+
+| Register | Cold native observation | Derived antenna target (not yet written) |
+| --- | --- | --- |
+| WLAN_FUN_CTRL80 | ff000003 | ff000003 |
+| CMB20 | 00c01fff | 00c007ff |
+| CSR_EE_CFG1 104 | 0033ffef | 0033ffef |
+| COEXCFG0 40 | 6f008847 | 6f008843 |
+| COEXCFG3 4c | 00000001 | 00000019 |
+
+The targets follow the captured single-antenna EEPROM fields and the reference
+algorithm while retaining the native high/control bits. In particular, do not
+copy Linux's full WLAN or CMB values: its enabled-driver state differs. Next
+work is bounded antenna initialization with fresh mapped-field validation,
+exact starting-state checks and readbacks. This result accepts observation only;
+antenna function, RF calibration and connectivity remain untested.

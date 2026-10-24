@@ -5256,3 +5256,25 @@ and run/checkpoint archived under
 Next: attended cold adapter cycle; collect matching release/session FIRST after
 return. Require full v57 proof and eleven-read antenna snapshot with both guard
 sets. Physical observation pending; no antenna or RF functionality accepted.
+
+### 2026-10-24 — cold antenna prerequisite snapshot completed
+
+Source `1d291a7`, release `4964d0724ea58faa`, session
+`session-00065e9ca514ef7a-00` passed the strict v58 collector: eleven reads and
+submissions, zero snapshot writes, five ordered observations. Both boundaries
+were MAC0/COREf000f200/DMA40000050. Values: WLAN80=ff000003, CMB20=00c01fff,
+CFG1 104=0033ffef, COEX0 40=6f008847, COEX3 4c=1. Every prior initialization
+prerequisite and both completion markers passed. This accepts observation only.
+
+Mapped EEPROM/reference-derived targets are ff000003/00c007ff/0033ffef/
+6f008843/19 respectively: three changed values, two unchanged. Preserve native
+WLAN/CMB control bits rather than copying Linux's enabled-driver values. Fresh
+mapped-field validation and exact guard/readback checks are needed for the next
+bounded antenna-write trial. No antenna function, RF or connectivity acceptance.
+
+Collection `build/bringup/wifi-antenna/collection/collection-dlok17ft` archived
+with collector, run/checkpoint and hashes under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-1d291a7/`.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean259files/637clusters,103directories,zero leaks or
+allocation mismatches; unmounted,no reboot armed. Next: bounded antenna setup.
