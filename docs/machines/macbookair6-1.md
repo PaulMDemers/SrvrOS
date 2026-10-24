@@ -1532,3 +1532,8 @@ firmware permissions, owner/mount lifetime and deadlines. PR112 owns compositor
 idle work; this fix avoids its files. PR19 Wi-Fi remains independent. Reproduce
 the collected v66 failure before correcting the capture, then prepare a fresh
 study directory while archiving the previous failed study without overwrites.
+
+The delayed-generation-2 fixture reproduced the same 11-edit/zero-save failure
+before the Text fix. PR112 merged while this work was underway; main `180b542`
+has now been integrated without overlap. Rebuild and session regressions include
+its compositor idle-wait changes; no prior native acceptance is inherited.
