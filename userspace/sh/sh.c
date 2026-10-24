@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <srvros/cli.h>
 #include <srvros/conio.h>
 #include <srvros/sys.h>
@@ -5615,7 +5616,6 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     }
     if (cli_streq(command, "cd")) {
         char next[CLI_PATH_MAX];
-        struct srv_stat info;
         const char *target = args[0] != '\0' ? args : "/";
         if (cli_streq(target, "-")) {
             target = getenv("OLDPWD");
@@ -5624,12 +5624,8 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
                 return 1;
             }
         }
-        cli_normalize_path(next, sizeof(next), cwd, target);
-        if (!cli_streq(next, "/") && (srv_stat(next, &info) < 0 || info.type != 1)) {
-            cli_puts("cd: not a directory: ");
-            cli_puts(next);
-            cli_puts("\n");
-            return 1;
+        if(chdir(target)<0 || !getcwd(next,sizeof(next))) {
+            cli_puts("cd: cannot change directory: ");cli_puts(target);cli_puts("\n");return 1;
         }
         setenv("OLDPWD", cwd, 1);
         cli_copy(cwd, CLI_PATH_MAX, next);
@@ -6881,18 +6877,8 @@ int main(int argc, char **argv) {
             (uint64_t)DEFAULT_HISTORY_SIZE);
         setenv("HISTSIZE", default_history_size, 1);
     }
-    /* PWD is this OS's userspace working-directory handoff to child processes. */
-    const char *inherited_pwd = getenv("PWD");
-    if (inherited_pwd != 0 && inherited_pwd[0] == '/' &&
-        strlen(inherited_pwd) < sizeof(cwd)) {
-        char candidate[CLI_PATH_MAX];
-        struct srv_stat info;
-        cli_normalize_path(candidate, sizeof(candidate), "/", inherited_pwd);
-        if (cli_streq(candidate, "/") ||
-            (srv_stat(candidate, &info) >= 0 && info.type == 1)) {
-            cli_copy(cwd, sizeof(cwd), candidate);
-        }
-    }
+    /* Kernel process state survives spawn/exec independently of PWD. */
+    if(!getcwd(cwd,sizeof(cwd))) { cli_puts("sh: working directory unavailable\n");return 1; }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
     setenv("OLDPWD", cwd, 1);
@@ -6914,6 +6900,7 @@ int main(int argc, char **argv) {
         }
         cli_join_path(history_path, sizeof(history_path), cwd, ".history");
         cli_join_path(profile_path, sizeof(profile_path), cwd, ".profile");
+        if(chdir(cwd)<0) { cli_puts("sh: cannot enter workspace\n");return 1; }
         setenv("HOME", cwd, 1);
         setenv("PWD", cwd, 1);
         setenv("HISTFILE", history_path, 1);

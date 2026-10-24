@@ -198,6 +198,7 @@ long srv_net_error(int fd);
 long srv_net_peek(int fd, void *buffer, size_t capacity);
 long srv_getpid(void);
 long srv_getppid(void);
+long srv_path_context(uint64_t operation,const char *path,char *out,size_t capacity);
 long srv_exepath(char *buffer, size_t capacity);
 long srv_ticks(void);
 long srv_monotonic_us(void);

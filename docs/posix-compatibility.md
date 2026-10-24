@@ -75,6 +75,15 @@ handlers and closes CLOEXEC descriptors. Replacing a process with workers is
 explicitly refused until worker teardown can be implemented safely. Shell fallback
 for non-ELF execvp input and wider argument/path capacity remain open.
 
+The working directory is now kernel process state: shared by a process's threads,
+inherited by fork/spawn and preserved by exec independently of `PWD`. The shell
+and Terminal explicitly select their child directories. Checked traversal rejects
+oversized paths, missing intermediate directories and regular-file `/..` traversal
+rather than silently truncating/collapsing them. `chdir` leaves environment updates
+to the shell. Full host/core tests, focused guest inheritance/failure tests and
+process/libuv VM regressions pass. Active working directories currently prevent
+namespace removal/rename; general directory inode lifetime is still pending.
+
 `abort()` now raises SIGABRT, including when the signal was ignored or a handler
 returns; wait status identifies signal termination. Explicit SIGSEGV/SIGPROF
 signals have catchable dispositions, but this does not add hardware exception

@@ -138,6 +138,7 @@ def main():
             "threadstress: open ok",
             "threadstress: coherence ok",
             "threadstress: orphan ok",
+            "threadstress: path ok",
             "threadstress: sleep ok",
             "threadstress: usage ok",
             "threadstress: resource ok",

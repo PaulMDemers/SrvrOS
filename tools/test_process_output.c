@@ -5,7 +5,7 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
-static bool opening,fixture_exists,fail_delete;
+static bool opening,fixture_exists,fail_delete,path_fixture;
 static unsigned deletes;
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
@@ -46,6 +46,12 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     return true;
 }
 const struct vfs_node *vfs_lookup(const char *path) {
+    if(path_fixture) {
+        static struct vfs_node directory={.type=VFS_NODE_DIRECTORY};
+        if(!strcmp(path,"/") || !strcmp(path,"/test") || !strcmp(path,"/test/dir")) return &directory;
+        if(!strcmp(path,"/test/output")) return &fixture_node;
+        return NULL;
+    }
     assert(opening && !strcmp(path,"/test/output"));return fixture_exists?&fixture_node:NULL;
 }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
@@ -344,7 +350,28 @@ static void orphan_lock_regression(void) {
     memset(file_locks,0,sizeof(file_locks));opening=false;
     puts("process-orphan: PASS unlink rollback, retained inode/locks, pathname reuse isolation, last-close and lock split exhaustion");
 }
+static void path_context_regression(void) {
+    clear_process(&subject);current_subject=&subject;path_fixture=true;
+    char out[160]="unchanged";
+    assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/"));
+    assert(!process_path_context(SRV_PATH_CHDIR,"/test/dir",NULL,0));
+    assert(!process_path_context(SRV_PATH_RESOLVE,"../output",out,sizeof(out)) && !strcmp(out,"/test/output"));
+    assert(process_path_context(SRV_PATH_RESOLVE,"../output/..",out,sizeof(out))==SRV_ERR_NOTDIR);
+    assert(process_path_context(SRV_PATH_RESOLVE,"../absent/..",out,sizeof(out))==SRV_ERR_NOENT);
+    assert(process_path_context(SRV_PATH_CHDIR,"/test/output",NULL,0)==SRV_ERR_NOTDIR);
+    assert(process_path_context(SRV_PATH_CHDIR,"",NULL,0)==SRV_ERR_NOENT);
+    assert(process_path_context(SRV_PATH_CHDIR,NULL,NULL,0)==SRV_ERR_FAULT);
+    strcpy(out,"unchanged");
+    assert(process_path_context(SRV_PATH_GETCWD,NULL,out,3)==SRV_ERR_RANGE && !strcmp(out,"unchanged"));
+    assert(!process_path_context(SRV_PATH_RESOLVE,"../../../../new",out,sizeof(out)) && !strcmp(out,"/new"));
+    char huge[160];memset(huge,'a',159);huge[159]=0;
+    assert(process_path_context(SRV_PATH_RESOLVE,huge,out,sizeof(out))==SRV_ERR_NAMETOOLONG);
+    assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/test/dir"));
+    path_fixture=false;current_subject=NULL;
+    puts("process-cwd: PASS checked traversal, errors and unchanged state on failure");
+}
 int main(void) {
+    path_context_regression();
     positional_regression();
     snapshot_read_regression();
     pipe_regression();

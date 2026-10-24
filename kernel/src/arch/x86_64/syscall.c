@@ -2546,6 +2546,21 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+static int64_t syscall_path_context(uint64_t operation,const char *input,char *out,uint64_t capacity) {
+    char path[MAX_PATH_LENGTH],result[MAX_PATH_LENGTH];
+    if(operation>SRV_PATH_RESOLVE) return SRV_ERR_INVAL;
+    if(operation!=SRV_PATH_GETCWD) {
+        int64_t error=copy_exec_string(input,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+        if(error) return error;
+    }
+    if(operation!=SRV_PATH_CHDIR && (!out || !capacity ||
+        !user_buffer_ok(out,capacity>sizeof(result)?sizeof(result):capacity,true))) return SRV_ERR_FAULT;
+    int64_t error=process_path_context(operation,path,result,capacity>sizeof(result)?sizeof(result):capacity);
+    if(error || operation==SRV_PATH_CHDIR) return error;
+    uint64_t size=0;while(result[size]) size++;size++;
+    return copy_to_user(out,result,size)?0:SRV_ERR_FAULT;
+}
+
 static int64_t syscall_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out,uint64_t size) {
     if(size!=sizeof(struct srv_rlimit) || (!set && !out) ||
        (set && !user_buffer_ok(set,size,false)) || (out && !user_buffer_ok(out,size,true))) return SRV_ERR_FAULT;
@@ -3026,6 +3041,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
+        return;
+    case SYS_PATH_CONTEXT:
+        frame->rax=(uint64_t)syscall_path_context(frame->rdi,(const char *)frame->rsi,(char *)frame->rdx,frame->rcx);
         return;
     case SYS_FORK:
         __asm__ volatile ("sti" : : : "memory");

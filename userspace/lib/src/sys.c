@@ -635,3 +635,7 @@ long srv_realtime_us(void) { return srv_syscall0(SYS_REALTIME_US); }
 long srv_scheduler_status(struct srv_scheduler_status *out) {
     return srv_syscall2(SYS_SCHEDULER_STATUS,(long)out,sizeof(*out));
 }
+
+long srv_path_context(uint64_t operation,const char *path,char *out,size_t capacity) {
+    return srv_syscall4(SYS_PATH_CONTEXT,(long)operation,(long)path,(long)out,(long)capacity);
+}

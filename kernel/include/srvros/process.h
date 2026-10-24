@@ -218,6 +218,7 @@ int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_sync_all(void);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
 int64_t process_unlink_file(const char *path);
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity);
 bool process_open_file_size(const char *path,uint64_t *size);
 int64_t process_file_stat(struct process *process,
     uint64_t fd,

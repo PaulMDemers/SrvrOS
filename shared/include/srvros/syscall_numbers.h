@@ -143,6 +143,10 @@
 #define SYS_USAGE 141
 #define SYS_RLIMIT 142
 #define SYS_FORK 143
+#define SYS_PATH_CONTEXT 144
+#define SRV_PATH_GETCWD 0
+#define SRV_PATH_CHDIR 1
+#define SRV_PATH_RESOLVE 2
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -287,6 +291,7 @@ struct srv_winsize {
 #define SRV_ERR_ACCES -13
 #define SRV_ERR_NOTDIR -20
 #define SRV_ERR_NAMETOOLONG -36
+#define SRV_ERR_RANGE -34
 #define SRV_ERR_NOLCK -37
 #define SRV_ERR_BADF -9
 #define SRV_ERR_AGAIN -11

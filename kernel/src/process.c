@@ -204,6 +204,7 @@ struct process {
     uint64_t user_us,system_us,main_user_us,main_system_us;
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     struct srv_rlimit fsize_limit;
+    char cwd[PROCESS_PATH_MAX];
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t session_id;
@@ -685,6 +686,7 @@ static void clear_process(struct process *process) {
         bytes[i] = 0;
     }
     process->fsize_limit=(struct srv_rlimit){UINT64_MAX,UINT64_MAX};
+    process->cwd[0]='/';
 }
 
 static struct process_lifetime *lifetime_find(uint64_t token) {
@@ -765,7 +767,8 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     process->active=true;process->detached=detached;process->pid=pid;
     process->lifetime=token;
     process->parent_pid=process_pid(parent);
-    if(parent) { process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask; }
+    if(parent) { process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
+        copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd); }
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
     process->controlling_tty=parent?parent->controlling_tty:0;
@@ -2992,7 +2995,63 @@ uint64_t process_current_kill_status(void) {
     return 128 + signal;
 }
 
+/* Resolve every traversed component before folding dot/dot-dot. A regular
+ * file followed by /.. must fail, not escape into its parent. The final name
+ * may be absent so create operations can use the same checked resolver. */
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
+    struct process *process=process_current();
+    if(!process) return SRV_ERR_INVAL;
+    char resolved[PROCESS_PATH_MAX];
+    if(operation==SRV_PATH_GETCWD) {
+        if(!copy_process_path(resolved,sizeof(resolved),process->cwd)) return SRV_ERR_NOENT;
+    } else if(operation==SRV_PATH_CHDIR || operation==SRV_PATH_RESOLVE) {
+        if(!path) return SRV_ERR_FAULT;
+        if(!path[0]) return SRV_ERR_NOENT;
+        if(!copy_process_path(resolved,sizeof(resolved),path[0]=='/'?"/":process->cwd)) return SRV_ERR_NAMETOOLONG;
+        uint64_t length=0;while(resolved[length]) length++;
+        uint64_t at=0;
+        while(path[at]) {
+            while(path[at]=='/') at++;
+            if(!path[at]) break;
+            uint64_t start=at;while(path[at] && path[at]!='/') at++;
+            uint64_t count=at-start;
+            if(count==1 && path[start]=='.') continue;
+            if(count==2 && path[start]=='.' && path[start+1]=='.') {
+                while(length>1 && resolved[length-1]!='/') length--;
+                if(length>1) length--;
+                resolved[length]=0;continue;
+            }
+            uint64_t slash=length>1?1:0;
+            if(length+slash+count>=sizeof(resolved)) return SRV_ERR_NAMETOOLONG;
+            if(slash) resolved[length++]='/';
+            for(uint64_t i=0;i<count;i++) resolved[length++]=path[start+i];
+            resolved[length]=0;
+            if(path[at]=='/') {
+                const struct vfs_node *node=vfs_lookup(resolved);
+                if(!node) return SRV_ERR_NOENT;
+                if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+            }
+        }
+        if(operation==SRV_PATH_CHDIR) {
+            const struct vfs_node *node=vfs_lookup(resolved);
+            if(!node) return SRV_ERR_NOENT;
+            if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+            copy_process_path(process->cwd,sizeof(process->cwd),resolved);
+            return 0;
+        }
+    } else return SRV_ERR_INVAL;
+    uint64_t size=0;while(resolved[size]) size++;size++;
+    if(!out) return SRV_ERR_FAULT;
+    if(capacity<size) return SRV_ERR_RANGE;
+    for(uint64_t i=0;i<size;i++) out[i]=resolved[i];
+    return 0;
+}
+
 bool process_has_open_vfs_prefix(const char *prefix) {
+    /* Keep the current pathname stable until directory identities can survive
+     * rename/removal. This is an explicit busy boundary, not stale PWD state. */
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)
+        if(processes[i].allocated && path_under_prefix(processes[i].cwd,prefix)) return true;
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++)
         if(file_contents[i].refs && !file_contents[i].unlinked && path_under_prefix(file_contents[i].path,prefix)) return true;
     return false;

@@ -75,7 +75,12 @@ Next bounded scope: kernel-owned working directory inherited by fork/spawn and
 preserved by exec, checked path traversal, native shell/Terminal handoff, then
 directory descriptors and portable consumer tests. Touch process/syscall/libc,
 shell/Terminal and semantic tests; retain existing file and I/O guarantees.
-No reboot is needed. The next working-directory source is not yet validated.
+No reboot is needed. The working-directory block passes full core, focused path
+VM and process/libuv regressions, including empty-environment exec and shared
+thread CWD. The first build missed the shell's unistd include; corrected build
+and tests pass. Next: descriptor-backed directories/openat/fchdir and real
+file timestamp updates. Main remains `36080fc`; Air6,1 PR136 battery deadline and
+Pro PR19 `d7fb8f9` Wi-Fi changes do not overlap this compatibility block.
 
 ### Desktop architecture, scalable windows and POSIX audit
 
