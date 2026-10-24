@@ -1895,3 +1895,25 @@ Ubuntu recovery/payload hashes and clean offline allocation verified (231files,
 Acceptance remains bounded to this initialization sequence; four full-table BBP
 readbacks, remaining MAC prerequisites and RF/connectivity are still unresolved.
 Battery work and its Air-specific hardware acceptance remain separate.
+
+
+### Aggregation-length initialization (v46; native pending)
+
+`--wifi-mac-ampdu` follows exact FCE validation with one sequence15 pair:
+1030=aaa99887 and080c=03ff0223 (retained L2 routing). The first target is
+MT_AMPDU_MAX_LEN_20M1S in the Linux v7.0 mt76x0 MAC initialization table.
+Four read-only Linux samples on this7392:a711 agree with both target words;
+these running-device samples do not establish reset-state semantics.
+
+Prior raw native inventory recorded1030=ffffffff with successful four-byte USB
+completions. This dedicated engine admits only that exact initial observation,
+then requires exactaaa99887 after the acknowledged write. Existing generic reads
+and earlier profiles retain their all-ones rejection. It refuses failed transfers,
+any different initial value, altered ACK/readback, lost ownership, nonzero MAC or
+wrong CORE. Eight control reads record actual length/completion/residue/timeout;
+collection requires all eight successful transfers, exact sequence15 ACK, both
+readbacks and both completion markers. No retry, BBP table, RF or MAC TX/RX enable.
+Sequence15 is the last nonzero four-bit identifier; future commands must explicitly
+address reuse instead of incrementing into16. This trial does not accept scanning,
+aggregation performance or connectivity. Source: Linux v7.0
+[mt76x0 initialization table](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h).

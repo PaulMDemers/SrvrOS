@@ -4234,3 +4234,14 @@ No reboot armed. This accepts the prior Wi-Fi initialization sequence on the
 integrated baseline, not general desktop or battery behavior. Next: remaining
 MAC prerequisites before revisiting the four unresolved baseband readbacks.
 Scanning, association and connectivity remain untested.
+
+
+Active scope 2026-10-23: bounded v46 AMPDU1030 initialization following accepted
+integrated v45. Sequence15 pair1030=aaa99887/080c=03ff0223; second target preserves
+accepted routing. Initial1030=ffffffff is admitted only in this dedicated engine,
+with successful exact USB4-byte transfer; it is not declared a valid reset value.
+Require exact post-write targets, final MAC0/COREf000f200 and eight reads. Preserve
+all existing all-ones refusals and v45 behavior. No retry, BBP table or RF enable.
+Touch MCU/xHCI/main/staging/tests. Integrated base4a991df; fetched2702b41 adds
+Air6,1 continuous desktop scope. PR118 draft edits storage waiting, not Wi-Fi
+control/MCU dispatch; retain its existing shared storage path unchanged.

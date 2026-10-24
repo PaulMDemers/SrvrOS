@@ -740,6 +740,53 @@ static void test_mac_beacon(void){
  puts("MAC beacon: PASS exact ordered 24-byte packet, eight reads, all failures/cancellation, reply and target guards");
 }
 
+struct ampdu_fake {unsigned op,auth,fail,deny,bad,ones; bool vary; uint32_t target;};
+static bool ampdu_auth(void *p){struct ampdu_fake *f=p;return ++f->auth!=f->deny;}
+static bool ampdu_read(void *p,uint32_t a,uint32_t *v){
+ struct ampdu_fake *f=p;
+ const uint32_t addresses[]={0x1004,0x2000,0x1030,0x080c,0,0x1030,0x080c,0x1004,0x2000};
+ const uint32_t values[]={0,0xf000f200,UINT32_MAX,0x03ff0223,0,0xaaa99887,0x03ff0223,0,0xf000f200};
+ assert(f->op<9 && a==addresses[f->op]);*v=values[f->op];if(f->vary && f->op==5)*v=f->target;f->op++;
+ if(f->bad==f->op)*v^=1;
+ if(f->ones==f->op)*v=UINT32_MAX;
+ return f->fail!=f->op;
+}
+static int ampdu_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t cap){
+ struct ampdu_fake *f=p;const uint8_t expected[]={0x10,0,0xcf,0x50,0x30,0x10,0x41,0,0x87,0x98,0xa9,0xaa,0x0c,0x08,0x41,0,0x23,0x02,0xff,0x03,0,0,0,0};
+ assert(f->op==4 && n==24 && cap>=16 && !memcmp(data,expected,24));f->op++;
+ if(f->fail==f->op)return -1;
+ word(reply,0x4a0f0008);word(reply+4,0x411030);word(reply+8,0xaaa99887);word(reply+12,0x4a0f0008);
+ if(f->bad==5)reply[2]^=1;
+ return 16;
+}
+static void test_mac_ampdu(void){
+ for(unsigned fail=0;fail<=9;fail++)for(unsigned deny=0;deny<=10;deny++){
+  struct ampdu_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,ampdu_auth,ampdu_read,ampdu_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_ampdu_apply(&s,&io);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==8 && s.ack_mask==1 && s.batches_completed==1 && f.op==9 && f.auth==10);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  unsigned op=f.op;assert(mt76_mac_ampdu_apply(&s,&io)==MT76_TIMING_REFUSED && f.op==op);
+ }
+ for(unsigned bad=1;bad<=9;bad++){
+  struct ampdu_fake f={.bad=bad};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,ampdu_auth,ampdu_read,ampdu_exchange};
+  assert(mt76_mac_ampdu_apply(&s,&io)==(bad==5?MT76_TIMING_REPLY:MT76_TIMING_STATE) && !s.complete);
+  if(bad<=4)assert(!s.batches_attempted);
+ }
+ for(unsigned ones=1;ones<=9;ones++)if(ones!=5 && ones!=3){
+  struct ampdu_fake f={.ones=ones};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,ampdu_auth,ampdu_read,ampdu_exchange};
+  assert(mt76_mac_ampdu_apply(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ for(unsigned bit=0;bit<32;bit++){
+  struct ampdu_fake f={.vary=true,.target=0xaaa99887u^(1u<<bit)};struct mt76_mcu_mac s={0};
+  const struct mt76_mcu_timing_io io={&f,ampdu_auth,ampdu_read,ampdu_exchange};
+  assert(mt76_mac_ampdu_apply(&s,&io)==MT76_TIMING_STATE && !s.complete);
+ }
+ puts("MAC AMPDU: PASS exact packet/ACK, isolated initial all-ones, strict readbacks, IO/cancel/guards and no retry");
+}
+
 struct fce_fake {unsigned op,auth,fail,deny,bad,ones; bool vary; uint32_t target;};
 static bool fce_auth(void *p){struct fce_fake *f=p;return ++f->auth!=f->deny;}
 static bool fce_read(void *p,uint32_t a,uint32_t *v){
@@ -811,6 +858,7 @@ static void test_mac_fce_validate(void){
 }
 
 int main(void){
+ test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();
  test_mac_buffer();

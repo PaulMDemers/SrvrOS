@@ -953,3 +953,67 @@ enum mt76_mcu_timing_status mt76_mac_fce_validate(struct mt76_mcu_mac *s,
     }
     return MT76_TIMING_OK;
 }
+
+/* Aggregation length limit, retaining the accepted frame-engine L2 routing. */
+static const struct mt76_mcu_register_pair mac_ampdu_plan[2]={
+    {0x1030,0xaaa99887},{0x080c,0x03ff0223}
+};
+size_t mt76_mac_ampdu_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,15,mac_ampdu_plan,2,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_ampdu_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io) {
+    const struct mt76_mcu_register_pair *plan=mac_ampdu_plan;
+    const unsigned sequence=15,pairs=2,total=2;const bool guard_core=true;
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange ||
+        (pairs!=2 && pairs!=4) || (total!=2 && total!=4) || pairs>total)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_mcu_mac){.attempted=true,.received=-1};
+    enum mt76_mcu_timing_status status;
+#define MAC_READ(address,value) do { status=mac_read(s,io,address,value); if(status!=MT76_TIMING_OK)return status; } while(0)
+    for(unsigned batch=0;batch<total/pairs;batch++) {
+        MAC_READ(0x1004,&s->mac_before);
+        if(s->mac_before)return MT76_TIMING_STATE;
+        if(guard_core) {
+            MAC_READ(0x2000,&s->core_before);
+            if(s->core_before!=0xf000f200)return MT76_TIMING_STATE;
+        }
+        for(unsigned n=0;n<pairs;n++) {
+            unsigned i=pairs*batch+n;
+            if(i==0) {
+                /* Captured raw all-ones observation: only this initial1030 read.
+                 * Transport must succeed; all post-write reads remain strict. */
+                if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+                s->reads++;
+                if(!io->read(io->context,0x1030,&s->before[0]))return MT76_TIMING_IO;
+                if(s->before[0]!=UINT32_MAX)return MT76_TIMING_STATE;
+            } else {
+                MAC_READ(plan[i].address,&s->before[i]);
+                if(s->before[i]!=plan[i].value)return MT76_TIMING_STATE;
+            }
+        }
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint8_t packet[40],reply[MT76_MCU_RESPONSE_MAX];
+        size_t length=fixed_mac_packet(plan,sequence,batch,pairs,packet,sizeof packet);
+        if(length!=pairs*8u+8u)return MT76_TIMING_STATE;
+        s->batches_attempted++;
+        s->received=io->exchange(io->context,packet,length,reply,sizeof reply);
+        if(s->received<0)return MT76_TIMING_IO;
+        if(!fixed_mac_reply(plan,sequence,batch,pairs,reply,(size_t)s->received))return MT76_TIMING_REPLY;
+        s->ack_mask|=1u<<batch;
+        for(unsigned n=0;n<pairs;n++) {
+            unsigned i=pairs*batch+n;
+            MAC_READ(plan[i].address,&s->after[i]);
+            if(s->after[i]!=plan[i].value)return MT76_TIMING_STATE;
+        }
+        MAC_READ(0x1004,&s->mac_after);
+        if(s->mac_after)return MT76_TIMING_STATE;
+        if(guard_core) {
+            MAC_READ(0x2000,&s->core_after);
+            if(s->core_after!=0xf000f200)return MT76_TIMING_STATE;
+        }
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        s->batches_completed++;
+    }
+    s->complete=true;return MT76_TIMING_OK;
+#undef MAC_READ
+}
