@@ -733,3 +733,49 @@ The first delays the second-lifetime owner past its deadline after a pending
 drain while the worker completes; the original code reproduces the halt. The
 second keeps setup unfinished and must still halt with ownership retained.
 These scheduling hooks are VM-only. The native retry remains required.
+
+## Startup timing and automated reopen diagnostic
+
+The second native reopen retry still exceeded five seconds with namespace
+initialization in flight. `battery-startup` records fixed-size counters for
+setup-worker sleep, stall, semaphore waits, EC byte transfers and allocation/free.
+`requested` is milliseconds, microseconds, semaphore timeout milliseconds
+(`65535` means indefinite), byte transfers, or allocated/freed bytes according
+to `kind`. Allocation/free wall times sample one call in 64; their call/byte
+counts cover all calls. Other categories time every call. `active_us` and
+`argument` describe an unfinished call at terminal containment. Nested categories
+overlap, and elapsed wall time includes scheduling; these are not additive CPU
+time measurements. Existing setup markers identify phase boundaries. Counters
+reset on every runtime open and exclude owner-thread sleeps and later sampling.
+Reports print after setup drains or during terminal containment, never to USB
+from the fatal path. The setup deadline remains five seconds.
+
+For an input-free native two-session startup check, build the native Air6,1
+runtime and stage the distinct v72 recipe:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" \
+  --desktop-battery --desktop-services --battery-air61 --desktop-reopen-test
+```
+
+Each session opens ordinary apps, samples for 20 seconds, requires fresh battery
+data, and follows normal lifetime revocation, runtime retirement and log saving.
+The second session repeats from the same boot with Home still mounted. After
+both return normally the test unmounts Home and returns to Ubuntu. Do not edit
+files during this diagnostic: its timer revokes the diagnostic app lifetime.
+It tests startup/retirement, not interactive saves or perceptual audio/brightness.
+Ordinary v70/v71 sessions retain no deadline or automatic exit.
+
+A fatal startup with Home mounted still **halts**, retaining uncertain ownership.
+Photograph the final timing lines and restart manually. Automation does not
+permit reset or filesystem writes from that context. Missing/refused battery
+support is a failed native test even if normal cleanup succeeds. Two matching
+session exit logs with fresh-sample and clean-retirement receipts are required;
+old exit text inherited by a new boot log is not second-session completion.
+
+Disposable validation uses `battery_home_desktop_smoke.py --boot-session --air61
+--services --audio --automatic --workspace-table gpt` with cases `normal`,
+`reopen-completed`, `reopen-busy` and `profile-refusal`. The busy case must halt
+with an active 6000 ms sleep and only the first lifetime released. Exact-stage
+Q35 uses `--case profile-refusal --stage RELEASE`: two cleanly retired unavailable
+sessions and automatic recovery are harness success, never hardware acceptance.

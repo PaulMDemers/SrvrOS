@@ -1,4 +1,5 @@
 #include "battery_bounded_policy.h"
+#include "battery_startup_timing.h"
 /* Bounded battery/AC diagnostic. Full runtime, linked separately from the
  * snapshot probe and the desktop. CPU0 lifecycle owner and one EC/AML worker. */
 #include "battery_platform.h"
@@ -71,6 +72,8 @@ static struct {
     uint64_t ac_sampled_us;
     const char *setup_stage;
     uint64_t setup_started_us;
+    bool setup_active;
+    struct battery_startup_span startup[6];
 } runtime;
 enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
@@ -83,6 +86,7 @@ static bool mounted_home;
 static bool smbus_transitions;
 static bool continuous_home, desktop_home, desktop_capture, desktop_transitions, desktop_session, desktop_work;
 static uint64_t home_session_events;
+static bool desktop_reopen_test;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
 static struct block_device *query_capture_volume;
@@ -233,6 +237,16 @@ static void mask_sources(void) {
     if(runtime.sci.phase!=SCI_OWNER_OFF)(void)sci_owner_mask(&runtime.sci);
     irq_restore(flags);
 }
+static void startup_report(void) {
+    static const char *names[]={"sleep-ms","stall-us","semaphore-ms","ec-byte","alloc-bytes","free-bytes"};
+    uint64_t now=timer_monotonic_us();
+    for(unsigned i=0;i<6;i++) {
+        const struct battery_startup_span *s=&runtime.startup[i];
+        console_printf("battery-startup: kind=%s calls=%u requested=%u samples=%u wall_us=%u max_us=%u active=%u active_us=%u argument=%u\n",
+            names[i],s->calls,s->requested,s->samples,s->elapsed_us,s->max_us,(uint64_t)s->active,
+            s->active&&now>=s->started_us?now-s->started_us:0,s->active?s->argument:0);
+    }
+}
 static __attribute__((noreturn)) void unsafe(const char *reason) {
     /* CPU0 containment is terminal: prevent either runtime thread from running
      * again while reporting and resetting. No filesystem work is permitted. */
@@ -249,6 +263,7 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     /* The interrupted presenter cannot resume after terminal containment. */
     console_emergency();
     sci_report("fault");
+    startup_report();
     if(auto_return && !reset)
         console_printf("battery-reset: BLOCKED workspace=%u io=%u; live storage retained\n",(uint64_t)mounted,(uint64_t)io);
     console_printf("battery: progress setup=%s setup_elapsed_us=%u worker=%u completed=%u in_flight=%u\n",
@@ -308,6 +323,17 @@ static void check_foreign_event(void) {
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t size){return size&&p>=a&&p-a<=n&&size<=n-(p-a);}
 static bool worker_context(void){uint64_t f=irq_save();bool ok=(f&(1ull<<9))&&runtime.worker.identity&&scheduler_current_thread_id()==runtime.worker.identity;irq_restore(f);return ok;}
+/* Instrument only setup's worker, never the owner's sleep or later samples.
+ * Allocation/free wall time is sampled once per 64 calls to bound overhead. */
+static bool startup_begin(unsigned kind,uint64_t argument) {
+    if(!runtime.setup_active || scheduler_current_thread_id()!=runtime.worker.identity)return false;
+    struct battery_startup_span *s=&runtime.startup[kind];
+    bool sample=kind<4 || !(s->calls%64);
+    return battery_startup_begin(s,sample?timer_monotonic_us():0,argument,sample);
+}
+static void startup_end(unsigned kind,bool sampled) {
+    if(sampled)battery_startup_end(&runtime.startup[kind],timer_monotonic_us());
+}
 static void pace(unsigned polls){if(!(polls%16))timer_wait_ticks(1);else timer_delay_us(20);}
 uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out){*out=runtime.platform.rsdp;return UACPI_STATUS_OK;}
 void *uacpi_kernel_map(uacpi_phys_addr a,uacpi_size n){void *p=runtime.engaged?battery_platform_map(a,n):NULL;if(!p){runtime.denied++;console_printf("battery: denied map address=%x bytes=%u\n",a,(uint64_t)n);}return p?p:UACPI_MAP_FAILED;}
@@ -319,7 +345,9 @@ void *uacpi_kernel_alloc(uacpi_size size) {
     if (size > HEAP_LIMIT - sizeof(struct allocation_header)) return NULL;
     uint64_t charged = size + sizeof(struct allocation_header), flags = irq_save();
     if (charged > HEAP_LIMIT - runtime.heap) { irq_restore(flags); return NULL; }
+    bool timed=startup_begin(4,charged);
     struct allocation_header *header = kmalloc(charged);
+    startup_end(4,timed);
     if (header) {
         header->charged = charged;
         runtime.heap += charged;
@@ -333,20 +361,24 @@ void uacpi_kernel_free(void *pointer) {
     uint64_t flags = irq_save();
     struct allocation_header *header = (struct allocation_header *)pointer - 1;
     runtime.heap -= header->charged;
+    bool timed=startup_begin(5,header->charged);
     kfree(header);
+    startup_end(5,timed);
     irq_restore(flags);
 }
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
     uint64_t us = timer_monotonic_us(); return us > UINT64_MAX / 1000 ? UINT64_MAX : us * 1000;
 }
-void uacpi_kernel_stall(uacpi_u8 us) { timer_delay_us(us); }
+void uacpi_kernel_stall(uacpi_u8 us) { bool timed=startup_begin(1,us);timer_delay_us(us);startup_end(1,timed); }
 void uacpi_kernel_sleep(uacpi_u64 ms) {
-    if (!ms) { scheduler_yield(); return; }
+    bool timed=startup_begin(0,ms);
+    if (!ms) { scheduler_yield();startup_end(0,timed); return; }
     if (ms == SEMAPHORE_WAIT_FOREVER) unsafe("sleep duration overflows");
     struct kernel_semaphore delay;
     semaphore_init(&delay, 0);
     enum semaphore_result result = semaphore_wait(&delay, ms);
     semaphore_close(&delay);
+    startup_end(0,timed);
     if (result != SEMAPHORE_TIMEOUT) unsafe("sleep cannot block");
 }
 uacpi_handle uacpi_kernel_create_semaphore(uacpi_u32 units) {
@@ -361,7 +393,9 @@ void uacpi_kernel_free_semaphore(uacpi_handle handle) {
     uacpi_kernel_free(handle);
 }
 uacpi_status uacpi_kernel_wait_for_semaphore(uacpi_handle handle, uacpi_u16 timeout) {
+    bool timed=startup_begin(2,timeout);
     enum semaphore_result result = semaphore_wait(handle, timeout == 0xffff ? SEMAPHORE_WAIT_FOREVER : timeout);
+    startup_end(2,timed);
     return result == SEMAPHORE_OK ? UACPI_STATUS_OK : result == SEMAPHORE_TIMEOUT ?
         UACPI_STATUS_TIMEOUT : UACPI_STATUS_INTERNAL_ERROR;
 }
@@ -656,6 +690,7 @@ uacpi_status uacpi_kernel_pci_write##B(uacpi_handle h,uacpi_size o,uacpi_u##B v)
 PCI(8) PCI(16) PCI(32)
 static bool transfer(bool write,uint8_t a,uint8_t *v,bool query) {
     if(!worker_context()||runtime.lease||runtime.transport.poisoned)return false;
+    bool timed=startup_begin(3,1);
     runtime.lease=true;
     bool ok=query?ec_transport_begin_query(&runtime.transport,timer_monotonic_us(),100000):
         ec_transport_begin(&runtime.transport,write,a,*v,timer_monotonic_us(),100000);
@@ -668,7 +703,7 @@ static bool transfer(bool write,uint8_t a,uint8_t *v,bool query) {
         }
     }
     if(result==1&&!write)*v=runtime.transport.result;
-    runtime.lease=false;return ok&&result==1;
+    runtime.lease=false;startup_end(3,timed);return ok&&result==1;
 }
 static uacpi_status region_handler(uacpi_region_op op,uacpi_handle data) {
     if(op==UACPI_REGION_OP_ATTACH){uacpi_region_attach_data *a=data;
@@ -725,7 +760,7 @@ static void setup_mark(const char *stage) {
 static void setup_work(void *ctx) {
     (void)ctx;runtime.ok=false;
     if(!worker_context())unsafe("setup outside worker");
-    runtime.setup_started_us=timer_monotonic_us();
+    runtime.setup_started_us=timer_monotonic_us();runtime.setup_active=true;
     setup_mark("handler");
     if(runtime.platform.model_setup_work)runtime.platform.model_setup_work();
     /* Root handler before namespace load provides the ECDT controller for
@@ -744,7 +779,7 @@ static void setup_work(void *ctx) {
     setup_mark("namespace-initialize");
     if(uacpi_namespace_initialize())goto done;
     runtime.ok=!runtime.errors&&!runtime.denied;
-done:if(runtime.ok)setup_mark("complete");runtime.done=true;
+done:if(runtime.ok)setup_mark("complete");runtime.setup_active=false;runtime.done=true;
 }
 static void query_work(void *ctx);
 static bool queue_query(void) {
@@ -976,6 +1011,7 @@ static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
         }
     }
     check_foreign_event();
+    if(fn==setup_work)startup_report();
     if(!runtime.done||!runtime.ok||runtime.errors||runtime.denied||runtime.transport.poisoned)unsafe(phase);
 }
 static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool transitions,bool service_mode) {
@@ -1762,6 +1798,13 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
             if(desktop_work && timer_monotonic_us()-capture_start>=480000000ull)unsafe("attended desktop deadline; save work before exit");
             if(!desktop_work && timer_monotonic_us()-capture_start>=(desktop_transitions?480000000ull:240000000ull))break;
         }
+        if(desktop_reopen_test && timer_monotonic_us()-capture_start>=20000000) {
+            struct battery_service_status state;battery_service_status(&state);
+            ok=state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH) && state.sample.generation>=2;
+            console_printf("battery-reopen-test: sample epoch=%u generation=%u fresh=%u complete=%s\n",
+                state.epoch,state.sample.generation,(uint64_t)!!(state.flags&BATTERY_CACHE_FRESH),ok?"yes":"NO");
+            break; /* Normal lifetime revocation/drain below; no app edits. */
+        }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
         uacpi_kernel_sleep(10);
@@ -2300,6 +2343,14 @@ bool battery_home_desktop_session_run(void *rsdp,struct limine_memmap_response *
     desktop_home=desktop_session=true;
     bool ok=workspace_controls_test(rsdp,map,false,0,true,true);
     desktop_home=desktop_session=false;
+    return ok;
+}
+/* Boot-only diagnostic: no control capability is added to ordinary sessions. */
+bool battery_home_desktop_reopen_session_run(void *rsdp,struct limine_memmap_response *map) {
+    if(desktop_reopen_test)return false;
+    desktop_reopen_test=true;
+    bool ok=battery_home_desktop_session_run(rsdp,map);
+    desktop_reopen_test=false;
     return ok;
 }
 bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {

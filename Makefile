@@ -3560,3 +3560,11 @@ test-e1000-rx: build/tests/e1000-rx-host$(HOST_EXE)
 build/tests/e1000-rx-host$(HOST_EXE): tools/test_e1000_rx.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-battery-startup-timing
+test-core: test-battery-startup-timing
+test-battery-startup-timing: build/tests/battery-startup-timing$(HOST_EXE)
+	$<
+build/tests/battery-startup-timing$(HOST_EXE): tools/test_battery_startup_timing.c ports/srvros/uacpi/runtime/battery_startup_timing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror $< -o $@

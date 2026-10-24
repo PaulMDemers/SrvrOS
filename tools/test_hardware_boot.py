@@ -14,6 +14,16 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_air61_automatic_reopen_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-v72-desktop-6ada85bb')
+        for token in ('srvros.desktop=session','srvros.battery=on','srvros.desktop-reopen-test=on','srvros.audio=hda','srvros.smc=read-only'):
+            self.assertIn(token,config)
+        self.assertNotIn('srvros.usb-network',config)
+        normal=boot.limine_config('0123456789abcdef','ram-usb-v71-desktop-6ada85bb')
+        self.assertNotIn('srvros.desktop-reopen-test',normal)
+        for options in ({},dict(battery_air61=True),dict(desktop_battery=True,desktop_services=True)):
+            with self.assertRaises(ValueError):boot.stage(desktop_reopen_test=True,**options)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
