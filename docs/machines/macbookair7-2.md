@@ -24,8 +24,12 @@ build/core/docs checks, sixteen-window exact text/screenshot/cleanup workload,
 The exact staged two-session desktop persistence rehearsal passes for
 `bf68e4e9b88b8ae7`; its sixty-round workload, saved text/preferences, logger
 snapshots and both clean unmounts pass. Physical acceptance remains pending.
-No native test is armed;
-current automatic payload `46b9132589405099`, recovery `9aa8dbf6fbda8252`.
+Installed attended candidate `bf68e4e9b88b8ae7` (compiled `b96e990`), recovery
+`9aa8dbf6fbda8252`. Ubuntu remains the default; native acceptance awaits the
+capacity round. No timer closes this interactive desktop; tester exits and
+reboots from the monitor. Local run/collector:
+`build/window-capacity-20261024/run.json` and `collect-native.py`; durable payload
+and recovery are under the local pending-trials archive outside `build`.
 Publish this branch/PR, validate one build/VM at a time, then prepare a physical
 trial with explicit on-screen instructions if human interaction is required.
 
