@@ -35,6 +35,14 @@ delayed targeted signal and being rerun. Main advanced to `e79e220` with Air6,1 
 changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
 work. No native reboot has been armed or physical acceptance claimed.
 
+Integrated shared main `e79e220` as `1cd62ae`, retaining Air6,1 changes. The
+pre-fork image passes full local core, thread, ports (including SQLite/posixdemo),
+process, libuv, utility and libc/TLS VM suites. Expanded tests exposed outdated
+signal recipient/timing assumptions and an optional shell-banner assertion;
+corrected fixtures pass and original failures remain in local evidence. Native
+installed/recovery payloads are unchanged. PR134 remains a draft because the
+compatibility milestone is not complete.
+
 Next bounded block: replace the fork stub with eager private-address-space cloning,
 new child register/TLS/FPU continuation, inherited regular descriptors/pipes,
 atfork callbacks and guest failure/exec/reaping tests. Start with a single-thread
@@ -42,6 +50,15 @@ CLI profile; refuse active-worker and unsupported pseudo-descriptor cases rather
 than copying inconsistent state. Shared-file coherence and general multithreaded
 fork remain separate acceptance. Touch process/syscall/usermode continuation,
 libc process glue and focused tests; no hardware profile changes or reboot.
+
+The first native fork VM fixture passes private memory/TLS, shared descriptors,
+parent/child returns, callback ordering, resource/mask inheritance, repeated
+reaping and fork/exec. Expanded exec-family/error/signal inheritance checks pass in the full
+`thread-fork-contracts.log` guest suite. Next shared-files block will separate cached contents from open
+description offsets, preserve bounded in-memory reads during owned I/O, and test
+cross-open writes/truncation/stat/close ordering and allocation failure. Native
+filesystem publication and unsupported unlink-while-open remain explicitly
+separate from this coherence block. No reboot is needed.
 
 ### Desktop architecture, scalable windows and POSIX audit
 

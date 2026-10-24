@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <spawn.h>
+#include <stdarg.h>
 #include <srvros/sys.h>
 #include <stdlib.h>
 #include <string.h>
@@ -206,7 +207,7 @@ static int spawn_path(pid_t *pid,
     close_spawn_opened(opened, opened_actions);
     errno = saved_errno;
     if (result < 0) {
-        return ENOENT;
+        return (int)-result;
     }
     if (pid != 0) {
         *pid = (pid_t)result;
@@ -239,47 +240,67 @@ int posix_spawnp(pid_t *pid,
         return spawn_path(pid, file, file_actions, attrp, argv, envp);
     }
 
-    const char *path = getenv("PATH");
-    if (path == 0 || path[0] == '\0') {
-        path = "/fat/bin:/:/fat";
-    }
-    while (*path != '\0') {
+    const char *path=getenv("PATH");
+    if(!path) path="/fat/bin:/:/fat";
+    int denied=0;
+    for(;;) {
+        size_t length=strcspn(path,":");
+        size_t name=strlen(file),directory=length?length:1;
         char candidate[POSIX_PATH_MAX];
-        size_t used = 0;
-        while (*path == ':') {
-            path++;
-        }
-        while (path[used] != '\0' && path[used] != ':' &&
-            used + 1 < sizeof(candidate)) {
-            candidate[used] = path[used];
-            used++;
-        }
-        if (used == 0) {
-            candidate[used++] = '.';
-        }
-        if (used + 1 >= sizeof(candidate)) {
-            return ENAMETOOLONG;
-        }
-        if (candidate[used - 1] != '/') {
-            candidate[used++] = '/';
-        }
-        for (size_t i = 0; file[i] != '\0'; i++) {
-            if (used + 1 >= sizeof(candidate)) {
-                return ENAMETOOLONG;
-            }
-            candidate[used++] = file[i];
-        }
-        candidate[used] = '\0';
-        if (access(candidate, X_OK) == 0) {
-            return spawn_path(pid, candidate, file_actions, attrp, argv, envp);
-        }
-        path += strcspn(path, ":");
+        if(directory+1+name>=sizeof(candidate)) return ENAMETOOLONG;
+        if(length) memcpy(candidate,path,length);else candidate[0]='.';
+        candidate[directory]='/';memcpy(candidate+directory+1,file,name+1);
+        int error=spawn_path(pid,candidate,file_actions,attrp,argv,envp);
+        if(!error) return 0;
+        if(error==EACCES) denied=1;
+        else if(error!=ENOENT && error!=ENOTDIR) return error;
+        if(!path[length]) break;
+        path+=length+1;
     }
-    return ENOENT;
+    return denied?EACCES:ENOENT;
 }
 
-int execvp(const char *file, char *const argv[]) {
-    return execve(file, argv, environ);
+int execvp(const char *file,char *const argv[]) {
+    if(!file || !*file || !argv) { errno=EINVAL;return -1; }
+    if(strchr(file,'/')) return execve(file,argv,environ);
+    const char *path=getenv("PATH");
+    if(!path) path="/fat/bin:/:/fat";
+    int denied=0;
+    for(;;) {
+        size_t length=strcspn(path,":");
+        size_t name=strlen(file),directory=length?length:1;
+        char candidate[POSIX_PATH_MAX];
+        if(directory+1+name>=sizeof(candidate)) { errno=ENAMETOOLONG;return -1; }
+        if(length) memcpy(candidate,path,length);else candidate[0]='.';
+        candidate[directory]='/';memcpy(candidate+directory+1,file,name+1);
+        execve(candidate,argv,environ);
+        if(errno==EACCES) denied=1;
+        else if(errno!=ENOENT && errno!=ENOTDIR) return -1;
+        if(!path[length]) break;
+        path+=length+1;
+    }
+    errno=denied?EACCES:ENOENT;return -1;
+}
+int execv(const char *path,char *const argv[]) { return execve(path,argv,environ); }
+/* Match the native vector bound without truncating the caller's arguments. */
+static int exec_list(const char *path,const char *arg,va_list ap,int search,int explicit_env) {
+    char *args[17];unsigned count=0;
+    while(arg) {
+        if(count==16) { errno=E2BIG;return -1; }
+        args[count++]=(char *)arg;arg=va_arg(ap,const char *);
+    }
+    args[count]=NULL;
+    char *const *env=explicit_env?va_arg(ap,char *const *):environ;
+    return search?execvp(path,args):execve(path,args,(char *const *)env);
+}
+int execl(const char *path,const char *arg,...) {
+    va_list ap;va_start(ap,arg);int result=exec_list(path,arg,ap,0,0);va_end(ap);return result;
+}
+int execlp(const char *file,const char *arg,...) {
+    va_list ap;va_start(ap,arg);int result=exec_list(file,arg,ap,1,0);va_end(ap);return result;
+}
+int execle(const char *path,const char *arg,...) {
+    va_list ap;va_start(ap,arg);int result=exec_list(path,arg,ap,0,1);va_end(ap);return result;
 }
 
 int posix_spawn_file_actions_init(posix_spawn_file_actions_t *file_actions) {
@@ -572,6 +593,6 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
     }
 
     long result = srv_execve(full, argv, effective_envp(envp));
-    errno = result < 0 ? ENOENT : EIO;
+    errno = result < 0 ? (int)-result : EIO;
     return -1;
 }

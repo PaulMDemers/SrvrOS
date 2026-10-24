@@ -70,6 +70,12 @@ struct posix_epoll {
 static struct posix_eventfd eventfds[POSIX_EVENTFD_MAX];
 static struct posix_epoll epolls[POSIX_EPOLL_MAX];
 
+int __posix_node_fork_ready(void) {
+    for(unsigned i=0;i<POSIX_EVENTFD_MAX;i++) if(eventfds[i].used) return 0;
+    for(unsigned i=0;i<POSIX_EPOLL_MAX;i++) if(epolls[i].used) return 0;
+    return 1;
+}
+
 static int epoll_trace_enabled(void) {
     const char *trace = getenv("SRVROS_EPOLL_TRACE");
     return trace != 0 && trace[0] != '\0' && trace[0] != '0';
@@ -470,12 +476,6 @@ int inotify_rm_watch(int fd, int wd) {
     return -1;
 }
 
-int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void)) {
-    (void)prepare;
-    (void)parent;
-    (void)child;
-    return 0;
-}
 
 int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *mask) {
     return sched_getaffinity((pid_t)thread, cpusetsize, mask) == 0 ? 0 : errno;
@@ -495,10 +495,6 @@ int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param
     return srv_thread_signal((uint64_t)(uintptr_t)thread,0)<0?ESRCH:0;
 }
 
-int fork(void) {
-    errno = ENOSYS;
-    return -1;
-}
 
 int openat(int dirfd, const char *path, int flags, ...) {
     (void)dirfd;

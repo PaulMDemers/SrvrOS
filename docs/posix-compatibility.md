@@ -36,6 +36,22 @@ profile, not completed POSIX conformance.
 | Wait status distinguishes exit values 0–255 from signals; any-child/current-group/specific-group selectors and `wait()` | `threadstress/wait_test.c`; high exit values, self-signal, nohang, group isolation, reaping and system status | Stop/continue events and waitid remain unsupported; native monitor wait status stays unchanged |
 | `pselect`/`ppoll` temporary masks, error restoration and wide poll deadlines | `threadstress/masked_poll_test.c`, host poll/core and full thread VM suite | Atomicity relies on the current cooperative handler ABI; an asynchronous signal-frame implementation must introduce a kernel masked wait first. Poll still has a 64-entry bound. |
 
+Native `fork()` now implements a bounded single-thread CLI profile: eager private
+pages with copied TLS/FPU/register continuation, inherited regular-file and pipe
+open descriptions, empty child pending signals, inherited limits/masks and ordered
+`pthread_atfork` callbacks. Host tests cover partial-copy rollback and parent-page
+preservation; the full guest thread suite covers private memory, shared offsets,
+repeated fork/reap and exec. Active/unjoined workers and libc-owned socket/eventfd/
+epoll adapters currently return `EOPNOTSUPP`; this is not general multithreaded fork.
+
+The exec family now includes `execv`, `execl`, `execle` and `execlp`, with `PATH`
+search in execvp/spawnp including empty components. Argument overflow returns
+`E2BIG`; invalid ELF, missing file and execute permissions have distinct errors.
+Exec preserves ignored dispositions, pending signals and masks, resets caught
+handlers and closes CLOEXEC descriptors. Replacing a process with workers is
+explicitly refused until worker teardown can be implemented safely. Shell fallback
+for non-ELF execvp input and wider argument/path capacity remain open.
+
 `abort()` now raises SIGABRT, including when the signal was ignored or a handler
 returns; wait status identifies signal termination. Explicit SIGSEGV/SIGPROF
 signals have catchable dispositions, but this does not add hardware exception

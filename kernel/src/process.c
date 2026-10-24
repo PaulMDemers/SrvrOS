@@ -1,4 +1,5 @@
 #include <srvros/audio.h>
+#include "arch/x86_64/isr_frame.h"
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
@@ -17,6 +18,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
+_Static_assert(sizeof(struct isr_frame)==176 && offsetof(struct isr_frame,rip)==136, "usermode_resume frame layout");
 
 #define EI_NIDENT 16
 #define ELFMAG0 0x7f
@@ -237,6 +240,8 @@ struct process {
     char stdout_path[PROCESS_PATH_MAX];
     char name[PROCESS_NAME_MAX];
     char executable_path[PROCESS_PATH_MAX];
+    bool fork_resume;
+    struct isr_frame fork_frame;
     struct process_context context;
     struct fpu_state fpu;
     struct process_file files[PROCESS_MAX_OPEN_FILES];
@@ -297,6 +302,7 @@ void usermode_enter(uint64_t entry,
     uint64_t argv,
     uint64_t envp,
     uint64_t fs_base) __attribute__((noreturn));
+void usermode_resume(const struct isr_frame *frame,uint64_t fs_base) __attribute__((noreturn));
 uint64_t process_context_save(struct process_context *context) __attribute__((returns_twice));
 void process_context_restore(struct process_context *context, uint64_t value) __attribute__((noreturn));
 uint64_t gdt_default_kernel_stack_top(void);
@@ -756,7 +762,7 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     process->active=true;process->detached=detached;process->pid=pid;
     process->lifetime=token;
     process->parent_pid=process_pid(parent);
-    if(parent) process->fsize_limit=parent->fsize_limit;
+    if(parent) { process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask; }
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
     process->controlling_tty=parent?parent->controlling_tty:0;
@@ -1480,13 +1486,13 @@ static void process_release_thread_tls(struct process_user_thread *thread) {
     thread->tls_base=0;thread->tls_thread_pointer=0;
 }
 
-static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
+static int64_t load_elf_image_checked(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
     if (process == NULL || process->address_space != 0) {
-        return false;
+        return SRV_ERR_NOMEM;
     }
     if (!vmm_create_address_space(&process->address_space)) {
         console_write("run: failed to create address space\n");
-        return false;
+        return SRV_ERR_NOMEM;
     }
 
 
@@ -1495,11 +1501,13 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
     uint64_t size;
     const struct elf64_header *header;
 
-    if (node == NULL || !vfs_read_all(node, &data, &size)) {
-        console_printf("run: not found: %s\n", path);
+    int64_t error = node == NULL ? SRV_ERR_NOENT :
+        node->type != VFS_NODE_FILE || !(node->metadata.mode & 0111) ? SRV_ERR_ACCES : 0;
+    if (!error && !vfs_read_all(node, &data, &size)) error = SRV_ERR_IO;
+    if (error) {
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        return false;
+        return error;
     }
 
     if (!validate_elf(data, size, &header)) {
@@ -1507,7 +1515,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        return false;
+        return SRV_ERR_NOEXEC;
     }
 
     const struct elf64_program_header *programs =
@@ -1530,7 +1538,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        return false;
+        return SRV_ERR_NOMEM;
     }
 
     for (uint64_t i = 0; i < header->phnum; i++) {
@@ -1540,7 +1548,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
             cleanup_process_mappings(process);
             vmm_destroy_address_space(process->address_space);
             process->address_space = 0;
-            return false;
+            return SRV_ERR_NOMEM;
         }
     }
 
@@ -1550,7 +1558,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        return false;
+        return SRV_ERR_NOMEM;
     }
 
     if (!process_setup_tls_block(process, 0, &process->tls_base, &process->tls_thread_pointer)) {
@@ -1559,7 +1567,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        return false;
+        return SRV_ERR_NOMEM;
     }
 
     if (!map_user_stack(process, stack_top)) {
@@ -1568,7 +1576,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        return false;
+        return SRV_ERR_NOMEM;
     }
 
     *entry_out = header->entry;
@@ -1579,7 +1587,11 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
     process->mapped_break = process->heap_base;
     process->heap_limit = stack_top - (USER_STACK_PAGES * PAGE_SIZE) - (USER_STACK_GUARD_PAGES * PAGE_SIZE);
     vfs_release_data(node, data);
-    return true;
+    return 0;
+}
+
+static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
+    return load_elf_image_checked(path,process,stack_top,entry_out)==0;
 }
 
 static const char *process_state(const struct process *process) {
@@ -1622,6 +1634,7 @@ static bool enter_process(struct process *process, const char *label) {
                 process->entry,
                 process->stack_top);
         }
+        if(process->fork_resume) usermode_resume(&process->fork_frame,process->tls_thread_pointer);
         usermode_enter(process->entry,
             process->stack_top,
             process->argc,
@@ -1789,29 +1802,30 @@ int64_t process_spawn_exec(const char *path,
     uint64_t signal_default) {
     struct process *parent = process_current();
     if (parent == NULL || path == NULL || path[0] == '\0') {
-        return -1;
+        return SRV_ERR_INVAL;
     }
 
     struct process *child = alloc_process(path, detached);
     if (child == NULL) {
         console_write("exec: process table full\n");
-        return -1;
+        return SRV_ERR_AGAIN;
     }
     if (!allocate_kernel_stack(child)) {
         console_write("exec: kernel stack alloc failed\n");
         release_process(child);
-        return -1;
+        return SRV_ERR_NOMEM;
     }
 
-    if (!load_elf_image(path, child, USER_STACK_TOP, &child->entry) ||
-        !setup_process_vectors(child, argc, argv, envc, envp) ||
-        !process_configure_stdio_fds(child, parent, stdin_fd, stdout_fd, stderr_fd) ||
-        !process_apply_spawn_file_actions(child, parent, file_actions, file_action_count)) {
+    int64_t error=load_elf_image_checked(path,child,USER_STACK_TOP,&child->entry);
+    if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
+    if(!error && (!process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd) ||
+        !process_apply_spawn_file_actions(child,parent,file_actions,file_action_count))) error=SRV_ERR_BADF;
+    if(error) {
         cleanup_process_address_space(child);
         cleanup_process_files(child);
         release_process(child);
         scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
-        return -1;
+        return error;
     }
 
     struct process_file *terminal_input=child->stdin_redirect && child->stdin_fd>=3?
@@ -1843,7 +1857,7 @@ int64_t process_spawn_exec(const char *path,
             cleanup_process_address_space(child);
             cleanup_process_files(child);
             release_process(child);
-            return -1;
+            return SRV_ERR_AGAIN;
         }
         return (int64_t)pid;
     }
@@ -1922,25 +1936,28 @@ int64_t process_exec_replace(const char *path,
     uint64_t signal_default) {
     struct process *process = process_current();
     if (process == NULL || path == NULL || path[0] == '\0') {
-        return -1;
+        return SRV_ERR_INVAL;
     }
 
+    if(process_current_user_thread()) return SRV_ERR_NOTSUP;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(process->user_threads[i].used) return SRV_ERR_NOTSUP;
     struct process *image = kcalloc(1, sizeof(*image));
     if (image == NULL) {
-        return -1;
+        return SRV_ERR_NOMEM;
     }
     image->stack_top = USER_STACK_TOP;
 
-    if (!load_elf_image(path, image, USER_STACK_TOP, &image->entry) ||
-        !setup_process_vectors(image, argc, argv, envc, envp)) {
+    int64_t error=load_elf_image_checked(path,image,USER_STACK_TOP,&image->entry);
+    if (!error && !setup_process_vectors(image,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
+    if (error) {
         cleanup_process_address_space(image);
         kfree(image);
-        return -1;
+        return error;
     }
     if (!process_apply_stdio_fds(process, stdin_fd, stdout_fd, stderr_fd)) {
         cleanup_process_address_space(image);
         kfree(image);
-        return -1;
+        return SRV_ERR_BADF;
     }
 
     scheduler_clear_user_context();
@@ -1950,8 +1967,8 @@ int64_t process_exec_replace(const char *path,
     (void)copy_process_path(process->executable_path, sizeof(process->executable_path), path);
     fpu_init_state(&process->fpu);
     process->signal_catch_mask = 0;
-    process->signal_ignore_mask = 0;
-    process_discard_signals(process,~0ull);
+    process->fork_resume=false;
+    /* Ignored dispositions, pending signals, masks and alarms survive exec. */
     if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
         process_apply_signal_defaults(process, signal_default);
     }
@@ -1991,6 +2008,73 @@ static void background_process_thread(void *arg) {
     /* No access to process after publication: another thread may reap it. */
     process->reapable = true;
     scheduler_wake_all(&process_wait_queue);
+}
+
+/* Eager cloning is intentional for the first CLI fork profile. There is no
+ * shared writable page or COW ownership to retire on a failed reservation. */
+static bool process_clone_address_space(struct process *child,const struct process *parent) {
+    if(!vmm_create_address_space(&child->address_space)) return false;
+    for(uint64_t i=0;i<parent->mapping_count;i++) {
+        const struct process_mapping *source=&parent->mappings[i];
+        if(!map_process_page(child,source->virtual_address,source->flags)) return false;
+        const struct process_mapping *target=&child->mappings[child->mapping_count-1];
+        copy_bytes(pmm_phys_to_virt(target->physical_address),pmm_phys_to_virt(source->physical_address),PAGE_SIZE);
+    }
+    return true;
+}
+
+int64_t process_fork(const struct isr_frame *frame) {
+    struct process *parent=process_current();
+    if(!parent || !frame || frame->cs!=0x23 || frame->ss!=0x1b) return SRV_ERR_INVAL;
+    /* A stopped worker may own a userspace lock or in-flight runtime state.
+     * General multithreaded fork needs explicit libc/descriptor preparation. */
+    if(process_current_user_thread()) return SRV_ERR_NOTSUP;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(parent->user_threads[i].used) return SRV_ERR_NOTSUP;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used) {
+        enum process_file_type type=parent->files[i].type;
+        if(type==PROCESS_FILE_NET_LISTENER || type==PROCESS_FILE_NET_CONNECTION ||
+           type==PROCESS_FILE_NET_UDP || type==PROCESS_FILE_UNIX_LISTENER) return SRV_ERR_NOTSUP;
+    }
+    struct process *child=alloc_process(parent->executable_path,true);
+    if(!child) return SRV_ERR_AGAIN;
+    int64_t result=SRV_ERR_NOMEM;
+    if(!allocate_kernel_stack(child) || !process_clone_address_space(child,parent)) goto fail;
+    child->quiet=true;
+    child->entry=frame->rip;child->stack_top=frame->rsp;
+    child->argc=parent->argc;child->argv=parent->argv;child->envp=parent->envp;
+    child->heap_base=parent->heap_base;child->program_break=parent->program_break;
+    child->mapped_break=parent->mapped_break;child->heap_limit=parent->heap_limit;
+    child->tls_filesz=parent->tls_filesz;child->tls_memsz=parent->tls_memsz;
+    child->tls_align=parent->tls_align;child->tls_base=parent->tls_base;
+    child->tls_thread_pointer=parent->tls_thread_pointer;
+    copy_bytes(child->tls_template,parent->tls_template,sizeof(child->tls_template));
+    copy_bytes((uint8_t *)child->mmap_regions,(const uint8_t *)parent->mmap_regions,sizeof(child->mmap_regions));
+    child->mmap_next=parent->mmap_next;
+    child->signal_catch_mask=parent->signal_catch_mask;
+    child->signal_ignore_mask=parent->signal_ignore_mask;
+    /* alloc_process inherited the caller mask, resource limits and group/session;
+     * pending signals, alarms, usage and other threads start empty. */
+    child->fpu=parent->fpu;
+    child->stdin_redirect=parent->stdin_redirect;child->stdin_fd=parent->stdin_fd;
+    child->stdout_redirect=parent->stdout_redirect;child->stdout_fd=parent->stdout_fd;
+    child->stderr_redirect=parent->stderr_redirect;child->stderr_fd=parent->stderr_fd;
+    child->stdout_append=parent->stdout_append;child->stdout_written=parent->stdout_written;
+    copy_bytes((uint8_t *)child->stdout_path,(const uint8_t *)parent->stdout_path,sizeof(child->stdout_path));
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used) {
+        uint64_t irq=process_irq_save();
+        bool copied=process_file_clone_entry(&child->files[i],&parent->files[i]);
+        process_irq_restore(irq);
+        if(!copied) { result=SRV_ERR_AGAIN;goto fail; }
+    }
+    child->fork_frame=*frame;child->fork_frame.rax=0;child->fork_resume=true;
+    uint64_t pid=child->pid;
+    if(!scheduler_spawn("fork",background_process_thread,child)) { result=SRV_ERR_AGAIN;goto fail; }
+    return (int64_t)pid;
+fail:
+    (void)cleanup_process_files(child);
+    cleanup_process_address_space(child);
+    release_process(child);
+    return result;
 }
 
 bool process_start_background(const char *path) {
@@ -2611,6 +2695,13 @@ static bool process_signal_config_current_locked(uint64_t signal, uint64_t actio
         return true;
     }
     return true;
+}
+int64_t process_signal_action_current(uint64_t signal) {
+    struct process *process=process_current();
+    if(!process || !signal || signal>=64) return SRV_ERR_INVAL;
+    uint64_t mask=1ull<<signal;
+    return (process->signal_ignore_mask&mask)?SRV_SIGNAL_IGNORE:
+        (process->signal_catch_mask&mask)?SRV_SIGNAL_CATCH:SRV_SIGNAL_DEFAULT;
 }
 bool process_signal_config_current(uint64_t signal, uint64_t action) {
     uint64_t irq=process_irq_save();

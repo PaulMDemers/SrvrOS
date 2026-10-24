@@ -171,6 +171,9 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
     if(act) replacement=*act; /* act and oldact may alias. */
     lock_actions();
     struct sigaction previous=signal_actions[signum];
+    /* A fresh image has no libc handler table, but ignored dispositions survive. */
+    if(srv_signal_config((uint64_t)signum,SRV_SIGNAL_QUERY)==SRV_SIGNAL_IGNORE)
+        previous.sa_handler=SIG_IGN;
     if(act && signal_apply_action(signum,replacement.sa_handler)<0) {
         unlock_actions();return -1;
     }

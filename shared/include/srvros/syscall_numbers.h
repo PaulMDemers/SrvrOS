@@ -142,6 +142,7 @@
 #define SYS_THREAD_SIGNAL 140
 #define SYS_USAGE 141
 #define SYS_RLIMIT 142
+#define SYS_FORK 143
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -281,6 +282,11 @@ struct srv_winsize {
 #define SRV_ERR_SRCH -3
 #define SRV_ERR_INTR -4
 #define SRV_ERR_IO -5
+#define SRV_ERR_2BIG -7
+#define SRV_ERR_NOEXEC -8
+#define SRV_ERR_ACCES -13
+#define SRV_ERR_NOTDIR -20
+#define SRV_ERR_NAMETOOLONG -36
 #define SRV_ERR_BADF -9
 #define SRV_ERR_AGAIN -11
 #define SRV_ERR_NOMEM -12
@@ -451,6 +457,7 @@ struct srv_meminfo {
 #define SRV_SIGNAL_XFSZ 25
 #define SRV_SIGNAL_PROF 27
 
+#define SRV_SIGNAL_QUERY 3
 #define SRV_SIGNAL_DEFAULT 0
 #define SRV_SIGNAL_CATCH 1
 #define SRV_SIGNAL_IGNORE 2

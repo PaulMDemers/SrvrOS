@@ -51,6 +51,8 @@ struct process_spawn_file_action {
 };
 
 struct process;
+struct isr_frame;
+int64_t process_fork(const struct isr_frame *frame);
 struct scheduler_wait_queue;
 
 bool process_run_elf(const char *path);
@@ -124,6 +126,7 @@ bool process_kill_pid(uint64_t pid);
 bool process_signal_is_supported(uint64_t signal);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
 bool process_signal_target(int64_t pid, uint64_t signal);
+int64_t process_signal_action_current(uint64_t signal);
 bool process_signal_config_current(uint64_t signal, uint64_t action);
 bool process_signal_pending_current(void);
 uint64_t process_signal_pending_mask_current(void);

@@ -7,7 +7,10 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
-static struct process first, second;
+static struct process first, second,clone;
+static unsigned destroyed_spaces;
+bool vmm_create_address_space(uint64_t *out) { *out=3;return true; }
+void vmm_destroy_address_space(uint64_t space) { assert(space==3);destroyed_spaces++; }
 static uint8_t frames[2048][4096];
 static unsigned allocated, freed, fail_after;
 static bool freed_frames[2048];
@@ -53,11 +56,11 @@ void *pmm_phys_to_virt(uint64_t physical) {
     assert(physical/4096<=allocated);return frames[physical/4096]+physical%4096;
 }
 bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64_t flags) {
-    assert(space==1 || space==2);assert(virt%4096==0 && physical%4096==0);
+    assert(space==1 || space==2 || space==3);assert(virt%4096==0 && physical%4096==0);
     assert(flags&VMM_PAGE_USER);return true;
 }
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t virt,uint64_t *physical) {
-    struct process *p=space==1?&first:&second;
+    struct process *p=space==1?&first:space==2?&second:&clone;
     for(unsigned i=0;i<p->mapping_count;i++) if(p->mappings[i].virtual_address==(virt&~4095ull)) {
         *physical=p->mappings[i].physical_address+(virt&4095);return true;
     }
@@ -98,6 +101,28 @@ static void tls_lifecycle(void) {
     assert(!process_setup_tls_block(&first,PROCESS_MAX_USER_THREADS+1,&base,&tp));
     puts("process-loader: TLS initialized template, zero fill, isolation, rollback and slot reclamation PASS");
 }
+static void clone_lifecycle(void) {
+    unsigned parent_pages=first.mapping_count,free_before=freed;
+    fail_after=allocated+2;
+    assert(!process_clone_address_space(&clone,&first));
+    assert(clone.mapping_count==2 && first.mapping_count==parent_pages);
+    cleanup_process_address_space(&clone);fail_after=0;
+    assert(!clone.mapping_count && !clone.address_space && freed==free_before+2 && destroyed_spaces==1);
+    assert(process_clone_address_space(&clone,&first) && clone.mapping_count==parent_pages);
+    for(unsigned i=0;i<parent_pages;i++) {
+        assert(clone.mappings[i].virtual_address==first.mappings[i].virtual_address);
+        assert(clone.mappings[i].flags==first.mappings[i].flags);
+        assert(clone.mappings[i].physical_address!=first.mappings[i].physical_address);
+        assert(!memcmp(pmm_phys_to_virt(clone.mappings[i].physical_address),pmm_phys_to_virt(first.mappings[i].physical_address),4096));
+    }
+    uint8_t *child_byte=pmm_phys_to_virt(clone.mappings[0].physical_address);
+    uint8_t *parent_byte=pmm_phys_to_virt(first.mappings[0].physical_address);
+    uint8_t original=*parent_byte;*child_byte^=0xff;assert(*parent_byte==original);
+    cleanup_process_address_space(&clone);
+    assert(freed==free_before+2+parent_pages && first.mapping_count==parent_pages && destroyed_spaces==2);
+    puts("process-loader: fork private pages, flags, parent preservation and partial-copy rollback PASS");
+}
+
 int main(void) {
     allocating=true;
     struct process *p=alloc_process("first",false);
@@ -120,5 +145,6 @@ int main(void) {
     for(unsigned i=0;i<first.mapping_count;i++)for(unsigned j=0;j<second.mapping_count;j++)
         assert(first.mappings[i].physical_address!=second.mappings[j].physical_address);
     tls_lifecycle();
+    clone_lifecycle();
     puts("process-loader: PASS reserved process slots, publication/release interleaving, executable segment and stack ownership");
 }

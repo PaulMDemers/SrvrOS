@@ -858,35 +858,28 @@ static int64_t syscall_spawn_args_redirect(const char *user_path,
     return result;
 }
 
-static bool copy_user_string_vector(char *const *user_vector,
-    char storage[][MAX_EXEC_STRING],
-    const char *values[],
-    uint64_t capacity,
-    uint64_t *count_out) {
-    *count_out = 0;
-    if (user_vector == NULL) {
-        return true;
+static int64_t copy_exec_string(const char *source,char *destination,uint64_t capacity,int64_t too_long) {
+    if(!source) return SRV_ERR_FAULT;
+    for(uint64_t i=0;i<capacity;i++) {
+        if(!copy_from_user(destination+i,source+i,1)) return SRV_ERR_FAULT;
+        if(!destination[i]) return 0;
     }
-    for (uint64_t i = 0; i < capacity; i++) {
-        const char *user_string = NULL;
-        if (!copy_from_user(&user_string, user_vector + i, sizeof(user_string))) {
-            return false;
-        }
-        if (user_string == NULL) {
-            *count_out = i;
-            return true;
-        }
-        if (!copy_user_string(user_string, storage[i], MAX_EXEC_STRING)) {
-            return false;
-        }
-        values[i] = storage[i];
+    return too_long;
+}
+static int64_t copy_user_string_vector(char *const *user_vector,
+    char storage[][MAX_EXEC_STRING], const char *values[],uint64_t capacity,uint64_t *count_out) {
+    *count_out=0;
+    if(!user_vector) return 0;
+    for(uint64_t i=0;i<=capacity;i++) {
+        const char *source=NULL;
+        if(!copy_from_user(&source,user_vector+i,sizeof(source))) return SRV_ERR_FAULT;
+        if(!source) { *count_out=i;return 0; }
+        if(i==capacity) return SRV_ERR_2BIG;
+        int64_t error=copy_exec_string(source,storage[i],MAX_EXEC_STRING,SRV_ERR_2BIG);
+        if(error) return error;
+        values[i]=storage[i];
     }
-    const char *terminator = NULL;
-    if (!copy_from_user(&terminator, user_vector + capacity, sizeof(terminator)) || terminator != NULL) {
-        return false;
-    }
-    *count_out = capacity;
-    return true;
+    return SRV_ERR_2BIG;
 }
 
 static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
@@ -902,21 +895,14 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     uint64_t flags;
     int64_t result;
 
-    if (!copy_from_user(&request, user_request, sizeof(request)) ||
-        !copy_user_string(request.path, path, sizeof(path)) ||
-        !copy_user_string_vector(request.argv, argv_storage, argv, MAX_EXEC_ARGS, &argc) ||
-        !copy_user_string_vector(request.envp, env_storage, envp, MAX_EXEC_ENV, &envc)) {
-        return -1;
-    }
-    if (request.file_action_count > SRV_SPAWN_FILE_ACTION_MAX) {
-        return -1;
-    }
-    if (request.file_action_count != 0 &&
-        !copy_from_user(file_actions,
-            request.file_actions,
-            request.file_action_count * sizeof(file_actions[0]))) {
-        return -1;
-    }
+    if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
+    int64_t error=copy_exec_string(request.path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(!error) error=copy_user_string_vector(request.argv,argv_storage,argv,MAX_EXEC_ARGS,&argc);
+    if(!error) error=copy_user_string_vector(request.envp,env_storage,envp,MAX_EXEC_ENV,&envc);
+    if(error) return error;
+    if(request.file_action_count>SRV_SPAWN_FILE_ACTION_MAX) return SRV_ERR_INVAL;
+    if(request.file_action_count && !copy_from_user(file_actions,request.file_actions,
+        request.file_action_count*sizeof(file_actions[0]))) return SRV_ERR_FAULT;
     if (argc == 0) {
         argv[argc++] = path;
     }
@@ -1986,6 +1972,7 @@ static int64_t syscall_kill(int64_t pid, uint64_t signal) {
 }
 
 static int64_t syscall_signal_config(uint64_t signal, uint64_t action) {
+    if(action==SRV_SIGNAL_QUERY) return process_signal_action_current(signal);
     return process_signal_config_current(signal, action) ? 0 : -1;
 }
 
@@ -3040,6 +3027,10 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
+        return;
+    case SYS_FORK:
+        __asm__ volatile ("sti" : : : "memory");
+        frame->rax=(uint64_t)process_fork(frame);
         return;
     case SYS_RLIMIT:
         frame->rax=(uint64_t)syscall_rlimit(frame->rdi,(const struct srv_rlimit *)frame->rsi,(struct srv_rlimit *)frame->rdx,frame->rcx);
