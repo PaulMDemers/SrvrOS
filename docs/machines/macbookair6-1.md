@@ -1899,3 +1899,31 @@ separate Files activity. Prior 262 files were preserved except metadata; 267
 files/811 clusters pass offline checks. Evidence is retained outside build.
 The user explicitly chose to move on rather than repeat diagnostic coverage;
 full attended-work acceptance remains incomplete, not promoted to passed.
+
+### Ordinary session candidate validated (PR131)
+
+Source `75ddde8`, v70 release `87bf9866baa3f8bc`, enables only the explicit
+Air6,1 ordinary Home battery owner. Full build/core, 75 staging tests, exhaustive
+owner combinations and receipt compatibility tests pass. The extended GPT VM
+retained 535.342 seconds of live periodic-log coverage and 6,664 events, then
+exited normally, drained ten lifetime members and reopened with a fresh owner.
+Text/Files/shell bytes, all four logs and offline allocation pass. Submitted-save
+cancellation, runtime fault retention, opt-out/missing-Home/platform refusals and
+the Air7,2 ordinary-session regression pass. Exact staged GRUB→Limine GPT boot
+refuses Q35 hardware while keeping apps usable, exits/reopens and reboots cleanly.
+
+Keep the earlier failures: the initial long harness did not answer Terminal's
+expected close confirmation; this automation is corrected. A subsequent short
+VM startup hit an EC query timeout and safely halted with ownership retained.
+An unchanged short retry and the full final suite passed. The isolated timeout
+has not been attributed to native hardware; no deadline was widened to hide it.
+Native ordinary-session acceptance and extended endurance remain pending.
+
+Unarmed run `d34f847c1520e40c` preserves the 267-file/811-cluster baseline and
+uses new `ordinary-battery.txt`. Keep USB connected, use apps normally beyond
+eight minutes, save and select SrvrOS > Return to console when finished, then
+enter `reboot` at `srv>`. There is no completion countdown or automatic return.
+Console recovery remains `c35475f62f154f1e`; the superseded `78fe53e8cacdb1ba`
+EFI copy was removed only after its independent backup matched. Corrected
+capture and accepted recovery payloads remain available. Main is still `468ca20`;
+Air7,2 PR130 and Pro PR19 `d0a0b57` retain independent scopes.
