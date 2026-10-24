@@ -34,6 +34,11 @@ static inline bool battery_bounded_home_desktop(bool diagnostic,bool controls,
     bool continuous,bool desktop,bool capture,bool session,bool transitions) {
     return diagnostic&&controls&&continuous&&desktop&&capture&&!session&&!transitions;
 }
+/* Separate attended capture capability; never grants ordinary session entry. */
+static inline bool battery_bounded_home_transitions(bool diagnostic,bool controls,
+    bool continuous,bool desktop,bool capture,bool session,bool transitions) {
+    return diagnostic&&controls&&continuous&&desktop&&capture&&!session&&transitions;
+}
 /* AML only: SBS bank transactions use the separately serialized sampler. */
 static inline bool battery_bounded_ec(bool write,uint64_t address,uint64_t value) {
     return write?(address==0x10&&!value):address==0x60;

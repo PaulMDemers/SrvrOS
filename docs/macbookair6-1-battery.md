@@ -5,8 +5,9 @@ physically accepted on this unit, including two observed alarm acknowledgements
 and clean runtime retirement. A bounded minute of battery sampling alongside
 Text saves/reads in an exclusive USB image is also accepted. Short mounted Home
 sampling and a bounded generated Home/Text session with repeated Start/Stop
-are accepted on this unit. Battery gauge accuracy, broader alarm behavior,
-sustained operation and desktop monitoring remain unaccepted. The
+and a three-minute continuous Home desktop capture are accepted on this unit.
+Battery gauge accuracy, broader alarm behavior, longer endurance and ordinary
+desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
@@ -563,3 +564,35 @@ strict `battery_home_desktop` receipt, matching screenshot and all log files,
 file-content preservation, clean offline allocation and Ubuntu recovery. A
 halt or missing completion is failure/incomplete evidence. Mounted uncertain
 faults must halt without reset or storage cleanup. Native acceptance is pending.
+
+
+## Continuous Home capture physically accepted
+
+Release `a18d72aecdf808c7` (`503dd05`), session `00065e8c7ab70670-00`,
+completed on October 23. The full 180-second desktop interval, generation 1→71,
+1064 events, periodic/final logs and a verified 1366×768 screenshot pass the
+strict continuous capture receipt. The screenshot shows `AC · 98%`. All 71
+SCI deliveries were handled, with no unclaimed interrupts, and client/runtime/
+logger/mount retirement completed cleanly. Prior-file preservation and offline
+filesystem/allocation checks pass. This accepts v67's explicit bounded capture;
+ordinary startup, attended Home AC transitions, long endurance and calibrated
+gauge accuracy require separate work and evidence.
+
+## Attended Home AC candidate (v68)
+
+Stage `--battery-air61 --battery-home-transitions` only for the explicit attended
+capture. A separate capability admits Air6,1 to this bounded Home lifecycle;
+ordinary startup and indefinite sessions stay off. Existing firmware/query
+permissions, held mount, retirement ordering and mounted-fault halt policy are
+unchanged. Three phases require three fresh stable readings each, with ordered
+distinct generations and matching AC/current/indicator text. Each phase saves a
+screenshot. Phase timeouts remain two minutes and the owner watchdog eight
+minutes; the Air6,1 event ceiling remains 4096.
+
+Start connected to AC. Keep USB connected throughout. Follow the screen prompts:
+wait for the connected phase, unplug only AC when asked, then reconnect AC when
+asked. No keyboard input is required. Successful or cleanly retired incomplete
+captures save and return; uncertain mounted faults halt for a photograph. Collect
+strict `battery_home_transitions` proof, all logs and three distinct screenshots,
+prior-file hashes, offline allocation and recovery checks. Native acceptance is
+pending; the accepted idle capture does not accept transition behavior.

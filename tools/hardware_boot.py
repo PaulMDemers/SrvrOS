@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-storage-wait|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-storage-wait|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -58,7 +58,7 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith("ram-usb-v24-"):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=aml srvros.aml=probe")
-        if version.startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-")):
+        if version.startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-","ram-usb-v68-")):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=battery")
             if version.startswith("ram-usb-v63-"): cmdline += "-smbus-transitions"
@@ -69,7 +69,7 @@ def limine_config(release, version=CONFIG_VERSION):
             if version.startswith("ram-usb-v38-"): cmdline += "-filesystem"
             if version.startswith("ram-usb-v40-"): cmdline += "-desktop srvros.trackpad=gestures"
             if version.startswith("ram-usb-v41-"): cmdline += "-text srvros.trackpad=gestures"
-            if version.startswith("ram-usb-v52-"): cmdline += "-home-transitions srvros.trackpad=gestures"
+            if version.startswith(("ram-usb-v52-","ram-usb-v68-")): cmdline += "-home-transitions srvros.trackpad=gestures"
             if version.startswith(("ram-usb-v51-","ram-usb-v67-")): cmdline += "-home-desktop srvros.trackpad=gestures"
             if version.startswith(("ram-usb-v49-","ram-usb-v66-")): cmdline += "-home-session srvros.trackpad=gestures"
             if version.startswith(("ram-usb-v48-","ram-usb-v65-")): cmdline += "-home"
@@ -184,7 +184,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Storage wait comparison requires its own automatic laptop probe profile")
     if battery_air61:
-        allowed={"laptop_probe_volume", "battery_air61", "battery_smbus", "battery_transitions", "battery_smbus_files", "battery_home", "battery_home_session", "battery_home_desktop", "repeat", "desktop_scale"}
+        allowed={"laptop_probe_volume", "battery_air61", "battery_smbus", "battery_transitions", "battery_smbus_files", "battery_home", "battery_home_session", "battery_home_desktop", "battery_home_transitions", "repeat", "desktop_scale"}
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Air6,1 battery requires its own automatic sampling or bounded SMBus profile")
     if battery_preflight:
@@ -247,7 +247,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
-        version=f"ram-usb-v{67 if battery_air61 and battery_home_desktop else 66 if battery_air61 and battery_home_session else 65 if battery_air61 and battery_home else 64 if battery_air61 and battery_smbus_files else 63 if battery_air61 and battery_transitions else 62 if battery_air61 and battery_smbus else 61 if battery_air61 else 60 if battery_preflight else 52 if battery_home_transitions else 51 if battery_home_desktop else 49 if battery_home_session else 48 if battery_home else 47 if battery_smbus_files else 46 if battery_smbus else 45 if battery_query else 44 if battery_controls else 43 if battery_app_files else 42 if battery_load else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        version=f"ram-usb-v{68 if battery_air61 and battery_home_transitions else 67 if battery_air61 and battery_home_desktop else 66 if battery_air61 and battery_home_session else 65 if battery_air61 and battery_home else 64 if battery_air61 and battery_smbus_files else 63 if battery_air61 and battery_transitions else 62 if battery_air61 and battery_smbus else 61 if battery_air61 else 60 if battery_preflight else 52 if battery_home_transitions else 51 if battery_home_desktop else 49 if battery_home_session else 48 if battery_home else 47 if battery_smbus_files else 46 if battery_smbus else 45 if battery_query else 44 if battery_controls else 43 if battery_app_files else 42 if battery_load else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
         if storage_wait_capture: version=f"ram-usb-v1-storage-wait-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):

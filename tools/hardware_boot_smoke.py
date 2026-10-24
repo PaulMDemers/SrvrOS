@@ -165,7 +165,7 @@ def main():
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
     power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
     auto_return=manifest["config_version"].endswith("-auto-return")
-    battery_home_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v52-"))
+    battery_home_transitions=bool(probe and manifest["config_version"].startswith(("ram-usb-v52-","ram-usb-v68-")))
     battery_home_desktop=bool(probe and manifest["config_version"].startswith(("ram-usb-v51-","ram-usb-v67-")))
     battery_home_session=bool(probe and manifest["config_version"].startswith(("ram-usb-v49-","ram-usb-v66-")))
     battery_home=bool(probe and manifest["config_version"].startswith(("ram-usb-v48-","ram-usb-v65-")))
@@ -180,7 +180,7 @@ def main():
     battery_desktop=bool(probe and manifest["config_version"].startswith("ram-usb-v40-"))
     battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
-    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-")))
+    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-","ram-usb-v68-")))
     battery_filesystem=battery_smbus_files or battery_app_files or battery_load or bool(probe and manifest["config_version"].startswith("ram-usb-v38-"))
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
