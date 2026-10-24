@@ -2,7 +2,7 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
-### Active scope: desktop architecture, scalable windows and POSIX audit
+### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor
 storage and scheduling, GUI transport and surface ownership, public application
@@ -16,6 +16,26 @@ Pro PR19 at `3996f9f` owns independent Edimax Wi-Fi work. No overlapping device
 implementation is planned. Installed `bf68e4e9b88b8ae7`, recovery
 `9aa8dbf6fbda8252`, USB UUID `37D8-C5D0`; the previous run is collected and
 accepted for its bounded checks. No physical test or reboot is needed here.
+
+Review complete: [desktop evolution](../desktop-api-evolution.md) inventories
+PID/window coupling, dynamic-registry prerequisites, resource/service limits and
+the proposed API migration gates. The [POSIX audit](../posix-compatibility.md)
+classifies implemented subsets, semantic defects and compatibility placeholders.
+Local libc, thread and libuv guest smoke suites pass; host fixtures reproduce
+the eight-peer clipboard ceiling and process-shared errno storage. These are
+known gaps, not passing semantics. Evidence and image hashes are in
+`build/desktop-api-audit-20261024/`; runtime source and installed payload are
+unchanged. Current architecture, status, roadmap, porting and toolkit guides now
+link the review and correct stale window/PTY/provider descriptions.
+
+Next bounded implementation: current clipboard service capacity/refusal and
+thread-local errno with focused regressions, followed by connection/window
+identity. Publish that scope before editing shared runtime code. No new native
+acceptance is needed for this documentation checkpoint; dynamic windows and new
+POSIX semantics remain proposals.
+Final integration check: main remains `bc0edb9`; Pro PR19 advanced to `b071f38`
+and Air6,1 PR132 adds its combined-services profile. Neither owns this desktop
+API/POSIX review's files; their device acceptance remains in their own records.
 
 ### Desktop window capacity: native result and integration
 

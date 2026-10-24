@@ -1,6 +1,6 @@
 # Architecture
 
-Current overview, 2026-10-19. SrvrOS is a freestanding C/x86_64 kernel with
+Current overview, 2026-10-24. SrvrOS is a freestanding C/x86_64 kernel with
 assembly entry points and ring-3 applications. It uses Limine for boot and
 selected upstream libraries for ports, decoding, fonts and ACPI. The system is
 still small, with explicit resource ceilings and incomplete isolation.
@@ -83,14 +83,22 @@ Input queues, client response deadlines and surface generations are bounded.
 An interrupted pointer interaction sends cancellation rather than a normal click
 release; cancellation must preserve unrelated keyboard packets. Pending input
 and control packets get a delivery attempt before response timeouts are applied.
-These contracts have host/VM regressions, with recent physical acceptance pending.
+These contracts have host/VM regressions; the machine record distinguishes the
+accepted native interactions from cases covered only by synthetic tests.
 
-Current limits are eight client windows, 1440×900 logical client surfaces and
+Current limits are sixteen client windows, 1440×900 logical client surfaces and
 software rendering. Explicit 2× output expands the logical pixels without changing
 app geometry. GPU discovery is not GPU rendering acceleration. The older
 `gui`/`displayd`/`gui2` stack remains for historical regressions and is not the
 current desktop entry point; its [archived architecture](history/architecture-before-native-desktop.md#gui)
 is retained for reference.
+
+The current client library and compositor associate one window with one process.
+Removing the count ceiling needs separate connection/window/surface identities,
+dynamic registries and resource-based admission. See the
+[desktop API evolution plan](desktop-api-evolution.md) for the source inventory,
+service capacity gaps and staged migration. These changes are planned, not yet
+implemented.
 
 ## Networking and services
 
@@ -100,7 +108,9 @@ networking has separate VM coverage. User processes use network file descriptors
 readiness calls and bounded socket tables. `webd` serves static files, while
 init scripts and `svscan` provide service startup, logging and restart policies.
 This is useful experimental infrastructure, not an internet-facing production
-network stack. Full Linux/POSIX compatibility is not an objective already met.
+network stack. The [POSIX compatibility audit](posix-compatibility.md) separates
+working subsets, semantic gaps and compatibility stubs; full POSIX conformance
+and Linux binary compatibility have not been achieved.
 
 ## Device and ACPI boundaries
 
@@ -109,16 +119,22 @@ reference Air's USB topcase is not assumed to be an SPI device, nor are other
 Macs automatically covered by the Air's register and codec gates.
 
 Native brightness, HDA audio and temperature/fan sampling have distinct provider
-and diagnostic boundaries. Read-only CPU energy telemetry is opt-in and awaits
-physical acceptance. Native battery/AC reporting is not implemented as a service.
+and diagnostic boundaries. Read-only CPU energy telemetry is opt-in, with bounded
+Air measurements recorded in the power guide. The ordinary Home battery service
+and cached indicator have Air7,2 acceptance; startup remains explicitly opt-in.
+This does not accept suspend/resume or calibrated battery-life estimates.
 
-There are two deliberately separate ACPI paths:
+Keep these ACPI uses separate:
 
 - A restricted, isolated resource probe with bounded execution and private
   snapshots; ordinary desktop startup omits it.
 - A separate Q35-only full-uACPI VM kernel exercising real SCI, worker ownership,
   EC/SMBus/SBS fixtures, namespace initialization and teardown failures. It does
-  not enable native firmware regions, GPEs or battery support on the laptop.
+  not itself accept native firmware regions, GPEs or battery support on a laptop.
+- The explicitly selected native battery runtime with captured platform/resource
+  gates, cached service reads and owned lifecycle. Its machine-specific evidence
+  is recorded in the [battery service contract](battery-service.md) and unit
+  records; sibling profiles require their own evidence.
 
 See the [uACPI port](../ports/srvros/uacpi/PORT.md) and
 [power telemetry guide](power-telemetry.md) for exact gates and remaining work.

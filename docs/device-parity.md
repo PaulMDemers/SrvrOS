@@ -1,6 +1,8 @@
 # Air and Pro device parity
 
 Reviewed October 23, 2026 against main `249bb97`; Pro Wi-Fi remains separate PR19 work.
+Desktop count corrected October 24 against `bc0edb9`/PR130; this does not extend
+the Pro's physical acceptance or refresh its independent Wi-Fi investigation.
 This compares available shared code with each machine's evidence. A passing Pro
 trial does not accept a different Air controller, firmware or connected adapter.
 The [Air record](machines/macbookair7-2.md) and
@@ -9,7 +11,7 @@ The [Air record](machines/macbookair7-2.md) and
 | Capability | Shared implementation / Pro evidence | Air7,2 position and next check |
 | --- | --- | --- |
 | Keyboard and trackpad | Captured Pro `05ac:0262` and Air `05ac:0291` reports; full-speed EP0 correction merged | Typing, pointer, scrolling and dragging exercised. Physical secondary press/tap, held-click steering, post-scroll suppression and Sketch Escape accepted in the October 23 follow-up; secondary tap settling was subsequently accepted by the tester and merged in PR88. Its final missing diagnostic receipt stays incomplete; no new success ratio is inferred. Pro latency tuning is deferred. |
-| Display and windows | Pro 2880×1800 at explicit 2×; native apps, maximize, tiling | Air 1440×900 at 1× accepted. No need to copy Retina scaling; both still have eight client windows and bounded software surfaces. |
+| Display and windows | Pro 2880×1800 at explicit 2×; native apps, maximize, tiling; shared source now permits sixteen client windows | Air 1440×900 at 1× and sixteen-window opening accepted at `bf68e4e9b88b8ae7`. Pro sixteen-window physical acceptance is not inferred; software surfaces remain bounded. |
 | Panel brightness | Exact Air and Pro PWM profiles merged and physically exercised | Combined ordinary battery session v55 physically accepted. No automatic brightness policy. |
 | HDA and PCM | Separate CS4208 controller/subsystem routing for Pro and Air; Pro speakers exercised | Air speaker volume/tone and combined-session PCM playback accepted. Prompted speaker/headphone listening and Stop/volume reported successful in v58; playback and cancellation logs agree. Do not substitute the Pro codec profile. |
 | CPU and fan telemetry | Haswell/Broadwell CPU matching; Pro two-fan SMC and Air one-fan profiles merged | Both have read-only telemetry evidence; Air v55 accepts coexistence with battery and app I/O. No fan-control writes. |

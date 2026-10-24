@@ -11,6 +11,10 @@ The runnable code path is still the srvros adapter in `ports/srvros/uv.c` and
 while the OS grows the kernel and libc pieces required by the real upstream
 backend.
 
+The [POSIX compatibility audit](posix-compatibility.md) records current thread,
+file-offset, readiness and compatibility-stub limitations. Passing the adapter
+smoke test is not acceptance of the full upstream backend or Node runtime.
+
 ## Current Adapter Surface
 
 - `uv_version()` and `uv_version_string()` now compile directly from upstream
@@ -145,8 +149,11 @@ coverage.
   fuller ancillary control-message support are still future work. `uv_spawn` is still a
   compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
   children until the srvros process ABI grows those semantics.
-- Compact TTY model and no PTY support.
-- `epoll`/`kqueue` are absent; srvros will need a poll-provider backend.
+- PTYs now exist and back the native Terminal. Complete terminal/session and
+  job-control semantics still need a focused compatibility audit.
+- A poll-backed `epoll` adapter exists, but timeout, signal-mask and event-mode
+  semantics are incomplete; `kqueue` is absent. A supported upstream backend
+  needs explicit readiness contracts and semantic tests, not just symbol shims.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker
   pool map onto srvros pthreads and are useful for portable consumers. Queued
