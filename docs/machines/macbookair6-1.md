@@ -2286,3 +2286,26 @@ close the desktop normally, reopen with `desktop battery`, and resume file work.
 PR134 `d5d0fa1` owns POSIX and PR19 `b02be44` owns Wi-Fi; neither is imported.
 The previous automated run is collected, backed up and unarmed. Preserve Ubuntu
 and console recovery; report ready without starting this attended run.
+
+### Attended reopen ready (PR139)
+
+Source `5d858df`, v71 release `9851d427b042227b`, run `f4f57726a0d1824d` uses
+the exact native kernel/initramfs bytes accepted in the prior automated heap
+trial, with the existing untimed combined-session configuration. Full build/core,
+77 staging tests and docs checks pass. The combined Text/Files/audio normal VM
+and exact staged GPT GRUB→Limine profile-refusal VM pass, including clean
+close/reopen, provider/PCM teardown, offline allocation and monitor reboot.
+Q35's expected native-profile refusal is not physical acceptance. The previous
+full smoke and nine-case battery matrix remain evidence for the unchanged code.
+
+The attended checklist is in the current battery guide: ten minutes with a new
+`heap-reopen.txt`, separate Files dock app and battery/brightness/audio/sensor
+checks; Return to console, `desktop battery`, then reopen/append/save/reopen the
+document and repeat checks for at least two minutes. Save, exit, unmount and
+reboot manually. There is no timer or completion prompt. USB baseline is 304
+files/858 clusters, unchanged and clean. Ubuntu default and console recovery
+`c35475f62f154f1e` remain verified. Superseded startup diagnostic `837ce4f6bfab6775`
+is removed from EFI only after its durable payload backup is hash-verified;
+the latest accepted automatic release `4efd82574f07eb30` remains available.
+Payload and trial evidence are backed up outside build. This run is ready but
+unarmed; attended reopen acceptance remains pending its return.
