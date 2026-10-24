@@ -1761,3 +1761,31 @@ receipts, preserving prior files. Ordinary startup remains off; firmware/query
 permissions stay unchanged. PR123 network polling and PR19 Wi-Fi are independent;
 preserve their main/staging recipes and avoid driver edits. Previous AC retry is
 collected and accepted; this trial needs its own run and native evidence.
+
+## Attended Home work candidate (2026-10-23; native pending)
+
+Source `022d468`, v69 release `8245e30a2e9019ec`, prepares a five-minute
+attended Home session with continuous battery sampling, typing, Text save/reopen
+and Files work. At five minutes it saves a screenshot and prompts for normal
+SrvrOS > Return to console; dirty Text retains its close veto. An eight-minute
+owner deadline halts with live ownership retained. Ordinary startup and native
+firmware/query gates remain unchanged. See the current battery guide for steps.
+
+Local core/desktop build tests, 74 staging tests, 26 collector tests and five
+strict receipt tests pass. Directed Air6,1 Q35 cases cover completion, early
+exit, unsaved-work overrun, platform refusal and query refusal. Completion ran
+305.895 seconds, generation 1→123, with 3,944 events and seven lifetime members;
+Text bytes, directory metadata, filesystem/allocation and full retirement pass.
+The overrun retains live ownership without reset or a completion claim; periodic
+sampling continued through 479 seconds. Native-style collector recipe negatives
+and the existing three-phase AC capture regression pass. Exact staged GPT boot
+refuses native hardware in Q35, saves/unmounts/returns; missing Home returns before
+starting the probe. These are VM results, not native endurance acceptance.
+
+Run `e787736ee4592483` preserves the accepted 251-file USB baseline (728 clusters,
+zero leaks/mismatches/errors). `attended-work.txt` is available as a new file.
+Ubuntu and console recovery `c35475f62f154f1e` remain the recovery plan. The
+superseded Start/Stop EFI copy was removed only after independent backup hashes
+matched; accepted continuous and AC payloads remain installed. The next boot
+must collect its own screenshot, periodic/final logs, input/file receipts, new
+file contents, prior-file hashes and clean offline allocation before acceptance.
