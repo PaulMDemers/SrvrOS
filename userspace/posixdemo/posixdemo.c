@@ -2052,8 +2052,9 @@ int main(int argc, char **argv) {
     PTHREAD_CHECK(pthread_kill((pthread_t)(uintptr_t)999999, 0) == ESRCH);
     demo_signal_count = 0;
     PTHREAD_CHECK(pthread_kill(pthread_self(), SIGUSR2) == 0);
-    PTHREAD_CHECK(__posix_signal_dispatch_pending() > 0);
-    PTHREAD_CHECK(demo_signal_count != 0);
+    PTHREAD_CHECK(demo_signal_count == 1); /* Self-directed unblocked delivery completes before return. */
+    PTHREAD_CHECK(__posix_signal_dispatch_pending() == 0);
+    PTHREAD_CHECK(demo_signal_count == 1);
     PTHREAD_CHECK(signal(SIGUSR2, SIG_DFL) != SIG_ERR);
     PTHREAD_CHECK(pthread_heap_stress_test() == 0);
     PTHREAD_CHECK(pthread_key_delete(pthread_demo_key) == 0);
