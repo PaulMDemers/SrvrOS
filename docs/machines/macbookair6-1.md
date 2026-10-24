@@ -2209,3 +2209,43 @@ firmware and EC changes. PR134 `e4b7b02` has no heap implementation changes;
 PR19 `807fb51` remains independent Wi-Fi scope. Publish measured old/new work
 counts and reject corrupt heaps even when a suitable early free block exists.
 Native timing improvement remains pending the next automated trial.
+
+### Heap traversal trial ready (PR138)
+
+Runtime source `e7b29e7`, v72 release `4efd82574f07eb30`, selects the first
+fitting free block during the existing full entry validation walk. It finishes
+that entire walk before mutation and retains the complete exit walk and both
+free walks. First-fit, splitting/coalescing, metadata, firmware permissions and
+the five-second startup deadline remain unchanged. Later corrupt blocks must
+still halt even when an earlier suitable free block exists.
+
+Three sequential alternating baseline/candidate replay pairs (two lifetimes
+each, 18,847 allocations and 7,411 frees during each setup) reduce median host
+setup time from 5.707 s to 4.856 s, about 14.9%. Cleanup/free time is similar
+(1.272 s versus 1.294 s). Full validation visits and payload checksums match
+exactly; about 105.45 million redundant search visits disappear per lifetime.
+This is a deterministic namespace-sized workload, not a captured AML trace or
+native timing prediction. Native timing margin remains to be measured.
+
+On clean `e7b29e7`, full build/core, general smoke (including 481 CLI commands),
+77 staging tests and docs checks pass. Nine battery VM cases pass: automatic
+early exit, normal, completed-at-expiry, busy containment and profile refusal;
+ordinary combined desktop save/reopen, pending-save cancellation, runtime fault;
+and the Air7,2 combined regression. Exact staged GPT GRUB→Limine boot passes
+two refused-but-cleanly-retired sessions, clean allocation and automatic return.
+Q35 profile refusal is expected and is not native acceptance. Refreshed main
+is `4f8acd2`; PR134 `d5d0fa1` still has no heap implementation change and PR19
+`d5010dc` remains independent Wi-Fi scope.
+
+Run `c741adb1f4bd0f75` uses this unit's USB `6ADA-85BB`, preserving all 296
+files/848 clusters. The automated trial opens two 20-second desktop lifetimes,
+requires fresh samples and clean retirement, then returns to Ubuntu. The one-shot
+collector checks saved sessions, startup timings, prior hashes and offline
+allocation, backs up evidence outside build and disables itself. No human input
+is required. User authorization permits this automated reboot without asking;
+fatal mounted ownership still halts and requires a photograph/manual recovery.
+Ubuntu remains default and console recovery `c35475f62f154f1e` is retained.
+The obsolete failed `06b0976a58151901` EFI copy is retired for space only after
+its durable payload backup is hash-verified. Prior accepted payloads and the
+previous automated diagnostic remain preserved. Native improvement is pending
+returned evidence; this does not yet resolve the attended intermittent failure.
