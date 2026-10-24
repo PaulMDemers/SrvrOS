@@ -2122,3 +2122,21 @@ Target all-ones values are counted and retained without accepting them as valid
 settings. The collector requires exact ordering/counts, all previous prerequisites,
 both completion markers and recovery/filesystem checks; register acceptance stays
 NOT_TESTED. Prior boot recipes retain their exact configuration.
+
+### MAC difference decisions after v52
+
+The saved22-target snapshot has19 reference-default differences. Partition them
+into four fixed controls (1218,1220,13c0,1238),nine calibrated power settings,
+four board IO/supply settings,one optional LED and one DMA configuration.
+The [shared PHY power path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_phy.c)
+rewrites ALC channel fields and eight per-rate power registers; the
+[MT7610 channel-power path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+derives and limits those values. Do not equate initialization defaults with
+accepted transmit power.
+
+Next planned diagnostic groups1218/1220→00500055,13c0→0,1238→001700c8,
+with exact initial-value admission,MAC/CORE guards,DMA-disabled checks and
+single-attempt transfers.32 operations comprise28 reads and four writes.
+Native implementation/acceptance remains pending. DMA burst/writeback/clock-gate
+fields and board IO/supply settings require separate ownership/semantic review.
+The snapshot alone does not justify copying every reference default.

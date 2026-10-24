@@ -4751,3 +4751,31 @@ Collection,comparison JSON,run/checkpoint and hashes archived outside build at
 Next: reconcile the19 differences with reference field semantics and firmware/USB
 ownership,then group appropriate MAC writes; keep board power/PA/LDO and calibrated
 TX settings separately justified. Physical EFUSE and PHY/RF gates remain open.
+
+### 2026-10-24 — MAC difference reconciliation
+
+Rechecked pinned Linuxv7.0 sources and the saved vendor reference. The19
+mismatches partition into4 fixed controls,9 calibrated power settings,4 board
+IO/supply settings,1 optional LED and1 DMA configuration. Linux channel-power
+setup rewrites ALC channel fields and all eight TX power registers after deriving
+and limiting per-rate power; their table defaults are not final operating power.
+
+Selected next group, in reference order:1218/1220 from00550055 to00500055,
+13c0 from18181818 to0,1238 from003700c8 to001700c8. The PA-mode changes alter
+bits16/18; Linux reads RF PA modes as two-bit rate fields. The vendor reference
+identifies13c0 as BB attenuation and1238 bit21 as Bluetooth-abort control.
+That commentary is supporting evidence,not a complete Linux field specification.
+
+Prepared fixed32-operation plan: per target read MAC,CORE,DMA and initial target;
+write once; read target,MAC,CORE. Total28 reads/four writes. Require exact captured
+initial targets,MAC0,COREf000f200 and DMA enable/busy bits clear. Validate exact
+readbacks,stop on error,no retries. No native implementation or new payload yet.
+
+DMA40000050 has burst1,writeback and clock-gate-disable versus reference30
+burst3; both have enable/busy bits clear. Ownership is unresolved: preserve it.
+Defer board IO/supply and calibrated TX settings rather than treating all19
+mismatches as bad. Physical EFUSE,private MAC setup and PHY/RF work remain open.
+Audit checks/fixtures and hashed sources archived outside build under
+`~/.local/share/srvros/macbookpro11-2/mac-tail-audit-636ecf9/`.
+Installed release619ce12c1d5d0f0b unchanged,no reboot armed. Actualbase4a991df;
+fetchedmain468ca20 includes separate storage work,PR19 remains Wi-Fi owner.
