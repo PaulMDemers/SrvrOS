@@ -4704,3 +4704,26 @@ Active scope v52: fixed22-target post-WCID MAC observation,26 reads total.
 Preserve MAC0/COREf000f200 guards; all-ones targets remain observations. No writes,
 RF enable or acceptance inferred. Touch mt76/xHCI/main/profiles/tests. Actual
 base4a991df; other machine storage-timing work remains separate.
+
+### 2026-10-24 — v52 post-WCID MAC observation candidate
+
+Source `4ba7963`, release `619ce12c1d5d0f0b`, installed unarmed. This adds26
+read-only operations after exact WCID completion:22 fixed MAC targets and two
+MAC/CORE guard pairs. Values remain observations, including counted all-ones;
+no new register writes or RF enable. Prior accepted initialization still runs.
+
+Native build, compact/xHCI tests, ASan/UBSan,126 boot-profile tests,102 unchanged
+historical Wi-Fi recipes, collector fixtures/55 rejection cases and493 docs
+links pass. Exact-stage GPT VM saved/verified logs and returned; missing workspace
+returned without starting the probe. Physical observations remain pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted WCID
+`71bf958aa703f6b3` retained. Shared-key payload `420bc4d5e39c8e04` removed from
+ESP only after full archive equality. Workspace clean243files/613clusters,
+unmounted. Payload, audit, tests, VM receipt, collector and run/checkpoint are
+archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-tail-4ba7963/`.
+Actual integration base4a991df; fetchedmainbf1b9a6 includes PR127 storage timing,
+and PR128 screenshot receipt work is separate. Next: attended cold adapter cycle,
+then collect matching session FIRST and compare all22 observations with reference
+semantics. No register acceptance or connectivity claim from capture completion.
