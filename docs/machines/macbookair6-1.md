@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-24. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -1825,3 +1825,56 @@ clusters and zero leaks/mismatches/errors. Installed/recovery hashes, Ubuntu
 default and consumed one-shot pass; USB is unmounted. Evidence is preserved
 outside build. No retry is armed; five-minute attended work acceptance remains
 pending, and ordinary battery startup remains disabled.
+
+## Screenshot receipt correction scope (2026-10-24)
+
+Base `bf1b9a6` includes PR127 storage timing and PR125 TCP readiness. The
+bounded objective is to emit the screenshot dimensions receipt with ordinary
+non-traced desktops and exercise the real image verifier in the Home capture VM.
+Scope: compositor capture logging, Home VM/collector regressions, this record
+and the Air6,1 battery guide. PR19 at `7e70c51` owns independent Pro USB Wi-Fi
+work; no storage, firmware, query permissions or startup policy changes planned.
+Next checkpoint: corrected completion VM, exact staged GPT rehearsal and an
+unarmed physical retry with separate Files-app use.
+
+Retry `ab44de460a170c07`, session `00065e8e40c90399-00`, on release
+`78fe53e8cacdb1ba` completed normally after 361.122 seconds: 55 keys, 1,356
+pointer events, a successful 33-byte Text save/reopen and a saved valid BMP.
+Battery generation advanced 1→138; 2,062 events, no alarms and 162 handled/zero
+unclaimed SCI deliveries. Seven members and runtime/logger/mount retired cleanly,
+with zero heap/errors/denied. All 256 prior files retain their bytes except
+metadata; 262 files/773 clusters pass offline fsck/allocation. Ubuntu recovery
+and consumed one-shot verified; evidence is preserved outside build.
+
+Full attended-work acceptance remains incomplete. The user confirms using
+New window from the search menu, then Open file: this exercised Text's dialog,
+not the separate Files application. The saved screenshot lacks its dimensions
+receipt because it was gated on compositor tracing; the strict collector
+correctly refuses it. The earlier completion VM checked BMP dimensions but
+never invoked that collector helper. Keep both incomplete trials as evidence.
+The next attempt must use the Files folder icon in the dock and wait for the
+five-minute completion prompt before normal menu exit.
+
+### Corrected candidate validated (PR128)
+
+Source `aff686d`, v69 release `2cd5b8604f2406c5`, emits capture dimensions
+without tracing. The unchanged strict screenshot verifier rejects both original
+physical and completion-VM evidence, then accepts the corrected non-traced VM.
+Full build/core, 74 staging, 27 collector and five receipt tests pass. Completion
+ran 306.107 seconds, generation 1→123, with 3,944 events and seven lifetime
+members; Text/Files receipts, screenshot, saved logs and offline allocation pass.
+Early exit remains incomplete; the three-phase AC regression verifies all three
+screenshots. Exact staged GPT rehearsal refuses unsupported Q35 hardware,
+saves/unmounts/returns; missing Home returns before probing.
+
+The next unarmed run `eab752f59fb68762` uses the preserved 262-file/773-cluster
+USB baseline and a new `attended-receipt.txt`. Keep AC/USB connected; open the
+Files folder icon in the dock, browse Home, and wait for the five-minute Complete
+prompt before saving and exiting through the normal menu. Both earlier trials
+remain incomplete and backed up separately. The obsolete parked AC payload's
+EFI copy was removed only after independent backup hashes matched; console
+recovery and the newer accepted Home AC payload remain installed. Ordinary
+battery startup remains off; physical acceptance of this correction is pending.
+
+Final scope review retains main `bf1b9a6`. Air7,2 storage-service-gap work and
+Pro PR19 `d80fb47` remain independent; no competing driver changes are included.

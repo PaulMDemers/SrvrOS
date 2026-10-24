@@ -19,8 +19,11 @@ Air7,2 runtime gate and ordinary desktop startup remain unchanged.
 
 The explicit Air6,1 v69 `--battery-home-work` recipe runs ordinary Home apps
 with battery sampling and periodic USB logs. Keep AC and USB connected. Spend
-at least five minutes typing, saving a **new** `attended-work.txt` in Home,
-reopening it in Text, and browsing Files. Preserve existing files. A reminder
+at least five minutes typing, saving a **new** file in Home (use a fresh name
+such as `attended-receipt.txt` on this retry), and reopening it in Text. Open
+**Files using the folder icon in the dock** and browse Home. Text’s Open dialog
+or New window command does not exercise the separate Files application.
+Preserve existing files. A reminder
 appears at four minutes; at five minutes it takes a screenshot and asks you to
 save all work and choose **SrvrOS > Return to console** within two minutes.
 The normal menu exit allows unsaved Text to veto closing. Do not use the
@@ -32,7 +35,10 @@ force-close dirty editors to make a passing report. Photograph a halt before
 manual recovery. The strict collector requires elapsed time, generation advances,
 keyboard/pointer activity, successful Text save then read, a Files listing,
 screenshot, periodic logs and full retirement. File hashes and offline allocation
-must also be checked after return. VM success does not accept native endurance.
+must also be checked after return. Screenshot filename/dimensions and save
+receipts are emitted even without desktop tracing; the completion VM runs the
+same strict screenshot verifier as the physical collector. VM success does not
+accept native endurance.
 Ordinary battery startup remains disabled; EC/SCI/firmware gates are unchanged.
 
 ```sh
