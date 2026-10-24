@@ -4297,3 +4297,15 @@ all prerequisite modes/completions/submissions/inactive owners throughout table
 reads/exchanges. Preserve v31 and v46 behavior. Touch xHCI/main/staging/tests;
 collector reports mismatches without accepting them. Base4a991df, fetchedbbdbefb
 adds Air6,1 AC work; PR118 remains draft storage-wait scope, kept separate.
+
+Prepared v47 source `88809f0`, release `6d6d0b1a49c3de4b`, installed unarmed.
+Native build, compact/xHCI fixtures, ASan/UBSan,121 boot-profile tests, collector
+fixture plus121 rejection cases, and493 documentation links passed. Exact-stage
+GPT VM saved/verified logs and returned automatically; missing-workspace VM
+returned without starting the probe. Workspace remains clean233files/598clusters.
+Ubuntu remains default, known-good `e47dca3a6b30c6c1` and accepted AMPDU
+`e14f396f3d59c1b6` retained. Integrated `9fadb1185a7592ea` was removed from the
+ESP only after byte-for-byte archive verification. Payload, checks, collector
+and run record archived outside build under `wifi-bbp-after-mac-88809f0`.
+Physical result pending; next is an attended cold adapter cycle. After return,
+collect the new matching session first and compare all58 observations with v31.
