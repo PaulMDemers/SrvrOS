@@ -1808,3 +1808,19 @@ exact initialization targets, with sequence12 ACK, twelve reads, initial/final
 MAC0/COREf000f200 and both completion markers verified. All preceding bounded
 groups passed. The active-Linux differences required no acceptance exception;
 RF/connectivity remain untested.
+
+### Packet-buffer configuration (v43; native result pending)
+
+`--wifi-mac-buffer` requires v42 prerequisites. One sequence13, 40-byte packet
+sets TX_MAX_PCNT0408=1fbf1f1f, RX_MAX_PCNT040c=fe9f, final PBF_CFG0404=77723c1f
+and TSO_CTRL0250=0. Mandatory captured starts are1f9f1f1f/fe9f/3fdc1cf5/0.
+These are Linux v7.0 table values: final buffer configuration, not replay of its
+common-table intermediate configuration. Four read-only live Linux samples agree.
+Exact ACK, four readbacks, twelve reads and initial/final MAC0/COREf000f200 are
+required. No retry, PBF reset, DMA configuration, BBP table or RF/MAC TX/RX enable
+follows. Segmentation offload remains disabled.
+
+FCE_PSE_CTRL0800 is excluded: active Linux reads5 versus the initialization
+table's1, requiring a separate audit/trial. This group does not claim to accept
+frame-engine routing beyond earlier bounded FCE_L2/WMM evidence, packet traffic,
+or the full baseband table. Physical acceptance remains pending.

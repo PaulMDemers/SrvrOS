@@ -872,3 +872,13 @@ size_t mt76_mac_vht_packet(uint8_t *out,size_t capacity){
 }
 enum mt76_mcu_timing_status mt76_mac_vht_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_vht_plan,12,true,4,4);}
+
+/* Packet-buffer limits and final configuration; segmentation offload stays off. */
+static const struct mt76_mcu_register_pair mac_buffer_plan[4]={
+    {0x0408,0x1fbf1f1f},{0x040c,0x0000fe9f},{0x0404,0x77723c1f},{0x0250,0}
+};
+size_t mt76_mac_buffer_packet(uint8_t *out,size_t capacity){
+    return mt76_mcu_register_packet(true,13,mac_buffer_plan,4,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_mac_buffer_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io){return apply_fixed_mac(s,io,mac_buffer_plan,13,true,4,4);}

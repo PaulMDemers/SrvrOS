@@ -242,6 +242,9 @@ enum mt76_mcu_timing_status mt76_mac_txsw_apply(struct mt76_mcu_mac *s,
 size_t mt76_mac_vht_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_mac_vht_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io);
+size_t mt76_mac_buffer_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_mac_buffer_apply(struct mt76_mcu_mac *s,
+    const struct mt76_mcu_timing_io *io);
 size_t mt76_mac_beacon_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_mac_beacon_apply(struct mt76_mcu_mac *s,
     const struct mt76_mcu_timing_io *io);

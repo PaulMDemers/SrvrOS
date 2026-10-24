@@ -4034,3 +4034,12 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean223files/583clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: review remaining reference MAC prerequisites before revisiting the
 full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v43 packet-buffer limits/configuration after accepted v42.
+Registers0408/040c/0404/0250: captured starts1f9f1f1f/fe9f/3fdc1cf5/0,
+reference targets1fbf1f1f/fe9f/77723c1f/0. Four live Linux samples agree;
+FCE0800 remains5 under Linux versus table1, deferred separately. Audit restores
+regidx without device writes/reset/unbind. Sequence13 four-pair command,12reads,
+final MAC0/COREf000f200. No PBF reset, DMA configuration, BBP table or RF enable.
+Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched maince1c0a6; Air6,1
+Home-session PR111 and Air7,2 compositor-idle work separate.
