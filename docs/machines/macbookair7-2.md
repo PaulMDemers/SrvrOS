@@ -2,6 +2,23 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: notification-driven network worker idle
+
+Base `7b0d1a0` includes merged PR118 and Air6,1 acceptance notes. Pro PR19
+`9b01d39` retains Wi-Fi bring-up; this scope avoids its MCU/baseband and control
+completion paths. Audit the selected network provider's receive notification
+readiness and use the existing 50-tick recovery cadence only when a live IRQ or
+independent USB service can wake the stack. Unknown/unready providers retain
+one-tick polling. Keep xHCI input cadence, USB transmit servicing, TCP timers,
+DMA ownership and hardware gates unchanged.
+
+Touched scope: network provider contract/worker, e1000 readiness, ECM readiness,
+focused host fixtures, VM network/idle regressions and documentation. Require
+empty-poll race, active traffic, missed notification recovery, unavailable IRQ/
+service fallback, cable recovery and input/file coexistence coverage. Publish
+measured worker activity before selecting a native unattended capture. No energy
+saving or physical acceptance is inferred; no new reboot is armed.
+
 ### Storage completion wait milestone accepted for bounded workload
 
 Release `f340e0695d1e2492`, compiled source `c258822`, returned automatically in
