@@ -57,6 +57,8 @@ int64_t gui_send(const struct gui_message *message);
 int64_t gui_recv(struct gui_message *message);
 /* Client-only readiness; 1 queued, 0 empty, -1 changed/absent server. */
 int64_t gui_client_ready(uint64_t expected_server);
+/* Server-only combined queue/structured-key/pointer readiness; no dequeue. */
+int64_t gui_server_ready(void);
 int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t flags);
 int64_t gui_surface_destroy(uint64_t pid, uint64_t surface_id);
 int64_t gui_surface_blit(uint64_t pid,

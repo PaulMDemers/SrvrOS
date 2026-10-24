@@ -6,10 +6,10 @@
 #include "../kernel/src/arch/x86_64/keyboard.c"
 static uint64_t now;
 static bool foreground;
-static unsigned signals;
+static unsigned signals,event_wakes;
 uint64_t timer_monotonic_us(void) { return now; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
-void process_file_poll_wake(void) {}
+void process_file_poll_wake(void) { event_wakes++; }
 bool process_interrupt_foreground(uint64_t signal) { assert(signal == SRV_SIGNAL_INT); signals++; return foreground; }
 static void report(struct keyboard_hid_state *state, uint8_t mods, uint8_t key) {
     uint8_t bytes[8] = {mods, 0, key};
@@ -31,11 +31,13 @@ static struct srv_key_event take(void) {
 static void structured(void) {
     struct keyboard_hid_state s={0}; struct srv_key_event e;
     keyboard_set_event_mode(true);
+    assert(!keyboard_events_pending());unsigned wake_before=event_wakes;
     foreground=true; unsigned before=signals;
     report(&s,1,6); /* Ctrl-C is an event, never a process signal. */
+    assert(keyboard_events_pending() && event_wakes>wake_before);
     e=take(); assert(e.usage==0xe0 && (e.flags&SRV_KEY_DOWN_EVENT));
     e=take(); assert(e.usage==6 && e.codepoint=='c' && (e.modifiers&SRV_KEY_CTRL));
-    assert(signals==before); expect("");
+    assert(signals==before); expect("");assert(!keyboard_events_pending());
     report(&s,0,0); e=take(); assert(e.usage==0xe0 && !e.flags);
     e=take(); assert(e.usage==6 && !e.codepoint && !e.flags);
     report(&s,2,SRV_KEY_LEFT); take();

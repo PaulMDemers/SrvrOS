@@ -147,7 +147,27 @@ static void battery_ui_notifications(void) {
     assert(s.children[0]==42 && s.child_apps[0]==DESK_APP_SYSTEM);
     execute_result=-1;
 }
+static void idle_admission(void) {
+    struct session s={0};memset(&clipboard,0,sizeof(clipboard));
+    assert(session_quiescent(&s));
+    s.children[0]=42;assert(!session_quiescent(&s));
+    s.clients[0].pid=42;s.clients[0].awaiting=1;assert(!session_quiescent(&s));
+    s.clients[0].awaiting=0;s.clients[0].release=desk_packet_new(DESK_RELEASE);
+    assert(!session_quiescent(&s));
+    alive=1;queue_full=1;service(&s);assert(!session_quiescent(&s));
+    queue_full=0;sends=0;send_allow=-1;service(&s);assert(session_quiescent(&s));
+    s.preferences.job.busy=1;assert(!session_quiescent(&s));s.preferences.job.busy=0;
+    s.preferences.dirty=1;assert(!session_quiescent(&s));s.preferences.dirty=0;
+    s.capture.busy=1;assert(!session_quiescent(&s));s.capture.busy=0;
+    s.capture_pending=1;assert(!session_quiescent(&s));s.capture_pending=0;
+    s.pointer_pid=42;assert(!session_quiescent(&s));s.pointer_pid=0;
+    clipboard.writer=42;assert(!session_quiescent(&s));clipboard.writer=0;
+    clipboard.peers[0].reply=desk_packet_new(DESK_CLOSE);
+    assert(!session_quiescent(&s));memset(&clipboard,0,sizeof(clipboard));
+    assert(session_quiescent(&s));sends=0;
+}
 int main(void) {
+    idle_admission();
     battery_ui_notifications();
     pointer_cancel_keeps_keyboard();
     struct session s={.scene={.focus=-1},.children={42}};

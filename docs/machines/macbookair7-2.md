@@ -2,7 +2,75 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Active checkpoint: first idle Text optimization accepted
+### Active checkpoint: compositor polling reduction verified
+
+Branch `device/macbookair7-2/compositor-idle` starts from main `ce1c0a6`
+(PR110 Air6,1 acceptance documentation), and now consumes `89b19ec`
+(PR111 bounded Air6,1 Home session and PR113 failed-run evidence).
+Pro PR19 `8294ee1` retains USB Wi-Fi;
+its diff has no overlapping GUI, syscall, keyboard queue or mouse queue changes.
+This bounded follow-up adds a server-only combined input/message wait and opts
+in only the otherwise idle ordinary compositor. Keyboard, pointer and client
+messages must wake it immediately; unfinished frame/input/control publication,
+clipboard/preferences/capture work and timed diagnostic workloads retain the
+existing cadence. A 100 ms maintenance cap bounds unrelated housekeeping.
+
+PR112 implementation `92edfcb` passes the full local build/core suite and directed
+wait/ownership/race/publication tests. Networked VM post-idle pointer drag and
+USB typing/exact save pass; contextual menus, clipboard selection/isolation and
+file actions pass. The 4 MiB+17-byte guarded-copy VM also passes input overlap,
+exact text/binary readback, collision preservation and rename. Exact EFI/GPT v26
+`dc06bc673689e011` passes saved capture, screenshot, automatic reset and missing
+workspace recovery. Six worker checkpoints show 499 compositor switches over
+50.170 seconds (9.946/second), with no partial lifetimes. VM power is unavailable.
+
+Native release `dc06bc673689e011`, compiled `92edfcb`, returned automatically
+in session `session-00065e8b5e2897aa-00`. Completed capture, clean desktop exit,
+1440x900 screenshot, USB preservation and recovery pass. All 1015 prior files
+survived except expected filesystem metadata; only four logs and one screenshot
+were added. Offline fsck and independent allocation pass at 1020 files / 2335
+clusters with no leaks or mismatches. No storage/device error was recorded.
+
+The compositor fell from 100.00 to **10.015 switches/second** (540 switches over
+53.920 seconds); Text remained at 10.015/second and xHCI input at 100/second.
+The 60.010-second window recorded 19,278 total switches versus the prior 25,102,
+with one frame. **Overall CPU0 idle samples worsened from 97.85% to 92.88%.**
+The logger accounted for 392 timer samples in the worker interval, versus 96
+in the prior 50.960-second interval. These are samples, not measured CPU runtime.
+
+Six energy checkpoints covered 54.000 seconds: 375.135 J, **6.946 W package
+average** versus 6.802 W previously, and 2,086 MHz CPU0 active frequency.
+Temperature fell 76–73 C versus 75–72 C previously; neither sample was thermally
+settled. AC/14% brightness/Ethernet/workspace/audio settings and the v26 recipe
+matched; the ordinary battery owner remains disabled. This accepts reduced
+compositor polling and clean persistence only. It does **not** establish lower
+overall CPU activity, energy savings, ordinary Home efficiency or physical
+post-idle input latency. Post-idle drag/typing/save are VM evidence only.
+
+Inspection shows periodic logging writes, reads back and flushes each snapshot.
+USB bulk completion still polls while yielding service opportunities at 1 ms;
+yielding does not block the storage owner. That path can accumulate logger timer
+samples, but these counters do not distinguish transfer wait from filesystem
+work or explain the difference between runs. Keep that attribution question
+open; measure checkpoint duration/transfer wait before changing polling or
+claiming a power improvement. Do not weaken persistence to improve a benchmark.
+
+Touched subsystems: GUI transport/syscall, input queue wake notifications,
+compositor idle admission and directed host/VM fixtures. No xHCI/network polling,
+CPU/firmware policy or hardware profile changes. Evidence is under
+`build/compositor-idle-20261023`, with payload and returned evidence preserved
+outside build in this release's pending-trials/reviewed-evidence directories.
+Installed current is `dc06bc673689e011`, previous recovery `9aa8dbf6fbda8252`;
+Ubuntu remains default, USB is unmounted and no reboot is armed. Actions remain
+disabled. Integrated source `beba433` passes full local build/core/docs and a
+fresh networked post-idle pointer/typing/exact-save VM regression. Re-staging v26
+produces the same release: kernel, initramfs and EFI loader hashes match the
+native-tested payload exactly, so the existing exact-stage VM receipts remain
+applicable. Shared Air6,1 diagnostic changes do not confer sibling acceptance.
+Next power work should measure the logging/storage cost and repeat matched
+captures; dynamic window capacity follows the bounded idle work.
+
+### Historical checkpoint: first idle Text optimization accepted
 
 Branch `device/macbookair7-2/power-idle`, PR106 adds measured worker diagnostics
 and an interruptible GUI receive-readiness wait. Only quiescent Text opts in,

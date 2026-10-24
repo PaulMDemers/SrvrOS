@@ -479,3 +479,30 @@ active save, clipboard, title/menu/frame publication and explicit diagnostic
 workloads keep that prior path. This changes no firmware, device polling or CPU
 policy. Native energy improvement requires a matched repeated comparison against
 the worker-attributed baseline; reduced timer wakes alone are not an energy result.
+
+### Quiescent compositor waits
+
+`SYS_GUI_SERVER_WAIT` (137), exposed as `gui_server_wait(ticks)`, is server-only.
+It observes the current server's incoming GUI queue, structured keyboard events
+and pointer events without consuming them or allocating queues. It returns 1
+when any source is ready, 0 at the deadline, and a negative result for invalid
+ownership, signals/exit or invalid bounds. The maximum is ten 100 Hz ticks;
+zero is a nonblocking readiness check. Registration/access policy is unchanged.
+
+The same IRQ-protected predicate is rechecked immediately before blocking.
+GUI publication, structured keyboard publication, pointer enqueue/overflow/cancel
+and process teardown wake the shared file-poll queue. Unrelated notifications
+recheck readiness without extending the original deadline. Coalescing an already
+queued pointer event needs no second wake because readiness never became false.
+This reuses signal/exit handling; it can also wake unrelated file-poll sleepers.
+No hardware polling interval or interrupt route is changed.
+
+Ordinary `deskd` uses the wait only when no frame was just painted, no button or
+drag/resize is active, and no input/control/frame reply, client startup/close,
+clipboard transfer, preference save or screenshot job needs progress. Those paths
+keep the one-tick cadence. Generated coexistence, legacy studies, battery-guided
+and hardware-trial timing recipes keep their prior cadence too; the explicit
+idle capture uses the new path. Clock, cached battery, notification and child
+housekeeping are bounded by the 100 ms idle maintenance cap. New timed features
+must update idle admission or supply an earlier deadline rather than assuming a
+10 ms loop. VM functional input checks are not physical latency acceptance.
