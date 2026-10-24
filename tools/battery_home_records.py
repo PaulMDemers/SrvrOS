@@ -38,7 +38,7 @@ def check(data, case='normal', vm=True, query_policy=2):
     if unavailable:
         assert kind==b'unavailable' and (generation,events,alarms,acks,state,error)==(0,0,0,0,5,3)
         assert snapshot==(0,0,0,0)
-        assert b'battery: REFUSED platform/resource ownership preflight' in data if case=='native-refusal' else any(x in data for x in (b'battery-native-smbus: REFUSED captured controller profile',b'battery: REFUSED bounded profile requires an admitted bounded diagnostic owner'))
+        assert b'battery: REFUSED platform/resource ownership preflight' in data if case=='native-refusal' else any(x in data for x in (b'battery-native-smbus: REFUSED captured controller profile',b'battery: REFUSED bounded profile requires an admitted bounded diagnostic owner',b'battery: REFUSED restricted profile requires an admitted Home or diagnostic owner'))
         for bad in (b'battery-service: retired',b'battery-home-return:',b'battery-query-return:',b'battery-recovery-resources:',b'battery-smbus: event='):
             assert bad not in data
     else:

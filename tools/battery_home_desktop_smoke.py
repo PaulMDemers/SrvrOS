@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--linger-seconds',type=int,default=0,help='keep normal session live before normal menu exit')
     parser.add_argument('--workspace-table',choices=('mbr','gpt'),default='mbr')
     parser.add_argument('--boot-session',action='store_true',help='exercise ordinary opt-in boot, then reopen from monitor')
-    parser.add_argument('--stage',help='exact v54/v55 native stage; requires --boot-session --case profile-refusal on Q35')
+    parser.add_argument('--stage',help='exact v54/v55/v70 native stage; requires --boot-session --case profile-refusal on Q35')
     parser.add_argument("--services",action="store_true",help="exercise combined optional laptop services with ordinary battery ownership")
     parser.add_argument("--audio",action="store_true",help="attach HDA and play bundled PCM during the combined session")
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
@@ -161,6 +161,7 @@ def main():
                     qmp.key('ret');wait(b'file-result role=text op=2 status=0')
                     launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
                     launch('Terminal',b'deskterm: ready');time.sleep(1)
+                    terminal_pid=re.findall(rb'deskd: opened pid=(\d+) window=\d+',output)[-1]
                     if args.audio:
                         type_text('/fat/bin/playwav /fat/share/examples/stereo.wav > /work/srvros-work/audio-proof.txt\n')
                         time.sleep(9)
@@ -194,7 +195,12 @@ def main():
                         assert stamps[-1]-stamps[0]>=(args.linger_seconds-15)*1000000
                         result['live_log_span_us']=stamps[-1]-stamps[0]
                     if args.case=='cancel':shortcut('ctrl-alt-esc')
-                    else:shortcut('f10');shortcut('end');shortcut('ret')
+                    else:
+                        shortcut('f10');shortcut('end');shortcut('ret')
+                        wait(b'deskd: close-request pid='+terminal_pid+b' ')
+                        # Terminal deliberately defaults to Cancel while its shell
+                        # is live. Confirm Close instead of bypassing its dialog.
+                        time.sleep(.5);shortcut('shift-tab');shortcut('ret')
                     wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
                     data=bytes(output)
                     acquired=re.search(rb'battery-desktop-lifetime: acquired token=(\d+) root=(\d+)',data)

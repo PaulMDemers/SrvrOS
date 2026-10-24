@@ -57,6 +57,9 @@ class Proof(unittest.TestCase):
             refusal=b'battery-native-smbus: REFUSED captured controller profile' if case=='profile-refusal' else b'battery: REFUSED platform/resource ownership preflight'
             data=b'\n'.join((b'battery-workspace-hold: acquired token=1',b'battery-home: begin limit=128 mounted=yes clients=0; startup=disabled',refusal,b'battery-home: snapshot generation=0 events=0 valid=0 fresh=0',b'battery-home: outcome=unavailable epoch=1 generation=0 events=0 alarms=0 acknowledgements=0 state=5 error=3 fresh=0; retired=yes mounted=yes',b'battery-workspace-hold: released token=1'))+b'\n'
             self.assertEqual(check(data,case)['outcome'],'unavailable')
+            if case=='profile-refusal':
+                for reason in (b'battery: REFUSED bounded profile requires an admitted bounded diagnostic owner',b'battery: REFUSED restricted profile requires an admitted Home or diagnostic owner'):
+                    self.assertEqual(check(data.replace(refusal,reason),case)['outcome'],'unavailable')
             with self.assertRaises(AssertionError):check(data.replace(b'state=5',b'state=4'),case)
 
 if __name__=='__main__':unittest.main()
