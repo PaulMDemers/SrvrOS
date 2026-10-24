@@ -1763,7 +1763,7 @@ Pro11,2 source `e6e83ab`, release `656e4b9c37ae4baf`, session
 all twelve reads and four expected targets, final MAC0/COREf000f200 and both
 capture completion markers. Prior bounded groups passed; RF remains untested.
 
-### Beacon-offset initialization (v41; native result pending)
+### Beacon-offset initialization (v41; accepted on captured adapter)
 
 `--wifi-mac-beacon` requires v40 prerequisites. One sequence11, 24-byte packet
 writes041c=f8f0e8e0 and0420=6f77d0c8 from mandatory captured starts ece8e4e0/
@@ -1779,3 +1779,10 @@ only accepts the table writes; operational beacon configuration remains separate
 References: [initialization table](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h),
 [USB layout](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_usb_core.c),
 [offset packing](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_beacon.c).
+
+Pro11,2 source `c9e2ab6`, release `015cce9347654d25`, session
+`00065e8b0501527d-00` passed natively on 2026-10-23. Exact sequence11 ACK,
+both expected offset readbacks, all eight reads and final MAC0/COREf000f200
+were verified. Both completion markers and all preceding bounded groups passed.
+This accepts only the initialization pair; operational beacon layout and
+RF/connectivity remain untested.

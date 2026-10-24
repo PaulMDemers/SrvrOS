@@ -3968,3 +3968,21 @@ errors, unmounted; no one-shot armed. Run/collector:
 `~/.local/share/srvros/macbookpro11-2/wifi-mac-beacon-c9e2ab6/`.
 Next: readiness-confirmed cold adapter cycle, automatic capture/return and
 collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v41 beacon-offset initialization passed natively
+
+Collected release `015cce9347654d25`, source `c9e2ab6`, new session
+`00065e8b0501527d-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence11 sent24/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads8, one batch completed,
+ack_mask1. BCN_OFFSET0 ece8e4e0->f8f0e8e0 and BCN_OFFSET1 fcf8f4f0->6f77d0c8
+matched exactly. Initial/final MAC0 and COREf000f200 verified. Both completion
+markers saved; no BBP table ran. This accepts the initialization pair only on
+captured7392:a711; operational beacon layout and RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-beacon-c9e2ab6/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean221files/580clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining reference MAC prerequisites before revisiting the
+full baseband table and its unresolved readbacks.
