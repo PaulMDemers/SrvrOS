@@ -89,6 +89,14 @@ long srv_read(int fd, void *buffer, size_t length) {
     return srv_syscall3(SYS_READ, fd, (long)buffer, (long)length);
 }
 
+long srv_pread(int fd, void *buffer, size_t length, int64_t offset) {
+    return srv_syscall4(SYS_PREAD, fd, (long)buffer, (long)length, offset);
+}
+
+long srv_pwrite(int fd, const void *buffer, size_t length, int64_t offset) {
+    return srv_syscall4(SYS_PWRITE, fd, (long)buffer, (long)length, offset);
+}
+
 long srv_open(const char *path) {
     char full[CLI_PATH_MAX];
     return srv_syscall1(SYS_OPEN, (long)srv_make_path(path, full, sizeof(full)));

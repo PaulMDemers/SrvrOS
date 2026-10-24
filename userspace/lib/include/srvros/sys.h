@@ -105,6 +105,8 @@ long srv_syscall6(long number, long arg0, long arg1, long arg2, long arg3, long 
 size_t srv_strlen(const char *text);
 long srv_write(int fd, const void *buffer, size_t length);
 long srv_read(int fd, void *buffer, size_t length);
+long srv_pread(int fd, void *buffer, size_t length, int64_t offset);
+long srv_pwrite(int fd, const void *buffer, size_t length, int64_t offset);
 long srv_open(const char *path);
 long srv_open_mode(const char *path, uint64_t flags);
 long srv_close(int fd);

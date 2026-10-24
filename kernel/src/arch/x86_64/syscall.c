@@ -2616,6 +2616,16 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_READ:
         frame->rax = (uint64_t)syscall_read(frame->rdi, (char *)frame->rsi, frame->rdx);
         return;
+    case SYS_PREAD:
+        frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,true)
+            ? process_file_pread(process_current(),frame->rdi,(uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
+            : SRV_ERR_FAULT);
+        return;
+    case SYS_PWRITE:
+        frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,false)
+            ? process_file_pwrite(process_current(),frame->rdi,(const uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
+            : SRV_ERR_FAULT);
+        return;
     case SYS_CLOSE:
         frame->rax = (uint64_t)syscall_close(frame->rdi);
         return;

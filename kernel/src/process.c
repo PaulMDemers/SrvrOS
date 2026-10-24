@@ -149,6 +149,7 @@ struct process_unix_listener {
 struct process_write_file {
     bool used;
     uint64_t refs;
+    uint64_t open_flags;
     const uint8_t *data;
     uint64_t size;
     uint64_t offset;
@@ -3729,6 +3730,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         ((uint8_t *)write->data)[j] = old_data[j];
     }
     write->size = trunc ? 0 : old_size;
+    write->open_flags = flags;
     write->offset = append ? old_size : 0;
     write->dirty = false;
     if (old_data != NULL) {
@@ -3799,6 +3801,87 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
     write->dirty = true;
     process_irq_restore(flags);
     return (int64_t)length;
+}
+
+/* Resolve inherited standard descriptors and their duplicates without turning
+ * a console/pipe into a seekable stream. Bound traversal of malformed chains. */
+static int64_t positional_fd(struct process *process, uint64_t fd) {
+    if (!process) return SRV_ERR_BADF;
+    for (unsigned depth=0;depth<4;depth++) {
+        if (fd<3) {
+            bool redirected=fd==0?process->stdin_redirect:fd==1?process->stdout_redirect:process->stderr_redirect;
+            int64_t target=fd==0?process->stdin_fd:fd==1?process->stdout_fd:process->stderr_fd;
+            if (!redirected) return SRV_ERR_SPIPE;
+            if (target<3) return SRV_ERR_BADF;
+            fd=(uint64_t)target;
+        }
+        struct process_file *file=process_file_at(process,fd);
+        if (!file) return SRV_ERR_BADF;
+        if (file->type!=PROCESS_FILE_STDIO) return (int64_t)fd;
+        fd=file->handle;
+    }
+    return SRV_ERR_BADF;
+}
+
+int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer,
+    uint64_t length, int64_t offset) {
+    if (offset<0 || length>INT64_MAX) return SRV_ERR_INVAL;
+    if (!buffer && length) return SRV_ERR_FAULT;
+    uint64_t irq=process_irq_save();
+    int64_t resolved=positional_fd(process,fd), result=resolved;
+    if (resolved<0) goto done;
+    struct process_file *file=process_file_at(process,(uint64_t)resolved);
+    const uint8_t *data=NULL;
+    uint64_t size=0;
+    if (file->type==PROCESS_FILE_VFS) {
+        struct process_read_file *read=read_file_at(file->handle);
+        if (!read) { result=SRV_ERR_BADF; goto done; }
+        data=read->data; size=read->size;
+    } else if (file->type==PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write=write_file_at(file->handle);
+        if (!write || !(write->open_flags&SRV_OPEN_READ)) { result=SRV_ERR_BADF; goto done; }
+        data=write->data; size=write->size;
+    } else { result=SRV_ERR_SPIPE; goto done; }
+    uint64_t position=(uint64_t)offset;
+    uint64_t count=position<size?size-position:0;
+    if (count>length) count=length;
+    for (uint64_t i=0;i<count;i++) buffer[i]=data[position+i];
+    result=(int64_t)count;
+done:
+    process_irq_restore(irq);
+    return result;
+}
+
+int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t *buffer,
+    uint64_t length, int64_t offset) {
+    if (offset<0 || length>INT64_MAX) return SRV_ERR_INVAL;
+    if (!buffer && length) return SRV_ERR_FAULT;
+    uint64_t irq=process_irq_save();
+    int64_t resolved=positional_fd(process,fd), result=resolved;
+    if (resolved<0) goto done;
+    struct process_file *file=process_file_at(process,(uint64_t)resolved);
+    if (file->type!=PROCESS_FILE_VFS_WRITE) {
+        result=file->type==PROCESS_FILE_VFS?SRV_ERR_BADF:SRV_ERR_SPIPE; goto done;
+    }
+    struct process_write_file *write=write_file_at(file->handle);
+    if (!write) { result=SRV_ERR_BADF; goto done; }
+    if (!length) { result=0; goto done; }
+    uint64_t position=(uint64_t)offset;
+    if (position>PROCESS_WRITE_BUFFER_MAX || length>PROCESS_WRITE_BUFFER_MAX-position) {
+        result=SRV_ERR_FBIG; goto done;
+    }
+    uint64_t end=position+length;
+    if (!ensure_write_capacity(write,end)) { result=SRV_ERR_NOMEM; goto done; }
+    /* Reserve first. A failed request must not poison or discard earlier writes.
+     * O_APPEND intentionally does not affect a positional write. */
+    for (uint64_t i=write->size;i<position;i++) ((uint8_t *)write->data)[i]=0;
+    for (uint64_t i=0;i<length;i++) ((uint8_t *)write->data)[position+i]=buffer[i];
+    if (end>write->size) write->size=end;
+    write->dirty=true;
+    result=(int64_t)length;
+done:
+    process_irq_restore(irq);
+    return result;
 }
 
 bool process_file_nonblocking(struct process *process, uint64_t fd) {

@@ -137,6 +137,8 @@
 #define SYS_BATTERY_CONTROL 135
 #define SYS_GUI_WAIT 136
 #define SYS_GUI_SERVER_WAIT 137
+#define SYS_PREAD 138
+#define SYS_PWRITE 139
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -254,7 +256,14 @@ struct srv_winsize {
 };
 
 #define SRV_ERR_INTR -4
+#define SRV_ERR_IO -5
+#define SRV_ERR_BADF -9
 #define SRV_ERR_AGAIN -11
+#define SRV_ERR_NOMEM -12
+#define SRV_ERR_FAULT -14
+#define SRV_ERR_INVAL -22
+#define SRV_ERR_FBIG -27
+#define SRV_ERR_SPIPE -29
 
 #define SRV_RIGHTS_MAX 4
 #define SRV_MSG_CTRUNC 0x08

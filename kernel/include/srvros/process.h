@@ -166,6 +166,10 @@ int64_t process_file_alloc(struct process *process,
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags);
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+/* Positional operations never change the shared open-file-description offset.
+ * Errors use SRV_ERR_*; buffers must already have passed user access checks. */
+int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, int64_t offset);
+int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, int64_t offset);
 bool process_file_nonblocking(struct process *process, uint64_t fd);
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
 struct pty_model;

@@ -7,6 +7,7 @@
 
 static unsigned saves;
 static bool fail_save;
+static bool fail_alloc;
 static uint8_t saved[4096];
 static size_t saved_size;
 static struct process *current_subject;
@@ -30,7 +31,7 @@ void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
 }
 int64_t net_hold(uint64_t handle) { (void)handle; assert(0);return -1; }
 int64_t net_close(uint64_t handle) { (void)handle; assert(0); return -1; }
-void *kmalloc(uint64_t size) { return malloc(size); }
+void *kmalloc(uint64_t size) { return fail_alloc ? NULL : malloc(size); }
 void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(!strcmp(path,"/test/output")); saves++;
@@ -103,7 +104,48 @@ static void snapshot_read_regression(void) {
     assert(process_file_read(&subject,5,out+1,16)==-1);
     memset(read_files,0,sizeof(read_files));memset(&subject,0,sizeof(subject));
 }
+static void positional_regression(void) {
+    setup(2);
+    write_files[0].open_flags=SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_APPEND;
+    subject.files[1]=subject.files[0];
+    assert(process_file_write(&subject,3,(const uint8_t *)"hello",5)==5);
+    assert(process_file_pwrite(&subject,4,(const uint8_t *)"H",1,0)==1);
+    assert(write_files[0].offset==5 && write_files[0].size==5);
+    uint8_t out[16];memset(out,0xa7,sizeof(out));
+    assert(process_file_pread(&subject,4,out,10,0)==5 && !memcmp(out,"Hello",5));
+    assert(out[5]==0xa7 && write_files[0].offset==5);
+    assert(process_file_pwrite(&subject,1,(const uint8_t *)"!",1,8)==1);
+    assert(write_files[0].offset==5 && write_files[0].size==9);
+    assert(process_file_pread(&subject,3,out,9,0)==9);
+    assert(out[5]==0 && out[6]==0 && out[7]==0 && out[8]=='!');
+    assert(process_file_pread(&subject,3,out,1,INT64_MAX)==0);
+    assert(process_file_pread(&subject,3,out,UINT64_MAX,0)==SRV_ERR_INVAL);
+    assert(process_file_pread(&subject,3,out,1,-1)==SRV_ERR_INVAL);
+    assert(process_file_pread(&subject,3,NULL,0,0)==0);
+    assert(process_file_pwrite(&subject,3,NULL,0,INT64_MAX)==0);
+    assert(process_file_pwrite(&subject,3,out,1,INT64_MAX)==SRV_ERR_FBIG);
+    assert(process_file_pread(&subject,3,NULL,1,0)==SRV_ERR_FAULT);
+    assert(process_file_pwrite(&subject,3,NULL,1,0)==SRV_ERR_FAULT);
+    assert(process_file_pwrite(&subject,40,out,1,0)==SRV_ERR_BADF);
+    assert(process_file_pread(&subject,0,out,1,0)==SRV_ERR_SPIPE);
+    uint64_t old_capacity=write_files[0].capacity;
+    fail_alloc=true;
+    assert(process_file_pwrite(&subject,3,out,1,(int64_t)old_capacity)==SRV_ERR_NOMEM);
+    fail_alloc=false;
+    assert(write_files[0].capacity==old_capacity && write_files[0].size==9 &&
+        write_files[0].offset==5 && write_files[0].dirty && !write_files[0].failed);
+    write_files[0].open_flags=SRV_OPEN_WRITE;
+    assert(process_file_pread(&subject,3,out,1,0)==SRV_ERR_BADF);
+    subject.files[2]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_READ};
+    assert(process_file_pread(&subject,5,out,1,0)==SRV_ERR_SPIPE);
+    assert(process_file_pwrite(&subject,5,out,1,0)==SRV_ERR_SPIPE);
+    subject.files[2].used=false;
+    assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0);
+    assert(saved_size==9 && !memcmp(saved,"Hello\0\0\0!",9));
+    memset(&subject,0,sizeof(subject));
+}
 int main(void) {
+    positional_regression();
     snapshot_read_regression();
     pipe_regression();
     setup(2); /* Parent retains a duplicate until wait returns. */

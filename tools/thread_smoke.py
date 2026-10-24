@@ -121,6 +121,7 @@ def main():
         expected.extend([
             "threadstress: yield ok",
             "threadstress: errno ok",
+            "threadstress: positional ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",

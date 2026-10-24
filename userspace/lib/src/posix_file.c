@@ -208,15 +208,12 @@ ssize_t pread(int fd, void *buffer, size_t length, off_t offset) {
         errno = EINVAL;
         return -1;
     }
-    off_t saved = lseek(fd, 0, SEEK_CUR);
-    if (saved < 0 || lseek(fd, offset, SEEK_SET) < 0) {
-        return -1;
+    if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+        errno = ESPIPE; return -1;
     }
-    ssize_t result = read(fd, buffer, length);
-    int saved_errno = errno;
-    (void)lseek(fd, saved, SEEK_SET);
-    errno = saved_errno;
-    return result;
+    long result = srv_pread(fd,buffer,length,offset);
+    if (result<0) { errno=(int)-result; return -1; }
+    return (ssize_t)result;
 }
 
 ssize_t pread64(int fd, void *buffer, size_t length, off_t offset) {
@@ -228,15 +225,12 @@ ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
         errno = EINVAL;
         return -1;
     }
-    off_t saved = lseek(fd, 0, SEEK_CUR);
-    if (saved < 0 || lseek(fd, offset, SEEK_SET) < 0) {
-        return -1;
+    if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+        errno = ESPIPE; return -1;
     }
-    ssize_t result = write(fd, buffer, length);
-    int saved_errno = errno;
-    (void)lseek(fd, saved, SEEK_SET);
-    errno = saved_errno;
-    return result;
+    long result = srv_pwrite(fd,buffer,length,offset);
+    if (result<0) { errno=(int)-result; return -1; }
+    return (ssize_t)result;
 }
 
 ssize_t pwrite64(int fd, const void *buffer, size_t length, off_t offset) {
