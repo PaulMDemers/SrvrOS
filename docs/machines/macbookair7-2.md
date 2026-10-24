@@ -4,21 +4,17 @@ Updated: 2026-10-24. State: **active reference machine; partial device acceptanc
 
 ### Active scope: POSIX correctness and compatibility
 
-Current block: complete native descriptor inheritance and ordered POSIX spawn
-file actions; then kernel vectored I/O (combined PIPE_BUF atomicity, one-read
-semantics, checked vectors and positional operations). Descriptor core, focused/
-full thread tests and Terminal/Files/process/ports/libuv regressions pass. Spawn
-core/build and focused/full thread suites pass; application regressions are in
-progress. Touch shared ABI, syscall/process/libc and semantic tests. Main's
-documentation-only `211f17c` is consumed as `88c2cbb`; Pro PR19 `ccc5a17`
-remains independent RF/Wi-Fi work. No physical trial is armed.
-
-
-Current consumer follow-up: complete binary64 printf formatting and keep Lua upstream
-tests unmodified; compare against host libc and rerun guest consumers. The first
-post-path libuv run exceeded its short harness deadline; a diagnostic 60-second
-run completes. Preserve both receipts and investigate timing before changing defaults.
-Descriptor inheritance and argument budgets now have guest coverage; general asynchronous signal frames remain unfinished.
+Current block: descriptor error reporting and shared pipe/PTY/Unix-listener
+status/lifetime. Atomic pipe2/dup3/F_DUPFD_CLOEXEC and descriptor printf
+`ed1c1fd` pass full core, focused/full thread, libuv and ports guest tests.
+Vectored I/O `2d03cde` and libuv internal CLOEXEC fix `b89253a` also pass Lua
+files/process and Terminal checks. The next candidate is building; physical
+acceptance remains unchanged. Touch syscall/process/PTY/libc and semantic tests;
+then audit the portable-consumer descriptor handoff and publish the supported
+compatibility profile. Desktop implementation remains deferred.
+Main remains `211f17c` (consumed as `88c2cbb`); Pro PR19 `e66d47d` adds Wi-Fi
+evidence docs only since the prior inspection and retains independent RF/Wi-Fi
+scope. No physical trial is armed.
 
 
 User authorizes sustained implementation of the POSIX plan before the desktop

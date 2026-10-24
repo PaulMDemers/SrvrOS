@@ -4,6 +4,7 @@
 static bool console_fd,busy,user_safe;
 static struct process_file pipe_file;
 struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p; return fd==10?&pipe_file:NULL; }
+bool process_file_nonblocking(struct process *p,uint64_t fd) { struct process_file *f=process_file_at(p,fd);return f && (f->flags&SRV_FD_NONBLOCK); }
 bool scheduler_io_busy(void) { return busy; }
 void scheduler_io_set_user_safe(bool value) { user_safe=value; }
 struct process *process_current(void) { return (struct process *)1; }

@@ -117,7 +117,7 @@ static void setup(unsigned refs) {
 static void pipe_regression(void) {
     clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
     assert(!process_file_pipe(&subject,fds) && fds[0]==3 && fds[1]==4);
-    subject.files[3].flags=subject.files[4].flags=SRV_FD_NONBLOCK;
+    assert(!process_file_set_flags(&subject,3,SRV_FD_NONBLOCK));assert(!process_file_set_flags(&subject,4,SRV_FD_NONBLOCK));
     static uint8_t input[PROCESS_PIPE_CAPACITY+512],output[PROCESS_PIPE_CAPACITY+512],model[PROCESS_PIPE_CAPACITY];
     size_t size=0;unsigned seed=12345,sequence=0;
     for(unsigned iteration=0;iteration<20000;iteration++) {
@@ -147,7 +147,7 @@ static void pipe_regression(void) {
      * tests the requested size, not merely whether any byte fits. */
     assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY-20)==PROCESS_PIPE_CAPACITY-20);
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_ERR_AGAIN);
-    subject.files[3].flags=subject.files[4].flags=0;
+    assert(!process_file_set_flags(&subject,3,0));assert(!process_file_set_flags(&subject,4,0));
     pipe_wait_mode=1;
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_PIPE_BUF && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,PROCESS_PIPE_CAPACITY)==SRV_PIPE_BUF);
@@ -346,7 +346,7 @@ static void coherence_regression(void) {
     assert(saved_size==4 && !memcmp(saved,"\0\0\0X",4));
     assert(process_file_pread(&subject,reader,out,16,0)==4 && !memcmp(saved,out,4));
     assert(process_file_seek(&subject,reader,99,0)==99 && process_file_read(&subject,reader,out,1)==0);
-    assert(process_file_seek(&subject,reader,INT64_MAX,1)==SRV_ERR_INVAL);
+    assert(process_file_seek(&subject,reader,INT64_MAX,1)==SRV_ERR_OVERFLOW);
     assert(process_file_close(&subject,reader)==0 && !content_find("/test/output"));
     opening=false;
     puts("process-content: PASS independent opens, reader promotion, OOM preservation, truncate/offset/flush/close lifetime");
@@ -517,6 +517,17 @@ int main(void) {
     setup(1);assert(process_output_write(&subject,1,(const uint8_t *)"bad",3)==3);
     assert(process_file_close(&subject,1)==0);fail_save=true;
     assert(finish_process_files(&subject,0)==1); /* Last-close failure too. */
+    setup(1);assert(process_file_write(&subject,3,(const uint8_t *)"bad",3)==3);
+    assert(process_file_seek(&subject,3,-1,0)==SRV_ERR_INVAL);
+    assert(process_file_seek(&subject,3,0,99)==SRV_ERR_INVAL);
+    assert(process_file_seek(&subject,3,0,1)==3);
+    assert(process_file_seek(&subject,3,INT64_MAX,1)==SRV_ERR_OVERFLOW);
+    assert(process_file_seek(&subject,99,0,0)==SRV_ERR_BADF);
+    assert(process_file_seek(&subject,0,0,0)==SRV_ERR_SPIPE);
+    assert(process_file_close(&subject,1)==0);fail_save=true;
+    assert(process_file_flush(&subject,3)==SRV_ERR_IO);
+    assert(process_file_close(&subject,3)==SRV_ERR_IO);
+    assert(process_file_close(&subject,3)==SRV_ERR_BADF && !subject.files[3].used);
     setup(1);assert(process_file_dup2(&subject,3,0)==0);
     assert(process_input_write(&subject,(const uint8_t *)"stdin",5)==5 && saves==0);
     assert(process_file_flush(&subject,0)==0 && saves==1);
@@ -548,7 +559,7 @@ int main(void) {
     assert(process_file_dup2(&subject,4,0)==0 && process_file_dup2(&subject,4,1)==1);
     assert(process_tty_handle(&subject,0)==handle && process_tty_handle(&subject,1)==handle);
     assert(!process_fd_is_console(&subject,0,true) && !process_fd_is_console(&subject,1,false));
-    subject.files[3].flags=SRV_FD_NONBLOCK;subject.files[4].flags=SRV_FD_NONBLOCK;
+    assert(!process_file_set_flags(&subject,3,SRV_FD_NONBLOCK));assert(!process_file_set_flags(&subject,4,SRV_FD_NONBLOCK));
     uint8_t buffer[32];assert(pty_read(handle,true,buffer,sizeof(buffer),true)==SRV_ERR_AGAIN);
     assert(pty_write(handle,true,(const uint8_t *)"line\n",5,true)==5);
     assert(pty_read(handle,false,buffer,sizeof(buffer),true)==5 && !memcmp(buffer,"line\n",5));

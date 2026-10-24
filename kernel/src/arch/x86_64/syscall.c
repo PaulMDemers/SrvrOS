@@ -371,7 +371,7 @@ static bool io_try_pipe_write(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
     return f && (f->type==PROCESS_FILE_PIPE_WRITE || f->type==PROCESS_FILE_PIPE_DUPLEX ||
         f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
-        (f->flags&SRV_FD_NONBLOCK);
+        process_file_nonblocking(process_current(),fd);
 }
 static bool io_defer_pipe_write(uint64_t fd) {
     if(io_try_pipe_write(fd)) {
@@ -511,7 +511,7 @@ static bool io_try_pipe_read(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
     return f && (f->type==PROCESS_FILE_PIPE_READ || f->type==PROCESS_FILE_PIPE_DUPLEX ||
         f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
-        (f->flags & SRV_FD_NONBLOCK);
+        process_file_nonblocking(process_current(),fd);
 }
 static bool io_defer_pipe_read(uint64_t fd) {
     if(io_try_pipe_read(fd)) {
@@ -616,19 +616,19 @@ static bool syscall_tty_fd_ok(uint64_t fd) {
 }
 
 static int64_t syscall_tty_getattr(uint64_t fd, struct srv_termios *termios) {
-    if (!syscall_tty_fd_ok(fd) || !user_buffer_ok(termios, sizeof(*termios), true)) {
-        return -1;
-    }
+    if(!process_file_at(process_current(),fd)) return SRV_ERR_BADF;
+    if(!syscall_tty_fd_ok(fd)) return SRV_ERR_NOTTY;
+    if(!user_buffer_ok(termios,sizeof(*termios),true)) return SRV_ERR_FAULT;
     struct pty_model *terminal=process_tty_model(process_current(),fd);
-    return copy_to_user(termios, terminal?&terminal->attributes:&console_termios, sizeof(console_termios)) ? 0 : -1;
+    return copy_to_user(termios, terminal?&terminal->attributes:&console_termios, sizeof(console_termios)) ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct srv_termios *termios) {
     struct srv_termios copy;
-    if (!syscall_tty_fd_ok(fd) || actions > SRV_TCSAFLUSH ||
-        !copy_from_user(&copy, termios, sizeof(copy))) {
-        return -1;
-    }
+    if(!process_file_at(process_current(),fd)) return SRV_ERR_BADF;
+    if(!syscall_tty_fd_ok(fd)) return SRV_ERR_NOTTY;
+    if(actions>SRV_TCSAFLUSH) return SRV_ERR_INVAL;
+    if(!copy_from_user(&copy,termios,sizeof(copy))) return SRV_ERR_FAULT;
     uint64_t terminal=process_tty_handle(process_current(),fd);
     if(terminal) return pty_setattr(terminal,&copy,(unsigned)actions);
     console_termios = copy;
@@ -1081,12 +1081,12 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     char path[MAX_PATH_LENGTH];
     struct syscall_stat copy = {0};
     struct vfs_metadata metadata;
-    if (info == NULL || !copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    if(!info) return SRV_ERR_FAULT;
+    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
 
     if (!vfs_stat(path, &metadata, &copy.size, &copy.type)) {
-        return -1;
+        return SRV_ERR_NOENT;
     }
 
     (void)process_open_file_size(path,&copy.size);
@@ -1102,19 +1102,20 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     copy.ctime = metadata.ctime;
     copy.blksize = 4096;
     copy.blocks = (copy.size + 511) / 512;
-    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info) {
     char path[MAX_PATH_LENGTH];
     struct exfat_fsinfo fsinfo;
     struct syscall_fsinfo copy = {0};
-    if (info == NULL || !copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    if(!info) return SRV_ERR_FAULT;
+    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
+    if(!vfs_lookup(path)) return SRV_ERR_NOENT;
 
     if (!exfat_statfs(path, &fsinfo)) {
-        return -1;
+        return SRV_ERR_IO;
     }
 
     copy.abi_version = SRV_ABI_VERSION;
@@ -1131,15 +1132,15 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
     for (uint64_t i = 0; i < sizeof(copy.mountpoint); i++) {
         copy.mountpoint[i] = fsinfo.mountpoint[i];
     }
-    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
-    return vfs_chmod(path, mode) ? 0 : -1;
+    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
+    if(!vfs_lookup(path)) return SRV_ERR_NOENT;
+    return vfs_chmod(path, mode) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mtime) {
@@ -1319,8 +1320,10 @@ static int64_t syscall_pipe_flags(int32_t *fds_out,uint64_t flags) {
     if (result < 0) {
         irq_restore(irq);return result;
     }
-    process_file_at(process_current(),fds[0])->flags=flags;
-    process_file_at(process_current(),fds[1])->flags=flags;
+    for(unsigned i=0;i<2;i++) {
+        (void)process_file_set_flags(process_current(),fds[i],flags&SRV_FD_NONBLOCK);
+        (void)process_file_set_fd_flags(process_current(),fds[i],flags&SRV_FD_CLOEXEC);
+    }
     copy[0] = (int32_t)fds[0];
     copy[1] = (int32_t)fds[1];
     if(!copy_to_user(fds_out,copy,sizeof(copy))) {
@@ -1584,8 +1587,12 @@ static int64_t syscall_ftruncate(uint64_t fd, uint64_t length) {
 }
 
 static int64_t syscall_fsync(uint64_t fd) {
-    if (process_file_flush(process_current(), fd) < 0) return -1;
-    return block_flush_all() ? 0 : -1;
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type!=PROCESS_FILE_VFS && file->type!=PROCESS_FILE_VFS_WRITE) return SRV_ERR_INVAL;
+    int64_t result=process_file_flush(process_current(),fd);
+    if(result<0) return result==-1?SRV_ERR_IO:result;
+    return block_flush_all()?0:SRV_ERR_IO;
 }
 
 static int64_t syscall_console_info(struct syscall_console_info *info) {

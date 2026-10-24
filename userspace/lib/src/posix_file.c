@@ -269,19 +269,15 @@ int close(int fd) {
     if (__posix_socket_is_pseudo(fd)) {
         return __posix_socket_close(fd);
     }
-    if (srv_close(fd) < 0) {
-        errno = EBADF;
-        return -1;
-    }
-    __posix_socket_note_close(fd);
+    long result=srv_close(fd);
+    __posix_socket_note_close(fd); /* The number is retired even on a flush error. */
+    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
 
 int fsync(int fd) {
-    if (srv_fsync(fd) < 0) {
-        errno = EBADF;
-        return -1;
-    }
+    long result=srv_fsync(fd);
+    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
 
@@ -534,9 +530,10 @@ int fcntl64(int fd, int command, ...) {
 }
 
 off_t lseek(int fd, off_t offset, int whence) {
+    if(__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) { errno=ESPIPE;return -1; }
     long result = srv_seek(fd, (int64_t)offset, (uint64_t)whence);
     if (result < 0) {
-        errno = EBADF;
+        errno = result==-1?EIO:(int)-result;
         return -1;
     }
     return (off_t)result;
@@ -549,12 +546,11 @@ off_t lseek64(int fd, off_t offset, int whence) {
 int stat(const char *path, struct stat *st) {
     char full[POSIX_PATH_MAX];
     struct srv_stat info;
-    if (st == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_stat(full, &info) < 0) {
-        errno = ENOENT;
+    if(!st) { errno=EFAULT;return -1; }
+    if(__posix_make_path(path,full,sizeof(full))<0) return -1;
+    long result=srv_stat(full,&info);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     fill_stat(st, &info);
@@ -614,12 +610,11 @@ struct srvros_statfs64 {
 static int fill_statfs64(const char *path, struct srvros_statfs64 *buf) {
     char full[POSIX_PATH_MAX];
     struct srv_fsinfo info;
-    if (buf == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_statfs(full, &info) < 0) {
-        errno = ENOENT;
+    if(!buf) { errno=EFAULT;return -1; }
+    if(__posix_make_path(path,full,sizeof(full))<0) return -1;
+    long result=srv_statfs(full,&info);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     memset(buf, 0, sizeof(*buf));
@@ -650,12 +645,11 @@ int fstatfs64(int fd, void *buf) {
 int statvfs(const char *path, struct statvfs *buf) {
     char full[POSIX_PATH_MAX];
     struct srv_fsinfo info;
-    if (buf == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_statfs(full, &info) < 0) {
-        errno = ENOENT;
+    if(!buf) { errno=EFAULT;return -1; }
+    if(__posix_make_path(path,full,sizeof(full))<0) return -1;
+    long result=srv_statfs(full,&info);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     memset(buf, 0, sizeof(*buf));
@@ -702,7 +696,8 @@ int isatty(int fd) {
         errno = saved_errno;
         return 1;
     }
-    errno = 0;
+    if(fcntl(fd,F_GETFD)<0) errno=EBADF;
+    else errno=ENOTTY;
     return 0;
 }
 
@@ -747,8 +742,9 @@ int chmod(const char *path, mode_t mode) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_chmod(full, mode) < 0) {
-        errno = ENOENT;
+    long result=srv_chmod(full,mode);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     return 0;

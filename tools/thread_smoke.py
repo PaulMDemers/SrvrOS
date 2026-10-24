@@ -154,6 +154,8 @@ def main():
             "threadstress: exec-vectors ok",
             "threadstress: pipe-atomic ok",
             "threadstress: vector-io ok",
+            "threadstress: file-errors ok",
+            "threadstress: endpoint-flags ok",
             "threadstress: dprintf ok",
             "threadstress: fd-publication ok",
             "threadstress: umask ok",

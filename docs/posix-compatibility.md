@@ -14,7 +14,23 @@ measure overall conformance. See the official
 and [general interface requirements](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html).
 This reference choice is a development target, not certification.
 
+For porting guidance, start with the [supported application profile](posix-supported-profile.md).
+
 ## Implementation progress after the audit
+
+Pipe, PTY and native Unix-listener nonblocking status now belongs to the shared
+endpoint rather than each FD. Duplicates, fork and spawn see the same status;
+CLOEXEC remains per descriptor and opposite endpoints remain independent.
+Unix listeners retain references across duplication/inheritance and survive
+closing the original FD. Full core and focused/full guest suites pass, including
+child status changes and close-before-accept. Native IPv4 status sharing and
+pseudo-descriptor inheritance remain separate gaps.
+
+Seek overflow now returns EOVERFLOW without changing the offset; nonseekable
+endpoints report ESPIPE. File flush/close failures retain EIO rather than becoming
+EBADF. The descriptor is still retired after a failed close. TTY operations
+distinguish EBADF/ENOTTY, and stat/path helpers preserve path errors. Host injected
+flush failures and focused/full guest error tests pass.
 
 `pipe2`, `dup3` and F_DUPFD_CLOEXEC now publish descriptors and flags in one
 kernel operation. Minimum-FD duplication does not temporarily occupy or close
@@ -222,10 +238,9 @@ pointers; exact host comparisons and sanitizers pass. `strtold` still widens
 binary64, and alternate rounding modes/extended precision remain gaps.
 Descriptor-backed stdio validates access at admission, preserves fdopen offsets,
 sets append status, and uses fstat for renamed/unlinked streams. Formatted output
-propagates errors. Noninteractive shell commands no longer append native status messages. Native
-spawn currently copies requested standard streams rather than the full parent FD
-table. Parent-numbered close actions can collide with private standard-stream
-backing slots; ordered inherited descriptors remain a required follow-up.
+propagates errors. Noninteractive shell commands no longer append native status messages. The subsequent descriptor and POSIX-spawn blocks remove the private standard-stream
+slots and implement ordered inherited descriptors; native GUI spawn keeps its
+explicit-transfer contract.
 Pinned Lua 5.4.8's unmodified `files.lua` passes its portable/soft profile, followed
 by explicit read/write popen, EOF and exit-status checks. This is a selected
 consumer gate, not all upstream tests or a completed compatibility milestone.

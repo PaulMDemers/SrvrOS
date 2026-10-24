@@ -132,6 +132,7 @@ struct process_pipe {
     uint64_t refs;
     uint64_t read_refs;
     uint64_t write_refs;
+    uint64_t read_flags,write_flags;
     uint64_t read_pos;
     uint64_t write_pos;
     uint64_t size;
@@ -145,6 +146,7 @@ struct process_unix_pending {
 };
 
 struct process_unix_listener {
+    uint64_t refs,status_flags;
     bool used;
     bool bound;
     bool listening;
@@ -3536,22 +3538,23 @@ static void read_file_ref(uint64_t handle) {
     }
 }
 
-static void read_file_close(uint64_t handle) {
+static int64_t read_file_close(uint64_t handle) {
     struct process_read_file *file = read_file_at(handle);
     if (file == NULL) {
-        return;
+        return SRV_ERR_BADF;
     }
     if (file->refs > 0) {
         file->refs--;
     }
     if (file->refs > 0) {
-        return;
+        return 0;
     }
-    (void)content_release(file->content);
+    int64_t result=content_release(file->content);
     uint8_t *bytes = (uint8_t *)file;
     for (uint64_t i = 0; i < sizeof(*file); i++) {
         bytes[i] = 0;
     }
+    return result;
 }
 
 /* Directory cookies share the open description, so dup/fork observe the same
@@ -3608,7 +3611,7 @@ int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capa
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
     struct process_file *endpoint=process_file_at(process,fd);
     if(endpoint && (endpoint->type==PROCESS_FILE_PTY_MASTER || endpoint->type==PROCESS_FILE_PTY_SLAVE))
-        return pty_read(endpoint->handle,endpoint->type==PROCESS_FILE_PTY_MASTER,buffer,length,(endpoint->flags&SRV_FD_NONBLOCK)!=0);
+        return pty_read(endpoint->handle,endpoint->type==PROCESS_FILE_PTY_MASTER,buffer,length,process_file_nonblocking(process,fd));
     uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
@@ -4060,7 +4063,7 @@ static int64_t process_fsize_write(struct process *process,uint64_t position,uin
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
     struct process_file *endpoint=process_file_at(process,fd);
     if(endpoint && (endpoint->type==PROCESS_FILE_PTY_MASTER || endpoint->type==PROCESS_FILE_PTY_SLAVE))
-        return pty_write(endpoint->handle,endpoint->type==PROCESS_FILE_PTY_MASTER,buffer,length,(endpoint->flags&SRV_FD_NONBLOCK)!=0);
+        return pty_write(endpoint->handle,endpoint->type==PROCESS_FILE_PTY_MASTER,buffer,length,process_file_nonblocking(process,fd));
     uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL || file->type != PROCESS_FILE_VFS_WRITE || (buffer == NULL && length != 0)) {
@@ -4170,8 +4173,8 @@ done:
 }
 
 bool process_file_nonblocking(struct process *process, uint64_t fd) {
-    struct process_file *file = process_file_at(process, fd);
-    return file != NULL && (file->flags & SRV_FD_NONBLOCK) != 0;
+    int64_t flags=process_file_get_flags(process,fd);
+    return flags>=0 && (flags&SRV_FD_NONBLOCK)!=0;
 }
 
 static struct process_pipe *pipe_at(uint64_t handle) {
@@ -4282,7 +4285,7 @@ static void pipe_close(uint64_t handle, bool write_end) {
 static int64_t write_file_close(uint64_t handle) {
     struct process_write_file *write = write_file_at(handle);
     if (write == NULL) {
-        return -1;
+        return SRV_ERR_BADF;
     }
 
     if (write->refs > 0) {
@@ -4294,7 +4297,7 @@ static int64_t write_file_close(uint64_t handle) {
 
     int64_t result = 0;
     if (process_file_flush(NULL, handle) < 0) {
-        result = -1;
+        result = SRV_ERR_IO;
     }
 
     if(content_release(write->content)<0) result=SRV_ERR_IO;
@@ -4544,6 +4547,7 @@ static void unix_listener_release(uint64_t handle) {
     if (listener == NULL) {
         return;
     }
+    if(--listener->refs) return;
     for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
         unix_pending_release(&listener->queue[i]);
     }
@@ -4625,6 +4629,7 @@ int64_t process_unix_bind(struct process *process, const char *path) {
         return -1;
     }
     listener->used = true;
+    listener->refs = 1;
     listener->bound = true;
     listener->backlog = 1;
 
@@ -4714,7 +4719,7 @@ int64_t process_unix_accept(struct process *process, uint64_t fd) {
         return -1;
     }
     while (unix_listener_pending_count(listener) == 0) {
-        if ((file->flags & SRV_FD_NONBLOCK) != 0) {
+        if (process_file_nonblocking(process,fd)) {
             return SRV_ERR_AGAIN;
         }
         if (!scheduler_wait(&unix_wait_queue, unix_accept_ready, listener)) {
@@ -4788,7 +4793,7 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
         if (process_should_exit_current()) {
             return -1;
         }
-        if ((file->flags & SRV_FD_NONBLOCK) != 0) {
+        if (process_file_nonblocking(process,fd)) {
             return SRV_ERR_AGAIN;
         }
         if (!scheduler_wait(&pipe_wait_queue, pipe_read_ready, pipe)) {
@@ -4838,7 +4843,7 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
             if (process_should_exit_current()) {
                 return done > 0 ? (int64_t)done : -1;
             }
-            if ((file->flags & SRV_FD_NONBLOCK) != 0) {
+            if (process_file_nonblocking(process,fd)) {
                 return done > 0 ? (int64_t)done : SRV_ERR_AGAIN;
             }
             if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, &wait)) {
@@ -5050,6 +5055,11 @@ static bool process_file_clone_entry(struct process_file *target, const struct p
         return true;
     }
 
+    if(source->type==PROCESS_FILE_UNIX_LISTENER) {
+        struct process_unix_listener *listener=unix_listener_at(source->handle);
+        if(!listener || listener->refs==UINT64_MAX) return false;
+        listener->refs++;*target=*source;return true;
+    }
     if(source->type==PROCESS_FILE_PTY_MASTER || source->type==PROCESS_FILE_PTY_SLAVE) {
         if(!pty_ref(source->handle,source->type==PROCESS_FILE_PTY_MASTER)) return false;
         *target=*source;return true;
@@ -5357,6 +5367,18 @@ int64_t process_file_recv_rights(struct process *process,
     return (int64_t)deliver;
 }
 
+/* Status belongs to an endpoint's open description; CLOEXEC belongs to an FD. */
+static uint64_t *endpoint_status_flags(struct process_file *file) {
+    if(file->type==PROCESS_FILE_PIPE_READ || file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX) {
+        struct process_pipe *pipe=pipe_at(file->handle);
+        return !pipe?NULL:file->type==PROCESS_FILE_PIPE_WRITE?&pipe->write_flags:&pipe->read_flags;
+    }
+    if(file->type==PROCESS_FILE_UNIX_LISTENER) {
+        struct process_unix_listener *listener=unix_listener_at(file->handle);
+        return listener?&listener->status_flags:NULL;
+    }
+    return NULL;
+}
 int64_t process_file_get_flags(struct process *process, uint64_t fd) {
     struct process_file *file=process_file_at(process,fd);
     if(!file) return SRV_ERR_BADF;
@@ -5375,7 +5397,12 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd) {
     uint64_t access=file->type==PROCESS_FILE_STDIO?(file->handle==0?SRV_FD_READ:SRV_FD_WRITE):
         file->type==PROCESS_FILE_PIPE_READ?SRV_FD_READ:
         file->type==PROCESS_FILE_PIPE_WRITE?SRV_FD_WRITE:SRV_FD_READ|SRV_FD_WRITE;
-    return access|(file->flags&SRV_FD_NONBLOCK);
+    if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE) {
+        int64_t flags=pty_get_flags(file->handle,file->type==PROCESS_FILE_PTY_MASTER);
+        return flags<0?flags:(int64_t)(access|(uint64_t)flags);
+    }
+    uint64_t *status=endpoint_status_flags(file);
+    return access|((status?*status:file->flags)&SRV_FD_NONBLOCK);
 }
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags) {
     struct process_file *file=process_file_at(process,fd);
@@ -5391,6 +5418,12 @@ int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t fl
         write->open_flags=(write->open_flags&~(SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK)) |
             ((flags&SRV_FD_APPEND)?SRV_OPEN_APPEND:0) | ((flags&SRV_FD_NONBLOCK)?SRV_OPEN_NONBLOCK:0);
     }
+    if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE) {
+        int64_t result=pty_set_flags(file->handle,file->type==PROCESS_FILE_PTY_MASTER,flags&SRV_FD_NONBLOCK);
+        if(result<0) { process_irq_restore(irq);return result; }
+    }
+    uint64_t *status=endpoint_status_flags(file);
+    if(status) *status=flags&SRV_FD_NONBLOCK;
     file->flags=(file->flags&SRV_FD_CLOEXEC)|(flags&SRV_FD_NONBLOCK);
     process_irq_restore(irq);return 0;
 }
@@ -5491,11 +5524,11 @@ static int64_t process_file_close_entry(struct process *process, struct process_
             file->type == PROCESS_FILE_NET_CONNECTION ||
             file->type == PROCESS_FILE_NET_UDP) &&
         net_close(file->handle) < 0) {
-        result = -1;
+        result = SRV_ERR_IO;
     }
 
     if (file->type == PROCESS_FILE_VFS) {
-        read_file_close(file->handle);
+        result=read_file_close(file->handle);
     } else if (file->type == PROCESS_FILE_PIPE_READ) {
         pipe_close(file->handle, false);
     } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
@@ -5509,7 +5542,7 @@ static int64_t process_file_close_entry(struct process *process, struct process_
         unix_listener_release(file->handle);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         if (write_file_close(file->handle) < 0) {
-            result = -1;
+            result = SRV_ERR_IO;
         }
     }
 
@@ -5532,10 +5565,9 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence) {
     uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
-    if (file == NULL ||
-        (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE)) {
-        process_irq_restore(flags);
-        return -1;
+    if (!file) { process_irq_restore(flags);return SRV_ERR_BADF; }
+    if(file->type!=PROCESS_FILE_VFS && file->type!=PROCESS_FILE_VFS_WRITE) {
+        process_irq_restore(flags);return SRV_ERR_SPIPE;
     }
 
     struct process_write_file *write = NULL;
@@ -5546,7 +5578,7 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
         read = read_file_at(file->handle);
         if (read == NULL) {
             process_irq_restore(flags);
-            return -1;
+            return SRV_ERR_BADF;
         }
         current_offset = read->offset;
         current_size = read->content->size;
@@ -5554,7 +5586,7 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
         write = write_file_at(file->handle);
         if (write == NULL) {
             process_irq_restore(flags);
-            return -1;
+            return SRV_ERR_BADF;
         }
         current_offset = write->offset;
         current_size = write->content->size;
@@ -5569,16 +5601,16 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
         base = (int64_t)current_size;
     } else {
         process_irq_restore(flags);
-        return -1;
+        return SRV_ERR_INVAL;
     }
 
     if((offset>0 && base>INT64_MAX-offset) || (offset<0 && base<INT64_MIN-offset)) {
-        process_irq_restore(flags);return SRV_ERR_INVAL;
+        process_irq_restore(flags);return SRV_ERR_OVERFLOW;
     }
     int64_t target = base + offset;
     if (target < 0) {
         process_irq_restore(flags);
-        return -1;
+        return SRV_ERR_INVAL;
     }
 
     if (write != NULL) {

@@ -4,6 +4,8 @@
 /* Generation-tagged endpoints; a new pair starts with one reference per end. */
 uint64_t pty_create(void);
 bool pty_ref(uint64_t handle,bool master);
+int64_t pty_get_flags(uint64_t handle,bool master);
+int64_t pty_set_flags(uint64_t handle,bool master,uint64_t flags);
 void pty_close(uint64_t handle,bool master);
 struct pty_model *pty_state(uint64_t handle);
 int64_t pty_read(uint64_t handle,bool master,uint8_t *data,uint64_t length,bool nonblocking);

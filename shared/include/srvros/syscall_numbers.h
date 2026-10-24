@@ -329,8 +329,10 @@ struct srv_winsize {
 #define SRV_ERR_INVAL -22
 #define SRV_ERR_NFILE -23
 #define SRV_ERR_MFILE -24
+#define SRV_ERR_NOTTY -25
 #define SRV_ERR_FBIG -27
 #define SRV_ERR_SPIPE -29
+#define SRV_ERR_OVERFLOW -75
 
 #define SRV_RIGHTS_MAX 4
 #define SRV_MSG_CTRUNC 0x08
