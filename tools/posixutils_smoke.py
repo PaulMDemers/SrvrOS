@@ -184,7 +184,7 @@ def main():
         "usage: strings [-n length] [file ...]",
         "usage: file path ...",
         "usage: tty [-s]",
-        "usage: stty [-a|raw|cooked|sane|echo|-echo]",
+        "usage: stty [-a|size|raw|cooked|sane|echo|-echo]",
         "usage: time command [arg ...]",
         "usage: timeout seconds command [arg ...]",
         "usage: nohup command [arg ...]",
