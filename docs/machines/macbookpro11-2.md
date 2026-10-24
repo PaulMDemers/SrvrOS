@@ -5391,3 +5391,31 @@ Next: attended cold adapter cycle, then collect matching release/session FIRST.
 Require all preceding initialization proof, six guard reads, one exact RF read
 response, no radio writes and a complete extended snapshot. RF register response,
 radio function and connectivity remain unaccepted. No reboot is armed.
+
+
+### 2026-10-24 — read-only RF transport observed
+
+Source `5fb885e`, release `63fb5a9f9addbb21`, session
+`session-00065e9d618d5674-00` passed the strict v60 collector on this
+MacBookPro11,2/Edimax7392:a711. The fixed RF0:22 request returned one 16-byte
+response with words `4a080008/80000016/00000000/4a080008`; the observed value
+is zero. All six guard reads/submissions passed: MAC0, COREf000f200 and
+DMA40000050 at both boundaries. No RF register writes occurred. Full prior
+initialization proof and both completion markers passed. This accepts the
+command/response observation only, not calibrated trim or radio function.
+
+The complete exit snapshot is 65730 bytes, including its startup prefix and
+128KiB limit marker: 194 bytes beyond the old limit. Collection
+`build/bringup/wifi-rf-probe/collection/collection-s6sofics` and strict receipts
+are archived with the payload and run/checkpoint under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-probe-5fb885e/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean: 263 files, 643 clusters, 105 directories,
+zero leaks, allocation mismatches or errors. Workspace unmounted; no reboot armed.
+
+Next bounded scope: RF-bank initialization, fresh frequency-offset validation
+and calibration; scanning, association/security and connectivity remain pending.
+Fetched main `4f8acd2` includes Air6,1 startup-timing PR137 and was inspected,
+but is not integrated into this native candidate (integration base `d5bc4b3`).
+Preserve its shared startup/staging changes and PR134 POSIX scope during future
+integration; do not attribute them to this run.

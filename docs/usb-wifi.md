@@ -2432,7 +2432,7 @@ are next; antenna RF performance, scanning and connectivity remain untested.
 ### Read-only RF transport probe (v60)
 
 `--wifi-rf-probe` requires `--wifi-ant-init`. After the complete v59 chain, this
-candidate sends one fixed CMD_RANDOM_READ10, sequence8 request for RF bank0,
+stage sends one fixed CMD_RANDOM_READ10, sequence8 request for RF bank0,
 register22 (frequency trim), with a zero value field. Linux v7.0 uses the MCU
 RF address space `0x80000000 + (bank << 16 | register)` on USB; the PCI RF CSR
 path is not used. See the [RF access path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
@@ -2440,10 +2440,10 @@ and [USB MCU transport](https://github.com/torvalds/linux/blob/v7.0/drivers/net/
 
 Six direct reads check MAC0/COREf000f200/disabled DMA before and after the
 exchange. Native admission requires exact completed antenna/configuration proof,
-request bytes and order, and one submission only. The candidate response contract
+request bytes and order, and one submission only. The observed response contract
 requires 16 bytes, sequence8/event0/length8 header `4a080008`, address `80000016`,
-an eight-bit value, and matching trailer. Those framing fields are deliberately
-strict hypotheses to test, not an already accepted RF response contract. The
+an eight-bit value, and matching trailer. These framing fields were observed on
+the captured adapter in the native run below. The
 first four response words and transport counts are saved on a mismatch. A failed
 exchange or changed guard stops without retry and retains uncertain USB DMA.
 No RF register write, calibration, channel choice or transmitter enable occurs.
@@ -2452,7 +2452,18 @@ Wi-Fi firmware captures now opt into a 128KiB complete startup snapshot. Expansi
 refuses already lost startup bytes; overflow refuses saving a partial proof.
 Ordinary desktop/battery snapshots stay at 64KiB. The larger kernel buffers add
 192KiB of static storage; there is no runtime allocation or new periodic schedule.
-Host collection retains its total 64MiB ceiling. Native RF transport is pending.
-After observation, the next work is bounded RF-table initialization, fresh
+Host collection retains its total 64MiB ceiling.
+
+Source `5fb885e`, release `63fb5a9f9addbb21`, session
+`session-00065e9d618d5674-00` passed the strict v60 collector. The one 16-byte
+response contained `4a080008/80000016/00000000/4a080008`: RF0:22 returned zero.
+All six boundary reads passed, with MAC0, COREf000f200 and DMA40000050 before
+and after; no RF writes occurred. All preceding initialization proof and both
+completion markers passed. The complete 65730-byte startup snapshot was saved,
+194 bytes beyond the former 64KiB limit. Automatic return, Ubuntu recovery and
+both offline filesystem checks passed. This accepts the command/response
+observation only; it does not establish calibrated frequency trim or radio function.
+
+The next work is bounded RF-table initialization, fresh
 frequency-offset validation, DAC/VCO calibration and receiver setup; scanning,
 802.11 association/security and network integration remain later milestones.
