@@ -595,6 +595,23 @@ int main(void) {
         assert(!process_signal_pending_mask_current() && !subject.user_threads[0].pending_signals);
     }
     current_subject=NULL;
+    clear_process(&subject);
+    assert(process_file_dup_min(&subject,1,32,true)==32);
+    assert(process_file_get_fd_flags(&subject,32)==SRV_FD_CLOEXEC);
+    assert(process_file_dup_min(&subject,1,32,false)==33);
+    assert(process_file_get_fd_flags(&subject,33)==0);
+    for(unsigned i=3;i<32;i++) assert(!subject.files[i].used);
+    assert(process_file_dup3(&subject,0,33,SRV_FD_CLOEXEC)==33);
+    assert(subject.files[33].handle==0 && process_file_get_fd_flags(&subject,33)==SRV_FD_CLOEXEC);
+    assert(process_file_dup3(&subject,99,33,0)==SRV_ERR_BADF && subject.files[33].handle==0);
+    assert(process_file_dup3(&subject,33,33,0)==SRV_ERR_INVAL);
+    assert(process_file_dup3(&subject,1,33,SRV_FD_NONBLOCK)==SRV_ERR_INVAL);
+    assert(process_file_dup_min(&subject,1,PROCESS_MAX_OPEN_FILES,false)==SRV_ERR_INVAL);
+    assert(process_file_dup2(&subject,1,33)==33 && !process_file_get_fd_flags(&subject,33));
+    for(unsigned i=3;i<PROCESS_MAX_OPEN_FILES;i++) if(!subject.files[i].used)
+        assert(process_file_dup_min(&subject,1,i,true)==i);
+    assert(process_file_dup_min(&subject,1,0,false)==SRV_ERR_MFILE);
+    assert(cleanup_process_files(&subject));
     targeted_signal_regression();
     cpu_usage_regression();
     open_flags_regression();

@@ -16,6 +16,17 @@ This reference choice is a development target, not certification.
 
 ## Implementation progress after the audit
 
+`pipe2`, `dup3` and F_DUPFD_CLOEXEC now publish descriptors and flags in one
+kernel operation. Minimum-FD duplication does not temporarily occupy or close
+lower numbers; dup3 publishes its replacement before retiring an old endpoint.
+Core and focused/full guest tests pass, including concurrent pipe/duplicate
+creation while twelve spawned children inspect their inherited tables. CLOFORK
+and pseudo-socket/eventfd duplication variants remain outside this profile.
+`dprintf`/`vdprintf` borrow the descriptor through a private stack buffer, without
+allocating a spare FD or closing/changing the caller's descriptor. Full-table,
+format/count, nonblocking failure and broken-pipe tests pass. The normal-deadline
+libuv regression also passes this candidate.
+
 Descriptors 0, 1 and 2 now occupy the same kernel table as other descriptors.
 Close releases their numbers for reuse; dup/dup2 copy endpoint ownership rather
 than retaining a reference to a mutable standard-stream slot. Replacement is

@@ -210,7 +210,9 @@ int64_t process_handle_alloc(struct process *process,
     uint64_t handle);
 int64_t process_file_close(struct process *process, uint64_t fd);
 int64_t process_file_dup(struct process *process, uint64_t old_fd);
+int64_t process_file_dup_min(struct process *process, uint64_t old_fd, uint64_t minimum, bool cloexec);
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd);
+int64_t process_file_dup3(struct process *process, uint64_t old_fd, uint64_t new_fd, uint64_t flags);
 int64_t process_file_get_flags(struct process *process, uint64_t fd);
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags);
 int64_t process_file_get_fd_flags(struct process *process, uint64_t fd);

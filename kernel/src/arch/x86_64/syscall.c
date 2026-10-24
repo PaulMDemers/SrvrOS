@@ -1307,18 +1307,28 @@ static int64_t syscall_dup2(uint64_t old_fd, uint64_t new_fd) {
     return process_file_dup2(process_current(), old_fd, new_fd);
 }
 
-static int64_t syscall_pipe(int32_t *fds_out) {
+static int64_t syscall_pipe_flags(int32_t *fds_out,uint64_t flags) {
+    if(flags&~(SRV_FD_NONBLOCK|SRV_FD_CLOEXEC)) return SRV_ERR_INVAL;
     uint64_t fds[2];
     int32_t copy[2];
+    uint64_t irq=irq_save();
     if (fds_out == NULL || !user_buffer_ok(fds_out, sizeof(copy), true)) {
-        return -1;
+        irq_restore(irq);return SRV_ERR_FAULT;
     }
-    if (process_file_pipe(process_current(), fds) < 0) {
-        return -1;
+    int64_t result=process_file_pipe(process_current(), fds);
+    if (result < 0) {
+        irq_restore(irq);return result;
     }
+    process_file_at(process_current(),fds[0])->flags=flags;
+    process_file_at(process_current(),fds[1])->flags=flags;
     copy[0] = (int32_t)fds[0];
     copy[1] = (int32_t)fds[1];
-    return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
+    if(!copy_to_user(fds_out,copy,sizeof(copy))) {
+        (void)process_file_close(process_current(),fds[0]);
+        (void)process_file_close(process_current(),fds[1]);
+        result=SRV_ERR_FAULT;
+    }
+    irq_restore(irq);return result;
 }
 
 static int64_t syscall_pipe_pair(int32_t *fds_out) {
@@ -1534,6 +1544,8 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
 }
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if(command==SRV_F_DUPFD || command==SRV_F_DUPFD_CLOEXEC)
+        return process_file_dup_min(process_current(),fd,arg,command==SRV_F_DUPFD_CLOEXEC);
     if (command == SRV_F_GETFD) {
         return process_file_get_fd_flags(process_current(), fd);
     }
@@ -3021,8 +3033,14 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_DUP2:
         frame->rax = (uint64_t)syscall_dup2(frame->rdi, frame->rsi);
         return;
+    case SYS_DUP3:
+        frame->rax=(uint64_t)process_file_dup3(process_current(),frame->rdi,frame->rsi,frame->rdx);
+        return;
     case SYS_PIPE:
-        frame->rax = (uint64_t)syscall_pipe((int32_t *)frame->rdi);
+        frame->rax = (uint64_t)syscall_pipe_flags((int32_t *)frame->rdi,0);
+        return;
+    case SYS_PIPE2:
+        frame->rax = (uint64_t)syscall_pipe_flags((int32_t *)frame->rdi,frame->rsi);
         return;
     case SYS_PTY_CREATE:
         frame->rax = (uint64_t)syscall_pty_create((int32_t *)frame->rdi);

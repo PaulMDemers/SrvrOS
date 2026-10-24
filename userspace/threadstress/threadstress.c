@@ -604,6 +604,9 @@ int posix_stdio_format_test(void);
 int posix_exec_vectors_test(void);
 int posix_pipe_atomic_test(void);
 int posix_vector_io_test(void);
+int posix_dprintf_test(void);
+int posix_fd_publication_test(void);
+int posix_fd_publication_child(void);
 int posix_umask_test(void);
 int posix_stdio_registry_test(void);
 int posix_descriptor_test(void);
@@ -619,6 +622,7 @@ int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
     if(argc>=2 && !strcmp(argv[1],"spawn-actions-child")) return posix_spawn_actions_child(argc,argv);
+    if(argc>=2 && !strcmp(argv[1],"fd-publication-child")) return posix_fd_publication_child();
     if(argc==2 && !strcmp(argv[1],"umask-child")) return posix_umask_child();
     if(argc>1 && (!strcmp(argv[1],"exec-vectors-child") || !strcmp(argv[1],"exec-budget-child"))) return posix_exec_vectors_child(argc,argv);
     if(argc==2 && !strcmp(argv[1],"path-child")) return posix_path_child();
@@ -659,6 +663,8 @@ int main(int argc, char **argv) {
     RUN_TEST("exec-vectors", posix_exec_vectors_test);
     RUN_TEST("pipe-atomic", posix_pipe_atomic_test);
     RUN_TEST("vector-io", posix_vector_io_test);
+    RUN_TEST("dprintf", posix_dprintf_test);
+    RUN_TEST("fd-publication", posix_fd_publication_test);
     RUN_TEST("umask", posix_umask_test);
     RUN_TEST("stdio-registry", posix_stdio_registry_test);
     RUN_TEST("descriptors", posix_descriptor_test);

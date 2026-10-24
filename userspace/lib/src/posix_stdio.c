@@ -580,6 +580,30 @@ int vfprintf(FILE *stream, const char *format, va_list args) {
     return result;
 }
 
+int vdprintf(int fd,const char *format,va_list args) {
+    int flags=fcntl(fd,F_GETFL);
+    if(flags<0) return -1;
+    if((flags&O_ACCMODE)==O_RDONLY) { errno=EBADF;return -1; }
+    if(!format) { errno=EINVAL;return -1; }
+    /* A private stack stream borrows the descriptor. It needs no spare FD,
+     * registry entry or allocation, and evaluates conversions (including %n)
+     * only once. Never close or change flags on the caller's descriptor. */
+    unsigned char buffer[4096];
+    FILE stream={.fd=fd,.writable=1,.buffer_mode=_IOFBF,.buffer=buffer,
+        .buffer_size=sizeof(buffer),.known_size=-1};
+    struct out_stream out={.file=&stream};
+    int result=format_to(&out,format,args);
+    if(result<0 || stream.error) return -1;
+    if(flush_write_buffer(&stream)<0) return -1;
+    return result;
+}
+
+int dprintf(int fd,const char *format,...) {
+    va_list args;va_start(args,format);
+    int result=vdprintf(fd,format,args);
+    va_end(args);return result;
+}
+
 int __vfprintf_chk(FILE *stream, int flag, const char *format, va_list args) {
     (void)flag;
     return vfprintf(stream, format, args);
@@ -1359,6 +1383,7 @@ static int write_all_at_current_fd(FILE *stream, const unsigned char *data, size
     while (written < count) {
         ssize_t n = write(stream->fd, data + written, count - written);
         if (n <= 0) {
+            if(n==0) errno=EIO;
             stream->error = 1;
             return -1;
         }

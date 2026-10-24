@@ -4389,7 +4389,7 @@ static bool pipe_write_ready(void *arg) {
 
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
     if (process == NULL || fds_out == NULL) {
-        return -1;
+        return SRV_ERR_INVAL;
     }
 
     uint64_t read_index = PROCESS_MAX_OPEN_FILES;
@@ -4406,12 +4406,12 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
         }
     }
     if (write_index == PROCESS_MAX_OPEN_FILES) {
-        return -1;
+        return SRV_ERR_MFILE;
     }
 
     uint64_t handle = pipe_alloc();
     if (handle == 0) {
-        return -1;
+        return SRV_ERR_NFILE;
     }
 
     struct process_file *read_file = &process->files[read_index];
@@ -5190,22 +5190,30 @@ static int64_t process_file_dup_into(struct process *process, const struct proce
     return (int64_t)(target_index);
 }
 
-int64_t process_file_dup(struct process *process, uint64_t old_fd) {
+int64_t process_file_dup_min(struct process *process, uint64_t old_fd, uint64_t minimum, bool cloexec) {
+    if(minimum>=PROCESS_MAX_OPEN_FILES) return SRV_ERR_INVAL;
     uint64_t irq=process_irq_save();
     struct process_file *source=process_file_at(process,old_fd);
     int64_t result=SRV_ERR_BADF;
     if(source) {
         result=SRV_ERR_MFILE;
-        for(uint64_t i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(!process->files[i].used) {
+        for(uint64_t i=minimum;i<PROCESS_MAX_OPEN_FILES;i++) if(!process->files[i].used) {
             result=process_file_dup_into(process,source,i);
-            if(result>=0) process->files[i].flags&=~SRV_FD_CLOEXEC;
+            if(result>=0) {
+                process->files[i].flags&=~SRV_FD_CLOEXEC;
+                if(cloexec) process->files[i].flags|=SRV_FD_CLOEXEC;
+            } else result=SRV_ERR_NOMEM;
             break;
         }
     }
     process_irq_restore(irq);return result;
 }
 
-int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd) {
+int64_t process_file_dup(struct process *process, uint64_t old_fd) {
+    return process_file_dup_min(process,old_fd,0,false);
+}
+
+static int64_t process_file_dup_replace(struct process *process, uint64_t old_fd, uint64_t new_fd, bool cloexec) {
     uint64_t irq=process_irq_save();
     struct process_file *source=process_file_at(process,old_fd);
     if(!source || new_fd>=PROCESS_MAX_OPEN_FILES) { process_irq_restore(irq);return SRV_ERR_BADF; }
@@ -5213,11 +5221,21 @@ int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new
     struct process_file replacement={0};
     if(!process_file_clone_entry(&replacement,source)) { process_irq_restore(irq);return SRV_ERR_NOMEM; }
     replacement.flags&=~SRV_FD_CLOEXEC;
+    if(cloexec) replacement.flags|=SRV_FD_CLOEXEC;
     struct process_file retired=process->files[new_fd];
     process->files[new_fd]=replacement;
     process_irq_restore(irq);
     if(retired.used) (void)process_file_close_entry(process,&retired);
     return (int64_t)new_fd;
+}
+
+int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd) {
+    return process_file_dup_replace(process,old_fd,new_fd,false);
+}
+
+int64_t process_file_dup3(struct process *process, uint64_t old_fd, uint64_t new_fd, uint64_t flags) {
+    if(old_fd==new_fd || (flags&~SRV_FD_CLOEXEC)) return SRV_ERR_INVAL;
+    return process_file_dup_replace(process,old_fd,new_fd,(flags&SRV_FD_CLOEXEC)!=0);
 }
 
 static const struct process_file *process_file_source_for_fd(struct process *process,

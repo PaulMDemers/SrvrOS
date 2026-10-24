@@ -30,7 +30,6 @@ int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
 
 #define POSIX_PATH_MAX SRV_PATH_MAX
-#define POSIX_FD_DUP_TEMP_MAX 80
 
 
 static void fill_stat(struct stat *st, const struct srv_stat *info) {
@@ -304,7 +303,6 @@ int dup(int fd) {
         return -1;
     }
     __posix_socket_note_dup(fd, (int)result);
-    (void)fcntl((int)result, F_SETFD, 0);
     return (int)result;
 }
 
@@ -325,7 +323,6 @@ int dup2(int old_fd, int new_fd) {
         return -1;
     }
     __posix_socket_note_dup(old_fd, new_fd);
-    (void)fcntl((int)result, F_SETFD, 0);
     return (int)result;
 }
 
@@ -334,86 +331,36 @@ int dup3(int old_fd, int new_fd, int flags) {
         errno = EINVAL;
         return -1;
     }
-    int result = dup2(old_fd, new_fd);
-    if (result < 0) {
-        return -1;
+    if(__posix_socket_is_pseudo(old_fd) || __posix_eventfd_is_pseudo(old_fd) ||
+       __posix_socket_is_pseudo(new_fd) || __posix_eventfd_is_pseudo(new_fd)) {
+        errno=EOPNOTSUPP;return -1;
     }
-    if ((flags & O_CLOEXEC) != 0 && fcntl(result, F_SETFD, FD_CLOEXEC) < 0) {
-        close(result);
-        return -1;
-    }
-    return result;
+    long result=srv_syscall3(SYS_DUP3,old_fd,new_fd,(flags&O_CLOEXEC)?SRV_FD_CLOEXEC:0);
+    if(result<0) { errno=result==-1?EBADF:(int)-result;return -1; }
+    __posix_socket_note_dup(old_fd,(int)result);
+    return (int)result;
 }
 
-int pipe(int fds[2]) {
-    if (fds == 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_pipe(fds) < 0) {
-        errno = EMFILE;
-        return -1;
-    }
+int pipe2(int fds[2],int flags) {
+    if(flags&~(O_CLOEXEC|O_NONBLOCK)) { errno=EINVAL;return -1; }
+    uint64_t native=0;
+    if(flags&O_CLOEXEC) native|=SRV_FD_CLOEXEC;
+    if(flags&O_NONBLOCK) native|=SRV_FD_NONBLOCK;
+    long result=srv_syscall2(SYS_PIPE2,(long)fds,(long)native);
+    if(result<0) { errno=(int)-result;return -1; }
     return 0;
 }
+int pipe(int fds[2]) { return pipe2(fds,0); }
 
-int pipe2(int fds[2], int flags) {
-    if ((flags & ~(O_CLOEXEC | O_NONBLOCK)) != 0) {
-        errno = EINVAL;
-        return -1;
+static int fcntl_dupfd(int fd,int minimum,int cloexec) {
+    if(minimum<0 || minimum>=sysconf(_SC_OPEN_MAX)) { errno=EINVAL;return -1; }
+    if(__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+        errno=EOPNOTSUPP;return -1;
     }
-    if (pipe(fds) < 0) {
-        return -1;
-    }
-    if ((flags & O_CLOEXEC) != 0) {
-        (void)fcntl(fds[0], F_SETFD, FD_CLOEXEC);
-        (void)fcntl(fds[1], F_SETFD, FD_CLOEXEC);
-    }
-    if ((flags & O_NONBLOCK) != 0) {
-        (void)fcntl(fds[0], F_SETFL, O_NONBLOCK);
-        (void)fcntl(fds[1], F_SETFL, O_NONBLOCK);
-    }
-    return 0;
-}
-
-static int fcntl_dupfd(int fd, int minimum, int cloexec) {
-    if (minimum < 0 || minimum >= sysconf(_SC_OPEN_MAX)) {
-        errno = EINVAL;
-        return -1;
-    }
-
-    int temps[POSIX_FD_DUP_TEMP_MAX];
-    int temp_count = 0;
-    int result = -1;
-    for (;;) {
-        result = dup(fd);
-        if (result < 0) {
-            break;
-        }
-        if (result >= minimum) {
-            if (fcntl(result, F_SETFD, cloexec ? FD_CLOEXEC : 0) < 0) {
-                int saved_errno = errno;
-                close(result);
-                result = -1;
-                errno = saved_errno;
-            }
-            break;
-        }
-        if (temp_count >= POSIX_FD_DUP_TEMP_MAX) {
-            close(result);
-            result = -1;
-            errno = EMFILE;
-            break;
-        }
-        temps[temp_count++] = result;
-    }
-
-    int saved_errno = errno;
-    for (int i = 0; i < temp_count; i++) {
-        close(temps[i]);
-    }
-    errno = saved_errno;
-    return result;
+    long result=srv_fcntl(fd,cloexec?SRV_F_DUPFD_CLOEXEC:SRV_F_DUPFD,(uint64_t)minimum);
+    if(result<0) { errno=result==-1?EBADF:(int)-result;return -1; }
+    __posix_socket_note_dup(fd,(int)result);
+    return (int)result;
 }
 
 int fcntl(int fd, int command, ...) {

@@ -150,6 +150,8 @@
 #define SYS_UMASK 146
 #define SYS_MKDIR_MODE 147
 #define SYS_VECTOR_IO 148
+#define SYS_PIPE2 149
+#define SYS_DUP3 150
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -231,6 +233,8 @@ struct srv_file_change {
 #define SRV_F_GETLK 5
 #define SRV_F_SETLK 6
 #define SRV_F_SETLKW 7
+#define SRV_F_DUPFD 8
+#define SRV_F_DUPFD_CLOEXEC 9
 #define SRV_FD_NONBLOCK 0x01
 #define SRV_FD_CLOEXEC 0x02
 #define SRV_FD_READ 0x04
@@ -323,6 +327,7 @@ struct srv_winsize {
 #define SRV_ERR_EXIST -17
 #define SRV_ERR_ISDIR -21
 #define SRV_ERR_INVAL -22
+#define SRV_ERR_NFILE -23
 #define SRV_ERR_MFILE -24
 #define SRV_ERR_FBIG -27
 #define SRV_ERR_SPIPE -29
