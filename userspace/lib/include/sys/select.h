@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include <sys/time.h>
+#include <signal.h>
+#include <time.h>
 
 /* Includes the current socket adapter's 1000..1007 descriptors. This does not
  * increase the number of simultaneously polled descriptors or kernel files. */
@@ -40,5 +42,8 @@ int select(int nfds,
     fd_set *writefds,
     fd_set *exceptfds,
     struct timeval *timeout);
+
+int pselect(int nfds,fd_set *readfds,fd_set *writefds,fd_set *exceptfds,
+    const struct timespec *timeout,const sigset_t *mask);
 
 #endif

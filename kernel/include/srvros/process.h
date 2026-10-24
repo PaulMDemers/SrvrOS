@@ -109,6 +109,7 @@ bool process_lifetime_release(uint64_t token);
 uint64_t process_lifetime_of(uint64_t pid);
 
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
+int64_t process_wait_posix(int64_t selector,uint64_t *status_out,bool nohang);
 /* Kernel-designated init may reap children whose userspace parent has exited. */
 bool process_set_reaper(uint64_t pid);
 bool process_exit_status(uint64_t pid, uint64_t *status_out);

@@ -972,7 +972,7 @@ static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout
         uint64_t end = elapsed_clock_us();
         fprintf(stderr, "real %llu us\n", (unsigned long long)(end - start));
     }
-    return WIFEXITED(status) ? WEXITSTATUS(status) : status;
+    return WIFEXITED(status) ? WEXITSTATUS(status) : 128+WTERMSIG(status);
 }
 
 static int time_main(int argc, char **argv) {

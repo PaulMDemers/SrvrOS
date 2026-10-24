@@ -159,7 +159,7 @@ long srv_unix_unlink(const char *path) {
     return srv_syscall1(SYS_UNIX_UNLINK, (long)path);
 }
 
-long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms) {
+long srv_poll(struct srv_pollfd *fds, size_t nfds, int64_t timeout_ms) {
     return srv_syscall3(SYS_POLL, (long)fds, (long)nfds, timeout_ms);
 }
 

@@ -1505,7 +1505,7 @@ static void run_process_exits(uv_loop_t *loop) {
             continue;
         }
         base->active = 0;
-        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : status;
+        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
         process->term_signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
         if (process->exit_cb != 0) {
             process->exit_cb(process, process->exit_status, process->term_signal);

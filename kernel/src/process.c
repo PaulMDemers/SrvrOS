@@ -2389,7 +2389,7 @@ int64_t process_spawn_background_elf(const char *path) {
     return process_spawn_background_elf_args(path, "");
 }
 
-struct process_wait_request { uint64_t pid,owner; };
+struct process_wait_request { uint64_t pid,owner,group; };
 bool process_set_reaper(uint64_t pid) {
     if(!pid) return false;
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) if(processes[i].allocated && processes[i].active && processes[i].pid==pid) {
@@ -2411,7 +2411,8 @@ static struct process *find_reapable_process(const struct process_wait_request *
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         struct process *process=&processes[i];
         if(process->allocated && process->detached && process->reapable &&
-           (!request->pid || process->pid==request->pid) && process_wait_owned(process,request->owner)) return process;
+           (!request->pid || process->pid==request->pid) &&
+           (!request->group || process->process_group==request->group) && process_wait_owned(process,request->owner)) return process;
     }
     return NULL;
 }
@@ -2419,6 +2420,7 @@ static bool has_wait_target(const struct process_wait_request *request) {
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         struct process *process=&processes[i];
         if(process->allocated && process->detached && (!request->pid || process->pid==request->pid) &&
+           (!request->group || process->process_group==request->group) &&
            process_wait_owned(process,request->owner)) return true;
     }
     return false;
@@ -2427,8 +2429,7 @@ static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
     return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);
 }
-int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
-    struct process_wait_request request={.pid=pid,.owner=process_pid(process_current())};
+static int64_t process_wait_request(struct process_wait_request request,uint64_t *status_out,bool nohang,bool posix_status) {
     for (;;) {
         uint64_t flags=process_irq_save();
         struct process *process = find_reapable_process(&request);
@@ -2436,7 +2437,8 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
         process_irq_restore(flags);
         if (process != NULL) {
             uint64_t waited_pid = process->pid,status = process->exit_status;
-            if (status_out != NULL) *status_out = status;
+            if(status_out) *status_out=posix_status?
+                (process->killed && process->kill_signal ? (process->kill_signal & 0x7f) : ((status & 0xff)<<8)):status;
             process_record_exit_status(waited_pid, status);
             process_account_child(process_current(),process);
             release_process(process);
@@ -2449,6 +2451,20 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
         if (nohang) return 0;
         if (!scheduler_wait(&process_wait_queue, process_wait_ready, &request)) scheduler_yield();
     }
+}
+
+int64_t process_wait(uint64_t pid,uint64_t *status_out,bool nohang) {
+    struct process_wait_request request={.pid=pid,.owner=process_pid(process_current())};
+    return process_wait_request(request,status_out,nohang,false);
+}
+int64_t process_wait_posix(int64_t selector,uint64_t *status_out,bool nohang) {
+    struct process *current=process_current();
+    if(!current || selector==INT64_MIN) return SRV_ERR_INVAL;
+    struct process_wait_request request={.owner=current->pid};
+    if(selector>0) request.pid=(uint64_t)selector;
+    else if(!selector) request.group=current->process_group;
+    else if(selector < -1) request.group=(uint64_t)-selector;
+    return process_wait_request(request,status_out,nohang,true);
 }
 
 /* One nonblocking shutdown pass. Revocation prevents new reservations; refs

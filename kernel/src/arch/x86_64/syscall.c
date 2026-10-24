@@ -1443,7 +1443,7 @@ static uint64_t poll_timeout_ticks(int64_t timeout_ms) {
     if (timeout_ms <= 0) {
         return 0;
     }
-    return ((uint64_t)timeout_ms * 100 + 999) / 1000;
+    return ((uint64_t)timeout_ms + 9) / 10;
 }
 
 static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int64_t timeout_ms) {
@@ -1463,7 +1463,7 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
      * Everything else retains the original filesystem/process lifetime gate. */
     uint64_t start = timer_ticks();
     uint64_t timeout_ticks = poll_timeout_ticks(timeout_ms);
-    uint64_t deadline_ticks = timeout_ms > 0 ? start + timeout_ticks : 0;
+    uint64_t deadline_ticks = timeout_ms > 0 ? (timeout_ticks>UINT64_MAX-start?UINT64_MAX:start+timeout_ticks) : 0;
     struct syscall_poll_wait wait = {
         .process = process,
         .fds = fds,
@@ -2056,13 +2056,19 @@ static int64_t syscall_proc_control(uint64_t operation, uint64_t pid, uint64_t v
 }
 
 static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
-    if(flags==SRV_WAIT_NOHANG && scheduler_io_busy()) return 0;
+    if(flags & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX)) return SRV_ERR_INVAL;
+    /* Validate before consuming the child: a bad output pointer must not lose
+     * a waitable result. */
+    if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true)) return SRV_ERR_FAULT;
+    if((flags & SRV_WAIT_NOHANG) && scheduler_io_busy()) return 0;
     /* Reaping may free mappings/descriptors; never run that continuation under
      * another owner's I/O after the function enables interrupts. */
     scheduler_io_set_user_safe(false);
     uint64_t status = 0;
     if(!(flags & SRV_WAIT_NOHANG)) __asm__ volatile ("sti" : : : "memory");
-    int64_t result = process_wait(pid, &status, (flags & SRV_WAIT_NOHANG) != 0);
+    int64_t result=(flags & SRV_WAIT_POSIX)?
+        process_wait_posix((int64_t)pid,&status,(flags & SRV_WAIT_NOHANG)!=0):
+        process_wait(pid,&status,(flags & SRV_WAIT_NOHANG)!=0);
     if (result > 0 && status_out != NULL && !copy_to_user(status_out, &status, sizeof(status))) {
         return -1;
     }
@@ -2528,7 +2534,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_POLL: return true;
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
-    case SYS_WAIT: return frame->rdx==SRV_WAIT_NOHANG;
+    case SYS_WAIT: return (frame->rdx & SRV_WAIT_NOHANG) && !(frame->rdx & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX));
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.

@@ -123,7 +123,7 @@ long srv_unix_listen(int fd, size_t backlog);
 long srv_unix_connect(const char *path);
 long srv_unix_accept(int fd);
 long srv_unix_unlink(const char *path);
-long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms);
+long srv_poll(struct srv_pollfd *fds, size_t nfds, int64_t timeout_ms);
 long srv_fcntl(int fd, int command, uint64_t flags);
 long srv_ftruncate(int fd, uint64_t length);
 long srv_fsync(int fd);

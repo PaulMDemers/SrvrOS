@@ -4,8 +4,9 @@
 #include <assert.h>
 
 static short readiness[FD_SETSIZE],requested[FD_SETSIZE];
-static int last_timeout,calls,dispatch;
-long srv_poll(struct srv_pollfd *fds,size_t count,int timeout) {
+static int64_t last_timeout;
+static int calls,dispatch;
+long srv_poll(struct srv_pollfd *fds,size_t count,int64_t timeout) {
     calls++;last_timeout=timeout;long ready=0;
     for(size_t i=0;i<count;i++) {
         if(fds[i].fd<0) { fds[i].revents=0;continue; }
@@ -39,7 +40,7 @@ int main(void) {
     timeout.tv_sec=0;timeout.tv_usec=-1;assert(select(0,NULL,NULL,NULL,&timeout)==-1);
     timeout.tv_usec=1000000;assert(select(0,NULL,NULL,NULL,&timeout)==-1 && calls==before);
     timeout.tv_sec=INT64_MAX;timeout.tv_usec=999999;
-    assert(select(0,NULL,NULL,NULL,&timeout)==0 && last_timeout==2147483647);
+    assert(select(0,NULL,NULL,NULL,&timeout)==0 && last_timeout==INT64_MAX);
     timeout=(struct timeval){.tv_usec=1};
     assert(select(0,NULL,NULL,NULL,&timeout)==0 && last_timeout==1);
     FD_ZERO(&w);FD_SET(1000,&w);readiness[7]=POLLOUT;timeout=(struct timeval){0};

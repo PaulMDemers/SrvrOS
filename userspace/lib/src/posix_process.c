@@ -528,8 +528,8 @@ int posix_spawnattr_setsigmask(posix_spawnattr_t *attr, const sigset_t *sigmask)
 
 pid_t waitpid(pid_t pid, int *status, int options) {
     uint64_t raw_status = 0;
-    uint64_t flags = 0;
-    if (pid < 0 || (options & ~WNOHANG) != 0) {
+    uint64_t flags = SRV_WAIT_POSIX;
+    if ((options & ~WNOHANG) != 0) {
         errno = EINVAL;
         return -1;
     }
@@ -549,7 +549,7 @@ pid_t waitpid(pid_t pid, int *status, int options) {
         }
     }
     if (result < 0) {
-        errno = ECHILD;
+        errno = result < -1 ? (int)-result : ECHILD;
         return -1;
     }
     if (result == 0) {
@@ -560,6 +560,8 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     }
     return (pid_t)result;
 }
+
+pid_t wait(int *status) { return waitpid(-1,status,0); }
 
 int execve(const char *path, char *const argv[], char *const envp[]) {
     char full[POSIX_PATH_MAX];

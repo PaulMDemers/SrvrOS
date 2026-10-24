@@ -55,6 +55,10 @@ static volatile sig_atomic_t restart_handler_on_reader;
 
 int __posix_signal_dispatch_pending(void);
 
+static void *poll_signal_worker(void *target) {
+    usleep(30000);
+    return (void *)(uintptr_t)pthread_kill((pthread_t)target,SIGUSR1);
+}
 static void demo_signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGUSR2 || signum == SIGCHLD) {
         demo_signal_count++;
@@ -1595,12 +1599,15 @@ int main(int argc, char **argv) {
     say("posixdemo: sigsuspend ok\n");
     demo_signal_count = 0;
     struct pollfd empty_poll;
+    pthread_t poll_sender;
+    void *poll_sender_result=NULL;
     errno = 0;
     if (signal(SIGUSR1, demo_signal_handler) == SIG_ERR ||
-        kill(self_pid, SIGUSR1) < 0 ||
-        poll(&empty_poll, 0, 1) != -1 ||
+        pthread_create(&poll_sender,NULL,poll_signal_worker,(void *)pthread_self()) != 0 ||
+        poll(&empty_poll, 0, 1000) != -1 ||
         errno != EINTR ||
         demo_signal_count != 1 ||
+        pthread_join(poll_sender,&poll_sender_result) != 0 || poll_sender_result ||
         signal(SIGUSR1, SIG_DFL) == SIG_ERR) {
         say("posixdemo: poll eintr failed\n");
         return 40;

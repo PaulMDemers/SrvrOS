@@ -4,7 +4,7 @@
 #include "../userspace/deskio/deskio.c"
 #undef main
 static int poll_events,poll_error;
-long srv_poll(struct srv_pollfd *p,size_t n,int timeout) {
+long srv_poll(struct srv_pollfd *p,size_t n,int64_t timeout) {
     assert(n==1 && p->fd==0 && p->events==SRV_POLLIN && timeout==0);
     p->revents=(int16_t)poll_events; return poll_error?-1:poll_events?1:0;
 }

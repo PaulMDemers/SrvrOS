@@ -27,7 +27,11 @@ exposed by stress is fixed in `fad4bf4`. Regular-file access/exclusive-create/sh
 full core and thread VM suites. Kernel file-size limits, inheritance across
 spawn/exec, thread-directed SIGXFSZ and explicit unsupported priority controls
 also pass full core/thread validation; wider port regressions are running.
-Wait-status semantics, descriptor coherence and the broader profile remain in progress. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
+Wait-status/child-group selection and pselect/ppoll mask restoration now pass
+full core/thread tests. Descriptor coherence and the broader profile remain
+in progress. Resource libc/libuv/utility suites pass; the full ports suite exposed
+an old poll fixture which sent its signal before waiting, now replaced by a
+delayed targeted signal and being rerun. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
 changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
 work. No native reboot has been armed or physical acceptance claimed.
 

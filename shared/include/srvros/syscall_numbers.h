@@ -430,6 +430,7 @@ struct srv_meminfo {
 };
 
 #define SRV_WAIT_NOHANG 0x01
+#define SRV_WAIT_POSIX 0x02
 
 #define SRV_SIGNAL_HUP 1
 #define SRV_SIGNAL_WINCH 28

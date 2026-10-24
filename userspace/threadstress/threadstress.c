@@ -587,6 +587,9 @@ int posix_positional_test(void);
 int posix_sleep_test(void);
 int posix_usage_test(void);
 int posix_resource_test(void);
+int posix_wait_test(void);
+int posix_masked_poll_test(void);
+int posix_wait_child(const char *mode);
 int posix_resource_child(int again);
 int posix_open_test(void);
 int posix_pthread_contract_test(void);
@@ -594,6 +597,7 @@ int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc==3 && !strcmp(argv[1],"wait-child")) return posix_wait_child(argv[2]);
     if(argc==2 && !strcmp(argv[1],"resource-child")) return posix_resource_child(0);
     if(argc==2 && !strcmp(argv[1],"resource-exec-child")) return posix_resource_child(1);
     if(argc==2 && !strcmp(argv[1],"cpu-child")) return posix_cpu_child();
@@ -616,6 +620,8 @@ int main(int argc, char **argv) {
     RUN_TEST("sleep", posix_sleep_test);
     RUN_TEST("usage", posix_usage_test);
     RUN_TEST("resource", posix_resource_test);
+    RUN_TEST("wait", posix_wait_test);
+    RUN_TEST("masked poll", posix_masked_poll_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("targeted signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);

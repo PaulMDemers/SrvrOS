@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <signal.h>
+#include <time.h>
 
 #include <srvros/syscall_numbers.h>
 
@@ -22,5 +24,7 @@ struct pollfd {
 #define POLLNVAL SRV_POLLNVAL
 
 int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+
+int ppoll(struct pollfd *fds,nfds_t nfds,const struct timespec *timeout,const sigset_t *mask);
 
 #endif
