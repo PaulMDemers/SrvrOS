@@ -2,6 +2,24 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: measure periodic logger cost
+
+Branch `device/macbookair7-2/logger-timing` starts at main `180b542` (PR112).
+Measure logger preparation/write/verification/sync wall time and scoped USB BOT
+callback time by CBW/data/CSW phase. Keep cadence, persistence, device polling and
+scheduler policy unchanged. Timing includes yielded service time and is not CPU
+runtime or pure device latency. Emit each completed record into the next saved
+snapshot, so measurement does not require an extra flush. Collector summaries
+must select only completed operations wholly inside the idle window.
+
+Touched subsystems: workspace logger, generic USB-storage timing hooks, collector
+and host tests; no xHCI edits. Pro PR19 `603b7a6` owns USB Wi-Fi/xHCI work and has
+no overlapping generic storage/logger edits. Air6,1 PR114 `f3e0763` changes its
+battery/Text generated trial and has no overlap. Require host phase/failure tests,
+full local build/core/docs and exact-stage saved/missing-workspace VM checks
+before a new native capture. Installed/recovery remain the preceding accepted
+releases; no new reboot is armed. No efficiency improvement is claimed.
+
 ### Active checkpoint: compositor polling reduction verified
 
 Branch `device/macbookair7-2/compositor-idle` starts from main `ce1c0a6`
