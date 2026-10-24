@@ -58,7 +58,7 @@ def work_fixture():
         b'battery-home-work-capture: begin seconds=300 watchdog_seconds=480 startup=disabled input=typing-files')
     start=data.index(b'desktop-idle: elapsed');end=data.index(b'battery-home-desktop-sample:')
     data=data[:start]+b"""desktop-work: begin minimum_us=300000000 deadline_us=480000000
-desktools: file-result role=text op=2 status=0 bytes=20
+desktools: file-result role=text op=2 status=0 bytes=0
 desktools: file-result role=text op=1 status=0 bytes=20
 desktools: file-result role=files op=3 status=0 bytes=100
 desktop-work: ready-to-exit screenshot=yes

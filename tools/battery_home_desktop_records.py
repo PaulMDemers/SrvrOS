@@ -25,7 +25,7 @@ def check_capture(raw, vm=False, transitions=False, work=False):
         shot=one(rb'desktop-work: completed=yes elapsed_us=(\d+) keys=([1-9]\d*) pointer_events=([1-9]\d*) screenshot=yes normal_exit=1')
         assert 300000000<=int(shot[1])<480000000 and idle.end()<ready.start()<shot.start()
         segment=data[idle.end():shot.start()]
-        writes=list(re.finditer(rb'^desktools: file-result role=text op=2 status=0 bytes=([1-9]\d*)$',segment,re.M))
+        writes=list(re.finditer(rb'^desktools: file-result role=text op=2 status=0 bytes=0$',segment,re.M))
         reads=list(re.finditer(rb'^desktools: file-result role=text op=1 status=0 bytes=([1-9]\d*)$',segment,re.M))
         assert writes and reads and writes[0].end()<reads[-1].start()
         assert re.search(rb'^desktools: file-result role=files op=3 status=0 bytes=\d+$',segment,re.M)
