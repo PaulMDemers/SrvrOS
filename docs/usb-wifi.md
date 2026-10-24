@@ -2078,3 +2078,33 @@ Only aggregate verification counts are logged. This stage does not touch
 pairwise-key or IV tables and does not enable RF, transmit or receive. Hardware
 acceptance requires all256 attributes and128 addresses verified, all earlier
 prerequisites, both capture completion markers and clean save/recovery checks.
+
+### Remaining work after native shared-key and WCID resets
+
+The v50/v51 resets are accepted on the captured Pro11,2 adapter. They complete
+those two reference loops, not the whole MAC/PHY initialization path.
+The post-WCID audit classifies22 untouched MAC table addresses: one indicator,
+one DMA setting, two ACK/TXOP settings, six board/power/PA/LDO settings,
+ten TX power/gain settings and two unnamed reference settings. Untouched does
+not mean every value must be copied; an LED setting is not a connectivity gate.
+Previous touched-address coverage also does not prove complete field/order parity.
+
+The next bounded diagnostic is a fixed read-only post-WCID snapshot: MAC/CORE
+guards,22 target reads, then both guards again (26 reads, no writes). Target
+all-ones values remain raw observations; guard failures remain failures. This
+collects the whole remaining table in one trial without enabling DMA or radio.
+The offline plan/USB request fixtures are prepared; native wiring remains next.
+
+The reference then loads EEPROM and programs the device MAC before PHY entry.
+Its physical fallback reads32 bytes at1e0/1f0 and validates the29-byte usage map
+through1fc. Logical EEPROM bytes at those offsets are not equivalent evidence.
+Preserve the externally supplied image path versus physical fallback distinction;
+program private validated MAC bytes without logging them.
+
+PHY work still includes antenna selection, RF bank tables/bandwidth/band setup,
+frequency/DAC/VCO initialization, RX path and TX DAC. Channel and transmit-power
+settings must use the captured calibration and US policy already recorded.
+After device initialization come USB data RX/TX,802.11 frame handling, scanning,
+authentication/association and WPA2/key lifecycle, followed by DHCP/DNS/ping/HTTP,
+reconnect and UI acceptance. Existing Ethernet success does not accept the
+wireless link layer. No percentage or number of remaining boots is established.

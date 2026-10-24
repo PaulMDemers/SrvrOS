@@ -4675,3 +4675,27 @@ at `~/.local/share/srvros/macbookpro11-2/wifi-wcid-666a4d3/`. No reboot armed.
 Next: audit the remaining MAC initialization settings and physical EFUSE/PHY
 entry prerequisites against the pinned reference and existing device evidence;
 select a bounded next stage without bulk-copying power/PA/LDO/DMA controls.
+
+Active scope: post-WCID initialization audit and remaining-work ledger.
+Classify the22 untouched MAC table addresses; inspect EEPROM/PHY entry order
+and select the next bounded probe. No new hardware writes or radio enable.
+Base4a991df, fetchedmain76f98c4; PR127 storage timing is separate from PR19.
+
+### 2026-10-24 — post-WCID audit and remaining scope
+
+Classified22 untouched reference MAC targets: indicator1,DMA1,ACK/TXOP2,
+board/power/PA/LDO6,TX power/gain10,unnamed2. Not all are mandatory connectivity
+work; no blanket register-copy plan. Prepared26 fixed USB read request fixtures:
+MAC/CORE guards,22 observations,then both guards. Next implementation is this
+single read-only post-WCID snapshot, with target all-ones retained as observation
+and guard failures rejected. No native I/O or new boot payload in this audit.
+
+Verified reference ordering WCID→EEPROM→PHY and antenna→RF→RX path→TX DAC.
+Physical EFUSE usage map is29 bytes1e0–1fc, transported as two16-byte reads;
+logical EEPROM capture does not establish that check. Private device MAC setup,
+remaining MAC decisions, RF/calibration/channel work,802.11 data/scan/security
+and end-to-end network/UI acceptance remain. United States confirmation retained.
+Offline checks/26 fixtures/source hashes archived outside build under
+`~/.local/share/srvros/macbookpro11-2/post-wcid-audit-1f4d822/`.
+Installed accepted release remains71bf958aa703f6b3, no reboot armed.
+Fetchedmain76f98c4 and PR127 storage timing are separate; actual base4a991df.
