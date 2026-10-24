@@ -5345,3 +5345,14 @@ saved-proof capacity. No new candidate is staged. Fetched main `85d5939` include
 Air6,1 deadline PR136; this trial remains based on `d5bc4b3`. PR134 POSIX and the
 Air6,1 startup-timing branch remain separate work; inspect dependencies before
 shared implementation rather than attributing their changes to this native run.
+
+
+Active scope (2026-10-24): extend saved Wi-Fi diagnostic capacity before RF-bank
+transport work. Keep ordinary desktop/battery snapshots at 64KiB; opt-in firmware
+capture may retain/save 128KiB only if its startup prefix has not already wrapped.
+Touch bootlog/workspace logger, the Wi-Fi capture call site, bounded host
+collection and tests. No storage scheduling, battery ownership or RF writes.
+Fetched main85d5939 and PR134 head e4b7b02; Air6,1 startup-timing4b41c06 owns its
+capture profile. Preserve those independent scopes and publish the logger change
+through PR19. Current integration base remains d5bc4b3. Next checkpoint: host
+boundary/overflow tests, native build and exact-stage save/refusal VM checks.
