@@ -4265,3 +4265,24 @@ only after full equality with its durable archive. Workspace0E53-5900 clean231fi
 readiness-confirmed cold adapter cycle, automatic save/return and collection of
 matching session. Sequence15, eight exact transfer receipts and strict post-write
 readbacks required; no BBP table, RF or connectivity acceptance.
+
+
+### 2026-10-23 — v46 aggregation-length initialization passed natively
+
+Collected release `e14f396f3d59c1b6`, source `9fa1ff6`, new session
+`00065e8ccad60890-00`. Prepared collector passed unchanged: all preceding
+firmware/reset/timing, compact0/1, clock/readiness and bounded MAC groups passed.
+AMPDU sequence15 sent24/received16 cc13/residue1008 with exact ACK; complete1,
+reads8, one batch completed, ack_mask1. Register1030 changedffffffff->aaa99887;
+080c remained03ff0223. All eight ordered read receipts reportedok1, actual4,
+cc1, residue0 and timeout0. Initial/final MAC0 and COREf000f200 verified; both
+completion markers saved. No full BBP table or RF ran.
+
+Complete collection/run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-ampdu-9fa1ff6/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace0E53-5900 clean233files/598clusters, zero leaks/mismatches, unmounted.
+No reboot armed. Acceptance is bounded to this register write/readback, not
+reset semantics, aggregation performance or connectivity. Next: remaining MAC
+prerequisites before revisiting the four unresolved baseband readbacks. Further
+MCU commands require deliberate sequence identifier reuse after15; do not use16.

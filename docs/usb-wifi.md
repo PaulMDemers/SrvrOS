@@ -1897,7 +1897,7 @@ readbacks, remaining MAC prerequisites and RF/connectivity are still unresolved.
 Battery work and its Air-specific hardware acceptance remain separate.
 
 
-### Aggregation-length initialization (v46; native pending)
+### Aggregation-length initialization (v46; native accepted)
 
 `--wifi-mac-ampdu` follows exact FCE validation with one sequence15 pair:
 1030=aaa99887 and080c=03ff0223 (retained L2 routing). The first target is
@@ -1917,3 +1917,16 @@ Sequence15 is the last nonzero four-bit identifier; future commands must explici
 address reuse instead of incrementing into16. This trial does not accept scanning,
 aggregation performance or connectivity. Source: Linux v7.0
 [mt76x0 initialization table](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_init.h).
+
+
+Pro11,2 source `9fa1ff6`, release `e14f396f3d59c1b6`, session
+`00065e8ccad60890-00` passed on 2026-10-23. Sequence15 returned the exact ACK;
+1030 changedffffffff->aaa99887, while080c remained03ff0223. All eight ordered
+control transfers reportedok1/actual4/cc1/residue0/timeout0. Initial/final
+MAC0/COREf000f200, all preceding groups and both completion markers passed.
+The prepared collector passed unchanged; Ubuntu recovery and payload hashes
+verified, with clean offline allocation (233files/598clusters, zero errors).
+This accepts the bounded write/readback on this adapter; it does not establish
+reset semantics, aggregation performance, RF or connectivity. The complete
+collection and hashes are archived outside build. Remaining MAC prerequisites
+and the four unresolved full-table BBP readbacks are still open.
