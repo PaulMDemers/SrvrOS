@@ -1927,3 +1927,59 @@ Console recovery remains `c35475f62f154f1e`; the superseded `78fe53e8cacdb1ba`
 EFI copy was removed only after its independent backup matched. Corrected
 capture and accepted recovery payloads remain available. Main is still `468ca20`;
 Air7,2 PR130 and Pro PR19 `d0a0b57` retain independent scopes.
+
+### Ordinary monitoring physical result (2026-10-24)
+
+Run `d34f847c1520e40c`, release `87bf9866baa3f8bc`, session
+`00065e9aafda5da4-00` returned with a clean exit snapshot at 797.659 seconds
+from boot, beyond the former eight-minute deadline. Battery generation reached
+304 with 4,553 events and no alarms. Runtime retired with zero heap, errors or
+denied operations; the six-member peak lifetime drained and released. A new
+nine-byte `test.txt` persisted; prior file bytes except workspace metadata are
+unchanged. Offline fsck/allocation pass: 272 files, 817 clusters, no leaks or
+bitmap mismatches. Ubuntu returned with an empty one-shot entry. Evidence and
+hashes are backed up outside build.
+
+This accepts opt-in monitoring beyond eight minutes with clean native retirement
+and a persisted document, not multi-hour endurance or a reopen receipt absent
+from retained logs. Default battery startup remains off. The reported 16-window
+result belongs to another machine.
+
+## Combined built-in services scope (2026-10-24)
+
+Base `bc0edb9` includes ordinary Air6,1 admission and shared 16-window support.
+Objective: a distinct opt-in Air6,1 ordinary session combining battery, panel
+brightness, HDA audio and read-only CPU/SMC sensors, without USB networking or
+the optional AML probe. Scope: staging recipes, combined-session VM harness and
+this unit's current guides. Reuse existing exact device gates and lifetimes;
+no driver permission changes. Pro Wi-Fi and Air7,2 desktop API work remain
+independent. Next checkpoint: combined audio/absent-provider/exit/reopen and
+refusal VM coverage, exact staged GPT rehearsal, then an unarmed attended test.
+
+### Combined candidate validated (PR132)
+
+Source `59c1836`, v71 release `1ae70fcf03ab6152`, combines the ordinary Air6,1
+battery owner with brightness, HDA and read-only CPU/SMC providers; USB networking
+and optional AML probing remain off. Full build/core, 76 staging tests and docs
+checks pass. Seven GPT VM cases pass: audio/normal exit/reopen, pending save,
+fault retention, opt-out, missing Home, absent providers and Air7,2 regression.
+The normal Air6,1 run records 712 battery events and ten lifetime members; PCM
+has no remaining owner/queue or underruns. Exact staged GRUB→Limine GPT rehearsal
+passes with Q35 native-profile refusal, working HDA, apps, clean exit/reopen,
+offline allocation and monitor reboot.
+
+Two earlier Air7,2 runs timed out waiting for a missing serial close-request
+receipt; the first saved screen shows Terminal's expected confirmation dialog.
+Their evidence remains retained. The harness now confirms Close after a short
+UI settling period and retains all completion, lifetime, runtime, logger and
+file-integrity assertions; the full final matrix passes. No runtime deadlines
+or hardware gates changed. Main advanced to `76a55dd` with documentation-only
+architecture work; no tested binary changes are needed for that integration.
+
+Unarmed run `2319b6df4b7f2dbd` preserves 272 files/817 clusters and reserves
+`combined-services.txt`. Exercise brightness, Audio playback/volume/Stop, System
+CPU/fan/battery freshness, and Text/Files for at least ten minutes; exit and
+reopen with `desktop battery`, then exit and `reboot`. No timed completion or
+automatic return. The obsolete `2cd5b8604f2406c5` EFI copy was removed only after
+its durable payload/trial hashes matched; accepted ordinary battery, console
+recovery and Ubuntu remain preserved. Combined native acceptance is pending.

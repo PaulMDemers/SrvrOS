@@ -681,3 +681,31 @@ remains incomplete history, not a hardware regression or acceptance claim.
 
 This accepts the explicit bounded desktop transition capture only. Gauge
 calibration, longer endurance and ordinary battery startup remain separate.
+
+## Combined built-in desktop session
+
+Use the distinct v71 recipe to combine the accepted Air6,1 battery owner with
+existing brightness, HDA and read-only CPU/SMC providers:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume YOUR-UUID \
+  --desktop-battery --battery-air61 --desktop-services
+```
+
+This profile has no diagnostic session deadline and does not request USB network
+discovery or the optional AML probe. v70 remains battery-only; v55 retains the
+reference machine's original combined recipe. Device gates are unchanged.
+Rehearse the exact payload with `battery_home_desktop_smoke.py --boot-session
+--air61 --services --audio --workspace-table gpt --case profile-refusal --stage
+RELEASE`. Q35 refuses native battery/brightness/SMC while exercising HDA and
+ordinary app exit/reopen; hardware coexistence still requires the attended run.
+
+For the attended test, keep Home USB attached and start on AC. Use Settings to
+adjust brightness and restore a comfortable level; play a WAV in Audio, vary
+volume and Stop; view temperature/fan freshness and battery/AC in System. Save
+and reopen a new `combined-services.txt` in Text, browse Home with Files, and
+use the session for at least ten minutes. Save work and select Return to console,
+then `desktop battery` to check provider availability after reopening. Exit again
+and enter `reboot` at `srv>`. There is no automatic completion prompt or return.
+Headphone routing and AC unplug/reconnect may be exercised while attended; no
+low-charge drain, fan writes or suspend is requested.

@@ -143,8 +143,8 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
-    if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-")):
-        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --services" if manifest["config_version"].startswith("ram-usb-v55-") else " --air61" if manifest["config_version"].startswith("ram-usb-v70-") else ""))
+    if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
+        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --air61 --services" if manifest["config_version"].startswith("ram-usb-v71-") else " --services" if manifest["config_version"].startswith("ram-usb-v55-") else " --air61" if manifest["config_version"].startswith("ram-usb-v70-") else ""))
     basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
     if args.desktop_no_headroom and (not desktop or basic_desktop or args.audio_check):
         parser.error("--desktop-no-headroom requires an ordinary desktop stage without audio checking")

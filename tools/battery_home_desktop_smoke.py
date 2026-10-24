@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--audio",action="store_true",help="attach HDA and play bundled PCM during the combined session")
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     if args.linger_seconds<0 or args.linger_seconds>900 or (args.linger_seconds and (not args.boot_session or args.case!='normal')):parser.error('linger requires normal boot session, 0..900 seconds')
-    if args.air61 and (not args.boot_session or args.services):parser.error('Air6,1 requires separate boot session without services')
+    if args.air61 and not args.boot_session:parser.error('Air6,1 requires boot session')
     entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if args.audio and not args.services:parser.error('audio requires services')
     if args.services and not args.boot_session:parser.error('services requires boot-session')
@@ -59,9 +59,9 @@ def main():
             import hardware_boot as boot
             assert boot.RELEASE_RE.fullmatch(args.stage),'invalid staged release'
             stage=boot.STAGE/args.stage;manifest=boot.verify(stage)
-            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-'))
-            assert args.services==manifest['config_version'].startswith('ram-usb-v55-'),'services flag must match staged profile'
-            assert args.air61==manifest['config_version'].startswith('ram-usb-v70-'),'Air6,1 flag must match staged profile'
+            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-','ram-usb-v71-desktop-'))
+            assert args.services==manifest['config_version'].startswith(('ram-usb-v55-','ram-usb-v71-')),'services flag must match staged profile'
+            assert args.air61==manifest['config_version'].startswith(('ram-usb-v70-','ram-usb-v71-')),'Air6,1 flag must match staged profile'
             uuid=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1]
         subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+uuid,str(volume)],check=True,stdout=subprocess.DEVNULL)
         marker=f'SRVROS-WORKSPACE-V1 {uuid}\n'.encode()
@@ -80,7 +80,7 @@ def main():
         if args.case=='runtime-missing':kernel=root/'build/kernel/srvros.elf'
         initramfs=root/'build/initramfs.tar'
         cmdline=f'srvros.storage=ram srvros.workspace-volume={uuid} srvros.desktop=session srvros.battery=on' if args.boot_session else None
-        if args.services:cmdline += ' srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only srvros.usb-network=ecm'
+        if args.services:cmdline += ' srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only' + ('' if args.air61 else ' srvros.usb-network=ecm')
         if args.case=='missing-workspace':cmdline=cmdline.replace(uuid,'61626364')
         if args.case=='opt-out':cmdline=cmdline.replace(' srvros.battery=on','')
         if stage:
@@ -161,7 +161,6 @@ def main():
                     qmp.key('ret');wait(b'file-result role=text op=2 status=0')
                     launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
                     launch('Terminal',b'deskterm: ready');time.sleep(1)
-                    terminal_pid=re.findall(rb'deskd: opened pid=(\d+) window=\d+',output)[-1]
                     if args.audio:
                         type_text('/fat/bin/playwav /fat/share/examples/stereo.wav > /work/srvros-work/audio-proof.txt\n')
                         time.sleep(9)
@@ -197,10 +196,11 @@ def main():
                     if args.case=='cancel':shortcut('ctrl-alt-esc')
                     else:
                         shortcut('f10');shortcut('end');shortcut('ret')
-                        wait(b'deskd: close-request pid='+terminal_pid+b' ')
-                        # Terminal deliberately defaults to Cancel while its shell
-                        # is live. Confirm Close instead of bypassing its dialog.
-                        time.sleep(.5);shortcut('shift-tab');shortcut('ret')
+                        # Terminal defaults to Cancel while its shell is live.
+                        # Allow the dialog to render, then confirm Close. Serial
+                        # close-request lines can be lost amid concurrent output;
+                        # the complete/drained/released checks below prove exit.
+                        time.sleep(2);shortcut('shift-tab');shortcut('ret')
                     wait(b'battery-workspace-controls: complete=yes',90);wait(b'\nsrv> ')
                     data=bytes(output)
                     acquired=re.search(rb'battery-desktop-lifetime: acquired token=(\d+) root=(\d+)',data)
@@ -211,7 +211,7 @@ def main():
                     assert b'battery-controls: PASS' in data and b'logger_retired=yes final_saved=NO' not in data
                     result['peak_members']=int(drained[2])
                     if args.services:
-                        assert b'desktop-session: providers brightness=1 audio=1 thermal=1 smc=1 ethernet=1' in data
+                        assert (b'desktop-session: providers brightness=1 audio=1 thermal=1 smc=1 ethernet=' + (b'0' if args.air61 else b'1')) in data
                         result['providers_at_exit']=service_snapshot(data,args.audio)
                         result['sensors_unavailable']=True
                         result['audio_ready']=args.audio
