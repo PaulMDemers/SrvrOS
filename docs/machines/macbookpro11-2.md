@@ -5491,3 +5491,17 @@ Separate completed guard observations from unexecuted slots in failure reporting
 Fetched main remains4f8acd2; actual candidate integration base remainsd5bc4b3.
 New Air6,1 heap-startup and updated Air7,2 POSIX work remain independent scopes.
 Calibration, scanning, association/security and connectivity remain pending.
+
+
+Active scope (2026-10-24): bounded RF0:6 readback observation after at most the
+first six central writes. Keep v61's strict engine/predicate intact; a dedicated
+v62 authorizer stops it before operation45, and only an exact sixth-response
+state may enter a fixed read-only comparison. Repeat RF0:6 with distinct sequences
+and read RF0:1/2/22 controls between/after observations, with disabled MAC/CORE/DMA
+guards. No later RF table writes, trim, calibration or traffic. Clarify reached
+versus unexecuted guard counts in failure diagnostics. Touch MCU/xHCI, v62 staging,
+main dispatch and tests in PR19. Main4f8acd2 inspected; PR138 heap-startup and
+PR134 POSIX d5d0fa1 are separate scopes; integration base remainsd5bc4b3.
+Next checkpoint: engine/binding fault tests and strict observational collector,
+then exact-stage VM and unarmed installation. Observation completion must never
+be labeled central-table or RF-function acceptance.
