@@ -2548,3 +2548,19 @@ readback exemption establishing that zero is correct. The exposed mt76 debugfs
 interface on this Ubuntu adapter provides generic MMIO regidx/regval only, so
 no unsupported live-driver RF access was attempted. Compare the native repeated
 values and controls before changing any strict acceptance rule.
+
+Native v62 source `c69c064`, release `f44fa8061c8014a5`, session
+`session-00065e9df83b5391-00` completed the bounded observation. RF0:6 returned
+zero initially and on both later reads (sequences5/6/9); interleaved RF0:1/2/22
+controls returned1/17/0 with exact sequence/address/framing. All five comparison
+exchanges and18 guard reads passed, totaling23 operations/submissions. The capped
+central prefix again stopped with state4,45 submissions,6 echoes and5 verified
+entries. Its33 reached guard reads passed;77 boundary slots were unexecuted.
+
+The strict full-prefix collector and both completion markers passed. The complete
+69763-byte exit snapshot, Ubuntu recovery and offline filesystem/allocation checks
+passed. This accepts the observation only: repeated zero with correct controls
+argues against a one-off response mix-up, but does not establish RF0:6 semantics
+or justify accepting the central table. Next investigate the register's access
+and initialization requirements before changing its readback rule or continuing
+RF initialization. Calibration, scanning and connectivity remain untested.

@@ -5534,3 +5534,36 @@ Next: attended cold adapter cycle, then collect matching release/session FIRST.
 Require bounded prefix and all read-only comparison receipts; classify the three
 RF0:6 values independently of central-table acceptance. No reboot armed; native
 observation pending, calibration and connectivity untested.
+
+
+### 2026-10-24 — bounded RF0:6 comparison collected
+
+Source `c69c064`, release `f44fa8061c8014a5`, session
+`session-00065e9df83b5391-00` passed the strict v62 observational collector.
+RF0:6 read zero in all three observations (sequences5/6/9). Interleaved RF0:1/2/22
+controls read1/17/0 with exact framing and sequence/address matching. The separate
+comparison completed23 operations/submissions,18 guard reads and5 requests.
+All boundaries remained MAC0/COREf000f200/DMA40000050. The capped central prefix
+retains state4,44 operations/45 submissions,33 guards,12 exchanges,6 write echoes
+and5 verified entries. No later central-table write occurred. Reached guards had
+zero errors;77 unexecuted boundary slots are reported separately.
+
+Both completion markers and the complete69763-byte startup snapshot passed.
+This accepts the bounded observation only, not central RF initialization or radio
+function. Repeated zero with correct controls makes a one-off response mix-up less
+likely; RF0:6 semantics and access/initialization requirements remain unresolved.
+Next investigate those requirements before changing strict readback acceptance
+or continuing the table. Calibration, scanning, association/security and
+connectivity remain pending.
+
+Collection `build/bringup/wifi-rf-six/collection/collection-zpb253f4`, strict
+receipts and complete evidence are archived with the payload under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-six-c69c064/`.
+Ubuntu default, consumed one-shot and current/known-good recovery hashes verified.
+Offline workspace clean267files/649clusters/107directories, zero leaks, allocation
+mismatches or errors; unmounted. No reboot armed.
+
+Fetched main `27f0870` includes Air6,1 heap-startup PR138; it is not integrated
+into this native source (base remains `d5bc4b3`). Air6,1 attended-reopen PR139
+and Air7,2 POSIX PR134 remain independent scopes. Preserve their changes on
+future integration; this return closeout changes documentation only.
