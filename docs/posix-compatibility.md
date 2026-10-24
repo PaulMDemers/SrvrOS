@@ -1,0 +1,208 @@
+# POSIX compatibility audit and priorities
+
+Reviewed 2026-10-24 against `bc0edb9` (PR130). This is a source and targeted-test
+audit, not a complete standards conformance assessment. SrvrOS has a useful
+POSIX-shaped C library and native syscall ABI. It is **not POSIX-conformant or
+Linux-binary-compatible**, and exporting a header or passing a link probe does
+not establish the function's semantics.
+
+Use POSIX.1-2024 / Issue 8 as the reference for new compatibility contracts;
+document selected features, restrictions and extensions explicitly. The standard
+covers system interfaces **and shell/utilities**, so a libc function count cannot
+measure overall conformance. See the official
+[scope](https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap01.html)
+and [general interface requirements](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html).
+This reference choice is a development target, not certification.
+
+## What exists today
+
+Paths below are relative to `userspace/lib/src/` unless stated otherwise.
+“Implemented subset” means real operations exist, not that every corner case
+has passed a conformance suite. Limits may be valid implementation choices;
+silent semantic substitutions are a different problem.
+
+| Area | Evidence in current implementation | Boundary / missing contract |
+| --- | --- | --- |
+| C strings, conversion, formatting, allocation, stdio | Library sources; `libcprobe`, `nodeprobe`, thread stdio/heap tests | Useful tested subset; no complete ISO C or POSIX libc certification |
+| File descriptors and regular files | `posix_file.c`, `posix_dir.c`; kernel VFS/open-file descriptions, dup, pipe, metadata and exFAT | Bounded descriptors/paths; positional I/O race below; broader file/flag/error semantics need explicit tests |
+| Directories and metadata | Real traversal/mkdir/rename/unlink/stat and persistent sidecar metadata | No journal/power-loss atomicity; `link`/`symlink` return ENOSYS; single-user metadata does not establish permission enforcement |
+| Spawn/exec/wait | `posix_process.c`, kernel process lifetime and descriptor actions | Real native child processes; `fork()` in `posix_node_compat.c` returns ENOSYS; no general fork-based Unix execution model |
+| Pipes, PTYs and terminal shell | Kernel pipe and `pty.c`, termios/ioctl adapters; native Terminal uses PTY shell | PTYs exist; complete job-control/session/terminal semantics require a separate matrix and tests |
+| Threads and synchronization | `posix_pthread.c`: real thread creation/join, atomics/futex mutexes, conditions, once, rwlocks, key storage | Bounded slots; shared errno, thread-directed signal gap and compatibility placeholders below; not all pthread semantics implemented |
+| Signals | `posix_signal.c`, kernel pending signals and **per-thread masks** | Handler dispatch occurs at libc checkpoints; accepted flags exceed implemented delivery semantics; no general asynchronous userspace signal frame |
+| Poll/readiness | `posix_poll.c`, kernel poll and wait queues | Real readiness; select, interruption and descriptor namespace gaps below; no `pselect`/`ppoll` implementation found |
+| Network / local sockets | `posix_socket.c`: IPv4 TCP/UDP, AF_UNIX stream/socketpair and bounded FD passing | No IPv6; pseudo-descriptor table and partial options/ancillary semantics; not a complete BSD socket implementation |
+| Memory mapping | `posix_mman.c`: private anonymous and file-snapshot mappings, protection/unmap | MAP_SHARED rejected; no general shared-file mapping/writeback; demand paging not implemented |
+| Clocks and sleeping | `posix_time.c`: realtime and monotonic clock queries, tick-based sleeps | CPU-time accounting substituted with uptime in some APIs; interrupted-sleep remainder missing; absolute clock_nanosleep rejected |
+| Identity and resource controls | Root-only passwd/group/UID/GID adapters; `posix_resource.c` | No multi-user protection model; reported limits/accounting partly library placeholders |
+| Dynamic loading | `posix_dlfcn.c` exports the interface | dlopen/dlsym/dlclose return ENOSYS; dladdr placeholder; not a dynamic linker |
+| Locale and text | C locale adapter and bounded UTF-8/wide-character helpers | No general locale database, full Unicode collation or complete text semantics |
+| Shell and utilities | Native shell plus selected ports, `ports_smoke.py`, `posixutils_smoke.py` | Useful commands do not establish POSIX shell grammar, expansion, job-control or complete utility conformance |
+| Linux extensions | `posix_node_compat.c`: eventfd and poll-backed epoll adapters | Separate portability surface, not POSIX requirements; inotify ENOSYS, no Linux syscall ABI |
+| libuv / Node | `ports/srvros/uv.c` adapter and selected upstream source | Adapter is not full upstream libuv; historical Node execution is not a current reproduced full runtime port |
+
+## High-priority semantic findings
+
+### P0. Thread-local error state
+
+[`posix_errno.c`](../userspace/lib/src/posix_errno.c) stores a single static
+integer and returns its address from `__errno_location()`. All threads in a
+process share it. A worker can overwrite the UI thread's error before it is read.
+An audit-only host-thread fixture linked the actual source with its accessor
+renamed to avoid replacing Ubuntu libc's errno: both threads received the same
+address and the worker's assignment changed the main thread's value. This
+reproduces the storage defect; it is not a guest TLS acceptance test.
+POSIX requires one thread's errno assignments not to change another's value
+([error numbers](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html)).
+
+Implement thread-lifetime error storage, including main thread, startup, detached
+exit and slot reuse. Avoid a bootstrap recursion through allocation or pthread
+functions which themselves set errno. Test simultaneous distinct errors with
+barriers and repeated thread creation; ensure the probe is linked to SrvrOS libc,
+not the Ubuntu host library.
+
+### P0. Positional I/O changes the shared offset
+
+[`posix_file.c`](../userspace/lib/src/posix_file.c) implements pread/pwrite as
+save-offset, seek, read/write, restore-offset. Another thread or descriptor that
+shares the open-file description can observe/interfere with the temporary offset.
+Restoring it later does not make the operation atomic. Add a kernel positional
+operation that does not mutate the shared offset, with checked ranges, partial
+transfer/error handling and tests through dup/shared descriptors. Verify append
+semantics against the selected standard rather than inheriting an accidental
+host behavior. The standard's
+[read/pread contract](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/read.html)
+is the reference.
+
+### P0. select and descriptor readiness
+
+[`posix_poll.c`](../userspace/lib/src/posix_poll.c) ignores `exceptfds`, returns
+poll's count of ready descriptors instead of counting all selected output bits,
+does not turn POLLNVAL into select's EBADF, and maps negative timeval fields to
+an infinite wait. Error/HUP handling can also set result bits that the caller did
+not request. Poll itself has 64 entries and collapses negative kernel errors to
+EINVAL; EINTR delivery requires review alongside signal dispatch.
+
+`FD_SETSIZE` is 128, whereas socket() returns library pseudo-descriptors starting
+at 1000 from an eight-entry table. These cannot be placed in the current fd_set;
+callers must not use FD_SET on them. Poll has a translation path, select does not
+offer a general socket-compatible descriptor namespace. Unify descriptor identity
+or provide an explicitly safe transitional contract before marketing generic
+event-loop compatibility.
+
+Add fixtures for a descriptor ready in both sets, exceptional conditions,
+invalid descriptors, ignored negative poll FDs, zero/invalid timeouts, HUP/EOF,
+nonblocking connect, signals and concurrent close/reuse. Check all return values
+and masks, not just whether a loop woke up.
+
+### P1. Signal and thread semantics
+
+The kernel has per-thread masks; do not replace that fact with the outdated claim
+that all signal state is process-global. However libc has a process-global
+dispatch-in-progress flag and delivers handlers only at its checkpoints.
+sigaction accepts SA_SIGINFO, SA_ONSTACK and SA_RESETHAND, while the dispatcher
+calls the one-argument handler without implementing those contracts. pthread_kill
+checks the thread then calls kill(getpid(), sig), so it is not thread-directed.
+
+Reject unsupported modes clearly or implement them fully; never advertise them
+through a successful registration alone. Specify pending-signal selection,
+thread-directed delivery, handler masks, interruption/restart and wait races.
+Test masked/unmasked threads, targeted delivery, handler registration changes and
+blocking calls. Full asynchronous signal delivery is a distinct kernel project.
+
+### P1. Successful placeholders and misleading accounting
+
+- `posix_resource.c`: setrlimit updates a libc array without installing kernel
+  enforcement; get/setpriority return zero; getrusage uses global uptime and
+  global used memory instead of process CPU time/peak resident usage.
+- `posix_time.c`: clock() returns system ticks; nanosleep ignores its remaining
+  interval argument even on interruption. POSIX requires the remaining interval
+  when requested after EINTR ([nanosleep](https://pubs.opengroup.org/onlinepubs/9799919799/functions/nanosleep.html)).
+- `posix_node_compat.c`: pthread_atfork discards callbacks and returns success;
+  pthread_getschedparam/setschedparam do not implement scheduling policy.
+- `posix_pthread.c`: thread naming setters validate but do not retain a name;
+  getters return a constant. These `_np` extensions need honest contracts too.
+
+Replace unsupported success with a documented supported restriction/error where
+the API allows it, or implement the operation. Separate diagnostic estimates from
+standard accounting APIs. Revisit probes which currently accept placeholders;
+a compatibility fix may intentionally make an old optimistic probe fail until
+its required semantics are implemented.
+
+### P1. Linux adapter behavior, separately tracked
+
+The existing epoll adapter is real code, so “epoll absent” is inaccurate. It is
+also not a drop-in Linux epoll implementation: epoll_wait changes timeout zero to
+a 10 ms poll, returns after a short sleep for an indefinitely waiting eventfd-only
+set, and epoll_pwait ignores its signal mask. Registration stores event flags
+without implementing edge-triggered/one-shot lifetime rules. Audit/reject those
+modes, fix ready-event/timeout behavior and test fairness and close/reuse before
+using this as a general upstream runtime backend. These are Linux compatibility
+issues, not missing POSIX requirements.
+
+## Desktop dependencies
+
+The [desktop evolution plan](desktop-api-evolution.md) needs dependable worker
+error state, file operations and event dispatch now. It does not need fork,
+dynamic linking or every standard utility before supporting multiple windows.
+
+Provide a single UI connection dispatcher which can wait on GUI events, timer
+deadlines, file/socket readiness and worker completion. Decide how GUI readiness
+enters the kernel wait model; repeatedly polling a separate GUI loop is not the
+intended permanent solution. Preserve native GUI authentication, surface seals
+and cancellation ownership while making the userspace loop reusable.
+
+For future ports, publish a small capability/limits manifest and test it against
+the actual implementation. Audit sysconf/pathconf/feature-test macros before
+advertising support. A function returning ENOSYS can be a useful explicit stub;
+a function returning success with different semantics is a porting trap.
+
+## Implementation sequence and completion criteria
+
+| Block | Deliverable | Acceptance |
+| --- | --- | --- |
+| C0: honest baseline | This matrix, documented unsupported modes, recorded existing smoke results | No claim of certification or complete libuv/Node based on symbols |
+| C1: worker correctness | Thread-local errno; kernel positional I/O; audit shared libc state used by jobs | Deterministic guest tests with barriers, dup/shared offsets, cancellation and thread-slot reuse |
+| C2: portable event loop | select/poll semantics, descriptor namespace, errors/timeouts; combined GUI/FD wait design | Ready/masked/invalid FD cases, EINTR races, no lost wakeups, bounded idle CPU, input under I/O |
+| C3: truthful process APIs | Reject/fix unsupported signal flags and scheduling/resource placeholders; proper interrupted sleeps | Negative tests and positive semantics, including resource enforcement if advertised |
+| C4: chosen portable consumer | One pinned real CLI/event-driven C application, its explicit supported feature profile and upstream tests | Build/link/run on SrvrOS; files/network/shutdown verified, not just version output |
+| C5: broader Unix semantics | Separate designs for fork, shared mmap, dynamic linking, permissions/security, full shell/job control | Per-feature design and tests; no blanket readiness inferred from C4 |
+
+Each block should land as reviewable changes with failing-before/passing-after
+tests for the actual bug. Run tests locally while repository Actions are disabled.
+Do not lower unsupported results into successful no-ops to keep a port compiling.
+Keep API errors explicit and update callers and the support matrix together.
+
+## Validation and evidence limits
+
+This audit uses current source plus the existing guest harnesses:
+
+```sh
+make -q all usb-image
+tools/host-env.sh python3 tools/libc_smoke.py
+tools/host-env.sh python3 tools/thread_smoke.py
+tools/host-env.sh python3 tools/libuv_smoke.py
+```
+
+Run them sequentially in one checkout. Each harness uses a disposable disk copy;
+these are VM tests, not native device tests. The local audit receipt records the
+exact image hashes, command exit statuses and output under
+`build/desktop-api-audit-20261024/`. None is a comprehensive POSIX test suite.
+All three guest harnesses passed on October 24; `make -q all usb-image` confirmed
+the existing images were current for the unchanged runtime source. The audit
+changed documentation only. The host errno and clipboard fixtures deliberately
+reproduced known gaps; their zero exit statuses mean the defects were observed,
+not that the affected semantics passed. Their sources and logs are retained with
+the local receipt for conversion into passing-after-fix regressions.
+In particular, libcprobe/nodeprobe passing does not disprove the source findings
+above, and a “resource ok” marker does not prove kernel-enforced rlimits.
+
+For future conformance work, first select the claimed profile/options, then add
+system-interface, shell and utility tests against the standard. The Open Group's
+[test-suite overview](https://posix.opengroup.org/testsuites.html) is a starting
+point for scope and requirements, not evidence that SrvrOS has run those suites.
+Keep unsupported, expected-failing, untested and passed cases separate; do not
+publish a POSIX percentage without a defined denominator and semantic coverage.
+
+See [porting](ports.md), [libuv](libuv-port.md) and [Node recovery](node-port.md)
+for build instructions and their narrower current guarantees.

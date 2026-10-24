@@ -70,12 +70,19 @@ opening, saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; the round
 contains no native cache totals or pressure injection.
 See [window capacity](window-capacity.md).
 
-Continue reusable controls, keyboard accessibility, app save/recovery and text
-coverage. Native-density typography is separate from current 2x pixel scaling.
+The count increase is a checkpoint, not the final architecture. Follow the
+[desktop API evolution plan](desktop-api-evolution.md): close service-capacity
+gaps, separate connection/window/surface identities, support multiple windows per
+process, then replace fixed registries with budgeted allocation. Mature the
+shared application loop, actions, document services and toolkit incrementally.
+Native-density typography is separate from current 2x pixel scaling.
 
-**Done when:** the native trial confirms workloads beyond eight windows,
-resizing and close/reopen preserve documents and input. Host allocation-pressure
-coverage and VM resource cleanup remain distinct from native interaction.
+**Next completion gates:** two document windows in one process, dynamic-count
+VM stress, explicit low-memory refusal without document loss, and focused native
+input/save/resize acceptance. Host allocation-pressure coverage and VM cleanup
+remain distinct from native interaction. The [POSIX audit](posix-compatibility.md)
+prioritizes thread-local errno, positional I/O and readiness correctness alongside
+this work; full POSIX conformance is not a prerequisite for multiple windows.
 
 ## 6. Suspend and expand hardware deliberately
 

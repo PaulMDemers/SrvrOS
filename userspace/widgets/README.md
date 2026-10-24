@@ -60,7 +60,8 @@ start from the old `gui2` apps.
 5. Publish menu snapshots and service `desk_app_menu_tick`. Use the same action
    handlers for shortcuts, menu commands and contextual actions. Global heading
    names **SrvrOS**, **Arrange** and **Window** are reserved. Apps may publish
-   at most 32 entries and four headings; each popup has at most twelve rows.
+   at most 32 entries and four headings; the shared popup model supports up to
+   32 rows per group and scrolls when the screen cannot display them all.
 6. Draw only when `desk_app_canvas` returns 1. Present through
    `desk_app_present`; never retain and mutate a sealed pixel buffer while the
    compositor owns it. Keep polling releases/configures even when no repaint is
@@ -280,7 +281,7 @@ Ctrl-C for the foreground command; Shift-PageUp/PageDown scroll history.
 pointer activation, press-drag selection, hover switching, F10/arrow/Home/End
 navigation, Escape cancellation, disabled items, checkmarks and shortcut labels.
 It validates UTF-8 labels and unique action IDs. Flat headings group at most
-12 rows each; snapshots contain at most 64 entries and eight headings. The
+32 rows each; snapshots contain at most 96 entries and eight headings. The
 compositor uses this same control for its global UI. Drawing preserves parent
 clips and supports tiled damage; opening, changing or closing a popup damages
 only its old/new bounds and the menu bar.

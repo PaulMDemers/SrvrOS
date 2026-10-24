@@ -48,6 +48,10 @@ client surfaces up to 1440×900 logical pixels. Explicit 2× scaling passes VM
 checks at 2880×1800, but is pixel enlargement, not a high-density font renderer
 or Retina Mac acceptance. See the [desktop guide](native-desktop.md) and [device parity ledger](device-parity.md).
 
+The [desktop architecture/API plan](desktop-api-evolution.md) proposes separate
+connection/window identities, multiple windows per app and dynamic resource-based
+admission. These are future work; the sixteen-window limit remains in the code.
+
 ## Files, services and devices
 
 | Area | Current boundary |
@@ -59,7 +63,7 @@ or Retina Mac acceptance. See the [desktop guide](native-desktop.md) and [device
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
 | Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
-| POSIX / ports | Useful subset, not full POSIX or Linux binary compatibility; full Node runtime recovery remains incomplete |
+| POSIX / ports | [Source audit](posix-compatibility.md): useful subset, with thread-local errno, positional I/O and readiness semantics needing correction; not full POSIX or Linux binary compatibility; full Node runtime recovery remains incomplete |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 
 ## Measured checkpoints and current acceptance
