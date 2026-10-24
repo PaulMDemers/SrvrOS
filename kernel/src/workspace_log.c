@@ -18,7 +18,8 @@
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
-static char directory[128],path[160],snapshot[65536];
+static char directory[128],path[160],snapshot[BOOTLOG_CAPTURE_CAPACITY];
+static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
 static uint64_t due;
@@ -112,8 +113,12 @@ static bool save(const char *name) {
     uint64_t start=measured?timer_monotonic_us():0;
     report_save();
     device_checkpoint();
-    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,timer_monotonic_us(),bootlog_total());
-    uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
+    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,timer_monotonic_us(),bootlog_total(),snapshot_limit);
+    uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;
+    if(snapshot_limit==BOOTLOG_CAPTURE_CAPACITY && total!=count) {
+        console_write("workspace-log: SAVE FAILED extended capture prefix lost\n");
+        return false;
+    }
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
     uint64_t prepared=measured?timer_monotonic_us():0;
     bool tracing=measured && usb_storage_timing_begin();
@@ -160,8 +165,13 @@ static void worker(void *arg) {
         due=timer_ticks()+1000;busy=false;scheduler_wake_all(&wake);
     }
 }
-bool workspace_log_start(void) {
+static bool start(uint64_t limit) {
     if(enabled || busy || !workspace_active()) return false;
+    if(limit==BOOTLOG_CAPTURE_CAPACITY && !bootlog_extend_capture()) {
+        console_write("workspace-log: REFUSED extended capture prefix lost\n");
+        return false;
+    }
+    snapshot_limit=limit;
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
     /* Four log files plus room for reports/screenshots. Check before creating
@@ -191,6 +201,8 @@ bool workspace_log_start(void) {
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }
+bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY); }
+bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);

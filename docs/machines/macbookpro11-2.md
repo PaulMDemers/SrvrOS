@@ -5356,3 +5356,19 @@ Fetched main85d5939 and PR134 head e4b7b02; Air6,1 startup-timing4b41c06 owns it
 capture profile. Preserve those independent scopes and publish the logger change
 through PR19. Current integration base remains d5bc4b3. Next checkpoint: host
 boundary/overflow tests, native build and exact-stage save/refusal VM checks.
+
+Scope extension: pair the capacity fix with a fixed read-only RF0:22 MCU probe
+(v60) after exact antenna completion. Command10/sequence8 reads address80000016
+with zero payload; six MAC/CORE/DMA boundary reads, no RF write or calibration.
+Require exact response framing/address and an eight-bit value; preserve response
+words on mismatch. Touch mt76 MCU/xHCI and dedicated staging/tests in PR19.
+
+Implemented the fixed RF0:22 read candidate and 128KiB Wi-Fi-only complete
+snapshot. Host tests cover all seven transport-operation failures/eight cancel
+boundaries, frame/address mutations and all six guard reads. Native binding
+checks exact antenna completion, request bytes, order, one submission, refusal
+without USB and transfer-error quarantine. Snapshot tests cover expansion at
+zero/partial/exact64KiB boundaries, complete128KiB persistence, wrap/lost-prefix
+refusal, ordinary-size restoration and collector bounds. RF/bootlog sanitizers
+passed. Full synthetic proof is 65730 bytes;55 malformed/truncated receipt cases
+refused. Native acceptance remains pending; no radio writes added.

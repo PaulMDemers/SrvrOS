@@ -302,6 +302,12 @@ logs are checkpointed about every ten seconds into alternating `session-a.log`
 and `session-b.log`; `exit.log` is saved before the final flush/unmount. Each file
 contains at most the latest 64 KiB, with a timestamp and byte counter in its
 snapshot marker. This is bounded diagnostic history, not a complete transcript.
+The explicit Wi-Fi firmware capture alone opts into a 128KiB startup snapshot.
+It refuses activation if the original 64KiB ring already discarded bytes, and
+refuses a save if the extended ring overflowed. Ordinary desktop and battery
+snapshot limits remain 64KiB. Host collection accepts files up to 128KiB, with
+the existing aggregate 64MiB collection ceiling; collection size is not proof
+of successful hardware completion.
 Writes are read back and flushed through the existing storage service gate.
 A failed save is visible and stops periodic retries; the previous checkpoint
 remains available. A sudden reset can lose recent messages and these writes do

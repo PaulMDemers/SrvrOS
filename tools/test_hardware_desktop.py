@@ -601,6 +601,21 @@ class CollectionTests(unittest.TestCase):
             self.assertIn('collection: missing exit snapshot; session incomplete',item['attention'])
             self.assertEqual(report['hardware_acceptance'],'manual-pending')
 
+    def test_extended_logs_preserve_every_byte_and_old_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for length in (65536,65537,131072):
+                payload=b'prefix\n'+b'x'*(length-12)+b'\nend\n'
+                self.assertEqual(len(payload),length)
+                (folder/'exit.log').write_bytes(payload)
+                out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+                self.assertEqual((out/folder.name/'exit.log').read_bytes(),payload)
+                self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            (folder/'exit.log').write_bytes(b'x'*131073)
+            with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
+
     def test_logs_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'
@@ -621,7 +636,7 @@ class CollectionTests(unittest.TestCase):
             self.assertIn('collection: conflicting boot release identities',mixed['sessions'][0]['attention'])
             (folder/'exit.log').unlink();(folder/'exit.log').symlink_to(folder/'boot.log')
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
-            (folder/'exit.log').unlink();(folder/'exit.log').write_bytes(b'x'*65537)
+            (folder/'exit.log').unlink();(folder/'exit.log').write_bytes(b'x'*(desktop.MAX_LOG_BYTES+1))
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
             with self.assertRaises(ValueError): desktop.collect(mount,'12345678',root/'out')
 

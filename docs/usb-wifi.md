@@ -2427,3 +2427,32 @@ verifications, with zero guard errors. Readbacks in table order were ff000003,
 completion markers passed. Saved logs, automatic return, Ubuntu recovery and
 both offline filesystem checks passed. RF-bank initialization and calibration
 are next; antenna RF performance, scanning and connectivity remain untested.
+
+
+### Read-only RF transport probe (v60)
+
+`--wifi-rf-probe` requires `--wifi-ant-init`. After the complete v59 chain, this
+candidate sends one fixed CMD_RANDOM_READ10, sequence8 request for RF bank0,
+register22 (frequency trim), with a zero value field. Linux v7.0 uses the MCU
+RF address space `0x80000000 + (bank << 16 | register)` on USB; the PCI RF CSR
+path is not used. See the [RF access path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+and [USB MCU transport](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c).
+
+Six direct reads check MAC0/COREf000f200/disabled DMA before and after the
+exchange. Native admission requires exact completed antenna/configuration proof,
+request bytes and order, and one submission only. The candidate response contract
+requires 16 bytes, sequence8/event0/length8 header `4a080008`, address `80000016`,
+an eight-bit value, and matching trailer. Those framing fields are deliberately
+strict hypotheses to test, not an already accepted RF response contract. The
+first four response words and transport counts are saved on a mismatch. A failed
+exchange or changed guard stops without retry and retains uncertain USB DMA.
+No RF register write, calibration, channel choice or transmitter enable occurs.
+
+Wi-Fi firmware captures now opt into a 128KiB complete startup snapshot. Expansion
+refuses already lost startup bytes; overflow refuses saving a partial proof.
+Ordinary desktop/battery snapshots stay at 64KiB. The larger kernel buffers add
+192KiB of static storage; there is no runtime allocation or new periodic schedule.
+Host collection retains its total 64MiB ceiling. Native RF transport is pending.
+After observation, the next work is bounded RF-table initialization, fresh
+frequency-offset validation, DAC/VCO calibration and receiver setup; scanning,
+802.11 association/security and network integration remain later milestones.

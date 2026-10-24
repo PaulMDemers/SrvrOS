@@ -1421,3 +1421,43 @@ enum mt76_mcu_timing_status mt76_ant_init_apply(struct mt76_ant_init *s,const st
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Linux USB RF address = 0x80000000 + (bank<<16 | register).
+ * Single read only; sequence8 follows the completed sequence7 DCOC exchange. */
+size_t mt76_rf_probe_packet(uint8_t *out,size_t capacity) {
+    static const uint8_t payload[8]={0x16,0,0,0x80,0,0,0,0};
+    return mt76_mcu_encode(10,8,payload,sizeof payload,out,capacity);
+}
+uint32_t mt76_rf_probe_read_address(unsigned i) {
+    static const uint32_t addresses[3]={0x1004,0x2000,0x208};
+    return i<6?addresses[i%3]:UINT32_MAX;
+}
+enum mt76_mcu_timing_status mt76_rf_probe_apply(struct mt76_rf_probe *s,
+    const struct mt76_mcu_timing_io *io) {
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_probe){.attempted=true,.received=-1};
+    for(unsigned boundary=0;boundary<2;boundary++) {
+        uint32_t *values[3]={&s->mac[boundary],&s->core[boundary],&s->dma[boundary]};
+        for(unsigned i=0;i<3;i++) {
+            if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+            uint32_t address=mt76_rf_probe_read_address(s->reads++);
+            if(!io->read(io->context,address,values[i]))return MT76_TIMING_IO;
+            uint32_t v=*values[i];
+            if((i==0 && v) || (i==1 && v!=0xf000f200) || (i==2 && (v==UINT32_MAX || (v&15))))return MT76_TIMING_STATE;
+        }
+        if(boundary)break;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+        if(mt76_rf_probe_packet(packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+        s->request_attempted=true;
+        s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);
+        if(s->received<0)return MT76_TIMING_IO;
+        for(unsigned i=0;i<4 && (int)(4*i+4)<=s->received;i++)
+            for(unsigned b=0;b<4;b++)s->words[i]|=(uint32_t)reply[4*i+b]<<(8*b);
+        if(s->received!=16 || s->words[0]!=0x4a080008 || s->words[1]!=0x80000016 ||
+           s->words[2]>255 || s->words[3]!=0x4a080008)return MT76_TIMING_REPLY;
+        s->value=(uint8_t)s->words[2];s->reply_valid=true;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

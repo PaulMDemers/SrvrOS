@@ -3426,6 +3426,82 @@ static void antenna_ready_fixture(struct xhci_device *d){
  m->ant_snapshot=(struct mt76_ant_snapshot){.attempted=true,.complete=true,.reads=11,.core={0xf000f200,0xf000f200}};m->ant_snapshot_submitted=11;
  for(unsigned i=0;i<5;i++)m->ant_snapshot.values[i]=mt76_ant_init_initial(i);
 }
+static void rf_probe_fixture(struct xhci_device *d) {
+ antenna_ready_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->ant_fields=(struct mt76_ant_fields){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2,.antenna=0x17ff,.cfg1=0xffef,.nic0=0xfd11,.nic1=0x1004};
+ m->ant_fields_gate=(struct mt76_efuse_map_gate){.phase=15,.block=2,.submitted=26,.polls=2};for(unsigned i=0;i<4;i++)m->ant_fields_gate.core[i]=0xf000f200;
+ m->ant_init_active=m->rf_probe_mode=m->rf_probe_active=true;
+ m->ant_init=(struct mt76_ant_init){.attempted=true,.complete=true,.operations=40,.reads=35,.writes=5,.verified=5};m->ant_init_submitted=40;
+ for(unsigned i=0;i<5;i++){m->ant_init.before[i]=mt76_ant_init_initial(i);m->ant_init.after[i]=mt76_ant_init_value(i);}
+ for(unsigned i=0;i<10;i++)m->ant_init.core[i]=0xf000f200;
+ m->rf_probe=(struct mt76_rf_probe){.attempted=true,.request_attempted=true,.reads=3,.core={0xf000f200,0}};m->rf_probe_reads=3;
+}
+static void test_wifi_rf_probe(void) {
+ for(unsigned fault=0;fault<29;fault++) {
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb out[64]={0},in[64]={0},events[64]={0};uint8_t tx[200]={0},rx[1024]={0},packet[16],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];rf_probe_fixture(d);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};
+  m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+  if(fault==1)m->rf_probe_mode=false;
+  if(fault==2)m->rf_probe_active=false;
+  if(fault==3)m->ant_init.complete=false;
+  if(fault==4)m->ant_init.attempted=false;
+  if(fault==5)m->ant_init.operations--;
+  if(fault==6)m->ant_init.reads--;
+  if(fault==7)m->ant_init.writes--;
+  if(fault==8)m->ant_init.verified--;
+  if(fault==9)m->ant_init_submitted--;
+  if(fault==10)m->ant_fields.valid=false;
+  if(fault==11)m->ant_init.before[4]^=1;
+  if(fault==12)m->ant_init.after[4]^=1;
+  if(fault==13)m->ant_init.mac[9]=1;
+  if(fault==14)m->ant_init.core[9]=0;
+  if(fault==15)m->ant_init.dma[4]=1;
+  if(fault==16)m->rf_probe_submitted=true;
+  if(fault==17)m->rf_probe.reads--;
+  if(fault==18)m->rf_probe_reads--;
+  if(fault==19)m->rf_probe.request_attempted=false;
+  if(fault==20)m->rf_probe.reply_valid=true;
+  if(fault==21)m->rf_probe.complete=true;
+  if(fault==22)m->rf_probe.attempted=false;
+  if(fault==23)m->rf_probe.mac[0]=1;
+  if(fault==24)m->rf_probe.core[0]=0;
+  if(fault==25)m->rf_probe.dma[0]=1;
+  if(fault==26)m->pending=true;
+  if(fault==27)events[0].status=6u<<24;
+  if(fault==28)events[1].status=6u<<24;
+  assert(mt76_rf_probe_packet(packet,sizeof packet)==16);
+  if(!fault) {
+   for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_rf_probe_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}
+   assert(wifi_rf_probe_exchange(d,packet,15,reply,1024)==-1);
+   assert(wifi_rf_probe_exchange(d,packet,16,reply,1023)==-1);
+  }
+  int received=wifi_rf_probe_exchange(d,packet,16,reply,1024);assert(received==(fault?-1:16));
+  if(!fault){assert(m->rf_probe_submitted && !memcmp(tx,packet,16));assert(wifi_rf_probe_exchange(d,packet,16,reply,1024)==-1);}
+  else if(fault>=27)assert(m->rf_probe_submitted && m->failed && d->firmware.failed && !freed);
+  else assert(!f->ep.enqueue && !m->response.enqueue);
+ }
+ for(unsigned n=0;n<6;n++)for(unsigned fault=0;fault<6;fault++) {
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];rf_probe_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->rf_probe.reads=n+1;m->rf_probe_reads=n;m->rf_probe.request_attempted=m->rf_probe.reply_valid=m->rf_probe_submitted=n>=3;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==5?6:1,0);
+  uint32_t a=mt76_rf_probe_read_address(n),v;
+  if(fault==1)a++;
+  if(fault==2)m->rf_probe_reads++;
+  if(fault==3)m->rf_probe_submitted=!m->rf_probe_submitted;
+  if(fault==4)m->rf_probe.complete=true;
+  assert(wifi_rf_probe_read(d,a,&v)==!fault);
+  if(!fault){assert(m->rf_probe_reads==n+1 && d->firmware.control_type==0xc0 && d->firmware.control_request==7);assert(!wifi_rf_probe_read(d,a,&v));}
+  else if(fault==5)assert(d->ep0_quarantined && d->firmware.failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ puts("xhci RF probe: PASS antenna ownership, fixed read-only payload/order, no retry/USB on refusal and failure quarantine");
+}
 static void test_wifi_ant_init(void){
  for(unsigned target=0;target<5;target++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<34;fault++){
   reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
@@ -4637,6 +4713,7 @@ int main(int argc, char **argv) {
     test_wifi_dcoc();
     test_wifi_mac_board();
     test_wifi_ant_snapshot();
+    test_wifi_rf_probe();
     test_wifi_ant_init();
     test_wifi_mac_private();
     test_wifi_efuse_map();

@@ -2966,7 +2966,7 @@ test-core: test-workspace-log
 test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
 	build/tests/workspace-log-host$(HOST_EXE)
 	build/tests/bootlog-host$(HOST_EXE)
-build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/bootlog.h kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
@@ -3692,3 +3692,11 @@ test-e1000-rx: build/tests/e1000-rx-host$(HOST_EXE)
 build/tests/e1000-rx-host$(HOST_EXE): tools/test_e1000_rx.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-rf-probe
+test-core: test-mt76-rf-probe
+test-mt76-rf-probe: build/tests/mt76-rf-probe-host$(HOST_EXE)
+	build/tests/mt76-rf-probe-host$(HOST_EXE)
+build/tests/mt76-rf-probe-host$(HOST_EXE): tools/test_mt76_rf_probe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

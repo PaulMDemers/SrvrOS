@@ -370,4 +370,18 @@ uint32_t mt76_ant_init_value(unsigned index);
 bool mt76_ant_init_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
 bool mt76_ant_init_transfer_valid(const struct mt76_ant_init *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
 enum mt76_mcu_timing_status mt76_ant_init_apply(struct mt76_ant_init *s,const struct mt76_ant_init_io *io);
+
+/* Fixed USB RF0:22 observation only, Linux v7.0 RF map. No arbitrary RF writes.
+ * Reply framing is a candidate contract, not native RF/calibration acceptance. */
+struct mt76_rf_probe {
+    bool attempted,request_attempted,reply_valid,complete;
+    unsigned reads;
+    int received;
+    uint32_t mac[2],core[2],dma[2],words[4];
+    uint8_t value;
+};
+size_t mt76_rf_probe_packet(uint8_t *out,size_t capacity);
+uint32_t mt76_rf_probe_read_address(unsigned index);
+enum mt76_mcu_timing_status mt76_rf_probe_apply(struct mt76_rf_probe *s,
+    const struct mt76_mcu_timing_io *io);
 #endif

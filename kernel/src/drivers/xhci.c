@@ -270,6 +270,9 @@ struct xhci_wifi_mcu {
     bool efuse_map_mode,efuse_map_active;
     struct mt76_efuse_map efuse_map;
     struct mt76_efuse_map_gate efuse_map_gate;
+    bool rf_probe_mode,rf_probe_active,rf_probe_submitted;
+    unsigned rf_probe_reads;
+    struct mt76_rf_probe rf_probe;
     bool ant_init_mode,ant_fields_active,ant_init_active;
     struct mt76_ant_fields ant_fields;
     struct mt76_efuse_map_gate ant_fields_gate;

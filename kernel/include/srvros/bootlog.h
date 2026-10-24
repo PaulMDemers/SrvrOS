@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define BOOTLOG_DEFAULT_CAPACITY 65536u
+#define BOOTLOG_CAPTURE_CAPACITY 131072u
+/* Opt-in startup capture only. Refuse if the ordinary ring already wrapped;
+ * a larger buffer cannot recover discarded proof. */
+bool bootlog_extend_capture(void);
 void bootlog_putc(char c);
 uint64_t bootlog_size(void);
 void bootlog_dump(uint64_t max_bytes);

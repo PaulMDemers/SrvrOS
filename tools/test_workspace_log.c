@@ -3,9 +3,12 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[64];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_CAPTURE_CAPACITY]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
-static bool capacity_ok=true;
+static bool capacity_ok=true,extend_ok=true;
+static uint64_t snapshot_bytes=8;
+static bool lost_prefix;
+bool bootlog_extend_capture(void) { return extend_ok; }
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
@@ -23,7 +26,7 @@ bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
-    assert(depth && n<=65536);writes++;clock_us+=100;if(!io_ok) return false;
+    assert(depth && n<=snapshot_limit);writes++;clock_us+=100;if(!io_ok) return false;
     struct item *f=find(p);if(!f) f=add(p);f->node.type=VFS_NODE_FILE;f->node.size=n;memcpy(f->bytes,data,n);return true;
 }
 bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) {
@@ -45,7 +48,10 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
+uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity==snapshot_limit && capacity>=snapshot_bytes);
+    if(snapshot_bytes==8)memcpy(out,"test log",8);
+    else for(uint64_t i=0;i<snapshot_bytes;i++)out[i]=(char)(i%251);
+    *seq=capacity==BOOTLOG_CAPTURE_CAPACITY?snapshot_bytes+(lost_prefix?1:0):total;return snapshot_bytes; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=(struct srv_pcm_status){.version=SRV_PCM_VERSION};*owner=0; }
@@ -92,5 +98,17 @@ int main(void) {
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);sync_ok=true;
     assert(workspace_log_start());io_ok=false;old_writes=writes;
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);io_ok=true;
+    assert(workspace_log_stop());
+    extend_ok=false;old_writes=writes;assert(!workspace_log_start_capture() && writes==old_writes);
+    extend_ok=true;snapshot_bytes=BOOTLOG_CAPTURE_CAPACITY;
+    assert(workspace_log_start_capture() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY);
+    struct item *large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    assert(!workspace_log_start() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);
+    lost_prefix=false;corrupt=true;assert(!save("session-a.log"));corrupt=false;
+    assert(workspace_log_stop());snapshot_bytes=8;
+    assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    assert(workspace_log_stop());
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }
