@@ -2171,3 +2171,29 @@ hashes and Ubuntu default are verified; console recovery `c35475f62f154f1e` rema
 The obsolete `fc1d1f4c45d30252` EFI image-capture copy was removed for space only
 after its durable payload backup was hash-verified. Native reopen remains failed
 pending this diagnostic's returned evidence; this is not a claimed native fix.
+
+### Automated startup timing result (2026-10-24)
+
+Run `d3d219186d3bc6e6`, release `837ce4f6bfab6775`, passes the automated
+two-session check. Sessions `00065e9d64761993-00` and `00065e9d65e8d7a2-00`
+each reached fresh battery generation 6 and retired epochs 1/2 with balanced
+attachment and zero final heap/errors/denied. Normal Ubuntu return and the
+one-shot collector completed; the collector disabled itself. All 288 prior
+files except metadata retain identical bytes; eight new logs bring the clean
+filesystem to 296 files/848 clusters. One-shot boot state is empty. Evidence
+and hashes are backed up outside build; no new reboot is armed.
+
+First startup took 4,796,986 us; reopening took 4,917,553 us, only 82,447 us below
+the unchanged five-second deadline. Namespace load alone took 4,455,910 us in
+the second lifetime. Neither startup called AML sleep or stall. Second-start
+semaphore wall time totaled 10,906 us and four EC byte transfers totaled 312 us.
+Allocation made 18,847 calls, with 295 sampled calls totaling 61,586 us; free
+made 7,411 calls, with 116 samples totaling 14,180 us. These sampled wall times
+are not exact totals or CPU measurements. The allocator's whole-heap validation
+on both entry and exit, plus its linear free-block search, is a strong next
+investigation target; establish cost and preserve integrity checks in any fix.
+
+This accepts only the short automated startup/reopen/retirement sequence. It
+does not resolve the prior attended failure or establish sufficient timing
+margin under interactive load. No timeout increase or allocator change was
+made in this run.
