@@ -2140,3 +2140,18 @@ single-attempt transfers.32 operations comprise28 reads and four writes.
 Native implementation/acceptance remains pending. DMA burst/writeback/clock-gate
 fields and board IO/supply settings require separate ownership/semantic review.
 The snapshot alone does not justify copying every reference default.
+
+### Four fixed MAC controls implementation (v53)
+
+`--wifi-mac-fixed` requires v52 and the four exact captured starting values.
+It updates1218/1220 from00550055 to00500055,13c0 from18181818 to0,and1238
+from003700c8 to001700c8. For each target: read MAC,CORE,DMA and initial target;
+write once; read target,MAC,CORE. The32 operations contain28 reads/four writes.
+MAC must remain0,COREf000f200,and DMA enable/busy bits clear before each write.
+The transport separately validates order,address,length,payload and prior reads.
+Errors stop without retry; uncertain DMA ownership retains quarantine.
+
+Eight guard pairs and four before/after/DMA observations accompany exact counts
+in the saved log. The collector requires exact initial/final values and all prior
+stages. No calibrated power,DMA configuration,board supply or RF-enable writes
+are included. Hardware acceptance remains pending until a matching native run.

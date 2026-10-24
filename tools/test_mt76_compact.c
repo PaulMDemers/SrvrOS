@@ -1045,7 +1045,39 @@ static void test_mac_tail(void){
  assert(mt76_mac_tail_address(22)==UINT32_MAX && mt76_mac_tail_request(26)==UINT32_MAX);
  puts("MAC tail: PASS22 ordered observations,26 reads, all-ones targets, IO/cancellation/guard failures and no retry");
 }
-int main(void){test_mac_tail();test_wcid();test_skey();test_dcoc();test_bbp_switch();
+static const uint32_t fixed_addr[4]={0x1218,0x1220,0x13c0,0x1238},fixed_before[4]={0x550055,0x550055,0x18181818,0x3700c8},fixed_after[4]={0x500055,0x500055,0,0x1700c8};
+struct fixed_fake {unsigned ops,auth,fail,deny,bad;uint32_t dma;};
+static bool fixed_auth(void *p){struct fixed_fake *f=p;return ++f->auth!=f->deny;}
+static bool fixed_transfer(void *p,unsigned op,bool write,uint32_t address,uint8_t *data,unsigned length){
+ struct fixed_fake *f=p;unsigned i=op/8,step=op%8;assert(op==f->ops++ && length==4 && write==(step==4));
+ assert(address==(step==0 || step==6?0x1004:step==1 || step==7?0x2000:step==2?0x208:fixed_addr[i]));
+ if(f->fail==op+1)return false;
+ if(write){for(unsigned j=0;j<4;j++)assert(data[j]==(uint8_t)(fixed_after[i]>>(8*j)));}
+ else word(data,address==0x1004?0:address==0x2000?0xf000f200:step==2?f->dma:step==3?fixed_before[i]:fixed_after[i]);
+ if(f->bad==op+1)data[0]^=1;
+ return true;
+}
+static enum mt76_mcu_timing_status fixed_run(struct fixed_fake *f,struct mt76_mac_fixed *s){const struct mt76_mac_fixed_io io={f,fixed_auth,fixed_transfer};return mt76_mac_fixed_apply(s,&io);}
+static void test_mac_fixed(void){
+ struct fixed_fake f={.dma=0x40000050};struct mt76_mac_fixed s={0};
+ assert(fixed_run(&f,&s)==MT76_TIMING_OK && s.complete && s.operations==32 && s.reads==28 && s.writes==4 && s.verified==4);
+ for(unsigned i=0;i<4;i++){assert(s.before[i]==fixed_before[i] && s.after[i]==fixed_after[i] && s.dma[i]==f.dma);assert(mt76_mac_fixed_address(i)==fixed_addr[i] && mt76_mac_fixed_initial(i)==fixed_before[i] && mt76_mac_fixed_value(i)==fixed_after[i]);}
+ assert(fixed_run(&f,&s)==MT76_TIMING_REFUSED && f.ops==32);
+ for(unsigned n=1;n<=32;n++){f=(struct fixed_fake){.fail=n};s=(struct mt76_mac_fixed){0};assert(fixed_run(&f,&s)==MT76_TIMING_IO && !s.complete && f.ops==n);assert(fixed_run(&f,&s)==MT76_TIMING_REFUSED);}
+ for(unsigned n=1;n<=33;n++){f=(struct fixed_fake){.deny=n};s=(struct mt76_mac_fixed){0};assert(fixed_run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.auth==n);}
+ for(unsigned n=1;n<=32;n++)if((n-1)%8!=4){f=(struct fixed_fake){.bad=n};s=(struct mt76_mac_fixed){0};assert(fixed_run(&f,&s)==MT76_TIMING_STATE && !s.complete && f.ops==n);}
+ for(unsigned bit=0;bit<4;bit++){f=(struct fixed_fake){.dma=1u<<bit};s=(struct mt76_mac_fixed){0};assert(fixed_run(&f,&s)==MT76_TIMING_STATE && f.ops==3 && !s.writes);}
+ for(unsigned op=0;op<32;op++){
+  bool w;uint32_t a;unsigned n,i=op/8;uint8_t data[4]={0};assert(mt76_mac_fixed_request(op,&w,&a,&n));
+  s=(struct mt76_mac_fixed){.attempted=true,.operations=op};s.before[i]=fixed_before[i];s.core[2*i]=0xf000f200;
+  if(w)word(data,fixed_after[i]);
+  assert(mt76_mac_fixed_transfer_valid(&s,op,w,a,data,n));assert(!mt76_mac_fixed_transfer_valid(&s,op,!w,a,data,n) && !mt76_mac_fixed_transfer_valid(&s,op,w,a+1,data,n) && !mt76_mac_fixed_transfer_valid(&s,op,w,a,data,n-1));
+  if(w){for(unsigned bit=0;bit<32;bit++){data[bit/8]^=1u<<(bit%8);assert(!mt76_mac_fixed_transfer_valid(&s,op,w,a,data,n));data[bit/8]^=1u<<(bit%8);}s.before[i]^=1;assert(!mt76_mac_fixed_transfer_valid(&s,op,w,a,data,n));}
+ }
+ bool w;uint32_t a;unsigned n;assert(!mt76_mac_fixed_request(32,&w,&a,&n));
+ puts("MAC fixed: PASS four exact initial/target values,32 operations, every IO/cancel/read fault, DMA guards, write mutation refusal and no retry");
+}
+int main(void){test_mac_fixed();test_mac_tail();test_wcid();test_skey();test_dcoc();test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();

@@ -318,4 +318,20 @@ struct mt76_mac_tail {bool attempted,complete;unsigned reads,all_ones;uint32_t v
 uint32_t mt76_mac_tail_address(unsigned index);
 uint32_t mt76_mac_tail_request(unsigned operation);
 enum mt76_mcu_timing_status mt76_mac_tail_capture(struct mt76_mac_tail *s,const struct mt76_mcu_timing_io *io);
+struct mt76_mac_fixed {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[4],after[4],dma[4],mac[8],core[8];
+};
+struct mt76_mac_fixed_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*transfer)(void *context,unsigned operation,bool write,uint32_t address,uint8_t *data,unsigned length);
+};
+uint32_t mt76_mac_fixed_address(unsigned index);
+uint32_t mt76_mac_fixed_initial(unsigned index);
+uint32_t mt76_mac_fixed_value(unsigned index);
+bool mt76_mac_fixed_request(unsigned operation,bool *write,uint32_t *address,unsigned *length);
+bool mt76_mac_fixed_transfer_valid(const struct mt76_mac_fixed *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_mac_fixed_apply(struct mt76_mac_fixed *s,const struct mt76_mac_fixed_io *io);
 #endif

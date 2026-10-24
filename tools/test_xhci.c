@@ -3170,6 +3170,72 @@ static void test_wifi_mac_tail(void){
  puts("xhci MAC tail: PASS read-only exact order, completed WCID prerequisites, one attempt and error quarantine");
 }
 
+static void test_wifi_mac_fixed(void){
+ for(unsigned op=0;op<32;op++)for(unsigned fault=0;fault<19;fault++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->bbp_after_mac_mode=true;m->mac_policy_validate=true;m->mac_fce_validate=true;
+  m->mac_route_mode=true;m->mac_route.complete=true;m->mac_route_submitted=true;
+  m->mac_policy_mode=true;m->mac_policy.complete=true;m->mac_policy_submitted=true;
+  m->mac_protect_mode=true;m->mac_protect.complete=true;m->mac_protect_submitted=true;
+  m->mac_contention_mode=true;m->mac_contention.complete=true;m->mac_contention_submitted=true;
+  m->mac_txsw_mode=true;m->mac_txsw.complete=true;m->mac_txsw_submitted=true;
+  m->mac_beacon_mode=true;m->mac_beacon.complete=true;m->mac_beacon_submitted=true;
+  m->mac_vht_mode=true;m->mac_vht.complete=true;m->mac_vht_submitted=true;
+  m->mac_buffer_mode=true;m->mac_buffer.complete=true;m->mac_buffer_submitted=true;
+  m->mac_fce_mode=true;m->mac_fce.complete=true;m->mac_fce_submitted=true;
+  m->mac_ampdu_mode=true;m->mac_ampdu.complete=true;m->mac_ampdu_submitted=true;
+
+  m->table=(struct mt76_bbp_table){.attempted=true,.complete=true,.reads=124,.chunks_attempted=3,.chunks_completed=3,.ack_validated=true};m->table_submitted=3;
+
+  m->bbp_switch_mode=true;m->bbp_switch=(struct mt76_bbp_switch){.attempted=true,.complete=true,.reads=88,.writes_attempted=20,.writes_completed=20};m->bbp_switch_submitted=20;
+  for(unsigned i=0;i<20;i++)m->bbp_switch.after[i]=mt76_bbp_switch_value(i);
+  m->dcoc_mode=true;m->dcoc_active=true;m->dcoc=(struct mt76_dcoc){.attempted=true,.command_attempted=true,.reads=13,.core={0xf000f200,0xf000f200}};
+
+  m->dcoc.complete=true;m->dcoc.ack_validated=true;m->dcoc.reads=26;m->dcoc_submitted=true;
+  for(unsigned i=0;i<9;i++)m->dcoc.after[i]=mt76_dcoc_value(i);
+  m->skey_mode=true;m->skey_active=true;m->skey_submitted=576;
+  m->skey=(struct mt76_skey){.attempted=true,.complete=true,.operations=576,.reads=448,.writes=128,.slots=64,.mode_verified=64,.key_zero=64};
+  m->wcid_mode=true;m->wcid_active=true;m->wcid_submitted=1792;
+  m->wcid=(struct mt76_wcid){.attempted=true,.complete=true,.operations=1792,.reads=1408,.writes=384,.slots=256,.attributes_zero=256,.addresses_zero=128};
+  m->mac_tail_mode=true;m->mac_tail_active=true;m->mac_tail_submitted=26;m->mac_tail=(struct mt76_mac_tail){.attempted=true,.complete=true,.reads=26};
+  const unsigned idx[4]={7,8,10,19};for(unsigned i=0;i<4;i++)m->mac_tail.values[idx[i]]=mt76_mac_fixed_initial(i);
+  m->mac_fixed_mode=true;m->mac_fixed_active=true;m->mac_fixed_submitted=op;m->mac_fixed=(struct mt76_mac_fixed){.attempted=true,.operations=op};
+  unsigned row=op/8;m->mac_fixed.before[row]=mt76_mac_fixed_initial(row);m->mac_fixed.core[2*row]=0xf000f200;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  events[0]=control_event(0x9020,fault==17?6:1,0);
+  if(fault==1)m->mac_fixed_mode=false;
+  if(fault==2)m->mac_fixed_active=false;
+  if(fault==3)m->mac_tail.complete=false;
+  if(fault==4)m->mac_tail.reads--;
+  if(fault==5)m->mac_tail_submitted--;
+  if(fault==6)m->mac_tail.values[7]^=1;
+  if(fault==7)m->mac_tail.values[8]^=1;
+  if(fault==8)m->mac_tail.values[10]^=1;
+  if(fault==9)m->mac_tail.values[19]^=1;
+  if(fault==10)m->wcid.complete=false;
+  if(fault==11)m->mac_fixed_submitted++;
+  if(fault==12)m->mac_fixed.complete=true;
+  if(fault==13)m->mac_fixed.attempted=false;
+  if(fault==14)m->mac_fixed.operations++;
+  if(fault==15)m->pending=true;
+  if(fault==16)m->skey.complete=false;
+  if(fault==18)m->mac_tail_active=false;
+  bool w;uint32_t address;unsigned n;uint8_t data[4]={0};assert(mt76_mac_fixed_request(op,&w,&address,&n));
+  if(w)for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(mt76_mac_fixed_value(row)>>(8*j));
+  if(!fault){assert(!wifi_mac_fixed_transfer(d,op,w,address+1,data,n));assert(!wifi_mac_fixed_transfer(d,op,w,address,data,n-1));}
+  assert(wifi_mac_fixed_transfer(d,op,w,address,data,n)==(!fault));
+  if(!fault){assert(m->mac_fixed_submitted==op+1 && d->firmware.control_count==1);assert(d->firmware.control_index==address && d->firmware.control_request==(w?6:7) && d->firmware.control_length==4);assert(!wifi_mac_fixed_transfer(d,op,w,address,data,n));}
+  else if(fault==17)assert(d->ep0_quarantined && d->firmware.failed && m->mac_fixed_submitted==op+1 && d->firmware.control_count==1);
+  else assert(!d->ep0_enqueue);
+ }
+ puts("xhci MAC fixed: PASS exact controls/order, prior snapshot admission, one attempt and error quarantine");
+}
+
 static void test_wifi_mac_route(void){
  for(unsigned fault=0;fault<23;fault++){
   reset_test();test_time=0;test_time_step=1000;
@@ -4018,6 +4084,7 @@ int main(int argc, char **argv) {
     test_wifi_bbp_after_mac();
     test_wifi_bbp_switch();
     test_wifi_dcoc();
+    test_wifi_mac_fixed();
     test_wifi_mac_tail();
     test_wifi_wcid();
     test_wifi_skey();

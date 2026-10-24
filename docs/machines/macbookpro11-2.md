@@ -4779,3 +4779,9 @@ Audit checks/fixtures and hashed sources archived outside build under
 `~/.local/share/srvros/macbookpro11-2/mac-tail-audit-636ecf9/`.
 Installed release619ce12c1d5d0f0b unchanged,no reboot armed. Actualbase4a991df;
 fetchedmain468ca20 includes separate storage work,PR19 remains Wi-Fi owner.
+
+Active scope v53: four fixed PA-mode/attenuation/coexistence settings after v52.
+Exact captured initial values,32 operations/28 reads/four writes,MAC/CORE guards
+and disabled/idle DMA check per target. No retries or calibrated-power/DMA writes.
+Touch mt76/xHCI/main/profiles/tests. Actualbase4a991df; fetchedmain468ca20,
+other-machine window capacity work separate. Next checkpoint exact-stage VM.
