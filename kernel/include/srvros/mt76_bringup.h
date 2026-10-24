@@ -76,9 +76,19 @@ bool mt76_mac_header_begin(struct mt76_efuse_map_gate *,bool write,uint32_t addr
 bool mt76_mac_header_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
 enum mt76_capture_status mt76_capture_mac_header(const struct mt76_efuse_map_io *,
     const struct mt76_identity *,struct mt76_mac_header_result *,uint8_t output[16]);
-/* The gate retains only one private previous word; scrub it after use. */
+enum mt76_mac_address_failure {
+    MT76_ADDRESS_NONE, MT76_ADDRESS_ADMISSION, MT76_ADDRESS_TRANSPORT,
+    MT76_ADDRESS_STATE, MT76_ADDRESS_MAC, MT76_ADDRESS_CORE,
+    MT76_ADDRESS_DMA, MT76_ADDRESS_ALL_ONES, MT76_ADDRESS_MISMATCH
+};
+/* The gate retains only one private previous word; scrub it after use.
+ * Comparison receipts exclude factory-address bits. Public controls are
+ * recorded only for station/BSSID high words (targets1/3), bits31:16. */
 struct mt76_mac_address_gate {
     bool pending,failed;unsigned operations,submitted;
+    enum mt76_mac_address_failure failure;
+    bool compared,address_match,control_match;
+    uint32_t expected_control,observed_control;
     uint32_t previous,mac[40],core[40],dma[20];
 };
 bool mt76_mac_address_begin(struct mt76_mac_address_gate *,const uint8_t header[16],unsigned op,bool write,uint32_t address,uint32_t value);

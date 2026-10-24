@@ -217,21 +217,32 @@ bool mt76_mac_address_begin(struct mt76_mac_address_gate *g,const uint8_t h[16],
        !mt76_mac_address_target(op/8,h,16,g->previous,&a,&expected))goto fail;
     if(step==0 || step==6)a=0x1004;else if(step==1 || step==7)a=0x2000;else if(step==2)a=0x208;
     if(address!=a || write!=(step==4) || (write && value!=expected))goto fail;
+    g->compared=g->address_match=g->control_match=false;
+    g->expected_control=g->observed_control=0;
     g->pending=true;g->submitted++;return true;
-fail:g->failed=true;return false;
+fail:g->failure=MT76_ADDRESS_ADMISSION;g->failed=true;return false;
 }
 bool mt76_mac_address_finish(struct mt76_mac_address_gate *g,const uint8_t h[16],bool ok,uint32_t v){
     if(!g || g->failed)return false;
-    if(!ok || !g->pending || g->operations>=160 || g->submitted!=g->operations+1)goto fail;
+    g->failure=MT76_ADDRESS_STATE;
+    if(!g->pending || g->operations>=160 || g->submitted!=g->operations+1)goto fail;
+    if(!ok){g->failure=MT76_ADDRESS_TRANSPORT;goto fail;}
     unsigned target=g->operations/8,step=g->operations%8;uint32_t a,expected;
     if(!mt76_mac_address_target(target,h,16,g->previous,&a,&expected))goto fail;
     g->pending=false;
-    if(step==0 || step==6){g->mac[target*2+(step==6)]=v;if(v)goto fail;}
-    else if(step==1 || step==7){g->core[target*2+(step==7)]=v;if(v!=0xf000f200)goto fail;}
-    else if(step==2){g->dma[target]=v;if(v&15)goto fail;}
-    else if(step==3){if(v==UINT32_MAX)goto fail;g->previous=v;}
-    else if(step==5 && v!=expected)goto fail;
-    g->operations++;return true;
+    if(step==0 || step==6){g->mac[target*2+(step==6)]=v;if(v){g->failure=MT76_ADDRESS_MAC;goto fail;}}
+    else if(step==1 || step==7){g->core[target*2+(step==7)]=v;if(v!=0xf000f200){g->failure=MT76_ADDRESS_CORE;goto fail;}}
+    else if(step==2){g->dma[target]=v;if(v&15){g->failure=MT76_ADDRESS_DMA;goto fail;}}
+    else if(step==3){if(v==UINT32_MAX){g->failure=MT76_ADDRESS_ALL_ONES;goto fail;}g->previous=v;}
+    else if(step==5){
+        uint32_t public_mask=(target==1 || target==3)?0xffff0000u:0;
+        g->compared=true;
+        g->expected_control=expected&public_mask;g->observed_control=v&public_mask;
+        g->address_match=(v&~public_mask)==(expected&~public_mask);
+        g->control_match=g->expected_control==g->observed_control;
+        if(v!=expected){g->failure=MT76_ADDRESS_MISMATCH;goto fail;}
+    }
+    g->failure=MT76_ADDRESS_NONE;g->operations++;return true;
 fail:g->failed=true;return false;
 }
 enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *s,

@@ -275,6 +275,11 @@ struct xhci_wifi_mcu {
     struct mt76_mac_header_result mac_header;
     struct mt76_efuse_map_gate mac_header_gate;
     struct mt76_mac_address_result mac_address;
+    struct {
+        bool attempted,ok,timeout,quarantined;
+        unsigned operation,cc,residue,stage;
+        int actual;
+    } mac_address_usb;
     struct mt76_mac_address_gate mac_address_gate;
     bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
     struct mt76_mac_snapshot mac_snapshot;

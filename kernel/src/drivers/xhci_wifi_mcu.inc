@@ -1752,6 +1752,13 @@ static bool wifi_mac_address_transfer(void *context,unsigned op,bool write,uint3
     if(!v || !wifi_mac_address_owned(d) || !m->mac_address.attempted || m->mac_address.complete || m->mac_address.operations!=op ||
        !mt76_mac_address_begin(g,m->mac_header_private,op,write,a,*v))return false;
     bool ok=wifi_mac_private_usb(d,write,a,v);
+    /* Snapshot this transfer before MAC-disable cleanup replaces firmware's
+     * shared receipt. No data/setup payload is copied. */
+    m->mac_address_usb.attempted=true;m->mac_address_usb.operation=op;
+    m->mac_address_usb.ok=ok;m->mac_address_usb.actual=d->firmware.control_actual;
+    m->mac_address_usb.cc=d->firmware.control_cc;m->mac_address_usb.residue=d->firmware.control_residue;
+    m->mac_address_usb.stage=d->firmware.control_stage;m->mac_address_usb.timeout=d->firmware.control_timeout;
+    m->mac_address_usb.quarantined=d->ep0_quarantined;
     return mt76_mac_address_finish(g,m->mac_header_private,ok,*v)?true:wifi_mcu_fail(d);
 }
 static bool wifi_mcu_mac_address(struct xhci_device *d){
@@ -1773,6 +1780,11 @@ static bool wifi_mcu_mac_address(struct xhci_device *d){
     for(unsigned i=0;i<2;i++)console_printf("wifi-mac-header-guard: index=%u mac=%x core=%x\n",(uint64_t)i,(uint64_t)hg->mac[i],(uint64_t)hg->core[i]);
     console_printf("wifi-mac-header-dma: value=%x\n",(uint64_t)hg->dma[0]);
     console_printf("wifi-mac-address: status=%u attempted=%u complete=%u operations=%u submitted=%u gate_operations=%u reads=%u writes=%u verified=%u failed=%u private_cleared=1\n",(uint64_t)status,(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->operations,(uint64_t)g->submitted,(uint64_t)g->operations,(uint64_t)s->reads,(uint64_t)s->writes,(uint64_t)s->verified,(uint64_t)g->failed);
+    console_printf("wifi-mac-address-diagnostic: failure=%u compared=%u address_match=%u control_match=%u expected_control=%x observed_control=%x\n",
+        (uint64_t)g->failure,(uint64_t)g->compared,(uint64_t)g->address_match,(uint64_t)g->control_match,(uint64_t)g->expected_control,(uint64_t)g->observed_control);
+    console_printf("wifi-mac-address-usb: attempted=%u operation=%u ok=%u actual=%d cc=%u residue=%u stage=%u timeout=%u quarantined=%u\n",
+        (uint64_t)m->mac_address_usb.attempted,(uint64_t)m->mac_address_usb.operation,(uint64_t)m->mac_address_usb.ok,(int64_t)m->mac_address_usb.actual,
+        (uint64_t)m->mac_address_usb.cc,(uint64_t)m->mac_address_usb.residue,(uint64_t)m->mac_address_usb.stage,(uint64_t)m->mac_address_usb.timeout,(uint64_t)m->mac_address_usb.quarantined);
     for(unsigned i=0;i<20;i++)console_printf("wifi-mac-address-check: index=%u mac=%u/%u core=%x/%x dma=%x\n",(uint64_t)i,(uint64_t)g->mac[2*i],(uint64_t)g->mac[2*i+1],(uint64_t)g->core[2*i],(uint64_t)g->core[2*i+1],(uint64_t)g->dma[i]);
     return status==MT76_CAPTURE_OK && g->operations==160 && g->submitted==160 && !g->pending && !g->failed?true:wifi_mcu_fail(d);
 }

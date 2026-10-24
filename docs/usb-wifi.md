@@ -2245,3 +2245,14 @@ report failure; complete station/BSSID setup remains unaccepted. The next
 comparison needs privacy-preserving failure classification, not a relaxed mask
 or raw factory-address logging. Evidence and clean recovery are recorded in the
 Pro11,2 unit record.
+
+The v55 comparison now snapshots the last address USB transfer before cleanup:
+operation, success, actual length, completion code, residue, stage, timeout and
+quarantine. Gate failure codes distinguish admission(1), transport(2), state(3),
+MAC(4), CORE(5), DMA(6), all-ones initial target(7) and exact readback mismatch(8);
+zero means no gate failure. A compared readback reports address/control equality.
+Only targets1/3 expose their public upper16 control bits; all factory-address
+bits remain private. Comparison fields clear at each admitted operation, so a
+later guard failure cannot reuse a prior comparison. The strict write sequence,
+exact verification, one-attempt transport and automatic failure return are
+unchanged. These diagnostics do not accept a failed initialization.

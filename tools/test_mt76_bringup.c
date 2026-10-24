@@ -290,7 +290,7 @@ static enum mt76_capture_status private_address_run(struct gated_address *f,stru
 static void private_address_gate(void){
  struct gated_address f={0};address_init(&f.f);struct mt76_mac_address_result s={0};
  assert(private_address_run(&f,&s)==MT76_CAPTURE_OK && s.complete && f.g.operations==160 && f.g.submitted==160 && !f.g.failed && !f.g.pending);
- for(unsigned n=1;n<=160;n++){f=(struct gated_address){0};address_init(&f.f);f.f.fail=n;s=(struct mt76_mac_address_result){0};assert(private_address_run(&f,&s)==MT76_CAPTURE_IO && f.f.calls==n && f.g.failed && !s.complete);}
+ for(unsigned n=1;n<=160;n++){f=(struct gated_address){0};address_init(&f.f);f.f.fail=n;s=(struct mt76_mac_address_result){0};assert(private_address_run(&f,&s)==MT76_CAPTURE_IO && f.f.calls==n && f.g.failed && f.g.failure==MT76_ADDRESS_TRANSPORT && !f.g.compared && !s.complete);}
  for(unsigned n=1;n<=161;n++){f=(struct gated_address){0};address_init(&f.f);f.f.deny=n;s=(struct mt76_mac_address_result){0};assert(private_address_run(&f,&s)==MT76_CAPTURE_CANCELLED && f.f.auth==n && !s.complete);}
  for(unsigned op=0;op<160;op++){
   unsigned step=op%8;uint32_t a,v;assert(mt76_mac_address_target(op/8,address_header,16,0x12345678,&a,&v));
@@ -298,6 +298,33 @@ static void private_address_gate(void){
   struct mt76_mac_address_gate g={.operations=op,.submitted=op,.previous=0x12345678};assert(!mt76_mac_address_begin(&g,address_header,op,step!=4,a,v));
   g=(struct mt76_mac_address_gate){.operations=op,.submitted=op,.previous=0x12345678};assert(!mt76_mac_address_begin(&g,address_header,op,step==4,a+1,v));
   if(step==4)for(unsigned bit=0;bit<32;bit++){g=(struct mt76_mac_address_gate){.operations=op,.submitted=op,.previous=0x12345678};assert(!mt76_mac_address_begin(&g,address_header,op,true,a,v^(1u<<bit)));}
+ }
+ /* Every readback bit must still reject. Receipts expose only comparison
+  * flags and the two public control halfwords, never synthetic MAC bytes. */
+ for(unsigned target=0;target<20;target++)for(unsigned bit=0;bit<32;bit++){
+  unsigned op=target*8+5;uint32_t a,expected;
+  assert(mt76_mac_address_target(target,address_header,16,0xa55a1122,&a,&expected));
+  struct mt76_mac_address_gate g={.operations=op,.submitted=op,.previous=0xa55a1122};
+  assert(mt76_mac_address_begin(&g,address_header,op,false,a,0));
+  uint32_t observed=expected^(1u<<bit),mask=(target==1 || target==3)?0xffff0000u:0;
+  assert(!mt76_mac_address_finish(&g,address_header,true,observed));
+  assert(g.failed && g.failure==MT76_ADDRESS_MISMATCH && g.operations==op && g.submitted==op+1 && g.compared);
+  assert(g.expected_control==(expected&mask) && g.observed_control==(observed&mask));
+  assert(g.address_match==((mask&(1u<<bit))!=0) && g.control_match==((mask&(1u<<bit))==0));
+  assert(!mt76_mac_address_finish(&g,address_header,true,expected) && g.failure==MT76_ADDRESS_MISMATCH);
+ }
+ /* Success clears stale comparison receipts before later guards; malformed
+  * admission and guard faults remain distinct from a USB failure. */
+ for(unsigned step=0;step<8;step++){
+  unsigned op=8+step;uint32_t a,v;
+  assert(mt76_mac_address_target(1,address_header,16,0,&a,&v));
+  if(step==0 || step==6)a=0x1004;else if(step==1 || step==7)a=0x2000;else if(step==2)a=0x208;
+  struct mt76_mac_address_gate g={.operations=op,.submitted=op,.compared=true,.expected_control=0xffffffff,.observed_control=0xffffffff};
+  assert(mt76_mac_address_begin(&g,address_header,op,step==4,a,v));
+  assert(!g.compared && !g.expected_control && !g.observed_control);
+  if(step==4 || step==5)continue;
+  enum mt76_mac_address_failure reason=(step==0 || step==6)?MT76_ADDRESS_MAC:(step==1 || step==7)?MT76_ADDRESS_CORE:step==2?MT76_ADDRESS_DMA:MT76_ADDRESS_ALL_ONES;
+  assert(!mt76_mac_address_finish(&g,address_header,true,0xffffffff) && g.failure==reason);
  }
  puts("private address gate: PASS exact order/direction/values, all transfer/cancel faults, no replay, independent guards");
 }

@@ -5035,3 +5035,13 @@ is d5bc4b3; fetched main bc0edb9 remains the separate window-capacity change.
 The Air desktop API audit branch has no overlapping Wi-Fi changes; PR19 remains
 this unit's shared-code scope. Next checkpoint: host fault/privacy checks and
 exact-stage normal/missing-workspace rehearsal before a cold native comparison.
+
+Implemented transfer snapshots before cleanup and distinct gate failure codes.
+Comparison receipts retain only equality flags and public control halfwords for
+100c/1014; private data is cleared before printing. Register writes, exact
+readback checks and no-retry behavior are unchanged. Native build,mt76/upload/
+xHCI host checks,ASan/UBSan and134 profile tests passed. Tests cover640 individual
+readback-bit mismatches,all160 transport failures,guard classification,stale
+receipt clearing,short transfer/timeout quarantine and receipt survival after
+shared controller metadata changes. Strict collector fixtures reject missing or
+altered new receipts and the prior failed native log. Physical diagnosis pending.
