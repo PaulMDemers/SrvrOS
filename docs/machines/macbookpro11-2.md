@@ -4080,3 +4080,12 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean225files/586clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: audit remaining frame-engine/MAC prerequisites before revisiting the
 full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v44 FCE control observation after accepted v43.
+FCE0800 is already written1 during firmware preparation, yet raw native and live
+Linux later read5. Linux/vendor MAC table also writes1; no sourced bit2 writable
+mask found. Observe a sequence14 pair0800=1/080c=03ff0223, retaining accepted
+L2 routing. Captured starts5/03ff0223 mandatory; eight reads and final MAC0/
+COREf000f200. First target differences are reported, never accepted; second target
+must remain exact. No retry, BBP table or RF enable. Touch MCU/xHCI/main/staging/
+tests. Base22fd266, fetched maindb10404; Air compositor PR112 separate.

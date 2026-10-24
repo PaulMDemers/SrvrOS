@@ -740,8 +740,55 @@ static void test_mac_beacon(void){
  puts("MAC beacon: PASS exact ordered 24-byte packet, eight reads, all failures/cancellation, reply and target guards");
 }
 
+struct fce_fake {unsigned op,auth,fail,deny,bad,ones; bool vary; uint32_t target;};
+static bool fce_auth(void *p){struct fce_fake *f=p;return ++f->auth!=f->deny;}
+static bool fce_read(void *p,uint32_t a,uint32_t *v){
+ struct fce_fake *f=p;
+ const uint32_t addresses[]={0x1004,0x2000,0x0800,0x080c,0,0x0800,0x080c,0x1004,0x2000};
+ const uint32_t values[]={0,0xf000f200,5,0x03ff0223,0,1,0x03ff0223,0,0xf000f200};
+ assert(f->op<9 && a==addresses[f->op]);*v=values[f->op];if(f->vary && f->op==5)*v=f->target;f->op++;
+ if(f->bad==f->op)*v^=1;
+ if(f->ones==f->op)*v=UINT32_MAX;
+ return f->fail!=f->op;
+}
+static int fce_exchange(void *p,const uint8_t *data,size_t n,uint8_t *reply,size_t cap){
+ struct fce_fake *f=p;const uint8_t expected[]={0x10,0,0xce,0x50,0,0x08,0x41,0,1,0,0,0,0x0c,0x08,0x41,0,0x23,0x02,0xff,0x03,0,0,0,0};
+ assert(f->op==4 && n==24 && cap>=16 && !memcmp(data,expected,24));f->op++;
+ if(f->fail==f->op)return -1;
+ word(reply,0x4a0e0008);word(reply+4,0x410800);word(reply+8,1);word(reply+12,0x4a0e0008);
+ if(f->bad==5)reply[2]^=1;
+ return 16;
+}
+static void test_mac_fce(void){
+ for(unsigned fail=0;fail<=9;fail++)for(unsigned deny=0;deny<=10;deny++){
+  struct fce_fake f={.fail=fail,.deny=deny};struct mt76_mcu_mac s={0};uint32_t mask=0;
+  const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  enum mt76_mcu_timing_status status=mt76_mac_fce_observe(&s,&io,&mask);
+  if(!fail && !deny)assert(status==MT76_TIMING_OK && s.complete && s.reads==8 && s.ack_mask==1 && s.batches_completed==1 && f.op==9 && f.auth==10);
+  else assert(status!=MT76_TIMING_OK && !s.complete);
+  assert(mt76_mac_fce_observe(&s,&io,&mask)==MT76_TIMING_REFUSED);
+ }
+ for(unsigned bad=1;bad<=9;bad++)if((bad<3 || bad>4)){
+  struct fce_fake f={.bad=bad};struct mt76_mcu_mac s={0};uint32_t mask=0;const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  if(bad==6){assert(mt76_mac_fce_observe(&s,&io,&mask)==MT76_TIMING_OK && s.complete && mask==1);}
+  else {assert(mt76_mac_fce_observe(&s,&io,&mask)==(bad==5?MT76_TIMING_REPLY:MT76_TIMING_STATE));assert(!s.complete);}
+ }
+ for(unsigned ones=1;ones<=9;ones++)if(ones!=5){
+  struct fce_fake f={.ones=ones};struct mt76_mcu_mac s={0};uint32_t mask=0;const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  assert(mt76_mac_fce_observe(&s,&io,&mask)==MT76_TIMING_STATE && !s.complete);
+ }
+ for(unsigned bit=0;bit<32;bit++){
+  struct fce_fake f={.vary=true,.target=1u^(1u<<bit)};struct mt76_mcu_mac s={0};uint32_t mask=0;
+  const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};
+  assert(mt76_mac_fce_observe(&s,&io,&mask)==MT76_TIMING_OK && s.complete && mask==1 && s.after[0]==f.target && s.reads==8);
+ }
+ {struct fce_fake f={0};struct mt76_mcu_mac s={0};const struct mt76_mcu_timing_io io={&f,fce_auth,fce_read,fce_exchange};assert(mt76_mac_fce_observe(&s,&io,0)==MT76_TIMING_REFUSED && !s.attempted && !f.op);}
+ puts("MAC fce: PASS exact ordered 24-byte packet, eight reads, all failures/cancellation, reply/guard failures and raw target observation");
+}
+
 
 int main(void){
+ test_mac_fce();
  test_mac_buffer();
  test_mac_vht();
  test_mac_beacon();

@@ -1830,3 +1830,19 @@ Pro11,2 source `9d1ba79`, release `246fade6686cd2fa`, session
 sequence13 ACK, twelve reads, initial/final MAC0/COREf000f200 and both completion
 markers were verified. All preceding bounded groups passed. FCE_PSE_CTRL0800,
 full baseband initialization and RF/connectivity remain outside this acceptance.
+
+### FCE control observation (v44; native evidence pending)
+
+`--wifi-mac-fce-observe` requires v43 prerequisites. One sequence14, 24-byte
+pair writes0800=1 and080c=03ff0223, from mandatory starts5/03ff0223. The second
+write preserves the accepted L2 configuration. Eight reads, exact ACK and
+initial/final MAC0/COREf000f200 are required. This recipe records the first
+readback and mismatch bit without accepting any value. L2 must remain exact;
+all-ones, I/O, reply and guard failures still fail. No retry, BBP table or RF/MAC
+TX/RX enable follows. Completion means observation finished, not FCE acceptance.
+
+The existing firmware preparation already writes0800=1, and both the Linux and
+vendor MAC tables write1, but later native/Linux snapshots read5. Neither inspected
+register header supplies a bit2 writable-mask definition. This trial separates
+fresh post-table-write evidence from a blanket mask assumption. Firmware-load
+reference: [Linux v7.0 USB MCU](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c).
