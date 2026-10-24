@@ -2125,3 +2125,16 @@ files were collected; no new document appeared. Offline checks pass at 288 files
 838 clusters, with no leaks or mismatches. Ubuntu recovered with empty one-shot
 state. Logs, photograph and file hashes are backed up outside build. No reboot
 is armed; native combined reopen remains failed.
+
+## Startup timing scope (2026-10-24)
+
+Base main `85d5939`, preserving the failed retry evidence commit. Add bounded
+per-stage startup accounting for AML sleep/stall/semaphore, allocation/free and
+EC work, including active waits at containment. No firmware gate, scheduler or
+five-second deadline changes. Add an explicit automated two-desktop-session
+recipe with normal lifetime/logger teardown and Ubuntu return on completed
+runs. Fatal mounted-Home containment must still halt without flushing/resetting
+live storage; a photograph/manual recovery may remain necessary on failure.
+PR134 (`d9876eb`) owns POSIX/scheduler and PR19 (`7873b63`) owns Wi-Fi; neither
+scope is imported. Validate timing accounting, completed/busy startup regressions,
+automated success/refusal/failure and exact staged GPT boot before installation.
