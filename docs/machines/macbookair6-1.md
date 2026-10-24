@@ -1878,3 +1878,24 @@ battery startup remains off; physical acceptance of this correction is pending.
 
 Final scope review retains main `bf1b9a6`. Air7,2 storage-service-gap work and
 Pro PR19 `d80fb47` remain independent; no competing driver changes are included.
+
+## Opt-in ordinary battery session scope (2026-10-24)
+
+Base `468ca20`; bounded objective: admit this exact Air6,1 profile to the
+existing explicit ordinary desktop owner, with no diagnostic session deadline.
+Scope: Home ownership admission, distinct staging recipe, directed ownership/
+staging tests and ordinary-session VM harness. Reuse inherited process lifetime,
+mount hold, cached sampling, periodic logging and clean retirement. Keep default
+startup off and firmware/EC/query permissions unchanged. Air7,2 PR130 owns window
+capacity/compositor allocation; Pro PR19 owns Wi-Fi. Avoid their implementation
+files. Next checkpoint is an Air6,1 VM session beyond eight minutes, refusal/
+cleanup regressions and a separately staged unarmed physical session.
+
+Run `eab752f59fb68762` on `2cd5b8604f2406c5` demonstrated the screenshot receipt
+fix: the strict verifier accepts capture/save receipts and the 1366×768 BMP.
+Text saved/reopened 17 bytes. The user left it running and observed the expected
+halt; periodic logs reach 477 seconds, with no final exit/retirement proof or
+separate Files activity. Prior 262 files were preserved except metadata; 267
+files/811 clusters pass offline checks. Evidence is retained outside build.
+The user explicitly chose to move on rather than repeat diagnostic coverage;
+full attended-work acceptance remains incomplete, not promoted to passed.
