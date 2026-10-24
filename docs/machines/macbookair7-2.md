@@ -2,6 +2,46 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Network idle candidate ready for unattended hardware comparison
+
+Kernel implementation `ceaa2ce`, test harness `5f2322a`, PR123: full local
+build/core checks pass. Refined e1000 and ECM idle fixtures measure 2.10 and
+2.00 network worker switches/second, with unchanged USB polling cadence and
+successful post-idle drag, mixed-case typing and exact save. ECM DHCP/DNS/HTTP,
+160 UDP echoes, TCP web serving, three traffic outage/recovery cycles, shared
+keyboard and physical-device removal quarantine pass in QEMU. e1000 desktop
+DNS/ping, link down/up, cancellation, typing during a pending job, exported
+reports and clean exit pass. Throttled USB copy/input with exact binary/document
+readback and collision preservation passes.
+
+The older `tcp_ready_smoke.py` fails `ready-listener` on both accepted kernel
+`f340e0695d1e2492` and this candidate in a controlled disposable comparison;
+launching through the shell also fails. This remains an unresolved preexisting
+test/behavior issue, not a pass or a claimed fix. Do not equate the narrower
+passing traffic tests with general TCP readiness acceptance. Raw failure logs
+and comparison recipes are retained for follow-up.
+
+Exact EFI/GPT release `27b239f96a183fb8` (source `ceaa2ce`) passes the explicit
+`--probe-network` rehearsal: ECM worker 101 switches over 50.301 seconds
+(2.008/s), six valid logger cost records, offline persistence and automatic
+reset. Missing workspace returns safely. The initial adapter-free EFI rehearsal
+passed boot/persistence but could not qualify network activity; its receipts
+remain separate. Harness changes after the staged source do not alter its
+kernel or userspace payload.
+
+Next physical run: the same one-minute unattended desktop idle capture on this
+Air7,2, with its ASIX ECM adapter and local USB UUID. No typing or prompts are
+required. Save logs/screenshot and return automatically, then compare worker
+activity against `f340e0695d1e2492`. All 1038 previous USB files are hashed;
+offline fsck/allocation/headroom pass. Recovery remains `9aa8dbf6fbda8252`.
+The unreferenced comparison EFI payload `2218ef4113730414` was hash-verified into
+outside-build archive storage before freeing its EFI space. Current/recovery
+payloads were retained. Run state, collector and evidence are under
+`build/network-idle-20261023`, with durable backups before arming. PR123 stays
+draft until native collection/review. No physical input or energy saving is
+accepted by this unattended trial. Main remains `7b0d1a0`; Pro PR19 `0ba0a1f`
+acknowledges the independent network-idle scope and retains Wi-Fi bring-up.
+
 ### Active scope: notification-driven network worker idle
 
 Base `7b0d1a0` includes merged PR118 and Air6,1 acceptance notes. Pro PR19
