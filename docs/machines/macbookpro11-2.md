@@ -4089,3 +4089,23 @@ L2 routing. Captured starts5/03ff0223 mandatory; eight reads and final MAC0/
 COREf000f200. First target differences are reported, never accepted; second target
 must remain exact. No retry, BBP table or RF enable. Touch MCU/xHCI/main/staging/
 tests. Base22fd266, fetched maindb10404; Air compositor PR112 separate.
+
+### 2026-10-23 — v44 FCE control observation installed, unarmed
+
+Source `8294ee1`, release `6e342f3cdd9f35db`. Build, compact/xHCI tests,
+ASan/UBSan, 100 boot-profile tests and docs checks passed. Collector validates
+raw first-target values with matching mismatch flags and rejects32 L2 mutations
+and six invalid captures. Exact-stage GPT VM saved diagnostics, passed offline
+checks and returned; missing-workspace VM returned without probing. Native
+observation pending; completion cannot accept the FCE control register.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v43
+`246fade6686cd2fa` retained; v42 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean225files/586clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-fce/run.json`,
+`build/bringup/collect_wifi_mac_fce_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-fce-8294ee1/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. FCE register acceptance and RF/connectivity
+NOT_TESTED; do not promote a captured difference into a writable-bit mask.
