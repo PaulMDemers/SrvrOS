@@ -459,6 +459,9 @@ void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;
 void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
     mouse_inject_trackpad(x,y,buttons); last_pointer.wheel_x=wx; last_pointer.wheel_y=wy;
 }
+static bool trace_bulk;
+static uint64_t resume_delay,service_pause;
+bool usb_storage_timing_enabled(void) { return trace_bulk; }
 static uint64_t test_time, test_time_step=1000, complete_at;
 static struct xhci_device *complete_device;
 static bool complete_control;
@@ -481,8 +484,31 @@ uint64_t timer_monotonic_us(void) {
     }
     return test_time;
 }
-bool scheduler_io_active(void) { return false; }
+static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign;
+static unsigned wait_calls,bulk_wakes;
+uint64_t timer_ticks(void) { return test_time/10000; }
+bool scheduler_io_busy(void) { return test_io_foreign; }
+bool scheduler_io_active(void) { return test_io_active; }
 bool scheduler_io_yield(void) { return false; }
+void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
+bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
+    scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
+    struct xhci_device *d=arg;
+    assert(q==&d->bulk_wait && test_io_active && deadline==timer_ticks()+1);
+    wait_calls++;
+    if(wait_refused)return false;
+    if(ready(arg))return true;
+    if(wait_keyboard) {
+        struct xhci_device *kbd=&xhci.devices[1];
+        struct xhci_trb key={.parameter_low=(uint32_t)kbd->interrupt_trb,.status=(13u<<24)|56,
+            .control=(32u<<10)|(2u<<24)|(5u<<16)|1};
+        dispatch_transfer_event(&key);wait_keyboard=false;
+    }
+    test_time=deadline*10000+service_pause;service_pause=0;
+    (void)timer_monotonic_us();poll_hid_events_once();
+    if(d->bulk_done)test_time+=resume_delay;
+    return true;
+}
 static void test_storage(void) {
     reset_test();
     uint8_t descriptor[44], input[4096], output[4096]={0};
@@ -524,7 +550,12 @@ static void test_storage(void) {
     events[0]=(struct xhci_trb){.parameter_low=0x9990,.status=1u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)|1};
     events[1]=(struct xhci_trb){.parameter_low=0xa000,.status=(13u<<24)|56,.control=(32u<<10)|(2u<<24)|(5u<<16)|1};
     events[2]=(struct xhci_trb){.parameter_low=0x9000,.status=1u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    disk->bulk_timed=true;
+    dispatch_transfer_event(&events[0]);assert(!disk->bulk_timing.observed);
     poll_hid_events_once();
+    assert(disk->bulk_timing.observed && !disk->bulk_timing.seen);
+    uint64_t observed=disk->bulk_timing.observed;
+    dispatch_transfer_event(&events[2]);assert(disk->bulk_timing.observed==observed);
     assert(injected==1 && kbd->hid_reports==1 && !kbd->interrupt_pending);
     assert(disk->bulk_done && !disk->bulk_pending && disk->bulk_completion==1);
     /* A successful HID completion rearms immediately, including when consumed
@@ -581,6 +612,99 @@ static void test_storage(void) {
     assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
     assert(disk->bulk_ep[1].enqueue==enqueue);
     test_time_step=1000;
+}
+
+static void test_service_gap_edges(void) {
+    struct xhci_device d={0};
+    test_time=100;test_time_step=0;complete_device=NULL;
+    d.bulk_timing.service_valid=true;d.bulk_service_at=100;storage_timing_device=&d;
+    storage_service_check();assert(d.bulk_timing.service_checks==1 && d.bulk_timing.service_samples==1);
+    for(unsigned i=0;i<255;i++)storage_service_check();
+    assert(d.bulk_timing.service_checks==256 && d.bulk_timing.service_samples==1);
+    test_time=100100;storage_service_check();
+    assert(d.bulk_timing.service_gap_max_us==100000 && d.bulk_timing.service_samples==2);
+    storage_service_sample(&d,100101,true);assert(d.bulk_timing.completion_gap_us==1);
+    storage_service_sample(&d,99,false);assert(!d.bulk_timing.service_valid);
+    d.bulk_timing.service_valid=true;d.bulk_timing.service_checks=UINT64_MAX;
+    storage_service_check();assert(!d.bulk_timing.service_valid && d.bulk_timing.service_checks==UINT64_MAX);
+    storage_timing_device=NULL;test_time_step=1000;
+}
+static void test_storage_wait(void) {
+    assert(storage_poll_us==20000);storage_poll_us=4000; /* Retain initial-policy regression cases. */
+    reset_test();test_time=100000;test_time_step=3;test_io_active=true;
+    struct xhci_trb events[64]={0},ring[64]={0};
+    uint8_t bounce[4096]={0x5a},caller[512]={0},report[64]={0,0,4};
+    xhci.event_ring=events;xhci.event_cycle=true;xhci.event_ring_phys=0x1000;xhci.rt_base=0x2000;
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.bulk_buffer=bounce,.bulk_buffer_phys=0x10000};
+    d->bulk_ep[1]=(struct xhci_bulk_endpoint){.dci=3,.ring=ring,.ring_phys=0x9000,.cycle=true};
+    xhci.devices[1]=(struct xhci_device){.present=true,.slot_id=2,.hid_keyboard=true,.interrupt_pending=true,
+        .interrupt_trb=0xa000,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=report};
+    uint32_t actual=0;unsigned before=injected;wait_calls=bulk_wakes=0;
+    trace_bulk=true;
+    complete_device=d;complete_at=test_time+2000;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual) && !wait_calls && actual==13);
+    struct usb_bulk_timing sample;storage_bulk_timing(d,&sample);
+    assert(sample.seen && sample.observed-sample.submitted>=2000 && sample.resumed-sample.observed==3);
+    resume_delay=12345;
+    complete_device=d;complete_at=test_time+500000;wait_keyboard=true;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual) && wait_calls>20);
+    storage_bulk_timing(d,&sample);
+    assert(sample.seen && sample.observed-sample.submitted>=500000 && sample.resumed-sample.observed==resume_delay+2*test_time_step);
+    assert(sample.service_valid && sample.service_checks>=sample.service_samples);
+    assert(sample.service_samples==(sample.service_checks-1)/256+1);
+    assert(sample.service_gap_max_us<11000 && sample.completion_gap_us<=sample.service_gap_max_us);
+    assert(!storage_timing_device);
+    resume_delay=0;
+    complete_device=d;complete_at=test_time+500000;service_pause=75000;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual));
+    storage_bulk_timing(d,&sample);
+    assert(sample.service_valid && sample.service_gap_max_us>=75000 && sample.service_gap_max_us<86000);
+    assert(injected==before+1 && bulk_wakes==3 && actual==13 && caller[0]==0x5a);
+    assert(d->bulk_wait_calls==wait_calls && d->bulk_wait_us>400000);
+    assert(d->bulk_ep[1].enqueue==3 && !d->bulk_pending && !d->bulk_failed);
+    uint64_t start=test_time;unsigned waited=wait_calls;
+    assert(!storage_bulk_transfer(d,true,caller,13,&actual));
+    assert(wait_calls>waited && test_time-start>=2000000 && test_time-start<2020000);
+    assert(d->bulk_failed && d->bulk_pending && !strcmp(d->bulk_reason,"deadline"));
+    storage_bulk_timing(d,&sample);assert(!sample.seen && !sample.observed && !sample.resumed && !storage_timing_device);
+    trace_bulk=false;
+    uint64_t enqueue=d->bulk_ep[1].enqueue;
+    assert(!storage_bulk_transfer(d,true,caller,13,&actual) && d->bulk_ep[1].enqueue==enqueue);
+    d->bulk_failed=d->bulk_pending=false;wait_refused=true;
+    complete_device=d;complete_at=test_time+10000;
+    assert(storage_bulk_transfer(d,true,caller,13,&actual)); /* bounded poll fallback */
+    wait_refused=false;
+    uint64_t old=99;test_io_foreign=true;
+    assert(!xhci_storage_wait_policy(0,&old) && old==99);test_io_foreign=false;
+    test_io_active=false;assert(!xhci_storage_wait_policy(0,&old));test_io_active=true;
+    assert(!xhci_storage_wait_policy(123,&old) && !xhci_storage_wait_policy(0,NULL));
+    d->bulk_pending=true;assert(!xhci_storage_wait_policy(0,&old));d->bulk_pending=false;
+    d->bulk_failed=true;assert(!xhci_storage_wait_policy(0,&old));d->bulk_failed=false;
+    /* Controlled completion latency, identical driver/event fixture and clock
+     * phase. Demonstrate the tick-quantization cost rather than hide it. */
+    static const uint64_t delay[]={2000,5000,9000,15000,25000,100000};
+    for(unsigned i=0;i<sizeof(delay)/sizeof(delay[0]);i++) {
+        uint64_t duration[3];static const uint64_t policies[]={0,4000,20000};
+        for(unsigned mode=0;mode<3;mode++) {
+            assert(xhci_storage_wait_policy(policies[mode],&old));
+            test_time=((test_time/10000)+1)*10000;
+            uint64_t began=test_time;complete_device=d;complete_at=began+delay[i];
+            unsigned before_wait=wait_calls;
+            assert(storage_bulk_transfer(d,true,caller,13,&actual));
+            duration[mode]=test_time-began;
+            assert(duration[mode]>=delay[i] && duration[mode]<=delay[i]+10020);
+            if(!policies[mode] || delay[i]<policies[mode])assert(wait_calls==before_wait);
+            if(policies[mode] && delay[i]>policies[mode]+10000)assert(wait_calls>before_wait);
+        }
+        if(delay[i]==5000)assert(duration[1]>duration[0]+4000 && duration[2]<duration[0]+20);
+        printf("storage-wait-latency: device_us=%llu poll_us=%llu wait4_us=%llu wait20_us=%llu\n",
+            (unsigned long long)delay[i],(unsigned long long)duration[0],
+            (unsigned long long)duration[1],(unsigned long long)duration[2]);
+    }
+    assert(xhci_storage_wait_policy(20000,&old));
+    test_io_active=false;test_time_step=1000;
+    puts("xhci-storage-wait: PASS fast path, delayed completion/HID, wake, bounded deadline, no retry and refusal fallback");
 }
 
 static void test_pro_trackpad(const char *fixture) {
@@ -837,6 +961,13 @@ static void test_network_transport(void) {
     *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS;
     struct xhci_network n={.ready=true};
     struct xhci_device d={.network=&n,.slot_id=1,.port_id=1};
+    xhci_poll_worker_started=false;xhci.operational=true;xhci_input_probe_active=false;
+    assert(!network_rx_wake_ready(&d));
+    xhci_poll_worker_started=true;assert(network_rx_wake_ready(&d));
+    xhci_input_probe_active=true;assert(!network_rx_wake_ready(&d));xhci_input_probe_active=false;
+    xhci.operational=false;assert(!network_rx_wake_ready(&d));xhci.operational=true;
+    n.ready=false;assert(!network_rx_wake_ready(&d));n.ready=true;
+    xhci_poll_worker_started=false;
     struct xhci_trb rings[3][XHCI_TRB_COUNT];uint8_t buffers[3][4096];
     memset(rings,0,sizeof(rings));memset(buffers,0,sizeof(buffers));
     for(unsigned i=0;i<3;i++) {
@@ -853,13 +984,23 @@ static void test_network_transport(void) {
     memcpy(n.ep[2].buffer,speed,sizeof(speed));
     unsigned notification_wakes=net_wakeups;
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));
-    assert(net_wakeups==notification_wakes+1 && n.notify_completed_us==test_time);
+    assert(net_wakeups==notification_wakes && n.notify_completed_us==test_time);
     network_service(&d);
     assert(n.notifications==0 && !n.link.downstream_bps);
     n.config.notify_data_interface=true;
     memcpy(n.ep[2].buffer,speed,sizeof(speed));
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));network_service(&d);
     assert(n.notifications==1 && n.link.downstream_bps==1000000000);
+    assert(net_wakeups==notification_wakes); /* Speed updates alone do not wake RX. */
+    uint8_t up[]={0xa1,0,1,0,1,0,0,0};
+    memcpy(n.ep[2].buffer,up,sizeof(up));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(up)));network_service(&d);
+    assert(n.link.up && net_wakeups==notification_wakes+1);
+    for(unsigned i=0;i<20;i++) {
+        memcpy(n.ep[2].buffer,up,sizeof(up));
+        assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(up)));network_service(&d);
+    }
+    assert(net_wakeups==notification_wakes+1); /* Repeated link-up reports stay quiet. */
     uint8_t frame[1514];memset(frame,0x5a,sizeof(frame));
     assert(!network_send(&d,frame,13) && !network_send(&d,frame,1515));
     for(unsigned i=0;i<XHCI_NET_QUEUE;i++) assert(network_send(&d,frame,64));
@@ -4187,6 +4328,8 @@ int main(int argc, char **argv) {
     test_network_transport();
     test_device_inventory();
     test_storage();
+    test_service_gap_edges();
+    test_storage_wait();
     test_root_ports();
     test_address_recovery();
     test_scratchpads();

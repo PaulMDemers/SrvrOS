@@ -5,6 +5,7 @@ static void network_fail(struct xhci_device *d,const char *reason) {
     struct xhci_network *n=d->network;if(n->failed) return;
     n->ready=false;n->failed=true;n->errors++;n->link.known=true;n->link.up=false;
     d->stage="network-quarantined";
+    net_notify_rx(); /* Publish link loss before waking network waiters. */
     console_printf("xhci-network: slot=%u quarantined reason=%s tx=%u rx=%u\n",(uint64_t)d->slot_id,reason,n->tx_packets,n->rx_packets);
 }
 static void network_post(struct xhci_device *d,unsigned index,uint32_t length) {
@@ -22,7 +23,10 @@ static bool network_event(struct xhci_device *d,uint8_t dci,uint64_t pointer,uin
         if(e->pending && e->hw.dci==dci && e->trb==pointer) {
             e->pending=false;e->done=true;e->completion=completion;e->remaining=remaining;
             if(i==2) d->network->notify_completed_us=timer_monotonic_us();
-            if(i==1 || i==2) net_notify_rx();
+            /* The independent USB service consumes link notifications and
+             * signals actual state changes. Repeated speed/link reports do
+             * not make receive work; waking here would recreate idle polling. */
+            if(i==1) net_notify_rx();
             return true;
         }
     }
@@ -106,6 +110,10 @@ static uint64_t network_poll(void *context,uint64_t budget,bool verbose) {
     }
     n->polling=false;event_irq_restore(flags);return received;
 }
+static bool network_rx_wake_ready(void *context) {
+    struct xhci_network *n=((struct xhci_device *)context)->network;
+    return n && n->ready && xhci_poll_worker_started && xhci.operational && !xhci_input_probe_active;
+}
 static bool network_link(void *context,struct net_device_link *out) {
     struct xhci_network *n=((struct xhci_device *)context)->network;
     if(!n) return false;
@@ -150,7 +158,7 @@ static bool network_configure(struct xhci_device *d,const struct usb_ecm_config 
     if(!submit_command_trb(&cmd,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0)) return false;
     struct usb_setup_packet filter={.request_type=0x21,.request=0x43,.value=0x0c,.index=config->control_interface};
     if(!control_transfer(d,&filter,0,0,false)) return false;
-    struct net_device_ops ops={.name="usb-ecm",.context=d,.priority=50,.send=network_send,.poll=network_poll,.link=network_link};
+    struct net_device_ops ops={.name="usb-ecm",.context=d,.priority=50,.send=network_send,.poll=network_poll,.link=network_link,.rx_wake_ready=network_rx_wake_ready};
     copy_bytes(ops.mac,n->mac,6);if(!net_device_register(&ops)) return false;
     d->configuration_value=config->configuration;d->interface_number=config->control_interface;d->configured=true;xhci.configured_devices++;
     n->ready=true;network_count++;d->stage="network-ready";

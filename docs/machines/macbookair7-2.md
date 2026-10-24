@@ -1,6 +1,477 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
+
+### Pending USB event-service gaps: bounded native result
+
+Based on `bf1b9a6` / PR127, this unit added conservative bounds on
+intervals between timestamped event-ring checks while a measured storage request
+is pending, including the final interval through matching-event dispatch.
+Scope: xHCI poll/event bookkeeping, BOT timing aggregates, logger/comparison wire
+records and backward-compatible collectors, directed host and VM regressions.
+Sample timestamps at most once per 256 ring checks to limit diagnostic overhead;
+submission and matching dispatch close the interval. These are software sampling
+bounds, not hardware completion timestamps. Preserve waits/deadlines, DMA
+quarantine, input service, readback and flush. The normal 20 ms policy stays.
+Pro PR19 was rechecked at `636ecf9` (documentation since `d80fb47`): MAC Wi-Fi state,
+capture recipes and tests remain separate from the storage path. Preserve both
+changes on integration. Air6,1 PR128 screenshot-receipt changes are independent;
+its collector regression edits are in another part of the shared test file.
+
+Source `00ad3cc` passes the full local build/core suite, injected steady/pause and
+clock/saturation checks, versioned collector regressions, throttled USB copy with
+input/exact readback, and timeout/quarantine VM checks. An exact staged idle VM
+persists six logger snapshots with complete service-gap fields. The staged
+fixed-file VM passes all 18 version-3 samples / 54 version-2 transfer records,
+exact payload and policy restoration. Missing-workspace automatic return passes.
+These validate instrumentation and workflow; the native result follows below.
+
+PR129 release `46b9132589405099`, compiled `00ad3cc`, returned automatically in
+`session-00065e8eb5c8f180-00`. All 18 version-3 measurements / 54 complete phase
+records and exact offline fixture pass, with zero callback failures. All 1046
+prior files retain their bytes except expected exFAT metadata; only boot/exit
+logs and the fixture were added. Offline checks pass at 1049 files / 2527
+clusters, zero leaks, bitmap mismatches or errors. Ubuntu default, consumed
+one-shot and recovery `9aa8dbf6fbda8252` are verified. USB is unmounted; no new
+reboot is armed. The installed current payload remains the automatic comparison.
+
+Across 2124 CSW callbacks, 47 exceeded 100 ms and none exceeded one second.
+Total callback time was 10108415 us, including 10103993 us before software event
+observation and 1403 us after it. Maximum callback was 281928 us; maximum
+observed-event-to-caller delay was 3 us. Five data callbacks also exceeded 100 ms
+(maximum 175237 us). The slowest whole operation was 5724579 us: its 33 slow
+status callbacks occurred under continuous polling, with 286274049 actual ring
+checks and 1118319 timestamped samples; the maximum sampled gap was only 13 us.
+It was not one request exceeding the two-second deadline.
+
+| Poll-before-wait | Median operation | Maximum operation | CSW >100 ms | Maximum sampled CSW service gap |
+| --- | --- | --- | --- | --- |
+| Poll only | 264.755 ms | 5724.579 ms | 33 | 13 us |
+| 4 ms | 181.763 ms | 918.210 ms | 2 | 10011 us |
+| 20 ms | 181.765 ms | 2345.151 ms | 12 | 10011 us |
+
+The wait modes retain the expected approximately one-tick servicing bounds.
+These measurements exclude long lapses between software ring checks as the
+principal cause of this run's long callbacks. Controller/media behavior and any
+event backlog remain unresolved; no hardware completion timestamp or device
+fault is established. Unequal tail incidence in one boot cannot rank policies or
+energy efficiency. Keep the normal 20 ms threshold and verified flush/readback.
+This bounded diagnostic milestone is complete; further timing investigation can
+wait for a reproducible workload problem rather than changing transport policy
+from variable flash-drive tails alone. Physical interactive or normal-desktop
+logger acceptance is not supplied by this fixed-file run.
+
+Main `8ec864c` (Air6,1 PR128 screenshot receipts) was merged as `34934f6` after
+collection. Its storage kernel is unchanged from the native-tested source.
+Combined-tree local build/core, exact idle logger/screenshot capture and all
+18 fixed-file capture samples pass. This combined-tree validation is VM-only;
+the installed release and native source above remain distinct. Local evidence
+is in `build/storage-service-gaps-20261024`, with payload/results archived outside
+build at closeout. Fetch the actual integration baseline and active Pro scope
+before the next feature block.
+
+### Individual USB timing: bounded native result
+
+Starting from merged main `76f98c4`, this unit is instrumenting synchronous USB
+storage callbacks to distinguish submission-to-software-event-observation from
+observation-to-caller-resumption. Neither interval is pure hardware/device time.
+Scope: xHCI storage request/event bookkeeping, BOT timing aggregates, workspace
+logger/counterbalanced capture records, collectors and directed host/VM tests.
+Keep the 20 ms poll threshold, two-second deadline, DMA quarantine, input service,
+readback and flush policies unchanged. Inspect individual maxima and slow-request
+counts before deciding whether a scheduling or transport change is justified.
+Pro PR19 was rechecked at `1893150`: WCID Wi-Fi structs/capture work is separate
+from the synchronous storage bookkeeping here; both must survive integration.
+
+Source `ce1c537` passes the full local build/core suite, directed clock/order/
+overflow/stale-event and parser regressions, throttled 4 MiB USB copy with input
+and exact readback, and timeout/quarantine VM checks. The exact EFI/GPT idle VM
+persists six logger saves with complete per-phase timestamps. The fixed-file VM
+persists all eighteen version-2 samples / 54 phase records and exact payload;
+missing-workspace automatic return also passes. These validate instrumentation
+and workflow, not physical latency or improved performance.
+
+PR127 candidate `b824d64a95b27a3b`, compiled `ce1c537`, returned automatically in
+`session-00065e8e6e515108-00`. All 18 measurements / 54 phase records pass, with
+exact offline fixture bytes, zero callback failures and unchanged bytes for all
+1043 previous files except expected exFAT metadata. Only boot/exit logs and the
+fixture were added. Offline checks pass at 1046 files / 2523 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot and recovery
+`9aa8dbf6fbda8252` are verified; USB is unmounted and no reboot is armed.
+
+Across 2124 CSW callbacks, 17 exceeded 100 ms and none exceeded one second.
+Maximum callback time was 307216 us; total was 5121771 us, including 5117657 us
+before software event observation and only 1616 us after observation. Maximum
+observed-event-to-caller delay was 20 us. The longest operation, 2427278 us,
+included twelve CSW callbacks above 100 ms, rather than one transfer exceeding
+the two-second timeout. Two data callbacks also exceeded 100 ms (maximum 173286 us).
+The software observation boundary still includes controller/media and event-ring
+service delay, so this does not identify a device fault or establish hardware
+completion latency. It excludes large post-observation caller delays for this run.
+
+| Poll-before-wait | Median operation | Maximum operation | CSW callbacks >100 ms |
+| --- | --- | --- | --- |
+| Poll only | 256.757 ms | 447.558 ms | 3 |
+| 4 ms | 263.926 ms | 628.466 ms | 2 |
+| 20 ms | 181.353 ms | 2427.278 ms | 12 |
+
+Unequal tail incidence in one boot cannot rank policies; retain the normal 20 ms
+threshold. The bounded instrumentation/workflow milestone is complete. Sustained
+normal-desktop logger timing remains covered by VM rather than this native fixed
+fixture. Next storage scope is bounding event-service gaps while a transfer is
+pending, to further distinguish device/controller delay from event servicing.
+Local evidence and collector are in `build/storage-timing-20261024`, backed up
+outside build under the release's pending-trial archive. The installed payload
+is the automatic comparison, not an ordinary desktop session. Fetch the actual
+integration baseline and active Pro scope before starting another change.
+
+### TCP readiness and e1000 receive ownership follow-up
+
+PR125 resolves the legacy readiness failure retained by the network-idle
+milestone. Packet capture on the accepted kernel showed SYN/SYN-ACK/ACK complete
+before the listener timed out: only arriving payload queued a connection for
+acceptance. The fix queues a validated final ACK, independently of data, once.
+Invalid handshakes remain hidden and queue exhaustion resets/retires the new
+connection. Original guest deadlines and host payload ordering are unchanged.
+
+Compatibility testing also exposed e1000 receive-ring reentrancy: a woken
+application could poll the DMA descriptor still owned by the outer callback.
+The accepted baseline reproduced intermittent HTTP stalls too. An atomic,
+non-spinning receive-owner guard prevents duplicate dispatch or skipping the next
+packet, including direct monitor polling. Both packet-level TCP and nested-poll
+host regressions fail before their respective fixes and pass afterward.
+
+At source `4e9e7ad`, full local build/core passes; original readiness and
+descriptor-lifetime VMs pass. ECM traffic passes against the same TCP change
+(before the e1000-only guard): DHCP/DNS/HTTP, UDP echoes, TCP serving, cable
+recovery, shared keyboard and removal quarantine. Refined e1000 HTTP requests,
+slow-peer coexistence and closed-port refusal pass. The web fixture now explicitly
+syncs buffered open service logs before reading them and requires successful
+sync; all previous content assertions remain. Corrected web fixtures pass with
+shorter and default host waits. The idle/input/save fixture passes at 2.095
+network switches/second, with titlebar drag, mixed-case typing and exact save.
+
+Main `c4265f8` (Air6,1 PR124) is merged as `3a94ab2`; Pro PR19 `9b0d63c`
+retains independent Wi-Fi work. Combined-tree build/core and original readiness,
+web serving/log readback and idle/input/exact-save VMs pass. Network activity
+remains about two switches/second. No physical reboot, installed-payload replacement or
+sibling acceptance is implied; installed Air release remains `27b239f96a183fb8`,
+recovery `9aa8dbf6fbda8252`. Details and commands are in
+[TCP readiness](../tcp-readiness.md). Raw failed and successful comparisons stay
+under `build/tcp-readiness-20261023`, with an outside-build archive at closeout.
+
+USB logger variability is the next separate scope. Multi-second saves also
+occurred before network idle changes; aggregate CSW time cannot distinguish
+media delay from completion/scheduling delay. Preserve verification and flush
+policy, and measure individual transfer/owner timing in a controlled comparison
+before changing thresholds. No new hardware test is armed.
+
+### Network idle milestone accepted for the bounded workload
+
+Release `27b239f96a183fb8`, compiled source `ceaa2ce`, returned automatically in
+`session-00065e8d8f28fd65-00`. The one-minute desktop capture passed, with five
+complete periodic saves, a valid 1440×900 Text desktop screenshot and clean exit.
+All 1038 previous files retained their bytes except expected exFAT metadata;
+only four logs and the screenshot were added. Offline checks pass at 1043 files /
+2519 clusters, zero leaks, bitmap mismatches or errors. Ubuntu default, consumed
+one-shot, current payload and previous recovery `9aa8dbf6fbda8252` are verified.
+USB is unmounted; no further reboot is armed.
+
+| Observed workload | Previous `f340e0695d1e2492` | Notification-ready worker |
+| --- | --- | --- |
+| Network switches / measured interval | 5005 / 51.529 s | 102 / 47.728 s |
+| Network switches per second | 97.13 | 2.14 |
+| xHCI input worker switches per second | 100.00 | 100.00 |
+| Compositor switches per second | 10.033 | 10.036 |
+| CPU0 idle timer samples | 98.30% | 97.52% |
+| Completed periodic saves / bytes | 6 / 136710 | 5 / 106892 |
+| Total save wall time | 1.883555 s | 7.942433 s |
+| Individual save range | 149.316–622.689 ms | 200.222–3792.337 ms |
+| Package power / measured interval | 6.786 W / 51.999 s | 6.840 W / 47.998 s |
+
+This accepts the reduction in redundant network worker activity, about 97.8%,
+with the independent USB service cadence unchanged. These are scheduler switches,
+not hardware wakeups. Native traffic and typing were not exercised in this idle
+recipe; directed VM traffic/input coverage is recorded below. Battery service was
+deliberately off. No energy, whole-system performance or physical input improvement
+is established: idle percentage fell slightly and package power did not improve.
+
+USB saves were slower in this run, despite zero callback failures and exact file
+preservation. CSW callbacks account for 7.531335 seconds of the 7.942433-second
+save total; callback wall time includes scheduling and is not pure device wait.
+The single comparison does not identify the cause or rule out a regression.
+Retain this as a storage-latency follow-up, alongside the unresolved legacy TCP
+readiness failure below; neither is silently accepted as fixed by this milestone.
+
+Final review uses unchanged main `7b0d1a0`, Pro PR19 `933f244` (independent Wi-Fi)
+and Air6,1 PR124 `022d468` (attended Home capture). Shared harness edits are in
+separate capture branches and must both survive integration. PR123 contains the
+provider contract, bounded fallback/recovery and local regressions. Runtime is
+unchanged since the build/core and VM validation below; final docs checks pass.
+Raw evidence, failure receipts and installed/recovery payloads are retained outside
+`build` in local pending-trial/reviewed-evidence storage. Next scope is diagnosing
+legacy TCP readiness and explaining USB save variability before further idle
+changes; no new implementation or physical run is armed.
+
+### Network idle validation before the physical comparison
+
+Kernel implementation `ceaa2ce`, test harness `5f2322a`, PR123: full local
+build/core checks pass. Refined e1000 and ECM idle fixtures measure 2.10 and
+2.00 network worker switches/second, with unchanged USB polling cadence and
+successful post-idle drag, mixed-case typing and exact save. ECM DHCP/DNS/HTTP,
+160 UDP echoes, TCP web serving, three traffic outage/recovery cycles, shared
+keyboard and physical-device removal quarantine pass in QEMU. e1000 desktop
+DNS/ping, link down/up, cancellation, typing during a pending job, exported
+reports and clean exit pass. Throttled USB copy/input with exact binary/document
+readback and collision preservation passes.
+
+The older `tcp_ready_smoke.py` fails `ready-listener` on both accepted kernel
+`f340e0695d1e2492` and this candidate in a controlled disposable comparison;
+launching through the shell also fails. This remains an unresolved preexisting
+test/behavior issue, not a pass or a claimed fix. Do not equate the narrower
+passing traffic tests with general TCP readiness acceptance. Raw failure logs
+and comparison recipes are retained for follow-up.
+
+Exact EFI/GPT release `27b239f96a183fb8` (source `ceaa2ce`) passes the explicit
+`--probe-network` rehearsal: ECM worker 101 switches over 50.301 seconds
+(2.008/s), six valid logger cost records, offline persistence and automatic
+reset. Missing workspace returns safely. The initial adapter-free EFI rehearsal
+passed boot/persistence but could not qualify network activity; its receipts
+remain separate. Harness changes after the staged source do not alter its
+kernel or userspace payload.
+
+The prepared one-minute unattended Air7,2 capture is now collected above.
+Recovery remains `9aa8dbf6fbda8252`. The unreferenced comparison EFI payload
+`2218ef4113730414` was hash-verified into outside-build archive storage before
+freeing its EFI space. Raw run state, collector and evidence remain under
+`build/network-idle-20261023`, with durable backups. No physical input or energy
+saving is accepted by this unattended trial.
+
+### Implementation scope and retained initial failure
+
+Base `7b0d1a0` includes merged PR118 and Air6,1 acceptance notes. Pro PR19
+`9b01d39` retains Wi-Fi bring-up; this scope avoids its MCU/baseband and control
+completion paths. Audit the selected network provider's receive notification
+readiness and use the existing 50-tick recovery cadence only when a live IRQ or
+independent USB service can wake the stack. Unknown/unready providers retain
+one-tick polling. Keep xHCI input cadence, USB transmit servicing, TCP timers,
+DMA ownership and hardware gates unchanged.
+
+Touched scope: network provider contract/worker, e1000 readiness, ECM readiness,
+focused host fixtures, VM network/idle regressions and documentation. Require
+empty-poll race, active traffic, missed notification recovery, unavailable IRQ/
+service fallback, cable recovery and input/file coexistence coverage. Publish
+measured worker activity before selecting a native unattended capture. No energy
+saving or physical acceptance is inferred; no new reboot is armed.
+
+Initial implementation `6555944` passes full local build/core checks and an
+e1000 idle/input VM at 1.995 network switches/second. The ECM idle ceiling fails
+at 32.715/s: diagnostic counters show repeated link/speed notifications, no
+received packets. Refine ECM to signal only changed link state/faults from its
+existing independent service; receive completions still signal immediately.
+The failed observation is retained under `build/network-idle-20261023`.
+
+### Storage completion wait milestone accepted for bounded workload
+
+Release `f340e0695d1e2492`, compiled source `c258822`, returned automatically in
+`session-00065e8ceccc2baa-00`. The one-minute desktop capture passed with six
+complete periodic saves, a valid 1440×900 screenshot, no callback failures and
+clean exit. All 1033 previous files retained their bytes except expected exFAT
+metadata; only four logs and the screenshot were added. Offline checks pass at
+1038 files / 2474 clusters, zero leaks, bitmap mismatches or errors. Ubuntu default,
+consumed one-shot and previous recovery `9aa8dbf6fbda8252` are verified. USB is
+unmounted and no further reboot is armed.
+
+| Observed workload | Polling baseline | 20 ms default |
+| --- | --- | --- |
+| Desktop CPU0 idle timer samples | 95.00% | 98.30% |
+| Periodic saves / bytes | 6 / 136678 | 6 / 136710 |
+| Total save wall time | 3.005369 s | 1.883555 s |
+| Save range | 148.681–2002.016 ms | 149.316–622.689 ms |
+| Logger sampled ticks / worker interval | 282 / 52.819 s | 84 / 51.529 s |
+| Compositor switches per second | 10.034 | 10.033 |
+
+The refined policy admits idle during long storage waits without the previous
+run's multi-second periodic saves. This closes the bounded wait milestone with
+the earlier fixed-file native comparison and VM input-under-copy evidence.
+Run-to-run media stalls remain; these single runs do not prove an optimal
+threshold, universal throughput improvement, physical input latency or battery
+life. Package power was 6.786 W over 51.999 seconds, versus baseline 6.949 W;
+thermal conditions were not controlled, so no energy saving is accepted.
+Battery was deliberately off in this idle recipe; the existing ordinary Home
+battery acceptance remains separate.
+
+Final review consumes main `54862de` (Air6,1 evidence-only PR121); kernel/tools
+are identical to the tested source. Pro PR19 `c223f58` remains independent Wi-Fi
+bring-up. PR118 contains the shared owner-checked wait, 20 ms policy, strict
+counterbalanced diagnostic and local regressions. Full build/core and matched
+VM receipts remain those recorded below; final documentation checks pass.
+Raw evidence, payload/recovery and reviewed results are hash-verified outside
+`build`, under the local `pending-trials` and `reviewed-evidence` release folders.
+Next work can address remaining HID/network polling or controlled energy
+measurement as separate milestones; no new scope or hardware run is armed here.
+
+### Previous checkpoint: 20 ms normal desktop validation
+
+Source `4896805` changes the default poll-before-wait threshold to 20 ms and
+preserves historical 4 ms diagnostic collection. Main `bbdbefb` is integrated;
+the staging conflict was resolved by retaining both the descriptive storage
+comparison recipe and Air6,1 v68. Full local build/core/docs passes. Networked
+post-idle drag, typing and exact save pass. Source `c258822` additionally lowers
+the USB copy fixture write limit to 128 KiB/s: the previous 1 MiB/s run exercised
+no waits at 20 ms and therefore failed its coverage assertion. The revised run
+exercises 2,648 waits / 25.795 seconds of helper wall time, with zero transport
+errors, concurrent typing, exact binary/document readback, collision protection,
+rename and clean exit. The stalled USB quarantine/keyboard regression passes.
+
+Exact EFI/GPT v26 `f340e0695d1e2492` saves six valid logger-cost records,
+verifies persisted bytes and resets automatically. Missing-workspace return
+also passes. The next physical run measures the normal one-minute desktop
+logger workload with the 20 ms default; no input is required. All 1033 existing
+USB files were hashed and offline allocation/fsck pass. Recovery remains
+`9aa8dbf6fbda8252`. Run/reboot state and collector are under
+`build/storage-wait20-20261023` with outside-build backups before arming.
+PR118 stays draft until that normal-workload result is reviewed.
+
+### Controlled native result and 20 ms candidate
+
+Release `2218ef4113730414`, source `7347ccc`, returned automatically in
+`session-00065e8ca277c1a9-00`. All 18 counterbalanced 32 KiB overwrite/readback/
+flush operations passed, and the final fixture matched exactly after Ubuntu
+return. All 1030 previous files were preserved except expected filesystem
+metadata. Only boot/exit logs and the fixture were added; offline fsck and
+allocation pass at 1033 files / 2429 clusters, zero leaks or mismatches.
+Ubuntu default, consumed one-shot and previous `9aa8dbf6fbda8252` are verified.
+
+| Policy | Median save | Range | Total, six saves | Idle timer samples |
+| --- | --- | --- | --- | --- |
+| Polling | 251.303 ms | 171.657–717.536 ms | 1.895296 s | 0 / 189 |
+| Wait after 4 ms | 172.592 ms | 171.819–330.844 ms | 1.193865 s | 16 / 120 |
+| Wait after 20 ms | 171.813 ms | 171.635–334.427 ms | 1.351771 s | 29 / 135 |
+
+Each policy has fast operations around 172 ms and slower outliers. The first
+polling sample was 718 ms despite an unmeasured allocation/warm-up write.
+One boot and six samples per policy do not establish that one threshold is
+optimal, or that the earlier logger regression was caused wholly by sleeping.
+Different stall incidence also prevents ranking CPU efficiency from these totals.
+Both wait policies admitted idle during some stalls, with zero callback failures.
+
+Choose **20 ms as the next conservative candidate**, preserving polling for
+5–15 ms completions that the host fixture showed could be delayed by the 4 ms
+threshold. Normal desktop logger latency/idle must still be measured before
+merging PR118; no energy or physical interactive acceptance is claimed.
+Current installed is `2218ef4113730414`; USB is unmounted and no reboot is armed
+at collection. Evidence under `build/storage-compare-20261023` is backed up
+outside build. Follow-up scope: default threshold, test/collector compatibility,
+docs and matched desktop validation. Consume main `bbdbefb` (Air6,1 PR120)
+before staging. Pro PR19 `5e98a56` retains nonoverlapping Wi-Fi/control dispatch.
+
+### Historical preparation: controlled storage wait comparison
+
+Consume main `2702b41` (Air6,1 continuous Home capture) before the next build.
+PR118 remains draft. Add an explicitly staged unattended diagnostic that writes
+and verifies the same 32 KiB file in its new session directory, comparing polling,
+4 ms and 20 ms wait thresholds in counterbalanced order. Pause periodic logging
+while measuring; retain per-phase USB costs, CPU samples and exact readback.
+Restore the original policy on every handled exit, persist results, and use the
+existing automatic return path. Ordinary desktop startup does not run it.
+This scope touches xHCI diagnostic policy controls, workspace logging/capture,
+main capture dispatch, staging/collection tests and documentation. Pro PR19
+`2a4079a` was inspected; its Wi-Fi/control-dispatch changes do not overlap storage
+bulk waiting. No hardware wait-policy refinement is accepted in advance.
+
+Controlled comparison implementation `7347ccc` consumes main `2702b41` and
+passes full local build/core/docs, policy owner/pending/quarantine refusal,
+controlled completion-delay matrix, logger corruption/flush-failure restoration,
+and strict parser/offline-fixture tests. A 5 ms injected completion is detected
+at 5.001 ms with polling or a 20 ms threshold, but at 10.006 ms with a 4 ms
+threshold. This establishes possible tick quantization, not native media latency.
+Fresh USB copy/input/persistence and stalled-transfer quarantine VM checks pass.
+Exact EFI/GPT `2218ef4113730414` completes all 18 measurements, persists the
+fixture exactly, unmounts and resets; missing-workspace automatic return passes.
+
+Next native run is the dedicated `--storage-wait-capture` profile. No typing,
+trackpad interaction or screenshots are needed; it saves a new fixture and logs
+and returns automatically on handled completion/failure. All 1030 existing USB
+files were hashed; offline fsck/allocation pass. Recovery remains
+`9aa8dbf6fbda8252`; the old baseline `9c57ca38a3771eef` was hash-verified into
+archived EFI storage before removing its unreferenced EFI copy for space.
+Run/reboot state: `build/storage-compare-20261023/checkpoint.json`, also backed up
+outside build before arming. Default 4 ms policy remains unchanged pending these
+measurements; PR118 remains draft.
+
+### Original scope: bounded storage completion waits
+
+Branch `device/macbookair7-2/storage-wait` starts at main `4a991df` (PR116
+Air6,1 acceptance docs). Pro PR19 `3ea205a` was inspected: it adds Wi-Fi/control
+dispatch before the existing storage branch, but does not change storage bulk
+submission, completion or scheduler I/O helpers. This Air branch owns the narrow
+storage wait change: a per-device completion queue, wake after a matching bulk
+completion, and an owner/address-space-checked scheduler wait of at most one tick
+after four milliseconds of polling. Preserve the fast path, command deadline,
+clock-stall fallback, DMA quarantine and input service. No Wi-Fi/control path
+edits; this published scope is the shared-file coordination notice.
+
+Require race/ownership/refusal and delayed-completion/timeout/HID host fixtures,
+full local checks, exact EFI/GPT capture/recovery, and input during slow-copy VM
+coverage before a matched native logger-cost capture. Compare cost, idle samples
+and throughput; do not infer power savings. Recovery stays `9aa8dbf6fbda8252`;
+the pretrial installed baseline was `9c57ca38a3771eef`.
+
+Implementation `3687a98` is in draft PR118. Full local build/core/docs and
+scheduler/xHCI host tests pass. Networked post-idle drag/type/save passes. The
+new USB mode of the throttled large-copy VM preserves a 4 MiB+17 byte binary,
+typed document, collision target and renamed file; input overlaps the copy.
+It exercises 272 accepted waits / 1,896,206 us helper wall time with zero USB
+errors. The stalled USB VM retains keyboard progress and bounded quarantine.
+Exact EFI/GPT v26 `58a61b892c43d2f5` persists six valid logger-cost records,
+verifies offline file bytes, unmounts and resets. Missing workspace also returns
+without starting the probe. VM observations do not establish native efficiency.
+
+Native preparation: all 1025 existing USB files hashed; offline fsck and allocation
+pass; actual Air7,2 inventory captured. Recovery remains `9aa8dbf6fbda8252`.
+The next unattended one-minute capture compares logger costs, idle/worker samples
+and package energy with accepted `9c57ca38a3771eef`; no input is required.
+Run/reboot state is recorded in `build/storage-wait-20261023/checkpoint.json`
+and copied outside build before arming. Pro PR19 `a2db9de` and Air6,1 PR117
+`503dd05` were rechecked; neither changes the storage bulk wait or scheduler
+helper. No native acceptance or energy saving is claimed before collection.
+
+### Native storage wait result: functional pass, performance pending
+
+Release `58a61b892c43d2f5`, source `3687a98`, returned automatically in
+`session-00065e8c5b4cfd37-00`. The 60.009-second desktop capture completed,
+saved its screenshot and logs, exited cleanly and consumed the one-shot boot.
+All 1025 previous files were preserved except expected filesystem metadata;
+only four logs and one screenshot were added. Offline fsck and independent
+allocation pass at 1030 files / 2425 clusters, zero leaks or mismatches.
+The saved 1440x900 desktop screenshot was reviewed. Ubuntu default, EFI order
+and previous recovery `9aa8dbf6fbda8252` remain intact. USB is unmounted;
+current is `58a61b892c43d2f5`, and no reboot is armed.
+
+CPU0 idle samples rose from 95.00% to 98.77%. Logger samples fell from
+282 over 52.819 seconds to 56 over 45.699 seconds (5.34% to 1.23% of
+those separate worker windows). The candidate logger recorded 518 timer wakes,
+consistent with exercising timed waits. Compositor activity stayed at 10.000
+switches/second, with one frame in the idle window.
+
+However, five completed saves (106,942 bytes) cost **5.889351 seconds**, compared
+with six baseline saves (136,678 bytes) costing **3.005369 seconds**. Candidate
+save durations were 2.049146, 2.505198, 0.992459, 0.171650 and 0.170898 seconds.
+USB status callbacks consumed 5.374180 seconds across 572 calls, with zero
+callback failures. This is not a single-transfer timeout. A one-tick polling
+wait can delay noticing completion; the current evidence does not separate
+that added latency from flash/media variability. It does not qualify a throughput
+improvement. Keep PR118 **draft** pending a controlled latency comparison and
+wait-policy refinement; functional success is not performance acceptance.
+
+Package power observed 6.765 W over 45.999 seconds versus 6.949 W over
+52.999 seconds previously. Different coverage, temperatures and a single pair
+prevent a power-saving claim. No physical interactive input or ordinary battery
+service acceptance is added. Evidence and comparison are in
+`build/storage-wait-20261023`, backed up under this release outside build.
+Main advanced to `2702b41` (Air6,1 continuous Home capture PR117); inspected but
+not yet consumed by this candidate. Pro PR19 remains `a2db9de`.
 
 ### Active checkpoint: native logger cost captured
 

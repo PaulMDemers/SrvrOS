@@ -5,13 +5,75 @@ physically accepted on this unit, including two observed alarm acknowledgements
 and clean runtime retirement. A bounded minute of battery sampling alongside
 Text saves/reads in an exclusive USB image is also accepted. Short mounted Home
 sampling and a bounded generated Home/Text session with repeated Start/Stop
-are accepted on this unit. Battery gauge accuracy, broader alarm behavior,
-sustained operation and desktop monitoring remain unaccepted. The
+and a three-minute continuous Home desktop capture are accepted on this unit.
+Bounded attended Home AC unplug/reconnect and indicator updates are also accepted.
+Battery gauge accuracy, broader alarm behavior, longer endurance and ordinary
+desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
 passive firmware handoff state with AC connected on 2026-10-23. It is a prerequisite for an
 independent EC/SCI/AML runtime profile, not a battery percentage test. The
 Air7,2 runtime gate and ordinary desktop startup remain unchanged.
+
+## Opt-in ordinary desktop monitoring (native acceptance pending)
+
+Use the distinct v70 profile for a desktop that runs until you choose to exit:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume 6ADA-85BB \
+  --desktop-battery --battery-air61
+```
+
+This selects the exact Air6,1 runtime and the existing ordinary Home session.
+It has no five-minute completion prompt, eight-minute halt or diagnostic event
+quota. Each firmware transaction and retirement operation remains bounded;
+uncertain live ownership still halts instead of freeing active state. Sampling,
+periodic USB logs, the cached battery indicator and System Start/Stop controls
+share the inherited desktop lifetime and exact mount hold. Firmware/EC/query
+permissions are unchanged. Normal boot without this opt-in stays off.
+
+Keep the USB connected. Use Text and Files normally; save a new file and reopen
+it. For the first trial, leave the session running beyond eight minutes, then
+save all work and select **SrvrOS > Return to console** whenever finished.
+At `srv>` enter **`reboot`** to flush/unmount and return to Ubuntu. There is no
+automatic timed return. `desktop battery` at the console can reopen monitoring
+against the same mounted Home. This profile does not enable additional audio,
+brightness or sensor services; their combined coexistence is a separate step.
+
+The prior bounded attended test remains incomplete by user choice. Its capture
+receipt fix is physically verified; that evidence does not substitute for clean
+retirement of this new ordinary profile.
+
+## Historical attended work capture (incomplete)
+
+The explicit Air6,1 v69 `--battery-home-work` recipe runs ordinary Home apps
+with battery sampling and periodic USB logs. Keep AC and USB connected. Spend
+at least five minutes typing, saving a **new** file in Home (use a fresh name
+such as `attended-receipt.txt` on this retry), and reopening it in Text. Open
+**Files using the folder icon in the dock** and browse Home. Text’s Open dialog
+or New window command does not exercise the separate Files application.
+Preserve existing files. A reminder
+appears at four minutes; at five minutes it takes a screenshot and asks you to
+save all work and choose **SrvrOS > Return to console** within two minutes.
+The normal menu exit allows unsaved Text to veto closing. Do not use the
+emergency keyboard exit as completion. Successful retirement saves the final
+report, unmounts and returns to Ubuntu automatically.
+
+The owner halts at eight minutes with live mount/runtime retained; it does not
+force-close dirty editors to make a passing report. Photograph a halt before
+manual recovery. The strict collector requires elapsed time, generation advances,
+keyboard/pointer activity, successful Text save then read, a Files listing,
+screenshot, periodic logs and full retirement. File hashes and offline allocation
+must also be checked after return. Screenshot filename/dimensions and save
+receipts are emitted even without desktop tracing; the completion VM runs the
+same strict screenshot verifier as the physical collector. VM success does not
+accept native endurance.
+Ordinary battery startup remains disabled; EC/SCI/firmware gates are unchanged.
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume 6ADA-85BB \
+  --battery-air61 --battery-home-work
+```
 
 ## Captured evidence (2026-10-23)
 
@@ -546,3 +608,76 @@ This accepts only the explicit bounded generated Home session. Continuous
 monitoring, physical input latency and gauge calibration require separate trials;
 ordinary desktop battery startup remains disabled. See the unit record for the
 matching release, recovery and evidence state.
+
+## Bounded continuous Home candidate (v67)
+
+The explicit `--battery-air61 --battery-home-desktop` laptop capture admits only
+this timed desktop diagnostic to the Air6,1 mounted ownership profile. It opens
+ordinary Home/Text for 180 seconds, saves a screenshot and periodic logs, then
+retires clients, runtime and logger before releasing Home and returning. The
+existing 240-second capture watchdog and 10-second Stop bound remain; Air6,1
+adds a 4096-event ceiling. Firmware/query permissions are unchanged. Ordinary
+startup, indefinite sessions and attended Home AC transitions remain excluded.
+
+Keep AC/USB connected and provide no input. No fresh study directory is needed;
+preserve all prior files. Require the exact native stage/refusal rehearsals,
+strict `battery_home_desktop` receipt, matching screenshot and all log files,
+file-content preservation, clean offline allocation and Ubuntu recovery. A
+halt or missing completion is failure/incomplete evidence. Mounted uncertain
+faults must halt without reset or storage cleanup. Native acceptance is pending.
+
+
+## Continuous Home capture physically accepted
+
+Release `a18d72aecdf808c7` (`503dd05`), session `00065e8c7ab70670-00`,
+completed on October 23. The full 180-second desktop interval, generation 1→71,
+1064 events, periodic/final logs and a verified 1366×768 screenshot pass the
+strict continuous capture receipt. The screenshot shows `AC · 98%`. All 71
+SCI deliveries were handled, with no unclaimed interrupts, and client/runtime/
+logger/mount retirement completed cleanly. Prior-file preservation and offline
+filesystem/allocation checks pass. This accepts v67's explicit bounded capture;
+ordinary startup, attended Home AC transitions, long endurance and calibrated
+gauge accuracy require separate work and evidence.
+
+## Attended Home AC candidate (v68)
+
+Stage `--battery-air61 --battery-home-transitions` only for the explicit attended
+capture. A separate capability admits Air6,1 to this bounded Home lifecycle;
+ordinary startup and indefinite sessions stay off. Existing firmware/query
+permissions, held mount, retirement ordering and mounted-fault halt policy are
+unchanged. Three phases require three fresh stable readings each, with ordered
+distinct generations and matching AC/current/indicator text. Each phase saves a
+screenshot. Phase timeouts remain two minutes and the owner watchdog eight
+minutes; the Air6,1 event ceiling remains 4096.
+
+Start connected to AC. Keep USB connected throughout. Follow the screen prompts:
+wait for the connected phase, unplug only AC when asked, then reconnect AC when
+asked. No keyboard input is required. Successful or cleanly retired incomplete
+captures save and return; uncertain mounted faults halt for a photograph. Collect
+strict `battery_home_transitions` proof, all logs and three distinct screenshots,
+prior-file hashes, offline allocation and recovery checks. Native acceptance is
+pending; the accepted idle capture does not accept transition behavior.
+
+The first v68 native session `00065e8ccdec4fb4-00` on release
+`5cd210467e3a10fd` is incomplete: connected phase 0 and its screenshot passed,
+but phase 1 timed out without three accepted disconnected readings. Sampling
+continued through generation 51 and retirement/storage/recovery checks passed.
+This does not accept attended Home transitions. User observations of AC removal
+and indicator behavior are needed before attributing the timeout or preparing
+a retry; preserve the logs and single screenshot.
+
+
+## Attended Home AC retry physically accepted
+
+The user confirmed AC was not removed during the first v68 attempt. A fresh
+same-payload retry, session `00065e8d108fab51-00` on release `5cd210467e3a10fd`,
+completed on October 23. Connected, unplugged and reconnected phases each passed
+three fresh readings; verified screenshots show `AC · 98%` → `97%` → `AC · 97%`.
+Current was negative while unplugged and nonnegative on AC. Two observed alarms
+were acknowledged with cache invalidation; all 19 SCI deliveries were handled
+and client/runtime/logger/mount retirement was clean. Prior-file preservation,
+offline filesystem/allocation and Ubuntu recovery checks pass. The first attempt
+remains incomplete history, not a hardware regression or acceptance claim.
+
+This accepts the explicit bounded desktop transition capture only. Gauge
+calibration, longer endurance and ordinary battery startup remain separate.

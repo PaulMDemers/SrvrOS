@@ -3671,3 +3671,24 @@ build/acpi-air61-battery/battery_vm_platform.o: ports/srvros/uacpi/runtime/batte
 test-scheduler-activity:
 	$(PYTHON) tools/test_scheduler_activity.py
 test-core: test-scheduler-activity
+
+.PHONY: test-storage-wait-result
+test-core: test-storage-wait-result
+test-storage-wait-result:
+	$(PYTHON) tools/test_storage_wait_result.py
+
+.PHONY: test-tcp-accept
+test-core: test-tcp-accept
+test-tcp-accept: build/tests/tcp-accept-host$(HOST_EXE)
+	$<
+build/tests/tcp-accept-host$(HOST_EXE): tools/test_tcp_accept.c kernel/src/net.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-e1000-rx
+test-core: test-e1000-rx
+test-e1000-rx: build/tests/e1000-rx-host$(HOST_EXE)
+	$<
+build/tests/e1000-rx-host$(HOST_EXE): tools/test_e1000_rx.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

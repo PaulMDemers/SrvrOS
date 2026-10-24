@@ -25,7 +25,22 @@ void fpu_switch_kernel_state(struct fpu_state *old,struct fpu_state *next,struct
     (void)old;(void)next;(void)user;
 }
 static unsigned switches;
+static bool completion_wait_test,completion_signal,completion_ready,reference=true;
+bool timer_reference_ready(void) { return reference; }
+static struct scheduler_wait_queue completion_queue;
+static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(completion_wait_test) {
+        assert(old==&threads[3].context && next==&threads[1].context);
+        assert(current_thread==1 && threads[3].state==THREAD_BLOCKED);
+        assert(io_depth==2 && io_owner==3 && !io_thread_allowed(5));
+        assert(completion_queue.waiters==(1ull<<3));
+        if(completion_signal) { completion_ready=true;scheduler_wake_all(&completion_queue); }
+        else { clock_us+=10000;wake_expired_waits(); }
+        assert(threads[3].state==THREAD_READY && !completion_queue.waiters);
+        threads[1].state=THREAD_READY;threads[3].state=THREAD_RUNNING;
+        current_thread=3;actual_space=2;switches++;return;
+    }
     assert(old==&threads[4].context && next==&threads[3].context);
     assert(current_thread==3 && threads[4].state==THREAD_BLOCKED);
     assert(io_waiters.waiters==(1ull<<4));
@@ -36,6 +51,37 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
 }
 static bool retired_context(void *arg) { (void)arg;assert(!"retired eligibility callback");return false; }
 static bool ready(void *arg) { return arg != NULL; }
+static void test_completion_wait(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    clock_us=100000;current_thread=3;idle_thread=1;actual_space=2;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.address_space=2};
+    threads[1]=(struct thread){.state=THREAD_READY,.io_eligible=idle_eligible};
+    threads[5]=(struct thread){.state=THREAD_READY};io_owner=3;io_depth=2;
+    completion_wait_test=true;
+    assert(!scheduler_io_wait_timeout(NULL,completion_condition,&completion_ready,11));
+    assert(!scheduler_io_wait_timeout(&completion_queue,NULL,&completion_ready,11));
+    assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,10));
+    assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,12));
+    actual_space=1;assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));actual_space=2;
+    io_owner=5;assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));io_owner=3;
+    reference=false;assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));reference=true;
+    io_services_enabled=false;assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));io_services_enabled=true;
+    threads[1].state=THREAD_BLOCKED;
+    assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));
+    threads[1].state=THREAD_READY;
+    completion_ready=true;unsigned before=switches;
+    assert(scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11) && switches==before);
+    completion_ready=false;completion_signal=true;
+    assert(scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));
+    assert(switches==before+1 && threads[3].signal_wakes==1 && io_depth==2);
+    completion_ready=completion_signal=false;
+    assert(scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,11));
+    assert(clock_us==110000 && threads[3].timeout_wakes==1 && io_depth==2);
+    struct io_completion_wait expired={completion_condition,&completion_ready,11};assert(io_completion_ready(&expired));
+    clock_us=0;assert(!scheduler_io_wait_timeout(&completion_queue,completion_condition,&completion_ready,1));
+    completion_wait_test=false;io_depth=0;
+    puts("io-completion-wait: PASS owner/address/timer/bound refusal, ready/race, early wake, expiry, gate retained and idle fallback");
+}
 int main(void) {
     _Alignas(16) uint8_t stack[64];
     uint64_t rsp=initial_thread_stack((uint64_t)stack+sizeof(stack));
@@ -212,6 +258,7 @@ int main(void) {
     puts("scheduler-activity: PASS expiry/signal transitions, no double counts, stable snapshots, slot reuse");
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
+    test_completion_wait();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }
 

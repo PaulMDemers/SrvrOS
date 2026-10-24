@@ -5,20 +5,32 @@ from battery_workspace_controls_records import check_hold, check_home_returns
 from battery_home_monitor_smoke import check_rollups
 
 
-def check_capture(raw, vm=False, transitions=False):
+def check_capture(raw, vm=False, transitions=False, work=False):
+    assert not (transitions and work)
     data=complete_lines(raw.replace(b'\r\n',b'\n'))
     def one(pattern):
         rows=list(re.finditer(b'^'+pattern+b'$',data,re.M))
         assert len(rows)==1,pattern
         return rows[0]
-    begin=one(rb'battery-home-transitions-capture: begin phases=3 watchdog_seconds=480 startup=disabled input=AC-unplug-reconnect' if transitions else rb'battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none')
+    begin=one(rb'battery-home-work-capture: begin seconds=300 watchdog_seconds=480 startup=disabled input=typing-files' if work else rb'battery-home-transitions-capture: begin phases=3 watchdog_seconds=480 startup=disabled input=AC-unplug-reconnect' if transitions else rb'battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none')
     one(rb'battery-home-desktop: logging=started apps=ordinary native=explicit-capture')
     one(rb'battery-workspace-controls: begin mounted=yes native=explicit')
-    sample=one((b'battery-home-transitions-sample' if transitions else b'battery-home-desktop-sample')+rb': first_gen=(\d+) last_gen=(\d+) elapsed_us=(\d+) complete=yes')
+    sample=one((b'battery-home-work-sample' if work else b'battery-home-transitions-sample' if transitions else b'battery-home-desktop-sample')+rb': first_gen=(\d+) last_gen=(\d+) elapsed_us=(\d+) complete=yes')
     first,last,elapsed=map(int,sample.groups())
-    assert first>0 and last>=first+(8 if transitions else 30) and (0 if transitions else 175000000)<=elapsed<(480000000 if transitions else 240000000)
+    assert first>0 and last>=first+(8 if transitions else 60 if work else 30) and (0 if transitions else 300000000 if work else 175000000)<=elapsed<(480000000 if transitions or work else 240000000)
     phases=[]
-    if transitions:
+    if work:
+        idle=one(rb'desktop-work: begin minimum_us=300000000 deadline_us=480000000')
+        ready=one(rb'desktop-work: ready-to-exit screenshot=yes')
+        shot=one(rb'desktop-work: completed=yes elapsed_us=(\d+) keys=([1-9]\d*) pointer_events=([1-9]\d*) screenshot=yes normal_exit=1')
+        assert 300000000<=int(shot[1])<480000000 and idle.end()<ready.start()<shot.start()
+        segment=data[idle.end():shot.start()]
+        writes=list(re.finditer(rb'^desktools: file-result role=text op=2 status=0 bytes=0$',segment,re.M))
+        reads=list(re.finditer(rb'^desktools: file-result role=text op=1 status=0 bytes=([1-9]\d*)$',segment,re.M))
+        assert writes and reads and writes[0].end()<reads[-1].start()
+        assert re.search(rb'^desktools: file-result role=files op=3 status=0 bytes=\d+$',segment,re.M)
+        assert not re.search(rb'^desktools: file-result .* status=-?[1-9]\d* ',segment,re.M)
+    elif transitions:
         phases=check_phases(data)
         idle=one(rb'desktop-ac: accepted=0 .*')
         shot=one(rb'desktop-ac: completed=yes phases=3 screenshots=3')
@@ -35,7 +47,7 @@ def check_capture(raw, vm=False, transitions=False):
     logger=one(rb'battery-home-desktop: logger_retired=yes final_deferred=yes')
     complete=one(rb'battery-workspace-controls: complete=yes epoch=1 state=4; revoked=yes retired=yes mounted=yes native=explicit')
     mount=one(rb'battery-workspace-hold: released token=[1-9]\d*')
-    returned=one((b'battery-home-transitions-capture' if transitions else b'battery-home-desktop-capture')+rb': returned=yes clean=yes; physical accuracy NOT_TESTED')
+    returned=one((b'battery-home-work-capture' if work else b'battery-home-transitions-capture' if transitions else b'battery-home-desktop-capture')+rb': returned=yes clean=yes; physical accuracy NOT_TESTED')
     outer=one(rb'laptop-capture: completed=yes')
     final=one(rb'workspace-log: snapshot=exit.log monotonic_us=\d+ total_before=\d+ tail_limit=65536')
     ordered=[begin,a,idle,shot,sample,d,retired,r,logger,complete,mount,returned,outer,final]
@@ -49,7 +61,7 @@ def check_capture(raw, vm=False, transitions=False):
     rollups=check_rollups(data,1,vm=vm)
     assert rollups[-1][2]>0
     return dict(elapsed_us=elapsed,first_generation=first,last_generation=last,
-                battery_events=rollups[-1][2],peak_members=int(d[2]),idle_us=None if transitions else int(idle[1]),phases=phases,
+                battery_events=rollups[-1][2],peak_members=int(d[2]),idle_us=None if transitions or work else int(idle[1]),phases=phases,
                 physical_accuracy='NOT_TESTED',physical_input='NOT_TESTED')
 
 

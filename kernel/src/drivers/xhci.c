@@ -422,6 +422,11 @@ struct xhci_device {
     uint8_t bulk_dci, bulk_completion;
     uint32_t bulk_remaining;
     bool bulk_pending, bulk_done, bulk_failed;
+    struct scheduler_wait_queue bulk_wait;
+    uint64_t bulk_wait_calls,bulk_wait_us;
+    bool bulk_timed;
+    struct usb_bulk_timing bulk_timing;
+    uint64_t bulk_service_at;
     const char *bulk_reason;
     uint64_t bulk_elapsed_us, bulk_spins;
     uint32_t bulk_length;
@@ -505,6 +510,7 @@ struct xhci_state {
 
 static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
+static bool xhci_poll_worker_started;
 
 static bool wifi_probe_enabled;
 void xhci_set_wifi_probe_enabled(bool enabled) { wifi_probe_enabled = enabled; }
@@ -1158,7 +1164,32 @@ static bool start_controller(void) {
     return wait_status_set(XHCI_USBSTS_HCH, false, XHCI_RESET_TIMEOUT);
 }
 
+/* CPU0 synchronous BOT ownership supplies at most one timed request. Sample
+ * every 256 actual ring checks; submission/dispatch close both ends. The largest
+ * interval between these points conservatively bounds the unsampled checks too.
+ * A clock read on every busy poll would perturb the diagnostic unnecessarily. */
+static struct xhci_device *storage_timing_device;
+static void storage_service_sample(struct xhci_device *d,uint64_t now,bool final) {
+    struct usb_bulk_timing *t=&d->bulk_timing;
+    if(now<d->bulk_service_at) { t->service_valid=false;return; }
+    uint64_t gap=now-d->bulk_service_at;
+    if(gap>t->service_gap_max_us)t->service_gap_max_us=gap;
+    if(final)t->completion_gap_us=gap;
+    d->bulk_service_at=now;
+}
+static void storage_service_check(void) {
+    struct xhci_device *d=storage_timing_device;
+    if(!d)return;
+    struct usb_bulk_timing *t=&d->bulk_timing;
+    if(t->service_checks==UINT64_MAX) { t->service_valid=false;return; }
+    if((t->service_checks++&255)==0) {
+        if(t->service_samples==UINT64_MAX)t->service_valid=false;
+        else t->service_samples++;
+        storage_service_sample(d,timer_monotonic_us(),false);
+    }
+}
 static bool poll_event(struct xhci_trb *event_out) {
+    storage_service_check();
     struct xhci_trb *event = &xhci.event_ring[xhci.event_dequeue];
     bool cycle = (((volatile struct xhci_trb *)event)->control & 1u) != 0;
     if (cycle != xhci.event_cycle) {
@@ -2363,8 +2394,14 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
         device->bulk_completion = completion;
         device->bulk_remaining = remaining;
+        if(device->bulk_timed) {
+            device->bulk_timing.observed=timer_monotonic_us();
+            storage_service_sample(device,device->bulk_timing.observed,true);
+            if(storage_timing_device==device)storage_timing_device=NULL;
+        }
         device->bulk_done = true;
         device->bulk_pending = false;
+        scheduler_wake_all(&device->bulk_wait);
         return;
     }
     if (!device->interrupt_pending || dci != device->interrupt_dci || pointer != device->interrupt_trb) return;
@@ -2428,8 +2465,8 @@ static void xhci_poll_worker(void *arg) {
             }
         }
         /* The controller is still polled, at most one timer tick apart when
-         * otherwise idle. Storage waits continue dispatching transfer events
-         * directly; they do not depend on this sleep finishing. */
+         * otherwise idle. Storage callers also dispatch transfer events; a slow caller may sleep
+         * for one tick and is woken by a matching completion drained here. */
         uint64_t due=timer_ticks()+1;
         if(!scheduler_wait_timeout(&wake,input_poll_due,&due,due)) scheduler_yield();
     }
@@ -2628,9 +2665,23 @@ static bool configure_bulk_endpoints(struct xhci_device *d) {
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
     return submit_command_trb(&cmd,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0);
 }
+/* Diagnostic caller holds the IRQ-masked I/O gate. Zero selects polling. */
+static uint64_t storage_poll_us=20000;
+bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous) {
+    if(!previous || !scheduler_io_active() || scheduler_io_busy() ||
+       (poll_us!=0 && poll_us!=4000 && poll_us!=20000))return false;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
+        if(xhci.devices[i].bulk_pending || xhci.devices[i].bulk_failed)return false;
+    *previous=storage_poll_us;storage_poll_us=poll_us;return true;
+}
+static bool storage_bulk_ready(void *context) {
+    return ((struct xhci_device *)context)->bulk_done;
+}
 static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t length,uint32_t *actual) {
     struct xhci_device *d=context;
     if(d->bulk_failed || d->bulk_pending || !length || length>PMM_FRAME_SIZE) return false;
+    d->bulk_timing=(struct usb_bulk_timing){0};
+    d->bulk_timed=usb_storage_timing_enabled();
     struct xhci_bulk_endpoint *ep=&d->bulk_ep[in?1:0];
     d->bulk_reason="pending"; d->bulk_length=length; d->bulk_elapsed_us=0; d->bulk_spins=0;
     d->bulk_completion=0; d->bulk_remaining=0;
@@ -2640,6 +2691,12 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
     d->bulk_trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
     d->bulk_dci=ep->dci; d->bulk_done=false; d->bulk_pending=true;
+    if(d->bulk_timed) {
+        d->bulk_timing.submitted=timer_monotonic_us();
+        d->bulk_service_at=d->bulk_timing.submitted;
+        d->bulk_timing.service_valid=true;
+        storage_timing_device=d;
+    }
     db_write32(d->slot_id,ep->dci);
     uint64_t start=timer_monotonic_us(), last=start, clock_at=start;
     uint64_t spins=0, stalled_spins=0;
@@ -2647,6 +2704,10 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         struct xhci_trb event;
         if(poll_event(&event)) dispatch_transfer_event(&event);
         if(d->bulk_done) {
+            if(d->bulk_timed) {
+                d->bulk_timing.resumed=timer_monotonic_us();
+                d->bulk_timing.seen=true;
+            }
             if(d->bulk_completion!=1 && d->bulk_completion!=13) { d->bulk_reason="completion-code"; break; }
             if(d->bulk_remaining>length) { d->bulk_reason="invalid-residue"; break; }
             d->bulk_reason="completed";
@@ -2663,16 +2724,35 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
             stalled_spins=now==clock_at ? stalled_spins+256 : 0;
             clock_at=now;
             if(stalled_spins>=XHCI_TRANSFER_TIMEOUT) { d->bulk_reason="clock-stalled"; break; }
-            if(now-last>=1000 && scheduler_io_active()) { scheduler_io_yield(); last=now; }
+            if(now-last>=1000 && scheduler_io_active()) {
+                /* Keep ordinary sub-20ms completions on the fast path. Slow
+                 * commands retain their DMA/gate while eligible services and
+                 * idle run. A matching completion wakes early; one tick bounds
+                 * re-polling even without a HID worker. The original transfer
+                 * deadline and stalled-clock budget are never restarted. */
+                uint64_t tick=timer_ticks();
+                bool waited=storage_poll_us && now-start>=storage_poll_us && tick!=UINT64_MAX &&
+                    scheduler_io_wait_timeout(&d->bulk_wait,storage_bulk_ready,d,tick+1);
+                if(waited) {
+                    uint64_t returned=timer_monotonic_us();
+                    d->bulk_wait_calls++;
+                    if(returned>=now)d->bulk_wait_us+=returned-now;
+                } else scheduler_io_yield();
+                last=now;
+            }
         }
         __asm__ volatile("pause");
     }
+    if(storage_timing_device==d)storage_timing_device=NULL;
     /* Never reuse the buffer/rings: a timed-out DMA may still be active. */
     d->bulk_elapsed_us=timer_monotonic_us()-start; d->bulk_spins=spins;
     d->bulk_failed=true; d->stage="storage-quarantined";
     console_printf("xhci: bulk failed slot=%u dci=%u cc=%u done=%u\n",(uint64_t)d->slot_id,
         (uint64_t)ep->dci,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_done);
     return false;
+}
+static void storage_bulk_timing(void *context,struct usb_bulk_timing *out) {
+    *out=((struct xhci_device *)context)->bulk_timing;
 }
 static void storage_bulk_diagnostics(void *context) {
     struct xhci_device *d=context;
@@ -2688,6 +2768,7 @@ static bool enumerate_storage(struct xhci_device *d) {
     d->configured=true; xhci.configured_devices++;
     d->stage="storage-probe";
     d->storage.diagnose=storage_bulk_diagnostics;
+    d->storage.transfer_timing=storage_bulk_timing;
     bool ready=usb_storage_attach(&d->storage,d,storage_bulk_transfer,storage_writable);
     d->stage=ready?"storage-ready":(d->bulk_failed?"storage-quarantined":"storage-no-media-or-unsupported");
     console_printf("xhci: storage slot=%u vendor=%x product=%x stage=%s\n",(uint64_t)d->slot_id,
@@ -2886,7 +2967,8 @@ static void enumerate_connected_ports(void) {
         (void)enumerate_port(i);
     }
     if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count) {
-        if (!scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready)) {
+        xhci_poll_worker_started=scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready);
+        if (!xhci_poll_worker_started) {
             console_write("xhci: hid poll worker failed\n");
         }
     }
@@ -3222,12 +3304,13 @@ void xhci_print_status(void) {
         }
         if (device->bulk_ep[0].dci) {
             const struct usb_storage *s=&device->storage;
-            console_printf("xhci: storage slot=%u stage=%s disk=%s out=%u in=%u packet=%u/%u burst=%u/%u commands=%u errors=%u offline=%u\n",
+            console_printf("xhci: storage slot=%u stage=%s disk=%s out=%u in=%u packet=%u/%u burst=%u/%u commands=%u errors=%u offline=%u wait_calls=%u wait_us=%u\n",
                 (uint64_t)device->slot_id,device->stage,s->block?s->name:"none",
                 (uint64_t)device->bulk_ep[0].dci,(uint64_t)device->bulk_ep[1].dci,
                 (uint64_t)device->bulk_ep[0].packet,(uint64_t)device->bulk_ep[1].packet,
                 (uint64_t)device->bulk_ep[0].burst,(uint64_t)device->bulk_ep[1].burst,
-                s->commands,s->errors,(uint64_t)(s->failed || device->bulk_failed));
+                s->commands,s->errors,(uint64_t)(s->failed || device->bulk_failed),
+                device->bulk_wait_calls,device->bulk_wait_us);
         }
         console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x slot_type=%u addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u absolute=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,

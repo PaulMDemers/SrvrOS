@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include "../kernel/src/drivers/e1000.c"
 int main(void) {
+    assert(!device_rx_wake_ready(NULL));
+    rings_ready=true;assert(!device_rx_wake_ready(NULL));
+    interrupts_enabled=true;assert(device_rx_wake_ready(NULL));
+    rings_ready=false;assert(!device_rx_wake_ready(NULL));
+    rings_ready=interrupts_enabled=false;
     for(unsigned bits=0;bits<256;bits++) {
         struct e1000_link_info link=e1000_decode_link_status(bits);
         assert(link.up==!!(bits&2));

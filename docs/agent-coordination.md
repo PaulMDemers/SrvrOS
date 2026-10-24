@@ -598,3 +598,100 @@ Closeout also consumed main `b01ae95` / PR82's exact Air6,1 audio profile and
 separate v57 recipe at `5c975aa`. Full local build/core/docs, combined audio/battery
 and exact EFI `67d88f2345ef97ff` regressions passed again. Both device profiles are
 preserved; the installed physical Air7,2 release remains `9aa8dbf6fbda8252`.
+
+
+## Air bounded USB completion waits (PR #118)
+
+The shared storage path now polls for 20 ms, then permits its existing I/O owner
+to wait on a matching completion or the next tick. Reuse the owner/address-space/
+timer-checked scheduler helper; retain the gate, original transfer deadline and
+DMA quarantine. Hardware controller interrupts and Wi-Fi control dispatch are
+unchanged. Diagnostic wait counters measure helper wall time, not CPU sleep time.
+The opt-in storage-wait recipe compares all six orders of polling/4 ms/20 ms on
+one fixed file; historical capture recipes and per-host UUIDs remain distinct.
+
+Air7,2 release `f340e0695d1e2492` accepts the bounded ordinary logger workload:
+98.30% idle samples, six saves in 1.883555 seconds, preserved files and clean
+Ubuntu recovery. The separate fixed-file comparison and slow USB input/copy VM
+regressions pass. No energy savings, sibling acceptance or physical interactive
+latency are inferred. Main `54862de` adds only Air6,1 evidence since the tested
+build; Pro PR19 `c223f58` retains separate Wi-Fi scope. Actions remain disabled;
+local build/core/VM receipts and exact source are recorded in the Air record.
+
+
+## October 23 network idle handoff
+
+Air PR #123 supplies a live optional `net_device_ops.rx_wake_ready` contract.
+Providers without it retain one-tick polling. e1000 with rings/IRQs and ECM with
+an independent live xHCI service use notification-driven waits with the existing
+50-tick recovery bound. USB input/TX servicing, TCP timers and model gates remain
+unchanged. Repeated ECM link/speed notifications no longer wake receive work;
+actual link changes, faults and received packets still do. Future providers must
+not advertise readiness unless receive notifications and TX progress work
+independently of network polling. Missing notifications retain bounded recovery.
+
+Air7,2 release `27b239f96a183fb8` accepts bounded native idle activity at 2.137
+network switches/s, versus 97.13/s previously; it does not accept sibling hardware,
+energy savings or native input/traffic in that unattended recipe. Build/core,
+e1000/ECM idle/input/save, directed traffic/recovery and exact-stage capture pass
+locally; Actions remain disabled. Legacy TCP readiness fails on both baseline and
+candidate, and native USB save timing was worse this run without errors. Preserve
+both follow-ups; neither is a claimed fix. Pro PR19 `933f244` owns independent
+Wi-Fi work. Air6,1 PR124 `022d468` owns attended Home capture; retain its distinct
+hardware_boot_smoke capture branches when integrating the new ECM probe option.
+
+
+## October 23 TCP readiness handoff
+
+Air PR #125 fixes passive-open accept readiness and e1000 receive callback
+ownership. Queue a validated final ACK once, even without payload. The e1000
+receive-owner guard refuses nested/competing polls without spinning or additional
+interrupt masking; it covers the direct monitor path as well as the network
+worker. Do not remove it when adjusting notification or scheduler behavior.
+Packet-level host regressions reproduce both old failures. See
+[TCP readiness](tcp-readiness.md) for the contract and directed local checks.
+
+The web fixture syncs buffered open service logs before separate-reader assertions;
+all HTTP/access-log checks remain. Do not infer a production logging policy change.
+Main `c4265f8` is consumed, preserving Air6,1 PR124's attended capture. Pro PR19
+`9b0d63c` keeps independent Wi-Fi ownership. This work does not edit xHCI, broaden
+hardware gates or change physical installed/recovery payloads. USB logger timing
+remains a separate follow-up; TCP acceptance does not establish power savings.
+
+## October 24 USB timing handoff
+
+Air PR127 instruments matching storage completion events and synchronous caller
+resumption, with per-BOT-phase maxima and slow-transfer counts. Source `ce1c537`
+passes local build/core, directed host regressions, USB copy/input and quarantine
+VMs, and exact staged logger/comparison collection. Native Air7,2 release
+`b824d64a95b27a3b` passes eighteen fixed-file operations, exact readback, prior-file
+preservation and offline allocation/recovery checks. Long CSW wall times preceded
+software event observation; caller resumption took at most 20 us after observation.
+This does not distinguish controller/media delay from delayed event servicing.
+Keep the 20 ms threshold and existing timeout/quarantine/flush policy.
+
+Consume the version-2 collector with a matched kernel. Historical version-1
+results remain readable, without fabricated transfer detail. Pro PR19 at
+`1f4d822` retains independent WCID Wi-Fi work; preserve its additional xHCI Wi-Fi
+state and capture recipes alongside storage timing. Next Air storage scope is
+pending-transfer event-service gaps. No sibling hardware acceptance is implied.
+
+## October 24 USB service-gap handoff
+
+Air PR129 adds sampled pending-transfer event-ring service bounds. Consume logger/
+comparison version 3 with version-2 transfer details; previous formats remain
+readable. Source `00ad3cc` passes host/VM checks and native Air7,2 release
+`46b9132589405099` passes all eighteen fixed-file operations, exact readback,
+prior-file preservation, offline allocation and recovery. A 5.724579-second
+operation included 33 slow CSW callbacks while the sampled service gap stayed
+within 13 us under continuous polling. Wait-mode maxima were 10011 us. These
+bounds exclude long checking lapses as the main cause for this run, without
+identifying controller/media behavior or excluding event backlog. Keep the
+20 ms policy and flush/readback protections; this bounded diagnostic is complete.
+
+Main `8ec864c` / Air6,1 PR128 screenshot receipts is integrated as `34934f6`.
+Combined-tree build/core and exact logger/screenshot and fixed-file capture VMs
+pass. The native source and installed payload above remain distinct from that
+VM-tested userspace update. Pro PR19 at `636ecf9` retains independent MAC/Wi-Fi
+state, harness and tests; preserve both shared-file edits on integration. No new
+native trial is armed and no sibling acceptance is implied.

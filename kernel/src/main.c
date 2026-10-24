@@ -620,7 +620,8 @@ void kmain(void) {
     }
     bool guided_battery=cmdline_has_token(cmdline,"srvros.capture=battery-transitions");
     bool home_transitions_battery=cmdline_has_token(cmdline,"srvros.capture=battery-home-transitions");
-    bool home_desktop_battery=home_transitions_battery || cmdline_has_token(cmdline,"srvros.capture=battery-home-desktop");
+    bool home_work_battery=cmdline_has_token(cmdline,"srvros.capture=battery-home-work");
+    bool home_desktop_battery=home_work_battery || home_transitions_battery || cmdline_has_token(cmdline,"srvros.capture=battery-home-desktop");
     bool home_session_battery=cmdline_has_token(cmdline,"srvros.capture=battery-home-session");
     bool home_battery=home_desktop_battery || home_session_battery || cmdline_has_token(cmdline,"srvros.capture=battery-home");
     bool smbus_files_battery=cmdline_has_token(cmdline,"srvros.capture=battery-smbus-files");
@@ -637,6 +638,7 @@ void kmain(void) {
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
     bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
@@ -660,11 +662,11 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait;
         if(automatic_wifi) {
             xhci_print_status();
             sampled=xhci_wifi_identity_ready();
@@ -753,13 +755,17 @@ void kmain(void) {
                 workspace_active()?"yes":"NO",battery_prepared?"yes":"NO");
         }
         if(automatic_battery && battery_prepared && started && init_ready && timer_running) {
-            sampled=(smbus_transitions_battery?battery_smbus_transition_diagnostic_run:home_transitions_battery?battery_home_transitions_diagnostic_run:home_desktop_battery?battery_home_desktop_diagnostic_run:home_session_battery?battery_home_session_diagnostic_run:home_battery?battery_home_diagnostic_run:smbus_files_battery?battery_smbus_files_diagnostic_run:smbus_battery?battery_smbus_diagnostic_run:query_battery?battery_query_diagnostic_run:controls_battery?battery_controls_diagnostic_run:app_files_battery?battery_app_files_diagnostic_run:load_battery?battery_load_diagnostic_run:text_battery?battery_text_diagnostic_run:desktop_battery?battery_desktop_diagnostic_run:filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
-            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",smbus_transitions_battery?"battery-smbus-transitions-capture":home_transitions_battery?"battery-home-transitions-capture":home_desktop_battery?"battery-home-desktop-capture":home_session_battery?"battery-home-session-capture":home_battery?"battery-home-capture":smbus_files_battery?"battery-smbus-files-capture":smbus_battery?"battery-smbus-capture":query_battery?"battery-query-capture":controls_battery?"battery-controls-capture":app_files_battery?"battery-app-files-capture":load_battery?"battery-load-capture":text_battery?"battery-text-capture":desktop_battery?"battery-desktop-capture":service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
+            sampled=(smbus_transitions_battery?battery_smbus_transition_diagnostic_run:home_work_battery?battery_home_work_diagnostic_run:home_transitions_battery?battery_home_transitions_diagnostic_run:home_desktop_battery?battery_home_desktop_diagnostic_run:home_session_battery?battery_home_session_diagnostic_run:home_battery?battery_home_diagnostic_run:smbus_files_battery?battery_smbus_files_diagnostic_run:smbus_battery?battery_smbus_diagnostic_run:query_battery?battery_query_diagnostic_run:controls_battery?battery_controls_diagnostic_run:app_files_battery?battery_app_files_diagnostic_run:load_battery?battery_load_diagnostic_run:text_battery?battery_text_diagnostic_run:desktop_battery?battery_desktop_diagnostic_run:filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",smbus_transitions_battery?"battery-smbus-transitions-capture":home_work_battery?"battery-home-work-capture":home_transitions_battery?"battery-home-transitions-capture":home_desktop_battery?"battery-home-desktop-capture":home_session_battery?"battery-home-session-capture":home_battery?"battery-home-capture":smbus_files_battery?"battery-smbus-files-capture":smbus_battery?"battery-smbus-capture":query_battery?"battery-query-capture":controls_battery?"battery-controls-capture":app_files_battery?"battery-app-files-capture":load_battery?"battery-load-capture":text_battery?"battery-text-capture":desktop_battery?"battery-desktop-capture":service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
         }
         if(automatic_battery && return_on_failure) {
             if(filesystem_battery&&workspace_image_busy())(void)workspace_image_close();
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
+        }
+        if(automatic_storage_wait && started && init_ready && timer_running) {
+            sampled=workspace_storage_wait_capture();
+            console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
         }
         if(automatic_load && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/threadstress","--cpu-load-capture");

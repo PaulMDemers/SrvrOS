@@ -212,6 +212,34 @@ bool scheduler_io_yield(void) {
     return true;
 }
 
+struct io_completion_wait {
+    scheduler_wait_condition_fn condition;
+    void *arg;
+    uint64_t deadline;
+};
+static bool io_completion_ready(void *arg) {
+    struct io_completion_wait *wait=arg;
+    return wait->condition(wait->arg) || timer_ticks()>=wait->deadline;
+}
+bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
+    scheduler_wait_condition_fn condition,void *arg,uint64_t deadline_ticks) {
+    uint64_t now=timer_ticks();
+    if(!initialized || !io_services_enabled || switching || !queue || !condition ||
+       !io_depth || io_owner!=current_thread || !now || !timer_reference_ready() ||
+       deadline_ticks<=now || deadline_ticks-now>1 ||
+       vmm_current_address_space()!=thread_address_space(&threads[current_thread])) return false;
+    io_service_at=timer_monotonic_us();
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile("sti":::"memory");
+#endif
+    struct io_completion_wait wait={condition,arg,deadline_ticks};
+    bool waited=scheduler_wait_timeout(queue,io_completion_ready,&wait,deadline_ticks);
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile("cli":::"memory");
+#endif
+    return waited;
+}
+
 /* Per-owner budget spans commands: a sequence of individually fast transfers
  * must not avoid service windows by restarting a timer on every transfer. */
 void scheduler_io_checkpoint(void) {

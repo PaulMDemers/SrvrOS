@@ -409,3 +409,259 @@ Next investigate bounded USB-completion waiting and individual request costs,
 while preserving input service, deadlines, DMA quarantine, verification and
 flush policy. Avoid attributing this cost to rendering or reducing persistence
 merely to improve the idle score.
+
+### Bounded storage completion wait
+
+The refined storage bulk policy polls directly for the first twenty milliseconds, retaining
+its one-millisecond service yields. Thereafter it may block on its per-device
+completion queue until a matching event or the next timer tick. The existing
+HID/network worker can drain events and wake the owner; a one-tick retry also
+allows progress when no input worker is polling. The queue is woken only after
+completion code/residue/done state has been published for the matching slot,
+endpoint and TRB. Wrong and stale events do not complete the transfer.
+
+The scheduler helper requires an active I/O owner in its recorded address space,
+enabled services and a running/reference-ready timer. It refuses deadlines more
+than one tick ahead; readiness and expiry are rechecked with IRQs masked before
+blocking. It retains the I/O gate, excluding unaudited filesystem work and the
+owner's sibling user threads while eligible services, other audited processes
+and idle can run. It returns with IRQs masked. Refusal falls back to the existing
+yield/poll loop. Normal scheduler/timer delivery is required for timed blocking.
+
+The original two-second reference-clock deadline and stopped-clock spin budget
+are not renewed by a sleep. A failed transfer still quarantines its pinned DMA
+buffer/rings with no retry or reuse. This policy changes neither flushing nor
+verification nor controller interrupt routing. Waits can add up to one timer
+tick of polling latency (plus scheduling delay) to a slow completion; validate
+throughput as well as CPU samples. Device callback wall time includes sleeping
+and must not be relabeled CPU work. Native bounded-workload evidence is recorded below; energy savings remain unproven.
+
+The `xhci` storage status includes cumulative `wait_calls` and `wait_us` for
+accepted helper calls. They include a call that discovers completion before
+blocking and yielded service time; they are not a CPU sleep-time counter. The
+USB large-copy VM fixture requires nonzero calls and more than 10 ms of observed
+helper wall time, in addition to input overlap and exact persisted bytes.
+
+The first native candidate `58a61b892c43d2f5` completed capture, persistence and
+recovery with no USB callback failures. Idle samples improved (95.00% to 98.77%),
+but five saves took 5.889351 seconds versus six baseline saves taking 3.005369
+seconds. The records contain different byte totals and coverage. Completion
+polling latency and media variability were not yet separated at that checkpoint.
+The refined 20 ms follow-up below completes bounded-workload validation. See the reference
+[machine record](machines/macbookair7-2.md) for exact observations and limits.
+
+### Controlled USB wait comparison
+
+`tools/hardware_boot.py stage --laptop-probe-volume <local-UUID>
+--storage-wait-capture` selects the separate
+`ram-usb-v1-storage-wait-laptop-probe-<UUID>-auto-return` recipe. It does not alter
+historical idle-capture recipes or ordinary startup. The diagnostic pauses
+periodic logging, creates a new 32 KiB `wait-fixture.bin` inside its collision-safe
+session directory, and performs 18 overwrite/readback/flush measurements. All
+six permutations of polling, 4 ms and 20 ms poll-before-wait thresholds run once,
+so each policy appears twice in each position. Allocation is outside measurement;
+metadata writes, verification, flush and eligible service time remain included.
+
+Each row records callback costs by USB phase, elapsed time and CPU0 timer samples.
+There is a 180-second admission limit checked between measurements, not a promise
+to interrupt a filesystem operation. Existing per-transfer deadlines and DMA
+quarantine remain authoritative. Restore the entry policy on handled completion;
+a quarantined transfer refuses policy mutation and makes the run incomplete.
+No retry or DMA reuse is introduced. The diagnostic stops on its first error.
+
+The collector requires all 18 ordered successful rows, policy restoration and
+exact offline payload bytes. Missing, duplicate or malformed rows, unexpected
+paths, symlinks, changed fixture bytes and missing exit logs do not pass. Host
+injection covers timer quantization separately from physical media variability.
+VM timings validate the workflow only. Native results must precede selecting a
+new default policy; neither CPU timer samples nor callback wall time alone prove
+power savings or interactive responsiveness.
+
+The native fixed-file comparison `2218ef4113730414` passed all 18 measurements
+and exact offline readback. Median operation times were 251.303 ms polling,
+172.592 ms with 4 ms polling and 171.813 ms with 20 ms polling. Stalls appeared
+under all policies, with unequal incidence. This single run does not prove an
+optimal threshold or rank energy efficiency. Choose 20 ms conservatively to
+avoid tick-quantization penalties on common short completions, while still
+allowing longer stalls to sleep. The normal desktop logging follow-up below
+validates this default for the bounded workload. The diagnostic parser accepts entry policies
+of 4 ms (historical capture) or 20 ms, and requires restoration in either case.
+
+
+### Individual USB transfer timing
+
+Initial individual timing uses `workspace-cost: version=2` and the fixed-file
+comparison uses `storage-wait: begin version=2`; the latest service-gap format is
+version 3, described below. Each save/sample has three `usb-timing`
+phase records keyed by its monotonic start: phase 0 is CBW, 1 is data chunks and
+2 is CSW. Historical version-1 results remain readable without inventing missing
+measurements. Version 2 requires all three records and exact agreement with the
+aggregate callback counts/times; absent, malformed or inconsistent detail fails
+collection.
+
+For each phase the diagnostic records callback maximum, counts strictly above
+20 ms / 100 ms / one second, and counts/totals/maxima for two software intervals:
+
+- `observe_us`: immediately before the doorbell to dispatch of the matching
+  slot/DCI/TRB completion event. This includes device/USB latency **and any delay
+  servicing the event ring**; it is not a hardware completion timestamp.
+- `resume_us`: that observation to the synchronous storage caller recognizing
+  completion. This includes rescheduling and intervening bookkeeping. It does
+  not measure time asleep or CPU execution.
+
+Interval maxima are independent; they need not describe the same request. The
+sum of both interval totals cannot exceed callback wall time. An observed error
+completion can carry timestamps, but a timeout has no invented completion. Only
+a successful, completely observed capture is accepted by the collector. Backward
+clocks, impossible order and counter overflow invalidate telemetry. Failed I/O
+still fails independently of telemetry. No trace allocation, extra transfers or
+console output occurs inside a request; three clock reads are added only while
+the timing scope is active. Aggregates are printed after the scope ends and
+persisted in a subsequent snapshot, so a save never claims its own duration.
+
+Directed host fixtures inject delayed event delivery and a separate known caller
+resumption delay, verify stale/duplicate event exclusion, retain the original
+bounded timeout/quarantine checks, and reject missing or inconsistent persisted
+records. These measurements do not change the 20 ms normal wait threshold,
+verification or flush policy.
+
+Air7,2 release `b824d64a95b27a3b` completed all 18 native operations and exact
+readback. All 1043 prior files retain their bytes except expected exFAT metadata;
+offline allocation and recovery checks pass. Across 2124 CSW callbacks, total
+wall time was 5121771 us: 5117657 us preceded software event observation, and
+1616 us followed it. The maximum callback was 307216 us; maximum post-observation
+caller delay was 20 us. Seventeen CSW callbacks exceeded 100 ms, none one second.
+The 2427278 us operation included twelve separate slow CSW callbacks, consistent
+with the earlier multi-second aggregate durations without a single transfer
+crossing its two-second deadline. Two data callbacks also exceeded 100 ms.
+
+This narrows attribution to the interval before event observation for this run.
+Controller/media latency and delayed event-ring servicing remain unresolved.
+The six operations per policy had unequal slow-transfer incidence (3 / 2 / 12
+CSW callbacks over 100 ms for polling / 4 ms / 20 ms); a single run cannot rank
+policy performance. Keep the 20 ms default. The next diagnostic should bound
+pending-transfer event-service gaps before changing transport or scheduler policy.
+Normal-desktop input and package energy were not measured by this fixed fixture.
+
+### Pending-transfer event-service gap bounds
+
+Logger and fixed-file comparison version 3 require `usb-timing: version=2`
+phase records. Older logger/comparison versions 1 and 2 remain readable, without
+inventing these new fields. For each phase, `service_checks` counts actual calls
+to inspect the event ring while a timed storage request is pending;
+`service_samples` counts timestamped checks (the first and every 256 thereafter).
+`service_gap_max_us` is the maximum interval between submission, those sampled
+checks and matching-event dispatch. `completion_gap_max_us` is the maximum final
+interval from the last sampled check through matching-event dispatch. These
+maxima can describe different requests.
+
+Sampling makes the reported maximum a conservative bound: omitted checks can
+only shorten the actual intervals between ring inspections. Include the initial
+and final intervals so a servicing hiatus cannot disappear at either boundary.
+The input worker and the synchronous caller share the actual `poll_event` hook;
+checks by either count. A matching completion closes the sample before waking
+the caller. Timeout clears the diagnostic owner without fabricating a completion
+or releasing DMA. Clock rollback, counter overflow, absent check coverage or
+impossible aggregate bounds invalidate collection. A request's sampled checks
+must equal `ceil(checks/256)`; phase totals retain the corresponding bounds.
+
+No extra polling or wakeups are introduced. An active timing scope adds a clock
+read at most every 256 ring checks; ordinary untimed I/O omits these samples.
+The original wait threshold, two-second deadline, stopped-clock budget, input
+service, quarantine, verification and flush policy remain in place. Host tests
+inject steady servicing with a 500 ms delayed completion, a separate 75 ms
+servicing pause, an independent caller-resumption delay, rollback and saturation.
+Version-3 collectors refuse older or missing detail instead of calling it zero.
+
+These bounds measure how often software inspects the ring, not the controller's
+completion time. Even a small bound cannot establish when the target event was
+posted, exclude a backlog of other events, identify a device fault, or rank wait
+policies.
+
+Air7,2 release `46b9132589405099` (compiled `00ad3cc`) completed all eighteen
+native measurements, exact offline readback and automatic return. All 1046 prior
+files retain their bytes except expected exFAT metadata; offline allocation and
+recovery pass. The maximum CSW callback was 281928 us. The slowest whole operation,
+5724579 us, included 33 CSW callbacks above 100 ms under continuous polling;
+286274049 ring checks / 1118319 timestamped samples bounded its maximum service
+gap to 13 us. Waiting modes recorded maximum sampled gaps of 10011 us, consistent
+with their existing tick-bounded service. Across 2124 CSW callbacks, total
+callback wall time was 10108415 us: 10103993 us before software observation and
+1403 us after it, with post-observation caller delay at most 3 us. No single
+transfer exceeded one second; five data callbacks also exceeded 100 ms.
+
+Thus long lapses between ring checks do not explain the observed long callbacks
+in this run. Controller/media behavior and event backlog remain possible. Slow
+callback incidence differed between policies (33 / 2 / 12 CSW callbacks over
+100 ms for polling / 4 ms / 20 ms), so one run cannot rank policy performance or
+energy. Keep the 20 ms default, deadlines, DMA quarantine, input service,
+verification and flush policy. The bounded diagnostic milestone is complete;
+further attribution can wait for a reproducible workload regression. This fixed
+fixture supplies no native interactive or normal-desktop logger acceptance.
+
+### Refined default: native normal desktop result
+
+Release `f340e0695d1e2492` (compiled `c258822`) completed the one-minute Text-open
+capture and returned automatically. CPU0 idle timer samples were 98.30%, versus
+95.00% in the polling baseline. Six saves / 136710 bytes took 1.883555 seconds,
+versus six / 136678 bytes in 3.005369 seconds; individual saves ranged from
+149.316 to 622.689 ms. Logger samples were 84 over 51.529 seconds, versus 282
+over 52.819 seconds. Compositor activity remained about 10 switches/second.
+There were zero USB callback failures, exact preservation of all prior files,
+clean offline allocation and verified Ubuntu recovery.
+
+This supports the 20 ms default for the tested storage workload, alongside the
+counterbalanced comparison and slow USB copy/input VM regression. It does not
+establish optimality or physical interactive acceptance. Package power measured
+6.786 W over 51.999 seconds versus baseline 6.949 W, but this thermally unmatched
+single pair does not establish savings. Ordinary Home battery efficiency remains
+a separate study; this capture deliberately kept the battery service off.
+
+
+### Network notification readiness
+
+The selected provider may advertise a side-effect-free `rx_wake_ready` callback.
+It is true only when receive notifications and transmit servicing can progress
+independently of the network worker: e1000 requires initialized rings and enabled
+IRQs; ECM requires a ready device, operational controller, running xHCI service
+and no input probe. Absent/false callbacks retain one-tick polling. With readiness,
+the empty receive worker waits on its existing notification-generation predicate
+for at most 50 ticks (the existing recovery period). TCP timer work is unchanged.
+Missed notification delivery still reaches a recovery poll; this is not a new
+controller interrupt path and does not slow the USB input service.
+
+ECM notification endpoints can send repeated link/speed reports without packets.
+The USB service already consumes these independently; only a link state change
+or fault wakes stack waiters. Receive completions still signal immediately.
+Initial QEMU evidence found roughly 33 stack wakeups/second with repeated reports
+before this filtering, despite zero packets. Retain that failed idle-ceiling run;
+it is separate from the refined candidate's acceptance. Full functional traffic,
+cable recovery, fallback and idle measurements precede a native capture. No
+energy reduction or physical responsiveness is assumed from fewer switches.
+
+
+Use `tools/hardware_boot_smoke.py --probe-check --probe-network` with the v26
+stage to attach an ECM adapter to the exact EFI/GPT rehearsal and require a
+network worker below ten switches/second over at least twenty seconds. The
+ordinary probe fixture has no supported adapter and cannot validate network
+activity. Missing-workspace return remains a separate case. Traffic and
+post-idle input checks use the dedicated network/idle fixtures.
+
+
+Air7,2 native release `27b239f96a183fb8` completed the unattended one-minute
+capture with 102 network worker switches over 47.728 seconds (2.137/s), versus
+5005 over 51.529 seconds (97.13/s) in `f340e0695d1e2492`. xHCI input service
+remained 100 switches/s and the compositor about 10/s. Five completed saves,
+the desktop screenshot, exact prior-file preservation, clean offline allocation
+and automatic Ubuntu recovery passed. This accepts reduced redundant network
+worker activity for the bounded workload, not native traffic/input or energy.
+
+Do not infer a broader performance improvement: CPU0 idle samples were 97.52%
+versus 98.30%, package power 6.840 W versus 6.786 W, and five saves took 7.942433 s
+versus six in 1.883555 s. Candidate saves ranged 200.222–3792.337 ms with zero
+callback failures; 7.531335 s was in CSW callbacks, including scheduling time.
+The cause of this run's slower USB saves is unresolved. Preserve the evidence
+for controlled storage timing follow-up. At that checkpoint the legacy TCP readiness fixture also failed on both kernels.
+The subsequent [TCP readiness follow-up](tcp-readiness.md) fixes passive-open
+queueing and e1000 receive ownership, with directed host/VM coverage. That fix
+does not explain USB save variability or establish energy savings.

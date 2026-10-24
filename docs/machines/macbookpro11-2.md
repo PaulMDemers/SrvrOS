@@ -4915,3 +4915,12 @@ verified. Workspace clean249files/622clusters,no leaks or allocation mismatch,
 unmounted. No reboot armed. Next: audit private MAC programming and PHY/RF
 prerequisites using the validated logical calibration and physical-map evidence;
 board IO/supply,DMA ownership and calibrated power remain separately scoped.
+
+Active scope: integrate main d5bc4b3 (storage service-gap fixes and Air6,1 battery
+profiles) while retaining all Wi-Fi captures; then audit private MAC setup and
+add its bounded plan/host validation. PR130 window capacity remains separate.
+Touched merge surfaces include xHCI/main/staging; preserve storage-wait and Air
+profiles and exact old Wi-Fi recipes. Installed accepted v54 remains unchanged.
+The next MAC step must read factory bytes privately at boot: saved calibration
+logs redact offsets4..9. Do not substitute an address from another host or a
+portable fixture. RF/TX enable and channel/calibrated-power work remain separate.

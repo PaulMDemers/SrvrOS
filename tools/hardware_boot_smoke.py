@@ -127,6 +127,7 @@ def main():
     parser.add_argument("--keyboard-fail", action="store_true", help="inject wrong keys before correct keys in the guided typing rehearsal")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
+    parser.add_argument("--probe-network", action="store_true", help="Attach ECM to v26 idle capture and require bounded network-worker activity")
     parser.add_argument("--console-check", action="store_true")
     parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
@@ -142,8 +143,8 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
-    if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-")):
-        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --services" if manifest["config_version"].startswith("ram-usb-v55-") else ""))
+    if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-")):
+        parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --services" if manifest["config_version"].startswith("ram-usb-v55-") else " --air61" if manifest["config_version"].startswith("ram-usb-v70-") else ""))
     basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
     if args.desktop_no_headroom and (not desktop or basic_desktop or args.audio_check):
         parser.error("--desktop-no-headroom requires an ordinary desktop stage without audio checking")
@@ -163,12 +164,16 @@ def main():
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
+    storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
     power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
+    if args.probe_network and not (desktop_idle_capture and power_telemetry):
+        parser.error("--probe-network requires the v26 desktop idle/power stage")
     auto_return=manifest["config_version"].endswith("-auto-return")
-    battery_home_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v52-"))
-    battery_home_desktop=bool(probe and manifest["config_version"].startswith("ram-usb-v51-"))
+    battery_home_work=bool(probe and manifest["config_version"].startswith("ram-usb-v69-"))
+    battery_home_transitions=bool(probe and manifest["config_version"].startswith(("ram-usb-v52-","ram-usb-v68-")))
+    battery_home_desktop=bool(probe and manifest["config_version"].startswith(("ram-usb-v51-","ram-usb-v67-")))
     battery_home_session=bool(probe and manifest["config_version"].startswith(("ram-usb-v49-","ram-usb-v66-")))
     battery_home=bool(probe and manifest["config_version"].startswith(("ram-usb-v48-","ram-usb-v65-")))
     battery_smbus_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v63-"))
@@ -182,10 +187,10 @@ def main():
     battery_desktop=bool(probe and manifest["config_version"].startswith("ram-usb-v40-"))
     battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
-    battery_capture=bool(probe and not wifi_calibration and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-")))
+    battery_capture=bool(probe and not wifi_calibration and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-","ram-usb-v68-","ram-usb-v69-")))
     battery_filesystem=battery_smbus_files or battery_app_files or battery_load or bool(probe and manifest["config_version"].startswith("ram-usb-v38-"))
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
-    battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
+    battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-work-capture" if battery_home_work else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
@@ -215,7 +220,7 @@ def main():
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
         device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
-        if network_desktop or device_checks:
+        if network_desktop or device_checks or args.probe_network:
             command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
@@ -333,7 +338,7 @@ def main():
                         assert "laptop-capture: completed=NO" in text
                         assert "battery-native: REFUSED check=pci-gpu" in text
                         assert "battery: phase=" not in text
-                        if battery_home_desktop or battery_home_transitions:
+                        if battery_home_work or battery_home_desktop or battery_home_transitions:
                             assert "battery-workspace-controls: complete=NO" in text
                             assert "battery-home-desktop: logger_retired=yes final_deferred=yes" in text
                             assert text.index("battery-workspace-hold: released") < text.index("workspace: unmounted; USB writes disabled")
@@ -454,6 +459,12 @@ def main():
                             contents=stored.read(folder+"/"+filename)
                             assert b"workspace-scheduler:" in contents
                             (logs/("laptop-capture-"+filename)).write_bytes(contents)
+                    if storage_wait_capture:
+                        from storage_wait_result import capture_result,PAYLOAD
+                        comparison=capture_result(stored.read(folder+"/exit.log").decode())
+                        assert comparison is not None, 'Incomplete storage wait comparison'
+                        assert stored.read(comparison['path'].removeprefix('/work/'))==PAYLOAD
+                        (logs/'storage-wait-result.json').write_text(json.dumps(comparison,indent=2)+'\n')
                     if desktop_idle_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         assert desktop_idle_sample(exit_log) is not None
@@ -468,6 +479,11 @@ def main():
                                 from hardware_desktop import desktop_worker_sample
                                 workers=desktop_worker_sample(exit_log)
                                 assert workers is not None, 'Incomplete worker attribution'
+                                if args.probe_network:
+                                    assert 'net: provider=usb-ecm' in exit_log
+                                    worker=next(w for w in workers['workers'] if w['name']=='net-poll')
+                                    assert workers['covered_us']>=20000000
+                                    assert worker['switches']*1e6/workers['covered_us']<10, 'Network worker remains busy'
                                 (logs/'desktop-workers.json').write_text(json.dumps(workers,indent=2)+'\n')
                         capture=re.findall(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",exit_log)
                         assert len(capture)==1
@@ -480,8 +496,8 @@ def main():
                         (logs/"desktop-idle.bmp").write_bytes(image)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-                        "battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "probe":True,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
+                        "probe":True,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))

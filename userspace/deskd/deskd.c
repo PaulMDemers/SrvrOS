@@ -723,7 +723,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) {
         s->capture_success=0;s->capture_finished++;capture_notice(s,0,"The capture worker could not start.");
     }
-    else if(s->trace) desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
+    else desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
     global_menu_rebuild(s);
 }
 static void notification_received(struct session *s,int i,const struct desk_packet *p) {
@@ -1119,12 +1119,13 @@ int main(int argc,char **argv) {
     int coexist_files=coexist_workspace || (argc==2 && !strcmp(argv[1],"--coexist-files"));
     int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
+    int battery_work=argc==2 && !strcmp(argv[1],"--battery-work-capture");
     int battery_guided=argc==2 && !strcmp(argv[1],"--battery-transition-capture");
     int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
     int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
-    int home_apps=argc==2 && !strcmp(argv[1],"--home-apps");
+    int home_apps=battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int apps=battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
@@ -1133,7 +1134,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -1177,6 +1178,7 @@ int main(int argc,char **argv) {
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
+    if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
     if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
@@ -1195,6 +1197,9 @@ int main(int argc,char **argv) {
     uint64_t coexist_keys=0,coexist_key_ack=0;
     struct desk_battery_trial battery_trial={.began=(uint64_t)srv_monotonic_us()};
     int battery_saving=0;unsigned battery_shot_serial=0;uint64_t battery_shot_due=0;
+    uint64_t work_begin=(uint64_t)srv_monotonic_us(),work_keys=0,work_motion=0,work_due=0;
+    unsigned work_shot=0;int work_phase=0;
+    if(battery_work)desk_log("desktop-work: begin minimum_us=300000000 deadline_us=480000000\n");
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1317,6 +1322,7 @@ int main(int argc,char **argv) {
         for(int n=0;(apps || coexist_text) && n<32;n++) {
             struct srv_key_event key;int read=gui_keyboard_read(&key);
             if(read<=0) break;
+            if(battery_work && (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT))work_keys++;
             s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
@@ -1412,6 +1418,7 @@ int main(int argc,char **argv) {
                 desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,e.dx||e.dy);
             }
             if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
+                if(battery_work)work_motion++;
                 stop_warning=0; io_trial_input(&s.io,1);
             }
             if (io_trial_active(&s.io)) {
@@ -1589,6 +1596,27 @@ int main(int argc,char **argv) {
             if(!coexist_complete) failed=1;
             quit=1;
         }
+        if(battery_work && !failed) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            if(!work_phase && now-work_begin>=240000000) {
+                work_phase=1;strcpy(s.scene.notice,"One minute left: SAVE your new file and reopen it. Wait here for the final prompt.");
+                desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+            }
+            if(work_phase==1 && now-work_begin>=300000000 && !s.exiting) {
+                strcpy(s.scene.notice,"Five minutes complete: saving screenshot. Please wait for the exit prompt.");
+                desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+                work_phase=2;work_shot=s.capture_finished;work_due=now+30000000;capture_request(&s);
+            } else if(work_phase==2) {
+                if(s.capture_finished>work_shot) {
+                    if(!s.capture_success)failed=1;
+                    else {
+                        work_phase=3;desk_log("desktop-work: ready-to-exit screenshot=yes\n");
+                        strcpy(s.scene.notice,"Complete: SAVE all work; SrvrOS > Return to console within two minutes.");
+                        desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+                    }
+                } else if(now>=work_due)failed=1;
+            }
+        }
         if(battery_guided && !failed) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(battery_saving) {
@@ -1670,6 +1698,13 @@ int main(int argc,char **argv) {
             srv_sleep_ticks(1);
     }
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
+    if(battery_work) {
+        uint64_t elapsed=coexist_end-work_begin;
+        if(work_phase!=3 || elapsed<300000000 || !work_keys || !work_motion || !s.exiting || s.child_errors)failed=1;
+        desk_log("desktop-work: completed=%s elapsed_us=%llu keys=%llu pointer_events=%llu screenshot=%s normal_exit=%u\n",
+            failed?"NO":"yes",(unsigned long long)elapsed,(unsigned long long)work_keys,(unsigned long long)work_motion,
+            work_phase==3?"yes":"NO",s.exiting?1u:0u);
+    }
     if(battery_guided) {
         if(battery_trial.phase!=3)failed=1;
         desk_log("desktop-ac: completed=%s phases=%u screenshots=%u\n",failed?"NO":"yes",battery_trial.phase,battery_trial.phase);

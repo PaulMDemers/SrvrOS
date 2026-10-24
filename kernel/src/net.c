@@ -1995,8 +1995,31 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
-    if (connection->state == TCP_STATE_SYN_RECEIVED && (flags & TCP_ACK) != 0) {
+    if (connection->state == TCP_STATE_SYN_RECEIVED) {
+        if ((flags & TCP_ACK) == 0) {
+            return;
+        }
+        /* We send no SYN payload: only the ACK of our SYN at the next peer
+         * sequence completes this passive open. Do not expose a half-open
+         * socket through listener readiness. */
+        if (seq != connection->remote_next) {
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            return;
+        }
+        if (ack != connection->local_seq) {
+            send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
+            return;
+        }
         connection->state = TCP_STATE_ESTABLISHED;
+        /* Accept readiness is connection readiness, not request-data readiness.
+         * A peer may wait for a server greeting before sending its first byte.
+         * Queue exactly once, including an empty final ACK; later payload uses
+         * the same connection and read waiters. */
+        if (!ensure_pending_connection(connection, dst_port)) {
+            send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
+            close_connection(connection);
+            return;
+        }
     }
 
     if ((flags & TCP_ACK) != 0) {
@@ -2160,10 +2183,16 @@ static void net_worker(void *arg) {
             continue;
         }
         rx_worker_empty_polls++;
-        /* Receive IRQs/USB completions wake the worker. A short deadline also
-         * services providers without reliable IRQ delivery; checking the
-         * generation under the scheduler lock avoids a lost empty-poll wake. */
-        if(!scheduler_wait_timeout(&rx_wait_queue,rx_signaled,&generation,timer_ticks()+1)) scheduler_yield();
+        /* A live independent IRQ/USB service already signals receive work.
+         * Keep the existing recovery bound for lost notifications; providers
+         * without that path still need each-tick polling. TCP timers and USB
+         * transmit servicing remain independent of this empty receive wait.
+         * Check the pre-poll generation under the scheduler lock to avoid a
+         * notification lost between the empty poll and blocking. */
+        uint64_t now=timer_ticks();
+        uint64_t interval=net_device_rx_wake_ready()?NET_RX_RECOVERY_TICKS:1;
+        uint64_t deadline=now>UINT64_MAX-interval?UINT64_MAX:now+interval;
+        if(!scheduler_wait_timeout(&rx_wait_queue,rx_signaled,&generation,deadline)) scheduler_yield();
     }
 }
 

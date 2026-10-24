@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes are physically accepted.**
+Updated: 2026-10-24. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; continuous desktop ownership, sustained sampling and gauge accuracy remain open; ordinary startup stays off |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -1591,3 +1591,339 @@ input latency, continuous desktop monitoring and gauge accuracy remain separate.
 Ordinary battery startup stays off. Next is a bounded continuous Home desktop
 trial, reusing the existing ownership/retirement contract and requiring its own
 Air6,1 fixture and native acceptance before any ordinary-startup change.
+
+## Bounded continuous desktop scope (2026-10-23)
+
+From main `4a991df`, including MR115 logger timing and MR116 native closeout,
+own only Air6,1 admission to the explicit three-minute Home desktop capture,
+its separate v67 stage and directed fixtures. Preserve the 240-second watchdog,
+checked client/runtime/logger retirement and mounted-fault halt policy. Ordinary
+startup, indefinite sessions and attended Home transitions stay excluded. Keep
+firmware/query permissions unchanged. PR19 Wi-Fi has independent staging changes;
+preserve its recipes and avoid xHCI/network files. Previous run is collected;
+this trial requires its own evidence and must preserve all current USB files.
+
+## Continuous Home candidate validated (2026-10-23)
+
+Release `a18d72aecdf808c7`, clean compiled source `503dd05`, selects v67.
+Full build/USB image and core/desktop suites pass, as do exhaustive native
+admission checks, 71 staging, 26 collector and four continuous receipt tests.
+Air6,1 completion ran 189.6 seconds, advanced generation 1→76 with 2440 events,
+saved the desktop screenshot and periodic/final logs, and retired five clients
+and runtime cleanly. Profile/query refusals and uncertain-acknowledgement halt
+cases pass. Air7,2 continuous capture and Air6,1 delayed Start/save regressions
+pass. Exact EFI/GPT save/unmount/return and missing-workspace rehearsals pass.
+The VM screenshot was inspected; native indicator accuracy remains untested.
+
+Run `eddc64efe16de005` preserves all 234 USB files unchanged, including the
+accepted and failed study artifacts. Offline fsck/allocation/headroom pass with
+548 clusters and no leaks/mismatches/errors. The failed initial v66 EFI copy
+`f60d9b426e2693f3` was removed only after verifying its independent backup;
+accepted v66 `7fe7d3d20d91997c`, short Home and console recovery remain retained.
+Payload and evidence backups are outside build. Final installation and unarmed
+state are recorded in the run/launch files; native acceptance is pending.
+
+Keep AC/USB connected and provide no input. Allow three minutes plus startup,
+screenshot saving and retirement before automatic Ubuntu return. Photograph any
+halt. Collect the matching strict `battery_home_desktop` proof, all four logs,
+new screenshot, prior-file hashes and offline allocation before another run.
+
+
+## Continuous Home desktop accepted (2026-10-23)
+
+Close out this unit's run on main `2702b41` (MR117), touching only acceptance
+records/current guides. PR118 storage wait work and PR19 Wi-Fi are independent
+and are not part of this tested payload. Session `00065e8c7ab70670-00`, release
+`a18d72aecdf808c7` / compiled `503dd05`, passes the strict native continuous
+Home receipt. The desktop idle window lasted 180.074 seconds; sampling covered
+189.823 seconds and advanced generation 1→71 with 1064 events and zero alarms.
+All 71 SCI deliveries were handled, with zero unclaimed. Five lifetime members
+retired, the service detached 1/1 with zero heap/errors/denied, the logger retired
+and Home released before saved Ubuntu return.
+
+All four logs and the new 1366×768 screenshot are collected and hash-verified.
+Visual inspection confirms ordinary Text and an `AC · 98%` indicator; it does
+not calibrate gauge accuracy. All 234 prior files retain their bytes except
+expected `.srvros/meta`; four logs and one screenshot bring the total to 239.
+Offline fsck/allocation/headroom pass: 586 clusters, no leaks/mismatches/errors.
+Installed/recovery hashes and Ubuntu default pass; the one-shot is consumed.
+USB is unmounted. Evidence and screenshot copies are backed up outside build;
+no new trial or reboot is armed.
+
+This accepts the explicit three-minute continuous capture only. Ordinary battery
+startup, longer endurance, attended input latency and gauge accuracy remain
+unaccepted. Next is a separately bounded attended Home AC unplug/reconnect trial
+to verify desktop indicator updates and retirement across power transitions.
+
+## Attended Home AC transition scope (2026-10-23)
+
+From main `d5c080d`, own only Air6,1 admission to the existing attended Home
+AC transition capture, its separate v68 recipe and directed tests. Keep exact
+firmware/query permissions, mount/client ownership and checked retirement;
+ordinary startup and indefinite sessions remain excluded. Preserve the existing
+three fresh readings per phase, two-minute phase limit and 480-second capture
+watchdog, plus the Air6,1 4096-event ceiling. PR118 owns USB wait work and PR19
+Wi-Fi; avoid their driver files and preserve their independent recipes. The v67
+run is collected/accepted. This trial starts on AC, prompts for unplug/reconnect,
+and must retain USB throughout; each phase saves its own screenshot.
+
+## Attended Home AC candidate validated (2026-10-23)
+
+Release `5cd210467e3a10fd`, clean compiled source `fe85b9c`, selects v68.
+Full build/USB image, core/desktop, exhaustive capability checks, 72 staging,
+26 collector and four receipt tests pass. Five Air6,1 transition fixtures cover
+completion, profile/query refusal, retained uncertain-acknowledgement fault and
+missing-transition timeout. Completion takes 69.4 seconds with ordered phases
+at generations 1–3, 9–11 and 25–27; three verified screenshots show
+`AC · 86%` → `86%` → `AC · 86%`, with appropriate current direction. Screenshot
+indicator/prompt regions were visually inspected. Timeout saves an incomplete
+result and returns only after clean retirement; uncertain ownership halts.
+Air7,2 transitions and Air6,1 three-minute continuous regressions pass. Exact
+EFI/GPT save/unmount/return and missing-workspace rehearsals pass.
+
+Run `f76a5bcce314a958` retains all 239 USB files unchanged. Offline fsck and
+allocation/headroom pass: 586 clusters, no leaks/mismatches/errors. Superseded
+short Home EFI payload `30b0d713f1a9ed55` was removed only after verifying its
+durable backup; accepted v66/v67 and console recovery remain installed. Payload
+and evidence backups are outside build; final install/unarmed state is recorded
+locally. PR118 storage waits and PR19 Wi-Fi are not part of this tested source.
+
+Native acceptance is pending. Start on AC; keep USB connected throughout. Wait
+for the screen to request unplugging AC, then reconnect only at its next prompt.
+Wait through screenshot saving without changing power early. No keyboard input
+is required. Each phase allows two minutes; normal completion or checked
+incompletion saves and returns. Photograph any halt. Collect matching strict
+transition proof, all logs/three screenshots, previous file hashes and offline
+allocation before another run. Ordinary startup remains disabled.
+
+## Attended Home AC first run incomplete (2026-10-23)
+
+Close out native evidence only on main `bbdbefb` (MR120); PR118 USB wait and
+PR19 Wi-Fi work remain independent. Session `00065e8ccdec4fb4-00`, release
+`5cd210467e3a10fd` / compiled `fe85b9c`, is incomplete, not accepted. Connected
+phase 0 passed at generations 1–3 (`AC · 98%`, current zero), and one screenshot
+saved. After prompting for phase 1, the capture timed out without accepting
+three fresh disconnected readings. There is no reconnect-phase evidence. Human
+observations of unplugging and the indicator are pending; do not infer a driver
+fault or missed user action from this receipt alone.
+
+Sampling reached generation 51 with 765 events, zero alarms and 51 handled/zero
+unclaimed SCI deliveries. All five lifetime members retired; service detach was
+1/1 with zero heap/errors/denied, logger retired, Home released and the failed
+report saved before Ubuntu return. All 239 prior files retain their bytes except
+expected metadata; four logs and one screenshot bring the total to 244. Offline
+fsck/allocation/headroom pass: 624 clusters and zero leaks/mismatches/errors.
+Installed/recovery hashes and Ubuntu default pass, the one-shot is consumed,
+and USB is unmounted. Raw evidence and screenshot are backed up outside build.
+No retry or reboot is armed. Preserve this run while resolving the phase-1 cause;
+ordinary startup and attended Home transition acceptance remain disabled/pending.
+
+
+## Attended Home AC retry accepted (2026-10-23)
+
+Close out this unit's evidence on main `54862de` (MR121); no shared runtime
+changes. PR118 USB wait and PR19 Wi-Fi remain independent. The user confirmed
+that AC was not unplugged in the first v68 attempt. That incomplete evidence
+remains preserved; an explicitly authorized same-payload retry used a fresh run
+record and the 244-file baseline without source changes.
+
+Run `f36692208f9cb16f`, session `00065e8d108fab51-00`, release
+`5cd210467e3a10fd` / compiled `fe85b9c`, passes the strict native transition
+receipt. In 47.686 seconds sampling advanced generation 1→18. Connected phase
+accepted generations 1–3 (`AC · 98%`, current 0); disconnected phase accepted
+7–9 (`97%`, −1,329,000 µA); reconnected phase accepted 14–16 (`AC · 97%`,
+current 0). All three 1366×768 screenshots were copied, hash-verified and
+visually inspected. They confirm the indicator and prompt states; percentage
+calibration and sustained charging behavior are not claimed.
+
+The service processed 272 events, including two alarms/acknowledgements/cache
+invalidations. All 19 SCI deliveries were handled with zero unclaimed. Five
+lifetime members retired, service detach was 1/1 with zero heap/errors/denied,
+and logger/mount retirement preceded saved return. All 244 prior files retain
+their bytes except expected metadata; four logs and three screenshots bring the
+total to 251. Offline fsck/allocation/headroom pass: 728 clusters and zero leaks,
+mismatches or errors. Installed/recovery hashes and Ubuntu default pass; one-shot
+is consumed, USB is unmounted and no new trial is armed. Retry evidence is backed
+up separately outside build, preserving the original incomplete run.
+
+This accepts bounded attended desktop power transitions and indicator updates.
+Ordinary battery startup remains disabled. Longer attended desktop/file/input
+coexistence and endurance remain separate before any startup promotion.
+
+## Attended desktop/file/input scope (2026-10-23)
+
+From main `7b0d1a0`, including merged MR118 USB waits and MR122 AC acceptance,
+own an explicit Air6,1 attended Home capture: five-minute minimum work interval,
+periodic sampling/logging, screenshot and normal user-requested desktop exit.
+An eight-minute owner overrun must halt with the mount retained, not force away
+unsaved work. Require physical-input counts and successful ordinary Text save/open
+receipts, preserving prior files. Ordinary startup remains off; firmware/query
+permissions stay unchanged. PR123 network polling and PR19 Wi-Fi are independent;
+preserve their main/staging recipes and avoid driver edits. Previous AC retry is
+collected and accepted; this trial needs its own run and native evidence.
+
+## Attended Home work candidate (2026-10-23; native pending)
+
+Source `022d468`, v69 release `8245e30a2e9019ec`, prepares a five-minute
+attended Home session with continuous battery sampling, typing, Text save/reopen
+and Files work. At five minutes it saves a screenshot and prompts for normal
+SrvrOS > Return to console; dirty Text retains its close veto. An eight-minute
+owner deadline halts with live ownership retained. Ordinary startup and native
+firmware/query gates remain unchanged. See the current battery guide for steps.
+
+Local core/desktop build tests, 74 staging tests, 26 collector tests and five
+strict receipt tests pass. Directed Air6,1 Q35 cases cover completion, early
+exit, unsaved-work overrun, platform refusal and query refusal. Completion ran
+305.895 seconds, generation 1→123, with 3,944 events and seven lifetime members;
+Text bytes, directory metadata, filesystem/allocation and full retirement pass.
+The overrun retains live ownership without reset or a completion claim; periodic
+sampling continued through 479 seconds. Native-style collector recipe negatives
+and the existing three-phase AC capture regression pass. Exact staged GPT boot
+refuses native hardware in Q35, saves/unmounts/returns; missing Home returns before
+starting the probe. These are VM results, not native endurance acceptance.
+
+Run `e787736ee4592483` preserves the accepted 251-file USB baseline (728 clusters,
+zero leaks/mismatches/errors). `attended-work.txt` is available as a new file.
+Ubuntu and console recovery `c35475f62f154f1e` remain the recovery plan. The
+superseded Start/Stop EFI copy was removed only after independent backup hashes
+matched; accepted continuous and AC payloads remain installed. The next boot
+must collect its own screenshot, periodic/final logs, input/file receipts, new
+file contents, prior-file hashes and clean offline allocation before acceptance.
+
+### Integrated candidate after MR123
+
+Main `92722b7` landed during validation and is consumed by `6f25115`. The sole
+merge conflict was the boot-smoke result dictionary; both attended-work and
+network-probe fields are retained. Final v69 release `78fe53e8cacdb1ba` supersedes
+the never-installed `8245e30a2e9019ec` candidate. Rebuild/core/desktop and all
+105 staging/collector/receipt tests pass again. Completion (305.423 seconds,
+generation 1→123, 3,944 events, seven members), early exit, both refusals, the AC
+transition regression and both exact staged GPT/missing-Home checks pass on the
+integrated source. The eight-minute overrun receipt remains from `022d468`;
+battery runtime/desktop sources and the initramfs are unchanged by integration.
+The earlier stage and evidence remain preserved. Native acceptance is still
+pending; the same unarmed run and 251-file baseline apply to this final payload.
+
+## Attended Home work first return: incomplete
+
+Close out evidence on main `c4265f8`; no shared runtime changes. Run
+`e787736ee4592483`, session `00065e8e0a5dafa7-00`, release `78fe53e8cacdb1ba`
+(compiled `6f25115`) exited through the normal menu after 211.554 seconds.
+The five-minute minimum and screenshot phase were not reached. There were 25
+key presses and 1,225 pointer events. Text saved and reopened an 11-byte new
+file successfully, but there is no Files-app listing receipt. The result is
+incomplete, not accepted; whether the early exit was intentional is pending
+human confirmation. No driver fault is inferred from this alone.
+
+Battery generation advanced 2→81 with 1,231 events, two alarms/acknowledgements/
+cache invalidations and 86 handled/zero unclaimed SCI deliveries. Four lifetime
+members drained; runtime detach was 1/1 with zero heap/errors/denied. Logger and
+mount retirement completed and the failed report was saved before Ubuntu return.
+All 251 prior files retain their bytes except expected metadata; four logs and
+the new Text file bring the total to 256. Offline fsck/allocation pass with 734
+clusters and zero leaks/mismatches/errors. Installed/recovery hashes, Ubuntu
+default and consumed one-shot pass; USB is unmounted. Evidence is preserved
+outside build. No retry is armed; five-minute attended work acceptance remains
+pending, and ordinary battery startup remains disabled.
+
+## Screenshot receipt correction scope (2026-10-24)
+
+Base `bf1b9a6` includes PR127 storage timing and PR125 TCP readiness. The
+bounded objective is to emit the screenshot dimensions receipt with ordinary
+non-traced desktops and exercise the real image verifier in the Home capture VM.
+Scope: compositor capture logging, Home VM/collector regressions, this record
+and the Air6,1 battery guide. PR19 at `7e70c51` owns independent Pro USB Wi-Fi
+work; no storage, firmware, query permissions or startup policy changes planned.
+Next checkpoint: corrected completion VM, exact staged GPT rehearsal and an
+unarmed physical retry with separate Files-app use.
+
+Retry `ab44de460a170c07`, session `00065e8e40c90399-00`, on release
+`78fe53e8cacdb1ba` completed normally after 361.122 seconds: 55 keys, 1,356
+pointer events, a successful 33-byte Text save/reopen and a saved valid BMP.
+Battery generation advanced 1→138; 2,062 events, no alarms and 162 handled/zero
+unclaimed SCI deliveries. Seven members and runtime/logger/mount retired cleanly,
+with zero heap/errors/denied. All 256 prior files retain their bytes except
+metadata; 262 files/773 clusters pass offline fsck/allocation. Ubuntu recovery
+and consumed one-shot verified; evidence is preserved outside build.
+
+Full attended-work acceptance remains incomplete. The user confirms using
+New window from the search menu, then Open file: this exercised Text's dialog,
+not the separate Files application. The saved screenshot lacks its dimensions
+receipt because it was gated on compositor tracing; the strict collector
+correctly refuses it. The earlier completion VM checked BMP dimensions but
+never invoked that collector helper. Keep both incomplete trials as evidence.
+The next attempt must use the Files folder icon in the dock and wait for the
+five-minute completion prompt before normal menu exit.
+
+### Corrected candidate validated (PR128)
+
+Source `aff686d`, v69 release `2cd5b8604f2406c5`, emits capture dimensions
+without tracing. The unchanged strict screenshot verifier rejects both original
+physical and completion-VM evidence, then accepts the corrected non-traced VM.
+Full build/core, 74 staging, 27 collector and five receipt tests pass. Completion
+ran 306.107 seconds, generation 1→123, with 3,944 events and seven lifetime
+members; Text/Files receipts, screenshot, saved logs and offline allocation pass.
+Early exit remains incomplete; the three-phase AC regression verifies all three
+screenshots. Exact staged GPT rehearsal refuses unsupported Q35 hardware,
+saves/unmounts/returns; missing Home returns before probing.
+
+The next unarmed run `eab752f59fb68762` uses the preserved 262-file/773-cluster
+USB baseline and a new `attended-receipt.txt`. Keep AC/USB connected; open the
+Files folder icon in the dock, browse Home, and wait for the five-minute Complete
+prompt before saving and exiting through the normal menu. Both earlier trials
+remain incomplete and backed up separately. The obsolete parked AC payload's
+EFI copy was removed only after independent backup hashes matched; console
+recovery and the newer accepted Home AC payload remain installed. Ordinary
+battery startup remains off; physical acceptance of this correction is pending.
+
+Final scope review retains main `bf1b9a6`. Air7,2 storage-service-gap work and
+Pro PR19 `d80fb47` remain independent; no competing driver changes are included.
+
+## Opt-in ordinary battery session scope (2026-10-24)
+
+Base `468ca20`; bounded objective: admit this exact Air6,1 profile to the
+existing explicit ordinary desktop owner, with no diagnostic session deadline.
+Scope: Home ownership admission, distinct staging recipe, directed ownership/
+staging tests and ordinary-session VM harness. Reuse inherited process lifetime,
+mount hold, cached sampling, periodic logging and clean retirement. Keep default
+startup off and firmware/EC/query permissions unchanged. Air7,2 PR130 owns window
+capacity/compositor allocation; Pro PR19 owns Wi-Fi. Avoid their implementation
+files. Next checkpoint is an Air6,1 VM session beyond eight minutes, refusal/
+cleanup regressions and a separately staged unarmed physical session.
+
+Run `eab752f59fb68762` on `2cd5b8604f2406c5` demonstrated the screenshot receipt
+fix: the strict verifier accepts capture/save receipts and the 1366×768 BMP.
+Text saved/reopened 17 bytes. The user left it running and observed the expected
+halt; periodic logs reach 477 seconds, with no final exit/retirement proof or
+separate Files activity. Prior 262 files were preserved except metadata; 267
+files/811 clusters pass offline checks. Evidence is retained outside build.
+The user explicitly chose to move on rather than repeat diagnostic coverage;
+full attended-work acceptance remains incomplete, not promoted to passed.
+
+### Ordinary session candidate validated (PR131)
+
+Source `75ddde8`, v70 release `87bf9866baa3f8bc`, enables only the explicit
+Air6,1 ordinary Home battery owner. Full build/core, 75 staging tests, exhaustive
+owner combinations and receipt compatibility tests pass. The extended GPT VM
+retained 535.342 seconds of live periodic-log coverage and 6,664 events, then
+exited normally, drained ten lifetime members and reopened with a fresh owner.
+Text/Files/shell bytes, all four logs and offline allocation pass. Submitted-save
+cancellation, runtime fault retention, opt-out/missing-Home/platform refusals and
+the Air7,2 ordinary-session regression pass. Exact staged GRUB→Limine GPT boot
+refuses Q35 hardware while keeping apps usable, exits/reopens and reboots cleanly.
+
+Keep the earlier failures: the initial long harness did not answer Terminal's
+expected close confirmation; this automation is corrected. A subsequent short
+VM startup hit an EC query timeout and safely halted with ownership retained.
+An unchanged short retry and the full final suite passed. The isolated timeout
+has not been attributed to native hardware; no deadline was widened to hide it.
+Native ordinary-session acceptance and extended endurance remain pending.
+
+Unarmed run `d34f847c1520e40c` preserves the 267-file/811-cluster baseline and
+uses new `ordinary-battery.txt`. Keep USB connected, use apps normally beyond
+eight minutes, save and select SrvrOS > Return to console when finished, then
+enter `reboot` at `srv>`. There is no completion countdown or automatic return.
+Console recovery remains `c35475f62f154f1e`; the superseded `78fe53e8cacdb1ba`
+EFI copy was removed only after its independent backup matched. Corrected
+capture and accepted recovery payloads remain available. Main is still `468ca20`;
+Air7,2 PR130 and Pro PR19 `d0a0b57` retain independent scopes.

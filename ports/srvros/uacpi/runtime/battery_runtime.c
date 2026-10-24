@@ -81,7 +81,7 @@ static uint64_t smbus_workspace_hold;
 static bool mounted_home;
 /* Continuous sessions require an explicit command, capture or Home boot profile. */
 static bool smbus_transitions;
-static bool continuous_home, desktop_home, desktop_capture, desktop_transitions, desktop_session;
+static bool continuous_home, desktop_home, desktop_capture, desktop_transitions, desktop_session, desktop_work;
 static uint64_t home_session_events;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
@@ -98,15 +98,22 @@ static bool smbus_capture_parked(void) {
         workspace_parked_device()==smbus_capture_volume && !workspace_active() &&
         (smbus_files?workspace_image_ready():!workspace_image_busy() && !scheduler_io_active());
 }
-/* An explicit native diagnostic owns the mount through normal runtime return.
- * This grants no fatal reset, general AML unwind, or desktop-startup capability. */
-static bool bounded_home, bounded_home_session;
+/* An explicit diagnostic or ordinary session owns the mount through runtime
+ * return. Neither grants fatal reset, general AML unwind or default startup. */
+static bool bounded_home, bounded_home_session, bounded_home_desktop, bounded_home_transitions;
 static bool air61_home_owned(void) {
     return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
         runtime.platform.smbus_capture_profile && battery_bounded_home_entry(runtime.transition_mode,
         runtime.service_mode,owner==OWNER_SERVICE,((bounded_home&&!smbus_controls) ||
             (battery_bounded_home_session(bounded_home_session,smbus_controls,continuous_home,
-                desktop_home,desktop_capture,desktop_session)))
+                desktop_home,desktop_capture,desktop_session)) ||
+            battery_bounded_home_desktop(bounded_home_desktop,smbus_controls,continuous_home,
+                desktop_home,desktop_capture,desktop_session,desktop_transitions) ||
+            battery_bounded_home_transitions(bounded_home_transitions,smbus_controls,continuous_home,
+                desktop_home,desktop_capture,desktop_session,desktop_transitions) ||
+            battery_owned_home_monitor(smbus_controls,continuous_home,desktop_home,desktop_capture,
+                desktop_session,desktop_transitions,bounded_home || bounded_home_session ||
+                bounded_home_desktop || bounded_home_transitions || desktop_work))
             &&!smbus_capture&&!smbus_study,
         mounted_home&&workspace_mount_hold_valid(smbus_workspace_hold),auto_return,workspace_image_busy());
 }
@@ -787,6 +794,7 @@ static void smbus_query_work(void) {
     if(!smbus_owned() || !runtime.service_mode ||
        runtime.sampler.active || runtime.sampler.waiting || runtime.lease ||
        (runtime.sampler.transaction.ec && runtime.sampler.transaction.phase!=8))unsafe("SMBus event ownership");
+    if((bounded_home_desktop || bounded_home_transitions) && runtime.platform.bounded_samples_only && runtime.events.totals.events>=(desktop_work?8192u:4096u))unsafe("bounded desktop event limit");
     if(!continuous_home && (smbus_capture || mounted_home) && runtime.events.totals.events>=(smbus_transitions?4096u:(smbus_files || smbus_controls)?512u:128u))unsafe("SMBus capture event limit");
     if(!continuous_home && mounted_home && smbus_controls && home_session_events>=512)unsafe("Home session event limit");
     struct ec_smbus_event event={0};runtime.lease=true;
@@ -973,7 +981,7 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     }
     if(runtime.platform.bounded_samples_only && !air61_smbus_owned() && !air61_home_owned() && !battery_bounded_entry(transitions,service_mode,owner==OWNER_DIAGNOSTIC,auto_return,
        workspace_parked_device()!=NULL,workspace_active(),workspace_image_busy(),scheduler_io_active())) {
-        console_write("battery: REFUSED bounded profile requires an admitted bounded diagnostic owner\n");return false;
+        console_write("battery: REFUSED restricted profile requires an admitted Home or diagnostic owner\n");return false;
     }
     if(smbus_study && !runtime.platform.model_smbus_queries) {
         console_write("battery-smbus-study: REFUSED model ownership profile\n");return false;
@@ -1710,7 +1718,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!free)return false;
     uint64_t lifetime=continuous_home?process_lifetime_create():0;
     if(continuous_home && !lifetime)return false;
-    const char *arguments=desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    const char *arguments=desktop_work?"--battery-work-capture":desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
     int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
         process_spawn_background_elf_args("/fat/bin/deskd",arguments);
     if(child<=0) {
@@ -1745,7 +1753,8 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
                 if(!first_generation)first_generation=state.sample.generation;
                 last_generation=state.sample.generation;
             }
-            if(timer_monotonic_us()-capture_start>=(desktop_transitions?480000000ull:240000000ull))break;
+            if(desktop_work && timer_monotonic_us()-capture_start>=480000000ull)unsafe("attended desktop deadline; save work before exit");
+            if(!desktop_work && timer_monotonic_us()-capture_start>=(desktop_transitions?480000000ull:240000000ull))break;
         }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
@@ -1753,9 +1762,9 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     }
     if(desktop_capture) {
         uint64_t elapsed=timer_monotonic_us()-capture_start;
-        ok=ok && (desktop_transitions || elapsed>=175000000) && first_generation && last_generation>=first_generation+(desktop_transitions?8:30);
+        ok=ok && (desktop_transitions || elapsed>=(desktop_work?300000000ull:175000000ull)) && first_generation && last_generation>=first_generation+(desktop_transitions?8:desktop_work?60:30);
         console_printf("%s: first_gen=%u last_gen=%u elapsed_us=%u complete=%s\n",
-            desktop_transitions?"battery-home-transitions-sample":"battery-home-desktop-sample",first_generation,last_generation,elapsed,ok?"yes":"NO");
+            desktop_work?"battery-home-work-sample":desktop_transitions?"battery-home-transitions-sample":"battery-home-desktop-sample",first_generation,last_generation,elapsed,ok?"yes":"NO");
     }
     f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
     battery_control_revoke(&controls);irq_restore(f);
@@ -2270,7 +2279,8 @@ static bool home_desktop_capture_run(void *rsdp,struct limine_memmap_response *m
      * cannot use automatic reset; the outer capture owns the final log. */
     if(!battery_diagnostic_auto_return(false))return false;
     desktop_home=desktop_capture=true;desktop_transitions=transitions;
-    if(transitions)console_write("battery-home-transitions-capture: begin phases=3 watchdog_seconds=480 startup=disabled input=AC-unplug-reconnect\n");
+    if(desktop_work)console_write("battery-home-work-capture: begin seconds=300 watchdog_seconds=480 startup=disabled input=typing-files\n");
+    else if(transitions)console_write("battery-home-transitions-capture: begin phases=3 watchdog_seconds=480 startup=disabled input=AC-unplug-reconnect\n");
     else console_write("battery-home-desktop-capture: begin seconds=180 watchdog_seconds=240 startup=disabled input=none\n");
     bool ok=workspace_controls_test(rsdp,map,false,0,true,true);
     desktop_home=desktop_capture=desktop_transitions=false;
@@ -2287,10 +2297,25 @@ bool battery_home_desktop_session_run(void *rsdp,struct limine_memmap_response *
     return ok;
 }
 bool battery_home_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return home_desktop_capture_run(rsdp,map,false);
+    if(bounded_home_desktop || bounded_home_transitions || bounded_home || bounded_home_session || auto_return)return false;
+    bounded_home_desktop=true;
+    bool ok=home_desktop_capture_run(rsdp,map,false);
+    bounded_home_desktop=false;
+    return ok;
+}
+bool battery_home_work_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(desktop_work || bounded_home_transitions || bounded_home_desktop || bounded_home || bounded_home_session || auto_return)return false;
+    desktop_work=bounded_home_desktop=true;
+    bool ok=home_desktop_capture_run(rsdp,map,false);
+    desktop_work=bounded_home_desktop=false;
+    return ok;
 }
 bool battery_home_transitions_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return home_desktop_capture_run(rsdp,map,true);
+    if(bounded_home_transitions || bounded_home_desktop || bounded_home || bounded_home_session || auto_return)return false;
+    bounded_home_transitions=true;
+    bool ok=home_desktop_capture_run(rsdp,map,true);
+    bounded_home_transitions=false;
+    return ok;
 }
 bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     /* Only this bounded diagnostic admits Air6,1 across repeated lifetimes.
