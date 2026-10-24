@@ -320,8 +320,8 @@ static void model_query_checkpoint(uint8_t code) {
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
     if(model.fault==90 && generation==2) {
-        console_write("battery-vm: delayed second sample begin ms=8000\n");
-        uacpi_kernel_sleep(8000);
+        console_write("battery-vm: delayed second sample begin ms=4000\n");
+        uacpi_kernel_sleep(4000);
         console_write("battery-vm: delayed second sample end\n");
     }
     if(model.fault>=80)model.query_batch=0;

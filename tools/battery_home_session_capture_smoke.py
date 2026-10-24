@@ -89,7 +89,7 @@ def main():
             (out/'exit.log').write_bytes(saved)
             result.update(checker(saved))
             if args.delayed_sample:
-                begin=b'battery-vm: delayed second sample begin ms=8000'
+                begin=b'battery-vm: delayed second sample begin ms=4000'
                 end=b'battery-vm: delayed second sample end'
                 assert saved.count(begin)==saved.count(end)==3
                 deferred=b'text-files: deferred serial=12 waiting=1; no write submitted'
