@@ -25,6 +25,15 @@ struct usb_storage {
     char name[12];
     uint8_t data[USB_STORAGE_COMMAND_BYTES];
 };
+/* CPU0 diagnostic scope; system-wide synchronous BOT callback wall time,
+ * including copies, event dispatch and yielded service. Not CPU/device time.
+ * No extra transfers. A nested begin refuses without disturbing its owner. */
+struct usb_storage_timing {
+    uint64_t calls[3], us[3], failures;
+    bool valid;
+};
+bool usb_storage_timing_begin(void);
+void usb_storage_timing_end(struct usb_storage_timing *out);
 bool usb_storage_is_device(struct block_device *device);
 void usb_storage_print_status(struct block_device *device);
 bool usb_storage_enable_volume_writes(struct block_device *device);

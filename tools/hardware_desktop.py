@@ -371,6 +371,16 @@ def desktop_worker_sample(exit_text):
     return worker_activity(exit_text,start,end)
 
 
+def desktop_logger_cost(exit_text):
+    from workspace_cost import logger_cost
+    idle=desktop_idle_sample(exit_text)
+    windows=re.findall(r"^desktop-idle-window: start_us=([0-9]{1,20}) end_us=([0-9]{1,20})$",exit_text,re.M)
+    if not idle or len(windows)!=1:return None
+    start,end=map(int,windows[0])
+    if end-start!=idle["elapsed_us"]:return None
+    return logger_cost(exit_text,start,end)
+
+
 def power_idle_sample(exit_text):
     """Derive only the covered interval inside a completed desktop idle window.
 
@@ -757,6 +767,7 @@ def collect(mount, volume, output):
             "attention": attention,
             "devices": device_summaries(text),
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "desktop_logger_cost": desktop_logger_cost(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "desktop_worker_sample": desktop_worker_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),

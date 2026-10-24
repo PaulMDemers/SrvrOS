@@ -5,6 +5,35 @@
 #include <srvros/console.h>
 #include <srvros/latency.h>
 #include <srvros/scheduler.h>
+#include <srvros/timer.h>
+
+static uint64_t save_irq(void);
+static void restore_irq(uint64_t flags);
+static bool timing_active;
+static struct usb_storage_timing timing;
+bool usb_storage_timing_begin(void) {
+    uint64_t flags=save_irq();
+    bool ok=!timing_active && timer_reference_ready();
+    if(ok) { timing=(struct usb_storage_timing){.valid=true};timing_active=true; }
+    restore_irq(flags);return ok;
+}
+void usb_storage_timing_end(struct usb_storage_timing *out) {
+    uint64_t flags=save_irq();
+    if(out) *out=timing_active?timing:(struct usb_storage_timing){0};
+    timing_active=false;restore_irq(flags);
+}
+static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
+                       uint32_t length,uint32_t *actual) {
+    if(!timing_active) return s->bulk(s->context,in,data,length,actual);
+    uint64_t start=timer_monotonic_us();
+    bool ok=s->bulk(s->context,in,data,length,actual);
+    uint64_t end=timer_monotonic_us();
+    timing.calls[phase]++;
+    if(!ok) timing.failures++;
+    if(end<start || end-start>UINT64_MAX-timing.us[phase]) timing.valid=false;
+    else timing.us[phase]+=end-start;
+    return ok;
+}
 
 static uint32_t le32(const uint8_t *p) {
     return p[0] | (uint32_t)p[1]<<8 | (uint32_t)p[2]<<16 | (uint32_t)p[3]<<24;
@@ -41,7 +70,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     latency_usb(length,cdb[0]);
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     const char *reason = "cbw-transfer";
-    if (!s->bulk(s->context,false,cbw,sizeof(cbw),&actual)) goto bad;
+    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual)) goto bad;
     reason="cbw-length";
     if (actual!=sizeof(cbw)) goto bad;
     phase = 2;
@@ -52,7 +81,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
         uint32_t chunk=length-transferred;
         if(chunk>USB_STORAGE_BULK_BYTES)chunk=USB_STORAGE_BULK_BYTES;
         actual=0;reason="data-transfer";
-        if(!s->bulk(s->context,in,(uint8_t *)data+transferred,chunk,&actual)) {
+        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual)) {
             if(actual<=chunk)transferred+=actual;
             goto bad;
         }
@@ -66,7 +95,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     }
     phase = 3;
     actual=0; reason="csw-transfer";
-    if (!s->bulk(s->context,true,csw,sizeof(csw),&actual)) goto bad;
+    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual)) goto bad;
     reason="csw-length"; if (actual!=sizeof(csw)) goto bad;
     reason="csw-signature"; if (le32(csw)!=0x53425355) goto bad;
     reason="csw-tag"; if (le32(csw+4)!=tag) goto bad;

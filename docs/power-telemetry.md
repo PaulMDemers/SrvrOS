@@ -346,3 +346,30 @@ connected before boot, brightness 14%, Ethernet and workspace attached, audio
 idle. This recipe omits the ordinary battery owner and does not exercise physical
 input after idle or ordinary Home battery-service efficiency. Accept the bounded
 polling reduction and persistence; keep those other acceptance questions open.
+
+### Logger cost records (diagnostic; native evidence pending)
+
+With power telemetry requested and a reference clock available, the workspace
+logger measures each existing snapshot save. `workspace-cost: version=1` reports
+its start/end, bytes and preparation/write/verification/sync microseconds, plus
+USB BOT callback counts and elapsed time for CBW, data and CSW phases. Timing is
+opt-in; it changes no transfer, timeout, cadence, validation or flush policy.
+The generic BOT wrapper is measured, so no controller-specific instrumentation
+is required. Failed callbacks are counted; regressing/overflowed clocks invalidate
+the record. A nested measurement scope refuses without resetting its owner.
+
+Wall time includes scheduler service, event dispatch and copies; USB totals are
+system-wide during that save, including other traffic if it runs. They are not
+CPU runtime or pure device latency. Sync may also flush other open files. Do not
+subtract these values and call the remainder CPU work. The probes themselves add
+clock-read and log-formatting overhead; compare instrumented runs with each other.
+
+A completed record is emitted before the **next** snapshot is copied, with no
+extra write. Thus exit.log contains earlier periodic operations, not its own
+write/flush measurement. The desktop collector exposes `desktop_logger_cost`
+only for valid, successful, nonoverlapping periodic records wholly inside a
+completed idle window. Straddling/startup/after-idle operations are excluded;
+missing, malformed, conflicting or failed in-window evidence yields null. Totals
+cover the recorded saves only, not the full idle interval or lost tail records.
+This supplies attribution evidence; it does not change the unresolved efficiency
+conclusion above or accept a new physical release.

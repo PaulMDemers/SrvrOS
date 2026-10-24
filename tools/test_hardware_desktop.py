@@ -135,6 +135,28 @@ class CollectionTests(unittest.TestCase):
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
 
+    def test_logger_cost_requires_complete_idle_and_valid_bounded_records(self):
+        header=("desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=1 fb_bytes=9000 measured=yes\n"
+                "desktop-idle-window: start_us=10000000 end_us=70000000\n"
+                "desktop-idle: completed=yes screenshot=yes\ndesktop-idle-capture: returned=yes clean=yes\n")
+        row=("workspace-cost: version=1 name=session-a.log start_us=20000000 end_us=20000200 bytes=4000 "
+             "prepare_us=20 write_us=100 verify_us=30 sync_us=50 cbw_calls=2 cbw_us=10 "
+             "data_calls=2 data_us=40 csw_calls=2 csw_us=60 failures=0 ok=1 valid=1\n")
+        result=desktop.desktop_logger_cost(header+row)
+        self.assertEqual(result['totals']['elapsed_us'],200)
+        self.assertEqual(result['count'],1)
+        self.assertEqual(desktop.desktop_logger_cost(header+row+row),result)
+        outside=row.replace('start_us=20000000','start_us=80000000').replace('end_us=20000200','end_us=80000200')
+        self.assertEqual(desktop.desktop_logger_cost(header+row+outside),result)
+        for bad in (header, header.replace('clean=yes','clean=NO')+row,
+                    header+row.replace('valid=1','valid=0'),header+row.replace('ok=1','ok=0'),
+                    header+row.replace('sync_us=50','sync_us=51'),header+row.replace('csw_us=60','csw_us=600'),
+                    header+row.replace('bytes=4000','bytes=65537'),header+row.replace('failures=0','failures=1'),
+                    header+row.replace('version=1','version=2'),header+row.replace('cbw_calls=2','cbw_calls=0'),
+                    header+row+row.replace('bytes=4000','bytes=5000'),
+                    header+row+row.replace('start_us=20000000','start_us=20000100').replace('end_us=20000200','end_us=20000300')):
+            self.assertIsNone(desktop.desktop_logger_cost(bad),bad)
+
     def test_worker_window_requires_completed_desktop(self):
         from test_scheduler_activity import block
         header=("desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=1 fb_bytes=9000 measured=yes\n"

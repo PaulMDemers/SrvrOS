@@ -13,6 +13,7 @@
 #include <srvros/audio_stream_abi.h>
 #include <srvros/thermal.h>
 #include <srvros/power.h>
+#include <srvros/usb_storage.h>
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -71,21 +72,63 @@ static void device_checkpoint(void) {
             power.package_uj,power.sampled_us,power.interval_us,power.samples,power.rejected,power.raw.energy,power.raw.aperf,power.raw.mperf,sampled);
     }
 }
+/* Report a completed operation before taking the NEXT snapshot. Its own save
+ * cannot contain its duration. In particular, exit.log contains preceding
+ * periodic saves, not a fabricated measurement of its own flush. */
+static struct {
+    bool pending,ok,valid;
+    const char *name;
+    uint64_t start,end,bytes,prepare,write,verify,sync;
+    struct usb_storage_timing usb;
+} previous_save;
+static void report_save(void) {
+    if(!previous_save.pending) return;
+    console_printf("workspace-cost: version=1 name=%s start_us=%u end_us=%u bytes=%u prepare_us=%u write_us=%u verify_us=%u sync_us=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u valid=%u\n",
+        previous_save.name,previous_save.start,previous_save.end,previous_save.bytes,
+        previous_save.prepare,previous_save.write,previous_save.verify,previous_save.sync,
+        previous_save.usb.calls[0],previous_save.usb.us[0],
+        previous_save.usb.calls[1],previous_save.usb.us[1],
+        previous_save.usb.calls[2],previous_save.usb.us[2],previous_save.usb.failures,
+        (uint64_t)previous_save.ok,(uint64_t)previous_save.valid);
+    previous_save.pending=false;
+}
 static bool save(const char *name) {
+    struct power_snapshot power;power_status(&power);
+    bool measured=power.state!=POWER_DISABLED && timer_reference_ready();
+    uint64_t start=measured?timer_monotonic_us():0;
+    report_save();
     device_checkpoint();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,timer_monotonic_us(),bootlog_total());
     uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
-    if(!begin(&flags)) return false;
-    bool ok=workspace_active() && !process_has_open_vfs_prefix(path) &&
-        exfat_write_file(path,(const uint8_t *)snapshot,count);
-    const struct vfs_node *node=ok?vfs_lookup(path):NULL;
-    const uint8_t *data=NULL;uint64_t length=0;
-    ok=ok && node && vfs_read_all(node,&data,&length) && length==count;
-    for(uint64_t i=0;ok && i<count;i++) if(data[i]!=(uint8_t)snapshot[i]) ok=false;
-    if(node && data) vfs_release_data(node,data);
-    end(flags);
+    uint64_t prepared=measured?timer_monotonic_us():0;
+    bool tracing=measured && usb_storage_timing_begin();
+    bool entered=begin(&flags),ok=false;
+    uint64_t written=prepared,verified=prepared;
+    if(entered) {
+        ok=workspace_active() && !process_has_open_vfs_prefix(path) &&
+            exfat_write_file(path,(const uint8_t *)snapshot,count);
+        written=measured?timer_monotonic_us():0;
+        const struct vfs_node *node=ok?vfs_lookup(path):NULL;
+        const uint8_t *data=NULL;uint64_t length=0;
+        ok=ok && node && vfs_read_all(node,&data,&length) && length==count;
+        for(uint64_t i=0;ok && i<count;i++) if(data[i]!=(uint8_t)snapshot[i]) ok=false;
+        if(node && data) vfs_release_data(node,data);
+        end(flags);
+        verified=measured?timer_monotonic_us():0;
+    }
     if(ok) ok=workspace_sync();
+    uint64_t finished=measured?timer_monotonic_us():0;
+    if(measured) {
+        previous_save.pending=true;previous_save.name=name;previous_save.ok=ok;
+        previous_save.start=start;previous_save.end=finished;previous_save.bytes=count;
+        previous_save.usb=(struct usb_storage_timing){0};
+        if(tracing) usb_storage_timing_end(&previous_save.usb);
+        previous_save.valid=tracing && previous_save.usb.valid && start<=prepared &&
+            prepared<=written && written<=verified && verified<=finished;
+        previous_save.prepare=prepared-start;previous_save.write=written-prepared;
+        previous_save.verify=verified-written;previous_save.sync=finished-verified;
+    }
     if(!ok) console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
     return ok;
 }
