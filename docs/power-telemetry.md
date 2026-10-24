@@ -281,3 +281,13 @@ Package temperature fell 74–71 C during the covered interval. This is accepted
 measurement evidence, not thermal equilibrium, whole-laptop power or savings
 against the older October 19 capture. Repeat matched controls before claiming
 an improvement. See the machine record for the exact evidence/session.
+
+### First follow-up: idle Text queue wait
+
+Implementation `d6f3136` adds the [client wait contract](native-desktop.md#quiescent-client-message-waits).
+The exact v26 VM captures reduce the idle Text worker from 98.31 to 9.96 context
+switches per second; typing and exact save after idle, screenshot persistence and
+automatic return pass. Other device polling is unchanged. This is a measured
+software-activity reduction, not a power result. Native candidate
+`7afccbd6fbc3cfd4` is prepared for the same unattended capture; energy comparison
+and repeated physical acceptance remain pending.

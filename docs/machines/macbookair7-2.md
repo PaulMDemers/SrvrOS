@@ -19,6 +19,21 @@ this measured follow-up is validated. Actions are disabled. Baseline release
 `dc7c0eaea0dca69b` remains installed, recovery `9aa8dbf6fbda8252` retained,
 USB unmounted and no new reboot armed. Energy reduction remains unproven.
 
+GUI wait implementation `d6f3136` passes full local build/core/docs and directed
+queue/signal/race/teardown/client-publication fixtures. Exact EFI/GPT v26 stage
+`7afccbd6fbc3cfd4` passes persistence, screenshot and automatic reset, plus missing
+workspace return. The same VM window reduces the formerly busy client from
+98.31 to 9.96 switches/second (4941/50.258 seconds versus 502/50.378 seconds),
+with no partial lifetimes. Networked ordinary VM typing/save after idle passes.
+This is software-activity evidence only; VM energy remains unavailable.
+
+A matching unattended native candidate capture is prepared under
+`build/power-gui-wait-20261023`. It needs no interaction and retains the accepted
+recovery. Collect that exact release after return; require original file
+preservation, idle/worker/energy evidence and clean allocation/recovery. Compare
+raw temperature/device state and repeat matched controls before claiming power
+savings. Local run records own installation and arming state.
+
 ### Native worker/power baseline accepted
 
 Release `dc7c0eaea0dca69b`, compiled `7e0d8b9`, session
