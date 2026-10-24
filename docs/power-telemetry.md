@@ -346,3 +346,66 @@ connected before boot, brightness 14%, Ethernet and workspace attached, audio
 idle. This recipe omits the ordinary battery owner and does not exercise physical
 input after idle or ordinary Home battery-service efficiency. Accept the bounded
 polling reduction and persistence; keep those other acceptance questions open.
+
+### Logger cost records
+
+With power telemetry requested and a reference clock available, the workspace
+logger measures each existing snapshot save. `workspace-cost: version=1` reports
+its start/end, bytes and preparation/write/verification/sync microseconds, plus
+USB BOT callback counts and elapsed time for CBW, data and CSW phases. Timing is
+opt-in; it changes no transfer, timeout, cadence, validation or flush policy.
+The generic BOT wrapper is measured, so no controller-specific instrumentation
+is required. Failed callbacks are counted; regressing/overflowed clocks invalidate
+the record. A nested measurement scope refuses without resetting its owner.
+
+Wall time includes scheduler service, event dispatch and copies; USB totals are
+system-wide during that save, including other traffic if it runs. They are not
+CPU runtime or pure device latency. Sync may also flush other open files. Do not
+subtract these values and call the remainder CPU work. The probes themselves add
+clock-read and log-formatting overhead; compare instrumented runs with each other.
+
+A completed record is emitted before the **next** snapshot is copied, with no
+extra write. Thus exit.log contains earlier periodic operations, not its own
+write/flush measurement. The desktop collector exposes `desktop_logger_cost`
+only for valid, successful, nonoverlapping periodic records wholly inside a
+completed idle window. Straddling/startup/after-idle operations are excluded;
+missing, malformed, conflicting or failed in-window evidence yields null. Totals
+cover the recorded saves only, not the full idle interval or lost tail records.
+This supplies attribution evidence; it does not change the unresolved efficiency
+conclusion above. Native acceptance is bounded to the named capture below.
+
+#### First native logger timing capture
+
+Air7,2 release `9c57ca38a3771eef`, source `1f93899`, session
+`session-00065e8bb03c4641-00` passed automatic return, complete capture, screenshot,
+file preservation, offline filesystem/allocation and recovery checks. Six
+completed periodic records inside the 60.009-second idle window cover 136,678
+snapshot bytes and **3.005369 seconds** of save wall time.
+
+| Logger stage | Recorded total |
+| --- | ---: |
+| Preparation | 0.325 ms |
+| Write | 2,985.075 ms |
+| Verification | 14.184 ms |
+| Sync | 5.785 ms |
+
+USB callback time is nested within these stages: CBW 4.554 ms, data 546.660 ms,
+CSW **2,437.047 ms** (691 CBW/CSW calls, 2,200 data calls, no callback failures).
+The callback sums cover 99.43% of save wall time, and status callbacks 81.09%.
+One save lasted 2.002016 seconds, with 1.938771 seconds across 108 status calls;
+others lasted 0.149–0.343 seconds. An aggregate two-second save is not a single
+transfer timeout. These measurements locate time in transport callbacks but do
+not isolate media, firmware, scheduling or the longest individual request.
+
+The whole idle window recorded 95.00% idle timer samples, 19,401 switches and one
+frame. The logger had 282 samples over the separate 52.819-second worker interval;
+those samples are not measured runtime. Package average was **6.949 W** over
+52.999 seconds (368.323 J), versus 6.946 W in the uninstrumented predecessor.
+Temperature fell 76–73 C. No energy saving is established; comparison includes
+probe overhead and unsolved run-to-run variation. Native physical input after
+idle and ordinary Home battery efficiency remain separate acceptance tasks.
+
+Next investigate bounded USB-completion waiting and individual request costs,
+while preserving input service, deadlines, DMA quarantine, verification and
+flush policy. Avoid attributing this cost to rendering or reducing persistence
+merely to improve the idle score.

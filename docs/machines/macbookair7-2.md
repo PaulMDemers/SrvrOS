@@ -2,6 +2,79 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active checkpoint: native logger cost captured
+
+Branch `device/macbookair7-2/logger-timing` starts at main `180b542` (PR112).
+Measure logger preparation/write/verification/sync wall time and scoped USB BOT
+callback time by CBW/data/CSW phase. Keep cadence, persistence, device polling and
+scheduler policy unchanged. Timing includes yielded service time and is not CPU
+runtime or pure device latency. Emit each completed record into the next saved
+snapshot, so measurement does not require an extra flush. Collector summaries
+must select only completed operations wholly inside the idle window.
+
+Touched subsystems: workspace logger, generic USB-storage timing hooks, collector
+and host tests; no xHCI edits. Pro PR19 `603b7a6` owns USB Wi-Fi/xHCI work and has
+no overlapping generic storage/logger edits. Air6,1 PR114 `f3e0763` changes its
+battery/Text generated trial and has no overlap. Require host phase/failure tests,
+full local build/core/docs and exact-stage saved/missing-workspace VM checks
+before a new native capture. PR115 implementation `1f93899` passes the full local
+build/core/docs and directed host cases (failure, nested refusal, clock regression,
+overflow, phase attribution and collector rejection). Networked post-idle drag,
+typing and exact save pass. Exact EFI/GPT v26 `9c57ca38a3771eef` saves six valid
+in-window periodic cost records, verifies persisted bytes, exits cleanly and
+resets automatically. These VM timings are not native performance evidence.
+
+Native release `9c57ca38a3771eef`, source `1f93899`, returned automatically in
+`session-00065e8bb03c4641-00`. Six valid completed periodic saves fit wholly
+inside the 60.009-second idle window. They saved 136,678 snapshot bytes and cost
+**3.005369 seconds** total: preparation 325 us, write 2,985,075 us, verification
+14,184 us and sync 5,785 us. Generic USB callback wall times were CBW 4,554 us,
+data 546,660 us and CSW **2,437,047 us**, with 691 commands/status callbacks,
+2,200 data callbacks and zero callback failures. The callback sums cover 99.43%
+of recorded save wall time; status callbacks alone cover 81.09%.
+
+One 18,538-byte save lasted **2.002016 seconds**, including 1.938771 seconds
+across its 108 status callbacks. The other saves lasted 0.149–0.343 seconds.
+This locates the dominant observed wall time inside USB completion callbacks,
+not text formatting or final sync. It does not identify one longest transfer,
+a firmware/media cause or pure device delay: callback duration includes copies,
+event dispatch and yielded tasks. The two-second save spans many commands and
+is not evidence of a single transfer timeout. No transport/device errors occurred.
+
+CPU0 idle samples were 95.00% with 19,401 switches and one frame. Stable worker
+coverage was 52.819 seconds: compositor 530 switches (10.034/second), logger
+282 timer samples / 287 switches. Package energy covered 52.999 seconds:
+368.323 J, **6.949 W**, active CPU0 2,080 MHz; package temperature fell 76–73 C.
+Previous uninstrumented compositor capture was 92.88% idle and 6.946 W.
+Neither run is thermally settled, and probes add overhead: no power saving or
+causal explanation of the earlier run-to-run difference is established.
+
+All 1020 prior files were preserved except expected filesystem metadata. Only
+four logs and one screenshot were added; offline fsck and independent allocation
+pass at 1025 files / 2380 clusters, no leaks or mismatches. The 1440x900 screenshot
+was reviewed. Completed capture, clean exit, consumed one-shot, Ubuntu default
+and recovery pass. USB is unmounted and no reboot is armed. Installed current
+is `9c57ca38a3771eef`, previous recovery `9aa8dbf6fbda8252`. Evidence under
+`build/logger-timing-20261023` is backed up outside build in this release's
+pending-trials and reviewed-evidence directories. Physical post-idle interaction
+and ordinary battery-service efficiency remain outside this unattended recipe.
+
+Main `adf40df` (PR114 generated battery Start/save sequencing) is consumed as
+`eaa35e5`; Pro PR19 `5e9d88a` still owns xHCI/Wi-Fi. Integrated source `ca67790`
+passes full local build/core/docs and fresh networked post-idle drag/typing/save.
+Its changed userspace produces v26 `7af8afd122619ce0`; exact EFI/GPT VM capture
+persists six valid timing records, verifies file bytes and returns automatically.
+Missing-workspace automatic recovery also passes.
+That integrated payload has VM evidence only and is not installed; native
+acceptance above remains bound to `9c57ca38a3771eef`.
+
+Next: bound and test how the storage owner waits for completion, or measure
+individual callback maxima before
+changing that behavior. Preserve command deadlines, DMA ownership/quarantine,
+input service, verification and flushing. Coordinate xHCI overlap through the
+published scope before editing it; do not silently mix Wi-Fi bring-up with this
+storage investigation.
+
 ### Active checkpoint: compositor polling reduction verified
 
 Branch `device/macbookair7-2/compositor-idle` starts from main `ce1c0a6`
