@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement accepted | Mounted USB coexistence, desktop ownership, sustained sampling and gauge accuracy; ordinary desktop remains off |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Mounted Home coexistence, desktop ownership, sustained sampling and gauge accuracy; ordinary desktop remains off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -1370,3 +1370,22 @@ fsck and the required contiguous extent. Retry evidence has its own durable
 backup alongside the unchanged payload and failed run. USB is unmounted and no
 reboot is armed. Keep AC/USB connected; the automatic 60-edit/five-save test
 needs no input. Collect its matching session before any subsequent trial.
+
+## Battery/file coexistence native acceptance (2026-10-23)
+
+Closeout from main `94c9b15`: update only this unit's capability records and
+current guide. PR106 power measurement and PR19 Wi-Fi remain independent.
+Release `fc1d1f4c45d30252` / source `cac24ef`, retry `bcbabcafe3b8c68c`, session
+`00065e8ac0a116ff-00` passes the strict receipt and exact inner-image validation:
+60 edits, five file cycles/20 operations, fresh generation 24 and 360 completion
+events. All 24 SCI deliveries were handled, none unclaimed; no alarms occurred.
+Three descendants, runtime and image retire in order; attach/detach 1/1 and
+heap/errors/denied zero. This accepts bounded exclusive-image coexistence only.
+
+Prior files are preserved except intended image/meta changes; three new logs
+produce 218 files. Outer/inner fsck and allocation pass (527/14 clusters), no
+leaks/mismatches/errors; the image extent remains contiguous. Ubuntu default,
+consumed one-shot and candidate/recovery hashes pass. USB is unmounted, no reboot
+is armed, and evidence is backed up separately from the failed preparation.
+Next scope is explicit mounted Home ownership before ordinary desktop battery
+startup. No acceptance is inferred for the later PR102 filesystem implementation.
