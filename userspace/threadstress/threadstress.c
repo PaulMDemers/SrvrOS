@@ -603,6 +603,7 @@ int posix_stdio_access_test(void);
 int posix_stdio_format_test(void);
 int posix_exec_vectors_test(void);
 int posix_pipe_atomic_test(void);
+int posix_vector_io_test(void);
 int posix_umask_test(void);
 int posix_stdio_registry_test(void);
 int posix_descriptor_test(void);
@@ -657,6 +658,7 @@ int main(int argc, char **argv) {
     RUN_TEST("fork", posix_fork_test);
     RUN_TEST("exec-vectors", posix_exec_vectors_test);
     RUN_TEST("pipe-atomic", posix_pipe_atomic_test);
+    RUN_TEST("vector-io", posix_vector_io_test);
     RUN_TEST("umask", posix_umask_test);
     RUN_TEST("stdio-registry", posix_stdio_registry_test);
     RUN_TEST("descriptors", posix_descriptor_test);

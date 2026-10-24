@@ -1,4 +1,5 @@
 #include <srvros/path_limits.h>
+#include <srvros/vector_io.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <srvros/sys.h>
@@ -223,116 +224,43 @@ ssize_t pwrite64(int fd, const void *buffer, size_t length, off_t offset) {
     return pwrite(fd, buffer, length, offset);
 }
 
-static int iov_valid(const struct iovec *iov, int iovcnt) {
-    if (iovcnt < 0 || iovcnt > IOV_MAX || (iov == 0 && iovcnt != 0)) {
-        errno = EINVAL;
-        return 0;
-    }
-    for (int i = 0; i < iovcnt; i++) {
-        if (iov[i].iov_base == 0 && iov[i].iov_len != 0) {
-            errno = EINVAL;
-            return 0;
-        }
-    }
-    return 1;
-}
+_Static_assert(sizeof(struct iovec)==sizeof(struct srv_iovec), "iovec ABI size");
+_Static_assert(offsetof(struct iovec,iov_base)==offsetof(struct srv_iovec,base), "iovec ABI base");
+_Static_assert(offsetof(struct iovec,iov_len)==offsetof(struct srv_iovec,length), "iovec ABI length");
+_Static_assert(IOV_MAX==SRV_IOV_MAX, "iovec ABI count");
 
-ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
-    if (!iov_valid(iov, iovcnt)) {
-        return -1;
+static ssize_t vector_io(int fd,const struct iovec *iov,int count,unsigned operation,off_t offset) {
+    if(count<0 || count>IOV_MAX || (operation>=SRV_VECTOR_PREAD && offset<0)) {
+        errno=EINVAL;return -1;
     }
-    ssize_t total = 0;
-    for (int i = 0; i < iovcnt; i++) {
-        if (iov[i].iov_len == 0) {
-            continue;
+    /* eventfd is a libc-owned extension, not a kernel descriptor. Do not
+     * dereference unvalidated vectors here to emulate a kernel operation. */
+    if(__posix_eventfd_is_pseudo(fd)) { errno=EOPNOTSUPP;return -1; }
+    if(operation>=SRV_VECTOR_PREAD && __posix_socket_is_pseudo(fd)) { errno=ESPIPE;return -1; }
+    fd=__posix_socket_real_fd(fd);
+    if(fd<0) { errno=EBADF;return -1; }
+    for(;;) {
+        long result=srv_syscall5(SYS_VECTOR_IO,fd,(long)iov,count,operation,offset);
+        if(result==SRV_ERR_INTR) {
+            if(__posix_signal_dispatch_pending_restartable()) continue;
+            errno=EINTR;return -1;
         }
-        ssize_t count = read(fd, iov[i].iov_base, iov[i].iov_len);
-        if (count < 0) {
-            return total > 0 ? total : -1;
-        }
-        total += count;
-        if ((size_t)count < iov[i].iov_len) {
-            break;
-        }
+        (void)__posix_signal_dispatch_pending();
+        if(result<0) { errno=result < -1?(int)-result:EBADF;return -1; }
+        return (ssize_t)result;
     }
-    return total;
 }
-
-ssize_t writev(int fd, const struct iovec *iov, int iovcnt) {
-    if (!iov_valid(iov, iovcnt)) {
-        return -1;
-    }
-    ssize_t total = 0;
-    for (int i = 0; i < iovcnt; i++) {
-        const uint8_t *base = (const uint8_t *)iov[i].iov_base;
-        size_t offset = 0;
-        while (offset < iov[i].iov_len) {
-            ssize_t count = write(fd, base + offset, iov[i].iov_len - offset);
-            if (count < 0) {
-                return total > 0 ? total : -1;
-            }
-            if (count == 0) {
-                return total;
-            }
-            offset += (size_t)count;
-            total += count;
-        }
-    }
-    return total;
+ssize_t readv(int fd,const struct iovec *iov,int count) {
+    return vector_io(fd,iov,count,SRV_VECTOR_READ,0);
 }
-
-ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
-    if (offset < 0 || !iov_valid(iov, iovcnt)) {
-        if (offset < 0) {
-            errno = EINVAL;
-        }
-        return -1;
-    }
-    ssize_t total = 0;
-    off_t cursor = offset;
-    for (int i = 0; i < iovcnt; i++) {
-        if (iov[i].iov_len == 0) {
-            continue;
-        }
-        ssize_t count = pread(fd, iov[i].iov_base, iov[i].iov_len, cursor);
-        if (count < 0) {
-            return total > 0 ? total : -1;
-        }
-        total += count;
-        cursor += count;
-        if ((size_t)count < iov[i].iov_len) {
-            break;
-        }
-    }
-    return total;
+ssize_t writev(int fd,const struct iovec *iov,int count) {
+    return vector_io(fd,iov,count,SRV_VECTOR_WRITE,0);
 }
-
-ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
-    if (offset < 0 || !iov_valid(iov, iovcnt)) {
-        if (offset < 0) {
-            errno = EINVAL;
-        }
-        return -1;
-    }
-    ssize_t total = 0;
-    off_t cursor = offset;
-    for (int i = 0; i < iovcnt; i++) {
-        const uint8_t *base = (const uint8_t *)iov[i].iov_base;
-        size_t iov_offset = 0;
-        while (iov_offset < iov[i].iov_len) {
-            ssize_t count = pwrite(fd, base + iov_offset, iov[i].iov_len - iov_offset, cursor);
-            if (count < 0) {
-                return total > 0 ? total : -1;
-            }
-            if (count == 0) {
-                return total;
-            }
-            iov_offset += (size_t)count;
-            total += count;
-            cursor += count;
-        }
-    }
-    return total;
+ssize_t preadv(int fd,const struct iovec *iov,int count,off_t offset) {
+    return vector_io(fd,iov,count,SRV_VECTOR_PREAD,offset);
+}
+ssize_t pwritev(int fd,const struct iovec *iov,int count,off_t offset) {
+    return vector_io(fd,iov,count,SRV_VECTOR_PWRITE,offset);
 }
 
 int close(int fd) {

@@ -153,6 +153,7 @@ def main():
             "threadstress: fork ok",
             "threadstress: exec-vectors ok",
             "threadstress: pipe-atomic ok",
+            "threadstress: vector-io ok",
             "threadstress: umask ok",
             "threadstress: stdio-registry ok",
             "threadstress: descriptors ok",

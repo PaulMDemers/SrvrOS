@@ -51,8 +51,16 @@ writers wait for the whole record, nonblocking writers return EAGAIN without
 publishing a prefix, and a missing reader generates SIGPIPE/EPIPE. Larger writes
 retain partial-transfer behavior. Host queue models and full guest thread tests
 cover concurrent record writers, requested-space wakeups and signal dispositions.
-Vectored I/O is still a separate unfinished contract; the current `writev` loop
-does not yet make the combined vector atomic.
+Vectored I/O now snapshots and validates the vector in the kernel, gathers or
+scatters through an owned buffer, and issues one underlying transfer. Combined
+pipe records obey PIPE_BUF atomicity; readv returns the available prefix without
+blocking again on the next element. Positional vectors leave the shared offset
+unchanged. Requests above 256 KiB may return a short prefix; IOV_MAX is 16.
+Pseudo-eventfd vectored operations return EOPNOTSUPP. The native GUI I/O admission
+rules remain unchanged; vector calls are not admitted during another I/O owner.
+Core/build and focused/full guest thread tests pass: concurrent split-vector
+records, nonblocking no-prefix refusal, EINTR/restart, SIGPIPE, invalid vectors,
+short-read completion, positioned offsets and large-transfer continuation.
 
 `umask` is kernel process state, shared by threads and inherited by fork/spawn.
 Open/mkdir creation modes are installed before publication can yield and persist

@@ -35,6 +35,7 @@
 #include <stdint.h>
 
 #define MAX_PATH_LENGTH SRV_PATH_MAX
+#include <srvros/vector_io.h>
 #define MAX_SYSCALL_COPY (256 * 1024)
 #define MAX_POLL_FDS 64
 #include <srvros/exec_limits.h>
@@ -381,16 +382,24 @@ static bool io_defer_pipe_write(uint64_t fd) {
     }
     return false;
 }
-static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
-    if(io_defer_pipe_write(fd)) return length?SRV_ERR_AGAIN:0;
-    if (!user_buffer_ok(buffer, length, false)) {
-        return -1;
-    }
-
+static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bool owned) {
     struct process_file *file=process_file_at(process_current(),fd);
     if(!file) return SRV_ERR_BADF;
-    if(file->type==PROCESS_FILE_STDIO)
-        return file->handle==1 || file->handle==2?console_write_user(buffer,length):SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO) {
+        if(file->handle!=1 && file->handle!=2) return SRV_ERR_BADF;
+        if(!owned) return console_write_user(buffer,length);
+        uint64_t written=0;
+        while(written<length) {
+            uint64_t count=length-written;
+            if(count>1024) count=1024;
+            __asm__ volatile ("sti" : : : "memory");
+            console_write_n(buffer+written,count);
+            __asm__ volatile ("cli" : : : "memory");
+            written+=count;
+            if(process_should_exit_current()) break;
+        }
+        return (int64_t)written;
+    }
     if(file->type==PROCESS_FILE_VFS_WRITE || file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)
         return process_file_write(process_current(),fd,(const uint8_t *)buffer,length);
     if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
@@ -398,6 +407,12 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if(file->type==PROCESS_FILE_NET_CONNECTION)
         return net_respond(file->handle,buffer,length,process_file_nonblocking(process_current(),fd));
     return SRV_ERR_BADF;
+}
+
+static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
+    if(io_defer_pipe_write(fd)) return length?SRV_ERR_AGAIN:0;
+    if(!user_buffer_ok(buffer,length,false)) return SRV_ERR_FAULT;
+    return write_buffer(fd,buffer,length,false);
 }
 
 static char tty_filter_input(char c) {
@@ -507,15 +522,10 @@ static bool io_defer_pipe_read(uint64_t fd) {
     }
     return false;
 }
-static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
-    if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
-    if (!user_buffer_ok(buffer, length, true)) {
-        return -1;
-    }
-
+static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process_current(), fd);
     if (file == NULL) {
-        return -1;
+        return SRV_ERR_BADF;
     }
     if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
         return tty_read_console(buffer, length);
@@ -528,10 +538,75 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     }
     if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE &&
         file->type != PROCESS_FILE_PTY_MASTER && file->type != PROCESS_FILE_PTY_SLAVE) {
-        return -1;
+        return SRV_ERR_BADF;
     }
 
     return process_file_read(process_current(), fd, (uint8_t *)buffer, length);
+}
+
+static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
+    if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
+    if(!user_buffer_ok(buffer,length,true)) return SRV_ERR_FAULT;
+    return read_buffer(fd,buffer,length);
+}
+
+/* A vector is one transfer, not one potentially blocking transfer per element.
+ * Snapshot descriptors and gather into owned memory before any wait; no user
+ * mapping or vector pointer is retained across the operation. Large requests
+ * may return a bounded prefix, which the caller must handle like any short I/O. */
+static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
+    uint64_t count, uint64_t operation, int64_t offset) {
+    if(count>SRV_IOV_MAX || operation>SRV_VECTOR_PWRITE ||
+       (operation>=SRV_VECTOR_PREAD && offset<0)) return SRV_ERR_INVAL;
+    struct srv_iovec iov[SRV_IOV_MAX];
+    if(!copy_from_user(iov,user_iov,count*sizeof(*iov))) return SRV_ERR_FAULT;
+    bool writing=operation==SRV_VECTOR_WRITE || operation==SRV_VECTOR_PWRITE;
+    uint64_t total=0;
+    for(uint64_t i=0;i<count;i++) {
+        if(iov[i].length>(uint64_t)INT64_MAX-total) return SRV_ERR_INVAL;
+        total+=iov[i].length;
+    }
+    for(uint64_t i=0;i<count;i++)
+        if(!user_buffer_ok(iov[i].base,iov[i].length,!writing)) return SRV_ERR_FAULT;
+    uint64_t length=total>MAX_SYSCALL_COPY?MAX_SYSCALL_COPY:total;
+    uint8_t small[4096];
+    uint8_t *buffer=length>sizeof(small)?kmalloc(length):small;
+    if(!buffer) return SRV_ERR_NOMEM;
+    uint64_t copied=0;
+    if(writing) for(uint64_t i=0;i<count && copied<length;i++) {
+        uint64_t size=iov[i].length;
+        if(size>length-copied) size=length-copied;
+        if(!copy_from_user(buffer+copied,iov[i].base,size)) {
+            if(buffer!=small) kfree(buffer);
+            return SRV_ERR_FAULT;
+        }
+        copied+=size;
+    }
+    int64_t result;
+    if(operation==SRV_VECTOR_PREAD)
+        result=process_file_pread(process_current(),fd,buffer,length,offset);
+    else if(operation==SRV_VECTOR_PWRITE)
+        result=process_file_pwrite(process_current(),fd,buffer,length,offset);
+    else if(writing) result=write_buffer(fd,(char *)buffer,length,true);
+    else result=read_buffer(fd,(char *)buffer,length);
+    /* Console/network waits may return with interrupts enabled. Revalidation
+     * and copying must exclude a sibling unmapping the destination. */
+    uint64_t irq=irq_save();
+    if(result>0 && !writing) {
+        copied=0;
+        for(uint64_t i=0;i<count && copied<(uint64_t)result;i++) {
+            uint64_t size=iov[i].length;
+            if(size>(uint64_t)result-copied) size=(uint64_t)result-copied;
+            if(!copy_to_user(iov[i].base,buffer+copied,size)) {
+                result=copied?(int64_t)copied:SRV_ERR_FAULT;
+                break;
+            }
+            copied+=size;
+        }
+    }
+    if(buffer!=small) kfree(buffer);
+    irq_restore(irq);
+    return result;
 }
 
 static bool syscall_tty_fd_ok(uint64_t fd) {
@@ -2644,6 +2719,10 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,true)
             ? process_file_pread(process_current(),frame->rdi,(uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
             : SRV_ERR_FAULT);
+        return;
+    case SYS_VECTOR_IO:
+        frame->rax=(uint64_t)syscall_vector_io(frame->rdi,(const struct srv_iovec *)frame->rsi,
+            frame->rdx,frame->rcx,(int64_t)frame->r8);
         return;
     case SYS_PWRITE:
         frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,false)
