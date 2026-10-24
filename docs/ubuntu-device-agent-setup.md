@@ -334,6 +334,12 @@ release; default startup stays off and siblings do not inherit its ownership. Fo
 [session contract](battery-home-lifecycle.md#opt-in-ordinary-home-startup) and
 existing recovery/run-record steps before a hardware trial.
 
+For the Air6,1 startup investigation, the explicit v72 `--desktop-reopen-test`
+recipe automates two combined desktop lifetimes and normal Ubuntu return. It
+retains terminal containment for fatal mounted ownership; see the
+[Air6,1 startup diagnostic](macbookair6-1-battery.md#startup-timing-and-automated-reopen-diagnostic).
+It does not change ordinary desktop timing or establish native reopen acceptance.
+
 The v55 combined profile adds `--desktop-services` to `--desktop-battery`.
 It enables the existing brightness, HDA, read-only CPU/SMC and ECM providers,
 without scaling or an isolated AML probe. Use `--services` with the ordinary

@@ -2038,3 +2038,136 @@ ten-minute wait or automatic return is required. The preceding combined native
 run remains independently backed up; this new run has its own backup directory.
 Ubuntu and console recovery stay unchanged. Physical reopen acceptance awaits
 the returned evidence and user observations.
+
+### Reopen trial failed (2026-10-24)
+
+Run `c655eca6a4f00313` on unchanged v71 `1ae70fcf03ab6152` completed its first
+session `00065e9c895ac1d7-00` with clean retirement at 87.970 seconds from boot.
+The user confirms all providers worked and the document was saved. Brightness
+16/44/78 and one completed audio test are logged, with live CPU/fan data and
+no final audio/SMC errors. New `reopn-services.txt` persisted (four bytes).
+
+After `desktop battery`, session `00065e9c8f025226-00` saved its startup log,
+but halted before a periodic/final snapshot. The user's photograph reports
+`HALTED operation deadline`, setup `complete`, elapsed 5,037,205 us, zero
+errors/denied/EC error/queries and retained live state. The source gives namespace
+setup a 5,000 ms operation budget. Completion timing and deadline handling need
+investigation; this evidence does not yet identify a driver or scheduler defect.
+Do not widen the budget or claim native reopen acceptance from VM passes.
+
+All 277 prior file bytes except metadata are preserved. Offline fsck/allocation
+pass at 283 files/831 clusters with no leaks or mismatches. Ubuntu returned with
+empty one-shot state. Both sessions, the photograph and file hashes are backed
+up independently outside build. No reboot is armed. First-session combined
+acceptance remains valid; native combined reopen is now a recorded failure.
+
+## Reopen deadline investigation scope (2026-10-24)
+
+Base `36080fc`. Investigate the stale worker-drain result between a timed slice
+and the outer battery operation deadline. The native photograph reports setup
+complete and no in-flight work at containment; reproduce that boundary using
+VM-only second-lifetime scheduling hooks before changing production behavior.
+Scope: battery operation loop, disposable battery VM model and desktop regression
+harness, plus this record. Preserve the five-second setup budget and live-state
+containment for still-running work. PR134 owns POSIX/scheduler changes; avoid
+scheduler edits. PR19 Wi-Fi is independent. Next checkpoint: failing regression,
+completion-vs-busy proof, combined exit/reopen and exact staged GPT rehearsal.
+
+### Deadline completion fix validated (PR136)
+
+Source `faacdf2` adds a nonblocking worker completion poll at operation expiry,
+retaining the five-second setup budget, callback error checks and busy-work
+containment. A VM-only second-lifetime fixture reproduces the old failure:
+setup complete at 5.364 seconds, no work in flight, zero EC errors/queries, then
+operation-deadline HALT. With the fix it drains both lifetimes cleanly. A separate
+six-second setup fixture still halts and retains the second lifetime. This
+proves the stale-observation defect and is consistent with the native photo;
+native confirmation is pending rather than inferred from the model.
+
+Full build/core, 76 staging tests, documentation checks and nine combined GPT
+VM cases pass: both deadline regressions, normal playback/exit/reopen, pending
+save, runtime fault retention, opt-out, missing Home, absent providers and Air7,2
+regression. Exact staged v71 release `06b0976a58151901` passes GRUB→Limine GPT
+boot with native-profile refusal, HDA, app/file work, exit/reopen, clean allocation
+and monitor reboot. No scheduler or firmware permission changes. PR134 POSIX
+and PR19 Wi-Fi remain independent; main is `36080fc`.
+
+Unarmed run `227c377cefd26812` retains 283 files/831 clusters and uses new
+`deadline-reopen.txt`. Briefly check providers and save, return to console,
+enter `desktop battery`, reopen the document and check providers, then exit
+and reboot. No ten-minute wait or automatic return. Prior native failure and
+before-fix VM evidence remain backed up separately. The old `a18d72aecdf808c7`
+three-minute capture EFI copy was removed only after durable payload verification;
+combined, ordinary-battery, console recovery and Ubuntu remain available.
+
+### Deadline retry failed on native reopen (2026-10-24)
+
+Run `227c377cefd26812`, release `06b0976a58151901` (PR136), again halted
+on its second desktop lifetime. First session `00065e9cec2debcc-00` completed
+cleanly at 234.640 seconds from boot: 87 battery attempts, 1,308 queries, balanced
+EC attachment, zero final heap/errors/denied, working brightness/audio and live
+CPU/fan samples. First setup took 4,766,350 us, including namespace load through
+the contract marker at 4,326,472 us and namespace initialization beginning at
+4,425,243 us.
+
+Second session `00065e9cfa6ff1bc-00` saved only its startup log. The photograph
+shows `HALTED operation deadline`, `setup=namespace-initialize`, elapsed
+5,047,305 us, `completed=0 in_flight=1`, zero errors/denied/EC error/queries and
+retained live state. Unlike the preceding photo, work was still active: PR136's
+completion repoll does not resolve this native startup overrun. Its synthetic
+completion-race regression remains valid but does not establish native repair.
+Next investigation should locate namespace/AML execution and wait time before
+changing the five-second bound; the current evidence does not identify a hang
+or distinguish execution cost from scheduling and firmware waits.
+
+All 283 preexisting files except metadata retain identical bytes. Five new log
+files were collected; no new document appeared. Offline checks pass at 288 files/
+838 clusters, with no leaks or mismatches. Ubuntu recovered with empty one-shot
+state. Logs, photograph and file hashes are backed up outside build. No reboot
+is armed; native combined reopen remains failed.
+
+## Startup timing scope (2026-10-24)
+
+Base main `85d5939`, preserving the failed retry evidence commit. Add bounded
+per-stage startup accounting for AML sleep/stall/semaphore, allocation/free and
+EC work, including active waits at containment. No firmware gate, scheduler or
+five-second deadline changes. Add an explicit automated two-desktop-session
+recipe with normal lifetime/logger teardown and Ubuntu return on completed
+runs. Fatal mounted-Home containment must still halt without flushing/resetting
+live storage; a photograph/manual recovery may remain necessary on failure.
+PR134 (`d9876eb`) owns POSIX/scheduler and PR19 (`7873b63`) owns Wi-Fi; neither
+scope is imported. Validate timing accounting, completed/busy startup regressions,
+automated success/refusal/failure and exact staged GPT boot before installation.
+
+### Automated startup diagnostic ready (PR137)
+
+Final runtime source `582cc59`, v72 release `837ce4f6bfab6775`, records fixed-size
+setup-worker sleep/stall/semaphore/EC wall times and sampled allocation/free
+cost, including active waits at containment. Existing phase markers remain.
+The five-second deadline and hardware permissions are unchanged. The explicit
+reopen diagnostic runs two 20-second app lifetimes with fresh battery samples,
+normal retirement and log saving; it rejects early manual exit. Ordinary desktop
+sessions retain no timer. Fatal mounted ownership still halts without storage
+writes/reset; normal diagnostic completion unmounts and returns to Ubuntu.
+
+Full build/core, 77 staging tests and docs checks pass. On `4b41c06`, ordinary
+Air6,1 save/audio/reopen, pending-save and runtime-fault cases and the Air7,2
+combined regression pass. The final change only makes early diagnostic exit
+incomplete; full core and all five automatic cases pass on `582cc59`: early exit,
+normal, completed-at-expiry, still-busy containment and profile refusal. Exact
+staged GRUB→Limine GPT boot passes two refused-but-cleanly-retired Q35 sessions,
+unchanged fixture files, clean allocation and automatic recovery. Refusal is
+expected VM coverage, not native acceptance. Main remains `85d5939`; PR134
+`e4b7b02` and PR19 `67575f0` retain separate POSIX and Wi-Fi scopes. Shared staging/
+boot files need both independent profiles preserved in later integration.
+
+Run `d3d219186d3bc6e6` retains the 288-file/838-cluster USB baseline and requires
+no human input or document edits. A machine-local one-shot Ubuntu service collects
+matching sessions, requires both fresh-sample/retirement receipts, verifies prior
+file hashes and offline allocation, backs up evidence and disables itself after
+recovery. A halt still requires a photograph/manual restart. The user explicitly
+authorizes automated reboot without another permission gate. Installed payload
+hashes and Ubuntu default are verified; console recovery `c35475f62f154f1e` remains.
+The obsolete `fc1d1f4c45d30252` EFI image-capture copy was removed for space only
+after its durable payload backup was hash-verified. Native reopen remains failed
+pending this diagnostic's returned evidence; this is not a claimed native fix.
