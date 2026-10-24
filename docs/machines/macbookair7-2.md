@@ -2,6 +2,24 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active scope: pending USB event-service gaps
+
+Base `bf1b9a6` includes merged PR127. This unit is adding conservative bounds on
+intervals between timestamped event-ring checks while a measured storage request
+is pending, including the final interval through matching-event dispatch.
+Scope: xHCI poll/event bookkeeping, BOT timing aggregates, logger/comparison wire
+records and backward-compatible collectors, directed host and VM regressions.
+Sample timestamps at most once per 256 ring checks to limit diagnostic overhead;
+submission and matching dispatch close the interval. These are software sampling
+bounds, not hardware completion timestamps. Preserve waits/deadlines, DMA
+quarantine, input service, readback and flush. The normal 20 ms policy stays.
+Pro PR19 at `7e70c51` retains separate Wi-Fi work; Air6,1 PR128 screenshot-receipt
+scope is outside these storage files. No pending native run. Installed comparison
+`b824d64a95b27a3b` and recovery `9aa8dbf6fbda8252` remain as collected.
+Next checkpoint: injected event-service hiatus and steady-poll tests, complete
+versioned collection in an exact-stage VM, then an unattended fixed-file native
+comparison with prior-file preservation and automatic Ubuntu return.
+
 ### Individual USB timing: bounded native result
 
 Starting from merged main `76f98c4`, this unit is instrumenting synchronous USB
