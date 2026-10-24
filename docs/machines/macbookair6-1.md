@@ -2197,3 +2197,15 @@ This accepts only the short automated startup/reopen/retirement sequence. It
 does not resolve the prior attended failure or establish sufficient timing
 margin under interactive load. No timeout increase or allocator change was
 made in this run.
+
+## Allocator startup investigation scope (2026-10-24)
+
+Base `4f8acd2`, retaining the collected startup result. Profile/replay the real
+allocator and remove redundant allocation traversal while preserving full
+before/after heap validation, free checks and the five-second battery deadline.
+Scope: kernel heap allocation traversal, deterministic host integrity/performance
+regressions and this machine's v72 automated startup trial. Avoid scheduler,
+firmware and EC changes. PR134 `e4b7b02` has no heap implementation changes;
+PR19 `807fb51` remains independent Wi-Fi scope. Publish measured old/new work
+counts and reject corrupt heaps even when a suitable early free block exists.
+Native timing improvement remains pending the next automated trial.
