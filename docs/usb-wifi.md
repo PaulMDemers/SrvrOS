@@ -2015,3 +2015,11 @@ the exact ACK address/value (412cbc/10f0) rejects the earlier policy response.
 Ownership and prerequisite completion are checked throughout; no retries or
 RF/channel/TX/RX enable are added. Mismatches remain observations rather than
 accepted register targets. Native results pending.
+
+The v49 Pro11,2 native capture passed unchanged collector checks: one80-byte
+sequence7 write, exact16-byte reply,26 guarded reads and nine exact target
+readbacks (eight changed, CAL51 unchanged). All preceding prerequisites and
+both completion markers passed; recovery and offline workspace checks passed.
+This is bounded DCOC table evidence, not RF calibration or connectivity acceptance.
+Next audit the remaining MAC/security-table prerequisites and PHY/RF entry
+against the existing device calibration/regulatory captures before continuing.

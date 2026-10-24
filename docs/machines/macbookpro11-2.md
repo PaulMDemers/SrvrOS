@@ -4509,3 +4509,27 @@ unmounted. Payload, VM receipts, tests, audit, collector and run record archived
 under `~/.local/share/srvros/macbookpro11-2/wifi-dcoc-cf84f67/`.
 Physical result pending. Next: attended cold adapter cycle; collect matching
 session first after return, including nine readbacks and all prerequisites.
+
+### 2026-10-23 — v49 DCOC native result
+
+Source `cf84f67`, release `51c771ce50036ef4`, session
+`session-00065e8d9c2b07e5-00` completed. The prepared collector passed unchanged:
+one sequence7 command sent80/received16 (cc13/residue1008), exact ACK
+4a070008/412cbc/10f0/4a070008,26 reads and all MAC0/COREf000f200 guards.
+All nine CAL47..55 readbacks matched their target values (eight changed;
+CAL51 already matched). All earlier prerequisites, including exact20-setting
+G/20 switch readbacks, and both completion markers passed.
+
+This establishes the bounded DCOC table write/readback result on this adapter,
+not RF calibration, channel selection or connectivity acceptance. The diagnostic
+retains its observational register_acceptance=NOT_TESTED label; earlier four
+full-table mismatches remain separate evidence.
+
+Ubuntu default, consumed one-shot and installed/known-good payload hashes
+verified. Workspace clean239files/607clusters, zero leaks/mismatches, unmounted.
+Complete collection, summary, run/checkpoint and hashes archived outside build
+under `~/.local/share/srvros/macbookpro11-2/wifi-dcoc-cf84f67/`. No reboot armed.
+Next: audit remaining reference MAC/security-table prerequisites and the entry
+into PHY/RF initialization against existing captured calibration/regulatory
+evidence, then choose a bounded next stage. Do not infer full MAC or RF readiness
+from completion of these baseband tables.
