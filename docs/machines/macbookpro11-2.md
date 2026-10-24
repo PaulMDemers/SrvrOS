@@ -4178,3 +4178,13 @@ Ubuntu default, consumed one-shot and installed/known-good payload hashes verifi
 Workspace clean229files/592clusters, zero leaks/mismatches, unmounted. No reboot
 armed. Next: review remaining MAC prerequisites before revisiting the full baseband
 table and its four unresolved readbacks. Scanning and connectivity remain untested.
+
+Active scope 2026-10-23: integrate fetched main4a991df into the local device
+branch before adding further MAC prerequisites. Preserve accepted v45 FCE sequence
+and all historical Wi-Fi recipes. Shared baseline includes USB callback/logger
+measurement, storage scaling and GUI waits; Air6,1 Home acceptance remains
+model-specific and does not accept Pro battery ownership. PR19 is the only open
+PR; no other active shared edit was requested. Resolve integration overlaps,
+run local host and exact-stage VM checks, then prepare an unchanged-sequence
+native regression. Installed7301441289281aaf and known-good recovery remain
+untouched until the integrated candidate passes. No new RF or register scope.
