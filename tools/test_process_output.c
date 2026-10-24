@@ -44,7 +44,8 @@ void keyboard_wake_waiters(void) {}
 void scheduler_yield(void) { assert(0); }
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
 __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue, bool (*ready)(void *), void *arg) {
-    (void)queue;struct process_pipe *pipe=arg;
+    (void)queue;struct process_pipe *pipe=ready==pipe_write_ready?((struct pipe_write_wait *)arg)->pipe:arg;
+    if(ready==pipe_write_ready) assert(!ready(arg));
     if(pipe_wait_mode==1) { pipe->size=0;pipe->read_pos=pipe->write_pos; }
     else if(pipe_wait_mode==2) { memcpy(pipe->buffer,"ready",5);pipe->read_pos=0;pipe->write_pos=pipe->size=5; }
     else if(pipe_wait_mode==3) pipe->write_refs=0;
@@ -66,6 +67,11 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(size<=sizeof(saved));if(size) memcpy(saved,data,size);saved_size=size;
     if(opening) fixture_exists=true;
     return true;
+}
+bool exfat_write_file_mode(const char *path,const uint8_t *data,uint64_t size,uint64_t mode) {
+    bool created=!fixture_exists;bool ok=exfat_write_file(path,data,size);
+    if(ok && created && mode!=UINT64_MAX) fixture_node.metadata.mode=VFS_MODE_IFREG|(mode&07777);
+    return ok;
 }
 const struct vfs_node *vfs_lookup(const char *path) {
     if(rename_fixture) {
@@ -119,6 +125,7 @@ static void pipe_regression(void) {
         if(seed&0x10000) {
             for(size_t i=0;i<request;i++) input[i]=(uint8_t)(sequence+i);
             size_t expected=PROCESS_PIPE_CAPACITY-size;if(expected>request) expected=request;
+            if(request<=SRV_PIPE_BUF && expected<request) expected=0;
             long result=process_file_pipe_write(&subject,4,input,request);
             assert(result==(request && !expected?SRV_ERR_AGAIN:(long)expected));
             memcpy(model+size,input,expected);size+=expected;sequence+=expected;
@@ -136,13 +143,21 @@ static void pipe_regression(void) {
     assert(process_file_pipe_write(&subject,4,input,200)==200);pipes[0].rights[0]=(struct process_pipe_rights){.used=true,.offset=100};
     assert(process_file_pipe_read(&subject,3,output,100)==100 && pipes[0].rights[0].used && !pipes[0].rights[0].offset);
     assert(process_file_pipe_read(&subject,3,output,100)==100 && !pipes[0].rights[0].used);
+    /* A partial free region must not admit an atomic write. The wait predicate
+     * tests the requested size, not merely whether any byte fits. */
+    assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY-20)==PROCESS_PIPE_CAPACITY-20);
+    assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_ERR_AGAIN);
     subject.files[0].flags=subject.files[1].flags=0;
+    pipe_wait_mode=1;
+    assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_PIPE_BUF && !pipe_wait_mode);
+    assert(process_file_pipe_read(&subject,3,output,PROCESS_PIPE_CAPACITY)==SRV_PIPE_BUF);
     pipe_wait_mode=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY+17)==PROCESS_PIPE_CAPACITY+17 && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,100)==17);
     pipe_wait_mode=2;assert(process_file_pipe_read(&subject,3,output,100)==5 && !memcmp(output,"ready",5));
     pipe_wait_mode=3;assert(process_file_pipe_read(&subject,3,output,100)==0);
     pipes[0].write_refs=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY)==PROCESS_PIPE_CAPACITY);
-    pipe_wait_mode=4;assert(process_file_pipe_write(&subject,4,input,10)==-1);
+    subject.signal_ignore_mask=1ull<<SRV_SIGNAL_PIPE;
+    pipe_wait_mode=4;assert(process_file_pipe_write(&subject,4,input,10)==SRV_ERR_PIPE);
     assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0 && !pipes[0].used);
 }
 static void snapshot_read_regression(void) {
@@ -393,6 +408,10 @@ static void path_context_regression(void) {
     char out[160]="unchanged";
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/"));
     assert(!process_path_context(SRV_PATH_CHDIR,"/test/dir",NULL,0));
+    assert(!process_path_context(SRV_PATH_RESOLVE_DIRECTORY,"../new///",out,sizeof(out)) && !strcmp(out,"/test/new"));
+    assert(process_path_context(SRV_PATH_RESOLVE_DIRECTORY,"../new/.",out,sizeof(out))==SRV_ERR_NOENT);
+    assert(process_path_context(SRV_PATH_RESOLVE,"../new/",out,sizeof(out))==SRV_ERR_NOENT);
+    assert(process_umask(0077)==0 && process_creation_mode(06777)==06700 && process_umask(0)==0077);
     assert(!process_path_context(SRV_PATH_RESOLVE,"../output",out,sizeof(out)) && !strcmp(out,"/test/output"));
     assert(process_path_context(SRV_PATH_RESOLVE,"../output/..",out,sizeof(out))==SRV_ERR_NOTDIR);
     assert(process_path_context(SRV_PATH_RESOLVE,"../absent/..",out,sizeof(out))==SRV_ERR_NOENT);

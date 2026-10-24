@@ -696,7 +696,8 @@ static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
     if(!(flags&(SRV_OPEN_READ|SRV_OPEN_WRITE)) ||
-        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC|SRV_OPEN_DIRECTORY))) return SRV_ERR_INVAL;
+        (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC|SRV_OPEN_DIRECTORY|SRV_OPEN_PERMISSIONS|SRV_OPEN_MODE_MASK))) return SRV_ERR_INVAL;
+    if((flags&SRV_OPEN_MODE_MASK) && !(flags&SRV_OPEN_PERMISSIONS)) return SRV_ERR_INVAL;
     if((flags&SRV_OPEN_DIRECTORY) && (flags&(SRV_OPEN_CREATE|SRV_OPEN_WRITE|SRV_OPEN_TRUNC))) return SRV_ERR_INVAL;
     /* Hold filesystem admission across lookup, exclusive create and descriptor
      * publication. O_EXCL must not be a userspace stat/create race. */
@@ -1134,13 +1135,13 @@ static int64_t syscall_unlink(const char *user_path) {
     return process_unlink_file(path);
 }
 
-static int64_t syscall_mkdir(const char *user_path) {
+static int64_t syscall_mkdir(const char *user_path,uint64_t mode) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
     if(vfs_lookup(path)) return SRV_ERR_EXIST;
-    return exfat_create_directory(path) ? 0 : SRV_ERR_IO;
+    return exfat_create_directory_mode(path,mode==UINT64_MAX?mode:process_creation_mode(mode)) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_rmdir(const char *user_path) {
@@ -2584,7 +2585,7 @@ static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64
 
 static int64_t syscall_path_context(uint64_t operation,const char *input,char *out,uint64_t capacity) {
     char path[MAX_PATH_LENGTH],result[MAX_PATH_LENGTH];
-    if(operation>SRV_PATH_RESOLVE) return SRV_ERR_INVAL;
+    if(operation>SRV_PATH_RESOLVE_DIRECTORY) return SRV_ERR_INVAL;
     if(operation!=SRV_PATH_GETCWD) {
         int64_t error=copy_exec_string(input,path,sizeof(path),SRV_ERR_NAMETOOLONG);
         if(error) return error;
@@ -2931,7 +2932,7 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_proc_exit_status(frame->rdi, (uint64_t *)frame->rsi);
         return;
     case SYS_MKDIR:
-        frame->rax = (uint64_t)syscall_mkdir((const char *)frame->rdi);
+        frame->rax = (uint64_t)syscall_mkdir((const char *)frame->rdi,UINT64_MAX);
         return;
     case SYS_FILE_CHANGE:
         frame->rax=(uint64_t)syscall_file_change((const struct srv_file_change *)frame->rdi);
@@ -3078,6 +3079,10 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
         return;
+    case SYS_UMASK:
+        frame->rax=(uint64_t)process_umask(frame->rdi);return;
+    case SYS_MKDIR_MODE:
+        frame->rax=(uint64_t)syscall_mkdir((const char *)frame->rdi,frame->rsi&07777);return;
     case SYS_DIRECTORY:
         frame->rax=(uint64_t)syscall_directory(frame->rdi,frame->rsi,(void *)frame->rdx,frame->rcx);
         return;

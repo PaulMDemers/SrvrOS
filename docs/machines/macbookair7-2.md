@@ -5,11 +5,17 @@ Updated: 2026-10-24. State: **active reference machine; partial device acceptanc
 ### Active scope: POSIX correctness and compatibility
 
 Next runtime block owns exec argument/environment marshalling and budget queries,
-then small-pipe-write atomicity and inherited creation masks. Touch shared ABI
+then small-pipe-write atomicity and inherited creation masks. Those two changes
+pass host/core, focused/full thread VMs and exFAT hardening: SIGPIPE/EPIPE, requested-space waits, process umask,
+creation-time exFAT mode initialization, and trailing-slash mkdir resolution. The
+first mkdir guest attempt exposed a stale syscall operation bound; the corrected
+retry passes. Desktop Files exposed a stale Home-versus-/fat fixture assumption;
+its explicit-navigation retry is underway. Next block synchronizes stdio registry
+lifetimes, then unifies descriptor inheritance/redirection. Touch shared ABI
 limits, syscall/process/libc and focused tests. Full core/build and focused/full thread VMs pass the exec block. The first VM
 stayed at Limine; its incomplete log is retained and the harness now refuses to
 send commands before the OS prompt. Main advanced to `27f0870` with
-Air6,1 PR138's validated heap search; consume it after the current exec checkpoint.
+Air6,1 PR138's validated heap search; consumed as `fcac611` after exec commit `670ddac`.
 Pro PR19 `b02be44` remains independent Wi-Fi work. No physical trial is armed.
 
 

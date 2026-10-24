@@ -58,6 +58,11 @@ def main():
             assert fs.read('empty') == b'' and fs.read('truncated') == b''
             assert fs.read('A-much-longer-renamed-file.txt') == bytes((i*17+3)&255 for i in range(9))
             print(f'operations {cluster}: create/grow/shrink/empty/rename/move/delete PASS',flush=True)
+            modes=directory/'modes.img'
+            format_image(modes,cluster)
+            print(command(DRIVER,modes,'creation-mode').strip(),flush=True)
+            clean(modes)
+            assert ExfatFixture(modes.read_bytes()).read('private/file')==b'kept'
             long_path=directory/'long.img'
             format_image(long_path,cluster)
             print(command(DRIVER,long_path,'long-path').strip(),flush=True)

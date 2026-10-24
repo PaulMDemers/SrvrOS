@@ -2205,7 +2205,17 @@ static bool build_file_entry_set(uint8_t *entries,
     return true;
 }
 
-static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
+/* Set creation permissions before any service window after VFS publication.
+ * vfs_set_metadata deliberately does not trigger a second metadata transaction;
+ * the surrounding mutation persists the initialized metadata below. */
+static bool initialize_mode(const char *path,uint64_t mode) {
+    if(mode==UINT64_MAX) return true;
+    const struct vfs_node *node=vfs_lookup(path);if(!node) return false;
+    struct vfs_metadata metadata=node->metadata;
+    metadata.mode=(metadata.mode&VFS_MODE_IFMT)|(mode&07777);
+    return vfs_set_metadata(path,&metadata);
+}
+static bool create_file(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
     const char *name = NULL;
     struct exfat_directory *parent = NULL;
     struct exfat_mount *mount = find_mount_and_parent_directory(path, &parent, &name);
@@ -2274,13 +2284,14 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
         (void)free_file_clusters(&scratch);
         return false;
     }
+    if(!initialize_mode(path,mode)) return false;
     if (!metadata_path_is_internal(mount, path)) {
         (void)exfat_sync_mount_metadata(mount);
     }
     return true;
 }
 
-static bool exfat_create_directory_impl(const char *path) {
+static bool exfat_create_directory_impl(const char *path,uint64_t mode) {
     const char *name = NULL;
     struct exfat_directory *parent = NULL;
     struct exfat_mount *mount = find_mount_and_parent_directory(path, &parent, &name);
@@ -2368,6 +2379,7 @@ static bool exfat_create_directory_impl(const char *path) {
         release_created_clusters(&mount->volume, first_cluster, 1);
         return false;
     }
+    if(!initialize_mode(path,mode)) return false;
     if (ok && !metadata_path_is_internal(mount, path)) {
         (void)exfat_sync_mount_metadata(mount);
     }
@@ -2859,7 +2871,7 @@ bool exfat_unmount(const char *mountpoint) {
     return false;
 }
 
-static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_t size) {
+static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
     if (path == NULL || (data == NULL && size != 0)) {
         return false;
     }
@@ -2867,7 +2879,7 @@ static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_
     if (find_file(path) != NULL) {
         return overwrite_file(path, data, size);
     }
-    return create_file(path, data, size);
+    return create_file(path, data, size,mode);
 }
 
 static bool exfat_delete_file_impl(const char *path) {
@@ -3415,19 +3427,27 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
 /* Public mutation boundaries. Failed or interrupted metadata updates are never
  * silently declared clean; recovery is performed offline with a filesystem checker. */
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
+    return exfat_write_file_mode(path,data,size,UINT64_MAX);
+}
+bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
+    if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
     if (!valid_ascii_basename(path) || (!data && size) ||
         (!find_file(path) && name_conflicts(path, NULL))) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, find_file(path)?0:1, 0)) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path,
-        find_file(path) ? 0 : 1, 0) && exfat_write_file_impl(path, data, size));
+        find_file(path) ? 0 : 1, 0) && exfat_write_file_impl(path, data, size,mode));
 }
 bool exfat_create_directory(const char *path) {
+    return exfat_create_directory_mode(path,UINT64_MAX);
+}
+bool exfat_create_directory_mode(const char *path,uint64_t mode) {
+    if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
     if (!valid_ascii_basename(path) || name_conflicts(path, NULL)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, 0, 1)) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path, 0, 1) &&
-        exfat_create_directory_impl(path));
+        exfat_create_directory_impl(path,mode));
 }
 bool exfat_delete_file(const char *path) {
     if (!path) return false;

@@ -55,17 +55,26 @@ char *realpath(const char *path,char *resolved_path) {
 /* Open directory handles pin the namespace against rename/removal in this
  * profile. Resolve against their path without temporarily changing the process
  * CWD (which is shared by all threads). */
-int __posix_at_path(int fd,const char *path,char *out,size_t capacity) {
+static int at_path_mode(int fd,const char *path,char *out,size_t capacity,uint64_t operation) {
     if(!path) { errno=EFAULT;return -1; }
     if(!path[0]) { errno=ENOENT;return -1; }
-    if(path[0]=='/' || fd==AT_FDCWD) return __posix_make_path(path,out,capacity);
+    if(path[0]=='/' || fd==AT_FDCWD) {
+        long result=srv_path_context(operation,path,out,capacity);
+        if(result<0) { errno=result==SRV_ERR_RANGE?ENAMETOOLONG:(int)-result;return -1; }
+        return 0;
+    }
     char base[POSIX_PATH_MAX],joined[POSIX_PATH_MAX];
     long result=srv_directory(SRV_DIRECTORY_PATH,fd,base,sizeof(base));
     if(result<0) { errno=(int)-result;return -1; }
     size_t a=strlen(base),b=strlen(path);
     if(a+1+b>=sizeof(joined)) { errno=ENAMETOOLONG;return -1; }
     memcpy(joined,base,a);joined[a++]='/';memcpy(joined+a,path,b+1);
-    return __posix_make_path(joined,out,capacity);
+    result=srv_path_context(operation,joined,out,capacity);
+    if(result<0) { errno=result==SRV_ERR_RANGE?ENAMETOOLONG:(int)-result;return -1; }
+    return 0;
+}
+int __posix_at_path(int fd,const char *path,char *out,size_t capacity) {
+    return at_path_mode(fd,path,out,capacity,SRV_PATH_RESOLVE);
 }
 int fchdir(int fd) {
     long result=srv_directory(SRV_DIRECTORY_CHDIR,fd,NULL,0);
@@ -86,7 +95,7 @@ int unlinkat(int fd,const char *path,int flags) {
 }
 int mkdirat(int fd,const char *path,mode_t mode) {
     char full[POSIX_PATH_MAX];
-    return __posix_at_path(fd,path,full,sizeof(full))<0?-1:mkdir(full,mode);
+    return at_path_mode(fd,path,full,sizeof(full),SRV_PATH_RESOLVE_DIRECTORY)<0?-1:mkdir(full,mode);
 }
 int fstatat(int fd,const char *path,struct stat *st,int flags) {
     if(flags&~AT_SYMLINK_NOFOLLOW) { errno=EINVAL;return -1; }

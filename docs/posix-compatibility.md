@@ -16,6 +16,23 @@ This reference choice is a development target, not certification.
 
 ## Implementation progress after the audit
 
+Small pipe writes through `write` are atomic up to `PIPE_BUF=4096`: blocking
+writers wait for the whole record, nonblocking writers return EAGAIN without
+publishing a prefix, and a missing reader generates SIGPIPE/EPIPE. Larger writes
+retain partial-transfer behavior. Host queue models and full guest thread tests
+cover concurrent record writers, requested-space wakeups and signal dispositions.
+Vectored I/O is still a separate unfinished contract; the current `writev` loop
+does not yet make the combined vector atomic.
+
+`umask` is kernel process state, shared by threads and inherited by fork/spawn.
+Open/mkdir creation modes are installed before publication can yield and persist
+through exFAT metadata/remount; opening an existing file with O_CREAT preserves
+its mode. Trailing-slash mkdir/mkdirat resolution now accepts a missing final
+directory. Host/core, guest inheritance tests and exFAT creation-mode/remount and
+fault-matrix checks pass. This remains root-only metadata, not multi-user access
+control or power-loss-atomic namespace operations.
+
+
 Binary64 printf now emits `%a/A`, `%e/E`, `%f/F`, and `%g/G` using exact
 expansion and nearest/ties-even rounding, with sign/padding, alternate form,
 subnormals and large precision. Integer precision is no longer silently limited

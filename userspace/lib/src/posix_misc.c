@@ -139,6 +139,7 @@ static long path_limit(int name) {
     case _PC_PATH_MAX: return PATH_MAX;
     case _PC_NAME_MAX: return NAME_MAX;
     case _PC_LINK_MAX: return 1; /* Hard links are not supported. */
+    case _PC_PIPE_BUF: return PIPE_BUF;
     case _PC_NO_TRUNC: return 1;
     case _PC_CHOWN_RESTRICTED: return 1;
     case _PC_SYMLINK_MAX: return 0;

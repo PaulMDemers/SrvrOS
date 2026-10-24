@@ -267,4 +267,8 @@ void process_fpu_save(void *process);
 void process_fpu_restore(void *process);
 void process_exit(uint64_t status) __attribute__((noreturn));
 
+/* Process-wide creation policy, shared by threads and inherited by children. */
+int64_t process_umask(uint64_t mask);
+uint64_t process_creation_mode(uint64_t mode);
+
 #endif

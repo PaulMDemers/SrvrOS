@@ -206,6 +206,7 @@ struct process {
     uint64_t user_us,system_us,main_user_us,main_system_us;
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     struct srv_rlimit fsize_limit;
+    uint64_t creation_mask;
     char cwd[PROCESS_PATH_MAX];
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
@@ -453,6 +454,14 @@ static void process_account_child(struct process *parent,struct process *child) 
 }
 /* Limits belong to the process, survive exec and are inherited by spawn.
  * Unsupported finite policies must not silently succeed. */
+int64_t process_umask(uint64_t mask) {
+    struct process *process=process_current();if(!process) return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save(),old=process->creation_mask;
+    process->creation_mask=mask&0777;process_irq_restore(irq);return (int64_t)old;
+}
+uint64_t process_creation_mode(uint64_t mode) {
+    struct process *process=process_current();return (mode&07777)&~(process?process->creation_mask:0);
+}
 int64_t process_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out) {
     struct process *process=process_current();
     if(!process || resource>9) return SRV_ERR_INVAL;
@@ -769,7 +778,7 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     process->active=true;process->detached=detached;process->pid=pid;
     process->lifetime=token;
     process->parent_pid=process_pid(parent);
-    if(parent) { process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
+    if(parent) { process->creation_mask=parent->creation_mask;process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
         copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd); }
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
@@ -3014,7 +3023,7 @@ int64_t process_path_context(uint64_t operation,const char *path,char *out,uint6
     char resolved[PROCESS_PATH_MAX];
     if(operation==SRV_PATH_GETCWD) {
         if(!copy_process_path(resolved,sizeof(resolved),process->cwd)) return SRV_ERR_NOENT;
-    } else if(operation==SRV_PATH_CHDIR || operation==SRV_PATH_RESOLVE) {
+    } else if(operation==SRV_PATH_CHDIR || operation==SRV_PATH_RESOLVE || operation==SRV_PATH_RESOLVE_DIRECTORY) {
         if(!path) return SRV_ERR_FAULT;
         if(!path[0]) return SRV_ERR_NOENT;
         if(!copy_process_path(resolved,sizeof(resolved),path[0]=='/'?"/":process->cwd)) return SRV_ERR_NAMETOOLONG;
@@ -3039,6 +3048,8 @@ int64_t process_path_context(uint64_t operation,const char *path,char *out,uint6
             resolved[length]=0;
             if(path[at]=='/') {
                 const struct vfs_node *node=vfs_lookup(resolved);
+                uint64_t next=at;while(path[next]=='/') next++;
+                if(!node && operation==SRV_PATH_RESOLVE_DIRECTORY && !path[next]) continue;
                 if(!node) return SRV_ERR_NOENT;
                 if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
             }
@@ -4210,7 +4221,9 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     if((flags&SRV_OPEN_WRITE) && !ensure_write_capacity(write,write->content->size)) {
         (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_NOMEM;
     }
-    if(ensure_empty && !exfat_write_file(path,NULL,0)) {
+    uint64_t mode=(flags&SRV_OPEN_PERMISSIONS)?
+        ((flags&SRV_OPEN_MODE_MASK)>>SRV_OPEN_MODE_SHIFT)&~process->creation_mask:UINT64_MAX;
+    if(ensure_empty && !exfat_write_file_mode(path,NULL,0,mode)) {
         (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_IO;
     }
     if(ensure_empty) { write->content->size=0;write->content->dirty=false; }
@@ -4583,14 +4596,16 @@ static bool pipe_read_ready(void *arg) {
         pipe->write_refs == 0;
 }
 
+struct pipe_write_wait { struct process_pipe *pipe; uint64_t minimum; };
 static bool pipe_write_ready(void *arg) {
-    struct process_pipe *pipe = arg;
+    struct pipe_write_wait *wait=arg;
+    struct process_pipe *pipe = wait->pipe;
     return process_should_exit_current() ||
         process_signal_pending_current() ||
         pipe == NULL ||
         !pipe->used ||
         pipe->read_refs == 0 ||
-        pipe->size < PROCESS_PIPE_CAPACITY;
+        PROCESS_PIPE_CAPACITY-pipe->size >= wait->minimum;
 }
 
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
@@ -5019,6 +5034,12 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
     return (int64_t)count;
 }
 
+static int64_t pipe_broken_write(struct process *process,uint64_t done) {
+    if(process==process_current()) (void)process_thread_signal(process_thread_self(),SRV_SIGNAL_PIPE);
+    else (void)process_queue_signal_locked(process,SRV_SIGNAL_PIPE);
+    return done?(int64_t)done:SRV_ERR_PIPE;
+}
+
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
@@ -5027,20 +5048,21 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
         return -1;
     }
     struct process_pipe *pipe = pipe_at(file->type == PROCESS_FILE_PIPE_DUPLEX ? file->aux_handle : file->handle);
-    if (pipe == NULL || pipe->read_refs == 0) {
-        return -1;
-    }
+    if (pipe == NULL) return SRV_ERR_BADF;
+    if(!length) return 0;
+    if(!pipe->read_refs) return pipe_broken_write(process,0);
+    struct pipe_write_wait wait={pipe,length<=SRV_PIPE_BUF?length:1};
 
     uint64_t done = 0;
     while (done < length) {
-        while (pipe->size == PROCESS_PIPE_CAPACITY && pipe->read_refs > 0) {
+        while (PROCESS_PIPE_CAPACITY-pipe->size < wait.minimum && pipe->read_refs > 0) {
             if (process_should_exit_current()) {
                 return done > 0 ? (int64_t)done : -1;
             }
             if ((file->flags & SRV_FD_NONBLOCK) != 0) {
                 return done > 0 ? (int64_t)done : SRV_ERR_AGAIN;
             }
-            if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, pipe)) {
+            if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, &wait)) {
                 break;
             }
             if (process_signal_pending_current()) {
@@ -5048,12 +5070,12 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
             }
         }
         if (!pipe->used || pipe->read_refs == 0) {
-            return done > 0 ? (int64_t)done : -1;
+            return pipe_broken_write(process,done);
         }
 
         uint64_t space = PROCESS_PIPE_CAPACITY - pipe->size;
-        if (space == 0) {
-            return done > 0 ? (int64_t)done : 0;
+        if (space < wait.minimum) {
+            return done > 0 ? (int64_t)done : SRV_ERR_INTR;
         }
         uint64_t remaining = length - done;
         uint64_t count = remaining < space ? remaining : space;

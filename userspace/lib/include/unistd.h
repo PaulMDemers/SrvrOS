@@ -30,6 +30,7 @@ extern "C" {
 #define _PC_LINK_MAX 3
 #define _PC_NO_TRUNC 4
 #define _PC_CHOWN_RESTRICTED 5
+#define _PC_PIPE_BUF 6
 #define _PC_SYMLINK_MAX 7
 
 #define F_OK 0

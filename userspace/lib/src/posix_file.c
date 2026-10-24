@@ -31,7 +31,6 @@ long srv_unix_unlink(const char *path);
 #define POSIX_PATH_MAX SRV_PATH_MAX
 #define POSIX_FD_DUP_TEMP_MAX 80
 
-static mode_t current_umask;
 
 static void fill_stat(struct stat *st, const struct srv_stat *info) {
     memset(st, 0, sizeof(*st));
@@ -101,15 +100,11 @@ int open(const char *path, int flags, ...) {
         return -1;
     }
 
-    struct srv_stat before;
-    int existed = srv_stat(full, &before) == 0;
+    if(flags&O_CREAT) srv_flags|=SRV_OPEN_PERMISSIONS|((uint64_t)(create_mode&07777)<<SRV_OPEN_MODE_SHIFT);
     long fd = srv_open_mode(full, srv_flags);
     if (fd < 0) {
         errno = fd < -1 ? (int)-fd : EIO;
         return -1;
-    }
-    if ((flags & O_CREAT) != 0 && !existed) {
-        (void)srv_chmod(full, create_mode & ~current_umask);
     }
     return (int)fd;
 }
@@ -905,9 +900,7 @@ int fchmod(int fd, mode_t mode) {
 }
 
 mode_t umask(mode_t mask) {
-    mode_t previous = current_umask;
-    current_umask = mask & 0777;
-    return previous;
+    return (mode_t)srv_syscall1(SYS_UMASK,mask&0777);
 }
 
 int unlink(const char *path) {
@@ -1054,15 +1047,10 @@ char *mkdtemp(char *template_path) {
 
 int mkdir(const char *path, mode_t mode) {
     char full[POSIX_PATH_MAX];
-    if (__posix_make_path(path, full, sizeof(full)) < 0) {
-        return -1;
-    }
-    long result=srv_mkdir(full);
-    if (result < 0) {
-        errno = result < -1 ? (int)-result:EIO;
-        return -1;
-    }
-    (void)srv_chmod(full, mode & ~current_umask);
+    long result=srv_path_context(SRV_PATH_RESOLVE_DIRECTORY,path,full,sizeof(full));
+    if(result<0) { errno=result==SRV_ERR_RANGE?ENAMETOOLONG:(int)-result;return -1; }
+    result=srv_syscall2(SYS_MKDIR_MODE,(long)full,mode&07777);
+    if(result<0) { errno=result<-1?(int)-result:EIO;return -1; }
     return 0;
 }
 

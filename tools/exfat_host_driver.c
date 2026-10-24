@@ -329,6 +329,19 @@ int main(int argc, char **argv) {
         assert(!vfs_lookup("/vol/from/source") && vfs_lookup("/vol/to/target")->metadata.inode==inode);
         equal("/vol/to/target",(const uint8_t *)"source",6);
         puts("replacement rename preserves source inode and contents across remount PASS");
+    } else if(!strcmp(argv[2],"creation-mode")) {
+        assert(exfat_create_directory_mode("/vol/private",0700));
+        assert(exfat_write_file_mode("/vol/private/file",(const uint8_t *)"mode",4,0640));
+        assert(exfat_write_file_mode("/vol/zero",NULL,0,0));
+        assert((vfs_lookup("/vol/private/file")->metadata.mode&07777)==0640);
+        assert(exfat_write_file_mode("/vol/private/file",(const uint8_t *)"kept",4,0777));
+        assert((vfs_lookup("/vol/private/file")->metadata.mode&07777)==0640);
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal("/vol/private/file",(const uint8_t *)"kept",4);
+        assert((vfs_lookup("/vol/private")->metadata.mode&07777)==0700);
+        assert((vfs_lookup("/vol/private/file")->metadata.mode&07777)==0640);
+        assert((vfs_lookup("/vol/zero")->metadata.mode&07777)==0);
+        puts("creation permissions survive remount; overwrite preserves mode PASS");
     } else if(!strcmp(argv[2],"long-path")) {
         char base[SRV_PATH_MAX]="/vol",path[SRV_PATH_MAX+1];
         for(unsigned level=0;level<4;level++) {

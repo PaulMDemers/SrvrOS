@@ -152,6 +152,8 @@ def main():
             "threadstress: wait ok",
             "threadstress: fork ok",
             "threadstress: exec-vectors ok",
+            "threadstress: pipe-atomic ok",
+            "threadstress: umask ok",
             "threadstress: masked poll ok",
             "threadstress: pthread contracts ok",
             "threadstress: targeted signal ok",

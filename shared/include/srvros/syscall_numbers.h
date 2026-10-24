@@ -1,3 +1,4 @@
+#include <srvros/io_limits.h>
 #ifndef SRVROS_SYSCALL_NUMBERS_H
 #define SRVROS_SYSCALL_NUMBERS_H
 
@@ -146,6 +147,8 @@
 #define SYS_FORK 143
 #define SYS_PATH_CONTEXT 144
 #define SYS_DIRECTORY 145
+#define SYS_UMASK 146
+#define SYS_MKDIR_MODE 147
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -153,6 +156,7 @@ struct srv_dirent { uint64_t inode,type; char name[SRV_NAME_MAX + 1]; };
 #define SRV_PATH_GETCWD 0
 #define SRV_PATH_CHDIR 1
 #define SRV_PATH_RESOLVE 2
+#define SRV_PATH_RESOLVE_DIRECTORY 3
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -210,6 +214,9 @@ struct srv_file_change {
 #define SRV_OPEN_EXCL 0x40
 #define SRV_OPEN_CLOEXEC 0x80
 #define SRV_OPEN_DIRECTORY 0x100
+#define SRV_OPEN_PERMISSIONS 0x200
+#define SRV_OPEN_MODE_SHIFT 16
+#define SRV_OPEN_MODE_MASK (07777ull << SRV_OPEN_MODE_SHIFT)
 
 #define SRV_SPAWN_FILE_ACTION_DUP2 1
 #define SRV_SPAWN_FILE_ACTION_CLOSE 2
@@ -296,6 +303,7 @@ struct srv_winsize {
 #define SRV_ERR_SRCH -3
 #define SRV_ERR_INTR -4
 #define SRV_ERR_IO -5
+#define SRV_ERR_PIPE -32
 #define SRV_ERR_2BIG -7
 #define SRV_ERR_NOEXEC -8
 #define SRV_ERR_ACCES -13

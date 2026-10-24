@@ -1,0 +1,4 @@
+#ifndef SRVROS_IO_LIMITS_H
+#define SRVROS_IO_LIMITS_H
+#define SRV_PIPE_BUF 4096
+#endif

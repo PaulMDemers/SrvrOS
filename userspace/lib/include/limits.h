@@ -1,6 +1,7 @@
 #ifndef SRVROS_POSIX_LIMITS_H
 #include <srvros/path_limits.h>
 #include <srvros/exec_limits.h>
+#include <srvros/io_limits.h>
 #define SRVROS_POSIX_LIMITS_H
 
 #define CHAR_BIT 8
@@ -34,6 +35,8 @@
 #define LOGIN_NAME_MAX 32
 #define OPEN_MAX SRV_OPEN_MAX
 #define IOV_MAX 16
+#define PIPE_BUF SRV_PIPE_BUF
+#define _POSIX_PIPE_BUF 512
 
 /* Standard minima, not aliases for this implementation's current limits. */
 #define _POSIX_ARG_MAX 4096
