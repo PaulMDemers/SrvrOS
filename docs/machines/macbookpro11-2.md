@@ -4061,3 +4061,22 @@ errors, unmounted; no one-shot armed. Run/collector:
 `~/.local/share/srvros/macbookpro11-2/wifi-mac-buffer-9d1ba79/`.
 Next: readiness-confirmed cold adapter cycle, automatic capture/return and
 collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v43 packet-buffer configuration passed natively
+
+Collected release `246fade6686cd2fa`, source `9d1ba79`, new session
+`00065e8b57f9a360-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence13 sent40/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads12, one batch completed,
+ack_mask1. TX_MAX_PCNT1f9f1f1f->1fbf1f1f; RX_MAX_PCNT remainedfe9f;
+PBF_CFG3fdc1cf5->77723c1f; TSO_CTRL remained0. All four matched exact targets.
+Initial/final MAC0 and COREf000f200 verified. Both completion markers saved;
+no BBP table ran. Acceptance is limited to this bounded group on captured7392:a711;
+frame-engine control0800 and RF/connectivity remain untested.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-buffer-9d1ba79/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean225files/586clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: audit remaining frame-engine/MAC prerequisites before revisiting the
+full baseband table and its unresolved readbacks.

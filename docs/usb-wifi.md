@@ -1809,7 +1809,7 @@ MAC0/COREf000f200 and both completion markers verified. All preceding bounded
 groups passed. The active-Linux differences required no acceptance exception;
 RF/connectivity remain untested.
 
-### Packet-buffer configuration (v43; native result pending)
+### Packet-buffer configuration (v43; accepted on captured adapter)
 
 `--wifi-mac-buffer` requires v42 prerequisites. One sequence13, 40-byte packet
 sets TX_MAX_PCNT0408=1fbf1f1f, RX_MAX_PCNT040c=fe9f, final PBF_CFG0404=77723c1f
@@ -1824,3 +1824,9 @@ FCE_PSE_CTRL0800 is excluded: active Linux reads5 versus the initialization
 table's1, requiring a separate audit/trial. This group does not claim to accept
 frame-engine routing beyond earlier bounded FCE_L2/WMM evidence, packet traffic,
 or the full baseband table. Physical acceptance remains pending.
+
+Pro11,2 source `9d1ba79`, release `246fade6686cd2fa`, session
+`00065e8b57f9a360-00` passed natively on 2026-10-23. All four expected readbacks,
+sequence13 ACK, twelve reads, initial/final MAC0/COREf000f200 and both completion
+markers were verified. All preceding bounded groups passed. FCE_PSE_CTRL0800,
+full baseband initialization and RF/connectivity remain outside this acceptance.
