@@ -2,7 +2,29 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
-### Active scope: desktop window capacity and memory
+### Desktop window capacity: native result and integration
+
+On return from `bf68e4e9b88b8ae7`, tester reports all sixteen windows opened
+well. Session `session-00065e9a46b48da1-00` registers slots 0–15, saves
+`capacity-proof.txt`, retires the desktop normally and saves its exit snapshot.
+All 1049 prior files retain their bytes except expected exFAT metadata; offline
+filesystem/allocation checks and Ubuntu/default/recovery checks pass. No new
+screenshot was saved. This non-trace session omits cache totals and per-frame
+commit traces, so native cache retirement and pressure injection are unmeasured;
+those mechanisms have host/VM coverage. Acceptance here is sixteen-window
+opening and saved-file/clean-exit integrity, not an additional physical resize,
+pressure-failure or screenshot claim.
+
+Collection initially flagged the normal exact `trackpad-tap-reject` movement
+counter because its generic rule treats `reason=` as actionable. Correct that
+specific expected telemetry with regression tests while retaining malformed,
+unknown and actual failure lines. Keep the original collection receipt and
+review the saved evidence again; no rerun is needed to correct host analysis.
+Fetch/integrate main `d5bc4b3` (Air6,1 PR131) and run local checks before PR130
+promotion. Preserve its independent battery gates and staging work. No reboot
+is armed; this block only changes host collection/docs and integrates the base.
+
+### Window capacity implementation checkpoint
 
 Base `468ca20`. Replace eager full-screen compositor cache pairs with bounded
 buffers allocated for live window sizes. Preserve the published frame and input
