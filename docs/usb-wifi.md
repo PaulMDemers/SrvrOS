@@ -2236,3 +2236,12 @@ are cleared; uncertain DMA stays quarantined and is never dumped. Saved receipts
 contain only counts and20 compact before/after guard/DMA groups,keeping the prior
 initialization evidence within the bounded exit log. Native acceptance is pending.
 RF/channel/power setup,scanning and connectivity remain separate work.
+
+Native v55 release `fbedd261796dd08f` completed private mapped header acquisition
+but failed address initialization at target1 (100c) readback:13 operations,
+14 submissions,two writes and one verified target. The current counters cannot
+distinguish transport failure from value mismatch. Both final completion markers
+report failure; complete station/BSSID setup remains unaccepted. The next
+comparison needs privacy-preserving failure classification, not a relaxed mask
+or raw factory-address logging. Evidence and clean recovery are recorded in the
+Pro11,2 unit record.

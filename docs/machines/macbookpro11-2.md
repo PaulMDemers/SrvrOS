@@ -5002,3 +5002,26 @@ Next: attended cold adapter cycle,then collect matching session FIRST. Require
 mapped valid private header,160 address operations/20 exact verifications,all
 prior prerequisites,guard groups,save/unmount and recovery. Physical station/
 BSSID programming,PHY/RF and connectivity remain unaccepted until their evidence.
+
+### 2026-10-24 — private address trial failed; evidence collected
+
+Source `825735c`, release `fbedd261796dd08f`, session
+`session-00065e9aef0b871e-00` saved an explicit failure and returned to Ubuntu.
+Private mapped logical header acquisition completed: valid header,12 reads,
+one write,one poll,13 submissions and cleared private storage. Address setup
+stopped at operation13 (target1,100c verification):13 completed operations,
+14 submissions,11 successful reads,two writes,one verified target. The first
+station word verified; complete station/BSSID initialization is not accepted.
+The saved receipt does not distinguish a USB read failure from a readback
+mismatch at this step. Do not infer a mask or weaken exact validation from it.
+Both final capture markers explicitly report NO; the strict collector rejected
+this run as expected. Firmware upload reports result0 and no quarantine.
+
+Collected under `build/bringup/wifi-mac-address/collection/collection-hxc28qcm`
+and archived with failure receipt,run/checkpoint and hashes outside build in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-address-825735c/`.
+Ubuntu default,consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace checks passed:251 files,625 clusters,no leaks or allocation
+mismatches. Workspace unmounted; no reboot armed. Next: add privacy-preserving
+transport versus mismatch diagnostics for100c before another bounded trial.
+PHY/RF,association and connectivity remain untested.
