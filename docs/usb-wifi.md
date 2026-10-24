@@ -1831,7 +1831,7 @@ sequence13 ACK, twelve reads, initial/final MAC0/COREf000f200 and both completio
 markers were verified. All preceding bounded groups passed. FCE_PSE_CTRL0800,
 full baseband initialization and RF/connectivity remain outside this acceptance.
 
-### FCE control observation (v44; native evidence pending)
+### FCE control observation (v44; native capture complete, target unaccepted)
 
 `--wifi-mac-fce-observe` requires v43 prerequisites. One sequence14, 24-byte
 pair writes0800=1 and080c=03ff0223, from mandatory starts5/03ff0223. The second
@@ -1846,3 +1846,12 @@ vendor MAC tables write1, but later native/Linux snapshots read5. Neither inspec
 register header supplies a bit2 writable-mask definition. This trial separates
 fresh post-table-write evidence from a blanket mask assumption. Firmware-load
 reference: [Linux v7.0 USB MCU](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c).
+
+Pro11,2 source `8294ee1`, release `6e342f3cdd9f35db`, session
+`00065e8b8555a943-00` completed the observation on 2026-10-23. The exact
+sequence14 reply echoed write1, while0800 read5 both before and after. L2 routing
+remained03ff0223; all eight reads, MAC0/COREf000f200 guards, preceding groups and
+both completion markers passed. Mismatch mask1 and register acceptance NOT_TESTED
+were recorded. This is evidence for an exact captured-profile validator, not a
+proof of bit2 semantics or permission to ignore arbitrary bits. RF/connectivity
+remain untested.

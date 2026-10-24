@@ -4109,3 +4109,24 @@ errors, unmounted; no one-shot armed. Run/collector:
 Next: readiness-confirmed cold adapter cycle, automatic capture/return and
 collection of matching session. FCE register acceptance and RF/connectivity
 NOT_TESTED; do not promote a captured difference into a writable-bit mask.
+
+### 2026-10-23 — v44 FCE control observation completed natively
+
+Collected release `6e342f3cdd9f35db`, source `8294ee1`, new session
+`00065e8b8555a943-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence14 sent24/received16
+cc13/residue1008 with exact ACK echoing the requested0800=1. Status0 complete1
+reads8, one batch completed, ack_mask1. FCE control0800 remained5 before/after;
+L2 routing080c remained03ff0223. Observation mismatch_mask1 and explicit
+register_acceptance=NOT_TESTED saved. Initial/final MAC0 and COREf000f200 verified.
+Both completion markers saved; no BBP table ran. This is complete diagnostic
+evidence, not exact target acceptance or proof that bit2 is read-only.
+
+Prepared observation collector passed unchanged. Complete collection/run/checkpoint
+and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-fce-8294ee1/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean227files/589clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: use the captured write1/read5 evidence when defining strict profile
+validation; do not infer a general writable-bit mask. Remaining MAC/baseband
+initialization and RF/connectivity remain untested.
