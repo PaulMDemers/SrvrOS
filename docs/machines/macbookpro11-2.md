@@ -5372,3 +5372,22 @@ zero/partial/exact64KiB boundaries, complete128KiB persistence, wrap/lost-prefix
 refusal, ordinary-size restoration and collector bounds. RF/bootlog sanitizers
 passed. Full synthetic proof is 65730 bytes;55 malformed/truncated receipt cases
 refused. Native acceptance remains pending; no radio writes added.
+
+
+RF read-only candidate source `5fb885e`, release `63fb5a9f9addbb21` installed
+unarmed. Native build, RF/compact/xHCI/logger host tests,139 staging tests,
+29 collection tests,118 unchanged historical Wi-Fi recipes, RF/bootlog sanitizers
+and documentation checks passed. Exact-stage GPT save/offline-file verification/
+automatic-return and missing-workspace refusal/return passed; VM confirmed the
+128KiB snapshot marker. This rehearses refusal on VM hardware, not RF transport.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained. Accepted antenna payload
+`28c2ba352d59b843` retained; older snapshot `4964d0724ea58faa` removed from ESP
+only after exact durable backup equality. Offline workspace clean261files/
+640clusters/104directories,zero leaks or mismatches; unmounted.
+Payload, pinned references, RF derivation, host/VM receipts, collector and
+run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-probe-5fb885e/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require all preceding initialization proof, six guard reads, one exact RF read
+response, no radio writes and a complete extended snapshot. RF register response,
+radio function and connectivity remain unaccepted. No reboot is armed.
