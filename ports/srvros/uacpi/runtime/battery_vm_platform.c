@@ -319,6 +319,11 @@ static void model_query_checkpoint(uint8_t code) {
 }
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
+    if(model.fault==90 && generation==2) {
+        console_write("battery-vm: delayed second sample begin ms=4000\n");
+        uacpi_kernel_sleep(4000);
+        console_write("battery-vm: delayed second sample end\n");
+    }
     if(model.fault>=80)model.query_batch=0;
     if(model.fault==38 && generation==3) {
         uacpi_u32 seq;
@@ -395,7 +400,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>89||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>90||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
