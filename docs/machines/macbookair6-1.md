@@ -2099,3 +2099,75 @@ and reboot. No ten-minute wait or automatic return. Prior native failure and
 before-fix VM evidence remain backed up separately. The old `a18d72aecdf808c7`
 three-minute capture EFI copy was removed only after durable payload verification;
 combined, ordinary-battery, console recovery and Ubuntu remain available.
+
+### Deadline retry failed on native reopen (2026-10-24)
+
+Run `227c377cefd26812`, release `06b0976a58151901` (PR136), again halted
+on its second desktop lifetime. First session `00065e9cec2debcc-00` completed
+cleanly at 234.640 seconds from boot: 87 battery attempts, 1,308 queries, balanced
+EC attachment, zero final heap/errors/denied, working brightness/audio and live
+CPU/fan samples. First setup took 4,766,350 us, including namespace load through
+the contract marker at 4,326,472 us and namespace initialization beginning at
+4,425,243 us.
+
+Second session `00065e9cfa6ff1bc-00` saved only its startup log. The photograph
+shows `HALTED operation deadline`, `setup=namespace-initialize`, elapsed
+5,047,305 us, `completed=0 in_flight=1`, zero errors/denied/EC error/queries and
+retained live state. Unlike the preceding photo, work was still active: PR136's
+completion repoll does not resolve this native startup overrun. Its synthetic
+completion-race regression remains valid but does not establish native repair.
+Next investigation should locate namespace/AML execution and wait time before
+changing the five-second bound; the current evidence does not identify a hang
+or distinguish execution cost from scheduling and firmware waits.
+
+All 283 preexisting files except metadata retain identical bytes. Five new log
+files were collected; no new document appeared. Offline checks pass at 288 files/
+838 clusters, with no leaks or mismatches. Ubuntu recovered with empty one-shot
+state. Logs, photograph and file hashes are backed up outside build. No reboot
+is armed; native combined reopen remains failed.
+
+## Startup timing scope (2026-10-24)
+
+Base main `85d5939`, preserving the failed retry evidence commit. Add bounded
+per-stage startup accounting for AML sleep/stall/semaphore, allocation/free and
+EC work, including active waits at containment. No firmware gate, scheduler or
+five-second deadline changes. Add an explicit automated two-desktop-session
+recipe with normal lifetime/logger teardown and Ubuntu return on completed
+runs. Fatal mounted-Home containment must still halt without flushing/resetting
+live storage; a photograph/manual recovery may remain necessary on failure.
+PR134 (`d9876eb`) owns POSIX/scheduler and PR19 (`7873b63`) owns Wi-Fi; neither
+scope is imported. Validate timing accounting, completed/busy startup regressions,
+automated success/refusal/failure and exact staged GPT boot before installation.
+
+### Automated startup diagnostic ready (PR137)
+
+Final runtime source `582cc59`, v72 release `837ce4f6bfab6775`, records fixed-size
+setup-worker sleep/stall/semaphore/EC wall times and sampled allocation/free
+cost, including active waits at containment. Existing phase markers remain.
+The five-second deadline and hardware permissions are unchanged. The explicit
+reopen diagnostic runs two 20-second app lifetimes with fresh battery samples,
+normal retirement and log saving; it rejects early manual exit. Ordinary desktop
+sessions retain no timer. Fatal mounted ownership still halts without storage
+writes/reset; normal diagnostic completion unmounts and returns to Ubuntu.
+
+Full build/core, 77 staging tests and docs checks pass. On `4b41c06`, ordinary
+Air6,1 save/audio/reopen, pending-save and runtime-fault cases and the Air7,2
+combined regression pass. The final change only makes early diagnostic exit
+incomplete; full core and all five automatic cases pass on `582cc59`: early exit,
+normal, completed-at-expiry, still-busy containment and profile refusal. Exact
+staged GRUB→Limine GPT boot passes two refused-but-cleanly-retired Q35 sessions,
+unchanged fixture files, clean allocation and automatic recovery. Refusal is
+expected VM coverage, not native acceptance. Main remains `85d5939`; PR134
+`e4b7b02` and PR19 `67575f0` retain separate POSIX and Wi-Fi scopes. Shared staging/
+boot files need both independent profiles preserved in later integration.
+
+Run `d3d219186d3bc6e6` retains the 288-file/838-cluster USB baseline and requires
+no human input or document edits. A machine-local one-shot Ubuntu service collects
+matching sessions, requires both fresh-sample/retirement receipts, verifies prior
+file hashes and offline allocation, backs up evidence and disables itself after
+recovery. A halt still requires a photograph/manual restart. The user explicitly
+authorizes automated reboot without another permission gate. Installed payload
+hashes and Ubuntu default are verified; console recovery `c35475f62f154f1e` remains.
+The obsolete `fc1d1f4c45d30252` EFI image-capture copy was removed for space only
+after its durable payload backup was hash-verified. Native reopen remains failed
+pending this diagnostic's returned evidence; this is not a claimed native fix.

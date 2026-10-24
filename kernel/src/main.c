@@ -746,7 +746,21 @@ void kmain(void) {
             (uint64_t)cmdline_has_token(cmdline,"srvros.sensors=cpu"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.smc=read-only"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
-        if(cmdline_has_token(cmdline,"srvros.battery=on"))desktop_battery_session_run();
+        if(cmdline_has_token(cmdline,"srvros.battery=on") && cmdline_has_token(cmdline,"srvros.desktop-reopen-test=on")) {
+            bool ok=true;
+            for(unsigned round=1;round<=2;round++) {
+                console_printf("desktop-reopen-test: round=%u begin\n",(uint64_t)round);
+                bool complete=desktop_battery_reopen_session_run();
+                console_printf("desktop-reopen-test: round=%u complete=%s\n",(uint64_t)round,complete?"yes":"NO");
+                ok=ok&&complete;
+            }
+            bool unmounted=workspace_active() && workspace_unmount();
+            console_printf("desktop-reopen-test: result=%s unmounted=%s; returning to Ubuntu\n",ok?"PASS":"FAIL",unmounted?"yes":"NO");
+            if(unmounted){console_sync();arch_reboot_unattended();}
+            console_write("desktop-reopen-test: HALTED unmount failed; restart manually\n");
+            console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+        }
+        else if(cmdline_has_token(cmdline,"srvros.battery=on"))desktop_battery_session_run();
         else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
     } else if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
         if (!workspace_active()) {
