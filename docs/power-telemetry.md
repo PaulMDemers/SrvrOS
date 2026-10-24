@@ -488,6 +488,43 @@ validates this default for the bounded workload. The diagnostic parser accepts e
 of 4 ms (historical capture) or 20 ms, and requires restoration in either case.
 
 
+### Individual USB transfer timing
+
+The logger now emits `workspace-cost: version=2` and the fixed-file comparison
+emits `storage-wait: begin version=2`. Each save/sample has three `usb-timing`
+phase records keyed by its monotonic start: phase 0 is CBW, 1 is data chunks and
+2 is CSW. Historical version-1 results remain readable without inventing missing
+measurements. Version 2 requires all three records and exact agreement with the
+aggregate callback counts/times; absent, malformed or inconsistent detail fails
+collection.
+
+For each phase the diagnostic records callback maximum, counts strictly above
+20 ms / 100 ms / one second, and counts/totals/maxima for two software intervals:
+
+- `observe_us`: immediately before the doorbell to dispatch of the matching
+  slot/DCI/TRB completion event. This includes device/USB latency **and any delay
+  servicing the event ring**; it is not a hardware completion timestamp.
+- `resume_us`: that observation to the synchronous storage caller recognizing
+  completion. This includes rescheduling and intervening bookkeeping. It does
+  not measure time asleep or CPU execution.
+
+Interval maxima are independent; they need not describe the same request. The
+sum of both interval totals cannot exceed callback wall time. An observed error
+completion can carry timestamps, but a timeout has no invented completion. Only
+a successful, completely observed capture is accepted by the collector. Backward
+clocks, impossible order and counter overflow invalidate telemetry. Failed I/O
+still fails independently of telemetry. No trace allocation, extra transfers or
+console output occurs inside a request; three clock reads are added only while
+the timing scope is active. Aggregates are printed after the scope ends and
+persisted in a subsequent snapshot, so a save never claims its own duration.
+
+Directed host fixtures inject delayed event delivery and a separate known caller
+resumption delay, verify stale/duplicate event exclusion, retain the original
+bounded timeout/quarantine checks, and reject missing or inconsistent persisted
+records. These measurements do not change the 20 ms normal wait threshold,
+verification or flush policy. Native attribution of the variable CSW tail remains
+pending; use the controlled comparison before proposing another wait-policy change.
+
 ### Refined default: native normal desktop result
 
 Release `f340e0695d1e2492` (compiled `c258822`) completed the one-minute Text-open

@@ -82,15 +82,27 @@ static struct {
     uint64_t start,end,bytes,prepare,write,verify,sync;
     struct usb_storage_timing usb;
 } previous_save;
+/* Emitted only after the measured scope, never inside a transfer. IDs pair
+ * these bounded aggregates with their save/sample without per-request logging. */
+static void report_transfers(const char *scope,uint64_t id,const struct usb_storage_timing *t) {
+    for(unsigned phase=0;phase<3;phase++) {
+        const struct usb_storage_phase_timing *p=&t->phase[phase];
+        console_printf("usb-timing: version=1 scope=%s id=%u phase=%u calls=%u callback_us=%u max_us=%u over20ms=%u over100ms=%u over1s=%u observed_calls=%u observe_us=%u resume_us=%u observe_max_us=%u resume_max_us=%u valid=%u\n",
+            scope,id,(uint64_t)phase,t->calls[phase],t->us[phase],p->max_us,
+            p->over20ms,p->over100ms,p->over1s,p->observed_calls,p->observe_us,p->resume_us,
+            p->observe_max_us,p->resume_max_us,(uint64_t)t->valid);
+    }
+}
 static void report_save(void) {
     if(!previous_save.pending) return;
-    console_printf("workspace-cost: version=1 name=%s start_us=%u end_us=%u bytes=%u prepare_us=%u write_us=%u verify_us=%u sync_us=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u valid=%u\n",
+    console_printf("workspace-cost: version=2 name=%s start_us=%u end_us=%u bytes=%u prepare_us=%u write_us=%u verify_us=%u sync_us=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u valid=%u\n",
         previous_save.name,previous_save.start,previous_save.end,previous_save.bytes,
         previous_save.prepare,previous_save.write,previous_save.verify,previous_save.sync,
         previous_save.usb.calls[0],previous_save.usb.us[0],
         previous_save.usb.calls[1],previous_save.usb.us[1],
         previous_save.usb.calls[2],previous_save.usb.us[2],previous_save.usb.failures,
         (uint64_t)previous_save.ok,(uint64_t)previous_save.valid);
+    report_transfers("logger",previous_save.start,&previous_save.usb);
     previous_save.pending=false;
 }
 static bool save(const char *name) {
@@ -239,7 +251,7 @@ bool workspace_storage_wait_capture(void) {
     static const uint64_t policies[]={0,4000,20000};
     static const unsigned order[6][3]={{0,1,2},{1,2,0},{2,0,1},{2,1,0},{1,0,2},{0,2,1}};
     unsigned completed=0;uint64_t start=timer_monotonic_us();
-    console_printf("storage-wait: begin version=1 path=%s bytes=32768 rounds=6 policies=3 original_us=%u\n",file,original);
+    console_printf("storage-wait: begin version=2 path=%s bytes=32768 rounds=6 policies=3 original_us=%u\n",file,original);
     for(unsigned round=0;ok && round<6;round++)for(unsigned pos=0;ok && pos<3;pos++) {
         if(timer_monotonic_us()-start>180000000) { ok=false;break; }
         uint64_t policy=policies[order[round][pos]];
@@ -252,10 +264,11 @@ bool workspace_storage_wait_capture(void) {
         struct usb_storage_timing usb={0};if(tracing)usb_storage_timing_end(&usb);
         scheduler_snapshot(&after);
         ok=ok && usb.valid && !usb.failures && ended>=began;
-        console_printf("storage-wait: sample round=%u position=%u poll_us=%u bytes=32768 elapsed_us=%u sampled_ticks=%u idle_ticks=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u\n",
-            (uint64_t)round,(uint64_t)pos,policy,ended-began,
+        console_printf("storage-wait: sample round=%u position=%u poll_us=%u start_us=%u bytes=32768 elapsed_us=%u sampled_ticks=%u idle_ticks=%u cbw_calls=%u cbw_us=%u data_calls=%u data_us=%u csw_calls=%u csw_us=%u failures=%u ok=%u\n",
+            (uint64_t)round,(uint64_t)pos,policy,began,ended-began,
             after.sampled_ticks-before.sampled_ticks,after.idle_ticks-before.idle_ticks,
             usb.calls[0],usb.us[0],usb.calls[1],usb.us[1],usb.calls[2],usb.us[2],usb.failures,(uint64_t)ok);
+        report_transfers("comparison",began,&usb);
         if(ok)completed++;
     }
     /* A transport failure refuses policy changes while quarantined. Retain that
