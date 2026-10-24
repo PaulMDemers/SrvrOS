@@ -5278,3 +5278,13 @@ with collector, run/checkpoint and hashes under
 Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
 Offline workspace clean259files/637clusters,103directories,zero leaks or
 allocation mismatches; unmounted,no reboot armed. Next: bounded antenna setup.
+
+Active scope: v59 antenna initialization after completed v58 snapshot. Re-read
+only mapped logical EFUSE20/30, require antenna17ff,cfg1ffef,NIC0fd11,NIC11004,
+then apply the five reference-order antenna register writes (three changes,
+two unchanged), with exact captured starts/readbacks and MAC/CORE/DMA guards.
+Preserve native WLAN/CMB unrelated bits; no RF-bank, channel or MAC/DMA-enable
+writes. Touch bounded EFUSE/mt76 plans,xHCI/main,staging and tests. Preserve old
+EFUSE modes/profile behavior and fit the full saved proof within the exit log.
+Actualbase d5bc4b3; fetchedmain36080fc unchanged. PR136 Air6,1 battery deadline
+and PR134 POSIX scopes inspected; independent from this PR19 adapter work.
