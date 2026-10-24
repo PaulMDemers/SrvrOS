@@ -965,6 +965,12 @@ static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
         check_foreign_event();
         if(runtime.budget.active&&!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("independent query deadline");
         if(timer_monotonic_us()>=deadline) {
+            /* A timed drain slice can expire before the worker completes, then
+             * this owner can be descheduled past the operation deadline. Match
+             * drain's completion-first semantics with a fresh, nonblocking poll
+             * before containing work which may already have finished. Callback
+             * result/error checks below still apply; active work is not extended. */
+            if(acpi_worker_drain(&runtime.worker,0))break;
             if(fn==sample_work)quarantine_sample_deadline();
             unsafe("operation deadline");
         }

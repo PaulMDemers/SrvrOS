@@ -20,12 +20,14 @@
 #include "../../../../kernel/src/arch/x86_64/io.h"
 static struct battery_platform *platform;
 static uint64_t dsdt;
+static unsigned reopen_deadline_lifetimes;
 static struct {
     uint8_t memory[256], mode,address,output,foreign_status[2],foreign_enable[2];
     uint16_t words[32];
     unsigned step,busy,fault,foreign_reads[2];
     uint64_t generation,commands;
     unsigned ac_reads,query_batch;
+    bool deadline_reopen, owner_delayed;
     bool obf,pending,io_started,io_entered,irq_injected,target_armed,alarm_sent,ack_stall,stop_injected;
     uint8_t injected_gpe;
 } model;
@@ -191,7 +193,7 @@ static void command(void *c,uint8_t v) {
             model.memory[0x45]=(model.fault==76 && model.generation%4)?0x60:0x16;
             model.memory[0x46]=0x34;model.memory[0x47]=0x12;
         }
-        if((model.fault==80 || model.fault==81 || model.fault==83) && model.pending) {
+        if((model.fault==80 || model.fault==81 || model.fault==83 || model.fault==91 || model.fault==92) && model.pending) {
             unsigned batch=model.fault==80?15:32;
             again=++model.query_batch<batch;
         }
@@ -301,6 +303,12 @@ static void target_irq(void) {
     console_write("battery-vm: ERROR target resumed after fault\n");
 }
 static void model_owner_irq(void) {
+    if(model.fault==91 && model.deadline_reopen && !model.owner_delayed) {
+        model.owner_delayed=true;
+        console_write("battery-vm: reopen owner delayed after pending drain\n");
+        uacpi_kernel_sleep(5100);
+        console_write("battery-vm: reopen owner resumed beyond deadline\n");
+    }
     if(model.fault==37 && model.generation==3 && model.target_armed && !model.irq_injected)target_irq();
 }
 static void model_transfer_wait(void) {
@@ -372,6 +380,13 @@ static void model_mode_entered(void) {
     console_printf("battery-vm: injected post-mode fixed-enable=%x\n",(uint64_t)inw(0x602));
 }
 static void model_setup_work(void) {
+    if(model.fault==91 || model.fault==92) {
+        if(model.deadline_reopen) {
+            console_write("battery-vm: second setup delay armed\n");
+            uacpi_kernel_sleep(model.fault==91?100:6000);
+        }
+        return;
+    }
     if(model.fault==19) {
         /* Armed before engagement, so an I/O scope cannot prevent this modeled
          * deadline from exercising the contained reset path. */
@@ -400,8 +415,9 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>90||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>92||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
+    if(model.fault==91 || model.fault==92)model.deadline_reopen=++reopen_deadline_lifetimes==2;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
     /* Reproduce a real legacy-to-ACPI transition on disposable Q35. Do not
@@ -434,11 +450,11 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
 #endif
     if((model.fault>=41 && model.fault<=47) || model.fault==61)p->model_query_checkpoint=model_query_checkpoint;
     if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
-    if(model.fault==37)p->model_owner_irq=model_owner_irq;
+    if(model.fault==37||model.fault==91)p->model_owner_irq=model_owner_irq;
     if(model.fault>=33 && model.fault<=40) { p->model_event=model_event;p->model_query_refuse=model_query_refuse; }
     if(model.fault>=30 && model.fault<=40)p->model_irq_fault=model_irq_fault;
     if(model.fault>=13)p->model_sample_begin=model_sample_begin;
-    if(model.fault==18||model.fault==19)p->model_setup_work=model_setup_work;
+    if(model.fault==18||model.fault==19||model.fault==91||model.fault==92)p->model_setup_work=model_setup_work;
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;
 }
 void *battery_platform_map(uint64_t a,size_t n){
