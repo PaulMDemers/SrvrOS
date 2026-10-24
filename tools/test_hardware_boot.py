@@ -399,6 +399,19 @@ class InstallTests(unittest.TestCase):
         for bad in ("-37d8c5d0","37d8--c5d0","37d8c5d00","not-a-uuid"):
             with self.assertRaises(boot.argparse.ArgumentTypeError): boot.compact_volume_uuid(bad)
 
+    def test_storage_wait_profile_is_separate(self):
+        version='ram-usb-v1-storage-wait-laptop-probe-37d8c5d0-auto-return'
+        self.assertIsNotNone(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=storage-wait',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        self.assertNotIn('srvros.aml',cfg)
+        for extra in ({},{'desktop_idle_capture':True},{'hold_on_failure':True},{'battery_air61':True},{'power_telemetry':True}):
+            options={'storage_wait_capture':True,**extra}
+            if extra:options['laptop_probe_volume']='37d8c5d0'
+            with self.assertRaises(ValueError):boot.stage(**options)
+        self.assertNotIn('storage-wait',boot.limine_config('0123456789abcdef','ram-usb-v26-laptop-probe-37d8c5d0-auto-return'))
+
     def test_desktop_idle_profile_is_separate(self):
         version="ram-usb-v25-laptop-probe-37d8c5d0"
         self.assertIsNotNone(boot.LAPTOP_PROBE_RE.fullmatch(version))

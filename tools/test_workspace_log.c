@@ -3,18 +3,20 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[24];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
+static uint64_t test_policy=4000;
+bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
 bool usb_storage_timing_begin(void) { assert(!tracing);tracing=true;return true; }
 void usb_storage_timing_end(struct usb_storage_timing *out) { assert(tracing);tracing=false;*out=(struct usb_storage_timing){.valid=true,.calls={1,2,1},.us={10,20,10}}; }
 static struct item *find(const char *p) { for(unsigned i=0;i<count;i++) if(!strcmp(p,files[i].path)) return &files[i];return NULL; }
-static struct item *add(const char *p) { assert(count<24 && strlen(p)<160);struct item *f=&files[count++];strcpy(f->path,p);return f; }
+static struct item *add(const char *p) { assert(count<64 && strlen(p)<160);struct item *f=&files[count++];strcpy(f->path,p);return f; }
 const struct vfs_node *vfs_lookup(const char *p) { assert(depth);struct item *f=find(p);return f?&f->node:NULL; }
 bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
     assert(depth && !strcmp(p,"/work/srvros-work/Logs") && f==32 && d==8);return capacity_ok;
@@ -80,5 +82,15 @@ int main(void) {
     assert(!enabled && busy && writes==saved);
     assert(!workspace_log_quiesce(11) && busy && writes==saved);
     busy=false;assert(workspace_log_quiesce(0) && !workspace_log_active());
+    mounted=true;assert(workspace_log_start());
+    unsigned old_writes=writes;assert(workspace_storage_wait_capture());
+    assert(writes==old_writes+19 && !enabled && !tracing && test_policy==4000);
+    assert(!workspace_storage_wait_capture() && writes==old_writes+19); /* collision */
+    assert(workspace_log_start());corrupt=true;old_writes=writes;
+    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==4000 && !tracing);corrupt=false;
+    assert(workspace_log_start());sync_ok=false;old_writes=writes;
+    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==4000 && !tracing);sync_ok=true;
+    assert(workspace_log_start());io_ok=false;old_writes=writes;
+    assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==4000 && !tracing);io_ok=true;
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }

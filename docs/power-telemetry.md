@@ -449,3 +449,30 @@ seconds. The records contain different byte totals and coverage. Completion
 polling latency and media variability are not yet separated; PR118 remains
 draft and the wait policy is not performance-qualified. See the reference
 [machine record](machines/macbookair7-2.md) for exact observations and limits.
+
+### Controlled USB wait comparison
+
+`tools/hardware_boot.py stage --laptop-probe-volume <local-UUID>
+--storage-wait-capture` selects the separate
+`ram-usb-v1-storage-wait-laptop-probe-<UUID>-auto-return` recipe. It does not alter
+historical idle-capture recipes or ordinary startup. The diagnostic pauses
+periodic logging, creates a new 32 KiB `wait-fixture.bin` inside its collision-safe
+session directory, and performs 18 overwrite/readback/flush measurements. All
+six permutations of polling, 4 ms and 20 ms poll-before-wait thresholds run once,
+so each policy appears twice in each position. Allocation is outside measurement;
+metadata writes, verification, flush and eligible service time remain included.
+
+Each row records callback costs by USB phase, elapsed time and CPU0 timer samples.
+There is a 180-second admission limit checked between measurements, not a promise
+to interrupt a filesystem operation. Existing per-transfer deadlines and DMA
+quarantine remain authoritative. Restore the entry policy on handled completion;
+a quarantined transfer refuses policy mutation and makes the run incomplete.
+No retry or DMA reuse is introduced. The diagnostic stops on its first error.
+
+The collector requires all 18 ordered successful rows, policy restoration and
+exact offline payload bytes. Missing, duplicate or malformed rows, unexpected
+paths, symlinks, changed fixture bytes and missing exit logs do not pass. Host
+injection covers timer quantization separately from physical media variability.
+VM timings validate the workflow only. Native results must precede selecting a
+new default policy; neither CPU timer samples nor callback wall time alone prove
+power savings or interactive responsiveness.

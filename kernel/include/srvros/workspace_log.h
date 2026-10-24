@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 bool workspace_log_start(void);
+/* Explicit diagnostic only; pauses logging and uses a fresh session file. */
+bool workspace_storage_wait_capture(void);
 bool workspace_log_stop(void);
 /* Stop periodic admission and wait at most timeout_ms for its current write.
  * False retains the write and its resources; caller must keep the mount held.

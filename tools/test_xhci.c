@@ -384,9 +384,10 @@ uint64_t timer_monotonic_us(void) {
     }
     return test_time;
 }
-static bool test_io_active,wait_refused,wait_keyboard;
+static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign;
 static unsigned wait_calls,bulk_wakes;
 uint64_t timer_ticks(void) { return test_time/10000; }
+bool scheduler_io_busy(void) { return test_io_foreign; }
 bool scheduler_io_active(void) { return test_io_active; }
 bool scheduler_io_yield(void) { return false; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
@@ -533,7 +534,35 @@ static void test_storage_wait(void) {
     d->bulk_failed=d->bulk_pending=false;wait_refused=true;
     complete_device=d;complete_at=test_time+10000;
     assert(storage_bulk_transfer(d,true,caller,13,&actual)); /* bounded poll fallback */
-    wait_refused=false;test_io_active=false;test_time_step=1000;
+    wait_refused=false;
+    uint64_t old=99;test_io_foreign=true;
+    assert(!xhci_storage_wait_policy(0,&old) && old==99);test_io_foreign=false;
+    test_io_active=false;assert(!xhci_storage_wait_policy(0,&old));test_io_active=true;
+    assert(!xhci_storage_wait_policy(123,&old) && !xhci_storage_wait_policy(0,NULL));
+    d->bulk_pending=true;assert(!xhci_storage_wait_policy(0,&old));d->bulk_pending=false;
+    d->bulk_failed=true;assert(!xhci_storage_wait_policy(0,&old));d->bulk_failed=false;
+    /* Controlled completion latency, identical driver/event fixture and clock
+     * phase. Demonstrate the tick-quantization cost rather than hide it. */
+    static const uint64_t delay[]={2000,5000,9000,15000,25000,100000};
+    for(unsigned i=0;i<sizeof(delay)/sizeof(delay[0]);i++) {
+        uint64_t duration[3];static const uint64_t policies[]={0,4000,20000};
+        for(unsigned mode=0;mode<3;mode++) {
+            assert(xhci_storage_wait_policy(policies[mode],&old));
+            test_time=((test_time/10000)+1)*10000;
+            uint64_t began=test_time;complete_device=d;complete_at=began+delay[i];
+            unsigned before_wait=wait_calls;
+            assert(storage_bulk_transfer(d,true,caller,13,&actual));
+            duration[mode]=test_time-began;
+            assert(duration[mode]>=delay[i] && duration[mode]<=delay[i]+10020);
+            if(!policies[mode] || delay[i]<policies[mode])assert(wait_calls==before_wait);
+        }
+        if(delay[i]==5000)assert(duration[1]>duration[0]+4000 && duration[2]<duration[0]+20);
+        printf("storage-wait-latency: device_us=%llu poll_us=%llu wait4_us=%llu wait20_us=%llu\n",
+            (unsigned long long)delay[i],(unsigned long long)duration[0],
+            (unsigned long long)duration[1],(unsigned long long)duration[2]);
+    }
+    assert(xhci_storage_wait_policy(4000,&old));
+    test_io_active=false;test_time_step=1000;
     puts("xhci-storage-wait: PASS fast path, delayed completion/HID, wake, bounded deadline, no retry and refusal fallback");
 }
 

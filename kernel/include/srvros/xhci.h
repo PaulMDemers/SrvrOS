@@ -27,6 +27,9 @@ struct xhci_trackpad_capture {
 void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out);
 void xhci_trackpad_reset_capture(void);
 
+/* Diagnostic-only: IRQ-masked I/O owner, no outstanding/failed bulk DMA.
+ * Select 0 (poll), 4000 or 20000 us; restore previous after the capture. */
+bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

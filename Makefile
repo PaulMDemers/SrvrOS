@@ -3539,3 +3539,8 @@ build/acpi-air61-battery/battery_vm_platform.o: ports/srvros/uacpi/runtime/batte
 test-scheduler-activity:
 	$(PYTHON) tools/test_scheduler_activity.py
 test-core: test-scheduler-activity
+
+.PHONY: test-storage-wait-result
+test-core: test-storage-wait-result
+test-storage-wait-result:
+	$(PYTHON) tools/test_storage_wait_result.py

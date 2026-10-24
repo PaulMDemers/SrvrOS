@@ -2205,6 +2205,15 @@ static bool configure_bulk_endpoints(struct xhci_device *d) {
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
     return submit_command_trb(&cmd,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0);
 }
+/* Diagnostic caller holds the IRQ-masked I/O gate. Zero selects polling. */
+static uint64_t storage_poll_us=4000;
+bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous) {
+    if(!previous || !scheduler_io_active() || scheduler_io_busy() ||
+       (poll_us!=0 && poll_us!=4000 && poll_us!=20000))return false;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
+        if(xhci.devices[i].bulk_pending || xhci.devices[i].bulk_failed)return false;
+    *previous=storage_poll_us;storage_poll_us=poll_us;return true;
+}
 static bool storage_bulk_ready(void *context) {
     return ((struct xhci_device *)context)->bulk_done;
 }
@@ -2250,7 +2259,7 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
                  * re-polling even without a HID worker. The original transfer
                  * deadline and stalled-clock budget are never restarted. */
                 uint64_t tick=timer_ticks();
-                bool waited=now-start>=4000 && tick!=UINT64_MAX &&
+                bool waited=storage_poll_us && now-start>=storage_poll_us && tick!=UINT64_MAX &&
                     scheduler_io_wait_timeout(&d->bulk_wait,storage_bulk_ready,d,tick+1);
                 if(waited) {
                     uint64_t returned=timer_monotonic_us();

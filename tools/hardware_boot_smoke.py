@@ -160,6 +160,7 @@ def main():
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
+    storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
     power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
@@ -428,6 +429,12 @@ def main():
                             contents=stored.read(folder+"/"+filename)
                             assert b"workspace-scheduler:" in contents
                             (logs/("laptop-capture-"+filename)).write_bytes(contents)
+                    if storage_wait_capture:
+                        from storage_wait_result import capture_result,PAYLOAD
+                        comparison=capture_result(stored.read(folder+"/exit.log").decode())
+                        assert comparison is not None, 'Incomplete storage wait comparison'
+                        assert stored.read(comparison['path'].removeprefix('/work/'))==PAYLOAD
+                        (logs/'storage-wait-result.json').write_text(json.dumps(comparison,indent=2)+'\n')
                     if desktop_idle_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         assert desktop_idle_sample(exit_log) is not None
@@ -455,7 +462,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "probe":True,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "probe":True,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
