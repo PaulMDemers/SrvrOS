@@ -109,7 +109,9 @@ slots. Workers and terminal shells consume extra resources, so sixteen is an
 intentional ceiling rather than a guarantee under every memory/workload mix.
 See [window capacity and ownership](window-capacity.md) for protocol v12,
 allocation guarantees and exact validation. Sixteen-window persistence and
-resize/lifecycle VMs pass; physical acceptance remains pending for this candidate.
+resize/lifecycle VMs pass. Air7,2 physically accepts sixteen-window opening,
+saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; native pressure
+injection/cache totals were not measured in that round.
 
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size

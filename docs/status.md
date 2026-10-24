@@ -40,6 +40,9 @@ cases were subsequently exercised in the October 23 follow-up; tap refinement is
 validated in the same round.
 Earlier unexpected app closures are not conclusively explained by these fixes.
 
+Air7,2 accepts sixteen-window opening, saved document integrity and clean exit
+at `bf68e4e9b88b8ae7` (2026-10-24); allocation-pressure preservation and cache
+retirement have host/VM evidence, without native cache totals in that round.
 Current limits include sixteen client windows, software rendering and bounded
 client surfaces up to 1440×900 logical pixels. Explicit 2× scaling passes VM
 checks at 2880×1800, but is pixel enlargement, not a high-density font renderer

@@ -60,12 +60,14 @@ audio or battery regressions. Temperature and idle percentage alone are not ener
 
 ## 5. Make the desktop less constrained
 
-The current candidate replaces eager cache pairs with demand-allocated window
+The desktop replaces eager cache pairs with demand-allocated window
 buffers under a 96 MiB compositor pixel budget. Client canvases also use current
 sizes. Matched protocol v12 supports failed-resize refusal and restoration, and
 coordinated budgets allow sixteen windows. Local host and VM tests pass for
 allocation pressure, sixteen apps, a refused seventeenth launch, menus, exact
-saved text, screenshots, resize and cleanup. Physical acceptance is pending.
+saved text, screenshots, resize and cleanup. Air7,2 accepts sixteen-window
+opening, saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; the round
+contains no native cache totals or pressure injection.
 See [window capacity](window-capacity.md).
 
 Continue reusable controls, keyboard accessibility, app save/recovery and text

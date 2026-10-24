@@ -1,6 +1,6 @@
 # Desktop capacity and buffer ownership
 
-The candidate supports sixteen client windows, with demand-allocated compositor
+The desktop supports sixteen client windows, with demand-allocated compositor
 caches and current-size client canvases. Kernel GUI capacity is 32 queues and
 64 surfaces, derived from the shared sixteen-window policy; 64 process slots
 remain unchanged. File workers and terminal shells consume additional processes,
@@ -47,4 +47,9 @@ including the deferred redraw safeguard. The
 sixteen-window run recorded 49564560 peak cache bytes (about 47.3 MiB) and zero
 bytes after retirement, versus the prior roughly 79 MiB eager reservation for
 eight slots. This is compositor pixel memory only, not whole-system usage.
-Physical acceptance remains pending; see the reference machine record.
+Air7,2 release `bf68e4e9b88b8ae7` opened sixteen windows successfully on
+2026-10-24. Matching logs register all sixteen slots, preserve the saved document
+and exit cleanly; prior files, offline allocation and Ubuntu recovery checks
+pass. That non-trace session did not record cache totals or a screenshot, and
+this round did not independently accept injected pressure failures or resizing.
+Those retain host/VM evidence; see the reference machine record.

@@ -20,9 +20,13 @@ counter because its generic rule treats `reason=` as actionable. Correct that
 specific expected telemetry with regression tests while retaining malformed,
 unknown and actual failure lines. Keep the original collection receipt and
 review the saved evidence again; no rerun is needed to correct host analysis.
-Fetch/integrate main `d5bc4b3` (Air6,1 PR131) and run local checks before PR130
-promotion. Preserve its independent battery gates and staging work. No reboot
-is armed; this block only changes host collection/docs and integrates the base.
+Integrated main `d5bc4b3` (Air6,1 PR131) as `e22f328`, preserving its battery
+gates and staging work. Full local build/core/docs and the sixteen-window VM
+regression pass on that integration. PR130 is ready for baseline promotion;
+GitHub Actions remain disabled. Raw/reviewed evidence and the accepted payload
+survive `make distclean` in local pending-trials/reviewed-evidence storage.
+No reboot is armed. Installed payload remains `bf68e4e9b88b8ae7`; source merge
+validation does not silently install a different native image.
 
 ### Window capacity implementation checkpoint
 
