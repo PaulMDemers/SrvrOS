@@ -4188,3 +4188,29 @@ PR; no other active shared edit was requested. Resolve integration overlaps,
 run local host and exact-stage VM checks, then prepare an unchanged-sequence
 native regression. Installed7301441289281aaf and known-good recovery remain
 untouched until the integrated candidate passes. No new RF or register scope.
+
+### 2026-10-23 — integrated v45 regression installed, unarmed
+
+Merged main `4a991df` as source `e1e595c`; staged/installed release
+`9fadb1185a7592ea`, unchanged v45 firmware/FCE recipe. Full build and test-core
+passed, alongside119 boot-profile tests and493 documentation links. All90
+historical firmware and91 main boot configurations compare exactly against their
+respective parents. Wi-Fi MCU sequence/native model gates are unchanged.
+Exact-stage GPT VM verified saved/offline file bytes, clean allocation and automatic
+return; missing-workspace VM returned without probing. Combined ECM device-checks
+and Wi-Fi-probe VM passed DHCP/DNS/HTTP, three outage/recovery cycles,160 UDP echoes,
+TCP serving, shared keyboard and disconnect quarantine. Human audio/gesture
+acceptance is not implied by scripted VM answers.
+
+Prepared collector retains all v45 predicates, passes the prior complete native
+fixture with new release identity and rejects64 readback mutations plus three
+incomplete captures. Run/collector:
+`build/bringup/wifi-integrated/run.json`,
+`build/bringup/collect_wifi_integrated_return.py`. Payload and test evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-integrated-e1e595c/`.
+Ubuntu remains default, known-good previous `e47dca3a6b30c6c1` and accepted
+v45 `7301441289281aaf` retained. Older v44 was removed from ESP only after full
+archive equality. Workspace0E53-5900 clean229files/592clusters, zero allocation
+errors and unmounted. No one-shot armed; native integrated acceptance pending.
+Next: readiness-confirmed cold adapter cycle, automatic save/return, collect the
+matching session before further implementation. RF/connectivity remains untested.
