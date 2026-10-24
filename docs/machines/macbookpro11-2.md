@@ -4884,3 +4884,14 @@ The four-guard/two-DMA receipts and bounded poll accounting are required by the
 prepared collector. Exact-stage VM and native results remain separate gates.
 Actualbase4a991df,fetchedmain468ca20. PR130 window capacity and PR131 Air6,1
 battery profiles inspected; preserve their independent shared staging changes.
+
+Source `40556a2`,release `b34ed974d2fa3095` installed unarmed after exact-stage
+GPT VM normal save/return and missing-workspace refusal/return both passed.
+Native build and xHCI regressions passed. Ubuntu remains default; known-good
+`e47dca3a6b30c6c1` and accepted v53 `add8a479ff406c0d` retained. Older snapshot
+`619ce12c1d5d0f0b` removed from ESP only after full archived-payload equality.
+Offline filesystem/allocation checks passed before installation. Candidate,
+tests,VM receipts,collector and run/checkpoint are archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-efuse-map-40556a2/`.
+Next: attended cold adapter cycle; collect the matching new session FIRST after
+return. No physical EFUSE validity or Wi-Fi connectivity acceptance yet.
