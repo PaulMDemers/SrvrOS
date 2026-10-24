@@ -2020,3 +2020,21 @@ combined-session acceptance and this scope. PR134 POSIX work and PR19 Wi-Fi
 remain independent; neither is imported into this accepted payload. Check file
 persistence, provider availability, battery lifetime retirement and normal exit
 on both sides of `desktop battery`. Multi-hour endurance is not this test.
+
+### Reopen trial ready (PR135)
+
+Fresh rehearsal source `ef184f3` differs from compiled `59c1836` only in
+documentation. The unchanged combined HDA/battery GPT VM passes normal
+exit/reopen with fresh lifetime, exact saved files, retired PCM and clean
+allocation. Exact installed v71 release `1ae70fcf03ab6152` separately passes
+GRUB→Limine GPT boot, Q35 native-profile refusal, working HDA, normal exit/reopen,
+file/allocation checks and monitor reboot. Documentation checks pass.
+
+Unarmed run `c655eca6a4f00313` uses the new 277-file/823-cluster baseline and
+`reopen-services.txt`. Briefly exercise brightness, audio, sensors and battery;
+save the document and return to console. Enter `desktop battery`, reopen the
+document and exercise the providers again. Exit normally, then `reboot`. No
+ten-minute wait or automatic return is required. The preceding combined native
+run remains independently backed up; this new run has its own backup directory.
+Ubuntu and console recovery stay unchanged. Physical reopen acceptance awaits
+the returned evidence and user observations.
