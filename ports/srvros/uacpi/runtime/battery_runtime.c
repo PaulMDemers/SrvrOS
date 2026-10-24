@@ -100,11 +100,14 @@ static bool smbus_capture_parked(void) {
 }
 /* An explicit native diagnostic owns the mount through normal runtime return.
  * This grants no fatal reset, general AML unwind, or desktop-startup capability. */
-static bool bounded_home;
+static bool bounded_home, bounded_home_session;
 static bool air61_home_owned(void) {
     return runtime.platform.query_policy==BATTERY_QUERY_AIR61 && runtime.platform.bounded_samples_only &&
         runtime.platform.smbus_capture_profile && battery_bounded_home_entry(runtime.transition_mode,
-        runtime.service_mode,owner==OWNER_SERVICE,bounded_home&&!smbus_capture&&!smbus_controls&&!smbus_study,
+        runtime.service_mode,owner==OWNER_SERVICE,((bounded_home&&!smbus_controls) ||
+            (battery_bounded_home_session(bounded_home_session,smbus_controls,continuous_home,
+                desktop_home,desktop_capture,desktop_session)))
+            &&!smbus_capture&&!smbus_study,
         mounted_home&&workspace_mount_hold_valid(smbus_workspace_hold),auto_return,workspace_image_busy());
 }
 static bool mounted_home_owned(void) {
@@ -2290,7 +2293,13 @@ bool battery_home_transitions_diagnostic_run(void *rsdp,struct limine_memmap_res
     return home_desktop_capture_run(rsdp,map,true);
 }
 bool battery_home_session_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return workspace_controls_test(rsdp,map,true,1,true,false);
+    /* Only this bounded diagnostic admits Air6,1 across repeated lifetimes.
+     * Ordinary/continuous entry cannot acquire this capability. */
+    if(bounded_home_session || bounded_home || auto_return)return false;
+    bounded_home_session=true;
+    bool ok=workspace_controls_test(rsdp,map,true,1,true,false);
+    bounded_home_session=false;
+    return ok;
 }
 void acpi_runtime_test_command(const char *args) {
     if(command_is(args,"battery-home-desktop")) {

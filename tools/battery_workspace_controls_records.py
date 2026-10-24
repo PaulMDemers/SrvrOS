@@ -124,15 +124,16 @@ def check_home_returns(data, epochs, refused=False, vm=True, continuous=False, c
     assert not epochs or retired[-1].end()<data.index(b'battery-workspace-hold: released')
 
 
-def check_home_refusal(data):
+def check_home_refusal(data,query_policy=2,vm=True):
     """Normal worker return after a refused query is a failed session, never PASS work."""
     data=complete_lines(data.replace(b'\r\n',b'\n'))
     assert data.count(b'battery-query-policy:')==1
-    assert b'battery-query-policy: policy=2 code=255 class=4; dispatch=refused\n' in data
+    assert query_policy in (2,3)
+    assert b'battery-query-policy: policy='+str(query_policy).encode()+b' code=255 class=4; dispatch=refused\n' in data
     rows=re.findall(rb'^battery-query-return: sequence=(\d+) generation=(\d+) code=255 transfer=1 aml_calls=0 aml_returns=0 effects=0 completed_before=(\d+) completed_after=(\d+) notifications_before=(\d+) notifications_after=(\d+) idle=1; refused=yes$',data,re.M)
     assert len(rows)==data.count(b'battery-query-return:')==1
     seq,gen,before,after,nb,na=map(int,rows[0])
     assert seq>0 and gen>=2 and after>before and nb==na
     assert data.index(b'battery-query-policy:')<data.index(b'battery-query-return:')<data.index(b'battery-home-return:')
-    check_home_returns(data,1,refused=True)
-    return check_events(data,0,1,refused=True)
+    check_home_returns(data,1,refused=True,vm=vm)
+    return check_events(data,0,1,refused=True,vm=vm)

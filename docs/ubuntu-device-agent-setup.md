@@ -985,7 +985,7 @@ short sampling without desktop clients. Normal completion/refusal saves and
 returns; uncertain runtime faults halt with Home retained and never reset mounted
 storage. Keep AC/USB connected. Follow the [Air6,1 audit](macbookair6-1-battery.md#explicit-mounted-home-candidate-v65)
 and collect `battery_home` plus file/allocation proof before another trial.
-Native acceptance is pending; ordinary battery startup remains off.
+Short mounted sampling is accepted below; ordinary battery startup remains off.
 
 
 Air6,1 v65 release `30b0d713f1a9ed55` completed the short mounted Home trial
@@ -993,3 +993,20 @@ on October 23 (session `00065e8b198ee6ba-00`): three fresh samples, 45 events,
 clean retirement/release, preserved prior file contents and clean offline
 allocation. This accepts that bounded no-client diagnostic only; ordinary
 Air6,1 desktop battery startup remains off. See the [unit record](machines/macbookair6-1.md).
+
+
+### Air6,1 bounded Home controls and Text trial
+
+After collecting the short mounted trial, use
+`stage --laptop-probe-volume <this-unit-uuid> --battery-air61 --battery-home-session`
+for v66. It uses the Air6,1 kernel and the existing bounded generated Home
+session: three service lifetimes, five control requests and 60 edits/five Text
+file cycles. Create a fresh `battery-study` directory at the workspace volume
+root after preserving all prior files; refuse an existing directory rather than
+overwriting a previous study. Rehearse the exact GPT stage and missing-workspace
+path. Keep AC and USB connected; no input or charger changes are required.
+Normal completion or checked refusal saves/unmounts/returns, while uncertain
+runtime ownership halts with the mount retained. Collect the strict
+`battery_home_session` proof and exact saved `text-1.txt` through `text-5.txt`
+contents (`AA`), prior-file hashes and offline allocation before another trial.
+Ordinary desktop startup and continuous battery admission remain disabled.

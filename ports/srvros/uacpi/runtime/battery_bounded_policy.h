@@ -24,6 +24,11 @@ static inline bool battery_bounded_home_entry(bool coherent,bool service,bool ow
     bool diagnostic,bool held,bool automatic,bool image) {
     return coherent&&service&&owner&&diagnostic&&held&&!automatic&&!image;
 }
+/* Capability belongs only to the generated, non-continuous Home session. */
+static inline bool battery_bounded_home_session(bool diagnostic,bool controls,
+    bool continuous,bool desktop,bool capture,bool session) {
+    return diagnostic&&controls&&!continuous&&!desktop&&!capture&&!session;
+}
 /* AML only: SBS bank transactions use the separately serialized sampler. */
 static inline bool battery_bounded_ec(bool write,uint64_t address,uint64_t value) {
     return write?(address==0x10&&!value):address==0x60;

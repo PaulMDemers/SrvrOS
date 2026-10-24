@@ -1456,3 +1456,14 @@ This accepts short mounted Home sampling only, with no desktop clients or AC
 changes. Ordinary desktop startup remains off; sustained coexistence and gauge
 accuracy are not accepted. Next is the explicit bounded Home desktop session
 with Text saves and repeated Start/Stop before ordinary desktop integration.
+
+## Bounded Home desktop session scope (2026-10-23)
+
+From actual main `ce1c0a6` (including PR106 Text polling changes), own only
+Air6,1 admission to the existing bounded Home controls/file diagnostic, its v66
+recipe and directed validation. Reuse three service lifetimes, five control
+requests, 60 Text edits/five saves, 512 aggregate events and existing deadlines.
+Preserve the exact mount through every epoch and client/runtime retirement.
+Ordinary/continuous desktop admission stays off, and uncertain mounted failures
+halt without cleanup/reset. PR19 Wi-Fi remains independent. The prior v65 run
+is collected and archived; this new payload requires its own physical evidence.
