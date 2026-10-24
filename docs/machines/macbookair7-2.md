@@ -60,8 +60,16 @@ pending-trials and reviewed-evidence directories. Physical post-idle interaction
 and ordinary battery-service efficiency remain outside this unattended recipe.
 
 Main `adf40df` (PR114 generated battery Start/save sequencing) is consumed as
-`eaa35e5`; Pro PR19 `5e9d88a` still owns xHCI/Wi-Fi. Next: bound and test how the
-storage owner waits for completion, or measure individual callback maxima before
+`eaa35e5`; Pro PR19 `5e9d88a` still owns xHCI/Wi-Fi. Integrated source `ca67790`
+passes full local build/core/docs and fresh networked post-idle drag/typing/save.
+Its changed userspace produces v26 `7af8afd122619ce0`; exact EFI/GPT VM capture
+persists six valid timing records, verifies file bytes and returns automatically.
+Missing-workspace automatic recovery also passes.
+That integrated payload has VM evidence only and is not installed; native
+acceptance above remains bound to `9c57ca38a3771eef`.
+
+Next: bound and test how the storage owner waits for completion, or measure
+individual callback maxima before
 changing that behavior. Preserve command deadlines, DMA ownership/quarantine,
 input service, verification and flushing. Coordinate xHCI overlap through the
 published scope before editing it; do not silently mix Wi-Fi bring-up with this
