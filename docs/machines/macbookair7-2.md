@@ -2,7 +2,47 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Current candidate: 20 ms normal desktop validation
+### Storage completion wait milestone accepted for bounded workload
+
+Release `f340e0695d1e2492`, compiled source `c258822`, returned automatically in
+`session-00065e8ceccc2baa-00`. The one-minute desktop capture passed with six
+complete periodic saves, a valid 1440×900 screenshot, no callback failures and
+clean exit. All 1033 previous files retained their bytes except expected exFAT
+metadata; only four logs and the screenshot were added. Offline checks pass at
+1038 files / 2474 clusters, zero leaks, bitmap mismatches or errors. Ubuntu default,
+consumed one-shot and previous recovery `9aa8dbf6fbda8252` are verified. USB is
+unmounted and no further reboot is armed.
+
+| Observed workload | Polling baseline | 20 ms default |
+| --- | --- | --- |
+| Desktop CPU0 idle timer samples | 95.00% | 98.30% |
+| Periodic saves / bytes | 6 / 136678 | 6 / 136710 |
+| Total save wall time | 3.005369 s | 1.883555 s |
+| Save range | 148.681–2002.016 ms | 149.316–622.689 ms |
+| Logger sampled ticks / worker interval | 282 / 52.819 s | 84 / 51.529 s |
+| Compositor switches per second | 10.034 | 10.033 |
+
+The refined policy admits idle during long storage waits without the previous
+run's multi-second periodic saves. This closes the bounded wait milestone with
+the earlier fixed-file native comparison and VM input-under-copy evidence.
+Run-to-run media stalls remain; these single runs do not prove an optimal
+threshold, universal throughput improvement, physical input latency or battery
+life. Package power was 6.786 W over 51.999 seconds, versus baseline 6.949 W;
+thermal conditions were not controlled, so no energy saving is accepted.
+Battery was deliberately off in this idle recipe; the existing ordinary Home
+battery acceptance remains separate.
+
+Final review consumes main `54862de` (Air6,1 evidence-only PR121); kernel/tools
+are identical to the tested source. Pro PR19 `c223f58` remains independent Wi-Fi
+bring-up. PR118 contains the shared owner-checked wait, 20 ms policy, strict
+counterbalanced diagnostic and local regressions. Full build/core and matched
+VM receipts remain those recorded below; final documentation checks pass.
+Raw evidence, payload/recovery and reviewed results are hash-verified outside
+`build`, under the local `pending-trials` and `reviewed-evidence` release folders.
+Next work can address remaining HID/network polling or controlled energy
+measurement as separate milestones; no new scope or hardware run is armed here.
+
+### Previous checkpoint: 20 ms normal desktop validation
 
 Source `4896805` changes the default poll-before-wait threshold to 20 ms and
 preserves historical 4 ms diagnostic collection. Main `bbdbefb` is integrated;
@@ -57,7 +97,7 @@ outside build. Follow-up scope: default threshold, test/collector compatibility,
 docs and matched desktop validation. Consume main `bbdbefb` (Air6,1 PR120)
 before staging. Pro PR19 `5e98a56` retains nonoverlapping Wi-Fi/control dispatch.
 
-### Active follow-up: controlled storage wait comparison
+### Historical preparation: controlled storage wait comparison
 
 Consume main `2702b41` (Air6,1 continuous Home capture) before the next build.
 PR118 remains draft. Add an explicitly staged unattended diagnostic that writes
@@ -91,7 +131,7 @@ Run/reboot state: `build/storage-compare-20261023/checkpoint.json`, also backed 
 outside build before arming. Default 4 ms policy remains unchanged pending these
 measurements; PR118 remains draft.
 
-### Active scope: bounded storage completion waits
+### Original scope: bounded storage completion waits
 
 Branch `device/macbookair7-2/storage-wait` starts at main `4a991df` (PR116
 Air6,1 acceptance docs). Pro PR19 `3ea205a` was inspected: it adds Wi-Fi/control

@@ -410,9 +410,9 @@ while preserving input service, deadlines, DMA quarantine, verification and
 flush policy. Avoid attributing this cost to rendering or reducing persistence
 merely to improve the idle score.
 
-### Bounded storage completion wait (candidate)
+### Bounded storage completion wait
 
-The refined storage bulk candidate polls directly for the first twenty milliseconds, retaining
+The refined storage bulk policy polls directly for the first twenty milliseconds, retaining
 its one-millisecond service yields. Thereafter it may block on its per-device
 completion queue until a matching event or the next timer tick. The existing
 HID/network worker can drain events and wake the owner; a one-tick retry also
@@ -430,11 +430,11 @@ yield/poll loop. Normal scheduler/timer delivery is required for timed blocking.
 
 The original two-second reference-clock deadline and stopped-clock spin budget
 are not renewed by a sleep. A failed transfer still quarantines its pinned DMA
-buffer/rings with no retry or reuse. This candidate changes neither flushing nor
+buffer/rings with no retry or reuse. This policy changes neither flushing nor
 verification nor controller interrupt routing. Waits can add up to one timer
 tick of polling latency (plus scheduling delay) to a slow completion; validate
 throughput as well as CPU samples. Device callback wall time includes sleeping
-and must not be relabeled CPU work. Native efficiency acceptance is pending.
+and must not be relabeled CPU work. Native bounded-workload evidence is recorded below; energy savings remain unproven.
 
 The `xhci` storage status includes cumulative `wait_calls` and `wait_us` for
 accepted helper calls. They include a call that discovers completion before
@@ -446,8 +446,8 @@ The first native candidate `58a61b892c43d2f5` completed capture, persistence and
 recovery with no USB callback failures. Idle samples improved (95.00% to 98.77%),
 but five saves took 5.889351 seconds versus six baseline saves taking 3.005369
 seconds. The records contain different byte totals and coverage. Completion
-polling latency and media variability are not yet separated; PR118 remains
-draft and the wait policy is not performance-qualified. See the reference
+polling latency and media variability were not yet separated at that checkpoint.
+The refined 20 ms follow-up below completes bounded-workload validation. See the reference
 [machine record](machines/macbookair7-2.md) for exact observations and limits.
 
 ### Controlled USB wait comparison
@@ -483,6 +483,25 @@ and exact offline readback. Median operation times were 251.303 ms polling,
 under all policies, with unequal incidence. This single run does not prove an
 optimal threshold or rank energy efficiency. Choose 20 ms conservatively to
 avoid tick-quantization penalties on common short completions, while still
-allowing longer stalls to sleep. Validate the normal desktop logging workload
-before promoting this candidate. The diagnostic parser accepts entry policies
+allowing longer stalls to sleep. The normal desktop logging follow-up below
+validates this default for the bounded workload. The diagnostic parser accepts entry policies
 of 4 ms (historical capture) or 20 ms, and requires restoration in either case.
+
+
+### Refined default: native normal desktop result
+
+Release `f340e0695d1e2492` (compiled `c258822`) completed the one-minute Text-open
+capture and returned automatically. CPU0 idle timer samples were 98.30%, versus
+95.00% in the polling baseline. Six saves / 136710 bytes took 1.883555 seconds,
+versus six / 136678 bytes in 3.005369 seconds; individual saves ranged from
+149.316 to 622.689 ms. Logger samples were 84 over 51.529 seconds, versus 282
+over 52.819 seconds. Compositor activity remained about 10 switches/second.
+There were zero USB callback failures, exact preservation of all prior files,
+clean offline allocation and verified Ubuntu recovery.
+
+This supports the 20 ms default for the tested storage workload, alongside the
+counterbalanced comparison and slow USB copy/input VM regression. It does not
+establish optimality or physical interactive acceptance. Package power measured
+6.786 W over 51.999 seconds versus baseline 6.949 W, but this thermally unmatched
+single pair does not establish savings. Ordinary Home battery efficiency remains
+a separate study; this capture deliberately kept the battery service off.
