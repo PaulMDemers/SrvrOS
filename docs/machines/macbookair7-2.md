@@ -12,9 +12,26 @@ logger/counterbalanced capture records, collectors and directed host/VM tests.
 Keep the 20 ms poll threshold, two-second deadline, DMA quarantine, input service,
 readback and flush policies unchanged. Inspect individual maxima and slow-request
 counts before deciding whether a scheduling or transport change is justified.
-Pro PR19 at `904d2ed` adds unit documentation since `a226d43`; its independent
-Wi-Fi enablement is outside this scope. No pending native run or reboot is armed;
-installed `27b239f96a183fb8` and recovery `9aa8dbf6fbda8252` remain unchanged.
+Pro PR19 was rechecked at `1893150`: WCID Wi-Fi structs/capture work is separate
+from the synchronous storage bookkeeping here; both must survive integration.
+
+Source `ce1c537` passes the full local build/core suite, directed clock/order/
+overflow/stale-event and parser regressions, throttled 4 MiB USB copy with input
+and exact readback, and timeout/quarantine VM checks. The exact EFI/GPT idle VM
+persists six logger saves with complete per-phase timestamps. The fixed-file VM
+persists all eighteen version-2 samples / 54 phase records and exact payload;
+missing-workspace automatic return also passes. These validate instrumentation
+and workflow, not physical latency or improved performance.
+
+PR127 remains draft. Candidate `b824d64a95b27a3b` is staged for an unattended
+counterbalanced capture; no human interaction is needed. Pre-trial baseline is
+`27b239f96a183fb8`; recovery remains `9aa8dbf6fbda8252`. The local run/reboot state
+and collector are in `build/storage-timing-20261024/checkpoint.json`. On return,
+collect the matching session before another run, require all phase details,
+prior-file preservation and clean offline allocation, then review observation
+versus resumption tails. Keep the current normal wait policy until evidence
+supports changing it. The recipe saves and returns to Ubuntu on handled failure
+as well as success. Physical acceptance remains pending.
 
 ### TCP readiness and e1000 receive ownership follow-up
 
