@@ -3996,3 +3996,21 @@ audit restored regidx and did not reset/unbind/write device registers. Sequence1
 four-pair packet,12reads and final MAC0/COREf000f200; no BBP table or RF enable.
 Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched mainde449b3 (Air6,1 Home),
 PR106 Text polling/power separate; existing battery capture profiles preserved.
+
+### 2026-10-23 — v42 VHT protection/fallback candidate installed, unarmed
+
+Source `af42f25`, release `a5200b9a725a2ae5`. Build, compact/xHCI tests,
+ASan/UBSan, 98 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v41
+`015cce9347654d25` retained; v40 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean221files/580clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-vht/run.json`,
+`build/bringup/collect_wifi_mac_vht_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-vht-af42f25/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
