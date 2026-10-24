@@ -122,7 +122,7 @@ static int loop_ensure_wakeup(uv_loop_t *loop) {
         return 0;
     }
     int wake_fds[2];
-    if (pipe(wake_fds) < 0) {
+    if (pipe2(wake_fds, O_CLOEXEC) < 0) {
         return uv_error_from_errno();
     }
     loop->wake_read_fd = wake_fds[0];
@@ -2605,7 +2605,7 @@ int uv_pipe(uv_file fds[2], int read_flags, int write_flags) {
     if (fds == 0) {
         return UV_EINVAL;
     }
-    if (pipe(fds) < 0) {
+    if (pipe2(fds, O_CLOEXEC) < 0) {
         return uv_error_from_errno();
     }
     if ((read_flags & UV_NONBLOCK_PIPE) != 0) {
@@ -2650,6 +2650,9 @@ int uv_pipe_open(uv_pipe_t *handle, uv_file fd) {
     if (handle == 0 || fd < 0 || handle->handle.type != UV_HANDLE_PIPE) {
         return UV_EINVAL;
     }
+    /* Only an explicit spawn dup action should export this handle. Otherwise
+     * an unrelated child can retain a writer and prevent EOF indefinitely. */
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) return uv_error_from_errno();
     if (handle->handle.fd >= 0) {
         close(handle->handle.fd);
     }
@@ -3584,6 +3587,12 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             if (pipe_error < 0) {
                 return errno != 0 ? errno : EINVAL;
             }
+            if (fcntl(fds[0], F_SETFD, FD_CLOEXEC) < 0 ||
+                fcntl(fds[1], F_SETFD, FD_CLOEXEC) < 0) {
+                int saved = errno;
+                close(fds[0]); close(fds[1]);
+                return saved;
+            }
             parent_fds[index] = fds[0];
             child_fds[index] = fds[1];
             if ((flags & UV_NONBLOCK_PIPE) != 0) {
@@ -3601,7 +3610,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             parent_pipes[index] = pipe_handle;
             return spawn_dup2_and_close(actions, child_fds[index], target_fd);
         }
-        if (pipe_handle == 0 || pipe(fds) < 0) {
+        if (pipe_handle == 0 || pipe2(fds, O_CLOEXEC) < 0) {
             return errno != 0 ? errno : EINVAL;
         }
         if (child_uses_read) {

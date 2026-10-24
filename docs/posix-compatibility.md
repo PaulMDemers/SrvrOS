@@ -56,7 +56,11 @@ scatters through an owned buffer, and issues one underlying transfer. Combined
 pipe records obey PIPE_BUF atomicity; readv returns the available prefix without
 blocking again on the next element. Positional vectors leave the shared offset
 unchanged. Requests above 256 KiB may return a short prefix; IOV_MAX is 16.
-Pseudo-eventfd vectored operations return EOPNOTSUPP. The native GUI I/O admission
+Pseudo-eventfd vectored operations return EOPNOTSUPP. The libuv adapter now marks
+its internal wakeup and process pipes CLOEXEC. The new spawn inheritance exposed
+an input-writer leak that kept `cat` alive; both failing runs are retained and the
+corrected normal-deadline libuv suite passes. Lua upstream files/process tests
+also pass with inherited descriptors. The native GUI I/O admission
 rules remain unchanged; vector calls are not admitted during another I/O owner.
 Core/build and focused/full guest thread tests pass: concurrent split-vector
 records, nonblocking no-prefix refusal, EINTR/restart, SIGPIPE, invalid vectors,
