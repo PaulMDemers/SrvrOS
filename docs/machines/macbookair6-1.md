@@ -1654,3 +1654,44 @@ This accepts the explicit three-minute continuous capture only. Ordinary battery
 startup, longer endurance, attended input latency and gauge accuracy remain
 unaccepted. Next is a separately bounded attended Home AC unplug/reconnect trial
 to verify desktop indicator updates and retirement across power transitions.
+
+## Attended Home AC transition scope (2026-10-23)
+
+From main `d5c080d`, own only Air6,1 admission to the existing attended Home
+AC transition capture, its separate v68 recipe and directed tests. Keep exact
+firmware/query permissions, mount/client ownership and checked retirement;
+ordinary startup and indefinite sessions remain excluded. Preserve the existing
+three fresh readings per phase, two-minute phase limit and 480-second capture
+watchdog, plus the Air6,1 4096-event ceiling. PR118 owns USB wait work and PR19
+Wi-Fi; avoid their driver files and preserve their independent recipes. The v67
+run is collected/accepted. This trial starts on AC, prompts for unplug/reconnect,
+and must retain USB throughout; each phase saves its own screenshot.
+
+## Attended Home AC candidate validated (2026-10-23)
+
+Release `5cd210467e3a10fd`, clean compiled source `fe85b9c`, selects v68.
+Full build/USB image, core/desktop, exhaustive capability checks, 72 staging,
+26 collector and four receipt tests pass. Five Air6,1 transition fixtures cover
+completion, profile/query refusal, retained uncertain-acknowledgement fault and
+missing-transition timeout. Completion takes 69.4 seconds with ordered phases
+at generations 1–3, 9–11 and 25–27; three verified screenshots show
+`AC · 86%` → `86%` → `AC · 86%`, with appropriate current direction. Screenshot
+indicator/prompt regions were visually inspected. Timeout saves an incomplete
+result and returns only after clean retirement; uncertain ownership halts.
+Air7,2 transitions and Air6,1 three-minute continuous regressions pass. Exact
+EFI/GPT save/unmount/return and missing-workspace rehearsals pass.
+
+Run `f76a5bcce314a958` retains all 239 USB files unchanged. Offline fsck and
+allocation/headroom pass: 586 clusters, no leaks/mismatches/errors. Superseded
+short Home EFI payload `30b0d713f1a9ed55` was removed only after verifying its
+durable backup; accepted v66/v67 and console recovery remain installed. Payload
+and evidence backups are outside build; final install/unarmed state is recorded
+locally. PR118 storage waits and PR19 Wi-Fi are not part of this tested source.
+
+Native acceptance is pending. Start on AC; keep USB connected throughout. Wait
+for the screen to request unplugging AC, then reconnect only at its next prompt.
+Wait through screenshot saving without changing power early. No keyboard input
+is required. Each phase allows two minutes; normal completion or checked
+incompletion saves and returns. Photograph any halt. Collect matching strict
+transition proof, all logs/three screenshots, previous file hashes and offline
+allocation before another run. Ordinary startup remains disabled.
