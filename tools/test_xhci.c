@@ -2862,6 +2862,67 @@ static void test_wifi_bbp_after_mac(void){
  puts("xhci BBP after MAC: PASS exact fixed chunks, no response for first chunks, ownership, no retry and quarantine");
 }
 
+static void test_wifi_bbp_switch(void){
+ for(unsigned i=0;i<20;i++)for(unsigned fault=0;fault<25;fault++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];compact_fixture(d,2);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->compact_active=false;m->compact_limit=2;m->compact[2]=(struct mt76_mcu_mac){0};m->compact_submitted[2]=0;
+  m->table_mode=true;m->table_active=true;m->clock_mode=true;m->clock.complete=true;m->clock.written=true;m->clock_submitted=true;m->clock.pbf_after=0x80c00;m->bbp.pbf=0x80c00;
+  m->bbp_after_mac_mode=true;m->mac_policy_validate=true;m->mac_fce_validate=true;
+  m->mac_route_mode=true;m->mac_route.complete=true;m->mac_route_submitted=true;
+  m->mac_policy_mode=true;m->mac_policy.complete=true;m->mac_policy_submitted=true;
+  m->mac_protect_mode=true;m->mac_protect.complete=true;m->mac_protect_submitted=true;
+  m->mac_contention_mode=true;m->mac_contention.complete=true;m->mac_contention_submitted=true;
+  m->mac_txsw_mode=true;m->mac_txsw.complete=true;m->mac_txsw_submitted=true;
+  m->mac_beacon_mode=true;m->mac_beacon.complete=true;m->mac_beacon_submitted=true;
+  m->mac_vht_mode=true;m->mac_vht.complete=true;m->mac_vht_submitted=true;
+  m->mac_buffer_mode=true;m->mac_buffer.complete=true;m->mac_buffer_submitted=true;
+  m->mac_fce_mode=true;m->mac_fce.complete=true;m->mac_fce_submitted=true;
+  m->mac_ampdu_mode=true;m->mac_ampdu.complete=true;m->mac_ampdu_submitted=true;
+
+  m->table=(struct mt76_bbp_table){.attempted=true,.complete=true,.reads=124,.chunks_attempted=3,.chunks_completed=3,.ack_validated=true};m->table_submitted=3;
+  m->bbp_switch_mode=true;m->bbp_switch_active=true;m->bbp_switch_submitted=i;
+  m->bbp_switch=(struct mt76_bbp_switch){.attempted=true,.reads=26+2*i,.writes_attempted=i+1,.writes_completed=i};m->bbp_switch.write_core[i]=0xf000f200;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  events[0]=control_event(0x9020,fault==24?6:1,0);
+  if(fault==1)m->bbp_switch_mode=false;
+  if(fault==2)m->bbp_switch_active=false;
+  if(fault==3)m->bbp_after_mac_mode=false;
+  if(fault==4)m->table.complete=false;
+  if(fault==5)m->table.ack_validated=false;
+  if(fault==6)m->table.reads--;
+  if(fault==7)m->table.chunks_attempted--;
+  if(fault==8)m->table.chunks_completed--;
+  if(fault==9)m->table_submitted--;
+  if(fault==10)m->bbp_switch.attempted=false;
+  if(fault==11)m->bbp_switch.complete=true;
+  if(fault==12)m->bbp_switch.reads--;
+  if(fault==13)m->bbp_switch.writes_attempted++;
+  if(fault==14)m->bbp_switch.writes_completed++;
+  if(fault==15)m->bbp_switch_submitted++;
+  if(fault==16)m->bbp_switch.write_mac[i]=1;
+  if(fault==17)m->bbp_switch.write_core[i]=0;
+  if(fault==18)m->pending=true;
+  if(fault==19)m->mac_ampdu.complete=false;
+  if(fault==20)m->mac_policy_validate=false;
+  if(fault==21)m->mac_fce_validate=false;
+  if(fault==22)m->table_active=false;
+  if(fault==23)m->table.attempted=false;
+  uint32_t a=mt76_bbp_switch_address(i),v=mt76_bbp_switch_value(i);
+  if(!fault){
+   for(unsigned bit=0;bit<32;bit++){assert(!wifi_bbp_switch_write(d,i,a^(1u<<bit),v));assert(!wifi_bbp_switch_write(d,i,a,v^(1u<<bit)));}
+   assert(!wifi_bbp_switch_write(d,20,a,v));uint32_t value;assert(!wifi_bbp_switch_read(d,0x2cbc,&value));
+  }
+  assert(wifi_bbp_switch_write(d,i,a,v)==(!fault));
+  if(!fault){assert(m->bbp_switch_submitted==i+1);for(unsigned n=0;n<4;n++)assert(buffer[n]==(uint8_t)(v>>(8*n)));assert(d->firmware.control_index==a && d->firmware.control_request==6 && d->firmware.control_type==0x40 && d->firmware.control_length==4);assert(!wifi_bbp_switch_write(d,i,a,v));}
+  else if(fault==24)assert(d->ep0_quarantined && d->firmware.failed && m->bbp_switch_submitted==i+1);
+  else assert(!d->ep0_enqueue);
+ }
+ puts("xhci BBP switch: PASS fixed payload/order, ownership, table prerequisites, no retry and error quarantine");
+}
+
 static void test_wifi_mac_route(void){
  for(unsigned fault=0;fault<23;fault++){
   reset_test();test_time=0;test_time_step=1000;
@@ -3708,6 +3769,7 @@ int main(int argc, char **argv) {
     test_wifi_mac_route();
     test_wifi_full_table();
     test_wifi_bbp_after_mac();
+    test_wifi_bbp_switch();
     test_wifi_clock();
     test_wifi_txbe_direct();
     test_wifi_txbe_access_reads();

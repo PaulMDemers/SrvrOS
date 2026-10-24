@@ -4442,3 +4442,10 @@ outside build under `~/.local/share/srvros/macbookpro11-2/bbp-switch-audit-9b01d
 No new native candidate installed or boot armed. Actual integration base4a991df;
 fetched main7b0d1a0 includes merged PR118 storage-wait (merge9087fd8), which
 is not incorporated in this device checkout. Open PR123 owns network polling.
+
+Active scope: v48 fixed20-entry G/20 BBP switch following v47 capture.
+Touch mt76 pure engine, xHCI binding/main, boot profiles/tests and current guides.
+Use direct request6 writes, exact fixed order,88 reads with MAC/CORE guards
+before every write, one attempt, full receipts and observational readbacks.
+Retain all prerequisite gates and old profiles. No DCOC/RF/TX/RX enable.
+Base4a991df; main7b0d1a0/merged storage-wait not yet integrated; PR123 separate.

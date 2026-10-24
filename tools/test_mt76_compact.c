@@ -861,7 +861,43 @@ static void test_mac_fce_validate(void){
  puts("MAC FCE validation: PASS exact write1/read5, 32 rejected full-word mutations, guards/ACK/IO/cancellation and no retry");
 }
 
-int main(void){
+static const uint32_t switch_addr[20]={0x2310,0x2318,0x2320,0x2330,0x2334,0x2338,0x2368,0x236c,0x2370,0x237c,0x2380,0x2384,0x238c,0x239c,0x23ac,0x23cc,0x23d4,0x23dc,0x23e8,0x2800};
+static const uint32_t switch_value[20]={0x1feda049,0x45,0x16344ef0,0x5052879,0x35050004,0x310f2e3c,0x7c2005,0xe1,0x60806,0xe23,0x3218,0x3240,0x11111616,0x2a2a3036,0x27273438,0x17171c1c,0x26262a2f,0x40404040,0x1010,0x3d5000e0};
+struct switch_fake {unsigned reads,writes,auth,fail_read,fail_write,deny,bad_read,ones_read;bool mismatch;};
+static bool switch_auth(void *p){struct switch_fake *f=p;return ++f->auth!=f->deny;}
+static bool switch_fake_read(void *p,uint32_t a,uint32_t *v){
+ struct switch_fake *f=p;unsigned n=f->reads++,x=n>=64?n-64:n;
+ if(n>=24 && n<64){assert(f->writes==(n-24)/2);assert(a==((n&1)?0x2000u:0x1004u));*v=(n&1)?0xf000f200:0;}
+ else if(x==0 || x==22){assert(a==0x1004);*v=0;}
+ else if(x==1 || x==23){assert(a==0x2000);*v=0xf000f200;}
+ else{assert(x>=2 && x<22 && a==switch_addr[x-2]);*v=n<24?0: switch_value[x-2];if(f->mismatch && n>=64)*v^=1;}
+ if(f->bad_read==n+1)*v^=1;
+ if(f->ones_read==n+1)*v=UINT32_MAX;
+ return f->fail_read!=n+1;
+}
+static bool switch_fake_write(void *p,unsigned i,uint32_t a,uint32_t v){
+ struct switch_fake *f=p;assert(i==f->writes && f->reads==26+2*i && a==switch_addr[i] && v==switch_value[i]);
+ return ++f->writes!=f->fail_write;
+}
+static enum mt76_mcu_timing_status switch_run(struct switch_fake *f,struct mt76_bbp_switch *s){const struct mt76_bbp_switch_io io={f,switch_auth,switch_fake_read,switch_fake_write};return mt76_bbp_switch_apply(s,&io);}
+static void test_bbp_switch(void){
+ struct switch_fake f={0};struct mt76_bbp_switch s={0};
+ assert(switch_run(&f,&s)==MT76_TIMING_OK && s.complete && s.reads==88 && s.writes_completed==20 && !s.mismatches && f.auth==109);
+ assert(switch_run(&f,&s)==MT76_TIMING_REFUSED && f.writes==20);
+ for(unsigned n=1;n<=88;n++){
+  f=(struct switch_fake){.fail_read=n};s=(struct mt76_bbp_switch){0};assert(switch_run(&f,&s)==MT76_TIMING_IO && !s.complete && f.reads==n);
+  f=(struct switch_fake){.ones_read=n};s=(struct mt76_bbp_switch){0};assert(switch_run(&f,&s)==MT76_TIMING_STATE && !s.complete && f.reads==n);
+  unsigned x=n-1;if((x>=24 && x<64) || (x%64<2) || x==22 || x==23 || x==86 || x==87){f=(struct switch_fake){.bad_read=n};s=(struct mt76_bbp_switch){0};assert(switch_run(&f,&s)==MT76_TIMING_STATE && f.reads==n);}
+ }
+ for(unsigned n=1;n<=20;n++){f=(struct switch_fake){.fail_write=n};s=(struct mt76_bbp_switch){0};assert(switch_run(&f,&s)==MT76_TIMING_IO && f.writes==n && s.writes_completed==n-1 && !s.complete);assert(switch_run(&f,&s)==MT76_TIMING_REFUSED);}
+ for(unsigned n=1;n<=109;n++){f=(struct switch_fake){.deny=n};s=(struct mt76_bbp_switch){0};assert(switch_run(&f,&s)==MT76_TIMING_CANCELLED && f.auth==n && !s.complete);}
+ f=(struct switch_fake){.mismatch=true};s=(struct mt76_bbp_switch){0};assert(switch_run(&f,&s)==MT76_TIMING_OK && s.mismatches==20);
+ for(unsigned i=0;i<20;i++){assert(mt76_bbp_switch_address(i)==switch_addr[i] && mt76_bbp_switch_value(i)==switch_value[i]);assert(mt76_bbp_switch_read_allowed(switch_addr[i]));}
+ assert(mt76_bbp_switch_address(20)==UINT32_MAX && mt76_bbp_switch_value(20)==UINT32_MAX && !mt76_bbp_switch_read_allowed(0x2cbc));
+ assert(mt76_bbp_switch_apply(NULL,NULL)==MT76_TIMING_REFUSED);
+ puts("BBP switch: PASS20 ordered writes,88 reads, every IO/cancellation/all-ones/guard failure, no retry, mismatch observations");
+}
+int main(void){test_bbp_switch();
  test_mac_ampdu();
  test_mac_fce_validate();
  test_mac_fce();

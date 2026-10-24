@@ -1991,3 +1991,10 @@ not justify admitting all-ones in the proposed G/20 stage, whose fixed values
 are all non-all-ones. Runtime samples are comparison evidence, not initialization
 expectations or proof of association. Exact selection/transport fixtures and
 the source audit are archived in the Pro11,2 evidence directory.
+
+The v48 candidate now implements this fixed20-entry switch through direct USB
+writes after v47 completes. Each write is preceded by MAC0/COREf000f200 checks;
+88 reads cover snapshots and guards. Exact index/address/value, prerequisite
+completion and transport ownership are required; attempted writes cannot retry.
+The full capture reports mismatches as observations (`register_acceptance=NOT_TESTED`).
+No RF/DCOC/channel/TX/RX enable is added. Native acceptance remains pending.

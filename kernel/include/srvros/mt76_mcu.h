@@ -262,4 +262,20 @@ enum mt76_mcu_timing_status mt76_mac_policy_validate(struct mt76_mcu_mac *s,
 size_t mt76_mac_ampdu_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_mac_ampdu_apply(struct mt76_mcu_mac *s,const struct mt76_mcu_timing_io *io);
 
+#define MT76_BBP_SWITCH_ENTRIES 20
+struct mt76_bbp_switch {
+    bool attempted, complete;
+    unsigned reads, writes_attempted, writes_completed, mismatches;
+    uint32_t before[20], after[20], mac[4], core[4], write_mac[20], write_core[20];
+};
+struct mt76_bbp_switch_io {
+    void *context;
+    bool (*authorize)(void *context);
+    bool (*read)(void *context,uint32_t address,uint32_t *value);
+    bool (*write)(void *context,unsigned index,uint32_t address,uint32_t value);
+};
+uint32_t mt76_bbp_switch_address(unsigned index);
+uint32_t mt76_bbp_switch_value(unsigned index);
+bool mt76_bbp_switch_read_allowed(uint32_t address);
+enum mt76_mcu_timing_status mt76_bbp_switch_apply(struct mt76_bbp_switch *s,const struct mt76_bbp_switch_io *io);
 #endif

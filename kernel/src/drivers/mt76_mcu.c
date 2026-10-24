@@ -1017,3 +1017,62 @@ enum mt76_mcu_timing_status mt76_mac_ampdu_apply(struct mt76_mcu_mac *s,
     s->complete=true;return MT76_TIMING_OK;
 #undef MAC_READ
 }
+
+/* Fixed Linux v7.0 G-band/20MHz defaults; no RF/channel or MAC enable. */
+static const struct mt76_mcu_register_pair bbp_switch[20]={
+    {0x2310,0x1feda049},
+    {0x2318,0x45},
+    {0x2320,0x16344ef0},
+    {0x2330,0x5052879},
+    {0x2334,0x35050004},
+    {0x2338,0x310f2e3c},
+    {0x2368,0x7c2005},
+    {0x236c,0xe1},
+    {0x2370,0x60806},
+    {0x237c,0xe23},
+    {0x2380,0x3218},
+    {0x2384,0x3240},
+    {0x238c,0x11111616},
+    {0x239c,0x2a2a3036},
+    {0x23ac,0x27273438},
+    {0x23cc,0x17171c1c},
+    {0x23d4,0x26262a2f},
+    {0x23dc,0x40404040},
+    {0x23e8,0x1010},
+    {0x2800,0x3d5000e0},
+};
+uint32_t mt76_bbp_switch_address(unsigned i){return i<20?bbp_switch[i].address:UINT32_MAX;}
+uint32_t mt76_bbp_switch_value(unsigned i){return i<20?bbp_switch[i].value:UINT32_MAX;}
+bool mt76_bbp_switch_read_allowed(uint32_t a){
+    if(a==0x1004 || a==0x2000)return true;
+    for(unsigned i=0;i<20;i++)if(a==bbp_switch[i].address)return true;
+    return false;
+}
+static enum mt76_mcu_timing_status switch_read(struct mt76_bbp_switch *s,const struct mt76_bbp_switch_io *io,uint32_t a,uint32_t *v){
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!io->read(io->context,a,v))return MT76_TIMING_IO;
+    s->reads++;return *v==UINT32_MAX?MT76_TIMING_STATE:MT76_TIMING_OK;
+}
+enum mt76_mcu_timing_status mt76_bbp_switch_apply(struct mt76_bbp_switch *s,const struct mt76_bbp_switch_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->write)return MT76_TIMING_REFUSED;
+    s->attempted=true;enum mt76_mcu_timing_status status;
+#define SWITCH_READ(a,v) do{status=switch_read(s,io,a,v);if(status!=MT76_TIMING_OK)return status;}while(0)
+#define SWITCH_GUARD(m,c) do{SWITCH_READ(0x1004,m);if(*(m))return MT76_TIMING_STATE;SWITCH_READ(0x2000,c);if(*(c)!=0xf000f200)return MT76_TIMING_STATE;}while(0)
+    for(unsigned stage=0;stage<2;stage++){
+        SWITCH_GUARD(&s->mac[stage*2],&s->core[stage*2]);
+        for(unsigned i=0;i<20;i++)SWITCH_READ(bbp_switch[i].address,stage?&s->after[i]:&s->before[i]);
+        SWITCH_GUARD(&s->mac[stage*2+1],&s->core[stage*2+1]);
+        if(!stage)for(unsigned i=0;i<20;i++){
+            SWITCH_GUARD(&s->write_mac[i],&s->write_core[i]);
+            if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+            s->writes_attempted++;
+            if(!io->write(io->context,i,bbp_switch[i].address,bbp_switch[i].value))return MT76_TIMING_IO;
+            s->writes_completed++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    for(unsigned i=0;i<20;i++)if(s->after[i]!=bbp_switch[i].value)s->mismatches++;
+    s->complete=true;return MT76_TIMING_OK;
+#undef SWITCH_READ
+#undef SWITCH_GUARD
+}
