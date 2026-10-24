@@ -5192,3 +5192,24 @@ are archived outside build in
 Next: attended cold adapter cycle, then collect the matching release/session
 first. Require all prior v56 proof plus the four exact board settings and saved
 completion/recovery evidence. Physical board-setting acceptance remains pending.
+
+### 2026-10-24 — fixed board power/I/O prerequisites accepted
+
+Source `3af56f0`, release `69718a055422766a`, session
+`session-00065e9c42605b54-00` passed the strict v57 collector. All 32 operations
+and submissions completed, with 28 reads, four writes and four exact
+verifications. PWR_PIN_CFG1204 a->0, IOCFG6 124 a0140280->a0040080,
+LDO0 6c a647a4->a647b6 and LDO1 70 6b006868->6b006464 matched both required
+initial values and target readbacks. Eight MAC0/COREf000f200 guard pairs passed;
+all four DMA checks were40000050 with enable/busy low four bits clear. Every
+earlier initialization prerequisite, including private address setup, and both
+completion markers passed. RF and connectivity remain NOT_TESTED.
+
+Collection `build/bringup/wifi-mac-board/collection/collection-3m102t0s` is
+archived with run/checkpoint, collector and hashes under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-board-3af56f0/`.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean257files/634clusters,102directories,zero leaks or
+allocation mismatches; workspace unmounted and no reboot armed. Next: audit
+PHY antenna selection and RF/calibration prerequisites. Acceptance is bounded to
+the four settings on this captured device; no sibling or usable-Wi-Fi claim.

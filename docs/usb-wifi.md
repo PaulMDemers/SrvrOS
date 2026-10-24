@@ -2325,9 +2325,19 @@ stops without retry; uncertain USB completion retains quarantined DMA resources.
 Private mapped-header bytes must already be cleared, and every prior v56 phase
 must have completed. Saved receipts contain only these public register values.
 
-This is a board power/I/O trial, with physical acceptance pending. It adds no
+This board power/I/O trial is accepted on the captured adapter as recorded below. It adds no
 RF-bank, channel, rate-power, antenna, MAC-enable or DMA-configuration writes.
 Linux's live enabled-MAC observations are reference evidence, not native disabled
 state acceptance. Existing profiles remain unchanged. The strict collector
 requires the full earlier initialization proof and all new receipts; missing,
 duplicate or altered receipts cannot pass. RF and connectivity remain untested.
+
+Native source `3af56f0`, release `69718a055422766a`, session
+`session-00065e9c42605b54-00` passed all 32 operations: 28 reads, four writes and
+four exact target verifications. Initial values and readbacks matched the table;
+all eight MAC0/COREf000f200 pairs passed, with DMA40000050 at all four checks
+(enable/busy low four bits clear). The complete earlier initialization proof,
+both completion markers, saved exit log, Ubuntu recovery and offline filesystem
+checks passed. This accepts these four fixed settings on this adapter only.
+PHY antenna selection, RF tables/calibration, channel/regulatory setup, data
+transfers, association, authentication and usable Wi-Fi remain separate work.
