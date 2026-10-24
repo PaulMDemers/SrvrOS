@@ -4138,3 +4138,22 @@ reject every other full word, no masked bits. Preserve v44 observation semantics
 Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched main180b542 with compositor
 idle changes; PR114 battery Start/save and PR115 logger timing remain separate.
 No new register writes, BBP table or RF enable in this trial.
+
+### 2026-10-23 — v45 exact FCE profile validator installed, unarmed
+
+Source `538fee1`, release `7301441289281aaf`. Build, compact/xHCI tests,
+ASan/UBSan, 101 boot-profile tests and docs checks passed. Collector rejects64
+single-bit readback mutations and five invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native validation pending for this exact captured profile.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Completed
+v44 observation `6e342f3cdd9f35db` retained; v43 payload removed from ESP only
+after full equality with its durable archive. UUID0E53-5900 clean227files/589clusters,
+zero allocation errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-fce-validate/run.json`,
+`build/bringup/collect_wifi_fce_validate_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-fce-validate-538fee1/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. Full-word5/03ff0223 validation only; no generalized
+bit mask, BBP table or RF/connectivity acceptance.
