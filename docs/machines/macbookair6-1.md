@@ -1493,3 +1493,33 @@ normal completion/refusal saves and returns to Ubuntu. Photograph any halt.
 Require matching `battery_home_session`, five saved files containing `AA`,
 unchanged prior file contents, clean allocation and consumed one-shot. Final
 installation and unarmed state are recorded in the local run/launch records.
+
+## Bounded Home session failed, clean retirement (2026-10-23)
+
+Close out only this unit's native evidence on main `db10404` (MR111).
+PR112 owns compositor idle work and PR19 Wi-Fi; no shared implementation changes
+are made in this closeout. Session `00065e8b68f3ad24-00`, release
+`f60d9b426e2693f3` / compiled `12aad26`, is **failed**, not accepted.
+
+The generated workload stopped at 12 generated/11 presented edits, zero saves
+and one Start request. Initial EC setup took 4.941 seconds. At failure the Start
+was still waiting for fresh generation 2; Text reached its first save with
+`waiting=1`, and `tool_file_capture_begin` rejects a pending control. This points
+to a diagnostic sequencing race, requiring a reproducer with delayed second
+sample before implementing a fix. The existing slow-setup/storage VM did not
+cover this native readiness ordering. Do not simply widen hardware permissions
+or classify the clean return as workload success.
+
+The service completed generation 2/30 events, with two handled and zero unclaimed
+SCI deliveries, then retired: attach/detach 1/1, zero heap/errors/denied. Three
+clients retire, Home releases, the failed report is saved and Ubuntu returns.
+All 222 prior files are unchanged except expected `.srvros/meta`; three new logs
+bring the total to 225. The study still contains only its original anchor; no
+Text output was saved. Offline fsck/allocation/headroom pass (537 clusters,
+zero leaks/mismatches/errors), installed/recovery hashes pass and the one-shot
+is consumed. Raw evidence, study contents and file checks are backed up outside
+build. USB is unmounted; no reboot is armed and no retry is prepared.
+
+Next: make generated saves wait for initial Start readiness, reproduce delayed
+fresh generation 2, and rerun directed session tests before preparing a retry.
+Keep this failed evidence and existing study directory intact during preparation.
