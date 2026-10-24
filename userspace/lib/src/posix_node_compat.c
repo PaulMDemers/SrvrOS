@@ -485,20 +485,14 @@ int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t 
     return sched_setaffinity((pid_t)thread, cpusetsize, mask) == 0 ? 0 : errno;
 }
 
-int pthread_getschedparam(pthread_t thread, int *policy, void *param) {
-    (void)thread;
-    (void)param;
-    if (policy != 0) {
-        *policy = 0;
-    }
-    return 0;
+int pthread_getschedparam(pthread_t thread, int *policy, struct sched_param *param) {
+    if(!policy || !param) return EINVAL;
+    if(srv_thread_signal((uint64_t)(uintptr_t)thread,0)<0) return ESRCH;
+    *policy=SCHED_OTHER;param->sched_priority=0;return 0;
 }
-
-int pthread_setschedparam(pthread_t thread, int policy, const void *param) {
-    (void)thread;
-    (void)policy;
-    (void)param;
-    return 0;
+int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param *param) {
+    if(!param || policy!=SCHED_OTHER || param->sched_priority!=0) return EINVAL;
+    return srv_thread_signal((uint64_t)(uintptr_t)thread,0)<0?ESRCH:0;
 }
 
 int fork(void) {
