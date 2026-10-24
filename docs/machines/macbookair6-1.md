@@ -2249,3 +2249,28 @@ The obsolete failed `06b0976a58151901` EFI copy is retired for space only after
 its durable payload backup is hash-verified. Prior accepted payloads and the
 previous automated diagnostic remain preserved. Native improvement is pending
 returned evidence; this does not yet resolve the attended intermittent failure.
+
+### Automated heap trial result (2026-10-24)
+
+Run `c741adb1f4bd0f75`, release `4efd82574f07eb30`, runtime source `e7b29e7`
+(merged through PR138, `27f0870`) passes both automated native desktop lifetimes.
+Sessions `00065e9dea272465-00` and `00065e9deb7d9404-00` completed startup in
+3,604,290 and 3,618,725 us, respectively, versus 4,796,986 and 4,917,553 us in
+the preceding diagnostic. This run is 24.86%/26.41% faster and leaves at least
+1,381,275 us below the unchanged five-second startup deadline. This is an
+observed paired-run improvement, not a worst-case bound under interactive load.
+
+Fresh battery generations 7/6 and epochs 1/2 each retired with balanced attach/
+detach, zero final heap/errors/denied and released desktop lifetimes. Queries
+were 105/90, with one notification in each lifetime. All 296 prior files except
+mutable `.srvros/meta` retain identical contents; eight new session logs bring
+the clean filesystem to 304 files/858 clusters, with no leaks or FAT/bitmap
+mismatches. Automatic Ubuntu return and collection completed; all 303 durable
+trial backup files were hash-verified. The collector is disabled and GRUB's
+one-shot entry is empty; no reboot remains armed.
+
+This accepts the short automated startup/reopen/retirement trial with the heap
+optimization and preserved full integrity checks. It does not yet accept the
+previously failing attended reopen under Text/file/audio work or extended
+endurance. Next useful coverage is an attended combined desktop session followed
+by close/reopen and resumed Text/file work, retaining the same startup deadline.

@@ -798,3 +798,10 @@ allocation/recycling lifecycles and prints wall time, validation/search visits
 and payload checksums. It is a deterministic workload shape, not a captured AML
 allocation trace. Host timing is informative rather than a CI threshold; native
 startup timing and clean retirement remain the acceptance evidence.
+
+Native release `4efd82574f07eb30` completed both automated lifetimes in the
+October 24 trial: startup took 3.604/3.619 seconds, versus 4.797/4.918 seconds
+before the heap change, with fresh samples and clean retirement. Full integrity
+checks and the five-second deadline remain intact. This accepts the short
+automated lifecycle; attended combined-session reopen and endurance still need
+revalidation. See the machine record for the evidence scope.
