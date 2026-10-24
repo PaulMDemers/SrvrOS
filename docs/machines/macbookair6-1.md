@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement accepted.**
+Updated: 2026-10-23. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -60,7 +60,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
-| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement accepted | Mounted USB coexistence, desktop ownership, sustained sampling and gauge accuracy; ordinary desktop remains off |
+| Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Mounted Home coexistence, desktop ownership, sustained sampling and gauge accuracy; ordinary desktop remains off |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -1309,3 +1309,83 @@ Keep AC and USB connected; no input or charger changes are required. Expect
 Photograph any fault. On return collect this release before further work and
 verify its complete receipt, exact inner image, all other files and both
 allocation graphs. A quick return alone is not acceptance.
+
+## Battery/file return closeout scope (2026-10-23)
+
+From main `7638d57` (including PR102 filesystem scale), this closeout only records
+the returned Air6,1 candidate and missed image preparation check. No shared
+runtime/filesystem changes; Pro PR19 Wi-Fi remains independent. The installed
+physical candidate predates PR102 and stays identified by its own source/release.
+
+## First battery/file return: image preparation refused (2026-10-23)
+
+Release `fc1d1f4c45d30252`, source `cac24ef`, session `00065e8a98eec3bc-00`
+saved `completed=NO` with `battery media parked=NO fault-reset=NO`. The exclusive
+image was refused before outer unmount, battery runtime entry or Text/file work.
+This is failed preparation, not coexistence acceptance or a runtime failure.
+
+The 16 MiB image has the correct size/valid length but its 128-cluster FAT chain
+jumps from cluster 392 to 394. The read-only native-driver `--battery-image`
+check reproduces `image-range: REFUSED`. General allocation and fsck passed
+before boot, but the dedicated contiguous-extent check was omitted. A valid
+filesystem and matching image bytes do not prove exclusive-range admission.
+
+All 212 prior files remain unchanged except expected `.srvros/meta`; the inner
+image is byte-identical to its fresh baseline. Three logs bring the total to
+215 files. Outer fsck/allocation pass (523 clusters, zero leaks/mismatches/errors);
+inner checks pass (two files, seven clusters). Payload/recovery hashes, Ubuntu
+default and consumed one-shot verify. USB is unmounted, no reboot is armed, and
+matching logs/image/layout/return evidence is independently backed up.
+
+Next prepare a fresh contiguous image, preserving this failed run's evidence,
+and require `check_exfat_allocation.py --uuid 6ADA-85BB --battery-image` to pass
+on the unmounted real drive before installation/boot. Do not relax exclusive
+range checks or treat another general allocation pass as a substitute. Any new
+payload built on the later integration baseline needs its own exact-stage
+validation; this run does not accept the filesystem-scale changes from PR102.
+
+## Contiguous-image retry scope (2026-10-23)
+
+From main `c43d27c`, this preparation only replaces the unused disposable image's
+allocation and repeats exact-payload/media checks. Reuse installed release
+`fc1d1f4c45d30252`, clean compiled source `cac24ef`, without rebuilding or importing
+PR102 filesystem changes. PR106 package-energy measurement and PR19 Wi-Fi remain
+independent. Preserve the failed native evidence and image bytes; no kernel or
+firmware permissions change. Native battery/file coexistence remains pending.
+
+Holding the original image while writing a new copy first encountered a second
+one-cluster gap. Holding both unused copies produced a contiguous 128-cluster
+image at byte offset 88473600 (first cluster 653, NoFatChain set). Both temporary
+files were removed only after byte comparison. Final real-drive `--battery-image`
+passes, independent FAT layout inspection has no breaks, and all 215 original
+file hashes still match. Offline fsck/allocation passes with 523 clusters and
+zero leaks/mismatches/errors. The retry prelaunch script now requires the extent
+check explicitly; a general filesystem pass cannot satisfy it.
+
+The repeated exact-stage EFI/GPT rehearsal passes: native platform refusal,
+saved diagnostics, verified disposable files, clean unmount and return. Installed
+candidate/recovery hashes, Ubuntu default and empty one-shot pass. The final
+prelaunch check verifies AC, unchanged host boot, USB UUID, all 215 file hashes,
+fsck and the required contiguous extent. Retry evidence has its own durable
+backup alongside the unchanged payload and failed run. USB is unmounted and no
+reboot is armed. Keep AC/USB connected; the automatic 60-edit/five-save test
+needs no input. Collect its matching session before any subsequent trial.
+
+## Battery/file coexistence native acceptance (2026-10-23)
+
+Closeout from main `94c9b15`: update only this unit's capability records and
+current guide. PR106 power measurement and PR19 Wi-Fi remain independent.
+Release `fc1d1f4c45d30252` / source `cac24ef`, retry `bcbabcafe3b8c68c`, session
+`00065e8ac0a116ff-00` passes the strict receipt and exact inner-image validation:
+60 edits, five file cycles/20 operations, fresh generation 24 and 360 completion
+events. All 24 SCI deliveries were handled, none unclaimed; no alarms occurred.
+Three descendants, runtime and image retire in order; attach/detach 1/1 and
+heap/errors/denied zero. This accepts bounded exclusive-image coexistence only.
+
+Prior files are preserved except intended image/meta changes; three new logs
+produce 218 files. Outer/inner fsck and allocation pass (527/14 clusters), no
+leaks/mismatches/errors; the image extent remains contiguous. Ubuntu default,
+consumed one-shot and candidate/recovery hashes pass. USB is unmounted, no reboot
+is armed, and evidence is backed up separately from the failed preparation.
+Next scope is explicit mounted Home ownership before ordinary desktop battery
+startup. No acceptance is inferred for the later PR102 filesystem implementation.

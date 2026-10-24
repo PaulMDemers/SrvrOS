@@ -2,7 +2,8 @@
 
 Short parked SMBus sampling and bounded attended AC unplug/reconnect are
 physically accepted on this unit, including two observed alarm acknowledgements
-and clean runtime retirement. Battery gauge accuracy, broader alarm behavior,
+and clean runtime retirement. A bounded minute of battery sampling alongside
+Text saves/reads in an exclusive USB image is also accepted. Battery gauge accuracy, broader alarm behavior,
 sustained operation and desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
@@ -395,3 +396,56 @@ changes are required. On return require the strict `battery_smbus_files` receipt
 all 60 edits/five cycles, fresh post-alarm cache, balanced resource retirement and
 clean image revocation. Verify exact inner contents, both allocation graphs and
 all other USB file hashes. Native coexistence acceptance remains pending.
+
+## First battery/file return: image preparation refused (2026-10-23)
+
+Release `fc1d1f4c45d30252`, source `cac24ef`, session `00065e8a98eec3bc-00`
+saved `completed=NO` with `battery media parked=NO fault-reset=NO`. The exclusive
+image was refused before outer unmount, battery runtime entry or Text/file work.
+This is failed preparation, not coexistence acceptance or a runtime failure.
+
+The 16 MiB image has the correct size/valid length but its 128-cluster FAT chain
+jumps from cluster 392 to 394. The read-only native-driver `--battery-image`
+check reproduces `image-range: REFUSED`. General allocation and fsck passed
+before boot, but the dedicated contiguous-extent check was omitted. A valid
+filesystem and matching image bytes do not prove exclusive-range admission.
+
+All 212 prior files remain unchanged except expected `.srvros/meta`; the inner
+image is byte-identical to its fresh baseline. Three logs bring the total to
+215 files. Outer fsck/allocation pass (523 clusters, zero leaks/mismatches/errors);
+inner checks pass (two files, seven clusters). Payload/recovery hashes, Ubuntu
+default and consumed one-shot verify. USB is unmounted, no reboot is armed, and
+matching logs/image/layout/return evidence is independently backed up.
+
+Next prepare a fresh contiguous image, preserving this failed run's evidence,
+and require `check_exfat_allocation.py --uuid 6ADA-85BB --battery-image` to pass
+on the unmounted real drive before installation/boot. Do not relax exclusive
+range checks or treat another general allocation pass as a substitute. Any new
+payload built on the later integration baseline needs its own exact-stage
+validation; this run does not accept the filesystem-scale changes from PR102.
+
+## Exclusive-image file coexistence accepted (2026-10-23)
+
+The contiguous-image retry of release `fc1d1f4c45d30252`, clean source `cac24ef`,
+run `bcbabcafe3b8c68c`, session `00065e8ac0a116ff-00` passes the strict native
+file receipt. It completed 60 generated/presented edits, five save/open cycles
+and 20 file-worker operations over a minute, alongside fresh generations 1–24
+and 360 natural completion events. There were 24 handled/zero unclaimed SCI
+deliveries, 24 attempts/zero rejects, balanced 1/1 attach/detach and zero retired
+heap/errors/denied. All three descendants retired before service retirement and
+clean image revocation. No alarms occurred in this file-work run.
+
+The exact final inner contents verify. All 215 previous outer files are
+preserved except expected image contents and `.srvros/meta`; three matching logs
+bring the total to 218. Outer fsck/allocation/extent pass (527 clusters); inner
+fsck/allocation pass (eight files, 14 clusters), with zero leaks, bitmap mismatches
+or errors. The extent remains contiguous. Installed/recovery hashes, Ubuntu
+default and consumed one-shot verify. Evidence is independently backed up; USB
+is unmounted and no reboot is armed.
+
+This accepts only bounded battery/Text coexistence in the exclusive image with
+outer Home parked. Ordinary mounted Home, desktop battery startup, physical
+input latency, longer endurance and gauge accuracy remain unaccepted. The next
+boundary is explicit mounted Home ownership and normal-return retirement, before
+ordinary desktop integration. Preserve the failed fragmented-image session as
+separate evidence; it is not reclassified by this successful retry.

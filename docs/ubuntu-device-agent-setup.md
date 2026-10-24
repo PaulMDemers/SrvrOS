@@ -917,7 +917,8 @@ For the captured Air6,1, build `acpi-air61-battery-kernel` and add
 `--battery-air61` to the `--battery-smbus-files` laptop probe command. This selects
 the separate v64 recipe and exact Air6,1 gate. Follow the same fresh-image and
 return checks; see the [Air6,1 audit](macbookair6-1-battery.md#bounded-usb-file-coexistence-candidate-v64).
-Native coexistence acceptance remains pending.
+Bounded Air6,1 exclusive-image coexistence is accepted on release `fc1d1f4c45d30252`;
+ordinary mounted Home and startup remain unaccepted.
 
 ### Automatic continuous Home battery trial
 
