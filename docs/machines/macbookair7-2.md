@@ -2,6 +2,24 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
+### Active scope: event-driven quiescent compositor
+
+Branch `device/macbookair7-2/compositor-idle` starts from main `ce1c0a6`
+(PR110 Air6,1 acceptance documentation). Pro PR19 `abce24a` retains USB Wi-Fi;
+its diff has no overlapping GUI, syscall, keyboard queue or mouse queue changes.
+This bounded follow-up adds a server-only combined input/message wait and opts
+in only the otherwise idle ordinary compositor. Keyboard, pointer and client
+messages must wake it immediately; unfinished frame/input/control publication,
+clipboard/preferences/capture work and timed diagnostic workloads retain the
+existing cadence. A 100 ms maintenance cap bounds unrelated housekeeping.
+
+Touched subsystems: GUI transport/syscall, input queue wake notifications,
+compositor idle admission and directed host/VM fixtures. No xHCI/network polling,
+CPU/firmware policy or hardware profile changes. Require race/signal/ownership
+coverage, post-idle typing/pointer/save regression and measured worker reduction
+before a matched unattended native trial. Existing current `7afccbd6fbc3cfd4`
+and recovery `9aa8dbf6fbda8252` stay installed; no reboot is armed. Actions disabled.
+
 ### Active checkpoint: first idle Text optimization accepted
 
 Branch `device/macbookair7-2/power-idle`, PR106 adds measured worker diagnostics
