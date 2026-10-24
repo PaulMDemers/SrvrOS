@@ -2,6 +2,21 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active scope: desktop architecture, scalable windows and POSIX audit
+
+Base `bc0edb9` / merged PR130. Review connection/window identity, compositor
+storage and scheduling, GUI transport and surface ownership, public application
+and widget APIs, service boundaries and portability. Plan removal of the fixed
+window count through demand allocation and explicit resource admission. Audit
+the actual POSIX/libc implementations and tests, distinguishing working subsets,
+restricted semantics, unsupported calls and compatibility placeholders.
+Deliver source-backed inventories, phased API/resource migration and test gates;
+this planning block changes documentation and audit evidence, not the native ABI.
+Pro PR19 at `3996f9f` owns independent Edimax Wi-Fi work. No overlapping device
+implementation is planned. Installed `bf68e4e9b88b8ae7`, recovery
+`9aa8dbf6fbda8252`, USB UUID `37D8-C5D0`; the previous run is collected and
+accepted for its bounded checks. No physical test or reboot is needed here.
+
 ### Desktop window capacity: native result and integration
 
 On return from `bf68e4e9b88b8ae7`, tester reports all sixteen windows opened
