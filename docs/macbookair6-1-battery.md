@@ -3,7 +3,9 @@
 Short parked SMBus sampling and bounded attended AC unplug/reconnect are
 physically accepted on this unit, including two observed alarm acknowledgements
 and clean runtime retirement. A bounded minute of battery sampling alongside
-Text saves/reads in an exclusive USB image is also accepted. Battery gauge accuracy, broader alarm behavior,
+Text saves/reads in an exclusive USB image is also accepted. Short mounted Home
+sampling and a bounded generated Home/Text session with repeated Start/Stop
+are accepted on this unit. Battery gauge accuracy, broader alarm behavior,
 sustained operation and desktop monitoring remain unaccepted. The
 isolated five-sample runtime and short SMBus profiles are described below.
 Ordinary startup stays off. The first v60 boot captured
@@ -504,7 +506,8 @@ makes 60 edits and five exact file cycles (20 operations), issuing five controls
 across three lifetimes. Final close retires an active service. Require the strict
 session receipt, five files containing `AA`, preservation of every previous
 non-metadata file, clean offline allocation and Ubuntu recovery. Native v66
-acceptance remains pending; successful v65 and other machines do not supply it.
+acceptance is recorded below for the corrected retry; successful v65 and other
+machines do not supply it.
 
 The first v66 native session `00065e8b68f3ad24-00` failed before its first save:
 12 edits generated, 11 presented, one Start still waiting for fresh generation 2.
@@ -526,4 +529,20 @@ deadlines are unchanged. An eight-second delay exceeded the existing Start
 deadline and failed cleanly with no write; that evidence is retained separately.
 This changes only generated capture sequencing and the VM fixture, not ordinary
 Text saves, runtime admission or firmware permissions. Native retry acceptance
-remains pending.
+is recorded below.
+
+
+## Bounded Home retry physically accepted
+
+Release `7fe7d3d20d91997c` (`5086cba`), session `00065e8bbf429e4a-00`,
+completed on October 23. Its first save deferred until fresh Start generation 2;
+60 edits, five exact saved files and three service lifetimes then passed the
+strict receipt. The run processed 180 events, no alarms and 12 handled/zero
+unclaimed SCI deliveries, with clean client/runtime/mount retirement. Previous
+file contents are preserved except expected metadata; offline filesystem and
+allocation checks pass. The failed first v66 attempt remains historical evidence.
+
+This accepts only the explicit bounded generated Home session. Continuous
+monitoring, physical input latency and gauge calibration require separate trials;
+ordinary desktop battery startup remains disabled. See the unit record for the
+matching release, recovery and evidence state.
