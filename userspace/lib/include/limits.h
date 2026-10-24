@@ -1,5 +1,6 @@
 #ifndef SRVROS_POSIX_LIMITS_H
 #include <srvros/path_limits.h>
+#include <srvros/exec_limits.h>
 #define SRVROS_POSIX_LIMITS_H
 
 #define CHAR_BIT 8
@@ -26,6 +27,7 @@
 #define LLONG_MAX 9223372036854775807LL
 #define ULLONG_MAX 18446744073709551615ULL
 
+#define ARG_MAX SRV_EXEC_BYTES_MAX
 #define PATH_MAX SRV_PATH_MAX
 #define NAME_MAX SRV_NAME_MAX
 #define HOST_NAME_MAX 63
@@ -34,6 +36,7 @@
 #define IOV_MAX 16
 
 /* Standard minima, not aliases for this implementation's current limits. */
+#define _POSIX_ARG_MAX 4096
 #define _POSIX_PATH_MAX 256
 #define _POSIX_NAME_MAX 14
 #define _POSIX_OPEN_MAX 20

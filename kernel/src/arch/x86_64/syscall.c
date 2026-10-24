@@ -37,9 +37,9 @@
 #define MAX_PATH_LENGTH SRV_PATH_MAX
 #define MAX_SYSCALL_COPY (256 * 1024)
 #define MAX_POLL_FDS 64
-#define MAX_EXEC_ARGS 16
-#define MAX_EXEC_ENV 64
-#define MAX_EXEC_STRING 256
+#include <srvros/exec_limits.h>
+#define MAX_EXEC_ARGS SRV_EXEC_ARGS_MAX
+#define MAX_EXEC_ENV SRV_EXEC_ENV_MAX
 
 struct syscall_stat {
     uint64_t abi_version;
@@ -876,17 +876,24 @@ static int64_t copy_exec_string(const char *source,char *destination,uint64_t ca
     return too_long;
 }
 static int64_t copy_user_string_vector(char *const *user_vector,
-    char storage[][MAX_EXEC_STRING], const char *values[],uint64_t capacity,uint64_t *count_out) {
+    char *storage, uint64_t *used, uint64_t *budget,
+    const char *values[],uint64_t capacity,uint64_t *count_out) {
     *count_out=0;
     if(!user_vector) return 0;
     for(uint64_t i=0;i<=capacity;i++) {
         const char *source=NULL;
         if(!copy_from_user(&source,user_vector+i,sizeof(source))) return SRV_ERR_FAULT;
         if(!source) { *count_out=i;return 0; }
-        if(i==capacity) return SRV_ERR_2BIG;
-        int64_t error=copy_exec_string(source,storage[i],MAX_EXEC_STRING,SRV_ERR_2BIG);
-        if(error) return error;
-        values[i]=storage[i];
+        if(i==capacity || *budget<=sizeof(uint64_t)) return SRV_ERR_2BIG;
+        *budget-=sizeof(uint64_t);
+        values[i]=storage+*used;
+        for(;;) {
+            if(!*budget) return SRV_ERR_2BIG;
+            char c;
+            if(!copy_from_user(&c,source++,1)) return SRV_ERR_FAULT;
+            storage[(*used)++]=c;(*budget)--;
+            if(!c) break;
+        }
     }
     return SRV_ERR_2BIG;
 }
@@ -894,8 +901,8 @@ static int64_t copy_user_string_vector(char *const *user_vector,
 static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     struct syscall_exec_request request;
     char path[MAX_PATH_LENGTH];
-    char argv_storage[MAX_EXEC_ARGS][MAX_EXEC_STRING];
-    char env_storage[MAX_EXEC_ENV][MAX_EXEC_STRING];
+    char vector_storage[SRV_EXEC_BYTES_MAX];
+    uint64_t used=0,budget=SRV_EXEC_BYTES_MAX-2*sizeof(uint64_t);
     const char *argv[MAX_EXEC_ARGS];
     const char *envp[MAX_EXEC_ENV];
     struct process_spawn_file_action file_actions[SRV_SPAWN_FILE_ACTION_MAX];
@@ -906,13 +913,15 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
 
     if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
     int64_t error=copy_exec_string(request.path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
-    if(!error) error=copy_user_string_vector(request.argv,argv_storage,argv,MAX_EXEC_ARGS,&argc);
-    if(!error) error=copy_user_string_vector(request.envp,env_storage,envp,MAX_EXEC_ENV,&envc);
+    if(!error) error=copy_user_string_vector(request.argv,vector_storage,&used,&budget,argv,MAX_EXEC_ARGS,&argc);
+    if(!error) error=copy_user_string_vector(request.envp,vector_storage,&used,&budget,envp,MAX_EXEC_ENV,&envc);
     if(error) return error;
     if(request.file_action_count>SRV_SPAWN_FILE_ACTION_MAX) return SRV_ERR_INVAL;
     if(request.file_action_count && !copy_from_user(file_actions,request.file_actions,
         request.file_action_count*sizeof(file_actions[0]))) return SRV_ERR_FAULT;
     if (argc == 0) {
+        uint64_t path_bytes=1;while(path[path_bytes-1]) path_bytes++;
+        if(path_bytes+sizeof(uint64_t)>budget) return SRV_ERR_2BIG;
         argv[argc++] = path;
     }
 

@@ -121,6 +121,7 @@ long sysconf(int name) {
         return 1;
     case _SC_CLK_TCK:
         return SRVROS_TICKS_PER_SECOND;
+    case _SC_ARG_MAX: return ARG_MAX;
     case _SC_OPEN_MAX:
         return SRVROS_OPEN_MAX;
     case _SC_HOST_NAME_MAX:

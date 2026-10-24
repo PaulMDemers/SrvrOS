@@ -19,7 +19,24 @@ bool exfat_write_file(const char *path,const uint8_t *data,uint64_t length) {
     if(length) memcpy(saved,data,length);
     saved_length=length;return true;
 }
+static void vectors(void) {
+    char storage[SRV_EXEC_BYTES_MAX];const char *values[MAX_EXEC_ARGS];
+    uint64_t used=0,budget=32,count=99;
+    char *input[]={"abc","xyz",NULL};
+    assert(!copy_user_string_vector(input,storage,&used,&budget,values,MAX_EXEC_ARGS,&count));
+    assert(count==2 && used==8 && budget==8 && !strcmp(values[0],"abc") && !strcmp(values[1],"xyz"));
+    used=0;budget=23;
+    assert(copy_user_string_vector(input,storage,&used,&budget,values,MAX_EXEC_ARGS,&count)==SRV_ERR_2BIG);
+    used=0;budget=100;invalid=input[0];
+    assert(copy_user_string_vector(input,storage,&used,&budget,values,MAX_EXEC_ARGS,&count)==SRV_ERR_FAULT);invalid=NULL;
+    used=0;budget=100;invalid=input;
+    assert(copy_user_string_vector(input,storage,&used,&budget,values,MAX_EXEC_ARGS,&count)==SRV_ERR_FAULT);invalid=NULL;
+    char *too_many[MAX_EXEC_ARGS+2];for(unsigned i=0;i<MAX_EXEC_ARGS+1;i++) too_many[i]="";too_many[MAX_EXEC_ARGS+1]=NULL;
+    used=0;budget=SRV_EXEC_BYTES_MAX;
+    assert(copy_user_string_vector(too_many,storage,&used,&budget,values,MAX_EXEC_ARGS,&count)==SRV_ERR_2BIG);
+}
 int main(void) {
+    vectors();
     const char *path="/fat/test";unsigned char content[]={1,2,3,4};
     assert(syscall_fs_write(path,content,4)==4 && calls==1 && saved_length==4 && !memcmp(saved,content,4));
     open_path=true;assert(syscall_fs_write(path,content,4)==SRV_ERR_AGAIN && calls==1);open_path=false;

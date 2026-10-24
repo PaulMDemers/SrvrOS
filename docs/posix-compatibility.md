@@ -88,8 +88,15 @@ Exec preserves ignored dispositions, pending signals and masks, resets caught
 handlers and closes CLOEXEC descriptors. Replacing a process with workers is
 explicitly refused until worker teardown can be implemented safely. `execvp` and
 `execlp` now invoke `/fat/bin/sh` for executable text rejected with ENOEXEC,
-preserving the script path and remaining arguments. Wider argument/environment
-capacity remains open.
+preserving the script path and remaining arguments. Exec now accepts a shared
+32 KiB budget for argument/environment strings, NULs and pointer vectors, with
+no separate 256-byte string cap. `ARG_MAX`/sysconf report that budget. The native
+CLI profile additionally limits argv and environment vectors to 128 entries each;
+this additional count restriction is not a full POSIX exec capacity contract.
+Exact-budget, oversized, wide-vector, 8 KiB string, fork/exec and spawn guest
+tests pass. Mutating an inherited full environment fails without dropping its
+last entry; failed setenv insertion releases its temporary allocation. Environment
+storage remains bounded and is not a general thread-safe environment service.
 
 The working directory is now kernel process state: shared by a process's threads,
 inherited by fork/spawn and preserved by exec independently of `PWD`. The shell

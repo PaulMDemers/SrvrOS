@@ -1,3 +1,4 @@
+#include <srvros/exec_limits.h>
 #include <srvros/path_limits.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -262,10 +263,10 @@ int posix_spawnp(pid_t *pid,
 }
 
 static int exec_shell_fallback(const char *path,char *const argv[]) {
-    char *shell_args[17]={"sh",(char *)path};
+    char *shell_args[SRV_EXEC_ARGS_MAX+1]={"sh",(char *)path};
     unsigned count=2;
     if(argv[0]) for(unsigned i=1;argv[i];i++) {
-        if(count==16) { errno=E2BIG;return -1; }
+        if(count==SRV_EXEC_ARGS_MAX) { errno=E2BIG;return -1; }
         shell_args[count++]=argv[i];
     }
     shell_args[count]=NULL;
@@ -300,9 +301,9 @@ int execvp(const char *file,char *const argv[]) {
 int execv(const char *path,char *const argv[]) { return execve(path,argv,environ); }
 /* Match the native vector bound without truncating the caller's arguments. */
 static int exec_list(const char *path,const char *arg,va_list ap,int search,int explicit_env) {
-    char *args[17];unsigned count=0;
+    char *args[SRV_EXEC_ARGS_MAX+1];unsigned count=0;
     while(arg) {
-        if(count==16) { errno=E2BIG;return -1; }
+        if(count==SRV_EXEC_ARGS_MAX) { errno=E2BIG;return -1; }
         args[count++]=(char *)arg;arg=va_arg(ap,const char *);
     }
     args[count]=NULL;

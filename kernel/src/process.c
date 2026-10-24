@@ -54,8 +54,9 @@ _Static_assert(sizeof(struct isr_frame)==176 && offsetof(struct isr_frame,rip)==
 #define PROCESS_KERNEL_STACK_SIZE 131072
 #define PROCESS_KERNEL_STACK_MIN_PHYSICAL 0x100000ull
 #define PROCESS_USER_PAGE_MIN_PHYSICAL 0x4000000ull
-#define PROCESS_MAX_ARGS 16
-#define PROCESS_MAX_ENV 64
+#include <srvros/exec_limits.h>
+#define PROCESS_MAX_ARGS SRV_EXEC_ARGS_MAX
+#define PROCESS_MAX_ENV SRV_EXEC_ENV_MAX
 #define PROCESS_ARGS_MAX 256
 #define PROCESS_PATH_MAX SRV_PATH_MAX
 #define PROCESS_WRITE_BUFFER_MAX (16 * 1024 * 1024)
@@ -1055,17 +1056,22 @@ static bool setup_process_vectors(struct process *process,
         return false;
     }
 
+    uint64_t budget=SRV_EXEC_BYTES_MAX-sizeof(uint64_t)*(argc+envc+2);
     for (uint64_t i = 0; i < argc; i++) {
         if (argv_values[i] == NULL) {
             return false;
         }
-        argv_lengths[i] = local_strlen_limit(argv_values[i], PROCESS_ARGS_MAX);
+        argv_lengths[i] = local_strlen_limit(argv_values[i], budget);
+        if(argv_lengths[i]>=budget) return false;
+        budget-=argv_lengths[i]+1;
     }
     for (uint64_t i = 0; i < envc; i++) {
         if (env_values == NULL || env_values[i] == NULL) {
             return false;
         }
-        env_lengths[i] = local_strlen_limit(env_values[i], PROCESS_ARGS_MAX);
+        env_lengths[i] = local_strlen_limit(env_values[i], budget);
+        if(env_lengths[i]>=budget) return false;
+        budget-=env_lengths[i]+1;
     }
 
     stack_cursor = process->stack_top;

@@ -1,3 +1,4 @@
+#include <srvros/exec_limits.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <spawn.h>
@@ -498,22 +499,20 @@ void *bsearch(const void *key,
     return 0;
 }
 
-static char *environment[64];
+static char *environment[SRV_EXEC_ENV_MAX+1];
 char **environ = environment;
 
-static void ensure_environment_writable(void) {
-    if (environ == environment) {
-        return;
+static int ensure_environment_writable(void) {
+    if(environ==environment) return 0;
+    size_t count=0;
+    if(environ) {
+        while(environ[count]) {
+            if(count==SRV_EXEC_ENV_MAX) { errno=ENOMEM;return -1; }
+            count++;
+        }
+        for(size_t i=0;i<count;i++) environment[i]=environ[i];
     }
-    size_t out = 0;
-    while (environ != 0 &&
-        environ[out] != 0 &&
-        out + 1 < sizeof(environment) / sizeof(environment[0])) {
-        environment[out] = environ[out];
-        out++;
-    }
-    environment[out] = 0;
-    environ = environment;
+    environment[count]=0;environ=environment;return 0;
 }
 
 static size_t name_length(const char *entry) {
@@ -547,7 +546,7 @@ int putenv(char *string) {
         errno = EINVAL;
         return -1;
     }
-    ensure_environment_writable();
+    if(ensure_environment_writable()) return -1;
     size_t len = name_length(string);
     for (size_t i = 0; environment[i] != 0; i++) {
         if (strncmp(environment[i], string, len) == 0 && environment[i][len] == '=') {
@@ -586,7 +585,9 @@ int setenv(const char *name, const char *value, int overwrite) {
         memcpy(entry + name_len + 1, value, value_len);
     }
     entry[name_len + value_len + 1] = '\0';
-    return putenv(entry);
+    int result=putenv(entry);
+    if(result) free(entry);
+    return result;
 }
 
 int unsetenv(const char *name) {
@@ -594,7 +595,7 @@ int unsetenv(const char *name) {
         errno = EINVAL;
         return -1;
     }
-    ensure_environment_writable();
+    if(ensure_environment_writable()) return -1;
     for (size_t i = 0; environment[i] != 0; i++) {
         if (env_match(environment[i], name)) {
             for (size_t j = i; environment[j] != 0; j++) {
@@ -607,7 +608,7 @@ int unsetenv(const char *name) {
 }
 
 int clearenv(void) {
-    ensure_environment_writable();
+    environ=environment;
     for (size_t i = 0; i < sizeof(environment) / sizeof(environment[0]); i++) {
         environment[i] = 0;
     }

@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <srvros/exec_limits.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
@@ -106,9 +107,9 @@ int posix_fork_test(void) {
         }
         CHECK(waitpid(child,&status,0)==child && WIFEXITED(status) && WEXITSTATUS(status)==(mode==2?207:255));
     }
-    char *overfull[18];for(unsigned i=0;i<17;i++) overfull[i]="x";overfull[17]=NULL;
+    char *overfull[SRV_EXEC_ARGS_MAX+2];for(unsigned i=0;i<SRV_EXEC_ARGS_MAX+1;i++) overfull[i]="x";overfull[SRV_EXEC_ARGS_MAX+1]=NULL;
     CHECK(execv("/fat/bin/threadstress",overfull)==-1 && errno==E2BIG);
-    char longarg[257];memset(longarg,'x',256);longarg[256]=0;
+    static char longarg[SRV_EXEC_BYTES_MAX+1];memset(longarg,'x',SRV_EXEC_BYTES_MAX);longarg[SRV_EXEC_BYTES_MAX]=0;
     char *longargs[]={"threadstress",longarg,NULL};
     CHECK(execv("/fat/bin/threadstress",longargs)==-1 && errno==E2BIG);
     char *emptyargs[]={"non-executable",NULL};

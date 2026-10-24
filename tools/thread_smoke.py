@@ -110,13 +110,14 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            command_line = "run /fat/bin/threadstress"
-            if args.test != "all":
-                command_line += f" {args.test}"
-            sock.sendall((command_line + "\n").encode("ascii"))
-            output += read_test_result(sock, args.run_wait)
-            output += read_until(sock, b"srv> ", 10)
-            output += read_for(sock, 1)
+            if b"srv> " in output:
+                command_line = "run /fat/bin/threadstress"
+                if args.test != "all":
+                    command_line += f" {args.test}"
+                sock.sendall((command_line + "\n").encode("ascii"))
+                output += read_test_result(sock, args.run_wait)
+                output += read_until(sock, b"srv> ", 10)
+                output += read_for(sock, 1)
         finally:
             try:
                 process.terminate()
@@ -150,6 +151,7 @@ def main():
             "threadstress: resource ok",
             "threadstress: wait ok",
             "threadstress: fork ok",
+            "threadstress: exec-vectors ok",
             "threadstress: masked poll ok",
             "threadstress: pthread contracts ok",
             "threadstress: targeted signal ok",

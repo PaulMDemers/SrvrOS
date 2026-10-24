@@ -601,6 +601,8 @@ int posix_directory_test(void);
 int posix_rename_test(void);
 int posix_stdio_access_test(void);
 int posix_stdio_format_test(void);
+int posix_exec_vectors_test(void);
+int posix_exec_vectors_child(int argc,char **argv);
 int posix_path_child(void);
 int posix_path_limits_test(void);
 int posix_pthread_contract_test(void);
@@ -608,6 +610,7 @@ int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc>1 && (!strcmp(argv[1],"exec-vectors-child") || !strcmp(argv[1],"exec-budget-child"))) return posix_exec_vectors_child(argc,argv);
     if(argc==2 && !strcmp(argv[1],"path-child")) return posix_path_child();
     if(argc==2 && !strcmp(argv[1],"fork-exec-child")) return posix_fork_exec_child();
     if(argc==3 && !strcmp(argv[1],"wait-child")) return posix_wait_child(argv[2]);
@@ -643,6 +646,7 @@ int main(int argc, char **argv) {
     RUN_TEST("resource", posix_resource_test);
     RUN_TEST("wait", posix_wait_test);
     RUN_TEST("fork", posix_fork_test);
+    RUN_TEST("exec-vectors", posix_exec_vectors_test);
     RUN_TEST("masked poll", posix_masked_poll_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("targeted signal", posix_targeted_signal_test);
