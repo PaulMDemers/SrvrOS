@@ -3552,3 +3552,11 @@ test-tcp-accept: build/tests/tcp-accept-host$(HOST_EXE)
 build/tests/tcp-accept-host$(HOST_EXE): tools/test_tcp_accept.c kernel/src/net.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-e1000-rx
+test-core: test-e1000-rx
+test-e1000-rx: build/tests/e1000-rx-host$(HOST_EXE)
+	$<
+build/tests/e1000-rx-host$(HOST_EXE): tools/test_e1000_rx.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

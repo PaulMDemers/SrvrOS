@@ -106,6 +106,7 @@ static uint64_t rx_low_water_interrupts;
 static uint32_t last_interrupt_cause;
 static bool interrupts_enabled;
 static bool rings_ready;
+static bool rx_poll_active;
 
 static uint32_t reg_read(uint32_t offset) {
     return mmio[offset / sizeof(uint32_t)];
@@ -471,6 +472,13 @@ uint64_t e1000_poll(uint64_t max_frames, bool verbose) {
         return 0;
     }
 
+    /* Packet delivery may wake a process that polls before this call releases
+     * its DMA descriptor. Refuse a competing poll instead of dispatching the
+     * same descriptor twice or advancing another caller's rx_tail. Do not spin
+     * or mask interrupts while the receive owner is preempted. */
+    if (__atomic_test_and_set(&rx_poll_active, __ATOMIC_ACQUIRE)) {
+        return 0;
+    }
     uint64_t received = 0;
     while (received < max_frames &&
         (rx_desc[rx_tail].status & E1000_RX_DESC_STATUS_DD) != 0) {
@@ -516,6 +524,7 @@ uint64_t e1000_poll(uint64_t max_frames, bool verbose) {
     if (verbose && received == 0) {
         console_write("net: rx none\n");
     }
+    __atomic_clear(&rx_poll_active, __ATOMIC_RELEASE);
     return received;
 }
 

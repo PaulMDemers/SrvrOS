@@ -25,6 +25,16 @@ ACK. It covers repeated readiness/draining, subsequent payload/FIN, invalid
 ACK/sequence and full pending queue refusal. Full build/core and original VM
 readiness/descriptor/web regressions are in progress. No hardware change armed.
 
+The initial TCP fix passes original readiness/lifetime and ECM traffic VMs,
+but e1000 web traffic exposes a receive-ring reentrancy hazard: dispatch can
+wake a process that polls before the original callback returns the descriptor.
+A nested-poll host reproducer fails on the driver. Scope now also includes
+`e1000.c`, a non-spinning receive-owner guard and its focused regression;
+Pro Wi-Fi/xHCI and Air6,1 capture code remain untouched. The legacy web harness
+also expects absent log markers on the accepted release, separately from the
+candidate's actual HTTP traffic failure. Both failures remain in local evidence;
+validation is incomplete until the transport regression is resolved.
+
 ### Network idle milestone accepted for the bounded workload
 
 Release `27b239f96a183fb8`, compiled source `ceaa2ce`, returned automatically in
