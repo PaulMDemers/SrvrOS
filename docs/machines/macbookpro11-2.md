@@ -4586,3 +4586,25 @@ Reference-order cipher nibble clear and32-byte zero write, zero-only verificatio
 576 bounded operations,448 reads/128 writes, no key data logs or retries.
 Touch pure engine/xHCI/main/profiles/tests. Base4a991df; fetchedmainc4265f8
 and openPR125 TCP are separate. Preserve existing profiles and RF-disable gates.
+
+### 2026-10-24 — v50 shared-key reset candidate
+
+Source `1997865`, release `420bc4d5e39c8e04`, installed unarmed. The fixed
+64-slot reset follows exact DCOC readbacks, preserves unrelated cipher nibbles,
+verifies zero data without logging key bytes, and stops without retry on failure.
+Host/USB tests cover every operation, cancellation and ownership refusal;
+ASan/UBSan,124 boot-profile tests,98 unchanged historical Wi-Fi recipes,
+collector fixture/14 rejection cases and493 documentation links pass.
+Exact-stage GPT VM saved logs and returned; missing-workspace VM returned
+without starting the probe. These VM results do not accept the physical reset.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; prior accepted DCOC
+`51c771ce50036ef4` retained. G/20 release `9bc9e99df950ae78` removed from ESP
+only after full archive equality. Workspace clean239files/607clusters, unmounted.
+Payload, audit, tests, VM receipt, collector and run record are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-skey-1997865/` outside build.
+Actual integration base remains4a991df; fetchedmainc4265f8 and PR125 TCP
+readiness inspected, separate from this bounded Wi-Fi work.
+Next: attended cold adapter cycle, then collect the matching session FIRST.
+Require operations576/submitted576, reads448/writes128, slots64 and both
+mode_verified64/key_zero64 plus all prior checks. RF/connectivity not tested.
