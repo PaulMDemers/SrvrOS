@@ -5590,3 +5590,23 @@ pass;124 historical Wi-Fi recipes are byte-identical. The strict full-prefix
 collector rejects611 malformed proofs; normal/max-poll fixtures are77072/115161
 bytes. Build and exact-stage VM checks precede unarmed installation. Direct
 RF-CSR transport and values remain physically untested.
+
+Direct RF-CSR source `697111b`, release `032ade0806c417ab`, installed unarmed.
+Full build, MCU/compact/bring-up regressions and documentation checks passed.
+The initial exact-stage VM exposed a missing v63 classification in the harness;
+`f3f10109` adds that classification without changing the payload. The rerun passed
+GPT capture/save/offline byte verification/automatic return, and the separate
+missing-workspace refusal/return passed. These are VM recovery checks, not
+native RF access acceptance.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, with completed v62
+observation payload `f44fa8061c8014a5` also retained. Failed central candidate
+`d5f9b767d30876ce` removed from ESP only after exact durable-backup equality.
+Offline workspace clean267files/649clusters/107directories, zero leaks/mismatches
+or errors; unmounted. Payload, pinned references, host/sanitizer/collector checks,
+both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-csr-697111b/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require the complete prior proof and every direct-selector/poll/guard receipt;
+classify disagreement with MCU reads without promoting central RF initialization.
+No reboot armed. Calibration and connectivity remain untested.
