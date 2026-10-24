@@ -507,7 +507,7 @@ single pair does not establish savings. Ordinary Home battery efficiency remains
 a separate study; this capture deliberately kept the battery service off.
 
 
-### Network notification readiness (candidate)
+### Network notification readiness
 
 The selected provider may advertise a side-effect-free `rx_wake_ready` callback.
 It is true only when receive notifications and transmit servicing can progress
@@ -535,3 +535,21 @@ network worker below ten switches/second over at least twenty seconds. The
 ordinary probe fixture has no supported adapter and cannot validate network
 activity. Missing-workspace return remains a separate case. Traffic and
 post-idle input checks use the dedicated network/idle fixtures.
+
+
+Air7,2 native release `27b239f96a183fb8` completed the unattended one-minute
+capture with 102 network worker switches over 47.728 seconds (2.137/s), versus
+5005 over 51.529 seconds (97.13/s) in `f340e0695d1e2492`. xHCI input service
+remained 100 switches/s and the compositor about 10/s. Five completed saves,
+the desktop screenshot, exact prior-file preservation, clean offline allocation
+and automatic Ubuntu recovery passed. This accepts reduced redundant network
+worker activity for the bounded workload, not native traffic/input or energy.
+
+Do not infer a broader performance improvement: CPU0 idle samples were 97.52%
+versus 98.30%, package power 6.840 W versus 6.786 W, and five saves took 7.942433 s
+versus six in 1.883555 s. Candidate saves ranged 200.222–3792.337 ms with zero
+callback failures; 7.531335 s was in CSW callbacks, including scheduling time.
+The cause of this run's slower USB saves is unresolved. Preserve the evidence
+for controlled storage timing follow-up. The legacy TCP readiness fixture also
+fails identically on accepted and candidate kernels; narrower passing traffic
+fixtures do not resolve that preexisting issue.

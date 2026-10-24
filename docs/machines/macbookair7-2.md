@@ -2,7 +2,54 @@
 
 Updated: 2026-10-23. State: **active reference machine; partial device acceptance**.
 
-### Network idle candidate ready for unattended hardware comparison
+### Network idle milestone accepted for the bounded workload
+
+Release `27b239f96a183fb8`, compiled source `ceaa2ce`, returned automatically in
+`session-00065e8d8f28fd65-00`. The one-minute desktop capture passed, with five
+complete periodic saves, a valid 1440×900 Text desktop screenshot and clean exit.
+All 1038 previous files retained their bytes except expected exFAT metadata;
+only four logs and the screenshot were added. Offline checks pass at 1043 files /
+2519 clusters, zero leaks, bitmap mismatches or errors. Ubuntu default, consumed
+one-shot, current payload and previous recovery `9aa8dbf6fbda8252` are verified.
+USB is unmounted; no further reboot is armed.
+
+| Observed workload | Previous `f340e0695d1e2492` | Notification-ready worker |
+| --- | --- | --- |
+| Network switches / measured interval | 5005 / 51.529 s | 102 / 47.728 s |
+| Network switches per second | 97.13 | 2.14 |
+| xHCI input worker switches per second | 100.00 | 100.00 |
+| Compositor switches per second | 10.033 | 10.036 |
+| CPU0 idle timer samples | 98.30% | 97.52% |
+| Completed periodic saves / bytes | 6 / 136710 | 5 / 106892 |
+| Total save wall time | 1.883555 s | 7.942433 s |
+| Individual save range | 149.316–622.689 ms | 200.222–3792.337 ms |
+| Package power / measured interval | 6.786 W / 51.999 s | 6.840 W / 47.998 s |
+
+This accepts the reduction in redundant network worker activity, about 97.8%,
+with the independent USB service cadence unchanged. These are scheduler switches,
+not hardware wakeups. Native traffic and typing were not exercised in this idle
+recipe; directed VM traffic/input coverage is recorded below. Battery service was
+deliberately off. No energy, whole-system performance or physical input improvement
+is established: idle percentage fell slightly and package power did not improve.
+
+USB saves were slower in this run, despite zero callback failures and exact file
+preservation. CSW callbacks account for 7.531335 seconds of the 7.942433-second
+save total; callback wall time includes scheduling and is not pure device wait.
+The single comparison does not identify the cause or rule out a regression.
+Retain this as a storage-latency follow-up, alongside the unresolved legacy TCP
+readiness failure below; neither is silently accepted as fixed by this milestone.
+
+Final review uses unchanged main `7b0d1a0`, Pro PR19 `933f244` (independent Wi-Fi)
+and Air6,1 PR124 `022d468` (attended Home capture). Shared harness edits are in
+separate capture branches and must both survive integration. PR123 contains the
+provider contract, bounded fallback/recovery and local regressions. Runtime is
+unchanged since the build/core and VM validation below; final docs checks pass.
+Raw evidence, failure receipts and installed/recovery payloads are retained outside
+`build` in local pending-trial/reviewed-evidence storage. Next scope is diagnosing
+legacy TCP readiness and explaining USB save variability before further idle
+changes; no new implementation or physical run is armed.
+
+### Network idle validation before the physical comparison
 
 Kernel implementation `ceaa2ce`, test harness `5f2322a`, PR123: full local
 build/core checks pass. Refined e1000 and ECM idle fixtures measure 2.10 and
@@ -29,20 +76,14 @@ passed boot/persistence but could not qualify network activity; its receipts
 remain separate. Harness changes after the staged source do not alter its
 kernel or userspace payload.
 
-Next physical run: the same one-minute unattended desktop idle capture on this
-Air7,2, with its ASIX ECM adapter and local USB UUID. No typing or prompts are
-required. Save logs/screenshot and return automatically, then compare worker
-activity against `f340e0695d1e2492`. All 1038 previous USB files are hashed;
-offline fsck/allocation/headroom pass. Recovery remains `9aa8dbf6fbda8252`.
-The unreferenced comparison EFI payload `2218ef4113730414` was hash-verified into
-outside-build archive storage before freeing its EFI space. Current/recovery
-payloads were retained. Run state, collector and evidence are under
-`build/network-idle-20261023`, with durable backups before arming. PR123 stays
-draft until native collection/review. No physical input or energy saving is
-accepted by this unattended trial. Main remains `7b0d1a0`; Pro PR19 `0ba0a1f`
-acknowledges the independent network-idle scope and retains Wi-Fi bring-up.
+The prepared one-minute unattended Air7,2 capture is now collected above.
+Recovery remains `9aa8dbf6fbda8252`. The unreferenced comparison EFI payload
+`2218ef4113730414` was hash-verified into outside-build archive storage before
+freeing its EFI space. Raw run state, collector and evidence remain under
+`build/network-idle-20261023`, with durable backups. No physical input or energy
+saving is accepted by this unattended trial.
 
-### Active scope: notification-driven network worker idle
+### Implementation scope and retained initial failure
 
 Base `7b0d1a0` includes merged PR118 and Air6,1 acceptance notes. Pro PR19
 `9b01d39` retains Wi-Fi bring-up; this scope avoids its MCU/baseband and control
