@@ -4656,3 +4656,22 @@ Payload, audit, tests, VM receipt, collector and run/checkpoint are archived at
 Next: attended cold adapter cycle, then collect matching session FIRST and
 require256 attribute/128 address verifications plus all prior checks.
 Actual integration base4a991df; fetchedmain76f98c4 contains separate TCP work.
+
+### 2026-10-24 — v51 WCID reset native result
+
+Source `666a4d3`, release `71bf958aa703f6b3`, session
+`session-00065e8e5ad7fc6a-00` completed. The prepared collector passed unchanged:
+1792 operations/submissions,1408 reads,384 writes,256 completed slots,
+256 verified zero attributes and128 verified zero address entries. Exact
+shared-key completion and all earlier prerequisites passed, with both capture
+completion markers present. This accepts the fixed WCID reset on this adapter;
+pairwise-key/IV initialization, RF, scan, association and connectivity remain
+outside the accepted scope.
+
+Ubuntu default, consumed one-shot and installed/known-good payload hashes pass.
+Workspace clean243files/613clusters, zero leaks/allocation mismatches, unmounted.
+Complete collection and updated run/checkpoint/hashes are archived outside build
+at `~/.local/share/srvros/macbookpro11-2/wifi-wcid-666a4d3/`. No reboot armed.
+Next: audit the remaining MAC initialization settings and physical EFUSE/PHY
+entry prerequisites against the pinned reference and existing device evidence;
+select a bounded next stage without bulk-copying power/PA/LDO/DMA controls.
