@@ -2274,3 +2274,15 @@ optimization and preserved full integrity checks. It does not yet accept the
 previously failing attended reopen under Text/file/audio work or extended
 endurance. Next useful coverage is an attended combined desktop session followed
 by close/reopen and resumed Text/file work, retaining the same startup deadline.
+
+## Attended heap-fix reopen scope (2026-10-24)
+
+Base main `27f0870`, preserving collected PR138 physical evidence. Prepare the
+existing untimed v71 combined desktop recipe with the validated heap fix; no
+runtime, firmware, deadline or shared subsystem change is planned. Rehearse
+Text/Files/audio and normal close/reopen plus the exact staged GPT boot path.
+The attended run must save a new document, browse it in the separate Files app,
+close the desktop normally, reopen with `desktop battery`, and resume file work.
+PR134 `d5d0fa1` owns POSIX and PR19 `b02be44` owns Wi-Fi; neither is imported.
+The previous automated run is collected, backed up and unarmed. Preserve Ubuntu
+and console recovery; report ready without starting this attended run.
