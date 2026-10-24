@@ -409,3 +409,99 @@ Next investigate bounded USB-completion waiting and individual request costs,
 while preserving input service, deadlines, DMA quarantine, verification and
 flush policy. Avoid attributing this cost to rendering or reducing persistence
 merely to improve the idle score.
+
+### Bounded storage completion wait
+
+The refined storage bulk policy polls directly for the first twenty milliseconds, retaining
+its one-millisecond service yields. Thereafter it may block on its per-device
+completion queue until a matching event or the next timer tick. The existing
+HID/network worker can drain events and wake the owner; a one-tick retry also
+allows progress when no input worker is polling. The queue is woken only after
+completion code/residue/done state has been published for the matching slot,
+endpoint and TRB. Wrong and stale events do not complete the transfer.
+
+The scheduler helper requires an active I/O owner in its recorded address space,
+enabled services and a running/reference-ready timer. It refuses deadlines more
+than one tick ahead; readiness and expiry are rechecked with IRQs masked before
+blocking. It retains the I/O gate, excluding unaudited filesystem work and the
+owner's sibling user threads while eligible services, other audited processes
+and idle can run. It returns with IRQs masked. Refusal falls back to the existing
+yield/poll loop. Normal scheduler/timer delivery is required for timed blocking.
+
+The original two-second reference-clock deadline and stopped-clock spin budget
+are not renewed by a sleep. A failed transfer still quarantines its pinned DMA
+buffer/rings with no retry or reuse. This policy changes neither flushing nor
+verification nor controller interrupt routing. Waits can add up to one timer
+tick of polling latency (plus scheduling delay) to a slow completion; validate
+throughput as well as CPU samples. Device callback wall time includes sleeping
+and must not be relabeled CPU work. Native bounded-workload evidence is recorded below; energy savings remain unproven.
+
+The `xhci` storage status includes cumulative `wait_calls` and `wait_us` for
+accepted helper calls. They include a call that discovers completion before
+blocking and yielded service time; they are not a CPU sleep-time counter. The
+USB large-copy VM fixture requires nonzero calls and more than 10 ms of observed
+helper wall time, in addition to input overlap and exact persisted bytes.
+
+The first native candidate `58a61b892c43d2f5` completed capture, persistence and
+recovery with no USB callback failures. Idle samples improved (95.00% to 98.77%),
+but five saves took 5.889351 seconds versus six baseline saves taking 3.005369
+seconds. The records contain different byte totals and coverage. Completion
+polling latency and media variability were not yet separated at that checkpoint.
+The refined 20 ms follow-up below completes bounded-workload validation. See the reference
+[machine record](machines/macbookair7-2.md) for exact observations and limits.
+
+### Controlled USB wait comparison
+
+`tools/hardware_boot.py stage --laptop-probe-volume <local-UUID>
+--storage-wait-capture` selects the separate
+`ram-usb-v1-storage-wait-laptop-probe-<UUID>-auto-return` recipe. It does not alter
+historical idle-capture recipes or ordinary startup. The diagnostic pauses
+periodic logging, creates a new 32 KiB `wait-fixture.bin` inside its collision-safe
+session directory, and performs 18 overwrite/readback/flush measurements. All
+six permutations of polling, 4 ms and 20 ms poll-before-wait thresholds run once,
+so each policy appears twice in each position. Allocation is outside measurement;
+metadata writes, verification, flush and eligible service time remain included.
+
+Each row records callback costs by USB phase, elapsed time and CPU0 timer samples.
+There is a 180-second admission limit checked between measurements, not a promise
+to interrupt a filesystem operation. Existing per-transfer deadlines and DMA
+quarantine remain authoritative. Restore the entry policy on handled completion;
+a quarantined transfer refuses policy mutation and makes the run incomplete.
+No retry or DMA reuse is introduced. The diagnostic stops on its first error.
+
+The collector requires all 18 ordered successful rows, policy restoration and
+exact offline payload bytes. Missing, duplicate or malformed rows, unexpected
+paths, symlinks, changed fixture bytes and missing exit logs do not pass. Host
+injection covers timer quantization separately from physical media variability.
+VM timings validate the workflow only. Native results must precede selecting a
+new default policy; neither CPU timer samples nor callback wall time alone prove
+power savings or interactive responsiveness.
+
+The native fixed-file comparison `2218ef4113730414` passed all 18 measurements
+and exact offline readback. Median operation times were 251.303 ms polling,
+172.592 ms with 4 ms polling and 171.813 ms with 20 ms polling. Stalls appeared
+under all policies, with unequal incidence. This single run does not prove an
+optimal threshold or rank energy efficiency. Choose 20 ms conservatively to
+avoid tick-quantization penalties on common short completions, while still
+allowing longer stalls to sleep. The normal desktop logging follow-up below
+validates this default for the bounded workload. The diagnostic parser accepts entry policies
+of 4 ms (historical capture) or 20 ms, and requires restoration in either case.
+
+
+### Refined default: native normal desktop result
+
+Release `f340e0695d1e2492` (compiled `c258822`) completed the one-minute Text-open
+capture and returned automatically. CPU0 idle timer samples were 98.30%, versus
+95.00% in the polling baseline. Six saves / 136710 bytes took 1.883555 seconds,
+versus six / 136678 bytes in 3.005369 seconds; individual saves ranged from
+149.316 to 622.689 ms. Logger samples were 84 over 51.529 seconds, versus 282
+over 52.819 seconds. Compositor activity remained about 10 switches/second.
+There were zero USB callback failures, exact preservation of all prior files,
+clean offline allocation and verified Ubuntu recovery.
+
+This supports the 20 ms default for the tested storage workload, alongside the
+counterbalanced comparison and slow USB copy/input VM regression. It does not
+establish optimality or physical interactive acceptance. Package power measured
+6.786 W over 51.999 seconds versus baseline 6.949 W, but this thermally unmatched
+single pair does not establish savings. Ordinary Home battery efficiency remains
+a separate study; this capture deliberately kept the battery service off.

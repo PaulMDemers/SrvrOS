@@ -598,3 +598,22 @@ Closeout also consumed main `b01ae95` / PR82's exact Air6,1 audio profile and
 separate v57 recipe at `5c975aa`. Full local build/core/docs, combined audio/battery
 and exact EFI `67d88f2345ef97ff` regressions passed again. Both device profiles are
 preserved; the installed physical Air7,2 release remains `9aa8dbf6fbda8252`.
+
+
+## Air bounded USB completion waits (PR #118)
+
+The shared storage path now polls for 20 ms, then permits its existing I/O owner
+to wait on a matching completion or the next tick. Reuse the owner/address-space/
+timer-checked scheduler helper; retain the gate, original transfer deadline and
+DMA quarantine. Hardware controller interrupts and Wi-Fi control dispatch are
+unchanged. Diagnostic wait counters measure helper wall time, not CPU sleep time.
+The opt-in storage-wait recipe compares all six orders of polling/4 ms/20 ms on
+one fixed file; historical capture recipes and per-host UUIDs remain distinct.
+
+Air7,2 release `f340e0695d1e2492` accepts the bounded ordinary logger workload:
+98.30% idle samples, six saves in 1.883555 seconds, preserved files and clean
+Ubuntu recovery. The separate fixed-file comparison and slow USB input/copy VM
+regressions pass. No energy savings, sibling acceptance or physical interactive
+latency are inferred. Main `54862de` adds only Air6,1 evidence since the tested
+build; Pro PR19 `c223f58` retains separate Wi-Fi scope. Actions remain disabled;
+local build/core/VM receipts and exact source are recorded in the Air record.

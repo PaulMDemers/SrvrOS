@@ -33,6 +33,12 @@ bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked.
 void scheduler_io_checkpoint(void);
 void scheduler_io_end(void);
 bool scheduler_io_yield(void);
+/* IRQ-masked I/O owner only, recorded address space restored. Retains the I/O
+ * gate and DMA ownership while sleeping until condition/wake or next tick.
+ * Refuses early boot, missing timer/fallback, foreign owners or longer waits.
+ * Returns with IRQs masked; false requires the caller's bounded poll fallback. */
+bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
+    scheduler_wait_condition_fn condition,void *arg,uint64_t deadline_ticks);
 void scheduler_io_wait(void);
 void scheduler_io_set_user_safe(bool safe);
 void scheduler_user_enter(void);

@@ -757,7 +757,22 @@ def collect(mount, volume, output):
         preflight=battery_preflight_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.battery-preflight=air61' in text and preflight is None:
             attention.append('collection: passive battery preflight missing, refused or incomplete')
+        from storage_wait_result import capture_result,PAYLOAD
+        storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if storage_wait:
+            fixture=logs/name/'wait-fixture.bin'
+            if (storage_wait['path']!=f'/work/srvros-work/Logs/{name}/wait-fixture.bin' or
+                fixture.is_symlink() or not fixture.is_file() or fixture.stat().st_size!=len(PAYLOAD) or
+                fixture.read_bytes()!=PAYLOAD):
+                attention.append('collection: storage wait fixture missing, unsafe or mismatched');storage_wait=None
+            else:
+                (saved/'wait-fixture.bin').write_bytes(PAYLOAD)
+                if (saved/'wait-fixture.bin').read_bytes()!=PAYLOAD:raise OSError('Storage wait fixture copy mismatch')
+                storage_wait['payload_verified']=True
+        if 'srvros.capture=storage-wait' in text and storage_wait is None:
+            attention.append('collection: storage wait comparison missing or invalid')
         records.append({
+            "storage_wait": storage_wait,
             "battery_preflight": preflight,
             "session": name,
             "releases": releases,
