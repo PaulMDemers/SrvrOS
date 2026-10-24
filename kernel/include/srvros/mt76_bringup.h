@@ -56,7 +56,7 @@ enum mt76_capture_status mt76_capture_efuse_map(const struct mt76_efuse_map_io *
  * never log header, command/readback values or transport buffers. Invalid
  * factory addresses refuse; this diagnostic does not generate replacements.
  * Caller must independently enforce ownership and exact native I/O admission.
- * No native caller yet. Result contains counters only, no address bytes. */
+ * Result contains counters only, no address bytes. */
 struct mt76_mac_address_result {bool attempted,complete;unsigned operations,reads,writes,verified;};
 struct mt76_mac_address_io {
     void *context;
@@ -67,6 +67,22 @@ bool mt76_mac_address_header_valid(const uint8_t *header,size_t size);
 bool mt76_mac_address_target(unsigned target,const uint8_t *header,size_t size,uint32_t previous,uint32_t *address,uint32_t *value);
 enum mt76_capture_status mt76_mac_address_apply(struct mt76_mac_address_result *,
     const struct mt76_mac_address_io *,const struct mt76_efuse_map *,const uint8_t *header,size_t size);
+
+/* Private logical block0 only. Output is cleared on entry/failure; caller
+ * clears its successful output after use. Mode0 is fixed, never programming. */
+struct mt76_mac_header_result {bool attempted,complete,valid;unsigned reads,writes,polls,blocks;};
+bool mt76_mac_header_command(uint32_t previous,uint32_t *command);
+bool mt76_mac_header_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
+bool mt76_mac_header_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
+enum mt76_capture_status mt76_capture_mac_header(const struct mt76_efuse_map_io *,
+    const struct mt76_identity *,struct mt76_mac_header_result *,uint8_t output[16]);
+/* The gate retains only one private previous word; scrub it after use. */
+struct mt76_mac_address_gate {
+    bool pending,failed;unsigned operations,submitted;
+    uint32_t previous,mac[40],core[40],dma[20];
+};
+bool mt76_mac_address_begin(struct mt76_mac_address_gate *,const uint8_t header[16],unsigned op,bool write,uint32_t address,uint32_t value);
+bool mt76_mac_address_finish(struct mt76_mac_address_gate *,const uint8_t header[16],bool ok,uint32_t value);
 
 /* Pure ordered plan: bulk ILM, bulk DLM, then activation IVB control payload.
  * Caller must verify pinned hash, device/ownership and every transfer before

@@ -4960,3 +4960,26 @@ payload are archived outside build at
 Missing-workspace exact-stage refusal/return also passed. All local validation
 is complete for this checkpoint; physical factory-address programming remains
 pending native wiring and its own trial. Installed v54 and recovery unchanged.
+
+Active scope v55: fresh private logical block0 acquisition and native station/
+BSSID initialization after completed v54. Require mapped header,exact identity,
+independent one-shot USB ordering and guard checks; no raw address logs. Touch
+mt76/xHCI/main/staging/tests. Actualbase d5bc4b3; inspect fetched bc0edb9 window
+capacity changes separately. Native trial follows local and exact-stage checks.
+
+### 2026-10-24 — native private MAC implementation
+
+Added fixed mode0 logical block0 acquisition after completed physical-map
+validation,with independent ordered transport admission,bounded polling and
+header validity checks. The20-target private address plan now has native
+one-attempt admission,exact derived write/readback validation and per-target
+guards. Header copy and confirmed descriptor scratch are cleared; diagnostics
+contain counters and compact guard receipts only. Private stages explicitly
+use DMA-backed USB data to keep address bytes out of immediate descriptors.
+Uncertain DMA remains quarantined. A host harness dependency on firmware hash
+verification became visible in the new stage test; link the real verifier and
+SHA256 rather than stubbing or weakening firmware admission.
+
+Actualbase remains d5bc4b3. Fetchedmain bc0edb9 adds independent window capacity
+and collector display metadata; inspected and deferred from this bounded Wi-Fi
+candidate. Installed accepted v54 remains unchanged until staging/install checks.

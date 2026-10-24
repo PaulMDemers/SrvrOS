@@ -2220,3 +2220,19 @@ counters only,not address bytes. Every failed operation stops without retry.
 The private header copy is cleared on exit. Native logical-block acquisition,
 independent transport admission and scratch clearing remain to be implemented;
 there is no native caller or new physical acceptance for this engine yet.
+
+### Native private-address trial
+
+`--wifi-mac-address` extends `--wifi-efuse-map` as `wifi-fw-v55`. After the
+complete v54 chain,it privately reads only logical block0 in fixed mode0 with
+bounded polling and fresh MAC/CORE/DMA guards. An unmapped,malformed or invalid
+header refuses address programming. The existing full logical capture is unchanged.
+The native programming gate independently validates all160 ordered operations,
+exact derived values,readbacks and guard observations. No operation is retried.
+
+Private stages disable immediate USB data: descriptors contain DMA pointers,
+not factory address bytes. Confirmed descriptor buffers and the private header
+are cleared; uncertain DMA stays quarantined and is never dumped. Saved receipts
+contain only counts and20 compact before/after guard/DMA groups,keeping the prior
+initialization evidence within the bounded exit log. Native acceptance is pending.
+RF/channel/power setup,scanning and connectivity remain separate work.

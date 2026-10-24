@@ -270,6 +270,12 @@ struct xhci_wifi_mcu {
     bool efuse_map_mode,efuse_map_active;
     struct mt76_efuse_map efuse_map;
     struct mt76_efuse_map_gate efuse_map_gate;
+    bool mac_address_mode,mac_header_active,mac_address_active;
+    uint8_t mac_header_private[16];
+    struct mt76_mac_header_result mac_header;
+    struct mt76_efuse_map_gate mac_header_gate;
+    struct mt76_mac_address_result mac_address;
+    struct mt76_mac_address_gate mac_address_gate;
     bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
     struct mt76_mac_snapshot mac_snapshot;
     bool mac_route_mode,mac_route_active,mac_route_submitted;
@@ -1462,7 +1468,8 @@ static int wait_control_exact(struct xhci_device *device) {
 static bool firmware_immediate_data(const struct xhci_device *d,
     const struct usb_setup_packet *setup, uint64_t buffer_phys,
     uint32_t length, bool data_in, struct xhci_trb *trb) {
-    if (!d->firmware.active || !d->firmware.configured || !d->descriptor_buffer ||
+    if (d->firmware.mcu.mac_header_active || d->firmware.mcu.mac_address_active ||
+        !d->firmware.active || !d->firmware.configured || !d->descriptor_buffer ||
         !buffer_phys || buffer_phys != d->descriptor_buffer_phys ||
         d->ep0_max_packet < 8 || data_in || length != 4 || setup->length != 4 ||
         setup->request_type != 0x40 || setup->request != 6) return false;

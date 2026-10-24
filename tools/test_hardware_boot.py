@@ -937,6 +937,13 @@ class InstallTests(unittest.TestCase):
         self.assertNotIn('srvros.wifi-mac-tail=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v51-laptop-probe-0e535900-auto-return'))
         with self.assertRaises(ValueError):boot.stage(wifi_mac_tail=True)
 
+    def test_wifi_mac_address_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v55-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-address','efuse-map','mac-fixed','mac-tail','wcid','skey','dcoc'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-mac-address=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v54-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_address=True)
+
     def test_wifi_efuse_map_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v54-laptop-probe-0e535900-auto-return')
         for flag in ('efuse-map','mac-fixed','mac-tail','wcid','skey','dcoc','bbp-switch','bbp-after-mac'):

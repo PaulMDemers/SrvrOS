@@ -247,4 +247,58 @@ static void mac_address(void){
  assert(mt76_mac_address_apply(&s,&io,&map,address_header,16)==MT76_CAPTURE_REFUSED && !f.calls);
  puts("private MAC plan: PASS 20 unique targets/160 operations, synthetic address only, exact control fields, high-bit preservation, invalid identity/map, all faults/cancellations/guards, no retry");
 }
-int main(void) { mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+static bool header_read(void *p,uint32_t a,uint32_t *v){struct gated_map *f=p;*v=0;if(!mt76_mac_header_begin(&f->g,false,a,0))return false;bool ok=map_read(&f->f,a,v);return mt76_mac_header_finish(&f->g,ok,*v);}
+static bool header_write(void *p,uint32_t a,uint32_t v){
+ struct gated_map *f=p;if(!mt76_mac_header_begin(&f->g,true,a,v))return false;
+ bool ok=map_step(&f->f);if(ok){assert(a==0x24 && !(v&((3u<<6)|(0x3ffu<<16))) && (v&(1u<<30)));f->f.ctrl=v;f->f.writes++;}
+ return mt76_mac_header_finish(&f->g,ok,v);
+}
+static void header_init(struct gated_map *f){*f=(struct gated_map){0};map_init(&f->f);memcpy(f->f.bytes,address_header,16);}
+static enum mt76_capture_status header_run(struct gated_map *f,struct mt76_mac_header_result *s,uint8_t out[16]){
+ const struct mt76_identity id={.asic=0x76100002,.mac=0x76502000};const struct mt76_efuse_map_io io={{f,header_read,header_write,gated_delay},gated_auth};return mt76_capture_mac_header(&io,&id,s,out);
+}
+static void private_header(void){
+ struct gated_map f;header_init(&f);struct mt76_mac_header_result s={0};uint8_t out[16];
+ assert(header_run(&f,&s,out)==MT76_CAPTURE_OK && s.complete && s.valid && s.blocks==1 && s.reads==12 && s.writes==1 && s.polls==1 && f.g.phase==15 && f.g.block==1 && f.g.submitted==13 && !memcmp(out,address_header,16));
+ unsigned calls=f.f.calls,auth=f.f.auth;
+ assert(header_run(&f,&s,out)==MT76_CAPTURE_REFUSED);for(unsigned i=0;i<16;i++)assert(!out[i]);
+ for(unsigned n=1;n<=calls;n++){header_init(&f);f.f.fail=n;s=(struct mt76_mac_header_result){0};memset(out,0xaa,16);assert(header_run(&f,&s,out)!=MT76_CAPTURE_OK && !s.complete && f.f.calls==n);for(unsigned i=0;i<16;i++)assert(!out[i]);}
+ for(unsigned n=1;n<=auth;n++){header_init(&f);f.f.deny=n;s=(struct mt76_mac_header_result){0};assert(header_run(&f,&s,out)==MT76_CAPTURE_CANCELLED && !s.complete && f.f.auth==n);for(unsigned i=0;i<16;i++)assert(!out[i]);}
+ header_init(&f);f.f.stuck=true;s=(struct mt76_mac_header_result){0};assert(header_run(&f,&s,out)==MT76_CAPTURE_TIMEOUT && f.g.polls==1024);
+ header_init(&f);f.f.unmapped=true;s=(struct mt76_mac_header_result){0};assert(header_run(&f,&s,out)!=MT76_CAPTURE_OK && !s.complete);for(unsigned i=0;i<16;i++)assert(!out[i]);
+ for(unsigned b=0;b<16;b++){
+  header_init(&f);memset(f.f.bytes+4,0,6);f.f.bytes[b]^=1;s=(struct mt76_mac_header_result){0};
+  if(b>=4 && b<=9 && b!=4)continue;
+  assert(header_run(&f,&s,out)!=MT76_CAPTURE_OK && !s.valid);for(unsigned i=0;i<16;i++)assert(!out[i]);
+ }
+ for(unsigned bit=0;bit<32;bit++){
+  uint32_t command;assert(mt76_mac_header_command(0x81e0a540,&command));assert(!(command&((3u<<6)|(0x3ffu<<16))));
+  struct mt76_efuse_map_gate g={.phase=4,.control=0x81e0a540};assert(!mt76_mac_header_begin(&g,true,0x24,command^(1u<<bit)));
+ }
+ puts("private header: PASS fixed logical block0, mode0, bounded polling, mapped valid header, failures clear output, cancellation, no retry");
+}
+struct gated_address {struct address_fake f;struct mt76_mac_address_gate g;};
+static bool private_address_auth(void *p){struct gated_address *f=p;return !f->g.failed && address_auth(&f->f);}
+static bool private_address_transfer(void *p,unsigned op,bool w,uint32_t a,uint32_t *v){
+ struct gated_address *f=p;if(!mt76_mac_address_begin(&f->g,address_header,op,w,a,*v))return false;
+ bool ok=address_transfer(&f->f,op,w,a,v);return mt76_mac_address_finish(&f->g,address_header,ok,*v);
+}
+static enum mt76_capture_status private_address_run(struct gated_address *f,struct mt76_mac_address_result *s){
+ const struct mt76_efuse_map map={.attempted=true,.complete=true,.valid=true,.blocks=2,.writes=2};
+ const struct mt76_mac_address_io io={f,private_address_auth,private_address_transfer};return mt76_mac_address_apply(s,&io,&map,address_header,16);
+}
+static void private_address_gate(void){
+ struct gated_address f={0};address_init(&f.f);struct mt76_mac_address_result s={0};
+ assert(private_address_run(&f,&s)==MT76_CAPTURE_OK && s.complete && f.g.operations==160 && f.g.submitted==160 && !f.g.failed && !f.g.pending);
+ for(unsigned n=1;n<=160;n++){f=(struct gated_address){0};address_init(&f.f);f.f.fail=n;s=(struct mt76_mac_address_result){0};assert(private_address_run(&f,&s)==MT76_CAPTURE_IO && f.f.calls==n && f.g.failed && !s.complete);}
+ for(unsigned n=1;n<=161;n++){f=(struct gated_address){0};address_init(&f.f);f.f.deny=n;s=(struct mt76_mac_address_result){0};assert(private_address_run(&f,&s)==MT76_CAPTURE_CANCELLED && f.f.auth==n && !s.complete);}
+ for(unsigned op=0;op<160;op++){
+  unsigned step=op%8;uint32_t a,v;assert(mt76_mac_address_target(op/8,address_header,16,0x12345678,&a,&v));
+  if(step==0 || step==6)a=0x1004;else if(step==1 || step==7)a=0x2000;else if(step==2)a=0x208;
+  struct mt76_mac_address_gate g={.operations=op,.submitted=op,.previous=0x12345678};assert(!mt76_mac_address_begin(&g,address_header,op,step!=4,a,v));
+  g=(struct mt76_mac_address_gate){.operations=op,.submitted=op,.previous=0x12345678};assert(!mt76_mac_address_begin(&g,address_header,op,step==4,a+1,v));
+  if(step==4)for(unsigned bit=0;bit<32;bit++){g=(struct mt76_mac_address_gate){.operations=op,.submitted=op,.previous=0x12345678};assert(!mt76_mac_address_begin(&g,address_header,op,true,a,v^(1u<<bit)));}
+ }
+ puts("private address gate: PASS exact order/direction/values, all transfer/cancel faults, no replay, independent guards");
+}
+int main(void) { private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
