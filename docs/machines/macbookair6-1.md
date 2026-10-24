@@ -1523,3 +1523,12 @@ build. USB is unmounted; no reboot is armed and no retry is prepared.
 Next: make generated saves wait for initial Start readiness, reproduce delayed
 fresh generation 2, and rerun directed session tests before preparing a retry.
 Keep this failed evidence and existing study directory intact during preparation.
+
+## Start/save sequencing repair scope (2026-10-23)
+
+From main `89b19ec`, own the generated Text capture's readiness sequencing and
+VM delayed-second-sample fixture/regression. Preserve all runtime admission,
+firmware permissions, owner/mount lifetime and deadlines. PR112 owns compositor
+idle work; this fix avoids its files. PR19 Wi-Fi remains independent. Reproduce
+the collected v66 failure before correcting the capture, then prepare a fresh
+study directory while archiving the previous failed study without overwrites.

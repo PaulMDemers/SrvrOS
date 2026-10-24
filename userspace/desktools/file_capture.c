@@ -18,6 +18,7 @@ static struct {
     unsigned requests,waiting,submit;
     uint64_t epoch,serial,deadline;
 } controls;
+static void capture_write(struct tool *t);
 void tool_file_capture_controls_enable(int cancel) { controls.enabled=1;controls.cancel=cancel; }
 static int control_request(struct tool *t,unsigned op) {
     struct srv_battery_status status={0};struct srv_battery_control control={0};
@@ -55,7 +56,10 @@ int tool_file_capture_controls_tick(struct tool *t) {
         if(!control.available)return 1; /* The session owner binds after spawn. */
         (void)control_request(t,SRV_BATTERY_START);return 1;
     }
-    if(!controls.waiting)return 1;
+    if(!controls.waiting) {
+        if(capture.phase==5)capture_write(t);
+        return !controls.submit;
+    }
     if((uint64_t)srv_ticks()>controls.deadline || control.result<0 || status.state==SRV_BATTERY_UNAVAILABLE || status.state==SRV_BATTERY_FAULTED)goto failed;
     if(control.pending)return 1;
     if(controls.waiting==SRV_BATTERY_START) {
@@ -68,7 +72,9 @@ int tool_file_capture_controls_tick(struct tool *t) {
     desk_log("text-battery: observed=%u serial=%llu epoch=%llu state=%u generation=%llu pending_file=%u\n",
         controls.waiting,(unsigned long long)controls.serial,(unsigned long long)status.epoch,status.state,
         (unsigned long long)status.generation,t->job.busy?1u:0u);
-    controls.waiting=0;return 1;
+    controls.waiting=0;
+    if(capture.phase==5)capture_write(t);
+    return !controls.submit;
 failed:desk_log("text-battery: FAILED requests=%u waiting=%u\n",controls.requests,controls.waiting);t->window.failed=1;return 0;
 }
 void tool_file_capture_setup(int workspace) {
@@ -81,19 +87,33 @@ void tool_file_capture_begin(struct tool *t,uint64_t serial) {
     if(capture.phase || !t->worker_ready || t->job.busy || capture.cycles>=5 ||
        serial!=(capture.cycles+1)*12 || t->body_text.length!=2 ||
        memcmp(t->body_text.data,"AA",2) || t->clip.mode) { t->window.failed=1;return; }
-    capture.serial=serial;capture.phase=1;
-    snprintf(capture.destination,sizeof(capture.destination),"%s/text-%u.txt",root,capture.cycles+1);
-    /* Present intermediate progress without acknowledging the edit until its
-     * saved, renamed and reopened document has been checked. */
+    capture.serial=serial;capture.phase=5;
+    /* Keep the checkpoint unacknowledged while Start becomes fresh. No file
+     * request is created until the previous control is observed complete. */
     t->window.input_serial=serial-1;
+    if(controls.enabled && (!controls.requests || controls.waiting || controls.submit)) {
+        desk_log("text-files: deferred serial=%llu waiting=%u; no write submitted\n",
+            (unsigned long long)serial,controls.waiting);
+        return;
+    }
+    capture_write(t);
+}
+static void capture_write(struct tool *t) {
+    if(capture.phase!=5 || t->window.failed || t->job.busy ||
+       (controls.enabled && (!controls.requests || controls.waiting || controls.submit))) {
+        t->window.failed=1;return;
+    }
+    capture.phase=1;
+    snprintf(capture.destination,sizeof(capture.destination),"%s/text-%u.txt",root,capture.cycles+1);
+    desk_log("text-files: write-ready serial=%llu\n",(unsigned long long)capture.serial);
     tool_text_save_path(t,draft);
-    if(!t->job.busy) t->window.failed=1;
+    if(!t->job.busy)t->window.failed=1;
     if(controls.enabled && !t->window.failed && capture.cycles<4) {
-        if(controls.waiting || controls.submit){t->window.failed=1;return;}
         controls.submit=capture.cycles%2?SRV_BATTERY_START:SRV_BATTERY_STOP;
         controls.deadline=srv_ticks()+1500;
     }
 }
+
 void tool_file_capture_finish(struct tool *t,int result) {
     if(result<0 || t->job.response.status) { t->window.failed=1;return; }
     if(capture.phase==1) {
@@ -126,7 +146,7 @@ void tool_file_capture_finish(struct tool *t,int result) {
 failed:t->window.failed=1;
 }
 int tool_file_capture_report(void) {
-    desk_log("text-files: cycles=%u pending=%u storage=%s\n",capture.cycles,capture.phase,storage);
+    desk_log("text-files: cycles=%u pending=%u storage=%s\n",capture.cycles,capture.phase?1u:0u,storage);
     if(controls.enabled) {
         struct srv_battery_status status={0};
         int ok=!srv_battery_status(&status) && controls.requests==5 && !controls.waiting &&
