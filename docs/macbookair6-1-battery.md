@@ -513,3 +513,17 @@ race. Runtime retired cleanly with 30 events; prior file contents, offline
 allocation and Ubuntu recovery passed. This does not accept bounded Home desktop
 coexistence. Preserve the failed session and reproduce delayed sample readiness
 before fixing the generated control/save ordering.
+
+
+## Start/save sequencing retry
+
+The four-second generation-2 delay plus four-second EC setup reproduces the
+v66 first-save race with the original Text capture. The corrected diagnostic
+holds that generated checkpoint without creating/submitting a file job until
+Start is observed active, fresh and at generation 2 or later. It then resumes
+the existing pending-file/control sequence. The control, checkpoint and owner
+deadlines are unchanged. An eight-second delay exceeded the existing Start
+deadline and failed cleanly with no write; that evidence is retained separately.
+This changes only generated capture sequencing and the VM fixture, not ordinary
+Text saves, runtime admission or firmware permissions. Native retry acceptance
+remains pending.
