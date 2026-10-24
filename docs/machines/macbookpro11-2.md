@@ -5567,3 +5567,16 @@ Fetched main `27f0870` includes Air6,1 heap-startup PR138; it is not integrated
 into this native source (base remains `d5bc4b3`). Air6,1 attended-reopen PR139
 and Air7,2 POSIX PR134 remain independent scopes. Preserve their changes on
 future integration; this return closeout changes documentation only.
+
+Active scope (2026-10-24): compare the completed v62 MCU observations with five
+fixed direct RF-CSR reads (RF0:6/1/2/6/22). Vendor source describes RF0:6 as a VCO
+amplitude setting and reads/modifies it during calibration; no zero-read exemption
+was found. Use the documented RF-CSR read selector with its write bit clear,
+bounded idle/completion polling, exact bank/register identity and disabled
+MAC/CORE/DMA guards. No RF data writes or additional central-table entries.
+Touch the MCU diagnostic engine, xHCI binding, dedicated v63 staging and tests;
+retain historical v61/v62 behavior. Source base remains d5bc4b3; fetched main
+27f0870, Air6,1 PR139 and Air7,2 POSIX PR134 fcac611 inspected as separate work.
+Next checkpoint: fault-tested fixed selector admission and exact-stage VM, then
+unarmed installation. Direct USB RF-CSR access remains a hardware hypothesis;
+observation completion must not accept central initialization or calibration.
