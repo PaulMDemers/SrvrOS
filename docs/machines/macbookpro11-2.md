@@ -6827,3 +6827,19 @@ errors; unmounted and unarmed. Failure archived outside build under
 Next: bounded explicit early-clear admission audit and regression coverage,
 retaining strict historical profile and failed candidate. No automatic retry,
 MAC enable, channel tuning or traffic; requested IBI9 inventory remains pending.
+
+
+## 2026-10-25 — Early VCO-clear observation scope
+
+Collected v76 failure at `c399ad56`; no outstanding run or armed reboot.
+Fetched main `c4bee5cd` (PR157 desktop lifecycle merge); PR160 owns Air6,1
+I/O latency. Their changed files do not own RF/MCU profile logic; retain Pro
+integration base `d5bc4b3` for this bounded trial, without unrelated merges.
+Objective: separate explicit v77 early-clear observation mode admitting only
+captured final RF0:4=30 or historicalb0 with every other initiation byte/guard
+unchanged. Keep the original pending-profile predicate and v76 path strict.
+Run all six guarded delayed reads in either case; require exact all30 delayed
+profile before path/inventory. Do not skip waits or repeat pulses. Scope:
+MT76 profile helper, native mode, staging, host/USB tests and strict collector.
+No new register writes, channel tuning, MAC enable, calibration acceptance or
+traffic. Preserve both failed inventories and durable recovery.
