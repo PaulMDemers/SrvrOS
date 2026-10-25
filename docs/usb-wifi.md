@@ -3137,3 +3137,23 @@ No value is promoted to accepted calibration data. Complete18 receipts,12
 values,2 guard triplets and both completion markers remain required. v76 adds
 only its token to v75 and keeps256KiB save/return. No additional writes or radio
 enable/traffic. The independent Linux read/audit is archived outside build.
+
+
+### Early VCO-clear timing variant (v77 candidate)
+
+The native v76 run saved its failure before reaching the new inventory:
+initiation completed70 operations with final RF0:4=30 (bit7 already cleared),
+but the historical pending profile requiredb0 and refused delayed reads.
+No wait/path/inventory ran; zero wait rows are placeholders. Earlier proof,
+both failure markers, complete prefix and recovery/filesystem checks verified.
+
+Separate `--wifi-vco-ready` requires `--wifi-channel-observe` and emits its own
+boot token. Only native mode55 admits the exact captured early-clear variant:
+all ten initiation values/headers/guards/counters remain strict, with final30
+instead ofb0. The historical pending predicate and modes remain unchanged.
+A prerequisite receipt distinguishes pending from early-clear. Either variant
+still executes all six fixed delayed RF0:4 reads; all six must observe30 before
+path/inventory admission. No skipped waits, retries, repeated pulses, new RF
+writes, calibrated radio acceptance, MAC enable or traffic. Full earlier proof,
+18 inventory receipts/postguards, IBI9-only raw mask and both saved completion
+markers remain required; native validation is pending.

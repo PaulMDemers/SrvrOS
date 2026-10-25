@@ -6843,3 +6843,14 @@ profile before path/inventory. Do not skip waits or repeat pulses. Scope:
 MT76 profile helper, native mode, staging, host/USB tests and strict collector.
 No new register writes, channel tuning, MAC enable, calibration acceptance or
 traffic. Preserve both failed inventories and durable recovery.
+
+
+Implemented mode55 with an explicit v77 token and exact cleared-profile helper;
+the original pending helper/modes remain strict. Both patterns retain all six
+waits and require the captured all30 delayed profile before inventory. Host
+calibration tests mutate every profile word/guard and test all256 final bytes.
+USB tests pass all42 wait operations,128 prerequisite/state/mode faults, all six
+delays/no replay and18 downstream ownership positions. Full xHCI suite,156
+staging checks,152 historical recipe identities,292 malformed full-prefix
+collector cases, ASan/UBSan and full build pass. Native result remains pending.
+Next: exact-stage VM save/return and missing-workspace checks, then install.

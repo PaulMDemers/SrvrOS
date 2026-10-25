@@ -560,6 +560,8 @@ struct mt76_rf_wait {
 };
 struct mt76_rf_wait_io {struct mt76_mcu_timing_io command;bool (*delay)(void *,uint32_t);};
 bool mt76_rf_cal_pending_profile_valid(const struct mt76_rf_cal *s);
+/* Exact captured early-clear variant; does not replace pending admission. */
+bool mt76_rf_cal_cleared_profile_valid(const struct mt76_rf_cal *s);
 unsigned mt76_rf_wait_sequence(unsigned command);
 unsigned mt76_rf_wait_delay(unsigned sample);
 uint32_t mt76_rf_wait_guard_address(unsigned operation);

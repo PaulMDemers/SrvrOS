@@ -2014,6 +2014,12 @@ bool mt76_rf_cal_pending_profile_valid(const struct mt76_rf_cal *s){
     for(unsigned i=0;i<10;i++)if(s->words[i][2]!=values[i])return false;
     return true;
 }
+bool mt76_rf_cal_cleared_profile_valid(const struct mt76_rf_cal *s){
+    static const unsigned values[10]={147,147,147,19,19,147,48,176,147,48};
+    if(!s || !s->complete || !rf_cal_state_valid(s,70))return false;
+    for(unsigned i=0;i<10;i++)if(s->words[i][2]!=values[i])return false;
+    return true;
+}
 unsigned mt76_rf_wait_sequence(unsigned q){return q<6?(428+q)%15+1:0;}
 unsigned mt76_rf_wait_delay(unsigned q){static const unsigned us[6]={10000,40000,50000,100000,300000,500000};return q<6?us[q]:0;}
 uint32_t mt76_rf_wait_guard_address(unsigned op){unsigned n=op%7;return op<42 && n!=3?mt76_rf_probe_read_address(n<3?n:n-4):UINT32_MAX;}

@@ -82,6 +82,12 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(config.replace(" srvros.wifi-path=1",""),previous)
         with self.assertRaises(ValueError):boot.stage(wifi_path=True)
 
+    def test_wifi_vco_ready_profile(self):
+        v="ram-usb-wifi-fw-v77-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertEqual(config.replace(" srvros.wifi-vco-ready=1",""),boot.limine_config("0123456789abcdef",v.replace("v77-","v76-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_vco_ready=True)
+
     def test_wifi_rf_wait_profile(self):
         v="ram-usb-wifi-fw-v73-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)
