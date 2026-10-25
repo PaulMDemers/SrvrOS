@@ -2,6 +2,20 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active dynamic GUI queue storage (D2b)
+
+PR144 is merged as `58bd3cf` and consumed. Next bounded objective: replace
+32 fixed kernel receive queues with stable allocated records under a 2 MiB
+requested-byte budget, retaining the 64-message per-connection FIFO. Prepare
+outside GUI-owned critical sections, then revalidate route, server identity,
+retirement epoch and surface transition before atomic publication/delivery.
+Failures must preserve seals, FIFO state and byte accounting. Touch kernel GUI,
+shared budgets/resource traces and host/actual transport fixtures. Add allocation,
+retirement, server replacement and competing-publication cases before integration.
+Compositor/scene sixteen-window storage remains a separate D2c step. Pro PR19
+at `e409c07` still covers independent Wi-Fi diagnostics. No hardware changes;
+keep Ubuntu running and preserve installed/recovery payloads.
+
 ### Active dynamic surface storage (D2a)
 
 PR143 is merged as `fd38097` and consumed on the same device branch. Next
