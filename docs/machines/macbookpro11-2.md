@@ -31,7 +31,11 @@ Release `6e49ad417d7ea11e` (source `48b79846`) completed the read-only RF
 bypass/control snapshot after reproducing that experiment. Both bypass registers
 and RF setting0 are zero in native and live Linux samples. RF_MISC differs1/5;
 no missing prerequisite is established by comparing disabled and live states.
-Next audit RF power/reset/register semantics before another write hypothesis.
+Live Linux RF reads now show0:6/1/2/6/22 =8/1/17/8/68 while networking
+works. Post-initialization RF0:6 does not retain41, so strict immediate table
+readback equality still needs a register-specific basis. Next prepare a separate
+bounded central-table observation in reference order; preserve the original
+strict engine and keep calibration/connectivity acceptance separate.
 No reboot is armed. The latest dated sections below contain full
 scope, dependencies and evidence locations.
 
@@ -5811,3 +5815,38 @@ collect results and immediately unload. This is comparison evidence only.
 Touch local ignored Linux probe/evidence and this record; no SrvrOS payload
 change or reboot. Fetched main `ed2015a5` contains desktop PR140–142; their
 clipboard/window-lifetime scope is separate. Native baseline remains `d5bc4b3`.
+
+
+### 2026-10-25 — live Linux RF read comparison
+
+The fixed local probe built against the running7.0.0-38-generic headers and
+called the exact loaded `mt76x0_rf_rr` helper for0:6/1/2/6/22. Its binary ABI and
+USB read dispatch were checked against the loaded module and pinned Linux
+reference. It used no private structure offsets, RF data writes, driver
+reset/unbind or channel changes. Device matching covered this model, captured
+USB descriptor fixture, bus1/port1/interface0, ID/revision and bound driver.
+An active-only parent-device runtime-PM reference, interface lock and module
+reference protected the calls; each read used the driver's normal MCU mutex.
+
+Results:8/1/17/8/68. Both RF0:6 reads were08; controls1/2 matched native1/17.
+RF0:22 was44 after Linux's frequency/channel configuration. The probe unloaded,
+the driver stayed bound, the default route matched before/after, and two gateway
+pings passed. This accepts only a live Linux observation. It does not establish
+what RF0:6 should return immediately after the early41 write before calibration.
+It does establish that the final working radio need not retain41 there.
+The original strict native engine remains unchanged and the full central table
+is still unaccepted.
+
+Two earlier probe loads stopped at interface runtime-PM acquisition with EACCES,
+before any RF read. The driver does not advertise interface autosuspend; the
+successful probe instead pinned the already-active parent USB device without
+resume or PM configuration changes. Both failures are retained as incomplete
+evidence, not passes. No security/lockdown policy was disabled.
+
+Successful source/evidence and checksums are archived under
+`~/.local/share/srvros/macbookpro11-2/linux-rf-read-7592f25-active-device/`;
+the two failed attempts have separate adjacent archives. No new SrvrOS payload
+was staged or installed, and no reboot is armed. Next implement a separate fixed
+full central-table observation in reference order, with strict command/transport/
+guard receipts and complete readback mismatch accounting. Do not treat that
+observation as exact register acceptance or proceed to DAC/VCO calibration.

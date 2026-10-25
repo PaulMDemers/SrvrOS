@@ -2687,3 +2687,24 @@ OSC/PBF matched. Both completion markers and the full80450-byte prefix passed,
 with clean Ubuntu recovery and filesystem checks. The snapshot adds observations
 only. RF0:6 remains zero; investigate power/reset/register semantics without
 copying the live state, retrying the write automatically or weakening acceptance.
+
+
+### Live Linux RF comparison, 2026-10-25
+
+A temporary device-matched probe called the loaded Linux RF read helper for
+0:6/1/2/6/22 through the driver's MCU serialization. It returned8/1/17/8/68,
+then unloaded. The adapter stayed bound, the default route remained unchanged
+and gateway pings passed. No RF data write, driver reset/unbind or channel change
+was performed. The first two loads stopped at unsupported interface runtime-PM
+acquisition before reads; using an active-only parent-device reference resolved
+the local probe issue without changing power policy.
+
+The working Linux radio reads08 at RF0:6 after its initialization/calibration,
+so41 is not a guaranteed persistent value. This does not establish the expected
+early readback before calibration. The [reference initialization order](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+writes the central table without requiring immediate equality at each target.
+Next add a separate full-table observation with fixed targets/values, complete
+transport/guard checks and mismatch accounting. Preserve the original strict
+engine and distinguish command completion, observed register values and actual
+calibrated radio function. No automatic calibration or traffic follows a table
+observation.
