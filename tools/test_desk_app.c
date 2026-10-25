@@ -15,7 +15,7 @@ int desk_process_alive(uint64_t pid) { assert(pid==42);return alive; }
 uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { return pixel_failure?NULL:calloc((size_t)w*h,4); }
 void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;free(p); }
 struct desk_packet desk_packet_new(uint32_t type) {
-    return (struct desk_packet){.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
+    return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
 }
 int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==0 || target==42);if(full) return -1;last_sent=*p;sends++;return 0;
@@ -82,6 +82,8 @@ int main(void) {
     struct desk_app a;struct desk_packet event;struct desk_canvas canvas;
     assert(!desk_app_open(&a,"Test",400,300));assert(last_sent.type==DESK_OPEN);
     assert(!desk_app_canvas(&a,&canvas));
+    receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;incoming.window=2;
+    assert(desk_app_poll(&a,&event)==2 && !a.server && !a.configure.generation);
     receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;
     assert(desk_app_poll(&a,&event)==2 && a.server==42);
     assert(desk_app_poll(&a,&event)==1 && event.type==DESK_CONFIGURE && created==1);
@@ -94,6 +96,9 @@ int main(void) {
     receive(DESK_CONTEXT,1);assert(desk_app_poll(&a,&event)==2);
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=999;
     desk_app_poll(&a,&event);assert(a.pending==1);
+    receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=1;incoming.window=2;
+    assert(desk_app_poll(&a,&event)==2 && a.pending==1);
+    receive(DESK_CLOSE,1);incoming.window=2;assert(desk_app_poll(&a,&event)==2 && !a.closed);
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=1;
     assert(desk_app_poll(&a,&event)==2 && !a.pending);
     assert(desk_app_poll(&a,&event)==1 && a.width==500 && created==2 && destroyed==1);

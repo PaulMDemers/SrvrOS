@@ -8,7 +8,7 @@
 /* One-window client transport. Independent of the widget library and app data.
  * Application controls its bounded event batches and sleep cadence. */
 struct desk_app {
-    uint64_t server,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
+    uint64_t server,window,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
     struct desk_packet configure;
     struct desk_menu_item menus[DESK_APP_MENU_ITEMS];
     uint64_t menu_revision;

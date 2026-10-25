@@ -4,7 +4,7 @@
 #include <srvros/desk_clipboard.h>
 #include "../userspace/deskd/clipboard.h"
 static struct desk_clipboard_store store;
-static struct desk_clipboard_peer peer={.pid=99};
+static struct desk_clipboard_peer peer={.pid=99,.window=DESK_DEFAULT_WINDOW};
 static struct desk_clipboard_client client;
 static unsigned char buffer[DESK_CLIPBOARD_BYTES+1],document[DESK_CLIPBOARD_BYTES];
 static int focused=1,block_client,block_server,completed,received,corrupt;
@@ -16,7 +16,7 @@ static struct desk_clipboard_client clients[MANY];
 static unsigned char buffers[MANY][DESK_CLIPBOARD_BYTES+1];
 static int multi,source,blocked=-1,results[MANY];
 struct desk_packet desk_packet_new(uint32_t type) {
-    return (struct desk_packet){.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet),.type=type};
+    return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet),.type=type};
 }
 int desk_send(uint64_t target,const struct desk_packet *packet) {
     if(multi) {
@@ -51,7 +51,7 @@ static void pump(void) {
 static void many_clients(void) {
     memset(&store,0,sizeof(store));multi=1;focused=1;
     for(unsigned i=0;i<MANY;i++) {
-        peers[i].pid=1000+i;desk_clipboard_init(&clients[i],buffers[i]);
+        peers[i].pid=1000+i;peers[i].window=100+i;desk_clipboard_init(&clients[i],buffers[i]);clients[i].window=peers[i].window;
         /* Every distinct owner must be able to copy, including peers 9..32. */
         memset(document,'A'+i%26,sizeof(document));source=i;
         assert(!desk_clipboard_copy(&clients[i],42,document,sizeof(document),tick));
@@ -87,7 +87,7 @@ static void many_clients(void) {
     assert(results[source]==-1 && !clients[source].offset && !buffers[source][0]);focused=1;
     /* A timed-out writer retains an error reply across queue pressure. */
     struct desk_packet q=desk_packet_new(DESK_CLIPBOARD_SET);
-    q.serial=77;q.width=10;q.height=1;q.text[0]='X';
+    q.window=peers[0].window;q.serial=77;q.width=10;q.height=1;q.text[0]='X';
     desk_clipboard_request(&store,&peers[0],1,&q,tick);
     assert(store.writer==&peers[0]);blocked=0;
     desk_clipboard_service(&store,&peers[0],tick+1001);
@@ -97,7 +97,7 @@ static void many_clients(void) {
     /* Retiring/reusing a writer must release the staging lease, not publish it. */
     desk_clipboard_request(&store,&peers[0],1,&q,tick);assert(store.writer==&peers[0]);
     desk_clipboard_forget(&store,&peers[0]);assert(!store.writer && !peers[0].pid);
-    peers[0].pid=1000;source=0;results[0]=0;
+    peers[0].pid=1000;peers[0].window=200;clients[0].window=200;source=0;results[0]=0;
     assert(!desk_clipboard_copy(&clients[0],42,"reused",6,tick));
     desk_clipboard_tick(&clients[0],tick);desk_clipboard_service(&store,&peers[0],tick);
     assert(results[0]==1 && store.length==6 && !memcmp(store.data,"reused",6));
@@ -109,6 +109,12 @@ int main(void) {
     desk_clipboard_init(&client,buffer);
     for(unsigned i=0;i<sizeof(document);i++) document[i]='a'+i%26;
     assert(!desk_clipboard_copy(&client,42,document,sizeof(document),tick));
+    struct desk_packet foreign=desk_packet_new(DESK_CLIPBOARD_ACK);foreign.serial=client.request;foreign.window=2;
+    assert(!desk_clipboard_receive(&client,&foreign) && client.mode);
+    foreign=desk_packet_new(DESK_CLIPBOARD_SET);foreign.serial=1;foreign.window=2;
+    foreign.width=foreign.height=1;foreign.value=1;foreign.text[0]='X';
+    desk_clipboard_request(&store,&peer,1,&foreign,tick);assert(!store.writer && !store.length);
+
     block_client=1;assert(!desk_clipboard_tick(&client,tick) && !client.offset && !store.writer);
     block_client=0;block_server=1;
     for(int i=0;i<200;i++) desk_clipboard_tick(&client,tick);
@@ -123,7 +129,7 @@ int main(void) {
     p.serial=client.request;p.width=100;p.height=3;memcpy(p.text,"new",3);
     desk_clipboard_request(&store,&peer,1,&p,tick);
     assert(store.writer==&peer && store.length==sizeof(document));
-    desk_clipboard_forget(&store,&peer);peer.pid=99;assert(!store.writer && store.length==sizeof(document));
+    desk_clipboard_forget(&store,&peer);peer.pid=99;peer.window=DESK_DEFAULT_WINDOW;assert(!store.writer && store.length==sizeof(document));
     client.mode=0;focused=0;assert(!desk_clipboard_copy(&client,42,"bad",3,tick));pump();
     assert(completed==-1 && store.length==sizeof(document));focused=1;
     /* A revision change during paste cancels rather than mixing documents. */

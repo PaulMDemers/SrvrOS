@@ -47,8 +47,13 @@ errors retain their existing bounded retirement policy.
 Menus allow 96 items and up to 32 rows per group. The Window menu lists all live
 clients; wheel scrolling and automatic keyboard selection reveal entries that
 exceed the viewport. The launcher has 64 entries, enough for twelve app entries
-and sixteen windows. Match kernel and all desktop binaries for v12; earlier
-protocol images are incompatible rather than silently negotiated.
+and sixteen windows. The D1a branch uses matched protocol v13 (168 bytes), adding a nonzero 64-bit
+window ID scoped to the authenticated connection. The current source wrapper
+uses ID1 and other IDs are not yet admitted by the compositor. Kernel surfaces
+bind to their first committed window; mismatched commits/releases are rejected
+without changing the seal or queue. Client event, clipboard and notification
+filters reject a different window before changing local state. Match kernel and
+all desktop binaries; earlier protocol images are incompatible.
 
 Host regressions cover transaction failure, published-pixel preservation,
 reserved-spare protection, budget exhaustion/reclamation, stale refusal,

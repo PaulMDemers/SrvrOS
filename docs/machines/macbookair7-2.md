@@ -14,6 +14,11 @@ kernel GUI seal validation, desktop/clipboard/notification client helpers,
 compositor routing and their host/VM fixtures. D1b will add connection dispatch,
 multiple window admission and lifecycle semantics before multiwindow Text.
 
+D1a host tests pass for cross-window event filtering, clipboard/notification
+reply identity, and atomic surface binding/release. Full desktop host coverage
+also passes. The matched kernel/userspace image and QEMU regressions are next;
+no new native acceptance is claimed.
+
 Pro PR19 at `7b95685` remains independent Wi-Fi work. Host/QEMU only through
 10AM America/New_York; no boot installation or laptop reboot. Preserve the
 native accepted payload/recovery. The same overnight checkpoint/evidence root

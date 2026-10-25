@@ -28,7 +28,7 @@ prerequisite for multiple windows per application.
 | Layer and source | Current responsibility | Constraint to address |
 | --- | --- | --- |
 | [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Fixed queue/surface tables; linear lookups; desktop packet knowledge in kernel |
-| [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v12, 160-byte packets; configure/commit/release, input, titles, menus, services | No explicit connection/window identity or capability negotiation; kernel/userspace must match |
+| [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v13 candidate, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Window field foundation only; connection dispatch/admission and capability negotiation remain next; kernel/userspace must match |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | One window's canvas, generations, pending input/frame, resize rollback, retry and menu state | Two instances would compete for one process queue; no connection-level dispatcher |
 | [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |

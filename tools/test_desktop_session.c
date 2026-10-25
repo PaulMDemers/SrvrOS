@@ -42,7 +42,7 @@ void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) {
     (void)w; (void)h; if (p) { frees++; free(p); }
 }
 struct desk_packet desk_packet_new(uint32_t type) {
-    return (struct desk_packet){.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
+    return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
 }
 int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==42);
@@ -236,7 +236,9 @@ int main(void) {
     struct desk_packet p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     strcpy(p.text,"Test"); incoming(&s,42,&p); service(&s);
     assert(s.clients[0].awaiting && !s.clients[0].configure && sends==1 && sent[0]==DESK_CONFIGURE);
-    assert(s.clients[0].clipboard.pid==42);
+    assert(s.clients[0].clipboard.pid==42 && s.clients[0].clipboard.window==DESK_DEFAULT_WINDOW);
+    struct desk_packet foreign=desk_packet_new(DESK_CLOSE);foreign.window=2;
+    incoming(&s,42,&foreign);assert(s.clients[0].pid==42);
     p=desk_packet_new(DESK_COMMIT); p.generation=1; p.surface=7; p.serial=1; p.width=400; p.height=280; p.input_serial=5;
     incoming(&s,42,&p);
     assert(s.scene.windows[0].pixels && !s.clients[0].awaiting && s.clients[0].present_input==5);

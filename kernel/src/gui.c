@@ -11,6 +11,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+_Static_assert(sizeof(struct desk_packet)<=GUI_TEXT_MAX,"desktop packet fits transport");
+
 #define GUI_MAX_QUEUES DESK_GUI_QUEUES
 #define GUI_QUEUE_DEPTH DESK_GUI_QUEUE_DEPTH
 #define GUI_MAX_SURFACES DESK_GUI_SURFACES
@@ -36,7 +38,7 @@ struct gui_surface {
     uint64_t height;
     uint32_t *pixels;
     bool stream, sealed;
-    uint64_t serial, generation;
+    uint64_t serial, generation, window;
 };
 
 static struct gui_surface surfaces[GUI_MAX_SURFACES];
@@ -206,7 +208,7 @@ int64_t gui_send(const struct gui_message *message) {
     if (message->type == DESK_TRANSPORT_MESSAGE) {
         for (size_t i=0;i<sizeof(packet);i++) ((uint8_t *)&packet)[i]=(uint8_t)message->text[i];
         if (packet.version != DESK_PROTOCOL_VERSION || packet.size != sizeof(packet) ||
-            packet.reserved || packet.reserved2 || packet.type < DESK_OPEN || packet.type > DESK_RESIZE_REFUSED)
+            packet.reserved || packet.reserved2 || !packet.window || packet.type < DESK_OPEN || packet.type > DESK_RESIZE_REFUSED)
             goto rejected;
         bool from_server = source_pid == server_pid;
         if ((!from_server && packet.type != DESK_OPEN && packet.type != DESK_COMMIT && packet.type != DESK_CLOSE &&
@@ -219,10 +221,12 @@ int64_t gui_send(const struct gui_message *message) {
             publishing = packet.type == DESK_COMMIT;
             if (publishing) {
                 if (transition->owner_pid != source_pid || transition->sealed ||
+                    (transition->window && transition->window != packet.window) ||
                     !packet.serial || packet.serial <= transition->serial || !packet.generation ||
                     packet.width != transition->width || packet.height != transition->height) goto rejected;
             } else if (transition->owner_pid != target_pid || !transition->sealed ||
-                packet.serial != transition->serial || packet.generation != transition->generation) goto rejected;
+                packet.serial != transition->serial || packet.generation != transition->generation ||
+                packet.window != transition->window) goto rejected;
         }
     }
 
@@ -234,7 +238,7 @@ int64_t gui_send(const struct gui_message *message) {
      * queue leaves the sender's buffer/release retryable, never stranded. */
     if (result == 0 && transition) {
         transition->sealed = publishing;
-        if (publishing) { transition->serial=packet.serial; transition->generation=packet.generation; }
+        if (publishing) { transition->serial=packet.serial; transition->generation=packet.generation; transition->window=packet.window; }
     }
     irq_restore(flags);
     return result;

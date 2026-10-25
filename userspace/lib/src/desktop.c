@@ -4,9 +4,11 @@
 #include <srvros/sys.h>
 #include <sys/mman.h>
 
+_Static_assert(sizeof(struct desk_packet)<=GUI_TEXT_MAX,"desktop packet fits transport");
+
 struct desk_packet desk_packet_new(uint32_t type) {
     return (struct desk_packet){.version=DESK_PROTOCOL_VERSION,
-        .size=sizeof(struct desk_packet), .type=type};
+        .size=sizeof(struct desk_packet), .type=type, .window=DESK_DEFAULT_WINDOW};
 }
 int desk_send(uint64_t target, const struct desk_packet *packet) {
     struct gui_message message={.type=DESK_TRANSPORT_MESSAGE, .target_pid=target};
@@ -20,7 +22,7 @@ int desk_receive(uint64_t *source, struct desk_packet *packet) {
     if (message.type!=DESK_TRANSPORT_MESSAGE) return 2;
     memcpy(packet,message.text,sizeof(*packet));
     if (packet->version!=DESK_PROTOCOL_VERSION || packet->size!=sizeof(*packet) ||
-        packet->type<DESK_OPEN || packet->type>DESK_RESIZE_REFUSED || packet->reserved || packet->reserved2) return 2;
+        packet->type<DESK_OPEN || packet->type>DESK_RESIZE_REFUSED || packet->reserved || packet->reserved2 || !packet->window) return 2;
     *source=message.source_pid;
     return 1;
 }

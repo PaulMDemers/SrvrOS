@@ -4,8 +4,8 @@
 #include <string.h>
 
 int desk_app_open(struct desk_app *a,const char *title,uint32_t width,uint32_t height) {
-    *a=(struct desk_app){.last=srv_ticks(),.dirty=1,.focused=1};
-    struct desk_packet p=desk_packet_new(DESK_OPEN);p.width=width;p.height=height;
+    *a=(struct desk_app){.last=srv_ticks(),.dirty=1,.focused=1,.window=DESK_DEFAULT_WINDOW};
+    struct desk_packet p=desk_packet_new(DESK_OPEN);p.window=a->window;p.width=width;p.height=height;
     size_t n=strlen(title);if(n>=sizeof(p.text)) n=sizeof(p.text)-1;
     memcpy(p.text,title,n);
     if(desk_send(0,&p)) return -1;
@@ -16,7 +16,7 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
     if(!a->pending && a->configure.generation>a->generation) {
         if(a->configure.generation==a->rejected_generation) {
             struct desk_packet refused=desk_packet_new(DESK_RESIZE_REFUSED);
-            refused.generation=a->rejected_generation;refused.width=a->width;refused.height=a->height;
+            refused.window=a->window;refused.generation=a->rejected_generation;refused.width=a->width;refused.height=a->height;
             if(!desk_send(a->server,&refused)) { a->last=srv_ticks();a->configure.generation=a->generation; }
         } else {
             int same=a->surface && a->width==a->configure.width && a->height==a->configure.height;
@@ -40,6 +40,7 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
     struct desk_packet p;uint64_t source;int r=desk_receive(&source,&p);
     if(r<0) { a->failed=1;return -1; }
     if(r==1) {
+        if(p.window!=a->window) return 2;
         if(!a->server && p.type==DESK_CONFIGURE) a->server=source;
         if(!a->server || a->server!=source) return 2;
         if(p.type==DESK_CONFIGURE && p.generation>a->configure.generation && p.generation>a->rejected_generation &&
@@ -87,7 +88,7 @@ int desk_app_canvas(struct desk_app *a,struct desk_canvas *canvas) {
 }
 int desk_app_present(struct desk_app *a) {
     if(a->failed || a->closed || a->pending || !a->surface) return -1;
-    struct desk_packet p=desk_packet_new(DESK_COMMIT);
+    struct desk_packet p=desk_packet_new(DESK_COMMIT);p.window=a->window;
     p.surface=a->surface;p.serial=a->serial+1;p.generation=a->generation;
     p.width=a->width;p.height=a->height;p.input_serial=a->input_serial;
     if(gui_surface_blit(a->surface,0,0,a->width,a->height,a->pixels,a->width)) { a->failed=1;return -1; }
@@ -100,18 +101,18 @@ int desk_app_present(struct desk_app *a) {
 }
 int desk_app_title(struct desk_app *a,const char *title) {
     if(!a->server) return -1;
-    struct desk_packet p=desk_packet_new(DESK_TITLE);
+    struct desk_packet p=desk_packet_new(DESK_TITLE);p.window=a->window;
     size_t n=strlen(title);if(n>=sizeof(p.text)) n=sizeof(p.text)-1;
     memcpy(p.text,title,n);return desk_send(a->server,&p);
 }
 int desk_app_cancel_close(struct desk_app *a) {
-    struct desk_packet p=desk_packet_new(DESK_CANCEL_CLOSE);return desk_send(a->server,&p);
+    struct desk_packet p=desk_packet_new(DESK_CANCEL_CLOSE);p.window=a->window;return desk_send(a->server,&p);
 }
 int desk_app_launch(struct desk_app *a,unsigned application,const char *path) {
     size_t length=strlen(path)+1;
     if(!a->server || application<1 || application>DESK_APP_COUNT || length>160) return -1;
     for(size_t offset=0;offset<length;) {
-        struct desk_packet p=desk_packet_new(DESK_LAUNCH);
+        struct desk_packet p=desk_packet_new(DESK_LAUNCH);p.window=a->window;
         size_t n=length-offset;if(n>sizeof(p.text)) n=sizeof(p.text);
         p.value=application;p.serial=offset;p.height=n;p.width=offset+n==length;
         memcpy(p.text,path+offset,n);
@@ -122,7 +123,7 @@ int desk_app_launch(struct desk_app *a,unsigned application,const char *path) {
 }
 int desk_app_preferences(struct desk_app *a,const struct desk_preferences *preferences,unsigned mask) {
     if(!a->server || !preferences || !mask || (mask&~DESK_PREF_ALL)) return -1;
-    struct desk_packet p=desk_packet_new(DESK_PREFERENCES_SET);p.value=mask;
+    struct desk_packet p=desk_packet_new(DESK_PREFERENCES_SET);p.window=a->window;p.value=mask;
     memcpy(p.text,preferences,sizeof(*preferences));return desk_send(a->server,&p);
 }
 int desk_app_text_size(struct desk_app *a,unsigned size) {
@@ -130,7 +131,7 @@ int desk_app_text_size(struct desk_app *a,unsigned size) {
     struct desk_preferences p={.text_size=size};return desk_app_preferences(a,&p,DESK_PREF_TEXT);
 }
 void desk_app_close(struct desk_app *a) {
-    if(a->server) { struct desk_packet p=desk_packet_new(DESK_CLOSE);desk_send(a->server,&p); }
+    if(a->server) { struct desk_packet p=desk_packet_new(DESK_CLOSE);p.window=a->window;desk_send(a->server,&p); }
     if(a->surface && !a->pending) gui_surface_destroy(a->surface);
     desk_pixels_free(a->pixels,a->width,a->height);
     a->pixels=0;a->closed=1;
@@ -147,7 +148,7 @@ int desk_app_menus(struct desk_app *a,const struct desk_menu_item *items,unsigne
 void desk_app_menu_tick(struct desk_app *a) {
     if(!a->server || a->closed || a->failed) return;
     for(unsigned budget=0;budget<4 && a->menu_pending;budget++) {
-        struct desk_packet p=desk_packet_new(DESK_MENU_SET);
+        struct desk_packet p=desk_packet_new(DESK_MENU_SET);p.window=a->window;
         p.serial=a->menu_revision;p.generation=a->menu_next;p.width=a->menu_count;
         p.value=!a->menu_count || a->menu_next+1==a->menu_count;
         if(a->menu_count) memcpy(p.text,&a->menus[a->menu_next],sizeof(a->menus[0]));

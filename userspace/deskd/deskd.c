@@ -823,6 +823,8 @@ static void close_client(struct session *s,int i) {
     }
 }
 static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
+    /* D1a: other identities are not admitted until connection dispatch lands. */
+    if(p->window!=DESK_DEFAULT_WINDOW) return;
     int i;
     for (i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==pid) break;
     /* Only applications launched by this session may become desktop clients. */
@@ -831,7 +833,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         for (i=0;i<DESKD_WINDOWS;i++) if (!s->clients[i].pid) break;
         if (i==DESKD_WINDOWS) { resource_trace(s,"window-capacity");return; }
         struct desktop_window *w=&s->scene.windows[i];
-        s->clients[i].pid=pid;s->clients[i].clipboard.pid=pid;s->clients[i].preferences_dirty=s->scene.apps;
+        s->clients[i].pid=pid;s->clients[i].clipboard.pid=pid;s->clients[i].clipboard.window=p->window;s->clients[i].preferences_dirty=s->scene.apps;
         w->visible=1;
         for(int n=0;n<DESKD_WINDOWS;n++) if(s->children[n]==pid) w->application=s->child_apps[n];
         w->frame.x=32+24*(i%4); w->frame.y=64+24*(i%4);
