@@ -47,13 +47,14 @@ errors retain their existing bounded retirement policy.
 Menus allow 96 items and up to 32 rows per group. The Window menu lists all live
 clients; wheel scrolling and automatic keyboard selection reveal entries that
 exceed the viewport. The launcher has 64 entries, enough for twelve app entries
-and sixteen windows. Matched protocol v13 (168 bytes), adding a nonzero 64-bit
-window ID scoped to the authenticated connection. The current source wrapper
-uses ID1 and other IDs are not yet admitted by the compositor. Kernel surfaces
-bind to their first committed window; mismatched commits/releases are rejected
-without changing the seal or queue. Client event, clipboard and notification
-filters reject a different window before changing local state. Match kernel and
-all desktop binaries; earlier protocol images are incompatible.
+and sixteen windows. Matched protocol v14 (168 bytes) supports explicit window
+IDs and an opt-in connection dispatcher with acknowledged creation and close.
+The ID1 single-window source wrapper remains available. Kernel stream surfaces
+bind to their first committed window for their lifetime; release also matches
+serial/generation. Input, capture, menus, clipboard and notifications follow
+window identity. See [desktop connections](desktop-connections.md) for ownership,
+refusal and disposal. Match kernel and all desktop binaries; earlier protocol
+images are incompatible.
 
 Host regressions cover transaction failure, published-pixel preservation,
 reserved-spare protection, budget exhaustion/reclamation, stale refusal,
@@ -91,5 +92,10 @@ the distinction between window admission and auxiliary process/thread budgets.
 
 D1a identity foundation runtime `d9a678b` passes full desktop host/build gates,
 existing apps and persistence, sixteen clipboard clients with slot reuse, and
-compositor lifecycle/resize QEMU regressions. These are VM results; ID1 remains
-the only admitted window per process until the connection dispatcher lands.
+compositor lifecycle/resize QEMU regressions. These are VM results; that foundation
+admitted only ID1 per process, before the connection dispatcher below.
+
+Protocol v14 adds the opt-in [connection dispatcher](desktop-connections.md),
+acknowledged admission/close and multiple windows per process. Runtime `e5ad6c2`
+passes host/build, real two-document transport, app and capacity/lifecycle VM
+regressions. Normal Text migration and dynamic registries remain next.
