@@ -2,6 +2,21 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active renderer overdraw work (D4a)
+
+PR148 merged as `a3f959c` and consumed. Next bounded scope: prepare one stack
+order per compositor frame, and conservatively skip window paint pieces already
+covered by higher opaque frames/shadows. Keep window/cache/ACK lifetime and
+damage/presentation policy unchanged. Prove exact pixels against an unculled
+reference path across clipping, shadows, overlays, stale-size caches, hidden
+windows and large dynamic registries; measure identical host workloads before
+and after, then run actual window-growth and desktop regressions in QEMU.
+Touch the internal scene/compositor renderer, focused host/performance fixtures
+and current guides. This is one rendering optimization, not completion of
+native-density text, accessibility or the entire D4 roadmap. Pro PR19 `e409c07`
+remains independent. Host/QEMU only, no installation or reboot; no native timing
+or power claim and no automatic reboot at 10AM.
+
 ### Active combined desktop wait work (D3b)
 
 PR147 merged as `0a89d5f` and consumed. Next bounded scope: let a client wait
