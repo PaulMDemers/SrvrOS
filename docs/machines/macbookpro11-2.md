@@ -98,11 +98,17 @@ not measure a precise10ms completion deadline. All42 operations,36 guard reads,
 244743-byte startup prefix and both completion markers saved. Recovery/default/
 one-shot/payload checks passed; offline workspace clean289files/689clusters/
 118directories, zero leaks/mismatches/errors, unmounted and unarmed. Evidence
-is durably archived. Candidate `0aaf20927414846c` (source `67e5e5af`) is installed unarmed for fixed
-one-chain RX-path/TX-DAC masked setup. Local/regression/sanitizer and exact-stage
-GPT save/return plus missing-workspace checks passed. Next: attended cold
-adapter cycle, then collect matching release/session FIRST. Results save
-automatically and return to Ubuntu. No radio-connectivity acceptance yet.
+is durably archived. Release `0aaf20927414846c` (source `67e5e5af`) completed guarded one-chain
+RX-path/TX-DAC setup in session `session-00065eb0051574ff-00`. AGC0 at2300
+was21400 before/after; TXBE5 at2714 was0 before/after. Required bits were
+already clear; both fixed writes preserved all other bits and exact readback
+passed. All18 transfers,16 reads,2 writes,2 verified targets and4 guard
+triplets passed with full earlier proof. Entire247000-byte startup prefix
+and both completion markers saved. Recovery/default/one-shot/hashes verified;
+offline workspace clean291files/693clusters/119directories, zero leaks/
+mismatches/errors, unmounted and unarmed. Evidence durably archived. Next:
+audit remaining calibration/channel prerequisites before bounded implementation;
+radio operation/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6597,3 +6603,26 @@ readbacks and4 complete guard triplets, then both completion markers and
 entire prefix. Review actual before/after at2300/2714 with only18/3 cleared.
 This phase adds no RF data write, channel tuning, MAC enable or traffic.
 No reboot armed; native one-chain path setup results pending.
+
+
+## 2026-10-25 — one-chain baseband path native return
+
+Collected source `67e5e5afa4c3d2fd4a8962d0d2f6088e24a2aa35`, release
+`0aaf20927414846c`, session `session-00065eb0051574ff-00`. Strict full-prefix
+proof passed18 ordered USB transfers,16 reads/2 writes/2 verified targets
+and4 complete MAC/CORE/disabled-DMA guard triplets. AGC0 at2300 read21400
+before and after clearing18; TXBE5 at2714 read0 before and after clearing3.
+These bits were already clear; actual before/after words remained unchanged.
+Both fixed writes and readbacks completed with all unrelated bits preserved.
+Full earlier proof, including fresh one-chain board fields and six delayed
+VCO30 observations, passed. This accepts captured-unit baseband path setup;
+it does not establish calibrated radio function or network connectivity.
+
+Entire247000-byte startup prefix within262144 capacity and both completion
+markers verified. Ubuntu default, consumed one-shot and installed/recovery
+hashes passed. Offline exFAT/allocation clean291files/693clusters/119directories,
+zero leaks/mismatches/errors; workspace unmounted, no reboot armed. Archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-path-67e5e5a/`.
+Next: audit remaining pinned calibration/channel prerequisites and define the
+next bounded phase. No further RF writes, channel tuning, MAC enable, scanning,
+association/security or traffic accepted by this run.

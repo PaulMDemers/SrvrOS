@@ -3035,7 +3035,7 @@ mismatches/errors. Workspace unmounted, no reboot armed; evidence archived.
 This accepts the bounded self-clear observation, not calibrated radio operation.
 Next is remaining RX-path/TX-DAC and calibration/channel prerequisite auditing.
 
-### One-chain RX-path/TX-DAC baseband setup (v74 candidate)
+### One-chain RX-path/TX-DAC baseband setup (v74 native acceptance)
 
 Pinned [Linux v7.0 one-chain setup](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_util.c)
 uses chainmask101 for MT7610; fresh captured NICfd11 has one RX and TX stream.
@@ -3056,3 +3056,17 @@ v74 adds only its explicit token to v73 and retains256KiB complete-prefix
 capture and automatic save/return. This setup does not enable the MAC or
 establish calibrated radio operation. No RF data writes, channel tuning,
 scanning, association/security or traffic are added by this phase.
+
+
+Native release `0aaf20927414846c` (source `67e5e5af`) completed in session
+`session-00065eb0051574ff-00`. AGC0 at2300 was21400 before/after clearing18;
+TXBE5 at2714 was0 before/after clearing3. Required bits were already clear,
+and both fixed writes/readbacks preserved all other bits. All18 USB receipts,
+16 reads/2 writes/2 verified targets,4 guard triplets and full prior proof
+passed. Entire247000-byte prefix and both completion markers verified.
+Recovery/default/one-shot/hashes and clean offline filesystem/allocation checks
+passed;291files/693clusters/119directories, no leaks/mismatches/errors.
+Workspace unmounted, no reboot armed; evidence archived outside build.
+Captured-unit baseband path setup is accepted; calibrated radio operation and
+connectivity remain untested. Remaining calibration/channel prerequisites are
+next to audit before further hardware changes.
