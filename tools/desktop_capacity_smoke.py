@@ -105,14 +105,13 @@ def main():
                     expected_files[f"document-{document_count}.txt"]+=b" Refusal kept."
                     shot("refused-document-retained")
                     shortcut("ctrl-w");wait(f"text-runtime: closed window={document_count}".encode())
-                    wait(f"text-runtime: job-detached window={document_count}".encode())
                     shortcut("ctrl-shift-n");wait(f"text-runtime: admitted window={replacement} ".encode());wait(b"deskd: commit")
                     save_document(replacement)
                     # Exercise per-document close/detach and application-owned worker reaping.
                     for index in [replacement]+list(range(document_count-1,0,-1)):
                         shortcut("ctrl-w");wait(f"text-runtime: closed window={index} ".encode())
                     wait(b"desktools: exited role=text failure=0")
-                    assert len(re.findall(rb"text-runtime: job-detached window=",output))==document_count+1+(not args.document_growth)  # Pressure mode also retires refused window17.
+                    assert f"text-runtime: documents admitted={document_count+1} retired={document_count+1} refused={int(not args.document_growth)}".encode() in output
                     pools=re.findall(rb"file-pool: retired role=text spawned=(\d+) reaped=(\d+) peak=(\d+) live=0 bound=0",output)
                     assert pools and all(a==b and 1<=int(c)<=2 for a,b,c in pools),pools
                     shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)

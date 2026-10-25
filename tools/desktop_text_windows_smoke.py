@@ -75,17 +75,17 @@ def main():
                     wait(b'launcher window='+pid+f' id={window}'.encode())
                 text(' changed');shortcut('ctrl-w');shot('unsaved-close');qmp.key('esc')
                 text(' kept');shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
-                shortcut('ctrl-w');wait(b'text-runtime: closed window=2');wait(b'text-runtime: job-detached window=2')
-                assert b'text-runtime: job-detached window=2' in output
+                shortcut('ctrl-w');wait(b'text-runtime: closed window=2')
                 shortcut('ctrl-end');text(' tail');shortcut('ctrl-shift-n')
                 wait(b'text-runtime: admitted window=3');wait(b'deskd: commit')
                 shortcut('ctrl-l');shortcut('ctrl-a');text('/fat/text-second.txt')
                 shortcut('ctrl-o');wait(b'picker ready mode=1');text('text-second');qmp.key('ret')
                 wait(b'file-result role=text op=1 status=0');shot('reopened-second-document')
-                shortcut('ctrl-w');wait(b'text-runtime: closed window=3');wait(b'text-runtime: job-detached window=3')
+                shortcut('ctrl-w');wait(b'text-runtime: closed window=3')
                 shortcut('ctrl-w');shot('save-on-close');shortcut('shift-tab');shortcut('shift-tab');qmp.key('ret')
                 wait(b'file-result role=text op=2 status=0');wait(b'text-runtime: closed window=1')
                 wait(b'desktools: exited role=text failure=0');wait(b'deskd: child-exit pid='+pid+b' status=0')
+                assert b'text-runtime: documents admitted=3 retired=3 refused=0' in output
                 pools=re.findall(rb'file-pool: retired role=text spawned=(\d+) reaped=(\d+) peak=(\d+) live=0 bound=0',output)
                 assert pools and all(a==b and 1<=int(c)<=2 for a,b,c in pools),pools
                 shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
