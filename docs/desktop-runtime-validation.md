@@ -16,11 +16,12 @@ one host does not accept another Mac's input, display or firmware.
 | D2 | Dynamic kernel queues/surfaces and compositor records; byte-budget refusal; complete Window/launcher discovery | 128 small windows in one process; pressure/rollback, replacement and complete retirement |
 | D3a | Shared lazy file-worker pools for Text/Files, immutable jobs and FIFO leasing, drain/reap before release | 32 normal Text documents/33 exact files; 40 queued writes/readbacks using two workers |
 | D3b | Combined GUI/nonblocking pipe/PTY wait, absolute deadline, cancellation and descriptor lifetime watches | Actual threaded ABI; typing during throttled writes; no claim of arbitrary GUI file descriptors |
+| D3c | Shared asynchronous file chooser controller for Text/Preview | Host cancellation/reopen/correlation and actual legacy/pooled listing plus application VM gates |
 | D4a | One stack sort per frame; conservative opaque-frame/shadow occlusion | Exact reference pixels and identical-workload host benchmarks; application/scale QEMU regression gates |
 
 All pools retain independent finite memory/process/descriptor budgets. “Dynamic”
 does not mean every requested workload fits. Partially covered windows still use
-normal painting. Parented dialogs, shared chooser/activation services,
+normal painting. Parented dialogs, broader chooser/activation services,
 native-density fonts, text composition and accessibility remain separate work.
 The selected [portable C/POSIX profile](posix-supported-profile.md) has its own
 acceptance; this desktop work is not full POSIX or Linux compatibility.
@@ -46,6 +47,7 @@ tools/host-env.sh python3 tools/desktop_file_pool_smoke.py
 tools/host-env.sh python3 tools/desktop_wait_load_smoke.py
 tools/host-env.sh python3 tools/desktop_text_windows_smoke.py
 tools/host-env.sh python3 tools/desktop_files_smoke.py
+tools/host-env.sh python3 tools/desktop_preview_smoke.py
 tools/host-env.sh python3 tools/desktop_capacity_smoke.py --clipboard
 tools/host-env.sh python3 tools/desktop_apps_smoke.py
 tools/host-env.sh python3 tools/desktop_compositor_smoke.py

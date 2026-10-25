@@ -153,6 +153,7 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
 void tool_runtime_init(struct tool *t,int role) {
     t->role=role;t->body_size=16;t->title_dirty=1;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
+    desk_chooser_init(&t->chooser,&t->picker,&t->job,t->entries,t->items,t->details);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
     desk_text_buffer_init(&t->body_text,t->body_store[0],t->body_store[1],t->role==DESK_APP_CALCULATOR?CALC_EXPRESSION_BYTES:DESK_FILE_BYTES+1);
@@ -251,7 +252,9 @@ int tool_file_pool_capture(void);
 int tool_wait_capture(void);
 int tool_multi_capture(void);
 int tool_growth_capture(void);
+int tool_chooser_capture(void);
 int main(int argc,char **argv) {
+    if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--chooser-capture"))return tool_chooser_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--file-pool-wait-capture"))return tool_wait_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--file-pool-capture"))return tool_file_pool_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--multi-window-capture"))return tool_multi_capture();
@@ -306,7 +309,7 @@ int main(int argc,char **argv) {
                 tool_file_capture_finish(t,result);
                 if(!tool_file_capture_busy() && !t->window.failed && captured<5)
                     capture_states[captured++]=capture_state(t,t->window.input_serial);
-            } else if(t->picker_job) tool_picker_finish(t,result);else if(t->role==DESK_APP_TEXT) tool_text_finish(t,result);else tool_files_finish(t,result);
+            } else if(t->chooser.pending) tool_picker_finish(t,result);else if(t->role==DESK_APP_TEXT) tool_text_finish(t,result);else tool_files_finish(t,result);
         } }
         if(t->closing && !t->job.busy && t->role!=DESK_APP_TEXT) t->quit=1;
         if(t->role==DESK_APP_SYSTEM) tool_system_refresh(t,0);

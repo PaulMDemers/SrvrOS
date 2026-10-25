@@ -2,9 +2,40 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Shared chooser controller checkpoint (D3c)
+
+PR150 runtime `2689a8d`, based on merged renderer baseline `a354eed`, shares Text
+and Preview's asynchronous file-picker ownership through an optional application
+runtime library above the pure widget library. It borrows existing job/widget/
+listing storage, correlates completions with nonwrapping controller IDs, retains
+canceled submitted reads until drained, and rejects stale/foreign/duplicate
+responses. Selection copies a normalized path before hiding. Document/image
+operations, overwrite decisions, clipboard, focus and worker retirement remain
+caller-owned. Preview now drains its pending listing before exit.
+
+Full desktop host tests/image build and final focused chooser/Text/Preview tests
+pass. Actual QEMU submits and cancels LIST with both legacy and pooled workers,
+then drains, reopens, rejects an old completion and retires the worker. Normal
+Preview PNG/JPEG/BMP, image/error retention, chooser cancellation/clipboard,
+maximize/restore/compact/Files launch and exit pass. Normal multi-document Text
+and app workflows pass; 32 documents preserve 33 exact files and retire their
+shared workers. Throttled-write regression retains all 16 idle/32 active keys,
+40 exact 64 KiB files/readbacks, both worker reaps and clean offline integrity.
+Screenshots are inspected, source/artifact hashes recorded and evidence backed
+up outside `build`. An initial collector used an obsolete status-line spelling;
+the corrected collector passes and its failed receipt is retained separately.
+
+See the [chooser contract](../desktop-chooser.md) and [runtime validation
+checklist](../desktop-runtime-validation.md). This completes the overnight
+capacity/shared-runtime block; parented windows, broader activation/document
+services, native-density text and accessibility remain separate milestones.
+Physical acceptance of this new runtime is pending. No host reboot, installation,
+physical USB mutation or automatic 10AM reboot was performed or armed. Pro PR19
+remains independent.
+
 ### Renderer overdraw checkpoint (D4a)
 
-PR149 runtime `36f8800`, based on PR148 merge `a3f959c`, reuses one stack ordering
+PR149 merged `a354eed`; runtime `36f8800`, based on PR148 merge `a3f959c`, reuses one stack ordering
 per frame and skips only fully covered clipped opaque frames/shadows. It leaves
 window/cache/ACK lifetime, damage policy and framebuffer copying unchanged.
 Full desktop host tests and image build pass. Exact reference comparisons cover

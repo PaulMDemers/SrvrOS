@@ -6,6 +6,11 @@
 #include <sys/mman.h>
 long srv_ticks(void) { return 0; }
 void srv_puts(const char *text) { (void)text; }
+int desk_file_job_start(struct desk_file_job *j,unsigned op,const char *path,
+    const void *data,size_t length,unsigned flags,uint32_t crc) {
+    assert(op==DESK_FILE_LIST && !data && !length && !flags && !crc && !j->busy);
+    j->busy=1;j->request.id=++j->next_id;j->request.operation=op;strcpy(j->request.path,path);return 0;
+}
 static uint32_t *pixels(unsigned w,unsigned h) {
     uint32_t *p=mmap(NULL,(size_t)w*h*4,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);assert(p!=MAP_FAILED);
     for(unsigned i=0;i<w*h;i++) p[i]=0xff000000u|i*37;
@@ -54,6 +59,16 @@ int main(void) {
         assert(!memcmp(full,tiled,sizeof(full)));
         for(unsigned y=0;y<660;y++) for(unsigned x=0;x<980;x++) if(x>=(unsigned)sizes[mode][0] || y>=(unsigned)sizes[mode][1]) assert(!full[y*980+x]);
     }
-    desk_image_pixels_release(app.pixels,app.view.width,app.view.height);
-    puts("preview-app: PASS image adoption/failure retention, loading controls, focus, compact/full layout, tiled rendering and stride guards");
+    desk_chooser_init(&app.chooser,&app.picker,&app.file_job,app.entries,app.items,app.details);
+    assert(!desk_chooser_open(&app.chooser,DESK_PICKER_OPEN,"/fat",""));app.picker_open=1;
+    browse();assert(app.file_job.busy && app.chooser.pending);original=app.pixels;
+    picker_close();assert(!app.picker_open && app.chooser.pending && app.file_job.busy);
+    assert(desk_chooser_open(&app.chooser,DESK_PICKER_OPEN,"/other","")<0);
+    app.file_job.busy=0;app.file_job.response=(struct desk_file_response){0};file_finish(1);
+    assert(!app.chooser.pending && !app.picker_open && app.pixels==original && app.view.pixels==original);
+    assert(!desk_chooser_open(&app.chooser,DESK_PICKER_OPEN,"/fat",""));app.picker_open=1;browse();
+    app.file_job.busy=0;file_finish(-1);
+    assert(app.picker_open && !app.chooser.pending && !app.picker.busy && app.pixels==original);
+    picker_close();desk_image_pixels_release(app.pixels,app.view.width,app.view.height);
+    puts("preview-app: PASS image retention, chooser cancel/drain/reopen/error, loading controls, focus, compact/full layout, tiled rendering and stride guards");
 }

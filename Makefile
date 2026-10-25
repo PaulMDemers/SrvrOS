@@ -2344,11 +2344,29 @@ build/tests/desktop-io-state-host$(HOST_EXE): tools/test_desktop_io_state.c user
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 
+# Optional application services live above the pure widget library. Link this
+# archive before widgets and libc; generic userspace programs do not depend on it.
+DESK_RUNTIME_SRC := $(wildcard userspace/desktop_runtime/*.c)
+DESK_RUNTIME_OBJ := $(DESK_RUNTIME_SRC:%.c=build/%.c.o)
+DESK_RUNTIME_A := build/userspace/desktop_runtime/libdeskruntime.a
+$(DESK_RUNTIME_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
+$(DESK_RUNTIME_A): $(ZIG) $(DESK_RUNTIME_OBJ)
+	$(AR) rcs $@ $(DESK_RUNTIME_OBJ)
+-include $(DESK_RUNTIME_OBJ:.o=.d)
+
+.PHONY: test-desktop-chooser
+test-desktop: test-desktop-chooser
+test-desktop-chooser: build/tests/desktop-chooser-host$(HOST_EXE)
+	$<
+build/tests/desktop-chooser-host$(HOST_EXE): tools/test_desktop_chooser.c userspace/desktop_runtime/chooser.c userspace/lib/include/srvros/desk_chooser.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_desktop_chooser.c userspace/desktop_runtime/chooser.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
 DESKTOOLS_OBJ := $(patsubst %.c,build/%.c.o,$(wildcard userspace/desktools/*.c))
 DESKFS_OBJ := build/userspace/deskfs/deskfs.c.o
 $(DESKTOOLS_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
-$(USER_DESKTOOLS): $(ZIG) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+$(USER_DESKTOOLS): $(ZIG) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 $(USER_DESKFS): $(ZIG) $(USER_CRT0_OBJ) $(DESKFS_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKFS_OBJ) $(USER_LIB_OBJ) -o $@
 -include $(DESKTOOLS_OBJ:.o=.d) $(DESKFS_OBJ:.o=.d)
@@ -2507,9 +2525,9 @@ build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
-build/tests/tool-picker-host$(HOST_EXE): tools/test_tool_picker.c userspace/desktools/picker.c userspace/desktools/files_app.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/desktools/picker.c userspace/desktools/files_app.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktools/picker.c userspace/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/desktools/picker.c userspace/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-rtc
 test-rtc: build/tests/rtc-host$(HOST_EXE)
@@ -2705,17 +2723,17 @@ build/tests/image-job-host$(HOST_EXE): tools/test_image_job.c userspace/lib/src/
 
 DESKVIEW_OBJ := build/userspace/deskview/deskview.c.o
 $(DESKVIEW_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
-$(USER_DESKVIEW): $(ZIG) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+$(USER_DESKVIEW): $(ZIG) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKVIEW_OBJ:.o=.d)
 test-desktop: test-image-view test-image-decode test-image-job
 
 .PHONY: test-preview-app
 test-preview-app: build/tests/preview-app-host$(HOST_EXE)
 	$<
-build/tests/preview-app-host$(HOST_EXE): tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/preview-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h userspace/desktop_runtime/chooser.c tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/desktop_runtime/chooser.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-preview-app
 
 .PHONY: test-image-worker

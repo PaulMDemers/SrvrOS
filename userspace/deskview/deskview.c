@@ -2,6 +2,7 @@
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_file_picker.h>
+#include <srvros/desk_chooser.h>
 #include <srvros/desk_listing.h>
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_image_job.h>
@@ -21,6 +22,7 @@ struct preview_app {
     struct desk_image_job image_job;
     struct desk_file_job file_job;
     struct desk_file_picker picker;
+    struct desk_chooser chooser;
     struct desk_file_entry entries[DESK_FILE_ENTRIES];
     struct desk_list_item items[DESK_FILE_ENTRIES];
     char details[DESK_FILE_ENTRIES][32];
@@ -81,13 +83,11 @@ static void image_finish(int result) {
     layout();desk_ui_focus(&app.ui,VIEW_IMAGE);
 }
 static void browse(void) {
-    if(!app.file_ready || desk_file_job_start(&app.file_job,DESK_FILE_LIST,app.picker.target,NULL,0,0,0))
-        desk_picker_error(&app.picker,"The folder could not be opened. Check the path.");
-    else desk_picker_loading(&app.picker);
+    (void)desk_chooser_browse(&app.chooser);
     desk_picker_focus(&app.picker,app.window.focused);app.window.dirty=1;
 }
 static void picker_close(void) {
-    app.picker_open=0;app.clip_action=0;desk_picker_focus(&app.picker,0);layout();desk_ui_focus(&app.ui,VIEW_IMAGE);
+    app.picker_open=0;app.clip_action=0;desk_chooser_cancel(&app.chooser);layout();desk_ui_focus(&app.ui,VIEW_IMAGE);
 }
 static void picker_open(void) {
     if(app.image_job.busy || app.image_job.retiring_pid || app.file_job.busy || app.picker_open) return;
@@ -96,7 +96,7 @@ static void picker_open(void) {
     if(!app.file_ready) { status("The folder could not be opened. Try opening again.");return; }
     char directory[DESK_IMAGE_PATH];snprintf(directory,sizeof(directory),"%s",desk_home());
     if(app.path[0]) { strcpy(directory,app.path);char *slash=strrchr(directory,'/');if(slash==directory) slash[1]=0;else if(slash) *slash=0; }
-    if(desk_picker_open(&app.picker,DESK_PICKER_OPEN,directory,"")) return;
+    if(desk_chooser_open(&app.chooser,DESK_PICKER_OPEN,directory,"")) return;
     app.picker_open=1;layout();browse();desk_log("deskview: picker opened\n");
 }
 static struct desk_edit *clipboard_target(void) {
@@ -131,19 +131,23 @@ static void clipboard_finish(int result) {
 static void picker_action(struct desk_picker_result r) {
     if(r.flags&DESK_WIDGET_REDRAW) app.window.dirty=1;
     clipboard_action(r);
-    if(r.operation==DESK_PICKER_CANCEL) { picker_close();status("Open canceled. The current image was kept."); }
-    else if(r.operation==DESK_PICKER_BROWSE) browse();
-    else if(r.operation==DESK_PICKER_ACCEPT) { char path[DESK_IMAGE_PATH];strcpy(path,app.picker.target);picker_close();load_image(path); }
+    struct desk_chooser_selection selected;
+    int outcome=desk_chooser_action(&app.chooser,r,&selected);
+    if(outcome==DESK_CHOOSER_CANCELED) {
+        picker_close();status("Open canceled. The current image was kept.");
+        desk_log("deskview: picker canceled pending=%d retained=%d\n",app.chooser.pending,app.pixels!=NULL);
+    }
+    else if(outcome==DESK_CHOOSER_ACCEPTED) { picker_close();load_image(selected.path); }
+    else if(r.operation==DESK_PICKER_BROWSE) { desk_picker_focus(&app.picker,app.window.focused);app.window.dirty=1; }
 }
 static void file_finish(int result) {
+    int outcome=desk_chooser_finish(&app.chooser,app.chooser.pending_id,result);
+    if(outcome==DESK_CHOOSER_STALE || app.chooser.pending)return;
     if(!app.picker_open) { layout();return; }
-    int count=-1;
-    if(result>0 && !app.file_job.response.status)
-        count=desk_listing_decode(app.entries,app.items,app.details,app.file_job.incoming,app.file_job.response.length,app.file_job.response.count);
-    if(count<0 || desk_picker_listing(&app.picker,app.file_job.request.path,app.items,count)) desk_picker_error(&app.picker,"Could not read this folder. Check the path and volume.");
-    else desk_log("deskview: picker ready items=%d\n",count);
+    if(outcome==DESK_CHOOSER_READY)desk_log("deskview: picker ready items=%d\n",app.chooser.count);
     desk_picker_focus(&app.picker,app.window.focused);app.window.dirty=1;
 }
+
 static void action(struct desk_action a) {
     if(a.flags&DESK_WIDGET_REDRAW) app.window.dirty=1;
     if(a.id==VIEW_IMAGE && a.flags&DESK_WIDGET_CHANGED)
@@ -203,6 +207,7 @@ static void draw(struct desk_canvas *c) {
 }
 int main(int argc,char **argv) {
     desk_ui_init(&app.ui);desk_image_init(&app.view);desk_image_job_init(&app.image_job);desk_picker_init(&app.picker);desk_clipboard_init(&app.clipboard,app.clipboard_data);
+    desk_chooser_init(&app.chooser,&app.picker,&app.file_job,app.entries,app.items,app.details);
     static const char *labels[]={"Open","Cancel","Fit","1:1","−","+"};
     for(unsigned i=0;i<6;i++) { desk_button_centered(&app.buttons[i],1);desk_ui_add(&app.ui,i+1,DESK_CONTROL_BUTTON,&app.buttons[i],labels[i]); }
     desk_ui_add(&app.ui,VIEW_IMAGE,DESK_CONTROL_IMAGE,&app.view,NULL);status("Open an image with Ctrl-O, or choose one in Files.");
@@ -242,6 +247,14 @@ int main(int argc,char **argv) {
         }
         menus();struct desk_canvas canvas;if(desk_app_canvas(&app.window,&canvas)==1) { draw(&canvas);desk_app_present(&app.window); }
         srv_sleep_ticks(1);
+    }
+    desk_chooser_cancel(&app.chooser);
+    /* The picker may have been canceled or its window closed during LIST.
+     * Keep its borrowed buffers/job alive until that accepted reply drains. */
+    while(app.file_job.busy) {
+        int done=desk_file_job_poll(&app.file_job);
+        if(done)desk_chooser_finish(&app.chooser,app.chooser.pending_id,done);
+        else srv_sleep_ticks(1);
     }
     if(app.file_ready) desk_file_job_close(&app.file_job);
     desk_image_job_close(&app.image_job);desk_image_pixels_release(app.pixels,app.view.width,app.view.height);desk_app_close(&app.window);
