@@ -74,8 +74,11 @@ Air7,2 physical acceptance remains sixteen-window opening, saved-file integrity
 and clean exit at `bf68e4e9b88b8ae7`; that round contains no native cache totals or
 pressure injection. New source does not retroactively extend that evidence.
 
-**Next completion gates:** profile/reduce large-window overdraw, validate the new
-runtime with focused native input/save/resize checks, and mature shared actions,
+The renderer now conservatively skips fully covered opaque windows and reuses
+one stack ordering per frame; exact reference pixels and identical-workload host
+benchmarks guard the change.
+
+**Next completion gates:** validate the new runtime with focused native input/save/resize checks, and mature shared actions,
 parented dialogs, chooser/document services and activation routing. Follow the
 [desktop API evolution plan](desktop-api-evolution.md). Native-density typography,
 accessibility and broader toolkit portability remain separate from 2× pixel scaling.

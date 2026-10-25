@@ -2,20 +2,37 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active renderer overdraw work (D4a)
+### Renderer overdraw checkpoint (D4a)
 
-PR148 merged as `a3f959c` and consumed. Next bounded scope: prepare one stack
-order per compositor frame, and conservatively skip window paint pieces already
-covered by higher opaque frames/shadows. Keep window/cache/ACK lifetime and
-damage/presentation policy unchanged. Prove exact pixels against an unculled
-reference path across clipping, shadows, overlays, stale-size caches, hidden
-windows and large dynamic registries; measure identical host workloads before
-and after, then run actual window-growth and desktop regressions in QEMU.
-Touch the internal scene/compositor renderer, focused host/performance fixtures
-and current guides. This is one rendering optimization, not completion of
-native-density text, accessibility or the entire D4 roadmap. Pro PR19 `e409c07`
-remains independent. Host/QEMU only, no installation or reboot; no native timing
-or power claim and no automatic reboot at 10AM.
+PR149 runtime `36f8800`, based on PR148 merge `a3f959c`, reuses one stack ordering
+per frame and skips only fully covered clipped opaque frames/shadows. It leaves
+window/cache/ACK lifetime, damage policy and framebuffer copying unchanged.
+Full desktop host tests and image build pass. Exact reference comparisons cover
+160 deterministic randomized scenes with multiple clips, up to 128 records,
+shadow-union holes, hidden/minimized windows, stale-size caches, tiny-frame
+fallback, overlays and stride guards. The actual 128-window growth and normal
+multi-document Text QEMU gates pass, as do mixed 16-client clipboard, normal apps,
+compositor lifecycle/relaunch and throttled-write input gates. The last records
+16 idle plus 32 during-write keys, all 48 frame acknowledgements, 40 exact 64 KiB
+files/readbacks, both workers reaped and clean offline integrity. Growth retires
+all 129 window lifetimes with zero cache/registry bytes. Screenshots were inspected;
+source hashes and full evidence are retained in the overnight checkpoint and its
+durable backup.
+
+Same-scene host measurement at 640×480, 128 stacked 300×285 frames, full repaint:
+44,581,463 pixel writes unculled versus 737,871 culled. Fifteen alternating timing
+samples gave median 25.59 ms versus 0.382 ms; these are descriptive host painting
+measurements, excluding sorting/IPC/blit/scanout, not native latency or energy.
+The dispersed 128-window case reduces full-repaint writes from 24,398,798 to
+20,967,867; the optimization deliberately does not subtract partial occlusion.
+
+The [runtime validation guide](../desktop-runtime-validation.md) describes the
+completed blocks, repeatable local gates and next interactive acceptance round.
+This is one rendering optimization, not completion of native-density text,
+accessibility or the entire D4 roadmap. Pro PR19 `e409c07` remains independent.
+Host/QEMU only: no installation, USB mutation or reboot. Native installed
+`284e53065081672f` and recovery `9aa8dbf6fbda8252` remain unchanged; new desktop
+runtime acceptance is pending and no automatic 10AM reboot is scheduled.
 
 ### Active combined desktop wait work (D3b)
 
