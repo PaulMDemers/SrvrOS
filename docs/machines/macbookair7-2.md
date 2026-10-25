@@ -2,6 +2,18 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active: independent PR160 combined-code review
+
+Integration main `44c70a1`; candidate PR160 `29c75d8` retains ownership of the
+asynchronous compositor worker. This unit will build and independently exercise
+that exact candidate in the existing checkout, concentrating on v15 modal
+lifecycle/crash/refusal and sustained PCM/USB retirement. No competing worker or
+audio implementation is planned. Keep main, installed current and independent
+recovery unchanged; restore this device branch after candidate-only validation.
+Raw review artifacts belong in `build/pr160-review-20261025/`. Physical acceptance
+remains pending and no one-shot is armed. Do not merge the draft solely on the
+basis of another machine's pre-integration results.
+
 ### Document-routing failure paths covered; compositor integration still pending
 
 Base main `c4bee5c`; draft PR160 `29c75d8` already consumes this matched v15
