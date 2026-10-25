@@ -7020,3 +7020,16 @@ follow-on baseband/RF/channel programming, MAC enable or traffic. Scope:
 MT76 bounded engine/native/staging/tests/collector and channel dependency audit.
 Calibration remains dependent on channel, gain/power and MAC lifecycle context;
 do not insert isolated calibration commands into disabled-MAC initialization.
+
+
+Implemented a fixed seven-operation bandwidth response observation engine and
+native ownership chain after exact v78 proof. Framing/sequence is checked;
+opaque payload words are never promoted to ACK acceptance. Host tests cover
+all response lengths0..1025, every header/payload bit, all I/O/cancel/guard/state
+boundaries and no replay. Native tests pass all7 positions,157 prerequisite/
+state faults, every command bit, no-USB refusal and error quarantine; full xHCI
+suite passes. All158 staging tests and156 historical recipe identity checks
+pass. Collector validates whole earlier proof and opaque reply consistency;
+89 malformed proofs rejected,252903-byte fixture within262144 capacity.
+Full build,ASan/UBSan and documentation links pass. Next: exact-stage save/return
+and missing-workspace VM checks before installing; native response pending.

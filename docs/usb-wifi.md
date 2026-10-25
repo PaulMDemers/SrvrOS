@@ -3207,3 +3207,23 @@ This run's initiation was pending (finalb0), with all six delayed reads30;
 v77 previously exercised early-clear. Both observed timing variants retain the
 same strict downstream proof. Captured USB timing setup is accepted; no channel
 configuration, calibrated radio operation, MAC enable or traffic is accepted.
+
+
+### USB firmware bandwidth response observation (v79 candidate)
+
+Pinned `mt76x0_phy_set_channel` calls USB `mt76x0_phy_bbp_set_bw` before
+baseband bandwidth/control-channel and band/CCA setup, RF band/synthesizer,
+gain/power and context-dependent calibration. The 20MHz USB command is
+CMD_FUN_SET_OP1, BW_SETTING2,value0 with a reply requested. This step selects
+bandwidth only; it does not establish a channel or calibrated radio operation.
+
+Separate `--wifi-bw-observe` requires complete v78 USB timing proof and selects
+native mode57. Exactly three MAC/CORE/disabled-DMA reads, one fixed sequence15
+command and three final guard reads execute. Exact16-byte framing header4a0f0008
+is required; the other three uint32 reply words are recorded as opaque data.
+`ack_validated=0` remains explicit: framing/sequence and transport completion
+are not semantic firmware acknowledgment. No later BBP/RF/channel programming,
+MAC enable or traffic follows. Every command byte is fixed, no caller-selected
+payload or automatic retry. Full earlier inventory/timing proof, seven operation
+receipts/two guard triplets, both completion markers and whole saved prefix
+remain required. Native response semantics and bandwidth acceptance pending.

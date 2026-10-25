@@ -298,6 +298,9 @@ struct xhci_wifi_mcu {
     bool channel_state_mode,channel_state_active,channel_observe_mode,vco_ready_mode,usb_cycle_mode,usb_cycle_active;
     struct mt76_usb_cycle usb_cycle;
     unsigned usb_cycle_submitted;
+    bool bw_observe_mode,bw_observe_active;
+    unsigned bw_observe_submitted;
+    struct mt76_bw_observe bw_observe;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
     bool path_mode,path_active;

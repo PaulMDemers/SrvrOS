@@ -2239,3 +2239,38 @@ bool mt76_channel_observe_exact_profile_valid(const struct mt76_channel_state *s
     for(unsigned e=0;e<2;e++)for(unsigned j=0;j<3;j++)if(s->guards[e][j]!=(j==1?0xf000f200u:j==2?0x40000050u:0))return false;
     return true;
 }
+
+uint32_t mt76_bw_observe_guard_address(unsigned op){return op<7 && op!=3?mt76_rf_probe_read_address(op<3?op:op-4):UINT32_MAX;}
+size_t mt76_bw_observe_packet(uint8_t *out,size_t cap){const uint8_t payload[8]={2,0,0,0,0,0,0,0};return mt76_mcu_encode(1,15,payload,8,out,cap);}
+static bool bw_observe_state_valid(const struct mt76_bw_observe *s,unsigned op){
+    if(!s || !s->attempted || op>7 || s->operations!=op || s->exchanges!=(op>3) || s->reads!=op-(op>3) || s->received!=(op>3?16:-1))return false;
+    if(op>3 && s->words[0]!=0x4a0f0008)return false;
+    for(unsigned i=0;i<op;i++)if(i!=3 && !rf_central_guard_valid(i<3?i:i-4,s->guards[i>3][i<3?i:i-4]))return false;
+    return true;
+}
+bool mt76_bw_observe_admit(const struct mt76_bw_observe *s,unsigned op){return op<7 && s && !s->complete && bw_observe_state_valid(s,op);}
+enum mt76_mcu_timing_status mt76_bw_observe_capture(struct mt76_bw_observe *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_bw_observe){.attempted=true,.received=-1};
+    for(unsigned op=0;op<7;op++){
+        if(!mt76_bw_observe_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(op==3){
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];if(mt76_bw_observe_packet(packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);s->exchanges++;
+            for(unsigned j=0;j<4;j++)if(s->received>=(int)(4*j+4))for(unsigned b=0;b<4;b++)s->words[j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            if(s->received<0)return MT76_TIMING_IO;
+            if(s->received!=16 || s->words[0]!=0x4a0f0008)return MT76_TIMING_REPLY;
+        }else{
+            unsigned j=op<3?op:op-4;uint32_t *v=&s->guards[op>3][j];
+            if(!io->read(io->context,mt76_bw_observe_guard_address(op),v))return MT76_TIMING_IO;
+            s->reads++;s->operations++;
+            if(!rf_central_guard_valid(j,*v))return MT76_TIMING_STATE;
+            continue;
+        }
+        s->operations++;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!bw_observe_state_valid(s,7))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}

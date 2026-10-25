@@ -606,4 +606,10 @@ enum mt76_mcu_timing_status mt76_channel_state_capture(struct mt76_channel_state
 bool mt76_channel_observe_admit(const struct mt76_channel_state *s);
 unsigned mt76_channel_observe_all_ones(const struct mt76_channel_state *s);
 enum mt76_mcu_timing_status mt76_channel_observe_capture(struct mt76_channel_state *s,const struct mt76_mcu_timing_io *io);
+/* Fixed USB BW_SETTING=0 response observation; payload is not an ACK contract. */
+struct mt76_bw_observe {bool attempted,complete;unsigned operations,reads,exchanges;int received;uint32_t guards[2][3],words[4];};
+uint32_t mt76_bw_observe_guard_address(unsigned operation);
+bool mt76_bw_observe_admit(const struct mt76_bw_observe *s,unsigned operation);
+size_t mt76_bw_observe_packet(uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_bw_observe_capture(struct mt76_bw_observe *s,const struct mt76_mcu_timing_io *io);
 #endif

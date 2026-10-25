@@ -4720,6 +4720,56 @@ static void test_wifi_usb_cycle(void){
  }
  reset_test();assert(!xhci_wifi_capture_usb_cycle());puts("xhci USB cycle: PASS all9 transfers,157 prerequisite/state/profile faults, no USB on refusal, no replay and quarantine");
 }
+static void bw_observe_fixture(struct xhci_device *d,unsigned op){
+ usb_cycle_fixture(d,8);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->usb_cycle.complete=true;m->usb_cycle.operations=m->usb_cycle_submitted=9;m->usb_cycle.reads=8;
+ assert(mt76_usb_cycle_exact_profile_valid(&m->usb_cycle));
+ m->bw_observe_mode=m->bw_observe_active=true;m->bw_observe_submitted=op;
+ m->bw_observe=(struct mt76_bw_observe){.attempted=true,.operations=op,.reads=op-(op>3),.exchanges=op>3,.received=op>3?16:-1,.words={0x4a0f0008,1,2,3}};
+ for(unsigned j=0;j<2;j++){m->bw_observe.guards[j][1]=0xf000f200;m->bw_observe.guards[j][2]=0x40000050;}
+}
+static void test_wifi_bw_observe(void){
+ for(unsigned op=0;op<7;op++)for(unsigned fault=0;fault<161;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};uint8_t tx[4096]={0},rx[1024]={0},packet[16],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];bw_observe_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_firmware *f=&d->firmware;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  if(fault<=144){if(fault==138)m->channel_state.complete=false;else channel_state_fault(m,fault);}
+  if(fault==145)m->bw_observe_mode=false;
+  if(fault==146)m->bw_observe_active=false;
+  if(fault==147)m->usb_cycle.complete=false;
+  if(fault==148)m->usb_cycle.after[0]^=1;
+  if(fault==149)m->usb_cycle.before[0]^=1;
+  if(fault==150)m->usb_cycle.guards[1][2]=1;
+  if(fault==151)m->usb_cycle_submitted++;
+  if(fault==152)m->bw_observe_submitted++;
+  if(fault==153)m->bw_observe.operations++;
+  if(fault==154)m->bw_observe.reads++;
+  if(fault==155)m->bw_observe.complete=true;
+  if(fault==156)m->usb_cycle_mode=false;
+  if(fault==157)m->vco_ready_mode=false;
+  if(op==3){
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   assert(mt76_bw_observe_packet(packet,16)==16);
+   if(fault==158)packet[4]^=1;
+   if(fault==159)events[0].status=6u<<24;
+   if(fault==160)events[1].status=6u<<24;
+   if(!fault)for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_bw_observe_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}
+   assert(wifi_bw_observe_exchange(d,packet,16,reply,1024)==(!fault?16:-1));
+   if(!fault)assert(wifi_bw_observe_exchange(d,packet,16,reply,1024)==-1);
+   else if(fault>=159)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!f->ep.enqueue && !m->response.enqueue);
+  }else{
+   d->ep0_ring=out;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=tx;d->descriptor_buffer_phys=(uintptr_t)tx;events[0]=control_event(0x9020,fault>=159?6:1,0);
+   uint32_t a=mt76_bw_observe_guard_address(op),v=0;if(fault==158)a++;
+   assert(wifi_bw_observe_read(d,a,&v)==!fault);
+   if(!fault)assert(!wifi_bw_observe_read(d,a,&v));
+   else if(fault>=159)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!d->ep0_enqueue);
+  }
+ }
+ reset_test();assert(!xhci_wifi_capture_bw_observe());puts("xhci bandwidth observation: PASS all7 positions,157 prerequisite/state faults, every packet bit, no replay/refused USB and quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6064,6 +6114,7 @@ int main(int argc, char **argv) {
     test_wifi_channel_state();
     test_wifi_channel_observe();
     test_wifi_usb_cycle();
+    test_wifi_bw_observe();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();
