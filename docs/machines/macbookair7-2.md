@@ -1,6 +1,27 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
+
+### Active desktop runtime work
+
+PR134 is merged as `7a00518`; this branch consumes that exact shared baseline.
+The native POSIX capture below is complete. Branch:
+`device/macbookair7-2/desktop-runtime`. Overnight work is host/QEMU only; no
+laptop reboot or boot-install changes before 10:00 AM America/New_York on
+October 25, and no automatic reboot scheduled for that time.
+
+First scope (D0): eliminate the separate eight-peer clipboard ceiling by owning
+transfer state with each admitted desktop client, cover many clients and queue
+pressure, and document resource/refusal behavior. Touch compositor clipboard,
+client lifecycle, shared budget definitions and host/VM tests. Next D1 adds
+connection/window identity and a single dispatcher, with multiwindow Text as
+its consumer; dynamic window storage follows identity. The existing
+[desktop API plan](../desktop-api-evolution.md) owns the sequence and gates.
+Pro PR19 at `2674fa7` remains separate Wi-Fi work. Shared kernel transport changes
+will be published explicitly before D1. Evidence/checkpoints:
+`build/desktop-overnight-20261025/`, backed up outside build. Actions stay disabled;
+serialize all builds and VM harnesses. Existing native acceptance remains scoped
+to its recorded releases.
 
 ### Native POSIX regression accepted
 
