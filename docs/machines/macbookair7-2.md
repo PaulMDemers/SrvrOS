@@ -16,6 +16,15 @@ Compositor/scene sixteen-window storage remains a separate D2c step. Pro PR19
 at `e409c07` still covers independent Wi-Fi diagnostics. No hardware changes;
 keep Ubuntu running and preserve installed/recovery payloads.
 
+D2b runtime `1825ee1` passes the full desktop host/image build and final
+fixture rebuild, queue fault/quota/race fixtures, actual 25 simultaneous FIFOs
+with 72 client lifetimes reaped across three rounds, multiwindow clipboard/input/
+resize/relaunch and sixteen Text documents with seventeen exact files and all
+workers retired. The initial 40-client probe failed at fork index26 (`EAGAIN`)
+before queue pressure; the independent scheduler task budget remains unchanged.
+Host tests separately exercise queue storage beyond 32 records. No native result
+or installation changed. PR145 carries this checkpoint.
+
 ### Active dynamic surface storage (D2a)
 
 PR143 is merged as `fd38097` and consumed on the same device branch. Next
