@@ -18,7 +18,7 @@
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
-static char directory[128],path[160],snapshot[BOOTLOG_CAPTURE_CAPACITY];
+static char directory[128],path[160],snapshot[BOOTLOG_LARGE_CAPTURE_CAPACITY];
 static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
@@ -115,7 +115,7 @@ static bool save(const char *name) {
     device_checkpoint();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,timer_monotonic_us(),bootlog_total(),snapshot_limit);
     uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;
-    if(snapshot_limit==BOOTLOG_CAPTURE_CAPACITY && total!=count) {
+    if(snapshot_limit>BOOTLOG_DEFAULT_CAPACITY && total!=count) {
         console_write("workspace-log: SAVE FAILED extended capture prefix lost\n");
         return false;
     }
@@ -167,7 +167,7 @@ static void worker(void *arg) {
 }
 static bool start(uint64_t limit) {
     if(enabled || busy || !workspace_active()) return false;
-    if(limit==BOOTLOG_CAPTURE_CAPACITY && !bootlog_extend_capture()) {
+    if(limit>BOOTLOG_DEFAULT_CAPACITY && !bootlog_extend_capture_to(limit)) {
         console_write("workspace-log: REFUSED extended capture prefix lost\n");
         return false;
     }
@@ -203,6 +203,7 @@ static bool start(uint64_t limit) {
 }
 bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY); }
 bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY); }
+bool workspace_log_start_large_capture(void) { return start(BOOTLOG_LARGE_CAPTURE_CAPACITY); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);

@@ -4,23 +4,25 @@
 
 #include <stdint.h>
 
-static char ring[BOOTLOG_CAPTURE_CAPACITY];
-static char linear[BOOTLOG_CAPTURE_CAPACITY];
+static char ring[BOOTLOG_LARGE_CAPTURE_CAPACITY];
+static char linear[BOOTLOG_LARGE_CAPTURE_CAPACITY];
 _Static_assert((BOOTLOG_DEFAULT_CAPACITY & (BOOTLOG_DEFAULT_CAPACITY-1))==0 &&
-    (BOOTLOG_CAPTURE_CAPACITY & (BOOTLOG_CAPTURE_CAPACITY-1))==0,"log capacities must be powers of two");
+    (BOOTLOG_CAPTURE_CAPACITY & (BOOTLOG_CAPTURE_CAPACITY-1))==0 &&
+    (BOOTLOG_LARGE_CAPTURE_CAPACITY & (BOOTLOG_LARGE_CAPTURE_CAPACITY-1))==0,"log capacities must be powers of two");
 static uint64_t ring_capacity=BOOTLOG_DEFAULT_CAPACITY;
 static uint64_t write_index;
 static uint64_t bytes_recorded;
 static uint64_t total_bytes;
 static bool suppress_recording;
 
-bool bootlog_extend_capture(void) {
+bool bootlog_extend_capture_to(uint64_t capacity) {
+    if(capacity!=BOOTLOG_CAPTURE_CAPACITY && capacity!=BOOTLOG_LARGE_CAPTURE_CAPACITY)return false;
 #ifndef SRVROS_BOOTLOG_HOST_TEST
     uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
 #endif
     bool ok=total_bytes==bytes_recorded;
-    if(ok && ring_capacity==BOOTLOG_DEFAULT_CAPACITY) {
-        ring_capacity=BOOTLOG_CAPTURE_CAPACITY;
+    if(ok && ring_capacity<capacity) {
+        ring_capacity=capacity;
         /* At the exact old boundary write_index wrapped to zero, but no byte
          * has been lost. The preserved prefix is still contiguous. */
         write_index=bytes_recorded;
@@ -30,6 +32,8 @@ bool bootlog_extend_capture(void) {
 #endif
     return ok;
 }
+
+bool bootlog_extend_capture(void) { return bootlog_extend_capture_to(BOOTLOG_CAPTURE_CAPACITY); }
 
 void bootlog_putc(char c) {
     if (suppress_recording) {
