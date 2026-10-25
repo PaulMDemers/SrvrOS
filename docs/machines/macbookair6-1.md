@@ -2652,3 +2652,30 @@ trial opens/closes real apps throughout continuous PCM and unchanged verified
 USB stress, then retires the battery runtime and returns to Ubuntu for automatic
 collection. No human file work is required. Keep AC/USB connected and listen;
 native responsiveness/endurance remains pending that run's complete receipts.
+
+### Automatic UI/audio/USB stress return — 2026-10-25 (failed)
+
+Release `8dd177cef12cec3b` / source `7ddf2153` returned automatically after
+roughly half a minute, not the required thirty minutes. Matching session
+`session-00065eb146d235a5-00` completed one Text open/render/close cycle:
+1,624,727 us to ready and 707,052 us to close. Files then launched (exec
+2,236,784 us), submitted and completed its Home directory listing, but never
+produced the compositor's opened/ready receipt before the unchanged ten-second
+cycle limit. The test reports FAIL and stops the workload; the temporary payload
+is retained, with no final disk/PCM receipt. The logs do not yet identify the
+missing window-admission/first-frame boundary, so do not assume the directory
+listing alone caused the failure or increase the deadline to call this a pass.
+
+Maximum measured desktop-loop gap was 108,087 us; no PCM underruns were recorded
+during the short run. These are encouraging bounded observations, not endurance
+or full responsiveness acceptance. Battery runtime retired with heap/errors/
+denied all zero, 11 handled and zero unclaimed SCI events. All 340 prior files
+are preserved except the expected workspace metadata update. Offline checks pass:
+345 files / 1,007 clusters, zero leaks, bitmap mismatches or errors. Ubuntu is
+back, next_entry is empty, automatic collection completed and the collector is
+disabled. Failed evidence and payload remain backed up outside build.
+
+Next investigation: reproduce and trace Files' OPEN publication, child
+registration/admission and first-frame delivery under sustained disk pressure,
+including the populated Home directory. Preserve the existing integrity checks,
+ten-second cycle failure and 500 ms loop bound. No replacement run is armed.
