@@ -1553,43 +1553,39 @@ FILE *fopen64(const char *path, const char *mode) {
 }
 
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
-    if (stream == 0) {
-        errno = EBADF;
-        return 0;
-    }
+    if(!stream) { errno=EBADF;return NULL; }
     flockfile(stream);
-    struct mode_info info;
-    if (mode_to_flags(mode, &info) < 0) {
-        errno = EINVAL;
-        funlockfile(stream);return 0;
-    }
-    int fd = open(path, info.flags, 0666);
-    if (fd < 0) {
-        funlockfile(stream);return 0;
-    }
+    /* Flush before a same-path truncating open. A failed reopen closes the
+     * original stream too; the caller must not use that FILE afterwards. */
     (void)fflush(stream);
-    if (stream->owned) {
-        close(stream->fd);
+    struct mode_info info;
+    int error=0;
+    if(!path || mode_to_flags(mode,&info)<0) { error=EINVAL;goto failed; }
+    int fd=open(path,info.flags,0666);
+    if(fd<0) { error=errno;goto failed; }
+    if(stream->fd>=0 && fd!=stream->fd) {
+        /* Keep the original number occupied until replacement, so another
+         * thread cannot allocate it between close and open. */
+        int target=stream->fd;
+        if(dup3(fd,target,(info.flags&O_CLOEXEC)?O_CLOEXEC:0)<0) {
+            error=errno;close(fd);goto failed;
+        }
+        close(fd);fd=target;
     }
-    stream->fd = fd;
-    stream->eof = 0;
-    stream->error = 0;
-    stream->append = info.append;
+    stream->fd=fd;stream->eof=stream->error=0;
+    stream->append=info.append;
     stream->readable=(info.flags&O_ACCMODE)!=O_WRONLY;
     stream->writable=(info.flags&O_ACCMODE)!=O_RDONLY;
-    stream->unget = 0;
-    reset_buffer_state(stream);
-    stream->position = 0;
-    stream->known_size = -1;
-    remember_path(stream, path);
-    long size = refresh_size(stream);
-    if (stream->append && size >= 0) {
-        if (lseek(stream->fd, size, SEEK_SET) >= 0) {
-            stream->position = size;
-        }
-    }
-    stream->owned = 1;
+    stream->unget=0;reset_buffer_state(stream);
+    stream->position=0;stream->known_size=-1;stream->owned=1;
+    remember_path(stream,path);
+    long size=refresh_size(stream);
+    if(stream->append && size>=0 && lseek(fd,size,SEEK_SET)>=0) stream->position=size;
     funlockfile(stream);return stream;
+failed:
+    /* fclose consumes this caller's recursive FILE lock and registry owner;
+     * concurrent global flush snapshots retain their own lifetime pins. */
+    (void)fclose(stream);errno=error;return NULL;
 }
 
 int fclose(FILE *stream) {

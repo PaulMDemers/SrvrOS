@@ -18,6 +18,20 @@ For porting guidance, start with the [supported application profile](posix-suppo
 
 ## Implementation progress after the audit
 
+Native duplex socketpair creation now installs nonblocking/CLOEXEC status and
+copies both results in one IRQ-excluded operation, with rollback on output
+failure. Legacy native pair creation retains zero flags. Libuv's internal duplex
+and socket pairs use this atomic path. Full core and focused/full guest tests
+pass, including alternating pipe/socketpair publishers concurrent with child
+inheritance scans. This does not add pseudo-socket inheritance.
+
+`freopen` now flushes before a truncating reopen, preserves its native descriptor
+number through atomic replacement, clears EOF/error/read state on success and
+closes/unregisters the original stream on failure. Reopen may require one spare
+FD. NULL-pathname mode changes are explicitly rejected with EINVAL and close the
+stream. Focused and full guest tests cover same-path truncation, flags, retained
+FD identity, failed paths/modes and safe global flushing after failure.
+
 The libuv adapter now snapshots low-numbered spawn sources before child actions
 can replace them, and closes extra originals only after all mappings. A guest
 swap of two inherited files failed before the correction and passes afterward,

@@ -28,11 +28,25 @@ int posix_stdio_access_test(void) {
     fd=open(path,O_CREAT|O_RDWR|O_TRUNC,0600);CHECK(fd>=0 && write(fd,"begin",5)==5 && lseek(fd,0,SEEK_SET)==0);
     stream=fdopen(fd,"a");CHECK(stream && (fcntl(fd,F_GETFL)&O_APPEND));
     CHECK(fwrite("+end",1,4,stream)==4 && !fflush(stream) && ftell(stream)==9);
-    CHECK(freopen(path,"r+",stream)==stream);
+    CHECK(freopen(path,"r+",stream)==stream && fileno(stream)==fd);
     CHECK(!fseek(stream,0,SEEK_SET));char bytes[10]={0};CHECK(fread(bytes,1,9,stream)==9 && !strcmp(bytes,"begin+end"));
     CHECK(fseek(stream,INT64_MAX,SEEK_CUR)==-1 && errno==EOVERFLOW);
     CHECK(!fclose(stream));
     CHECK(!fopen(path,"wx") && errno==EEXIST);
     CHECK(!fopen(path,"rw") && errno==EINVAL);
+    stream=fopen(path,"a");CHECK(stream);fd=fileno(stream);
+    CHECK(fputs("pending",stream)>=0);
+    CHECK(freopen(path,"w+e",stream)==stream && fileno(stream)==fd && fcntl(fd,F_GETFD)==FD_CLOEXEC);
+    CHECK(fgetc(stream)==EOF && feof(stream));
+    CHECK(freopen(path,"a+",stream)==stream && !feof(stream) && !ferror(stream) && fcntl(fd,F_GETFD)==0);
+    CHECK(fputs("only",stream)>=0 && !fclose(stream));
+    stream=fopen(path,"r");CHECK(stream && fread(bytes,1,sizeof(bytes),stream)==4 && !memcmp(bytes,"only",4));
+    fd=fileno(stream);CHECK(!freopen("/fat/missing-reopen-parent/file","w",stream) && errno==ENOENT);
+    CHECK(fcntl(fd,F_GETFD)==-1 && errno==EBADF && !fflush(NULL));
+    stream=fopen(path,"r");CHECK(stream);fd=fileno(stream);
+    CHECK(!freopen(path,"invalid",stream) && errno==EINVAL && fcntl(fd,F_GETFD)==-1 && errno==EBADF);
+    stream=fopen(path,"r");CHECK(stream);fd=fileno(stream);
+    /* NULL pathname mode changes are an explicitly unsupported choice. */
+    CHECK(!freopen(NULL,"r",stream) && errno==EINVAL && fcntl(fd,F_GETFD)==-1 && errno==EBADF);
     CHECK(!unlink(path));puts("threadstress: stdio-access ok");return 0;
 }
