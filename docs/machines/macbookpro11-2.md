@@ -149,13 +149,16 @@ This run used pending1/early_clear0 and all six delayed reads30; v77 exercised
 the early-clear variant. Entire251629-byte prefix/both success markers saved.
 Recovery/default/one-shot/hashes passed; offline clean299files/709clusters/
 123directories, zero leaks/mismatches/errors; unmounted/unarmed. Timing setup
-accepted on the captured adapter. Separate v79 bandwidth-response trial
-`4c8563c12db92578`, source `83a869fc`, is installed/unarmed after local and
-both exact-stage VM checks. One fixed CMD1/BW_SETTING2/value0/sequence15 reply
-is recorded after full timing proof; no semantic ACK acceptance or later BBP/RF
-programming. Ubuntu default and recovery `e47dca3a6b30c6c1` retained. Await
-readiness for cold-cycle shutdown; collect matching session first after return.
-Radio operation/connectivity remain untested.
+accepted on the captured adapter. Release `4c8563c12db92578`, source `83a869fc`,
+completed bandwidth response observation in `session-00065eb1d61ee32d-00`:
+sequence15 returned16 bytes4a0f0008/2/0/4a0f0008, matching function ID2/value0
+with framing/trailer. All7 operations,6 guard reads/1 exchange and both guard
+triplets passed with full earlier proof. Entire252903-byte prefix/both success
+markers saved. Recovery/default/one-shot/hashes passed; offline clean301files/
+713clusters/124directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Payload remains observation (ack_validated0); next add an exact captured reply
+prerequisite and bounded20MHz baseband/control-channel/band/CCA setup together.
+No later BBP/RF programming or calibrated radio/connectivity acceptance.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -7060,3 +7063,27 @@ require full earlier proof, fixed sequence15 response framing, seven operation
 receipts/two guard triplets, opaque payload consistency, whole prefix and both
 completion markers. Preserve failures; audit actual response before semantic
 ACK admission. No later baseband/RF/channel programming, MAC enable or traffic.
+
+
+## 2026-10-25 — Native bandwidth response observation complete
+
+Source `83a869fc23f81602c0038f38dc420cad9dcaa6b5`, release
+`4c8563c12db92578`, session `session-00065eb1d61ee32d-00`. Full earlier
+initialization, both supported VCO-timing policy checks, exact inventory and USB
+cycle setup proof passed. This run used the pending variant; six delayed reads30.
+Fixed CMD1/sequence15/function2/value0 sent16 bytes and returned16, cc13/residue1008.
+Response words were4a0f0008/00000002/00000000/4a0f0008. Seven operations,
+six strict guard reads in two MAC0/COREf000f200/DMA40000050 triplets and one
+exchange completed. `ack_validated=0` remains deliberate: the observation
+collector validates framing/sequence and payload consistency, not semantics.
+
+Whole252903-byte startup prefix within262144 capacity and both success markers
+saved. Ubuntu default, consumed one-shot and installed/recovery hashes passed.
+Offline exFAT/allocation clean301files/713clusters/124directories, zero leaks,
+mismatches/errors; unmounted and unarmed. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-bw-observe-83a869f/`.
+Next: audit this exact ID/value echo and trailer, add the captured reply
+prerequisite with mutation tests, then validate bounded20MHz baseband/control-
+channel/band/CCA setup in the same next trial. A redundant ACK-only physical
+trial is unnecessary. RF synthesizer/channel selection, gain/power/calibration,
+MAC enable, scanning and connectivity remain pending; no automatic next reboot.

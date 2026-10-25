@@ -3227,3 +3227,18 @@ MAC enable or traffic follows. Every command byte is fixed, no caller-selected
 payload or automatic retry. Full earlier inventory/timing proof, seven operation
 receipts/two guard triplets, both completion markers and whole saved prefix
 remain required. Native response semantics and bandwidth acceptance pending.
+
+
+### v79 native bandwidth response evidence
+
+MacBookPro11,2 release `4c8563c12db92578` (source `83a869fc`), session
+`session-00065eb1d61ee32d-00`, completed full prior initialization/inventory/
+timing proof, then the fixed bandwidth command. Sequence15 sent16/received16,
+cc13/residue1008; response4a0f0008/00000002/00000000/4a0f0008. This echoes
+function ID2/value0 and the framing word. All7 operations,6 guard reads and both
+MAC0/COREf000f200/DMA40000050 triplets passed. Whole252903-byte prefix/both
+success markers and recovery/one-shot/hashes/offline checks passed; archived,
+unmounted/unarmed. The collector deliberately records ack_validated0 and does
+not accept actual bandwidth or radio functionality. Next implementation may
+pin this captured response as a prerequisite with tests before the next bounded
+baseband phase; no follow-on BBP/RF writes occurred in this observation trial.
