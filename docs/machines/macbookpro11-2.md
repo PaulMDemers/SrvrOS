@@ -133,13 +133,16 @@ prefix saved with both failure markers; strict success correctly refused it.
 Full prior proof through initiation verified separately on unchanged log.
 Recovery/default/one-shot/hashes passed; offline workspace clean295files/
 701clusters/121directories, zero leaks/mismatches/errors; unmounted/unarmed.
-Separate v77 release `b2369fab9ef32f11`, source `f5549279`, is installed
-and unarmed after host/sanitizer/staging/collector and both exact-stage VM checks.
-Explicit mode55 admits only captured early30 or historical pendingb0, retains
-all six delayed reads and requires the exact clear profile before inventory.
-Original pending-only modes and failed v76 remain unchanged. Await user
-readiness for cold-cycle shutdown; collect matching session first after return.
-No calibration or radio-function acceptance from these runs.
+Separate v77 release `b2369fab9ef32f11`, source `f5549279`, completed native
+session `session-00065eb1475df12a-00`. Early-clear receipt pending0/early_clear1
+passed; all six delayed reads remained30. Full earlier proof and all18 inventory
+reads/postguards passed, zero inventory writes. IBI9=ffffffff was recorded with
+mask100; all other targets and both guard triplets valid. Entire250364-byte
+prefix and both success markers saved. Recovery/default/one-shot/hashes passed;
+offline clean297files/705clusters/122directories, zero leaks/mismatches/errors;
+unmounted/unarmed. Observation evidence archived; original strict modes and
+v75/v76 failures unchanged. US_CYC at2a4 remains0: audit remaining USB-tail
+timing before channel/calibration work. No target/calibration/radio acceptance.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6879,3 +6882,40 @@ Collect matching release/session first with `vco-ready/collect_return.py` and
 require complete prior proof, mutually exclusive VCO prerequisite receipt,
 all six delayed reads and all18 inventory/postguard receipts. Preserve failure;
 no automatic calibration, MAC enable, tuning or traffic.
+
+
+## 2026-10-25 — v77 complete native inventory observation
+
+Source `f5549279821aeafb9b84226492bf1996523370af`, release
+`b2369fab9ef32f11`, session `session-00065eb1475df12a-00`. Strict collector
+validated the full earlier proof, exact early-clear variant and all six delayed
+reads (all30, first_clear1), path setup and complete read-only inventory.
+Inventory:18 ordered successful USB receipts,12 target values,6 guard reads in
+2 complete triplets, zero writes. Both boundary guards MAC0/COREf000f200/
+DMA40000050 passed. The actual values were:
+
+| Address | Observed value |
+| --- | --- |
+| 02a4 | 00000000 |
+| 1340 | 0000583f |
+| 2004 | 00000002 |
+| 2300 | 00021400 |
+| 2700 | 00000000 |
+| 132c | 00000004 |
+| 141c | 0000ffe4 |
+| 1330 | 00000601 |
+| 2124 | ffffffff |
+| 13b0 | 2f2f1b1b |
+| 1114 | 00000640 |
+| 0238 | 00c00020 |
+
+Derived all-ones mask100 records only IBI9; no register or calibration value is
+accepted by this observation. Historical strict refusal remains unchanged.
+Full250364-byte startup prefix within262144 capacity and both success markers
+saved. Ubuntu default, consumed one-shot and current/recovery hashes verified.
+Offline exFAT/allocation clean297files/705clusters/122directories, zero leaks,
+mismatches or errors; unmounted and unarmed. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-vco-ready-f554927/`.
+Next: bounded USB-tail timing audit (US_CYC0 still lacks pinned low8=1e), then
+channel-specific preparation/calibration dependencies. No automatic writes,
+MAC enable, scanning or traffic; Wi-Fi connectivity remains untested.

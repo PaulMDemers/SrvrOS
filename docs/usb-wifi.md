@@ -3157,3 +3157,20 @@ path/inventory admission. No skipped waits, retries, repeated pulses, new RF
 writes, calibrated radio acceptance, MAC enable or traffic. Full earlier proof,
 18 inventory receipts/postguards, IBI9-only raw mask and both saved completion
 markers remain required; native validation is pending.
+
+
+### v77 native observation result
+
+On MacBookPro11,2, source `f5549279`, release `b2369fab9ef32f11`, session
+`session-00065eb1475df12a-00` completed with the early-clear variant. Initiation
+final RF0:4=30 and pending0/early_clear1 receipt passed. All six delayed reads
+remained30 before path/inventory admission; full earlier proof passed.
+All18 inventory USB reads and both MAC0/COREf000f200/DMA40000050 guard triplets
+passed, with zero inventory writes. IBI9=ffffffff yields exact mask100; the
+remaining11 targets were non-all-ones. Newly reached targets:13b0=2f2f1b1b,
+1114=640 and238=c00020. US_CYC2a4=0 remains a pending timing prerequisite;
+TXOP1340=583f. This accepts complete transport/guard observation, not target
+register semantics, calibrated radio operation or connectivity. Full250364-byte
+prefix, both completion markers, recovery/one-shot/hashes and offline clean
+filesystem/allocation checks passed; evidence archived and no reboot armed.
+Original strict modes and failed v75/v76 evidence remain unchanged.
