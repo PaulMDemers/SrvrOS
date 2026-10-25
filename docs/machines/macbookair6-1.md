@@ -2826,3 +2826,19 @@ metadata. Offline fsck/allocation pass: 355 files, 1,019 clusters, zero leaks,
 bitmap mismatches or errors. Matching evidence and diagnosis are backed up
 outside build with verified hashes. Ubuntu returned, next_entry is empty and
 the collector is disabled; no new reboot is armed. Integration remains `b537c2a2`.
+
+### App lifecycle timing — active scope (2026-10-25)
+
+Base `46f6212f`, with the preceding native failure collected and backed up.
+Add bounded timing receipts in desktools main/Text runtime for entry,
+initialization, window creation/publication, close delivery, worker retirement
+and memory cleanup; validate the receipts in the automatic audio/disk/app VM.
+This is instrumentation, not another claimed latency fix. Do not change the
+workload, scheduling, ownership checks, ten-second whole-cycle, five-second
+client deadlines or 500 ms loop bound. Prepare the same automatic native trial,
+self-merge and reboot under the user's explicit authorization.
+
+PR169 (`edc320d8`) owns compositor unsaved-work shutdown interactions; keep its
+deskd/session changes separate. PR19 (`c4af7dcc`) retains USB Wi-Fi scope. The
+planned edits are desktools runtime/timing, stress-receipt validation and this
+unit record, with no overlapping production file edits in those open PRs.
