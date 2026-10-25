@@ -6721,3 +6721,28 @@ Failure evidence archived outside build at
 `~/.local/share/srvros/macbookpro11-2/wifi-channel-state-4dd830f/`.
 Next: bounded IBI9 semantic/read-path audit, preserving this failure and the
 original strict collector. No RF writes, tuning, MAC enable or traffic accepted.
+
+## 2026-10-25 — IBI9 semantic audit and separate observation scope
+
+The v75 failure is collected/archived at `a268708b`; no outstanding run or
+reboot. Main `3ab4a385` merged Air6,1 audio-result documentation. PR160 owns
+Air6,1 desktop I/O latency; PR157 owns Air7,2 application lifecycle. Inspected
+files do not own Wi-Fi baseband/MCU state; Pro PR19 retains base `d5bc4b3`.
+
+Independent live Ubuntu debugfs reads on this exact adapter returned IBI9
+ffffffff twelve times in four interleaved samples, with ASIC76100002 and
+COREf000f200 throughout, adjacent IBI8/10=0 and normal path/timing values.
+Only the debug read selector changed and was restored; no regval write,
+reset/unbind/channel change occurred. Driver binding and default route stayed
+unchanged. This is the working post-calibration Linux state, not native parity.
+Pinned Linux saves IBI9, writesffffff7e during calibration, then restores it;
+the vendor reference describes it as MAC control of TXBE1/2. All-ones here is
+therefore not sufficient evidence of transport failure or an erased device.
+
+Objective: preserve strict v75 refusal semantics and add a separate read-only
+observation profile admitting all-ones only at fixed IBI9 index8, recording an
+explicit derived mask. Keep all11 other target all-ones refusals and all MAC/
+CORE/DMA guards strict, require complete postguards before inventory completion.
+No IBI9 value/register acceptance from this comparison. Scope: policy-separated
+engine/native/staging/tests/collector; full earlier profile unchanged. No writes,
+tuning, MAC enable or traffic. Keep256KiB capture and archive the Linux audit.
