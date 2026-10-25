@@ -1,9 +1,9 @@
 # Desktop architecture and API evolution
 
 Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130); D0/D1
-progress updated 2026-10-25. Later blocks remain proposals, not implemented APIs
+progress and D2 implementation updated 2026-10-25. Later blocks remain proposals, not implemented APIs
 or new hardware acceptance claims. The [capacity contract](window-capacity.md) describes
-the shipping sixteen-window implementation. The companion
+current dynamic storage and the separately scoped physical acceptance. The companion
 [POSIX audit](posix-compatibility.md) covers the userspace foundation.
 
 ## Goal and boundary
@@ -27,13 +27,13 @@ prerequisite for multiple windows per application.
 
 | Layer and source | Current responsibility | Constraint to address |
 | --- | --- | --- |
-| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Fixed queue table; dynamic surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
+| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Dynamic queues/surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
 | [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
-| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID/window; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
+| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Stable dynamically allocated records and independent child storage; lifetime-safe UI actions; linear lookup/stacking remains |
 | [`widgets/`](../userspace/widgets/README.md) | Pure models/controllers, layout and rendering primitives | Deliberately owns neither allocation, process transport nor an event loop; preserve that separation |
-| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Repeated application lifetime/dispatch logic; generally one window per process |
+| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Text shares one connection across documents; file workers still per document; other apps retain the compatibility wrapper |
 
 Useful existing guarantees must survive the migration: validate packet direction
 and surface ownership; publish only sealed complete frames; reject stale
@@ -49,13 +49,13 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 
 | Current bound | Location / consequence |
 | --- | --- |
-| 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; multiple windows may share a PID |
+| Dynamic compositor windows and child connections | Stable chunks, 8 MiB additional metadata budget including replacement table overlap; inline sixteen records remain bootstrap storage |
 | Dynamic GUI queues, 64 messages per queue | 2 MiB requested-byte budget includes prepared/retired records; process and window budgets remain independent |
 | Dynamic GUI surfaces | 256 KiB record budget plus 256 MiB pixel budget, including in-flight reservations and retirement; no fixed surface slot array |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
 | 1440×900 logical client surface | Protocol/kernel bound; explicit 2× output is enlargement, not native-density text rendering |
 | Clipboard transfer state per admitted client (D0 merged) | No independent peer table; one global 64 KiB committed value and staged writer |
-| 96 menu items / 32 visible group rows; 64 palette items | Shared menu/palette storage can become the next window-list ceiling even if compositor records grow |
+| Menu/palette caller-owned storage | Inline defaults remain 96/32 and 64; compositor grows storage to enumerate all admitted windows; shared list geometry bound 4096 |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |
 | 64 processes; originally 64 extra file slots plus standard streams, now 67 unified native descriptors in the POSIX branch | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
 | 8 additional user-thread slots per process; 32 kernel scheduler-thread slots | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
@@ -205,6 +205,14 @@ refusal/reuse/exact persistence gates. Parented/transient dialogs are not yet an
 API; their acceptance follows D3. Native gesture/latency acceptance is separate.
 
 ### D2 — Allocate registries dynamically
+
+D2a/b are merged in PR144/145: kernel surface/queue slots have been replaced
+with byte-budgeted stable storage. Candidate D2c (`bba1c39`) implements stable
+compositor chunks, separate child growth, reusable scene scratch and complete
+menu/palette enumeration. Host/full-build gates pass; QEMU/native acceptance
+must be read from the current machine record. D2 latency/large-workload profiling
+and native acceptance remain distinct from storage correctness.
+
 
 Replace client/scene/child arrays with stable object storage and explicit maps,
 separate z-order from storage, and remove slot indices from UI actions. Grow kernel

@@ -2,6 +2,36 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active dynamic compositor and enumeration work (D2c)
+
+PR145 merged as `11a4ef2` and consumed. Next bounded scope: remove the
+compositor's sixteen-window admission ceiling using stable allocated records,
+separate child-connection storage, transactional registry/scratch growth and
+explicit metadata/cache budgets. Extend menu/palette widgets with caller-owned
+storage while keeping their allocation-free boundary and inline defaults.
+Window menus, launcher, overlay return and drag/resize must retain lifetime
+identity rather than select a reused slot. Test growth/refusal preservation,
+large window enumeration and actual 32/64/128 small windows in few processes;
+existing document persistence and desktop lifetime regressions remain required.
+Touch compositor/scene, widgets, shared budgets and focused host/QEMU consumers.
+The scheduler/process and surface-dimension bounds remain separate. Pro PR19
+`e409c07` still covers Wi-Fi; no native installation or reboot in this block.
+
+D2c runtime `bba1c39` passes the full desktop host/image build and final
+QEMU 32/64/128-window workload in one process: complete launcher/Window-menu
+discovery, input to first/middle/last windows, maximize/restore, ID129 replacement,
+129 retirements, zero registry/cache charges and process-baseline/relaunch checks.
+The matched battery/Text file capture also passes 20 worker operations, 60/60
+scripted and 44/44 injected key presentations, replacement compositor, unchanged
+bytes outside the scratch image and clean offline allocation.
+Peak requested registry reservation was 2,020,656 bytes and compositor pixel
+cache 38,088,904 bytes. These are separate pools, not total memory. Final sixteen
+Text document persistence/refusal/reuse, normal Text editing/dialogs, mixed
+clipboard and existing-app/lifecycle QEMU regressions also pass. Screenshot QA
+found a partially clipped menu row shifting its glyph origin; a failing-before
+pixel regression and corrected VM screenshot cover the fix. Native acceptance
+and p95/p99 input/frame measurements remain pending. PR146 carries this work.
+
 ### Active dynamic GUI queue storage (D2b)
 
 PR144 is merged as `58bd3cf` and consumed. Next bounded objective: replace

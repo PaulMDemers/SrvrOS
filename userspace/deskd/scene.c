@@ -28,15 +28,15 @@ int desktop_window_placement(int screen_width,int screen_height,struct desk_rect
     *result=(struct desk_rect){x,y,width,height};return 1;
 }
 
-void desktop_stack(const struct desktop_scene *s,int order[DESKD_WINDOWS]) {
-    for(int i=0;i<DESKD_WINDOWS;i++) order[i]=i;
-    for(int i=1;i<DESKD_WINDOWS;i++) {
+void desktop_stack(const struct desktop_scene *s,int *order) {
+    for(int i=0;i<desktop_capacity(s);i++) order[i]=i;
+    for(int i=1;i<desktop_capacity(s);i++) {
         int value=order[i],j=i;
         while(j>0) {
             int previous=order[j-1];
             int higher=value==s->focus || (previous!=s->focus &&
-                (s->windows[value].z>s->windows[previous].z ||
-                (s->windows[value].z==s->windows[previous].z && value>previous)));
+                (desktop_window_at(s,value)->z>desktop_window_at(s,previous)->z ||
+                (desktop_window_at(s,value)->z==desktop_window_at(s,previous)->z && value>previous)));
             if(higher) break;
             order[j]=previous;j--;
         }
@@ -85,7 +85,7 @@ static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
         struct desk_rect r=desktop_dock_item(c->width,c->height,app);if(!r.w) continue;
         const char *name=desk_application_info(app)->title;
         int running=0,active=0;
-        for(int i=0;i<DESKD_WINDOWS;i++) if(s->windows[i].visible && s->windows[i].application==app) {
+        for(int i=0;i<desktop_capacity(s);i++) if(desktop_window_at(s,i)->visible && desktop_window_at(s,i)->application==app) {
             running=1;active|=s->focus==i;
         }
         if(active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},0xe0eade);
@@ -229,8 +229,8 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
             desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==4?tap_steps[i]:s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
     }
-    int order[DESKD_WINDOWS];desktop_stack(s,order);
-    for(int n=0;n<DESKD_WINDOWS;n++) draw_window(c,&s->windows[order[n]],order[n]==s->focus,s->apps);
+    int inline_order[DESKD_WINDOWS];int *order=s->order?s->order:inline_order;desktop_stack(s,order);
+    for(int n=0;n<desktop_capacity(s);n++) draw_window(c,desktop_window_at(s,order[n]),order[n]==s->focus,s->apps);
     if(s->apps) {
         dock(c,s);
         if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);

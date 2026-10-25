@@ -72,7 +72,7 @@ def main():
                 serial.sendall(b"ps\n");wait(b"pid name status");wait(b"srv> ")
                 baseline_processes=set(re.findall(rb"^(\d+) (\S+) (background|exited|foreground)",output.split(b"pid name status")[-1].split(b"srv> ")[0],re.M))
                 if not baseline_processes: raise RuntimeError("Missing baseline process snapshot")
-                serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
+                serial.sendall(b"run /fat/bin/deskd --registry-pressure-test\n")
                 wait(b"deskd: commit")
                 applications=[("Files",1),("Calculator",3),("Terminal",6),("Preview",7),("Sketch",10),("Clock",9),("Find Files",12),("Calculator",3),("Clock",9),("Help",8),("Settings",5),("Files",1),("Preview",7),("Text",2),("Calculator",3)]
                 pids=[]

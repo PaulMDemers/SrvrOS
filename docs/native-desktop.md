@@ -93,9 +93,9 @@ Mac keyboard's Command key, or the Meta/Windows key in a VM.
 | Return to the monitor | SrvrOS → Return to console |
 
 The launcher lists open windows as well as app launch entries. Select an existing
-window to resume it; choose the app entry to open another instance. Sixteen client
-windows can be open at once, subject to process and memory availability. A full
-desktop asks you to close a window before opening another app.
+window to resume it; choose the app entry to open another instance. Window and
+child registries grow under a metadata budget rather than a fixed window count.
+Memory, processes and worker resources can still refuse an opening request.
 
 The compositor now allocates buffers for live window sizes instead of reserving
 eight full-screen cache pairs at startup. Published and private buffers share a
@@ -106,8 +106,8 @@ the wheel, and keyboard selection remains visible.
 
 Kernel GUI records are demand-allocated: 2 MiB queue storage, 256 KiB surface
 metadata and 256 MiB surface pixels, with the existing 64 process
-slots. Workers and terminal shells consume extra resources, so sixteen is an
-intentional ceiling rather than a guarantee under every memory/workload mix.
+slots. Workers and terminal shells consume extra resources independently of
+window count; multiple Text documents can share one application process.
 See [window capacity and ownership](window-capacity.md) for the matched desktop protocol,
 allocation guarantees and exact validation. Sixteen-window persistence and
 resize/lifecycle VMs pass. Air7,2 physically accepts sixteen-window opening,

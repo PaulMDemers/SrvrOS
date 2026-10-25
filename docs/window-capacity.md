@@ -1,7 +1,10 @@
 # Desktop capacity and buffer ownership
 
-The desktop supports sixteen client windows, with demand-allocated compositor
-caches and current-size client canvases. Kernel GUI receive queues are now
+The desktop grows window and child-connection registries on demand instead of
+refusing the seventeenth window. Stable records and reusable scene/UI scratch
+storage share an 8 MiB additional-metadata budget. The initial sixteen inline
+records are compatibility/bootstrap storage, not a production admission ceiling.
+Compositor caches and client canvases follow current window sizes. Kernel GUI receive queues are now
 demand-allocated under a 2 MiB requested-byte budget, with 64 messages per FIFO;
 surface records are demand-allocated under separate 256 KiB metadata and
 256 MiB pixel budgets. These include prepared and retired storage until freed.
@@ -22,8 +25,7 @@ value with one staged writer; concurrent revision changes cancel partial reads.
 cache bytes/budget and transport limits on admission, retirement and refusal.
 Launch capacity produces a visible close-a-window notice; process-launch refusal
 and pixel-cache pressure retain their distinct diagnostics. These are the current
-admission budgets; dynamic compositor registries remain the next
-architecture stage. A surface byte budget does not guarantee that physical
+admission budgets; each pool can independently refuse a request. A surface byte budget does not guarantee that physical
 memory is available.
 
 The compositor pixel-cache budget is 96 MiB, including published and private
@@ -49,10 +51,13 @@ packets retry queue pressure; stale requests/refusals are ignored. An initial
 window that cannot allocate its first frame still fails to open. Copy/protocol
 errors retain their existing bounded retirement policy.
 
-Menus allow 96 items and up to 32 rows per group. The Window menu lists all live
-clients; wheel scrolling and automatic keyboard selection reveal entries that
-exceed the viewport. The launcher has 64 entries, enough for twelve app entries
-and sixteen windows. Matched protocol v14 (168 bytes) supports explicit window
+Menu and palette widgets keep their inline defaults (96 menu entries/32 rows
+per group and 64 palette entries) but accept larger caller-owned storage. The
+compositor grows their backing/scratch arrays with its registry, so Window lists
+all live clients and the launcher searches every admitted window. Wheel scrolling
+and keyboard selection reveal entries beyond the viewport. The shared list model
+retains its 4096-item geometry bound; the compositor metadata budget is reached
+before that bound. Application menu wire snapshots remain separately limited. Matched protocol v14 (168 bytes) supports explicit window
 IDs and an opt-in connection dispatcher with acknowledged creation and close.
 The ID1 single-window source wrapper remains available. Kernel stream surfaces
 bind to their first committed window for their lifetime; release also matches
@@ -64,7 +69,8 @@ images are incompatible.
 Host regressions cover transaction failure, published-pixel preservation,
 reserved-spare protection, budget exhaustion/reclamation, stale refusal,
 rollback without allocation, close/reopen and scrolling menus. The updated
-`tools/desktop_capacity_smoke.py` targets sixteen apps, seventeenth refusal,
+`tools/desktop_capacity_smoke.py` now uses an explicit one-byte registry-growth
+diagnostic budget to retain deterministic sixteen-app/seventeenth-refusal coverage,
 slot reuse, exact saved text, screenshot work at capacity and process cleanup.
 Arrange and compositor fixtures cover repeated generations, maximize/restore,
 sealed surfaces and input. The sixteen-window persistence/cleanup VM, arrange fixtures at 800x600 and
@@ -110,7 +116,7 @@ refusal, a fresh ID after close and complete worker/process retirement. This
 is a different resource shape from sixteen Text processes. Large document
 records use independently released anonymous mappings rather than exhausting
 the legacy brk arena. The launcher selects sibling windows by non-reused
-compositor identities, not PID alone. Dynamic registries remain next.
+compositor identities, not PID alone. Dynamic registries follow in D2c below.
 
 D2a replaces kernel surface slots with stable allocated records and monotonic
 positive IDs. Metadata and pixel charges are reserved before preparation;
@@ -134,8 +140,7 @@ Runtime `028ded1` passes the full desktop host/image build, the 128-surface
 actual-ABI consumer with malformed result buffers, and sixteen normal Text
 documents with exact file readback, refusal/reuse and worker cleanup. This accepts
 the dynamic surface foundation in QEMU, not dynamic compositor window admission
-or native latency. The sixteen-window compositor still follows its separate
-current limit.
+or native latency. D2c adds dynamic compositor admission below.
 
 D2b removes the fixed process-queue table. Queue payload charges include pending
 candidates and detached records until actually freed; allocator overhead remains
@@ -159,3 +164,34 @@ The first 40-client VM fixture hit the independent scheduler task budget at
 fork index 26 (`EAGAIN`), before queue pressure. Its failed evidence is retained.
 The production scheduler budget is unchanged; the positive VM workload uses 24
 clients, while host fixtures independently exhaust the GUI queue byte budget.
+
+D2c allocates stable window/child record chunks and replaces only pointer and
+scratch tables during growth. Clipboard writer pointers remain valid. Child
+connections grow independently from windows. Metadata reservation includes the
+old and replacement tables until publication/free, but excludes inline records,
+allocator/page overhead and all pixel caches. Chunks retain the session's high
+water mark; closed slots are reusable and pixel caches retire immediately. All
+registry mappings retire at compositor shutdown. This is bounded by available
+memory, not a claim of infinite windows or removal of process/task limits.
+
+Window menu actions, launcher selection, overlay return and drag/resize use
+non-reused lifetime identity. Global menu action IDs are 32-bit; the session
+refuses new identities before that namespace wraps. Scene sorting uses reusable
+scratch storage rather than a window-count-sized stack allocation. Preparation
+failure leaves the old registry, windows and widget snapshots intact.
+
+`--registry-pressure-test` is a diagnostic with only one additional metadata
+byte, leaving the inline records usable while forcing growth refusal. Ordinary
+startup uses the 8 MiB budget. `--window-growth-smoke` runs the separate RAM-only
+128-window consumer in one process; these are stress points, not new maxima.
+Host tests exercise 128 stable records, 200 menu/search entries, allocation and
+quota failure, independent child growth, stale identity and full reclamation.
+QEMU acceptance for this candidate is tracked in the machine record; native
+large-window/input acceptance is pending.
+
+Runtime `bba1c39` passes the actual 128-window consumer, complete launcher/menu
+selection, first/middle/last input, resize/replacement and 129 acknowledged
+retirements. Requested registry peak is 2,020,656 bytes and pixel-cache peak
+38,088,904 bytes; both retire completely. The final pressure-document,
+clipboard, normal Text, existing apps and compositor regressions pass too.
+These functional VM checks do not measure native input latency or total memory.
