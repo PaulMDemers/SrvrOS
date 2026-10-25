@@ -3071,7 +3071,7 @@ Captured-unit baseband path setup is accepted; calibrated radio operation and
 connectivity remain untested. Remaining calibration/channel prerequisites are
 next to audit before further hardware changes.
 
-### Channel/calibration dependency audit and read-only inventory (v75 candidate)
+### Channel/calibration dependency audit and read-only inventory (v75 failed capture)
 
 The pinned [USB start sequence](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/usb.c)
 starts the MAC before power-on calibration. The
@@ -3100,3 +3100,17 @@ merely because it was read. The collector requires18 receipts,12 indexed target
 observations,2 guard triplets, full earlier proof and both completion markers.
 v75 adds only its explicit token to v74;256KiB complete logging and automatic
 save/return remain. No additional RF write, tuning, MAC enable or traffic.
+
+
+Native release `80a6781c0b08290c` (source `4dd830fd`) failed in session
+`session-00065eb0816b56d4-00`. IBI9 at2124 returnedffffffff with a successful
+USB receipt; the engine refused after12 reads (three initial guards plus nine
+target reads). Eight earlier target values were observed:2a4=0,1340=583f,
+2004=2,2300=21400,2700=0,132c=4,141c=ffe4,1330=601. Targets13b0/1114/238
+and final guards were NOT_READ; printed zero tail rows are placeholders. No
+inventory/settings acceptance follows. Original success validation refused;
+separate failure validation preserved full earlier proof, exact stop and entire
+249442-byte prefix with both completed=NO markers. Recovery, consumed one-shot,
+hashes and clean offline filesystem/allocation verified; workspace unmounted,
+no reboot armed. The next audit must establish IBI9 all-ones semantics before
+changing admission; no gate relaxation or automatic retry was made.

@@ -106,12 +106,19 @@ passed. All18 transfers,16 reads,2 writes,2 verified targets and4 guard
 triplets passed with full earlier proof. Entire247000-byte startup prefix
 and both completion markers saved. Recovery/default/one-shot/hashes verified;
 offline workspace clean291files/693clusters/119directories, zero leaks/
-mismatches/errors, unmounted and unarmed. Evidence durably archived. Candidate `80a6781c0b08290c` (source `4dd830fd`) is installed unarmed for a
-fixed read-only channel/calibration prerequisite inventory. Local/regression/
-sanitizer and exact-stage GPT save/return plus missing-workspace checks passed.
-Next: attended cold adapter cycle, then collect matching release/session FIRST.
-Results save automatically and return to Ubuntu. Target values and calibrated
-radio operation/connectivity remain untested.
+mismatches/errors, unmounted and unarmed. Evidence durably archived. Release `80a6781c0b08290c` (source `4dd830fd`) failed the read-only inventory
+in session `session-00065eb0816b56d4-00`: IBI9 at2124 returnedffffffff on a
+successful4-byte USB read. The engine refused after12 reads/submissions;
+full inventory and postguards did not complete. Eight earlier targets were
+observed, including US_CYC2a4=0 and TXOP1340=583f. TX_ALC13b0, BCN_TIME1114,
+USB_DMA238 and final guards were NOT_READ; printed zero tail rows are
+placeholders. Full earlier path/RF proof verified separately against the actual
+failed log, and the strict success collector correctly refused it. Entire
+249442-byte prefix saved with both failure markers. Recovery/default/one-shot/
+hashes verified; offline workspace clean293files/697clusters/120directories,
+no leaks/mismatches/errors, unmounted and unarmed. Evidence archived as failure.
+Next: audit IBI9 all-ones semantics and independent read evidence before any
+admission change. No target/settings or radio-function acceptance from this run.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6685,3 +6692,32 @@ proof,18 ordered reads/receipts,12 indexed non-all-ones target observations,
 values against the dependency audit before choosing any further settings.
 No target acceptance from transport completion; no additional RF write,
 tuning, MAC enable or traffic. No reboot armed; native inventory pending.
+
+
+## 2026-10-25 — prerequisite inventory failed at IBI9
+
+Collected source `4dd830fd0f7254ab1f02fbb6740b8b2dd5cb96cb`, release
+`80a6781c0b08290c`, session `session-00065eb0816b56d4-00`. Strict success
+collector refused the missing success markers. A separate failure collector
+validated the actual unchanged log's complete earlier proof with required final
+failure markers, exact bounded stop, saved prefix and recovery state. No failed
+or partial inventory is promoted.
+
+The12 successful USB receipts cover three initial guards, eight valid target
+observations and the all-ones IBI9 read:2a4=0,1340=583f,2004=2,2300=21400,
+2700=0,132c=4,141c=ffe4,1330=601,2124=ffffffff. USB reportedok1; this is a
+value-admission refusal (status4), not a proven transport error. No writes
+occurred in this phase. Remaining13b0/1114/238 targets and all postguards were
+NOT_READ; zero tail rows must not be interpreted as observations. US_CYC0
+still differs from the pinned USB-tail low8=1e requirement; TXOP matches583f.
+IBI9 semantics need reference/independent evidence before deciding whether an
+all-ones value is legitimate there. No gate relaxed or automatic replay armed.
+
+Entire249442-byte startup prefix within262144 capacity saved with explicit
+firmware/laptop completed=NO markers. Ubuntu default, consumed one-shot and
+installed/recovery hashes verified. Offline exFAT/allocation clean:
+293files/697clusters/120directories, zero leaks/mismatches/errors; unmounted.
+Failure evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-state-4dd830f/`.
+Next: bounded IBI9 semantic/read-path audit, preserving this failure and the
+original strict collector. No RF writes, tuning, MAC enable or traffic accepted.
