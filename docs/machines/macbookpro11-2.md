@@ -27,9 +27,12 @@ RF0:6 write and independent read. Both write paths now produce the same zero
 readback. Local, exact-stage VM and native observation checks passed; full RF
 initialization remains unaccepted. Ubuntu remains default, known-good
 `e47dca3a6b30c6c1` remains recovery, and no reboot is armed.
-Candidate `6e49ad417d7ea11e` (source `48b79846`) is installed unarmed for
-the read-only RF bypass/control snapshot after reproducing that experiment.
-Next collect this comparison before considering another RF write hypothesis. The latest dated sections below contain full
+Release `6e49ad417d7ea11e` (source `48b79846`) completed the read-only RF
+bypass/control snapshot after reproducing that experiment. Both bypass registers
+and RF setting0 are zero in native and live Linux samples. RF_MISC differs1/5;
+no missing prerequisite is established by comparing disabled and live states.
+Next audit RF power/reset/register semantics before another write hypothesis.
+No reboot is armed. The latest dated sections below contain full
 scope, dependencies and evidence locations.
 
 ## Original bring-up scope (historical)
@@ -5759,3 +5762,39 @@ Next: attended cold adapter cycle, then collect matching release/session FIRST.
 Require the complete v64 zero-read proof and all14 snapshot reads/guards; compare
 the eight observed targets with Linux without promoting live values to a native
 initialization profile. No reboot armed; calibration/connectivity remain pending.
+
+
+### 2026-10-25 — RF bypass/control snapshot collected
+
+Source `48b79846`, release `6e49ad417d7ea11e`, session
+`session-00065ea5459d3f13-00` passed the strict v65 observation collector.
+The full v64 zero-read experiment reproduced, followed by all14 fixed snapshot
+reads. Both boundaries remained MAC0/COREf000f200/DMA40000050. Target values:
+
+| Register | Native snapshot | Earlier live Linux samples |
+| --- | --- | --- |
+| WLAN_FUN_CTRL80 | ff000003 | ff000403 |
+| CMB_CTRL20 | c007ff | e007ff |
+| OSC_CTRL104 | 33ffef | 33ffef |
+| PBF_SYS_CTRL400 | 80c00 | 80c00 |
+| RF_BYPASS0/1 504/508 | 0/0 | 0/0 |
+| RF_SETTING0 50c | 0 | 0 |
+| RF_MISC518 | 1 | 5 |
+
+The bypass/setting registers show no live/native mismatch. The reference channel
+setup changes RF_MISC bit2 for the external A-band PA; that later band-specific
+behavior does not establish an omitted pre-table prerequisite. WLAN bit10 is in
+the GPIO input field. CMB bit21 differs without a documented interpretation in
+the pinned definitions. Do not copy either live state into native initialization.
+The RF0:6 mismatch remains unresolved; next audit power/reset sequencing and
+register semantics rather than repeat the same write or relax the table check.
+Calibration, scanning, association/security and connectivity remain pending.
+
+Both capture markers and the complete80450-byte startup snapshot passed.
+Collection `build/bringup/wifi-rf-state/collection/collection-3bt1aq6d`, strict
+receipts, comparison and recovery evidence are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-state-48b7984/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean273files/658clusters/110directories,
+zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
+This accepts the observation only; central RF initialization remains unaccepted.

@@ -2674,3 +2674,16 @@ initialization state. WLAN GPIO input bits and CMB state also differ between the
 live Linux sample and the saved native antenna setup; do not copy them wholesale.
 The next snapshot fills the native bypass/control evidence gap before any new
 RF data-write hypothesis. Calibration and connectivity remain pending.
+
+
+The native v65 snapshot completed on2026-10-25 (source `48b79846`, release
+`6e49ad417d7ea11e`, session `session-00065ea5459d3f13-00`). All14 read requests
+and both guard boundaries passed. RF_BYPASS0/1 and RF_SETTING0 were all0, matching
+the live Linux samples; RF_MISC was1 versus Linux5. The reference channel setup
+sets RF_MISC bit2 for external A-band PA, so that live/disabled difference does
+not identify a missing pre-table setting. WLAN differed only in GPIO input bit10;
+CMB differed in bit21, whose semantics are not established by the pinned header.
+OSC/PBF matched. Both completion markers and the full80450-byte prefix passed,
+with clean Ubuntu recovery and filesystem checks. The snapshot adds observations
+only. RF0:6 remains zero; investigate power/reset/register semantics without
+copying the live state, retrying the write automatically or weakening acceptance.
