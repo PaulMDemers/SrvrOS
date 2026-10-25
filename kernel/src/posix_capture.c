@@ -2,6 +2,7 @@
 #include <srvros/process.h>
 #include <srvros/console.h>
 #include <srvros/timer.h>
+#include <srvros/scheduler.h>
 #include <stdint.h>
 
 /* Tests write to the disposable RAM root. Only the existing desktop screenshot
@@ -17,6 +18,13 @@ static const struct capture_case {
     {"desktop", "/fat/bin/deskd", "--idle-capture", 120},
 };
 
+static bool tick_due(void *arg) { return timer_ticks() >= *(uint64_t *)arg; }
+static bool wait_tick(void) {
+    static struct scheduler_wait_queue wake;
+    uint64_t due=timer_ticks()+1;
+    return scheduler_wait_timeout(&wake,tick_due,&due,due);
+}
+
 static bool retire(uint64_t token) {
     if (!process_lifetime_revoke(token)) return false;
     uint64_t until = timer_monotonic_us() + 10000000;
@@ -24,7 +32,7 @@ static bool retire(uint64_t token) {
         struct process_lifetime_status state;
         if (!process_lifetime_drain(token) || !process_lifetime_status(token, &state)) return false;
         if (!state.members) return process_lifetime_release(token);
-        timer_wait_ticks(1);
+        if(!wait_tick()) return false;
     } while (timer_monotonic_us() < until);
     return false; /* Retain ownership; never release live descendants. */
 }
@@ -47,7 +55,7 @@ bool posix_capture_run(void) {
                 int64_t waited = process_wait((uint64_t)pid, &results[i].status, true);
                 if (waited == pid) { results[i].exited = true; break; }
                 if (waited < 0) break;
-                timer_wait_ticks(1);
+                if(!wait_tick()) break;
             } while (timer_monotonic_us() - begin < test->seconds * 1000000);
         }
         results[i].retired = token && retire(token);

@@ -9,7 +9,12 @@
 static uint64_t now;
 static unsigned spawned,released,revoked,mode;
 uint64_t timer_monotonic_us(void) { return now; }
-void timer_wait_ticks(uint64_t ticks) { now+=ticks*10000; }
+uint64_t timer_ticks(void) { return now/10000; }
+bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,scheduler_wait_condition_fn fn,void *arg,uint64_t deadline) {
+    assert(queue && !fn(arg));
+    if(mode==6)return false;
+    now=deadline*10000;assert(fn(arg));return true;
+}
 void console_write(const char *text) { (void)text; }
 void console_printf(const char *fmt,...) { (void)fmt; }
 uint64_t process_lifetime_create(void) { return mode==4?0:1; }
@@ -18,7 +23,7 @@ int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args)
 }
 int64_t process_wait(uint64_t pid,uint64_t *status,bool nohang) {
     assert(pid==100 && nohang);now+=10000;
-    if(mode==2)return 0;
+    if(mode==2 || mode==6)return 0;
     *status=mode==1?7:0;return pid;
 }
 bool process_lifetime_revoke(uint64_t token) { assert(token==1);revoked++;return true; }
@@ -28,7 +33,7 @@ bool process_lifetime_status(uint64_t token,struct process_lifetime_status *s) {
 }
 bool process_lifetime_release(uint64_t token) { assert(token==1 && mode!=3);released++;return true; }
 int main(void) {
-    for(mode=0;mode<=5;mode++) {
+    for(mode=0;mode<=6;mode++) {
         now=0;spawned=released=revoked=0;
         bool ok=posix_capture_run();assert(ok==(mode==0));
         assert(spawned==(mode==0?5:mode==4?0:1));
