@@ -2,6 +2,18 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active automated mixed-app hardware trial
+
+Base main `3647dc7`; Pro PR19 at `18e06ec` remains independent RF/Wi-Fi work.
+Implement an explicit boot-only capacity diagnostic: two rounds of 24 independent
+mixed app processes, rendered-window verification, saved screenshots, normal
+client retirement and inherited battery/logger lifetime cleanup. Extend desktop
+session dispatch, the existing battery session wrapper, compositor diagnostic
+mode and exact staging/VM tests. Preserve firmware gates and ordinary startup.
+User authorized automatic opening and a physical reboot; no human input is
+required. Save results and unmount before automatic Ubuntu return, including
+handled test failure. Native acceptance stays pending collection.
+
 ### Scheduler capacity fix: host/VM validated
 
 Base main `16bbe49` plus this unit's collected-run notes; Pro PR19 inspected at
