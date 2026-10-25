@@ -6649,3 +6649,16 @@ Pre/post MAC0/COREf000f200/disabled-DMA triplets,18 reads total, no writes.
 Scope: fixed read-only engine, native gate, staging/tests and strict collector.
 Keep256KiB complete capture. Target values are observations, not accepted
 channel/calibration settings. No RF write, MAC enable, tuning, scan or traffic.
+
+Implemented fixed12-target/18-read inventory and exact captured path validator.
+Host tests pass every transfer/cancellation/all-ones/guard boundary and proof
+mutation/no replay. Exact path validator rejects all before/after-word bits,
+guard and completion/counter mutations. Native tests pass all18 reads and144
+prerequisite/state faults with no-USB refusal and uncertainty quarantine.
+All154 staging tests and148 historical recipe identity checks pass. Strict
+whole-prefix tests accept three target patterns at249956bytes and reject204
+malformed proofs. Prior RF/MCU/EFUSE/logger regressions, ASan/UBSan for inventory
+and exact path validator, full build,499 documentation links and nine new
+pinned-reference hashes pass. Next: exact-stage GPT save/return and missing-
+workspace rehearsal, then install with Ubuntu/known-good recovery retained.
+Native target inventory remains pending; no reboot armed.

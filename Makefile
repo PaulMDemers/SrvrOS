@@ -3812,3 +3812,11 @@ test-mt76-path: build/tests/mt76-path-host$(HOST_EXE)
 build/tests/mt76-path-host$(HOST_EXE): tools/test_mt76_path.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-channel-state
+test-core: test-mt76-channel-state
+test-mt76-channel-state: build/tests/mt76-channel-state-host$(HOST_EXE)
+	build/tests/mt76-channel-state-host$(HOST_EXE)
+build/tests/mt76-channel-state-host$(HOST_EXE): tools/test_mt76_channel_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

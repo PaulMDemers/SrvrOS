@@ -35,5 +35,10 @@ int main(void){
  for(unsigned n=1;n<=19;n++){f=(struct fake){.deny=n};s=(struct mt76_path){0};assert(run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.calls==n-1);}
  for(unsigned i=0;i<2;i++){f=(struct fake){0};f.values[i]=UINT32_MAX;s=(struct mt76_path){0};assert(run(&f,&s)==MT76_TIMING_STATE && f.calls==9*i+4 && !s.complete);}
  bool w;uint32_t a;assert(!mt76_path_request(18,&w,&a));assert(mt76_path_address(2)==UINT32_MAX && mt76_path_value(2,0)==UINT32_MAX);
+ f=(struct fake){.values={0x21400,0}};s=(struct mt76_path){0};assert(run(&f,&s)==MT76_TIMING_OK && mt76_path_exact_profile_valid(&s));
+ struct mt76_path good=s;
+ for(unsigned q=0;q<2;q++)for(unsigned b=0;b<32;b++){s=good;s.before[q]^=1u<<b;assert(!mt76_path_exact_profile_valid(&s));s=good;s.after[q]^=1u<<b;assert(!mt76_path_exact_profile_valid(&s));}
+ for(unsigned q=0;q<4;q++)for(unsigned j=0;j<3;j++){s=good;s.guards[q][j]^=1;assert(!mt76_path_exact_profile_valid(&s));}
+ s=good;s.complete=false;assert(!mt76_path_exact_profile_valid(&s));s=good;s.operations--;assert(!mt76_path_exact_profile_valid(&s));s=good;s.verified--;assert(!mt76_path_exact_profile_valid(&s));assert(!mt76_path_exact_profile_valid(NULL));
  puts("baseband path: PASS two fixed targets/masks,1024 preserved-word cases, every transfer/cancel/guard/readback boundary, payload/proof mutation and no replay");
 }

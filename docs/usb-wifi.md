@@ -3070,3 +3070,33 @@ Workspace unmounted, no reboot armed; evidence archived outside build.
 Captured-unit baseband path setup is accepted; calibrated radio operation and
 connectivity remain untested. Remaining calibration/channel prerequisites are
 next to audit before further hardware changes.
+
+### Channel/calibration dependency audit and read-only inventory (v75 candidate)
+
+The pinned [USB start sequence](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/usb.c)
+starts the MAC before power-on calibration. The
+[calibration function](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+uses channel context, timed firmware commands, TX ALC/IBI9 save/restore and
+optional TSSI MAC transitions. This is separate from the accepted bounded VCO
+start-bit self-clear observation. Do not transplant isolated calibration calls
+into the current MAC-disabled sequence or equate MCU ACKs with calibrated RF.
+
+| Remaining dependency | Evidence/next action |
+| --- | --- |
+| USB tail timing/beacon state | Read US_CYC2a4, TXOP1340 and BCN_TIME1114; TXOP583f was established earlier, US_CYC low8=1e is a reference tail requirement |
+| Baseband bandwidth/band/CCA | Read CORE1, AGC0, TXBE0, TX_BAND, EXT_CCA and TX_SW before a fixed20MHz channel plan |
+| Calibration save/restore | Inventory IBI9/TX_ALC; define bounded restoration and failure handling before command execution |
+| Channel synthesizer/gain/power | Fixed reference tables and fresh EEPROM profile/validity still need admission; default G-band initialization is not channel tuning |
+| Radio enable/calibration | Deferred until prerequisites and controlled lifecycle are defined; central RF0:6 semantics remain unresolved |
+| Receive/scan/networking | USB receive framing and management parser, controlled US channel handling, then association/security and traffic remain pending |
+
+The user's United States location is recorded; it does not establish EEPROM
+power validity or authorize guessed regulatory limits. `--wifi-channel-state`
+adds a fixed read-only inventory after exact accepted path2300=21400/2714=0
+proof. Targets in order:2a4,1340,2004,2300,2700,132c,141c,1330,2124,13b0,
+1114,238. Pre/post MAC0/COREf000f200/disabled-DMA triplets make18 total reads;
+all-ones or transfer uncertainty stops the attempt. No target value is accepted
+merely because it was read. The collector requires18 receipts,12 indexed target
+observations,2 guard triplets, full earlier proof and both completion markers.
+v75 adds only its explicit token to v74;256KiB complete logging and automatic
+save/return remain. No additional RF write, tuning, MAC enable or traffic.

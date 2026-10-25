@@ -2132,3 +2132,33 @@ enum mt76_mcu_timing_status mt76_path_apply(struct mt76_path *s,const struct mt7
     if(!path_state_valid(s,18))return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+bool mt76_path_exact_profile_valid(const struct mt76_path *s){
+    return s && s->complete && path_state_valid(s,18) && s->before[0]==0x21400 && s->after[0]==0x21400 && !s->before[1] && !s->after[1];
+}
+/* US_CYC,TXOP,CORE1,AGC0,TXBE0,TX_BAND,EXT_CCA,TX_SW,IBI9,TX_ALC,BCN_TIME,USB_DMA. */
+static const uint32_t channel_state_addresses[12]={0x2a4,0x1340,0x2004,0x2300,0x2700,0x132c,0x141c,0x1330,0x2124,0x13b0,0x1114,0x238};
+uint32_t mt76_channel_state_address(unsigned i){return i<12?channel_state_addresses[i]:UINT32_MAX;}
+uint32_t mt76_channel_state_request(unsigned op){return op<3?mt76_rf_probe_read_address(op):op<15?mt76_channel_state_address(op-3):op<18?mt76_rf_probe_read_address(op-15):UINT32_MAX;}
+bool mt76_channel_state_admit(const struct mt76_channel_state *s){
+    if(!s || !s->attempted || s->complete || s->reads>=18)return false;
+    for(unsigned op=0;op<s->reads;op++){
+        if(op<3 || op>=15){if(!rf_central_guard_valid(op<3?op:op-15,s->guards[op>=15][op<3?op:op-15]))return false;}
+        else if(s->values[op-3]==UINT32_MAX)return false;
+    }
+    return true;
+}
+enum mt76_mcu_timing_status mt76_channel_state_capture(struct mt76_channel_state *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_channel_state){.attempted=true};
+    for(unsigned op=0;op<18;op++){
+        if(!mt76_channel_state_admit(s))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint32_t *v=op<3?&s->guards[0][op]:op>=15?&s->guards[1][op-15]:&s->values[op-3];
+        if(!io->read(io->context,mt76_channel_state_request(op),v))return MT76_TIMING_IO;
+        s->reads++;
+        if(*v==UINT32_MAX || ((op<3 || op>=15) && !rf_central_guard_valid(op<3?op:op-15,*v)))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

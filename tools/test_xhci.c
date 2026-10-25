@@ -4565,6 +4565,44 @@ static void test_wifi_path(void){
  reset_test();assert(!xhci_wifi_capture_path());puts("xhci baseband path: PASS all18 fixed transfers,134 prerequisite/state faults, every write bit, no USB/replay on refusal and quarantine");
 }
 
+static void channel_state_fixture(struct xhci_device *d,unsigned op){
+ path_fixture(d,17);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->path.complete=true;m->path.operations=18;m->path.reads=16;m->path.before[0]=m->path.after[0]=0x21400;m->path.before[1]=m->path.after[1]=0;m->path_submitted=18;
+ assert(mt76_path_exact_profile_valid(&m->path));
+ m->channel_state_mode=m->channel_state_active=true;m->channel_state_submitted=op;
+ struct mt76_channel_state *t=&m->channel_state;*t=(struct mt76_channel_state){.attempted=true,.reads=op};
+ for(unsigned q=0;q<12;q++)t->values[q]=q*0x111111;
+ for(unsigned q=0;q<2;q++){t->guards[q][1]=0xf000f200;t->guards[q][2]=0x40000050;}
+}
+static void channel_state_fault(struct xhci_wifi_mcu *m,unsigned fault){
+ if(fault<=134){if(fault==129)m->path.complete=false;else path_fault(m,fault);}
+ if(fault==135)m->channel_state_mode=false;
+ if(fault==136)m->channel_state_active=false;
+ if(fault==137)m->channel_state.attempted=false;
+ if(fault==138)m->channel_state.complete=true;
+ if(fault==139)m->channel_state.reads++;
+ if(fault==140)m->channel_state_submitted++;
+ if(fault==141)m->path.before[0]^=1;
+ if(fault==142)m->path.after[1]=1;
+ if(fault==143)m->path.guards[3][2]=1;
+ if(fault==144)m->path.verified--;
+}
+static void test_wifi_channel_state(void){
+ for(unsigned op=0;op<18;op++)for(unsigned fault=0;fault<((op==0 || op==3 || op==17)?147u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[105]={0},events[105]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];channel_state_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==146?6:1,0);
+  uint32_t a=mt76_channel_state_request(op),v=0;trim_reply_device=d;trim_reply_value=op<3?m->channel_state.guards[0][op]:op>=15?m->channel_state.guards[1][op-15]:m->channel_state.values[op-3];
+  channel_state_fault(m,fault);if(fault==145)a++;
+  assert(wifi_channel_state_read(d,a,&v)==!fault);
+  if(!fault){assert(m->channel_state_submitted==op+1 && d->firmware.control_request==7);assert(!wifi_channel_state_read(d,a,&v));for(unsigned b=0;b<4;b++)assert(!buffer[b]);}
+  else if(fault==146)assert(d->ep0_quarantined && m->failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_channel_state());puts("xhci channel prerequisite inventory: PASS all18 fixed reads,144 prerequisite/state faults, no USB/replay on refusal and quarantine");
+}
+
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -5904,6 +5942,7 @@ int main(int argc, char **argv) {
     test_wifi_rf_wait();
     test_wifi_rf_wait_delays();
     test_wifi_path();
+    test_wifi_channel_state();
     test_wifi_trim_fields();
     test_wifi_ant_init();
     test_wifi_mac_private();

@@ -580,4 +580,11 @@ uint32_t mt76_path_value(unsigned index,uint32_t before);
 bool mt76_path_request(unsigned operation,bool *write,uint32_t *address);
 bool mt76_path_transfer_valid(const struct mt76_path *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
 enum mt76_mcu_timing_status mt76_path_apply(struct mt76_path *s,const struct mt76_path_io *io);
+/* Fixed read-only channel/calibration prerequisite inventory, not RF readiness. */
+struct mt76_channel_state {bool attempted,complete;unsigned reads;uint32_t values[12],guards[2][3];};
+bool mt76_path_exact_profile_valid(const struct mt76_path *s);
+uint32_t mt76_channel_state_address(unsigned index);
+uint32_t mt76_channel_state_request(unsigned operation);
+bool mt76_channel_state_admit(const struct mt76_channel_state *s);
+enum mt76_mcu_timing_status mt76_channel_state_capture(struct mt76_channel_state *s,const struct mt76_mcu_timing_io *io);
 #endif
