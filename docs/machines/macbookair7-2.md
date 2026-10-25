@@ -2,6 +2,22 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active shared file-worker lifetime work (D3a)
+
+PR146 is merged as `91b258e` and consumed. Next bounded scope: reusable,
+caller-owned file-worker pools for normal Text and Files. Empty documents must
+not each spawn a process; queued requests keep their own snapshots and completion
+ownership while a small lazy pool leases nonblocking transports. Preserve FIFO
+admission, validated responses, visible failure without automatic mutation retry,
+and busy-owner retention. Retire poisoned channels and reap their children before
+reuse; last-document/application close drains accepted work and then retires the
+pool. Dedicated legacy workers remain for the existing diagnostic captures.
+Touch the file-job library, Text/Files lifetime and focused host/QEMU fixtures.
+Validate actual document growth beyond scheduler-sized worker counts and existing
+file/dialog/clipboard/capture behavior. Combined GUI/FD waits and other desktop
+services remain separate blocks. Pro PR19 `e409c07` is independent Wi-Fi work.
+Host/QEMU only: no installation, USB writes or reboot; native acceptance pending.
+
 ### Active dynamic compositor and enumeration work (D2c)
 
 PR145 merged as `11a4ef2` and consumed. Next bounded scope: remove the
