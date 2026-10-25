@@ -777,6 +777,10 @@ def collect(mount, volume, output):
         preflight=battery_preflight_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.battery-preflight=air61' in text and preflight is None:
             attention.append('collection: passive battery preflight missing, refused or incomplete')
+        from posix_capture_result import capture_result as posix_result
+        posix_proof=posix_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=posix(?:\s|$)',text) and posix_proof is None:
+            attention.append('collection: POSIX capture missing, failed or incomplete')
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -792,6 +796,7 @@ def collect(mount, volume, output):
         if 'srvros.capture=storage-wait' in text and storage_wait is None:
             attention.append('collection: storage wait comparison missing or invalid')
         records.append({
+            "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,
             "session": name,

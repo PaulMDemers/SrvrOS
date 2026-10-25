@@ -121,3 +121,29 @@ under `build/posix-core-20261024`, with a backup outside the disposable build
 tree. The [machine record](machines/macbookair7-2.md) identifies that checkpoint.
 A new native trial, broader API conformance suite and the desktop overhaul are
 separate next steps, not implied acceptance from this milestone.
+
+## Unattended native regression
+
+After preparing the host's own exFAT workspace, stage the explicit capture:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR-EXFAT-UUID --posix-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --boot-wait 600
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace
+```
+
+Follow the [device guide](ubuntu-device-agent-setup.md) for preflight, recovery,
+installation, run recording and one-shot boot. The separate `v1-posix` recipe
+runs threadstress, posixdemo, TLS and SQLite against RAM, followed by the existing
+60-second desktop/Text screenshot exercise. It does not enable battery/AML,
+audio or network providers and needs no human input. Each test has a deadline;
+its owned process tree is revoked and drained before proceeding. Nonzero exits,
+timeouts or failed retirement fail the run. Handled failures save what they can
+and return to Ubuntu; a missing completion record is never a pass.
+
+The normal workspace logger saves a compact five-case receipt in `exit.log`.
+`hardware_desktop.py` exposes `posix_capture` only when every case exited with
+status zero, all process trees retired, and desktop screenshot/completion markers
+are present. Verify the saved screenshot bytes, prior-file preservation and both
+offline filesystem checks after return. This is a bounded runtime regression,
+not physical input, battery, audio, networking or full POSIX acceptance.

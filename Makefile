@@ -3595,3 +3595,12 @@ bench-heap-startup: build/tests/heap-startup-bench$(HOST_EXE)
 build/tests/heap-startup-bench$(HOST_EXE): tools/bench_heap_startup.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-posix-capture
+test-core: test-posix-capture
+test-posix-capture: build/tests/posix-capture-host$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_posix_capture_result.py
+build/tests/posix-capture-host$(HOST_EXE): tools/test_posix_capture.c kernel/src/posix_capture.c kernel/include/srvros/posix_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_posix_capture.c -o $@

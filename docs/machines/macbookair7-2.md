@@ -2,6 +2,18 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Active native POSIX regression
+
+Bounded scope: add an explicit unattended POSIX capture, run the full thread
+contracts plus portable POSIX/TLS/SQLite consumers in RAM, then the existing
+60-second desktop/Text screenshot exercise. Touch capture orchestration, staging,
+its exact-stage VM and result parser only; the desktop API overhaul stays deferred.
+Each process tree has a deadline and lifetime retirement; save a matched summary
+and return automatically on handled failures. Existing USB documents are preserved.
+Main `211f17c` is current; Pro PR19 `aa3dfff` owns independent direct-RF Wi-Fi
+work. Dependencies are the locally accepted POSIX runtime and existing logger,
+process lifetime and screenshot mechanisms. Native acceptance is pending.
+
 ### POSIX portable-application milestone checkpoint
 
 The selected profile is implemented and locally validated at runtime source
