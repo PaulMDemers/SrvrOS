@@ -836,29 +836,33 @@ is not extended endurance coverage. The machine record retains detailed scope.
 ## Longer combined desktop workload
 
 Keep the untimed v71 combined profile. Generate a fresh run with
-`desktop_combined_workload.files(run)` and place its two inputs in Home. In the
-desktop Terminal, start `sh /work/srvros-work/combined-<run>.sh` once and keep that
-Terminal open. Thirty rounds each copy/readback 256 KiB, play the bundled six-second
-stereo WAV to completion and sleep sixty seconds before recording progress.
-Allow roughly 33 minutes, including at least 30 minutes of pacing. Avoid other
-Audio playback while this job owns PCM. Listen during several rounds; the saved
-PCM completion receipts do not prove audible quality. Rerunning an existing run
-is refused; the freshness check assumes one invocation, not concurrent starts.
+`desktop_combined_workload.files(run)` and place its script, seed and WAV in Home.
+In desktop Terminal, start `sh /work/srvros-work/combined-<run>.sh` once and keep
+that Terminal open. Each of thirty rounds launches a one-minute stereo WAV in
+the background, waits for its playing receipt, then performs forty paced 256-KiB
+copy/sync/rename/readback bursts. Each burst checks player liveness before and
+after I/O and refuses an already-complete playback. The shell then waits for the
+player and records the round. This overlaps I/O and playback rather than copying
+before playback. It is a bounded 300-MiB write/readback trial, not a throughput
+benchmark. Allow about 31 minutes. Avoid competing Audio playback. Listen for
+glitches; zero reported underruns does not prove audible quality. A reused run
+directory is refused; start only one instance (the guard is not a concurrent lock).
 
-During the counter, save a new `long-<run>.txt` in Text, reopen it and append/save
+During the workload, save a new `long-<run>.txt` in Text, reopen it and append/save
 again later. Use the separate Files dock app to browse Home. Check fresh battery,
-CPU/fan values and responsiveness at the start, middle and end. Keep USB attached
-and AC connected. Wait for `COMBINED TRIAL COMPLETE`, save Text, close the Terminal,
-then Return to console, `workspace unmount`, and `reboot`. There is no timed
-forced exit. Early exit or absent completion is incomplete evidence. Photograph
-any halt before restarting manually. The Ubuntu collector verifies workload
-inputs/results, prior file preservation, matching session retirement and offline
-allocation, and backs up raw evidence. Human input and audio observations remain
-separate from the machine-readable completion.
+CPU/fan values and responsiveness near start, middle and end. Keep USB and AC
+connected. Wait for `COMBINED TRIAL COMPLETE`, save Text, close Terminal, Return
+to console, `workspace unmount`, then `reboot`. There is no forced exit. Early
+exit or absent completion is incomplete evidence. Photograph any halt before
+manual restart. The Ubuntu collector checks all 1,200 burst receipts, thirty
+complete audio results with zero underruns, inputs/outputs, a completed desktop
+lifetime of at least thirty minutes and filesystem integrity, then backs up
+returned evidence. Human audio/input observations remain separate.
 
 Validation uses `python3 tools/test_desktop_combined_workload.py` and
-`tools/host-env.sh python3 tools/desktop_combined_workload_smoke.py`. The disposable
-GPT Q35 test shortens only rounds/pacing, runs the generated script in the real
-shell alongside Text and Files with battery/audio, verifies repeat refusal and
-exact retained bytes/audio receipts, and checks retirement and filesystem health.
-Native duration still requires returned logs spanning at least 30 minutes.
+`tools/host-env.sh python3 tools/desktop_combined_workload_smoke.py`. The GPT Q35
+test shortens rounds, tone duration and burst count while retaining the same shell
+sequence. It requires actual captured PCM output growth during substantial USB
+writes, Text/Files work, exact retained outputs, repeat refusal, clean retirement
+and filesystem checks. Native per-burst liveness receipts establish player/I/O
+coexistence; listening remains required to assess actual sound interruption.
