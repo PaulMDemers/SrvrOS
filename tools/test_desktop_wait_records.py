@@ -29,4 +29,16 @@ class SavedRecords(unittest.TestCase):
     def test_guest_failure(self):
         for failure in (b'FAIL',b'exception: fault'):
             with self.assertRaises(ValueError):validate_saved_console(self.fixture()+failure)
+class LifecycleRecords(unittest.TestCase):
+    def test_launch_interleaving_preserves_exact_count_and_failures(self):
+        from desktop_lifecycle_smoke import application_output
+        marker=b'desktools: starting role=text'
+        for trace in (b'',b'deskd: opened pid=5 window=0\r\n',
+                      b'desktop-launch: app=2 pid=5 exec_us=1 async=yes\r\n'):
+            raw=b'desktools: starting '+trace+b'role=text\r\n'
+            self.assertEqual(application_output(raw).count(marker),1)
+            self.assertEqual(application_output(raw+raw).count(marker),2)
+        failure=b'desktop-application: FAIL\n'
+        self.assertEqual(application_output(failure),failure)
+
 if __name__=='__main__':unittest.main()

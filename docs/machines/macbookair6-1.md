@@ -2625,3 +2625,11 @@ configured generation. The new host regression fails on the previous helper and
 passes with this correction; retain the failing VM screenshot/log and rerun the
 normal/crash/refusal lifecycle cases before native staging. This bounded library
 change preserves window admission and buffer integrity checks.
+
+Consume PR161 (`44c70a12`), which adds host routing regressions without changing
+production binaries. The corrected normal lifecycle VM passes. The crash variant
+initially failed its startup count because the new compositor launch timing line
+split the single Text startup message. Extend the existing trace-interleaving
+decoder to that line type, preserving exact startup counts, duplicate detection,
+failure markers and raw evidence; rerun crash/refusal cases. No timeout or file
+acceptance predicate is relaxed.

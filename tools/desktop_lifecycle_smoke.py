@@ -15,6 +15,10 @@ from displayd_frame_smoke import choose_port, connect_serial, stop_process
 from displayd_resolution_smoke import build_iso
 from desktop_foundation_smoke import QMP
 
+COMPOSITOR_TRACE=rb'(?:deskd: |desktop-launch: )[^\n]*\n'
+def application_output(data):
+    return re.sub(COMPOSITOR_TRACE,b'',data)
+
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -63,7 +67,7 @@ def main():
                     # Serial writes from independent processes may be interleaved.
                     # Match exact app bytes while permitting complete compositor
                     # trace lines between them; keep the original stream as evidence.
-                    pattern=rb'(?:deskd: [^\n]*\n)*'.join(re.escape(bytes([v])) for v in marker)
+                    pattern=(b'(?:'+COMPOSITOR_TRACE+b')*').join(re.escape(bytes([v])) for v in marker)
                     while True:
                         at=output.find(marker,consumed)
                         if at>=0:consumed=at+len(marker);return
@@ -113,18 +117,18 @@ def main():
                 shortcut('ctrl-l');shortcut('ctrl-a');text('/fat/route-text');qmp.key('ret')
                 wait(b'file-result role=files op=3 status=0');time.sleep(.4);qmp.key('home');qmp.key('ret')
                 wait(b'text-runtime: open-document accepted=1');routed=admitted();wait(b'file-result role=text op=1 status=0')
-                assert output.count(b'desktools: starting role=text')==1
+                assert application_output(output).count(b'desktools: starting role=text')==1
                 assert re.findall(rb'deskd: document-route request=\d+ pid=(\d+) application=2',output)[-1]==pid
                 shortcut('ctrl-end');text(' edited');shortcut('ctrl-l');shortcut('ctrl-a');text('/fat/bin')
                 shortcut('ctrl-q');wait(f'parent={routed}'.encode());shortcut('shift-tab');shortcut('shift-tab');qmp.key('ret')
                 wait(b'picker ready mode=2');qmp.key('ret');wait(b'file-result role=text op=2 status=');wait(b'\n')
-                assert int(re.findall(rb'file-result role=text op=2 status=(\d+)',re.sub(rb'deskd: [^\n]*\n',b'',output))[-1])!=0
+                assert int(re.findall(rb'file-result role=text op=2 status=(\d+)',application_output(output))[-1])!=0
                 shot('failed-save-retains-document');save_as('/fat/routed-copy.txt')
                 shortcut('ctrl-q');wait(b'desktools: exited role=text failure=0')
                 launch('Preview new app',b'deskview: starting');wait(b'deskd: commit')
                 open_from_files('/fat/route-image')
                 wait(b'deskview: open-document accepted=1');wait(b'deskview: loaded path=/fat/route-image/Routed.bmp')
-                assert output.count(b'deskview: starting')==1
+                assert application_output(output).count(b'deskview: starting')==1
                 shortcut('ctrl-o');wait(b'deskview: picker ready');shot('preview-owned-picker')
                 if args.crash:
                     preview_pid=int(re.findall(rb'deskd: document-route request=\d+ pid=(\d+) application=7',output)[-1])
