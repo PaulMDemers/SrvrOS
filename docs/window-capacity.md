@@ -128,3 +128,10 @@ result buffer before allocation and destroys an unpublished result if copying
 it back fails. The ABI probe rejects 300 read-only result buffers without
 consuming an ID, then allocates the normal pool and renders windows. An earlier
 probe reproduced memory exhaustion from unreachable surfaces before this fix.
+
+Runtime `028ded1` passes the full desktop host/image build, the 128-surface
+actual-ABI consumer with malformed result buffers, and sixteen normal Text
+documents with exact file readback, refusal/reuse and worker cleanup. This accepts
+the dynamic surface foundation in QEMU, not dynamic compositor window admission
+or native latency. Queues and the sixteen-window compositor still follow their
+separate current limits.

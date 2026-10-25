@@ -14,11 +14,20 @@ retirement before publishing. Do not claim shorter syscall interrupt exclusion
 or native latency from that structural change.
 
 Touch kernel GUI storage and syscall output-fault rollback, shared budget
-definitions, resource tracing and host/
-actual-protocol lifetime and pressure fixtures. Compositor admission remains
+definitions, resource tracing and host/actual-protocol lifetime and pressure fixtures. Compositor admission remains
 sixteen windows in this block; dynamic queues and compositor/scene registries
 follow independently. Pro PR19 `e409c07` remains Wi-Fi diagnostics. No hardware
 or boot changes; host/QEMU only through 10AM, and no automatic reboot then.
+
+D2a PR144 runtime `028ded1` passes full desktop host/build, 128 live surface
+records with independent byte-quota and allocation/retirement failure injection,
+actual ABI readback/reuse/stale-ID and multiwindow/relaunch, and sixteen Text
+documents with exact persistence and worker retirement. Compositor client-death,
+resize and console return/relaunch passed the preceding surface implementation.
+The malformed output-buffer probe reproduced guest memory exhaustion before the
+syscall fix; 300 read-only requests now consume no IDs before normal rendering.
+No kernel heap allocation/free occurs inside the GUI-owned metadata section in
+the instrumented host fixture. Native input timing remains untested.
 
 ### Active multi-document Text migration (D1c)
 
