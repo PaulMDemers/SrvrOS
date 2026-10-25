@@ -1328,7 +1328,8 @@ int main(int argc,char **argv) {
     int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
-    int home_apps=battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
+    int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
+    int home_apps=capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
@@ -1354,7 +1355,7 @@ int main(int argc,char **argv) {
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1385,6 +1386,7 @@ int main(int argc,char **argv) {
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
+    else if(capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
@@ -1409,6 +1411,12 @@ int main(int argc,char **argv) {
     uint64_t work_begin=(uint64_t)srv_monotonic_us(),work_keys=0,work_motion=0,work_due=0;
     unsigned work_shot=0;int work_phase=0;
     if(battery_work)desk_log("desktop-work: begin minimum_us=300000000 deadline_us=480000000\n");
+    unsigned capacity_launched=0,capacity_phase=0,capacity_shot=0;
+    uint64_t capacity_begin=(uint64_t)srv_monotonic_us(),capacity_due=0;
+    if(capacity_capture) {
+        strcpy(s.scene.notice,"Automatic capacity test: opening 24 apps, saving a screenshot, then returning. No input needed.");
+        desk_log("desktop-capacity: begin target=24 deadline_us=120000000 input=none\n");
+    }
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1813,6 +1821,35 @@ int main(int argc,char **argv) {
             if(!coexist_complete) failed=1;
             quit=1;
         }
+        if(capacity_capture && !failed) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            unsigned live=0,ready=0;
+            for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid) {
+                live++;
+                if(desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->configure)ready++;
+            }
+            if(now-capacity_begin>=120000000 || s.child_errors || s.launch_notice_serial ||
+               (capacity_phase<3 && s.child_reaped)) {
+                desk_log("desktop-capacity: failed phase=%u launched=%u live=%u ready=%u reaped=%u errors=%u\n",
+                    capacity_phase,capacity_launched,live,ready,s.child_reaped,s.child_errors);
+                failed=1;
+            } else if(!capacity_phase && live==capacity_launched && ready==live) {
+                if(capacity_launched<24) {
+                    static const unsigned roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_CALCULATOR,
+                        DESK_APP_CLOCK,DESK_APP_HELP,DESK_APP_PREVIEW,DESK_APP_SKETCH};
+                    spawn_app(&s,roles[capacity_launched%7],"");capacity_launched++;
+                } else {
+                    capacity_phase=1;capacity_due=now+5000000;
+                    desk_log("desktop-capacity: rendered=24 processes=24; holding for screenshot\n");
+                }
+            } else if(capacity_phase==1 && now>=capacity_due) {
+                if(live!=24 || ready!=24)failed=1;
+                else {capacity_phase=2;capacity_shot=s.capture_finished;capture_request(&s);}
+            } else if(capacity_phase==2 && s.capture_finished>capacity_shot) {
+                if(!s.capture_success)failed=1;
+                else {capacity_phase=3;global_menu_action(&s,GLOBAL_EXIT);}
+            }
+        }
         if(battery_work && !failed) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!work_phase && now-work_begin>=240000000) {
@@ -1961,6 +1998,12 @@ int main(int argc,char **argv) {
         }
     }
     for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid)forget(&s,i);
+    if(capacity_capture) {
+        if(capacity_phase!=3 || capacity_launched!=24 || s.child_reaped!=24 || s.child_errors || !s.exiting)failed=1;
+        desk_log("desktop-capacity: result=%s launched=%u reaped=%u errors=%u screenshot=%s normal_exit=%u\n",
+            failed?"FAIL":"PASS",capacity_launched,s.child_reaped,s.child_errors,
+            capacity_phase==3?"yes":"NO",s.exiting?1u:0u);
+    }
     if(control_capture)desk_log("desktop-controls: completed=%s reaped=%u errors=%u cached_reads=%llu\n",!failed && s.child_reaped==1 && !s.child_errors?"yes":"NO",s.child_reaped,s.child_errors,(unsigned long long)s.battery_reads);
     if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;
     if(coexist)desk_log("desktop-battery: reads=%llu first_gen=%llu last_gen=%llu cached=yes\n",

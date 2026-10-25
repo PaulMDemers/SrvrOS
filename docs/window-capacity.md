@@ -7,7 +7,7 @@ records are compatibility/bootstrap storage, not a production admission ceiling.
 Compositor caches and client canvases follow current window sizes. Kernel GUI receive queues are now
 demand-allocated under a 2 MiB requested-byte budget, with 64 messages per FIFO;
 surface records are demand-allocated under separate 256 KiB metadata and
-256 MiB pixel budgets. These include prepared and retired storage until freed.
+384 MiB pixel budgets. These include prepared and retired storage until freed.
 The former 64-surface table is gone; 64 process slots remain unchanged. File workers and terminal shells consume additional processes,
 so window capacity is a ceiling, not an unconditional launch guarantee.
 
@@ -261,3 +261,37 @@ boundary but exhausted physical memory before the final Text process could
 open; the desktop retained the session and displayed its resource warning.
 This is an independent memory limit, not evidence of unlimited app admission.
 Ordinary service fixtures retain their 512 MiB allocation.
+
+
+## Unattended native mixed-app capture
+
+The explicit `--desktop-capacity-test` staging option requires `--desktop-volume`,
+`--desktop-battery` and `--desktop-services` on the captured Air7,2 profile (v73).
+Ordinary desktop startup does not select it. Each of two complete battery/Home
+lifetimes launches 24 independent Text, Files, Calculator, Clock, Help, Preview
+and Sketch processes, waiting for each rendered admission before the next.
+It holds all windows, saves a screenshot, requests normal close and requires
+24 successful child reaps. The next lifetime repeats the workload to check reuse.
+
+Each compositor round has a 120-second deadline; its kernel lifetime owner has
+a separate 180-second bound before revocation/drain. Admission failure, unexpected
+child exit, failed screenshot or incomplete retirement is not a pass. Existing
+logger and battery shutdown contracts persist the per-round result in `exit.log`;
+then the boot owner unmounts and returns to Ubuntu on handled success or failure.
+Unsafe retained ownership or failed unmount still cannot reset through mounted
+storage. Keep AC and the selected USB drive connected; no input is required.
+
+Rehearse with `tools/battery_home_desktop_smoke.py --boot-session --services
+--audio --capacity-auto`; add `--stage RELEASE --case profile-refusal` for the
+exact native payload. Q35's native-profile refusal is expected, so it verifies
+capacity/save/retirement/return, not physical battery activation. The disposable
+`--capacity-low-memory` fixture uses 384 MiB to require launch refusal and a
+saved failure followed by automatic return. No physical typing, pointer feel or
+manual document editing is accepted by this workload.
+
+Air7,2 native release `c9e59c1b11d5c239` / source `7fc5077` passed this workload
+on October 25: both 24-app rounds rendered and saved screenshots, all children
+exited normally, both service lifetimes retired and offline filesystem/allocation
+checks passed. This is measured acceptance at 24 independent app windows with
+combined services, not an unlimited-capacity claim. See the
+[unit record](machines/macbookair7-2.md) for evidence and remaining manual checks.

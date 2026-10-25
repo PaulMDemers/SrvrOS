@@ -2,6 +2,40 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Automated 24-app native capacity accepted
+
+Release `c9e59c1b11d5c239`, clean source `7fc5077`, completed two automatic
+combined-services rounds on October 25 and returned to Ubuntu. Matching sessions
+`session-00065eae2764edfa-00` and `session-00065eae28c055f4-00` each record 24
+independent mixed app processes rendered, a saved 1440×900 screenshot, 24 normal
+successful child reaps and zero child errors. Both inherited lifetimes drained
+all members (peak 31 descendants) and retired the battery runtime with heap zero,
+zero rejected samples/errors/denials. This accepts the tested capacity and reuse
+past the old fifteen-app scheduler failure; it does not claim unlimited admission,
+physical typing/pointer quality, or manual document editing under this load.
+
+All 1,062 prior non-metadata files retained their hashes; only `.srvros/meta`
+changed, with six new session logs and two screenshots. Offline read-only fsck and
+allocation/headroom checks pass: 1,071 files, 2,671 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot, current payload
+and independent recovery `9aa8dbf6fbda8252` were verified after return. Previous
+installed `2750e5efa04573ba` retains its independent backup. No reboot is armed.
+Local proofs are in `build/capacity-native-20261025/` and the unit's
+`reviewed-evidence/capacity-native-20261025` backup outside build.
+
+PR153 adds the explicit v73 capture, bounded compositor/owner deadlines,
+normal retirement, screenshot/result persistence and automatic return on handled
+success or failure. Local core/desktop suites, builds, 79 staging tests, successful
+2 GiB Q35 and handled admission-failure 384 MiB Q35 fixtures pass; the exact native
+GRUB → staged Limine payload rehearsal also passes. The initial 256 MiB Limine
+memory failure is preserved separately. Thirty collector tests pass, including
+strict exclusion of routine opened/retired resource traces while retaining
+capacity failure detection. No Actions used. Base main `3647dc7`; Pro PR19 at
+`db95022` remains independent RF/Wi-Fi work, and Air6,1 PR154 at `44b5706` adds
+a separate paced endurance harness without overlapping runtime changes. Firmware gates and ordinary startup
+are unchanged. Next acceptance work is interactive document/chooser behavior
+with many apps, not another automatic capacity reboot.
+
 ### Scheduler capacity fix: host/VM validated
 
 Base main `16bbe49` plus this unit's collected-run notes; Pro PR19 inspected at
@@ -24,7 +58,7 @@ then exhausted physical memory; its visible resource warning and failure
 artifacts are retained separately. The final harness change only matches the
 2 GiB exact-stage allocation and fails promptly on logged launch refusal.
 Actual `threadstress` (all cases) and the explicit desktop quota-refusal/reuse,
-save/capture and complete-cleanup VM tests pass. Native validation remains pending.
+save/capture and complete-cleanup VM tests pass. Native 24-app capacity/reuse is now accepted by the trial above.
 The throttled-I/O desktop regression also passes: all 48 input events acknowledged
 (32 while writes were active), forty exact 64 KiB writes/readbacks, both workers
 reaped, process baseline restored and no leaked filesystem allocation.
@@ -36,9 +70,8 @@ Launch failures now produce visible rate-limited app alerts and unconditional
 error records. Worker attribution version 2 is bounded to 256 directory slots;
 version-1 evidence remains readable. PR152 publishes the change; local validation
 uses no GitHub Actions. Evidence is in scheduler-capacity-20261025 and copied to
-the unit's reviewed-evidence directory outside build. Next is a separately
-prepared exact-stage native 17+ mixed-app/document/reopen trial; current installed
-and recovery payloads remain unchanged in this work block.
+the unit's reviewed-evidence directory outside build. The automated native 24-app/reopen trial above completes capacity acceptance;
+interactive documents remain a separate check.
 
 
 ### Runtime native return: scheduler capacity blocker
