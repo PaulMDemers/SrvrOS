@@ -27,7 +27,9 @@ RF0:6 write and independent read. Both write paths now produce the same zero
 readback. Local, exact-stage VM and native observation checks passed; full RF
 initialization remains unaccepted. Ubuntu remains default, known-good
 `e47dca3a6b30c6c1` remains recovery, and no reboot is armed.
-Next investigate RF prerequisites and register behavior before another write trial. The latest dated sections below contain full
+Candidate `6e49ad417d7ea11e` (source `48b79846`) is installed unarmed for
+the read-only RF bypass/control snapshot after reproducing that experiment.
+Next collect this comparison before considering another RF write hypothesis. The latest dated sections below contain full
 scope, dependencies and evidence locations.
 
 ## Original bring-up scope (historical)
@@ -5739,3 +5741,21 @@ byte-identical. The strict collector rejects63 malformed snapshot proofs and
 accepts the complete worst-poll130084-byte fixture within131072. Build and exact-
 stage VM checks precede unarmed installation. Snapshot values remain untested
 natively and are not an accepted register profile.
+
+
+RF control snapshot source `48b79846`, release `6e49ad417d7ea11e`, installed
+unarmed. Full build, MCU/compact/bring-up regressions, sanitizer and documentation
+checks passed. Exact-stage GPT VM capture/save/offline-byte verification and
+automatic return passed; separate missing-workspace refusal/return passed.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, as is the completed
+v64 comparison `bc805e30aa1454bb`. Older v63 `032ade0806c417ab` removed from ESP
+only after exact durable-backup equality. Offline workspace clean271files/655clusters/109directories, zero leaks,
+allocation mismatches or errors; unmounted.
+
+Payload, pinned reference audit, Linux read-only samples, host/sanitizer/collector
+checks, both VM receipts and run/checkpoint are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-state-48b7984/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require the complete v64 zero-read proof and all14 snapshot reads/guards; compare
+the eight observed targets with Linux without promoting live values to a native
+initialization profile. No reboot armed; calibration/connectivity remain pending.
