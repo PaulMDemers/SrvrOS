@@ -13,9 +13,14 @@ from vm_sockets import connect_unix
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--stage');args=parser.parse_args()
-    root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-auto');out.mkdir(parents=True,exist_ok=True)
-    (out/'result.json').unlink(missing_ok=True);(out/'tone.wav').unlink(missing_ok=True)
+    parser.add_argument('--stage')
+    parser.add_argument('--populated-home',action='store_true',help='Exercise Files startup with 64 existing Home files')
+    parser.add_argument('--write-iops',type=int,default=0,help='Limit disposable VM USB write IOPS without pacing the guest workload')
+    args=parser.parse_args()
+    if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
+    root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out.mkdir(parents=True,exist_ok=True)
+    for name in ('result.json','tone.wav','lifecycle.json'):
+        (out/name).unlink(missing_ok=True)
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
@@ -27,7 +32,9 @@ def main():
         subprocess.run(['/usr/sbin/mkfs.exfat','-c','128K',str(volume)],check=True,stdout=subprocess.DEVNULL)
         subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+volume_id,str(volume)],check=True,stdout=subprocess.DEVNULL)
         f=ExfatFixture(volume.read_bytes());marker=f'SRVROS-WORKSPACE-V1 {volume_id}\n'.encode()
-        f.add_directory_files('srvros-work',{'.workspace':marker,'anchor.txt':b'unchanged\n'})
+        prior={'.workspace':marker,'anchor.txt':b'unchanged\n'}
+        if args.populated_home:prior.update({f'Existing-{n:03d}.txt':(f'Preserved file {n}\n'*64).encode() for n in range(64)})
+        f.add_directory_files('srvros-work',prior)
         last=2048+len(f.data)//512-1;backup=last+33;entries=bytearray(128*128)
         entries[:128]=gpt_entry(uuid.UUID('EBD0A0A2-B9E5-4433-87C0-68B6B72699C7'),uuid.uuid4(),2048,last,'workspace')
         crc=binascii.crc32(entries)&0xffffffff;guid=uuid.uuid4();mbr=bytearray(512);mbr[450]=0xee;struct.pack_into('<II',mbr,454,1,backup);mbr[510:]=b'\x55\xaa'
@@ -79,6 +86,7 @@ def main():
                         if not consumed:qmp.boot_if_menu_stalled(output,time.monotonic()-start)
                     consumed=output.index(marker,consumed)+len(marker)
                 wait(b'deskd: ready;',120)
+                if args.write_iops:qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':args.write_iops})
                 started=time.monotonic()
                 while b'desktop-audio-io: result=' not in output:
                     assert time.monotonic()-started<180 and process.poll() is None
@@ -107,7 +115,8 @@ def main():
                     assert b'runtime_retired=yes' in output and overlap
                 process.wait(timeout=30)
                 data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
-                final=ExfatFixture(data[2048*512:end]);assert final.read('srvros-work/anchor.txt')==b'unchanged\n'
+                final=ExfatFixture(data[2048*512:end])
+                for name,contents in prior.items():assert final.read('srvros-work/'+name)==contents
                 if not stage:
                     directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
                     receipt=final.read(directory+'/result.txt');assert b'result=PASS' in receipt
@@ -117,6 +126,7 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False)
+                result.update(populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
