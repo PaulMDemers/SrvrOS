@@ -11,9 +11,20 @@ Add New Window while preserving Ctrl-N's current document-reset behavior.
 Close must drain accepted file work, await window retirement and reap the file
 worker without closing siblings. Keep diagnostic capture recipes compatible.
 Touch desktools/runtime, file-job ownership, connection liveness checks and
-host/QEMU document/persistence tests; no hardware or boot changes. Fixed global
+host/QEMU document/persistence tests, launcher window identity and recycled
+kernel surface binding; no hardware or boot changes. Fixed global
 sixteen-window admission and dynamic compositor registries remain separate.
 Pro PR19 `dbf46c3` continues independent Wi-Fi RF work. Host/QEMU only overnight.
+
+D1c PR143 is draft. First actual document close/reopen exposed a recycled
+kernel surface slot retaining its former window ID; a host reproducer fails
+before the reset fix. Corrected normal Text VM and existing app workflow VM pass.
+Launcher review found PID-only sibling selection, now changed to non-reused
+compositor action identities with regression coverage. The sixteen-document
+stress attempt reached nine and cleanly refused the tenth because document
+buffers consumed the small legacy brk arena. Document records now use anonymous
+mappings like canvases; the repeated capacity gate is pending. Preserve these
+failures as evidence rather than claiming sixteen-document acceptance early.
 
 ### Active connection and multiwindow lifetime work (D1b)
 

@@ -1,6 +1,6 @@
 # Desktop connections and window lifetime
 
-The D1b implementation is a matched protocol v14 candidate. It adds multiple
+The desktop connection implementation uses matched protocol v14. It adds multiple
 window identities per authenticated process while retaining the current sixteen
 live-window budget. The shared header, kernel, compositor and applications must
 come from the same build. This is not a stable external binary ABI.
@@ -95,7 +95,18 @@ tools/host-env.sh make -j2 test-desktop all
 tools/host-env.sh python3 tools/desktop_multiwindow_smoke.py
 ```
 
-The current machine record records which candidate passed those gates. This
-consumer is not yet a migration of the normal Text application's saving,
-unsaved-dialog and asynchronous file-job paths. D1 is incomplete until those
-paths and independent real documents are accepted together.
+Normal Text now uses this connection runtime. File → New Window or
+Ctrl-Shift-N creates an independent document; Ctrl-N still resets the current
+document after resolving unsaved edits. Each document owns its history, picker,
+clipboard transfer and asynchronous file worker. A closed document remains owned
+until accepted I/O completes, the window is acknowledged and its worker exits
+and is reaped. Closing one document preserves its siblings. Last-window close
+exits the application after those retirements finish.
+
+Run `tools/host-env.sh python3 tools/desktop_text_windows_smoke.py` for the normal
+Text path: independent documents, clipboard, undo/redo, exact persisted files,
+unsaved cancel, close/reopen with a new ID, save-on-close and process cleanup.
+The surface reuse regression also checks that a recycled kernel table slot can
+bind to a new window after its prior surface is destroyed. The machine record
+identifies tested sources; VM evidence does not accept native input latency.
+File workers remain per document; shared/lazy worker scheduling is later work.

@@ -69,6 +69,10 @@ def main():
                 text('Second document');shortcut('ctrl-z');shortcut('ctrl-shift-z')
                 shortcut('ctrl-end');shortcut('ctrl-v');wait(b'clipboard role=2 action=32 bytes=14')
                 save_as('/fat/text-second.txt');shot('two-saved-documents')
+                # Same-PID windows must be distinct launcher destinations.
+                for name,window in [('text-first',1),('text-second',2)]:
+                    shortcut('meta_l-spc');wait(b'launcher opened');text(name);qmp.key('ret')
+                    wait(b'launcher window='+pid+f' id={window}'.encode())
                 text(' changed');shortcut('ctrl-w');shot('unsaved-close');qmp.key('esc')
                 text(' kept');shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
                 shortcut('ctrl-w');wait(b'text-runtime: closed window=2');wait(b'text-runtime: worker-retired pid=')

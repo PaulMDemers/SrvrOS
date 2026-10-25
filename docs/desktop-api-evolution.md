@@ -31,7 +31,7 @@ prerequisite for multiple windows per application.
 | [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
-| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
+| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID/window; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
 | [`widgets/`](../userspace/widgets/README.md) | Pure models/controllers, layout and rendering primitives | Deliberately owns neither allocation, process transport nor an event loop; preserve that separation |
 | Native apps and workers | Documents, workflows, asynchronous file/image jobs | Repeated application lifetime/dispatch logic; generally one window per process |
 
@@ -49,7 +49,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 
 | Current bound | Location / consequence |
 | --- | --- |
-| 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; one client per PID |
+| 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; multiple windows may share a PID |
 | 32 GUI queues, 64 messages per queue | `GUI_MAX_QUEUES = DESK_MAX_WINDOWS + 16`, `GUI_QUEUE_DEPTH`; process queues also need room for services |
 | 64 GUI surfaces | `GUI_MAX_SURFACES = DESK_MAX_WINDOWS * 4`; surface count should follow active allocations, not window-count arithmetic |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |

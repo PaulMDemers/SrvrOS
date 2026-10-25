@@ -3,6 +3,7 @@
 #include <srvros/desk_log.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 
 /* Window and document lifetimes differ: a worker may still be retiring after
  * its GUI record is acknowledged. Keep its owner until accepted work and the
@@ -24,21 +25,23 @@ static struct text_document *find(struct text_document *list,struct desk_app *wi
     return NULL;
 }
 static void notice(struct text_document *list,uint64_t requester,const char *message) {
+    desk_log("text-runtime: %s\n",message);
     struct text_document *fallback=NULL;
     for(;list;list=list->next)if(list->ready && !list->retired && !list->tool.quit) {
         if(list->tool.window.window==requester) { tool_status(&list->tool,message);return; }
         if(!fallback)fallback=list;
     }
     if(fallback)tool_status(&fallback->tool,message);
-    desk_log("text-runtime: %s\n",message);
 }
 static int create(struct desk_connection *connection,struct text_document **list,uint64_t requester,const char *path) {
-    struct text_document *d=calloc(1,sizeof(*d));
-    if(!d) { notice(*list,requester,"There is not enough memory for another document.");return -1; }
+    /* Documents contain sizeable edit/job buffers. Keep them out of the small
+     * legacy brk arena, as we already do for independently retired canvases. */
+    struct text_document *d=mmap(NULL,sizeof(*d),PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    if(d==MAP_FAILED) { notice(*list,requester,"There is not enough memory for another document.");return -1; }
     tool_runtime_init(&d->tool,DESK_APP_TEXT);d->requester=requester;
     if(strlen(path)>=sizeof(d->initial_path))d->bad_path=1;else strcpy(d->initial_path,path);
     if(desk_window_open(connection,&d->tool.window,"Text — Untitled",720,480)) {
-        free(d);notice(*list,requester,"Another window is still opening. Try again shortly.");return -1;
+        munmap(d,sizeof(*d));notice(*list,requester,"Another window is still opening. Try again shortly.");return -1;
     }
     d->tool.clip.window=d->tool.window.window;d->next=*list;*list=d;
     return 0;
@@ -111,7 +114,7 @@ int tool_text_runtime(const char *path) {
                 if(!retire_worker(d)) { busy=1;drained=0;link=&d->next;continue; }
                 if(t->window.connection && !failed) { failed=1;link=&d->next;continue; }
                 if(failed) { link=&d->next;continue; } /* Process exit owns uncertain GUI resources. */
-                *link=d->next;free(t->body_history);free(d);continue;
+                *link=d->next;free(t->body_history);munmap(d,sizeof(*d));continue;
             }
             drained=0;
             if(d->ready && !failed) {
