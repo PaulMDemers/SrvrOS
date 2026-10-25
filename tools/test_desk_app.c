@@ -175,6 +175,10 @@ static void parent_dialogs(void) {
     for(int n=0;n<8 && !dialog.window.open_sent;n++)desk_connection_poll(&c,&target,&event);
     receive(DESK_OPEN_REPLY,0);incoming.window=dialog.window.window;
     assert(connection_receive(&c,&target,&event)==1);
+    /* Admission may precede asynchronous compositor allocation. Do not lay
+     * out a dialog at zero dimensions and lose its initial keyboard focus. */
+    assert(!desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300));
+    connection_configure(&c,&dialog.window);
     assert(desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300)==1);
     full=1;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Save"));
     full=0;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Open"));

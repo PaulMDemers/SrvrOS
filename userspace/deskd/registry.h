@@ -79,7 +79,7 @@ static int children_grow(struct session *s) {
     registry_free(s,old_table,old_bytes);return 1;
 }
 static int child_slot(struct session *s) {
-    for(int i=0;i<children_capacity(s);i++)if(!*session_children(s,i))return i;
+    for(int i=0;i<children_capacity(s);i++)if(!*session_children(s,i) && !life_reserved(s->worker,i))return i;
     int i=children_capacity(s);return children_grow(s)?i:-1;
 }
 /* Cache/clipboard retirement and child reaping precede releasing these records. */

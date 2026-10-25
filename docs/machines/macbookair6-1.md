@@ -2537,3 +2537,118 @@ same unpaced workload, measure event-loop gaps plus launch/close phases and I/O
 gate wait/hold time, then move blocking lifecycle work off the event loop or fix
 measured contention as appropriate. Preserve integrity and ownership checks and
 keep full disk pressure; do not hide the failure by adding workload sleeps.
+
+### Active scope: responsive desktop during automatic audio/I/O (2026-10-25)
+
+Base `3ab4a385`, branch `device/macbookair6-1/desktop-io-latency`. Reproduce and
+measure event-loop stalls with automatic real app open/close during unchanged
+unpaced verified disk work and PCM playback; move blocking compositor lifecycle
+operations off its input/render loop where measurements justify it. Expected
+scope: `userspace/deskd`, a bounded userspace lifecycle worker, regression and
+VM harness, native trial records. Preserve filesystem integrity and kernel I/O
+ownership gates. Air7,2 branch `dfba5295` owns process/memory lifecycle latency;
+PR157 also changes document routing, so avoid competing kernel/process edits and
+keep compositor integration explicit. Pro PR19 is separate Wi-Fi work.
+User authorizes tests, merge and automated native reboot. Prior run is collected;
+no new reboot is armed until matched builds, VM checks and recovery preflight pass.
+
+
+Candidate reproduction: a fully automatic Q35 Text/Files/System lifecycle loop
+under unchanged PCM/disk stress recorded a maximum compositor loop gap of
+863,447 us; a second instrumented run showed cache allocation waiting 532,954 us
+and free waiting hundreds of milliseconds. The initial worker candidate reduced
+the maximum loop gap to 179,769 us across 21 cycles, with zero app errors,
+zero PCM underruns and 218 independently observed PCM/write overlap windows.
+These are development VM measurements, not native acceptance. Final clean-source
+regressions and exact-stage validation precede installation and reboot.
+
+
+### Responsive lifecycle stress candidate prepared (PR160)
+
+Native source `ae5b8680`, release `4e8c2c95b707acbf`, run `97f910f8a1024bbe`
+retains the thirty-minute unpaced 256 KiB write/flush/rename/readback/delete/sync
+work and PCM stream, and automatically cycles Text, Files and System throughout.
+The compositor uses a persistent worker for launch and pixel-cache map/unmap;
+no kernel I/O eligibility or integrity checks change. Pending/discarded mappings
+retain budget until release completes. Resize failure preserves the last delivered
+geometry/front, and memory pressure waits for reclaimable buffers without early
+byte credit. Worker metadata covers the existing cache budget; child admission
+and early OPEN delivery are explicitly tracked. Ordinary screenshot initiation,
+registry growth and forced termination are separate synchronous paths.
+
+Final clean-source core/build and strict automatic VM pass on `ae5b8680`: 23 app
+cycles, maximum loop gap 139,364 us, ready 1,303,625 us and close 924,975 us, zero
+app errors and zero PCM underruns, with 221 independently observed PCM/write
+overlap windows. Both lifecycle and I/O timestamps fall within live playback.
+The full smoke suite passed on `43d9e1ef` (482 CLI cases, shell editing, UEFI USB
+and displayd); later changes refine memory-budget admission and validation.
+All twelve apps pass maximize/restore/close. Multiple-document close/relaunch
+passes with explicit completed cache-release checks. The 128-window growth
+fixture on `efd6bb1d` passes 129 retirements, restored process baseline and zero
+retained registry/cache bytes. Host tests cover delayed allocation, discarded
+pending allocation, copied launch inputs, child reservation, early OPEN messages,
+launch failure, resize failure and full-budget delayed reclamation. Eighty staging
+tests and documentation checks pass. A superseded multiwindow checker failure is
+retained: it expected premature cache credit at window removal; the replacement
+requires zero bytes after completed unmaps and rejects missing/nonzero receipts.
+
+Exact native release passes GRUB→Limine rehearsal, expected Q35 native-profile
+refusal, no unsupported stress startup, clean unmount and automatic return. This
+is not native responsiveness acceptance. Physical validation requires the saved
+PCM/disk receipt plus at least six completed app cycles spanning 1,780 seconds,
+zero app errors, loop gaps no greater than 500 ms, clean battery retirement,
+prior-file preservation and offline allocation. Listening remains the only human
+task; keep AC/USB attached and allow automatic return after thirty minutes.
+
+USB baseline is 340 files / 1,000 clusters, zero leaks/bitmap mismatches. Ubuntu,
+console recovery `c35475f62f154f1e` and the latest accepted desktop/reopen payloads
+are retained. Obsolete EFI-only `3f0896783e4c8fe7` was removed after verifying its
+independent durable payload. Raw results, source/stage and run records are backed
+up outside build before reboot. User explicitly authorizes this automatic launch.
+Air7,2's `2eb23c11` process/graphics service-window work remains separate and
+unmerged; this candidate neither consumes its v15 protocol nor changes its gates.
+
+
+Integration update: PR157 merged as `c4bee5cd` before PR160 integration. The
+pre-merge `4e8c2c95b707acbf` stage is superseded and was never installed or armed.
+Integrate the matched v15 document/modal lifecycle and kernel service-window
+baseline, retaining both the async worker and existing-process document routing,
+child modal retirement, Air7,2 v75 guide and Air6,1 v74 automatic stress. Repeat
+core/build, affected lifecycle VMs, automatic audio/I/O and exact-stage checks
+before preparing the replacement native payload. Recovery/USB baseline unchanged.
+
+Integrated lifecycle testing exposed a modal startup race: OPEN_REPLY marked the
+dialog ready before CONFIGURE produced its canvas. Delayed compositor allocation
+therefore laid out the picker at zero size, moving its initial filename focus to
+Up. Extend the shared dialog helper's readiness condition to require the first
+configured generation. The new host regression fails on the previous helper and
+passes with this correction; retain the failing VM screenshot/log and rerun the
+normal/crash/refusal lifecycle cases before native staging. This bounded library
+change preserves window admission and buffer integrity checks.
+
+Consume PR161 (`44c70a12`), which adds host routing regressions without changing
+production binaries. The corrected normal lifecycle VM passes. The crash variant
+initially failed its startup count because the new compositor launch timing line
+split the single Text startup message. Extend the existing trace-interleaving
+decoder to that line type, preserving exact startup counts, duplicate detection,
+failure markers and raw evidence; rerun crash/refusal cases. No timeout or file
+acceptance predicate is relaxed.
+
+Final integrated candidate: source `7ddf2153`, native release
+`8dd177cef12cec3b`. Build/core and desktop/routing host checks pass; the normal,
+crash and refused-dialog VMs pass exact file contents, offline allocation and
+restored process baseline. The automatic stress VM passes 19 app cycles with
+maximum loop gap 438,388 us, ready time 1,212,207 us and close time 1,392,331 us,
+zero app errors/PCM underruns, 393 verified bursts (103,022,592 bytes) and 224
+observed PCM/write overlap windows. The full smoke suite passed on integrated
+`29c75d8a`; the later dialog correction has a failing-before/passing-after host
+regression and all three directed lifecycle VMs. Exact-stage GRUB/Limine boot,
+expected native-profile refusal on Q35, unmount and automatic return pass.
+
+PR160 is ready for integration and the authorized thirty-minute native launch.
+The replacement payload/evidence are backed up outside build; retain Ubuntu,
+console recovery and previously accepted desktop/reopen payloads. The automatic
+trial opens/closes real apps throughout continuous PCM and unchanged verified
+USB stress, then retires the battery runtime and returns to Ubuntu for automatic
+collection. No human file work is required. Keep AC/USB connected and listen;
+native responsiveness/endurance remains pending that run's complete receipts.

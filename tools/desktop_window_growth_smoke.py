@@ -78,7 +78,7 @@ def main():
                 wait(b'deskd: child-exit pid='+pid+b' status=0')
                 shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
                 assert re.search(rb'deskd: registry peak_bytes=[1-9]\d* retired_bytes=0 budget_bytes=8388608',output)
-                assert b'cache_bytes=0' in output
+                assert re.search(rb'deskd: cache peak_bytes=\d+ retired_bytes=0 budget_bytes=100663296',output)
                 deadline=time.monotonic()+10
                 while processes()!=baseline:
                     if time.monotonic()>deadline:raise RuntimeError('Process baseline not restored')
