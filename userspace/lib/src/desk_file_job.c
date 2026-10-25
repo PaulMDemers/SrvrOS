@@ -130,6 +130,7 @@ failed:return fail(j);
 int desk_file_job_poll(struct desk_file_job *j) {
     if(desk_file_job_submit(j)<0)return -1;
     if(!j->busy || (j->pool && !j->channel))return 0;
+    size_t received_before=j->received;
     for(unsigned batch=0;batch<4;batch++) {
         void *data;size_t bytes;
         if(j->received<sizeof(j->response)) { data=(char *)&j->response+j->received;bytes=sizeof(j->response)-j->received; }
@@ -152,7 +153,10 @@ int desk_file_job_poll(struct desk_file_job *j) {
                (j->request.operation==DESK_FILE_STAT && (j->response.count || j->response.truncated || j->response.length!=(j->response.status?0:sizeof(struct desk_file_info))))) goto failed;
         }
     }
-    if(j->pid && !desk_process_alive(j->pid)) goto failed;
+    /* A validated reply may span several bounded batches after its writer
+     * exits. Continue draining actual progress; a dead, stalled or truncated
+     * stream still fails without treating an uncertain write as retryable. */
+    if(j->received==received_before && j->pid && !desk_process_alive(j->pid)) goto failed;
     return 0;
 failed:
     return fail(j);

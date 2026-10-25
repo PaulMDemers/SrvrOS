@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 import re
-import shutil
 import socket
 import subprocess
 import tempfile
@@ -19,7 +18,16 @@ def main():
     out=root/'build/review/desktop-file-pool';out.mkdir(parents=True,exist_ok=True)
     output=b'';consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-file-pool-') as directory:
-        tmp=Path(directory);disk=tmp/'disk.exfat';shutil.copyfile(root/'build/srvros.exfat',disk)
+        tmp=Path(directory);disk=tmp/'disk.exfat'
+        # The legacy boot packer omits standard exFAT boot/upcase metadata.
+        # Use mkfs plus matched binaries so before/after fsck is meaningful.
+        with disk.open('xb') as stream:stream.truncate(32*1024*1024)
+        subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(disk)],check=True,stdout=subprocess.DEVNULL)
+        source=ExfatFixture((root/'build/srvros.exfat').read_bytes())
+        fixture=ExfatFixture(disk.read_bytes())
+        fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in ('desktools','deskfs','sync')})
+        disk.write_bytes(fixture.data)
+        (out/'before-fsck.txt').write_text(check_clean_image(disk))
         iso=build_iso(str(root),str(tmp),800,600,os.environ.copy());port=choose_port(30001,38000)
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',str(iso),'-boot','d',
             '-drive',f'if=none,id=disk,file={disk},format=raw','-device','ich9-ahci,id=ahci',
@@ -50,7 +58,7 @@ def main():
                 wait(b'file-pool-capture: PASS 40 queued 64KiB writes/readbacks, two workers reaped',240);wait(b'srv> ')
                 for phase in ('write','read'):assert f'file-pool-capture: phase={phase} jobs=40 spawned=2 peak=2'.encode() in output
                 assert processes()==baseline
-                serial.sendall(b'sync\n');wait(b'srv> ')
+                serial.sendall(b'run /fat/bin/sync\n');wait(b'exited status=0');wait(b'srv> ')
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
