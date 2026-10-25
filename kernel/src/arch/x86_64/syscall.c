@@ -1468,11 +1468,11 @@ static bool poll_wait_ready(void *arg) {
         poll_once(wait->process, wait->fds, wait->nfds) != 0;
 }
 
-static uint64_t poll_timeout_ticks(int64_t timeout_ms) {
-    if (timeout_ms <= 0) {
-        return 0;
-    }
-    return ((uint64_t)timeout_ms + 9) / 10;
+static uint64_t poll_deadline_us(int64_t timeout_ms,uint64_t now) {
+    if(timeout_ms<=0) return 0;
+    uint64_t milliseconds=(uint64_t)timeout_ms;
+    if(milliseconds>(UINT64_MAX-now)/1000) return UINT64_MAX;
+    return now+milliseconds*1000;
 }
 
 static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int64_t timeout_ms) {
@@ -1490,9 +1490,7 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     /* Admit only the copied, immutable console request during owned I/O. Never
      * classify a mutable userspace array and then read it again after yielding.
      * Everything else retains the original filesystem/process lifetime gate. */
-    uint64_t start = timer_ticks();
-    uint64_t timeout_ticks = poll_timeout_ticks(timeout_ms);
-    uint64_t deadline_ticks = timeout_ms > 0 ? (timeout_ticks>UINT64_MAX-start?UINT64_MAX:start+timeout_ticks) : 0;
+    uint64_t deadline_us=poll_deadline_us(timeout_ms,timer_monotonic_us());
     struct syscall_poll_wait wait = {
         .process = process,
         .fds = fds,
@@ -1519,13 +1517,16 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         if (ready != 0 || timeout_ms == 0) {
             return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? ready : -1;
         }
-        if (timeout_ms > 0 && timer_ticks() - start >= timeout_ticks) {
-            return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
-        }
-        uint64_t wait_deadline = deadline_ticks;
-        if (timeout_ms < 0) {
-            wait_deadline = timer_ticks() + 10;
-        }
+        uint64_t now_us=timer_monotonic_us();
+        if(timeout_ms>0 && now_us>=deadline_us)
+            return copy_to_user(user_fds,fds,nfds*sizeof(*user_fds))?0:-1;
+        /* Scheduler wakeups are tick-granular, but the completion contract is
+         * elapsed monotonic time. A tick boundary may arrive early; recheck the
+         * absolute deadline and block again instead of returning early/spinning. */
+        uint64_t remaining=timeout_ms>0?deadline_us-now_us:100000;
+        uint64_t ticks=remaining/10000+(remaining%10000!=0);
+        uint64_t now_ticks=timer_ticks();
+        uint64_t wait_deadline=ticks>UINT64_MAX-now_ticks?UINT64_MAX:now_ticks+ticks;
         if (!scheduler_wait_timeout(process_file_poll_wait_queue(), poll_wait_ready, &wait, wait_deadline)) {
             scheduler_yield();
         }

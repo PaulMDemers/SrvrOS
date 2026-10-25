@@ -4,12 +4,13 @@
 #define SRVROS_SYSCALL_POLL_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static struct syscall_pollfd user[2];
-static uint64_t now,buffered;
+static uint64_t now,buffered,phase_us;
 static unsigned gates,polls,waits;
 static bool safe=true,serial_ready,arrive,mutate,signal_pending;
 static bool redirected,redirect_on_wait;
 static struct scheduler_wait_queue queue;
 uint64_t timer_ticks(void) { return now; }
+uint64_t timer_monotonic_us(void) { return now*10000+phase_us; }
 bool process_should_exit_current(void) { return false; }
 bool process_signal_pending_current(void) { return signal_pending; }
 uint64_t keyboard_buffered_count(void) { return buffered; }
@@ -32,7 +33,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condit
     if(redirect_on_wait) { redirected=true;assert(ready(arg));return true; }
     if(mutate) user[0]=(struct syscall_pollfd){.fd=9,.events=SRV_POLLOUT};
     if(arrive) { buffered=1;now++;assert(ready(arg)); }
-    else now=deadline;
+    else { now=deadline;phase_us=0; }
     return true;
 }
 int main(void) {
@@ -50,7 +51,10 @@ int main(void) {
     assert(syscall_poll(user,1,0)==0 && gates==2);
     assert(syscall_poll(NULL,0,20)==0 && now==15 && gates==2);
     assert(syscall_poll(NULL,1,0)==-1 && syscall_poll(user,MAX_POLL_FDS+1,0)==-1 && gates==2);
+    unsigned before_waits=waits;phase_us=9000;uint64_t start_us=timer_monotonic_us();
+    assert(syscall_poll(NULL,0,150)==0 && timer_monotonic_us()-start_us>=150000 && waits==before_waits+2);
+    assert(poll_deadline_us(INT64_MAX,0)==UINT64_MAX && poll_deadline_us(1,UINT64_MAX-1)==UINT64_MAX);
     safe=true;user[0]=(struct syscall_pollfd){.fd=0,.events=SRV_POLLIN};redirect_on_wait=true;
     assert(syscall_poll(user,1,120)==1 && !safe && gates==3 && polls==3);
-    puts("syscall-poll: PASS console readiness/deadline/wake, immutable request across yield, non-console/mixed gate and validation");
+    puts("syscall-poll: PASS monotonic deadline across partial ticks, console readiness/deadline/wake, immutable request across yield, non-console/mixed gate and validation");
 }

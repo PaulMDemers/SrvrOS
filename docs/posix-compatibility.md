@@ -18,6 +18,14 @@ For porting guidance, start with the [supported application profile](posix-suppo
 
 ## Implementation progress after the audit
 
+A measured idle-poll fixture found a real early timeout: 150 ms returned after
+146,427 us when the call began partway through a timer tick. Poll now retains an
+absolute monotonic deadline and reblocks after an early scheduler wake. The
+forced partial-tick host fixture, full core and focused/full guest suites pass.
+The corrected 150 ms waits measured 153,900/160,017 us wall and 5,536/7,968 us
+process CPU; 128 request/response readiness exchanges and EOF delivery pass.
+These are VM scheduler measurements, not native input-latency acceptance.
+
 Native duplex socketpair creation now installs nonblocking/CLOEXEC status and
 copies both results in one IRQ-excluded operation, with rollback on output
 failure. Legacy native pair creation retains zero flags. Libuv's internal duplex
