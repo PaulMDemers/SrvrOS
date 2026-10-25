@@ -10,6 +10,14 @@ class CaptureTests(unittest.TestCase):
     def test_complete(self):
         self.assertEqual(len(capture_result(self.fixture())['cases']), 5)
 
+    def test_idle_sample_requires_whole_capture_success(self):
+        from hardware_desktop import desktop_idle_sample
+        row='desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5900 switches=300 preemptions=100 frames=1 fb_bytes=200 measured=yes'
+        text=row+'\n'+self.fixture()
+        self.assertIsNotNone(desktop_idle_sample(text))
+        self.assertIsNone(desktop_idle_sample(text.replace('retired=1','retired=0',1)))
+        self.assertIsNone(desktop_idle_sample(text.replace('tests=5','tests=4',1)))
+
     def test_missing_duplicate_failure_or_retained_never_pass(self):
         text=self.fixture()
         for old,new in [('exited=1','exited=0'), ('status=0','status=1'), ('retired=1','retired=0'),

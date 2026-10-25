@@ -53,6 +53,11 @@ facility is supported.
 
 ## Deliberate exclusions
 
+Condition-variable attribute clocks are not complete: the current initializer
+ignores `pthread_condattr_setclock(CLOCK_MONOTONIC)`, so only the default realtime
+condition deadline is in the validated profile. This remains a compatibility gap;
+attribute-setter success must not be treated as proof of that clock's behavior.
+
 The Linux-oriented `epoll`, `eventfd`, inotify and other Node compatibility
 symbols remain experimental adapters. In particular, eventfd blocking/overflow,
 epoll edge/one-shot delivery, mask replacement and descriptor reuse semantics

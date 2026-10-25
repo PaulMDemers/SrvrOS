@@ -351,8 +351,11 @@ def idle_sample(exit_text):
 
 def desktop_idle_sample(exit_text):
     records=re.findall(r"^desktop-idle: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) frames=([0-9]{1,20}) fb_bytes=([0-9]{1,20}) measured=yes$",exit_text,re.M)
+    from posix_capture_result import capture_result as posix_result
+    returned=("desktop-idle-capture: returned=yes clean=yes" in exit_text.splitlines() or
+              posix_result(exit_text) is not None)
     if len(records)!=1 or exit_text.splitlines().count("desktop-idle: completed=yes screenshot=yes")!=1 or \
-       "desktop-idle-capture: returned=yes clean=yes" not in exit_text.splitlines() or "deskd: FAIL" in exit_text:return None
+       not returned or "deskd: FAIL" in exit_text:return None
     elapsed,total,idle,switches,preemptions,frames,fb_bytes=map(int,records[0])
     if elapsed<59000000 or not total or idle>total:return None
     return {"elapsed_us":elapsed,"sampled_ticks":total,"idle_ticks":idle,
