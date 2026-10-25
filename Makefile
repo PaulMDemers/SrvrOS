@@ -3655,3 +3655,19 @@ test-audio-io-receipt: build/tests/audio-io-receipt$(HOST_EXE)
 build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace/playwav/io_stress_receipt.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-process-service
+test-process-service: build/tests/process-service-host$(HOST_EXE)
+	$<
+build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c kernel/include/srvros/latency.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-process-service
+
+.PHONY: test-graphics-service
+test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)
+	$<
+build/tests/graphics-service-host$(HOST_EXE): tools/test_graphics_service.c kernel/src/arch/x86_64/syscall.c kernel/include/srvros/service_window.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-graphics-service

@@ -5,6 +5,17 @@
 #define SRVROS_GUI_HOST_TEST
 #include "../kernel/src/gui.c"
 
+static unsigned window_depth,window_checkpoints;
+static bool window_available=true;
+static void (*window_hook)(void);
+uint64_t service_window_test_irq_save(void) {return 0;}
+void service_window_test_irq_restore(uint64_t flags) {(void)flags;}
+bool scheduler_io_begin(void) {if(!window_available)return false;window_depth++;return true;}
+void scheduler_io_end(void) {assert(window_depth);window_depth--;}
+void scheduler_io_checkpoint(void) {
+    assert(window_depth && !gui_test_irq_depth);window_checkpoints++;
+    if(window_hook) {void (*hook)(void)=window_hook;window_hook=NULL;hook();}
+}
 static unsigned brightness_calls, poll_wakes;
 void process_file_poll_wake(void) { poll_wakes++; }
 int audio_request(unsigned op,unsigned value) { return op==1 && value==0?0:-1; }
@@ -31,6 +42,20 @@ void *kmalloc(size_t bytes) {
     void *p=malloc(bytes);if(p) { heap_live++;memset(p,0xa5,bytes); }return p;
 }
 void kfree(void *p) { assert(!gui_test_irq_depth);if(p) { assert(heap_live);heap_live--; }free(p); }
+
+static void retire_during_fill(void) {gui_process_cleanup(2);}
+static void surface_service_windows(void) {
+    unsigned before=window_checkpoints;
+    assert(gui_surface_create(2,512,128,0)>0);
+    assert(window_checkpoints>=before+4 && !window_depth);
+    window_hook=retire_during_fill;
+    assert(gui_surface_create(2,512,128,0)==-1);
+    assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live && !window_depth);
+    before=window_checkpoints;window_available=false;
+    assert(gui_surface_create(2,512,128,0)>0);
+    assert(before==window_checkpoints && !window_depth);
+    gui_process_cleanup(2);window_available=true;
+}
 
 static void dynamic_surfaces(void) {
     assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live);
@@ -348,7 +373,7 @@ int main(void) {
     assert(poll_wakes>wakes_before && gui_client_ready(1)==-1);
     current_pid=3;assert(gui_register_server()==0);
     current_pid=2;assert(gui_client_ready(1)==-1 && gui_client_ready(3)==0);
-    gui_process_cleanup(3);dynamic_queues();dynamic_surfaces();
+    gui_process_cleanup(3);dynamic_queues();dynamic_surfaces();surface_service_windows();
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;
 }

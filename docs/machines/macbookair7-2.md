@@ -10,8 +10,15 @@ work to a separate agent. This unit owns a bounded **non-audio** investigation:
 measure process/image/mapping allocation and retirement, IRQ-masked work and
 scheduler gaps while repeatedly opening/closing actual GUI clients; improve the
 responsible process/memory lifecycle paths with ownership and failure tests.
-Expected shared scope is `kernel/src/process.c`, VM/memory helpers only as
-measured, existing latency diagnostics, and isolated host/VM fixtures. No HDA,
+Shared scope is `kernel/src/process.c`, the graphics copy syscall paths,
+surface preparation, a private service-window helper, existing latency
+diagnostics and isolated host/VM fixtures. The audio-free baseline cycles 16
+real apps and preserves an exact saved document/process baseline. It measured
+57 ms whole memory retirement, a 62 ms maximum timer gap and an 80 ms maximum
+USB poll gap in Q35. Initial process-only service windows reduce those gaps to
+45/55 ms; graphics copies also lacked service windows between their buffer
+chunks. The combined candidate is under validation. Whole-operation spans
+include scheduling; these figures are not physical latency measurements. No HDA,
 PCM, codec, playback worker or audio workload edits. The other unit's report is
 not Air7,2 physical acceptance. Process limits, EC timeouts and native model
 gates stay unchanged. PR157 remains draft until its intermittent EC shutdown

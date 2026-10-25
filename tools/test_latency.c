@@ -41,5 +41,13 @@ int main(void) {
     for(unsigned i=0;i<4;i++) perf_record(&histogram,100000);
     perf_record(&histogram,250001);
     assert(perf_percentile(&histogram,95)==50000 && perf_percentile(&histogram,99)==100000 && histogram.max==250001);
+    now=100;uint64_t work_start=latency_clock();now=20100;
+    latency_work_record(LATENCY_PROCESS_IMAGE,work_start,true);latency_snapshot(&s);
+    assert(s.work[LATENCY_PROCESS_IMAGE].count==1 && s.work[LATENCY_PROCESS_IMAGE].max_us==20000);
+    assert(s.work_entry_masked[LATENCY_PROCESS_IMAGE]==1);
+    latency_work_record(LATENCY_WORK_COUNT,work_start,false);latency_work_record(LATENCY_PROCESS_IMAGE,0,false);
+    latency_stop();now=30000;latency_work_record(LATENCY_PROCESS_IMAGE,work_start,true);latency_snapshot(&s);
+    assert(s.work[LATENCY_PROCESS_IMAGE].count==1);
+    assert(latency_reset());latency_snapshot(&s);assert(!s.work[LATENCY_PROCESS_IMAGE].count && !s.work_entry_masked[LATENCY_PROCESS_IMAGE]);
     puts("latency-host: PASS (disabled clock, nested sections, thresholds, gaps, reset/stop)");
 }

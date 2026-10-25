@@ -128,3 +128,31 @@ normal exit/reopen and clean retirement. Its native battery profile correctly
 refuses Q35; this is not native battery or physical dialog acceptance. Follow
 the device-agent setup guide for install, recovery, run record and one-shot boot.
 Do not install or reboot merely because staging completed.
+
+## Launch, memory and redraw service windows
+
+Process image loading, record clearing, fork cloning, mapping changes, mapping
+refresh and address-space retirement now use the existing CPU0 serialization
+owner to provide service windows between completed page batches. Unsafe process
+and filesystem entries and same-process siblings remain gated. Removed frames
+leave the live tracking prefix before a window; process slots remain reserved
+until initialization or retirement finishes. Byte/frame bounds, poisoning and
+failure/refusal behavior remain in force.
+
+Graphics output and surface transfers keep their private copy allocation under
+that owner until it is freed, and restore the scheduler-recorded address space
+before a checkpoint. Surface initialization keeps its existing quota reservation
+and retirement-epoch publication check across bounded fill batches. A foreign
+owner or early boot keeps the previous synchronous fallback; these changes do
+not authorize an unsafe continuation to join someone else's mutable operation.
+No audio driver, buffer policy, EC deadline or native model gate changes here.
+
+`latency reset`, then `latency off` after a workload, reports whole process
+operation spans separately from sampled critical sections and timer/input gaps.
+`entry_if_off` counts entry state, not uninterrupted masked duration; operation
+spans include scheduling. The automatic `tools/desktop_app_latency_smoke.py`
+fixture cycles actual Calculator/Files/Text/Preview clients without audio,
+resizes them, verifies the retained document's exact bytes and process baseline,
+and saves raw metrics. Its host wall timings include QMP typing/shortcut delays
+and must not be presented as app-only startup/close times. VM scheduling results
+are diagnostics, not physical latency or audio acceptance.

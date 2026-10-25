@@ -4,6 +4,10 @@
 #include <srvros/keyboard.h>
 #include <srvros/mouse.h>
 #include <srvros/heap.h>
+#ifdef SRVROS_GUI_HOST_TEST
+#define SRVROS_SERVICE_WINDOW_HOST_TEST
+#endif
+#include <srvros/service_window.h>
 #include <srvros/process.h>
 #include <srvros/desktop_protocol.h>
 
@@ -338,7 +342,7 @@ int64_t gui_cancel_wait(void) {
     irq_restore(flags);return result;
 }
 
-int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t options) {
+static int64_t gui_surface_create_impl(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t options,struct service_window *window) {
     if ((options & ~(uint64_t)DESK_SURFACE_STREAM) || owner_pid == 0 || width == 0 || height == 0 ||
         width > GUI_SURFACE_MAX_PIXELS || height > GUI_SURFACE_MAX_PIXELS ||
         width > UINT64_MAX / height || width * height > GUI_SURFACE_MAX_PIXELS ||
@@ -353,7 +357,11 @@ int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, 
 
     struct gui_surface *slot=kmalloc(sizeof(*slot));
     uint32_t *pixels=slot?kmalloc((size_t)bytes):NULL;
-    if(pixels)for(uint64_t i=0;i<width*height;i++)pixels[i]=0xff000000u;
+    if(pixels)for(uint64_t offset=0;offset<width*height;) {
+        uint64_t end=offset+16384;if(end>width*height)end=width*height;
+        while(offset<end)pixels[offset++]=0xff000000u;
+        service_window_checkpoint(window);
+    }
     flags=irq_save();
     /* Cleanup during preparation invalidates publication. A conservative
      * refusal on unrelated retirement is retryable by creating a new window;
@@ -367,6 +375,12 @@ int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, 
     *slot=(struct gui_surface){.next=surfaces,.used=true,.id=id,.owner_pid=owner_pid,
         .width=width,.height=height,.pixels=pixels,.stream=(options&DESK_SURFACE_STREAM)!=0};
     surfaces=slot;irq_restore(flags);return (int64_t)id;
+}
+
+int64_t gui_surface_create(uint64_t owner_pid,uint64_t width,uint64_t height,uint64_t options) {
+    struct service_window window=service_window_begin();
+    int64_t result=gui_surface_create_impl(owner_pid,width,height,options,&window);
+    service_window_end(window);return result;
 }
 
 int64_t gui_surface_destroy(uint64_t pid, uint64_t surface_id) {
