@@ -549,4 +549,22 @@ uint32_t mt76_rf_cal_guard_address(unsigned operation);
 bool mt76_rf_cal_admit(const struct mt76_rf_cal *s,unsigned operation);
 size_t mt76_rf_cal_packet(const struct mt76_rf_cal *s,unsigned operation,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_rf_cal_capture(struct mt76_rf_cal *s,const struct mt76_mcu_timing_io *io);
+/* Read-only delayed VCO observations; no retry or additional RF write. */
+#define MT76_RF_WAIT_COMMANDS 6u
+#define MT76_RF_WAIT_OPS 42u
+struct mt76_rf_wait {
+    bool attempted,complete;
+    unsigned operations,reads,exchanges,waits,delay_us,first_clear;
+    int received;
+    uint32_t guards[12][3],words[6][4];
+};
+struct mt76_rf_wait_io {struct mt76_mcu_timing_io command;bool (*delay)(void *,uint32_t);};
+bool mt76_rf_cal_pending_profile_valid(const struct mt76_rf_cal *s);
+unsigned mt76_rf_wait_sequence(unsigned command);
+unsigned mt76_rf_wait_delay(unsigned sample);
+uint32_t mt76_rf_wait_guard_address(unsigned operation);
+bool mt76_rf_wait_delay_admit(const struct mt76_rf_wait *s);
+bool mt76_rf_wait_admit(const struct mt76_rf_wait *s,unsigned operation);
+size_t mt76_rf_wait_packet(const struct mt76_rf_wait *s,unsigned operation,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_rf_wait_capture(struct mt76_rf_wait *s,const struct mt76_rf_wait_io *io);
 #endif

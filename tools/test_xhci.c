@@ -85,7 +85,8 @@ static unsigned wifi_doorbells;
 static struct xhci_device *recovery_device;
 static unsigned recovery_fault, recovery_calls;
 static bool recovery_integrated, recovery_delay_ok=true;
-bool timer_delay_us(uint64_t us) { assert(us==10000); return recovery_delay_ok; }
+static uint64_t rf_wait_expected_delay;
+bool timer_delay_us(uint64_t us) { assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
     if(trim_reply_device && offset==xhci.db_base+4*trim_reply_device->slot_id && value==1)
@@ -167,7 +168,7 @@ void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
 void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
 
 static void reset_test(void) {
-    trim_reply_device=NULL;trim_reply_value=0;
+    trim_reply_device=NULL;trim_reply_value=0;rf_wait_expected_delay=0;
     firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=wifi_mac_startup=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
@@ -4434,6 +4435,86 @@ static void test_wifi_rf_cal(void){
  puts("xhci RF DAC/VCO: PASS all70 operations,113 prerequisite/state faults, every packet bit, no replay and quarantine");
 }
 
+static void rf_wait_fixture(struct xhci_device *d,unsigned op){
+ rf_cal_fixture(d,69);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->rf_cal.complete=true;m->rf_cal.operations=70;m->rf_cal.reads=60;m->rf_cal.words[9][2]=176;m->rf_cal_submitted=70;
+ assert(mt76_rf_cal_pending_profile_valid(&m->rf_cal));
+ m->rf_wait_mode=m->rf_wait_active=true;m->rf_wait_submitted=op;
+ unsigned q=op/7,n=op%7,ex=q+(n>3);struct mt76_rf_wait *t=&m->rf_wait;
+ *t=(struct mt76_rf_wait){.attempted=true,.operations=op,.reads=q*6+(n<3?n:3)+(n>4?n-4:0),.exchanges=ex,.received=ex?16:-1,.waits=q+1};
+ for(unsigned j=0;j<=q;j++)t->delay_us+=mt76_rf_wait_delay(j);
+ m->rf_wait_delays=t->waits;
+ for(unsigned j=0;j<ex;j++){t->words[j][0]=t->words[j][3]=0x4a000008|(mt76_rf_wait_sequence(j)<<16);t->words[j][1]=0x80000004;t->words[j][2]=176;}
+ for(unsigned j=0;j<12;j++){t->guards[j][1]=0xf000f200;t->guards[j][2]=0x40000050;}
+ assert(mt76_rf_wait_admit(t,op));
+}
+static void rf_wait_fault(struct xhci_wifi_mcu *m,unsigned fault){
+ if(fault<=113){if(fault==107)m->rf_cal.complete=false;else rf_cal_fault(m,fault);}
+ if(fault==114)m->rf_wait_mode=false;
+ if(fault==115)m->rf_wait_active=false;
+ if(fault==116)m->rf_wait.attempted=false;
+ if(fault==117)m->rf_wait.complete=true;
+ if(fault==118)m->rf_wait.operations++;
+ if(fault==119)m->rf_wait.reads++;
+ if(fault==120)m->rf_wait.exchanges++;
+ if(fault==121)m->rf_wait.waits++;
+ if(fault==122)m->rf_wait.delay_us++;
+ if(fault==123)m->rf_wait.first_clear++;
+ if(fault==124)m->rf_wait_submitted++;
+ if(fault==125)m->rf_wait_delays++;
+}
+static void test_wifi_rf_wait(void){
+ for(unsigned op=0;op<42;op++)for(unsigned fault=0;fault<((op==0 || op==3 || op==38 || op==41)?129u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};
+  uint8_t tx[4096]={0},rx[1024]={0},packet[16],reply[1024];struct xhci_device *d=&xhci.devices[0];rf_wait_fixture(d,op);
+  struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  if(op%7==3){
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   assert(mt76_rf_wait_packet(&m->rf_wait,op,packet,16)==16);
+   rf_wait_fault(m,fault);
+   if(fault==126)packet[4]^=1;
+   if(fault==127)events[0].status=6u<<24;
+   if(fault==128)events[1].status=6u<<24;
+   if(!fault){for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_rf_wait_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}}
+   assert(wifi_rf_wait_exchange(d,packet,16,reply,1024)==(!fault?16:-1));
+   if(!fault){assert(m->rf_wait_submitted==op+1);assert(wifi_rf_wait_exchange(d,packet,16,reply,1024)==-1);}
+   else if(fault>=127)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!f->ep.enqueue && !m->response.enqueue);
+  }else{
+   d->ep0_ring=out;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=tx;d->descriptor_buffer_phys=(uintptr_t)tx;
+   events[0]=control_event(0x9020,fault>=127?6:1,0);
+   uint32_t address=mt76_rf_wait_guard_address(op),value=0;rf_wait_fault(m,fault);if(fault==126)address++;
+   assert(wifi_rf_wait_read(d,address,&value)==!fault);
+   if(!fault){assert(m->rf_wait_submitted==op+1);assert(!wifi_rf_wait_read(d,address,&value));}
+   else if(fault>=127)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!d->ep0_enqueue);
+  }
+ }
+ reset_test();assert(!xhci_wifi_capture_rf_cal());
+ puts("xhci RF delayed VCO: PASS all42 operations,125 prerequisite/state faults, every packet bit, no replay and quarantine");
+}
+static void test_wifi_rf_wait_delays(void){
+ for(unsigned q=0;q<6;q++)for(unsigned fault=0;fault<9;fault++){
+  reset_test();recovery_delay_ok=true;struct xhci_device *d=&xhci.devices[0];rf_wait_fixture(d,q*7);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_rf_wait *t=&m->rf_wait;
+  t->waits--;t->delay_us-=mt76_rf_wait_delay(q);m->rf_wait_delays--;unsigned us=mt76_rf_wait_delay(q);rf_wait_expected_delay=us;
+  if(fault==1)us++;
+  if(fault==2)t->waits++;
+  if(fault==3)m->rf_wait_delays++;
+  if(fault==4)m->rf_wait_submitted++;
+  if(fault==5)m->rf_cal.words[9][2]=48;
+  if(fault==6)m->rf_wait_active=false;
+  if(fault==7)t->delay_us++;
+  if(fault==8)recovery_delay_ok=false;
+  unsigned submitted=m->rf_wait_delays;
+  assert(wifi_rf_wait_delay(d,us)==!fault);
+  if(!fault){assert(m->rf_wait_delays==submitted+1);assert(!wifi_rf_wait_delay(d,us));}
+  else if(fault==8)assert(m->failed && !freed && m->rf_wait_delays==submitted+1);
+  else assert(m->rf_wait_delays==submitted && !m->failed);
+ }
+ reset_test();recovery_delay_ok=true;puts("xhci delayed VCO: PASS every fixed wait boundary, wrong duration/proof/order refusal, no replay and timer-failure quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -5770,6 +5851,8 @@ int main(int argc, char **argv) {
     test_wifi_rf_g20();
     test_wifi_rf_trim();
     test_wifi_rf_cal();
+    test_wifi_rf_wait();
+    test_wifi_rf_wait_delays();
     test_wifi_trim_fields();
     test_wifi_ant_init();
     test_wifi_mac_private();

@@ -3001,3 +3001,22 @@ observation without repeating the start pulse or forcing the bit clear.
 The entire241416-byte prefix and both completion markers passed; recovery,
 one-shot, hashes and clean offline filesystem/allocation checks verified.
 Workspace unmounted, no reboot armed; evidence archived outside build.
+
+### Delayed read-only VCO observation (v73 candidate)
+
+`--wifi-rf-wait` requires the full captured v72 initiation proof, including
+RF0:73 values93/93/93/13/13/93, RF0:4 initial30/writeb0 and final93/b0.
+A separate fixed engine reads only RF0:4 six times, after inter-sample delays
+10/40/50/100/300/500ms. Total requested delay is1000000us; USB/guard/logging
+time is additional. Native delay submission is checked independently from
+command submission, refuses wrong durations/order/replay, and uses the bounded
+reference timer. A failed wait stops the attempt; it cannot be retried.
+
+Commands use sequences9..14,42 operations,36 guard reads,6 exact read replies
+and12 MAC/CORE/disabled-DMA guard triplets. No additional RF data write, pulse
+or forced clear occurs. All six values and cumulative requested delays are
+saved; first_clear is one-based or0 when never observed. Reassertion is recorded
+without imposing monotonic state, and a clear bit alone does not certify radio
+calibration. Full-prefix proof/counters/delay receipts/both completion markers
+remain required. v73 adds only its opt-in token to v72, retains256KiB capture
+and automatic save/return. No channel tuning, MAC enable, scanning or traffic.

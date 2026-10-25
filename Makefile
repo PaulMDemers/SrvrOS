@@ -3796,3 +3796,11 @@ test-mt76-rf-cal: build/tests/mt76-rf-cal-host$(HOST_EXE)
 build/tests/mt76-rf-cal-host$(HOST_EXE): tools/test_mt76_rf_cal.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-wait
+test-core: test-mt76-rf-wait
+test-mt76-rf-wait: build/tests/mt76-rf-wait-host$(HOST_EXE)
+	build/tests/mt76-rf-wait-host$(HOST_EXE)
+build/tests/mt76-rf-wait-host$(HOST_EXE): tools/test_mt76_rf_wait.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

@@ -58,5 +58,10 @@ int main(void){
  }
  for(unsigned n=1;n<=71;n++){f=(struct fake){.received=16,.deny=n};s=(struct mt76_rf_cal){0};assert(run(&f,&s)==MT76_TIMING_CANCELLED && !s.complete && f.op==n-1);}
  for(int n=0;n<=1025;n++)if(n!=16){f=(struct fake){.received=n};s=(struct mt76_rf_cal){0};assert(run(&f,&s)==MT76_TIMING_REPLY && f.op==4);}
+ f=(struct fake){.received=16,.dac=147,.vco=48,.clear=false};s=(struct mt76_rf_cal){0};assert(run(&f,&s)==MT76_TIMING_OK && mt76_rf_cal_pending_profile_valid(&s));
+ struct mt76_rf_cal good=s;
+ for(unsigned q=0;q<10;q++)for(unsigned j=0;j<4;j++)for(unsigned b=0;b<32;b++){s=good;s.words[q][j]^=1u<<b;assert(!mt76_rf_cal_pending_profile_valid(&s));}
+ for(unsigned q=0;q<20;q++)for(unsigned j=0;j<3;j++){s=good;s.guards[q][j]^=1;assert(!mt76_rf_cal_pending_profile_valid(&s));}
+ s=good;s.complete=false;assert(!mt76_rf_cal_pending_profile_valid(&s));s=good;s.operations--;assert(!mt76_rf_cal_pending_profile_valid(&s));assert(!mt76_rf_cal_pending_profile_valid(NULL));
  puts("RF DAC/VCO: PASS preserved RMW bits, clear/still-set observation, every I/O/cancel/guard/reply boundary, mutated proof and no replay");
 }

@@ -6472,3 +6472,17 @@ a clear alone does not establish calibrated radio operation. Scope: separate
 bounded MCU observation/delay state, native single-submission/timer ownership,
 opt-in staging, fault tests and full-prefix collector. Keep256KiB capacity,
 MAC disabled and existing strict profiles unchanged. No tuning or traffic.
+
+Implemented fixed delayed-read engine, exact captured initiation validator and
+native independent delay/command admission. Host tests pass all42 I/O,
+49 authorization and6 delay failure boundaries, all64 clear/set patterns,
+reply/guard/proof mutations and no replay. Native tests pass all42 positions,
+125 prerequisite/state faults, every packet bit, every fixed wait boundary,
+wrong duration/order refusal and timer-failure quarantine. All152 staging tests
+and144 historical recipe byte-identity checks pass. Strict whole-prefix tests
+accept three valid patterns at most244749bytes and refuse229 malformed proofs.
+Prior RF/MCU/EFUSE/logger regressions, ASan/UBSan for the new engine and exact
+initiation validator, full build and499 local documentation links pass.
+Next checkpoint: exact-stage GPT save/return and missing-workspace rehearsal,
+then install while retaining Ubuntu/default and known-good recovery. Native
+delayed VCO results remain pending; no reboot armed.
