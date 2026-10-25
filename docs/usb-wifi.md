@@ -2639,3 +2639,14 @@ within128KiB. Completed capture accepts the experiment only. A41 independent
 read would distinguish this direct write from the earlier MCU write; zero would
 leave hardware semantics/prerequisites unresolved. Neither result accepts the
 remaining central table or calibrated radio operation.
+
+
+The 2026-10-25 native v64 comparison (source `4fa96c66`, release
+`bc805e30aa1454bb`, session `session-00065e9fb28f464b-00`) completed all14
+operations,12 reads and2 selectors with one poll per phase and all9 guard reads
+valid. Direct write completion was `40000600`; the independent read returned
+`00000600` (value0), matching the prior MCU/direct zero observations. Both capture
+markers and the full79461-byte snapshot passed, with clean recovery/filesystem
+checks. This accepts only the experiment. Switching the write transport did not
+resolve RF0:6 readback; audit prerequisites/register semantics before another
+write trial. The central table remains unaccepted; no calibration or traffic.

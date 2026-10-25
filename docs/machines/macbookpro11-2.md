@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-24. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-10-25. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -22,12 +22,12 @@ Release `032ade0806c417ab` completed the direct-read comparison; this accepts
 that observation only. Calibration, channel setup, scanning, association/security
 and Wi-Fi connectivity/UI remain pending.
 
-Candidate `bc805e30aa1454bb` (source `4fa96c66`) is installed unarmed for one
-guarded direct RF0:6 write and an independent read. Local and exact-stage VM
-checks passed; native results are pending. Ubuntu remains default, known-good
-`e47dca3a6b30c6c1` remains recovery, and the last diagnostic is retained.
-Next: attended cold adapter cycle, then collect the matching persisted session
-before changing the candidate. The latest dated sections below contain full
+Release `bc805e30aa1454bb` (source `4fa96c66`) completed the guarded direct
+RF0:6 write and independent read. Both write paths now produce the same zero
+readback. Local, exact-stage VM and native observation checks passed; full RF
+initialization remains unaccepted. Ubuntu remains default, known-good
+`e47dca3a6b30c6c1` remains recovery, and no reboot is armed.
+Next investigate RF prerequisites and register behavior before another write trial. The latest dated sections below contain full
 scope, dependencies and evidence locations.
 
 ## Original bring-up scope (historical)
@@ -5687,3 +5687,31 @@ Next: attended cold adapter cycle, then collect matching release/session FIRST
 with the strict v64 collector. Require the full zero-read prerequisite proof,
 all guards/selectors/polls and independent readback. Even a `0x41` readback does
 not accept the complete central table. No reboot armed.
+
+
+### 2026-10-25 — one direct RF write comparison collected
+
+Source `4fa96c66`, release `bc805e30aa1454bb`, session
+`session-00065e9fb28f464b-00` passed the strict v64 observation collector.
+The full prior zero-read profile reproduced. The single direct CSR write
+`c0000641` completed with word `40000600`; the independent read selector
+`80000600` returned `00000600`, giving RF0:6 value0. Idle/write/read polling each
+took one read. All14 operations/submissions,12 reads,2 selectors and9 guard
+reads passed, with MAC0/COREf000f200/DMA40000050 throughout. No repeat write or
+later central-table entry was attempted.
+
+Both completion markers and the complete79461-byte startup snapshot passed.
+This accepts the bounded experiment and observations only. Both direct USB and
+MCU writes have now been followed by independent zero readback; changing only
+the write transport did not resolve the mismatch. Hardware register semantics
+or missing prerequisites remain unresolved. Next audit those prerequisites and
+write sequencing against the pinned references before another trial. Keep the
+strict central-table check; calibration, scanning, association/security and
+connectivity remain pending.
+
+Collection `build/bringup/wifi-rf-write/collection/collection-7jmtwomd`, payload,
+strict receipts and recovery evidence are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-write-4fa96c6/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean271files/655clusters/109directories,
+zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
