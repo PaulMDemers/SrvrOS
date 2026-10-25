@@ -248,9 +248,11 @@ void tool_runtime_draw(struct tool *t) {
     struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
 }
 int tool_file_pool_capture(void);
+int tool_wait_capture(void);
 int tool_multi_capture(void);
 int tool_growth_capture(void);
 int main(int argc,char **argv) {
+    if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--file-pool-wait-capture"))return tool_wait_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--file-pool-capture"))return tool_file_pool_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--multi-window-capture"))return tool_multi_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--window-growth-capture"))return tool_growth_capture();
