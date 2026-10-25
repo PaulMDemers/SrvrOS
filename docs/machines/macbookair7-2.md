@@ -2,6 +2,27 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Runtime hardware-round preparation
+
+Bounded scope on main `a6d4361`: prepare a dedicated on-screen Runtime trial
+Help topic, remove stale capacity/tap wording from the general trial entry,
+and rehearse topic navigation and readable instructions in QEMU. Touch Help
+content, its existing VM harness and current validation docs only; no new
+runtime/device features, host installation, physical USB writes or reboot.
+PR19 inspected at `b9240eb` remains independent Edimax Wi-Fi work. The next
+physical round is interactive; its exact stage, recovery and USB preflight are
+still required immediately before installation.
+
+Validation passes: Help host content/history/clipboard/layout suite, full image
+build, documentation links, and actual Help QEMU navigation/clipboard/app routing/
+retirement. The new topic's beginning, return instructions and compact layout
+were visually inspected. Instructions distinguish ordinary Home's retained mount
+and `desktop battery` reopen from the basic trial's unmount-on-exit behavior.
+Evidence is retained in the October 25 overnight archive and durable reviewed
+backup. The installed payload/recovery remain unchanged; physical acceptance is
+pending and no reboot is armed.
+
+
 ### Shared chooser controller checkpoint (D3c)
 
 PR150 runtime `2689a8d`, based on merged renderer baseline `a354eed`, shares Text

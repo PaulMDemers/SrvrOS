@@ -77,7 +77,13 @@ retain recovery, and write the on-disk run record. Do not copy another Mac's
 profile, volume identity or acceptance.
 
 This next round requires a person and should be announced as interactive before
-reboot. Put these instructions in the on-screen trial guide for the staged round:
+reboot. The on-screen **Runtime trial** Help topic contains the checklist and
+profile-specific exit instructions. Open Help, press Ctrl-L, search `Runtime trial`
+and press Return. The general Laptop trial page points to it; older tap/device
+recipes are optional reference material, not additional requirements for this round.
+The combined Home profile starts Text, so open Help through the launcher.
+
+The checklist covers:
 
 1. Open several normal apps, then use Text's **Ctrl-Shift-N / File → New Window**
    to cross sixteen total windows. Use independent document contents and names;
@@ -88,11 +94,30 @@ reboot. Put these instructions in the on-screen trial guide for the staged round
 3. Copy/paste between documents and apps; type, scroll and move the pointer while
    saving. Cancel an edited document's close, then save it. Closing one Text window
    must leave its siblings usable.
-4. Save several distinct files, close and reopen them, and confirm their contents.
+4. In Text and Preview, browse in the file picker, cancel, then reopen. Wait for
+   any pending listing to drain; cancellation must retain the current document or
+   image. Save several distinct files, close and reopen them, and confirm their contents.
    Save screenshots. Exit normally and reopen the desktop to check cleanup.
-5. Return to the monitor, follow the trial's workspace-unmount instruction, then
-   reboot to Ubuntu. Collect the matching session and verify files/allocation
-   before accepting the exact release.
+5. Choose SrvrOS → Return to console. With the combined battery/Home profile,
+   Home stays mounted: use `desktop battery` to reopen and check the files, then
+   return to the monitor and use `reboot` for the flushed, unmounted Ubuntu return.
+   A basic trial unmounts on desktop exit; wait for `USB unmounted=yes`, then
+   `reboot`. Collect both matching sessions and verify files/allocation before
+   accepting the exact release. Immediate Ctrl-Alt-Escape is a stuck-session
+   escape, not the normal completion path.
+
+Use fresh names such as `runtime-a.txt`, `runtime-b.txt`, `runtime-c.txt` and
+`runtime-notes.txt`; preserve earlier files rather than overwriting them. The
+notes should name completed/skipped checks and any input pauses or drawing
+artifacts. Capture many windows and the reopened documents with Command-Shift-3,
+and wait for save confirmation. Keep expected document text alongside the
+collected receipts so Ubuntu comparison checks contents, not just file presence.
+
+`tools/host-env.sh python3 tools/desktop_help_smoke.py` rehearses topic discovery,
+scrolling to the return instructions and compact layout in a disposable VM;
+its `help-runtime-start` and `help-runtime-return` screenshots are readability
+evidence, not physical acceptance. Exact-stage VM validation and this host's
+recovery/USB preflight remain required before installation.
 
 Report any refusal separately from corruption or a hang: budgets can legitimately
 refuse further windows while retaining existing edits. Native higher-count

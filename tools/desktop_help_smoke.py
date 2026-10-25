@@ -103,6 +103,10 @@ def main():
                 shortcut("ctrl-l");wait(b"deskhelp: topics opened");type_text("desktop");shortcut("ctrl-a");shortcut("ctrl-c");time.sleep(.5)
                 type_text("wrong");shortcut("ctrl-a");shortcut("ctrl-v");time.sleep(.5);qmp.key("ret");wait(b"deskhelp: page=desktop")
                 qmp.key("end");wait(b"deskhelp: scroll=");shot("help-desktop-bottom")
+                # The next native round must be discoverable and readable on screen.
+                shortcut("ctrl-l");wait(b"deskhelp: topics opened");type_text("runtime trial");qmp.key("ret");wait(b"deskhelp: page=runtime-trial")
+                shot("help-runtime-start")
+                qmp.key("end");wait(b"deskhelp: scroll=");shot("help-runtime-return")
                 # Shrink to the minimum width, keeping the toolbar and document usable.
                 qmp.mouse(813-pointer[0],668-pointer[1]);pointer[:]=[813,668]
                 qmp.mouse(0,0,1);qmp.mouse(-480,-300,1);qmp.mouse(0,0,0);pointer[0]-=480;pointer[1]-=300;time.sleep(.5)
