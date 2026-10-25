@@ -3192,3 +3192,18 @@ changed guard or readback mismatch stops the phase. MAC remains disabled;
 no USB DMA change, RF write, channel tuning, scan or traffic. Original v77 and
 older recipes/policies remain unchanged; native acceptance pending. Full saved
 prefix/both completion markers and recovery/offline checks remain required.
+
+
+### v78 native USB timing result
+
+MacBookPro11,2 release `5c86ad12e5f185ca` (source `da8b7fce`), session
+`session-00065eb17b66ef77-00`, completed the exact inventory then fixed02a4
+setup: fresh0, masked low8 write1e, independent readback1e. All9 ordered USB
+transfers,8 reads/1 write/1 verification and2 complete MAC0/COREf000f200/
+DMA40000050 guard triplets passed. Upper24 preserved0. Full earlier proof,
+251629-byte startup prefix, both success markers, recovery/one-shot/hashes and
+offline clean filesystem/allocation checks passed; archived, unmounted/unarmed.
+This run's initiation was pending (finalb0), with all six delayed reads30;
+v77 previously exercised early-clear. Both observed timing variants retain the
+same strict downstream proof. Captured USB timing setup is accepted; no channel
+configuration, calibrated radio operation, MAC enable or traffic is accepted.

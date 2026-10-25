@@ -141,12 +141,16 @@ mask100; all other targets and both guard triplets valid. Entire250364-byte
 prefix and both success markers saved. Recovery/default/one-shot/hashes passed;
 offline clean297files/705clusters/122directories, zero leaks/mismatches/errors;
 unmounted/unarmed. Observation evidence archived; original strict modes and
-v75/v76 failures unchanged. Separate v78 timing trial `5c86ad12e5f185ca`, source
-`da8b7fce`, is installed/unarmed after local and both exact-stage VM checks.
-It requires this exact inventory then fresh02a4=0, writes only low8=1e and
-requires independent readback plus final guards. Recovery remains
-`e47dca3a6b30c6c1`, Ubuntu default unchanged. Await readiness for cold-cycle
-shutdown; collect matching session first after return. No radio acceptance.
+v75/v76 failures unchanged. Release `5c86ad12e5f185ca`, source `da8b7fce`,
+completed USB-cycle setup in native session `session-00065eb17b66ef77-00`:
+fresh02a4=0, masked write/readback1e; all9 transfers,8 reads/1 write/1 verification
+and2 guard triplets passed. Full earlier proof and exact inventory passed.
+This run used pending1/early_clear0 and all six delayed reads30; v77 exercised
+the early-clear variant. Entire251629-byte prefix/both success markers saved.
+Recovery/default/one-shot/hashes passed; offline clean299files/709clusters/
+123directories, zero leaks/mismatches/errors; unmounted/unarmed. Timing setup
+accepted on the captured adapter. Next: channel-specific preparation/calibration
+dependency audit. Radio operation/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6974,3 +6978,28 @@ Collect matching release/session first with `usb-cycle/collect_return.py`;
 require full earlier proof, exact inventory, nine timing receipts, fresh0 to1e,
 postguards and both completion markers. Preserve failures; no automatic DMA
 change, RF write, channel tuning, MAC enable or traffic. Timing acceptance pending.
+
+
+## 2026-10-25 — Native USB microsecond-cycle timing accepted
+
+Source `da8b7fce6d4ff8bf6e4f18283f05cf0dc8e23441`, release
+`5c86ad12e5f185ca`, session `session-00065eb17b66ef77-00`. Full earlier
+initialization/path proof and exact12-target inventory passed. This run used
+the historical pending VCO variant (finalb0; pending1/early_clear0); all six
+delayed reads observed30. Together with v77's early-clear result, both explicit
+timing variants now have native observation evidence; historical modes unchanged.
+
+USB timing completed9 ordered transfers,8 reads/1 write,1 verified target and
+2 complete MAC0/COREf000f200/DMA40000050 guard triplets. Fresh02a4=0, masked
+low8 write1e and independent readback1e matched; upper24 remained0. No DMA
+change, RF write, MAC enable or traffic occurred in this phase. This accepts
+bounded captured-adapter timing setup, not calibrated radio functionality.
+
+Entire251629-byte startup prefix within262144 capacity and both success markers
+saved. Strict collector, Ubuntu default, consumed one-shot and current/recovery
+hashes passed. Offline exFAT/allocation clean299files/709clusters/123directories,
+zero leaks/mismatches/errors; unmounted and unarmed. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-usb-cycle-da8b7fc/`.
+Next: audit channel-specific bandwidth/band/synthesizer and calibration ordering
+against pinned reference and fresh captured board fields. Scanning, association,
+security and Wi-Fi connectivity/UI remain pending; no automatic next write/reboot.
