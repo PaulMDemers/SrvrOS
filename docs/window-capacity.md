@@ -273,8 +273,8 @@ and Sketch processes, waiting for each rendered admission before the next.
 It holds all windows, saves a screenshot, requests normal close and requires
 24 successful child reaps. The next lifetime repeats the workload to check reuse.
 
-Each compositor round has a 120-second deadline; its kernel lifetime owner has
-a separate 180-second bound before revocation/drain. Admission failure, unexpected
+Each compositor round has a 180-second deadline; its kernel lifetime owner has
+a separate 240-second bound before revocation/drain. Admission failure, unexpected
 child exit, failed screenshot or incomplete retirement is not a pass. Existing
 logger and battery shutdown contracts persist the per-round result in `exit.log`;
 then the boot owner unmounts and returns to Ubuntu on handled success or failure.
@@ -295,3 +295,23 @@ exited normally, both service lifetimes retired and offline filesystem/allocatio
 checks passed. This is measured acceptance at 24 independent app windows with
 combined services, not an unlimited-capacity claim. See the
 [unit record](machines/macbookair7-2.md) for evidence and remaining manual checks.
+
+The current v73 workload also uses the final Text process's ordinary connection
+runtime and pooled file worker for 60 acknowledged editing/clipboard inputs.
+Five checkpoints each save, stat, rename, clear RAM text and reread exact `AA`
+bytes in a new `capacity-*` directory under Home. The shared chooser transport
+checks submitted-list cancellation, drain, reopen and stale-response rejection
+against that directory. Each round requires a normal Text retirement receipt,
+all five exact files and its screenshot. Guest progress is visible above the
+dock; no chat instructions or human input are required. Older v73 releases that
+only opened windows do not establish these new document checks. This fixture
+does not measure physical input latency or accept manual Preview-picker visuals.
+
+Air7,2 release `f01d4049daae0b4a` / source `044d0b4` physically passed the extended
+workload on October 25: two rounds, 24 app processes each, 60 acknowledged edits,
+five exact files each, both chooser transports, normal pooled Text retirement,
+screenshots and complete service cleanup. Offline comparison preserved all prior
+non-metadata files; filesystem/allocation checks were clean. This closes the
+automated document/save/reread and shared chooser-transport acceptance at this
+load; synthetic events do not establish physical input latency or manual picker
+visual acceptance.

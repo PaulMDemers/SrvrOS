@@ -106,8 +106,8 @@ The checklist covers:
    accepting the exact release. Immediate Ctrl-Alt-Escape is a stuck-session
    escape, not the normal completion path.
 
-Use fresh names such as `runtime-a.txt`, `runtime-b.txt`, `runtime-c.txt` and
-`runtime-notes.txt`; preserve earlier files rather than overwriting them. The
+Use fresh names such as `runtime24-a.txt`, `runtime24-b.txt`, `runtime24-c.txt` and
+`runtime24-notes.txt`; preserve earlier files rather than overwriting them. The
 notes should name completed/skipped checks and any input pauses or drawing
 artifacts. Capture many windows and the reopened documents with Command-Shift-3,
 and wait for save confirmation. Keep expected document text alongside the
@@ -150,3 +150,19 @@ child exits and complete battery/logger retirement. Prior files were preserved
 and offline filesystem/allocation checks passed. This accepts automated native
 capacity/reuse; physical input and interactive document/chooser checks at higher
 counts remain pending.
+
+The subsequent attended Air7,2 return on release `80904d5e5fd6f6ac` exercised a
+mid-20s window count and sensors. The user did not receive chat instructions
+before the machine rebooted; do not count the entire document checklist as
+completed. Future attended checklists must open automatically in the guest or
+be captured by the user before reboot. Current unattended v73 capture performs
+acknowledged Text edits, five fresh USB save/rename/reread checkpoints and shared
+picker cancellation per round, displays progress and returns automatically.
+
+The extended unattended round is now physically accepted on Air7,2 release
+`f01d4049daae0b4a` / source `044d0b4`: both 24-process rounds completed 60
+acknowledged edit/clipboard events, five exact USB save/rename/reread files,
+legacy/pooled chooser cancel/reopen checks, screenshots and normal retirement.
+All ten saved files were compared in Ubuntu; prior non-metadata files were
+unchanged and offline fsck/allocation passed. See the current machine record for
+session identities and remaining physical-input/manual-visual limits.

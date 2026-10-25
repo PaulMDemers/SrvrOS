@@ -2,6 +2,55 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Automated many-app documents accepted
+
+Release `f01d4049daae0b4a`, clean source `044d0b4`, passed both automatic native
+rounds on October 25 and returned to Ubuntu. Sessions
+`session-00065eaef7987f3c-00` and `session-00065eaefa2f6651-00` each rendered 24
+independent app processes, acknowledged 60 editing/clipboard inputs in the
+ordinary pooled Text runtime, saved/stat'ed/renamed/cleared/reread five files,
+and passed legacy/pooled chooser submitted-cancel/drain/reopen/stale checks.
+All ten files contain exact `AA` bytes in distinct fresh Home directories.
+Both 1440×900 screenshots show the reopened fifth document and readable progress
+banner. Each round reaped all 24 children normally, drained its lifetime (peak
+32 descendants), and retired battery service with zero heap/errors/denials and
+zero rejected samples. Collector attention is empty for both sessions.
+
+All 1,080 prior non-metadata files retained their hashes; only `.srvros/meta`
+changed. Ten document files, eight logs and two screenshots were added. Offline
+read-only fsck/allocation/headroom passes: 1,101 files, 2,792 clusters, zero leaks,
+bitmap mismatches or errors. Current payload, independent recovery
+`9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot were verified after return.
+No reboot is armed. Installed current remains the explicit automatic diagnostic.
+Evidence/run records are in `build/documents-native-20261025/`, with hash-verified
+backup under the unit's `reviewed-evidence` directory outside build.
+
+PR155 publishes the diagnostic, visible progress and instruction-delivery rule.
+Matched builds/desktop suite, 30 collector tests, 565 documentation links,
+two-round positive VM and 384 MiB admission-failure/clean-return fixture passed.
+The final clean native stage also passed GRUB → staged Limine Q35 rehearsal and
+its banner was visually inspected. No Actions used. Main base `6e06bfb`; Pro
+PR19 `2c40c36` and Air6,1 PR156 `ee96e1d` retain separate Wi-Fi/endurance scope.
+This accepts automated capacity, editing/clipboard, file persistence, shared
+chooser transport and reuse under the tested load. Synthetic inputs do not
+measure physical input latency or accept manual Preview-picker visuals. The
+prior attended mid-20s-window/sensor observation remains recorded below.
+
+### Attended high-count return collected
+
+Release `80904d5e5fd6f6ac` / source `7c2880a` returned on October 25. The user
+opened a mid-20s count of windows and checked sensors successfully. Chat
+instructions were not visible before reboot, so the detailed document checklist
+is not accepted from this observation. Sessions `session-00065eae867725d0-00`
+and reopened `session-00065eaeb5319670-00` have clean exit snapshots, lifetime
+drains (peaks 33 and 22), and battery retirement with zero heap/errors/denials.
+The second monitor-started session has no boot release token; it is associated
+with the same boot by its inherited prior tail and lifetime epoch progression.
+All prior files are unchanged except `.srvros/meta`; two user-created artifacts
+and eight logs were saved. Offline fsck/allocation/headroom passes: 1,081 files,
+2,690 clusters, zero leaks/mismatches/errors. Evidence and artifacts are backed
+up outside build under `reviewed-evidence/runtime-interactive-20261025`.
+
 ### Automated 24-app native capacity accepted
 
 Release `c9e59c1b11d5c239`, clean source `7fc5077`, completed two automatic

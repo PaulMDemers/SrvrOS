@@ -1354,7 +1354,7 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.dynamic=1,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+    struct session s={.dynamic=1,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
         .trace=capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
@@ -1411,11 +1411,12 @@ int main(int argc,char **argv) {
     uint64_t work_begin=(uint64_t)srv_monotonic_us(),work_keys=0,work_motion=0,work_due=0;
     unsigned work_shot=0;int work_phase=0;
     if(battery_work)desk_log("desktop-work: begin minimum_us=300000000 deadline_us=480000000\n");
-    unsigned capacity_launched=0,capacity_phase=0,capacity_shot=0;
+    unsigned capacity_launched=0,capacity_phase=0,capacity_shot=0,capacity_sent=0;
+    uint64_t capacity_pid=0;
     uint64_t capacity_begin=(uint64_t)srv_monotonic_us(),capacity_due=0;
     if(capacity_capture) {
         strcpy(s.scene.notice,"Automatic capacity test: opening 24 apps, saving a screenshot, then returning. No input needed.");
-        desk_log("desktop-capacity: begin target=24 deadline_us=120000000 input=none\n");
+        desk_log("desktop-capacity: begin target=24 deadline_us=180000000 input=none documents=5\n");
     }
     int idle_phase=0;
     unsigned idle_capture_serial=0;
@@ -1828,8 +1829,8 @@ int main(int argc,char **argv) {
                 live++;
                 if(desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->configure)ready++;
             }
-            if(now-capacity_begin>=120000000 || s.child_errors || s.launch_notice_serial ||
-               (capacity_phase<3 && s.child_reaped)) {
+            if(now-capacity_begin>=180000000 || s.child_errors || s.launch_notice_serial ||
+               (capacity_phase!=3 && s.child_reaped)) {
                 desk_log("desktop-capacity: failed phase=%u launched=%u live=%u ready=%u reaped=%u errors=%u\n",
                     capacity_phase,capacity_launched,live,ready,s.child_reaped,s.child_errors);
                 failed=1;
@@ -1837,10 +1838,28 @@ int main(int argc,char **argv) {
                 if(capacity_launched<24) {
                     static const unsigned roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_CALCULATOR,
                         DESK_APP_CLOCK,DESK_APP_HELP,DESK_APP_PREVIEW,DESK_APP_SKETCH};
-                    spawn_app(&s,roles[capacity_launched%7],"");capacity_launched++;
+                    int slot=child_slot(&s);
+                    spawn_app(&s,capacity_launched==23?DESK_APP_TEXT:roles[capacity_launched%7],capacity_launched==23?"--capacity-files":"");
+                    if(capacity_launched==23 && slot>=0)capacity_pid=*session_children(&s,slot);
+                    capacity_launched++;
                 } else {
-                    capacity_phase=1;capacity_due=now+5000000;
-                    desk_log("desktop-capacity: rendered=24 processes=24; holding for screenshot\n");
+                    capacity_phase=4;capacity_due=now;
+                    desk_log("desktop-capacity: rendered=24 processes=24; editing documents\n");
+                }
+            } else if(capacity_phase==4) {
+                int target=-1;
+                for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==capacity_pid)target=i;
+                if(target<0 || live!=24 || ready!=24)failed=1;
+                else if(session_client(&s,target)->present_input==capacity_sent && now>=capacity_due) {
+                    if(capacity_sent==60) {
+                        capacity_phase=1;capacity_due=now+5000000;
+                        desk_log("desktop-capacity: document-inputs=60 acknowledged=yes\n");
+                    } else {
+                        focus(&s,target);
+                        struct desk_packet p=desk_packet_new(DESK_KEY);p.input_serial=capacity_sent+1;
+                        struct srv_key_event key=capture_key(capacity_sent);memcpy(p.text,&key,sizeof(key));
+                        queue_input(&s,target,p);capacity_sent++;capacity_due=now+50000;
+                    }
                 }
             } else if(capacity_phase==1 && now>=capacity_due) {
                 if(live!=24 || ready!=24)failed=1;
@@ -1848,6 +1867,15 @@ int main(int argc,char **argv) {
             } else if(capacity_phase==2 && s.capture_finished>capacity_shot) {
                 if(!s.capture_success)failed=1;
                 else {capacity_phase=3;global_menu_action(&s,GLOBAL_EXIT);}
+            }
+        }
+        if(capacity_capture) {
+            char progress[sizeof(s.scene.notice)];
+            snprintf(progress,sizeof(progress),"Automatic test: %u/24 apps; edits %u/60. %s",capacity_launched,capacity_sent,
+                capacity_phase==3?"Closing; returning to Ubuntu.":capacity_phase==1 || capacity_phase==2?"Saving evidence.":"No input needed.");
+            if(strcmp(progress,s.scene.notice)) {
+                strcpy(s.scene.notice,progress);
+                desk_damage_add(&s.damage,(struct desk_rect){0,canvas.height-112,canvas.width,36});
             }
         }
         if(battery_work && !failed) {
@@ -1999,7 +2027,7 @@ int main(int argc,char **argv) {
     }
     for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid)forget(&s,i);
     if(capacity_capture) {
-        if(capacity_phase!=3 || capacity_launched!=24 || s.child_reaped!=24 || s.child_errors || !s.exiting)failed=1;
+        if(capacity_phase!=3 || capacity_sent!=60 || capacity_launched!=24 || s.child_reaped!=24 || s.child_errors || !s.exiting)failed=1;
         desk_log("desktop-capacity: result=%s launched=%u reaped=%u errors=%u screenshot=%s normal_exit=%u\n",
             failed?"FAIL":"PASS",capacity_launched,s.child_reaped,s.child_errors,
             capacity_phase==3?"yes":"NO",s.exiting?1u:0u);

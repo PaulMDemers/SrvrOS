@@ -1806,7 +1806,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
             break; /* Normal lifetime revocation/drain below; no app edits. */
         }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0 && !desktop_reopen_test;break;}
-        if(desktop_capacity_test && timer_monotonic_us()-capture_start>=180000000) {
+        if(desktop_capacity_test && timer_monotonic_us()-capture_start>=240000000) {
             console_write("desktop-capacity: owner deadline exceeded\n");break;
         }
         if(!continuous_home && timer_monotonic_us()>=deadline)break;

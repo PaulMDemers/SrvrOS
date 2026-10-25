@@ -273,7 +273,14 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
     }
     if(s->apps) {
         dock(c,s);
-        if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
+        if(s->notice[0]) {
+            if(s->automatic_test) {
+                struct desk_rect banner={16,c->height-112,c->width-32,36};
+                desk_fill(c,banner,desk_theme_quiet.border);
+                desk_fill(c,desk_widget_inset(banner,1),desk_theme_quiet.surface);
+            }
+            desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
+        }
         desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
         if(s->calendar_open) calendar_panel(c,s);
         if(s->launcher_open) desk_palette_draw(c,&s->launcher,&desk_theme_quiet);

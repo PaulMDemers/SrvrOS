@@ -57,7 +57,11 @@ static int retire_job(struct text_document *d) {
     }
     return 1;
 }
+int tool_file_capture_capacity_setup(void);
 int tool_text_runtime(const char *path) {
+    int capacity=strcmp(path,"--capacity-files")==0;
+    if(capacity) { if(tool_file_capture_capacity_setup())return 1;path=""; }
+    unsigned capture_checkpoints=0;
     struct desk_connection connection;desk_connection_init(&connection);
     struct desk_file_pool pool;struct desk_file_channel channels[2];
     if(desk_file_pool_init(&pool,channels,2))return 1;
@@ -93,7 +97,12 @@ int tool_text_runtime(const char *path) {
                 if(desk_window_dispose(window))failed=1;
             } else if(p.type==DESK_WINDOW_FAILED) {
                 notice(documents,d->requester,"A document window could not be displayed. Other windows remain open.");
-            } else if(d->ready && !d->retired && !t->quit)tool_runtime_event(t,p);
+            } else if(d->ready && !d->retired && !t->quit) {
+                tool_runtime_event(t,p);
+                if(capacity && p.type==DESK_KEY && p.input_serial && p.input_serial<=60 && !(p.input_serial%12)) {
+                    tool_file_capture_begin(t,p.input_serial);
+                }
+            }
         }
         int busy=failed || connection.opening!=NULL,drained=1;
         struct text_document **link=&documents;
@@ -106,9 +115,13 @@ int tool_text_runtime(const char *path) {
                     if(d->retired) {
                         desk_chooser_cancel(&t->chooser);
                         if(t->chooser.pending)desk_chooser_finish(&t->chooser,t->chooser.pending_id,result);
+                    } else if(capacity && tool_file_capture_busy()) {
+                        tool_file_capture_finish(t,result);
+                        if(!tool_file_capture_busy() && !t->window.failed)capture_checkpoints++;
                     } else if(t->chooser.pending)tool_picker_finish(t,result);else tool_text_finish(t,result);
                 }
             }
+            if(capacity && t->window.failed)failed=1;
             if(d->retired) {
                 int already_retired=d->worker_closed;
                 if(!retire_job(d)) { busy=1;drained=0;link=&d->next;continue; }
@@ -142,5 +155,10 @@ int tool_text_runtime(const char *path) {
     }
     desk_log("text-runtime: documents admitted=%u retired=%u refused=%u\n",admitted_count,retired_count,refused_count);
     if(tool_file_pool_retire(&pool,DESK_APP_TEXT))failed=1;
+    if(capacity) {
+        if(admitted_count!=1 || retired_count!=1 || refused_count || capture_checkpoints!=5 ||
+           !tool_file_capture_report())failed=1;
+        desk_log("document-capacity: result=%s checkpoints=%u pooled=yes retired=%u\n",failed?"FAIL":"PASS",capture_checkpoints,retired_count);
+    }
     desk_log("desktools: exited role=text failure=%d\n",failed);return failed?1:0;
 }

@@ -577,7 +577,7 @@ def needs_attention(line):
     # entire schema so refusal reasons or appended error details stay visible.
     if re.fullmatch(r"deskd: resources reason=(?:opened|retired) clients=\d+ children=\d+ clipboard_peers=\d+ window_capacity=\d+ cache_bytes=\d+ cache_budget=\d+ gui_queue_budget=\d+ gui_queue_depth=\d+ gui_surface_record_budget=\d+ gui_surface_pixel_budget=\d+", line):
         return False
-    if line.startswith("desktop-capacity: result=FAIL"):
+    if line.startswith(("desktop-capacity: result=FAIL", "document-capacity: result=FAIL", "chooser-capture: FAIL")):
         return True
     # Moving contacts must not become taps. This exact cumulative counter is
     # expected during pointer work; other reason/failure lines remain actionable.

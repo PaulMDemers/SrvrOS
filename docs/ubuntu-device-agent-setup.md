@@ -217,7 +217,9 @@ rehearsal below for disposable workspace coverage, then validate the real drive.
 ### Automated mixed-app capacity capture (Air7,2)
 
 After preparing and checking this host's USB workspace, the explicit v73 profile
-runs two rounds of 24 independent applications without human input:
+runs two rounds of 24 independent applications without human input. Current
+builds also edit/save/rename/reread five fresh documents per round and exercise
+shared picker cancellation, with progress displayed in the guest:
 
 ```sh
 python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" \
