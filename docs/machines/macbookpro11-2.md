@@ -5798,3 +5798,16 @@ Ubuntu default, consumed one-shot and installed/known-good recovery payload
 hashes verified. Offline workspace clean273files/658clusters/110directories,
 zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
 This accepts the observation only; central RF initialization remains unaccepted.
+
+
+Active scope (2026-10-25): obtain five fixed RF observations through the live
+Linux mt76x0 driver before another native write trial. A temporary local kernel
+probe may call the loaded driver's RF read helper for0:6/1/2/6/22 through its
+normal MCU mutex. Match this DMI model, exact USB fixture, bus1/port1/interface0,
+driver and revision; hold device/runtime-PM references. No driver reset/unbind,
+channel change, RF write or arbitrary address interface. Build against the
+running kernel headers and inspect the loaded helper ABI before execution;
+collect results and immediately unload. This is comparison evidence only.
+Touch local ignored Linux probe/evidence and this record; no SrvrOS payload
+change or reboot. Fetched main `ed2015a5` contains desktop PR140–142; their
+clipboard/window-lifetime scope is separate. Native baseline remains `d5bc4b3`.
