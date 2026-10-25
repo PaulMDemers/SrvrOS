@@ -11,7 +11,9 @@
  * Pointer release selects a row; Escape/outside press cancels. F10 opens the
  * first group. Arrow/Home/End navigation skips disabled rows and separators. */
 struct desk_menu {
-    struct desk_menu_item items[DESK_MENU_ITEMS];
+    struct desk_menu_item inline_items[DESK_MENU_ITEMS];
+    struct desk_menu_item *items;
+    unsigned capacity;
     unsigned count,groups;
     unsigned headings[DESK_MENU_GROUPS];
     struct desk_rect bar,bounds;
@@ -22,6 +24,10 @@ struct desk_menu_result { uint32_t action; int consumed,redraw; };
 int desk_menu_valid(const struct desk_menu_item *items,unsigned count);
 struct desk_menu_result desk_menu_scroll(struct desk_menu *menu,int pixels);
 void desk_menu_init(struct desk_menu *menu);
+/* Borrow caller storage until rebound/destroyed; copy the existing snapshot.
+ * Capacity must cover count. Rebinding disarms pointer activation. No allocation.
+ * External storage permits larger groups; the inline default retains 32 rows. */
+int desk_menu_bind_storage(struct desk_menu *menu,struct desk_menu_item *items,unsigned capacity);
 int desk_menu_configure(struct desk_menu *menu,const struct desk_menu_item *items,unsigned count,
     struct desk_rect bar,struct desk_rect bounds,const struct desk_font *font);
 /* Replace content in the same layout. Keeps the open heading, but retains a

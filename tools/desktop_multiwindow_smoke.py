@@ -74,7 +74,7 @@ def main():
                 shortcut('ctrl-q');wait(b'multi-window: PASS all windows retired; process exiting')
                 wait(b'deskd: child-exit pid='+pid+b' status=0')
                 shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
-                assert b'clients=0 children=1 clipboard_peers=0 window_limit=16 cache_bytes=0' in output
+                assert b'clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes=0' in output
                 assert b'multi-window: retired window=1 text=AlphaX' in output
                 assert b'multi-window: retired window=3 text=Gamma' in output
                 # A fresh process may start ID1; no stale connection state survives.

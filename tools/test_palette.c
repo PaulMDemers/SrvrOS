@@ -30,5 +30,22 @@ int main(void) {
     assert(!memcmp(&clip,&c.clip,sizeof(clip)));
     for(int y=0;y<480;y++) for(int x=0;x<640;x++) if(x<30 || x>=580 || y<50 || y>=400) assert(!pixels[y*640+x]);
     desk_palette_configure(&p,(struct desk_rect){0,0,1,1});desk_palette_draw(&c,&p,&desk_theme_quiet);
+    static struct desk_palette_item large[200],storage[256],more[512];
+    static struct desk_list_item visible[256],more_visible[512];
+    for(unsigned i=0;i<200;i++) { large[i].id=i+1000;snprintf(large[i].label,sizeof(large[i].label),"Document %03u",i); }
+    assert(desk_palette_items(&p,large,200)==-1 && p.count==2);
+    assert(!desk_palette_bind_storage(&p,storage,visible,256));
+    assert(!desk_palette_open(&p,"All windows",large,200) && p.list.count==200);
+    desk_text_buffer_set(&p.text,"Document 199",12);desk_palette_filter(&p);
+    assert(p.list.count==1 && desk_palette_key(&p,&enter).id==1199);
+    p.list.pressed=0;p.list.scrollbar_capture=1;
+    assert(!desk_palette_bind_storage(&p,more,more_visible,512));
+    assert(p.list.count==1 && p.list.selected==0 && p.visible[0].id==1199 && !p.list.scrollbar_capture && p.list.pressed==-1);
+    assert(!strcmp(p.text.data,"Document 199") && p.items==more && p.visible==more_visible);
+    assert(desk_palette_bind_storage(&p,storage,visible,100)==-1 && p.items==more);
+    assert(desk_palette_bind_storage(&p,storage,visible,DESK_LIST_MAX_ITEMS+1)==-1);
+    large[199].id=large[198].id;
+    assert(desk_palette_items(&p,large,200)==-1 && p.items[199].id==1199);
+    puts("palette-storage: PASS 200 searchable identities, borrowed storage growth, query/selection preservation and invalid replacement");
     puts("palette: PASS owned items, token search, keyboard selection/activation, empty results, stable replacement, validation, cancel, double click and clipping");
 }

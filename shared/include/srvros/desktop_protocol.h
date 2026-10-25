@@ -14,7 +14,8 @@
 #define DESK_MAX_WIDTH 1440
 #define DESK_MAX_HEIGHT 900
 #define DESK_CLIPBOARD_BYTES 65536
-#define DESK_MAX_WINDOWS 16
+#define DESK_MAX_WINDOWS 16 /* Inline compatibility storage, not dynamic admission. */
+#define DESK_REGISTRY_BYTES (8ull*1024*1024)
 /* Current admission budgets; distinct pools, not promises of available RAM. */
 #define DESK_GUI_QUEUE_BYTES (2ull*1024*1024)
 #define DESK_GUI_QUEUE_DEPTH 64
