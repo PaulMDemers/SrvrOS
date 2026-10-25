@@ -2048,6 +2048,14 @@ build/tests/syscall-poll-host$(HOST_EXE): tools/test_syscall_poll.c kernel/src/a
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-syscall-poll
 
+.PHONY: test-gui-wait
+test-gui-wait: build/tests/gui-wait-host$(HOST_EXE)
+	$<
+build/tests/gui-wait-host$(HOST_EXE): tools/test_gui_wait.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-desktop: test-gui-wait
+
 .PHONY: test-net-worker
 test-net-worker: build/tests/net-worker-host$(HOST_EXE)
 	$<
@@ -3007,6 +3015,7 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
+	$(PYTHON) tools/test_desktop_wait_records.py
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py

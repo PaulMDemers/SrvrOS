@@ -20,7 +20,7 @@ struct gui_queue {
     struct gui_queue *next;
     uint64_t pid;
     uint64_t head;
-    uint64_t count;
+    uint64_t count,cancel_epoch;
     struct gui_message messages[GUI_QUEUE_DEPTH];
 };
 
@@ -87,7 +87,7 @@ static struct gui_queue *queue_prepare(uint64_t pid) {
     struct gui_queue *queue=kmalloc(sizeof(*queue));
     if(queue) {
         /* Unused message cells are never read; zero only the published header. */
-        queue->next=NULL;queue->pid=pid;queue->head=0;queue->count=0;
+        queue->next=NULL;queue->pid=pid;queue->head=0;queue->count=0;queue->cancel_epoch=0;
     } else {
         flags=irq_save();queue_bytes-=sizeof(struct gui_queue);irq_restore(flags);
     }
@@ -310,6 +310,30 @@ int64_t gui_client_ready(uint64_t expected_server) {
     if(server_pid==expected_server && pid!=server_pid) {
         struct gui_queue *queue=queue_for_pid(pid);
         result=queue && queue->count?1:0;
+    }
+    irq_restore(flags);return result;
+}
+
+uint32_t gui_client_wait_state(uint64_t server,uint64_t expected_epoch,uint64_t *observed_epoch) {
+    struct process *process=process_current();
+    if(!process || !server)return SRV_GUI_DISCONNECTED;
+    uint64_t flags=irq_save(),pid=process_pid(process);
+    struct gui_queue *queue=queue_for_pid(pid);
+    uint32_t result=SRV_GUI_DISCONNECTED;
+    if(server_pid==server && pid!=server_pid && queue) {
+        *observed_epoch=queue->cancel_epoch;
+        result=queue->count?SRV_GUI_READY:0;
+        if(queue->cancel_epoch!=expected_epoch || queue->cancel_epoch==INT64_MAX)result|=SRV_GUI_CANCELED;
+    }
+    irq_restore(flags);return result;
+}
+int64_t gui_cancel_wait(void) {
+    struct process *process=process_current();if(!process)return -1;
+    uint64_t flags=irq_save(),pid=process_pid(process);
+    struct gui_queue *queue=queue_for_pid(pid);int64_t result=-1;
+    if(server_pid && pid!=server_pid && queue) {
+        if(queue->cancel_epoch<INT64_MAX)queue->cancel_epoch++;
+        result=queue->cancel_epoch;process_file_poll_wake();
     }
     irq_restore(flags);return result;
 }

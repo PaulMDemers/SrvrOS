@@ -121,7 +121,7 @@ int tool_text_runtime(const char *path) {
                     if(desk_clipboard_tick(&t->clip,srv_ticks())<0)tool_clipboard_result(t,-1);
                     tool_runtime_draw(t);
                 }
-                busy|=t->job.busy || t->clip.mode || t->title_dirty || t->quit || t->window.closing || t->new_window;
+                busy|=t->clip.mode || t->title_dirty || t->quit || t->window.closing || t->new_window;
             }
             link=&d->next;
         }
@@ -131,7 +131,11 @@ int tool_text_runtime(const char *path) {
                 d->tool.new_window=0;create(&connection,&documents,d->tool.window.window,"");busy=1;break;
             }
         }
-        if(documents && (busy || desk_connection_wait(&connection,10)<0))srv_sleep_ticks(1);
+        if(documents) {
+            struct srv_gui_wait wait={.deadline_us=(uint64_t)srv_monotonic_us()+100000};
+            if(busy || desk_file_pool_interests(&pool,&wait)!=1 || desk_connection_wait_io(&connection,&wait)<0)
+                srv_sleep_ticks(1);
+        }
     }
     desk_log("text-runtime: documents admitted=%u retired=%u refused=%u\n",admitted_count,retired_count,refused_count);
     if(tool_file_pool_retire(&pool,DESK_APP_TEXT))failed=1;

@@ -2,6 +2,44 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active combined desktop wait work (D3b)
+
+PR147 merged as `0a89d5f` and consumed. Next bounded scope: let a client wait
+for its authenticated GUI queue and explicit nonblocking pipe/PTY interests in
+one request, with an absolute monotonic deadline and cancellation generation.
+Capture immutable interests, reject close/dup2 descriptor reuse with lifetime
+generations, and recheck readiness atomically before scheduler registration.
+During owned storage I/O preserve GUI responsiveness and defer pipe readiness
+without entering descriptor cleanup or spinning. General POSIX poll/VFS/network
+admission remains unchanged. Add library wrappers and use them for the shared
+Text/Files worker service when windows are quiescent; keep accepted jobs owned
+when a wait is canceled. Also audit job snapshot reuse while extending its wait
+helpers. Touch GUI/syscalls, process descriptor lifetime, client/runtime helpers
+and focused host/actual-ABI/desktop QEMU tests. Native timing remains pending.
+Pro PR19 `e409c07` remains independent Wi-Fi diagnostics. Host/QEMU only;
+no boot/USB installation or reboot, and no automatic reboot at the deadline.
+
+D3b PR148 final runtime `13d8ac8` completes the local validation checkpoint. Full host/core suites and image gates pass;
+actual GUI wait tests use real threads/pipes and cover cancellation, descriptor
+replacement, simultaneous readiness and peer exit. The first guest run caught an
+uninitialized cancellation epoch in reused queue memory; a poisoned-allocation
+host fixture reproduces it, and explicit initialization fixes both. A separate
+throttled QEMU trial receives 16 idle and 32 active-write keystrokes during forty
+64 KiB writes/readbacks, acknowledges all 48 in app frames, reaps both workers and
+checks exact offline files, fsck and allocation. Its initial collector sampled
+processes before the compositor's ancillary child retired; bounded collection
+now confirms the restored baseline. Native latency/energy remain unaccepted.
+Normal Text/Files and 32-document/33-file growth regressions also pass. Clipboard/apps and the matched diagnostic regressions also pass. Review added
+an ownership-transition recheck at atomic wait registration, reproduced against
+the earlier source in a focused host test. A later lifecycle run exited cleanly
+but its live UART success line interleaved; the collector now requires exact
+atomic saved-console completions as well as successful child exits. Final actual-ABI,
+load and matched-capture checks pass on that corrected checkpoint. The matched
+capture validates 20 worker operations, 60 scripted and 44 injected key
+presentations, descendant retirement, replacement compositor, outside-image
+preservation and offline allocation. Public source guides are refreshed; no
+installed native payload or hardware acceptance changed.
+
 ### Active shared file-worker lifetime work (D3a)
 
 PR146 is merged as `91b258e` and consumed. Next bounded scope: reusable,

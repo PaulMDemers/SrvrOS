@@ -23,6 +23,8 @@ int main(void) {
     frame.rax=SYS_BATTERY_STATUS;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_CONTROL;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_WAIT;assert(syscall_io_safe(&frame));
+    frame.rax=SYS_GUI_WAIT_IO;assert(syscall_io_safe(&frame));
+    frame.rax=SYS_GUI_CANCEL_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_OPEN,SYS_CLOSE,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
         SYS_KILL,SYS_SPAWN,SYS_MMAP,SYS_MUNMAP,SYS_FILE_CHANGE,UINT64_MAX};

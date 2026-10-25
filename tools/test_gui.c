@@ -28,7 +28,7 @@ void *kmalloc(size_t bytes) {
     if(allocation_hook) { void (*hook)(void)=allocation_hook;allocation_hook=NULL;hook(); }
     if(heap_calls==retire_at)gui_process_cleanup(retire_pid);
     if(heap_calls==heap_fail_at)return NULL;
-    void *p=malloc(bytes);if(p)heap_live++;return p;
+    void *p=malloc(bytes);if(p) { heap_live++;memset(p,0xa5,bytes); }return p;
 }
 void kfree(void *p) { assert(!gui_test_irq_depth);if(p) { assert(heap_live);heap_live--; }free(p); }
 
@@ -310,6 +310,15 @@ int main(void) {
     current_pid=2;assert(gui_client_ready(1)==1 && poll_wakes);
     assert(gui_recv(&received)==1 && received.source_pid==1);
     assert(gui_client_ready(1)==0);
+    uint64_t observed=99;unsigned allocated_before=heap_calls;
+    assert(!gui_client_wait_state(1,0,&observed) && !observed);
+    assert(gui_cancel_wait()==1 && gui_client_wait_state(1,0,&observed)==SRV_GUI_CANCELED && observed==1);
+    assert(!gui_client_wait_state(1,1,&observed) && heap_calls==allocated_before);
+    current_pid=1;assert(gui_cancel_wait()==-1 && gui_client_wait_state(1,0,&observed)==SRV_GUI_DISCONNECTED);
+    current_pid=2;queue_for_pid(2)->cancel_epoch=INT64_MAX-1;
+    assert(gui_cancel_wait()==INT64_MAX && gui_cancel_wait()==INT64_MAX);
+    assert(gui_client_wait_state(1,INT64_MAX,&observed)==SRV_GUI_CANCELED);
+    queue_for_pid(2)->cancel_epoch=0;
     wheel=packet_message(DESK_POINTER,2,0,0);
     assert(gui_send(&wheel)==-1);
     current_pid=1; assert(gui_send(&wheel)==0);

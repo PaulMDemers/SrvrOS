@@ -464,11 +464,13 @@ The [desktop evolution plan](desktop-api-evolution.md) needs dependable worker
 error state, file operations and event dispatch now. It does not need fork,
 dynamic linking or every standard utility before supporting multiple windows.
 
-Provide a single UI connection dispatcher which can wait on GUI events, timer
-deadlines, file/socket readiness and worker completion. Decide how GUI readiness
-enters the kernel wait model; repeatedly polling a separate GUI loop is not the
-intended permanent solution. Preserve native GUI authentication, surface seals
-and cancellation ownership while making the userspace loop reusable.
+The native desktop now has one connection dispatcher for multiple windows and a
+combined wait for GUI, an absolute deadline, cancellation and up to eight explicit
+nonblocking pipe/PTY interests. Text/Files use it with shared file workers.
+This is a native extension, not a GUI POSIX descriptor or general file/socket
+wait during owned storage I/O. Broader service integration remains future work;
+GUI authentication, surface seals and accepted-job ownership remain enforced.
+See [desktop connections](desktop-connections.md) for the current API and tests.
 
 For future ports, publish a small capability/limits manifest and test it against
 the actual implementation. Audit sysconf/pathconf/feature-test macros before

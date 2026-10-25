@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <srvros/key_event.h>
+#include <srvros/gui_wait.h>
 #include <srvros/pointer_config.h>
 
 #define GUI_TEXT_MAX 192
@@ -57,6 +58,8 @@ int64_t gui_send(const struct gui_message *message);
 int64_t gui_recv(struct gui_message *message);
 /* Client-only readiness; 1 queued, 0 empty, -1 changed/absent server. */
 int64_t gui_client_ready(uint64_t expected_server);
+uint32_t gui_client_wait_state(uint64_t server,uint64_t expected_epoch,uint64_t *observed_epoch);
+int64_t gui_cancel_wait(void);
 /* Server-only combined queue/structured-key/pointer readiness; no dequeue. */
 int64_t gui_server_ready(void);
 int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t flags);

@@ -10,6 +10,12 @@
 static uint64_t ticks=1,next_surface=10,source=42;
 static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
 int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
+static unsigned io_waits;
+int gui_wait_io(struct srv_gui_wait *r) {
+    assert(r->server==42 && r->abi_version==SRV_GUI_WAIT_VERSION && r->struct_size==sizeof(*r));
+    assert(r->deadline_us==54321 && r->count==1 && r->fds[0].fd==7 && r->cancel_epoch==io_waits);
+    r->cancel_epoch=++io_waits;r->ready=SRV_GUI_CANCELED|SRV_GUI_FD_READY;r->fds[0].revents=SRV_POLLIN;return 0;
+}
 static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
 int desk_process_alive(uint64_t pid) { assert(pid==42);liveness_checks++;return alive; }
@@ -163,6 +169,13 @@ int main(void) {
     REFUSE(server,0);REFUSE(surface,0);REFUSE(generation,8);REFUSE(closed,1);REFUSE(failed,1);
     REFUSE(dirty,1);REFUSE(pending,1);REFUSE(send_since,1);REFUSE(menu_pending,1);
 #undef REFUSE
+    struct srv_gui_wait watch={.deadline_us=54321,.count=1,.fds={{.fd=7,.events=SRV_POLLIN}}};
+    assert(desk_app_wait_io(&stable,&watch)==(SRV_GUI_CANCELED|SRV_GUI_FD_READY) && stable.wait_epoch==1 && io_waits==1);
+    assert(desk_app_wait_io(&stable,&watch)>0 && stable.wait_epoch==2);
+    blocked=stable;blocked.dirty=1;assert(desk_app_wait_io(&blocked,&watch)<0 && io_waits==2);
+    struct desk_connection quiet={.server=42,.windows=&stable,.wait_epoch=2};stable.connection=&quiet;
+    assert(desk_app_wait_io(&stable,&watch)<0 && desk_connection_wait_io(&quiet,&watch)>0 && quiet.wait_epoch==3);
+    stable.pending=1;assert(desk_connection_wait_io(&quiet,&watch)<0 && io_waits==3);
     struct desk_app a;struct desk_packet event;struct desk_canvas canvas;
     assert(!desk_app_open(&a,"Test",400,300));assert(last_sent.type==DESK_OPEN);
     assert(!desk_app_canvas(&a,&canvas));

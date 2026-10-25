@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated October 24, 2026. The goal is a pleasant native desktop on the MacBook
+Updated October 25, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -60,32 +60,28 @@ audio or battery regressions. Temperature and idle percentage alone are not ener
 
 ## 5. Make the desktop less constrained
 
-The desktop replaces eager cache pairs with demand-allocated window
-buffers under a 96 MiB compositor pixel budget. Client canvases also use current
-sizes. The matched protocol supports failed-resize refusal and restoration, and
-coordinated budgets allow sixteen windows. Local host and VM tests pass for
-allocation pressure, sixteen apps, a refused seventeenth launch, menus, exact
-saved text, screenshots, resize and cleanup. Air7,2 accepts sixteen-window
-opening, saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; the round
-contains no native cache totals or pressure injection.
-See [window capacity](window-capacity.md).
+The desktop uses demand-allocated pixel caches under a 96 MiB budget, dynamic
+window/child registries under an 8 MiB additional metadata budget, and separate
+kernel surface/queue byte budgets. Window identity is independent of process
+identity; normal Text exercises multiple real documents through one dispatcher.
+Shared lazy file-worker channels and combined GUI/pipe waits remove one-worker
+and one-poll-loop-per-document assumptions. Host/VM coverage includes 128 small
+windows, 32 Text documents/33 exact files, explicit pressure refusal, clipboard,
+worker cleanup and typing during throttled writes. See [window capacity](window-capacity.md)
+and [desktop connections](desktop-connections.md).
 
-The count increase is a checkpoint, not the final architecture. Follow the
-[desktop API evolution plan](desktop-api-evolution.md): close service-capacity
-gaps, separate connection/window/surface identities, support multiple windows per
-process, then replace fixed registries with budgeted allocation. Mature the
-shared application loop, actions, document services and toolkit incrementally.
-Native-density typography is separate from current 2x pixel scaling.
+Air7,2 physical acceptance remains sixteen-window opening, saved-file integrity
+and clean exit at `bf68e4e9b88b8ae7`; that round contains no native cache totals or
+pressure injection. New source does not retroactively extend that evidence.
 
-**Next completion gates:** two document windows in one process, dynamic-count
-VM stress, explicit low-memory refusal without document loss, and focused native
-input/save/resize acceptance. Host allocation-pressure coverage and VM cleanup
-remain distinct from native interaction. The [portable C/POSIX profile](posix-supported-profile.md)
-now implements the thread-local errno, file/descriptor, process and readiness
-foundation with host/VM regressions. Its documented broader Unix and Linux-adapter
-gaps remain separate; full POSIX conformance is not a prerequisite for multiple
-windows. The desktop migration has not started merely because this foundation
-exists.
+**Next completion gates:** profile/reduce large-window overdraw, validate the new
+runtime with focused native input/save/resize checks, and mature shared actions,
+parented dialogs, chooser/document services and activation routing. Follow the
+[desktop API evolution plan](desktop-api-evolution.md). Native-density typography,
+accessibility and broader toolkit portability remain separate from 2× pixel scaling.
+The [portable C/POSIX profile](posix-supported-profile.md) supplies the selected
+thread/file/process/readiness foundation; broader Unix and Linux-adapter gaps
+remain separate, with no claim of full POSIX conformance.
 
 ## 6. Suspend and expand hardware deliberately
 

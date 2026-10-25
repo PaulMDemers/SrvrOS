@@ -248,9 +248,11 @@ void tool_runtime_draw(struct tool *t) {
     struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
 }
 int tool_file_pool_capture(void);
+int tool_wait_capture(void);
 int tool_multi_capture(void);
 int tool_growth_capture(void);
 int main(int argc,char **argv) {
+    if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--file-pool-wait-capture"))return tool_wait_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--file-pool-capture"))return tool_file_pool_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--multi-window-capture"))return tool_multi_capture();
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--window-growth-capture"))return tool_growth_capture();
@@ -313,7 +315,10 @@ int main(int argc,char **argv) {
         /* Text has no periodic animation when quiescent. Queue readiness wakes
          * it immediately on input/release/close; keep job/clipboard/diagnostic
          * progress and unfinished publication on the existing one-tick path. */
-        if(t->role!=DESK_APP_TEXT || coexist || t->quit || t->closing ||
+        if(pooled && !t->quit && !t->closing && !t->clip.mode && !t->title_dirty) {
+            struct srv_gui_wait wait={.deadline_us=(uint64_t)srv_monotonic_us()+100000};
+            if(desk_file_pool_interests(&pool,&wait)!=1 || desk_app_wait_io(&t->window,&wait)<0)srv_sleep_ticks(1);
+        } else if(t->role!=DESK_APP_TEXT || coexist || t->quit || t->closing ||
            t->job.busy || t->clip.mode || t->title_dirty || desk_app_wait(&t->window,10)<0)
             srv_sleep_ticks(1);
     }

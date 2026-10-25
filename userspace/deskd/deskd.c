@@ -1310,9 +1310,10 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int home_apps=battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
+    int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
-    int apps=multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")));
+    int apps=pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -1334,7 +1335,7 @@ int main(int argc,char **argv) {
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1363,6 +1364,7 @@ int main(int argc,char **argv) {
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
+    else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
