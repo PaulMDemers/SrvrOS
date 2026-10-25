@@ -2461,3 +2461,38 @@ PR157 owns shared document-dialog/app lifecycle work; preserve it and keep these
 additions isolated from its client/dialog code. PR19 remains independent Wi-Fi.
 The prepared native payload will be rebuilt and exact-stage tested. User has
 explicitly authorized the automated reboot after validation.
+
+### Automatic audio / filesystem stress prepared (PR158)
+
+Native source `1c2bba2f`, v74 release `a70f9540f3aa39dd`, run
+`6e0147a2ac774722` uses a continuous thirty-minute PCM producer and a separate
+unpaced 256-KiB create/flush/rename/reopen/compare/delete/sync worker. A pipe starts
+file activity only after PCM reports live playback. Timestamp/byte/count receipts
+reject late, absent or insufficient-duration I/O, incomplete PCM and underruns.
+Boot waits for fresh battery telemetry, starts the workload, shows elapsed
+progress and retires the desktop/battery lifetime before unmount and automatic
+Ubuntu return. No human interaction is required beyond listening. Scratch space
+is bounded; all preexisting Home files remain outside the private test directory.
+
+Full build/core and full smoke pass, including 482 CLI commands, shell editing,
+UEFI USB input and displayd. The new receipt regression and 80 staging tests pass.
+The automatic 60-second Q35 run on clean `1c2bba2f` completes 363 verified cycles
+(95,158,272 bytes) with zero underruns and 224 independently observed non-silent
+PCM/USB-write overlap windows. It retires cleanly and returns without injected
+keyboard or mouse input; offline allocation is clean. Exact staged GRUB→Limine
+rehearsal on `95d522c2` (harness-only follow-up) confirms native profile refusal,
+no stress startup on unsupported Q35, unmount and automatic return. Its first
+harness configuration lost the reference clock with synthetic ACPI under UEFI;
+that failure is preserved, and the successful rehearsal uses the established
+native UEFI fixture without injected AML. Native source/payload did not change.
+
+USB baseline is 335 files / 992 clusters, no leaks or bitmap mismatches; no new
+USB inputs are needed. Ubuntu and console recovery `c35475f62f154f1e` are retained.
+The obsolete EFI-only copy `87bf9866baa3f8bc` is retired after exact durable backup
+verification to make installation space; accepted evidence/payload backups and
+the latest attended/automatic recovery payloads remain available. The new Ubuntu
+collector requires the matching workload receipt, clean desktop/battery retirement,
+prior-file preservation and offline allocation; listening remains separate.
+User explicitly authorized reboot and automatic startup after validation. Save
+armed state and durable run/payload copies before launch. Native endurance is
+pending this run, not accepted by VM success.
