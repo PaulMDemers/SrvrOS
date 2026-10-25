@@ -164,8 +164,12 @@ CORE1/AGC0/TXBE0/TX_BAND remained2/21400/0/4; EXT_CCA changedffe4->f1e4,
 preserving ED_CCA upper nibblef. Entire258464-byte prefix/both success markers
 saved. Recovery/default/one-shot/hashes passed; offline clean303files/717clusters/
 125directories, zero leaks/mismatches/errors; unmounted/unarmed. Captured layout
-accepted; next audit RF channel programming/calibration and sufficient log
-capacity. RF frequency/calibrated radio/connectivity remain untested.
+accepted. Separate v81 prerequisite trial `dde8fcb03f3ea0d5`, source `74d1599e`,
+is installed/unarmed after local and both exact-stage VM checks. It selects
+explicit512KiB capture and reads5 fixed MAC plus15 RF targets,116 operations/
+32 strict guard triplets, zero new data writes. Ubuntu default/recovery retained;
+await readiness for cold-cycle shutdown and collect matching session first.
+RF frequency/calibrated radio/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -7211,3 +7215,25 @@ validates whole earlier proof,512KiB marker and all116 receipts;1089 malformed
 bounded proofs and3 full-prefix failures rejected. Full build andASan/UBSan
 pass. Next: exact-stage GPT save/return and missing-workspace rehearsal before
 install. RF values/native larger-capture acceptance remain pending.
+
+
+## 2026-10-25 — Batched channel prerequisite/full-capture trial installed
+
+Source `74d1599e14ee1170b6d1fe1b6827eacd1c475b66`, release
+`dde8fcb03f3ea0d5`, config `ram-usb-wifi-fw-v81-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed; VM
+receipt confirms524288 capture selection. Installed/current hashes verified;
+Ubuntu default and known-good recovery `e47dca3a6b30c6c1` retained. Accepted
+v80 payload remains installed/archived; v79 payload removed from ESP only after
+full durable archive byte equality. Offline preboot exFAT/allocation clean
+303files/717clusters/125directories, zero leaks/mismatches/errors; workspace
+unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-probe-74d1599/`.
+After readiness, cold-cycle Wi-Fi10s while off and leave workspace connected.
+Automatic capture saves/returns to Ubuntu; no photos or commands needed.
+Collect matching release/session first with `channel-probe/collect_return.py`;
+require whole earlier proof,116 receipts/32 guards/5 MAC+15 RF observations,
+whole512KiB-capacity prefix and both completion markers. Preserve failures;
+no automatic RF data write/frequency selection,calibration,MAC enable or traffic.
