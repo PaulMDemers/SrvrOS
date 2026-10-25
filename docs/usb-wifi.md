@@ -2737,3 +2737,16 @@ guards are valid; this does not accept those values or permit later calibration.
 The full fixture is at most102527bytes, below the131072-byte startup capture cap.
 The strict collector requires the complete prior initialization proof, both
 completion markers and the complete untruncated saved prefix.
+
+
+The native v66 observation completed on2026-10-25 (source `83152ee0`, release
+`257e68678e55ba49`, session `session-00065eac64bddcbe-00`). All44 writes and44
+separate reads passed command/transport checks; all616 operations,528 guard reads
+and176 guard triplets passed. There were43 exact readback matches. Only index5,
+RF0:6, differed:41 written/00 observed, mismatch mask0000000000000020.
+Both completion markers and the complete102457-byte prefix passed, with clean
+recovery and filesystem/allocation checks. This accepts the bounded observation
+only; the original strict engine remains unchanged. Next observe the next fixed
+reference RF bank table with this exact full central profile as a prerequisite.
+Do not promote table command completion to calibrated radio acceptance or run
+trim/DAC/VCO calibration automatically.

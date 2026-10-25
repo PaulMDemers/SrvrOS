@@ -33,11 +33,12 @@ and RF setting0 are zero in native and live Linux samples. RF_MISC differs1/5;
 no missing prerequisite is established by comparing disabled and live states.
 Live Linux RF reads now show0:6/1/2/6/22 =8/1/17/8/68 while networking
 works. Post-initialization RF0:6 does not retain41, so strict immediate table
-readback equality still needs a register-specific basis. Candidate `257e68678e55ba49` (source `83152ee0`) is installed unarmed for
-a separate central-table write pass followed by a complete read pass. Its local
-and exact-stage VM checks passed; native observations are pending. The original
-strict engine remains unchanged, and calibration/connectivity remain pending.
-Next run the cold hardware observation and collect the matching session first.
+readback equality still needs a register-specific basis. Release `257e68678e55ba49` (source `83152ee0`) completed the separate
+central-table write/read observation: all44 ACKs and44 reads, with43 exact matches
+and only RF0:6 reading0 instead of41. All command/guard/recovery checks passed.
+This remains an observation; the original strict engine is unchanged and full
+register/radio acceptance is pending. Next prepare the next fixed RF bank table
+observation with this complete captured profile as a prerequisite.
 No reboot is armed. The latest dated sections below contain full
 scope, dependencies and evidence locations.
 
@@ -5897,3 +5898,30 @@ Require complete v60 prerequisites, all88 exact command replies,176 guard triple
 the full untruncated prefix are required. Do not promote this observation to
 register or radio acceptance, and do not trigger calibration automatically.
 No reboot armed; native table results pending.
+
+
+### 2026-10-25 — full central RF table observation collected
+
+Source `83152ee0`, release `257e68678e55ba49`, session
+`session-00065eac64bddcbe-00` passed the strict v66 observation collector.
+All44 reference-order writes were acknowledged, then all44 separate reads
+completed. All616 operations/submissions,528 guard reads,88 exact16-byte command
+replies and176 MAC0/COREf000f200/disabled-DMA triplets passed. Readbacks matched
+43 table values; the only mismatch was RF0:6 expected41/observed00, index5 and
+mask0000000000000020. No subsequent frequency trim, other RF banks/band tables,
+DAC/VCO calibration or packet traffic ran.
+
+The observation localizes the readback discrepancy to RF0:6 across the complete
+central table. It accepts transport/guard/observation evidence only; it does not
+change the original strict engine, explain RF0:6 semantics, or accept the whole
+radio initialization. Next prepare a bounded observation of the next reference
+RF bank table, requiring this exact complete central profile; maintain separate
+register/function acceptance and do not trigger calibration automatically.
+
+Both completion markers and the full102457-byte startup snapshot passed.
+Collection `build/bringup/wifi-rf-table/collection/collection-sklpeom6`, strict
+receipts and full evidence are archived with the payload under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-table-83152ee/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean275files/661clusters/111directories,
+zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
