@@ -7003,3 +7003,20 @@ zero leaks/mismatches/errors; unmounted and unarmed. Evidence durably archived a
 Next: audit channel-specific bandwidth/band/synthesizer and calibration ordering
 against pinned reference and fresh captured board fields. Scanning, association,
 security and Wi-Fi connectivity/UI remain pending; no automatic next write/reboot.
+
+
+## 2026-10-25 — Firmware bandwidth response observation scope
+
+Collected v78 at `412bced8`, unmounted/unarmed. Fetched main `f4e9fbcb`
+(PR162 modal readiness); PR164 owns Air6,1 Files startup/load. No MT76 overlap;
+retain Pro integration base `d5bc4b3` without unrelated desktop merges.
+Pinned USB channel setup starts with CMD_FUN_SET_OP1, BW_SETTING2,value0
+(20MHz), wait-for-reply, before baseband/band/CCA and RF synthesizer setup.
+Objective: explicit v79 observation after full v78 timing proof; one fixed
+sequence15 command, six strict guard reads in two triplets, bounded16-byte
+response observation. Validate framing/sequence, record payload words without
+claiming firmware semantic acknowledgment or bandwidth acceptance. No retry,
+follow-on baseband/RF/channel programming, MAC enable or traffic. Scope:
+MT76 bounded engine/native/staging/tests/collector and channel dependency audit.
+Calibration remains dependent on channel, gain/power and MAC lifecycle context;
+do not insert isolated calibration commands into disabled-MAC initialization.
