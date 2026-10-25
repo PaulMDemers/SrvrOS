@@ -7174,3 +7174,26 @@ Next: audit RF band/synthesizer channel setup and fresh gain/power/calibration
 ordering. Current proof leaves3680bytes, so plan sufficient complete-prefix
 capacity before another large RF phase. No automatic next write/reboot, MAC
 enable, scanning or traffic; connectivity remains pending.
+
+
+## 2026-10-25 — Batched RF-channel prerequisite capture and larger proof scope
+
+Collected v80 at `c4af7dcc`, unmounted/unarmed. Fetched main `46f6212f`
+(PR168 Air6,1 handoff); PR169 owns unsaved-dialog shutdown. No MT76/logger
+ownership overlap; retain integration base `d5bc4b3`. Before frequency writes,
+capture remaining channel prerequisites together: five fixed MAC gain/PA/ALC
+registers13c8/13a0/13a8/13b4/518 and fifteen read-only RF targets5:0,6:0,
+0:24,0:26..37. MAC block has two guard triplets; every RF command has its own
+two. Total116 operations,101 reads (96 guards+5 MAC),15 fixed CMD10 reads,
+zero new MAC/RF data writes. Sequence1..15 after completed bandwidth15 response.
+Fixed addresses only; no arbitrary caller-selected register/command/payload.
+
+The full prefix already consumes258464/262144bytes. Add explicit512KiB
+capture only for new v81 profile, retaining existing64/128/256KiB behavior and
+lost-prefix refusal. Raise bounded Ubuntu collection ceiling to512KiB with
+byte-preservation and overflow tests. Scope: logger allocation/API/tests,
+MT76 read-only engine/native/staging/strict collector and RF dependency audit.
+Require exact complete v80 layout and full earlier proof; both final markers,
+full prefix and offline/recovery checks. No frequency choice, RF data write,
+calibration, MAC enable, scan or traffic. Larger capture must be tested with
+this real prerequisite trial rather than a separate reboot only for logging.
