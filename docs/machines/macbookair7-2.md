@@ -13,6 +13,10 @@ and return automatically on handled failures. Existing USB documents are preserv
 The first exact-stage VM correctly failed on file creation: ordinary RAM boot
 is read-only. The diagnostic now uses an independent volatile boot-filesystem
 copy; earlier AHCI-backed POSIX passes do not establish this new path.
+The corrected RAM run passed the full thread suite but exposed a completed-join
+signal-dispatch race in posixdemo: worker exited successfully, timeout returned
+ETIMEDOUT, handler count stayed zero. A directed already-completed-target test
+and libc join checkpoint correction are the next bounded runtime scope.
 Main `211f17c` is current; Pro PR19 `aa3dfff` owns independent direct-RF Wi-Fi
 work. Dependencies are the locally accepted POSIX runtime and existing logger,
 process lifetime and screenshot mechanisms. Native acceptance is pending.

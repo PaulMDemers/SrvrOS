@@ -165,7 +165,7 @@ def main():
             "threadstress: spawn-actions ok",
             "threadstress: masked poll ok",
             "threadstress: pthread contracts ok",
-            "threadstress: targeted signal ok",
+            "threadstress: targeted-signal ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",

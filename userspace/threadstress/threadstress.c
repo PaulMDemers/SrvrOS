@@ -679,7 +679,7 @@ int main(int argc, char **argv) {
     RUN_TEST("spawn-actions", posix_spawn_actions_test);
     RUN_TEST("masked poll", posix_masked_poll_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
-    RUN_TEST("targeted signal", posix_targeted_signal_test);
+    RUN_TEST("targeted-signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);

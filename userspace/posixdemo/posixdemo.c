@@ -294,11 +294,11 @@ static int pthread_cond_futex_test(void) {
     void *value = 0;
     if (pthread_mutex_init(&demo.mutex, 0) != 0 ||
         pthread_cond_init(&demo.cond, 0) != 0) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
     demo.ready = 0;
     if (pthread_create(&thread, 0, pthread_cond_worker, &demo) != 0) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
     for (int i = 0; i < 8; i++) {
         sched_yield();
@@ -308,12 +308,12 @@ static int pthread_cond_futex_test(void) {
     pthread_cond_signal(&demo.cond);
     pthread_mutex_unlock(&demo.mutex);
     if (pthread_join(thread, &value) != 0 || value != (void *)0x66 || demo.ready != 3) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
 
     struct timespec timeout;
     if (clock_gettime(CLOCK_REALTIME, &timeout) != 0) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
     timeout.tv_nsec += 20000000L;
     if (timeout.tv_nsec >= 1000000000L) {
@@ -324,18 +324,18 @@ static int pthread_cond_futex_test(void) {
     int timed = pthread_cond_timedwait(&demo.cond, &demo.mutex, &timeout);
     pthread_mutex_unlock(&demo.mutex);
     if (timed != ETIMEDOUT) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
 
     if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
     demo_signal_count = 0;
     if (pthread_create(&thread, 0, pthread_cond_signal_worker, (void *)pthread_self()) != 0) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
     if (clock_gettime(CLOCK_REALTIME, &timeout) != 0) {
-        return -1;
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
     timeout.tv_nsec += 30000000L;
     if (timeout.tv_nsec >= 1000000000L) {
@@ -345,12 +345,12 @@ static int pthread_cond_futex_test(void) {
     pthread_mutex_lock(&demo.mutex);
     timed = pthread_cond_timedwait(&demo.cond, &demo.mutex, &timeout);
     pthread_mutex_unlock(&demo.mutex);
-    if (pthread_join(thread, &value) != 0 ||
-        value != (void *)0x25 ||
-        timed != ETIMEDOUT ||
-        demo_signal_count == 0 ||
-        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
-        return -1;
+    int joined=pthread_join(thread, &value);
+    int count=demo_signal_count;
+    int restored=count>0 ? signal(SIGUSR2, SIG_DFL)==SIG_ERR : 0;
+    if (joined != 0 || value != (void *)0x25 || timed != ETIMEDOUT || count == 0 || restored) {
+        printf("cond-futex: join=%d value=%lu timed=%d signals=%d restore=%d\n",joined,(unsigned long)value,timed,count,restored);
+        printf("cond-futex: failed line=%d errno=%d\n",__LINE__,errno);return -1;
     }
 
     return pthread_cond_destroy(&demo.cond) == 0 && pthread_mutex_destroy(&demo.mutex) == 0 ? 0 : -1;

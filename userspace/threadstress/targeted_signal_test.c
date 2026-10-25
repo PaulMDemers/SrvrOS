@@ -23,6 +23,10 @@ static void *wait_worker(void *arg) {
     while(!__atomic_load_n(&leave,__ATOMIC_ACQUIRE)) sched_yield();
     return NULL;
 }
+static void *join_signal_worker(void *unused) {
+    (void)unused;
+    return pthread_kill(main_thread,SIGUSR1)?(void *)1:NULL;
+}
 #define CHECK(x) do { if(!(x)) { printf("threadstress: targeted signal line=%d errno=%d\n",__LINE__,errno);return -1;} } while(0)
 int posix_targeted_signal_test(void) {
     struct sigaction action={.sa_handler=handler},old1,old2;
@@ -53,7 +57,20 @@ int posix_targeted_signal_test(void) {
         CHECK(pthread_kill(workers[i],0)==ESRCH);
     }
     CHECK(handlers==2);
+    CHECK(pthread_sigmask(SIG_UNBLOCK,&both,NULL)==0);
+    pthread_t finished;
+    CHECK(pthread_create(&finished,NULL,join_signal_worker,NULL)==0);
+    /* Raw scheduler calls intentionally do not dispatch libc handlers. Force
+     * a pending signal and an already-finished join target, without a race
+     * between a short condition timeout and the worker's signal delivery. */
+    uint64_t deadline=(uint64_t)srv_monotonic_us()+5000000;
+    while(srv_thread_status((uint64_t)(uintptr_t)finished)>0 &&
+          (uint64_t)srv_monotonic_us()<deadline) srv_yield();
+    CHECK(srv_thread_status((uint64_t)(uintptr_t)finished)==0 && handlers==2);
+    void *joined=NULL;
+    CHECK(pthread_join(finished,&joined)==0 && !joined);
+    CHECK(handlers==3 && handled_on==main_thread);
     CHECK(sigaction(SIGUSR1,&old1,NULL)==0 && sigaction(SIGUSR2,&old2,NULL)==0);
     CHECK(pthread_sigmask(SIG_SETMASK,&previous,NULL)==0);
-    puts("threadstress: targeted signal ok");return 0;
+    puts("threadstress: targeted-signal ok");return 0;
 }

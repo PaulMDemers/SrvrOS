@@ -288,6 +288,10 @@ int pthread_join(pthread_t thread, void **value_ptr) {
     }
 
     pthread_record_cleanup(record);
+    /* Joining an already-exited worker is still a cooperative signal checkpoint.
+     * Its completion can win the kernel wait race over a pending signal. Retire
+     * the record before invoking a handler which may create or join threads. */
+    (void)__posix_signal_dispatch_pending();
     return 0;
 }
 
