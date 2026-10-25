@@ -107,7 +107,7 @@ the wheel, and keyboard selection remains visible.
 Kernel capacity is 32 GUI queues and 64 surfaces, with the existing 64 process
 slots. Workers and terminal shells consume extra resources, so sixteen is an
 intentional ceiling rather than a guarantee under every memory/workload mix.
-See [window capacity and ownership](window-capacity.md) for protocol v12,
+See [window capacity and ownership](window-capacity.md) for the matched desktop protocol,
 allocation guarantees and exact validation. Sixteen-window persistence and
 resize/lifecycle VMs pass. Air7,2 physically accepts sixteen-window opening,
 saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; native pressure
