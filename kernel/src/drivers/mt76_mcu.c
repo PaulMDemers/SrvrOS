@@ -2274,3 +2274,64 @@ enum mt76_mcu_timing_status mt76_bw_observe_capture(struct mt76_bw_observe *s,co
     if(!bw_observe_state_valid(s,7))return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+uint32_t mt76_bbp20_address(unsigned i){static const uint32_t a[5]={0x2004,0x2300,0x2700,0x132c,0x141c};return i<5?a[i]:UINT32_MAX;}
+uint32_t mt76_bbp20_value(unsigned i,uint32_t before){static const uint32_t mask[5]={0x18,0x7300,3,7,0xfff},value[5]={0,0x1000,0,4,0x1e4};return i<5?(before&~mask[i])|value[i]:UINT32_MAX;}
+bool mt76_bbp20_request(unsigned op,bool *write,uint32_t *address){
+    if(op>=45 || !write || !address)return false;
+    unsigned n=op%9;*write=n==4;*address=n<3?mt76_rf_probe_read_address(n):n>=6?mt76_rf_probe_read_address(n-6):mt76_bbp20_address(op/9);
+    return true;
+}
+static bool bbp20_state_valid(const struct mt76_bbp20 *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>45)return false;
+    unsigned writes=0,verified=0;
+    for(unsigned i=0;i<5;i++){
+        unsigned done=op>=9*(i+1)?9:op>9*i?op-9*i:0;
+        for(unsigned j=0;j<3;j++){
+            if(done>j && !rf_central_guard_valid(j,s->guards[i*2][j]))return false;
+            if(done>6+j && !rf_central_guard_valid(j,s->guards[i*2+1][j]))return false;
+        }
+        if(done>3 && s->before[i]==UINT32_MAX)return false;
+        if(done>4)writes++;
+        if(done>5){if(s->after[i]!=mt76_bbp20_value(i,s->before[i]))return false;verified++;}
+    }
+    return s->writes==writes && s->verified==verified && s->reads==op-writes;
+}
+bool mt76_bbp20_transfer_valid(const struct mt76_bbp20 *s,unsigned op,bool write,uint32_t a,const uint8_t *data,unsigned length){
+    bool w;uint32_t address;
+    if(!s || s->complete || !data || length!=4 || !mt76_bbp20_request(op,&w,&address) || write!=w || a!=address || !bbp20_state_valid(s,op))return false;
+    if(write){uint32_t v=mt76_bbp20_value(op/9,s->before[op/9]);for(unsigned j=0;j<4;j++)if(data[j]!=(uint8_t)(v>>(8*j)))return false;}
+    return true;
+}
+enum mt76_mcu_timing_status mt76_bbp20_apply(struct mt76_bbp20 *s,const struct mt76_bbp20_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_bbp20){.attempted=true};
+    for(unsigned op=0;op<45;op++){
+        bool write;uint32_t a;unsigned i=op/9,n=op%9;uint8_t data[4]={0};
+        if(!mt76_bbp20_request(op,&write,&a))return MT76_TIMING_STATE;
+        if(write){uint32_t v=mt76_bbp20_value(i,s->before[i]);for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(v>>(8*j));}
+        if(!mt76_bbp20_transfer_valid(s,op,write,a,data,4))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->transfer(io->context,op,write,a,data,4))return MT76_TIMING_IO;
+        uint32_t v=0;for(unsigned j=0;j<4;j++)v|=(uint32_t)data[j]<<(8*j);
+        s->operations++;if(write)s->writes++;else s->reads++;
+        if(n<3 || n>=6){unsigned j=n<3?n:n-6;s->guards[i*2+(n>=6)][j]=v;if(!rf_central_guard_valid(j,v))return MT76_TIMING_STATE;}
+        else if(n==3){s->before[i]=v;if(v==UINT32_MAX)return MT76_TIMING_STATE;}
+        else if(n==5){s->after[i]=v;if(v!=mt76_bbp20_value(i,s->before[i]))return MT76_TIMING_STATE;s->verified++;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!bbp20_state_valid(s,45))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
+
+uint32_t mt76_bbp20_initial(unsigned i){static const uint32_t v[5]={2,0x21400,0,4,0xffe4};return i<5?v[i]:UINT32_MAX;}
+bool mt76_bbp20_exact_profile_valid(const struct mt76_bbp20 *s){
+    if(!s || !s->complete || !bbp20_state_valid(s,45))return false;
+    for(unsigned i=0;i<5;i++)if(s->before[i]!=mt76_bbp20_initial(i) || s->after[i]!=mt76_bbp20_value(i,s->before[i]))return false;
+    return true;
+}
+bool mt76_bw_observe_exact_profile_valid(const struct mt76_bw_observe *s){
+    if(!s || !s->complete || !bw_observe_state_valid(s,7))return false;
+    for(unsigned e=0;e<2;e++)for(unsigned j=0;j<3;j++)if(s->guards[e][j]!=(j==1?0xf000f200u:j==2?0x40000050u:0))return false;
+    return s->words[0]==0x4a0f0008 && s->words[1]==2 && s->words[2]==0 && s->words[3]==0x4a0f0008;
+}

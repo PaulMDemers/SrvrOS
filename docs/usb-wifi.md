@@ -3242,3 +3242,30 @@ unmounted/unarmed. The collector deliberately records ack_validated0 and does
 not accept actual bandwidth or radio functionality. Next implementation may
 pin this captured response as a prerequisite with tests before the next bounded
 baseband phase; no follow-on BBP/RF writes occurred in this observation trial.
+
+
+### Guarded20MHz baseband layout (v80 candidate)
+
+Separate `--wifi-bbp20` requires v79's fixed bandwidth response path and adds
+an exact captured response predicate: complete7-operation proof, all guards,
+words4a0f0008/2/0/4a0f0008. Original framing-only observation remains unchanged;
+new mode58 emits `wifi-bw-validated: exact_profile=1` before any baseband transfer.
+The fixed layout groups only adjacent same-register reference field updates;
+there is no intervening command or delay. MAC/DMA remain disabled.
+
+| Register | Clear mask | Set bits | Captured before | Required after |
+| --- | --- | --- | --- | --- |
+| CORE1 /2004 | 18 | 0 | 2 | 2 |
+| AGC0 /2300 | 7300 | 1000 | 21400 | 21400 |
+| TXBE0 /2700 | 3 | 0 | 0 | 0 |
+| TX_BAND /132c | 7 | 4 | 4 | 4 |
+| EXT_CCA /141c | fff | 1e4 | ffe4 | f1e4 |
+
+Each target uses three guards, fresh read, one masked write, separate readback
+and three final guards.45 ordered transfers,40 reads/5 writes/5 verified,
+10 complete strict guard triplets. Every native fresh value must match the
+captured profile before its write; all unmasked bits are preserved. The CCA
+ED_CCA upper nibblef remains unchanged. The first four values already have the
+requested layout; only EXT_CCA is expected to change. No RF frequency selection,
+calibration, MAC enable, scan or traffic. Whole258463-byte fixture fits262144
+capacity, with strict full-prefix/both-marker checks; native validation pending.

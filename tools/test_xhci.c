@@ -4770,6 +4770,51 @@ static void test_wifi_bw_observe(void){
  }
  reset_test();assert(!xhci_wifi_capture_bw_observe());puts("xhci bandwidth observation: PASS all7 positions,157 prerequisite/state faults, every packet bit, no replay/refused USB and quarantine");
 }
+static void bbp20_fixture(struct xhci_device *d,unsigned op){
+ bw_observe_fixture(d,6);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->bw_observe.complete=true;m->bw_observe.operations=m->bw_observe_submitted=7;m->bw_observe.reads=6;
+ m->bw_observe.words[1]=2;m->bw_observe.words[2]=0;m->bw_observe.words[3]=0x4a0f0008;
+ assert(mt76_bw_observe_exact_profile_valid(&m->bw_observe));
+ m->bbp20_mode=m->bbp20_active=true;m->bbp20_submitted=op;m->bbp20=(struct mt76_bbp20){.attempted=true,.operations=op};
+ for(unsigned i=0;i<5;i++){unsigned done=op>=9*(i+1)?9:op>9*i?op-9*i:0;m->bbp20.before[i]=mt76_bbp20_initial(i);m->bbp20.after[i]=mt76_bbp20_value(i,m->bbp20.before[i]);if(done>4)m->bbp20.writes++;if(done>5)m->bbp20.verified++;}
+ m->bbp20.reads=op-m->bbp20.writes;
+ for(unsigned j=0;j<10;j++){m->bbp20.guards[j][1]=0xf000f200;m->bbp20.guards[j][2]=0x40000050;}
+}
+static void test_wifi_bbp20(void){
+ for(unsigned op=0;op<45;op++)for(unsigned fault=0;fault<167;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[105]={0},events[105]={0};uint8_t buffer[4096]={0},data[4]={0};
+  struct xhci_device *d=&xhci.devices[0];bbp20_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==166?6:1,0);
+  bool write;uint32_t a;assert(mt76_bbp20_request(op,&write,&a));
+  unsigned step=op%9,index=op/9;uint32_t v=write?mt76_bbp20_value(index,m->bbp20.before[index]):step==3?m->bbp20.before[index]:step==5?m->bbp20.after[index]:step<3?m->bbp20.guards[2*index][step]:m->bbp20.guards[2*index+1][step-6];
+  if(write){for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(v>>(8*j));}else{trim_reply_device=d;trim_reply_value=v;}
+  if(fault<=144){if(fault==138)m->channel_state.complete=false;else channel_state_fault(m,fault);}
+  if(fault==145)m->bbp20_mode=false;
+  if(fault==146)m->bbp20_active=false;
+  if(fault==147)m->vco_ready_mode=false;
+  if(fault==148)m->channel_observe_mode=false;
+  if(fault==149)m->channel_state.raw_ibi9=false;
+  if(fault==150)m->channel_state_submitted++;
+  if(fault==151)m->channel_state.complete=false;
+  if(fault==152)m->bbp20.operations++;
+  if(fault==153)m->bbp20_submitted++;
+  if(fault==154)m->bbp20.complete=true;
+  if(fault==155)a++;
+  if(fault==156)write=!write;
+  if(fault==157){if(op%9>=4)m->bbp20.before[op/9]^=1;else m->channel_state.values[0]=1;}
+  if(fault>=158 && fault<=161)m->bw_observe.words[fault-158]^=1;
+  if(fault==162)m->bw_observe.complete=false;
+  if(fault==163)m->bw_observe_submitted++;
+  if(fault==164)m->bw_observe_mode=false;
+  if(fault==165)m->usb_cycle.complete=false;
+  bool ok=wifi_bbp20_transfer(d,op,write,a,data,4);if(ok!=!fault)fprintf(stderr,"bbp20 op=%u fault=%u ok=%u\n",op,fault,ok);assert(ok==!fault);
+  if(!fault){assert(m->bbp20_submitted==op+1);assert(!wifi_bbp20_transfer(d,op,write,a,data,4));}
+  else if(fault==166)assert(d->ep0_quarantined && m->failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_bbp20());puts("xhci BBP20: PASS all45 transfers,165 prerequisite/state/profile faults, no USB on refusal, no replay and quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6115,6 +6160,7 @@ int main(int argc, char **argv) {
     test_wifi_channel_observe();
     test_wifi_usb_cycle();
     test_wifi_bw_observe();
+    test_wifi_bbp20();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

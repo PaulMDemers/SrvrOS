@@ -301,6 +301,7 @@ struct xhci_wifi_mcu {
     bool bw_observe_mode,bw_observe_active;
     unsigned bw_observe_submitted;
     struct mt76_bw_observe bw_observe;
+    bool bbp20_mode,bbp20_active;unsigned bbp20_submitted;struct mt76_bbp20 bbp20;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
     bool path_mode,path_active;

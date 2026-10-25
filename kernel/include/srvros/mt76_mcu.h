@@ -612,4 +612,19 @@ uint32_t mt76_bw_observe_guard_address(unsigned operation);
 bool mt76_bw_observe_admit(const struct mt76_bw_observe *s,unsigned operation);
 size_t mt76_bw_observe_packet(uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_bw_observe_capture(struct mt76_bw_observe *s,const struct mt76_mcu_timing_io *io);
+/* Fixed disabled-MAC 20MHz, primary control0, 2GHz band/CCA layout. */
+struct mt76_bbp20 {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[5],after[5],guards[10][3];
+};
+struct mt76_bbp20_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,unsigned,bool,uint32_t,uint8_t *,unsigned);};
+uint32_t mt76_bbp20_address(unsigned index);
+uint32_t mt76_bbp20_value(unsigned index,uint32_t before);
+bool mt76_bbp20_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_bbp20_transfer_valid(const struct mt76_bbp20 *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_bbp20_apply(struct mt76_bbp20 *s,const struct mt76_bbp20_io *io);
+bool mt76_bbp20_exact_profile_valid(const struct mt76_bbp20 *s);
+bool mt76_bw_observe_exact_profile_valid(const struct mt76_bw_observe *s);
+uint32_t mt76_bbp20_initial(unsigned index);
 #endif

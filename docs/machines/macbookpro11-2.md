@@ -7104,3 +7104,16 @@ transfers,40 reads/5 writes/5 verified,10 strict guard triplets. Scope: MT76
 reply/profile+RMW engine/native/staging/tests/collector. Keep original bandwidth
 observation policy and historical recipes unchanged. Full proof must fit256KiB;
 no RF synthesizer/channel frequency, calibration, MAC enable or traffic.
+
+
+Implemented exact captured bandwidth response admission (every response word
+and guard bit mutation refused) and five-target grouped RMW engine. Original
+framing-only observation remains unchanged. Host tests cover5120 preserved-word
+cases, all45 transfer and46 authorization boundaries, readback/guard/all-ones
+refusals, packet mutation and no replay. Native tests pass all45 positions and
+165 prerequisite/state/profile faults, no-USB refusal/replay and quarantine;
+full xHCI suite passes. All159 staging tests and158 historical recipe identities
+pass. Full-prefix fixture258463bytes leaves3681bytes in262144;420 malformed
+proofs rejected. Full build,ASan/UBSan and documentation checks pass. Next:
+exact-stage save/return and missing-workspace VM rehearsal, then install.
+Baseband-layout native acceptance remains pending; no RF frequency/calibration.
