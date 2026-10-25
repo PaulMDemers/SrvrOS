@@ -61,6 +61,7 @@ struct child_chunk { struct child_chunk *next;size_t bytes;struct child_record r
 struct session {
     const char *home;
     struct lifecycle_worker *worker;
+    int startup_trace;
     struct {uint64_t pid;struct desk_packet packet;} pending_open[LIFE_LAUNCH_SLOTS];
     unsigned pending_opens;
     int cache_pending;
@@ -128,6 +129,11 @@ static int client_send(const struct client *c,const struct desk_packet *packet) 
 static int child_index(const struct session *s,uint64_t pid) {
     for(int i=0;i<children_capacity(s);i++)if((*session_children(s,i))==pid)return i;
     return -1;
+}
+static uint64_t loop_sample(uint64_t *last,uint64_t *maximum,uint64_t now) {
+    uint64_t gap=*last?now-*last:0;
+    if(gap>*maximum)*maximum=gap;
+    *last=now;return gap;
 }
 static int window_lifetime_valid(const struct session *s,int i,uint64_t identity) {
     return i>=0 && i<session_capacity(s) && session_client(s,i)->pid &&
@@ -1017,6 +1023,9 @@ static void close_client(struct session *s,int i) {
 }
 static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     int child=child_index(s,pid);if(!p->window)return;
+    if(s->startup_trace && p->type==DESK_OPEN)desk_log("desktop-open: pid=%llu child=%d window=%llu flags=%u generation=%llu mode=%u at_us=%llu\n",
+        (unsigned long long)pid,child,(unsigned long long)p->window,p->value,(unsigned long long)p->generation,
+        child<0?0:*session_child_mode(s,child),(unsigned long long)srv_monotonic_us());
     if(child<0 && p->type==DESK_OPEN && s->worker) {
         int launching=0;
         for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)launching|=life_state(&s->worker->launch[n].state)!=LIFE_IDLE;
@@ -1582,7 +1591,7 @@ int main(int argc,char **argv) {
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
     static struct lifecycle_worker worker;
-    if(life_start(&worker)){gfx_console_mute(0);return 1;}s.worker=&worker;
+    if(life_start(&worker)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
@@ -1642,9 +1651,8 @@ int main(int argc,char **argv) {
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
         if(audio_io && audio_io_pid) {
-            if(loop_last && loop_now-loop_last>loop_max)loop_max=loop_now-loop_last;
-            if(loop_last && loop_now-loop_last>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)(loop_now-loop_last),life_phase);
-            loop_last=loop_now;
+            uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
+            if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
         }
         if(audio_io) {
             uint64_t now=(uint64_t)srv_monotonic_us();
@@ -1702,7 +1710,17 @@ int main(int argc,char **argv) {
                 if(now-life_close>life_close_max)life_close_max=now-life_close;
                 life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+500000;
             }
-            if((life_phase && now-life_begin>10000000) || s.child_errors){failed=1;break;}
+            if((life_phase && now-life_begin>10000000) || s.child_errors){
+                desk_log("desktop-life: deadline phase=%u pid=%llu child=%d elapsed_us=%llu pending_opens=%u errors=%u\n",life_phase,
+                    (unsigned long long)life_pid,child_index(&s,life_pid),(unsigned long long)(now-life_begin),s.pending_opens,s.child_errors);
+                for(int i=0;i<session_capacity(&s);i++)if(life_pid && session_client(&s,i)->pid==life_pid) {
+                    const struct client *c=session_client(&s,i);
+                    desk_log("desktop-life: window=%llu configure=%d awaiting=%d closing=%d generation=%llu progress=%llu pixels=%u\n",
+                        (unsigned long long)c->window,c->configure,c->awaiting,c->closing,(unsigned long long)c->generation,
+                        (unsigned long long)c->progress,desktop_window_at(&s.scene,i)->pixels!=NULL);
+                }
+                failed=1;break;
+            }
         }
         if(control_capture) {
             if(s.child_reaped) { if(s.child_reaped!=1 || s.child_errors)failed=1;break; }
@@ -2252,6 +2270,10 @@ int main(int argc,char **argv) {
             srv_sleep_ticks(1);
     }
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
+    if(audio_io && loop_last) {
+        uint64_t gap=loop_sample(&loop_last,&loop_max,coexist_end);
+        if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u final=1\n",(unsigned long long)gap,life_phase);
+    }
     if(battery_work) {
         uint64_t elapsed=coexist_end-work_begin;
         if(work_phase!=3 || elapsed<300000000 || !work_keys || !work_motion || !s.exiting || s.child_errors)failed=1;

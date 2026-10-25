@@ -527,6 +527,13 @@ static void document_routing_failures(void) {
 }
 
 int main(void) {
+    /* A timeout breaks before the next loop header. Its final interval still
+     * counts against the same responsiveness limit. */
+    uint64_t loop_last=0,loop_max=0;
+    assert(loop_sample(&loop_last,&loop_max,100)==0);
+    assert(loop_sample(&loop_last,&loop_max,100100)==100000);
+    assert(loop_sample(&loop_last,&loop_max,800100)==700000);
+    assert(loop_max==700000);
     buffer_budget();resize_refusal();
     idle_admission();
     battery_ui_notifications();
