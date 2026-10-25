@@ -96,12 +96,20 @@ and owner retirement report uncertainty without replay; replies during close or
 desktop exit cannot resurrect an application. These are host protocol checks,
 not physical input or timing acceptance. Run them with `make test-desktop`.
 
+The `--pointer` lifecycle fixture holds and releases real QMP mouse presses on
+Save/Discard/Cancel and Text/Preview picker buttons, then checks exact saved
+bytes and process retirement. Dialog and picker configuration is idempotent for
+an unchanged effective layout, preserving capture between press and release.
+Actual resize, disabling, loading/listing changes and focus loss still cancel it.
+Keyboard-only lifecycle checks do not accept the pointer path.
+
 Run the focused actual-consumer gates serially:
 
 ```sh
 tools/host-env.sh python3 tools/desktop_text_windows_smoke.py
 tools/host-env.sh python3 tools/desktop_preview_smoke.py
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py
+tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --pointer
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --crash
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --refuse-dialogs
 ```

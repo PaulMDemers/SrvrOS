@@ -2,22 +2,37 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active: modal pointer capture regression after attended return
+### Modal pointer correction validated; physical retest pending
 
-Release `b6f4c7525115168a` returned to Ubuntu and its matching session is
-collected. The user confirms modal windows display, but Save/Discard/Cancel
-buttons highlight without completing an action. This is failed physical pointer
-acceptance, despite clean runtime retirement. Keyboard-only VM checks missed
-this path. Scope: shared dialog/file-picker layout and press/release regression
-coverage, plus actual Text/Preview pointer tests. Repeated native-modal layout
-currently calls the UI's explicit capture-cancellation hook every loop. Preserve
-capture for an unchanged layout while retaining cancellation on real geometry,
-enabled-state, loading/content and focus changes. No driver/input protocol,
-worker, process-limit or firmware changes. Main `f4e9fbc`; PR164 owns the separate
-Air6,1 Files startup-under-I/O investigation and PR19 owns Pro Wi-Fi. Record raw
-return/failure evidence under `build/lifecycle-native-20261025/`; new regression
-artifacts under `build/modal-pointer-20261025/`. Recovery remains `9aa8dbf6fbda8252`;
-no reboot is armed. Complete host and actual pointer VM checks before restaging.
+Release `b6f4c7525115168a` returned with session
+`session-00065eb18ba89a8d-00`. Modal windows display, but the user reports
+Save/Discard/Cancel highlighting without acting: physical pointer acceptance
+failed. Runtime retirement itself is clean (collector attention empty, battery
+heap/errors/denied/rejected zero). All 1,100 prior non-metadata files retain their
+hashes; only `.srvros/meta` changed. Four logs and two test documents were added.
+Offline fsck/headroom/allocation passes: 1,107 files, 2,799 clusters, no leaks or
+bitmap mismatches. Unreported lifecycle/audio checks remain unaccepted.
+
+Repeated modal configuration canceled the UI capture between press and release.
+Shared dialogs now invalidate capture only on effective frame/button geometry or
+enabled-state changes; pickers skip identical-bounds configuration, retaining
+loading/listing and resize cancellation. No driver, protocol, worker, process
+limit or firmware change. Before-fix dialog and picker host regressions fail;
+fixed desktop/widget suites and matched builds pass. Actual Text/Preview QMP
+pointer validation on clean `f8e5fe2` passes seven held-click actions, exact saved
+`Click draft remains` bytes plus normal lifecycle files, clean allocation and
+process baseline recovery. The normal lifecycle sequence and forced-dialog
+refusal fixture also pass. A test-only first attempt stopped when the software
+cursor obscured a button border during visual discovery; its raw evidence is
+retained and the locator now moves the pointer away before scanning.
+
+Scope and code are in PR165; PR164 retains separate Air6,1 Files-under-I/O scope,
+and PR19 owns Pro Wi-Fi. Evidence is in `build/modal-pointer-20261025/` and the
+collected `build/lifecycle-native-20261025/` return. The next v75 attended guide
+opens with a focused physical button/picker checklist and has no timed exit.
+Validate its exact stage before installation; preserve independent recovery
+`9aa8dbf6fbda8252` and record install/one-shot/return state locally. No new physical
+acceptance is claimed until that retest. No reboot is armed at this checkpoint.
 
 ### Combined desktop lifecycle and playback trial prepared
 
