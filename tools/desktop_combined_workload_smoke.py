@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Shorten pacing only: real shell workload, PCM, Text/Files and battery on Q35."""
-import binascii,json,os,re,struct,subprocess,tempfile,time,uuid
+import argparse,binascii,json,os,re,struct,subprocess,tempfile,time,uuid
 from pathlib import Path
 from desktop_combined_workload import files,verify
 from desktop_foundation_smoke import QMP
@@ -12,9 +12,11 @@ from vm_sockets import connect_unix
 
 
 def main():
-    root=Path(__file__).resolve().parents[1];out=root/'build/review/desktop-combined-workload';out.mkdir(parents=True,exist_ok=True)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--full-round',action='store_true');args=parser.parse_args()
+    rounds,seconds,bursts=(1,60,40) if args.full_round else (2,6,2)
+    root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-combined-workload-full' if args.full_round else 'build/review/desktop-combined-workload');out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);(out/'tone.wav').unlink(missing_ok=True);run='0123456789abcdef';stem='combined-'+run
-    inputs=files(run,2,1,6,2)
+    inputs=files(run,rounds,1,seconds,bursts)
     inputs['combined-proof.sh']=(f'cd /work/srvros-work || exit 1\nsh {stem}.sh > trial-output.txt 2>&1\necho $? > first-status.txt\nsh {stem}.sh > refusal.txt\necho $? > refusal-status.txt\nsync\n').encode()
     output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
@@ -71,7 +73,7 @@ def main():
                 launch('Terminal',b'deskterm: ready');pump(1);text('sh /work/srvros-work/combined-proof.sh\n');started=time.monotonic()
                 launch('Text',b'desktools: starting role=text');pump(1);text('Concurrent combined trial.');key('ctrl-l');key('ctrl-a');text('/work/srvros-work/combined-note.txt');key('ctrl-s');wait(b'picker ready mode=2');key('ret');wait(b'file-result role=text op=2 status=0')
                 launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
-                while time.monotonic()-started<45:
+                while time.monotonic()-started<rounds*(seconds+1)+30:
                     pump(.2);assert b'battery: HALTED' not in output
                 qmp.call('screendump',{'filename':str(out/'desktop.ppm')})
                 key('ctrl-alt-esc');wait(b'desktop-session: returned complete=yes');wait(b'\nsrv> ')
@@ -85,7 +87,7 @@ def main():
                     try:evidence[name]=read(name).decode(errors='replace')
                     except Exception as e:evidence[name]=repr(e)
                 (out/'guest-evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
-                proof=verify(read,run,2,1,6,2)
+                proof=verify(read,run,rounds,1,seconds,bursts)
                 assert read('first-status.txt')==b'0\n' and read('refusal-status.txt')==b'1\n'
                 assert read('refusal.txt')==b'REFUSED existing combined trial\n'
                 assert read('combined-note.txt')==b'Concurrent combined trial.' and read('anchor.txt')==b'unchanged\n' and read('.workspace')==marker

@@ -866,3 +866,8 @@ sequence. It requires actual captured PCM output growth during substantial USB
 writes, Text/Files work, exact retained outputs, repeat refusal, clean retirement
 and filesystem checks. Native per-burst liveness receipts establish player/I/O
 coexistence; listening remains required to assess actual sound interruption.
+
+Run the overlap harness again with `--full-round` to exercise one complete
+one-minute play and all forty disk bursts using native per-round parameters.
+The default two-round test checks repetition with shorter pacing. Neither is
+a substitute for the native thirty-minute run or listening observations.
