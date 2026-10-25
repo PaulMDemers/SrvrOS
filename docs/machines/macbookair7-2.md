@@ -43,6 +43,17 @@ normal/native/VM kernels, then stage and repeat the exact-image gate before
 hardware installation. Main `46f6212` adds only Air6,1 result documentation; PR170
 owns separate app-timing instrumentation and PR19 remains Wi-Fi.
 
+Final matched stage `1d1d5edce03523db` from clean `9bca084` rebuilds the native
+and VM kernels explicitly. Its exact GRUB → Limine → native rehearsal passes
+all 120 seconds/23,040,000 PCM bytes with zero underruns, Calculator open/close and
+exact USB document-save overlap, normal exit/reopen, provider retirement and clean
+allocation. Q35 native battery refusal remains expected. The full guest guide
+puts these two retests first and stays open without a deadline. This is VM and
+host evidence; physical listening and unsaved desktop shutdown remain pending.
+PR169 publishes the correction; local `build/unsaved-exit-native-20261025/run.json`
+owns installed/armed/return state. Preserve current/recovery and durable evidence
+before any attended reboot; collect the matching new session on return.
+
 ### Modal pointer correction validated; physical retest pending
 
 Release `b6f4c7525115168a` returned with session
