@@ -2,6 +2,21 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active scope: application launch and retirement latency
+
+Starting from clean device source `a5a4bca`, main `afb2c3b`. The user reports
+application open/close lag during playback on another machine and assigns sound
+work to a separate agent. This unit owns a bounded **non-audio** investigation:
+measure process/image/mapping allocation and retirement, IRQ-masked work and
+scheduler gaps while repeatedly opening/closing actual GUI clients; improve the
+responsible process/memory lifecycle paths with ownership and failure tests.
+Expected shared scope is `kernel/src/process.c`, VM/memory helpers only as
+measured, existing latency diagnostics, and isolated host/VM fixtures. No HDA,
+PCM, codec, playback worker or audio workload edits. The other unit's report is
+not Air7,2 physical acceptance. Process limits, EC timeouts and native model
+gates stay unchanged. PR157 remains draft until its intermittent EC shutdown
+failure has an adequate diagnosis. No physical test or reboot is armed.
+
 ### Application lifecycle implemented; merge held for shutdown investigation
 
 Base main `e253a60`; D3 follow-up is implemented on this device branch/PR157.
