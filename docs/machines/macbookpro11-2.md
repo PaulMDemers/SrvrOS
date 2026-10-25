@@ -33,9 +33,11 @@ and RF setting0 are zero in native and live Linux samples. RF_MISC differs1/5;
 no missing prerequisite is established by comparing disabled and live states.
 Live Linux RF reads now show0:6/1/2/6/22 =8/1/17/8/68 while networking
 works. Post-initialization RF0:6 does not retain41, so strict immediate table
-readback equality still needs a register-specific basis. Next prepare a separate
-bounded central-table observation in reference order; preserve the original
-strict engine and keep calibration/connectivity acceptance separate.
+readback equality still needs a register-specific basis. Candidate `257e68678e55ba49` (source `83152ee0`) is installed unarmed for
+a separate central-table write pass followed by a complete read pass. Its local
+and exact-stage VM checks passed; native observations are pending. The original
+strict engine remains unchanged, and calibration/connectivity remain pending.
+Next run the cold hardware observation and collect the matching session first.
 No reboot is armed. The latest dated sections below contain full
 scope, dependencies and evidence locations.
 
@@ -5875,3 +5877,23 @@ Wi-Fi recipes are byte-identical. The strict collector rejects2393 malformed
 full-prefix proofs; four complete readback patterns fit at most102527bytes.
 Build, sanitizer/regression and exact-stage VM checks precede unarmed install.
 No native results for this table observation yet.
+
+
+Two-pass RF table source `83152ee0`, release `257e68678e55ba49`, installed
+unarmed. Full build, MCU/compact/bring-up and original strict RF engine regressions,
+sanitizer and documentation checks passed. Exact-stage GPT VM capture/save,
+offline-byte verification and automatic return passed; separate missing-workspace
+refusal/return passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained,
+as is completed v65 snapshot `6e49ad417d7ea11e`. Older v64 `bc805e30aa1454bb`
+removed from ESP only after exact durable-backup equality. Offline workspace
+clean273files/658clusters/110directories, zero leaks/mismatches/errors; unmounted.
+
+Payload, pinned references, live Linux comparison, host/sanitizer/collector checks,
+both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-table-83152ee/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require complete v60 prerequisites, all88 exact command replies,176 guard triplets,
+44 read observations and exact mismatch accounting. Both completion markers and
+the full untruncated prefix are required. Do not promote this observation to
+register or radio acceptance, and do not trigger calibration automatically.
+No reboot armed; native table results pending.
