@@ -1,27 +1,34 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-21. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-10-24. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-The user considers the current Pro bring-up generally working and closes this
-phase on October 21. Network/UI acceptance is confirmed on release
-`2f8abe0e131023d8`. Current installed release `5d65ddcc4ccbeaf2` is the
-collected Wi-Fi identity capture, with `e47dca3a6b30c6c1` retained as recovery. Earlier desktop acceptance
-stands for its named payloads; the latest run did not repeat sound, brightness
-or Text saving. Closing this phase does not relabel skipped checks as passes.
-Battery work, headphone testing and further trackpad-latency tuning stay deferred.
-Ubuntu remains default and no reboot is armed.
+The user considers the core Pro bring-up generally working. Native desktop,
+input, brightness, speakers, CPU/fan telemetry and captured USB Ethernet
+DHCP/DNS/HTTP with live cable-status UI have named physical acceptance below.
+Network/UI acceptance includes release `2f8abe0e131023d8`; subsequent Wi-Fi
+trials do not repeat or broaden that desktop acceptance. Battery work,
+headphone testing and further trackpad-latency tuning remain deferred.
 
-Next scope: the Ethernet adapter has been replaced by Edimax `7392:a711`, USB
-revision `0100`, bound by Linux to `mt76x0u`. Captured inventory and the opt-in
-identity diagnostic are implemented and native identity reads accepted. Firmware,
-radio, authentication and UI implementation remain pending. Preserve
-shared Ethernet behavior; coordinate through the unit record and reviewable PRs.
-Air PR #17 concerns SCI controller observation and does not overlap this scope.
+The active adapter is Edimax `7392:a711` (MT7610), replacing the Ethernet adapter.
+Firmware transport and the recorded MAC/baseband prerequisites have passed their
+bounded physical checks. Central RF initialization remains blocked at RF0:6:
+MCU and direct RF reads both return zero after the MCU write of `0x41`.
+Release `032ade0806c417ab` completed the direct-read comparison; this accepts
+that observation only. Calibration, channel setup, scanning, association/security
+and Wi-Fi connectivity/UI remain pending.
+
+Candidate `bc805e30aa1454bb` (source `4fa96c66`) is installed unarmed for one
+guarded direct RF0:6 write and an independent read. Local and exact-stage VM
+checks passed; native results are pending. Ubuntu remains default, known-good
+`e47dca3a6b30c6c1` remains recovery, and the last diagnostic is retained.
+Next: attended cold adapter cycle, then collect the matching persisted session
+before changing the candidate. The latest dated sections below contain full
+scope, dependencies and evidence locations.
 
 ## Original bring-up scope (historical)
 
@@ -5661,3 +5668,22 @@ staging tests pass and126 historical Wi-Fi recipes remain byte-identical. The
 strict collector rejects203 malformed proofs; the maximum-poll full-prefix
 fixture is129097bytes. Exact-stage VM and unarmed installation follow the full
 build. The direct RF write and resulting readback are physically untested.
+
+
+One-write source `4fa96c66`, release `bc805e30aa1454bb`, installed unarmed.
+Full build, MCU/compact/bring-up regressions and documentation checks passed.
+Exact-stage GPT VM capture/save, offline bytes and clean exFAT verification,
+automatic return, and separate missing-workspace refusal/return all passed.
+These checks verify recovery mechanics; native direct-write results remain pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, along with the completed
+v63 comparison `032ade0806c417ab`. Older v62 `f44fa8061c8014a5` removed from ESP
+only after exact durable-backup equality. Offline workspace clean269files,
+652clusters,108directories, zero leaks/mismatches/errors; unmounted.
+Payload, pinned references, host/sanitizer/collector checks, both VM receipts and
+run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-write-4fa96c6/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST
+with the strict v64 collector. Require the full zero-read prerequisite proof,
+all guards/selectors/polls and independent readback. Even a `0x41` readback does
+not accept the complete central table. No reboot armed.
