@@ -2,6 +2,19 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active connection and multiwindow lifetime work (D1b)
+
+PR141 is merged as `b51c21b`; this checkout consumes it. Next bounded scope:
+one process-level dispatcher, monotonic window handles, correlated creation
+refusal and asynchronous close acknowledgement. Route input/capture, menus,
+clipboard and notifications by window. Preserve the single-window source wrapper
+and existing limits. Touch shared protocol, kernel packet validation, desktop
+client runtime, compositor admission/lifetime and host/actual-protocol VM tests.
+A two-window transport consumer will precede Text document migration; do not
+claim full D1 acceptance until real independent documents and close/save paths
+are exercised. Dynamic registries and combined GUI/FD waits remain later blocks.
+Host/QEMU only; installed/recovery remain unchanged. No parallel harnesses.
+
 ### Active explicit window identity foundation (D1a)
 
 D0 clipboard PR140 is merged as `d8f6c71` and consumed on
