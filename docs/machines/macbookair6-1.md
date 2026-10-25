@@ -2752,3 +2752,17 @@ contention, including gated allocation/unmapping and process retirement. The
 receipts establish the delayed phases, not the exact kernel cause. Preserve the
 10-second whole-cycle, client deadlines, 500 ms loop and all integrity checks;
 do not treat successful Files admission or a zero-status late exit as a pass.
+
+### Shared app latency under disk load — active scope (2026-10-25)
+
+Base `296f86bb`, including PR165 modal correction and PR166 return evidence.
+Investigate starvation at the shared I/O admission gate: waking blocked app
+allocation/cleanup calls does not necessarily let them run before a disk writer
+starts another owned operation. Scope is scheduler gate handoff at a completed
+userspace syscall boundary, dispatch/cancellation integration, deterministic
+scheduler regressions and automatic disk/audio/app VM/native validation. Do not
+release ownership mid-operation or admit unsafe calls during owned I/O. Preserve
+all existing integrity checks, the ten-second whole-cycle and 500 ms loop limits.
+Pro PR19 (`200ab19b`) remains separate USB Wi-Fi work; no other open shared-runtime
+MR was found. The previous run is collected and backed up. User explicitly
+authorizes tests, self-merge and reboot into the automatic stress workload.
