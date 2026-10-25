@@ -216,7 +216,6 @@ int desk_connection_poll(struct desk_connection *c,struct desk_app **target,stru
     if(!c || !target || !event)return -1;
     *target=0;
     if(c->failed)return -1;
-    if(c->server && !desk_process_alive(c->server)) return connection_failure(c,1);
     /* Rotate maintenance even when incoming traffic never empties. */
     struct desk_app *a=c->cursor?c->cursor:c->windows;
     if(a) {
@@ -242,6 +241,7 @@ int desk_connection_poll(struct desk_connection *c,struct desk_app **target,stru
     }
     struct desk_packet p;uint64_t source;int r=desk_receive(&source,&p);
     if(r<0)return connection_failure(c,0);
+    if(!r && c->server && !desk_process_alive(c->server))return connection_failure(c,1);
     if(r!=1)return r;
     if(c->server && source!=c->server)return 2;
     for(a=c->windows;a && a->window!=p.window;a=a->next) {}

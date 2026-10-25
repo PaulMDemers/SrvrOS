@@ -1,8 +1,8 @@
 # Desktop architecture and API evolution
 
-Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130).
-This is a proposed implementation sequence, not an implemented API or a new
-hardware acceptance claim. The [capacity contract](window-capacity.md) describes
+Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130); D0/D1
+progress updated 2026-10-25. Later blocks remain proposals, not implemented APIs
+or new hardware acceptance claims. The [capacity contract](window-capacity.md) describes
 the shipping sixteen-window implementation. The companion
 [POSIX audit](posix-compatibility.md) covers the userspace foundation.
 
@@ -14,10 +14,10 @@ without corrupting existing windows, losing documents or freezing input.
 “Unlimited windows” means dynamic allocation and useful refusal, not unlimited
 RAM, unbounded queues or a promise that every workload fits on every machine.
 
-The next step is object identity and lifetime, not another increase to
-`DESK_MAX_WINDOWS`. A process currently identifies a desktop client and effectively
-one window. That coupling also limits dialogs, multiple documents and application
-activation. Dynamic arrays alone would preserve the wrong public contract.
+D1 separates object identity and lifetime from processes before changing
+`DESK_MAX_WINDOWS`. A connection now dispatches multiple window identities, and
+normal Text exercises independent real documents. Other apps retain the source
+compatibility wrapper. Dynamic allocation must preserve these ownership contracts.
 
 Keep the native desktop, software renderer and reusable widget library. A GPU,
 full POSIX implementation or a port of a large external toolkit is not a
@@ -31,7 +31,7 @@ prerequisite for multiple windows per application.
 | [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
-| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
+| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID/window; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
 | [`widgets/`](../userspace/widgets/README.md) | Pure models/controllers, layout and rendering primitives | Deliberately owns neither allocation, process transport nor an event loop; preserve that separation |
 | Native apps and workers | Documents, workflows, asynchronous file/image jobs | Repeated application lifetime/dispatch logic; generally one window per process |
 
@@ -49,7 +49,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 
 | Current bound | Location / consequence |
 | --- | --- |
-| 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; one client per PID |
+| 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; multiple windows may share a PID |
 | 32 GUI queues, 64 messages per queue | `GUI_MAX_QUEUES = DESK_MAX_WINDOWS + 16`, `GUI_QUEUE_DEPTH`; process queues also need room for services |
 | 64 GUI surfaces | `GUI_MAX_SURFACES = DESK_MAX_WINDOWS * 4`; surface count should follow active allocations, not window-count arithmetic |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
@@ -198,6 +198,11 @@ menus, clipboard authorization, resize and cleanup together.
 preserves the other document. Cover rejected creation, server death, client death,
 queued stale events, handle reuse, parent close, save deferral and failed resize.
 Tests must exercise the actual kernel/client/compositor protocol, not only mocks.
+
+D1a/b are merged in PR141/142. Normal Text migration is tracked in PR143:
+`f4f4c9c` passes actual multi-document save/close/reopen/launcher and sixteen-document
+refusal/reuse/exact persistence gates. Parented/transient dialogs are not yet an
+API; their acceptance follows D3. Native gesture/latency acceptance is separate.
 
 ### D2 — Allocate registries dynamically
 

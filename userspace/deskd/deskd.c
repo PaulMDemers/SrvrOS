@@ -28,7 +28,7 @@ static struct desk_clipboard_store clipboard;
 struct pixel_cache { uint32_t *pixels,width,height; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
-    uint64_t pid,window,generation,progress,present_input;
+    uint64_t pid,window,identity,generation,progress,present_input;
     int managed,retiring;
     int configure,awaiting,closing,close_requested,preferences_dirty;
     struct desk_packet release,brightness_reply,audio_reply;
@@ -54,6 +54,7 @@ struct session {
     struct desk_damage damage;
     struct desk_rect menu_visible;
     uint64_t menu_owner,menu_window;
+    uint64_t window_serial;
     struct client clients[DESKD_WINDOWS];
     uint64_t children[DESKD_WINDOWS];
     uint64_t child_last_window[DESKD_WINDOWS],child_reply_since[DESKD_WINDOWS];
@@ -590,8 +591,8 @@ static void launcher_catalog(struct session *s) {
     int order[DESKD_WINDOWS];desktop_stack(&s->scene,order);
     for(int n=DESKD_WINDOWS-1;n>=0;n--) {
         int i=order[n];uint64_t pid=s->clients[i].pid;
-        if(!pid || s->clients[i].closing || pid>UINT64_MAX-DESK_APP_COUNT) continue;
-        struct desk_palette_item *item=&items[count++];item->id=pid+DESK_APP_COUNT;
+        if(!pid || !s->clients[i].identity || s->clients[i].closing) continue;
+        struct desk_palette_item *item=&items[count++];item->id=s->clients[i].identity+DESK_APP_COUNT;
         snprintf(item->label,sizeof(item->label),"%s",s->scene.windows[i].title[0]?s->scene.windows[i].title:"Window");
         strcpy(item->detail,s->scene.windows[i].minimized?"Hidden window":"Open window");
     }
@@ -650,9 +651,9 @@ static void launcher_result(struct session *s,struct desk_palette_result result)
         if(s->trace) desk_log("deskd: launcher application=%u\n",(unsigned)result.id);
         spawn_app(s,result.id,"");
     } else {
-        uint64_t pid=result.id-DESK_APP_COUNT;
-        for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid==pid && !s->clients[i].closing) {
-            focus(s,i);if(s->trace) desk_log("deskd: launcher window=%llu\n",(unsigned long long)pid);break;
+        uint64_t identity=result.id-DESK_APP_COUNT;
+        for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid && s->clients[i].identity==identity && !s->clients[i].closing) {
+            focus(s,i);if(s->trace) desk_log("deskd: launcher window=%llu id=%llu\n",(unsigned long long)s->clients[i].pid,(unsigned long long)s->clients[i].window);break;
         }
     }
 }
@@ -856,12 +857,12 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         if(managed && p->window<=s->child_last_window[child])return;
         s->child_last_window[child]=p->window;
         for(i=0;i<DESKD_WINDOWS;i++)if(!s->clients[i].pid)break;
-        if(i==DESKD_WINDOWS) {
+        if(i==DESKD_WINDOWS || s->window_serial==UINT64_MAX-DESK_APP_COUNT) {
             if(managed)s->child_reply[child].value=DESK_OPEN_CAPACITY;
             resource_trace(s,"window-capacity");return;
         }
         struct desktop_window *w=&s->scene.windows[i];
-        s->clients[i].pid=pid;s->clients[i].window=p->window;s->clients[i].managed=managed;s->clients[i].clipboard.pid=pid;s->clients[i].clipboard.window=p->window;s->clients[i].preferences_dirty=s->scene.apps;
+        s->clients[i].pid=pid;s->clients[i].window=p->window;s->clients[i].identity=++s->window_serial;s->clients[i].managed=managed;s->clients[i].clipboard.pid=pid;s->clients[i].clipboard.window=p->window;s->clients[i].preferences_dirty=s->scene.apps;
         w->visible=1;
         for(int n=0;n<DESKD_WINDOWS;n++) if(s->children[n]==pid) w->application=s->child_apps[n];
         w->frame.x=32+24*(i%4); w->frame.y=64+24*(i%4);

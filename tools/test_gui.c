@@ -103,6 +103,17 @@ static void protocol_tests(void) {
     assert(!keyboard_events && pointer_speed==3 && !pointer_accel && !pointer_flags);
     assert(!surface_for_id(id)->sealed);
     assert(gui_surface_destroy(2,id)==0);
+    /* A freed table slot is a new surface lifetime, not the old window's
+     * binding. Reopen in the same process before process cleanup can mask it. */
+    current_pid=1; assert(gui_register_server()==0);
+    current_pid=2; id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
+    commit=packet_message(DESK_COMMIT,0,id,1);packet_window(&commit,3);
+    assert(gui_send(&commit)==0);
+    current_pid=1;assert(gui_recv(&temp)==1);
+    release=packet_message(DESK_RELEASE,2,id,1);packet_window(&release,3);
+    assert(gui_send(&release)==0);
+    current_pid=2;assert(gui_surface_destroy(2,id)==0);
+    gui_process_cleanup(1);
     gui_process_cleanup(2);
     current_pid=1; assert(gui_register_server()==0);
     current_pid=2; id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);

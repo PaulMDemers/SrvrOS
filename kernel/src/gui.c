@@ -324,7 +324,7 @@ int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, 
     slot->pixels = NULL;
     slot->stream = (flags & DESK_SURFACE_STREAM) != 0;
     slot->sealed = false;
-    slot->serial = slot->generation = 0;
+    slot->serial = slot->generation = slot->window = 0;
     uint64_t id = slot->id;
     irq_restore(flags_saved);
 

@@ -22,7 +22,7 @@ enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PE
 #define TOOL_HISTORY 24
 struct tool_location { char path[DESK_FILE_PATH];uint64_t selected;int scroll; };
 struct tool {
-    int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty;
+    int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty,new_window;
     struct desk_app window;
     struct desk_ui ui;
     struct desk_dialog dialog;
@@ -107,6 +107,7 @@ struct tool {
     uint32_t saved_crc,overwrite_crc;
     uint64_t refresh_tick;
 };
+void tool_new_window(struct tool *tool);
 void tool_calculator_init(struct tool *tool);
 void tool_calculator_layout(struct tool *tool);
 void tool_calculator_draw(struct tool *tool,struct desk_canvas *canvas);

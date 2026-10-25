@@ -151,6 +151,12 @@ visible until the window closes.
 
 ## Documents and background work
 
+Text supports multiple documents in one application process. Choose File → New
+Window or press Ctrl-Shift-N; each window has its own undo history, clipboard
+selection, file path and unsaved-close dialog. Ctrl-N creates a fresh document
+in the current window after resolving edits. Closing one window preserves the
+others; the last close waits for owned file work and worker retirement.
+
 Files and Text use a persistent worker with bounded nonblocking communication.
 Save operates on a snapshot, verifies stored bytes, and leaves later edits dirty.
 External file changes and name collisions produce explicit errors rather than

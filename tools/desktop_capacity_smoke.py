@@ -17,10 +17,12 @@ from desktop_foundation_smoke import QMP
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--clipboard",action="store_true",help="Exercise copy/paste in sixteen admitted mixed clients")
+    parser.add_argument("--documents",action="store_true",help="Exercise sixteen documents in one Text connection, refusal and worker reuse")
     args=parser.parse_args()
+    if args.documents and args.clipboard:parser.error("Choose one workload")
     width,height=1280,800
     root=Path(__file__).resolve().parents[1]
-    out=root/("build/review/desktop-clipboard-capacity" if args.clipboard else "build/review/desktop-capacity")
+    out=root/("build/review/desktop-document-capacity" if args.documents else "build/review/desktop-clipboard-capacity" if args.clipboard else "build/review/desktop-capacity")
     expected_files={}
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
@@ -76,7 +78,40 @@ def main():
                 pids=[]
                 def launch(name,number):
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text(name+" new app");qmp.key("ret");wait(f"launcher application={number}".encode())
-                if args.clipboard:
+                if args.documents:
+                    owner=re.findall(rb"deskd: opened pid=(\d+)",output)[0]
+                    def save_document(index):
+                        contents=f"Document {index} kept."
+                        type_text(contents)
+                        shortcut("ctrl-l");shortcut("ctrl-a");type_text(f"/fat/document-{index}.txt")
+                        shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret")
+                        wait(b"file-result role=text op=2 status=0")
+                        expected_files[f"document-{index}.txt"]=contents.encode()
+                    save_document(1)
+                    for index in range(2,17):
+                        shortcut("ctrl-shift-n");wait(f"text-runtime: admitted window={index} ".encode());wait(b"deskd: commit")
+                        save_document(index)
+                    assert re.findall(rb"deskd: opened pid=(\d+)",output)==[owner]*16
+                    assert b"clients=16 children=1 clipboard_peers=16" in output
+                    shot("sixteen-documents")
+                    shortcut("ctrl-shift-n");wait(b"resources reason=window-capacity")
+                    # Refusal must preserve the focused document and its worker.
+                    type_text(" Refusal kept.");shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
+                    expected_files["document-16.txt"]+=b" Refusal kept."
+                    shot("refused-document-retained")
+                    shortcut("ctrl-w");wait(b"text-runtime: closed window=16")
+                    wait(b"window=16\r\n")
+                    assert re.search(rb"worker-retired pid=\d+ window=16",output)
+                    shortcut("ctrl-shift-n");wait(b"text-runtime: admitted window=18 ");wait(b"deskd: commit")
+                    save_document(18)
+                    # Exercise all per-document close acknowledgements and worker reaps.
+                    for index in [18]+list(range(15,0,-1)):
+                        shortcut("ctrl-w");wait(f"text-runtime: closed window={index} ".encode())
+                    wait(b"desktools: exited role=text failure=0")
+                    assert len(re.findall(rb"worker-retired pid=\d+ window=",output))==17
+                    shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)
+                    shot("all-documents-retired")
+                elif args.clipboard:
                     # One Text plus fifteen Calculators fits the current worker
                     # budget. Sixteen Text processes exhaust file-worker resources.
                     type_text("0");shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8 bytes=1")
@@ -154,12 +189,15 @@ def main():
                 stop_process(process);(out/"serial.log").write_bytes(output)
             from exfat_test_image import ExfatFixture
             fixture=ExfatFixture((tmp/"disk.exfat").read_bytes())
-            if not args.clipboard: expected_files["capacity-proof.txt"]=b"Sixteen windows remain responsive."
+            if not args.clipboard and not args.documents: expected_files["capacity-proof.txt"]=b"Sixteen windows remain responsive."
             for name,contents in expected_files.items(): assert fixture.read(name)==contents,(name,fixture.read(name),contents)
             screenshots=re.findall(rb"deskd: screenshot saved status=0 path=([^\r\n ]+)",output)
             assert len(screenshots)==1
             capture=fixture.read(screenshots[0].decode().removeprefix("/fat/"))
             assert capture[:2]==b"BM" and len(capture)>width*height*3
+    if args.documents:
+        print(f"desktop-document-capacity: PASS sixteen same-process documents, seventeen exact files, correlated refusal/preserved edits, fresh ID/reuse and all workers reaped. Evidence: {out}")
+        return
     if args.clipboard:
         print(f"desktop-clipboard-capacity: PASS sixteen real clients copy/paste, refusal, slot reuse, exact saved cross-client contents, screenshot and full process cleanup. Evidence: {out}")
         return

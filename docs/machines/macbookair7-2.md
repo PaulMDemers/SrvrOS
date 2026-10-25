@@ -2,6 +2,38 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active multi-document Text migration (D1c)
+
+PR142 is merged as `ed2015a` and consumed. Next bounded scope: migrate normal
+Text to one connection dispatcher with dynamically allocated document records,
+shared tool event handlers and independent undo/save/dialog/clipboard state.
+Add New Window while preserving Ctrl-N's current document-reset behavior.
+Close must drain accepted file work, await window retirement and reap the file
+worker without closing siblings. Keep diagnostic capture recipes compatible.
+Touch desktools/runtime, file-job ownership, connection liveness checks and
+host/QEMU document/persistence tests, launcher window identity and recycled
+kernel surface binding; no hardware or boot changes. Fixed global
+sixteen-window admission and dynamic compositor registries remain separate.
+Pro PR19 `dbf46c3` continues independent Wi-Fi RF work. Host/QEMU only overnight.
+
+D1c PR143 candidate `f4f4c9c` passes full desktop host/build, normal Text
+multi-document/launcher, undo/history, Find, Replace, and sixteen mixed clipboard
+client VM regressions. Sixteen same-process Text documents each save independently;
+the seventeenth refusal preserves edits, a replacement uses ID18, seventeen files
+match exactly and every worker is reaped. The original nine-document brk refusal
+is retained locally; large records now use anonymous mappings. Actual close/reopen
+also exposed the recycled kernel surface binding, fixed with a failing-before
+host regression. Launcher selection now distinguishes same-PID documents and
+rejects stale lifetime identities.
+
+The legacy file-work capture needed its dedicated Q35 kernel rebuilt for v14.
+With matched binaries the guest completes, but its collector had not learned the
+existing five write-readiness diagnostics. Ordered-record validation and negative
+fixtures now pass; the final full capture/relaunch/offline-integrity run passes: 60/60 scripted and 44/44 injected key events presented, five file cycles,
+20 worker operations, three descendants retired, replacement compositor works,
+all bytes outside the scratch image unchanged and offline allocation clean.
+No native acceptance is added; installed/recovery payloads are unchanged.
+
 ### Active connection and multiwindow lifetime work (D1b)
 
 PR141 is merged as `b51c21b`; this checkout consumes it. Next bounded scope:

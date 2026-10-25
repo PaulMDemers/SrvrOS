@@ -236,6 +236,13 @@ static void connection_lifetime(void) {
     assert(sent[1]==DESK_CONFIGURE && sent_windows[1]==1 && !s.clients[0].configure);
     q.window=2;incoming(&s,42,&q);service(&s);assert(s.clients[1].pid==42 && s.clients[1].window==2);
     assert(s.scene.focus==1 && s.clients[0].clipboard.window==1 && s.clients[1].clipboard.window==2);
+    desk_palette_init(&s.scene.launcher);launcher_catalog(&s);
+    uint64_t retired_identity=s.clients[0].identity;
+    assert(retired_identity && s.clients[1].identity!=retired_identity);
+    launcher_result(&s,(struct desk_palette_result){.id=retired_identity+DESK_APP_COUNT});
+    assert(s.scene.focus==0);
+    launcher_result(&s,(struct desk_palette_result){.id=s.clients[1].identity+DESK_APP_COUNT});
+    assert(s.scene.focus==1); /* Sibling windows share a PID, not an action. */
     s.pointer_pid=42;s.pointer_window=2;
     unsigned before=s.clients[0].input_count;pointer_cancel(&s);
     assert(s.clients[0].input_count==before && s.clients[1].input_count);
@@ -257,6 +264,9 @@ static void connection_lifetime(void) {
     q.window=3;alloc_fail=allocations;incoming(&s,42,&q);alloc_fail=0;
     assert(s.child_reply[0].value==DESK_OPEN_MEMORY && !s.clients[0].pid && s.clients[1].pid);service(&s);
     q.window=4;incoming(&s,42,&q);service(&s);assert(s.clients[0].window==4);
+    assert(s.clients[0].identity!=retired_identity);focus(&s,1);
+    launcher_result(&s,(struct desk_palette_result){.id=retired_identity+DESK_APP_COUNT});
+    assert(s.scene.focus==1); /* A stale launcher result cannot select a reused slot. */
     q=desk_packet_new(DESK_CLOSE);incoming(&s,42,&q);assert(!s.clients[0].retiring && !s.clients[1].retiring);
     /* Refusal remains deliverable even with no free window records. */
     for(int i=2;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42;s.clients[i].window=100+i; }
