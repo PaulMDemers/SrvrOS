@@ -5994,3 +5994,20 @@ Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-bank5-8fbd311/`.
 Next scope is bounded RF bank6 reference initialization/readback; bank5 readback
 success does not accept calibration, channel selection, scan, association,
 security or packet traffic. No automatic trim or DAC/VCO work in this run.
+
+
+## 2026-10-25 — bounded RF bank6 scope
+
+Pro PR19 remains the Wi-Fi owner on this checkout. Fetched main `16bbe494`
+adds desktop/help acceptance guidance since `a6d43616`; no overlapping RF/MCU,
+xHCI or logger work. Native integration base remains `d5bc4b3`; unrelated
+main desktop work is separate. Current branch head `73e35e97` has collected and
+archived v67; no outstanding run or armed reboot.
+
+Bounded objective: fixed38-entry reference RF bank6 write/read observation after
+full central zero-profile and exact68/68 bank5 proof. Touched scope: existing
+private RF-table plan, xHCI capture dispatch, opt-in v68 staging and host/native
+fault tests, strict saved-evidence collector and this unit record/current guide.
+Use existing256KiB capture; verify complete prefix and exact-stage VM before
+install. No VGA/bandwidth/band switching, frequency trim, DAC/VCO calibration,
+scanning, association or traffic in this trial. No live Linux adapter reset.
