@@ -5,6 +5,7 @@ not to clone Unix in the kernel; the goal is to make portable C libraries see a
 familiar API while the kernel keeps a compact srvros syscall ABI.
 
 For current semantic support and known gaps, read the
+[portable application profile](posix-supported-profile.md) and the
 [October 24 POSIX audit](posix-compatibility.md). The inventories below describe
 available interfaces and porting history, not a conformance claim. Several
 exported functions are restricted, explicit ENOSYS stubs or successful

@@ -2,18 +2,29 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
-### Active scope: POSIX correctness and compatibility
+### POSIX portable-application milestone checkpoint
 
-Current block: final combined portable-C compatibility gate and public support
-profile. Endpoint state/errors `6c83966`, libuv descriptor mapping `0d0258b`,
-atomic socketpairs `050a837` and stream reopening `12b33d9` pass focused/full
-thread and affected libuv/Lua regressions; full core passes the runtime changes.
-New readiness fixture measures idle CPU and 128 request/response wakeups. Final
-build/consumer/Terminal/Files evidence is pending; no milestone or physical
-promotion is claimed yet. Desktop implementation remains deferred; combined
-GUI/FD wait is a documented design only.
+The selected profile is implemented and locally validated at runtime source
+`7e2cf54`. Full core, forced partial-tick poll timing, focused readiness and full
+thread suites pass. The final combined gate passes libc, ports, process/shell,
+libuv, utilities, Lua files/strings/UTF-8/bitwise, Terminal and Files. Public scope,
+bounds, remaining Unix/Linux gaps and reproduction commands are in the
+[portable C profile](../posix-supported-profile.md). This is not POSIX certification.
+
+Key final corrections: shared endpoint state/errors `6c83966`, libuv descriptor
+mapping `0d0258b`, atomic socketpairs `050a837`, stream reopening `12b33d9`, and
+monotonic poll deadlines `7e2cf54`. The measured wait fixture found and retained
+a real early-timeout failure before the corrected host/VM passes. Evidence:
+`build/posix-core-20261024/final-gate-checked.json` plus its prerequisite receipts;
+backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+
 Main remains `211f17c` (consumed as `88c2cbb`); Pro PR19 `e66d47d` retains Wi-Fi
-scope. No physical trial is armed. Installed/recovery payloads are unchanged.
+scope. PR134 contains the reviewable shared changes. Desktop implementation is
+deferred; combined GUI/FD wait is a documented design only. No physical trial is
+armed. Installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252` and USB
+`37D8-C5D0` are unchanged. Next discussion: integration/native regression of this
+profile and the planned connection/window identity migration; do not repeat the
+completed POSIX blocks or claim untested broader APIs.
 
 
 User authorizes sustained implementation of the POSIX plan before the desktop

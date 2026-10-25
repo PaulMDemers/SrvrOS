@@ -14,7 +14,8 @@ measure overall conformance. See the official
 and [general interface requirements](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html).
 This reference choice is a development target, not certification.
 
-For porting guidance, start with the [supported application profile](posix-supported-profile.md).
+For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
+start with the [supported application profile](posix-supported-profile.md).
 
 ## Implementation progress after the audit
 
@@ -145,7 +146,7 @@ the short harness deadline; the retained 60-second diagnostic and a subsequent
 normal-deadline run both pass, without relaxing the default.
 
 
-Work is on `device/macbookair7-2/posix-core`, draft PR134. Desktop overhaul is
+Work is on `device/macbookair7-2/posix-core`, PR134. Desktop overhaul is
 explicitly deferred while this compatibility milestone is implemented. The
 original audit below describes `bc0edb9`; the following fixes supersede its
 corresponding defect descriptions. This is still a partial compatibility
@@ -271,8 +272,8 @@ propagates errors. Noninteractive shell commands no longer append native status 
 slots and implement ordered inherited descriptors; native GUI spawn keeps its
 explicit-transfer contract.
 Pinned Lua 5.4.8's unmodified `files.lua` passes its portable/soft profile, followed
-by explicit read/write popen, EOF and exit-status checks. This is a selected
-consumer gate, not all upstream tests or a completed compatibility milestone.
+by explicit read/write popen, EOF and exit-status checks. That initial consumer gate did not establish all upstream tests or close the
+milestone by itself; the later combined gate is recorded in the supported profile.
 
 `abort()` now raises SIGABRT, including when the signal was ignored or a handler
 returns; wait status identifies signal termination. Explicit SIGSEGV/SIGPROF
