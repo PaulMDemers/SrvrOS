@@ -7087,3 +7087,20 @@ prerequisite with mutation tests, then validate bounded20MHz baseband/control-
 channel/band/CCA setup in the same next trial. A redundant ACK-only physical
 trial is unnecessary. RF synthesizer/channel selection, gain/power/calibration,
 MAC enable, scanning and connectivity remain pending; no automatic next reboot.
+
+
+## 2026-10-25 — Guarded20MHz baseband/channel-layout scope
+
+Collected v79 at `200ab19b`, unmounted/unarmed. Fetched main `296f86bb`
+(PR166 Air6,1 stress result); no other open shared-code scope beyond Pro PR19.
+Retain integration base `d5bc4b3`. Objective: validate exact captured bandwidth
+reply4a0f0008/2/0/4a0f0008, then apply five masked baseband/control-channel/
+band/CCA targets. Adjacent same-register reference RMW fields are grouped:
+CORE1 mask18 set0; AGC0 mask7300 set1000; TXBE0 mask3 set0; TX_BAND mask7
+set4; EXT_CCA maskfff set1e4 (preserve ED_CCA upper nibble). No intervening
+reference delay/command is removed by grouping. Native fresh before values
+must remain2/21400/0/4/ffe4; expected after2/21400/0/4/f1e4.45 ordered USB
+transfers,40 reads/5 writes/5 verified,10 strict guard triplets. Scope: MT76
+reply/profile+RMW engine/native/staging/tests/collector. Keep original bandwidth
+observation policy and historical recipes unchanged. Full proof must fit256KiB;
+no RF synthesizer/channel frequency, calibration, MAC enable or traffic.
