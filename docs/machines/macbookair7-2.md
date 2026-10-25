@@ -2,6 +2,25 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Automated capacity trial installed — awaiting native return
+
+Release `c9e59c1b11d5c239`, clean source `7fc5077`, is installed with verified
+recovery `9aa8dbf6fbda8252` and Ubuntu default preserved. Exact GRUB → staged
+Limine → native-kernel Q35 rehearsal passes both 24-app rounds, saved screenshots,
+normal child retirement, logger/battery cleanup, offline allocation and automatic
+return. Native-profile refusal in Q35 is expected; actual device acceptance is
+pending the matching physical evidence. User requested automatic launch and
+reboot; no human input is required, and handled failure returns automatically.
+
+On return, collect both new sessions for this release before staging anything
+else. Require the per-round `desktop-capacity: result=PASS launched=24 reaped=24
+errors=0 screenshot=yes normal_exit=1` receipts and complete lifetime retirement,
+verify both screenshots and prior-file hashes, then run offline fsck/allocation.
+A return or screenshot alone is not a pass. Local run record/evidence:
+`build/capacity-native-20261025/`, copied outside build to reviewed-evidence.
+Previous installed `2750e5efa04573ba` also has an independent boot-payload backup.
+PR153 tracks the diagnostic; physical typing/documents remain separate checks.
+
 ### Active automated mixed-app hardware trial
 
 Base main `3647dc7`; Pro PR19 at `18e06ec` remains independent RF/Wi-Fi work.
