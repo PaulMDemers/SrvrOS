@@ -25,7 +25,7 @@ CLOSE and refuses parent disposal until child records are disposed.
 never consumes events or blocks. Dispatch its child through the application's
 single connection, draw the borrowed widget into that child's canvas and keep
 storage until acknowledged retirement. A successful admission is not canvas
-readiness: the PR160 correction keeps `sync` pending until CONFIGURE has
+readiness: the merged PR160 correction keeps `sync` pending until CONFIGURE has
 produced the first usable canvas. Keep the widget's previous layout while
 pending; zero-sized relayout can lose its keyboard focus. Admission
 refusal leaves an embedded fallback available; cancellation and allocation failure
@@ -120,7 +120,8 @@ ordinary combined battery/services session and opens Help's **Application
 lifecycle trial** topic automatically. It has no deadline or automatic reboot.
 The full checklist covers parent/dialog focus, independent sibling input,
 Close versus Quit, cancellation, saving, Files routing, Preview retention,
-screenshots and a normal exit/reopen before returning to Ubuntu. Reopening with
+screenshots, app open/close and input during the bundled stereo sample, and a
+normal exit/reopen before returning to Ubuntu. Reopening with
 `desktop battery` uses the ordinary session, without relaunching the checklist.
 It does not increase process capacity or change another machine's profile.
 

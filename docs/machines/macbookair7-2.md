@@ -2,34 +2,46 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active: combined desktop hardware trial and asynchronous capacity capture
+### Combined desktop lifecycle and playback trial prepared
 
-Integrated main `b35b889` (PR160) after independent clean `7ddf215` core/matched
-builds and normal/crash/refused-dialog VMs. The 60-second PCM/unpaced verified USB
-fixture passes 21 real app cycles, maximum loop gap 299,756 us, zero app errors
-and underruns, 227 audible write-overlap windows and clean retirement/return.
-A separate four-app playback fixture has zero sample error and zero underruns,
+Integrated main `b35b889` (PR160) and independently validated clean `7ddf215`:
+core/matched builds and normal/crash/refused-dialog VMs pass. The 60-second
+PCM/unpaced verified USB fixture passes 21 real app cycles, maximum loop gap
+299,756 us, zero app errors/underruns, 227 audible write-overlap windows and clean
+retirement/return. A separate four-app playback fixture has zero sample error,
 exact saved document bytes, clean allocation and restored process baseline.
 These are VM results, not native responsiveness or listening acceptance.
 
-The additional two-round 24-app diagnostic exposed an asynchronous launch
-assumption: it read the final Text child PID immediately after queueing exec,
-recording zero. All 24 windows rendered, but no edit acknowledgement followed;
-round one reached its unchanged 180-second deadline and failed. Round two was
-interrupted after reproducing that symptom; it is incomplete, not a pass.
-Retain the reserved child slot and obtain its PID after all 24 frames are ready;
-never select empty PID-zero client records. Scope is this automatic diagnostic,
-its regression validation, current capacity docs and the attended Help checklist.
-No worker, audio, process-limit or device-gate changes. Repeat capacity before
-staging an exact v75 combined lifecycle trial. That guest guide now includes
-app launch/close while playing the bundled stereo sample and has no timed exit.
+The two-round 24-app diagnostic exposed an asynchronous launch assumption: it
+read the final Text PID immediately after queueing exec, recording zero. All
+24 windows rendered but no edit acknowledgement followed; round one reached
+its unchanged 180-second deadline and failed. Round two was interrupted after
+the same symptom and remains incomplete. Clean `ff1c1ad` retains the reserved
+child slot, obtains its PID after all frames are ready and rejects empty PID-zero
+targets. Both fixed rounds pass: 24 normal child reaps, zero errors, 60 editing
+acknowledgements, five exact `AA` files and chooser drain checks per round, saved
+screenshots/logs, clean filesystem allocation and automatic return. The process
+limit, worker implementation, audio and device gates are unchanged.
 
-Original modal failure at `29c75d8` and a failing host regression are preserved.
-PR160's `433480a` is the single first-canvas readiness implementation; this
-branch's duplicate patch was reverted before consuming it. Evidence is in
-`build/pr160-review-20261025/`. Installed current/recovery remain unchanged;
-no reboot is armed. Complete exact-stage VM and filesystem/recovery checks before
-an attended native boot, and announce its required human checks beforehand.
+Exact v75 stage `b6f4c7525115168a` from clean `ff1c1ad` passes GRUB → staged
+Limine, automatic persistent Help, saved Text/Terminal work, playback, ordinary
+exit/reopen and clean retirement/unmount. Native battery correctly refuses Q35;
+it is not physical battery acceptance. Both guide screenshots were visually
+checked. The attended checklist now includes app open/close, resizing, typing and
+pointer movement during the bundled stereo sample. No timed exit or automatic
+reboot is imposed on this human check. Save `lifecycle-notes.txt` and screenshots,
+reopen the ordinary desktop, then use monitor `reboot` to return to Ubuntu.
+
+The original modal failure at `29c75d8` and failing host regression are retained;
+PR160's `433480a` is the single first-canvas readiness implementation. The Air7,2
+duplicate was reverted before consuming it. Full desktop/build and 569 local
+documentation links pass. Evidence: `build/pr160-review-20261025/` and
+`build/lifecycle-native-20261025/`, with required payload/evidence backups outside
+build. USB preflight passes fsck plus headroom/allocation: 1,101 files, 2,792
+clusters, zero leaks or mismatches; existing file hashes are recorded. Independent
+recovery `9aa8dbf6fbda8252` and prior current `f01d4049daae0b4a` are backed up.
+The local run record owns the subsequent install/one-shot/return state. Physical
+acceptance of this new payload remains pending the announced attended trial.
 
 ### Document-routing failure paths covered; compositor integration still pending
 
