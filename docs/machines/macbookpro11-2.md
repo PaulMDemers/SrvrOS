@@ -117,8 +117,16 @@ failed log, and the strict success collector correctly refused it. Entire
 249442-byte prefix saved with both failure markers. Recovery/default/one-shot/
 hashes verified; offline workspace clean293files/697clusters/120directories,
 no leaks/mismatches/errors, unmounted and unarmed. Evidence archived as failure.
-Next: audit IBI9 all-ones semantics and independent read evidence before any
-admission change. No target/settings or radio-function acceptance from this run.
+Independent live Linux reads returned IBI9=ffffffff twelve times with valid
+ASIC/CORE and adjacent reads. Linux saves/restores this register around
+calibration; that value alone does not prove transport failure. The original
+strict profile remains unchanged. Separate v76 observation release
+`2351cfa9efee6bb1`, source `5426417e`, is installed and unarmed. Only fixed
+IBI9 may record all-ones; the other11 targets and every guard stay strict.
+All18 reads, full postguards, derived mask and both completion markers are
+required. Local/VM checks passed; native observation is pending. Ubuntu stays
+default with known-good recovery `e47dca3a6b30c6c1`. Await user readiness for
+cold-cycle shutdown; collect the matching saved session first after return.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6761,3 +6769,26 @@ Independent live Linux audit is archived/hash-verified at
 `~/.local/share/srvros/macbookpro11-2/linux-ibi9-audit-d6d1704/`.
 Next: exact-stage GPT save/return and missing-workspace rehearsal before install.
 Native observation results pending; failed v75 unchanged; no reboot armed.
+
+
+## 2026-10-25 — Separate IBI9 observation trial installed
+
+Source `5426417e8e5376211a4d012b96cc2482c44ea596`, release
+`2351cfa9efee6bb1`, config `ram-usb-wifi-fw-v76-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return checks passed.
+Installed manifest and known-good recovery `e47dca3a6b30c6c1` verified. Ubuntu
+remains default; no reboot is armed. Preboot offline exFAT/allocation checks
+passed:293files/697clusters/120directories, zero leaks/mismatches/errors;
+workspace unmounted. Prior failed v75 payload/evidence retained and archived;
+accepted path payload removed from ESP only after durable archive byte equality.
+
+Separate policy admits raw all-ones only for fixed IBI9 target8, derives the
+mask from actual reads and requires every remaining read and postguard. It does
+not accept IBI9 settings or calibration; strict v75 refusal remains unchanged.
+Full prior path/RF proof remains required. Candidate, helpers, tests, VM receipts
+and independent Linux audit are archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-observe-5426417/`.
+Next: after readiness, cold-cycle Wi-Fi for10s while powered off, keeping the
+workspace connected. Automatic capture saves and returns to Ubuntu. Collect
+matching release/session first using the separate strict observation collector;
+preserve any failure. No photos or commands required during the trial.
