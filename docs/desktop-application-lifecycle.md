@@ -156,3 +156,16 @@ resizes them, verifies the retained document's exact bytes and process baseline,
 and saves raw metrics. Its host wall timings include QMP typing/shortcut delays
 and must not be presented as app-only startup/close times. VM scheduling results
 are diagnostics, not physical latency or audio acceptance.
+
+The optional `--playback --rounds 1` fixture runs four actual app cycles during a
+20-second stream using the existing player/HDA and checks the captured waveform,
+underrun report, saved document and process baseline. Playback mode supports up
+to four rounds (80 seconds); a missing completion report remains incomplete.
+It changes test inputs, not audio implementation or physical acceptance.
+
+The separate PR160 compositor worker owns asynchronous lifecycle/cache changes.
+Consume this matched v15 baseline before combining them. The serialization owner
+continues to exclude same-PID siblings during mutable memory operations; a worker
+can move gate waits off the UI loop without making all of its memory work safely
+concurrent with that loop. Kernel service availability, application-only startup
+time, event-loop responsiveness and native audio acceptance are distinct checks.

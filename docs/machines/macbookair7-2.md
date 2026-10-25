@@ -2,29 +2,54 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active scope: application launch and retirement latency
+### Kernel lifecycle service windows validated; physical acceptance pending
 
-Starting from clean device source `a5a4bca`, main `afb2c3b`. The user reports
-application open/close lag during playback on another machine and assigns sound
-work to a separate agent. This unit owns a bounded **non-audio** investigation:
-measure process/image/mapping allocation and retirement, IRQ-masked work and
-scheduler gaps while repeatedly opening/closing actual GUI clients; improve the
-responsible process/memory lifecycle paths with ownership and failure tests.
-Shared scope is `kernel/src/process.c`, the graphics copy syscall paths,
-surface preparation, a private service-window helper, existing latency
-diagnostics and isolated host/VM fixtures. The audio-free baseline cycles 16
-real apps and preserves an exact saved document/process baseline. It measured
-57 ms whole memory retirement, a 62 ms maximum timer gap and an 80 ms maximum
-USB poll gap in Q35. Initial process-only service windows reduce those gaps to
-45/55 ms; graphics copies also lacked service windows between their buffer
-chunks. The combined candidate is under validation. Whole-operation spans
-include scheduling; these figures are not physical latency measurements. No HDA,
-PCM, codec, playback worker or audio workload edits. The other unit's report is
-not Air7,2 physical acceptance. Process limits, EC timeouts and native model
-gates stay unchanged. PR157 remains draft until its intermittent EC shutdown
-failure has an adequate diagnosis. No physical test or reboot is armed.
+PR157 now includes bounded non-audio kernel work from clean `2eb23c1`: process
+record/image/mapping/refresh/retirement service windows and graphics private-copy
+and surface-fill windows. The original 57 ms IRQ-masked retirement walk is split
+at completed page batches while retaining the existing serialization owner,
+unsafe-entry/sibling exclusion, cancellation lifetime, frame poisoning, surface
+quota/epoch checks and failure semantics. Process limits and native gates remain
+unchanged. No HDA, codec, PCM or player implementation was edited.
 
-### Application lifecycle implemented; merge held for shutdown investigation
+An audio-free Q35 fixture cycles 16 real Calculator/Files/Text/Preview apps,
+resizes/closes them, preserves an editable document and checks its exact saved
+bytes plus the process baseline. Baseline maximum timer/USB-poll gaps were
+61,684/79,743 us; the combined candidate measured 46,319/57,520 us. These are
+whole-fixture VM observations including desktop entry/exit and host scheduling,
+not physical guarantees. Whole-operation spans include scheduling and QMP wall
+timings include automated typing/shortcut delays. Remaining stalls are not hidden.
+
+Full core/desktop, ownership/failure/CR3/retirement fixtures and matched normal,
+native battery, Air7,2 VM battery and Air6,1 VM battery builds pass. Normal,
+Preview-crash and forced-dialog-refusal lifecycle VMs pass. Two unchanged
+60-second PCM/USB/battery stress VMs pass with clean retirement/automatic return;
+the earlier EC timeout has not recurred in those two runs, which does not prove
+its root cause. Exact v75 stage `2f871ca3f7401849` passes GRUB → staged Limine,
+automatically opened Help, save/exit/reopen, playback and clean unmount. It remains
+staged, not installed. The guide was visually checked.
+
+A separate clean `9746b0a` regression opens, resizes and closes four apps during a
+20-second stream using the unchanged player/HDA. Captured PCM has zero sample
+error and the player reports zero underruns. Saved document/process baseline and
+filesystem checks pass. The attempted 80-second fixture was terminated (exit 143)
+without a completion report; preserve it as incomplete, not a pass. Test fixture
+size/setup failures are retained separately. This is VM audio evidence only.
+
+Main `3ab4a38` (Air6,1 result documentation) is integrated at `038633d`; production
+sources match the tested `2eb23c1` tree. PR160 owns asynchronous compositor
+lifecycle/cache work; preserve its worker design and integrate it against this
+matched v15 baseline explicitly. Same-PID siblings remain excluded while their
+worker owns mutable kernel memory operations; service windows do not make app
+startup asynchronous. Larger UI/gate-wait stalls remain PR160's scope.
+
+Evidence is in `build/app-latency-20261025/`, retained with hash verification under
+this unit's `reviewed-evidence/app-latency-20261025` outside build. Installed
+current `f01d4049daae0b4a`, independent recovery `9aa8dbf6fbda8252`, Ubuntu default
+and no armed one-shot are verified. Neither new UI nor kernel changes have new
+Air7,2 physical acceptance. No physical reboot was requested.
+
+### Application lifecycle checkpoint before kernel service-window work
 
 Base main `e253a60`; D3 follow-up is implemented on this device branch/PR157.
 Matched protocol v15 adds one-level same-process document-modal windows, parent
@@ -64,8 +89,8 @@ One extra integrated audio/USB stress run completed its full minute (508 bursts,
 133,169,152 bytes, zero underruns), then halted on a synthetic EC sample timeout
 at shutdown. The unchanged candidate retry passed with clean retirement and
 return. Three diagnostic main-compositor-only runs also passed; they do not
-prove a cause or constitute full-main/native comparisons. PR157 stays draft:
-merge is held for a bounded teardown/latency reproduction. No timeout or model
+prove a cause or constitute full-main/native comparisons. At that checkpoint
+PR157 was held for a bounded teardown/latency reproduction. No timeout or model
 gates were widened. The candidate compositor source and build were restored.
 
 Evidence: `build/desktop-lifecycle-20261025/`, with 280 files hash-verified under
