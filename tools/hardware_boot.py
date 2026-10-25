@@ -451,6 +451,8 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
+    elif verify(source).get("config_version", "").startswith("ram-usb-v74-"):
+        print("Automatic audio/USB stress: 30 minutes of continuous playback and verified filesystem work; listen only, normal retirement/unmount and Ubuntu return.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v73-"):
         print("Automatic capacity test: two rounds of 24 mixed apps, screenshots and normal retirement; returns after save/unmount, no input required.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v72-"):
