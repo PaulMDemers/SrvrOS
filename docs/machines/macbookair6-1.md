@@ -2722,3 +2722,33 @@ next authorized automatic native run repeats the unchanged thirty-minute
 workload with these receipts, no human file work, and automatic return/collection.
 Preserve the previous failed release and accepted recovery. Inspect the new
 matching failure boundary before proposing a production startup change.
+
+### Instrumented app/audio/USB stress return — 2026-10-25 (failed)
+
+Release `d96ecb5806eba5c9` / source `6a0efaaf`, merged PR164, returned and
+collected matching session `session-00065eb1d5c0e3e5-00`. Six complete cycles
+(Text, Files, System twice) passed. Both Files OPEN requests reached compositor
+admission in under 1 ms; ready took 3,213,396 and 4,658,569 us, and close/reap
+took 1,783,328 and 1,796,376 us. The previous missing Files admission did not recur.
+
+The seventh cycle, Text, took 7,678,976 us to its first frame. Its window then
+closed, but the process had not completed cleanup/reap when the unchanged
+whole-cycle deadline fired at 10,000,722 us (phase 3, no pending OPEN or app error).
+It subsequently exited with status zero during test teardown. This is a failed
+stress run, not acceptance: no final workload/disk receipt exists. The measured
+loop maximum, now including the final interval, was 110,197 us. PCM had zero
+recorded underruns during the short run; thirty-minute endurance remains pending.
+
+Battery epoch 1 retired with heap/errors/denied zero, 315 queries and one
+notification. All 345 prior USB files are preserved except expected workspace
+metadata. Offline checks pass: 350 files / 1,013 clusters, no leaks, bitmap
+mismatches or errors. Ubuntu recovered, next_entry is empty, collector disabled,
+and matching raw evidence plus diagnosis are backed up outside build. No reboot
+is armed. Current integration `f1131519` also contains PR165's independent modal
+pointer correction; this returned payload predates that correction.
+
+Next target: shared app startup and cleanup delays under sustained disk
+contention, including gated allocation/unmapping and process retirement. The
+receipts establish the delayed phases, not the exact kernel cause. Preserve the
+10-second whole-cycle, client deadlines, 500 ms loop and all integrity checks;
+do not treat successful Files admission or a zero-status late exit as a pass.
