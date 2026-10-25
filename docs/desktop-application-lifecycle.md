@@ -84,6 +84,14 @@ GUI tests reject client-forged open-document delivery. The actual Text/Preview
 and lifecycle VM fixtures check consumers and saved data; the machine record owns
 physical acceptance of a specific payload.
 
+The compositor session fixture separately checks the routing authority: a
+maximum-length path split across a wrapped queue, copied request ownership,
+wrong PID/window/cookie and duplicate replies, explicit refusal fallback,
+malformed sender fragments, queue headroom and request-ID exhaustion. Timeout
+and owner retirement report uncertainty without replay; replies during close or
+desktop exit cannot resurrect an application. These are host protocol checks,
+not physical input or timing acceptance. Run them with `make test-desktop`.
+
 Run the focused actual-consumer gates serially:
 
 ```sh

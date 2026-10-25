@@ -409,6 +409,123 @@ static void dynamic_registry(void) {
     puts("desktop-registry: PASS 128 stable records, independent child growth, full menu/search, stale identities, quota/mapping failure and complete retirement");
 }
 
+/* Exercise the compositor as the routing authority, independently of the
+ * client receiver tests and the successful real-app VM route. */
+static struct session *route_fixture(void) {
+    static struct session s;
+    memset(&s,0,sizeof(s));memset(&clipboard,0,sizeof(clipboard));
+    alive=1;queue_full=0;send_allow=-1;sends=0;execute_result=-1;
+    strcpy(executed_path,"untouched");executed_argument[0]=0;
+    s.scene.apps=1;s.scene.focus=0;s.home=DESK_RAM_HOME;
+    desk_damage_init(&s.damage,1280,800);
+    for(int i=0;i<2;i++) {
+        s.clients[i].pid=42;s.clients[i].window=i+1;s.clients[i].identity=i+1;
+        s.clients[i].progress=now;
+        s.scene.windows[i].visible=1;s.scene.windows[i].frame=(struct desk_rect){20+i*50,60,402,325};
+    }
+    s.scene.windows[0].application=DESK_APP_TEXT;
+    s.scene.windows[1].application=DESK_APP_FILES;
+    struct desk_packet p=desk_packet_new(DESK_APP_SERVICE);p.value=DESK_SERVICE_OPEN_DOCUMENT;
+    incoming(&s,42,&p);assert(s.clients[0].service_bits==DESK_SERVICE_OPEN_DOCUMENT);
+    p.window=2;incoming(&s,42,&p);assert(!s.clients[1].service_bits);
+    return &s;
+}
+static void route_from_files(struct session *s,const char *path) {
+    size_t length=strlen(path)+1;
+    for(size_t offset=0;offset<length;) {
+        struct desk_packet p=desk_packet_new(DESK_LAUNCH);p.window=2;p.value=DESK_APP_TEXT;
+        size_t n=length-offset>sizeof(p.text)?sizeof(p.text):length-offset;
+        p.serial=offset;p.height=n;p.width=offset+n==length;
+        memcpy(p.text,path+offset,n);incoming(s,42,&p);offset+=n;
+    }
+}
+static void document_routing_failures(void) {
+    struct session *s=route_fixture();
+    s->clients[0].input_head=DESK_INPUT_QUEUE-1; /* Chunk pair wraps the ring. */
+    char path[160];memset(path,'a',sizeof(path));path[0]='/';path[159]=0;
+    route_from_files(s,path);
+    struct client *c=&s->clients[0];uint64_t request=c->open_request;
+    assert(request && c->input_count==2 && !strcmp(c->open_path,path));
+    char assembled[160];unsigned length=0;
+    for(unsigned n=0;n<c->input_count;n++) {
+        const struct desk_packet *p=&c->input[(c->input_head+n)%DESK_INPUT_QUEUE];
+        assert(p->type==DESK_OPEN_DOCUMENT && p->window==1 && p->input_serial==request);
+        assert(p->serial==length && p->width==(n+1==c->input_count));
+        assert(p->height && p->height<=sizeof(p->text));
+        memcpy(assembled+length,p->text,p->height);length+=p->height;
+    }
+    assert(length==sizeof(path) && !memcmp(assembled,path,sizeof(path)));
+    strcpy(path,"/changed-after-send");assert(strcmp(c->open_path,path));
+    assert(!route_document(s,DESK_APP_TEXT,"/second.txt") && c->open_request==request);
+    struct desk_packet reply=desk_packet_new(DESK_OPEN_DOCUMENT_REPLY);reply.serial=request;
+    incoming(s,777,&reply);assert(c->open_request==request); /* Different owner. */
+    reply.window=2;incoming(s,42,&reply);assert(c->open_request==request); /* Same-PID sibling. */
+    reply.window=1;reply.serial=request+1;incoming(s,42,&reply);assert(c->open_request==request);
+    reply.serial=request;reply.value=2;incoming(s,42,&reply);assert(c->open_request==request);
+    reply.value=0;incoming(s,42,&reply);assert(!c->open_request && !strcmp(executed_path,"untouched"));
+    reply.value=1;incoming(s,42,&reply);assert(!strcmp(executed_path,"untouched")); /* Late duplicate. */
+
+    /* Only a matching explicit refusal permits a new instance, with the copied
+     * original path. A stale reply cannot refuse a newer request. */
+    route_from_files(s,"/refused.txt");request=c->open_request;assert(request>reply.serial);
+    incoming(s,42,&reply);assert(c->open_request==request && !strcmp(executed_path,"untouched"));
+    reply.serial=request;incoming(s,42,&reply);
+    assert(!c->open_request && !strcmp(executed_argument,"/refused.txt"));
+    strcpy(executed_path,"untouched");incoming(s,42,&reply);assert(!strcmp(executed_path,"untouched"));
+
+    /* Queue headroom refuses routing without consuming an ID or closing an
+     * existing document. It must not partially enqueue a long path. */
+    s=route_fixture();c=&s->clients[0];
+    for(unsigned n=0;n<DESK_INPUT_QUEUE-4;n++)queue_input(s,0,desk_packet_new(DESK_KEY));
+    unsigned queued=c->input_count;uint64_t serial=s->activation_serial;
+    assert(!route_document(s,DESK_APP_TEXT,"/pressure.txt"));
+    assert(c->input_count==queued && !c->open_request && !c->closing && s->activation_serial==serial);
+    c->input_count=0;s->activation_serial=UINT64_MAX;
+    assert(!route_document(s,DESK_APP_TEXT,"/exhausted.txt") && !c->open_request);
+    s->activation_serial=0;assert(!route_document(s,DESK_APP_TEXT,"relative.txt"));
+    char oversized[161];memset(oversized,'x',sizeof(oversized));oversized[0]='/';oversized[160]=0;
+    assert(!route_document(s,DESK_APP_TEXT,oversized) && !s->activation_serial);
+
+    /* A timeout is uncertain delivery, never permission to replay an Open.
+     * Even a subsequent refusal of the old request cannot spawn a duplicate. */
+    s=route_fixture();c=&s->clients[0];route_from_files(s,"/uncertain.txt");
+    reply.serial=c->open_request;reply.value=1;now+=1001;service(s);
+    assert(!c->open_request && !c->service_bits && !c->closing);
+    assert(strstr(s->scene.notice,"not confirmed") && !strcmp(executed_path,"untouched"));
+    incoming(s,42,&reply);assert(!strcmp(executed_path,"untouched"));
+    assert(!route_document(s,DESK_APP_TEXT,"/next.txt"));
+
+    /* Closing/exiting must not resurrect a refused target behind shutdown.
+     * Incoming file-launch messages are ignored once desktop exit begins. */
+    s=route_fixture();c=&s->clients[0];route_from_files(s,"/exit.txt");
+    reply.serial=c->open_request;s->exiting=1;incoming(s,42,&reply);
+    assert(!c->open_request && !strcmp(executed_path,"untouched"));
+    route_from_files(s,"/after-exit.txt");assert(!c->open_request && !strcmp(executed_path,"untouched"));
+    s=route_fixture();c=&s->clients[0];route_from_files(s,"/close.txt");
+    reply.serial=c->open_request;c->closing=1;incoming(s,42,&reply);
+    assert(!c->open_request && !strcmp(executed_path,"untouched"));
+    assert(!route_document(s,DESK_APP_TEXT,"/closing.txt"));
+
+    /* Fragment errors reset the sender's assembler without publishing an
+     * incomplete path or spawning a fallback with untrusted trailing bytes. */
+    s=route_fixture();c=&s->clients[0];
+    struct desk_packet fragment=desk_packet_new(DESK_LAUNCH);fragment.window=2;
+    fragment.value=DESK_APP_TEXT;fragment.height=5;memcpy(fragment.text,"/part",5);
+    incoming(s,42,&fragment);assert(s->clients[1].launch_length==5 && !c->open_request);
+    fragment.serial=4;fragment.width=1;fragment.height=2;memcpy(fragment.text,"x",2);
+    incoming(s,42,&fragment);assert(!s->clients[1].launch_length && !c->open_request);
+    fragment.serial=0;fragment.height=5;memcpy(fragment.text,"/a\0b",5);
+    incoming(s,42,&fragment);assert(!c->open_request && !strcmp(executed_path,"untouched"));
+    c->parent_window=99;assert(!route_document(s,DESK_APP_TEXT,"/dialog.txt"));
+    c->parent_window=0;c->service_bits=0;assert(!route_document(s,DESK_APP_TEXT,"/unregistered.txt"));
+
+    s=route_fixture();route_from_files(s,"/retired.txt");forget(s,0);
+    assert(!s->clients[0].pid && strstr(s->scene.notice,"before confirming"));
+    assert(!strcmp(executed_path,"untouched"));
+    sends=0;execute_result=-1;
+    puts("desktop-document-route: PASS copied chunks, authenticated replies, pressure, uncertainty and shutdown without replay");
+}
+
 int main(void) {
     buffer_budget();resize_refusal();
     idle_admission();
@@ -721,6 +838,7 @@ int main(void) {
     delayed_control_delivery();
     connection_lifetime();
     dynamic_registry();
+    document_routing_failures();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

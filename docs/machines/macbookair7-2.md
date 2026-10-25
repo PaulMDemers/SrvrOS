@@ -2,6 +2,27 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Document-routing failure paths covered; compositor integration still pending
+
+Base main `c4bee5c`; draft PR160 `29c75d8` already consumes this matched v15
+baseline and owns asynchronous compositor launch/cache implementation. Focused
+host tests now cover a copied 160-byte chunked path across a wrapped queue,
+PID/window/request authentication, stale and duplicate acknowledgements, explicit
+refusal fallback, queue headroom, request-ID exhaustion, malformed sender
+fragments, timeout uncertainty, owner retirement and refusal while closing or
+exiting. No uncertain request is replayed; no late refusal resurrects an app
+behind shutdown. The full local desktop suite passes on this branch. The same
+new fixture also passes against PR160's exact `29c75d8` compositor/registry/worker
+source extracted into ignored review storage, including its existing worker
+checks. That host replay is not a combined VM or native latency result.
+
+This scope changes tests and current lifecycle documentation only. No competing
+worker, sound, process-capacity or device-profile changes. Evidence is in
+`build/lifecycle-route-review-20261025/`; installed/recovery state is unchanged
+and no reboot is armed. PR160 remains draft while its owner completes integrated
+VM/exact-stage validation. Consume its reviewed result before a combined trial;
+the existing v75 attended guide remains available for physical acceptance.
+
 ### Kernel lifecycle service windows validated; physical acceptance pending
 
 PR157 now includes bounded non-audio kernel work from clean `2eb23c1`: process
