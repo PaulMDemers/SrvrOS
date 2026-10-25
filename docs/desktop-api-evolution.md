@@ -1,7 +1,7 @@
 # Desktop architecture and API evolution
 
 Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130); D0/D1
-progress and D2 implementation updated 2026-10-25. Later blocks remain proposals, not implemented APIs
+progress and D2/D3 implementation updated 2026-10-25. Later blocks remain proposals, not implemented APIs
 or new hardware acceptance claims. The [capacity contract](window-capacity.md) describes
 current dynamic storage and the separately scoped physical acceptance. The companion
 [POSIX audit](posix-compatibility.md) covers the userspace foundation.
@@ -72,35 +72,40 @@ Admission must account for the peak during resize, including the old image, new
 image and in-flight frame. Cache trace output is optional; the accepted native
 sixteen-window round contains no cache totals.
 
-## Combined wait contract (planned, not implemented)
+## Combined wait contract (D3b)
 
-The POSIX work supplies checked descriptor operations, poll/select and cooperative
-signal-mask handling. A GUI connection is not yet a descriptor, and polling a
-separate GUI queue remains a desktop limitation. Desktop D1/D3 should introduce
-one kernel wait request containing native FD interests, an authenticated GUI
-connection interest, an absolute monotonic deadline and a cancellation epoch.
-Keep the public toolkit interface independent of the syscall layout.
+The D3b implementation provides one wait for an authenticated GUI server and up
+to eight explicit nonblocking pipe/PTY interests. It uses an absolute monotonic
+deadline, bounded to one second ahead, and a process-local cancellation epoch.
+Zero/past deadlines probe immediately. The ready set reports GUI messages,
+descriptor events, cancellation, peer loss or deadline without consuming data.
+This is a native desktop primitive; it does not turn GUI connections into POSIX
+file descriptors or extend arbitrary VFS/network polling during owned I/O.
 
-The wait must inspect readiness and register its wake condition in the same
-serialized kernel section. GUI enqueue/disconnect, FD readiness/close, worker
-completion and cancellation must advance a generation and wake that wait. Recheck
-all requested conditions after registration and each wake; a wake is not proof of
-a ready event. Return a ready set without consuming messages or data. Drain a
-bounded batch in the single connection dispatcher, distribute by stable window
-handle, and recompute the nearest timer deadline before waiting again.
+The kernel copies immutable interests once, captures descriptor lifetime
+generations, then checks readiness and registers the common wake queue with IRQs
+masked. Close/dup2 publication invalidates old descriptor watches even when the
+numeric FD or underlying endpoint is reused. Generations saturate, never wrap.
+GUI enqueue/disconnect, pipe changes, cancellation and signals wake the same
+queue. Spurious wakes recheck readiness and the absolute deadline. Cancellation
+is acknowledged by the connection helper's observed epoch; it does not cancel
+accepted file mutations or create a second queue reader.
 
-A child window must not introduce a second reader of the process queue. Completion
-callbacks run on the dispatcher thread; file/device work remains in workers.
-Preserve existing GUI sender authentication and surface ownership. During owned
-storage I/O, combined waits must retain the current admission restrictions;
-adding an FD interest cannot make a blocked filesystem syscall eligible. Avoid
-re-entering lifecycle cleanup while another process owns I/O.
+`desk_connection_wait_io` and `desk_app_wait_io` require fully published,
+quiescent windows. The caller owns timer/clipboard/control deadlines and keeps
+bounded dispatch batches. `desk_file_pool_interests` supplies active worker
+transport interests; queued work needing a lease, a complete buffered reply and
+child retirement retain a short dispatch retry. Text/Files use this path.
+During owned storage I/O, normal pipe readiness is suppressed (the actual try
+read/write would defer), but GUI/cancel/descriptor invalidation still return.
+The wait rechecks deferred pipes within one scheduler tick without entering
+filesystem cleanup. General POSIX poll admission is unchanged.
 
-Acceptance must force GUI/FD/worker arrivals immediately before and after wait
-registration, close/reuse and connection-epoch changes, timeout-zero probes,
-signal interruption, cancellation and input under heavy I/O. Measure idle CPU and
-p95/p99 dispatch latency. The current POSIX VM receipts do not establish this
-future GUI wait contract or native input latency.
+Focused host fixtures cover immutable snapshots, registration/spurious races,
+simultaneous readiness, descriptor close/reuse, copy faults, cancellation, signal
+interruption and partial-tick deadlines. Actual-ABI and application QEMU gates
+must be read from the machine record. Idle CPU and p95/p99 latency profiling,
+physical input latency and broader desktop service integration remain pending.
 
 ## Proposed object model and API contracts
 
@@ -199,7 +204,7 @@ preserves the other document. Cover rejected creation, server death, client deat
 queued stale events, handle reuse, parent close, save deferral and failed resize.
 Tests must exercise the actual kernel/client/compositor protocol, not only mocks.
 
-D1a/b are merged in PR141/142. Normal Text migration is tracked in PR143:
+D1a/b are merged in PR141/142 and normal Text migration in PR143:
 `f4f4c9c` passes actual multi-document save/close/reopen/launcher and sixteen-document
 refusal/reuse/exact persistence gates. Parented/transient dialogs are not yet an
 API; their acceptance follows D3. Native gesture/latency acceptance is separate.
@@ -207,7 +212,7 @@ API; their acceptance follows D3. Native gesture/latency acceptance is separate.
 ### D2 — Allocate registries dynamically
 
 D2a/b are merged in PR144/145: kernel surface/queue slots have been replaced
-with byte-budgeted stable storage. Candidate D2c (`bba1c39`) implements stable
+with byte-budgeted stable storage. D2c merged through PR146 (`bba1c39` runtime) implements stable
 compositor chunks, separate child growth, reusable scene scratch and complete
 menu/palette enumeration. Host/full-build gates pass; QEMU/native acceptance
 must be read from the current machine record. D2 latency/large-workload profiling
@@ -239,7 +244,8 @@ resource totals. VM scale evidence does not accept physical gestures or latency.
 D3a implements reusable file-worker ownership for Text/Files: caller-owned
 job records, lazy bounded transport leases, FIFO admission and drain/reap before
 application exit. This removes per-document worker allocation without claiming
-combined GUI/FD waits or all desktop services are complete.
+all desktop services are complete. D3b adds the bounded GUI/pipe/PTY wait
+contract above; current source acceptance is recorded per machine.
 
 Build a small allocating application layer above the pure widgets: event loop,
 actions, multiple windows, document lifecycle and job ownership. Migrate remaining
@@ -281,6 +287,9 @@ before implementation across protocol, kernel GUI and client libraries. Device
 agents continue their independent drivers/profiles and consume matched merged
 images. Pro11,2 PR19 is Wi-Fi work; this plan does not take over that scope.
 
-Current evidence remains the PR130 host/VM regressions and Air sixteen-window
-opening on `bf68e4e9b88b8ae7`. Nothing in this proposal claims dynamic windows,
-multi-window applications or new POSIX behavior is implemented yet.
+D0–D2 and D3a are merged through PR140–147. D3b's combined wait is tracked in
+PR148. Current host/QEMU evidence includes 128 small windows, 32 normal Text
+documents/33 exact files, worker fault/reap behavior and actual wait/input-under-I/O
+fixtures. Physical window acceptance remains the Air sixteen-window round on
+`bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.
+The selected POSIX profile has its own acceptance record and remaining gaps.

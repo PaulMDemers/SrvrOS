@@ -79,8 +79,9 @@ termination policy. This can affect all windows in that process.
 
 `desk_connection_wait` checks every registered window before waiting on the one
 GUI queue. The caller must also exclude active jobs, service transfers and its
-own timer deadlines. Combined GUI/descriptor waits and parented dialogs remain
-later work. Window registries now grow under explicit metadata budgets.
+own timer deadlines. For worker readiness use the combined wait below;
+parented dialogs remain later work. Window registries grow under explicit
+metadata budgets.
 
 ## Validation
 
@@ -151,3 +152,55 @@ through actual worker processes and checks the disposable image offline.
 `tools/desktop_capacity_smoke.py --document-growth` exercises 32 real Text
 documents with exact persistence and shared worker retirement. See the machine
 record for validated revisions; these fixtures do not establish native latency.
+
+## Waiting for GUI and worker readiness
+
+Fill a `srv_gui_wait` request with an absolute `srv_monotonic_us()` deadline and
+explicit nonblocking pipe/PTY interests, then call `desk_connection_wait_io`
+(or `desk_app_wait_io` for a legacy single window). The helper supplies the
+version/server/cancellation token and returns ready flags or a negative error.
+It rejects unfinished window publication just like the legacy GUI-only wait.
+Up to eight interests are accepted; general files, sockets, blocking endpoints
+and unsupported event masks are rejected. Only `POLLIN`/`POLLOUT` are requested;
+`revents` can additionally report hangup/error/invalidated binding.
+
+Deadline zero or a past deadline is a non-consuming probe; future deadlines are
+limited to one second. The result can combine `SRV_GUI_READY`,
+`SRV_GUI_FD_READY` and `SRV_GUI_CANCELED`. `SRV_GUI_DISCONNECTED` reports peer
+loss; `SRV_GUI_DEADLINE` means no other requested condition was ready. Readiness
+is advisory: dispatch a bounded batch and tolerate another thread changing an
+endpoint afterward. Close/dup2 during the wait reports `POLLNVAL`, even if that
+FD number is reused before the waiter runs. Invalid input before capture is an
+error instead. Signal interruption returns `SRV_ERR_INTR`.
+
+`gui_cancel_wait()` requires an established client receive queue, increments a
+process-local epoch and wakes combined waiters. Legacy `gui_wait` does not
+observe this epoch. The
+connection helper adopts the observed epoch on a successful result. It must not
+be called concurrently by multiple GUI dispatchers. Another thread may request
+cancellation, but that only interrupts the wait: keep accepted jobs alive and
+drain them before detaching. At epoch exhaustion cancellation remains sticky.
+
+`desk_file_pool_interests` sets the request's count/interests without I/O. One
+means the pool can wait; zero means queued dispatch, buffered completion or
+child retirement needs a short retry; negative means invalid/capacity. Always
+poll jobs and GUI before rebuilding the interests. Keep clipboard transfer,
+unsaved-close, title/menu publication and other timer policy in the owning loop.
+Normal Text/Files currently use a 100 ms maximum wait and a one-tick fallback.
+During owned storage I/O the kernel still returns GUI/cancel/invalidation but
+defers ordinary pipe readiness, rechecking at most one tick later.
+
+The file-job start API accepts a previous request path or retained input/output
+slice: it snapshots the path and uses overlap-safe payload copying before
+resetting headers. Accepted requests stay immutable while busy.
+
+`tools/desktop_multiwindow_smoke.py` starts with `guifail --wait`, exercising
+actual threads, pipe readiness, cancellation, FD replacement and server exit.
+The multiwindow completion collector requires successful child exits and exact saved
+console records; live UART writes can interleave and are retained separately.
+`tools/desktop_wait_load_smoke.py` injects 16 idle and 32 active-write keystrokes
+while forty 64 KiB file jobs run through two channels on a disposable, throttled
+QEMU disk. It checks acknowledged input, worker/process retirement, exact offline
+files, fsck and allocation consistency. Reported kernel-key-queue-to-dispatch
+latency percentiles are histogram bounds in that VM, not physical arrival,
+scanout latency or an energy measurement.

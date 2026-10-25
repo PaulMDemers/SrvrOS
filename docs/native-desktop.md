@@ -459,8 +459,9 @@ subject to review against the active Air branch.
 a configured, clean window with no sealed frame, pending resize, failed send or
 unfinished menu publication. The application must separately exclude jobs,
 clipboard transactions, timers and diagnostic work that require shorter service.
-Text uses a ten-tick (100 ms) maintenance bound only when quiescent; other app
-roles and the compositor retain their existing cadence.
+The legacy GUI-only helper keeps a ten-tick (100 ms) maintenance bound.
+Normal Text/Files now use the combined worker wait described below; other app
+roles and the compositor retain their own cadence.
 
 The additive `SYS_GUI_WAIT` (136) takes the expected compositor PID and a maximum
 of 100 ticks. It returns 1 for pending messages, 0 on timeout, -1 for invalid
@@ -477,10 +478,17 @@ unrelated readiness waiters. The syscall accesses only bounded GUI state and
 retains the existing audited storage-service scheduling rules. No pointers to
 userspace buffers or reusable GUI queue slots survive a wait.
 
-An ineligible/failed wait falls back to the prior one-tick client loop. Text's
-active save, clipboard, title/menu/frame publication and explicit diagnostic
-workloads keep that prior path. This changes no firmware, device polling or CPU
-policy. Native energy improvement requires a matched repeated comparison against
+An ineligible/failed wait falls back to the prior one-tick client loop. Clipboard,
+title/menu/frame publication and explicit diagnostic workloads keep that path.
+Normal Text/Files can wait on active file-worker pipes with `SYS_GUI_WAIT_IO`
+(152); `SYS_GUI_CANCEL_WAIT` (153) interrupts combined process-local waits without canceling
+accepted jobs. These helpers capture up to eight explicit nonblocking pipe/PTY
+interests, an absolute monotonic deadline and a cancellation epoch. Close/dup2
+invalidation, peer loss and signals are checked on each wake. During owned
+storage I/O the kernel defers ordinary pipe readiness but still returns GUI
+input; it does not enter the filesystem gate. See [desktop connections](desktop-connections.md)
+for ownership, ready flags and short-retry policy. This changes no firmware,
+device polling or CPU policy. Native energy improvement requires a matched repeated comparison against
 the worker-attributed baseline; reduced timer wakes alone are not an energy result.
 
 ### Quiescent compositor waits
