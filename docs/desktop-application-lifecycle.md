@@ -100,3 +100,31 @@ without exhausting general memory, then verifies embedded save/cancel/quit
 recovery. Each fixture compares saved bytes and returns to the process baseline;
 crash-only orphans are given a bounded init-reaper interval. Raw serial output is
 preserved even when compositor/client writes interleave.
+
+## Attended hardware trial
+
+The explicit Air7,2 `--desktop-lifecycle-trial` stage profile (v75) uses the
+ordinary combined battery/services session and opens Help's **Application
+lifecycle trial** topic automatically. It has no deadline or automatic reboot.
+The full checklist covers parent/dialog focus, independent sibling input,
+Close versus Quit, cancellation, saving, Files routing, Preview retention,
+screenshots and a normal exit/reopen before returning to Ubuntu. Reopening with
+`desktop battery` uses the ordinary session, without relaunching the checklist.
+It does not increase process capacity or change another machine's profile.
+
+After building matched normal/native/VM battery images, prepare an exact stage
+using this machine's own compact workspace UUID:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume YOUR_UUID \
+  --desktop-battery --desktop-services --desktop-lifecycle-trial
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
+  --boot-session --services --audio --lifecycle-guide \
+  --case profile-refusal --stage RELEASE
+```
+
+The exact-stage Q35 rehearsal verifies instruction delivery, application work,
+normal exit/reopen and clean retirement. Its native battery profile correctly
+refuses Q35; this is not native battery or physical dialog acceptance. Follow
+the device-agent setup guide for install, recovery, run record and one-shot boot.
+Do not install or reboot merely because staging completed.

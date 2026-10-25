@@ -23,8 +23,16 @@ The baseline check exposed uncollected exited workers; explicit idle-file-worker
 retirement now retains/reaps PIDs, and Preview drains image-worker retirement.
 Compositor preferences shutdown also collects its worker. Host tests cover the
 new ownership, quit, routing/chunk and worker-retirement contracts. Full core,
-desktop and matched normal/native/VM battery builds pass. Final clean-source
-consumer/failure/combined-service regressions follow this checkpoint.
+desktop and matched normal/native/VM battery builds pass. Clean source `6eb9495`
+passes the normal, crash and forced-refusal lifecycle fixtures with exact saved
+bytes, clean formatted exFAT allocation and process-baseline recovery. The
+combined-service VM passes two rounds of 24 apps and exact document persistence.
+
+Main `afb2c3b` (Air6,1 audio/USB work from PR156/158) is integrated at `c0ce49b`;
+the guide uses distinct profile v75 and session selector 5, preserving v74 and
+selectors 3/4 for audio stress. Integrated local gates are being finalized.
+The explicit lifecycle profile opens the full attended checklist in Help with
+no timed exit; ordinary reopen remains ordinary. No hardware reboot is armed.
 
 Evidence: `build/desktop-lifecycle-20261025/`, to be backed up outside build.
 The installed/recovery payload remains the prior physically accepted v14 image;
