@@ -2,10 +2,10 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active scheduler capacity implementation
+### Scheduler capacity fix: host/VM validated
 
 Base main `16bbe49` plus this unit's collected-run notes; Pro PR19 inspected at
-`5341990` remains independent. Scope: scheduler storage grows in stable chunks
+`2f9032d` remains independent Wi-Fi work. Scope: scheduler storage grows in stable chunks
 under a kernel-stack/metadata byte budget; wait queues must support slots above
 63 without bit shifts or aliasing. Preserve identities, I/O ownership, quarantined
 stacks and existing wait semantics. Add host rollback/reuse/high-slot coverage,
@@ -16,14 +16,29 @@ focused tests/docs. No new firmware gates or physical reboot in this work block.
 Host/core/desktop suites and matched kernel/userspace builds pass. The new
 mixed-app QEMU fixture reproduces the native symptom on staged old release
 `2750e5efa04573ba`: fifteen windows followed by scheduler-table exhaustion.
-The fixed combined-service VM is the next gate; native validation remains pending.
+Runtime `8d1a05a` passes the fixed combined-service VM with 2 GiB guest RAM:
+24 independent app windows, exact saved text after growth, PCM playback, all
+35 tracked descendants drained, battery/logger retirement, desktop reopen and
+offline filesystem/allocation checks. A prior 512 MiB run reached 23 windows
+then exhausted physical memory; its visible resource warning and failure
+artifacts are retained separately. The final harness change only matches the
+2 GiB exact-stage allocation and fails promptly on logged launch refusal.
+Actual `threadstress` (all cases) and the explicit desktop quota-refusal/reuse,
+save/capture and complete-cleanup VM tests pass. Native validation remains pending.
+The throttled-I/O desktop regression also passes: all 48 input events acknowledged
+(32 while writes were active), forty exact 64 KiB writes/readbacks, both workers
+reaped, process baseline restored and no leaked filesystem allocation.
 Thread storage is charged to a 32 MiB stack/dynamic-record budget; 32-slot stable
 chunks and non-bitmap waits preserve addresses and identities above slot 63.
 Host fixtures cover growth beyond 95 live slots, PMM failure rollback, quota
 refusal/reuse, high-slot waits/timeouts/cancellation and quarantine retention.
 Launch failures now produce visible rate-limited app alerts and unconditional
 error records. Worker attribution version 2 is bounded to 256 directory slots;
-version-1 evidence remains readable. Evidence is in scheduler-capacity-20261025.
+version-1 evidence remains readable. PR152 publishes the change; local validation
+uses no GitHub Actions. Evidence is in scheduler-capacity-20261025 and copied to
+the unit's reviewed-evidence directory outside build. Next is a separately
+prepared exact-stage native 17+ mixed-app/document/reopen trial; current installed
+and recovery payloads remain unchanged in this work block.
 
 
 ### Runtime native return: scheduler capacity blocker
@@ -32,7 +47,7 @@ Release `2750e5efa04573ba` / source `16bbe49`, session
 `session-00065ead489f2265-00`, returned and was collected on October 25. The user
 reports sensors/controls working and about fifteen application windows, after
 which no additional app would open. Matching logs contain three explicit
-`exec: scheduler thread table full` errors. The production scheduler still has
+`exec: scheduler thread table full` errors. That release's scheduler has
 32 global thread slots shared by app main threads, workers and boot/device
 services. The launcher is an overlay, not another admitted client window.
 This is a scheduler admission failure, not evidence of a restored compositor

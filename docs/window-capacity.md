@@ -254,3 +254,10 @@ lifetime, reopens and checks disposable filesystem allocation. It complements th
 single-process 128-window and 32-document fixtures; it does not replace native
 acceptance. The same test against old staged release `2750e5efa04573ba` reproduced
 scheduler-table exhaustion after fifteen windows.
+
+The mixed-process workload uses 2 GiB guest RAM, matching the exact-stage
+reproduction. A 512 MiB run of the fixed scheduler passed the old fifteen-window
+boundary but exhausted physical memory before the final Text process could
+open; the desktop retained the session and displayed its resource warning.
+This is an independent memory limit, not evidence of unlimited app admission.
+Ordinary service fixtures retain their 512 MiB allocation.

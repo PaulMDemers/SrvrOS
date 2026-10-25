@@ -112,7 +112,10 @@ def main():
         else:
             iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
             boot_args=['-cdrom',iso,'-boot','d']
-        cmd=['qemu-system-x86_64','-M','q35,acpi=off' if args.case=='clock-missing' else 'q35','-m','2G' if stage else '512M',*boot_args,'-nic','none',
+        # Many separate GUI processes need their own address spaces and stacks.
+        # Match exact-stage memory for the 24-app workload; retain 512M for the
+        # ordinary service lifetime fixture.
+        cmd=['qemu-system-x86_64','-M','q35,acpi=off' if args.case=='clock-missing' else 'q35','-m','2G' if stage or args.mixed_apps else '512M',*boot_args,'-nic','none',
              *([] if stage or args.case=='clock-missing' else ['-acpitable',f'file={tmp}/battery.aml']),
              '-serial',f'unix:{tmp}/serial,server=on,wait=off',
              '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot',
@@ -127,7 +130,7 @@ def main():
                     nonlocal consumed
                     start=time.monotonic()
                     while marker not in output[consumed:]:
-                        if args.mixed_apps and (b'exec: scheduler thread table full' in output or b'exec: scheduler admission failed' in output):raise RuntimeError('mixed-app scheduler admission failed')
+                        if args.mixed_apps and (b'exec: scheduler thread table full' in output or b'exec: scheduler admission failed' in output or b'deskd: launch-failed' in output):raise RuntimeError('mixed-app resource admission failed; inspect serial evidence')
                         assert process.poll() is None and time.monotonic()-start<timeout,f'missing {marker!r}'
                         output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
                         if not consumed:qmp.boot_if_menu_stalled(output,time.monotonic()-start)
