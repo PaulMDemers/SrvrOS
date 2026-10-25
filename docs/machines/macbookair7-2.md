@@ -2,6 +2,187 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
+### Native POSIX regression accepted
+
+Runtime `1882029`, release `284e53065081672f`, completed unattended on this
+Air7,2 in session `session-00065e9fe3b89b2a-00`. Full thread contracts,
+posixdemo, TLS, SQLite and the desktop/Text capture all exited zero; all five
+owned process trees retired. The matching four saved logs have no collector
+attention. The 1440x900 screenshot was hash-verified and visually inspected.
+The desktop's 60-second sample recorded 98.48% idle scheduler ticks; this is
+an idle workload observation, not a measure of energy or interactive latency.
+
+All 1054 previous files retained their bytes; only expected `.srvros/meta`
+bookkeeping changed. Offline fsck is clean (1059 files); independent allocation
+traversal reports 2578 clusters, zero leaks, mismatches or errors. Ubuntu returned
+with its default preserved and the one-shot selection consumed. Installed and
+recovery payload hashes match; recovery `9aa8dbf6fbda8252` and independent copies
+remain available. Full raw evidence is retained under
+`build/posix-core-20261024/native` with a durable copy outside `build`.
+
+Preparation added an explicit `--posix-capture` and independent volatile RAM disk.
+It exposed a pending signal after an already-completed pthread join; `dddb07f`
+fixes the delivery checkpoint after record retirement. The directed test fails
+before and passes afterward; full core/build, libuv and exact-stage positive and
+missing-workspace VM rehearsals pass. Failed attempts remain in local evidence.
+Normal device startup gates are unchanged. This bounded test does not establish
+new physical gesture, battery, sound, networking or full POSIX acceptance.
+
+Main `211f17c` remains the integration base; Pro PR19 `631105b` has independent
+Wi-Fi scope. PR134 is ready for integration with these native results. Next is
+the desktop connection/window identity milestone described in the
+[API evolution plan](../desktop-api-evolution.md), before dynamic capacity and
+combined GUI/descriptor event waits.
+
+### POSIX portable-application milestone checkpoint
+
+The selected profile is implemented and locally validated at runtime source
+`7e2cf54`. Full core, forced partial-tick poll timing, focused readiness and full
+thread suites pass. The final combined gate passes libc, ports, process/shell,
+libuv, utilities, Lua files/strings/UTF-8/bitwise, Terminal and Files. Public scope,
+bounds, remaining Unix/Linux gaps and reproduction commands are in the
+[portable C profile](../posix-supported-profile.md). This is not POSIX certification.
+
+Key final corrections: shared endpoint state/errors `6c83966`, libuv descriptor
+mapping `0d0258b`, atomic socketpairs `050a837`, stream reopening `12b33d9`, and
+monotonic poll deadlines `7e2cf54`. The measured wait fixture found and retained
+a real early-timeout failure before the corrected host/VM passes. Evidence:
+`build/posix-core-20261024/final-gate-checked.json` plus its prerequisite receipts;
+backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+
+Main remains `211f17c` (consumed as `88c2cbb`); Pro PR19 `e66d47d` retains Wi-Fi
+scope. PR134 contains the reviewable shared changes. Desktop implementation is
+deferred; combined GUI/FD wait is a documented design only. No physical trial is
+armed. Installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252` and USB
+`37D8-C5D0` are unchanged. Next discussion: integration/native regression of this
+profile and the planned connection/window identity migration; do not repeat the
+completed POSIX blocks or claim untested broader APIs.
+
+
+User authorizes sustained implementation of the POSIX plan before the desktop
+overhaul. Base `76a55dd` (merged architecture audit PR133), branch
+`device/macbookair7-2/posix-core`. First shared changes: libc error state,
+positional I/O syscalls/process-file operations, poll/select and signal/time
+contracts, guest semantic probes and local host/VM harnesses. Continue through
+the audit's compatibility blocks with explicit unsupported features rather than
+claiming certification. Desktop identity/capacity work is deferred.
+Pro PR19 Wi-Fi and Air6,1 PR132 combined device services remain independent;
+preserve their profiles and acceptance. Publish coherent commits and validate
+locally with Actions disabled. No native reboot is needed for the first blocks;
+installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252`, USB `37D8-C5D0`
+remain unchanged. Progress/evidence: `build/posix-core-20261024/`.
+
+Published implementation commits through `a9e63e5`: per-thread errno, kernel
+positional I/O, select/readiness corrections, interrupted/absolute sleep,
+reclaimed worker TLS, thread-directed signals, actual CPU accounting and peak
+mapped-memory usage. Focused host tests and full thread/libc/TLS/libuv guest
+suites pass for their respective blocks. Pthread key/read-write lock semantics
+now pass their semantic guest tests. A same-process scheduler CR3 regression
+exposed by stress is fixed in `fad4bf4`. Regular-file access/exclusive-create/shared flags and safe truncation pass the
+full core and thread VM suites. Kernel file-size limits, inheritance across
+spawn/exec, thread-directed SIGXFSZ and explicit unsupported priority controls
+also pass full core/thread validation; wider port regressions are running.
+Wait-status/child-group selection and pselect/ppoll mask restoration now pass
+full core/thread tests. Descriptor coherence and the broader profile remain
+in progress. Resource libc/libuv/utility suites pass; the full ports suite exposed
+an old poll fixture which sent its signal before waiting, now replaced by a
+delayed targeted signal and being rerun. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
+changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
+work. No native reboot has been armed or physical acceptance claimed.
+
+Integrated shared main `e79e220` as `1cd62ae`, retaining Air6,1 changes. The
+pre-fork image passes full local core, thread, ports (including SQLite/posixdemo),
+process, libuv, utility and libc/TLS VM suites. Expanded tests exposed outdated
+signal recipient/timing assumptions and an optional shell-banner assertion;
+corrected fixtures pass and original failures remain in local evidence. Native
+installed/recovery payloads are unchanged. PR134 remains a draft because the
+compatibility milestone is not complete.
+
+Next bounded block: replace the fork stub with eager private-address-space cloning,
+new child register/TLS/FPU continuation, inherited regular descriptors/pipes,
+atfork callbacks and guest failure/exec/reaping tests. Start with a single-thread
+CLI profile; refuse active-worker and unsupported pseudo-descriptor cases rather
+than copying inconsistent state. Shared-file coherence and general multithreaded
+fork remain separate acceptance. Touch process/syscall/usermode continuation,
+libc process glue and focused tests; no hardware profile changes or reboot.
+
+The first native fork VM fixture passes private memory/TLS, shared descriptors,
+parent/child returns, callback ordering, resource/mask inheritance, repeated
+reaping and fork/exec. Expanded exec-family/error/signal inheritance checks pass in the full
+`thread-fork-contracts.log` guest suite. Next shared-files block will separate cached contents from open
+description offsets, preserve bounded in-memory reads during owned I/O, and test
+cross-open writes/truncation/stat/close ordering and allocation failure. Native
+filesystem publication and unsupported unlink-while-open remain explicitly
+separate from this coherence block. The shared-content host tests, full core/build
+and full `thread-shared-files.log` suite pass, including four concurrent appenders.
+Main advanced to `36080fc` with Air6,1 documentation-only PR135; no runtime overlap.
+Ports and process/shell regressions also pass. The libuv duplex-spawn regression
+exposed missing execute metadata on an initramfs program; the loader correctly
+refuses it. Current follow-up preserves tar modes/stages executable ELF permissions.
+Orphan-file/lock lifetime host checks, full core/runtime-ELF tests and all six
+thread/libuv/ports/process/posixutils/libc VM regressions pass. Deleted open files
+retain data/identity/locks until close, pathname reuse stays isolated, and
+`tmpfile` creates an unlinked stream. A focused guest failure exposed libc
+turning a correct zero link count into one; the correction passes the rerun.
+Original failures remain in the evidence directory.
+Evidence backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+Next bounded scope: kernel-owned working directory inherited by fork/spawn and
+preserved by exec, checked path traversal, native shell/Terminal handoff, then
+directory descriptors and portable consumer tests. Touch process/syscall/libc,
+shell/Terminal and semantic tests; retain existing file and I/O guarantees.
+No reboot is needed. The working-directory block passes full core, focused path
+VM and process/libuv regressions, including empty-environment exec and shared
+thread CWD. The first build missed the shell's unistd include; corrected build
+and tests pass. Next: descriptor-backed directories/openat/fchdir and real
+file timestamp updates. Main remains `36080fc`; Air6,1 PR136 battery deadline and
+Pro PR19 `d7fb8f9` Wi-Fi changes do not overlap this compatibility block.
+
+Directory/timestamp candidate passes full core, focused host/guest and all
+thread/libuv/ports/process/posixutils/libc/directory VM regressions. One process
+run stopped at the bootloader; headless rerun with checked admission passed.
+Unattended serial tests no longer open graphical windows. Directory handles
+pin paths; timestamp updates use real metadata with NOW/OMIT and second resolution. Next bounded compatibility scope is a pinned Lua
+5.4.8 consumer gate with its unmodified file tests, enabling the OS library and
+POSIX build profile. Its rename expectations also require reviewing exFAT
+cross-directory placement and replacement publication. Air owns any resulting
+shared `kernel/src/fs/exfat.c`, process-content identity, libc stdio and regression
+fixes in PR134. Preserve the native guarded file-manager rename contract and
+quarantine on uncertain I/O; no native USB trial or acceptance is implied.
+
+The next consumer block passes the focused rename and stdio-access guest tests
+and pinned Lua file/date tests plus subprocess output/EOF/exit checks. It adds
+regular-file replacement/open-handle lifetime, exact binary32/64 parsing, missing
+OS-library primitives and noninteractive shell output cleanup. Full local
+regressions are running. Fault injection explicitly exposes non-atomic dirty
+rename recovery: fsck can retain the source and truncate the duplicate target.
+Do not claim journaled/old-or-new recovery. Original failure logs and images are
+under the existing evidence directory. Main advanced to `85d5939` (Air6,1 PR136
+battery deadline); integrate after this checkpoint. Air6,1 PR137 startup timing
+and Pro PR19 `b754d92` Wi-Fi remain outside this compatibility scope.
+
+The ports regression exposed a native spawn namespace collision: closing a
+parent-numbered pipe descriptor could close a newly allocated child standard
+stream. Removing those invalid close actions restores the full ports probe;
+ordered inherited file actions require a separate descriptor-table block.
+The default-ignored signal cleanup also has a focused host regression. Remaining
+Lua/libuv/utility checks are running. Main is now `4f8acd2` (Air6,1 startup timing);
+PR138 heap optimization and Pro PR19 `d5010dc` Wi-Fi are separate active scopes.
+Next bounded block is path/limit accuracy and exec fallback: shared path capacity,
+checked directory import, pathconf/fpathconf and semantic guest/remount tests.
+General descriptor inheritance, atomic mode/umask creation and asynchronous
+signals remain required follow-ups before the compatibility milestone can close.
+
+Published through `d5d0fa1`, consuming main `4f8acd2`. Consumer block completes
+all thread/process/libc/ports/Lua-files/libuv/utility checks locally. Current
+1,024-byte path/255-byte name and exec-shell-fallback candidate passes full core
+and full thread VM tests; exhaustive exFAT remount/fault checks pass, including
+long paths on 4K/128K clusters and independent offline traversal.
+The first fallback test exposed quoted shell exit operands returning zero;
+corrected parsing passes the full guest suite. Remaining boundaries include
+resolved-absolute-path capacity, native GUI message limits, 16 arguments/256-byte
+strings, general FD inheritance and atomic mode/umask creation. No hardware test
+or desktop architecture change is claimed by these compatibility results.
+
 ### Desktop architecture, scalable windows and POSIX audit
 
 Base `bc0edb9` / merged PR130. Review connection/window identity, compositor

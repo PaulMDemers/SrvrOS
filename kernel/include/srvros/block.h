@@ -39,6 +39,9 @@ struct block_device *block_register_memory(const char *name,
     const uint8_t *data,
     uint64_t size,
     uint64_t block_size);
+/* Explicit volatile boot-lifetime copy, capped at 128 MiB. Registration failure
+ * releases its frames; successful devices live until reboot. Original is immutable. */
+struct block_device *block_register_ram_copy(const char *name,const uint8_t *data,uint64_t size);
 struct block_device *block_register(const char *name,
     uint64_t block_size,
     uint64_t block_count,

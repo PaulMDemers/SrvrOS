@@ -62,6 +62,13 @@ static int check_number_bounds(void) {
     if(value!=0.0 || !signbit(value) || errno!=EDOM || *end) return fail("number-zero");
     errno=0;float small=strtof("1e39",&end);
     if(!isinf(small) || errno!=ERANGE || *end) return fail("number-float");
+    if(strtod("0xABCp-3x",&end)!=343.5 || *end!='x') return fail("number-hex");
+    if(strtod("1.00000000000000011102230246251565404236316680908203125",0)!=1.0)
+        return fail("number-tie-even");
+    float rounded=strtof("1.000000059604644775390625000000000000000000000000000001",0);
+    uint32_t bits;memcpy(&bits,&rounded,sizeof(bits));
+    if(bits!=0x3f800001u) return fail("number-float-double-rounding");
+    if(!isnan(strtod("nan(payload)",&end)) || *end) return fail("number-nan");
     puts("libcprobe: number bounds ok");return 0;
 }
 
@@ -269,6 +276,7 @@ static int check_process_info(void) {
     puts("libcprobe: process details and legacy-size ABI ok");return 0;
 }
 
+int check_posix_readiness(void);
 int main(void) {
     puts("libcprobe: start");
     if (check_string_helpers() != 0 ||
@@ -277,7 +285,7 @@ int main(void) {
         check_stdio_lines() != 0 ||
         check_temp_env() != 0 ||
         check_time_wchar() != 0 ||
-        check_process_info() != 0) {
+        check_process_info() != 0 || check_posix_readiness() != 0) {
         return 1;
     }
     puts("libcprobe: ok");

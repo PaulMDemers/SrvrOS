@@ -1,64 +1,81 @@
 #define _DEFAULT_SOURCE
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <unistd.h>
 #define _DIRENT_H 1
 #include "../userspace/lib/include/dirent.h"
-static int allocation_fail,stat_fail,list_fail=-1;
-static char paths[220][160];static unsigned path_count;
-static void *test_realloc(void *p,size_t n) { if(allocation_fail) return NULL;return realloc(p,n); }
-static int test_stat(const char *path,struct stat *st) {
-    if(stat_fail) { errno=EACCES;return -1; }
-    memset(st,0,sizeof(*st));
-    st->st_mode=!strcmp(path,"/") || !strcmp(path,"/fat") || strstr(path,"folder")?S_IFDIR:S_IFREG;return 0;
+static int allocation_fail,open_fail,read_fail=-1,opened,closed,position,open_flags;
+static void *test_realloc(void *p,size_t n) { return allocation_fail?NULL:realloc(p,n); }
+static void *test_calloc(size_t n,size_t size) { return allocation_fail?NULL:calloc(n,size); }
+static int test_open(const char *path,int flags,...) {
+    assert(!strcmp(path,"/fat"));
+    if(open_fail) { errno=EACCES;return -1; }
+    opened++;position=0;open_flags=flags;return 40;
+}
+static int test_close(int fd) { assert(fd==40);closed++;return 0; }
+static int test_fstat(int fd,struct stat *st) {
+    if(fd<0) { errno=EBADF;return -1; }
+    memset(st,0,sizeof(*st));st->st_mode=fd==40?S_IFDIR:S_IFREG;return 0;
+}
+static int test_fcntl(int fd,int command,...) { assert(fd==40 && command==F_GETFL);return O_RDONLY; }
+static off_t test_lseek(int fd,off_t offset,int whence) {
+    assert(fd==40);if(whence==SEEK_CUR) return position;
+    assert(whence==SEEK_SET);position=offset;return position;
 }
 #define realloc test_realloc
-#define stat test_stat
+#define calloc test_calloc
+#define open test_open
+#define close test_close
+#define fstat(...) test_fstat(__VA_ARGS__)
+#define fcntl test_fcntl
+#define lseek test_lseek
 #define opendir test_opendir
+#define fdopendir test_fdopendir
+#define dirfd test_dirfd
 #define readdir test_readdir
 #define readdir64 test_readdir64
+#define telldir test_telldir
+#define seekdir test_seekdir
+#define rewinddir test_rewinddir
 #define closedir test_closedir
 #define alphasort test_alphasort
 #define scandir test_scandir
 #define scandir64 test_scandir64
-/* The tag must stay struct stat while only calls are redirected. */
-#undef stat
-#define stat(...) test_stat(__VA_ARGS__)
 #include "../userspace/lib/src/posix_dir.c"
 #undef realloc
-int __posix_make_path(const char *path,char *out,size_t capacity) {
-    if(!path || strlen(path)>=capacity) { errno=ENAMETOOLONG;return -1; }
-    strcpy(out,path);return 0;
-}
-long srv_list(uint64_t index,char *path,size_t capacity,uint64_t *size) {
-    if(index==(uint64_t)list_fail) return -1;
-    if(index>=path_count) return 0;
-    assert(strlen(paths[index])<capacity);
-    strcpy(path,paths[index]);*size=0;return 1;
+#undef calloc
+long srv_directory(uint64_t operation,int fd,void *out,size_t size) {
+    assert(operation==SRV_DIRECTORY_READ && fd==40 && size==sizeof(struct srv_dirent));
+    if(position==read_fail) return SRV_ERR_IO;
+    if(position==203) return 0;
+    struct srv_dirent *entry=out;memset(entry,0,size);entry->inode=position+1;
+    if(position<2) { strcpy(entry->name,position?"..":".");entry->type=1; }
+    else if(position==202) { memset(entry->name,'x',120); }
+    else snprintf(entry->name,sizeof(entry->name),"file%03d",position-2);
+    position++;return 1;
 }
 int main(void) {
-    for(unsigned i=0;i<100;i++) snprintf(paths[path_count++],160,"/fat/file%03u",i);
-    strcpy(paths[path_count++],"/fat/folder");
-    strcpy(paths[path_count++],"/fat/folder/a");strcpy(paths[path_count++],"/fat/folder/b");
-    strcpy(paths[path_count++],"/fat/file099");strcpy(paths[path_count++],"/fatigue/outside");
-    DIR *d=opendir("/fat");assert(d);unsigned count=0,folders=0;struct dirent *e;
-    errno=0;while((e=readdir(d))) { count++;if(!strcmp(e->d_name,"folder")) { folders++;assert(e->d_type==DT_DIR); } }
-    assert(!errno && count==101 && folders==1 && d->seen_capacity>=101);assert(!closedir(d));
-    d=opendir("/fat");assert(d);allocation_fail=1;errno=0;
-    assert(!readdir(d) && errno==ENOMEM && d->index==0);allocation_fail=0;
-    assert(readdir(d) && !strcmp(d->entry.d_name,"file000"));closedir(d);
-    stat_fail=1;assert(!opendir("/fat") && errno==EACCES);stat_fail=0;
-    assert(!opendir("/fat/file000") && errno==ENOTDIR);
-    d=opendir("/fat");list_fail=0;errno=0;assert(!readdir(d) && errno==EIO);closedir(d);
-    struct dirent **list=(void *)1;assert(scandir("/fat",&list,NULL,NULL)<0 && list==NULL && errno==EIO);list_fail=-1;
-    assert(scandir("/fat",&list,NULL,alphasort)==101);for(unsigned i=0;i<101;i++) free(list[i]);free(list);
-    path_count=1;strcpy(paths[0],"/fat/");memset(paths[0]+5,'x',100);paths[0][105]=0;
-    d=opendir("/fat");errno=0;assert(!readdir(d) && errno==ENAMETOOLONG);closedir(d);
-    path_count=0;strcpy(paths[path_count++],"/");strcpy(paths[path_count++],"/fat");strcpy(paths[path_count++],"/fat/folder/file");strcpy(paths[path_count++],"/init");
-    d=opendir("/");assert(d);count=0;while((e=readdir(d))) { assert(!strcmp(e->d_name,"fat") || !strcmp(e->d_name,"init"));count++; }assert(count==2);closedir(d);
-    puts("posix-dir: PASS >64 unique children, duplicate descendants, directory type, allocation retry, permission/list errors and long names");
+    DIR *d=opendir("/fat");assert(d && dirfd(d)==40 && (open_flags&O_CLOEXEC) && (open_flags&O_DIRECTORY));
+    errno=EDOM;unsigned count=0;struct dirent *e;
+    while((e=readdir(d))) { assert(e->d_ino);count++; }
+    assert(count==203 && errno==EDOM);rewinddir(d);
+    assert(!strcmp(readdir(d)->d_name,"."));long cookie=telldir(d);
+    assert(!strcmp(readdir(d)->d_name,".."));seekdir(d,cookie);
+    assert(!strcmp(readdir(d)->d_name,".."));assert(!closedir(d) && closed==opened);
+    assert(!fdopendir(-1) && errno==EBADF);assert(!fdopendir(41) && errno==ENOTDIR);
+    allocation_fail=1;assert(!opendir("/fat") && errno==ENOMEM && opened==closed);allocation_fail=0;
+    open_fail=1;assert(!opendir("/fat") && errno==EACCES);open_fail=0;
+    d=opendir("/fat");read_fail=0;errno=0;assert(!readdir(d) && errno==EIO);closedir(d);
+    struct dirent **list=(void *)1;assert(scandir("/fat",&list,NULL,NULL)<0 && !list && errno==EIO);read_fail=-1;
+    assert(scandir("/fat",&list,NULL,alphasort)==203);
+    for(unsigned i=0;i<203;i++) free(list[i]);
+    free(list);
+    assert(opened==closed);
+    puts("posix-dir: PASS descriptor ownership, CLOEXEC, cookies, >64 entries, long names, allocation/permission/read errors and scandir cleanup");
 }

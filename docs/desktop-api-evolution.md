@@ -57,7 +57,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | **8 clipboard peers** | `userspace/deskd/clipboard.h`; `peer()` returns NULL and requests receive no response after all peer records are occupied |
 | 96 menu items / 32 visible group rows; 64 palette items | Shared menu/palette storage can become the next window-list ceiling even if compositor records grow |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |
-| 64 processes, 64 open files per process | `kernel/include/srvros/process.h`; more windows should not require one new process each |
+| 64 processes; originally 64 extra file slots plus standard streams, now 67 unified native descriptors in the POSIX branch | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
 | 8 additional user-thread slots per process; 32 kernel scheduler-thread slots | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
 
 Clipboard capacity is already below the accepted window count. Its current host
@@ -73,6 +73,36 @@ surfaces, framebuffer backing, worker buffers, queues and metadata also cost RAM
 Admission must account for the peak during resize, including the old image, new
 image and in-flight frame. Cache trace output is optional; the accepted native
 sixteen-window round contains no cache totals.
+
+## Combined wait contract (planned, not implemented)
+
+The POSIX work supplies checked descriptor operations, poll/select and cooperative
+signal-mask handling. A GUI connection is not yet a descriptor, and polling a
+separate GUI queue remains a desktop limitation. Desktop D1/D3 should introduce
+one kernel wait request containing native FD interests, an authenticated GUI
+connection interest, an absolute monotonic deadline and a cancellation epoch.
+Keep the public toolkit interface independent of the syscall layout.
+
+The wait must inspect readiness and register its wake condition in the same
+serialized kernel section. GUI enqueue/disconnect, FD readiness/close, worker
+completion and cancellation must advance a generation and wake that wait. Recheck
+all requested conditions after registration and each wake; a wake is not proof of
+a ready event. Return a ready set without consuming messages or data. Drain a
+bounded batch in the single connection dispatcher, distribute by stable window
+handle, and recompute the nearest timer deadline before waiting again.
+
+A child window must not introduce a second reader of the process queue. Completion
+callbacks run on the dispatcher thread; file/device work remains in workers.
+Preserve existing GUI sender authentication and surface ownership. During owned
+storage I/O, combined waits must retain the current admission restrictions;
+adding an FD interest cannot make a blocked filesystem syscall eligible. Avoid
+re-entering lifecycle cleanup while another process owns I/O.
+
+Acceptance must force GUI/FD/worker arrivals immediately before and after wait
+registration, close/reuse and connection-epoch changes, timeout-zero probes,
+signal interruption, cancellation and input under heavy I/O. Measure idle CPU and
+p95/p99 dispatch latency. The current POSIX VM receipts do not establish this
+future GUI wait contract or native input latency.
 
 ## Proposed object model and API contracts
 

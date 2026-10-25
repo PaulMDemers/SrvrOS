@@ -1,15 +1,18 @@
+#include <srvros/path_limits.h>
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <srvros/sys.h>
 #include <sys/random.h>
 #include <string.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define SRVROS_PAGE_SIZE 4096
 #define SRVROS_TICKS_PER_SECOND 100
-#define SRVROS_OPEN_MAX 67
+#define SRVROS_OPEN_MAX SRV_OPEN_MAX
 
 char *optarg;
 int optind = 1;
@@ -108,6 +111,8 @@ int getpagesize(void) {
 
 long sysconf(int name) {
     switch (name) {
+    case _SC_THREAD_KEYS_MAX: return PTHREAD_KEYS_MAX;
+    case _SC_THREAD_DESTRUCTOR_ITERATIONS: return PTHREAD_DESTRUCTOR_ITERATIONS;
     case _SC_PAGESIZE:
         return SRVROS_PAGE_SIZE;
     case _SC_NPROCESSORS_ONLN:
@@ -116,6 +121,7 @@ long sysconf(int name) {
         return 1;
     case _SC_CLK_TCK:
         return SRVROS_TICKS_PER_SECOND;
+    case _SC_ARG_MAX: return ARG_MAX;
     case _SC_OPEN_MAX:
         return SRVROS_OPEN_MAX;
     case _SC_HOST_NAME_MAX:
@@ -128,18 +134,27 @@ long sysconf(int name) {
     }
 }
 
-long pathconf(const char *path, int name) {
-    if (path == 0) {
-        errno = EINVAL;
-        return -1;
+static long path_limit(int name) {
+    switch(name) {
+    case _PC_PATH_MAX: return PATH_MAX;
+    case _PC_NAME_MAX: return NAME_MAX;
+    case _PC_LINK_MAX: return 1; /* Hard links are not supported. */
+    case _PC_PIPE_BUF: return PIPE_BUF;
+    case _PC_NO_TRUNC: return 1;
+    case _PC_CHOWN_RESTRICTED: return 1;
+    case _PC_SYMLINK_MAX: return 0;
+    default: errno=EINVAL;return -1;
     }
-    switch (name) {
-    case _SC_PAGESIZE:
-        return SRVROS_PAGE_SIZE;
-    default:
-        errno = EINVAL;
-        return -1;
-    }
+}
+long pathconf(const char *path,int name) {
+    struct stat st;
+    if(stat(path,&st)<0) return -1;
+    return path_limit(name);
+}
+long fpathconf(int fd,int name) {
+    struct stat st;
+    if(fstat(fd,&st)<0) return -1;
+    return path_limit(name);
 }
 
 ssize_t getrandom(void *buffer, size_t length, unsigned int flags) {

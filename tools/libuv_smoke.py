@@ -81,6 +81,7 @@ def main():
             "-m", args.memory,
             "-cdrom", iso,
             "-boot", "d",
+            "-display", "none",
             "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",

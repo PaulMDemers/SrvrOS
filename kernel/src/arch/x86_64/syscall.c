@@ -1,3 +1,4 @@
+#include <srvros/path_limits.h>
 #include <srvros/devices.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
@@ -33,12 +34,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MAX_PATH_LENGTH 160
+#define MAX_PATH_LENGTH SRV_PATH_MAX
+#include <srvros/vector_io.h>
 #define MAX_SYSCALL_COPY (256 * 1024)
 #define MAX_POLL_FDS 64
-#define MAX_EXEC_ARGS 16
-#define MAX_EXEC_ENV 64
-#define MAX_EXEC_STRING 256
+#include <srvros/exec_limits.h>
+#define MAX_EXEC_ARGS SRV_EXEC_ARGS_MAX
+#define MAX_EXEC_ENV SRV_EXEC_ENV_MAX
 
 struct syscall_stat {
     uint64_t abi_version;
@@ -369,7 +371,7 @@ static bool io_try_pipe_write(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
     return f && (f->type==PROCESS_FILE_PIPE_WRITE || f->type==PROCESS_FILE_PIPE_DUPLEX ||
         f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
-        (f->flags&SRV_FD_NONBLOCK);
+        process_file_nonblocking(process_current(),fd);
 }
 static bool io_defer_pipe_write(uint64_t fd) {
     if(io_try_pipe_write(fd)) {
@@ -380,48 +382,37 @@ static bool io_defer_pipe_write(uint64_t fd) {
     }
     return false;
 }
+static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bool owned) {
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type==PROCESS_FILE_STDIO) {
+        if(file->handle!=1 && file->handle!=2) return SRV_ERR_BADF;
+        if(!owned) return console_write_user(buffer,length);
+        uint64_t written=0;
+        while(written<length) {
+            uint64_t count=length-written;
+            if(count>1024) count=1024;
+            __asm__ volatile ("sti" : : : "memory");
+            console_write_n(buffer+written,count);
+            __asm__ volatile ("cli" : : : "memory");
+            written+=count;
+            if(process_should_exit_current()) break;
+        }
+        return (int64_t)written;
+    }
+    if(file->type==PROCESS_FILE_VFS_WRITE || file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)
+        return process_file_write(process_current(),fd,(const uint8_t *)buffer,length);
+    if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
+        return process_file_pipe_write(process_current(),fd,(const uint8_t *)buffer,length);
+    if(file->type==PROCESS_FILE_NET_CONNECTION)
+        return net_respond(file->handle,buffer,length,process_file_nonblocking(process_current(),fd));
+    return SRV_ERR_BADF;
+}
+
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if(io_defer_pipe_write(fd)) return length?SRV_ERR_AGAIN:0;
-    if (!user_buffer_ok(buffer, length, false)) {
-        return -1;
-    }
-
-    if (fd == 0) {
-        int64_t redirected = process_input_write(process_current(), (const uint8_t *)buffer, length);
-        return redirected != -2 ? redirected : -1;
-    }
-
-    if (fd != 1 && fd != 2) {
-        struct process_file *file = process_file_at(process_current(), fd);
-        if (file == NULL) {
-            return -1;
-        }
-        if (file->type == PROCESS_FILE_STDIO && (file->handle == 1 || file->handle == 2)) {
-            int64_t redirected = process_output_write(process_current(), file->handle, (const uint8_t *)buffer, length);
-            if (redirected != -2) {
-                return redirected;
-            }
-            return console_write_user(buffer, length);
-        }
-        if (file->type == PROCESS_FILE_VFS_WRITE || file->type == PROCESS_FILE_PTY_MASTER ||
-            file->type == PROCESS_FILE_PTY_SLAVE) {
-            return process_file_write(process_current(), fd, (const uint8_t *)buffer, length);
-        }
-        if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
-            return process_file_pipe_write(process_current(), fd, (const uint8_t *)buffer, length);
-        }
-        if (file->type == PROCESS_FILE_NET_CONNECTION) {
-            return net_respond(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
-        }
-        return -1;
-    }
-
-    int64_t redirected = process_output_write(process_current(), fd, (const uint8_t *)buffer, length);
-    if (redirected != -2) {
-        return redirected;
-    }
-
-    return console_write_user(buffer, length);
+    if(!user_buffer_ok(buffer,length,false)) return SRV_ERR_FAULT;
+    return write_buffer(fd,buffer,length,false);
 }
 
 static char tty_filter_input(char c) {
@@ -520,7 +511,7 @@ static bool io_try_pipe_read(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
     return f && (f->type==PROCESS_FILE_PIPE_READ || f->type==PROCESS_FILE_PIPE_DUPLEX ||
         f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
-        (f->flags & SRV_FD_NONBLOCK);
+        process_file_nonblocking(process_current(),fd);
 }
 static bool io_defer_pipe_read(uint64_t fd) {
     if(io_try_pipe_read(fd)) {
@@ -531,23 +522,10 @@ static bool io_defer_pipe_read(uint64_t fd) {
     }
     return false;
 }
-static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
-    if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
-    if (!user_buffer_ok(buffer, length, true)) {
-        return -1;
-    }
-
-    if (fd == 0) {
-        int64_t redirected = process_stdin_read(process_current(), (uint8_t *)buffer, length);
-        if (redirected != -2) {
-            return redirected;
-        }
-        return tty_read_console(buffer, length);
-    }
-
+static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process_current(), fd);
     if (file == NULL) {
-        return -1;
+        return SRV_ERR_BADF;
     }
     if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
         return tty_read_console(buffer, length);
@@ -560,10 +538,75 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     }
     if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE &&
         file->type != PROCESS_FILE_PTY_MASTER && file->type != PROCESS_FILE_PTY_SLAVE) {
-        return -1;
+        return SRV_ERR_BADF;
     }
 
     return process_file_read(process_current(), fd, (uint8_t *)buffer, length);
+}
+
+static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
+    if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
+    if(!user_buffer_ok(buffer,length,true)) return SRV_ERR_FAULT;
+    return read_buffer(fd,buffer,length);
+}
+
+/* A vector is one transfer, not one potentially blocking transfer per element.
+ * Snapshot descriptors and gather into owned memory before any wait; no user
+ * mapping or vector pointer is retained across the operation. Large requests
+ * may return a bounded prefix, which the caller must handle like any short I/O. */
+static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
+    uint64_t count, uint64_t operation, int64_t offset) {
+    if(count>SRV_IOV_MAX || operation>SRV_VECTOR_PWRITE ||
+       (operation>=SRV_VECTOR_PREAD && offset<0)) return SRV_ERR_INVAL;
+    struct srv_iovec iov[SRV_IOV_MAX];
+    if(!copy_from_user(iov,user_iov,count*sizeof(*iov))) return SRV_ERR_FAULT;
+    bool writing=operation==SRV_VECTOR_WRITE || operation==SRV_VECTOR_PWRITE;
+    uint64_t total=0;
+    for(uint64_t i=0;i<count;i++) {
+        if(iov[i].length>(uint64_t)INT64_MAX-total) return SRV_ERR_INVAL;
+        total+=iov[i].length;
+    }
+    for(uint64_t i=0;i<count;i++)
+        if(!user_buffer_ok(iov[i].base,iov[i].length,!writing)) return SRV_ERR_FAULT;
+    uint64_t length=total>MAX_SYSCALL_COPY?MAX_SYSCALL_COPY:total;
+    uint8_t small[4096];
+    uint8_t *buffer=length>sizeof(small)?kmalloc(length):small;
+    if(!buffer) return SRV_ERR_NOMEM;
+    uint64_t copied=0;
+    if(writing) for(uint64_t i=0;i<count && copied<length;i++) {
+        uint64_t size=iov[i].length;
+        if(size>length-copied) size=length-copied;
+        if(!copy_from_user(buffer+copied,iov[i].base,size)) {
+            if(buffer!=small) kfree(buffer);
+            return SRV_ERR_FAULT;
+        }
+        copied+=size;
+    }
+    int64_t result;
+    if(operation==SRV_VECTOR_PREAD)
+        result=process_file_pread(process_current(),fd,buffer,length,offset);
+    else if(operation==SRV_VECTOR_PWRITE)
+        result=process_file_pwrite(process_current(),fd,buffer,length,offset);
+    else if(writing) result=write_buffer(fd,(char *)buffer,length,true);
+    else result=read_buffer(fd,(char *)buffer,length);
+    /* Console/network waits may return with interrupts enabled. Revalidation
+     * and copying must exclude a sibling unmapping the destination. */
+    uint64_t irq=irq_save();
+    if(result>0 && !writing) {
+        copied=0;
+        for(uint64_t i=0;i<count && copied<(uint64_t)result;i++) {
+            uint64_t size=iov[i].length;
+            if(size>(uint64_t)result-copied) size=(uint64_t)result-copied;
+            if(!copy_to_user(iov[i].base,buffer+copied,size)) {
+                result=copied?(int64_t)copied:SRV_ERR_FAULT;
+                break;
+            }
+            copied+=size;
+        }
+    }
+    if(buffer!=small) kfree(buffer);
+    irq_restore(irq);
+    return result;
 }
 
 static bool syscall_tty_fd_ok(uint64_t fd) {
@@ -573,19 +616,19 @@ static bool syscall_tty_fd_ok(uint64_t fd) {
 }
 
 static int64_t syscall_tty_getattr(uint64_t fd, struct srv_termios *termios) {
-    if (!syscall_tty_fd_ok(fd) || !user_buffer_ok(termios, sizeof(*termios), true)) {
-        return -1;
-    }
+    if(!process_file_at(process_current(),fd)) return SRV_ERR_BADF;
+    if(!syscall_tty_fd_ok(fd)) return SRV_ERR_NOTTY;
+    if(!user_buffer_ok(termios,sizeof(*termios),true)) return SRV_ERR_FAULT;
     struct pty_model *terminal=process_tty_model(process_current(),fd);
-    return copy_to_user(termios, terminal?&terminal->attributes:&console_termios, sizeof(console_termios)) ? 0 : -1;
+    return copy_to_user(termios, terminal?&terminal->attributes:&console_termios, sizeof(console_termios)) ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct srv_termios *termios) {
     struct srv_termios copy;
-    if (!syscall_tty_fd_ok(fd) || actions > SRV_TCSAFLUSH ||
-        !copy_from_user(&copy, termios, sizeof(copy))) {
-        return -1;
-    }
+    if(!process_file_at(process_current(),fd)) return SRV_ERR_BADF;
+    if(!syscall_tty_fd_ok(fd)) return SRV_ERR_NOTTY;
+    if(actions>SRV_TCSAFLUSH) return SRV_ERR_INVAL;
+    if(!copy_from_user(&copy,termios,sizeof(copy))) return SRV_ERR_FAULT;
     uint64_t terminal=process_tty_handle(process_current(),fd);
     if(terminal) return pty_setattr(terminal,&copy,(unsigned)actions);
     console_termios = copy;
@@ -693,14 +736,8 @@ static int64_t syscall_open(const char *user_path) {
 
 static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
-
-    if ((flags & SRV_OPEN_WRITE) != 0) {
-        return process_file_open_write(process_current(), path, flags);
-    }
-    return syscall_open(user_path);
+    if (!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
+    return process_file_open_flags(process_current(),path,flags);
 }
 
 static int64_t syscall_close(uint64_t fd) {
@@ -843,66 +880,70 @@ static int64_t syscall_spawn_args_redirect(const char *user_path,
     return result;
 }
 
-static bool copy_user_string_vector(char *const *user_vector,
-    char storage[][MAX_EXEC_STRING],
-    const char *values[],
-    uint64_t capacity,
-    uint64_t *count_out) {
-    *count_out = 0;
-    if (user_vector == NULL) {
-        return true;
+static int64_t copy_exec_string(const char *source,char *destination,uint64_t capacity,int64_t too_long) {
+    if(!source) return SRV_ERR_FAULT;
+    for(uint64_t i=0;i<capacity;i++) {
+        if(!copy_from_user(destination+i,source+i,1)) return SRV_ERR_FAULT;
+        if(!destination[i]) return 0;
     }
-    for (uint64_t i = 0; i < capacity; i++) {
-        const char *user_string = NULL;
-        if (!copy_from_user(&user_string, user_vector + i, sizeof(user_string))) {
-            return false;
+    return too_long;
+}
+static int64_t copy_user_string_vector(char *const *user_vector,
+    char *storage, uint64_t *used, uint64_t *budget,
+    const char *values[],uint64_t capacity,uint64_t *count_out) {
+    *count_out=0;
+    if(!user_vector) return 0;
+    for(uint64_t i=0;i<=capacity;i++) {
+        const char *source=NULL;
+        if(!copy_from_user(&source,user_vector+i,sizeof(source))) return SRV_ERR_FAULT;
+        if(!source) { *count_out=i;return 0; }
+        if(i==capacity || *budget<=sizeof(uint64_t)) return SRV_ERR_2BIG;
+        *budget-=sizeof(uint64_t);
+        values[i]=storage+*used;
+        for(;;) {
+            if(!*budget) return SRV_ERR_2BIG;
+            char c;
+            if(!copy_from_user(&c,source++,1)) return SRV_ERR_FAULT;
+            storage[(*used)++]=c;(*budget)--;
+            if(!c) break;
         }
-        if (user_string == NULL) {
-            *count_out = i;
-            return true;
-        }
-        if (!copy_user_string(user_string, storage[i], MAX_EXEC_STRING)) {
-            return false;
-        }
-        values[i] = storage[i];
     }
-    const char *terminator = NULL;
-    if (!copy_from_user(&terminator, user_vector + capacity, sizeof(terminator)) || terminator != NULL) {
-        return false;
-    }
-    *count_out = capacity;
-    return true;
+    return SRV_ERR_2BIG;
 }
 
 static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     struct syscall_exec_request request;
     char path[MAX_PATH_LENGTH];
-    char argv_storage[MAX_EXEC_ARGS][MAX_EXEC_STRING];
-    char env_storage[MAX_EXEC_ENV][MAX_EXEC_STRING];
+    char vector_storage[SRV_EXEC_BYTES_MAX];
+    uint64_t used=0,budget=SRV_EXEC_BYTES_MAX-2*sizeof(uint64_t);
     const char *argv[MAX_EXEC_ARGS];
     const char *envp[MAX_EXEC_ENV];
     struct process_spawn_file_action file_actions[SRV_SPAWN_FILE_ACTION_MAX];
+    char action_paths[SRV_SPAWN_FILE_ACTION_MAX][MAX_PATH_LENGTH];
     uint64_t argc = 0;
     uint64_t envc = 0;
     uint64_t flags;
     int64_t result;
 
-    if (!copy_from_user(&request, user_request, sizeof(request)) ||
-        !copy_user_string(request.path, path, sizeof(path)) ||
-        !copy_user_string_vector(request.argv, argv_storage, argv, MAX_EXEC_ARGS, &argc) ||
-        !copy_user_string_vector(request.envp, env_storage, envp, MAX_EXEC_ENV, &envc)) {
-        return -1;
-    }
-    if (request.file_action_count > SRV_SPAWN_FILE_ACTION_MAX) {
-        return -1;
-    }
-    if (request.file_action_count != 0 &&
-        !copy_from_user(file_actions,
-            request.file_actions,
-            request.file_action_count * sizeof(file_actions[0]))) {
-        return -1;
+    if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
+    if(request.flags&~(SRV_EXEC_BACKGROUND|SRV_EXEC_REPLACE|SRV_EXEC_SET_SIGNAL_DEFAULT|SRV_EXEC_SET_SIGNAL_MASK|SRV_EXEC_INHERIT_FILES)) return SRV_ERR_INVAL;
+    if((request.flags&SRV_EXEC_REPLACE) && (request.file_action_count || (request.flags&SRV_EXEC_INHERIT_FILES))) return SRV_ERR_INVAL;
+    if((request.flags&SRV_EXEC_INHERIT_FILES) && (request.stdin_fd!=-1 || request.stdout_fd!=-1 || request.stderr_fd!=-1)) return SRV_ERR_INVAL;
+    int64_t error=copy_exec_string(request.path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(!error) error=copy_user_string_vector(request.argv,vector_storage,&used,&budget,argv,MAX_EXEC_ARGS,&argc);
+    if(!error) error=copy_user_string_vector(request.envp,vector_storage,&used,&budget,envp,MAX_EXEC_ENV,&envc);
+    if(error) return error;
+    if(request.file_action_count>SRV_SPAWN_FILE_ACTION_MAX) return SRV_ERR_INVAL;
+    if(request.file_action_count && !copy_from_user(file_actions,request.file_actions,
+        request.file_action_count*sizeof(file_actions[0]))) return SRV_ERR_FAULT;
+    for(uint64_t i=0;i<request.file_action_count;i++) if(file_actions[i].type==SRV_SPAWN_FILE_ACTION_OPEN) {
+        error=copy_exec_string(file_actions[i].path,action_paths[i],sizeof(action_paths[i]),SRV_ERR_NAMETOOLONG);
+        if(error) return error;
+        file_actions[i].path=action_paths[i];
     }
     if (argc == 0) {
+        uint64_t path_bytes=1;while(path[path_bytes-1]) path_bytes++;
+        if(path_bytes+sizeof(uint64_t)>budget) return SRV_ERR_2BIG;
         argv[argc++] = path;
     }
 
@@ -951,6 +992,9 @@ static int64_t syscall_fs_write(const char *user_path, const uint8_t *buffer, ui
         return -1;
     }
 
+    /* Native whole-file publication must not invalidate a live POSIX content
+     * object. Callers can close their handles or use descriptor writes. */
+    if(process_has_open_vfs_prefix(path)) return SRV_ERR_AGAIN;
     /* A zero-byte replacement is still one directory publication. Do not open
      * O_TRUNC first: the old contents survive until exFAT publishes this data. */
     if (length == 0) return exfat_write_file(path, NULL, 0) ? 0 : -1;
@@ -981,6 +1025,7 @@ static int64_t syscall_fs_append(const char *user_path, const uint8_t *buffer, u
         length > MAX_SYSCALL_COPY) {
         return -1;
     }
+    if(process_has_open_vfs_prefix(path)) return SRV_ERR_AGAIN;
     if (length != 0) {
         copy = kmalloc(length);
         if (copy == NULL) {
@@ -1036,14 +1081,15 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     char path[MAX_PATH_LENGTH];
     struct syscall_stat copy = {0};
     struct vfs_metadata metadata;
-    if (info == NULL || !copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    if(!info) return SRV_ERR_FAULT;
+    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
 
     if (!vfs_stat(path, &metadata, &copy.size, &copy.type)) {
-        return -1;
+        return SRV_ERR_NOENT;
     }
 
+    (void)process_open_file_size(path,&copy.size);
     copy.abi_version = SRV_ABI_VERSION;
     copy.struct_size = sizeof(copy);
     copy.inode = metadata.inode;
@@ -1056,19 +1102,20 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     copy.ctime = metadata.ctime;
     copy.blksize = 4096;
     copy.blocks = (copy.size + 511) / 512;
-    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info) {
     char path[MAX_PATH_LENGTH];
     struct exfat_fsinfo fsinfo;
     struct syscall_fsinfo copy = {0};
-    if (info == NULL || !copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    if(!info) return SRV_ERR_FAULT;
+    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
+    if(!vfs_lookup(path)) return SRV_ERR_NOENT;
 
     if (!exfat_statfs(path, &fsinfo)) {
-        return -1;
+        return SRV_ERR_IO;
     }
 
     copy.abi_version = SRV_ABI_VERSION;
@@ -1085,15 +1132,15 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
     for (uint64_t i = 0; i < sizeof(copy.mountpoint); i++) {
         copy.mountpoint[i] = fsinfo.mountpoint[i];
     }
-    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
-    return vfs_chmod(path, mode) ? 0 : -1;
+    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
+    if(!vfs_lookup(path)) return SRV_ERR_NOENT;
+    return vfs_chmod(path, mode) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mtime) {
@@ -1101,27 +1148,22 @@ static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mti
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-    return vfs_utime(path, atime, mtime) ? 0 : -1;
+    return process_path_utime(path,atime,mtime);
 }
 
 static int64_t syscall_unlink(const char *user_path) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
-    if (process_has_open_vfs_prefix(path)) {
-        return -1;
-    }
-
-    return exfat_delete_file(path) ? 0 : -1;
+    if(!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
+    return process_unlink_file(path);
 }
 
-static int64_t syscall_mkdir(const char *user_path) {
+static int64_t syscall_mkdir(const char *user_path,uint64_t mode) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-    return exfat_create_directory(path) ? 0 : -1;
+    if(vfs_lookup(path)) return SRV_ERR_EXIST;
+    return exfat_create_directory_mode(path,mode==UINT64_MAX?mode:process_creation_mode(mode)) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_rmdir(const char *user_path) {
@@ -1129,10 +1171,17 @@ static int64_t syscall_rmdir(const char *user_path) {
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-    if (process_has_open_vfs_prefix(path)) {
-        return -1;
+    const struct vfs_node *directory=vfs_lookup(path);
+    if(!directory) return SRV_ERR_NOENT;
+    if(directory->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+    if(process_has_open_vfs_prefix(path)) return SRV_ERR_BUSY;
+    uint64_t length=0;while(path[length]) length++;
+    for(uint64_t i=0;;i++) {
+        const struct vfs_node *node=vfs_node_at(i);if(!node) break;
+        uint64_t j=0;while(j<length && path[j]==node->path[j]) j++;
+        if(j==length && node->path[j]=='/') return SRV_ERR_NOTEMPTY;
     }
-    return exfat_delete_directory(path) ? 0 : -1;
+    return exfat_delete_directory(path) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_rename(const char *user_old_path, const char *user_new_path) {
@@ -1142,10 +1191,7 @@ static int64_t syscall_rename(const char *user_old_path, const char *user_new_pa
         !copy_user_string(user_new_path, new_path, sizeof(new_path))) {
         return -1;
     }
-    if (process_has_open_vfs_prefix(old_path) || process_has_open_vfs_prefix(new_path)) {
-        return -1;
-    }
-    return exfat_rename(old_path, new_path) ? 0 : -1;
+    return process_rename_file(old_path,new_path);
 }
 
 /* The syscall gate serializes filesystem continuations on this single-core
@@ -1262,32 +1308,30 @@ static int64_t syscall_dup2(uint64_t old_fd, uint64_t new_fd) {
     return process_file_dup2(process_current(), old_fd, new_fd);
 }
 
-static int64_t syscall_pipe(int32_t *fds_out) {
+static int64_t syscall_pipe_flags(int32_t *fds_out,uint64_t flags,bool duplex) {
+    if(flags&~(SRV_FD_NONBLOCK|SRV_FD_CLOEXEC)) return SRV_ERR_INVAL;
     uint64_t fds[2];
     int32_t copy[2];
+    uint64_t irq=irq_save();
     if (fds_out == NULL || !user_buffer_ok(fds_out, sizeof(copy), true)) {
-        return -1;
+        irq_restore(irq);return SRV_ERR_FAULT;
     }
-    if (process_file_pipe(process_current(), fds) < 0) {
-        return -1;
+    int64_t result=duplex?process_file_pipe_pair(process_current(),fds):process_file_pipe(process_current(),fds);
+    if (result < 0) {
+        irq_restore(irq);return result;
+    }
+    for(unsigned i=0;i<2;i++) {
+        (void)process_file_set_flags(process_current(),fds[i],flags&SRV_FD_NONBLOCK);
+        (void)process_file_set_fd_flags(process_current(),fds[i],flags&SRV_FD_CLOEXEC);
     }
     copy[0] = (int32_t)fds[0];
     copy[1] = (int32_t)fds[1];
-    return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
-}
-
-static int64_t syscall_pipe_pair(int32_t *fds_out) {
-    uint64_t fds[2];
-    int32_t copy[2];
-    if (fds_out == NULL || !user_buffer_ok(fds_out, sizeof(copy), true)) {
-        return -1;
+    if(!copy_to_user(fds_out,copy,sizeof(copy))) {
+        (void)process_file_close(process_current(),fds[0]);
+        (void)process_file_close(process_current(),fds[1]);
+        result=SRV_ERR_FAULT;
     }
-    if (process_file_pipe_pair(process_current(), fds) < 0) {
-        return -1;
-    }
-    copy[0] = (int32_t)fds[0];
-    copy[1] = (int32_t)fds[1];
-    return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
+    irq_restore(irq);return result;
 }
 
 static int64_t syscall_pty_create(int32_t *fds_out) {
@@ -1424,11 +1468,11 @@ static bool poll_wait_ready(void *arg) {
         poll_once(wait->process, wait->fds, wait->nfds) != 0;
 }
 
-static uint64_t poll_timeout_ticks(int64_t timeout_ms) {
-    if (timeout_ms <= 0) {
-        return 0;
-    }
-    return ((uint64_t)timeout_ms * 100 + 999) / 1000;
+static uint64_t poll_deadline_us(int64_t timeout_ms,uint64_t now) {
+    if(timeout_ms<=0) return 0;
+    uint64_t milliseconds=(uint64_t)timeout_ms;
+    if(milliseconds>(UINT64_MAX-now)/1000) return UINT64_MAX;
+    return now+milliseconds*1000;
 }
 
 static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int64_t timeout_ms) {
@@ -1446,9 +1490,7 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     /* Admit only the copied, immutable console request during owned I/O. Never
      * classify a mutable userspace array and then read it again after yielding.
      * Everything else retains the original filesystem/process lifetime gate. */
-    uint64_t start = timer_ticks();
-    uint64_t timeout_ticks = poll_timeout_ticks(timeout_ms);
-    uint64_t deadline_ticks = timeout_ms > 0 ? start + timeout_ticks : 0;
+    uint64_t deadline_us=poll_deadline_us(timeout_ms,timer_monotonic_us());
     struct syscall_poll_wait wait = {
         .process = process,
         .fds = fds,
@@ -1475,13 +1517,16 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         if (ready != 0 || timeout_ms == 0) {
             return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? ready : -1;
         }
-        if (timeout_ms > 0 && timer_ticks() - start >= timeout_ticks) {
-            return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
-        }
-        uint64_t wait_deadline = deadline_ticks;
-        if (timeout_ms < 0) {
-            wait_deadline = timer_ticks() + 10;
-        }
+        uint64_t now_us=timer_monotonic_us();
+        if(timeout_ms>0 && now_us>=deadline_us)
+            return copy_to_user(user_fds,fds,nfds*sizeof(*user_fds))?0:-1;
+        /* Scheduler wakeups are tick-granular, but the completion contract is
+         * elapsed monotonic time. A tick boundary may arrive early; recheck the
+         * absolute deadline and block again instead of returning early/spinning. */
+        uint64_t remaining=timeout_ms>0?deadline_us-now_us:100000;
+        uint64_t ticks=remaining/10000+(remaining%10000!=0);
+        uint64_t now_ticks=timer_ticks();
+        uint64_t wait_deadline=ticks>UINT64_MAX-now_ticks?UINT64_MAX:now_ticks+ticks;
         if (!scheduler_wait_timeout(process_file_poll_wait_queue(), poll_wait_ready, &wait, wait_deadline)) {
             scheduler_yield();
         }
@@ -1489,6 +1534,8 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
 }
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if(command==SRV_F_DUPFD || command==SRV_F_DUPFD_CLOEXEC)
+        return process_file_dup_min(process_current(),fd,arg,command==SRV_F_DUPFD_CLOEXEC);
     if (command == SRV_F_GETFD) {
         return process_file_get_fd_flags(process_current(), fd);
     }
@@ -1527,8 +1574,12 @@ static int64_t syscall_ftruncate(uint64_t fd, uint64_t length) {
 }
 
 static int64_t syscall_fsync(uint64_t fd) {
-    if (process_file_flush(process_current(), fd) < 0) return -1;
-    return block_flush_all() ? 0 : -1;
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    if(file->type!=PROCESS_FILE_VFS && file->type!=PROCESS_FILE_VFS_WRITE) return SRV_ERR_INVAL;
+    int64_t result=process_file_flush(process_current(),fd);
+    if(result<0) return result==-1?SRV_ERR_IO:result;
+    return block_flush_all()?0:SRV_ERR_IO;
 }
 
 static int64_t syscall_console_info(struct syscall_console_info *info) {
@@ -1966,10 +2017,12 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
 }
 
 static int64_t syscall_kill(int64_t pid, uint64_t signal) {
-    return process_signal_target(pid, signal) ? 0 : -1;
+    if(!process_signal_is_supported(signal)) return SRV_ERR_INVAL;
+    return process_signal_target(pid,signal)?0:SRV_ERR_SRCH;
 }
 
 static int64_t syscall_signal_config(uint64_t signal, uint64_t action) {
+    if(action==SRV_SIGNAL_QUERY) return process_signal_action_current(signal);
     return process_signal_config_current(signal, action) ? 0 : -1;
 }
 
@@ -2041,13 +2094,19 @@ static int64_t syscall_proc_control(uint64_t operation, uint64_t pid, uint64_t v
 }
 
 static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
-    if(flags==SRV_WAIT_NOHANG && scheduler_io_busy()) return 0;
+    if(flags & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX)) return SRV_ERR_INVAL;
+    /* Validate before consuming the child: a bad output pointer must not lose
+     * a waitable result. */
+    if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true)) return SRV_ERR_FAULT;
+    if((flags & SRV_WAIT_NOHANG) && scheduler_io_busy()) return 0;
     /* Reaping may free mappings/descriptors; never run that continuation under
      * another owner's I/O after the function enables interrupts. */
     scheduler_io_set_user_safe(false);
     uint64_t status = 0;
     if(!(flags & SRV_WAIT_NOHANG)) __asm__ volatile ("sti" : : : "memory");
-    int64_t result = process_wait(pid, &status, (flags & SRV_WAIT_NOHANG) != 0);
+    int64_t result=(flags & SRV_WAIT_POSIX)?
+        process_wait_posix((int64_t)pid,&status,(flags & SRV_WAIT_NOHANG)!=0):
+        process_wait(pid,&status,(flags & SRV_WAIT_NOHANG)!=0);
     if (result > 0 && status_out != NULL && !copy_to_user(status_out, &status, sizeof(status))) {
         return -1;
     }
@@ -2494,7 +2553,7 @@ static int64_t syscall_sync(void) {
     return result;
 }
 
-/* Already-open read-only files own a retained memory snapshot. Their read
+/* Already-open read-only files retain shared in-memory contents. Their read
  * path only copies bytes and advances the shared cursor under IRQ exclusion;
  * it does not resolve a path, touch a block device, allocate, or close a ref.
  * Keep this narrow: no redirected stdio, writable handles, or unbounded copy. */
@@ -2513,7 +2572,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_POLL: return true;
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
-    case SYS_WAIT: return frame->rdx==SRV_WAIT_NOHANG;
+    case SYS_WAIT: return (frame->rdx & SRV_WAIT_NOHANG) && !(frame->rdx & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX));
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
@@ -2536,6 +2595,52 @@ bool syscall_io_safe(const struct isr_frame *frame) {
         return true;
     default: return false;
     }
+}
+
+static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
+    if(operation==SRV_DIRECTORY_CHDIR) return process_directory(operation,fd,NULL,0);
+    union { struct srv_dirent entry; char path[MAX_PATH_LENGTH]; } result;
+    uint64_t size=operation==SRV_DIRECTORY_READ?sizeof(result.entry):MAX_PATH_LENGTH;
+    if(operation>SRV_DIRECTORY_CHDIR || (operation==SRV_DIRECTORY_READ && capacity!=size)) return SRV_ERR_INVAL;
+    if(capacity<size) size=capacity;
+    if(!out || !size || !user_buffer_ok(out,size,true)) return SRV_ERR_FAULT;
+    int64_t status=process_directory(operation,fd,&result,size);
+    if(status<0 || (operation==SRV_DIRECTORY_READ && !status)) return status;
+    if(operation==SRV_DIRECTORY_PATH) { size=0;while(result.path[size]) size++;size++; }
+    return copy_to_user(out,&result,size)?status:SRV_ERR_FAULT;
+}
+
+static int64_t syscall_path_context(uint64_t operation,const char *input,char *out,uint64_t capacity) {
+    char path[MAX_PATH_LENGTH],result[MAX_PATH_LENGTH];
+    if(operation>SRV_PATH_RESOLVE_DIRECTORY) return SRV_ERR_INVAL;
+    if(operation!=SRV_PATH_GETCWD) {
+        int64_t error=copy_exec_string(input,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+        if(error) return error;
+    }
+    if(operation!=SRV_PATH_CHDIR && (!out || !capacity ||
+        !user_buffer_ok(out,capacity>sizeof(result)?sizeof(result):capacity,true))) return SRV_ERR_FAULT;
+    int64_t error=process_path_context(operation,path,result,capacity>sizeof(result)?sizeof(result):capacity);
+    if(error || operation==SRV_PATH_CHDIR) return error;
+    uint64_t size=0;while(result[size]) size++;size++;
+    return copy_to_user(out,result,size)?0:SRV_ERR_FAULT;
+}
+
+static int64_t syscall_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out,uint64_t size) {
+    if(size!=sizeof(struct srv_rlimit) || (!set && !out) ||
+       (set && !user_buffer_ok(set,size,false)) || (out && !user_buffer_ok(out,size,true))) return SRV_ERR_FAULT;
+    struct srv_rlimit input={0},output;
+    if(set) input=*set;
+    int64_t result=process_rlimit(resource,set?&input:NULL,&output);
+    if(!result && out) *out=output;
+    return result;
+}
+
+static int64_t syscall_usage(int64_t who,struct srv_usage *out,uint64_t size) {
+    if(size!=sizeof(*out) || !out || !user_buffer_ok(out,size,true)) return SRV_ERR_FAULT;
+    struct srv_usage snapshot;
+    int64_t result=process_usage(who,&snapshot);
+    if(result==0) *out=snapshot;
+    return result;
 }
 
 static int64_t syscall_scheduler_status(struct srv_scheduler_status *out,uint64_t size) {
@@ -2615,6 +2720,20 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_READ:
         frame->rax = (uint64_t)syscall_read(frame->rdi, (char *)frame->rsi, frame->rdx);
+        return;
+    case SYS_PREAD:
+        frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,true)
+            ? process_file_pread(process_current(),frame->rdi,(uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
+            : SRV_ERR_FAULT);
+        return;
+    case SYS_VECTOR_IO:
+        frame->rax=(uint64_t)syscall_vector_io(frame->rdi,(const struct srv_iovec *)frame->rsi,
+            frame->rdx,frame->rcx,(int64_t)frame->r8);
+        return;
+    case SYS_PWRITE:
+        frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,false)
+            ? process_file_pwrite(process_current(),frame->rdi,(const uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
+            : SRV_ERR_FAULT);
         return;
     case SYS_CLOSE:
         frame->rax = (uint64_t)syscall_close(frame->rdi);
@@ -2844,7 +2963,7 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_proc_exit_status(frame->rdi, (uint64_t *)frame->rsi);
         return;
     case SYS_MKDIR:
-        frame->rax = (uint64_t)syscall_mkdir((const char *)frame->rdi);
+        frame->rax = (uint64_t)syscall_mkdir((const char *)frame->rdi,UINT64_MAX);
         return;
     case SYS_FILE_CHANGE:
         frame->rax=(uint64_t)syscall_file_change((const struct srv_file_change *)frame->rdi);
@@ -2908,14 +3027,23 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_DUP2:
         frame->rax = (uint64_t)syscall_dup2(frame->rdi, frame->rsi);
         return;
+    case SYS_DUP3:
+        frame->rax=(uint64_t)process_file_dup3(process_current(),frame->rdi,frame->rsi,frame->rdx);
+        return;
     case SYS_PIPE:
-        frame->rax = (uint64_t)syscall_pipe((int32_t *)frame->rdi);
+        frame->rax = (uint64_t)syscall_pipe_flags((int32_t *)frame->rdi,0,false);
+        return;
+    case SYS_PIPE2:
+        frame->rax = (uint64_t)syscall_pipe_flags((int32_t *)frame->rdi,frame->rsi,false);
         return;
     case SYS_PTY_CREATE:
         frame->rax = (uint64_t)syscall_pty_create((int32_t *)frame->rdi);
         return;
+    case SYS_PIPE_PAIR_FLAGS:
+        frame->rax=(uint64_t)syscall_pipe_flags((int32_t *)frame->rdi,frame->rsi,true);
+        break;
     case SYS_PIPE_PAIR:
-        frame->rax = (uint64_t)syscall_pipe_pair((int32_t *)frame->rdi);
+        frame->rax = (uint64_t)syscall_pipe_flags((int32_t *)frame->rdi,0,true);
         return;
     case SYS_MEMINFO:
         frame->rax = (uint64_t)syscall_meminfo((struct srv_meminfo *)frame->rdi);
@@ -2990,6 +3118,29 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_DETACH:
         frame->rax = (uint64_t)process_thread_detach(frame->rdi);
+        return;
+    case SYS_UMASK:
+        frame->rax=(uint64_t)process_umask(frame->rdi);return;
+    case SYS_MKDIR_MODE:
+        frame->rax=(uint64_t)syscall_mkdir((const char *)frame->rdi,frame->rsi&07777);return;
+    case SYS_DIRECTORY:
+        frame->rax=(uint64_t)syscall_directory(frame->rdi,frame->rsi,(void *)frame->rdx,frame->rcx);
+        return;
+    case SYS_PATH_CONTEXT:
+        frame->rax=(uint64_t)syscall_path_context(frame->rdi,(const char *)frame->rsi,(char *)frame->rdx,frame->rcx);
+        return;
+    case SYS_FORK:
+        __asm__ volatile ("sti" : : : "memory");
+        frame->rax=(uint64_t)process_fork(frame);
+        return;
+    case SYS_RLIMIT:
+        frame->rax=(uint64_t)syscall_rlimit(frame->rdi,(const struct srv_rlimit *)frame->rsi,(struct srv_rlimit *)frame->rdx,frame->rcx);
+        return;
+    case SYS_USAGE:
+        frame->rax=(uint64_t)syscall_usage((int64_t)frame->rdi,(struct srv_usage *)frame->rsi,frame->rdx);
+        return;
+    case SYS_THREAD_SIGNAL:
+        frame->rax = (uint64_t)process_thread_signal(frame->rdi,frame->rsi);
         return;
     case SYS_THREAD_STATUS:
         frame->rax = (uint64_t)process_thread_status(frame->rdi);

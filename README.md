@@ -24,7 +24,8 @@ no mockup or browser UI. [More screenshots and provenance](docs/screenshots.md).
   [shared widget library](userspace/widgets/README.md).
 - **Kernel and userspace:** preemptive scheduling, ring-3 ELF programs, virtual
   memory, a shell with jobs/pipelines/scripts, a growing libc compatibility layer
-  and selected source ports.
+  and selected source ports. The [portable C/POSIX profile](docs/posix-supported-profile.md)
+  describes tested contracts and remaining compatibility limits.
 - **Storage and networking:** exFAT, USB mass storage, AHCI, e1000, a small IPv4
   stack and static HTTP serving. The laptop workflow uses RAM for the boot image
   and a separate exFAT USB workspace for persistent files.
@@ -32,10 +33,12 @@ no mockup or browser UI. [More screenshots and provenance](docs/screenshots.md).
   panel brightness, speaker volume and temperature/fan readings have physical
   evidence. Exact acceptance boundaries are in the [status page](docs/status.md).
 
-Battery/AC reporting, suspend/resume, Wi-Fi and Bluetooth are not ready.
-Physical secondary-click acceptance, recent input-timeout fixes, headphone/PCM
-workflows and a real USB Ethernet adapter still need testing. Other Mac models
-are planned targets, not supported by inference. See the [roadmap](docs/roadmap.md).
+The reference Air also has evidence for its opt-in cached battery service,
+headphone/PCM playback, matched USB Ethernet and secondary-click gestures.
+Acceptance is specific to the recorded profile and test, not every device or
+workload. Suspend/resume, Wi-Fi connectivity and Bluetooth remain unfinished.
+Other Macs have independent bring-up records; support is never inferred from a
+similar enclosure. See the [status page](docs/status.md) and [roadmap](docs/roadmap.md).
 
 ## Try it in QEMU
 

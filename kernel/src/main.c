@@ -1,3 +1,4 @@
+#include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
 #include <srvros/workspace.h>
@@ -364,8 +365,8 @@ static void partition_name(char *out, uint64_t out_size, const char *base, uint6
     out[pos] = '\0';
 }
 
-static void mount_exfat_volume(void) {
-    struct block_device *ahci = block_find("ahci0");
+static void mount_exfat_volume(bool diagnostic_ram) {
+    struct block_device *ahci = diagnostic_ram ? NULL : block_find("ahci0");
     if (ahci != NULL && exfat_mount_block_device("/fat", ahci)) {
         return;
     }
@@ -398,7 +399,10 @@ static void mount_exfat_volume(void) {
     }
 
     console_printf("exfat: fallback image size=%u bytes\n", size);
-    struct block_device *device = block_register_memory("initramfs-exfat", data, size, 512);
+    struct block_device *device = diagnostic_ram
+        ? block_register_ram_copy("posix-scratch", data, size)
+        : block_register_memory("initramfs-exfat", data, size, 512);
+    if(diagnostic_ram) console_printf("posix-capture: scratch_copy=%s bytes=%u volatile=yes\n",device?"ready":"FAILED",size);
     if (device == NULL) {
         console_write("exfat: fallback block registration failed\n");
         return;
@@ -529,7 +533,8 @@ void kmain(void) {
     } else {
         ahci_init();
     }
-    mount_exfat_volume();
+    mount_exfat_volume(cmdline_has_token(cmdline,"srvros.capture=posix") &&
+        cmdline_has_token(cmdline,"srvros.storage=ram"));
     persist_bootlog();
     e1000_init();
     if (e1000_available()) {
@@ -634,6 +639,7 @@ void kmain(void) {
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_posix=cmdline_has_token(cmdline,"srvros.capture=posix");
     bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
     bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
@@ -655,11 +661,11 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix;
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -683,6 +689,7 @@ void kmain(void) {
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
         }
+        if(automatic_posix && started && init_ready && timer_running) sampled=posix_capture_run();
         if(automatic_storage_wait && started && init_ready && timer_running) {
             sampled=workspace_storage_wait_capture();
             console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");

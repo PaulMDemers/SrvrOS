@@ -337,7 +337,7 @@ static void *signal_worker(void *arg) {
     for (int i = 0; i < 8; i++) {
         sched_yield();
     }
-    kill(getpid(), SIGUSR2);
+    if(kill(getpid(), SIGUSR2)!=0 || shared_signal_count==0) return (void *)0xbad;
     return (void *)0x440;
 }
 
@@ -582,8 +582,60 @@ static int stdio_test(void) {
 }
 
 int cpu_load_capture(void);
+int posix_errno_test(void);
+int posix_positional_test(void);
+int posix_sleep_test(void);
+int posix_usage_test(void);
+int posix_resource_test(void);
+int posix_wait_test(void);
+int posix_fork_test(void);
+int posix_fork_exec_child(void);
+int posix_masked_poll_test(void);
+int posix_wait_child(const char *mode);
+int posix_resource_child(int again);
+int posix_open_test(void);
+int posix_coherence_test(void);
+int posix_orphan_test(void);
+int posix_path_test(void);
+int posix_directory_test(void);
+int posix_rename_test(void);
+int posix_stdio_access_test(void);
+int posix_stdio_format_test(void);
+int posix_exec_vectors_test(void);
+int posix_pipe_atomic_test(void);
+int posix_vector_io_test(void);
+int posix_file_errors_test(void);
+int posix_endpoint_flags_test(void);
+int posix_endpoint_flags_child(int argc,char **argv);
+int posix_readiness_wait_test(void);
+int posix_dprintf_test(void);
+int posix_fd_publication_test(void);
+int posix_fd_publication_child(void);
+int posix_umask_test(void);
+int posix_stdio_registry_test(void);
+int posix_descriptor_test(void);
+int posix_spawn_actions_test(void);
+int posix_spawn_actions_child(int,char **);
+int posix_umask_child(void);
+int posix_exec_vectors_child(int argc,char **argv);
+int posix_path_child(void);
+int posix_path_limits_test(void);
+int posix_pthread_contract_test(void);
+int posix_cpu_child(void);
+int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc>=2 && !strcmp(argv[1],"spawn-actions-child")) return posix_spawn_actions_child(argc,argv);
+    if(argc>=2 && !strcmp(argv[1],"endpoint-flags-child")) return posix_endpoint_flags_child(argc,argv);
+    if(argc>=2 && !strcmp(argv[1],"fd-publication-child")) return posix_fd_publication_child();
+    if(argc==2 && !strcmp(argv[1],"umask-child")) return posix_umask_child();
+    if(argc>1 && (!strcmp(argv[1],"exec-vectors-child") || !strcmp(argv[1],"exec-budget-child"))) return posix_exec_vectors_child(argc,argv);
+    if(argc==2 && !strcmp(argv[1],"path-child")) return posix_path_child();
+    if(argc==2 && !strcmp(argv[1],"fork-exec-child")) return posix_fork_exec_child();
+    if(argc==3 && !strcmp(argv[1],"wait-child")) return posix_wait_child(argv[2]);
+    if(argc==2 && !strcmp(argv[1],"resource-child")) return posix_resource_child(0);
+    if(argc==2 && !strcmp(argv[1],"resource-exec-child")) return posix_resource_child(1);
+    if(argc==2 && !strcmp(argv[1],"cpu-child")) return posix_cpu_child();
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
@@ -597,6 +649,37 @@ int main(int argc, char **argv) {
     } while (0)
 
     RUN_TEST("yield", yield_test);
+    RUN_TEST("errno", posix_errno_test);
+    RUN_TEST("positional", posix_positional_test);
+    RUN_TEST("open", posix_open_test);
+    RUN_TEST("coherence", posix_coherence_test);
+    RUN_TEST("orphan", posix_orphan_test);
+    RUN_TEST("path", posix_path_test);
+    RUN_TEST("path-limits", posix_path_limits_test);
+    RUN_TEST("directory", posix_directory_test);
+    RUN_TEST("rename", posix_rename_test);
+    RUN_TEST("stdio-access", posix_stdio_access_test);
+    RUN_TEST("stdio-format", posix_stdio_format_test);
+    RUN_TEST("sleep", posix_sleep_test);
+    RUN_TEST("usage", posix_usage_test);
+    RUN_TEST("resource", posix_resource_test);
+    RUN_TEST("wait", posix_wait_test);
+    RUN_TEST("fork", posix_fork_test);
+    RUN_TEST("exec-vectors", posix_exec_vectors_test);
+    RUN_TEST("pipe-atomic", posix_pipe_atomic_test);
+    RUN_TEST("vector-io", posix_vector_io_test);
+    RUN_TEST("file-errors", posix_file_errors_test);
+    RUN_TEST("endpoint-flags", posix_endpoint_flags_test);
+    RUN_TEST("readiness", posix_readiness_wait_test);
+    RUN_TEST("dprintf", posix_dprintf_test);
+    RUN_TEST("fd-publication", posix_fd_publication_test);
+    RUN_TEST("umask", posix_umask_test);
+    RUN_TEST("stdio-registry", posix_stdio_registry_test);
+    RUN_TEST("descriptors", posix_descriptor_test);
+    RUN_TEST("spawn-actions", posix_spawn_actions_test);
+    RUN_TEST("masked poll", posix_masked_poll_test);
+    RUN_TEST("pthread contracts", posix_pthread_contract_test);
+    RUN_TEST("targeted-signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);

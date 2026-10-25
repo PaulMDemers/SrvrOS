@@ -1,6 +1,8 @@
+#include <srvros/io_limits.h>
 #ifndef SRVROS_SYSCALL_NUMBERS_H
 #define SRVROS_SYSCALL_NUMBERS_H
 
+#include <srvros/path_limits.h>
 #include <stdint.h>
 
 #define SYS_WRITE 1
@@ -137,10 +139,44 @@
 #define SYS_BATTERY_CONTROL 135
 #define SYS_GUI_WAIT 136
 #define SYS_GUI_SERVER_WAIT 137
+#define SYS_PREAD 138
+#define SYS_PWRITE 139
+#define SYS_THREAD_SIGNAL 140
+#define SYS_USAGE 141
+#define SYS_RLIMIT 142
+#define SYS_FORK 143
+#define SYS_PATH_CONTEXT 144
+#define SYS_DIRECTORY 145
+#define SYS_UMASK 146
+#define SYS_MKDIR_MODE 147
+#define SYS_VECTOR_IO 148
+#define SYS_PIPE2 149
+#define SYS_DUP3 150
+#define SYS_PIPE_PAIR_FLAGS 151
+#define SRV_DIRECTORY_READ 0
+#define SRV_DIRECTORY_PATH 1
+#define SRV_DIRECTORY_CHDIR 2
+struct srv_dirent { uint64_t inode,type; char name[SRV_NAME_MAX + 1]; };
+#define SRV_PATH_GETCWD 0
+#define SRV_PATH_CHDIR 1
+#define SRV_PATH_RESOLVE 2
+#define SRV_PATH_RESOLVE_DIRECTORY 3
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
 #define SYS_SMC_STATUS 129
+
+#define SRV_USAGE_SELF 0
+#define SRV_USAGE_CHILDREN -1
+#define SRV_USAGE_THREAD 1
+struct srv_rlimit { uint64_t current, maximum; };
+#define SRV_RLIMIT_FSIZE 1
+#define SRV_RLIMIT_STACK 3
+#define SRV_RLIMIT_CORE 4
+
+struct srv_usage {
+    uint64_t user_us, system_us, peak_mapped_bytes, resolution_us;
+};
 
 #define SRV_ABI_VERSION 1
 
@@ -170,15 +206,25 @@ struct srv_file_change {
     uint64_t length;
 };
 
+#define SRV_TIME_NOW (UINT64_MAX-1)
+#define SRV_TIME_OMIT UINT64_MAX
+
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
 #define SRV_OPEN_CREATE 0x04
 #define SRV_OPEN_TRUNC 0x08
 #define SRV_OPEN_APPEND 0x10
 #define SRV_OPEN_NONBLOCK 0x20
+#define SRV_OPEN_EXCL 0x40
+#define SRV_OPEN_CLOEXEC 0x80
+#define SRV_OPEN_DIRECTORY 0x100
+#define SRV_OPEN_PERMISSIONS 0x200
+#define SRV_OPEN_MODE_SHIFT 16
+#define SRV_OPEN_MODE_MASK (07777ull << SRV_OPEN_MODE_SHIFT)
 
 #define SRV_SPAWN_FILE_ACTION_DUP2 1
 #define SRV_SPAWN_FILE_ACTION_CLOSE 2
+#define SRV_SPAWN_FILE_ACTION_OPEN 3
 #define SRV_SPAWN_FILE_ACTION_MAX 32
 
 #define SRV_F_GETFD 1
@@ -188,8 +234,13 @@ struct srv_file_change {
 #define SRV_F_GETLK 5
 #define SRV_F_SETLK 6
 #define SRV_F_SETLKW 7
+#define SRV_F_DUPFD 8
+#define SRV_F_DUPFD_CLOEXEC 9
 #define SRV_FD_NONBLOCK 0x01
 #define SRV_FD_CLOEXEC 0x02
+#define SRV_FD_READ 0x04
+#define SRV_FD_WRITE 0x08
+#define SRV_FD_APPEND 0x10
 
 #define SRV_F_RDLCK 1
 #define SRV_F_WRLCK 2
@@ -253,8 +304,36 @@ struct srv_winsize {
     uint16_t ypixel;
 };
 
+#define SRV_ERR_PERM -1
+#define SRV_ERR_NOTSUP -95
+#define SRV_ERR_NOENT -2
+#define SRV_ERR_SRCH -3
 #define SRV_ERR_INTR -4
+#define SRV_ERR_IO -5
+#define SRV_ERR_PIPE -32
+#define SRV_ERR_2BIG -7
+#define SRV_ERR_NOEXEC -8
+#define SRV_ERR_ACCES -13
+#define SRV_ERR_NOTDIR -20
+#define SRV_ERR_BUSY -16
+#define SRV_ERR_NOTEMPTY -39
+#define SRV_ERR_XDEV -18
+#define SRV_ERR_NAMETOOLONG -36
+#define SRV_ERR_RANGE -34
+#define SRV_ERR_NOLCK -37
+#define SRV_ERR_BADF -9
 #define SRV_ERR_AGAIN -11
+#define SRV_ERR_NOMEM -12
+#define SRV_ERR_FAULT -14
+#define SRV_ERR_EXIST -17
+#define SRV_ERR_ISDIR -21
+#define SRV_ERR_INVAL -22
+#define SRV_ERR_NFILE -23
+#define SRV_ERR_MFILE -24
+#define SRV_ERR_NOTTY -25
+#define SRV_ERR_FBIG -27
+#define SRV_ERR_SPIPE -29
+#define SRV_ERR_OVERFLOW -75
 
 #define SRV_RIGHTS_MAX 4
 #define SRV_MSG_CTRUNC 0x08
@@ -394,11 +473,13 @@ struct srv_meminfo {
 };
 
 #define SRV_WAIT_NOHANG 0x01
+#define SRV_WAIT_POSIX 0x02
 
 #define SRV_SIGNAL_HUP 1
 #define SRV_SIGNAL_WINCH 28
 #define SRV_SIGNAL_INT 2
 #define SRV_SIGNAL_QUIT 3
+#define SRV_SIGNAL_ABRT 6
 #define SRV_SIGNAL_KILL 9
 #define SRV_SIGNAL_USR1 10
 #define SRV_SIGNAL_SEGV 11
@@ -410,7 +491,10 @@ struct srv_meminfo {
 #define SRV_SIGNAL_CONT 18
 #define SRV_SIGNAL_STOP 19
 #define SRV_SIGNAL_TSTP 20
+#define SRV_SIGNAL_XFSZ 25
+#define SRV_SIGNAL_PROF 27
 
+#define SRV_SIGNAL_QUERY 3
 #define SRV_SIGNAL_DEFAULT 0
 #define SRV_SIGNAL_CATCH 1
 #define SRV_SIGNAL_IGNORE 2
@@ -423,6 +507,7 @@ struct srv_meminfo {
 #define SRV_EXEC_REPLACE 0x02
 #define SRV_EXEC_SET_SIGNAL_DEFAULT 0x04
 #define SRV_EXEC_SET_SIGNAL_MASK 0x08
+#define SRV_EXEC_INHERIT_FILES 0x10
 
 #define SRV_THREAD_DETACHED 0x01
 

@@ -42,6 +42,8 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
 void scheduler_io_wait(void);
 void scheduler_io_set_user_safe(bool safe);
 void scheduler_user_enter(void);
+void scheduler_account_kernel_enter(void);
+void scheduler_account_now(void);
 void scheduler_yield(void);
 /* CPU0 fatal service boundary, IRQs already masked. Ordinary thread boundary
  * or a terminal IRQ exit hook AFTER EOI, every completion callback and registry

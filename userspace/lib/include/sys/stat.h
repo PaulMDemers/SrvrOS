@@ -62,9 +62,14 @@ int fstat(int fd, struct stat *st);
 int stat64(const char *path, struct stat *st);
 int lstat64(const char *path, struct stat *st);
 int fstat64(int fd, struct stat *st);
+int mkdirat(int fd,const char *path,mode_t mode);
+int fstatat(int fd,const char *path,struct stat *st,int flags);
+int fchmodat(int fd,const char *path,mode_t mode,int flags);
 int mkdir(const char *path, mode_t mode);
 int chmod(const char *path, mode_t mode);
 int fchmod(int fd, mode_t mode);
+#define UTIME_NOW 1073741823L
+#define UTIME_OMIT 1073741822L
 int futimens(int fd, const struct timespec times[2]);
 int utimensat(int dirfd, const char *path, const struct timespec times[2], int flags);
 mode_t umask(mode_t mask);

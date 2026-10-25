@@ -1,3 +1,5 @@
+#include <srvros/path_limits.h>
+#include <srvros/vector_io.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <srvros/sys.h>
@@ -27,10 +29,8 @@ int __posix_signal_dispatch_pending(void);
 int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
 
-#define POSIX_PATH_MAX 160
-#define POSIX_FD_DUP_TEMP_MAX 80
+#define POSIX_PATH_MAX SRV_PATH_MAX
 
-static mode_t current_umask;
 
 static void fill_stat(struct stat *st, const struct srv_stat *info) {
     memset(st, 0, sizeof(*st));
@@ -41,7 +41,7 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
     if ((st->st_mode & S_IFMT) == 0) {
         st->st_mode = info->type == 1 ? (S_IFDIR | 0755) : (S_IFREG | 0644);
     }
-    st->st_nlink = info->nlink != 0 ? info->nlink : 1;
+    st->st_nlink = info->nlink; /* Zero is meaningful for an open, unlinked file. */
     st->st_uid = info->uid;
     st->st_gid = info->gid;
     st->st_atime = (time_t)info->atime;
@@ -54,15 +54,14 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
     st->st_blocks = info->blocks != 0 ? info->blocks : (info->size + 511) / 512;
 }
 
-static int translate_open_flags(int flags, uint64_t *srv_flags) {
+int __posix_translate_open_flags(int flags, uint64_t *srv_flags) {
+    if(flags&~(O_ACCMODE|O_CREAT|O_EXCL|O_TRUNC|O_APPEND|O_NONBLOCK|O_NOFOLLOW|O_DIRECTORY|O_CLOEXEC)) { errno=EINVAL;return -1; }
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
 
-    if (access == O_RDONLY) {
-        *srv_flags = SRV_OPEN_READ;
-        return 0;
-    }
-    if (access == O_RDWR) {
+    if(access==O_ACCMODE || (access==O_RDONLY && (flags&O_TRUNC))) { errno=EINVAL;return -1; }
+    if(access==O_RDONLY) out|=SRV_OPEN_READ;
+    else if (access == O_RDWR) {
         out |= SRV_OPEN_READ | SRV_OPEN_WRITE;
     } else {
         out |= SRV_OPEN_WRITE;
@@ -79,6 +78,9 @@ static int translate_open_flags(int flags, uint64_t *srv_flags) {
     if ((flags & O_NONBLOCK) != 0) {
         out |= SRV_OPEN_NONBLOCK;
     }
+    if(flags&O_EXCL) out|=SRV_OPEN_EXCL;
+    if(flags&O_CLOEXEC) out|=SRV_OPEN_CLOEXEC;
+    if(flags&O_DIRECTORY) out|=SRV_OPEN_DIRECTORY;
     *srv_flags = out;
     return 0;
 }
@@ -94,29 +96,15 @@ int open(const char *path, int flags, ...) {
         va_end(args);
     }
     if (__posix_make_path(path, full, sizeof(full)) < 0 ||
-        translate_open_flags(flags, &srv_flags) < 0) {
+        __posix_translate_open_flags(flags, &srv_flags) < 0) {
         return -1;
     }
 
-    struct srv_stat before;
-    int existed = srv_stat(full, &before) == 0;
-    if ((flags & O_CREAT) != 0 && (flags & O_EXCL) != 0 && existed) {
-        errno = EEXIST;
-        return -1;
-    }
-    long fd = (flags & O_ACCMODE) == O_RDONLY ? srv_open(full) : srv_open_mode(full, srv_flags);
+    if(flags&O_CREAT) srv_flags|=SRV_OPEN_PERMISSIONS|((uint64_t)(create_mode&07777)<<SRV_OPEN_MODE_SHIFT);
+    long fd = srv_open_mode(full, srv_flags);
     if (fd < 0) {
-        errno = (flags & O_CREAT) != 0 ? EIO : ENOENT;
+        errno = fd < -1 ? (int)-fd : EIO;
         return -1;
-    }
-    if ((flags & O_CREAT) != 0 && !existed) {
-        (void)srv_chmod(full, create_mode & ~current_umask);
-    }
-    if ((flags & O_NONBLOCK) != 0) {
-        (void)srv_fcntl((int)fd, SRV_F_SETFL, SRV_FD_NONBLOCK);
-    }
-    if ((flags & O_CLOEXEC) != 0) {
-        (void)srv_fcntl((int)fd, SRV_F_SETFD, SRV_FD_CLOEXEC);
     }
     return (int)fd;
 }
@@ -160,7 +148,7 @@ ssize_t read(int fd, void *buffer, size_t length) {
                 errno = EINTR;
                 return -1;
             }
-            errno = EBADF;
+            errno = result < -1 ? (int)-result : EBADF;
             return -1;
         }
         (void)__posix_signal_dispatch_pending();
@@ -191,11 +179,8 @@ ssize_t write(int fd, const void *buffer, size_t length) {
                 errno = EINTR;
                 return -1;
             }
-            if (__posix_signal_dispatch_pending() != 0) {
-                errno = EINTR;
-                return -1;
-            }
-            errno = EBADF;
+            (void)__posix_signal_dispatch_pending();
+            errno = result < -1 ? (int)-result : EBADF;
             return -1;
         }
         (void)__posix_signal_dispatch_pending();
@@ -208,15 +193,12 @@ ssize_t pread(int fd, void *buffer, size_t length, off_t offset) {
         errno = EINVAL;
         return -1;
     }
-    off_t saved = lseek(fd, 0, SEEK_CUR);
-    if (saved < 0 || lseek(fd, offset, SEEK_SET) < 0) {
-        return -1;
+    if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+        errno = ESPIPE; return -1;
     }
-    ssize_t result = read(fd, buffer, length);
-    int saved_errno = errno;
-    (void)lseek(fd, saved, SEEK_SET);
-    errno = saved_errno;
-    return result;
+    long result = srv_pread(fd,buffer,length,offset);
+    if (result<0) { errno=(int)-result; return -1; }
+    return (ssize_t)result;
 }
 
 ssize_t pread64(int fd, void *buffer, size_t length, off_t offset) {
@@ -228,131 +210,56 @@ ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
         errno = EINVAL;
         return -1;
     }
-    off_t saved = lseek(fd, 0, SEEK_CUR);
-    if (saved < 0 || lseek(fd, offset, SEEK_SET) < 0) {
-        return -1;
+    if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+        errno = ESPIPE; return -1;
     }
-    ssize_t result = write(fd, buffer, length);
-    int saved_errno = errno;
-    (void)lseek(fd, saved, SEEK_SET);
-    errno = saved_errno;
-    return result;
+    long result = srv_pwrite(fd,buffer,length,offset);
+    (void)__posix_signal_dispatch_pending();
+    if (result<0) { errno=(int)-result; return -1; }
+    return (ssize_t)result;
 }
 
 ssize_t pwrite64(int fd, const void *buffer, size_t length, off_t offset) {
     return pwrite(fd, buffer, length, offset);
 }
 
-static int iov_valid(const struct iovec *iov, int iovcnt) {
-    if (iovcnt < 0 || iovcnt > IOV_MAX || (iov == 0 && iovcnt != 0)) {
-        errno = EINVAL;
-        return 0;
-    }
-    for (int i = 0; i < iovcnt; i++) {
-        if (iov[i].iov_base == 0 && iov[i].iov_len != 0) {
-            errno = EINVAL;
-            return 0;
-        }
-    }
-    return 1;
-}
+_Static_assert(sizeof(struct iovec)==sizeof(struct srv_iovec), "iovec ABI size");
+_Static_assert(offsetof(struct iovec,iov_base)==offsetof(struct srv_iovec,base), "iovec ABI base");
+_Static_assert(offsetof(struct iovec,iov_len)==offsetof(struct srv_iovec,length), "iovec ABI length");
+_Static_assert(IOV_MAX==SRV_IOV_MAX, "iovec ABI count");
 
-ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
-    if (!iov_valid(iov, iovcnt)) {
-        return -1;
+static ssize_t vector_io(int fd,const struct iovec *iov,int count,unsigned operation,off_t offset) {
+    if(count<0 || count>IOV_MAX || (operation>=SRV_VECTOR_PREAD && offset<0)) {
+        errno=EINVAL;return -1;
     }
-    ssize_t total = 0;
-    for (int i = 0; i < iovcnt; i++) {
-        if (iov[i].iov_len == 0) {
-            continue;
+    /* eventfd is a libc-owned extension, not a kernel descriptor. Do not
+     * dereference unvalidated vectors here to emulate a kernel operation. */
+    if(__posix_eventfd_is_pseudo(fd)) { errno=EOPNOTSUPP;return -1; }
+    if(operation>=SRV_VECTOR_PREAD && __posix_socket_is_pseudo(fd)) { errno=ESPIPE;return -1; }
+    fd=__posix_socket_real_fd(fd);
+    if(fd<0) { errno=EBADF;return -1; }
+    for(;;) {
+        long result=srv_syscall5(SYS_VECTOR_IO,fd,(long)iov,count,operation,offset);
+        if(result==SRV_ERR_INTR) {
+            if(__posix_signal_dispatch_pending_restartable()) continue;
+            errno=EINTR;return -1;
         }
-        ssize_t count = read(fd, iov[i].iov_base, iov[i].iov_len);
-        if (count < 0) {
-            return total > 0 ? total : -1;
-        }
-        total += count;
-        if ((size_t)count < iov[i].iov_len) {
-            break;
-        }
+        (void)__posix_signal_dispatch_pending();
+        if(result<0) { errno=result < -1?(int)-result:EBADF;return -1; }
+        return (ssize_t)result;
     }
-    return total;
 }
-
-ssize_t writev(int fd, const struct iovec *iov, int iovcnt) {
-    if (!iov_valid(iov, iovcnt)) {
-        return -1;
-    }
-    ssize_t total = 0;
-    for (int i = 0; i < iovcnt; i++) {
-        const uint8_t *base = (const uint8_t *)iov[i].iov_base;
-        size_t offset = 0;
-        while (offset < iov[i].iov_len) {
-            ssize_t count = write(fd, base + offset, iov[i].iov_len - offset);
-            if (count < 0) {
-                return total > 0 ? total : -1;
-            }
-            if (count == 0) {
-                return total;
-            }
-            offset += (size_t)count;
-            total += count;
-        }
-    }
-    return total;
+ssize_t readv(int fd,const struct iovec *iov,int count) {
+    return vector_io(fd,iov,count,SRV_VECTOR_READ,0);
 }
-
-ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
-    if (offset < 0 || !iov_valid(iov, iovcnt)) {
-        if (offset < 0) {
-            errno = EINVAL;
-        }
-        return -1;
-    }
-    ssize_t total = 0;
-    off_t cursor = offset;
-    for (int i = 0; i < iovcnt; i++) {
-        if (iov[i].iov_len == 0) {
-            continue;
-        }
-        ssize_t count = pread(fd, iov[i].iov_base, iov[i].iov_len, cursor);
-        if (count < 0) {
-            return total > 0 ? total : -1;
-        }
-        total += count;
-        cursor += count;
-        if ((size_t)count < iov[i].iov_len) {
-            break;
-        }
-    }
-    return total;
+ssize_t writev(int fd,const struct iovec *iov,int count) {
+    return vector_io(fd,iov,count,SRV_VECTOR_WRITE,0);
 }
-
-ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
-    if (offset < 0 || !iov_valid(iov, iovcnt)) {
-        if (offset < 0) {
-            errno = EINVAL;
-        }
-        return -1;
-    }
-    ssize_t total = 0;
-    off_t cursor = offset;
-    for (int i = 0; i < iovcnt; i++) {
-        const uint8_t *base = (const uint8_t *)iov[i].iov_base;
-        size_t iov_offset = 0;
-        while (iov_offset < iov[i].iov_len) {
-            ssize_t count = pwrite(fd, base + iov_offset, iov[i].iov_len - iov_offset, cursor);
-            if (count < 0) {
-                return total > 0 ? total : -1;
-            }
-            if (count == 0) {
-                return total;
-            }
-            iov_offset += (size_t)count;
-            total += count;
-            cursor += count;
-        }
-    }
-    return total;
+ssize_t preadv(int fd,const struct iovec *iov,int count,off_t offset) {
+    return vector_io(fd,iov,count,SRV_VECTOR_PREAD,offset);
+}
+ssize_t pwritev(int fd,const struct iovec *iov,int count,off_t offset) {
+    return vector_io(fd,iov,count,SRV_VECTOR_PWRITE,offset);
 }
 
 int close(int fd) {
@@ -362,19 +269,15 @@ int close(int fd) {
     if (__posix_socket_is_pseudo(fd)) {
         return __posix_socket_close(fd);
     }
-    if (srv_close(fd) < 0) {
-        errno = EBADF;
-        return -1;
-    }
-    __posix_socket_note_close(fd);
+    long result=srv_close(fd);
+    __posix_socket_note_close(fd); /* The number is retired even on a flush error. */
+    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
 
 int fsync(int fd) {
-    if (srv_fsync(fd) < 0) {
-        errno = EBADF;
-        return -1;
-    }
+    long result=srv_fsync(fd);
+    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
 
@@ -392,11 +295,10 @@ int dup(int fd) {
     }
     long result = srv_dup(fd);
     if (result < 0) {
-        errno = EBADF;
+        errno = result==-1?EBADF:(int)-result;
         return -1;
     }
     __posix_socket_note_dup(fd, (int)result);
-    (void)fcntl((int)result, F_SETFD, 0);
     return (int)result;
 }
 
@@ -406,18 +308,17 @@ int dup2(int old_fd, int new_fd) {
             errno = EBADF;
             return -1;
         }
-        if (old_fd >= 3 && fcntl(old_fd, F_GETFD) < 0) {
+        if (fcntl(old_fd, F_GETFD) < 0) {
             return -1;
         }
         return new_fd;
     }
     long result = srv_dup2(old_fd, new_fd);
     if (result < 0) {
-        errno = old_fd < 0 || new_fd < 0 ? EBADF : ENOSYS;
+        errno = result==-1?EBADF:(int)-result;
         return -1;
     }
     __posix_socket_note_dup(old_fd, new_fd);
-    (void)fcntl((int)result, F_SETFD, 0);
     return (int)result;
 }
 
@@ -426,86 +327,36 @@ int dup3(int old_fd, int new_fd, int flags) {
         errno = EINVAL;
         return -1;
     }
-    int result = dup2(old_fd, new_fd);
-    if (result < 0) {
-        return -1;
+    if(__posix_socket_is_pseudo(old_fd) || __posix_eventfd_is_pseudo(old_fd) ||
+       __posix_socket_is_pseudo(new_fd) || __posix_eventfd_is_pseudo(new_fd)) {
+        errno=EOPNOTSUPP;return -1;
     }
-    if ((flags & O_CLOEXEC) != 0 && fcntl(result, F_SETFD, FD_CLOEXEC) < 0) {
-        close(result);
-        return -1;
-    }
-    return result;
+    long result=srv_syscall3(SYS_DUP3,old_fd,new_fd,(flags&O_CLOEXEC)?SRV_FD_CLOEXEC:0);
+    if(result<0) { errno=result==-1?EBADF:(int)-result;return -1; }
+    __posix_socket_note_dup(old_fd,(int)result);
+    return (int)result;
 }
 
-int pipe(int fds[2]) {
-    if (fds == 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_pipe(fds) < 0) {
-        errno = EMFILE;
-        return -1;
-    }
+int pipe2(int fds[2],int flags) {
+    if(flags&~(O_CLOEXEC|O_NONBLOCK)) { errno=EINVAL;return -1; }
+    uint64_t native=0;
+    if(flags&O_CLOEXEC) native|=SRV_FD_CLOEXEC;
+    if(flags&O_NONBLOCK) native|=SRV_FD_NONBLOCK;
+    long result=srv_syscall2(SYS_PIPE2,(long)fds,(long)native);
+    if(result<0) { errno=(int)-result;return -1; }
     return 0;
 }
+int pipe(int fds[2]) { return pipe2(fds,0); }
 
-int pipe2(int fds[2], int flags) {
-    if ((flags & ~(O_CLOEXEC | O_NONBLOCK)) != 0) {
-        errno = EINVAL;
-        return -1;
+static int fcntl_dupfd(int fd,int minimum,int cloexec) {
+    if(minimum<0 || minimum>=sysconf(_SC_OPEN_MAX)) { errno=EINVAL;return -1; }
+    if(__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+        errno=EOPNOTSUPP;return -1;
     }
-    if (pipe(fds) < 0) {
-        return -1;
-    }
-    if ((flags & O_CLOEXEC) != 0) {
-        (void)fcntl(fds[0], F_SETFD, FD_CLOEXEC);
-        (void)fcntl(fds[1], F_SETFD, FD_CLOEXEC);
-    }
-    if ((flags & O_NONBLOCK) != 0) {
-        (void)fcntl(fds[0], F_SETFL, O_NONBLOCK);
-        (void)fcntl(fds[1], F_SETFL, O_NONBLOCK);
-    }
-    return 0;
-}
-
-static int fcntl_dupfd(int fd, int minimum, int cloexec) {
-    if (minimum < 0 || minimum >= sysconf(_SC_OPEN_MAX)) {
-        errno = EINVAL;
-        return -1;
-    }
-
-    int temps[POSIX_FD_DUP_TEMP_MAX];
-    int temp_count = 0;
-    int result = -1;
-    for (;;) {
-        result = dup(fd);
-        if (result < 0) {
-            break;
-        }
-        if (result >= minimum) {
-            if (fcntl(result, F_SETFD, cloexec ? FD_CLOEXEC : 0) < 0) {
-                int saved_errno = errno;
-                close(result);
-                result = -1;
-                errno = saved_errno;
-            }
-            break;
-        }
-        if (temp_count >= POSIX_FD_DUP_TEMP_MAX) {
-            close(result);
-            result = -1;
-            errno = EMFILE;
-            break;
-        }
-        temps[temp_count++] = result;
-    }
-
-    int saved_errno = errno;
-    for (int i = 0; i < temp_count; i++) {
-        close(temps[i]);
-    }
-    errno = saved_errno;
-    return result;
+    long result=srv_fcntl(fd,cloexec?SRV_F_DUPFD_CLOEXEC:SRV_F_DUPFD,(uint64_t)minimum);
+    if(result<0) { errno=result==-1?EBADF:(int)-result;return -1; }
+    __posix_socket_note_dup(fd,(int)result);
+    return (int)result;
 }
 
 int fcntl(int fd, int command, ...) {
@@ -517,9 +368,6 @@ int fcntl(int fd, int command, ...) {
         return fcntl_dupfd(fd, minimum, command == F_DUPFD_CLOEXEC);
     }
     if (command == F_GETFD) {
-        if (fd >= 0 && fd < 3) {
-            return 0;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             long flags = __posix_eventfd_fcntl(fd, SRV_F_GETFD, 0);
             if (flags < 0) {
@@ -547,9 +395,6 @@ int fcntl(int fd, int command, ...) {
         int flags = va_arg(args, int);
         va_end(args);
         uint64_t srv_flags = (flags & FD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
-        if (fd >= 0 && fd < 3) {
-            return 0;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             return __posix_eventfd_fcntl(fd, SRV_F_SETFD, srv_flags);
         }
@@ -563,9 +408,6 @@ int fcntl(int fd, int command, ...) {
         return 0;
     }
     if (command == F_GETFL) {
-        if (fd >= 0 && fd < 3) {
-            return fd == 0 ? O_RDONLY : O_WRONLY;
-        }
         if (__posix_eventfd_is_pseudo(fd)) {
             long flags = __posix_eventfd_fcntl(fd, SRV_F_GETFL, 0);
             if (flags < 0) {
@@ -585,17 +427,15 @@ int fcntl(int fd, int command, ...) {
             errno = EBADF;
             return -1;
         }
-        return (flags & SRV_FD_NONBLOCK) != 0 ? O_NONBLOCK : 0;
+        int access=(flags&SRV_FD_WRITE)?((flags&SRV_FD_READ)?O_RDWR:O_WRONLY):O_RDONLY;
+        return access|((flags&SRV_FD_NONBLOCK)?O_NONBLOCK:0)|((flags&SRV_FD_APPEND)?O_APPEND:0);
     }
     if (command == F_SETFL) {
         va_list args;
         va_start(args, command);
         int flags = va_arg(args, int);
         va_end(args);
-        uint64_t srv_flags = (flags & O_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
-        if (fd >= 0 && fd < 3) {
-            return 0;
-        }
+        uint64_t srv_flags = ((flags & O_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags & O_APPEND)?SRV_FD_APPEND:0);
         if (__posix_eventfd_is_pseudo(fd)) {
             return __posix_eventfd_fcntl(fd, SRV_F_SETFL, srv_flags);
         }
@@ -651,7 +491,7 @@ int fcntl(int fd, int command, ...) {
                     errno = EINTR;
                     return -1;
                 }
-                errno = EBADF;
+                errno = result < -1 ? (int)-result : EBADF;
                 return -1;
             }
             break;
@@ -690,9 +530,10 @@ int fcntl64(int fd, int command, ...) {
 }
 
 off_t lseek(int fd, off_t offset, int whence) {
+    if(__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) { errno=ESPIPE;return -1; }
     long result = srv_seek(fd, (int64_t)offset, (uint64_t)whence);
     if (result < 0) {
-        errno = EBADF;
+        errno = result==-1?EIO:(int)-result;
         return -1;
     }
     return (off_t)result;
@@ -705,12 +546,11 @@ off_t lseek64(int fd, off_t offset, int whence) {
 int stat(const char *path, struct stat *st) {
     char full[POSIX_PATH_MAX];
     struct srv_stat info;
-    if (st == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_stat(full, &info) < 0) {
-        errno = ENOENT;
+    if(!st) { errno=EFAULT;return -1; }
+    if(__posix_make_path(path,full,sizeof(full))<0) return -1;
+    long result=srv_stat(full,&info);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     fill_stat(st, &info);
@@ -770,12 +610,11 @@ struct srvros_statfs64 {
 static int fill_statfs64(const char *path, struct srvros_statfs64 *buf) {
     char full[POSIX_PATH_MAX];
     struct srv_fsinfo info;
-    if (buf == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_statfs(full, &info) < 0) {
-        errno = ENOENT;
+    if(!buf) { errno=EFAULT;return -1; }
+    if(__posix_make_path(path,full,sizeof(full))<0) return -1;
+    long result=srv_statfs(full,&info);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     memset(buf, 0, sizeof(*buf));
@@ -806,12 +645,11 @@ int fstatfs64(int fd, void *buf) {
 int statvfs(const char *path, struct statvfs *buf) {
     char full[POSIX_PATH_MAX];
     struct srv_fsinfo info;
-    if (buf == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (srv_statfs(full, &info) < 0) {
-        errno = ENOENT;
+    if(!buf) { errno=EFAULT;return -1; }
+    if(__posix_make_path(path,full,sizeof(full))<0) return -1;
+    long result=srv_statfs(full,&info);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     memset(buf, 0, sizeof(*buf));
@@ -858,7 +696,8 @@ int isatty(int fd) {
         errno = saved_errno;
         return 1;
     }
-    errno = 0;
+    if(fcntl(fd,F_GETFD)<0) errno=EBADF;
+    else errno=ENOTTY;
     return 0;
 }
 
@@ -867,8 +706,10 @@ int ftruncate(int fd, off_t length) {
         errno = EINVAL;
         return -1;
     }
-    if (srv_ftruncate(fd, (uint64_t)length) < 0) {
-        errno = EBADF;
+    long result=srv_ftruncate(fd,(uint64_t)length);
+    (void)__posix_signal_dispatch_pending();
+    if (result < 0) {
+        errno = result < -1 ? (int)-result : EBADF;
         return -1;
     }
     return 0;
@@ -901,8 +742,9 @@ int chmod(const char *path, mode_t mode) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_chmod(full, mode) < 0) {
-        errno = ENOENT;
+    long result=srv_chmod(full,mode);
+    if(result<0) {
+        errno=result==-1?EIO:(int)-result;
         return -1;
     }
     return 0;
@@ -917,9 +759,7 @@ int fchmod(int fd, mode_t mode) {
 }
 
 mode_t umask(mode_t mask) {
-    mode_t previous = current_umask;
-    current_umask = mask & 0777;
-    return previous;
+    return (mode_t)srv_syscall1(SYS_UMASK,mask&0777);
 }
 
 int unlink(const char *path) {
@@ -927,11 +767,12 @@ int unlink(const char *path) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_unlink(full) < 0) {
+    long result=srv_unlink(full);
+    if (result < 0) {
         if (srv_unix_unlink(full) == 0) {
             return 0;
         }
-        errno = ENOENT;
+        errno = result < -1 ? (int)-result : EIO;
         return -1;
     }
     return 0;
@@ -1017,6 +858,7 @@ int mkostemp(char *template_path, int flags) {
             (void)fchmod(fd, 0600);
             return fd;
         }
+        if(errno!=EEXIST) return -1;
     }
     errno = EEXIST;
     return -1;
@@ -1056,6 +898,7 @@ char *mkdtemp(char *template_path) {
         if (mkdir(template_path, 0700) == 0) {
             return template_path;
         }
+        if(errno!=EEXIST) return NULL;
     }
     errno = EEXIST;
     return 0;
@@ -1063,14 +906,10 @@ char *mkdtemp(char *template_path) {
 
 int mkdir(const char *path, mode_t mode) {
     char full[POSIX_PATH_MAX];
-    if (__posix_make_path(path, full, sizeof(full)) < 0) {
-        return -1;
-    }
-    if (srv_mkdir(full) < 0) {
-        errno = EIO;
-        return -1;
-    }
-    (void)srv_chmod(full, mode & ~current_umask);
+    long result=srv_path_context(SRV_PATH_RESOLVE_DIRECTORY,path,full,sizeof(full));
+    if(result<0) { errno=result==SRV_ERR_RANGE?ENAMETOOLONG:(int)-result;return -1; }
+    result=srv_syscall2(SYS_MKDIR_MODE,(long)full,mode&07777);
+    if(result<0) { errno=result<-1?(int)-result:EIO;return -1; }
     return 0;
 }
 
@@ -1079,8 +918,9 @@ int rmdir(const char *path) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (srv_rmdir(full) < 0) {
-        errno = ENOTEMPTY;
+    long result=srv_rmdir(full);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result:EIO;
         return -1;
     }
     return 0;
@@ -1093,30 +933,42 @@ int rename(const char *old_path, const char *new_path) {
         __posix_make_path(new_path, new_full, sizeof(new_full)) < 0) {
         return -1;
     }
-    if (srv_rename(old_full, new_full) < 0) {
-        errno = EIO;
+    long result=srv_rename(old_full,new_full);
+    if (result < 0) {
+        errno = result < -1 ? (int)-result:EIO;
         return -1;
     }
     return 0;
 }
 
-int futimens(int fd, const struct timespec times[2]) {
-    (void)times;
-    struct stat st;
-    if (fstat(fd, &st) < 0) {
-        return -1;
+static int convert_file_times(const struct timespec times[2],uint64_t values[2]) {
+    for(unsigned i=0;i<2;i++) {
+        if(!times || times[i].tv_nsec==UTIME_NOW) values[i]=SRV_TIME_NOW;
+        else if(times[i].tv_nsec==UTIME_OMIT) values[i]=SRV_TIME_OMIT;
+        else {
+            if(times[i].tv_nsec<0 || times[i].tv_nsec>=1000000000) { errno=EINVAL;return -1; }
+            if(times[i].tv_sec<0) { errno=EOVERFLOW;return -1; }
+            /* The persistent metadata clock has one-second resolution. */
+            values[i]=(uint64_t)times[i].tv_sec;
+        }
     }
     return 0;
 }
-
-int utimensat(int dirfd, const char *path, const struct timespec times[2], int flags) {
-    (void)dirfd;
-    (void)times;
-    if (flags != 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    return path_exists_for_metadata(path);
+int futimens(int fd,const struct timespec times[2]) {
+    uint64_t values[2];if(convert_file_times(times,values)<0) return -1;
+    long result=srv_futime(fd,values[0],values[1]);
+    if(result<0) { errno=result < -1 ? (int)-result:EBADF;return -1; }
+    return 0;
+}
+int __posix_at_path(int fd,const char *path,char *out,size_t capacity);
+int utimensat(int fd,const char *path,const struct timespec times[2],int flags) {
+    if(flags&~AT_SYMLINK_NOFOLLOW) { errno=EINVAL;return -1; }
+    uint64_t values[2];if(convert_file_times(times,values)<0) return -1;
+    char full[POSIX_PATH_MAX];
+    if(__posix_at_path(fd,path,full,sizeof(full))<0) return -1;
+    long result=srv_utime(full,values[0],values[1]);
+    if(result<0) { errno=result < -1 ? (int)-result:ENOENT;return -1; }
+    return 0;
 }
 
 int posix_fadvise64(int fd, off_t offset, off_t length, int advice) {

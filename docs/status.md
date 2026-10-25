@@ -63,7 +63,7 @@ admission. These are future work; the sixteen-window limit remains in the code.
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
 | Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
-| POSIX / ports | [Source audit](posix-compatibility.md): useful subset, with thread-local errno, positional I/O and readiness semantics needing correction; not full POSIX or Linux binary compatibility; full Node runtime recovery remains incomplete |
+| POSIX / ports | [Portable C profile](posix-supported-profile.md): thread-local errno/TLS, shared files/descriptors, positional/vectored I/O, ordered spawn, bounded fork, readiness/time and stream contracts implemented with host/VM regressions; not full POSIX, Linux or Node compatibility |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 
 ## Measured checkpoints and current acceptance

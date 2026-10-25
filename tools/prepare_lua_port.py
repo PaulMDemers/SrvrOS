@@ -25,6 +25,7 @@ LUA_FILES = [
     "lmathlib.c",
     "lmem.c", "lmem.h",
     "lobject.c", "lobject.h",
+    "loslib.c",
     "lopcodes.c", "lopcodes.h", "lopnames.h",
     "lparser.c", "lparser.h",
     "lprefix.h",

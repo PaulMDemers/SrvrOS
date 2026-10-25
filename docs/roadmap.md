@@ -80,9 +80,12 @@ Native-density typography is separate from current 2x pixel scaling.
 **Next completion gates:** two document windows in one process, dynamic-count
 VM stress, explicit low-memory refusal without document loss, and focused native
 input/save/resize acceptance. Host allocation-pressure coverage and VM cleanup
-remain distinct from native interaction. The [POSIX audit](posix-compatibility.md)
-prioritizes thread-local errno, positional I/O and readiness correctness alongside
-this work; full POSIX conformance is not a prerequisite for multiple windows.
+remain distinct from native interaction. The [portable C/POSIX profile](posix-supported-profile.md)
+now implements the thread-local errno, file/descriptor, process and readiness
+foundation with host/VM regressions. Its documented broader Unix and Linux-adapter
+gaps remain separate; full POSIX conformance is not a prerequisite for multiple
+windows. The desktop migration has not started merely because this foundation
+exists.
 
 ## 6. Suspend and expand hardware deliberately
 

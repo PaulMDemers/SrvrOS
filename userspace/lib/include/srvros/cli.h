@@ -1,12 +1,13 @@
 #ifndef SRVROS_USER_CLI_H
 #define SRVROS_USER_CLI_H
 
+#include <srvros/path_limits.h>
 #include <srvros/sys.h>
 
 #include <stddef.h>
 #include <stdint.h>
 
-#define CLI_PATH_MAX 160
+#define CLI_PATH_MAX SRV_PATH_MAX
 #define CLI_UNUSED __attribute__((unused))
 
 static CLI_UNUSED int cli_streq(const char *a, const char *b) {

@@ -305,7 +305,7 @@ USER_STL_CXXFLAGS := \
 	-D_LIBCPP_HAS_FILESYSTEM=1 \
 	-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE=1 \
 	-D_LIBCPP_HARDENING_MODE_DEFAULT=_LIBCPP_HARDENING_MODE_NONE \
-	-DPATH_MAX=160 \
+	-DPATH_MAX=1024 \
 	-DHOST_NAME_MAX=63 \
 	-I $(ZIG_DIR)/lib/libcxx/include \
 	-I $(ZIG_DIR)/lib/libcxx/src/include \
@@ -1003,6 +1003,7 @@ LUA_CORE_NAMES := \
 	lmathlib.c \
 	lmem.c \
 	lobject.c \
+	loslib.c \
 	lopcodes.c \
 	lparser.c \
 	lstate.c \
@@ -1679,9 +1680,9 @@ $(LUA_PREPARED): tools/prepare_lua_port.py $(shell find ports/upstream/lua -maxd
 $(LUA_CORE_C): | $(LUA_PREPARED)
 	@test -f $@ || { echo "Missing $@; remove $(LUA_PREPARED) and rerun make to regenerate Lua." >&2; exit 1; }
 
-$(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
+$(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED) ports/srvros/lua_config.h
 	mkdir -p $(dir $@)
-	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
+	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -include ports/srvros/lua_config.h -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
 $(EXFAT_IMAGE): $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
@@ -2373,6 +2374,14 @@ test-desktop: build/tests/tool-clipboard-host$(HOST_EXE)
 build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/desktools/app.h userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+.PHONY: test-posix-poll
+test-core: test-posix-poll
+test-posix-poll: build/tests/posix-poll-host$(HOST_EXE)
+	$<
+build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
 
 .PHONY: test-posix-dir
 test-core: test-posix-dir
@@ -3569,9 +3578,34 @@ build/tests/battery-startup-timing$(HOST_EXE): tools/test_battery_startup_timing
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror $< -o $@
 
+.PHONY: test-stdio-float
+test-core: test-stdio-float
+test-stdio-float: build/tests/stdio-float-host$(HOST_EXE)
+	$<
+build/tests/stdio-float-host$(HOST_EXE): tools/test_stdio_float.c userspace/lib/src/stdio_float.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_stdio_float.c -lm -o $@
+
+# Private formatter header also participates in userspace incremental builds.
+build/userspace/lib/src/posix_stdio.c.o: userspace/lib/src/stdio_float.h
+
 .PHONY: bench-heap-startup
 bench-heap-startup: build/tests/heap-startup-bench$(HOST_EXE)
 	$<
 build/tests/heap-startup-bench$(HOST_EXE): tools/bench_heap_startup.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-posix-capture
+test-core: test-posix-capture
+test-posix-capture: build/tests/posix-capture-host$(HOST_EXE) build/tests/block-ram-host$(HOST_EXE)
+	build/tests/block-ram-host$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_posix_capture_result.py
+build/tests/posix-capture-host$(HOST_EXE): tools/test_posix_capture.c kernel/src/posix_capture.c kernel/include/srvros/posix_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_posix_capture.c -o $@
+
+build/tests/block-ram-host$(HOST_EXE): tools/test_block_ram.c kernel/src/block_ram.c kernel/include/srvros/block.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_block_ram.c kernel/src/block_ram.c -o $@

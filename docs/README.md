@@ -19,6 +19,7 @@ record earlier decisions and may describe superseded behavior.
 - [Contributing](../CONTRIBUTING.md) — focused changes, tests and review evidence.
 - [Testing](testing.md) — host, VM, failure-path and physical validation.
 - [Widget library](../userspace/widgets/README.md) — shared controls and app integration.
+- [Portable C/POSIX profile](posix-supported-profile.md) — supported contracts, bounds and consumer tests.
 - [Executable format](executable-format.md), [ports](ports.md), [tool inventory](tool-inventory.md).
 - [Security policy](../SECURITY.md) and [third-party materials](../THIRD_PARTY.md).
 
