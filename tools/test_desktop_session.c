@@ -596,6 +596,18 @@ int main(void) {
         key.flags|=SRV_KEY_REPEAT;assert(!capture_shortcut(&key));key.usage=17;assert(!notifications_shortcut(&key));
         key.flags=0;assert(!notifications_shortcut(&key));
     }
+    /* An exec/resource refusal must not silently close the launcher. Keep the
+     * existing clients intact and publish a warning without trace mode. */
+    desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,800,600);
+    s.launch_notice_serial=0;execute_result=SRV_ERR_AGAIN;
+    uint64_t existing=s.clients[0].pid;
+    spawn_app(&s,DESK_APP_TEXT,"");
+    assert(s.clients[0].pid==existing && strstr(s.scene.notice,"Text could not open") && s.scene.notifications.store.count==1);
+    uint64_t warning=s.scene.notifications.toast_id;
+    spawn_app(&s,DESK_APP_TEXT,"");assert(s.scene.notifications.store.count==1 && s.scene.notifications.toast_id==warning);
+    now+=101;execute_result=SRV_ERR_NOENT;spawn_app(&s,DESK_APP_HELP,"");
+    assert(strstr(s.scene.notice,"Help could not open") && s.scene.notifications.store.count==2);
+    execute_result=-1;
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,800,600);
     p=desk_packet_new(DESK_NOTIFY);p.serial=1;p.value=1;
     struct desk_notification notice={.title="Timer finished",.message="A completed timer."};memcpy(p.text,&notice,sizeof(notice));
@@ -644,9 +656,9 @@ int main(void) {
      * clears the now-obsolete capacity/error message. */
     for(int i=0;i<DESKD_WINDOWS;i++) failed.children[i]=100+i;
     strcpy(executed_path,"untouched");spawn_app(&failed,DESK_APP_TEXT,"");
-    assert(!strcmp(executed_path,"untouched") && strstr(failed.scene.notice,"Close a window"));
+    assert(!strcmp(executed_path,"untouched") && strstr(failed.scene.notice,"Close an app"));
     failed.children[4]=0;execute_result=-1;spawn_app(&failed,DESK_APP_TEXT,"");
-    assert(!failed.children[4] && strstr(failed.scene.notice,"could not be opened"));
+    assert(!failed.children[4] && strstr(failed.scene.notice,"Text could not open"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     clipboard_client_retirement();

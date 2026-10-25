@@ -30,6 +30,7 @@ def service_snapshot(data,audio):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal','missing-workspace','runtime-missing','opt-out','clock-missing','reopen-completed','reopen-busy'),default='normal')
+    parser.add_argument('--mixed-apps',action='store_true',help='open 24 independent app processes with combined services, then retire/reopen')
     parser.add_argument('--air61',action='store_true',help='use exact Air6,1 ownership fixture/kernel')
     parser.add_argument('--linger-seconds',type=int,default=0,help='keep normal session live before normal menu exit')
     parser.add_argument('--workspace-table',choices=('mbr','gpt'),default='mbr')
@@ -45,10 +46,11 @@ def main():
     if args.automatic and (not args.boot_session or not args.air61 or not args.services or args.case not in ('normal','cancel','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air6,1 boot and startup case')
     entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if args.audio and not args.services:parser.error('audio requires services')
+    if args.mixed_apps and (not args.services or not args.boot_session or args.case not in ('normal','profile-refusal')):parser.error('mixed apps requires combined boot normal/profile-refusal')
     if args.services and not args.boot_session:parser.error('services requires boot-session')
     if entry_refusal and not args.boot_session:parser.error('entry refusal cases require --boot-session')
     if args.stage and (not args.boot_session or args.case!='profile-refusal'):parser.error('stage requires --boot-session --case profile-refusal')
-    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-automatic' if args.automatic else ''));out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-automatic' if args.automatic else '')+('-mixed' if args.mixed_apps else ''));out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-home-apps-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -110,7 +112,10 @@ def main():
         else:
             iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
             boot_args=['-cdrom',iso,'-boot','d']
-        cmd=['qemu-system-x86_64','-M','q35,acpi=off' if args.case=='clock-missing' else 'q35','-m','2G' if stage else '512M',*boot_args,'-nic','none',
+        # Many separate GUI processes need their own address spaces and stacks.
+        # Match exact-stage memory for the 24-app workload; retain 512M for the
+        # ordinary service lifetime fixture.
+        cmd=['qemu-system-x86_64','-M','q35,acpi=off' if args.case=='clock-missing' else 'q35','-m','2G' if stage or args.mixed_apps else '512M',*boot_args,'-nic','none',
              *([] if stage or args.case=='clock-missing' else ['-acpitable',f'file={tmp}/battery.aml']),
              '-serial',f'unix:{tmp}/serial,server=on,wait=off',
              '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot',
@@ -125,6 +130,7 @@ def main():
                     nonlocal consumed
                     start=time.monotonic()
                     while marker not in output[consumed:]:
+                        if args.mixed_apps and (b'exec: scheduler thread table full' in output or b'exec: scheduler admission failed' in output or b'deskd: launch-failed' in output):raise RuntimeError('mixed-app resource admission failed; inspect serial evidence')
                         assert process.poll() is None and time.monotonic()-start<timeout,f'missing {marker!r}'
                         output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
                         if not consumed:qmp.boot_if_menu_stalled(output,time.monotonic()-start)
@@ -221,6 +227,27 @@ def main():
                     # A real shell job changes session and execs, then leaves two
                     # descendants alive after its original parent returns.
                     type_text('/fat/bin/lifetimeprobe --orphan > /work/srvros-work/orphan-proof.txt\n');time.sleep(2)
+                    if args.mixed_apps:
+                        # Three ordinary processes already own windows. Add 21
+                        # separate apps, including file/image workers, under the
+                        # same logger/battery/audio service lifetime as hardware.
+                        roles=[('Calculator',b'desktools: starting role=calculator'),
+                               ('Clock',b'deskclock: starting'),('Help',b'deskhelp: starting'),
+                               ('Files',b'desktools: starting role=files'),
+                               ('Preview',b'deskview: starting'),('Sketch',b'desksketch: starting'),
+                               ('Text',b'desktools: starting role=text')]
+                        for index in range(21):
+                            name,ready=roles[index%len(roles)]
+                            launch(name+' new app',ready);wait(b'deskd: opened pid=')
+                        admitted=set(re.findall(rb'deskd: opened pid=(\d+)',bytes(output)))
+                        assert len(admitted)==24,admitted
+                        # Save an edited document after capacity growth, not just
+                        # opening empty windows; verify its exact bytes offline.
+                        type_text('Mixed services capacity.');shortcut('ctrl-l');shortcut('ctrl-a')
+                        type_text('/work/srvros-work/mixed-proof.txt');shortcut('ctrl-s');wait(b'picker ready mode=2')
+                        qmp.key('ret');wait(b'file-result role=text op=2 status=0')
+                        result['mixed_app_windows']=len(admitted)
+                        qmp.call('screendump',{'filename':str(out/'mixed-apps.ppm')})
                     # Two distinct periodic writes while the desktop is live.
                     wait(b'workspace-log: snapshot=session-b.log',60)
                     qmp.call('screendump',{'filename':str(out/'desktop.ppm')})
@@ -311,7 +338,8 @@ def main():
                     final=ExfatFixture(disk[2048*512:volume_end]);assert final.read('srvros-work/.workspace')==marker and final.read('srvros-work/anchor.txt')==ANCHOR
                     assert final.read('srvros-work/desktop-proof.txt')==(b'Ordinary Home desktop. Pending save.' if args.case=='cancel' else b'Ordinary Home desktop.')
                     assert {n for n,_ in final.entries(final.chain(final.root))}=={'srvros-work','.srvros'}
-                    assert {n for n,_ in final.entries(final.read('srvros-work'))}==({'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}|({'audio-proof.txt'} if args.audio else set()))
+                    assert {n for n,_ in final.entries(final.read('srvros-work'))}==({'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}|({'audio-proof.txt'} if args.audio else set())|({'mixed-proof.txt'} if args.mixed_apps else set()))
+                    if args.mixed_apps:assert final.read('srvros-work/mixed-proof.txt')==b'Mixed services capacity.'
                     if args.audio:
                         audio=final.read('srvros-work/audio-proof.txt');(out/'audio-proof.txt').write_bytes(audio)
                         assert b'playwav: complete bytes=1152000 underruns=0' in audio

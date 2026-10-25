@@ -10,7 +10,7 @@ typedef void (*scheduler_thread_fn)(void *arg);
 typedef bool (*scheduler_wait_condition_fn)(void *arg);
 
 struct scheduler_wait_queue {
-    uint64_t waiters;
+    uint64_t waiters; /* Count, not a bitmap. Membership is owned by thread records. */
 };
 
 struct scheduler_stats {

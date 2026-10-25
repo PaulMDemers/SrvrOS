@@ -124,3 +124,24 @@ refuse further windows while retaining existing edits. Native higher-count
 acceptance, gesture behavior, input latency and power measurements remain pending
 until the matching physical evidence is collected. Do not automatically start
 this trial when the overnight no-reboot window ends.
+
+
+## October 25 mixed-app hardware result
+
+Air7,2 release `2750e5efa04573ba` reached fifteen application windows with the
+combined device services enabled, then logged `exec: scheduler thread table full`
+three times. That release has 32 global scheduler slots. The launcher is an
+overlay and does not consume another window. The 128-window single-process and
+32-document fixtures validate window growth, not this mixed-process workload.
+Scheduler capacity and launch-failure feedback must be addressed before closing
+higher-count native acceptance. See the [Air record](machines/macbookair7-2.md)
+for clean retirement, filesystem preservation and the pending checks. Do not
+count the general device success as document/chooser/reopen acceptance.
+
+The follow-up uses stable scheduler chunks under a stack/metadata byte budget
+and visible app-launch refusal. Its combined-service mixed-app regression opens
+24 separate processes with 2 GiB guest RAM, saves a document after growth, then
+retires and reopens the session with offline filesystem checks. See
+[window capacity](window-capacity.md#scheduler-storage-after-the-mixed-app-native-trial)
+for the independent resource budgets and [the current unit record](machines/macbookair7-2.md)
+for validation status. The physical 17+ app and document checks remain pending.

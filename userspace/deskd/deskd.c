@@ -81,6 +81,7 @@ struct session {
     int battery_result;
     struct desk_battery_alert battery_alert;
     uint64_t battery_notice_serial;
+    uint64_t launch_notice_serial,launch_notice_at;
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
@@ -413,6 +414,24 @@ static struct srv_key_event capture_key(unsigned step) {
     return (struct srv_key_event){.abi_version=SRV_KEY_EVENT_VERSION,.struct_size=sizeof(struct srv_key_event),.usage=script[i].usage,.modifiers=script[i].modifiers,
         .codepoint=script[i].codepoint,.flags=SRV_KEY_DOWN_EVENT};
 }
+static void launch_failed(struct session *s,unsigned application,long error) {
+    const struct desk_application_info *info=desk_application_info(application);
+    int resource=error==SRV_ERR_AGAIN || error==SRV_ERR_NOMEM;
+    const char *reason=resource?"Resources are busy. Close an app and try again.":"Please try opening the application again.";
+    snprintf(s->scene.notice,sizeof(s->scene.notice),"%s could not open. %s",info?info->title:"Application",reason);
+    desk_log("deskd: launch-failed application=%u error=%lld resource=%u\n",application,(long long)error,(unsigned)resource);
+    uint64_t now=srv_ticks();
+    if(s->launch_notice_serial && now-s->launch_notice_at<100)return;
+    s->launch_notice_at=now;
+    struct desk_notification text={0};
+    snprintf(text.title,sizeof(text.title),"Cannot open %s",info?info->title:"application");
+    snprintf(text.message,sizeof(text.message),"%s",reason);
+    uint64_t id;long us=srv_monotonic_us();
+    if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX-3,DESK_APP_SYSTEM,
+       ++s->launch_notice_serial,us<0?0:(uint64_t)us,DESK_NOTICE_WARNING,&text,&id)>0) {
+        desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);notifications_damage(s);
+    }
+}
 static void spawn_app(struct session *s,int application,const char *path) {
     const struct desk_application_info *info=desk_application_info(application);
     if(!info) return;
@@ -426,12 +445,12 @@ static void spawn_app(struct session *s,int application,const char *path) {
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         long pid=srv_exec(&request);
         if(pid>0) { (*session_children(s,i))=pid;(*session_child_apps(s,i))=application;s->scene.notice[0]=0; }
-        else { strcpy(s->scene.notice,"The application could not be opened.");resource_trace(s,"process-launch"); }
+        else { launch_failed(s,application,pid);resource_trace(s,"process-launch"); }
         desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
         return;
     }
     resource_trace(s,"launch-capacity");
-    strcpy(s->scene.notice,"Close a window before opening another application.");
+    launch_failed(s,application,SRV_ERR_NOMEM);
     desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
 }
 static void request_close(struct session *s,int i) {
