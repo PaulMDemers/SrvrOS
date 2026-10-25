@@ -2,6 +2,28 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Unsaved desktop exit and sustained playback retest — active scope
+
+Base main `b537c2a` includes PR167's completed-I/O handoff. Air7,2 now owns a
+bounded follow-up in the desktop shutdown/modal admission path, its host/VM
+lifecycle tests, a longer bundled playback fixture and the attended Help guide.
+No audio driver, PCM engine, firmware gate or process-limit edits are planned;
+PR19 retains Pro Wi-Fi scope. Publish this follow-up as a separate PR.
+
+Release `336d81743ca03a33`, session `session-00065eb1e8675a07-00`, returned.
+The user reports modal controls generally working, but Return to console with an
+unsaved file repeatedly opens/closes its modal. The saved session has no exit
+snapshot, so retirement is incomplete, not passed. It records two short Settings
+tones and no PCM file-playback owner: sustained listening/I/O overlap is not
+accepted. All 1,106 prior non-metadata files retain their hashes; only
+`.srvros/meta` changed. Three logs and one saved test document were added.
+Local evidence: `build/modal-pointer-native-20261025/physical-after/` and its
+return proof; perform offline filesystem checks before the next native trial.
+Installed current remains `336d81743ca03a33`, independent recovery
+`9aa8dbf6fbda8252`; Ubuntu default and consumed one-shot are verified. No new
+reboot is armed. Collect/diagnose, reproduce shutdown with pending edits, preserve
+Save/Discard/Cancel decisions during exit, then validate locally before staging.
+
 ### Modal pointer correction validated; physical retest pending
 
 Release `b6f4c7525115168a` returned with session
