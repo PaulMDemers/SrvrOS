@@ -175,10 +175,21 @@ static void parent_dialogs(void) {
     for(int n=0;n<8 && !dialog.window.open_sent;n++)desk_connection_poll(&c,&target,&event);
     receive(DESK_OPEN_REPLY,0);incoming.window=dialog.window.window;
     assert(connection_receive(&c,&target,&event)==1);
+    /* Admission precedes CONFIGURE under asynchronous cache allocation. Do
+     * not lay out the borrowed widget at the still-zero canvas dimensions. */
+    assert(!dialog.window.opening && !dialog.window.surface && !dialog.window.width);
+    for(int n=0;n<4;n++)assert(!desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300));
+    connection_configure(&c,&dialog.window);
     assert(desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300)==1);
     full=1;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Save"));
     full=0;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Open"));
     assert(last_sent.type==DESK_TITLE && last_sent.window==dialog.window.window);
+    receive(DESK_CONFIGURE,2);incoming.window=dialog.window.window;incoming.width=600;incoming.height=300;
+    assert(connection_receive(&c,&target,&event)==2);
+    assert(!desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300));
+    assert(dialog.window.width==400); /* Keep the prior model layout while pending. */
+    for(int n=0;n<8 && dialog.window.generation!=2;n++)desk_connection_poll(&c,&target,&event);
+    assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && dialog.window.width==600);
     assert(desk_window_open_dialog(&c,&other,&parent,"Duplicate",400,300)<0);
     assert(desk_window_open_dialog(&c,&other,&dialog.window,"Nested",400,300)<0);
     desk_window_close(&parent);assert(parent.closing && dialog.window.closing);
