@@ -2,9 +2,23 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active shared chooser controller work (D3c)
+
+PR149 merged as `a354eed` and consumed. Next bounded scope: consolidate Text and
+Preview's asynchronous file-picker browsing/cancellation into a caller-owned
+application-runtime controller above the pure widget library. Borrow existing
+job/widget/listing buffers; correlate completions, retain canceled listing work
+until drained, reject stale replies and prevent reuse while pending. Keep
+application document/image reads, writes, overwrite decisions, clipboard and
+focus policy outside the controller. Support existing pooled and legacy jobs;
+no new worker scheduler, kernel protocol or parented-window claim. Touch the new
+optional desktop runtime library, these two consumers, focused host/VM fixtures
+and API guides. Pro PR19 remains independent. Host/QEMU only; no host reboot,
+installation or USB mutation, and no automatic reboot at the deadline.
+
 ### Renderer overdraw checkpoint (D4a)
 
-PR149 runtime `36f8800`, based on PR148 merge `a3f959c`, reuses one stack ordering
+PR149 merged `a354eed`; runtime `36f8800`, based on PR148 merge `a3f959c`, reuses one stack ordering
 per frame and skips only fully covered clipped opaque frames/shadows. It leaves
 window/cache/ACK lifetime, damage policy and framebuffer copying unchanged.
 Full desktop host tests and image build pass. Exact reference comparisons cover
