@@ -30,10 +30,21 @@ def main():
     with tempfile.TemporaryDirectory(prefix='srvros-text-windows-') as directory:
         tmp=Path(directory)
         from exfat_test_image import ExfatFixture
-        fixture=ExfatFixture((root/'build/srvros.exfat').read_bytes())
+        source=ExfatFixture((root/'build/srvros.exfat').read_bytes())
+        # The legacy boot packer omits standard boot/upcase metadata. Use a
+        # formatted fixture with matched binaries, so before/after fsck is valid.
+        with (tmp/'disk.exfat').open('xb') as stream:stream.truncate(64*1024*1024)
+        subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(tmp/'disk.exfat')],check=True,stdout=subprocess.DEVNULL)
+        fixture=ExfatFixture((tmp/'disk.exfat').read_bytes())
+        fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in
+            ('deskd','desktools','deskfs','deskview','imageworker','deskterm','sh','kill','sync','ps')})
+        fixture.add_directory_files('etc',{'init.sh':b'echo lifecycle-fixture-ready\n'})
+        fixture.add_directory_files('home',{})
         fixture.add_directory_files('route-text',{'Routed.txt':b'Routed text\n'})
         fixture.add_directory_files('route-image',{'Routed.bmp':(root/'tools/fixtures/images/pattern.bmp').read_bytes()})
         (tmp/'disk.exfat').write_bytes(fixture.data)
+        from exfat_test_image import check_clean_image
+        (out/'before-fsck.txt').write_text(check_clean_image(tmp/'disk.exfat'))
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy());port=choose_port(30001,38000)
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',str(iso),'-boot','d',
             '-drive',f'if=none,id=disk,file={tmp/"disk.exfat"},format=raw',
