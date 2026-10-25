@@ -5850,3 +5850,17 @@ was staged or installed, and no reboot is armed. Next implement a separate fixed
 full central-table observation in reference order, with strict command/transport/
 guard receipts and complete readback mismatch accounting. Do not treat that
 observation as exact register acceptance or proceed to DAC/VCO calibration.
+
+
+Active scope (2026-10-25): opt-in v66 full central RF table observation. A new
+fixed engine writes the44 reference central entries in order, then performs a
+separate44-entry read pass. Every command retains pre/post MAC0/COREf000f200/
+disabled-DMA guards, exact packet/sequence/reply validation and no replay; reads
+are observations with complete mismatch accounting. Preserve the original strict
+central engine and v61–65 recipes. Exclude RF0:22 trim, later band tables and
+DAC/VCO calibration. The completed antenna/RF0:22 read probe is the prerequisite;
+do not rerun the six-write/CSR comparison experiments in this new branch.
+Touch MCU/xHCI, v66 opt-in staging, host/native/collector tests and current docs.
+Fetched main `a6d43616`; shared desktop/runtime work remains separate from this
+RF diagnostic. Native integration base remains `d5bc4b3`. Next checkpoint:
+fault-tested fixed two-pass engine, exact-stage VM and unarmed installation.
