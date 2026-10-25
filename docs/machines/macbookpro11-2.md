@@ -5715,3 +5715,17 @@ strict receipts and recovery evidence are archived under
 Ubuntu default, consumed one-shot and installed/known-good recovery payload
 hashes verified. Offline workspace clean271files/655clusters/109directories,
 zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
+
+
+Active scope (2026-10-25): audit RF0:6 sequencing and add a read-only RF control
+snapshot after the reproduced v64 zero-read experiment. Touch fixed MCU capture,
+xHCI admission and opt-in v65 staging/collector tests only; no new RF data write,
+calibration or packet traffic. The reference encoding matches v64; bypass/control
+state remains unobserved natively. Four live Linux read-only debugfs samples show
+RF bypass0/1 and setting0 all0, RF_MISC5. Linux is actively carrying Ubuntu's
+default route; no driver reset/unbind or RF selector write was used. Live values
+are comparison evidence, not an initialization profile to copy.
+Fetched main `7a005184` contains merged Air7,2 POSIX PR134 (`c0ef70a8`);
+its portable process/desktop work is separate from this RF diagnostic. Native
+candidate integration base remains `d5bc4b3`. Next checkpoint: bounded fixed
+snapshot with ownership/failure tests, exact-stage VM and unarmed installation.
