@@ -89,6 +89,17 @@ int main(void) {
     large[200].id=large[199].id;
     assert(desk_menu_replace(&m,large,201)==-1 && m.items[200].id==1200 && m.selected==200);
     assert(key(SRV_KEY_ENTER).action==1200);
+    /* Scrolling shifts content, not glyph origins. Compare the interior with
+     * the corresponding unscrolled pixels, including the partially clipped row. */
+    large[200].id=1200;
+    assert(!desk_menu_configure(&m,large,201,(struct desk_rect){0,0,W,44},(struct desk_rect){0,0,W,H},&desk_font_16));
+    m.open=0;m.selected=-1;m.scroll=0;
+    memset(pixels,0,sizeof(pixels));memset(tiles,0,sizeof(tiles));
+    desk_clip(&a,(struct desk_rect){0,0,W,H});desk_clip(&b,(struct desk_rect){0,0,W,H});
+    desk_menu_popup_draw(&a,&m,&desk_theme_quiet);m.scroll=7;desk_menu_popup_draw(&b,&m,&desk_theme_quiet);
+    popup=desk_menu_popup(&m);
+    for(int y=popup.y+1;y<popup.y+popup.h-9;y++)for(int x=popup.x+5;x<popup.x+popup.w-5;x++)
+        assert(tiles[y*STRIDE+x]==pixels[(y+7)*STRIDE+x]);
     puts("menu-storage: PASS 200 rows, caller-owned growth, selected identity, release cancellation and refusal preservation");
     puts("menu: PASS snapshot validation, pointer release/drag/cancel, disabled rows, keyboard traversal, clipping/tiled rendering and guards");
 }

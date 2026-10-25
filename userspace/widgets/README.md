@@ -281,7 +281,11 @@ Ctrl-C for the foreground command; Shift-PageUp/PageDown scroll history.
 pointer activation, press-drag selection, hover switching, F10/arrow/Home/End
 navigation, Escape cancellation, disabled items, checkmarks and shortcut labels.
 It validates UTF-8 labels and unique action IDs. Flat headings group at most
-32 rows each; snapshots contain at most 96 entries and eight headings. The
+32 rows each by default; inline snapshots contain 96 entries and eight headings.
+`desk_menu_bind_storage` borrows caller-owned larger item storage, copies the
+existing snapshot and disarms pending pointer activation. Larger groups remain
+scrollable; group count and arithmetic bounds still validate. Replacement compares
+old/new group contents before copying, without variable-sized stack storage. The
 compositor uses this same control for its global UI. Drawing preserves parent
 clips and supports tiled damage; opening, changing or closing a popup damages
 only its old/new bounds and the menu bar.
@@ -718,3 +722,14 @@ under Trackpad. Defaults and v1/v2/v3 migration enable them; v4 saves their choi
 They map to `SRV_POINTER_TAP_CLICK` and `SRV_POINTER_TWO_FINGER_TAP` flags in the
 owner-only pointer syscall. Secondary taps reuse the existing right-button /
 `DESK_CONTEXT` path: widgets do not implement their own tap recognizers.
+
+### Caller-owned palette storage
+
+`desk_palette_bind_storage` binds item and visible-list arrays supplied by the
+caller. It copies existing items, preserves query and selected identity, and
+cancels pointer capture. Capacity must cover the existing model and stay within
+the list geometry bound; invalid binding/replacement leaves it intact. The caller
+keeps storage alive until rebind or destruction. Widgets perform no allocations.
+The desktop owns growth and accounts for both model and scratch arrays. Ordinary
+small users retain inline defaults. Do not move initialized palette/menu objects;
+internal pointers and UI-control references require a stable owner address.

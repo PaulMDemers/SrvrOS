@@ -1,8 +1,8 @@
 # Desktop connections and window lifetime
 
 The desktop connection implementation uses matched protocol v14. It adds multiple
-window identities per authenticated process while retaining the current sixteen
-live-window budget. The shared header, kernel, compositor and applications must
+window identities per authenticated process. Compositor registries grow under
+explicit byte budgets; refusal remains part of the creation contract. The shared header, kernel, compositor and applications must
 come from the same build. This is not a stable external binary ABI.
 
 `desk_app_open/poll/close` remain the single-window source compatibility path.

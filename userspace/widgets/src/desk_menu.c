@@ -113,12 +113,15 @@ struct desk_rect desk_menu_popup(const struct desk_menu *m) {
     if(y+height>m->bounds.y+m->bounds.h) y=m->bounds.y+m->bounds.h-height;
     return (struct desk_rect){x,y,width,height};
 }
+static struct desk_rect row_content(const struct desk_menu *m,unsigned index,struct desk_rect popup) {
+    int y=popup.y+4-m->scroll;
+    for(unsigned i=m->headings[m->open]+1;i<index;i++)y+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
+    return (struct desk_rect){popup.x+4,y,popup.w>8?popup.w-8:0,m->items[index].flags&DESK_MENU_SEPARATOR?9:30};
+}
 struct desk_rect desk_menu_row(const struct desk_menu *m,unsigned index) {
-    struct desk_rect p=desk_menu_popup(m);
-    if(m->open<0 || index<=m->headings[m->open] || index>=end(m)) return (struct desk_rect){0};
-    int y=p.y+4-m->scroll;
-    for(unsigned i=m->headings[m->open]+1;i<index;i++) y+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
-    return desk_intersect(p,(struct desk_rect){p.x+4,y,p.w>8?p.w-8:0,m->items[index].flags&DESK_MENU_SEPARATOR?9:30});
+    if(m->open<0 || index<=m->headings[m->open] || index>=end(m))return (struct desk_rect){0};
+    struct desk_rect popup=desk_menu_popup(m);
+    return desk_intersect(popup,row_content(m,index,popup));
 }
 struct desk_menu_result desk_menu_scroll(struct desk_menu *m,int pixels) {
     if(m->open<0)return (struct desk_menu_result){0};
@@ -224,7 +227,10 @@ void desk_menu_popup_draw(struct desk_canvas *c,const struct desk_menu *m,const 
     desk_fill(c,p,t->border);desk_fill(c,desk_widget_inset(p,1),t->surface);
     desk_clip(c,desk_intersect(clip,p));
     for(unsigned i=m->headings[m->open]+1;i<end(m);i++) {
-        struct desk_rect row=desk_menu_row(m,i);const struct desk_menu_item *item=&m->items[i];
+        /* Keep text/checkmarks at the original content position. Clipping the
+         * row before positioning glyphs moves a partial row over its neighbor. */
+        struct desk_rect row=row_content(m,i,p);const struct desk_menu_item *item=&m->items[i];
+        if(!desk_intersect(row,c->clip).h)continue;
         if(item->flags&DESK_MENU_SEPARATOR) { desk_fill(c,(struct desk_rect){row.x+12,row.y+4,row.w>24?row.w-24:0,1},t->border);continue; }
         if((int)i==m->selected) desk_fill(c,row,t->selected);
         uint32_t color=item->flags&DESK_MENU_DISABLED?t->muted:t->text;
