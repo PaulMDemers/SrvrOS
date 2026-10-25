@@ -2,48 +2,39 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Automated capacity trial installed — awaiting native return
+### Automated 24-app native capacity accepted
 
-Release `c9e59c1b11d5c239`, clean source `7fc5077`, is installed with verified
-recovery `9aa8dbf6fbda8252` and Ubuntu default preserved. Exact GRUB → staged
-Limine → native-kernel Q35 rehearsal passes both 24-app rounds, saved screenshots,
-normal child retirement, logger/battery cleanup, offline allocation and automatic
-return. Native-profile refusal in Q35 is expected; actual device acceptance is
-pending the matching physical evidence. User requested automatic launch and
-reboot; no human input is required, and handled failure returns automatically.
+Release `c9e59c1b11d5c239`, clean source `7fc5077`, completed two automatic
+combined-services rounds on October 25 and returned to Ubuntu. Matching sessions
+`session-00065eae2764edfa-00` and `session-00065eae28c055f4-00` each record 24
+independent mixed app processes rendered, a saved 1440×900 screenshot, 24 normal
+successful child reaps and zero child errors. Both inherited lifetimes drained
+all members (peak 31 descendants) and retired the battery runtime with heap zero,
+zero rejected samples/errors/denials. This accepts the tested capacity and reuse
+past the old fifteen-app scheduler failure; it does not claim unlimited admission,
+physical typing/pointer quality, or manual document editing under this load.
 
-On return, collect both new sessions for this release before staging anything
-else. Require the per-round `desktop-capacity: result=PASS launched=24 reaped=24
-errors=0 screenshot=yes normal_exit=1` receipts and complete lifetime retirement,
-verify both screenshots and prior-file hashes, then run offline fsck/allocation.
-A return or screenshot alone is not a pass. Local run record/evidence:
-`build/capacity-native-20261025/`, copied outside build to reviewed-evidence.
-Previous installed `2750e5efa04573ba` also has an independent boot-payload backup.
-PR153 tracks the diagnostic; physical typing/documents remain separate checks.
+All 1,062 prior non-metadata files retained their hashes; only `.srvros/meta`
+changed, with six new session logs and two screenshots. Offline read-only fsck and
+allocation/headroom checks pass: 1,071 files, 2,671 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot, current payload
+and independent recovery `9aa8dbf6fbda8252` were verified after return. Previous
+installed `2750e5efa04573ba` retains its independent backup. No reboot is armed.
+Local proofs are in `build/capacity-native-20261025/` and the unit's
+`reviewed-evidence/capacity-native-20261025` backup outside build.
 
-### Active automated mixed-app hardware trial
-
-Base main `3647dc7`; Pro PR19 at `18e06ec` remains independent RF/Wi-Fi work.
-Implement an explicit boot-only capacity diagnostic: two rounds of 24 independent
-mixed app processes, rendered-window verification, saved screenshots, normal
-client retirement and inherited battery/logger lifetime cleanup. Extend desktop
-session dispatch, the existing battery session wrapper, compositor diagnostic
-mode and exact staging/VM tests. Preserve firmware gates and ordinary startup.
-User authorized automatic opening and a physical reboot; no human input is
-required. Save results and unmount before automatic Ubuntu return, including
-handled test failure. Native acceptance stays pending collection.
-
-Host desktop/build and staging-policy tests pass. Q35 automatic capture passes
-both rounds of 24 rendered processes, two persisted screenshots, 24 normal child
-reaps per round and complete battery/logger retirement. A 384 MiB negative run
-records launch failure, saves failure evidence and returns automatically with
-clean allocation; 256 MiB was too small for Limine to load the payload and is
-retained as a boot failure, not a test pass. Exact native-stage rehearsal follows.
-USB preflight: 1063 files, 2583 clusters, zero allocation leaks/mismatches/errors;
-existing files hashed. Current `2750e5efa04573ba` and recovery `9aa8dbf6fbda8252`
-verified; obsolete unreferenced EFI payload `27b239f96a183fb8` archived and fully
-hash-verified outside build before its EFI copy was removed to provide space.
-
+PR153 adds the explicit v73 capture, bounded compositor/owner deadlines,
+normal retirement, screenshot/result persistence and automatic return on handled
+success or failure. Local core/desktop suites, builds, 79 staging tests, successful
+2 GiB Q35 and handled admission-failure 384 MiB Q35 fixtures pass; the exact native
+GRUB → staged Limine payload rehearsal also passes. The initial 256 MiB Limine
+memory failure is preserved separately. Thirty collector tests pass, including
+strict exclusion of routine opened/retired resource traces while retaining
+capacity failure detection. No Actions used. Base main `3647dc7`; Pro PR19 at
+`db95022` remains independent RF/Wi-Fi work, and Air6,1 PR154 at `44b5706` adds
+a separate paced endurance harness without overlapping runtime changes. Firmware gates and ordinary startup
+are unchanged. Next acceptance work is interactive document/chooser behavior
+with many apps, not another automatic capacity reboot.
 
 ### Scheduler capacity fix: host/VM validated
 
@@ -67,7 +58,7 @@ then exhausted physical memory; its visible resource warning and failure
 artifacts are retained separately. The final harness change only matches the
 2 GiB exact-stage allocation and fails promptly on logged launch refusal.
 Actual `threadstress` (all cases) and the explicit desktop quota-refusal/reuse,
-save/capture and complete-cleanup VM tests pass. Native validation remains pending.
+save/capture and complete-cleanup VM tests pass. Native 24-app capacity/reuse is now accepted by the trial above.
 The throttled-I/O desktop regression also passes: all 48 input events acknowledged
 (32 while writes were active), forty exact 64 KiB writes/readbacks, both workers
 reaped, process baseline restored and no leaked filesystem allocation.
@@ -79,9 +70,8 @@ Launch failures now produce visible rate-limited app alerts and unconditional
 error records. Worker attribution version 2 is bounded to 256 directory slots;
 version-1 evidence remains readable. PR152 publishes the change; local validation
 uses no GitHub Actions. Evidence is in scheduler-capacity-20261025 and copied to
-the unit's reviewed-evidence directory outside build. Next is a separately
-prepared exact-stage native 17+ mixed-app/document/reopen trial; current installed
-and recovery payloads remain unchanged in this work block.
+the unit's reviewed-evidence directory outside build. The automated native 24-app/reopen trial above completes capacity acceptance;
+interactive documents remain a separate check.
 
 
 ### Runtime native return: scheduler capacity blocker

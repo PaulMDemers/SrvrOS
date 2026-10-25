@@ -288,3 +288,10 @@ capacity/save/retirement/return, not physical battery activation. The disposable
 `--capacity-low-memory` fixture uses 384 MiB to require launch refusal and a
 saved failure followed by automatic return. No physical typing, pointer feel or
 manual document editing is accepted by this workload.
+
+Air7,2 native release `c9e59c1b11d5c239` / source `7fc5077` passed this workload
+on October 25: both 24-app rounds rendered and saved screenshots, all children
+exited normally, both service lifetimes retired and offline filesystem/allocation
+checks passed. This is measured acceptance at 24 independent app windows with
+combined services, not an unlimited-capacity claim. See the
+[unit record](machines/macbookair7-2.md) for evidence and remaining manual checks.

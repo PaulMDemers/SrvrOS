@@ -573,6 +573,12 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    # App tracing emits accounting on normal admission/retirement. Match the
+    # entire schema so refusal reasons or appended error details stay visible.
+    if re.fullmatch(r"deskd: resources reason=(?:opened|retired) clients=\d+ children=\d+ clipboard_peers=\d+ window_capacity=\d+ cache_bytes=\d+ cache_budget=\d+ gui_queue_budget=\d+ gui_queue_depth=\d+ gui_surface_record_budget=\d+ gui_surface_pixel_budget=\d+", line):
+        return False
+    if line.startswith("desktop-capacity: result=FAIL"):
+        return True
     # Moving contacts must not become taps. This exact cumulative counter is
     # expected during pointer work; other reason/failure lines remain actionable.
     if re.fullmatch(r"trackpad-tap-reject: reason=movement count=[0-9]{1,10} two_finger=[0-9]{1,10} max_age_us=[0-9]{1,10} max_travel=[0-9]{1,10}",line):

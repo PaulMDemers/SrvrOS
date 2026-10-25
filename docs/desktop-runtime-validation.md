@@ -133,8 +133,8 @@ combined device services enabled, then logged `exec: scheduler thread table full
 three times. That release has 32 global scheduler slots. The launcher is an
 overlay and does not consume another window. The 128-window single-process and
 32-document fixtures validate window growth, not this mixed-process workload.
-Scheduler capacity and launch-failure feedback must be addressed before closing
-higher-count native acceptance. See the [Air record](machines/macbookair7-2.md)
+That failure was addressed by the scheduler growth and visible launch-failure
+feedback changes; the follow-up acceptance is recorded below. See the [Air record](machines/macbookair7-2.md)
 for clean retirement, filesystem preservation and the pending checks. Do not
 count the general device success as document/chooser/reopen acceptance.
 
@@ -144,4 +144,9 @@ and visible app-launch refusal. Its combined-service mixed-app regression opens
 retires and reopens the session with offline filesystem checks. See
 [window capacity](window-capacity.md#scheduler-storage-after-the-mixed-app-native-trial)
 for the independent resource budgets and [the current unit record](machines/macbookair7-2.md)
-for validation status. The physical 17+ app and document checks remain pending.
+for validation status. On October 25 native release `c9e59c1b11d5c239` completed
+two automatic rounds of 24 rendered mixed app processes, with screenshots, normal
+child exits and complete battery/logger retirement. Prior files were preserved
+and offline filesystem/allocation checks passed. This accepts automated native
+capacity/reuse; physical input and interactive document/chooser checks at higher
+counts remain pending.
