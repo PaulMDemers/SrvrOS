@@ -25,7 +25,9 @@ class WorkloadTest(unittest.TestCase):
         self.assertEqual(s.count('playback ended before disk burst'),1)
         native=w.files('0'*16,1)['combined-'+'0'*16+'.sh'].decode()
         self.assertEqual(native.count('for burst in '),5)
-        self.assertIn('test "$lines" = 40 || exit 1',native)
+        self.assertIn('echo 40 > expected-count.txt || exit 1',native)
+        self.assertIn('cmp io-count.txt expected-count.txt || exit 1',native)
+        self.assertNotIn('$(',native)
         self.assertTrue(all(len(line)<256 for line in native.splitlines()))
 
 if __name__=='__main__':unittest.main()

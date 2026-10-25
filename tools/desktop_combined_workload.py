@@ -36,8 +36,9 @@ def files(run, rounds=30, pause=1, seconds=60, bursts=40):
                          'kill -0 "$player" || exit 1',
                          f"if grep -q 'playwav: complete' audio-{n}.txt; then echo FAILED playback ended before disk burst; exit 1; fi",
                          f'echo {n}:$burst >> io.txt || exit 1', 'done']
-        commands += ['wait $player || exit 1', 'lines=$(wc -l < io.txt)',
-                     f'test "$lines" = {n*bursts} || exit 1', f'sleep {pause} || exit 1',
+        commands += ['wait $player || exit 1', 'wc -l < io.txt > io-count.txt || exit 1',
+                     f'echo {n*bursts} > expected-count.txt || exit 1',
+                     'cmp io-count.txt expected-count.txt || exit 1', f'sleep {pause} || exit 1',
                      f'echo {n} >> rounds.txt || exit 1', 'sync || exit 1',
                      f'echo Combined overlap round {n}/{rounds} complete']
     commands += [f'echo COMPLETE {run} {rounds} {pause} {seconds} {bursts} > complete.txt || exit 1',
