@@ -8,11 +8,11 @@
 #include <srvros/sys.h>
 
 static uint64_t ticks=1,next_surface=10,source=42;
-static int alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
+static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
 int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
 static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
-int desk_process_alive(uint64_t pid) { assert(pid==42);return alive; }
+int desk_process_alive(uint64_t pid) { assert(pid==42);liveness_checks++;return alive; }
 uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { return pixel_failure?NULL:calloc((size_t)w*h,4); }
 void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;free(p); }
 struct desk_packet desk_packet_new(uint32_t type) {
@@ -105,8 +105,9 @@ static void connection_windows(void) {
     assert(connection_receive(&c,&target,&event)==2 && !b.pending && a.pending);
     receive(DESK_FOCUS,0);incoming.window=2;incoming.value=1;
     assert(connection_receive(&c,&target,&event)==1 && target==&b && b.focused && !a.focused);
+    int checks_before=liveness_checks;
     source=99;receive(DESK_CLOSE,0);incoming.window=2;
-    assert(connection_receive(&c,&target,&event)==2 && !b.closing);source=42;
+    assert(connection_receive(&c,&target,&event)==2 && !b.closing && checks_before==liveness_checks);source=42;
     desk_window_close(&a);assert(desk_window_dispose(&a)<0 && desk_app_present(&a)<0);
     full=1;for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);assert(!a.close_sent);
     full=0;for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);assert(a.close_sent);
