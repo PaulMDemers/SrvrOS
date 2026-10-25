@@ -159,5 +159,7 @@ The subsequent unattended regression uses runtime `1882029` and release
 `284e53065081672f`. Its exact-stage VM passes all five suites, saved screenshot
 readback, clean exFAT and reset. Preparation caught a completed-join signal race;
 `dddb07f` fixes delivery after retiring the joined record, with a directed
-before/after regression and libuv rerun. Native results remain pending in the
-machine record; the original eleven-consumer gate above identifies its own source.
+before/after regression and libuv rerun. The same release passes the bounded native Air7,2 capture: all five zero exits
+and retired trees, saved logs/screenshot, prior-file preservation and clean offline
+filesystem/allocation checks. See the machine record for the exact session and
+limits; the original eleven-consumer gate above identifies its own source.

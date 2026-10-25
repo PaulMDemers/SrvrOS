@@ -2,38 +2,37 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
-### Native POSIX regression checkpoint
+### Native POSIX regression accepted
 
-Candidate runtime `1882029`, release `284e53065081672f`, passes the exact
-GRUB/EFI VM capture: full thread contracts, posixdemo, TLS, SQLite and the
-60-second desktop/Text screenshot, five zero exits and five retired process
-trees. Saved USB logs and screenshot bytes are read back offline; exFAT is clean.
-The wrapper is explicit `--posix-capture`; normal startup/device gates are unchanged.
+Runtime `1882029`, release `284e53065081672f`, completed unattended on this
+Air7,2 in session `session-00065e9fe3b89b2a-00`. Full thread contracts,
+posixdemo, TLS, SQLite and the desktop/Text capture all exited zero; all five
+owned process trees retired. The matching four saved logs have no collector
+attention. The 1440x900 screenshot was hash-verified and visually inspected.
+The desktop's 60-second sample recorded 98.48% idle scheduler ticks; this is
+an idle workload observation, not a measure of energy or interactive latency.
 
-Preparation exposed two issues before hardware installation. Ordinary RAM boot
-is read-only, so the diagnostic now creates an independent volatile boot-disk
-copy. A completed pthread join could leave a pending handler undispatched;
-`dddb07f` fixes that checkpoint after record retirement. The directed test fails
-before the fix and passes afterward; full build/core and libuv pass. The capture
-supervisor now blocks between checks instead of halting on a runnable task.
-Original failed runs remain in local evidence. The collector recognizes only a
-complete five-case receipt and verifies the existing desktop completion markers.
+All 1054 previous files retained their bytes; only expected `.srvros/meta`
+bookkeeping changed. Offline fsck is clean (1059 files); independent allocation
+traversal reports 2578 clusters, zero leaks, mismatches or errors. Ubuntu returned
+with its default preserved and the one-shot selection consumed. Installed and
+recovery payload hashes match; recovery `9aa8dbf6fbda8252` and independent copies
+remain available. Full raw evidence is retained under
+`build/posix-core-20261024/native` with a durable copy outside `build`.
 
-Main `211f17c` is current; Pro PR19 `631105b` retains separate direct-RF Wi-Fi
-scope. PR134 carries these shared changes; desktop API work remains deferred.
-Evidence and the pending run record are under `build/posix-core-20261024/native`,
-backed up under `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
-USB `37D8-C5D0` passes offline filesystem/allocation/headroom checks, and all
-1054 existing file hashes are recorded. Recovery `9aa8dbf6fbda8252` is retained;
-installed `bf68e4e9b88b8ae7` is separately backed up. One inactive EFI payload was
-archived and hash-verified to make installation space. The on-disk run record
-owns current install/one-shot state. No new physical acceptance is claimed.
+Preparation added an explicit `--posix-capture` and independent volatile RAM disk.
+It exposed a pending signal after an already-completed pthread join; `dddb07f`
+fixes the delivery checkpoint after record retirement. The directed test fails
+before and passes afterward; full core/build, libuv and exact-stage positive and
+missing-workspace VM rehearsals pass. Failed attempts remain in local evidence.
+Normal device startup gates are unchanged. This bounded test does not establish
+new physical gesture, battery, sound, networking or full POSIX acceptance.
 
-Missing-workspace rehearsal also passes: no tests start, and the machine returns
-automatically. Next: install this exact candidate with recovery retained, then
-unattended physical boot and matching collection.
-No human interaction is needed during the trial. Require prior-document hashes,
-complete matching results and both offline filesystem checks before integration.
+Main `211f17c` remains the integration base; Pro PR19 `631105b` has independent
+Wi-Fi scope. PR134 is ready for integration with these native results. Next is
+the desktop connection/window identity milestone described in the
+[API evolution plan](../desktop-api-evolution.md), before dynamic capacity and
+combined GUI/descriptor event waits.
 
 ### POSIX portable-application milestone checkpoint
 
