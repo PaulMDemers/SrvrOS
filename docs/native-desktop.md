@@ -104,7 +104,8 @@ refuse a resize and return to their last working size without discarding documen
 state. Closing a window releases its caches. Oversized Window menus scroll with
 the wheel, and keyboard selection remains visible.
 
-Kernel capacity is 32 GUI queues and 64 surfaces, with the existing 64 process
+Kernel GUI records are demand-allocated: 2 MiB queue storage, 256 KiB surface
+metadata and 256 MiB surface pixels, with the existing 64 process
 slots. Workers and terminal shells consume extra resources, so sixteen is an
 intentional ceiling rather than a guarantee under every memory/workload mix.
 See [window capacity and ownership](window-capacity.md) for the matched desktop protocol,

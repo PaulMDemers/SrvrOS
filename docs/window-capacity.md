@@ -1,8 +1,9 @@
 # Desktop capacity and buffer ownership
 
 The desktop supports sixteen client windows, with demand-allocated compositor
-caches and current-size client canvases. Kernel GUI capacity remains 32 queues;
-surface records are now demand-allocated under separate 256 KiB metadata and
+caches and current-size client canvases. Kernel GUI receive queues are now
+demand-allocated under a 2 MiB requested-byte budget, with 64 messages per FIFO;
+surface records are demand-allocated under separate 256 KiB metadata and
 256 MiB pixel budgets. These include prepared and retired storage until freed.
 The former 64-surface table is gone; 64 process slots remain unchanged. File workers and terminal shells consume additional processes,
 so window capacity is a ceiling, not an unconditional launch guarantee.
@@ -21,7 +22,7 @@ value with one staged writer; concurrent revision changes cancel partial reads.
 cache bytes/budget and transport limits on admission, retirement and refusal.
 Launch capacity produces a visible close-a-window notice; process-launch refusal
 and pixel-cache pressure retain their distinct diagnostics. These are the current
-admission budgets; dynamic queues and compositor registries remain the next
+admission budgets; dynamic compositor registries remain the next
 architecture stage. A surface byte budget does not guarantee that physical
 memory is available.
 
@@ -133,5 +134,23 @@ Runtime `028ded1` passes the full desktop host/image build, the 128-surface
 actual-ABI consumer with malformed result buffers, and sixteen normal Text
 documents with exact file readback, refusal/reuse and worker cleanup. This accepts
 the dynamic surface foundation in QEMU, not dynamic compositor window admission
-or native latency. Queues and the sixteen-window compositor still follow their
-separate current limits.
+or native latency. The sixteen-window compositor still follows its separate
+current limit.
+
+D2b removes the fixed process-queue table. Queue payload charges include pending
+candidates and detached records until actually freed; allocator overhead remains
+outside the accounting. Preparation happens outside GUI-owned critical sections.
+Before publication, send revalidates the server identity, retirement epoch,
+packet direction and surface owner/window/serial state. An intervening retirement
+conservatively refuses the operation; caller retry remains responsible for
+pressure. Competing queue creation uses the already-published FIFO and releases
+the unused reservation. Queue insertion and surface sealing/release remain one
+transaction. Invalid packets and readiness queries do not allocate. Registration
+cannot steal a live server or resurrect a retired owner.
+
+Host coverage forces quota exhaustion beyond 32 connections, allocation failure,
+retirement during preparation, competing publication/full FIFO, reentrant release
+and server replacement. The `guifail --queues` actual-ABI workload creates 40
+clients plus one server simultaneously, authenticates both directions, retires
+and reaps all children, and repeats three times before a normal multiwindow
+compositor trial. These are receive queues, not 40 desktop windows.

@@ -13,19 +13,19 @@
 
 _Static_assert(sizeof(struct desk_packet)<=GUI_TEXT_MAX,"desktop packet fits transport");
 
-#define GUI_MAX_QUEUES DESK_GUI_QUEUES
 #define GUI_QUEUE_DEPTH DESK_GUI_QUEUE_DEPTH
 #define GUI_SURFACE_MAX_PIXELS (DESK_MAX_WIDTH * DESK_MAX_HEIGHT)
 
 struct gui_queue {
-    bool used;
+    struct gui_queue *next;
     uint64_t pid;
     uint64_t head;
     uint64_t count;
     struct gui_message messages[GUI_QUEUE_DEPTH];
 };
 
-static struct gui_queue queues[GUI_MAX_QUEUES];
+static struct gui_queue *queues;
+static uint64_t queue_bytes;
 static uint64_t server_pid;
 static uint64_t next_surface_id = 1;
 
@@ -43,7 +43,7 @@ struct gui_surface {
 
 static struct gui_surface *surfaces;
 /* Charges include prepared and detached storage until it is actually freed. */
-static uint64_t surface_pixel_bytes,surface_record_bytes,surface_retirement_epoch;
+static uint64_t surface_pixel_bytes,surface_record_bytes,gui_retirement_epoch;
 #ifdef SRVROS_GUI_HOST_TEST
 static unsigned gui_test_irq_depth;
 #endif
@@ -68,39 +68,36 @@ static void irq_restore(uint64_t flags) {
 #endif
 }
 
-static struct gui_queue *queue_for_pid(uint64_t pid, bool create) {
-    struct gui_queue *free_queue = NULL;
-    for (uint64_t i = 0; i < GUI_MAX_QUEUES; i++) {
-        if (queues[i].used && queues[i].pid == pid) {
-            return &queues[i];
-        }
-        if (!queues[i].used && free_queue == NULL) {
-            free_queue = &queues[i];
-        }
-    }
-
-    if (!create || free_queue == NULL) {
-        return NULL;
-    }
-
-    free_queue->used = true;
-    free_queue->pid = pid;
-    free_queue->head = 0;
-    free_queue->count = 0;
-    return free_queue;
+/* Lookup/publication is serialized; candidate allocation is deliberately not. */
+static struct gui_queue *queue_for_pid(uint64_t pid) {
+    for(struct gui_queue *q=queues;q;q=q->next)if(q->pid==pid)return q;
+    return NULL;
 }
-
-static int64_t push_message(uint64_t target_pid, const struct gui_message *message) {
-    struct gui_queue *queue = queue_for_pid(target_pid, true);
-    if (queue == NULL || queue->count >= GUI_QUEUE_DEPTH) {
-        return -1;
+static void queue_storage_free(struct gui_queue *queue) {
+    if(!queue)return;
+    kfree(queue);
+    uint64_t flags=irq_save();queue_bytes-=sizeof(struct gui_queue);irq_restore(flags);
+}
+static struct gui_queue *queue_prepare(uint64_t pid) {
+    uint64_t flags=irq_save();
+    if(queue_bytes>DESK_GUI_QUEUE_BYTES-sizeof(struct gui_queue)) {
+        irq_restore(flags);return NULL;
     }
-
-    uint64_t index = (queue->head + queue->count) % GUI_QUEUE_DEPTH;
-    queue->messages[index] = *message;
-    queue->count++;
-    process_file_poll_wake();
-    return 0;
+    queue_bytes+=sizeof(struct gui_queue);irq_restore(flags);
+    struct gui_queue *queue=kmalloc(sizeof(*queue));
+    if(queue) {
+        /* Unused message cells are never read; zero only the published header. */
+        queue->next=NULL;queue->pid=pid;queue->head=0;queue->count=0;
+    } else {
+        flags=irq_save();queue_bytes-=sizeof(struct gui_queue);irq_restore(flags);
+    }
+    return queue;
+}
+static int64_t push_message(struct gui_queue *queue,const struct gui_message *message) {
+    if(!queue || queue->count>=GUI_QUEUE_DEPTH)return -1;
+    uint64_t index=(queue->head+queue->count)%GUI_QUEUE_DEPTH;
+    queue->messages[index]=*message;queue->count++;
+    process_file_poll_wake();return 0;
 }
 
 static bool surface_access_allowed(const struct gui_surface *surface, uint64_t pid) {
@@ -177,24 +174,23 @@ int64_t gui_keyboard_read(struct srv_key_event *event) {
     irq_restore(flags); return result;
 }
 int64_t gui_register_server(void) {
-    struct process *process = process_current();
-    uint64_t flags;
-    int64_t result;
-    if (process == NULL) {
-        return -1;
+    struct process *process=process_current();
+    if(!process)return -1;
+    uint64_t pid=process_pid(process),flags=irq_save(),epoch=gui_retirement_epoch;
+    uint64_t original_server=server_pid;
+    struct gui_queue *candidate=NULL;
+    int64_t result=-1;
+    if(server_pid && server_pid!=pid)goto done;
+    if(!queue_for_pid(pid)) {
+        irq_restore(flags);candidate=queue_prepare(pid);flags=irq_save();
+        if(!candidate || epoch!=gui_retirement_epoch || server_pid!=original_server)goto done;
     }
-
-    flags = irq_save();
-    uint64_t pid = process_pid(process);
-    /* Do not let a second compositor steal access to every client's surfaces.
-     * Publish ownership only after its receive queue has been allocated. */
-    result = -1;
-    if ((server_pid == 0 || server_pid == pid) && queue_for_pid(pid, true) != NULL) {
-        server_pid = pid;
-        result = 0;
+    if(!queue_for_pid(pid)) {
+        candidate->next=queues;queues=candidate;candidate=NULL;
     }
-    irq_restore(flags);
-    return result;
+    server_pid=pid;result=0;
+done:
+    irq_restore(flags);queue_storage_free(candidate);return result;
 }
 
 int64_t gui_send(const struct gui_message *message) {
@@ -205,13 +201,15 @@ int64_t gui_send(const struct gui_message *message) {
         return -1;
     }
 
+    struct gui_queue *candidate=NULL;
+    bool prepared=false;
+    uint64_t epoch=0,original_server=0;
+    uint64_t source_pid=process_pid(process);
+retry:
     flags = irq_save();
-    uint64_t source_pid = process_pid(process);
+    if(prepared && (epoch!=gui_retirement_epoch || original_server!=server_pid))goto rejected;
     uint64_t target_pid = source_pid == server_pid ? message->target_pid : server_pid;
-    if (target_pid == 0) {
-        irq_restore(flags);
-        return -1;
-    }
+    if(target_pid==0)goto rejected;
 
     struct gui_surface *transition = NULL;
     struct desk_packet packet = {0};
@@ -241,20 +239,32 @@ int64_t gui_send(const struct gui_message *message) {
         }
     }
 
+    struct gui_queue *queue=queue_for_pid(target_pid);
+    if(!queue && !prepared) {
+        epoch=gui_retirement_epoch;original_server=server_pid;
+        irq_restore(flags);candidate=queue_prepare(target_pid);
+        if(!candidate)return -1;
+        prepared=true;goto retry;
+    }
+    /* A competing publisher may have installed the destination while this
+     * candidate was prepared. Use its FIFO, then free our unused reservation. */
+    if(!queue) {
+        queue=candidate;candidate=NULL;queue->next=queues;queues=queue;
+    }
     struct gui_message copy = *message;
     copy.source_pid = source_pid;
     copy.target_pid = target_pid;
-    result = push_message(target_pid, &copy);
+    result = push_message(queue, &copy);
     /* Queue insertion and ownership transition are one transaction. A full
      * queue leaves the sender's buffer/release retryable, never stranded. */
     if (result == 0 && transition) {
         transition->sealed = publishing;
         if (publishing) { transition->serial=packet.serial; transition->generation=packet.generation; transition->window=packet.window; }
     }
-    irq_restore(flags);
+    irq_restore(flags);queue_storage_free(candidate);
     return result;
 rejected:
-    irq_restore(flags);
+    irq_restore(flags);queue_storage_free(candidate);
     return -1;
 }
 
@@ -267,7 +277,7 @@ int64_t gui_recv(struct gui_message *message) {
     }
 
     flags = irq_save();
-    struct gui_queue *queue = queue_for_pid(process_pid(process), false);
+    struct gui_queue *queue = queue_for_pid(process_pid(process));
     if (queue == NULL || queue->count == 0) {
         irq_restore(flags);
         return 0;
@@ -286,7 +296,7 @@ int64_t gui_server_ready(void) {
     uint64_t flags=irq_save(),pid=process_pid(process);
     int64_t result=-1;
     if(server_pid && pid==server_pid) {
-        struct gui_queue *queue=queue_for_pid(pid,false);
+        struct gui_queue *queue=queue_for_pid(pid);
         result=(queue && queue->count) || keyboard_events_pending() || mouse_pending();
     }
     irq_restore(flags);return result;
@@ -298,7 +308,7 @@ int64_t gui_client_ready(uint64_t expected_server) {
     uint64_t flags=irq_save(),pid=process_pid(process);
     int64_t result=-1;
     if(server_pid==expected_server && pid!=server_pid) {
-        struct gui_queue *queue=queue_for_pid(pid,false);
+        struct gui_queue *queue=queue_for_pid(pid);
         result=queue && queue->count?1:0;
     }
     irq_restore(flags);return result;
@@ -314,7 +324,7 @@ int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, 
        surface_record_bytes>DESK_GUI_SURFACE_RECORD_BYTES-sizeof(struct gui_surface) ||
        next_surface_id>INT64_MAX) { irq_restore(flags);return -1; }
     surface_pixel_bytes+=bytes;surface_record_bytes+=sizeof(struct gui_surface);
-    uint64_t epoch=surface_retirement_epoch;
+    uint64_t epoch=gui_retirement_epoch;
     irq_restore(flags);
 
     struct gui_surface *slot=kmalloc(sizeof(*slot));
@@ -324,7 +334,7 @@ int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, 
     /* Cleanup during preparation invalidates publication. A conservative
      * refusal on unrelated retirement is retryable by creating a new window;
      * it must never resurrect storage for a retired owner. */
-    if(!pixels || epoch!=surface_retirement_epoch || next_surface_id>INT64_MAX) {
+    if(!pixels || epoch!=gui_retirement_epoch || next_surface_id>INT64_MAX) {
         irq_restore(flags);kfree(pixels);kfree(slot);
         flags=irq_save();surface_pixel_bytes-=bytes;surface_record_bytes-=sizeof(struct gui_surface);
         irq_restore(flags);return -1;
@@ -408,14 +418,13 @@ int64_t gui_surface_copy(uint64_t pid,
 void gui_process_cleanup(uint64_t pid) {
     struct gui_surface *retired=NULL;
     uint64_t flags_saved=irq_save();
-    surface_retirement_epoch++;
-    for (uint64_t i = 0; i < GUI_MAX_QUEUES; i++) {
-        if (queues[i].used && queues[i].pid == pid) {
-            queues[i].used = false;
-            queues[i].pid = 0;
-            queues[i].head = 0;
-            queues[i].count = 0;
+    gui_retirement_epoch++;
+    struct gui_queue **queue_link=&queues,*retired_queue=NULL;
+    while(*queue_link) {
+        if((*queue_link)->pid==pid) {
+            retired_queue=*queue_link;*queue_link=retired_queue->next;break;
         }
+        queue_link=&(*queue_link)->next;
     }
     if (server_pid == pid) {
         keyboard_set_event_mode(false);
@@ -432,6 +441,7 @@ void gui_process_cleanup(uint64_t pid) {
     }
     process_file_poll_wake();
     irq_restore(flags_saved);
+    queue_storage_free(retired_queue);
     while(retired) {
         struct gui_surface *next=retired->next;
         surface_storage_free(retired);retired=next;
