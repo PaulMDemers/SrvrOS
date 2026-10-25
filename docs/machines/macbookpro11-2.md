@@ -12,7 +12,7 @@ have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
 telemetry and captured USB Ethernet DHCP/DNS/HTTP with live cable-status UI.
 Battery, headphones and further trackpad-latency work remain deferred.
 
-Active scope is the Edimax `7392:a711` USB MT7610 adapter. The latest collected
+Active scope is the Edimax `7392:a711` USB MT7610 adapter. The central-table
 native release `257e68678e55ba49` (source `83152ee0`) completed all44 central RF
 writes and44 separate reads, with43 matches and only RF0:6 reading00 after41.
 All command/guard/recovery checks passed. Live Linux reads08 there after its
