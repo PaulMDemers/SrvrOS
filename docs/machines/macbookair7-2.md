@@ -2,6 +2,40 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Runtime native return: scheduler capacity blocker
+
+Release `2750e5efa04573ba` / source `16bbe49`, session
+`session-00065ead489f2265-00`, returned and was collected on October 25. The user
+reports sensors/controls working and about fifteen application windows, after
+which no additional app would open. Matching logs contain three explicit
+`exec: scheduler thread table full` errors. The production scheduler still has
+32 global thread slots shared by app main threads, workers and boot/device
+services. The launcher is an overlay, not another admitted client window.
+This is a scheduler admission failure, not evidence of a restored compositor
+sixteen-window ceiling. Large single-process window fixtures and ordinary
+mixed-client tests did not cover this services-heavy native workload.
+
+The app lifetime drained all members (peak 21 descendants); battery retirement
+reports zero errors/denials and heap=0. Collection has an exit snapshot and no
+attention flags. All 1059 prior files are unchanged except expected `.srvros/meta`
+bookkeeping; four new session logs were saved, with no new documents/screenshots.
+Offline checks pass: 1063 files, 2583 allocated clusters, zero leaks, bitmap
+mismatches or errors. Ubuntu is default, the one-shot is consumed, and recovery
+`9aa8dbf6fbda8252` remains verified. Do not promote this run to full capacity,
+chooser/document persistence or reopen acceptance.
+
+Next bounded work: reproduce mixed-app admission with combined device services
+in QEMU; replace the small scheduler slot ceiling with explicitly budgeted,
+stable thread storage while preserving stack/FPU/context and I/O-owner lifetime;
+retain refusal behavior under real memory pressure. Make application-launch
+resource failures visible and logged without requiring trace mode. Cover slot
+reuse, failed admission rollback, waits/cancellation, retirement and service
+coexistence, then repeat the native 17+ mixed-window check. Independent process,
+per-process thread, stack and surface budgets still apply. No new candidate is
+installed or reboot armed by this collection; Pro PR19 at `5341990` remains
+independent Wi-Fi work. Native evidence and file hashes are backed up outside
+build under the runtime-native-20261025 reviewed-evidence directory.
+
 ### Runtime native trial prepared (2026-10-25)
 
 Release `2750e5efa04573ba`, clean source/main `16bbe49`, is installed for the
