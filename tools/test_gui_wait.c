@@ -36,6 +36,7 @@ void scheduler_yield(void) { assert(0); }
 struct scheduler_wait_queue *process_file_poll_wait_queue(void) { return &queue; }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
     assert(q==&queue && waits<20);waits++;
+    if(mode==12) { busy=true;fd_state=SRV_POLLIN;assert(ready(arg));mode=11;return true; }
     /* A message arriving between the outer read and registration must prevent sleep. */
     if(mode==1) { gui_state=SRV_GUI_READY;assert(ready(arg));return true; }
     assert(!ready(arg));
@@ -65,7 +66,7 @@ int main(void) {
     assert(!syscall_gui_wait_io(&user) && user.ready==(SRV_GUI_READY|SRV_GUI_FD_READY|SRV_GUI_CANCELED) && user.cancel_epoch==4 && !waits);
     reset();busy=true;fd_state=SRV_POLLIN;gui_state=SRV_GUI_READY;
     assert(!syscall_gui_wait_io(&user) && user.ready==SRV_GUI_READY && !user.fds[0].revents && !waits);
-    for(unsigned m=1;m<=11;m++) {
+    for(unsigned m=1;m<=12;m++) {
         reset();mode=m;if(m==11)busy=true;
         int64_t result=syscall_gui_wait_io(&user);
         if(m==6)assert(result==SRV_ERR_INTR);
@@ -73,7 +74,7 @@ int main(void) {
         else {
             assert(!result && waits);
             if(m==1)assert(user.ready==SRV_GUI_READY);
-            if(m==2 || m==10 || m==11)assert(user.ready==SRV_GUI_FD_READY && user.fds[0].revents==SRV_POLLIN);
+            if(m==2 || m==10 || m==11 || m==12)assert(user.ready==SRV_GUI_FD_READY && user.fds[0].revents==SRV_POLLIN);
             if(m==3)assert(user.ready==SRV_GUI_CANCELED && user.cancel_epoch==1);
             if(m==4)assert(user.ready==SRV_GUI_FD_READY && user.fds[0].revents==SRV_POLLNVAL);
             if(m==5)assert(user.ready==SRV_GUI_DISCONNECTED);

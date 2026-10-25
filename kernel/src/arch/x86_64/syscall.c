@@ -2505,6 +2505,7 @@ struct gui_io_wait {
     struct process *process;
     struct srv_gui_wait request;
     uint64_t generations[SRV_GUI_WAIT_FDS],expected_epoch;
+    bool deferred;
 };
 static bool gui_io_wait_ready(void *arg) {
     struct gui_io_wait *wait=arg;
@@ -2520,6 +2521,12 @@ static bool gui_io_wait_ready(void *arg) {
     if(!r->ready && timer_monotonic_us()>=r->deadline_us)r->ready=SRV_GUI_DEADLINE;
     bool ready=r->ready || process_should_exit_current() || process_signal_pending_current();
     irq_restore(irq);return ready;
+}
+static bool gui_io_wait_pending(void *arg) {
+    struct gui_io_wait *wait=arg;
+    /* Ownership can change between calculating the sleep bound and atomic
+     * registration. Return to the loop and recompute its one-tick defer bound. */
+    return scheduler_io_busy()!=wait->deferred || gui_io_wait_ready(arg);
 }
 static int64_t syscall_gui_wait_io(struct srv_gui_wait *user) {
     struct gui_io_wait wait={.process=process_current()};
@@ -2552,10 +2559,11 @@ static int64_t syscall_gui_wait_io(struct srv_gui_wait *user) {
         /* Try pipe/PTY I/O is deferred while storage owns the kernel. Continue
          * servicing GUI now; recheck deferred endpoints in at most one tick.
          * Never enter the general filesystem gate from this metadata wait. */
-        if(scheduler_io_busy() && ticks>1)ticks=1;
+        wait.deferred=scheduler_io_busy();
+        if(wait.deferred && ticks>1)ticks=1;
         uint64_t start=timer_ticks();
         uint64_t end=ticks>UINT64_MAX-start?UINT64_MAX:start+ticks;
-        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),gui_io_wait_ready,&wait,end))scheduler_yield();
+        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),gui_io_wait_pending,&wait,end))scheduler_yield();
     }
 }
 

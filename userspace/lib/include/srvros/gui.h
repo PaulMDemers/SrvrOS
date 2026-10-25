@@ -63,7 +63,7 @@ int gui_recv(struct gui_message *message);
 /* Interruptible client readiness, at most 100 ticks. Does not consume a message. */
 int gui_wait(uint64_t expected_server,uint64_t ticks);
 /* 0 ready set copied back, negative error/interrupt. Does not consume data.
- * Cancel wakes all waits in this process; it does not cancel accepted I/O. */
+ * Cancellation interrupts combined waits in this process, not accepted I/O. */
 int gui_wait_io(struct srv_gui_wait *request);
 long gui_cancel_wait(void);
 /* Server only: wait for messages/structured keys/pointer, maximum 10 ticks. */
