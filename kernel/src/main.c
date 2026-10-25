@@ -365,8 +365,8 @@ static void partition_name(char *out, uint64_t out_size, const char *base, uint6
     out[pos] = '\0';
 }
 
-static void mount_exfat_volume(void) {
-    struct block_device *ahci = block_find("ahci0");
+static void mount_exfat_volume(bool diagnostic_ram) {
+    struct block_device *ahci = diagnostic_ram ? NULL : block_find("ahci0");
     if (ahci != NULL && exfat_mount_block_device("/fat", ahci)) {
         return;
     }
@@ -399,7 +399,10 @@ static void mount_exfat_volume(void) {
     }
 
     console_printf("exfat: fallback image size=%u bytes\n", size);
-    struct block_device *device = block_register_memory("initramfs-exfat", data, size, 512);
+    struct block_device *device = diagnostic_ram
+        ? block_register_ram_copy("posix-scratch", data, size)
+        : block_register_memory("initramfs-exfat", data, size, 512);
+    if(diagnostic_ram) console_printf("posix-capture: scratch_copy=%s bytes=%u volatile=yes\n",device?"ready":"FAILED",size);
     if (device == NULL) {
         console_write("exfat: fallback block registration failed\n");
         return;
@@ -530,7 +533,8 @@ void kmain(void) {
     } else {
         ahci_init();
     }
-    mount_exfat_volume();
+    mount_exfat_volume(cmdline_has_token(cmdline,"srvros.capture=posix") &&
+        cmdline_has_token(cmdline,"srvros.storage=ram"));
     persist_bootlog();
     e1000_init();
     if (e1000_available()) {

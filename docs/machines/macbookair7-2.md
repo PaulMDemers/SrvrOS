@@ -10,6 +10,9 @@ contracts plus portable POSIX/TLS/SQLite consumers in RAM, then the existing
 its exact-stage VM and result parser only; the desktop API overhaul stays deferred.
 Each process tree has a deadline and lifetime retirement; save a matched summary
 and return automatically on handled failures. Existing USB documents are preserved.
+The first exact-stage VM correctly failed on file creation: ordinary RAM boot
+is read-only. The diagnostic now uses an independent volatile boot-filesystem
+copy; earlier AHCI-backed POSIX passes do not establish this new path.
 Main `211f17c` is current; Pro PR19 `aa3dfff` owns independent direct-RF Wi-Fi
 work. Dependencies are the locally accepted POSIX runtime and existing logger,
 process lifetime and screenshot mechanisms. Native acceptance is pending.

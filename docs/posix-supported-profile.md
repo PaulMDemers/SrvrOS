@@ -134,8 +134,10 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --probe-mis
 
 Follow the [device guide](ubuntu-device-agent-setup.md) for preflight, recovery,
 installation, run recording and one-shot boot. The separate `v1-posix` recipe
-runs threadstress, posixdemo, TLS and SQLite against RAM, followed by the existing
-60-second desktop/Text screenshot exercise. It does not enable battery/AML,
+creates a private, volatile copy of the 128 MiB boot filesystem, then runs
+threadstress, posixdemo, TLS and SQLite against that copy, followed by the existing
+60-second desktop/Text screenshot exercise. Ordinary RAM boot remains read-only;
+only this explicit diagnostic requests the writable copy. It does not enable battery/AML,
 audio or network providers and needs no human input. Each test has a deadline;
 its owned process tree is revoked and drained before proceeding. Nonzero exits,
 timeouts or failed retirement fail the run. Handled failures save what they can
