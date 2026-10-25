@@ -146,7 +146,9 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
     desk_log("text-coexist: %s serial=%llu length=%u caret=%u anchor=%u clipboard_busy=%u hex=%s\n",
         kind,(unsigned long long)v.serial,v.length,v.caret,v.anchor,v.busy,v.hex[0]?v.hex:"-");
 }
+int tool_multi_capture(void);
 int main(int argc,char **argv) {
+    if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--multi-window-capture"))return tool_multi_capture();
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
     int controls_cancel=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files-cancel");

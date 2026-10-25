@@ -21,9 +21,9 @@ const struct desktop_notice *desktop_notification_find(const struct desktop_noti
     for(unsigned i=0;i<store->count;i++) if(store->records[i].id==id) return &store->records[i];
     return NULL;
 }
-int desktop_notification_add(struct desktop_notifications *store,uint64_t owner,unsigned application,uint64_t serial,uint64_t time_us,unsigned tone,const struct desk_notification *text,uint64_t *id) {
+int desktop_notification_add_window(struct desktop_notifications *store,uint64_t owner,uint64_t window,unsigned application,uint64_t serial,uint64_t time_us,unsigned tone,const struct desk_notification *text,uint64_t *id) {
     if(!owner || !serial || !desk_application_info(application) || !desktop_notification_valid(text,tone)) return -1;
-    for(unsigned i=0;i<store->count;i++) if(store->records[i].owner==owner && store->records[i].serial==serial) {
+    for(unsigned i=0;i<store->count;i++) if(store->records[i].owner==owner && store->records[i].window==window && store->records[i].serial==serial) {
         const struct desktop_notice *old=&store->records[i];
         if(old->application!=application || old->tone!=tone || strcmp(old->text.title,text->title) || strcmp(old->text.message,text->message)) return -1;
         if(id) *id=old->id;
@@ -37,7 +37,7 @@ int desktop_notification_add(struct desktop_notifications *store,uint64_t owner,
     if(store->count==DESKTOP_NOTICES) remove_index(store,0);
     do { if(!++store->next_id) ++store->next_id; } while(desktop_notification_find(store,store->next_id));
     struct desktop_notice *next=&store->records[store->count++];
-    *next=(struct desktop_notice){.id=store->next_id,.owner=owner,.serial=serial,.time_us=time_us,.application=application,.tone=tone,.unread=1,.text=snapshot};
+    *next=(struct desktop_notice){.id=store->next_id,.owner=owner,.window=window,.serial=serial,.time_us=time_us,.application=application,.tone=tone,.unread=1,.text=snapshot};
     if(id) *id=next->id;
     return 1;
 }
@@ -56,4 +56,8 @@ int desktop_notification_target(struct desktop_notifications *store,uint64_t id,
         memmove(store->records[i].target,path,strlen(path)+1);return 0;
     }
     return -1;
+}
+
+int desktop_notification_add(struct desktop_notifications *store,uint64_t owner,unsigned application,uint64_t serial,uint64_t time_us,unsigned tone,const struct desk_notification *text,uint64_t *id) {
+    return desktop_notification_add_window(store,owner,0,application,serial,time_us,tone,text,id);
 }

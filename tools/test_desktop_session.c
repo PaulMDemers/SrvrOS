@@ -20,7 +20,7 @@ void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128],sent_values[128];
-static uint64_t sent_serials[128];
+static uint64_t sent_serials[128],sent_windows[128];
 static int send_allow=-1;
 static long execute_result=-1;
 static char executed_path[160],executed_role[32],executed_argument[160];
@@ -48,7 +48,7 @@ int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==42);
     if (queue_full || !send_allow) return -1;
     if(send_allow>0) send_allow--;
-    assert(sends<128);sent_serials[sends]=p->serial;sent_values[sends]=p->value;sent[sends++]=p->type; return 0;
+    assert(sends<128);sent_windows[sends]=p->window;sent_serials[sends]=p->serial;sent_values[sends]=p->value;sent[sends++]=p->type; return 0;
 }
 int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uint32_t *p,uint64_t stride) {
     assert(id==7 && !x && !y && stride==w);
@@ -60,7 +60,7 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
 static void delayed_control_delivery(void) {
     static struct session s;
     cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
-    s.clients[0].pid=42;s.clients[0].progress=now;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].progress=now;
     s.clients[0].release=desk_packet_new(DESK_RELEASE);
     now+=601;service(&s);
     assert(alive && s.clients[0].pid==42 && !s.clients[0].release.type);
@@ -79,7 +79,7 @@ static void delayed_control_delivery(void) {
     now+=101;service(&s);assert(!alive && !s.clients[0].pid);
 
     cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=1;
-    s.clients[0].pid=42;s.clients[0].progress=now;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].progress=now;
     s.clients[0].release=desk_packet_new(DESK_RELEASE);
     now+=601;service(&s);assert(alive && s.clients[0].release.type);
     now+=400;service(&s);assert(alive);
@@ -89,7 +89,7 @@ static void delayed_control_delivery(void) {
     queue_full=1;service(&s);now+=501;service(&s);assert(!alive && !s.clients[0].pid);
 
     cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;
-    s.clients[0].pid=42;close_client(&s,0);now+=601;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;close_client(&s,0);now+=601;
     int before=sends;service(&s);assert(alive && sends==before+1 && sent[sends-1]==DESK_CLOSE);
     now+=400;service(&s);assert(alive && sends==before+1); /* No close-message flood. */
     now+=101;service(&s);assert(!alive && !s.clients[0].pid);
@@ -97,7 +97,7 @@ static void delayed_control_delivery(void) {
 static void pointer_cancel_keeps_keyboard(void) {
     static struct session s;
     cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
-    s.clients[0].pid=42;s.clients[0].generation=1;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].generation=1;
     for(unsigned i=0;i<DESK_INPUT_QUEUE;i++) {
         struct desk_packet p=desk_packet_new(i&1?DESK_TEXT:DESK_KEY);
         p.serial=i+1;queue_input(&s,0,p);
@@ -151,7 +151,7 @@ static void idle_admission(void) {
     struct session s={0};memset(&clipboard,0,sizeof(clipboard));
     assert(session_quiescent(&s));
     s.children[0]=42;assert(!session_quiescent(&s));
-    s.clients[0].pid=42;s.clients[0].awaiting=1;assert(!session_quiescent(&s));
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].awaiting=1;assert(!session_quiescent(&s));
     s.clients[0].awaiting=0;s.clients[0].release=desk_packet_new(DESK_RELEASE);
     assert(!session_quiescent(&s));
     alive=1;queue_full=1;service(&s);assert(!session_quiescent(&s));
@@ -160,7 +160,7 @@ static void idle_admission(void) {
     s.preferences.dirty=1;assert(!session_quiescent(&s));s.preferences.dirty=0;
     s.capture.busy=1;assert(!session_quiescent(&s));s.capture.busy=0;
     s.capture_pending=1;assert(!session_quiescent(&s));s.capture_pending=0;
-    s.pointer_pid=42;assert(!session_quiescent(&s));s.pointer_pid=0;
+    s.pointer_pid=42;s.pointer_window=DESK_DEFAULT_WINDOW;assert(!session_quiescent(&s));s.pointer_pid=0;
     clipboard.writer=&s.clients[0].clipboard;assert(!session_quiescent(&s));clipboard.writer=0;
     s.clients[0].clipboard.reply=desk_packet_new(DESK_CLOSE);
     assert(!session_quiescent(&s));memset(&s.clients[0].clipboard,0,sizeof(s.clients[0].clipboard));
@@ -178,7 +178,7 @@ static void buffer_budget(void) {
     uint64_t before=s.cache_bytes;
     assert(!cache_prepare(&s,3,DESK_MAX_WIDTH,DESK_MAX_HEIGHT) && s.cache_bytes==before);
     for(int i=0;i<DESKD_WINDOWS;i++)assert(s.scene.windows[i].pixels[0]==100u+(unsigned)i);
-    s.clients[3].pid=42;s.clients[3].generation=7;s.clients[3].present_input=12;
+    s.clients[3].pid=42;s.clients[3].window=DESK_DEFAULT_WINDOW;s.clients[3].generation=7;s.clients[3].present_input=12;
     s.scene.windows[3].frame=(struct desk_rect){0,0,DESK_MAX_WIDTH+2,DESK_MAX_HEIGHT+45};
     struct desk_packet commit=desk_packet_new(DESK_COMMIT);
     commit.generation=7;commit.width=DESK_MAX_WIDTH;commit.height=DESK_MAX_HEIGHT;
@@ -192,7 +192,7 @@ static void buffer_budget(void) {
 }
 static void resize_refusal(void) {
     struct session s={.scene={.focus=0}};desk_damage_init(&s.damage,800,600);
-    s.clients[0].pid=42;s.scene.windows[0].frame=(struct desk_rect){30,70,402,325};
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.scene.windows[0].frame=(struct desk_rect){30,70,402,325};
     uint32_t *old=cache_prepare(&s,0,400,280);assert(old);old[0]=99;
     s.scene.windows[0].pixels=old;s.scene.windows[0].width=400;s.scene.windows[0].height=280;
     assert(configure(&s,0,600,400));s.scene.windows[0].frame.x=8;
@@ -224,6 +224,49 @@ static void clipboard_client_retirement(void) {
     assert(s.clients[0].clipboard.reading && !s.clients[0].clipboard.offset);
     forget(&s,0);assert(!s.clients[0].clipboard.reading && !s.clients[0].clipboard.pid);
     queue_full=0;sends=0;memset(&clipboard,0,sizeof(clipboard));
+}
+static void connection_lifetime(void) {
+    struct session s={.scene={.focus=-1,.apps=1},.children={42},.child_apps={DESK_APP_TEXT}};
+    memset(&clipboard,0,sizeof(clipboard));alive=1;queue_full=0;send_allow=-1;sends=0;
+    desk_damage_init(&s.damage,1280,800);
+    struct desk_packet q=desk_packet_new(DESK_OPEN);q.value=DESK_OPEN_CONNECTION;q.width=400;q.height=280;
+    incoming(&s,42,&q);assert(s.clients[0].managed && s.child_reply[0].type==DESK_OPEN_REPLY);
+    queue_full=1;now+=600;service(&s);assert(alive && s.clients[0].configure && s.child_reply[0].type);
+    queue_full=0;service(&s);assert(sent[0]==DESK_OPEN_REPLY && !sent_values[0] && sent_windows[0]==1);
+    assert(sent[1]==DESK_CONFIGURE && sent_windows[1]==1 && !s.clients[0].configure);
+    q.window=2;incoming(&s,42,&q);service(&s);assert(s.clients[1].pid==42 && s.clients[1].window==2);
+    assert(s.scene.focus==1 && s.clients[0].clipboard.window==1 && s.clients[1].clipboard.window==2);
+    s.pointer_pid=42;s.pointer_window=2;
+    unsigned before=s.clients[0].input_count;pointer_cancel(&s);
+    assert(s.clients[0].input_count==before && s.clients[1].input_count);
+    struct desk_packet *cancel=&s.clients[1].input[(s.clients[1].input_head+s.clients[1].input_count-1)%DESK_INPUT_QUEUE];
+    assert(cancel->window==2 && cancel->type==DESK_POINTER && cancel->value==DESK_POINTER_CANCEL);
+    q=desk_packet_new(DESK_NOTIFY);q.serial=1;
+    struct desk_notification note={.title="Window notice",.message="Same serial, different window"};memcpy(q.text,&note,sizeof(note));
+    incoming(&s,42,&q);q.window=2;incoming(&s,42,&q);
+    assert(s.scene.notifications.store.count==2 && s.scene.notifications.store.records[0].window==1 && s.scene.notifications.store.records[1].window==2);
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);s.clients[0].release.surface=7;
+    q=desk_packet_new(DESK_CLOSE);incoming(&s,42,&q);assert(s.clients[0].retiring);
+    sends=0;queue_full=1;service(&s);assert(s.clients[0].pid && s.clients[1].pid);
+    queue_full=0;send_allow=1;service(&s);
+    assert(sends==1 && sent[0]==DESK_RELEASE && sent_windows[0]==1 && s.clients[0].pid);
+    send_allow=-1;sends=0;service(&s);
+    assert(sent[0]==DESK_CLOSE_ACK && sent_windows[0]==1 && !s.clients[0].pid && s.clients[1].pid==42 && !s.clients[1].closing);
+    q=desk_packet_new(DESK_OPEN);q.value=DESK_OPEN_CONNECTION;q.width=400;q.height=280;
+    incoming(&s,42,&q);assert(s.child_reply[0].value==DESK_OPEN_INVALID && !s.clients[0].pid);service(&s);
+    q.window=3;alloc_fail=allocations;incoming(&s,42,&q);alloc_fail=0;
+    assert(s.child_reply[0].value==DESK_OPEN_MEMORY && !s.clients[0].pid && s.clients[1].pid);service(&s);
+    q.window=4;incoming(&s,42,&q);service(&s);assert(s.clients[0].window==4);
+    q=desk_packet_new(DESK_CLOSE);incoming(&s,42,&q);assert(!s.clients[0].retiring && !s.clients[1].retiring);
+    /* Refusal remains deliverable even with no free window records. */
+    for(int i=2;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42;s.clients[i].window=100+i; }
+    q=desk_packet_new(DESK_OPEN);q.value=DESK_OPEN_CONNECTION;q.window=5;q.width=400;q.height=280;
+    incoming(&s,42,&q);assert(s.child_reply[0].value==DESK_OPEN_CAPACITY && s.child_last_window[0]==5);
+    for(int i=2;i<DESKD_WINDOWS;i++)memset(&s.clients[i],0,sizeof(s.clients[i]));
+    sends=0;service(&s);assert(sent[0]==DESK_OPEN_REPLY && sent_values[0]==DESK_OPEN_CAPACITY && sent_windows[0]==5);
+    alive=0;service(&s);assert(!s.clients[0].pid && !s.clients[1].pid && !s.cache_bytes && !s.children[0]);
+    assert(!s.child_mode[0] && !s.child_last_window[0]);alive=1;sends=0;s.pointer_pid=0;
+    puts("desktop-connection: PASS acknowledged admission/refusal, sibling capture/notices, release-before-close, monotonic IDs, allocation failure and process retirement");
 }
 int main(void) {
     buffer_budget();resize_refusal();
@@ -272,7 +315,7 @@ int main(void) {
     /* Scroll targets content under the cursor, keeps focus, and retries the
      * same recipient when the transport queue is full. */
     cache_free(&s);memset(&s,0,sizeof(s)); s.scene.focus=1;
-    s.clients[0].pid=42; s.scene.windows[0].visible=1;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.scene.windows[0].visible=1;
     s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
     alive=1; queue_full=1;
     scroll_at(&s,60,70,0,120); assert(!s.clients[0].input_count); /* Title bar. */
@@ -304,7 +347,7 @@ int main(void) {
     s.scene.apps=0;
     scroll_at(&s,60,150,0,80); forget(&s,0); assert(!s.clients[0].input_count);
     cache_free(&s);memset(&s,0,sizeof(s)); s.scene.focus=0;
-    s.clients[0].pid=42; s.clients[0].generation=1; s.scene.windows[0].visible=1;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.clients[0].generation=1; s.scene.windows[0].visible=1;
     s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
     pointer_at(&s,400,200,MOUSE_LEFT,1);
     pointer_at(&s,780,500,MOUSE_LEFT,0); pointer_at(&s,790,510,MOUSE_LEFT,0);
@@ -331,7 +374,7 @@ int main(void) {
     pointer_at(&s,400,200,0,0); s.clients[0].awaiting=0;
     pointer_at(&s,400,200,MOUSE_LEFT,1); forget(&s,0);
     assert(!s.pointer_pid && s.pointer_blocked && !s.clients[0].input_count);
-    cache_free(&s);memset(&s,0,sizeof(s)); s.clients[0].pid=42; s.pointer_pid=42;
+    cache_free(&s);memset(&s,0,sizeof(s)); s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.pointer_pid=42;s.pointer_window=DESK_DEFAULT_WINDOW;
     p=desk_packet_new(DESK_POINTER); p.value=DESK_POINTER_PRESS|DESK_POINTER_LEFT;
     for (int i=0;i<DESK_INPUT_QUEUE;i++) queue_input(&s,0,p);
     assert(s.clients[0].input_count==DESK_INPUT_QUEUE && !s.clients[0].closing);
@@ -339,7 +382,7 @@ int main(void) {
     assert(s.clients[0].closing && !s.pointer_pid && s.pointer_blocked);
     /* Slow rendering still drains an ordered batch. Partial IPC capacity keeps
      * the first unsent edge at the head, without duplication or reordering. */
-    cache_free(&s);memset(&s,0,sizeof(s));s.clients[0].pid=42;sends=0;
+    cache_free(&s);memset(&s,0,sizeof(s));s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;sends=0;
     for(unsigned i=0;i<24;i++) { p=desk_packet_new(DESK_KEY);p.serial=i+1;queue_input(&s,0,p); }
     service(&s);assert(sends==DESK_INPUT_BATCH&&s.clients[0].input_count==24-DESK_INPUT_BATCH);
     send_allow=3;service(&s);assert(sends==DESK_INPUT_BATCH+3);
@@ -349,7 +392,7 @@ int main(void) {
     for(unsigned i=0;i<24;i++) assert(sent[i]==DESK_KEY&&sent_serials[i]==i+1);
     /* Reproduce a compositor pause longer than the old queue-age timeout.
      * A healthy client can accept this ordered key and must not be closed. */
-    cache_free(&s);memset(&s,0,sizeof(s));s.clients[0].pid=42;sends=0;
+    cache_free(&s);memset(&s,0,sizeof(s));s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;sends=0;
     p=desk_packet_new(DESK_KEY);p.serial=101;queue_input(&s,0,p);
     now+=601;service(&s);
     assert(sends==1 && sent[0]==DESK_KEY && sent_serials[0]==101 && !s.clients[0].closing);
@@ -365,7 +408,7 @@ int main(void) {
     queue_full=1;queue_input(&s,0,p);service(&s);now+=501;service(&s);
     assert(s.clients[0].closing);queue_full=0;
     cache_free(&s);memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
-    s.clients[0].pid=42;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
+    s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
     s.scene.windows[0].frame=(struct desk_rect){32,64,602,365};
     struct desk_rect original=s.scene.windows[0].frame;
     maximize(&s,0);assert(s.scene.windows[0].maximized && s.clients[0].generation==1);
@@ -373,7 +416,7 @@ int main(void) {
     maximize(&s,0);assert(!s.scene.windows[0].maximized && !memcmp(&original,&s.scene.windows[0].frame,sizeof(original)));
     arrange_window(&s,0,DESKTOP_TILE_LEFT);assert(s.scene.windows[0].maximized && s.scene.windows[0].frame.x==8 && !memcmp(&original,&s.scene.windows[0].restore,sizeof(original)));
     uint64_t arranged_generation=s.clients[0].generation;arrange_window(&s,0,DESKTOP_TILE_LEFT);assert(s.clients[0].generation==arranged_generation);
-    s.pointer_pid=42;arrange_window(&s,0,DESKTOP_TILE_RIGHT);assert(!s.pointer_pid && s.pointer_blocked);s.pointer_blocked=0;assert(s.scene.windows[0].frame.x>s.damage.width/2 && !memcmp(&original,&s.scene.windows[0].restore,sizeof(original)));
+    s.pointer_pid=42;s.pointer_window=DESK_DEFAULT_WINDOW;arrange_window(&s,0,DESKTOP_TILE_RIGHT);assert(!s.pointer_pid && s.pointer_blocked);s.pointer_blocked=0;assert(s.scene.windows[0].frame.x>s.damage.width/2 && !memcmp(&original,&s.scene.windows[0].restore,sizeof(original)));
     maximize(&s,0);assert(!s.scene.windows[0].maximized && !memcmp(&original,&s.scene.windows[0].frame,sizeof(original)));
     arrange_window(&s,0,DESKTOP_TILE_LEFT);arrange_window(&s,0,DESKTOP_CENTER);assert(!s.scene.windows[0].maximized && s.scene.windows[0].frame.w==original.w && s.scene.windows[0].frame.h==original.h);
     s.scene.windows[0].frame=original;
@@ -522,6 +565,7 @@ int main(void) {
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     clipboard_client_retirement();
     delayed_control_delivery();
+    connection_lifetime();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

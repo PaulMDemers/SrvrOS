@@ -28,7 +28,8 @@ static struct desk_clipboard_store clipboard;
 struct pixel_cache { uint32_t *pixels,width,height; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
-    uint64_t pid,generation,progress,present_input;
+    uint64_t pid,window,generation,progress,present_input;
+    int managed,retiring;
     int configure,awaiting,closing,close_requested,preferences_dirty;
     struct desk_packet release,brightness_reply,audio_reply;
     struct desk_packet input[DESK_INPUT_QUEUE];
@@ -52,9 +53,12 @@ struct session {
     struct desktop_scene scene;
     struct desk_damage damage;
     struct desk_rect menu_visible;
-    uint64_t menu_owner;
+    uint64_t menu_owner,menu_window;
     struct client clients[DESKD_WINDOWS];
     uint64_t children[DESKD_WINDOWS];
+    uint64_t child_last_window[DESKD_WINDOWS],child_reply_since[DESKD_WINDOWS];
+    unsigned child_mode[DESKD_WINDOWS],child_reply_blocked[DESKD_WINDOWS];
+    struct desk_packet child_reply[DESKD_WINDOWS];
     int child_apps[DESKD_WINDOWS],exiting,ram_text;
     uint64_t battery_tick,battery_reads,battery_first,battery_last;
     struct srv_battery_status battery_status;
@@ -64,7 +68,7 @@ struct session {
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
-    uint64_t pointer_pid;
+    uint64_t pointer_pid,pointer_window;
     int notice_visible,context_down;
     unsigned child_reaped,child_errors;
     unsigned modifiers;
@@ -76,6 +80,18 @@ struct session {
     struct pixel_cache cache[DESKD_WINDOWS][2];
     uint64_t cache_bytes,cache_peak,memory_notice_at,memory_notice_serial;
 };
+static int client_send(const struct client *c,const struct desk_packet *packet) {
+    struct desk_packet p=*packet;p.window=c->window?c->window:DESK_DEFAULT_WINDOW;
+    return desk_send(c->pid,&p);
+}
+static int child_index(const struct session *s,uint64_t pid) {
+    for(int i=0;i<DESKD_WINDOWS;i++)if(s->children[i]==pid)return i;
+    return -1;
+}
+static int pointer_owned(const struct session *s,int i) {
+    return s->pointer_pid && s->pointer_pid==s->clients[i].pid &&
+        s->pointer_window==s->clients[i].window;
+}
 /* Trace the separate owners rather than interpreting a launch count as memory. */
 static void resource_trace(const struct session *s,const char *reason) {
     if(!s->trace) return;
@@ -148,6 +164,7 @@ static int disposable_input(const struct desk_packet *p) {
 static void queue_input(struct session *s,int i,struct desk_packet p) {
     struct client *c=&s->clients[i];
     if (c->closing) return;
+    p.window=c->window?c->window:DESK_DEFAULT_WINDOW;
     if (c->input_count) {
         struct desk_packet *last=&c->input[(c->input_head+c->input_count-1)%DESK_INPUT_QUEUE];
         if (p.type==DESK_POINTER && (p.value==DESK_POINTER_LEFT || p.value==DESK_POINTER_HOVER) &&
@@ -185,12 +202,12 @@ static void queue_input(struct session *s,int i,struct desk_packet p) {
     c->input[(c->input_head+c->input_count++)%DESK_INPUT_QUEUE]=p;
 }
 static void pointer_cancel(struct session *s) {
-    uint64_t pid=s->pointer_pid;
-    s->pointer_pid=0;
+    uint64_t pid=s->pointer_pid,window=s->pointer_window;
+    s->pointer_pid=0;s->pointer_window=0;
     if (!pid) return;
     if (io_trial_active(&s->io)) s->io.cancels++;
     s->pointer_blocked=1;
-    for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==pid) {
+    for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==pid && s->clients[i].window==window) {
         struct desk_packet p=desk_packet_new(DESK_POINTER);
         p.value=DESK_POINTER_CANCEL; p.generation=s->clients[i].generation;
         queue_input(s,i,p); break;
@@ -244,7 +261,7 @@ static void focus(struct session *s,int i) {
 static void forget(struct session *s,int i) {
     if((s->scene.launcher_open || s->scene.calendar_open) && s->overlay_return==i) s->overlay_return=-1;
     desk_clipboard_forget(&clipboard,&s->clients[i].clipboard);
-    if (s->pointer_pid==s->clients[i].pid && s->pointer_pid) {
+    if (pointer_owned(s,i)) {
         s->pointer_pid=0; s->pointer_blocked=1;
     }
     struct desktop_window *w=&s->scene.windows[i];
@@ -284,7 +301,7 @@ static int configure(struct session *s,int i,int width,int height) {
         s->clients[i].resize_restore=s->scene.windows[i].restore;
         s->clients[i].resize_maximized=s->scene.windows[i].maximized;
     }
-    if (s->pointer_pid==s->clients[i].pid) pointer_cancel(s);
+    if (pointer_owned(s,i)) pointer_cancel(s);
     struct client *c=&s->clients[i];
     struct desktop_window *w=&s->scene.windows[i];
     damage_window(s,i);
@@ -320,7 +337,7 @@ static void arrange_window(struct session *s,int i,unsigned placement) {
     struct desktop_window *w=&s->scene.windows[i];struct desk_rect target;
     struct desk_rect original=w->maximized?w->restore:w->frame;
     if(!desktop_window_placement(s->damage.width,s->damage.height,original,placement,&target)) return;
-    if(s->pointer_pid==s->clients[i].pid) pointer_cancel(s);
+    if(pointer_owned(s,i)) pointer_cancel(s);
     damage_window(s,i);
     struct desk_rect restore=w->maximized?w->restore:w->frame;
     int resize=w->frame.w!=target.w || w->frame.h!=target.h;
@@ -522,10 +539,11 @@ static void global_menu_rebuild(struct session *s) {
         if(n) memcpy(item->label,s->scene.windows[i].title,n);else strcpy(item->label,"Window");
     }
     uint64_t owner=s->scene.focus>=0?s->clients[s->scene.focus].pid:0;
-    if(s->scene.menu.font && owner==s->menu_owner) desk_menu_replace(&s->scene.menu,items,count);
+    uint64_t window=s->scene.focus>=0?s->clients[s->scene.focus].window:0;
+    if(s->scene.menu.font && owner==s->menu_owner && window==s->menu_window) desk_menu_replace(&s->scene.menu,items,count);
     else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-(s->damage.width<1000?428:578),44},
         (struct desk_rect){0,0,s->damage.width,s->damage.height},&desk_font_16);
-    s->menu_owner=owner;
+    s->menu_owner=owner;s->menu_window=window;
     global_menu_damage(s);
     if(s->scene.launcher_open) launcher_catalog(s);
 }
@@ -695,10 +713,7 @@ static void calendar_action(struct session *s,struct desk_action a) {
     if(a.flags&DESK_WIDGET_REDRAW) calendar_damage(s);
     if(a.id==CALENDAR_CLOSE && (a.flags&DESK_WIDGET_ACTIVATED)) calendar_close(s);
 }
-static int known_child(struct session *s,uint64_t pid) {
-    for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]==pid) return 1;
-    return 0;
-}
+
 static int notifications_shortcut(const struct srv_key_event *key) {
     return (key->flags&SRV_KEY_DOWN_EVENT) && !(key->flags&SRV_KEY_REPEAT) &&
         (key->modifiers&SRV_KEY_META) && (key->modifiers&SRV_KEY_SHIFT) &&
@@ -731,7 +746,7 @@ static void notifications_close(struct session *s) {
 static void notifications_apply(struct session *s,struct desktop_notice_action result) {
     if(result.close) notifications_close(s);
     if(result.application) {
-        int owner=-1;for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid==result.owner && !s->clients[i].closing) owner=i;
+        int owner=-1;for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid==result.owner && (!result.window || s->clients[i].window==result.window) && !s->clients[i].closing) owner=i;
         if(owner>=0 && !result.target[0]) focus(s,owner);else spawn_app(s,result.application,result.target);
         if(s->trace) desk_log("deskd: notification opened owner=%llu application=%u\n",(unsigned long long)result.owner,result.application);
     }
@@ -806,14 +821,14 @@ static void notification_received(struct session *s,int i,const struct desk_pack
     if(p->generation || p->surface || p->width || p->height || p->x || p->y || p->input_serial ||
         !desktop_notification_valid(&text,p->value) || (c->notice_has_time && (now<c->notice_at || now-c->notice_at<100))) return;
     long us=srv_monotonic_us();uint64_t id;
-    int added=desktop_notification_add(&s->scene.notifications.store,c->pid,s->scene.windows[i].application,p->serial,us<0?0:(uint64_t)us,p->value,&text,&id);
+    int added=desktop_notification_add_window(&s->scene.notifications.store,c->pid,c->window,s->scene.windows[i].application,p->serial,us<0?0:(uint64_t)us,p->value,&text,&id);
     if(added<0) return;
     c->notice_ack_result=c->notice_last_result=0;c->notice_at=now;c->notice_has_time=1;
     if(added) { desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);notifications_damage(s); }
     if(s->trace) desk_log("deskd: notification accepted owner=%llu id=%llu count=%u\n",(unsigned long long)c->pid,(unsigned long long)id,s->scene.notifications.store.count);
 }
 static void close_client(struct session *s,int i) {
-    if (s->pointer_pid==s->clients[i].pid && s->pointer_pid) {
+    if (pointer_owned(s,i)) {
         s->pointer_pid=0; s->pointer_blocked=1;
     }
     if (!s->clients[i].closing) {
@@ -823,17 +838,30 @@ static void close_client(struct session *s,int i) {
     }
 }
 static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
-    /* D1a: other identities are not admitted until connection dispatch lands. */
-    if(p->window!=DESK_DEFAULT_WINDOW) return;
+    int child=child_index(s,pid);if(!p->window)return;
     int i;
-    for (i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==pid) break;
-    /* Only applications launched by this session may become desktop clients. */
-    if (i==DESKD_WINDOWS) {
-        if (p->type!=DESK_OPEN || !known_child(s,pid)) return;
-        for (i=0;i<DESKD_WINDOWS;i++) if (!s->clients[i].pid) break;
-        if (i==DESKD_WINDOWS) { resource_trace(s,"window-capacity");return; }
+    for(i=0;i<DESKD_WINDOWS;i++)if(s->clients[i].pid==pid && s->clients[i].window==p->window)break;
+    if(p->type==DESK_OPEN) {
+        if(child<0)return;
+        if(s->child_reply[child].type)return; /* One creation credit per connection. */
+        int managed=p->value==DESK_OPEN_CONNECTION;
+        if(!s->child_mode[child])s->child_mode[child]=managed?2:1;
+        if(managed) {
+            s->child_reply[child]=desk_packet_new(DESK_OPEN_REPLY);
+            s->child_reply[child].window=p->window;s->child_reply[child].value=DESK_OPEN_INVALID;
+            s->child_reply_blocked[child]=0;
+        }
+        if(p->value>DESK_OPEN_CONNECTION || s->child_mode[child]!=(unsigned)(managed?2:1) ||
+           (!managed && p->window!=DESK_DEFAULT_WINDOW) || i<DESKD_WINDOWS)return;
+        if(managed && p->window<=s->child_last_window[child])return;
+        s->child_last_window[child]=p->window;
+        for(i=0;i<DESKD_WINDOWS;i++)if(!s->clients[i].pid)break;
+        if(i==DESKD_WINDOWS) {
+            if(managed)s->child_reply[child].value=DESK_OPEN_CAPACITY;
+            resource_trace(s,"window-capacity");return;
+        }
         struct desktop_window *w=&s->scene.windows[i];
-        s->clients[i].pid=pid;s->clients[i].clipboard.pid=pid;s->clients[i].clipboard.window=p->window;s->clients[i].preferences_dirty=s->scene.apps;
+        s->clients[i].pid=pid;s->clients[i].window=p->window;s->clients[i].managed=managed;s->clients[i].clipboard.pid=pid;s->clients[i].clipboard.window=p->window;s->clients[i].preferences_dirty=s->scene.apps;
         w->visible=1;
         for(int n=0;n<DESKD_WINDOWS;n++) if(s->children[n]==pid) w->application=s->child_apps[n];
         w->frame.x=32+24*(i%4); w->frame.y=64+24*(i%4);
@@ -842,12 +870,18 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         if(!configure(s,i,clamp(p->width,280,s->damage.width-w->frame.x-8<DESK_MAX_WIDTH?
             s->damage.width-w->frame.x-8:DESK_MAX_WIDTH),
             clamp(p->height,240,s->damage.height-w->frame.y-(s->scene.apps?125:85)<DESK_MAX_HEIGHT?
-            s->damage.height-w->frame.y-(s->scene.apps?125:85):DESK_MAX_HEIGHT))) { close_client(s,i);return; }
+            s->damage.height-w->frame.y-(s->scene.apps?125:85):DESK_MAX_HEIGHT))) {
+            if(managed) { s->child_reply[child].value=DESK_OPEN_MEMORY;forget(s,i); }
+            else close_client(s,i);
+            return;
+        }
+        if(managed)s->child_reply[child].value=DESK_OPEN_OK;
         focus(s,i);
         desk_log("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
         resource_trace(s,"opened");
         return;
     }
+    if(i==DESKD_WINDOWS)return;
     struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
     if(p->type==DESK_RESIZE_REFUSED) {
         if(c->awaiting && p->generation==c->generation && w->pixels &&
@@ -861,7 +895,10 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         }
         return;
     }
-    if (p->type==DESK_CLOSE) { forget(s,i); return; }
+    if (p->type==DESK_CLOSE) {
+        if(c->managed) { close_client(s,i);c->retiring=1; }else forget(s,i);
+        return;
+    }
     if(p->type==DESK_NOTIFY) { notification_received(s,i,p);return; }
     if(p->type==DESK_MENU_SET) {
         if(s->scene.apps && desk_menu_receive(&c->menus,p) && s->scene.focus==i) global_menu_rebuild(s);
@@ -956,7 +993,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
 static int control_send(struct session *s,int i,const struct desk_packet *p) {
     struct client *c=&s->clients[i];
     c->input_blocked=0; /* Control traffic interrupted input delivery attempts. */
-    if(!desk_send(c->pid,p)) {
+    if(!client_send(c,p)) {
         c->control_blocked=0;c->progress=srv_ticks();return 1;
     }
     uint64_t tick=srv_ticks();
@@ -969,13 +1006,26 @@ static int control_send(struct session *s,int i,const struct desk_packet *p) {
     return 0;
 }
 static void service(struct session *s) {
+    for(int n=0;n<DESKD_WINDOWS;n++)if(s->children[n] && s->child_reply[n].type) {
+        if(!desk_send(s->children[n],&s->child_reply[n])) { s->child_reply[n].type=0;s->child_reply_blocked[n]=0; }
+        else if(!s->child_reply_blocked[n]) { s->child_reply_blocked[n]=1;s->child_reply_since[n]=srv_ticks(); }
+        else if((uint64_t)srv_ticks()-s->child_reply_since[n]>500)srv_kill(s->children[n]);
+    }
+
     for (int i=0;i<DESKD_WINDOWS;i++) {
         struct client *c=&s->clients[i];
         if (!c->pid) continue;
         if (!desk_process_alive(c->pid)) { forget(s,i); continue; }
+        int child=child_index(s,c->pid);
+        if(child>=0 && s->child_reply[child].type)continue;
         if (c->release.type) {
             if (!control_send(s,i,&c->release)) continue;
             c->release.type=0;
+        }
+        if(c->retiring) {
+            struct desk_packet p=desk_packet_new(DESK_CLOSE_ACK);
+            if(control_send(s,i,&p))forget(s,i);
+            continue;
         }
         if (c->closing) {
             if(!c->close_sent) {
@@ -1003,21 +1053,21 @@ static void service(struct session *s) {
         }
         if(c->notice_ack_pending && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;
-            if(!desk_send(c->pid,&p)) c->notice_ack_pending=0;
+            if(!client_send(c,&p)) c->notice_ack_pending=0;
         }
         if(c->audio_reply.type && !c->configure && !c->closing &&
-           !desk_send(c->pid,&c->audio_reply)) c->audio_reply.type=0;
+           !client_send(c,&c->audio_reply)) c->audio_reply.type=0;
         if(c->brightness_reply.type && !c->configure && !c->closing &&
-           !desk_send(c->pid,&c->brightness_reply)) c->brightness_reply.type=0;
+           !client_send(c,&c->brightness_reply)) c->brightness_reply.type=0;
         if(c->preferences_dirty && !c->configure && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_PREFERENCES);p.value=s->preferences.status;p.serial=s->preferences.revision;
             memcpy(p.text,&s->preferences.value,sizeof(s->preferences.value));
-            if(!desk_send(c->pid,&p)) c->preferences_dirty=0;
+            if(!client_send(c,&p)) c->preferences_dirty=0;
         }
         /* Input throughput must not be limited to the render-loop rate. Keep
          * a per-client budget so one busy window cannot monopolize service. */
         for(unsigned delivered=0;delivered<DESK_INPUT_BATCH && c->input_count && !c->configure && !c->closing;delivered++) {
-            if(desk_send(c->pid,&c->input[c->input_head])!=0) {
+            if(client_send(c,&c->input[c->input_head])!=0) {
                 /* Queued age includes time the compositor was not scheduled or
                  * was copying/drawing. Try delivery before blaming the client.
                  * Only a sustained series of blocked sends starts this timer. */
@@ -1047,7 +1097,7 @@ static void service(struct session *s) {
         if (waited==(long)s->children[i])
             desk_log("deskd: child-exit pid=%llu status=%llu tick=%llu\n",(unsigned long long)s->children[i],(unsigned long long)status,(unsigned long long)srv_ticks());
         if (waited==(long)s->children[i] || (waited<0 && !desk_process_alive(s->children[i])))
-            s->children[i]=0;
+            { s->children[i]=0;s->child_mode[i]=0;s->child_last_window[i]=0;s->child_reply[i]=(struct desk_packet){0}; }
     }
 }
 /* Only idle maintenance may move to the 100 ms cadence. Publication, retries,
@@ -1059,7 +1109,11 @@ static int session_quiescent(const struct session *s) {
        s->pointer_pid || s->pointer_blocked || clipboard.writer) return 0;
     for(unsigned i=0;i<DESKD_WINDOWS;i++) {
         const struct client *c=&s->clients[i];
-        if(s->children[i] && !c->pid) return 0;
+        if(s->children[i]) {
+            if(s->child_reply[i].type)return 0;
+            int owner=0;for(unsigned j=0;j<DESKD_WINDOWS;j++)owner|=s->clients[j].pid==s->children[i];
+            if(!owner)return 0;
+        }
         if(!c->pid) continue;
         if(c->clipboard.reading || c->clipboard.reply.type ||
            c->configure || c->awaiting || c->closing || c->close_requested ||
@@ -1164,7 +1218,7 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
         if (i<0 || s->clients[i].closing || s->clients[i].awaiting) return;
         struct desk_rect w=s->scene.windows[i].frame;
         if (x<=w.x || x>=w.x+w.w-1 || y<w.y+44 || y>=w.y+w.h-1) return;
-        s->pointer_pid=s->clients[i].pid;
+        s->pointer_pid=s->clients[i].pid;s->pointer_window=s->clients[i].window;
     }
     if (!s->pointer_pid) {
         if(!s->scene.apps || buttons) return;
@@ -1174,7 +1228,7 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
         struct desk_packet p=desk_packet_new(DESK_POINTER);p.value=DESK_POINTER_HOVER;p.generation=s->clients[i].generation;p.x=x-w.x-1;p.y=y-w.y-44;
         queue_input(s,i,p);return;
     }
-    for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==s->pointer_pid) {
+    for (int i=0;i<DESKD_WINDOWS;i++) if (pointer_owned(s,i)) {
         struct desk_packet p=desk_packet_new(DESK_POINTER);
         p.x=x-s->scene.windows[i].frame.x-1; p.y=y-s->scene.windows[i].frame.y-44;
         p.generation=s->clients[i].generation;
@@ -1215,7 +1269,8 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int home_apps=battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
-    int apps=battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
+    int multiwindow=argc==2 && !strcmp(argv[1],"--multiwindow-smoke");
+    int apps=multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -1237,7 +1292,7 @@ int main(int argc,char **argv) {
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
+        .trace=multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
@@ -1265,6 +1320,7 @@ int main(int argc,char **argv) {
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
+    else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,"--multi-window-capture");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");

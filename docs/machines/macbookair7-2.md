@@ -15,6 +15,12 @@ claim full D1 acceptance until real independent documents and close/save paths
 are exercised. Dynamic registries and combined GUI/FD waits remain later blocks.
 Host/QEMU only; installed/recovery remain unchanged. No parallel harnesses.
 
+The candidate connection contract is documented in
+[desktop connections](../desktop-connections.md). Focused host fixtures pass
+identity/lifetime, blocked delivery, typed refusals, independent capture/notices
+and local canvas failure. Matched build/full host gates and the actual-protocol
+VM consumer are being validated; normal Text migration remains next.
+
 ### Active explicit window identity foundation (D1a)
 
 D0 clipboard PR140 is merged as `d8f6c71` and consumed on

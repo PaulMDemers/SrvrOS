@@ -5,9 +5,16 @@
 #include <srvros/desktop_menu.h>
 #include <srvros/desk_render.h>
 
-/* One-window client transport. Independent of the widget library and app data.
- * Application controls its bounded event batches and sleep cadence. */
+/* Per-window canvas and transport state, independent of widgets/app data.
+ * open/poll retain the one-window compatibility path. Multiwindow clients use
+ * desk_connection.h for admission, one dispatcher and acknowledged disposal. */
+struct desk_connection;
 struct desk_app {
+    struct desk_connection *connection;
+    struct desk_app *next;
+    struct desk_packet open_request;
+    unsigned open_result;
+    int opening,open_sent,closing,close_sent;
     uint64_t server,window,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
     struct desk_packet configure;
     struct desk_menu_item menus[DESK_APP_MENU_ITEMS];
