@@ -6080,3 +6080,22 @@ Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-bank6-00f04fb/`.
 Next is bounded reference VGA initialization/readback. No VGA/bandwidth/band
 settings, trim, DAC/VCO calibration or traffic were added to this native run.
 Command/guard/readback observations do not accept calibrated RF/connectivity.
+
+
+## 2026-10-25 — bounded RF VGA scope
+
+Pro PR19 remains the Wi-Fi owner. Native bank6 v68 is fully collected and
+archived at branch head `a333a129`; no outstanding run or armed reboot.
+Fetched main remains `16bbe494`; Air7,2 runtime branch advanced to `732c6146`,
+which is inspected separately from RF/MCU work. Native integration base remains
+`d5bc4b3`. This unit retains bounded Wi-Fi initialization work; unrelated
+main desktop work is not mixed into the candidate.
+
+Objective: fixed35-entry reference RF VGA (bank7) write/read observation after
+complete central zero-profile, exact68/68 bank5 and exact38/38 bank6 proof.
+Touched scope: private RF-table plan and predecessor validator, xHCI capture
+wrappers/dispatch, opt-in v69 staging, host/native fault tests and strict
+saved-evidence collection. Keep the existing256KiB full-prefix capture.
+No bandwidth/band switching, trim, DAC/VCO calibration, scanning, association,
+security or packet traffic. Build/local checks and exact-stage VM save/return
+must pass before unarmed installation and the next attended cold cycle.
