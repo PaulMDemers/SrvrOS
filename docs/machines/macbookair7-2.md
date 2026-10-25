@@ -2,6 +2,21 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active dynamic compositor and enumeration work (D2c)
+
+PR145 merged as `11a4ef2` and consumed. Next bounded scope: remove the
+compositor's sixteen-window admission ceiling using stable allocated records,
+separate child-connection storage, transactional registry/scratch growth and
+explicit metadata/cache budgets. Extend menu/palette widgets with caller-owned
+storage while keeping their allocation-free boundary and inline defaults.
+Window menus, launcher, overlay return and drag/resize must retain lifetime
+identity rather than select a reused slot. Test growth/refusal preservation,
+large window enumeration and actual 32/64/128 small windows in few processes;
+existing document persistence and desktop lifetime regressions remain required.
+Touch compositor/scene, widgets, shared budgets and focused host/QEMU consumers.
+The scheduler/process and surface-dimension bounds remain separate. Pro PR19
+`e409c07` still covers Wi-Fi; no native installation or reboot in this block.
+
 ### Active dynamic GUI queue storage (D2b)
 
 PR144 is merged as `58bd3cf` and consumed. Next bounded objective: replace
