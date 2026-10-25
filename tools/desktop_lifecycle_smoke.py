@@ -219,7 +219,7 @@ def main():
                     click_modal('dialog',0,'Shutdown-save');wait(b'file-result role=text op=2 status=0')
                     wait(b'deskd: exited');wait(b'srv> ');shutdown_actions.append('Save-and-exit')
                     # Existing modal before shutdown must also stay alive.
-                    serial.sendall(b'run /fat/bin/deskd --apps-trace\n');discarddoc=admitted();wait(b'deskd: commit')
+                    serial.sendall(b'run /fat/bin/deskd --apps-trace\n');discarddoc=admitted();wait(b'deskd: commit');pointer[:]=[24,56]
                     text('Discard only on exit');begin=len(output);shortcut('ctrl-w');wait(f'parent={discarddoc}'.encode())
                     return_to_console();check_stable(discarddoc,begin,'shutdown-existing-prompt')
                     click_modal('dialog',1,'Shutdown-discard');wait(b'deskd: exited');wait(b'srv> ')
