@@ -5642,3 +5642,13 @@ Fetched main `211f17c2` includes Air6,1 attended-reopen PR139; this native sourc
 retains integration base `d5bc4b3`. Air7,2 POSIX PR134 `61fc814a` remains separate.
 This return closeout updates evidence/documentation only; no new candidate is
 installed or armed.
+
+Active scope (2026-10-24): one fixed direct RF0:6=41 write after reproducing
+the complete v63 zero-read profile, followed by an independent direct RF0:6 read.
+Use the reference CSR write selector c0000641 and read selector80000600, disabled
+MAC/CORE/DMA guards and bounded idle/completion polls. No arbitrary values,
+automatic rewrite, later table entries or calibration. This compares write paths;
+even a41 readback does not accept the complete central table. Touch MCU/xHCI,
+dedicated v64 staging and host/collector tests in PR19. Main211f17c2 and POSIX
+PR134 964dbd15 inspected; integration base remainsd5bc4b3. Next checkpoint:
+fault-tested one-write admission, then exact-stage VM and unarmed installation.
