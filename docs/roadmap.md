@@ -62,7 +62,7 @@ audio or battery regressions. Temperature and idle percentage alone are not ener
 
 The desktop replaces eager cache pairs with demand-allocated window
 buffers under a 96 MiB compositor pixel budget. Client canvases also use current
-sizes. Matched protocol v12 supports failed-resize refusal and restoration, and
+sizes. The matched protocol supports failed-resize refusal and restoration, and
 coordinated budgets allow sixteen windows. Local host and VM tests pass for
 allocation pressure, sixteen apps, a refused seventeenth launch, menus, exact
 saved text, screenshots, resize and cleanup. Air7,2 accepts sixteen-window

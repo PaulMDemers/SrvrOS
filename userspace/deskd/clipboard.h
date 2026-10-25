@@ -2,7 +2,7 @@
 #define DESKD_CLIPBOARD_H
 #include <srvros/desktop.h>
 struct desk_clipboard_peer {
-    uint64_t pid,request,version;
+    uint64_t pid,window,request,version;
     uint32_t offset;
     int reading;
     struct desk_packet reply;

@@ -26,9 +26,14 @@ static struct gui_message packet_message(unsigned type, uint64_t target,
     uint64_t surface, uint64_t serial) {
     struct gui_message m={.type=DESK_TRANSPORT_MESSAGE,.target_pid=target};
     struct desk_packet p={.version=DESK_PROTOCOL_VERSION,.size=sizeof(p),
-        .type=type,.surface=surface,.serial=serial,.generation=7,.width=2,.height=2};
+        .type=type,.window=DESK_DEFAULT_WINDOW,.surface=surface,.serial=serial,.generation=7,.width=2,.height=2};
     memcpy(m.text,&p,sizeof(p));
     return m;
+}
+
+static void packet_window(struct gui_message *message,uint64_t window) {
+    struct desk_packet packet;memcpy(&packet,message->text,sizeof(packet));
+    packet.window=window;memcpy(message->text,&packet,sizeof(packet));
 }
 
 static void protocol_tests(void) {
@@ -62,6 +67,7 @@ static void protocol_tests(void) {
     current_pid=2;
     struct gui_message bad=commit;
     bad.text[0]=99; assert(gui_send(&bad)==-1);
+    bad=commit; packet_window(&bad,0); assert(gui_send(&bad)==-1);
     bad=commit; bad.text[0]=1; assert(gui_send(&bad)==-1); /* v1 has no text acknowledgement. */
     struct gui_message legacy={.type=1};
     for (unsigned i=0;i<GUI_QUEUE_DEPTH;i++) assert(gui_send(&legacy)==0);
@@ -78,6 +84,8 @@ static void protocol_tests(void) {
     current_pid=1;
     bad=packet_message(DESK_RELEASE,3,id,1); assert(gui_send(&bad)==-1);
     bad=packet_message(DESK_RELEASE,2,id,2); assert(gui_send(&bad)==-1);
+    bad=release; packet_window(&bad,2);
+    assert(gui_send(&bad)==-1 && surface_for_id(id)->sealed);
     legacy.target_pid=2;
     for (unsigned i=0;i<GUI_QUEUE_DEPTH;i++) assert(gui_send(&legacy)==0);
     assert(gui_send(&release)==-1 && surface_for_id(id)->sealed);
@@ -85,7 +93,10 @@ static void protocol_tests(void) {
     current_pid=1; assert(gui_send(&release)==0 && !surface_for_id(id)->sealed);
     assert(gui_send(&release)==-1);
     current_pid=2; assert(gui_send(&commit)==-1); /* Replay rejected. */
-    commit=packet_message(DESK_COMMIT,0,id,2); assert(gui_send(&commit)==0);
+    commit=packet_message(DESK_COMMIT,0,id,2);
+    bad=commit; packet_window(&bad,2);
+    assert(gui_send(&bad)==-1 && !surface_for_id(id)->sealed); /* No surface rebinding. */
+    assert(gui_send(&commit)==0);
     gui_process_cleanup(1); /* Pending client can reclaim after server death. */
     assert(!keyboard_events && pointer_speed==3 && !pointer_accel && !pointer_flags);
     assert(!surface_for_id(id)->sealed);

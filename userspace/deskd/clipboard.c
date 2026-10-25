@@ -1,10 +1,10 @@
 #include "clipboard.h"
 #include <string.h>
 static void reply(struct desk_clipboard_peer *p,uint64_t request,unsigned status) {
-    p->reply=desk_packet_new(DESK_CLIPBOARD_ACK);p->reply.serial=request;p->reply.value=status;
+    p->reply=desk_packet_new(DESK_CLIPBOARD_ACK);p->reply.window=p->window;p->reply.serial=request;p->reply.value=status;
 }
 void desk_clipboard_request(struct desk_clipboard_store *s,struct desk_clipboard_peer *p,int focused,const struct desk_packet *q,uint64_t tick) {
-    if(!p || !p->pid || !q->serial) return;
+    if(!p || !p->pid || !p->window || p->window!=q->window || !q->serial) return;
     if(q->type==DESK_CLIPBOARD_GET) {
         p->request=q->serial;p->offset=0;p->version=s->version;p->reading=1;
         if(!focused) p->version=~s->version;
@@ -36,7 +36,7 @@ void desk_clipboard_service(struct desk_clipboard_store *s,struct desk_clipboard
     if(s->writer==p && tick-s->write_tick>1000) { reply(p,s->write_request,1);s->writer=0; }
     if(p->reply.type) { if(desk_send(p->pid,&p->reply)) return;p->reply.type=0; }
     for(unsigned batch=0;batch<4 && p->reading;batch++) {
-        struct desk_packet q=desk_packet_new(DESK_CLIPBOARD_DATA);q.serial=p->request;
+        struct desk_packet q=desk_packet_new(DESK_CLIPBOARD_DATA);q.window=p->window;q.serial=p->request;
         q.generation=p->offset;q.width=s->length;
         if(p->version!=s->version) q.value=2;
         else {

@@ -2,9 +2,12 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v12 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v13 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 12
+#define DESK_PROTOCOL_VERSION 13
+/* Window IDs are scoped to the authenticated process/desktop connection.
+ * D1a retains the single-window source wrapper; D1b adds other live IDs. */
+#define DESK_DEFAULT_WINDOW 1ull
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 /* Bounded surfaces cover the initial 1440x900 laptop target. */
@@ -38,11 +41,14 @@ struct desk_packet {
     uint32_t width, height;
     int32_t x, y;
     uint32_t value, reserved2;
-    uint64_t input_serial;
+    uint64_t input_serial,window;
     char text[88];
 };
-_Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
-/* COMMIT publishes the entire surface and seals it against writes/destruction.
+_Static_assert(sizeof(struct desk_packet) == 168, "desktop wire layout");
+/* Every packet carries a nonzero window ID; PID transport ownership does not
+ * substitute for window identity. A stream surface binds to its first committed
+ * window for its lifetime. RELEASE must match that window as well as its serial.
+ * COMMIT publishes the entire surface and seals it against writes/destruction.
  * RELEASE.value=0 acknowledges a private snapshot, not scanout completion.
  * RELEASE_RETRY releases the seal without publishing; retain app state and
  * redraw after a bounded delay. It does not acknowledge input_serial.

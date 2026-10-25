@@ -47,8 +47,13 @@ errors retain their existing bounded retirement policy.
 Menus allow 96 items and up to 32 rows per group. The Window menu lists all live
 clients; wheel scrolling and automatic keyboard selection reveal entries that
 exceed the viewport. The launcher has 64 entries, enough for twelve app entries
-and sixteen windows. Match kernel and all desktop binaries for v12; earlier
-protocol images are incompatible rather than silently negotiated.
+and sixteen windows. Matched protocol v13 (168 bytes), adding a nonzero 64-bit
+window ID scoped to the authenticated connection. The current source wrapper
+uses ID1 and other IDs are not yet admitted by the compositor. Kernel surfaces
+bind to their first committed window; mismatched commits/releases are rejected
+without changing the seal or queue. Client event, clipboard and notification
+filters reject a different window before changing local state. Match kernel and
+all desktop binaries; earlier protocol images are incompatible.
 
 Host regressions cover transaction failure, published-pixel preservation,
 reserved-spare protection, budget exhaustion/reclamation, stale refusal,
@@ -83,3 +88,8 @@ The document remained intact and a visible message explained the refusal. The
 mixed clipboard workload uses one Text and fifteen Calculator processes; its
 success does not establish sixteen simultaneous file workers. This reinforces
 the distinction between window admission and auxiliary process/thread budgets.
+
+D1a identity foundation runtime `d9a678b` passes full desktop host/build gates,
+existing apps and persistence, sixteen clipboard clients with slot reuse, and
+compositor lifecycle/resize QEMU regressions. These are VM results; ID1 remains
+the only admitted window per process until the connection dispatcher lands.
