@@ -33,7 +33,7 @@ prerequisite for multiple windows per application.
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
 | [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Stable dynamically allocated records and independent child storage; lifetime-safe UI actions; linear lookup/stacking remains |
 | [`widgets/`](../userspace/widgets/README.md) | Pure models/controllers, layout and rendering primitives | Deliberately owns neither allocation, process transport nor an event loop; preserve that separation |
-| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Text shares one connection across documents; file workers still per document; other apps retain the compatibility wrapper |
+| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Text shares one connection across documents; Text/Files use bounded lazy file-worker pools; other apps retain the compatibility wrapper |
 
 Useful existing guarantees must survive the migration: validate packet direction
 and surface ownership; publish only sealed complete frames; reject stale
@@ -235,6 +235,11 @@ resize, saving and exit/reopen, with on-screen instructions and persisted
 resource totals. VM scale evidence does not accept physical gestures or latency.
 
 ### D3 — Share the application runtime and desktop services
+
+D3a implements reusable file-worker ownership for Text/Files: caller-owned
+job records, lazy bounded transport leases, FIFO admission and drain/reap before
+application exit. This removes per-document worker allocation without claiming
+combined GUI/FD waits or all desktop services are complete.
 
 Build a small allocating application layer above the pure widgets: event loop,
 actions, multiple windows, document lifecycle and job ownership. Migrate remaining

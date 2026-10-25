@@ -195,3 +195,15 @@ retirements. Requested registry peak is 2,020,656 bytes and pixel-cache peak
 38,088,904 bytes; both retire completely. The final pressure-document,
 clipboard, normal Text, existing apps and compositor regressions pass too.
 These functional VM checks do not measure native input latency or total memory.
+
+D3a separates file-job ownership from worker processes. Normal Text documents
+share a lazy two-channel pool, so opening an empty document does not consume a
+scheduler slot. Jobs retain their own request/result buffers; transport failure
+retains the poisoned child until reaped, and last-document close drains accepted
+work before pool shutdown. Files uses the same service. Existing diagnostic
+captures may still use dedicated workers; independent app/process limits remain.
+Candidate `fc30d06` passes 32 same-process Text documents, 33 exact files with
+replacement/reuse and one shared worker reaped. A separate actual pipe/process
+fixture queues forty 64 KiB writes and readbacks through two workers, then checks
+exact contents, standard exFAT metadata and independent allocation traversal.
+These do not accept native input latency or higher window counts on hardware.
