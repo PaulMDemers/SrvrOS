@@ -183,7 +183,17 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
     }
     if(c->pixels && (uint64_t)c->width*c->height*4>=bytes)return c->pixels;
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)cache_reclaim(s,i);
-    if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)return NULL;
+    if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes) {
+        /* Dropping a spare transfers ownership, not free-byte credit. Wait
+         * for enough pending releases; reserve only after completed unmaps. */
+        uint64_t retiring=0;
+        if(s->worker)for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
+            const struct life_memory *m=&s->worker->memory[n];
+            if(life_state(&m->state)!=LIFE_IDLE && life_state(&m->discard))retiring+=(uint64_t)m->width*m->height*4;
+        }
+        if(bytes<=DESKD_CACHE_BUDGET-s->cache_bytes+retiring)s->cache_pending=1;
+        return NULL;
+    }
     if(s->worker) {
         for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
             struct life_memory *m=&s->worker->memory[n];

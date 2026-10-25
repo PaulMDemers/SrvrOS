@@ -107,6 +107,22 @@ static void asynchronous_lifecycle(void) {
     assert(!s.children[0] && strstr(s.scene.notice,"could not open"));
     s.exiting=1;strcpy(executed_path,"unchanged");spawn_app(&s,DESK_APP_TEXT,"");life_work(&worker);
     assert(!strcmp(executed_path,"unchanged"));
+    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));s.worker=&worker;
+    /* Fill the 96 MiB budget with sixteen front/spare pairs. Reclaiming
+     * spares must defer admission without granting credit before unmap. */
+    for(int i=0;i<16;i++) {
+        assert(!cache_prepare(&s,i,1024,768) && s.cache_pending);life_work(&worker);
+        s.scene.windows[i].pixels=cache_prepare(&s,i,1024,768);assert(s.scene.windows[i].pixels);
+        assert(!cache_prepare(&s,i,1024,768) && s.cache_pending);life_work(&worker);
+        assert(cache_prepare(&s,i,1024,768));
+    }
+    assert(s.cache_bytes==DESKD_CACHE_BUDGET);
+    assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes==DESKD_CACHE_BUDGET);
+    life_work(&worker);assert(s.cache_bytes==DESKD_CACHE_BUDGET);lifecycle_poll(&s);
+    assert(s.cache_bytes==17ull*1024*768*4);
+    assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes<=DESKD_CACHE_BUDGET);
+    life_work(&worker);assert(cache_prepare(&s,0,1280,768));
+    cache_free(&s);life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
     memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
 }
 static void delayed_control_delivery(void) {
