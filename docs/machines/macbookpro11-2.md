@@ -156,13 +156,16 @@ with framing/trailer. All7 operations,6 guard reads/1 exchange and both guard
 triplets passed with full earlier proof. Entire252903-byte prefix/both success
 markers saved. Recovery/default/one-shot/hashes passed; offline clean301files/
 713clusters/124directories, zero leaks/mismatches/errors; unmounted/unarmed.
-Payload remains observation (ack_validated0). Separate v80 baseband-layout
-trial `6a9fd32642e92a7b`, source `a89af59a`, is installed/unarmed after local
-and both exact-stage VM checks. It pins the exact captured reply, then five
-masked targets/45 transfers with independent readbacks and10 guard triplets.
-Full proof fits existing256KiB capture. Ubuntu default/recovery retained;
-await readiness for cold-cycle shutdown and collect matching session first.
-No native v80 layout, RF frequency or calibrated radio/connectivity acceptance.
+Original v79 payload remains framing-only observation (ack_validated0).
+Release `6a9fd32642e92a7b`, source `a89af59a`, completed native v80 layout
+in `session-00065eb25d7baa54-00`. Exact bandwidth reply prerequisite passed;
+all45 transfers,40 reads/5 writes/5 verified and10 guard triplets passed.
+CORE1/AGC0/TXBE0/TX_BAND remained2/21400/0/4; EXT_CCA changedffe4->f1e4,
+preserving ED_CCA upper nibblef. Entire258464-byte prefix/both success markers
+saved. Recovery/default/one-shot/hashes passed; offline clean303files/717clusters/
+125directories, zero leaks/mismatches/errors; unmounted/unarmed. Captured layout
+accepted; next audit RF channel programming/calibration and sufficient log
+capacity. RF frequency/calibrated radio/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -7143,3 +7146,31 @@ whole earlier proof/exact bandwidth reply prerequisite,45 ordered transfers,
 all five captured fresh values/masked readbacks and10 guard triplets, complete
 256KiB prefix and both completion markers. Preserve failures; no automatic RF
 frequency programming, calibration, MAC enable, scan or traffic.
+
+
+## 2026-10-25 — Native20MHz baseband/control-channel/band/CCA layout accepted
+
+Source `a89af59ab188f1767484b36d3f10e1eebc56c10b`, release
+`6a9fd32642e92a7b`, session `session-00065eb25d7baa54-00`. Whole prior proof
+passed, including exact bandwidth response4a0f0008/2/0/4a0f0008 and separate
+`wifi-bw-validated: exact_profile=1`. All45 ordered USB transfers,40 reads/
+5 writes/5 verified targets and10 MAC0/COREf000f200/DMA40000050 guard triplets
+passed. CORE1:2->2, AGC0:21400->21400, TXBE0:0->0, TX_BAND:4->4,
+EXT_CCA:ffe4->f1e4. Every independent readback matched; ED_CCA upper nibblef
+and all other unmasked bits preserved. This accepts the captured masked layout,
+not RF frequency selection or calibrated radio functionality.
+
+The first local collector completed proof validation then failed recovery checks
+because a loop variable `b` shadowed the imported boot helper. Corrected only
+the local validator variable; original payload and native log unchanged. Added
+namespace-preservation regression to the full-prefix fixture/mutation suite;
+original/fixed collector and both logs are retained. Strict rerun verified Ubuntu
+default, consumed one-shot and installed/recovery hashes, then clean offline
+exFAT/allocation:303files/717clusters/125directories, zero leaks/mismatches/errors;
+unmounted/unarmed. Entire258464-byte prefix within262144 and both success markers
+saved. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp20-a89af59/`.
+Next: audit RF band/synthesizer channel setup and fresh gain/power/calibration
+ordering. Current proof leaves3680bytes, so plan sufficient complete-prefix
+capacity before another large RF phase. No automatic next write/reboot, MAC
+enable, scanning or traffic; connectivity remains pending.

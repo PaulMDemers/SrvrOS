@@ -3269,3 +3269,19 @@ ED_CCA upper nibblef remains unchanged. The first four values already have the
 requested layout; only EXT_CCA is expected to change. No RF frequency selection,
 calibration, MAC enable, scan or traffic. Whole258463-byte fixture fits262144
 capacity, with strict full-prefix/both-marker checks; native validation pending.
+
+
+### v80 native baseband layout result
+
+MacBookPro11,2 release `6a9fd32642e92a7b` (source `a89af59a`), session
+`session-00065eb25d7baa54-00`, passed the whole prior proof and exact captured
+bandwidth response predicate. All45 transfers,40 reads/5 writes/5 verified and
+10 MAC0/COREf000f200/DMA40000050 guard triplets passed. Masked readbacks were
+2004:2,2300:21400,2700:0,132c:4,141c:f1e4. Only EXT_CCA changed fromffe4;
+ED_CCA upper nibblef and all unmasked bits preserved. Whole258464-byte prefix,
+both completion markers and recovery/one-shot/hashes/offline checks passed;
+archived, unmounted/unarmed. Captured20MHz baseband layout is accepted; RF
+frequency/channel selection, calibrated radio operation and connectivity are
+not accepted. Original v79 framing-only observation remains unchanged. The local
+return collector's boot-module variable collision was corrected without changing
+proof checks or native log bytes, with namespace-preservation regression coverage.
