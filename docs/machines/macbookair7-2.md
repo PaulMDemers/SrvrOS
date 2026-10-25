@@ -14,6 +14,18 @@ User authorized automatic opening and a physical reboot; no human input is
 required. Save results and unmount before automatic Ubuntu return, including
 handled test failure. Native acceptance stays pending collection.
 
+Host desktop/build and staging-policy tests pass. Q35 automatic capture passes
+both rounds of 24 rendered processes, two persisted screenshots, 24 normal child
+reaps per round and complete battery/logger retirement. A 384 MiB negative run
+records launch failure, saves failure evidence and returns automatically with
+clean allocation; 256 MiB was too small for Limine to load the payload and is
+retained as a boot failure, not a test pass. Exact native-stage rehearsal follows.
+USB preflight: 1063 files, 2583 clusters, zero allocation leaks/mismatches/errors;
+existing files hashed. Current `2750e5efa04573ba` and recovery `9aa8dbf6fbda8252`
+verified; obsolete unreferenced EFI payload `27b239f96a183fb8` archived and fully
+hash-verified outside build before its EFI copy was removed to provide space.
+
+
 ### Scheduler capacity fix: host/VM validated
 
 Base main `16bbe49` plus this unit's collected-run notes; Pro PR19 inspected at

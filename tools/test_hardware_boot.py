@@ -14,6 +14,15 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_capacity_automatic_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-v73-desktop-37d8c5d0')
+        for token in ('srvros.desktop=session','srvros.battery=on','srvros.desktop-capacity-test=on','srvros.audio=hda','srvros.usb-network=ecm'):
+            self.assertIn(token,config)
+        self.assertNotIn('srvros.aml=probe',config)
+        self.assertNotIn('srvros.desktop-capacity-test',boot.limine_config('0123456789abcdef','ram-usb-v55-desktop-37d8c5d0'))
+        for options in ({},dict(desktop_battery=True),dict(desktop_volume='37d8c5d0',desktop_battery=True,desktop_services=True,battery_air61=True)):
+            with self.assertRaises(ValueError):boot.stage(desktop_capacity_test=True,**options)
+
     def test_air61_automatic_reopen_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v72-desktop-6ada85bb')
         for token in ('srvros.desktop=session','srvros.battery=on','srvros.desktop-reopen-test=on','srvros.audio=hda','srvros.smc=read-only'):

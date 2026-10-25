@@ -753,11 +753,12 @@ void kmain(void) {
             (uint64_t)cmdline_has_token(cmdline,"srvros.sensors=cpu"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.smc=read-only"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
-        if(cmdline_has_token(cmdline,"srvros.battery=on") && cmdline_has_token(cmdline,"srvros.desktop-reopen-test=on")) {
+        bool capacity_test=cmdline_has_token(cmdline,"srvros.desktop-capacity-test=on");
+        if(cmdline_has_token(cmdline,"srvros.battery=on") && (capacity_test || cmdline_has_token(cmdline,"srvros.desktop-reopen-test=on"))) {
             bool ok=true;
             for(unsigned round=1;round<=2;round++) {
                 console_printf("desktop-reopen-test: round=%u begin\n",(uint64_t)round);
-                bool complete=desktop_battery_reopen_session_run();
+                bool complete=capacity_test?desktop_battery_capacity_session_run():desktop_battery_reopen_session_run();
                 console_printf("desktop-reopen-test: round=%u complete=%s\n",(uint64_t)round,complete?"yes":"NO");
                 ok=ok&&complete;
             }

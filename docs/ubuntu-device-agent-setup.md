@@ -214,6 +214,30 @@ This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
 
+### Automated mixed-app capacity capture (Air7,2)
+
+After preparing and checking this host's USB workspace, the explicit v73 profile
+runs two rounds of 24 independent applications without human input:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" \
+  --desktop-battery --desktop-services --desktop-capacity-test
+SRVROS_RELEASE=$(cat build/hardware-boot/latest)
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
+  --boot-session --services --audio --capacity-auto \
+  --stage "$SRVROS_RELEASE" --case profile-refusal
+```
+
+Build the matched native and VM battery kernels first. The exact-stage Q35 check
+expects native battery-profile refusal; it must still verify both sets of 24
+rendered apps, saved screenshots/logs, complete child retirement, clean USB
+allocation and automatic return. Install only after this rehearsal and the
+recovery/USB preflight below. On hardware keep AC/USB connected and leave input
+alone. Collection must find both `desktop-capacity: result=PASS` receipts with
+24 successful reaps in the matching release's exit logs. Return alone is not a
+pass. This does not accept physical typing, pointer latency or manual documents.
+See [window capacity](window-capacity.md#unattended-native-mixed-app-capture).
+
 ### Workspace log capacity and verified archival
 
 Free disk bytes and clean fsck are insufficient for creating new files: the
