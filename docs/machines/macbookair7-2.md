@@ -35,7 +35,13 @@ session's pointer origin; reset that origin on desktop reopen and retain the
 failed attempt separately. The asset in the built image is verified as 120
 seconds/23,040,000 PCM bytes and twenty unchanged channel-check cycles. The final
 exact-stage rehearsal will play it fully while saving work; native listening and
-shutdown acceptance remain pending.
+shutdown acceptance remain pending. The first long-sample stage `9fb28b83ea370cb3`
+passes its complete playback/save/exit/reopen rehearsal, but final provenance
+review found its prebuilt native kernel had not been relinked after PR167. Keep
+that as preliminary UI/audio evidence only; it was not installed. Rebuild matched
+normal/native/VM kernels, then stage and repeat the exact-image gate before
+hardware installation. Main `46f6212` adds only Air6,1 result documentation; PR170
+owns separate app-timing instrumentation and PR19 remains Wi-Fi.
 
 ### Modal pointer correction validated; physical retest pending
 

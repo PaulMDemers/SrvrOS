@@ -153,7 +153,12 @@ It does not increase process capacity or change another machine's profile.
 After building matched normal/native/VM battery images, prepare an exact stage
 using this machine's own compact workspace UUID:
 
+The stage command copies prebuilt artifacts; it does not rebuild the native
+kernel. `make all` alone updates only the ordinary kernel. Relink both explicit
+battery kernels after a kernel dependency changes before recording a new stage.
+
 ```sh
+tools/host-env.sh make -j2 all acpi-battery-kernel acpi-battery-vm-kernel
 python3 tools/hardware_boot.py stage --desktop-volume YOUR_UUID \
   --desktop-battery --desktop-services --desktop-lifecycle-trial
 tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
