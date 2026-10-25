@@ -2766,3 +2766,21 @@ all existing integrity checks, the ten-second whole-cycle and 500 ms loop limits
 Pro PR19 (`200ab19b`) remains separate USB Wi-Fi work; no other open shared-runtime
 MR was found. The previous run is collected and backed up. User explicitly
 authorizes tests, self-merge and reboot into the automatic stress workload.
+
+The implementation retains each blocked call's admission flag after wake-all,
+clearing it only when the gate wait returns or the thread retires. A fully
+completed userspace syscall that required the I/O gate gives one ready waiter
+a turn before the writer can submit another operation. No handoff occurs with
+active/nested ownership or an unsafe caller. GUI/audio-safe syscalls retain their
+normal turns. The scheduler's ordinary round-robin/service eligibility, syscall
+whitelist, VFS checks and desktop timing limits are unchanged. Cancellation is
+rechecked after handoff; killed/quarantined waiters cannot retain stale admission.
+
+The syscall-boundary regression fails on the old implementation. New host cases
+exercise 64 successive writer rounds, preferred awakened admission, nested-owner
+and unfinished-kernel refusal, canceled waiter retirement, and cancellation
+during handoff. Initial VM experiments are retained: the overbroad prototype
+(which also handed off after GUI-safe calls) completed 13 cycles at 400 IOPS but
+failed a 512,391 us loop gap; at 100 IOPS Text completed but Files exceeded the
+whole-cycle deadline. These are failures, not native acceptance. The narrowed
+implementation and its matched physical payload require fresh validation.

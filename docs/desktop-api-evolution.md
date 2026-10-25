@@ -72,6 +72,23 @@ Admission must account for the peak during resize, including the old image, new
 image and in-flight frame. Cache trace output is optional; the accepted native
 sixteen-window round contains no cache totals.
 
+## Admission during continuous disk work
+
+An I/O wake makes a blocked allocation or cleanup call runnable; it does not
+mean the call has entered the kernel operation. The scheduler retains a pending
+admission flag until that wait returns. After a userspace syscall that required
+the I/O gate finishes, its now user-safe caller hands off to one ready admission
+waiter before submitting another operation. GUI/audio-safe calls keep their
+normal service turns without this extra handoff.
+
+The handoff requires zero I/O ownership depth and a fully unwound syscall. It
+never releases a transaction early or broadens the I/O-safe syscall whitelist.
+Nested ownership, sibling exclusion, resource validation and cancellation remain
+in force. Cancellation is checked again after the handoff, and forced retirement
+removes a waiter's pending admission. This prevents a fast writer repeatedly
+reacquiring ownership ahead of calls it woke; it does not promise that arbitrarily
+slow storage can satisfy the existing desktop deadlines.
+
 ## Combined wait contract (D3b)
 
 The D3b implementation provides one wait for an authenticated GUI server and up

@@ -45,6 +45,7 @@ struct thread {
     void *arg;
     void *user_context;
     bool io_user_safe;
+    bool io_gate_waiting;
     void *user_thread_context;
     struct fpu_state *user_fpu;
     uint64_t user_fs_base;
@@ -96,6 +97,11 @@ static bool switching;
 static bool io_services_enabled;
 static uint64_t io_owner, io_depth, io_service_at;
 static struct scheduler_wait_queue io_waiters;
+static uint64_t io_gate_pending;
+static void yield_to(uint64_t preferred);
+static void io_gate_leave(struct thread *thread) {
+    if(thread->io_gate_waiting) { thread->io_gate_waiting=false;io_gate_pending--; }
+}
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
 static uint64_t sampled_ticks;
@@ -239,7 +245,27 @@ static bool io_available(void *arg) {
 void scheduler_io_wait(void) {
     uint64_t flags=irq_save();
     while (!io_available(NULL)) {
+        struct thread *thread=thread_at(current_thread);
+        if(!thread->io_gate_waiting) {thread->io_gate_waiting=true;io_gate_pending++;}
         if (!scheduler_wait(&io_waiters,io_available,NULL)) scheduler_yield();
+    }
+    io_gate_leave(thread_at(current_thread));
+    irq_restore(flags);
+}
+
+void scheduler_io_handoff(void) {
+    uint64_t flags=irq_save();
+    if(initialized && io_services_enabled && !switching && !io_depth && io_gate_pending &&
+       thread_at(current_thread)->state==THREAD_RUNNING && thread_at(current_thread)->io_user_safe) {
+        /* Wake-all removes wait-queue membership, but a READY waiter has not
+         * entered its operation yet. Retain that fact until io_wait returns.
+         * Prefer it only here, not during ordinary GUI/audio service turns. */
+        for(uint64_t n=1;n<thread_capacity;n++) {
+            uint64_t i=(current_thread+n)%thread_capacity;
+            if(thread_at(i)->io_gate_waiting && thread_at(i)->state==THREAD_READY) {
+                yield_to(i);break;
+            }
+        }
     }
     irq_restore(flags);
 }
@@ -310,6 +336,7 @@ static void scheduler_trampoline(void) {
     __asm__ volatile ("sti" : : : "memory");
     struct thread *thread = thread_at(current_thread);
     thread->entry(thread->arg);
+    io_gate_leave(thread);
     thread->state = THREAD_DEAD;
 
     for (;;) {
@@ -320,7 +347,9 @@ static void scheduler_trampoline(void) {
 void scheduler_init(void) {
     for (uint64_t i = 0; i < thread_capacity; i++) {
         thread_at(i)->state = THREAD_UNUSED;
+        thread_at(i)->io_gate_waiting=false;
     }
+    io_gate_pending=0;
 
     current_thread = 0;
     thread_at(0)->state = THREAD_RUNNING;
@@ -453,7 +482,7 @@ static bool quarantine_pair(uint64_t caller,uint64_t peer,bool external) {
     }
     for(unsigned j=0;j<2;j++) {
         uint64_t i=j?b:a;struct thread *t=thread_at(i);
-        detach_wait(t);
+        detach_wait(t);io_gate_leave(t);
         t->io_eligible=NULL;t->state=THREAD_QUARANTINED;
     }
     return true;
@@ -466,7 +495,7 @@ bool scheduler_quarantine_noncurrent_services(uint64_t first,uint64_t second) {
     return quarantine_pair(first,second,true);
 }
 
-void scheduler_yield(void) {
+static void yield_to(uint64_t preferred) {
     uint64_t flags = irq_save();
     if (!initialized || switching) {
         irq_restore(flags);
@@ -474,7 +503,9 @@ void scheduler_yield(void) {
     }
 
     uint64_t old_index = current_thread;
-    uint64_t next_index = next_ready_thread(old_index);
+    uint64_t next_index = preferred<thread_capacity && preferred!=old_index &&
+        thread_at(preferred)->state==THREAD_READY && io_thread_allowed(preferred)
+        ? preferred : next_ready_thread(old_index);
 
     if (next_index == old_index) {
         irq_restore(flags);
@@ -520,6 +551,8 @@ void scheduler_yield(void) {
     irq_restore(flags);
 }
 
+void scheduler_yield(void) { yield_to(thread_capacity); }
+
 void scheduler_exit_current(void) {
     if (!initialized) {
         for (;;) {
@@ -527,6 +560,7 @@ void scheduler_exit_current(void) {
         }
     }
 
+    io_gate_leave(thread_at(current_thread));
     thread_at(current_thread)->state = THREAD_DEAD;
     for (;;) {
         scheduler_yield();
@@ -549,7 +583,7 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
             thread->user_thread_context == except_user_thread_context) {
             continue;
         }
-        detach_wait(thread);
+        detach_wait(thread);io_gate_leave(thread);
         if(i==current_thread) account_current_at(timer_monotonic_us());
         thread->account_user=false;
         thread->user_context = NULL;
