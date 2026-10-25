@@ -2,21 +2,34 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active: validate PR160's reconciled modal readiness fix
+### Active: combined desktop hardware trial and asynchronous capacity capture
 
-Independent clean `29c75d8` passes core/matched builds, but the normal lifecycle
-VM fails its first save: the picker lists `/fat`, then Enter browses Up to `/`.
-The shared presenter reports ready after OPEN_REPLY, before delayed CONFIGURE
-creates its canvas; zero-sized layout loses filename focus. The original VM
-failure and deterministic failing host regression remain in
-`build/pr160-review-20261025/`. A local fix passed core/build, but PR160
-independently published the same first-canvas correction as `433480a`. The
-Air7,2 duplicate production/test patch was reverted before integration; preserve
-PR160 as the single implementation owner. Its later `7ddf215` also handles
-interleaved compositor launch traces in the lifecycle checker without loosening
-saved-data or duplicate-startup checks. Review that exact clean source with
-normal/crash/refusal lifecycle and sustained PCM/USB checks. Installed current,
-independent recovery and Ubuntu default remain unchanged; no reboot is armed.
+Integrated main `b35b889` (PR160) after independent clean `7ddf215` core/matched
+builds and normal/crash/refused-dialog VMs. The 60-second PCM/unpaced verified USB
+fixture passes 21 real app cycles, maximum loop gap 299,756 us, zero app errors
+and underruns, 227 audible write-overlap windows and clean retirement/return.
+A separate four-app playback fixture has zero sample error and zero underruns,
+exact saved document bytes, clean allocation and restored process baseline.
+These are VM results, not native responsiveness or listening acceptance.
+
+The additional two-round 24-app diagnostic exposed an asynchronous launch
+assumption: it read the final Text child PID immediately after queueing exec,
+recording zero. All 24 windows rendered, but no edit acknowledgement followed;
+round one reached its unchanged 180-second deadline and failed. Round two was
+interrupted after reproducing that symptom; it is incomplete, not a pass.
+Retain the reserved child slot and obtain its PID after all 24 frames are ready;
+never select empty PID-zero client records. Scope is this automatic diagnostic,
+its regression validation, current capacity docs and the attended Help checklist.
+No worker, audio, process-limit or device-gate changes. Repeat capacity before
+staging an exact v75 combined lifecycle trial. That guest guide now includes
+app launch/close while playing the bundled stereo sample and has no timed exit.
+
+Original modal failure at `29c75d8` and a failing host regression are preserved.
+PR160's `433480a` is the single first-canvas readiness implementation; this
+branch's duplicate patch was reverted before consuming it. Evidence is in
+`build/pr160-review-20261025/`. Installed current/recovery remain unchanged;
+no reboot is armed. Complete exact-stage VM and filesystem/recovery checks before
+an attended native boot, and announce its required human checks beforehand.
 
 ### Document-routing failure paths covered; compositor integration still pending
 
