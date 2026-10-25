@@ -116,7 +116,7 @@ refusal, a fresh ID after close and complete worker/process retirement. This
 is a different resource shape from sixteen Text processes. Large document
 records use independently released anonymous mappings rather than exhausting
 the legacy brk arena. The launcher selects sibling windows by non-reused
-compositor identities, not PID alone. Dynamic registries remain next.
+compositor identities, not PID alone. Dynamic registries follow in D2c below.
 
 D2a replaces kernel surface slots with stable allocated records and monotonic
 positive IDs. Metadata and pixel charges are reserved before preparation;
@@ -188,3 +188,10 @@ Host tests exercise 128 stable records, 200 menu/search entries, allocation and
 quota failure, independent child growth, stale identity and full reclamation.
 QEMU acceptance for this candidate is tracked in the machine record; native
 large-window/input acceptance is pending.
+
+Runtime `bba1c39` passes the actual 128-window consumer, complete launcher/menu
+selection, first/middle/last input, resize/replacement and 129 acknowledged
+retirements. Requested registry peak is 2,020,656 bytes and pixel-cache peak
+38,088,904 bytes; both retire completely. The final pressure-document,
+clipboard, normal Text, existing apps and compositor regressions pass too.
+These functional VM checks do not measure native input latency or total memory.

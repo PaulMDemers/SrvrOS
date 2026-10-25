@@ -27,13 +27,13 @@ prerequisite for multiple windows per application.
 
 | Layer and source | Current responsibility | Constraint to address |
 | --- | --- | --- |
-| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Fixed queue table; dynamic surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
+| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Dynamic queues/surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
 | [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
-| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID/window; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
+| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Stable dynamically allocated records and independent child storage; lifetime-safe UI actions; linear lookup/stacking remains |
 | [`widgets/`](../userspace/widgets/README.md) | Pure models/controllers, layout and rendering primitives | Deliberately owns neither allocation, process transport nor an event loop; preserve that separation |
-| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Repeated application lifetime/dispatch logic; generally one window per process |
+| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Text shares one connection across documents; file workers still per document; other apps retain the compatibility wrapper |
 
 Useful existing guarantees must survive the migration: validate packet direction
 and surface ownership; publish only sealed complete frames; reject stale
@@ -207,7 +207,7 @@ API; their acceptance follows D3. Native gesture/latency acceptance is separate.
 ### D2 — Allocate registries dynamically
 
 D2a/b are merged in PR144/145: kernel surface/queue slots have been replaced
-with byte-budgeted stable storage. Candidate D2c (`7cd4243`) implements stable
+with byte-budgeted stable storage. Candidate D2c (`bba1c39`) implements stable
 compositor chunks, separate child growth, reusable scene scratch and complete
 menu/palette enumeration. Host/full-build gates pass; QEMU/native acceptance
 must be read from the current machine record. D2 latency/large-workload profiling
