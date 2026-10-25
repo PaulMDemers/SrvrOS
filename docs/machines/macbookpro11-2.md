@@ -33,11 +33,19 @@ Strict full-prefix validation passed after collection. Ubuntu default, consumed
 one-shot and installed/recovery payload hashes verified. Known-good
 `e47dca3a6b30c6c1` remains recovery. Offline workspace checks are clean:
 277files/665clusters/112directories, zero leaks, mismatches or errors.
-Evidence is durably archived outside build. Candidate `7b329891c0606f1c`
-(source `00f04fb3`) is installed unarmed for the fixed38-entry RF bank6
-observation. Local/sanitizer/regression and exact-stage VM save/return plus
-missing-workspace recovery passed. Next: attended cold Wi-Fi adapter cycle,
-then collect the matching session FIRST. No reboot is armed.
+Evidence is durably archived outside build.
+
+Release `7b329891c0606f1c` (source `00f04fb3`) completed the fixed38-entry
+RF bank6 observation in native session `session-00065ead98009e52-00`.
+All38 readbacks matched:532 operations,456 guard reads,76 verified replies,
+38 ACKs and152 valid guard triplets; both mismatch fields zero. Full prior
+central and bank5 proof passed. The entire191063-byte startup prefix and both
+completion markers were saved. Strict validation, consumed one-shot, Ubuntu
+default and installed/recovery hashes passed. Latest offline workspace checks:
+279files/669clusters/113directories, zero leaks, mismatches or errors;
+unmounted. This is command/guard/readback evidence, not calibrated radio
+acceptance. Next: bounded reference VGA-table initialization/readback, before
+bandwidth/band selection, trim and DAC/VCO calibration. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6053,3 +6061,22 @@ Ready for attended shutdown/cold adapter cycle. On return collect matching
 release/session FIRST and verify every prerequisite and all38 observations,
 76 command replies,152 guard triplets, mismatch accounting and complete prefix.
 No automatic further tables, trim, DAC/VCO or traffic; native bank6 pending.
+
+
+## 2026-10-25 — RF bank6 native return
+
+Collected source `00f04fb342717a625719ce4e173837d0d948f05d`, release
+`7b329891c0606f1c`, session `session-00065ead98009e52-00`. Exact native proof
+passed:532 submissions,456 guard reads,76 verified16-byte replies,38 ACKs and
+38 matching indexed readbacks. All152 MAC/CORE/DMA guard triplets passed;
+both mismatch fields zero. Central remains43/44 with only RF0:6=00, and
+bank5 remains68/68. Full191063-byte startup prefix within262144 capacity and
+both completion markers verified; no partial evidence promoted.
+
+Ubuntu default, consumed one-shot and current/recovery payload hashes verified.
+Offline exFAT/allocation checks clean279files/669clusters/113directories,
+zero leaks, mismatches or errors; workspace unmounted and reboot unarmed.
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-bank6-00f04fb/`.
+Next is bounded reference VGA initialization/readback. No VGA/bandwidth/band
+settings, trim, DAC/VCO calibration or traffic were added to this native run.
+Command/guard/readback observations do not accept calibrated RF/connectivity.

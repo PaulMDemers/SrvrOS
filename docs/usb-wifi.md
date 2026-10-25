@@ -2797,7 +2797,7 @@ operation and connectivity remain untested. Next is bounded reference bank6
 initialization/readback, separate from trim, DAC/VCO and channel/traffic work.
 
 
-### Fixed RF bank6 observation (v68 candidate)
+### Fixed RF bank6 observation (v68 native observation)
 
 `--wifi-rf-bank6` requires `--wifi-rf-bank5` and the entire earlier capture
 chain. Native admission revalidates all central and bank5 command/guard proof:
@@ -2822,3 +2822,15 @@ v68 also uses the complete256KiB window. Saved proof must contain all prior
 receipts, every new command/guard/value, exact byte count and both completion
 markers. No VGA table, bandwidth/band switching, trim, DAC/VCO calibration,
 scan/association/security or packet traffic follows this experiment.
+
+
+Native MacBookPro11,2 source `00f04fb3`, release `7b329891c0606f1c`, session
+`session-00065ead98009e52-00` completed the fixed bank6 plan:532 operations,
+456 guard reads,76 verified command replies,38 ACKs and38 matching readbacks.
+All152 guard triplets passed, both mismatch fields zero. Full central43/44
+(RF0:6=00) and bank5 68/68 proof remained valid. Both completion markers and
+the entire191063-byte startup prefix within262144 capacity were saved and
+strictly verified. Ubuntu default, consumed one-shot, payload/recovery hashes
+and offline filesystem/allocation checks passed. This establishes native
+command/guard/readback observations only. Next is bounded reference VGA-table
+initialization/readback; calibrated RF and connectivity remain untested.
