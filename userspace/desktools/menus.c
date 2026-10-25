@@ -1,7 +1,7 @@
 #include "app.h"
 #include <string.h>
 #include <srvros/desk_log.h>
-enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_EDIT=200 };
+enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_QUIT,MENU_EDIT=200 };
 static struct desk_edit *edit_target(struct tool *t,unsigned *id) {
     if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
     if(t->search_open && t->search_focus) {
@@ -43,6 +43,7 @@ void tool_menu_refresh(struct tool *t) {
     }
     append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
     append(items,&count,MENU_CLOSE,"Close window","Ctrl-W",blocked);
+    if(t->role==DESK_APP_TEXT)append(items,&count,MENU_QUIT,"Quit Text","Ctrl-Q",0);
     if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES || t->role==DESK_APP_CALCULATOR || t->role==DESK_APP_SETTINGS) {
         unsigned id=0;struct desk_edit *e=edit_target(t,&id);struct desk_text_buffer *text=e?e->text:NULL;
         unsigned disabled=blocked|(!e?DESK_MENU_DISABLED:0),selection=disabled|(!text || text->anchor==text->caret?DESK_MENU_DISABLED:0);
@@ -101,6 +102,7 @@ void tool_menu_action(struct tool *t,unsigned id) {
     if(id>=MENU_EDIT && id<=MENU_EDIT+DESK_EDIT_REDO) {
         unsigned target=0;struct desk_edit *e=edit_target(t,&target);
         if(e) tool_dispatch(t,(struct desk_action){target,desk_edit_command(e,id-MENU_EDIT)});
+    } else if(id==MENU_QUIT && t->role==DESK_APP_TEXT) {t->quit_application=1;
     } else if(id==MENU_CLOSE) {
         if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
     } else if(id==MENU_SAVE_AS) tool_text_save(t,1);

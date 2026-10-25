@@ -3,11 +3,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define SRVROS_SERVICE_WINDOW_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static struct srv_gfx_blit_scaled_rect request;
 static uint32_t pixels[4096*20];
 static uint64_t address_space=7,rows_done,calls;
 static bool fail_alloc,fail_blit,deny_pixels;
+static unsigned service_depth;
+uint64_t service_window_test_irq_save(void) {return 0;}
+void service_window_test_irq_restore(uint64_t flags) {(void)flags;}
+bool scheduler_io_begin(void) {service_depth++;return true;}
+void scheduler_io_end(void) {assert(service_depth);service_depth--;}
+void scheduler_io_checkpoint(void) {assert(service_depth && address_space==7);}
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     assert(!writable);
     uint64_t starts[]={(uint64_t)&request,(uint64_t)pixels};

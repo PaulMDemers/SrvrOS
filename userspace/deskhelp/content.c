@@ -124,6 +124,20 @@ static const struct desk_document_block find_guide[]={
  H(5,"Use a result"),P(6,"Select a result and press Enter to open it in its normal application. Show in Files or Ctrl-R opens its containing folder. Copy path or Ctrl-C copies the complete path. Click a heading to sort; F6 selects headings for keyboard sorting. Right-click or Shift-F10 opens the result menu."),
  H(7,"Background work"),P(8,"Search runs in a separate process. You can keep using the desktop or edit fields for the next search. The results retain the search that produced them. Stop or Escape cancels; closing the window also stops its worker."),
  N(9,"The first 256 matches are shown; a notice appears when more exist. Paths must fit within 159 UTF-8 bytes, and skipped paths are reported. Searches reflect the currently mounted VFS; they are not an index or an atomic filesystem snapshot. Missing or changed results can fail to open. The search deadline is 60 seconds. Small windows keep kind selection in the menu and keyboard shortcuts.")};
+static const struct desk_document_block lifecycle_trial[]={
+ T(1,"Application lifecycle trial"),
+ P(2,"This attended check has no time limit. Keep AC power and the USB workspace connected. Keep this guide open; reopen it through Help > Topics and search Application lifecycle trial. These changes need real keyboard and trackpad acceptance; automatic VM tests already check saved bytes, failed saves, crashes and process cleanup."),
+ H(3,"1. Two independent documents"),
+ P(4,"Open Text using Command-Space. Type a few lines, then use Ctrl-Shift-N to add another document in the same application. Give each different text. Ctrl-W closes only the current document; Ctrl-Q quits Text and resolves its documents one at a time. Leave both documents unsaved for the next step."),
+ H(5,"2. Owned prompts and focus"),
+ P(6,"Press Ctrl-W in the second document. An unsaved-work dialog should appear as a separate centered window. Try clicking and typing in its parent: the dialog must keep ownership. Use Alt-Tab or the Window menu to switch to the first document; it should remain usable. Return to the dialog and choose Cancel. The second document and its edits must remain. Repeat, choose Save, then cancel the file picker: the document must stay open."),
+ H(7,"3. Save, quit and cancel"),
+ P(8,"Save the second document with File > Save as to a fresh Home filename, lifecycle-b.txt. In the first document press Ctrl-Q. Cancel its unsaved-work prompt or its Save picker: quitting must stop and its edits must remain. Save it as lifecycle-a.txt. Add another edit, press Ctrl-Q and choose Save in its prompt. Text should resolve every remaining document and quit. The dialog must never appear behind its parent or accept typing in the wrong document."),
+ H(9,"4. Reopen text and images"),
+ P(10,"Open Text again and leave it running. In Files, open Home/lifecycle-a.txt and lifecycle-b.txt. Each should appear as an independent document with exact saved contents. Save a screenshot with Command-Shift-3, then open the BMP from Home/Screenshots in Preview. Use File > Open to show its separate picker, Cancel it and confirm the original image remains. Open another screenshot from Files with Preview already running. Check focus, dragging, scrolling and keyboard cancellation in the dialogs."),
+ H(11,"5. Record and return"),
+ P(12,"Save observations in Home/lifecycle-notes.txt and take a screenshot of a dialog plus both documents. Save all edits, then choose SrvrOS > Return to console. Wait for clean lifetime/logger retirement. Type desktop battery to reopen the ordinary desktop and check the saved files again. Return to console once more, then type reboot to return to Ubuntu. There is no automatic reboot in this attended trial."),
+ N(13,"If input freezes or a dialog cannot close, photograph the screen and note the last action. Ctrl-Alt-Escape is the emergency return; it can discard unsaved edits. Photograph any halt or failed unmount before restarting. Window storage grows with demand; the process limit is unchanged by this feature.")};
 static const struct desk_document_block runtime_trial[]={
  T(1,"Runtime trial"),
  P(2,"This is an attended window, document and file-picker check. Take your time; there is no automatic test deadline. Keep this guide open. Reopen it through Help > Topics, then search Runtime trial. Keep the USB workspace connected."),
@@ -188,6 +202,7 @@ const struct help_topic help_topics[]={
  TOPIC(14,"sketch","Sketch","Drawing · brushes · color · BMP copies",DESK_APP_SKETCH,sketch_guide),
  TOPIC(15,"network","Network Utility","Ping · DNS lookup · reports · connectivity",DESK_APP_NETWORK,network_guide),
  TOPIC(17,"laptop-trial","Laptop trial","MacBook Air · physical acceptance · checklist",0,laptop_trial),
+ TOPIC(19,"lifecycle-trial","Application lifecycle trial","Owned dialogs · save · close · quit · reopen",0,lifecycle_trial),
  TOPIC(18,"runtime-trial","Runtime trial","Window growth · independent documents · cancellation · acceptance",0,runtime_trial),
  TOPIC(16,"find","Find Files","Names · folders · search · results",DESK_APP_FIND,find_guide),
 };

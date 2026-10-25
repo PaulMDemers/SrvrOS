@@ -4,6 +4,7 @@
 #include <string.h>
 #include <srvros/desk_app.h>
 #include <srvros/desk_connection.h>
+#include <srvros/desk_application.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
 
@@ -158,6 +159,68 @@ static void connection_windows(void) {
     assert(desk_connection_poll(&c,&target,&event)<0 && c.failed);queued=0;
     puts("desk-connection: PASS two windows, single reader, creation credit/refusal, independent focus/frames, blocked close, stale IDs, server death and flood deadline");
 }
+static void parent_dialogs(void) {
+    alive=1;full=0;source=42;queued=0;
+    struct desk_connection c,foreign;struct desk_app parent,other,*target;struct desk_packet event;
+    struct desk_dialog_window dialog={0};
+    desk_connection_init(&c);desk_connection_init(&foreign);
+    assert(!desk_window_open(&c,&parent,"Document",400,300));
+    desk_connection_poll(&c,&target,&event);
+    receive(DESK_OPEN_REPLY,0);assert(connection_receive(&c,&target,&event)==1);
+    assert(desk_window_open_dialog(&foreign,&other,&parent,"Foreign",400,300)<0);
+    assert(!desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300));
+    assert(dialog.window.parent_window==parent.window);
+    assert(dialog.window.open_request.value==(DESK_OPEN_CONNECTION|DESK_OPEN_MODAL));
+    assert(dialog.window.open_request.generation==parent.window);
+    for(int n=0;n<8 && !dialog.window.open_sent;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_OPEN_REPLY,0);incoming.window=dialog.window.window;
+    assert(connection_receive(&c,&target,&event)==1);
+    assert(desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300)==1);
+    full=1;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Save"));
+    full=0;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Open"));
+    assert(last_sent.type==DESK_TITLE && last_sent.window==dialog.window.window);
+    assert(desk_window_open_dialog(&c,&other,&parent,"Duplicate",400,300)<0);
+    assert(desk_window_open_dialog(&c,&other,&dialog.window,"Nested",400,300)<0);
+    desk_window_close(&parent);assert(parent.closing && dialog.window.closing);
+    for(int n=0;n<8;n++)desk_connection_poll(&c,&target,&event);
+    assert(dialog.window.close_sent && !parent.close_sent);
+    receive(DESK_CLOSE_ACK,0);incoming.window=dialog.window.window;
+    assert(connection_receive(&c,&target,&event)==1);
+    for(int n=0;n<8 && !parent.close_sent;n++)desk_connection_poll(&c,&target,&event);
+    assert(parent.close_sent);
+    receive(DESK_CLOSE_ACK,0);incoming.window=parent.window;
+    assert(connection_receive(&c,&target,&event)==1 && parent.closed);
+    assert(desk_window_dispose(&parent)<0); /* Caller must retire child storage first. */
+    assert(!desk_dialog_window_sync(&dialog,&parent,0,"Save",400,300));
+    assert(!dialog.window.connection && !desk_window_dispose(&parent));
+    puts("desk-dialog: PASS same-owner admission, no nesting/duplicate, child-before-parent close/disposal");
+}
+static void application_lifecycle(void) {
+    struct desk_application_lifecycle a={0};
+    assert(!desk_application_close_next(&a,1));desk_application_quit(&a);
+    assert(desk_application_close_next(&a,1) && !desk_application_close_next(&a,2));
+    desk_application_cancel_quit(&a,2);assert(a.quitting && a.closing_window==1);
+    desk_application_closed(&a,1);assert(desk_application_close_next(&a,2));
+    desk_application_cancel_quit(&a,2);assert(!a.quitting && !a.closing_window);
+    struct desk_open_document r={0};struct desk_packet p=desk_packet_new(DESK_OPEN_DOCUMENT);
+    p.window=7;p.input_serial=10;p.height=88;memset(p.text,'x',88);p.text[0]='/';
+    assert(!desk_open_document_receive(&r,&p));
+    p.serial=88;p.height=42;p.width=1;memset(p.text,'y',41);p.text[41]=0;
+    assert(desk_open_document_receive(&r,&p)==1 && r.ready && strlen(r.path)==129);
+    struct desk_packet newer=p;newer.serial=0;newer.input_serial=11;
+    assert(!desk_open_document_receive(&r,&newer) && r.request==10);
+    desk_open_document_finish(&r,1);assert(r.reply_pending && r.reply.window==7 && r.reply.serial==10 && !r.reply.value);
+    full=1;desk_open_document_tick(&r,42);assert(r.reply_pending);
+    full=0;desk_open_document_tick(&r,42);assert(!r.reply_pending && last_sent.type==DESK_OPEN_DOCUMENT_REPLY);
+    p.serial=0;p.input_serial=10;assert(!desk_open_document_receive(&r,&p)); /* Replay. */
+    p.input_serial=11;p.height=4;memcpy(p.text,"bad",4);
+    assert(desk_open_document_receive(&r,&p)==-1 && r.reply_pending && r.reply.value==1);
+    desk_open_document_tick(&r,42);p.input_serial=12;p.height=3;p.width=0;memcpy(p.text,"/ab",3);
+    assert(!desk_open_document_receive(&r,&p));p.serial=99;
+    assert(desk_open_document_receive(&r,&p)==-1 && r.reply_pending);
+    desk_open_document_tick(&r,42);
+    puts("desk-application: PASS sequential quit/cancel, owned path chunks, stale rejection, refusal and acknowledgement retry");
+}
 int main(void) {
     struct desk_app stable={.server=42,.surface=1,.generation=7,.configure={.generation=7}};
     assert(desk_app_wait(&stable,10)==0 && waits==1);
@@ -230,5 +293,7 @@ int main(void) {
     assert(desk_app_poll(&a,&event)<0 && a.failed);desk_app_close(&a);
     refused_resize();
     connection_windows();
+    parent_dialogs();
+    application_lifecycle();
     puts("desk-app: PASS ownership, release-before-resize, stale input, retry, launch chunks, close veto, server loss and timeout");
 }

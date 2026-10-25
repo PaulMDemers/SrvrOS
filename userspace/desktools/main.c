@@ -64,6 +64,10 @@ void tool_dispatch(struct tool *t,struct desk_action a) {
     else if(t->role==DESK_APP_SYSTEM) tool_system_action(t,a);
 }
 static void key(struct tool *t,const struct srv_key_event *k) {
+    if(t->role==DESK_APP_TEXT && (k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==0x14) {
+        if(t->picker_mode)tool_picker_cancel(t);else if(t->modal)tool_text_dialog(t,1003);
+        t->quit_application=1;return;
+    }
     if(t->info_mode) { tool_files_info_key(t,k);return; }
     if(desk_popup_active(&t->context)) { tool_context_result(t,desk_popup_key(&t->context,k));return; }
     if(t->role==DESK_APP_SETTINGS && (k->flags&SRV_KEY_DOWN_EVENT) &&
@@ -80,6 +84,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
         return;
     }
     if((k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META))) {
+        if(k->usage==0x14 && t->role==DESK_APP_TEXT) {t->quit_application=1;return;}
         if(k->usage==0x1a) { if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;return; }
         if(t->role==DESK_APP_FILES) {
             if(k->usage==12) { tool_files_info_open(t);return; }
@@ -129,8 +134,8 @@ static void draw(struct tool *t,struct desk_canvas *c) {
         tool_system_draw(t,c);
     }
     desk_label_draw(c,(struct desk_rect){16,c->height-28,c->width-32,24},theme->body,t->status,theme->muted);
-    if(t->picker_mode) desk_picker_draw(c,&t->picker,theme);
-    if(t->modal) desk_dialog_draw(c,&t->dialog,theme);
+    if(t->picker_mode && !t->dialog_separate) desk_picker_draw(c,&t->picker,theme);
+    if(t->modal && !t->dialog_separate) desk_dialog_draw(c,&t->dialog,theme);
     desk_popup_draw(c,&t->context,theme);
     if(t->prompt_mode) desk_prompt_draw(c,&t->prompt,theme);
 }

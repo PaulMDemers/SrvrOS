@@ -24,6 +24,7 @@
 #include <srvros/process.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
+#include <srvros/service_window.h>
 #include <srvros/serial.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
@@ -1689,7 +1690,7 @@ static int64_t syscall_gfx_fill_rect(uint64_t x, uint64_t y, uint64_t width, uin
     return ok ? 0 : -1;
 }
 
-static int64_t syscall_gfx_blit_copy(struct srv_gfx_blit_rect request, uint64_t scale) {
+static int64_t syscall_gfx_blit_copy_impl(struct srv_gfx_blit_rect request, uint64_t scale,struct service_window *window) {
     uint64_t x = request.x;
     uint64_t y = request.y;
     uint64_t width = request.width;
@@ -1749,10 +1750,17 @@ static int64_t syscall_gfx_blit_copy(struct srv_gfx_blit_rect request, uint64_t 
             kfree(copy);
             return -1;
         }
+        service_window_checkpoint(window);
     }
 
     kfree(copy);
     return 0;
+}
+
+static int64_t syscall_gfx_blit_copy(struct srv_gfx_blit_rect request,uint64_t scale) {
+    struct service_window window=service_window_begin();
+    int64_t result=syscall_gfx_blit_copy_impl(request,scale,&window);
+    service_window_end(window);return result;
 }
 
 static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_request) {
@@ -1782,7 +1790,8 @@ static int64_t syscall_gfx_console_muted(void) {
     return console_framebuffer_muted() ? 1 : 0;
 }
 
-static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_request) {
+static int64_t syscall_gui_surface_create_impl(struct srv_gui_surface_create *user_request,struct service_window *window) {
+    (void)window;
     struct srv_gui_surface_create request;
     struct process *process = process_current();
     if (process == NULL || !user_buffer_ok(user_request,sizeof(request),true) ||
@@ -1806,6 +1815,12 @@ static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_re
     return -1;
 }
 
+static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_request) {
+    struct service_window window=service_window_begin();
+    int64_t result=syscall_gui_surface_create_impl(user_request,&window);
+    service_window_end(window);return result;
+}
+
 static int64_t syscall_gui_surface_destroy(uint64_t surface_id) {
     struct process *process = process_current();
     if (process == NULL) {
@@ -1814,7 +1829,7 @@ static int64_t syscall_gui_surface_destroy(uint64_t surface_id) {
     return gui_surface_destroy(process_pid(process), surface_id);
 }
 
-static int64_t syscall_gui_surface_blit(const struct srv_gui_surface_rect *user_request) {
+static int64_t syscall_gui_surface_blit_impl(const struct srv_gui_surface_rect *user_request,struct service_window *window) {
     struct process *process = process_current();
     struct srv_gui_surface_rect request;
     if (process == NULL ||
@@ -1868,12 +1883,19 @@ static int64_t syscall_gui_surface_blit(const struct srv_gui_surface_rect *user_
             kfree(copy);
             return -1;
         }
+        service_window_checkpoint(window);
     }
     kfree(copy);
     return 0;
 }
 
-static int64_t syscall_gui_surface_copy(const struct srv_gui_surface_rect *user_request) {
+static int64_t syscall_gui_surface_blit(const struct srv_gui_surface_rect *user_request) {
+    struct service_window window=service_window_begin();
+    int64_t result=syscall_gui_surface_blit_impl(user_request,&window);
+    service_window_end(window);return result;
+}
+
+static int64_t syscall_gui_surface_copy_impl(const struct srv_gui_surface_rect *user_request,struct service_window *window) {
     struct process *process = process_current();
     struct srv_gui_surface_rect request;
     if (process == NULL ||
@@ -1927,9 +1949,16 @@ static int64_t syscall_gui_surface_copy(const struct srv_gui_surface_rect *user_
                 return -1;
             }
         }
+        service_window_checkpoint(window);
     }
     kfree(copy);
     return 0;
+}
+
+static int64_t syscall_gui_surface_copy(const struct srv_gui_surface_rect *user_request) {
+    struct service_window window=service_window_begin();
+    int64_t result=syscall_gui_surface_copy_impl(user_request,&window);
+    service_window_end(window);return result;
 }
 
 static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {

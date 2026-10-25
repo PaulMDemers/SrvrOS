@@ -2607,3 +2607,12 @@ independent durable payload. Raw results, source/stage and run records are backe
 up outside build before reboot. User explicitly authorizes this automatic launch.
 Air7,2's `2eb23c11` process/graphics service-window work remains separate and
 unmerged; this candidate neither consumes its v15 protocol nor changes its gates.
+
+
+Integration update: PR157 merged as `c4bee5cd` before PR160 integration. The
+pre-merge `4e8c2c95b707acbf` stage is superseded and was never installed or armed.
+Integrate the matched v15 document/modal lifecycle and kernel service-window
+baseline, retaining both the async worker and existing-process document routing,
+child modal retirement, Air7,2 v75 guide and Air6,1 v74 automatic stress. Repeat
+core/build, affected lifecycle VMs, automatic audio/I/O and exact-stage checks
+before preparing the replacement native payload. Recovery/USB baseline unchanged.

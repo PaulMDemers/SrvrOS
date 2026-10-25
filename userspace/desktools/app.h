@@ -41,7 +41,7 @@ struct tool {
     char file_source[DESK_FILE_PATH],file_select_name[96],file_notice[80];
     struct desk_file_picker picker;
     struct desk_chooser chooser;
-    int picker_mode;
+    int picker_mode,dialog_separate,quit_application,close_canceled;
     struct desk_button buttons[32];
     struct desk_check checks[13];
     struct desk_slider pointer_speed,brightness,audio_volume;

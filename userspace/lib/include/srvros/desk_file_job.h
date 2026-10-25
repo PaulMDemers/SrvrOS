@@ -53,7 +53,12 @@ int desk_file_job_start(struct desk_file_job *job,unsigned operation,const char 
 int desk_file_job_submit(struct desk_file_job *job);
 /* 1 completed response, 0 pending/idle, -1 worker or protocol failure. */
 int desk_file_job_poll(struct desk_file_job *job);
-/* For pooled jobs, busy close is refused by retaining the binding. Prefer the
+/* Legacy close is best-effort; explicit application lifetimes should retire.
+ * For pooled jobs, busy close is refused by retaining the binding. Prefer the
  * checked detach API before releasing caller storage. */
 void desk_file_job_close(struct desk_file_job *job);
+/* Explicit idle-worker retirement: 1 drained/reaped,0 pending,-1 invalid.
+ * Retains PID across nonblocking waits; never kills an accepted mutation.
+ * Keep polling accepted work before retirement; do not reuse the job meanwhile. */
+int desk_file_job_retire(struct desk_file_job *job);
 #endif

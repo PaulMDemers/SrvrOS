@@ -62,9 +62,11 @@ if (chooser.pending) {
 }
 ```
 
-This is an in-window chooser controller. It does not provide parented native
-windows, cross-process chooser portals, a filesystem permission boundary or an
-independent modal-event loop.
+The controller remains presentation-independent. Text and Preview host its widget
+in a [document-owned native dialog](desktop-application-lifecycle.md) through the
+shared connection presenter, with an embedded admission-refusal fallback. It does
+not provide cross-process chooser portals, a filesystem permission boundary or
+an independent modal-event loop.
 
 ## Verification
 

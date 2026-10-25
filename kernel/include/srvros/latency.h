@@ -5,6 +5,7 @@
 #include <srvros/perf_sample.h>
 
 enum latency_site { LATENCY_CONSOLE, LATENCY_HEAP, LATENCY_AHCI, LATENCY_SERIAL, LATENCY_PMM, LATENCY_SITE_COUNT };
+enum latency_work_site { LATENCY_PROCESS_RECORD, LATENCY_PROCESS_IMAGE, LATENCY_PROCESS_MEMORY, LATENCY_PROCESS_EXIT, LATENCY_PROCESS_MAPPING, LATENCY_PROCESS_REFRESH, LATENCY_WORK_COUNT };
 struct latency_sample { uint64_t count, total_us, max_us, over_1ms, over_10ms; };
 struct latency_stats {
     bool enabled;
@@ -12,11 +13,15 @@ struct latency_stats {
     uint64_t longest_gate_syscall,usb_commands,usb_bytes,usb_flushes;
     struct latency_sample critical[LATENCY_SITE_COUNT];
     struct latency_sample tick_gap, input_poll_gap;
+    /* Whole operations, including scheduling; entry_masked is not an IRQ-off duration. */
+    struct latency_sample work[LATENCY_WORK_COUNT];
+    uint64_t work_entry_masked[LATENCY_WORK_COUNT];
 };
 /* These hooks must be paired while interrupts are disabled. Nested calls at
  * one site measure only the outer interval; different sites may overlap. */
 uint64_t latency_clock(void);
 void latency_gate(uint64_t start,uint64_t syscall);
+void latency_work_record(enum latency_work_site site,uint64_t start,bool entry_masked);
 void latency_owner_begin(void);
 void latency_owner_end(void);
 void latency_usb(uint64_t bytes,uint8_t opcode);

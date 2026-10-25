@@ -17,6 +17,7 @@ struct desk_app {
     unsigned open_result;
     int opening,open_sent,closing,close_sent;
     uint64_t wait_epoch;
+    uint64_t parent_window;
     uint64_t server,window,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
     struct desk_packet configure;
     struct desk_menu_item menus[DESK_APP_MENU_ITEMS];

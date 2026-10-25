@@ -11,6 +11,10 @@ what was true at each checkpoint, including failed candidates. The
 [hardware plan](apple-hardware-expansion-plan.md) describes model differences;
 [machine records](machines/README.md) distinguish tested support from plans.
 
+For the focused owned-dialog, Close/Quit and file-open round, see the
+[application lifecycle contract and in-guest checklist](desktop-application-lifecycle.md#attended-hardware-trial).
+That explicit attended profile opens all instructions in Help before testing.
+
 Read the [coordination guide](agent-coordination.md) for ownership, overlapping
 changes, PR integration and checkpoints across machines.
 
