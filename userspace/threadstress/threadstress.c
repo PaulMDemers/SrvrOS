@@ -607,6 +607,7 @@ int posix_vector_io_test(void);
 int posix_file_errors_test(void);
 int posix_endpoint_flags_test(void);
 int posix_endpoint_flags_child(int argc,char **argv);
+int posix_readiness_wait_test(void);
 int posix_dprintf_test(void);
 int posix_fd_publication_test(void);
 int posix_fd_publication_child(void);
@@ -669,6 +670,7 @@ int main(int argc, char **argv) {
     RUN_TEST("vector-io", posix_vector_io_test);
     RUN_TEST("file-errors", posix_file_errors_test);
     RUN_TEST("endpoint-flags", posix_endpoint_flags_test);
+    RUN_TEST("readiness", posix_readiness_wait_test);
     RUN_TEST("dprintf", posix_dprintf_test);
     RUN_TEST("fd-publication", posix_fd_publication_test);
     RUN_TEST("umask", posix_umask_test);

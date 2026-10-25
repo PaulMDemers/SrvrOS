@@ -4,17 +4,16 @@ Updated: 2026-10-24. State: **active reference machine; partial device acceptanc
 
 ### Active scope: POSIX correctness and compatibility
 
-Current block: descriptor error reporting and shared pipe/PTY/Unix-listener
-status/lifetime. Atomic pipe2/dup3/F_DUPFD_CLOEXEC and descriptor printf
-`ed1c1fd` pass full core, focused/full thread, libuv and ports guest tests.
-Vectored I/O `2d03cde` and libuv internal CLOEXEC fix `b89253a` also pass Lua
-files/process and Terminal checks. The next candidate is building; physical
-acceptance remains unchanged. Touch syscall/process/PTY/libc and semantic tests;
-then audit the portable-consumer descriptor handoff and publish the supported
-compatibility profile. Desktop implementation remains deferred.
-Main remains `211f17c` (consumed as `88c2cbb`); Pro PR19 `e66d47d` adds Wi-Fi
-evidence docs only since the prior inspection and retains independent RF/Wi-Fi
-scope. No physical trial is armed.
+Current block: final combined portable-C compatibility gate and public support
+profile. Endpoint state/errors `6c83966`, libuv descriptor mapping `0d0258b`,
+atomic socketpairs `050a837` and stream reopening `12b33d9` pass focused/full
+thread and affected libuv/Lua regressions; full core passes the runtime changes.
+New readiness fixture measures idle CPU and 128 request/response wakeups. Final
+build/consumer/Terminal/Files evidence is pending; no milestone or physical
+promotion is claimed yet. Desktop implementation remains deferred; combined
+GUI/FD wait is a documented design only.
+Main remains `211f17c` (consumed as `88c2cbb`); Pro PR19 `e66d47d` retains Wi-Fi
+scope. No physical trial is armed. Installed/recovery payloads are unchanged.
 
 
 User authorizes sustained implementation of the POSIX plan before the desktop

@@ -3595,7 +3595,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
                 socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0,fds) :
                 srv_pipe_pair_flags(fds,SRV_FD_CLOEXEC);
             if (pipe_error < 0) {
-                return errno != 0 ? errno : EINVAL;
+                return pipe_handle->ipc?(errno?errno:EINVAL):(pipe_error==-1?EINVAL:-pipe_error);
             }
             parent_fds[index] = fds[0];
             child_fds[index] = fds[1];

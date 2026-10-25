@@ -156,6 +156,7 @@ def main():
             "threadstress: vector-io ok",
             "threadstress: file-errors ok",
             "threadstress: endpoint-flags ok",
+            "threadstress: readiness ok",
             "threadstress: dprintf ok",
             "threadstress: fd-publication ok",
             "threadstress: umask ok",
