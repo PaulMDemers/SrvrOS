@@ -6626,3 +6626,26 @@ zero leaks/mismatches/errors; workspace unmounted, no reboot armed. Archive:
 Next: audit remaining pinned calibration/channel prerequisites and define the
 next bounded phase. No further RF writes, channel tuning, MAC enable, scanning,
 association/security or traffic accepted by this run.
+
+## 2026-10-25 — channel/calibration prerequisite inventory scope
+
+Path native results are collected/archived at `05d2f888`; no outstanding run
+or reboot. Main `afb2c3b0` merged Air6,1 automatic audio/USB; PR157 remains
+Air7,2 application lifecycle. Inspected shared dispatch/staging changes do not
+own Wi-Fi RF/baseband state. Pro PR19 retains integration base `d5bc4b3`.
+
+Pinned v7.0 USB start calls MAC startup before power-on firmware calibration;
+that calibration also uses channel context, TX ALC/IBI9 save/restore, timed
+firmware commands and optional TSSI MAC transitions. Do not transplant an
+isolated calibration command into the current MAC-disabled phase. The remaining
+USB init tail configures beacon state, US_CYC low8=1e and TXOP583f; channel setup
+has separate BBP bandwidth, band/CCA, synthesizer, gain and power prerequisites.
+The user confirmed United States testing; this is context, not permission to
+infer EEPROM power validity or enable unbounded channel/transmit operation.
+
+Objective: after exact captured path proof, read a fixed12-target inventory of
+USB timing/DMA, beacon timing, BBP bandwidth/path, band/CCA, TX SW/ALC and IBI9.
+Pre/post MAC0/COREf000f200/disabled-DMA triplets,18 reads total, no writes.
+Scope: fixed read-only engine, native gate, staging/tests and strict collector.
+Keep256KiB complete capture. Target values are observations, not accepted
+channel/calibration settings. No RF write, MAC enable, tuning, scan or traffic.
