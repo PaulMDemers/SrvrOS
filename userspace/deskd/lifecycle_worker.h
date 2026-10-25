@@ -4,7 +4,9 @@
 /* The UI owns admission and publication. One persistent worker owns blocking
  * syscalls. Release/acquire transfers each record; no scene pointers cross the
  * boundary. A discarded allocation keeps its budget until unmapping completes. */
-#define LIFE_MEMORY_SLOTS 256
+/* Every admitted client buffer is at least 280x240. Metadata must cover
+ * the full existing byte budget, including buffers awaiting release. */
+#define LIFE_MEMORY_SLOTS (DESK_CACHE_BYTES/(280u*240u*4u)+1)
 #define LIFE_LAUNCH_SLOTS 16
 #define LIFE_IDLE 0
 #define LIFE_QUEUED 1
