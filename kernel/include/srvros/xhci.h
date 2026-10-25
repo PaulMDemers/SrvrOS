@@ -105,6 +105,7 @@ bool xhci_wifi_capture_rf_table(void);
 bool xhci_wifi_capture_rf_bank5(void);
 bool xhci_wifi_capture_rf_bank6(void);
 bool xhci_wifi_capture_rf_vga(void);
+bool xhci_wifi_capture_rf_g20(void);
 /* Diagnostic-only: IRQ-masked I/O owner, no outstanding/failed bulk DMA.
  * Select 0 (poll), 4000 or 20000 us; restore previous after the capture. */
 bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous);

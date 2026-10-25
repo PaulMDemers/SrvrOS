@@ -1775,12 +1775,16 @@ static const uint8_t rf_bank6_values[MT76_RF_BANK6_COUNT]={0xc,0x0,0x0,0x84,0x2,
 /* Fixed reference VGA initialization in RF bank7; no band/channel switching. */
 static const uint8_t rf_vga_regs[MT76_RF_VGA_COUNT]={0,1,2,3,4,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,61,72,73,74};
 static const uint8_t rf_vga_values[MT76_RF_VGA_COUNT]={0x47,0x0,0x0,0x0,0x0,0x13,0xf,0x13,0x13,0x13,0x20,0x22,0x7c,0x0,0x0,0x0,0xf1,0x11,0xc2,0x41,0x20,0x40,0xd7,0xa2,0x60,0x49,0x20,0x44,0xc1,0x60,0xc0,0x1,0x3c,0x34,0x0};
-struct rf_table_plan {unsigned count,sequence_base;uint32_t base;const uint8_t *regs,*values;};
-static const struct rf_table_plan rf_central_plan={MT76_RF_CENTRAL_COUNT,8,0x80000000u,rf_central_regs,rf_central_values};
-static const struct rf_table_plan rf_bank5_plan={MT76_RF_BANK5_COUNT,96,0x80050000u,rf_bank5_regs,rf_bank5_values};
-static const struct rf_table_plan rf_bank6_plan={MT76_RF_BANK6_COUNT,232,0x80060000u,rf_bank6_regs,rf_bank6_values};
-static const struct rf_table_plan rf_vga_plan={MT76_RF_VGA_COUNT,308,0x80070000u,rf_vga_regs,rf_vga_values};
-static uint32_t rf_plan_address(const struct rf_table_plan *p,unsigned i){return i<p->count?p->base|p->regs[i]:UINT32_MAX;}
+/* Fixed default20MHz/G-band selection from reference RF init, in source order. */
+static const uint32_t rf_g20_addresses[MT76_RF_G20_COUNT]={0x80000011u,0x80070006u,0x80070007u,0x80070008u,0x8007003au,0x8007003bu,0x8007003cu,0x8007004cu,0x8007004du,0x80000010u,0x80000012u,0x80000027u,0x8006007fu,0x80070005u,0x80070009u,0x80070046u,0x80070047u,0x8007004eu,0x8007004fu};
+static const uint8_t rf_g20_values[MT76_RF_G20_COUNT]={0x0,0x40,0x40,0x3,0x40,0x40,0xaa,0x40,0x40,0x20,0x0,0x36,0x84,0x40,0x0,0x0,0x0,0x0,0x0};
+struct rf_table_plan {unsigned count,sequence_base;uint32_t base;const uint8_t *regs,*values;const uint32_t *addresses;};
+static const struct rf_table_plan rf_central_plan={MT76_RF_CENTRAL_COUNT,8,0x80000000u,rf_central_regs,rf_central_values,NULL};
+static const struct rf_table_plan rf_bank5_plan={MT76_RF_BANK5_COUNT,96,0x80050000u,rf_bank5_regs,rf_bank5_values,NULL};
+static const struct rf_table_plan rf_bank6_plan={MT76_RF_BANK6_COUNT,232,0x80060000u,rf_bank6_regs,rf_bank6_values,NULL};
+static const struct rf_table_plan rf_vga_plan={MT76_RF_VGA_COUNT,308,0x80070000u,rf_vga_regs,rf_vga_values,NULL};
+static const struct rf_table_plan rf_g20_plan={MT76_RF_G20_COUNT,378,0,NULL,rf_g20_values,rf_g20_addresses};
+static uint32_t rf_plan_address(const struct rf_table_plan *p,unsigned i){return i<p->count?(p->addresses?p->addresses[i]:p->base|p->regs[i]):UINT32_MAX;}
 static unsigned rf_plan_sequence(const struct rf_table_plan *p,unsigned command){return command<(p->count*2)?(p->sequence_base+command)%15+1:0;}
 static uint32_t rf_plan_guard_address(const struct rf_table_plan *p,unsigned op){
     unsigned step=op%7;
@@ -1900,4 +1904,17 @@ bool mt76_rf_bank6_exact_profile_valid(const struct mt76_rf_table *s){
     return s && s->complete && s->operations==MT76_RF_BANK6_OPS &&
         rf_plan_state_valid(&rf_bank6_plan,s,MT76_RF_BANK6_OPS) &&
         s->equal==MT76_RF_BANK6_COUNT && !s->mismatch_mask && !s->mismatch_hi;
+}
+
+unsigned mt76_rf_g20_sequence(unsigned command){return rf_plan_sequence(&rf_g20_plan,command);}
+uint32_t mt76_rf_g20_guard_address(unsigned op){return rf_plan_guard_address(&rf_g20_plan,op);}
+size_t mt76_rf_g20_packet(unsigned op,uint8_t *out,size_t capacity){return rf_plan_packet(&rf_g20_plan,op,out,capacity);}
+bool mt76_rf_g20_admit(const struct mt76_rf_table *state,unsigned op){return rf_plan_admit(&rf_g20_plan,state,op);}
+enum mt76_mcu_timing_status mt76_rf_g20_capture(struct mt76_rf_table *state,const struct mt76_mcu_timing_io *io){return rf_plan_capture(&rf_g20_plan,state,io);}
+uint32_t mt76_rf_g20_address(unsigned i){return rf_plan_address(&rf_g20_plan,i);}
+unsigned mt76_rf_g20_value(unsigned i){return i<MT76_RF_G20_COUNT?rf_g20_values[i]:UINT32_MAX;}
+bool mt76_rf_vga_exact_profile_valid(const struct mt76_rf_table *s){
+    return s && s->complete && s->operations==MT76_RF_VGA_OPS &&
+        rf_plan_state_valid(&rf_vga_plan,s,MT76_RF_VGA_OPS) &&
+        s->equal==MT76_RF_VGA_COUNT && !s->mismatch_mask && !s->mismatch_hi;
 }

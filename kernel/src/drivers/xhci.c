@@ -292,6 +292,9 @@ struct xhci_wifi_mcu {
     bool rf_vga_mode,rf_vga_active;
     unsigned rf_vga_submitted;
     struct mt76_rf_table rf_vga;
+    bool rf_g20_mode,rf_g20_active;
+    unsigned rf_g20_submitted;
+    struct mt76_rf_table rf_g20;
     bool rf_table_mode,rf_table_active;
     unsigned rf_table_submitted;
     struct mt76_rf_table rf_table;

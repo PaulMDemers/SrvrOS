@@ -701,7 +701,7 @@ logs contain the needed evidence. Reserve an explicitly attended hold for a
 specific evidence gap, such as failure before persistent logging starts. Missing
 or incomplete logs remain incomplete evidence, never a pass. After Ubuntu
 returns, mount the same volume and reload its UUID/release from the local record.
-The explicit full RF bank5/bank6/VGA diagnostic selects a256KiB startup-proof window to
+The explicit full RF bank5/bank6/VGA/G20 diagnostic selects a256KiB startup-proof window to
 retain its complete command and guard receipts. Ordinary logging stays64KiB;
 previous firmware captures stay128KiB. The selected profile determines the exact
 `tail_limit`; require the whole prefix and matching byte count, and reject a

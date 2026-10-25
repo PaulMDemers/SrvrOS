@@ -6191,3 +6191,24 @@ fault tests, strict collector and current docs. No caller-provided targets or
 plans. Keep256KiB full-prefix logging. No channel-frequency plan, frequency
 trim, DAC/VCO calibration, scanning, association/security or packet traffic.
 Full local/sanitizer and exact-stage VM checks precede unarmed installation.
+
+
+Implemented the fixed19-target mixed-bank G20 plan. The private plan selector
+retains immutable full addresses for this plan and the original base/register
+representation for prior plans. No arbitrary caller plan is exposed. Complete
+VGA admission validates all stored guards/replies and35 exact values. Host
+tests cover the reference-selected addresses/values, all266 I/O and267 cancel
+boundaries, malformed replies, guards, complete mismatch accounting and no
+replay. Native tests cover all38 command and228 guard positions, inherited
+prefix/VGA faults, packet-bit mutations and uncertain-transfer quarantine.
+All149 staging tests and138 historical recipe byte-identity checks pass.
+Four complete-prefix fixtures fit at most235613bytes within256KiB. Full
+build/regression/sanitizer and exact-stage VM checks precede installation;
+no native G20 result accepted yet.
+
+
+Full build and MCU/compact/bring-up, original strict and two-pass central,
+bank5/bank6 and logger regressions passed with the optional private address
+representation. New G20 engine and full VGA prerequisite validator both passed
+ASan/UBSan. Documentation links checked cleanly. Exact-stage GPT save/return
+and missing-workspace checks precede installation; native G20 pending.

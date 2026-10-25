@@ -2874,3 +2874,35 @@ hashes and offline filesystem/allocation checks passed. This establishes native
 command/guard/readback observations only. Next is bounded reference bandwidth/
 band initialization; frequency trim, DAC/VCO calibration, scanning and actual
 Wi-Fi connectivity remain untested.
+
+
+### Fixed default RF G20 observation (v70 candidate)
+
+`--wifi-rf-g20` requires `--wifi-rf-vga` and the entire earlier initialization
+chain. Native admission checks the full completed VGA command/guard proof and
+all35 exact readbacks with zero masks, plus all earlier central/bank5/bank6
+proof. The original strict central engine remains unchanged.
+
+The reference `mt76x0_phy_rf_init` selects9 bandwidth entries for default20MHz
+G-band and10 G-band entries from the two switch tables, in source order.
+The private fixed19-target plan preserves that order across banks0/6/7, then
+reads all19 targets separately. Existing single-bank plans retain their fixed
+base/register representation; only the private plan gains an optional immutable
+full-address table. No caller-provided plan, bank, address, count or value is
+admitted. The selected plan is default RF initialization, not a channel-frequency
+plan, regulatory acceptance or proof of a working tuned radio.
+
+The new observation has266 operations/submissions,228 guard reads,38 exact
+command replies,19 ACKs and19 uint8 observations, with76 pre/post guard
+triplets. Each guard checks MAC0, COREf000f200 and disabled/idle DMA. The first
+sequence is4 after VGA ends3, wrapping only between completed exchanges.
+All19 observations contribute to the low19-bit mismatch mask; high mask0.
+Prior-proof faults refuse new I/O; uncertain USB errors quarantine and never
+replay. Readback equality stays separate from calibrated RF acceptance.
+
+The v70 recipe adds only `srvros.wifi-rf-g20=1` to v69. It retains the existing
+256KiB full-prefix window; ordinary64KiB and older128KiB logging are unchanged.
+The collector requires all earlier proof, every new command/guard/value, exact
+prefix byte count and both completion markers. No frequency-plan tuning, trim,
+DAC/VCO calibration, scanning, association/security or packet traffic follows
+this trial automatically.

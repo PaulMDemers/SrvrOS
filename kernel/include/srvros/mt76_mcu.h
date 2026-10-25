@@ -458,6 +458,9 @@ uint32_t mt76_rf_state_request(unsigned operation);
 bool mt76_rf_state_admit(const struct mt76_rf_state *s);
 enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const struct mt76_mcu_timing_io *io);
 /* Observation only: reference-order writes, then a separate read pass. */
+#define MT76_RF_G20_COUNT 19u
+#define MT76_RF_G20_COMMANDS (MT76_RF_G20_COUNT*2u)
+#define MT76_RF_G20_OPS (MT76_RF_G20_COMMANDS*7u)
 #define MT76_RF_VGA_COUNT 35u
 #define MT76_RF_VGA_COMMANDS (MT76_RF_VGA_COUNT*2u)
 #define MT76_RF_VGA_OPS (MT76_RF_VGA_COMMANDS*7u)
@@ -509,4 +512,13 @@ uint32_t mt76_rf_vga_guard_address(unsigned operation);
 size_t mt76_rf_vga_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_vga_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_vga_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+/* Exact complete VGA proof and all35 matching observations. */
+bool mt76_rf_vga_exact_profile_valid(const struct mt76_rf_table *s);
+uint32_t mt76_rf_g20_address(unsigned index);
+unsigned mt76_rf_g20_value(unsigned index);
+unsigned mt76_rf_g20_sequence(unsigned command);
+uint32_t mt76_rf_g20_guard_address(unsigned operation);
+size_t mt76_rf_g20_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_g20_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_g20_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
 #endif

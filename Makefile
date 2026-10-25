@@ -3772,3 +3772,11 @@ test-mt76-rf-vga: build/tests/mt76-rf-vga-host$(HOST_EXE)
 build/tests/mt76-rf-vga-host$(HOST_EXE): tools/test_mt76_rf_vga.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-g20
+test-core: test-mt76-rf-g20
+test-mt76-rf-g20: build/tests/mt76-rf-g20-host$(HOST_EXE)
+	build/tests/mt76-rf-g20-host$(HOST_EXE)
+build/tests/mt76-rf-g20-host$(HOST_EXE): tools/test_mt76_rf_g20.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
