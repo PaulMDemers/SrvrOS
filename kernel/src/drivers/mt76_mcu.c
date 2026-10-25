@@ -1734,3 +1734,33 @@ enum mt76_mcu_timing_status mt76_rf_write_apply(struct mt76_rf_write *s,const st
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+static const uint32_t rf_state_addresses[MT76_RF_STATE_COUNT]={0x80,0x20,0x104,0x400,0x504,0x508,0x50c,0x518};
+uint32_t mt76_rf_state_address(unsigned i){return i<MT76_RF_STATE_COUNT?rf_state_addresses[i]:UINT32_MAX;}
+uint32_t mt76_rf_state_request(unsigned op){
+    if(op>=14)return UINT32_MAX;
+    return op<3?mt76_rf_probe_read_address(op):op>=11?mt76_rf_probe_read_address(op-11):rf_state_addresses[op-3];
+}
+bool mt76_rf_state_admit(const struct mt76_rf_state *s){
+    if(!s || !s->attempted || s->complete || s->reads>=14)return false;
+    for(unsigned op=0;op<s->reads;op++){
+        if(op<3 || op>=11){unsigned b=op>=11,n=b?op-11:op;
+            if(!rf_central_guard_valid(n,s->guards[b][n]))return false;
+        }else if(s->values[op-3]==UINT32_MAX)return false;
+    }
+    return true;
+}
+enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_state){.attempted=true};
+    for(unsigned op=0;op<14;op++){
+        if(!mt76_rf_state_admit(s))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint32_t *v=op<3?&s->guards[0][op]:op>=11?&s->guards[1][op-11]:&s->values[op-3];
+        if(!io->read(io->context,mt76_rf_state_request(op),v))return MT76_TIMING_IO;
+        s->reads++;
+        if(*v==UINT32_MAX || ((op<3 || op>=11) && !rf_central_guard_valid(op<3?op:op-11,*v)))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return MT76_TIMING_OK;
+}

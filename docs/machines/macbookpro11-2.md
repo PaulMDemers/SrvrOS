@@ -5729,3 +5729,13 @@ Fetched main `7a005184` contains merged Air7,2 POSIX PR134 (`c0ef70a8`);
 its portable process/desktop work is separate from this RF diagnostic. Native
 candidate integration base remains `d5bc4b3`. Next checkpoint: bounded fixed
 snapshot with ownership/failure tests, exact-stage VM and unarmed installation.
+
+
+Implemented opt-in v65 read-only RF controls after the reproduced v64 zero-read
+profile. Host checks cover every read/failure/cancellation/guard boundary, prior
+state mutation and replay; native checks cover14 positions with24 admission/
+transport cases each. All144 staging tests pass;128 historical Wi-Fi recipes are
+byte-identical. The strict collector rejects63 malformed snapshot proofs and
+accepts the complete worst-poll130084-byte fixture within131072. Build and exact-
+stage VM checks precede unarmed installation. Snapshot values remain untested
+natively and are not an accepted register profile.

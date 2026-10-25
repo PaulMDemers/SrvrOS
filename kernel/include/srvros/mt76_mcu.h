@@ -446,4 +446,15 @@ struct mt76_rf_write {
 bool mt76_rf_csr_zero_valid(const struct mt76_rf_csr *s);
 bool mt76_rf_write_request(const struct mt76_rf_write *s,bool *write,uint32_t *address,uint32_t *value);
 enum mt76_mcu_timing_status mt76_rf_write_apply(struct mt76_rf_write *s,const struct mt76_rf_csr_io *io);
+/* Read-only RF controls after the completed zero-read comparison. */
+#define MT76_RF_STATE_COUNT 8
+struct mt76_rf_state {
+    bool attempted,complete;
+    unsigned reads;
+    uint32_t guards[2][3],values[MT76_RF_STATE_COUNT];
+};
+uint32_t mt76_rf_state_address(unsigned index);
+uint32_t mt76_rf_state_request(unsigned operation);
+bool mt76_rf_state_admit(const struct mt76_rf_state *s);
+enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const struct mt76_mcu_timing_io *io);
 #endif

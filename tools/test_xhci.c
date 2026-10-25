@@ -3769,6 +3769,46 @@ static void test_wifi_rf_write(void){
  puts("xhci RF write: PASS exact write/read selectors, zero-profile and full-prefix admission, request mutation/replay and quarantine");
 }
 
+static void test_wifi_rf_state(void){
+ for(unsigned op=0;op<14;op++)for(unsigned fault=0;fault<24;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];rf_write_fixture(d,14);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->rf_write.complete=true;m->rf_state_mode=m->rf_state_active=true;m->rf_state_submitted=op;
+  m->rf_state=(struct mt76_rf_state){.attempted=true,.reads=op};m->rf_state.guards[0][1]=m->rf_state.guards[1][1]=0xf000f200;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==23?6:1,0);
+  uint32_t address=mt76_rf_state_request(op),value=0;
+  if(fault==1)m->rf_state_mode=false;
+  if(fault==2)m->rf_state_active=false;
+  if(fault==3)m->rf_write.complete=false;
+  if(fault==4)m->rf_write_submitted--;
+  if(fault==5)m->rf_write.reads--;
+  if(fault==6)m->rf_write.writes--;
+  if(fault==7)m->rf_write.polls[1]=0;
+  if(fault==8)m->rf_write.words[2]=0x641;
+  if(fault==9)m->rf_write.words[1]^=0x100;
+  if(fault==10)m->rf_write.guards[2][2]=UINT32_MAX;
+  if(fault==11)m->rf_six.values[0]=1;
+  if(fault==12)m->rf_six.values[3]=1;
+  if(fault==13)m->rf_central.words[2]=1;
+  if(fault==14)m->rf_state_submitted++;
+  if(fault==15)m->rf_state.complete=true;
+  if(fault==16)m->rf_state.reads=14;
+  if(fault==17)address++;
+  if(fault==18)m->rf_write.guards[0][1]=0;
+  if(fault==19)m->failed=true;
+  if(fault==20)m->pending=true;
+  if(fault==21)m->rf_write_active=false;
+  if(fault==22)m->rf_csr.complete=false;
+  assert(wifi_rf_state_read(d,address,&value)==!fault);
+  if(!fault){assert(m->rf_state_submitted==op+1 && d->firmware.control_request==7 && d->firmware.control_length==4 && d->firmware.control_index==address);assert(!wifi_rf_state_read(d,address,&value));}
+  else if(fault==23)assert(d->ep0_quarantined && d->firmware.failed && !freed);
+  else assert(!d->ep0_enqueue && m->rf_state_submitted==op+(fault==14));
+ }
+ reset_test();assert(!xhci_wifi_capture_rf_state());
+ puts("xhci RF state: PASS fixed read-only requests, zero-comparison/full-prefix admission, replay and quarantine");
+}
+
 static void test_wifi_ant_init(void){
  for(unsigned target=0;target<5;target++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<34;fault++){
   reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
@@ -4985,6 +5025,7 @@ int main(int argc, char **argv) {
     test_wifi_rf_six();
     test_wifi_rf_csr();
     test_wifi_rf_write();
+    test_wifi_rf_state();
     test_wifi_ant_init();
     test_wifi_mac_private();
     test_wifi_efuse_map();

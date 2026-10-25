@@ -3732,3 +3732,11 @@ test-mt76-rf-write: build/tests/mt76-rf-write-host$(HOST_EXE)
 build/tests/mt76-rf-write-host$(HOST_EXE): tools/test_mt76_rf_write.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-state
+test-core: test-mt76-rf-state
+test-mt76-rf-state: build/tests/mt76-rf-state-host$(HOST_EXE)
+	build/tests/mt76-rf-state-host$(HOST_EXE)
+build/tests/mt76-rf-state-host$(HOST_EXE): tools/test_mt76_rf_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

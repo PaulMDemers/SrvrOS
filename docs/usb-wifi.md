@@ -2650,3 +2650,27 @@ markers and the full79461-byte snapshot passed, with clean recovery/filesystem
 checks. This accepts only the experiment. Switching the write transport did not
 resolve RF0:6 readback; audit prerequisites/register semantics before another
 write trial. The central table remains unaccepted; no calibration or traffic.
+
+
+### Read-only RF control snapshot (v65 candidate)
+
+`--wifi-rf-state` requires the completed v64 zero-read experiment and all prior
+prerequisites. It adds14 fixed vendor register reads: MAC/CORE/disabled-DMA guards,
+eight target observations, then the same three guards. Targets are WLAN_FUN_CTRL
+`80`, CMB_CTRL `20`, OSC_CTRL `104`, PBF_SYS_CTRL `400`, RF_BYPASS0/1 `504/508`,
+RF_SETTING0 `50c` and RF_MISC `518`. All-ones or failed reads stop the capture;
+there is no write callback or caller-selected address. Native admission verifies
+both the complete zero-read prefix and the precise next read, retains transfer
+quarantine, and refuses replay. It adds no RF selector or data writes beyond the
+existing v64 experiment. The eight values are observations, not accepted targets.
+
+The reference [chip/clock sequence](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+and [RF initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+confirm the v64 CSR encoding and central-table order. They do not define a zero
+readback exception for RF0:6. Read-only Linux debugfs sampling on this unit gave
+four identical RF_BYPASS0/1=0, RF_SETTING0=0 and RF_MISC=5 observations. Those are
+live, connected radio values: they cannot establish the proper disabled native
+initialization state. WLAN GPIO input bits and CMB state also differ between the
+live Linux sample and the saved native antenna setup; do not copy them wholesale.
+The next snapshot fills the native bypass/control evidence gap before any new
+RF data-write hypothesis. Calibration and connectivity remain pending.
