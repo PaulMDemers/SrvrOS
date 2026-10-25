@@ -1625,6 +1625,7 @@ int main(int argc,char **argv) {
     if(battery_work)desk_log("desktop-work: begin minimum_us=300000000 deadline_us=480000000\n");
     unsigned capacity_launched=0,capacity_phase=0,capacity_shot=0,capacity_sent=0;
     uint64_t capacity_pid=0;
+    int capacity_child_slot=-1;
     uint64_t capacity_begin=(uint64_t)srv_monotonic_us(),capacity_due=0;
     if(capacity_capture) {
         strcpy(s.scene.notice,"Automatic capacity test: opening 24 apps, saving a screenshot, then returning. No input needed.");
@@ -2124,15 +2125,20 @@ int main(int argc,char **argv) {
                         DESK_APP_CLOCK,DESK_APP_HELP,DESK_APP_PREVIEW,DESK_APP_SKETCH};
                     int slot=child_slot(&s);
                     spawn_app(&s,capacity_launched==23?DESK_APP_TEXT:roles[capacity_launched%7],capacity_launched==23?"--capacity-files":"");
-                    if(capacity_launched==23 && slot>=0)capacity_pid=*session_children(&s,slot);
+                    if(capacity_launched==23)capacity_child_slot=slot;
                     capacity_launched++;
                 } else {
-                    capacity_phase=4;capacity_due=now;
-                    desk_log("desktop-capacity: rendered=24 processes=24; editing documents\n");
+                    /* spawn_app queues work; read the reserved slot only
+                     * after every launched child has published a ready frame. */
+                    if(capacity_child_slot<0 || !(capacity_pid=*session_children(&s,capacity_child_slot)))failed=1;
+                    else {
+                        capacity_phase=4;capacity_due=now;
+                        desk_log("desktop-capacity: rendered=24 processes=24; editing documents\n");
+                    }
                 }
             } else if(capacity_phase==4) {
                 int target=-1;
-                for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==capacity_pid)target=i;
+                if(capacity_pid)for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==capacity_pid)target=i;
                 if(target<0 || live!=24 || ready!=24)failed=1;
                 else if(session_client(&s,target)->present_input==capacity_sent && now>=capacity_due) {
                     if(capacity_sent==60) {
