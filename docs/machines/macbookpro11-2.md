@@ -106,8 +106,11 @@ passed. All18 transfers,16 reads,2 writes,2 verified targets and4 guard
 triplets passed with full earlier proof. Entire247000-byte startup prefix
 and both completion markers saved. Recovery/default/one-shot/hashes verified;
 offline workspace clean291files/693clusters/119directories, zero leaks/
-mismatches/errors, unmounted and unarmed. Evidence durably archived. Next:
-audit remaining calibration/channel prerequisites before bounded implementation;
+mismatches/errors, unmounted and unarmed. Evidence durably archived. Candidate `80a6781c0b08290c` (source `4dd830fd`) is installed unarmed for a
+fixed read-only channel/calibration prerequisite inventory. Local/regression/
+sanitizer and exact-stage GPT save/return plus missing-workspace checks passed.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Results save automatically and return to Ubuntu. Target values and calibrated
 radio operation/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
@@ -6662,3 +6665,23 @@ and exact path validator, full build,499 documentation links and nine new
 pinned-reference hashes pass. Next: exact-stage GPT save/return and missing-
 workspace rehearsal, then install with Ubuntu/known-good recovery retained.
 Native target inventory remains pending; no reboot armed.
+
+
+Inventory source `4dd830fd0f7254ab1f02fbb6740b8b2dd5cb96cb`, release
+`80a6781c0b08290c`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB capture
+confirmed. Missing-workspace refusal/return passed. Ubuntu default and
+known-good `e47dca3a6b30c6c1` retained, as is accepted path release
+`0aaf20927414846c`. Older delayed VCO `cd775567c529231f` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+291files/693clusters/119directories, zero leaks/mismatches/errors; unmounted.
+Payload, pinned channel/path reference audits/hashes, local/fault/strict/
+sanitizer checks, both VM receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-state-4dd830f/`.
+
+On return collect matching release/session FIRST. Require full prior/path
+proof,18 ordered reads/receipts,12 indexed non-all-ones target observations,
+2 guard triplets, both completion markers and entire prefix. Review actual
+values against the dependency audit before choosing any further settings.
+No target acceptance from transport completion; no additional RF write,
+tuning, MAC enable or traffic. No reboot armed; native inventory pending.
