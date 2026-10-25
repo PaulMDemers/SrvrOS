@@ -28,7 +28,7 @@ prerequisite for multiple windows per application.
 | Layer and source | Current responsibility | Constraint to address |
 | --- | --- | --- |
 | [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Dynamic queues/surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
-| [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
+| [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v15, 168-byte packets with explicit window ID and owned dialogs; configure/commit/release, input, titles, menus, document routing | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
 | [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Stable dynamically allocated records and independent child storage; lifetime-safe UI actions; linear lookup/stacking remains |
