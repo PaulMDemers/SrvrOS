@@ -94,6 +94,8 @@ def main():
                     lifecycle=re.search(rb'desktop-life: result=PASS cycles=(\d+) max_loop_us=(\d+) max_ready_us=(\d+) max_close_us=(\d+) errors=0 limit_us=500000 first_us=(\d+) last_us=(\d+)',output)
                     assert lifecycle and int(lifecycle[1])>=6 and 0<int(lifecycle[2])<=500000
                     assert int(lifecycle[6])-int(lifecycle[5])>=40000000
+                    pcm_window=re.search(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+)',output)
+                    assert pcm_window and int(pcm_window[1])<=int(lifecycle[5])<int(lifecycle[6])<=int(pcm_window[2])
                     ready=re.findall(rb'desktop-life: ready cycle=(\d+) pid=(\d+) elapsed_us=(\d+)',output)
                     closed=re.findall(rb'desktop-life: closed cycle=(\d+) pid=(\d+) elapsed_us=(\d+) errors=0',output)
                     assert len(ready)==len(closed)==int(lifecycle[1])

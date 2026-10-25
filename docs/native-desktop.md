@@ -556,4 +556,6 @@ Shutdown stops and joins the worker before releasing its session records.
 The worker queues are bounded and reject excess admission visibly. Registry
 growth, screenshot initiation and exceptional forced process termination are
 separate synchronous paths; the automatic lifecycle receipt measures the tested
-normal launch/render/close path, not every possible desktop operation.
+normal launch/render/close path, not every possible desktop operation. Shared-address-space exclusion still
+applies if the worker itself owns filesystem I/O; the RAM executable test does
+not promise bounded launch latency for disk-backed executables.

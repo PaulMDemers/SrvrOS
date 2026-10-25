@@ -96,7 +96,7 @@ def main():
                     if current==baseline:break
                     if time.monotonic()>deadline:raise RuntimeError(f'Leaked processes: {current-baseline}')
                     time.sleep(.5)
-                assert b'cache_bytes=0' in output
+                assert re.search(rb'deskd: cache peak_bytes=\d+ retired_bytes=0 budget_bytes=100663296',output)
                 if b'FAIL' in output or b'failure=1' in output or b'exception:' in output:raise RuntimeError('Guest failure')
                 serial.close();qmp.stream.close();qmp.sock.close()
             except Exception:
