@@ -189,3 +189,18 @@ void desk_file_job_close(struct desk_file_job *j) {
     if(j->pid) { uint64_t status;srv_wait(j->pid,&status,SRV_WAIT_NOHANG); }
     j->pid=0;
 }
+
+int desk_file_job_retire(struct desk_file_job *j) {
+    if(!j)return -1;
+    if(j->busy)return 0;
+    if(j->pool)return desk_file_job_detach(j)?-1:1;
+    if(j->writer>=0)srv_close(j->writer);
+    if(j->reader>=0)srv_close(j->reader);
+    j->writer=j->reader=-1;j->broken=1;
+    if(j->pid) {
+        uint64_t status=0;long result=srv_wait(j->pid,&status,SRV_WAIT_NOHANG);
+        if(result==(long)j->pid || (result<0 && !desk_process_alive(j->pid)))j->pid=0;
+        else return 0;
+    }
+    return 1;
+}

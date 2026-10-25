@@ -9,6 +9,7 @@ int tool_modified(const struct tool *t) {
     return t->body_text.length!=t->saved_length || memcmp(t->body_text.data,t->saved_data,t->saved_length);
 }
 static void cancel_pending(struct tool *t) {
+    if(t->pending==TOOL_PENDING_CLOSE || t->closing)t->close_canceled=1;
     t->pending=t->closing=0;desk_app_cancel_close(&t->window);
 }
 static void load(struct tool *t,const char *path) {
@@ -102,6 +103,7 @@ void tool_text_action(struct tool *t,struct desk_action a) {
 void tool_text_dialog(struct tool *t,unsigned id) {
     int modal=t->modal;
     if(id==1003) {
+        if(t->pending==TOOL_PENDING_CLOSE || t->closing)t->close_canceled=1;
         t->modal=0;t->pending=0;t->closing=0;
         desk_app_cancel_close(&t->window);desk_ui_window_focus(&t->ui,1);t->window.dirty=1;return;
     }

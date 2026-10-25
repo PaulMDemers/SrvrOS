@@ -6,6 +6,7 @@
 #include <srvros/fpu.h>
 #include <srvros/gui.h>
 #include <srvros/heap.h>
+#include <srvros/latency.h>
 #include <srvros/keyboard.h>
 #include <srvros/net.h>
 #include <srvros/pmm.h>
@@ -376,6 +377,48 @@ static void process_irq_restore(uint64_t flags) {
 #endif
 }
 
+struct process_latency_span { uint64_t start;bool entry_masked; };
+static struct process_latency_span process_latency_begin(void) {
+#ifdef SRVROS_PROCESS_HOST_TEST
+    return (struct process_latency_span){0};
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0":"=r"(flags)::"memory");
+    return (struct process_latency_span){latency_clock(),!(flags&(1ull<<9))};
+#endif
+}
+static void process_latency_end(enum latency_work_site site,struct process_latency_span span) {
+#ifdef SRVROS_PROCESS_HOST_TEST
+    (void)site;(void)span;
+#else
+    latency_work_record(site,span.start,span.entry_masked);
+#endif
+}
+/* These are serialized service windows, not general preemption of a mutable
+ * process/VFS operation. Only the existing audited GUI and kernel services may
+ * run; siblings and unsafe entries wait behind the inherited owner gate. */
+struct process_service_scope { uint64_t flags;bool held; };
+static struct process_service_scope process_service_begin(void) {
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    return (struct process_service_scope){0};
+#else
+    struct process_service_scope scope={.flags=process_irq_save()};
+    scope.held=scheduler_io_begin();return scope;
+#endif
+}
+static void process_service_end(struct process_service_scope scope) {
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    (void)scope;
+#else
+    if(scope.held)scheduler_io_end();
+    process_irq_restore(scope.flags);
+#endif
+}
+static void process_service_checkpoint(void) {
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    scheduler_io_checkpoint();
+#endif
+}
+
 static void process_record_exit_status_locked(uint64_t pid, uint64_t status) {
     struct process_exit_record *oldest = &exit_records[0];
     for (uint64_t i = 0; i < PROCESS_EXIT_STATUS_CACHE; i++) {
@@ -690,10 +733,16 @@ static bool process_path_equal(const char *a, const char *b) {
 }
 
 static void clear_process(struct process *process) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
     uint8_t *bytes = (uint8_t *)process;
-    for (uint64_t i = 0; i < sizeof(*process); i++) {
-        bytes[i] = 0;
+    for(uint64_t offset=0;offset<sizeof(*process);) {
+        uint64_t end=offset+65536;if(end>sizeof(*process))end=sizeof(*process);
+        while(offset<end)bytes[offset++]=0;
+        process_service_checkpoint();
     }
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_RECORD,span);
     process->fsize_limit=(struct srv_rlimit){UINT64_MAX,UINT64_MAX};
     process->cwd[0]='/';
     for(unsigned i=0;i<3;i++) process->files[i]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=i};
@@ -929,6 +978,7 @@ static bool user_space_write(struct process *process, uint64_t virtual_address,
             bytes + copied,
             chunk);
         copied += chunk;
+        if(!(copied&0x1ffff))process_service_checkpoint();
     }
     return true;
 }
@@ -1198,6 +1248,7 @@ static bool map_process_page(struct process *process, uint64_t virtual_page, uin
     };
     uint64_t bytes=process->mapping_count*PAGE_SIZE;
     if(bytes>process->peak_mapped_bytes) process->peak_mapped_bytes=bytes;
+    if(!(process->mapping_count&31))process_service_checkpoint();
 
     return true;
 }
@@ -1237,17 +1288,13 @@ static void cleanup_process_mappings(struct process *process) {
         return;
     }
 
-    for (uint64_t i = 0; i < process->mapping_count; i++) {
-        uint64_t physical = 0;
-        if (vmm_unmap_page_in_space(process->address_space,
-                process->mappings[i].virtual_address,
-                &physical)) {
-            pmm_free_frame(physical);
-        } else if (process->mappings[i].physical_address != 0) {
-            pmm_free_frame(process->mappings[i].physical_address);
-        }
+    /* Publish each removed mapping before a service window. No freed frame
+     * remains in the live tracking prefix, including failure/rollback cleanup. */
+    unsigned batch=0;
+    while(process->mapping_count) {
+        process_unmap_mapping_at(process,process->mapping_count-1);
+        if(!(++batch&31))process_service_checkpoint();
     }
-    process->mapping_count = 0;
     for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
         process->mmap_regions[i].used = false;
     }
@@ -1259,8 +1306,11 @@ void process_refresh_mappings(struct process *process) {
         return;
     }
 
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
     vmm_refresh_kernel_mappings(process->address_space);
     for (uint64_t i = 0; i < process->mapping_count; i++) {
+        if(!(i&31))process_service_checkpoint();
         if (process->mappings[i].physical_address == 0) {
             continue;
         }
@@ -1269,6 +1319,8 @@ void process_refresh_mappings(struct process *process) {
             process->mappings[i].physical_address,
             process->mappings[i].flags);
     }
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_REFRESH,span);
 }
 
 static bool cleanup_process_files(struct process *process) {
@@ -1495,7 +1547,7 @@ static void process_release_thread_tls(struct process_user_thread *thread) {
     thread->tls_base=0;thread->tls_thread_pointer=0;
 }
 
-static int64_t load_elf_image_checked(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
+static int64_t load_elf_image_checked_impl(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
     if (process == NULL || process->address_space != 0) {
         return SRV_ERR_NOMEM;
     }
@@ -1599,6 +1651,14 @@ static int64_t load_elf_image_checked(const char *path, struct process *process,
     return 0;
 }
 
+static int64_t load_elf_image_checked(const char *path,struct process *process,uint64_t stack_top,uint64_t *entry_out) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=load_elf_image_checked_impl(path,process,stack_top,entry_out);
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
+}
+
 static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
     return load_elf_image_checked(path,process,stack_top,entry_out)==0;
 }
@@ -1624,11 +1684,15 @@ static void cleanup_process_address_space(struct process *process) {
         return;
     }
 
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
     cleanup_process_mappings(process);
     if (process->address_space != 0) {
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
     }
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_MEMORY,span);
 }
 
 static bool enter_process(struct process *process, const char *label) {
@@ -2024,7 +2088,7 @@ static void background_process_thread(void *arg) {
 
 /* Eager cloning is intentional for the first CLI fork profile. There is no
  * shared writable page or COW ownership to retire on a failed reservation. */
-static bool process_clone_address_space(struct process *child,const struct process *parent) {
+static bool process_clone_address_space_impl(struct process *child,const struct process *parent) {
     if(!vmm_create_address_space(&child->address_space)) return false;
     for(uint64_t i=0;i<parent->mapping_count;i++) {
         const struct process_mapping *source=&parent->mappings[i];
@@ -2033,6 +2097,12 @@ static bool process_clone_address_space(struct process *child,const struct proce
         copy_bytes(pmm_phys_to_virt(target->physical_address),pmm_phys_to_virt(source->physical_address),PAGE_SIZE);
     }
     return true;
+}
+
+static bool process_clone_address_space(struct process *child,const struct process *parent) {
+    struct process_service_scope scope=process_service_begin();
+    bool result=process_clone_address_space_impl(child,parent);
+    process_service_end(scope);return result;
 }
 
 int64_t process_fork(const struct isr_frame *frame) {
@@ -5805,7 +5875,7 @@ int64_t process_file_utime(struct process *process,uint64_t fd,uint64_t atime,ui
     return vfs_utime(content->path,atime,mtime)?0:SRV_ERR_IO;
 }
 
-int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out) {
+static int64_t process_sbrk_impl(struct process *process, int64_t increment, uint64_t *previous_out) {
     if (process == NULL || previous_out == NULL || process->address_space == 0) {
         return -1;
     }
@@ -6053,7 +6123,7 @@ static bool mmap_apply_protection(struct process *process,
     return true;
 }
 
-int64_t process_mmap(struct process *process,
+static int64_t process_mmap_impl(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t protection,
@@ -6143,7 +6213,7 @@ int64_t process_mmap(struct process *process,
     return (int64_t)base;
 }
 
-int64_t process_munmap(struct process *process, uint64_t address, uint64_t length) {
+static int64_t process_munmap_impl(struct process *process, uint64_t address, uint64_t length) {
     if (process == NULL || process->address_space == 0 || length == 0 || (address % PAGE_SIZE) != 0) {
         return -1;
     }
@@ -6163,7 +6233,9 @@ int64_t process_munmap(struct process *process, uint64_t address, uint64_t lengt
      * per page made large compositor-buffer teardown quadratic. Removal swaps
      * in the last entry, so examine that replacement before advancing. Pages
      * without physical mappings (for example PROT_NONE) need no frame release. */
+    unsigned scanned=0;
     for (uint64_t index = 0; index < process->mapping_count;) {
+        if(!(++scanned&31))process_service_checkpoint();
         uint64_t page = process->mappings[index].virtual_address;
         if (page >= address && page < address + mapped_length) {
             process_unmap_mapping_at(process, index);
@@ -6264,6 +6336,7 @@ void process_exit(uint64_t status) {
     }
 
     __asm__ volatile ("cli" : : : "memory");
+    struct process_latency_span exit_span=process_latency_begin();
     scheduler_kill_user_threads(process, NULL);
     process_futex_cleanup_process(process);
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
@@ -6280,6 +6353,7 @@ void process_exit(uint64_t status) {
     scheduler_clear_user_context();
     cleanup_process_address_space(process);
 
+    process_latency_end(LATENCY_PROCESS_EXIT,exit_span);
     process_context_restore(&process->context, 1);
 }
 
@@ -6317,4 +6391,28 @@ void process_fpu_restore(void *process_ptr) {
         return;
     }
     fpu_restore(&process->fpu);
+}
+
+int64_t process_sbrk(struct process *process,int64_t increment,uint64_t *previous_out) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=process_sbrk_impl(process,increment,previous_out);
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
+}
+
+int64_t process_mmap(struct process *process,uint64_t address,uint64_t length,uint64_t protection,uint64_t flags,int64_t fd,int64_t offset) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=process_mmap_impl(process,address,length,protection,flags,fd,offset);
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
+}
+
+int64_t process_munmap(struct process *process,uint64_t address,uint64_t length) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=process_munmap_impl(process,address,length);
+    process_service_end(scope);
+    process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
 }

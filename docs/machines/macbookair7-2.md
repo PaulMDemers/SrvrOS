@@ -2,6 +2,105 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Kernel lifecycle service windows validated; physical acceptance pending
+
+PR157 now includes bounded non-audio kernel work from clean `2eb23c1`: process
+record/image/mapping/refresh/retirement service windows and graphics private-copy
+and surface-fill windows. The original 57 ms IRQ-masked retirement walk is split
+at completed page batches while retaining the existing serialization owner,
+unsafe-entry/sibling exclusion, cancellation lifetime, frame poisoning, surface
+quota/epoch checks and failure semantics. Process limits and native gates remain
+unchanged. No HDA, codec, PCM or player implementation was edited.
+
+An audio-free Q35 fixture cycles 16 real Calculator/Files/Text/Preview apps,
+resizes/closes them, preserves an editable document and checks its exact saved
+bytes plus the process baseline. Baseline maximum timer/USB-poll gaps were
+61,684/79,743 us; the combined candidate measured 46,319/57,520 us. These are
+whole-fixture VM observations including desktop entry/exit and host scheduling,
+not physical guarantees. Whole-operation spans include scheduling and QMP wall
+timings include automated typing/shortcut delays. Remaining stalls are not hidden.
+
+Full core/desktop, ownership/failure/CR3/retirement fixtures and matched normal,
+native battery, Air7,2 VM battery and Air6,1 VM battery builds pass. Normal,
+Preview-crash and forced-dialog-refusal lifecycle VMs pass. Two unchanged
+60-second PCM/USB/battery stress VMs pass with clean retirement/automatic return;
+the earlier EC timeout has not recurred in those two runs, which does not prove
+its root cause. Exact v75 stage `2f871ca3f7401849` passes GRUB → staged Limine,
+automatically opened Help, save/exit/reopen, playback and clean unmount. It remains
+staged, not installed. The guide was visually checked.
+
+A separate clean `9746b0a` regression opens, resizes and closes four apps during a
+20-second stream using the unchanged player/HDA. Captured PCM has zero sample
+error and the player reports zero underruns. Saved document/process baseline and
+filesystem checks pass. The attempted 80-second fixture was terminated (exit 143)
+without a completion report; preserve it as incomplete, not a pass. Test fixture
+size/setup failures are retained separately. This is VM audio evidence only.
+
+Main `3ab4a38` (Air6,1 result documentation) is integrated at `038633d`; production
+sources match the tested `2eb23c1` tree. PR160 owns asynchronous compositor
+lifecycle/cache work; preserve its worker design and integrate it against this
+matched v15 baseline explicitly. Same-PID siblings remain excluded while their
+worker owns mutable kernel memory operations; service windows do not make app
+startup asynchronous. Larger UI/gate-wait stalls remain PR160's scope.
+
+Evidence is in `build/app-latency-20261025/`, retained with hash verification under
+this unit's `reviewed-evidence/app-latency-20261025` outside build. Installed
+current `f01d4049daae0b4a`, independent recovery `9aa8dbf6fbda8252`, Ubuntu default
+and no armed one-shot are verified. Neither new UI nor kernel changes have new
+Air7,2 physical acceptance. No physical reboot was requested.
+
+### Application lifecycle checkpoint before kernel service-window work
+
+Base main `e253a60`; D3 follow-up is implemented on this device branch/PR157.
+Matched protocol v15 adds one-level same-process document-modal windows, parent
+focus/input redirection and child-before-parent retirement. The shared presenter
+hosts Text's unsaved/replacement prompts and file pickers, and Preview's picker;
+admission refusal retains an embedded fallback. Text now distinguishes Ctrl-W
+from Ctrl-Q, resolving Quit one document at a time and stopping on cancel or
+failed save. Existing capable Text/Preview processes accept copied file-open
+requests with bounded chunks/cookies, acknowledgement retries and explicit
+refusal fallback. Unconfirmed requests are not blindly replayed. Process limits
+and device firmware gates are unchanged.
+
+Initial Text and Preview consumer VMs pass. The lifecycle VM passes independent
+sibling input during a modal prompt, Quit cancellation, failed-save retention,
+existing-process Text/Preview routing, exact saved contents and process baseline.
+Crash (Preview killed with a picker live) and forced dialog-refusal cases pass.
+The baseline check exposed uncollected exited workers; explicit idle-file-worker
+retirement now retains/reaps PIDs, and Preview drains image-worker retirement.
+Compositor preferences shutdown also collects its worker. Host tests cover the
+new ownership, quit, routing/chunk and worker-retirement contracts. Full core,
+desktop and matched normal/native/VM battery builds pass. Clean source `6eb9495`
+passes the normal, crash and forced-refusal lifecycle fixtures with exact saved
+bytes, clean formatted exFAT allocation and process-baseline recovery. The
+combined-service VM passes two rounds of 24 apps and exact document persistence.
+
+Main `afb2c3b` (Air6,1 audio/USB work from PR156/158) is integrated at `c0ce49b`;
+the guide uses distinct profile v75 and session selector 5, preserving v74 and
+selectors 3/4 for audio stress. Integrated core/desktop builds, 81 staging tests and all three lifecycle cases
+pass on clean source `3699b58`. Exact v75 release `1564f1d0adb0916b` passes
+GRUB → staged Limine guide startup, saved Text/Terminal work, audio playback,
+normal exit/reopen and clean unmount; its native battery profile refuses Q35
+as expected. Both guide pages were visually checked.
+The explicit lifecycle profile opens the full attended checklist in Help with
+no timed exit; ordinary reopen remains ordinary. No hardware reboot is armed.
+
+One extra integrated audio/USB stress run completed its full minute (508 bursts,
+133,169,152 bytes, zero underruns), then halted on a synthetic EC sample timeout
+at shutdown. The unchanged candidate retry passed with clean retirement and
+return. Three diagnostic main-compositor-only runs also passed; they do not
+prove a cause or constitute full-main/native comparisons. At that checkpoint
+PR157 was held for a bounded teardown/latency reproduction. No timeout or model
+gates were widened. The candidate compositor source and build were restored.
+
+Evidence: `build/desktop-lifecycle-20261025/`, with 280 files hash-verified under
+this unit's `reviewed-evidence/desktop-lifecycle-20261025` outside build, including
+the exact stage, original failure, isolation provenance and raw logs.
+The installed/recovery payload remains the prior physically accepted v14 image;
+this v15 change has no new physical acceptance yet. Future attended testing must
+open its full checklist in the guest before relying on input. Pro PR19 and Air6,1
+PR156 retain separate Wi-Fi/endurance scope. No reboot is armed by this work.
+
 ### Automated many-app documents accepted
 
 Release `f01d4049daae0b4a`, clean source `044d0b4`, passed both automatic native

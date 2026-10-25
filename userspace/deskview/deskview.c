@@ -1,5 +1,7 @@
 #include <srvros/desk_paths.h>
 #include <srvros/desk_app.h>
+#include <srvros/desk_connection.h>
+#include <srvros/desk_application.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_file_picker.h>
 #include <srvros/desk_chooser.h>
@@ -13,9 +15,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { VIEW_OPEN=1,VIEW_CANCEL,VIEW_FIT,VIEW_ACTUAL,VIEW_OUT,VIEW_IN,VIEW_IMAGE,VIEW_CLOSE,VIEW_SKETCH };
+enum { VIEW_OPEN=1,VIEW_CANCEL,VIEW_FIT,VIEW_ACTUAL,VIEW_OUT,VIEW_IN,VIEW_IMAGE,VIEW_CLOSE,VIEW_SKETCH,VIEW_QUIT };
 struct preview_app {
     struct desk_app window;
+    struct desk_connection connection;
+    struct desk_dialog_window dialog;
+    int dialog_separate,service_registered;
+    struct desk_open_document open_request;
     struct desk_ui ui;
     struct desk_button buttons[6];
     struct desk_image view;
@@ -155,7 +161,7 @@ static void action(struct desk_action a) {
     if(!(a.flags&DESK_WIDGET_ACTIVATED)) return;
     if(a.id==VIEW_OPEN) { picker_open();return; }
     if(a.id==VIEW_SKETCH) { if(app.pixels && app.path[0] && !app.image_job.busy) { if(desk_app_launch(&app.window,DESK_APP_SKETCH,app.path)) status("Sketch could not be opened. Try again."); }return; }
-    if(a.id==VIEW_CLOSE) { app.quit=1;return; }
+    if(a.id==VIEW_CLOSE || a.id==VIEW_QUIT) { app.quit=1;return; }
     if(a.id==VIEW_CANCEL) { desk_image_job_cancel(&app.image_job);status("Opening canceled. The current image was kept.");layout(); }
     else if(a.id==VIEW_FIT) desk_image_fit(&app.view);
     else if(a.id==VIEW_ACTUAL) desk_image_actual(&app.view);
@@ -165,11 +171,12 @@ static void action(struct desk_action a) {
     desk_log("deskview: action=%u scale=%u fit=%d x=%d y=%d\n",a.id,app.view.scale,app.view.fit,app.view.offset_x,app.view.offset_y);
 }
 static void key(const struct srv_key_event *k) {
+    if((k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==0x14) {app.quit=1;return;}
     if(app.picker_open) { picker_action(desk_picker_key(&app.picker,k));return; }
     if(k->flags&SRV_KEY_DOWN_EVENT) {
         if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==18) { picker_open();return; }
         if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==8) { action((struct desk_action){VIEW_SKETCH,DESK_WIDGET_ACTIVATED});return; }
-        if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==26) { app.quit=1;return; }
+        if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && (k->usage==26 || k->usage==20)) { app.quit=1;return; }
         if(k->usage==SRV_KEY_ESCAPE && app.image_job.busy) { action((struct desk_action){VIEW_CANCEL,DESK_WIDGET_ACTIVATED});return; }
     }
     action(desk_ui_key(&app.ui,k));
@@ -183,6 +190,7 @@ static void menus(void) {
         {VIEW_CANCEL,modal|(!app.image_job.busy?DESK_MENU_DISABLED:0),"Cancel opening","Esc"},
         {VIEW_SKETCH,empty|(app.image_job.busy?DESK_MENU_DISABLED:0),"Edit in Sketch","Ctrl-E"},
         {VIEW_CLOSE,modal,"Close window","Ctrl-W"},
+        {VIEW_QUIT,0,"Quit Preview","Ctrl-Q"},
         {0,DESK_MENU_HEADING,"View",""},
         {VIEW_FIT,empty|(app.view.fit?DESK_MENU_CHECKED:0),"Fit in window","0"},
         {VIEW_ACTUAL,empty|(!app.view.fit && app.view.scale==65536?DESK_MENU_CHECKED:0),"Actual size","1"},
@@ -203,7 +211,47 @@ static void draw(struct desk_canvas *c) {
     else strcpy(detail,"Preview");
     desk_label_draw(c,(struct desk_rect){12,c->height-50,c->width-24,24},t->body,detail,t->text);
     desk_label_draw(c,(struct desk_rect){12,c->height-26,c->width-24,24},t->body,app.status,t->muted);
-    if(app.picker_open) desk_picker_draw(c,&app.picker,t);
+    if(app.picker_open && !app.dialog_separate) desk_picker_draw(c,&app.picker,t);
+}
+static void dialog_event(struct desk_packet p) {
+    desk_picker_focus(&app.picker,app.dialog.window.focused);
+    if(p.type==DESK_CLOSE_REQUEST || p.type==DESK_WINDOW_FAILED) {picker_close();return;}
+    if(p.type==DESK_FOCUS)desk_picker_focus(&app.picker,p.value!=0);
+    else if(p.type==DESK_KEY) {
+        struct srv_key_event k;memcpy(&k,p.text,sizeof(k));
+        if((k.flags&SRV_KEY_DOWN_EVENT) && (k.modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k.usage==0x14)app.quit=1;
+        else if((k.flags&SRV_KEY_DOWN_EVENT) && (k.modifiers&SRV_KEY_CTRL) && k.usage==0x1a)picker_close();
+        else picker_action(desk_picker_key(&app.picker,&k));
+    } else if(p.type==DESK_POINTER) {
+        struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
+            .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
+        picker_action(desk_picker_pointer(&app.picker,e,srv_monotonic_us()));
+    } else if(p.type==DESK_SCROLL)picker_action(desk_picker_scroll(&app.picker,p.width,p.height,p.y));
+    else if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
+        int done=desk_clipboard_receive(&app.clipboard,&p);if(done)clipboard_finish(done);
+    }
+    app.dialog.window.dirty=1;
+}
+static void dialog_tick(void) {
+    int ready=desk_dialog_window_sync(&app.dialog,&app.window,app.picker_open && !app.quit,"Open image",720,480);
+    int previous_separate=app.dialog_separate;
+    app.dialog_separate=app.picker_open && ready>=0;
+    if(previous_separate!=app.dialog_separate)app.window.dirty=1;
+    if(app.picker_open && ready<0) {
+        desk_picker_configure(&app.picker,(struct desk_rect){0,0,app.window.width,app.window.height});
+        if(desk_picker_focus(&app.picker,app.window.focused))app.window.dirty=1;
+    }
+    if(!app.clipboard.mode)app.clipboard.window=app.dialog_separate && app.dialog.window.connection?app.dialog.window.window:app.window.window;
+    if(!app.picker_open || ready!=1)return;
+    struct desk_app *window=&app.dialog.window;
+    desk_picker_configure(&app.picker,(struct desk_rect){0,0,window->width,window->height});
+    desk_picker_focus(&app.picker,window->focused);
+    if(app.window.dirty)window->dirty=1;
+    struct desk_canvas canvas;
+    if(desk_app_canvas(window,&canvas)==1) {
+        desk_fill(&canvas,canvas.clip,desk_theme_quiet.surface);
+        desk_picker_draw(&canvas,&app.picker,&desk_theme_quiet);desk_app_present(window);
+    }
 }
 int main(int argc,char **argv) {
     desk_ui_init(&app.ui);desk_image_init(&app.view);desk_image_job_init(&app.image_job);desk_picker_init(&app.picker);desk_clipboard_init(&app.clipboard,app.clipboard_data);
@@ -211,12 +259,16 @@ int main(int argc,char **argv) {
     static const char *labels[]={"Open","Cancel","Fit","1:1","−","+"};
     for(unsigned i=0;i<6;i++) { desk_button_centered(&app.buttons[i],1);desk_ui_add(&app.ui,i+1,DESK_CONTROL_BUTTON,&app.buttons[i],labels[i]); }
     desk_ui_add(&app.ui,VIEW_IMAGE,DESK_CONTROL_IMAGE,&app.view,NULL);status("Open an image with Ctrl-O, or choose one in Files.");
-    if(desk_app_open(&app.window,"Preview",760,520)) return 1;
+    desk_connection_init(&app.connection);
+    if(desk_window_open(&app.connection,&app.window,"Preview",760,520)) return 1;
     desk_log("deskview: starting\n");
     while(!app.quit && !app.window.failed && !app.window.closed) {
         if(desk_clipboard_tick(&app.clipboard,srv_ticks())<0) clipboard_finish(-1);
         for(unsigned batch=0;batch<32;batch++) {
-            struct desk_packet p;int result=desk_app_poll(&app.window,&p);if(result<=0) break;if(result==2) continue;
+            struct desk_packet p;struct desk_app *window;
+            int result=desk_connection_poll(&app.connection,&window,&p);if(result<0)app.window.failed=1;if(result<=0)break;if(result==2)continue;
+            if(window==&app.dialog.window) {dialog_event(p);continue;}
+            if(p.type==DESK_OPEN_DOCUMENT) {desk_open_document_receive(&app.open_request,&p);continue;}
             if(p.type==DESK_CONFIGURE) {
                 layout();desk_ui_focus(&app.ui,VIEW_IMAGE);
                 if(!app.started) { app.started=1;if(argc>2 && argv[2][0]) load_image(argv[2]); }
@@ -245,7 +297,15 @@ int main(int argc,char **argv) {
             size_t length=strlen(title);while(length && !desk_text_utf8_valid(title,length)) title[--length]=0;
             if(!desk_app_title(&app.window,title)) app.title_dirty=0;
         }
-        menus();struct desk_canvas canvas;if(desk_app_canvas(&app.window,&canvas)==1) { draw(&canvas);desk_app_present(&app.window); }
+        if(!app.service_registered && !desk_application_service(&app.window,DESK_SERVICE_OPEN_DOCUMENT))app.service_registered=1;
+        desk_open_document_tick(&app.open_request,app.connection.server);
+        if(app.open_request.ready) {
+            int accepted=!app.picker_open && !app.image_job.busy && !app.image_job.retiring_pid && !app.file_job.busy;
+            if(accepted)load_image(app.open_request.path);
+            desk_open_document_finish(&app.open_request,accepted);
+            desk_log("deskview: open-document accepted=%u\n",accepted);
+        }
+        dialog_tick();menus();struct desk_canvas canvas;if(desk_app_canvas(&app.window,&canvas)==1) { draw(&canvas);desk_app_present(&app.window); }
         srv_sleep_ticks(1);
     }
     desk_chooser_cancel(&app.chooser);
@@ -256,7 +316,29 @@ int main(int argc,char **argv) {
         if(done)desk_chooser_finish(&app.chooser,app.chooser.pending_id,done);
         else srv_sleep_ticks(1);
     }
-    if(app.file_ready) desk_file_job_close(&app.file_job);
-    desk_image_job_close(&app.image_job);desk_image_pixels_release(app.pixels,app.view.width,app.view.height);desk_app_close(&app.window);
+    (void)desk_application_service(&app.window,0);
+    if(app.open_request.request)desk_open_document_finish(&app.open_request,0);
+    desk_open_document_tick(&app.open_request,app.connection.server);
+    desk_image_job_close(&app.image_job);desk_image_pixels_release(app.pixels,app.view.width,app.view.height);
+    uint64_t worker_start=srv_ticks();
+    int file_retired=!app.file_ready;
+    while((!file_retired || app.image_job.retiring_pid) && (uint64_t)srv_ticks()-worker_start<600) {
+        if(!file_retired)file_retired=desk_file_job_retire(&app.file_job)==1;
+        (void)desk_image_job_poll(&app.image_job,srv_ticks());
+        struct desk_app *window;struct desk_packet event;(void)desk_connection_poll(&app.connection,&window,&event);
+        srv_sleep_ticks(1);
+    }
+    if(!file_retired || app.image_job.retiring_pid)app.window.failed=1;
+    desk_log("deskview: workers retired=%u\n",file_retired && !app.image_job.retiring_pid);
+    desk_window_close(&app.window);
+    uint64_t close_start=srv_ticks();
+    while(app.connection.windows && !app.connection.failed && (uint64_t)srv_ticks()-close_start<600) {
+        struct desk_app *window;struct desk_packet event;
+        (void)desk_connection_poll(&app.connection,&window,&event);
+        (void)desk_dialog_window_sync(&app.dialog,&app.window,0,"Open image",720,480);
+        if(app.window.closed && !app.dialog.window.connection) {if(desk_window_dispose(&app.window))break;}
+        srv_sleep_ticks(1);
+    }
+    if(app.connection.windows)app.window.failed=1;
     desk_log("deskview: exited failure=%d\n",app.window.failed);return app.window.failed?1:0;
 }

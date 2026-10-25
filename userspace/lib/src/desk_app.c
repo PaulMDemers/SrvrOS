@@ -1,5 +1,6 @@
 #include <srvros/desk_app.h>
 #include <srvros/desk_connection.h>
+#include <srvros/desk_application.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
 #include <string.h>
@@ -65,7 +66,7 @@ static int app_receive(struct desk_app *a,uint64_t source,const struct desk_pack
     }
     if(p.type==DESK_FOCUS) a->focused=p.value!=0;
     if((p.type==DESK_POINTER || p.type==DESK_CONTEXT) && (p.generation!=a->generation || a->configure.generation!=a->generation)) return 2;
-    if(p.input_serial>a->input_serial) { a->input_serial=p.input_serial;a->dirty=1; }
+    if(p.type!=DESK_OPEN_DOCUMENT && p.input_serial>a->input_serial) { a->input_serial=p.input_serial;a->dirty=1; }
     *event=p;return 1;
 }
 static int app_check(struct desk_app *a) {
@@ -199,13 +200,30 @@ int desk_window_open(struct desk_connection *c,struct desk_app *a,const char *ti
     c->windows=a;c->opening=a;
     return 0;
 }
+int desk_window_open_dialog(struct desk_connection *c,struct desk_app *a,struct desk_app *parent,
+    const char *title,uint32_t width,uint32_t height) {
+    if(!c || !parent || parent->connection!=c || parent->parent_window || parent->opening ||
+       parent->closing || parent->closed || parent->failed)return -1;
+    for(struct desk_app *w=c->windows;w;w=w->next)if(w->parent_window==parent->window)return -1;
+    if(desk_window_open(c,a,title,width,height))return -1;
+    a->parent_window=parent->window;a->open_request.generation=parent->window;
+    a->open_request.value|=DESK_OPEN_MODAL;return 0;
+}
+static int live_dialog(struct desk_app *parent) {
+    for(struct desk_app *w=parent->connection->windows;w;w=w->next)
+        if(w->parent_window==parent->window && !w->closed)return 1;
+    return 0;
+}
 void desk_window_close(struct desk_app *a) {
     if(!a || !a->connection || a->closed || a->closing) return;
+    for(struct desk_app *w=a->connection->windows;w;w=w->next)
+        if(w->parent_window==a->window && !w->closed)desk_window_close(w);
     a->closing=1;a->last=srv_ticks();
 }
 int desk_window_dispose(struct desk_app *a) {
     if(!a || !a->connection || !a->closed || a->pending || a->opening) return -1;
     struct desk_connection *c=a->connection;
+    for(struct desk_app *w=c->windows;w;w=w->next)if(w->parent_window==a->window)return -1;
     struct desk_app **link=&c->windows;
     while(*link && *link!=a)link=&(*link)->next;
     if(!*link)return -1;
@@ -237,8 +255,11 @@ int desk_connection_poll(struct desk_connection *c,struct desk_app **target,stru
             if(a->opening && !a->open_sent) {
                 if(!desk_send(c->server,&a->open_request))a->open_sent=1;
             } else if(!a->opening && a->closing && !a->close_sent) {
-                struct desk_packet p=desk_packet_new(DESK_CLOSE);p.window=a->window;
-                if(!desk_send(c->server,&p))a->close_sent=1;
+                if(live_dialog(a))a->last=srv_ticks();
+                else {
+                    struct desk_packet p=desk_packet_new(DESK_CLOSE);p.window=a->window;
+                    if(!desk_send(c->server,&p))a->close_sent=1;
+                }
             } else if(!a->opening && !a->closing) {
                 int r=app_prepare(a,event);
                 if(r<0) {
@@ -294,4 +315,74 @@ int desk_connection_wait(struct desk_connection *c,uint64_t ticks) {
 int desk_connection_wait_io(struct desk_connection *c,struct srv_gui_wait *r) {
     if(!connection_quiescent(c))return -1;
     return wait_io(c->server,&c->wait_epoch,r);
+}
+
+int desk_dialog_window_sync(struct desk_dialog_window *d,struct desk_app *parent,
+    int wanted,const char *title,uint32_t width,uint32_t height) {
+    if(!d || !parent || !parent->connection || !title || strlen(title)>=sizeof(d->title))return -1;
+    if(d->window.connection) {
+        if(!wanted || parent->closing || parent->closed)desk_window_close(&d->window);
+        if(d->window.closed) {
+            int refused=d->window.open_result!=DESK_OPEN_OK || d->window.failed;
+            if(desk_window_dispose(&d->window))return 0;
+            d->window=(struct desk_app){0};d->refused=refused && wanted;
+            return d->refused?-1:0;
+        }
+        if(!d->window.opening && !d->window.closing && strcmp(d->title,title) && !desk_app_title(&d->window,title))strcpy(d->title,title);
+        return !d->window.opening && !d->window.closing;
+    }
+    if(!wanted) { d->refused=0;return 0; }
+    if(d->refused)return -1;
+    if(parent->opening || parent->closing || parent->closed || parent->connection->opening)return 0;
+    if(desk_window_open_dialog(parent->connection,&d->window,parent,title,width,height)) {
+        d->refused=1;return -1;
+    }
+    strcpy(d->title,title);return 0;
+}
+
+void desk_application_quit(struct desk_application_lifecycle *a) { if(a)a->quitting=1; }
+int desk_application_close_next(struct desk_application_lifecycle *a,uint64_t window) {
+    if(!a || !a->quitting || a->closing_window || !window)return 0;
+    a->closing_window=window;return 1;
+}
+void desk_application_closed(struct desk_application_lifecycle *a,uint64_t window) {
+    if(a && a->closing_window==window)a->closing_window=0;
+}
+void desk_application_cancel_quit(struct desk_application_lifecycle *a,uint64_t window) {
+    if(a && a->closing_window==window) {a->quitting=0;a->closing_window=0;}
+}
+
+int desk_application_service(struct desk_app *a,unsigned capabilities) {
+    if(!a || !a->server || a->opening || a->closing || a->closed || a->parent_window ||
+       (capabilities&~DESK_SERVICE_OPEN_DOCUMENT))return -1;
+    struct desk_packet p=desk_packet_new(DESK_APP_SERVICE);p.window=a->window;p.value=capabilities;
+    return desk_send(a->server,&p);
+}
+void desk_open_document_finish(struct desk_open_document *r,int accepted) {
+    if(!r || !r->request)return;
+    uint64_t window=r->reply.window;
+    r->reply=desk_packet_new(DESK_OPEN_DOCUMENT_REPLY);r->reply.window=window;
+    r->reply.serial=r->request;r->reply.value=accepted?0:1;r->reply_pending=1;
+    r->last_request=r->request;r->request=0;r->ready=0;r->length=0;
+}
+int desk_open_document_receive(struct desk_open_document *r,const struct desk_packet *p) {
+    if(!r || !p || p->type!=DESK_OPEN_DOCUMENT || !p->input_serial || r->reply_pending || r->ready)return 0;
+    if(!p->serial) {
+        if(p->input_serial<=r->last_request || r->request)return 0;
+        r->request=p->input_serial;r->length=0;r->reply.window=p->window;
+    }
+    if(p->input_serial!=r->request)return 0;
+    if(p->window!=r->reply.window || p->serial!=r->length || !p->height || p->height>sizeof(p->text) ||
+       p->height>sizeof(r->path)-r->length || p->width>1) {
+        desk_open_document_finish(r,0);return -1;
+    }
+    memcpy(r->path+r->length,p->text,p->height);r->length+=p->height;
+    if(!p->width)return 0;
+    if(r->path[0]!='/' || r->path[r->length-1] || strlen(r->path)!=r->length-1) {
+        desk_open_document_finish(r,0);return -1;
+    }
+    r->ready=1;return 1;
+}
+void desk_open_document_tick(struct desk_open_document *r,uint64_t server) {
+    if(r && r->reply_pending && server && !desk_send(server,&r->reply))r->reply_pending=0;
 }
