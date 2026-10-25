@@ -23,5 +23,9 @@ class WorkloadTest(unittest.TestCase):
         self.assertLess(s.rindex('cp ../'),s.index('wait $player'))
         self.assertEqual(s.count('kill -0 "$player"'),2)
         self.assertEqual(s.count('playback ended before disk burst'),1)
+        native=w.files('0'*16,1)['combined-'+'0'*16+'.sh'].decode()
+        self.assertEqual(native.count('for burst in '),5)
+        self.assertIn('test "$lines" = 40 || exit 1',native)
+        self.assertTrue(all(len(line)<256 for line in native.splitlines()))
 
 if __name__=='__main__':unittest.main()
