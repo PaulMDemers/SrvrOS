@@ -6172,3 +6172,22 @@ Next is bounded reference bandwidth/band initialization, followed by frequency
 trim and DAC/VCO calibration. This run added no bandwidth/band settings, trim,
 DAC/VCO calibration, scanning, association or traffic. Native command/guard/
 readback observations do not accept calibrated radio operation/connectivity.
+
+
+## 2026-10-25 — bounded RF default G20 scope
+
+Pro PR19 owns this Wi-Fi work. VGA v69 is collected/archived at `9162edc1`;
+no outstanding run or armed reboot. Fetched main `3647dc7c` grows desktop
+scheduler storage; Air7,2 runtime `71f0a69a` adds its desktop evidence. Inspect
+these changes separately from RF; this candidate retains native integration
+base `d5bc4b3` and does not combine a scheduler capacity change with RF acceptance.
+
+Objective: fixed19-target reference default20MHz/2.4GHz initialization after
+complete central zero-profile and exact bank5/bank6/VGA proof. Preserve Linux
+reference order:9 selected bandwidth settings then10 G-band settings, followed
+by a separate19-read observation pass. Scope: private mixed-bank address plan,
+predecessor validator, xHCI wrappers/dispatch, opt-in v70 staging, host/native
+fault tests, strict collector and current docs. No caller-provided targets or
+plans. Keep256KiB full-prefix logging. No channel-frequency plan, frequency
+trim, DAC/VCO calibration, scanning, association/security or packet traffic.
+Full local/sanitizer and exact-stage VM checks precede unarmed installation.
