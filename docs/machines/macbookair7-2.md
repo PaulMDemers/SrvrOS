@@ -25,6 +25,18 @@ Installed current remains `336d81743ca03a33`, independent recovery
 reboot is armed. Collect/diagnose, reproduce shutdown with pending edits, preserve
 Save/Discard/Cancel decisions during exit, then validate locally before staging.
 
+The first new host regression fails on forced modal closure before the fix and
+passes afterward. Full core/desktop and matched builds pass. Clean `e4ebd0c`
+passes actual Text/Preview shutdown checks: stable prompts, pointer Cancel,
+canceled Save picker, exact saved edits during exit, ordinary reopen, existing
+prompt Discard, clean filesystem allocation and restored process baseline. The
+first VM attempt missed its final click because the fixture retained the prior
+session's pointer origin; reset that origin on desktop reopen and retain the
+failed attempt separately. The asset in the built image is verified as 120
+seconds/23,040,000 PCM bytes and twenty unchanged channel-check cycles. The final
+exact-stage rehearsal will play it fully while saving work; native listening and
+shutdown acceptance remain pending.
+
 ### Modal pointer correction validated; physical retest pending
 
 Release `b6f4c7525115168a` returned with session

@@ -157,12 +157,14 @@ using this machine's own compact workspace UUID:
 python3 tools/hardware_boot.py stage --desktop-volume YOUR_UUID \
   --desktop-battery --desktop-services --desktop-lifecycle-trial
 tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
-  --boot-session --services --audio --lifecycle-guide \
+  --boot-session --services --audio --lifecycle-guide --workload-audio \
   --case profile-refusal --stage RELEASE
 ```
 
 The exact-stage Q35 rehearsal verifies instruction delivery, application work,
-normal exit/reopen and clean retirement. Its native battery profile correctly
+normal exit/reopen and clean retirement. `--workload-audio` also runs the full
+two-minute sample, saves a separate document while it plays and cycles Calculator;
+exact playback bytes, duration and saved contents are checked. Its native battery profile correctly
 refuses Q35; this is not native battery or physical dialog acceptance. Follow
 the device-agent setup guide for install, recovery, run record and one-shot boot.
 Do not install or reboot merely because staging completed.
