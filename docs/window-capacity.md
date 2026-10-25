@@ -93,3 +93,8 @@ D1a identity foundation runtime `d9a678b` passes full desktop host/build gates,
 existing apps and persistence, sixteen clipboard clients with slot reuse, and
 compositor lifecycle/resize QEMU regressions. These are VM results; ID1 remains
 the only admitted window per process until the connection dispatcher lands.
+
+Protocol v14 adds the opt-in [connection dispatcher](desktop-connections.md),
+acknowledged admission/close and multiple windows per process. Runtime `e5ad6c2`
+passes host/build, real two-document transport, app and capacity/lifecycle VM
+regressions. Normal Text migration and dynamic registries remain next.

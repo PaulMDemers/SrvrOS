@@ -18,8 +18,12 @@ Host/QEMU only; installed/recovery remain unchanged. No parallel harnesses.
 The candidate connection contract is documented in
 [desktop connections](../desktop-connections.md). Focused host fixtures pass
 identity/lifetime, blocked delivery, typed refusals, independent capture/notices
-and local canvas failure. Matched build/full host gates and the actual-protocol
-VM consumer are being validated; normal Text migration remains next.
+and local canvas failure. Runtime `e5ad6c2` passes the matched build/full host gates and actual-protocol
+VM consumer: two independent editable documents in one process, focus/clipboard,
+close preserves sibling, fresh ID, resize, cleanup and relaunch. Existing apps,
+sixteen clipboard clients/refusal/reuse/exact data, and compositor lifecycle
+regressions also pass. PR142 is ready; normal Text saving/dialog migration remains
+next. Screenshots were inspected; native payloads remain untouched.
 
 ### Active explicit window identity foundation (D1a)
 
