@@ -2561,3 +2561,49 @@ the maximum loop gap to 179,769 us across 21 cycles, with zero app errors,
 zero PCM underruns and 218 independently observed PCM/write overlap windows.
 These are development VM measurements, not native acceptance. Final clean-source
 regressions and exact-stage validation precede installation and reboot.
+
+
+### Responsive lifecycle stress candidate prepared (PR160)
+
+Native source `ae5b8680`, release `4e8c2c95b707acbf`, run `97f910f8a1024bbe`
+retains the thirty-minute unpaced 256 KiB write/flush/rename/readback/delete/sync
+work and PCM stream, and automatically cycles Text, Files and System throughout.
+The compositor uses a persistent worker for launch and pixel-cache map/unmap;
+no kernel I/O eligibility or integrity checks change. Pending/discarded mappings
+retain budget until release completes. Resize failure preserves the last delivered
+geometry/front, and memory pressure waits for reclaimable buffers without early
+byte credit. Worker metadata covers the existing cache budget; child admission
+and early OPEN delivery are explicitly tracked. Ordinary screenshot initiation,
+registry growth and forced termination are separate synchronous paths.
+
+Final clean-source core/build and strict automatic VM pass on `ae5b8680`: 23 app
+cycles, maximum loop gap 139,364 us, ready 1,303,625 us and close 924,975 us, zero
+app errors and zero PCM underruns, with 221 independently observed PCM/write
+overlap windows. Both lifecycle and I/O timestamps fall within live playback.
+The full smoke suite passed on `43d9e1ef` (482 CLI cases, shell editing, UEFI USB
+and displayd); later changes refine memory-budget admission and validation.
+All twelve apps pass maximize/restore/close. Multiple-document close/relaunch
+passes with explicit completed cache-release checks. The 128-window growth
+fixture on `efd6bb1d` passes 129 retirements, restored process baseline and zero
+retained registry/cache bytes. Host tests cover delayed allocation, discarded
+pending allocation, copied launch inputs, child reservation, early OPEN messages,
+launch failure, resize failure and full-budget delayed reclamation. Eighty staging
+tests and documentation checks pass. A superseded multiwindow checker failure is
+retained: it expected premature cache credit at window removal; the replacement
+requires zero bytes after completed unmaps and rejects missing/nonzero receipts.
+
+Exact native release passes GRUB→Limine rehearsal, expected Q35 native-profile
+refusal, no unsupported stress startup, clean unmount and automatic return. This
+is not native responsiveness acceptance. Physical validation requires the saved
+PCM/disk receipt plus at least six completed app cycles spanning 1,780 seconds,
+zero app errors, loop gaps no greater than 500 ms, clean battery retirement,
+prior-file preservation and offline allocation. Listening remains the only human
+task; keep AC/USB attached and allow automatic return after thirty minutes.
+
+USB baseline is 340 files / 1,000 clusters, zero leaks/bitmap mismatches. Ubuntu,
+console recovery `c35475f62f154f1e` and the latest accepted desktop/reopen payloads
+are retained. Obsolete EFI-only `3f0896783e4c8fe7` was removed after verifying its
+independent durable payload. Raw results, source/stage and run records are backed
+up outside build before reboot. User explicitly authorizes this automatic launch.
+Air7,2's `2eb23c11` process/graphics service-window work remains separate and
+unmerged; this candidate neither consumes its v15 protocol nor changes its gates.
