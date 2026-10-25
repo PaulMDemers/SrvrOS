@@ -2,6 +2,23 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active dynamic surface storage (D2a)
+
+PR143 is merged as `fd38097` and consumed on the same device branch. Next
+bounded objective: replace the kernel's fixed 64-surface array with stable,
+demand-allocated records and explicit metadata/pixel byte budgets, including
+in-flight allocation and retired storage. Preserve atomic seal/queue transitions,
+owner/window/serial checks and close/server-death cleanup. Never recycle surface
+IDs. Allocate/initialize outside the GUI metadata critical section; recheck
+retirement before publishing. Do not claim shorter syscall interrupt exclusion
+or native latency from that structural change.
+
+Touch kernel GUI storage, shared budget definitions, resource tracing and host/
+actual-protocol lifetime and pressure fixtures. Compositor admission remains
+sixteen windows in this block; dynamic queues and compositor/scene registries
+follow independently. Pro PR19 `e409c07` remains Wi-Fi diagnostics. No hardware
+or boot changes; host/QEMU only through 10AM, and no automatic reboot then.
+
 ### Active multi-document Text migration (D1c)
 
 PR142 is merged as `ed2015a` and consumed. Next bounded scope: migrate normal
