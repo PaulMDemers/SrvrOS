@@ -2,6 +2,23 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active explicit window identity foundation (D1a)
+
+D0 clipboard PR140 is merged as `d8f6c71` and consumed on
+`device/macbookair7-2/desktop-runtime`. Next bounded scope is matched protocol
+v13 with an explicit 64-bit window ID, kernel surface seal/release checks and
+client-side event filtering. The current one-window wrapper uses ID1; other
+window IDs are not yet admitted by the compositor. This is a staged migration,
+not multiwindow app or dynamic capacity acceptance. Touch shared protocol,
+kernel GUI seal validation, desktop/clipboard/notification client helpers,
+compositor routing and their host/VM fixtures. D1b will add connection dispatch,
+multiple window admission and lifecycle semantics before multiwindow Text.
+
+Pro PR19 at `7b95685` remains independent Wi-Fi work. Host/QEMU only through
+10AM America/New_York; no boot installation or laptop reboot. Preserve the
+native accepted payload/recovery. The same overnight checkpoint/evidence root
+and automation apply. Tests and PRs must identify which stage they accept.
+
 ### Active desktop runtime work
 
 PR134 is merged as `7a00518`; this branch consumes that exact shared baseline.
