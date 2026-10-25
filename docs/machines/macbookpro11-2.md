@@ -87,8 +87,11 @@ RF0:4 showed30 ->b0 and remainedb0 at the final read. VCO self-clear was not
 observed, so successful calibration is unconfirmed. Complete241416-byte startup
 prefix and both completion markers saved. Recovery/default/one-shot/payload
 checks passed; offline workspace clean287files/685clusters/117directories,
-zero leaks/mismatches/errors, unmounted and unarmed. Next: bounded delayed VCO
-read observation; no repeated start pulse or channel/traffic work yet.
+zero leaks/mismatches/errors, unmounted and unarmed. Candidate `cd775567c529231f` (source `70a3f45d`) is installed unarmed for six
+bounded delayed VCO reads. Local/regression/sanitizer, exact-stage GPT
+save/return and missing-workspace checks passed. Next: attended cold adapter
+cycle, then collect matching release/session FIRST. Results save automatically
+and return to Ubuntu. No additional RF pulse or channel/traffic work.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6486,3 +6489,25 @@ initiation validator, full build and499 local documentation links pass.
 Next checkpoint: exact-stage GPT save/return and missing-workspace rehearsal,
 then install while retaining Ubuntu/default and known-good recovery. Native
 delayed VCO results remain pending; no reboot armed.
+
+
+Delayed VCO source `70a3f45dca31abf135d87a60b801718c52700201`, release
+`cd775567c529231f`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB capture
+confirmed. Missing-workspace refusal/return passed. Ubuntu default and
+known-good `e47dca3a6b30c6c1` retained, as is completed initiation release
+`d27f0d2f10e5ae0b`. Older trim `4ec251f79c97532b` removed from ESP only after
+complete durable-backup byte equality. Preboot workspace clean:
+287files/685clusters/117directories, zero leaks/mismatches/errors; unmounted.
+Payload, references, local/fault/strict/sanitizer checks, both VM receipts and
+run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-wait-70a3f45/`.
+
+On return collect matching release/session FIRST. Require full earlier proof
+and exact pending initiation profile before six fixed waits/read-only commands:
+42 operations,36 guard reads,6 replies/delay receipts,12 guard triplets,
+six indexed values, cumulative requested delay and derived first-clear result.
+Both completion markers and entire prefix are required. A clear or still-set
+bit is an observation; no calibrated-radio claim. No additional RF pulse or
+forced clear, tuning, MAC enable or traffic. No reboot armed; native delayed
+VCO results pending.
