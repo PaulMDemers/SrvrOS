@@ -2393,3 +2393,18 @@ file, prior-file preservation (apart from metadata/preferences) and offline
 allocation, then backs up evidence and disables itself. Human audio/input
 confirmation remains distinct. Run and payload backups survive distclean.
 Ready-unarmed: no reboot is scheduled; longer native acceptance remains pending.
+
+## Audio/USB overlap correction scope (2026-10-25)
+
+The prepared long-session script serialized copy/readback before playback; it
+did not establish audio/disk overlap. Supersede that unarmed workload with a
+fresh run: one-minute PCM plays in the background while bounded paced copies,
+flushes and comparisons execute in the foreground, requiring the player to remain
+live at both ends of each recorded burst. Retain audio completions/underruns and
+per-burst evidence. The disposable VM must observe PCM output advancing during
+USB writes. Keep the already validated native payload `3f0896783e4c8fe7` and its
+runtime source `78859c4`; only Python workload/tests and documents change. Actual
+main is `6e06bfb`; separate capacity work from PR153/155 is not introduced into
+this immutable payload. PR19 remains independent Wi-Fi work. Prior run is
+ready-unarmed, not physically executed; replace its collector and launch record
+only after preserving its inputs/evidence. Leave the corrected test unarmed.
