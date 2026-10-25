@@ -346,6 +346,33 @@ static void connection_lifetime(void) {
     assert(!s.child_mode[0] && !s.child_last_window[0]);alive=1;sends=0;s.pointer_pid=0;
     puts("desktop-connection: PASS acknowledged admission/refusal, sibling capture/notices, release-before-close, monotonic IDs, allocation failure and process retirement");
 }
+static void shutdown_dialog_lifetime(void) {
+    struct session s={.scene={.focus=-1,.apps=1},.children={42},.child_apps={DESK_APP_TEXT}};
+    memset(&clipboard,0,sizeof(clipboard));alive=1;queue_full=0;send_allow=-1;sends=0;
+    desk_damage_init(&s.damage,1280,800);
+    struct desk_packet q=desk_packet_new(DESK_OPEN);q.value=DESK_OPEN_CONNECTION;q.width=400;q.height=280;
+    incoming(&s,42,&q);service(&s);
+    global_menu_action(&s,GLOBAL_EXIT);
+    assert(s.exiting && s.clients[0].close_requested && !s.clients[0].closing);
+    q.window=2;q.value|=DESK_OPEN_MODAL;q.generation=1;
+    incoming(&s,42,&q);
+    /* Saving/canceling needs the newly admitted owned dialog to remain alive. */
+    assert(s.clients[1].parent_window==1 && !s.clients[1].closing);
+    global_menu_action(&s,GLOBAL_EXIT);
+    assert(!s.clients[1].close_requested && !s.clients[1].closing);
+    service(&s);
+    q=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&q);
+    assert(!s.exiting && !s.clients[0].close_requested);
+    /* A root arriving from a launch already in flight participates through
+     * the same close request; it must not be forced closed either. */
+    global_menu_action(&s,GLOBAL_EXIT);
+    q=desk_packet_new(DESK_OPEN);q.window=3;q.value=DESK_OPEN_CONNECTION;q.width=400;q.height=280;
+    incoming(&s,42,&q);
+    assert(s.clients[2].pid==42 && s.clients[2].close_requested && !s.clients[2].closing);
+    service(&s);
+    alive=0;service(&s);assert(!s.cache_bytes && !s.children[0]);alive=1;sends=0;
+    puts("desktop-shutdown: PASS owned prompts survive exit, repeated exit skips modal children, cancel retains desktop and late roots close cooperatively");
+}
 static void dynamic_registry(void) {
     static struct session s;
     s=(struct session){.dynamic=1,.registry_budget=DESK_REGISTRY_BYTES,.scene={.apps=1,.focus=-1}};
@@ -844,6 +871,7 @@ int main(void) {
     clipboard_client_retirement();
     delayed_control_delivery();
     connection_lifetime();
+    shutdown_dialog_lifetime();
     dynamic_registry();
     document_routing_failures();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");

@@ -357,6 +357,7 @@ def main():
             b"EDITOR, PAGER, and a small ll alias.\n"),
     ]
     example_files = [("stereo.wav", channel_test_wav()),
+        ("workload.wav", channel_test_wav(repeats=20)),
         ("device-checks.sh", (Path(__file__).resolve().parents[1]/"userspace/examples/device-checks.sh").read_bytes()),
         ("tap-diagnostics.sh", (Path(__file__).resolve().parents[1]/"userspace/examples/tap-diagnostics.sh").read_bytes()),
         ("tap-checks.sh", (Path(__file__).resolve().parents[1]/"userspace/examples/tap-checks.sh").read_bytes()),
