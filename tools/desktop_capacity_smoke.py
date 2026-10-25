@@ -79,8 +79,8 @@ def main():
                 if args.clipboard:
                     # One Text plus fifteen Calculators fits the current worker
                     # budget. Sixteen Text processes exhaust file-worker resources.
-                    shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8 bytes=0")
-                    shortcut("ctrl-v");wait(b"clipboard role=2 action=32 bytes=0")
+                    type_text("0");shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8 bytes=1")
+                    shortcut("ctrl-v");wait(b"clipboard role=2 action=32 bytes=1");qmp.key("ret")
                     def clipboard_document(index):
                         contents=str(index);type_text(contents);shortcut("ctrl-a");shortcut("ctrl-c")
                         wait(f"clipboard role=3 action=8 bytes={len(contents)}".encode())
@@ -105,7 +105,7 @@ def main():
                     clipboard_document(16)
                     shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/clipboard-capacity.txt");shortcut("ctrl-s")
                     wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
-                    expected_files["clipboard-capacity.txt"]="".join(f"{i}\n" for i in range(1,17)).encode()
+                    expected_files["clipboard-capacity.txt"]="".join(f"{i}\n" for i in range(17)).encode()
                     shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)
                     shot("clipboard-reused-slot")
                 else:

@@ -23,6 +23,22 @@ will be published explicitly before D1. Evidence/checkpoints:
 serialize all builds and VM harnesses. Existing native acceptance remains scoped
 to its recorded releases.
 
+D0 runtime `18d92f1` passes full desktop host tests and image build. The
+32-owner clipboard fixture covers 64 KiB transfers, blocked readers, focus
+refusal, writer timeout and slot reuse; compositor tests cover retiring a writer
+before its client record is cleared. The corrected mixed-app VM now passes
+sixteen real clipboard connections, seventeenth launch refusal, slot reuse,
+exact cross-client saved contents, screenshot and full process/cache cleanup.
+Existing mixed-capacity and desktop app regressions are still running.
+
+The first all-Text run reached thirteen clients: clipboard worked, but the
+thirteenth file worker was unavailable. Its document stayed intact and the UI
+reported the refusal. Keep that result as a separate process/worker capacity
+limit for the shared application runtime; the mixed clipboard pass does not
+accept sixteen simultaneous file workers. An intermediate fixture expected
+empty-selection Copy to send a request; the UI correctly sends none. That
+fixture was corrected to nonempty data. Failed receipts remain local.
+
 ### Native POSIX regression accepted
 
 Runtime `1882029`, release `284e53065081672f`, completed unattended on this
