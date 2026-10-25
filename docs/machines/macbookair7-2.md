@@ -2,6 +2,23 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active: modal pointer capture regression after attended return
+
+Release `b6f4c7525115168a` returned to Ubuntu and its matching session is
+collected. The user confirms modal windows display, but Save/Discard/Cancel
+buttons highlight without completing an action. This is failed physical pointer
+acceptance, despite clean runtime retirement. Keyboard-only VM checks missed
+this path. Scope: shared dialog/file-picker layout and press/release regression
+coverage, plus actual Text/Preview pointer tests. Repeated native-modal layout
+currently calls the UI's explicit capture-cancellation hook every loop. Preserve
+capture for an unchanged layout while retaining cancellation on real geometry,
+enabled-state, loading/content and focus changes. No driver/input protocol,
+worker, process-limit or firmware changes. Main `f4e9fbc`; PR164 owns the separate
+Air6,1 Files startup-under-I/O investigation and PR19 owns Pro Wi-Fi. Record raw
+return/failure evidence under `build/lifecycle-native-20261025/`; new regression
+artifacts under `build/modal-pointer-20261025/`. Recovery remains `9aa8dbf6fbda8252`;
+no reboot is armed. Complete host and actual pointer VM checks before restaging.
+
 ### Combined desktop lifecycle and playback trial prepared
 
 Integrated main `b35b889` (PR160) and independently validated clean `7ddf215`:

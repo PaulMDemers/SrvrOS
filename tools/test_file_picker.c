@@ -12,6 +12,29 @@ static void name(const char *text) { desk_text_buffer_set(&p.name_text,text,strl
 #define H 480
 #define S 647
 static uint32_t pixels[S*H+16],tiles[S*H+16];
+static void held_click_layout(void) {
+    desk_picker_init(&p);struct desk_rect bounds={0,0,W,H};desk_picker_configure(&p,bounds);
+    assert(!desk_picker_open(&p,DESK_PICKER_SAVE,"/fat","notes.txt"));
+    assert(!desk_picker_listing(&p,"/fat",listing,3));
+    const unsigned operations[]={DESK_PICKER_BROWSE,DESK_PICKER_BROWSE,DESK_PICKER_ACCEPT,DESK_PICKER_CANCEL};
+    for(unsigned i=0;i<4;i++) {
+        struct desk_rect b=p.buttons[i].frame;
+        struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=b.x+10,.y=b.y+10,.down=1,.pressed=1};
+        desk_picker_pointer(&p,e,1);
+        for(unsigned tick=0;tick<8;tick++)desk_picker_configure(&p,bounds);
+        e.down=e.pressed=0;
+        assert(desk_picker_pointer(&p,e,20).operation==operations[i]);
+        assert(desk_picker_pointer(&p,e,21).operation==DESK_PICKER_NONE);
+    }
+    struct desk_rect b=p.buttons[2].frame;
+    struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=b.x+10,.y=b.y+10,.down=1,.pressed=1};
+    desk_picker_pointer(&p,e,30);desk_picker_loading(&p);e.down=e.pressed=0;
+    assert(desk_picker_pointer(&p,e,40).operation==DESK_PICKER_NONE);
+    assert(!desk_picker_listing(&p,"/fat",listing,3));
+    desk_picker_pointer(&p,(struct desk_widget_event){.type=DESK_WIDGET_POINTER,.x=b.x+10,.y=b.y+10,.down=1,.pressed=1},50);
+    desk_picker_configure(&p,(struct desk_rect){0,0,W+32,H});
+    assert(desk_picker_pointer(&p,e,60).operation==DESK_PICKER_NONE);
+}
 int main(void) {
     desk_picker_init(&p);desk_picker_configure(&p,(struct desk_rect){0,0,W,H});
     assert(!desk_picker_open(&p,DESK_PICKER_OPEN,"/fat/",""));assert(!strcmp(p.directory,"/fat"));
@@ -51,5 +74,6 @@ int main(void) {
     for(unsigned i=S*H;i<sizeof(pixels)/sizeof(*pixels);i++) assert(pixels[i]==0xdeadbeef);
     desk_picker_configure(&p,(struct desk_rect){0,0,1,1});desk_picker_draw(&full,&p,&desk_theme_quiet);
     assert(!p.name.enabled && !p.list.enabled && key(SRV_KEY_ESCAPE,0,0).operation==DESK_PICKER_CANCEL);
+    held_click_layout();
     puts("file-picker: PASS async browse/cancel, parent/location, open/save paths, UTF-8 names, lexical bounds, clipboard actions and clipped/tiled rendering");
 }

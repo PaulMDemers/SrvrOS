@@ -51,7 +51,9 @@ int desk_picker_open(struct desk_file_picker *p,enum desk_picker_mode mode,const
 }
 void desk_picker_configure(struct desk_file_picker *p,struct desk_rect bounds) {
     if(bounds.w<0 || bounds.h<0 || bounds.w>16384 || bounds.h>16384 || bounds.x<0 || bounds.y<0 || bounds.x>16384 || bounds.y>16384) return;
-    p->frame=desk_widget_inset(bounds,8);layout(p);
+    struct desk_rect frame=desk_widget_inset(bounds,8);
+    if(!memcmp(&p->frame,&frame,sizeof(frame)))return;
+    p->frame=frame;layout(p);
 }
 void desk_picker_loading(struct desk_file_picker *p) { p->busy=1;strcpy(p->status,"Opening folder…");layout(p); }
 int desk_picker_listing(struct desk_file_picker *p,const char *directory,const struct desk_list_item *items,int count) {
