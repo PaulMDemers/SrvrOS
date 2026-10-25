@@ -62,8 +62,8 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 
 The audit reproduced a clipboard gap: eight retained peers received replies,
 and a ninth did not. D0 replaces the independent peer table with state owned by
-each admitted client. Multi-peer host and actual-protocol VM coverage are required
-before acceptance; the current machine record tracks their status. Window
+each admitted client. Runtime `18d92f1` passes multi-peer host and actual-protocol VM coverage on
+this branch; the current machine record tracks integration and native status. Window
 admission and clipboard teardown must stay coupled during D1/D2 migration.
 
 The 96 MiB cache statistic is not total desktop memory. Client canvases, kernel

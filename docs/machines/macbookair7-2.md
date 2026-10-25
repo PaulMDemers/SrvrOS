@@ -29,7 +29,10 @@ refusal, writer timeout and slot reuse; compositor tests cover retiring a writer
 before its client record is cleared. The corrected mixed-app VM now passes
 sixteen real clipboard connections, seventeenth launch refusal, slot reuse,
 exact cross-client saved contents, screenshot and full process/cache cleanup.
-Existing mixed-capacity and desktop app regressions are still running.
+Existing mixed-capacity and desktop app regressions also pass, including saved
+file contents and process/cache retirement. The standalone capacity rerun exits
+zero; an earlier combined wrapper ended with143 after printing the complete
+capacity PASS and before launching the next test. Both receipts are retained.
 
 The first all-Text run reached thirteen clients: clipboard worked, but the
 thirteenth file worker was unavailable. Its document stayed intact and the UI
