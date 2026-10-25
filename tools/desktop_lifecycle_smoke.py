@@ -103,6 +103,9 @@ def main():
                     # Locate the visible widget row, rather than infer its
                     # position from private compositor placement state.
                     from PIL import Image
+                    # Keep the software pointer from covering a button border
+                    # while identifying the next visible row.
+                    qmp.mouse(24-pointer[0],56-pointer[1]);pointer[:]=[24,56]
                     width,height,count=(112,32,3) if kind=='dialog' else (84,28,2)
                     end=time.monotonic()+8;buttons=[]
                     while time.monotonic()<end:
