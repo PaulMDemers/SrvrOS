@@ -2,24 +2,38 @@
 
 Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
 
-### Active native POSIX regression
+### Native POSIX regression checkpoint
 
-Bounded scope: add an explicit unattended POSIX capture, run the full thread
-contracts plus portable POSIX/TLS/SQLite consumers in RAM, then the existing
-60-second desktop/Text screenshot exercise. Touch capture orchestration, staging,
-its exact-stage VM and result parser only; the desktop API overhaul stays deferred.
-Each process tree has a deadline and lifetime retirement; save a matched summary
-and return automatically on handled failures. Existing USB documents are preserved.
-The first exact-stage VM correctly failed on file creation: ordinary RAM boot
-is read-only. The diagnostic now uses an independent volatile boot-filesystem
-copy; earlier AHCI-backed POSIX passes do not establish this new path.
-The corrected RAM run passed the full thread suite but exposed a completed-join
-signal-dispatch race in posixdemo: worker exited successfully, timeout returned
-ETIMEDOUT, handler count stayed zero. A directed already-completed-target test
-and libc join checkpoint correction are the next bounded runtime scope.
-Main `211f17c` is current; Pro PR19 `aa3dfff` owns independent direct-RF Wi-Fi
-work. Dependencies are the locally accepted POSIX runtime and existing logger,
-process lifetime and screenshot mechanisms. Native acceptance is pending.
+Candidate runtime `1882029`, release `284e53065081672f`, passes the exact
+GRUB/EFI VM capture: full thread contracts, posixdemo, TLS, SQLite and the
+60-second desktop/Text screenshot, five zero exits and five retired process
+trees. Saved USB logs and screenshot bytes are read back offline; exFAT is clean.
+The wrapper is explicit `--posix-capture`; normal startup/device gates are unchanged.
+
+Preparation exposed two issues before hardware installation. Ordinary RAM boot
+is read-only, so the diagnostic now creates an independent volatile boot-disk
+copy. A completed pthread join could leave a pending handler undispatched;
+`dddb07f` fixes that checkpoint after record retirement. The directed test fails
+before the fix and passes afterward; full build/core and libuv pass. The capture
+supervisor now blocks between checks instead of halting on a runnable task.
+Original failed runs remain in local evidence. The collector recognizes only a
+complete five-case receipt and verifies the existing desktop completion markers.
+
+Main `211f17c` is current; Pro PR19 `631105b` retains separate direct-RF Wi-Fi
+scope. PR134 carries these shared changes; desktop API work remains deferred.
+Evidence and the pending run record are under `build/posix-core-20261024/native`,
+backed up under `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+USB `37D8-C5D0` passes offline filesystem/allocation/headroom checks, and all
+1054 existing file hashes are recorded. Recovery `9aa8dbf6fbda8252` is retained;
+installed `bf68e4e9b88b8ae7` is separately backed up. One inactive EFI payload was
+archived and hash-verified to make installation space. The on-disk run record
+owns current install/one-shot state. No new physical acceptance is claimed.
+
+Missing-workspace rehearsal also passes: no tests start, and the machine returns
+automatically. Next: install this exact candidate with recovery retained, then
+unattended physical boot and matching collection.
+No human interaction is needed during the trial. Require prior-document hashes,
+complete matching results and both offline filesystem checks before integration.
 
 ### POSIX portable-application milestone checkpoint
 

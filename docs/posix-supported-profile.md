@@ -154,3 +154,10 @@ status zero, all process trees retired, and desktop screenshot/completion marker
 are present. Verify the saved screenshot bytes, prior-file preservation and both
 offline filesystem checks after return. This is a bounded runtime regression,
 not physical input, battery, audio, networking or full POSIX acceptance.
+
+The subsequent unattended regression uses runtime `1882029` and release
+`284e53065081672f`. Its exact-stage VM passes all five suites, saved screenshot
+readback, clean exFAT and reset. Preparation caught a completed-join signal race;
+`dddb07f` fixes delivery after retiring the joined record, with a directed
+before/after regression and libuv rerun. Native results remain pending in the
+machine record; the original eleven-consumer gate above identifies its own source.
