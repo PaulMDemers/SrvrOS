@@ -2,6 +2,17 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active scheduler capacity implementation
+
+Base main `16bbe49` plus this unit's collected-run notes; Pro PR19 inspected at
+`5341990` remains independent. Scope: scheduler storage grows in stable chunks
+under a kernel-stack/metadata byte budget; wait queues must support slots above
+63 without bit shifts or aliasing. Preserve identities, I/O ownership, quarantined
+stacks and existing wait semantics. Add host rollback/reuse/high-slot coverage,
+combined-services mixed-process VM coverage, and desktop launch-failure alerts.
+Touch scheduler/header, process launch diagnostics, desktop session policy and
+focused tests/docs. No new firmware gates or physical reboot in this work block.
+
 ### Runtime native return: scheduler capacity blocker
 
 Release `2750e5efa04573ba` / source `16bbe49`, session
