@@ -2876,7 +2876,7 @@ band initialization; frequency trim, DAC/VCO calibration, scanning and actual
 Wi-Fi connectivity remain untested.
 
 
-### Fixed default RF G20 observation (v70 candidate)
+### Fixed default RF G20 observation (v70 native observation)
 
 `--wifi-rf-g20` requires `--wifi-rf-vga` and the entire earlier initialization
 chain. Native admission checks the full completed VGA command/guard proof and
@@ -2906,3 +2906,16 @@ The collector requires all earlier proof, every new command/guard/value, exact
 prefix byte count and both completion markers. No frequency-plan tuning, trim,
 DAC/VCO calibration, scanning, association/security or packet traffic follows
 this trial automatically.
+
+
+Native MacBookPro11,2 source `b4be310b`, release `e75a52b56efa282b`, session
+`session-00065eae3ac86feb-00` completed the fixed G20 plan:266 operations,
+228 guard reads,38 verified command replies,19 ACKs and19 matching readbacks.
+All76 guard triplets passed; both mismatch fields zero. Full central43/44
+(RF0:6=00), bank5 68/68, bank6 38/38 and VGA35/35 proof remained valid.
+Both completion markers and the entire235592-byte startup prefix within262144
+capacity were saved and strictly verified. Ubuntu default, consumed one-shot,
+payload/recovery hashes and offline filesystem/allocation checks passed.
+This establishes native command/guard/readback observations only. Next is
+captured-board frequency-trim auditing and the bounded reference DAC/VCO
+sequence; calibrated RF, scanning and Wi-Fi connectivity remain untested.

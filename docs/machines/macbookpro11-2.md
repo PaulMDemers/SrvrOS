@@ -57,12 +57,17 @@ default and installed/recovery hashes passed. Latest offline workspace checks:
 unmounted. This is command/guard/readback evidence, not calibrated radio
 acceptance.
 
-Candidate `e75a52b56efa282b` (source `b4be310b`) is installed unarmed for the
-fixed19-target default20MHz/G-band RF initialization observation. Full local,
-regression and sanitizer checks, exact-stage GPT VM save/return and
-missing-workspace recovery passed. Next: attended cold adapter cycle, then
-collect matching release/session FIRST. Frequency trim, DAC/VCO calibration,
-scanning and connectivity remain later steps. No reboot is armed.
+Release `e75a52b56efa282b` (source `b4be310b`) completed the fixed19-target
+default20MHz/G-band observation in native session `session-00065eae3ac86feb-00`.
+All19 readbacks matched:266 operations,228 guard reads,38 verified replies,
+19 ACKs and76 valid guard triplets; both mismatch fields zero. Full central,
+bank5, bank6 and VGA proof passed. The entire235592-byte startup prefix and
+both completion markers were saved. Strict validation, consumed one-shot,
+Ubuntu default and installed/recovery hashes passed. Latest offline workspace
+checks:283files/677clusters/115directories, zero leaks, mismatches or errors;
+unmounted. This is command/guard/readback evidence, not calibrated radio
+acceptance. Next: audit captured board frequency trim and the bounded reference
+DAC/VCO calibration sequence, before scanning or traffic. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6241,3 +6246,24 @@ bank5+bank6+VGA proof, all38 G20 command replies,76 guard triplets,19 indexed
 observations, exact mismatch accounting and complete startup prefix with both
 completion markers. No channel-frequency plan, trim, DAC/VCO or traffic in
 this trial. No reboot armed; native default G20 results pending.
+
+
+## 2026-10-25 — default G20 native return
+
+Collected source `b4be310b1ba3a13e88ecf8067927188d37605f66`, release
+`e75a52b56efa282b`, session `session-00065eae3ac86feb-00`. Exact native proof
+passed:266 submissions,228 guard reads,38 verified16-byte replies,19 ACKs and
+19 matching indexed readbacks. All76 MAC/CORE/DMA guard triplets passed;
+both mismatch fields zero. Central remains43/44 with only RF0:6=00; bank5
+remains68/68, bank6 38/38 and VGA35/35. Full235592-byte startup prefix within
+262144 capacity and both completion markers verified; no partial evidence
+promoted. This is the fixed reference default20MHz/G-band initialization,
+not a channel-frequency plan or calibrated radio acceptance.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes passed.
+Offline exFAT/allocation checks clean283files/677clusters/115directories,
+zero leaks, mismatches or errors; workspace unmounted, no reboot armed.
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-g20-b4be310/`.
+Next: audit captured board frequency trim and the reference DAC/VCO sequence.
+This run added no frequency trim, DAC/VCO calibration, channel-frequency plan,
+scanning, association/security or traffic. RF/connectivity remain untested.
