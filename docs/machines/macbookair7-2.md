@@ -2,6 +2,19 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active multi-document Text migration (D1c)
+
+PR142 is merged as `ed2015a` and consumed. Next bounded scope: migrate normal
+Text to one connection dispatcher with dynamically allocated document records,
+shared tool event handlers and independent undo/save/dialog/clipboard state.
+Add New Window while preserving Ctrl-N's current document-reset behavior.
+Close must drain accepted file work, await window retirement and reap the file
+worker without closing siblings. Keep diagnostic capture recipes compatible.
+Touch desktools/runtime, file-job ownership, connection liveness checks and
+host/QEMU document/persistence tests; no hardware or boot changes. Fixed global
+sixteen-window admission and dynamic compositor registries remain separate.
+Pro PR19 `dbf46c3` continues independent Wi-Fi RF work. Host/QEMU only overnight.
+
 ### Active connection and multiwindow lifetime work (D1b)
 
 PR141 is merged as `b51c21b`; this checkout consumes it. Next bounded scope:
