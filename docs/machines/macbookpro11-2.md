@@ -77,8 +77,12 @@ guard triplets; both mismatch fields zero. Full earlier initialization proof
 and both completion markers passed. Ubuntu default, consumed one-shot and
 installed/recovery payload hashes verified; offline workspace clean:
 285files/681clusters/116directories, zero leaks, mismatches or errors;
-unmounted. Evidence is durably archived. Next: bounded reference DAC/VCO
-sequence; no channel tuning, scanning or traffic yet. No reboot armed.
+unmounted. Evidence is durably archived. Candidate `d27f0d2f10e5ae0b` (source `cfc0cfdd`) is installed unarmed for
+bounded DAC power-up pulses/VCO initiation. Local/regression/sanitizer and
+exact-stage GPT save/return plus missing-workspace checks passed. Next:
+attended cold adapter cycle, then collect matching session FIRST. Results save
+automatically and return to Ubuntu; no photos/commands needed. No channel
+tuning, scanning or traffic yet. No reboot armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6403,3 +6407,24 @@ EFUSE/logger regressions, ASan/UBSan for new engine/exact trim validator and
 499 documentation links pass. Native DAC/VCO results remain pending; next
 checkpoint is exact-stage GPT save/return and missing-workspace rehearsal,
 then install with Ubuntu and known-good recovery preserved.
+
+
+DAC/VCO source `cfc0cfddd8475250393a1797f1d327d1c242caf7`, release
+`d27f0d2f10e5ae0b`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB snapshot
+capacity confirmed. Missing-workspace refusal/return passed. Ubuntu default
+and known-good `e47dca3a6b30c6c1` remain, as does completed trim release
+`4ec251f79c97532b`. Older G20 `e75a52b56efa282b` removed from ESP only after
+complete durable-backup byte equality. Preboot workspace clean:
+285files/681clusters/116directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned references, tests/sanitizers, strict collector, both VM receipts
+and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-cal-cfc0cfd/`.
+
+On return collect matching release/session FIRST. Require all prior proof,
+fresh fields and exact trim68 before the fixed10-command DAC/VCO plan;
+verify70 ordered operations,20 guard triplets, all replies and preserved RMW
+bits. Record both final values and VCO-clear observation without claiming
+successful radio calibration. Entire prefix and both completion markers are
+required. No channel tuning, MAC enable or traffic. No reboot armed; native
+DAC/VCO initiation results pending.
