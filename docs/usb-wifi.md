@@ -2923,7 +2923,7 @@ captured-board frequency-trim auditing and the bounded reference DAC/VCO
 sequence; calibrated RF, scanning and Wi-Fi connectivity remain untested.
 
 
-### Fresh mapped board frequency trim (v71 candidate)
+### Fresh mapped board frequency trim (v71 native observation)
 
 `--wifi-rf-trim` requires full G20 and all earlier proof, including19/19 exact
 G20 readbacks. A fixed logical EFUSE read profile fetches only mapped blocks30
@@ -2955,3 +2955,15 @@ Full earlier proof, fresh-field status/count/guard checks, complete startup
 prefix and both completion markers are required. v71 adds only the trim flag
 to v70 and retains256KiB capture. DAC/VCO pulses, channel-frequency tuning,
 scanning, association/security and traffic remain outside this trial.
+
+
+Native release `4ec251f79c97532b` (source `b15867d7`) completed in session
+`session-00065eaec03cebac-00`. Fresh board fields passed24 reads/2 writes/
+2 polls/2 blocks/26 submissions without guard errors or raw data logging.
+RF0:22 read68 after the fixed68 write; all14 operations,12 guard reads,
+2 replies,1 ACK and4 guard triplets passed, both mismatch fields zero.
+Full earlier proof and both completion markers passed in the entire236812-byte
+startup prefix. Ubuntu default, consumed one-shot, payload/recovery hashes and
+offline workspace checks passed;285files/681clusters/116directories, zero
+leaks/mismatches/errors, unmounted and unarmed. Results are archived outside
+build. Calibrated radio operation remains untested; bounded DAC/VCO work is next.

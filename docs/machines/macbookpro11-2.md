@@ -68,13 +68,17 @@ checks:283files/677clusters/115directories, zero leaks, mismatches or errors;
 unmounted. This is command/guard/readback evidence, not calibrated radio
 acceptance.
 
-Candidate `4ec251f79c97532b` (source `b15867d7`) is installed unarmed for fresh
-mapped board-field verification and one RF0:22 trim write/read. Local,
-regression/sanitizer and exact-stage VM save/return plus missing-workspace
-recovery passed. Next: attended cold adapter cycle, then collect matching
-release/session FIRST. The offline frequency/temperature signed-magnitude
-decoder is corrected; this board's trim stays68. DAC/VCO pulses, channel-frequency
-tuning, scanning and traffic remain later steps. No reboot is armed.
+Release `4ec251f79c97532b` (source `b15867d7`) completed fresh mapped
+board-field verification and RF0:22 trim write/read in native session
+`session-00065eaec03cebac-00`. Fresh fields passed24 reads,2 writes,2 polls,
+2 blocks and26 submissions with no guard errors or raw data logs. Trim68
+read back68:14 operations,12 guard reads,2 verified replies,1 ACK and4 valid
+guard triplets; both mismatch fields zero. Full earlier initialization proof
+and both completion markers passed. Ubuntu default, consumed one-shot and
+installed/recovery payload hashes verified; offline workspace clean:
+285files/681clusters/116directories, zero leaks, mismatches or errors;
+unmounted. Evidence is durably archived. Next: bounded reference DAC/VCO
+sequence; no channel tuning, scanning or traffic yet. No reboot armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6345,3 +6349,27 @@ fresh mapped30/d0 profile/counters/guards, two RF trim replies, four guard
 triplets, exact one-value mismatch accounting and entire prefix with both
 completion markers. No DAC/VCO, channel-frequency plan or traffic in this
 trial. No reboot armed; native fresh-field/trim results pending.
+
+
+## 2026-10-25 — fresh board fields and frequency-trim native return
+
+Collected source `b15867d7c87f817e54d5c7bec0c111db7b0c1f74`, release
+`4ec251f79c97532b`, session `session-00065eaec03cebac-00`. Exact full-prefix
+validation passed. Fresh fixed mapped logical30/d0 fields passed the captured
+board profile:24 reads,2 writes,2 polls,2 blocks,26 submissions, phase15,
+no failure/guard errors and no raw data logging. RF0:22 expected68/read68;
+14 operations,12 guard reads,2 verified replies,1 ACK,1 matching observation
+and4 valid MAC/CORE/disabled-DMA guard triplets. Both mismatch fields zero.
+Central remains43/44 with only RF0:6=00; bank5 68/68, bank6 38/38, VGA35/35
+and G20 19/19. Entire236812-byte startup prefix within262144 capacity and both
+completion markers verified. This accepts bounded board-profile and trim
+transport/guard/readback evidence; calibrated radio operation is not tested.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes passed.
+Offline exFAT/allocation clean285files/681clusters/116directories, zero leaks,
+mismatches or errors; workspace unmounted, no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-trim-b15867d/`.
+Next: implement a bounded reference DAC pulse/VCO initiation with preserved
+register bits, guarded replies and appropriate self-clearing observation.
+No DAC/VCO pulses, channel-frequency tuning, scanning, association/security
+or traffic occurred in this run.
