@@ -1329,7 +1329,9 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
-    int home_apps=capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
+    int audio_io_smoke=argc==2 && !strcmp(argv[1],"--audio-io-smoke");
+    int audio_io=audio_io_smoke || (argc==2 && !strcmp(argv[1],"--audio-io-stress"));
+    int home_apps=audio_io || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
@@ -1418,6 +1420,9 @@ int main(int argc,char **argv) {
         strcpy(s.scene.notice,"Automatic capacity test: opening 24 apps, saving a screenshot, then returning. No input needed.");
         desk_log("desktop-capacity: begin target=24 deadline_us=180000000 input=none documents=5\n");
     }
+    uint64_t audio_io_pid=0,audio_io_begin=(uint64_t)srv_monotonic_us(),audio_io_notice=0;
+    unsigned audio_io_seconds=audio_io_smoke?60:1800;
+    int audio_io_complete=0;
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1431,6 +1436,31 @@ int main(int argc,char **argv) {
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
+        if(audio_io) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            if(!audio_io_pid) {
+                struct srv_battery_status state={0};
+                if(srv_battery_status(&state)==0 && state.state==SRV_BATTERY_ACTIVE && (state.flags&SRV_BATTERY_FRESH)) {
+                    char duration[24];snprintf(duration,sizeof(duration),"%u",audio_io_seconds);
+                    char *args[]={"/fat/bin/playwav","--io-stress",duration,NULL};
+                    struct srv_exec_request request={.path=args[0],.argv=args,.flags=SRV_EXEC_BACKGROUND,.stdin_fd=0,.stdout_fd=1,.stderr_fd=2};
+                    long child=srv_exec(&request);
+                    if(child<=0){failed=1;break;}
+                    audio_io_pid=(uint64_t)child;audio_io_begin=now;
+                    desk_log("desktop-audio-io: started pid=%llu seconds=%u input=none\n",(unsigned long long)audio_io_pid,audio_io_seconds);
+                    spawn_app(&s,DESK_APP_SYSTEM,"");spawn_app(&s,DESK_APP_FILES,"");
+                } else if(now-audio_io_begin>15000000) {failed=1;break;}
+            } else {
+                uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
+                if(done==(long)audio_io_pid) {audio_io_complete=status==0;audio_io_pid=0;failed=!audio_io_complete;quit=1;break;}
+                if(now-audio_io_begin>((uint64_t)audio_io_seconds+90)*1000000){failed=1;break;}
+            }
+            if(now-audio_io_notice>=1000000) {
+                audio_io_notice=now;
+                snprintf(s.scene.notice,sizeof(s.scene.notice),"Audio + USB: %llu / %u sec. Listen only. Automatic return to Ubuntu.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
+                desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+            }
+        }
         io_trial_loop_begin(&s.io);
         for (int n=0;n<32;n++) {
             struct desk_packet p; uint64_t pid;
@@ -2002,6 +2032,11 @@ int main(int argc,char **argv) {
         timing_print("consume-to-final-blit",&timing.consume_to_blit);timing_print("draw-blit",&timing.draw_blit);
     }
     if (io_trial_finish(&s.io)!=0) failed=1;
+    if(audio_io) {
+        if(audio_io_pid){srv_kill(audio_io_pid);uint64_t status;srv_wait(audio_io_pid,&status,0);}
+        if(!audio_io_complete)failed=1;
+        desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
+    }
     /* Bound shutdown even when a client stopped reading. Only kill children
      * launched by this session; all queues/surfaces also have kernel cleanup. */
     for (int i=0;i<session_capacity(&s);i++) if (session_client(&s,i)->pid) close_client(&s,i);

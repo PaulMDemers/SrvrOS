@@ -753,6 +753,15 @@ void kmain(void) {
             (uint64_t)cmdline_has_token(cmdline,"srvros.sensors=cpu"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.smc=read-only"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
+        if(cmdline_has_token(cmdline,"srvros.battery=on") &&
+           (cmdline_has_token(cmdline,"srvros.desktop-audio-io=on") || cmdline_has_token(cmdline,"srvros.desktop-audio-io=smoke"))) {
+            bool ok=desktop_battery_audio_io_session_run(cmdline_has_token(cmdline,"srvros.desktop-audio-io=smoke"));
+            bool unmounted=workspace_active() && workspace_unmount();
+            console_printf("desktop-audio-io: result=%s unmounted=%s; returning to Ubuntu\n",ok?"PASS":"FAIL",unmounted?"yes":"NO");
+            if(unmounted){console_sync();arch_reboot_unattended();}
+            console_write("desktop-audio-io: HALTED unmount failed; restart manually\n");
+            console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+        }
         bool capacity_test=cmdline_has_token(cmdline,"srvros.desktop-capacity-test=on");
         if(cmdline_has_token(cmdline,"srvros.battery=on") && (capacity_test || cmdline_has_token(cmdline,"srvros.desktop-reopen-test=on"))) {
             bool ok=true;

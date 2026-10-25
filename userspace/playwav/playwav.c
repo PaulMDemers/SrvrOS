@@ -1,4 +1,5 @@
 #include "wav.h"
+#include "io_stress.h"
 #include "convert.h"
 #include <srvros/audio.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@ static int read_frame(void *context,int16_t samples[2]) {
  * every syscall boundary by the kernel. */
 static int pause_tick(void) { return srv_sleep_ticks(1)<0?-1:0; }
 int main(int argc,char **argv) {
+    int stress=audio_io_stress_main(argc,argv);if(stress>=0)return stress;
     if(argc==2 && (!strcmp(argv[1],"--help") || !strcmp(argv[1],"-h"))) {
         puts("usage: playwav FILE.wav\nPlays 44100/48000 Hz, 16-bit mono/stereo PCM WAV. One player at a time.\nSet volume/output in Settings before playback; Stop cancels it.");return 0;
     }
