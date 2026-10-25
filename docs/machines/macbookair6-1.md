@@ -2408,3 +2408,36 @@ main is `6e06bfb`; separate capacity work from PR153/155 is not introduced into
 this immutable payload. PR19 remains independent Wi-Fi work. Prior run is
 ready-unarmed, not physically executed; replace its collector and launch record
 only after preserving its inputs/evidence. Leave the corrected test unarmed.
+
+### Audio/USB overlap ready (PR156)
+
+Corrected workload source `ee96e1d`, run `93a364b8128b185a`, replaces unexecuted
+run `db3ea7d68555f544`. Installed native payload remains `3f0896783e4c8fe7`, source
+`78859c4`, hash-identical to its already validated build and exact-stage rehearsal.
+Thirty one-minute plays run in the background, each with forty foreground
+256-KiB copy/flush/rename/readback bursts paced one second apart. Playing-receipt,
+before/after PID liveness, absence of an early completion, explicit burst totals,
+wait status and retained audio completion/zero-underrun evidence guard the trial.
+Total copy/readback is 300 MiB during thirty minutes of PCM, about 31 minutes
+elapsed including gaps. Text/Files and listening remain attended; automatic
+Ubuntu collection verifies all 1,200 bursts and thirty complete plays.
+
+Host verifier tests pass. On clean `ee96e1d`, the repeated short GPT VM passes
+four bursts/two plays with 12 observed non-silent PCM/USB-write overlap windows.
+The full native-parameter round passes all forty bursts during one complete
+60-second play, with 90 observed overlap windows. Both verify readback, no
+underruns, concurrent Text/Files, rerun refusal, clean battery retirement and
+filesystem allocation. Development tests caught quoted numeric wait parsing,
+a too-long for word list, and command substitution using read-only /fat; the
+script now uses numeric wait, eight-item groups and explicit writable count
+files. One short rerun hit a Q35 battery sample/EC fault; its evidence is retained.
+An unchanged retry and the full-minute trial passed. This does not establish that
+fixture fault's cause or native endurance acceptance.
+
+USB inputs now comprise a fresh script, 256-KiB seed and one-minute WAV. All 324
+preexisting files (including the unused prior trial inputs) remain preserved;
+preflight is clean at 327 files/981 clusters. The previous run is superseded and
+unarmed, and its collector disabled. The overlap collector replaces it. Ubuntu
+default, console recovery and accepted payloads remain intact. Payload and run
+evidence are backed up outside build. The corrected test is ready-unarmed; no
+reboot is scheduled, and listening/native overlap acceptance remains pending.
