@@ -2679,3 +2679,17 @@ Next investigation: reproduce and trace Files' OPEN publication, child
 registration/admission and first-frame delivery under sustained disk pressure,
 including the populated Home directory. Preserve the existing integrity checks,
 ten-second cycle failure and 500 ms loop bound. No replacement run is armed.
+
+### Files startup under load — active investigation (2026-10-25)
+
+Base `d4715774` / merged PR160 and PR163. The local objective is to reproduce
+the missing Files admission/first frame under the unchanged automatic PCM/USB
+stress, fix the proven cause and repeat the fully automatic native trial.
+Scope: compositor launch/admission, Files startup and narrowly required shared
+runtime code, regression fixtures, this machine record and local run/collector
+scripts. Preserve all integrity checks and the 10-second cycle / 500 ms loop
+limits. PR162 separately owns automatic capacity-capture targeting after async
+launch; preserve that work and inspect its actual integration before staging.
+Pro PR19 retains independent Wi-Fi scope. User authorizes testing, self-merge,
+installation and automatic reboot. Previous failed evidence is collected and
+backed up; no new physical result is accepted.
