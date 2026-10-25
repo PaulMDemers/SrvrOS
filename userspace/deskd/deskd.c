@@ -1457,7 +1457,7 @@ int main(int argc,char **argv) {
             }
             if(now-audio_io_notice>=1000000) {
                 audio_io_notice=now;
-                snprintf(s.scene.notice,sizeof(s.scene.notice),"Automatic audio + USB stress: %llu / %u seconds. Only listen; no input needed. Ubuntu returns automatically.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
+                snprintf(s.scene.notice,sizeof(s.scene.notice),"Audio + USB: %llu / %u sec. Listen only. Automatic return to Ubuntu.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
