@@ -2551,3 +2551,13 @@ PR157 also changes document routing, so avoid competing kernel/process edits and
 keep compositor integration explicit. Pro PR19 is separate Wi-Fi work.
 User authorizes tests, merge and automated native reboot. Prior run is collected;
 no new reboot is armed until matched builds, VM checks and recovery preflight pass.
+
+
+Candidate reproduction: a fully automatic Q35 Text/Files/System lifecycle loop
+under unchanged PCM/disk stress recorded a maximum compositor loop gap of
+863,447 us; a second instrumented run showed cache allocation waiting 532,954 us
+and free waiting hundreds of milliseconds. The initial worker candidate reduced
+the maximum loop gap to 179,769 us across 21 cycles, with zero app errors,
+zero PCM underruns and 218 independently observed PCM/write overlap windows.
+These are development VM measurements, not native acceptance. Final clean-source
+regressions and exact-stage validation precede installation and reboot.

@@ -535,3 +535,25 @@ idle capture uses the new path. Clock, cached battery, notification and child
 housekeeping are bounded by the 100 ms idle maintenance cap. New timed features
 must update idle admission or supply an earlier deadline rather than assuming a
 10 ms loop. VM functional input checks are not physical latency acceptance.
+
+
+### Compositor lifecycle worker
+
+Application launch and compositor pixel-cache mapping/release run on one
+persistent session worker. The input/render thread copies bounded launch requests,
+reserves child slots and polls release/acquire completions; it never waits for
+these operations. Window creation messages that race launch publication are
+held until the child is registered. Unregistered senders are never admitted.
+The kernel's storage gate, process ownership and memory integrity checks remain
+unchanged; app startup can take time while the desktop continues to render.
+
+Pixel reservations count against the existing cache budget until the worker
+actually unmaps them, including a window closed before allocation completes.
+Only complete private buffers become display fronts. Pending buffers request a
+frame retry without a false low-memory notification; allocation failure during
+resize restores the last delivered geometry and preserves its published front.
+Shutdown stops and joins the worker before releasing its session records.
+The worker queues are bounded and reject excess admission visibly. Registry
+growth, screenshot initiation and exceptional forced process termination are
+separate synchronous paths; the automatic lifecycle receipt measures the tested
+normal launch/render/close path, not every possible desktop operation.

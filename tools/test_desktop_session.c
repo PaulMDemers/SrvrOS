@@ -70,6 +70,45 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
     for (uint64_t i=w*h/2;i<w*h;i++) p[i]=0x123456;
     return 0;
 }
+static void asynchronous_lifecycle(void) {
+    static struct session s;
+    static struct lifecycle_worker worker;
+    s.worker=&worker;s.home=DESK_RAM_HOME;s.scene.apps=1;s.scene.focus=-1;
+    desk_damage_init(&s.damage,1280,800);alive=1;send_allow=-1;queue_full=0;
+    char argument[32]="copied-path";strcpy(executed_path,"unchanged");execute_result=42;
+    spawn_app(&s,DESK_APP_TEXT,argument);strcpy(argument,"mutated");
+    assert(!strcmp(executed_path,"unchanged") && !s.children[0] && child_slot(&s)==1);
+    /* A child can send OPEN before the worker publishes its exec result.
+     * Defer that packet; never admit a process not registered as our child. */
+    struct desk_packet open=desk_packet_new(DESK_OPEN);open.width=400;open.height=280;
+    incoming(&s,42,&open);assert(s.pending_opens==1 && !s.clients[0].pid);
+    life_work(&worker);assert(!strcmp(executed_argument,"copied-path") && !s.children[0]);
+    lifecycle_poll(&s);assert(s.children[0]==42 && s.last_launch_pid==42);
+    lifecycle_deliver(&s);assert(!s.pending_opens && s.clients[0].pid==42 && s.clients[0].configure);
+    int before=allocations;service(&s);assert(allocations==before && s.clients[0].configure);
+    life_work(&worker);service(&s);assert(!s.clients[0].configure && allocations==before+1);
+    uint32_t *front=cache_prepare(&s,0,400,280);assert(front);
+    s.scene.windows[0].pixels=front;s.scene.windows[0].width=400;s.scene.windows[0].height=280;s.clients[0].awaiting=0;
+    struct desk_rect old_frame=s.scene.windows[0].frame;uint64_t old_generation=s.clients[0].generation;
+    alloc_fail=allocations;assert(configure(&s,0,500,300));life_work(&worker);service(&s);
+    assert(s.scene.windows[0].pixels==front && s.scene.windows[0].frame.w==old_frame.w && s.clients[0].generation==old_generation && !s.clients[0].closing);
+    life_work(&worker);lifecycle_poll(&s);alloc_fail=0;
+    assert(!cache_prepare(&s,0,400,280) && s.cache_pending);
+    /* Close during a queued allocation: retain both reservations until the
+     * worker has finished and unmapped them, including the unpublished one. */
+    uint64_t held=s.cache_bytes;cache_retire(&s,0);assert(s.cache_bytes==held);
+    life_work(&worker);assert(s.cache_bytes==held);lifecycle_poll(&s);assert(!s.cache_bytes);
+    s.scene.windows[0].pixels=NULL;
+    alloc_fail=allocations;assert(!cache_prepare(&s,0,500,300) && s.cache_pending);
+    life_work(&worker);assert(!cache_prepare(&s,0,500,300) && !s.cache_pending);
+    life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);alloc_fail=0;
+    s.children[0]=0;execute_result=SRV_ERR_NOMEM;spawn_app(&s,DESK_APP_FILES,"");
+    assert(!s.last_launch_pid);life_work(&worker);lifecycle_poll(&s);
+    assert(!s.children[0] && strstr(s.scene.notice,"could not open"));
+    s.exiting=1;strcpy(executed_path,"unchanged");spawn_app(&s,DESK_APP_TEXT,"");life_work(&worker);
+    assert(!strcmp(executed_path,"unchanged"));
+    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
+}
 static void delayed_control_delivery(void) {
     static struct session s;
     cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
@@ -661,6 +700,7 @@ int main(void) {
     assert(!failed.children[4] && strstr(failed.scene.notice,"Text could not open"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
+    asynchronous_lifecycle();
     clipboard_client_retirement();
     delayed_control_delivery();
     connection_lifetime();

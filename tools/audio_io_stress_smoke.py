@@ -91,6 +91,16 @@ def main():
                     assert b'audio-io: begin' not in output # exact native profile refuses Q35
                 else:
                     assert re.search(rb'audio-io: result=PASS seconds=60 .*underruns=0 worker_status=0',output)
+                    lifecycle=re.search(rb'desktop-life: result=PASS cycles=(\d+) max_loop_us=(\d+) max_ready_us=(\d+) max_close_us=(\d+) errors=0 limit_us=500000 first_us=(\d+) last_us=(\d+)',output)
+                    assert lifecycle and int(lifecycle[1])>=6 and 0<int(lifecycle[2])<=500000
+                    assert int(lifecycle[6])-int(lifecycle[5])>=40000000
+                    ready=re.findall(rb'desktop-life: ready cycle=(\d+) pid=(\d+) elapsed_us=(\d+)',output)
+                    closed=re.findall(rb'desktop-life: closed cycle=(\d+) pid=(\d+) elapsed_us=(\d+) errors=0',output)
+                    assert len(ready)==len(closed)==int(lifecycle[1])
+                    assert [(a,b) for a,b,_ in ready]==[(a,b) for a,b,_ in closed]
+                    assert len(set(pid for _,pid,_ in ready))==len(ready)
+                    assert b'async=yes' in output
+                    (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
                     assert b'runtime_retired=yes' in output and overlap
                 process.wait(timeout=30)

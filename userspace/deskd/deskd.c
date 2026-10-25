@@ -26,7 +26,8 @@
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
-struct pixel_cache { uint32_t *pixels,width,height; };
+#include "lifecycle_worker.h"
+struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
     uint64_t pid,window,identity,generation,progress,present_input;
@@ -37,6 +38,9 @@ struct client {
     unsigned input_head,input_count,input_dropped;
     struct desk_rect resize_origin,resize_restore;
     int resize_maximized;
+    uint64_t sent_generation;
+    struct desk_rect sent_frame,sent_restore;
+    int sent_maximized;
     uint64_t input_since;
     int input_blocked;
     uint64_t control_since;
@@ -55,6 +59,10 @@ struct child_record { uint64_t pid,last_window,reply_since;unsigned mode,reply_b
 struct child_chunk { struct child_chunk *next;size_t bytes;struct child_record records[]; };
 struct session {
     const char *home;
+    struct lifecycle_worker *worker;
+    struct {uint64_t pid;struct desk_packet packet;} pending_open[LIFE_LAUNCH_SLOTS];
+    unsigned pending_opens;
+    int cache_pending;
     struct desktop_scene scene;
     struct desk_damage damage;
     struct desk_rect menu_visible;
@@ -81,7 +89,7 @@ struct session {
     int battery_result;
     struct desk_battery_alert battery_alert;
     uint64_t battery_notice_serial;
-    uint64_t launch_notice_serial,launch_notice_at;
+    uint64_t launch_notice_serial,launch_notice_at,last_launch_pid;
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
@@ -145,6 +153,7 @@ static void resource_trace(const struct session *s,const char *reason) {
  * published pixels remain untouched until copy succeeds. Budget includes both. */
 static void cache_drop(struct session *s,int i,int j) {
     struct pixel_cache *c=&session_cache(s,i)[j];
+    if(c->job) { life_publish(&c->job->discard,1);*c=(struct pixel_cache){0};return; }
     if(c->pixels) {
         s->cache_bytes-=(uint64_t)c->width*c->height*4;
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
@@ -162,17 +171,35 @@ static void cache_reclaim(struct session *s,int keep) {
         if(session_cache(s,i)[j].pixels!=desktop_window_at(&s->scene,i)->pixels)cache_drop(s,i,j);
 }
 static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned height) {
+    s->cache_pending=0;
     if(!width || !height || width>DESK_MAX_WIDTH || height>DESK_MAX_HEIGHT)return NULL;
     int j=desktop_window_at(&s->scene,i)->pixels==session_cache(s,i)[0].pixels?1:0;
     struct pixel_cache *c=&session_cache(s,i)[j];uint64_t bytes=(uint64_t)width*height*4;
+    if(c->job) {
+        unsigned state=life_state(&c->job->state);
+        if(state!=LIFE_DONE) {s->cache_pending=1;return NULL;}
+        c->pixels=c->job->pixels;
+        if(!c->pixels){cache_drop(s,i,j);return NULL;}
+    }
     if(c->pixels && (uint64_t)c->width*c->height*4>=bytes)return c->pixels;
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)cache_reclaim(s,i);
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)return NULL;
+    if(s->worker) {
+        for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
+            struct life_memory *m=&s->worker->memory[n];
+            if(life_state(&m->state)!=LIFE_IDLE)continue;
+            cache_drop(s,i,j);m->width=width;m->height=height;m->pixels=NULL;m->discard=0;
+            *c=(struct pixel_cache){.width=width,.height=height,.job=m};
+            s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
+            life_publish(&m->state,LIFE_QUEUED);s->cache_pending=1;return NULL;
+        }
+        return NULL;
+    }
     uint32_t *pixels=desk_pixels_alloc(width,height);
     if(!pixels) { cache_reclaim(s,i);pixels=desk_pixels_alloc(width,height); }
     if(!pixels)return NULL;
     cache_drop(s,i,j);
-    *c=(struct pixel_cache){pixels,width,height};s->cache_bytes+=bytes;
+    *c=(struct pixel_cache){.pixels=pixels,.width=width,.height=height};s->cache_bytes+=bytes;
     if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
     return pixels;
 }
@@ -328,7 +355,7 @@ static void memory_notice(struct session *s) {
     }
 }
 static int configure(struct session *s,int i,int width,int height) {
-    if(!cache_prepare(s,i,width,height)) {
+    if(!cache_prepare(s,i,width,height) && !s->cache_pending) {
         snprintf(s->scene.notice,sizeof(s->scene.notice),"Not enough memory to resize this window.");memory_notice(s);
         desk_log("deskd: resize refused pid=%llu reason=cache-memory bytes=%llu\n",(unsigned long long)session_client(s,i)->pid,(unsigned long long)s->cache_bytes);
         return 0;
@@ -434,8 +461,20 @@ static void launch_failed(struct session *s,unsigned application,long error) {
 }
 static void spawn_app(struct session *s,int application,const char *path) {
     const struct desk_application_info *info=desk_application_info(application);
-    if(!info) return;
+    if(!info || s->exiting) return;
+    s->last_launch_pid=0;
     int i=child_slot(s);if(i>=0) {
+        if(s->worker) {
+            for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++) {
+                struct life_launch *j=&s->worker->launch[n];
+                if(life_state(&j->state)!=LIFE_IDLE)continue;
+                if(strlen(path?path:"")>=sizeof(j->path) || strlen(s->home?s->home:DESK_RAM_HOME)>=sizeof(j->home))break;
+                j->application=application;j->child_slot=i;
+                strcpy(j->path,path?path:"");strcpy(j->home,s->home?s->home:DESK_RAM_HOME);
+                s->last_launch_pid=0;life_publish(&j->state,LIFE_QUEUED);return;
+            }
+            launch_failed(s,application,SRV_ERR_AGAIN);return;
+        }
         char *argv[]={(char *)info->program,(char *)info->role,(char *)(path?path:""),NULL};
         char home[192],desktop_home[192];
         snprintf(home,sizeof(home),"HOME=%s",s->home?s->home:DESK_RAM_HOME);
@@ -443,7 +482,10 @@ static void spawn_app(struct session *s,int application,const char *path) {
         char *env[]={"PATH=/fat/bin:/:/fat",home,desktop_home,NULL};
         struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
+        uint64_t began=(uint64_t)srv_monotonic_us();
         long pid=srv_exec(&request);
+        s->last_launch_pid=pid>0?(uint64_t)pid:0;
+        desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu\n",application,(long long)pid,(unsigned long long)((uint64_t)srv_monotonic_us()-began));
         if(pid>0) { (*session_children(s,i))=pid;(*session_child_apps(s,i))=application;s->scene.notice[0]=0; }
         else { launch_failed(s,application,pid);resource_trace(s,"process-launch"); }
         desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
@@ -452,6 +494,25 @@ static void spawn_app(struct session *s,int application,const char *path) {
     resource_trace(s,"launch-capacity");
     launch_failed(s,application,SRV_ERR_NOMEM);
     desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
+}
+static void lifecycle_poll(struct session *s) {
+    if(!s->worker)return;
+    for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
+        struct life_memory *m=&s->worker->memory[n];
+        if(life_state(&m->state)==LIFE_RETIRED) {
+            s->cache_bytes-=(uint64_t)m->width*m->height*4;life_publish(&m->state,LIFE_IDLE);
+        }
+    }
+    for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++) {
+        struct life_launch *j=&s->worker->launch[n];
+        if(life_state(&j->state)!=LIFE_DONE)continue;
+        if(j->pid>0) {
+            *session_children(s,j->child_slot)=(uint64_t)j->pid;
+            *session_child_apps(s,j->child_slot)=j->application;s->last_launch_pid=j->pid;s->scene.notice[0]=0;
+        } else launch_failed(s,j->application,j->pid);
+        desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",j->application,(long long)j->pid,(unsigned long long)j->elapsed);
+        life_publish(&j->state,LIFE_IDLE);
+    }
 }
 static void request_close(struct session *s,int i) {
     if(!s->scene.apps) { close_client(s,i);return; }
@@ -899,6 +960,14 @@ static void close_client(struct session *s,int i) {
 }
 static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     int child=child_index(s,pid);if(!p->window)return;
+    if(child<0 && p->type==DESK_OPEN && s->worker) {
+        int launching=0;
+        for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)launching|=life_state(&s->worker->launch[n].state)!=LIFE_IDLE;
+        if(launching && s->pending_opens<LIFE_LAUNCH_SLOTS) {
+            s->pending_open[s->pending_opens].pid=pid;s->pending_open[s->pending_opens++].packet=*p;
+        }
+        return;
+    }
     int i;
     for(i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid==pid && session_client(s,i)->window==p->window)break;
     if(p->type==DESK_OPEN) {
@@ -936,7 +1005,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
             return;
         }
         if(managed)session_child_reply(s,child)->value=DESK_OPEN_OK;
-        focus(s,i);
+        focus(s,i);if(s->exiting)close_client(s,i);
         desk_log("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
         resource_trace(s,"opened");
         return;
@@ -1030,8 +1099,9 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     /* Keep displaying the front until a complete copy succeeds. */
     uint32_t *next=cache_prepare(s,i,p->width,p->height);
     if (!next) {
-        c->release.value=DESK_RELEASE_RETRY;memory_notice(s);
-        desk_log("deskd: deferred frame pid=%llu reason=cache-memory\n",(unsigned long long)pid);
+        c->release.value=DESK_RELEASE_RETRY;
+        if(!s->cache_pending) {memory_notice(s);
+            desk_log("deskd: deferred frame pid=%llu reason=cache-memory\n",(unsigned long long)pid);}
         return;
     }
     if (p->width>DESK_MAX_WIDTH || p->height>DESK_MAX_HEIGHT ||
@@ -1046,6 +1116,17 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     damage_window(s,i);
     if (s->trace && (!s->scene.apps || first_frame)) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
         (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
+}
+static void lifecycle_deliver(struct session *s) {
+    int launching=0;
+    if(s->worker)for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)launching|=life_state(&s->worker->launch[n].state)!=LIFE_IDLE;
+    for(unsigned n=0;n<s->pending_opens;) {
+        uint64_t pid=s->pending_open[n].pid;
+        if(child_index(s,pid)<0 && launching){n++;continue;}
+        struct desk_packet p=s->pending_open[n].packet;
+        s->pending_open[n]=s->pending_open[--s->pending_opens];
+        if(child_index(s,pid)>=0)incoming(s,pid,&p);
+    }
 }
 /* Queue age also includes time the compositor could not run. RELEASE and
  * CONFIGURE must get a delivery attempt before timeout attribution, just like
@@ -1094,11 +1175,28 @@ static void service(struct session *s) {
                 c->close_sent=1;
             }
         } else if (c->configure) {
+            if(s->worker && !cache_prepare(s,i,desktop_window_at(&s->scene,i)->frame.w-2,desktop_window_at(&s->scene,i)->frame.h-45)) {
+                if(!s->cache_pending) {
+                    memory_notice(s);
+                    if(!c->sent_generation)close_client(s,i);
+                    else {
+                        /* Nothing for this resize was delivered. Restore the
+                         * last delivered geometry without invalidating its
+                         * still-live surfaces or the published front. */
+                        struct desktop_window *w=desktop_window_at(&s->scene,i);
+                        damage_window(s,i);w->frame=c->sent_frame;w->restore=c->sent_restore;w->maximized=c->sent_maximized;
+                        c->generation=c->sent_generation;c->configure=0;
+                        c->awaiting=!w->pixels || w->width!=w->frame.w-2 || w->height!=w->frame.h-45;
+                        damage_window(s,i);
+                    }
+                }continue;
+            }
             struct desk_packet p=desk_packet_new(DESK_CONFIGURE);
             p.generation=c->generation;
             p.width=desktop_window_at(&s->scene,i)->frame.w-2; p.height=desktop_window_at(&s->scene,i)->frame.h-45;
             if(!control_send(s,i,&p)) continue;
-            c->configure=0;
+            c->configure=0;c->sent_generation=c->generation;
+            c->sent_frame=desktop_window_at(&s->scene,i)->frame;c->sent_restore=desktop_window_at(&s->scene,i)->restore;c->sent_maximized=desktop_window_at(&s->scene,i)->maximized;
         }
         if(c->pointer_cancel_pending && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_POINTER);
@@ -1149,7 +1247,10 @@ static void service(struct session *s) {
     }
     for (int i=0;i<children_capacity(s);i++) if ((*session_children(s,i))) {
         uint64_t status=0;
+        uint64_t began=(uint64_t)srv_monotonic_us();
         long waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
+        uint64_t elapsed=(uint64_t)srv_monotonic_us()-began;
+        if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
         /* An interrupted wait is not proof of death. Init only adopts a
          * child after its parent exits; live clients retain their own results. */
         if (waited==(long)(*session_children(s,i))) { s->child_reaped++;if(status)s->child_errors++; }
@@ -1383,12 +1484,14 @@ int main(int argc,char **argv) {
     battery_update(&s,1);
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+    static struct lifecycle_worker worker;
+    if(life_start(&worker)){gfx_console_mute(0);return 1;}s.worker=&worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
-    else if(capacity_capture) { /* Launch serially after each rendered admission below. */ }
+    else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
@@ -1423,6 +1526,8 @@ int main(int argc,char **argv) {
     uint64_t audio_io_pid=0,audio_io_begin=(uint64_t)srv_monotonic_us(),audio_io_notice=0;
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
     int audio_io_complete=0;
+    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
+    unsigned life_cycles=0,life_phase=0;
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1436,6 +1541,12 @@ int main(int argc,char **argv) {
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
+        uint64_t loop_now=(uint64_t)srv_monotonic_us();
+        if(audio_io && audio_io_pid) {
+            if(loop_last && loop_now-loop_last>loop_max)loop_max=loop_now-loop_last;
+            if(loop_last && loop_now-loop_last>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)(loop_now-loop_last),life_phase);
+            loop_last=loop_now;
+        }
         if(audio_io) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!audio_io_pid) {
@@ -1448,7 +1559,7 @@ int main(int argc,char **argv) {
                     if(child<=0){failed=1;break;}
                     audio_io_pid=(uint64_t)child;audio_io_begin=now;
                     desk_log("desktop-audio-io: started pid=%llu seconds=%u input=none\n",(unsigned long long)audio_io_pid,audio_io_seconds);
-                    spawn_app(&s,DESK_APP_SYSTEM,"");spawn_app(&s,DESK_APP_FILES,"");
+                    /* Lifecycle fixture launches actual apps after playback starts. */
                 } else if(now-audio_io_begin>15000000) {failed=1;break;}
             } else {
                 uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
@@ -1457,7 +1568,7 @@ int main(int argc,char **argv) {
             }
             if(now-audio_io_notice>=1000000) {
                 audio_io_notice=now;
-                snprintf(s.scene.notice,sizeof(s.scene.notice),"Audio + USB: %llu / %u sec. Listen only. Automatic return to Ubuntu.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
+                snprintf(s.scene.notice,sizeof(s.scene.notice),"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
@@ -1468,7 +1579,32 @@ int main(int argc,char **argv) {
             if (r<=0) break;
             if (r==1) incoming(&s,pid,&p);
         }
+        lifecycle_poll(&s);
+        lifecycle_deliver(&s);
         service(&s);
+        if(audio_io && audio_io_pid) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            if(!life_due)life_due=now+5000000;
+            if(!life_phase && now>=life_due && now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000) {
+                static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
+                life_begin=now;if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
+            } else if(life_phase==1) {
+                if(!life_pid)life_pid=s.last_launch_pid;
+                for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
+                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_begin));
+                    if(now-life_begin>life_ready_max)life_ready_max=now-life_begin;
+                    life_phase=2;life_due=now+500000;break;
+                }
+            } else if(life_phase==2 && now>=life_due) {
+                for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid)request_close(&s,i);
+                life_close=now;life_phase=3;
+            } else if(life_phase==3 && child_index(&s,life_pid)<0) {
+                desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
+                if(now-life_close>life_close_max)life_close_max=now-life_close;
+                life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+500000;
+            }
+            if((life_phase && now-life_begin>10000000) || s.child_errors){failed=1;break;}
+        }
         if(control_capture) {
             if(s.child_reaped) { if(s.child_reaped!=1 || s.child_errors)failed=1;break; }
             if(!control_monitor && (uint64_t)srv_ticks()-start>10000){failed=1;break;}
@@ -1649,7 +1785,8 @@ int main(int argc,char **argv) {
             }
         }
         if(apps && s.exiting) {
-            int live=0;for(int i=0;i<session_capacity(&s);i++) live|=session_client(&s,i)->pid!=0;
+            int live=0;for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)live|=life_state(&worker.launch[n].state)!=LIFE_IDLE;
+            for(int i=0;i<session_capacity(&s);i++) live|=session_client(&s,i)->pid!=0;
             if(!live) {
                 if(!s.exit_wait) s.exit_wait=srv_ticks();
                 int saving=s.preferences.job.busy || (s.preferences.writable && s.preferences.dirty);
@@ -2034,9 +2171,12 @@ int main(int argc,char **argv) {
     if (io_trial_finish(&s.io)!=0) failed=1;
     if(audio_io) {
         if(audio_io_pid){srv_kill(audio_io_pid);uint64_t status;srv_wait(audio_io_pid,&status,0);}
-        if(!audio_io_complete)failed=1;
+        if(!audio_io_complete || life_cycles<6 || life_phase || s.child_errors || !loop_last || loop_max>500000 || !life_first || life_last-life_first<((uint64_t)audio_io_seconds-20)*1000000)failed=1;
+        desk_log("desktop-life: result=%s cycles=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu errors=%u limit_us=500000 first_us=%llu last_us=%llu\n",failed?"FAIL":"PASS",life_cycles,(unsigned long long)loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max,s.child_errors,(unsigned long long)life_first,(unsigned long long)life_last);
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
     }
+    if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
+    lifecycle_poll(&s);
     /* Bound shutdown even when a client stopped reading. Only kill children
      * launched by this session; all queues/surfaces also have kernel cleanup. */
     for (int i=0;i<session_capacity(&s);i++) if (session_client(&s,i)->pid) close_client(&s,i);
@@ -2086,7 +2226,7 @@ int main(int argc,char **argv) {
         desktop_preferences_close(&s.preferences);
         desk_capture_job_close(&s.capture);
     }
-    cache_free(&s);
+    cache_free(&s);life_work(&worker);lifecycle_poll(&s);s.worker=NULL;
     if(s.trace)desk_log("deskd: cache peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu windows=%u\n",(unsigned long long)s.cache_peak,(unsigned long long)s.cache_bytes,(unsigned long long)DESKD_CACHE_BUDGET,session_capacity(&s));
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);
