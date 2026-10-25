@@ -7,40 +7,29 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-The user considers the core Pro bring-up generally working. Native desktop,
-input, brightness, speakers, CPU/fan telemetry and captured USB Ethernet
-DHCP/DNS/HTTP with live cable-status UI have named physical acceptance below.
-Network/UI acceptance includes release `2f8abe0e131023d8`; subsequent Wi-Fi
-trials do not repeat or broaden that desktop acceptance. Battery work,
-headphone testing and further trackpad-latency tuning remain deferred.
+The user considers the core Pro bring-up generally working. Named payloads below
+have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
+telemetry and captured USB Ethernet DHCP/DNS/HTTP with live cable-status UI.
+Battery, headphones and further trackpad-latency work remain deferred.
 
-The active adapter is Edimax `7392:a711` (MT7610), replacing the Ethernet adapter.
-Firmware transport and the recorded MAC/baseband prerequisites have passed their
-bounded physical checks. Central RF initialization remains blocked at RF0:6:
-MCU and direct RF reads both return zero after the MCU write of `0x41`.
-Release `032ade0806c417ab` completed the direct-read comparison; this accepts
-that observation only. Calibration, channel setup, scanning, association/security
-and Wi-Fi connectivity/UI remain pending.
+Active scope is the Edimax `7392:a711` USB MT7610 adapter. The latest collected
+native release `257e68678e55ba49` (source `83152ee0`) completed all44 central RF
+writes and44 separate reads, with43 matches and only RF0:6 reading00 after41.
+All command/guard/recovery checks passed. Live Linux reads08 there after its
+initialization/calibration. Register semantics remain unresolved; the original
+strict engine is unchanged and full radio initialization remains unaccepted.
 
-Release `bc805e30aa1454bb` (source `4fa96c66`) completed the guarded direct
-RF0:6 write and independent read. Both write paths now produce the same zero
-readback. Local, exact-stage VM and native observation checks passed; full RF
-initialization remains unaccepted. Ubuntu remains default, known-good
-`e47dca3a6b30c6c1` remains recovery, and no reboot is armed.
-Release `6e49ad417d7ea11e` (source `48b79846`) completed the read-only RF
-bypass/control snapshot after reproducing that experiment. Both bypass registers
-and RF setting0 are zero in native and live Linux samples. RF_MISC differs1/5;
-no missing prerequisite is established by comparing disabled and live states.
-Live Linux RF reads now show0:6/1/2/6/22 =8/1/17/8/68 while networking
-works. Post-initialization RF0:6 does not retain41, so strict immediate table
-readback equality still needs a register-specific basis. Release `257e68678e55ba49` (source `83152ee0`) completed the separate
-central-table write/read observation: all44 ACKs and44 reads, with43 exact matches
-and only RF0:6 reading0 instead of41. All command/guard/recovery checks passed.
-This remains an observation; the original strict engine is unchanged and full
-register/radio acceptance is pending. Next prepare the next fixed RF bank table
-observation with this complete captured profile as a prerequisite.
-No reboot is armed. The latest dated sections below contain full
-scope, dependencies and evidence locations.
+Candidate `242e84b15d20babc` (source `8fbd311d`) is installed unarmed for the
+fixed68-entry RF bank5 write/read observation. It requires the exact complete
+central profile and uses an opt-in256KiB complete startup log. Local/sanitizer
+and exact-stage VM recovery checks passed; native bank5 results are pending.
+Ubuntu remains default, known-good `e47dca3a6b30c6c1` remains recovery, and the
+completed central-table diagnostic is retained. Next: attended cold adapter
+cycle, then collect matching release/session FIRST. No reboot is armed.
+
+Calibration, channel setup, scanning, association/security and Wi-Fi
+connectivity/UI remain pending. The dated sections below preserve full scope,
+source, dependencies and evidence; observations are not radio acceptance.
 
 ## Original bring-up scope (historical)
 
@@ -5952,3 +5941,24 @@ central prerequisite faults and quarantine. All146 staging tests pass and132 old
 Wi-Fi recipes are byte-identical. The strict collector rejects3690 malformed
 full-prefix proofs; four complete patterns fit at most159350bytes. Build,
 sanitizer/regression and exact-stage VM checks precede unarmed installation.
+
+
+Bank5 source `8fbd311d`, release `242e84b15d20babc`, installed unarmed.
+Full build, MCU/compact/bring-up/original strict engine and logger regressions,
+sanitizer and documentation checks passed. Exact-stage GPT VM capture/save,
+offline-byte verification and automatic return passed, with the selected
+`tail_limit=262144` confirmed in its serial receipt. Separate missing-workspace
+refusal/return passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained,
+as is completed central observation `257e68678e55ba49`. Older v65
+`6e49ad417d7ea11e` removed from ESP only after exact durable-backup equality.
+Offline workspace clean275files/661clusters/111directories, zero leaks,
+allocation mismatches or errors; unmounted.
+
+Payload, pinned references, host/sanitizer/logger/collector checks, both VM
+receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-bank5-8fbd311/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require the full exact central prerequisite plus136 bank5 command replies,
+272 bank5 guard triplets,68 observations and both mismatch fields. Both completion
+markers and the full untruncated262144-capacity prefix are required. No automatic
+bank6, trim, DAC/VCO calibration or traffic. No reboot armed; native result pending.
