@@ -6456,3 +6456,19 @@ zero leaks/mismatches/errors; unmounted, no reboot armed. Durable archive:
 Next: bounded delayed read-only VCO observation after this exact initiation
 proof. No repeated initiation pulse, forced bit clear, channel tuning, MAC
 enable, scanning, association/security or traffic before reviewing that result.
+
+## 2026-10-25 — bounded delayed VCO observation scope
+
+DAC/VCO native results are collected/archived at `ce20d9ae`; no outstanding
+run or reboot. Fetched main `2c1ffc6b` includes desktop document and audio/USB
+work; PR157 currently records Air7,2 document lifecycle scope. Inspected changes
+do not own Wi-Fi RF/MCU state. Retain integration base `d5bc4b3` for Pro PR19.
+
+Objective: after the complete captured DAC/VCO initiation profile, read RF0:4
+six times with fixed inter-sample delays10/40/50/100/300/500ms (one second total
+requested delay, excluding transport time). No additional RF write or repeated
+start pulse. Record all values, first observed clear and final bit state;
+a clear alone does not establish calibrated radio operation. Scope: separate
+bounded MCU observation/delay state, native single-submission/timer ownership,
+opt-in staging, fault tests and full-prefix collector. Keep256KiB capacity,
+MAC disabled and existing strict profiles unchanged. No tuning or traffic.
