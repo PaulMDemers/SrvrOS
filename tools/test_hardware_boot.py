@@ -61,6 +61,13 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_wifi_channel_observe_profile(self):
+        v="ram-usb-wifi-fw-v76-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v76-","v75-"))
+        self.assertEqual(config.replace(" srvros.wifi-channel-observe=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_observe=True)
+
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

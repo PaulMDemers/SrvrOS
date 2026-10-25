@@ -295,7 +295,7 @@ struct xhci_wifi_mcu {
     bool rf_g20_mode,rf_g20_active;
     unsigned rf_g20_submitted;
     struct mt76_rf_table rf_g20;
-    bool channel_state_mode,channel_state_active;
+    bool channel_state_mode,channel_state_active,channel_observe_mode;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
     bool path_mode,path_active;

@@ -6746,3 +6746,18 @@ CORE/DMA guards strict, require complete postguards before inventory completion.
 No IBI9 value/register acceptance from this comparison. Scope: policy-separated
 engine/native/staging/tests/collector; full earlier profile unchanged. No writes,
 tuning, MAC enable or traffic. Keep256KiB capture and archive the Linux audit.
+
+Implemented separate policy flag/admission and observation log family/mask.
+Original strict engine still refuses all-ones at every target; new observation
+permits it only at IBI9, with tests for cross-policy refusal and derived mask.
+Host tests pass every transfer/cancellation/guard/other-target all-ones boundary,
+proof mutation and no replay. Native tests pass all18 reads and146 prerequisite/
+state/policy faults, including mode/state disagreement, no-USB refusal and
+quarantine. All155 staging tests and150 historical recipe identity checks pass.
+Strict full-prefix observation tests accept both IBI9 patterns at250247bytes
+and reject204 malformed proofs. Full build, prior RF/MCU/EFUSE/logger regressions,
+ASan/UBSan for both strict/observation engines and499 documentation links pass.
+Independent live Linux audit is archived/hash-verified at
+`~/.local/share/srvros/macbookpro11-2/linux-ibi9-audit-d6d1704/`.
+Next: exact-stage GPT save/return and missing-workspace rehearsal before install.
+Native observation results pending; failed v75 unchanged; no reboot armed.

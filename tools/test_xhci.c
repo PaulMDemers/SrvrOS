@@ -4603,6 +4603,23 @@ static void test_wifi_channel_state(void){
  reset_test();assert(!xhci_wifi_capture_channel_state());puts("xhci channel prerequisite inventory: PASS all18 fixed reads,144 prerequisite/state faults, no USB/replay on refusal and quarantine");
 }
 
+static void test_wifi_channel_observe(void){
+ for(unsigned op=0;op<18;op++)for(unsigned fault=0;fault<((op==0 || op==3 || op==17)?149u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[105]={0},events[105]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];channel_state_fixture(d,op);d->firmware.mcu.channel_observe_mode=true;d->firmware.mcu.channel_state.raw_ibi9=true;
+  d->firmware.mcu.channel_state.values[8]=UINT32_MAX;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==148?6:1,0);
+  uint32_t a=mt76_channel_state_request(op),v=0;trim_reply_device=d;trim_reply_value=op<3?m->channel_state.guards[0][op]:op>=15?m->channel_state.guards[1][op-15]:m->channel_state.values[op-3];
+  channel_state_fault(m,fault);if(fault==145)m->channel_observe_mode=false;if(fault==146)m->channel_state.raw_ibi9=false;if(fault==147)a++;
+  assert(wifi_channel_state_read(d,a,&v)==!fault);
+  if(!fault){assert(m->channel_state_submitted==op+1 && d->firmware.control_request==7);assert(!wifi_channel_state_read(d,a,&v));for(unsigned b=0;b<4;b++)assert(!buffer[b]);}
+  else if(fault==148)assert(d->ep0_quarantined && m->failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_channel_observe());puts("xhci IBI9 channel observation: PASS all18 fixed reads,146 prerequisite/state/policy faults, no USB/replay on refusal and quarantine");
+}
+
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -5943,6 +5960,7 @@ int main(int argc, char **argv) {
     test_wifi_rf_wait_delays();
     test_wifi_path();
     test_wifi_channel_state();
+    test_wifi_channel_observe();
     test_wifi_trim_fields();
     test_wifi_ant_init();
     test_wifi_mac_private();

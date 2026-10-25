@@ -3114,3 +3114,26 @@ separate failure validation preserved full earlier proof, exact stop and entire
 hashes and clean offline filesystem/allocation verified; workspace unmounted,
 no reboot armed. The next audit must establish IBI9 all-ones semantics before
 changing admission; no gate relaxation or automatic retry was made.
+
+### IBI9 comparison and separate raw observation (v76 candidate)
+
+On the same captured adapter under Ubuntu, four interleaved debugfs samples
+returned IBI9=ffffffff twelve times, alongside ASIC76100002, COREf000f200,
+adjacent IBI8/10=0 and normal register values. Only the debug read selector was
+changed/restored; no hardware register write, driver reset/unbind or channel
+change occurred, and binding/default route remained unchanged. Linux is already
+initialized/calibrated here, so these values are not native initialization
+acceptance. The [reference calibration](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+saves IBI9, temporarily writesffffff7e and restores the saved value. All ones at
+this address alone is insufficient evidence of a failed USB transfer.
+
+The v75 strict profile and its recorded failure remain unchanged. New explicit
+`--wifi-channel-observe` selects a separate read-only policy/log family. It may
+record all-ones only at IBI9 index8 and emits a derived12-bit all_ones_mask;
+only bit8 can appear in a completed observation. Other11 targets and all MAC/
+CORE/DMA guards retain strict rejection. Counters, policy flag and native mode
+must agree before any read; the original admission function refuses raw mode.
+No value is promoted to accepted calibration data. Complete18 receipts,12
+values,2 guard triplets and both completion markers remain required. v76 adds
+only its token to v75 and keeps256KiB save/return. No additional writes or radio
+enable/traffic. The independent Linux read/audit is archived outside build.
