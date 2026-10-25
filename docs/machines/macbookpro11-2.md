@@ -44,8 +44,14 @@ completion markers were saved. Strict validation, consumed one-shot, Ubuntu
 default and installed/recovery hashes passed. Latest offline workspace checks:
 279files/669clusters/113directories, zero leaks, mismatches or errors;
 unmounted. This is command/guard/readback evidence, not calibrated radio
-acceptance. Next: bounded reference VGA-table initialization/readback, before
-bandwidth/band selection, trim and DAC/VCO calibration. No reboot is armed.
+acceptance.
+
+Candidate `de89daa6bdc3024e` (source `22f757bf`) is installed unarmed for the
+fixed35-entry RF VGA (bank7) observation. Local/regression and sanitizer checks,
+exact-stage VM save/return and missing-workspace recovery passed. Next: attended
+cold adapter cycle, then collect the matching release/session FIRST. No reboot
+is armed. Bandwidth/band selection, trim and DAC/VCO calibration remain later
+steps.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6118,3 +6124,26 @@ and logger regressions passed. New VGA engine and the complete-bank6 proof
 validator both passed ASan/UBSan runs. Documentation links checked cleanly.
 Exact-stage GPT save/return and missing-workspace recovery checks precede
 installation; no physical VGA result has been accepted.
+
+
+RF VGA source `22f757bf67ec13fe4f177f58103ac122ef84aec1`, release
+`de89daa6bdc3024e`, installed unarmed. Full build, regressions, ASan/UBSan for
+the new plan and complete bank6 validator, and documentation checks passed.
+All1946 malformed full-prefix collector cases were refused; all four valid
+patterns fit at most219914bytes. Exact-stage GPT VM saved and byte-verified
+capture, passed offline exFAT checks and returned automatically, with the
+selected tail_limit262144 confirmed. Missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` remain, as does completed bank6
+release `7b329891c0606f1c`. Older bank5 `242e84b15d20babc` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace is clean:
+279files/669clusters/113directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned reference, local/strict/sanitizer checks, both VM receipts and
+run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-vga-22f757b/`.
+
+On return collect matching release/session FIRST. Require full central+bank5+
+bank6 proof, all70 VGA command replies,140 guard triplets,35 observations,
+complete mismatch accounting and entire startup prefix with both completion
+markers. No bandwidth/band switching, trim, DAC/VCO or traffic in this trial.
+No reboot armed; native RF VGA results pending.
