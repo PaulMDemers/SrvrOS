@@ -2441,3 +2441,22 @@ unarmed, and its collector disabled. The overlap collector replaces it. Ubuntu
 default, console recovery and accepted payloads remain intact. Payload and run
 evidence are backed up outside build. The corrected test is ready-unarmed; no
 reboot is scheduled, and listening/native overlap acceptance remains pending.
+
+## Automatic audio / filesystem stress scope (2026-10-25)
+
+Run `93a364b8128b185a` returned with clean desktop retirement but failed the
+workload: one 60-second PCM completion with zero underruns and no recorded disk
+burst. Manual Text saves do not accept sustained overlap. Preserve this failure.
+The replacement is fully automatic, with listening as the only human task:
+a dedicated PCM producer and separate continuous verified filesystem worker,
+automatic desktop startup/progress/exit, normal battery retirement and Ubuntu
+return. Record actual timestamps and counts rather than infer overlap from a
+shell reading a concurrently written log. Use existing PCM/filesystem interfaces;
+no firmware gates, integrity checks or startup budgets change.
+
+Base is merged main `2c1ffc6b`. Scope: a playwav stress mode, narrow boot-only
+session selection, desktop progress/worker lifecycle, staging and VM regressions.
+PR157 owns shared document-dialog/app lifecycle work; preserve it and keep these
+additions isolated from its client/dialog code. PR19 remains independent Wi-Fi.
+The prepared native payload will be rebuilt and exact-stage tested. User has
+explicitly authorized the automated reboot after validation.
