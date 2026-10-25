@@ -569,7 +569,7 @@ int socketpair(int domain, int type, int protocol, int fds[2]) {
     int flags = type & (SOCK_NONBLOCK | SOCK_CLOEXEC);
     int base_type = type & ~(SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (fds == 0) {
-        errno = EINVAL;
+        errno = EFAULT;
         return -1;
     }
     if (domain != AF_UNIX) {
@@ -580,23 +580,9 @@ int socketpair(int domain, int type, int protocol, int fds[2]) {
         errno = EPROTONOSUPPORT;
         return -1;
     }
-    if (srv_pipe_pair(fds) < 0) {
-        errno = EMFILE;
-        return -1;
-    }
-    uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
-    uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
-    if ((fd_flags != 0 &&
-            (srv_fcntl(fds[0], SRV_F_SETFL, fd_flags) < 0 ||
-                srv_fcntl(fds[1], SRV_F_SETFL, fd_flags) < 0)) ||
-        (descriptor_flags != 0 &&
-            (srv_fcntl(fds[0], SRV_F_SETFD, descriptor_flags) < 0 ||
-                srv_fcntl(fds[1], SRV_F_SETFD, descriptor_flags) < 0))) {
-        (void)srv_close(fds[0]);
-        (void)srv_close(fds[1]);
-        errno = EBADF;
-        return -1;
-    }
+    uint64_t native_flags=((flags&SOCK_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags&SOCK_CLOEXEC)?SRV_FD_CLOEXEC:0);
+    long result=srv_pipe_pair_flags(fds,native_flags);
+    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
 

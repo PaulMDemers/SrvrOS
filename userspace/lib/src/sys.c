@@ -127,6 +127,9 @@ long srv_pty_create(int fds[2]) {
     return srv_syscall1(SYS_PTY_CREATE, (long)fds);
 }
 
+long srv_pipe_pair_flags(int fds[2],uint64_t flags) {
+    return srv_syscall2(SYS_PIPE_PAIR_FLAGS,(long)fds,(long)flags);
+}
 long srv_pipe_pair(int fds[2]) {
     return srv_syscall1(SYS_PIPE_PAIR, (long)fds);
 }

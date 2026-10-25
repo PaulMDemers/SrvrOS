@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #define CHECK(x) do { if(!(x)) { printf("threadstress: fd-publication line=%d errno=%d\n",__LINE__,errno);return -1;} } while(0)
@@ -15,7 +16,7 @@ static void *publish(void *unused) {
     (void)unused;
     while(!__atomic_load_n(&stopped,__ATOMIC_ACQUIRE)) {
         int p[2];
-        if(pipe2(p,O_CLOEXEC|O_NONBLOCK)) return (void *)1;
+        if((rounds&1)?socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK,0,p):pipe2(p,O_CLOEXEC|O_NONBLOCK)) return (void *)1;
         int copy=fcntl(p[1],F_DUPFD_CLOEXEC,32);
         if(copy<0 || dup3(p[0],60,O_CLOEXEC)!=60) return (void *)1;
         sched_yield();
@@ -36,6 +37,11 @@ int posix_fd_publication_test(void) {
     int p[2]={-11,-12};
     CHECK(pipe2(p,O_APPEND)==-1 && errno==EINVAL && p[0]==-11 && p[1]==-12);
     CHECK(pipe2((int *)(uintptr_t)1,O_CLOEXEC)==-1 && errno==EFAULT);
+    CHECK(socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0,(int *)(uintptr_t)1)==-1 && errno==EFAULT);
+    CHECK(!socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK,0,p));
+    CHECK(fcntl(p[0],F_GETFD)==FD_CLOEXEC && fcntl(p[1],F_GETFD)==FD_CLOEXEC);
+    CHECK((fcntl(p[0],F_GETFL)&O_NONBLOCK) && (fcntl(p[1],F_GETFL)&O_NONBLOCK));
+    CHECK(!close(p[0]) && !close(p[1]));
     CHECK(!pipe2(p,O_CLOEXEC|O_NONBLOCK));
     CHECK(fcntl(p[0],F_GETFD)==FD_CLOEXEC && fcntl(p[1],F_GETFD)==FD_CLOEXEC);
     CHECK((fcntl(p[0],F_GETFL)&O_NONBLOCK) && (fcntl(p[1],F_GETFL)&O_NONBLOCK));

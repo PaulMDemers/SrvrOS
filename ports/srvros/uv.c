@@ -2623,7 +2623,7 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
         (flags1 & ~UV_NONBLOCK_PIPE) != 0) {
         return UV_EINVAL;
     }
-    if (socketpair(AF_UNIX, type, protocol, socket_vector) < 0) {
+    if (socketpair(AF_UNIX,type|SOCK_CLOEXEC,protocol,socket_vector) < 0) {
         return uv_error_from_errno();
     }
     if ((flags0 & UV_NONBLOCK_PIPE) != 0) {
@@ -3592,16 +3592,10 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
                 return EINVAL;
             }
             pipe_error = pipe_handle->ipc ?
-                socketpair(AF_UNIX, SOCK_STREAM, 0, fds) :
-                srv_pipe_pair(fds);
+                socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0,fds) :
+                srv_pipe_pair_flags(fds,SRV_FD_CLOEXEC);
             if (pipe_error < 0) {
                 return errno != 0 ? errno : EINVAL;
-            }
-            if (fcntl(fds[0], F_SETFD, FD_CLOEXEC) < 0 ||
-                fcntl(fds[1], F_SETFD, FD_CLOEXEC) < 0) {
-                int saved = errno;
-                close(fds[0]); close(fds[1]);
-                return saved;
             }
             parent_fds[index] = fds[0];
             child_fds[index] = fds[1];

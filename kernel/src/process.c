@@ -4438,7 +4438,7 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
 
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
     if (process == NULL || fds_out == NULL) {
-        return -1;
+        return SRV_ERR_INVAL;
     }
 
     uint64_t first_index = PROCESS_MAX_OPEN_FILES;
@@ -4455,18 +4455,18 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
         }
     }
     if (second_index == PROCESS_MAX_OPEN_FILES) {
-        return -1;
+        return SRV_ERR_MFILE;
     }
 
     uint64_t pipe_ab = pipe_alloc();
     if (pipe_ab == 0) {
-        return -1;
+        return SRV_ERR_NFILE;
     }
     uint64_t pipe_ba = pipe_alloc();
     if (pipe_ba == 0) {
         pipe_close(pipe_ab, false);
         pipe_close(pipe_ab, true);
-        return -1;
+        return SRV_ERR_NFILE;
     }
 
     struct process_file *first_file = &process->files[first_index];
