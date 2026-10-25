@@ -32,7 +32,11 @@ Files-under-I/O issue. PR19 owns Pro Wi-Fi. The initial clean `eb66c74` exact v7
 stage `d203e4b1c640bde8` passes GRUB → staged Limine, the automatically opened
 Help guide, saved work, playback, exit/reopen and clean retirement/unmount; native
 battery correctly refuses Q35. Both guide screenshots were visually checked.
-Rebuild and repeat affected checks on the integrated tree before installing. Evidence is in `build/modal-pointer-20261025/` and the
+The combined desktop/build and real-click fixture pass on clean `60dbb2d`. Its
+final v75 stage `336d81743ca03a33` repeats the exact boot/save/playback/exit/reopen
+rehearsal successfully with clean allocation and retirement; the focused guest
+instructions remain visible. This is the staged candidate for the attended
+pointer retest, not new physical acceptance. Evidence is in `build/modal-pointer-20261025/` and the
 collected `build/lifecycle-native-20261025/` return. The next v75 attended guide
 opens with a focused physical button/picker checklist and has no timed exit.
 Validate its exact stage before installation; preserve independent recovery
