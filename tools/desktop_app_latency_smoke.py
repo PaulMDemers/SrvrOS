@@ -12,7 +12,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rounds',type=int,default=4)
     parser.add_argument('--label',default='current')
-    parser.add_argument('--playback',action='store_true',help='cycle apps during a captured 90-second stream using unchanged playwav/HDA')
+    parser.add_argument('--playback',action='store_true',help='cycle apps during a captured 80-second stream using unchanged playwav/HDA')
     args=parser.parse_args()
     if not 1<=args.rounds<=16 or not re.fullmatch(r'[a-z0-9-]+',args.label):parser.error('rounds 1..16; lowercase label')
     if args.playback and args.rounds>4:parser.error('playback fixture supports at most four rounds')
@@ -27,7 +27,7 @@ def main():
         expected_pcm=None;home={}
         if args.playback:
             from audio_stream_smoke import fixture as pcm_fixture
-            home['cycle.wav'],expected_pcm=pcm_fixture(90)
+            home['cycle.wav'],expected_pcm=pcm_fixture(80)
         fixture.add_directory_files('home',home);disk_path.write_bytes(fixture.data)
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),cmdline='srvros.audio=hda' if args.playback else None);port=choose_port(30001,38000)
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',str(iso),'-boot','d','-drive',f'if=none,id=disk,file={disk_path},format=raw','-device','ich9-ahci,id=ahci','-device','ide-hd,drive=disk,bus=ahci.0','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-serial',f'tcp:127.0.0.1:{port},server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
@@ -79,7 +79,7 @@ def main():
                         shortcut('meta_l-alt-down');time.sleep(.1);shortcut('ctrl-q' if name in ('Text','Preview') else 'ctrl-w')
                         wait(b'deskd: child-exit pid='+pid+b' status=0');ended=time.monotonic()
                         pcm_after=(out/'tone.wav').stat().st_size if args.playback else 0
-                        if args.playback:assert pcm_after>pcm_before and pcm_after<90*192000-192000,'App cycle missed active playback'
+                        if args.playback:assert pcm_after>pcm_before and pcm_after<80*192000-192000,'App cycle missed active playback'
                         cycles.append(dict(pcm_bytes_before=pcm_before,pcm_bytes_after=pcm_after,round=round_id,app=name,pid=int(pid),open_wall_ms=round((opened-start)*1000,2),close_wall_ms=round((ended-opened)*1000,2)))
                 if args.playback:wait(b'deskterm: shell exited status=0',150)
                 shortcut('meta_l-spc');text('latency-proof');qmp.key('ret');wait(b'deskd: launcher window=')
@@ -104,7 +104,7 @@ def main():
         playback=None
         if args.playback:
             report=final.read('home/playback.txt');(out/'playback.txt').write_bytes(report)
-            assert b'playwav: complete bytes=17280000 underruns=0' in report,report
+            assert b'playwav: complete bytes=15360000 underruns=0' in report,report
             from audio_stream_smoke import analyze_repeated
             playback=analyze_repeated(out/'tone.wav',expected_pcm,1)
         result=dict(status='PASS',physical_acceptance=False,audio_used=args.playback,playback=playback,rounds=args.rounds,cycles=cycles,latency=samples,process_baseline_restored=True,saved_sha256=hashlib.sha256(expected).hexdigest(),source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),payload_sha256={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'build/kernel/srvros.elf',root/'build/initramfs.tar')})
