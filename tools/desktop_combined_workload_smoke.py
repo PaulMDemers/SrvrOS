@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Shorten pacing only: real shell workload, PCM, Text/Files and battery on Q35."""
-import binascii,json,os,re,struct,subprocess,tempfile,time,uuid
+import argparse,binascii,json,os,re,struct,subprocess,tempfile,time,uuid
 from pathlib import Path
 from desktop_combined_workload import files,verify
 from desktop_foundation_smoke import QMP
@@ -12,10 +12,12 @@ from vm_sockets import connect_unix
 
 
 def main():
-    root=Path(__file__).resolve().parents[1];out=root/'build/review/desktop-combined-workload';out.mkdir(parents=True,exist_ok=True)
-    (out/'result.json').unlink(missing_ok=True);run='0123456789abcdef';stem='combined-'+run
-    inputs=files(run,2,1)
-    inputs['combined-proof.sh']=(f'cd /work/srvros-work || exit 1\nsh {stem}.sh\necho $? > first-status.txt\nsh {stem}.sh > refusal.txt\necho $? > refusal-status.txt\nsync\n').encode()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--full-round',action='store_true');args=parser.parse_args()
+    rounds,seconds,bursts=(1,60,40) if args.full_round else (2,6,2)
+    root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-combined-workload-full' if args.full_round else 'build/review/desktop-combined-workload');out.mkdir(parents=True,exist_ok=True)
+    (out/'result.json').unlink(missing_ok=True);(out/'tone.wav').unlink(missing_ok=True);run='0123456789abcdef';stem='combined-'+run
+    inputs=files(run,rounds,1,seconds,bursts)
+    inputs['combined-proof.sh']=(f'cd /work/srvros-work || exit 1\nsh {stem}.sh > trial-output.txt 2>&1\necho $? > first-status.txt\nsh {stem}.sh > refusal.txt\necho $? > refusal-status.txt\nsync\n').encode()
     output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
         tmp=Path(directory);volume=tmp/'volume';stick=tmp/'stick'
@@ -35,13 +37,25 @@ def main():
         kernel=root/'build/acpi-air61-battery/vm.elf';initramfs=root/'build/initramfs.tar'
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop=session srvros.battery=on srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only'
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
-        cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none','-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0','-device','ich9-intel-hda','-device','hda-duplex,audiodev=silent,use-timer=off','-audiodev','none,id=silent']
+        cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none','-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0','-device','ich9-intel-hda','-device','hda-duplex,audiodev=silent,use-timer=off','-audiodev',f'wav,id=silent,path={out}/tone.wav,out.frequency=48000']
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(cmd,stdout=errors,stderr=errors)
             try:
                 serial=connect_unix(tmp/'serial',20);serial.settimeout(.05);qmp=QMP(tmp/'qmp')
+                overlap=[];previous=None;sample_at=0
                 def pump(seconds):
+                    nonlocal previous,sample_at
                     output.extend(read_for(serial,seconds));(out/'serial.log').write_bytes(output)
+                    now=time.monotonic()
+                    if now-sample_at>=.2:
+                        sample_at=now
+                        written=next(x['stats']['wr_bytes'] for x in qmp.call('query-blockstats') if x.get('device')=='stick')
+                        pcm=(out/'tone.wav').stat().st_size if (out/'tone.wav').exists() else 0
+                        if previous and pcm>previous[1] and written-previous[0]>=65536:
+                            with (out/'tone.wav').open('rb') as capture:
+                                capture.seek(max(44,previous[1]));audible=any(capture.read(pcm-max(44,previous[1])))
+                            if audible:overlap.append(dict(usb_written=written-previous[0],pcm_bytes=pcm-previous[1]))
+                        previous=(written,pcm)
                 def wait(marker,timeout=90):
                     nonlocal consumed
                     start=time.monotonic()
@@ -59,7 +73,7 @@ def main():
                 launch('Terminal',b'deskterm: ready');pump(1);text('sh /work/srvros-work/combined-proof.sh\n');started=time.monotonic()
                 launch('Text',b'desktools: starting role=text');pump(1);text('Concurrent combined trial.');key('ctrl-l');key('ctrl-a');text('/work/srvros-work/combined-note.txt');key('ctrl-s');wait(b'picker ready mode=2');key('ret');wait(b'file-result role=text op=2 status=0')
                 launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
-                while time.monotonic()-started<45:
+                while time.monotonic()-started<rounds*(seconds+1)+30:
                     pump(.2);assert b'battery: HALTED' not in output
                 qmp.call('screendump',{'filename':str(out/'desktop.ppm')})
                 key('ctrl-alt-esc');wait(b'desktop-session: returned complete=yes');wait(b'\nsrv> ')
@@ -68,7 +82,12 @@ def main():
                 assert b'runtime_retired=yes' in output
                 stop_process(process);data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
                 final=ExfatFixture(data[2048*512:end]);read=lambda name:final.read('srvros-work/'+name)
-                proof=verify(read,run,2,1)
+                evidence={}
+                for name in ['trial-output.txt','first-status.txt','refusal-status.txt','refusal.txt',stem+'/io.txt',stem+'/rounds.txt',stem+'/audio-1.txt',stem+'/audio-2.txt',stem+'/complete.txt']:
+                    try:evidence[name]=read(name).decode(errors='replace')
+                    except Exception as e:evidence[name]=repr(e)
+                (out/'guest-evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
+                proof=verify(read,run,rounds,1,seconds,bursts)
                 assert read('first-status.txt')==b'0\n' and read('refusal-status.txt')==b'1\n'
                 assert read('refusal.txt')==b'REFUSED existing combined trial\n'
                 assert read('combined-note.txt')==b'Concurrent combined trial.' and read('anchor.txt')==b'unchanged\n' and read('.workspace')==marker
@@ -76,7 +95,9 @@ def main():
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation)
-                result=dict(status='PASS',workload=proof,rerun_refusal=True,concurrent_text_files=True,clean_retirement=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False)
+                assert overlap,'No observed PCM-output/USB-write overlap'
+                (out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
+                result=dict(status='PASS',observed_overlap_windows=len(overlap),workload=proof,rerun_refusal=True,concurrent_text_files=True,clean_retirement=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False)
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
