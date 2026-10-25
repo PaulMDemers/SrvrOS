@@ -5939,3 +5939,16 @@ behavior and refusing lost prefixes. No unrelated main logging edits overlap as
 fetched (`a6d43616`); desktop runtime work remains separate. Integration base is
 `d5bc4b3`. Publish fault tests, exact-stage VM recovery and an unarmed candidate
 before the next attended cold cycle. No RF0:22 trim, bank6, DAC/VCO or traffic.
+
+
+Implemented opt-in v67 bank5 capture and the separately fixed256KiB logging
+window. Logger tests cover both old sizes, direct/two-step growth, exact old/new
+boundaries, complete persistence and lost-prefix refusal. The fixed bank5 engine
+covers all952 I/O and953 cancellation boundaries, every reply bit, all guards,
+full68-bit mismatch accounting and replay/proof faults. Central-prefix validation
+checks every stored command/guard and the exact zero-read profile without a large
+stack copy. Native tests cover every bank5 command/guard position, all packet bits,
+central prerequisite faults and quarantine. All146 staging tests pass and132 old
+Wi-Fi recipes are byte-identical. The strict collector rejects3690 malformed
+full-prefix proofs; four complete patterns fit at most159350bytes. Build,
+sanitizer/regression and exact-stage VM checks precede unarmed installation.

@@ -1765,30 +1765,38 @@ enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const 
     s->complete=true;return MT76_TIMING_OK;
 }
 
-unsigned mt76_rf_table_sequence(unsigned command){return command<MT76_RF_TABLE_COMMANDS?(8+command)%15+1:0;}
-uint32_t mt76_rf_table_guard_address(unsigned op){
+/* Fixed numeric bank5 table from pinned Linux v7.0; USB patch5:2 remains0c.
+ * Plan selection is private; callers cannot supply counts, targets or values. */
+static const uint8_t rf_bank5_regs[MT76_RF_BANK5_COUNT]={2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,127};
+static const uint8_t rf_bank5_values[MT76_RF_BANK5_COUNT]={0xc,0x0,0x0,0x84,0x2,0x0,0x0,0x0,0x51,0x22,0x22,0xf,0x47,0x25,0xc7,0x0,0x0,0x30,0x33,0x2,0x32,0x0,0x25,0x0,0x12,0xf,0x0,0x51,0x35,0x31,0x31,0x34,0x3,0x0,0xdd,0xb3,0x33,0xb1,0x71,0xf2,0x47,0x77,0xe,0x10,0x0,0x53,0x3,0xef,0xc7,0x62,0x62,0x0,0x0,0xf,0xf,0x16,0x16,0x10,0x10,0xd0,0x6c,0x58,0x58,0xf2,0xe8,0xf0,0xf0,0x4};
+struct rf_table_plan {unsigned count,sequence_base;uint32_t base;const uint8_t *regs,*values;};
+static const struct rf_table_plan rf_central_plan={MT76_RF_CENTRAL_COUNT,8,0x80000000u,rf_central_regs,rf_central_values};
+static const struct rf_table_plan rf_bank5_plan={MT76_RF_BANK5_COUNT,96,0x80050000u,rf_bank5_regs,rf_bank5_values};
+static uint32_t rf_plan_address(const struct rf_table_plan *p,unsigned i){return i<p->count?p->base|p->regs[i]:UINT32_MAX;}
+static unsigned rf_plan_sequence(const struct rf_table_plan *p,unsigned command){return command<(p->count*2)?(p->sequence_base+command)%15+1:0;}
+static uint32_t rf_plan_guard_address(const struct rf_table_plan *p,unsigned op){
     unsigned step=op%7;
-    return op<MT76_RF_TABLE_OPS && step!=3?mt76_rf_probe_read_address(step<3?step:step-4):UINT32_MAX;
+    return op<(p->count*14) && step!=3?mt76_rf_probe_read_address(step<3?step:step-4):UINT32_MAX;
 }
-size_t mt76_rf_table_packet(unsigned op,uint8_t *out,size_t capacity){
-    if(op>=MT76_RF_TABLE_OPS || op%7!=3)return 0;
-    unsigned command=op/7,i=command%MT76_RF_CENTRAL_COUNT;uint8_t payload[8]={0};
-    uint32_t address=mt76_rf_central_address(i);
+static size_t rf_plan_packet(const struct rf_table_plan *p,unsigned op,uint8_t *out,size_t capacity){
+    if(op>=(p->count*14) || op%7!=3)return 0;
+    unsigned command=op/7,i=command%p->count;uint8_t payload[8]={0};
+    uint32_t address=rf_plan_address(p,i);
     for(unsigned b=0;b<4;b++)payload[b]=(uint8_t)(address>>(8*b));
-    if(command<MT76_RF_CENTRAL_COUNT)payload[4]=(uint8_t)mt76_rf_central_value(i);
-    return mt76_mcu_encode(command<MT76_RF_CENTRAL_COUNT?12:10,mt76_rf_table_sequence(command),payload,8,out,capacity);
+    if(command<p->count)payload[4]=(uint8_t)p->values[i];
+    return mt76_mcu_encode(command<p->count?12:10,rf_plan_sequence(p,command),payload,8,out,capacity);
 }
-bool mt76_rf_table_admit(const struct mt76_rf_table *s,unsigned op){
-    if(!s || !s->attempted || s->complete || op>=MT76_RF_TABLE_OPS || s->operations!=op)return false;
+static bool rf_plan_state_valid(const struct rf_table_plan *p,const struct mt76_rf_table *s,unsigned op){
+    if(!s || !s->attempted || op>(p->count*14) || s->operations!=op)return false;
     unsigned command=op/7,step=op%7,exchanges=command+(step>3);
-    unsigned acks=exchanges<MT76_RF_CENTRAL_COUNT?exchanges:MT76_RF_CENTRAL_COUNT;
-    unsigned observed=exchanges-acks,equal=0;uint64_t mask=0;
+    unsigned acks=exchanges<p->count?exchanges:p->count;
+    unsigned observed=exchanges-acks,equal=0;uint64_t mask=0,hi=0;
     if(s->reads!=command*6+(step<3?step:3)+(step>4?step-4:0) || s->exchanges!=exchanges ||
        s->acks!=acks || s->observed!=observed || s->received!=(exchanges?16:-1))return false;
     for(unsigned i=0;i<observed;i++){
-        if(s->values[i]==mt76_rf_central_value(i))equal++;else mask|=1ull<<i;
+        if(s->values[i]==p->values[i])equal++;else if(i<64)mask|=1ull<<i;else hi|=1ull<<(i-64);
     }
-    if(s->equal!=equal || s->mismatch_mask!=mask)return false;
+    if(s->equal!=equal || s->mismatch_mask!=mask || s->mismatch_hi!=hi)return false;
     for(unsigned q=0;q<=command;q++){
         unsigned done=q<command?7:step;
         for(unsigned n=0;n<3;n++){
@@ -1797,42 +1805,65 @@ bool mt76_rf_table_admit(const struct mt76_rf_table *s,unsigned op){
         }
     }
     for(unsigned q=0;q<exchanges;q++){
-        unsigned i=q%MT76_RF_CENTRAL_COUNT;uint32_t h=0x4a000008u|(mt76_rf_table_sequence(q)<<16);
-        uint32_t value=q<MT76_RF_CENTRAL_COUNT?mt76_rf_central_value(i):s->values[i];
-        if(s->words[q][0]!=h || s->words[q][1]!=mt76_rf_central_address(i) || s->words[q][2]!=value || s->words[q][3]!=h)return false;
+        unsigned i=q%p->count;uint32_t h=0x4a000008u|(rf_plan_sequence(p,q)<<16);
+        uint32_t value=q<p->count?p->values[i]:s->values[i];
+        if(s->words[q][0]!=h || s->words[q][1]!=rf_plan_address(p,i) || s->words[q][2]!=value || s->words[q][3]!=h)return false;
     }
     return true;
 }
-enum mt76_mcu_timing_status mt76_rf_table_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io){
+static bool rf_plan_admit(const struct rf_table_plan *p,const struct mt76_rf_table *s,unsigned op){
+    return s && !s->complete && op<p->count*14 && rf_plan_state_valid(p,s,op);
+}
+static enum mt76_mcu_timing_status rf_plan_capture(const struct rf_table_plan *p,struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io){
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
     *s=(struct mt76_rf_table){.attempted=true,.received=-1};
-    for(unsigned op=0;op<MT76_RF_TABLE_OPS;op++){
-        if(!mt76_rf_table_admit(s,op))return MT76_TIMING_STATE;
+    for(unsigned op=0;op<(p->count*14);op++){
+        if(!rf_plan_admit(p,s,op))return MT76_TIMING_STATE;
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
-        unsigned command=op/7,step=op%7,i=command%MT76_RF_CENTRAL_COUNT;
+        unsigned command=op/7,step=op%7,i=command%p->count;
         if(step!=3){
             unsigned edge=2*command+(step>=4),n=step<3?step:step-4;uint32_t *v=&s->guards[edge][n];
-            if(!io->read(io->context,mt76_rf_table_guard_address(op),v))return MT76_TIMING_IO;
+            if(!io->read(io->context,rf_plan_guard_address(p,op),v))return MT76_TIMING_IO;
             s->reads++;s->operations++;
             if(!rf_central_guard_valid(n,*v))return MT76_TIMING_STATE;
         }else{
             uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
-            if(mt76_rf_table_packet(op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            if(rf_plan_packet(p,op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
             s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);s->exchanges++;
             for(unsigned n=0;n<4;n++)if(s->received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)s->words[command][n]|=(uint32_t)reply[4*n+b]<<(8*b);
             if(s->received<0)return MT76_TIMING_IO;
-            uint32_t h=0x4a000008u|(mt76_rf_table_sequence(command)<<16),value=s->words[command][2];
-            if(s->received!=16 || s->words[command][0]!=h || s->words[command][1]!=mt76_rf_central_address(i) || value>255 || s->words[command][3]!=h)return MT76_TIMING_REPLY;
-            if(command<MT76_RF_CENTRAL_COUNT){
-                if(value!=mt76_rf_central_value(i))return MT76_TIMING_REPLY;
+            uint32_t h=0x4a000008u|(rf_plan_sequence(p,command)<<16),value=s->words[command][2];
+            if(s->received!=16 || s->words[command][0]!=h || s->words[command][1]!=rf_plan_address(p,i) || value>255 || s->words[command][3]!=h)return MT76_TIMING_REPLY;
+            if(command<p->count){
+                if(value!=p->values[i])return MT76_TIMING_REPLY;
                 s->acks++;
             }else{
                 s->values[i]=(uint8_t)value;s->observed++;
-                if(value==mt76_rf_central_value(i))s->equal++;else s->mismatch_mask|=1ull<<i;
+                if(value==p->values[i])s->equal++;else if(i<64)s->mismatch_mask|=1ull<<i;else s->mismatch_hi|=1ull<<(i-64);
             }
             s->operations++;
         }
     }
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return MT76_TIMING_OK;
+}
+
+unsigned mt76_rf_table_sequence(unsigned command){return rf_plan_sequence(&rf_central_plan,command);}
+uint32_t mt76_rf_table_guard_address(unsigned op){return rf_plan_guard_address(&rf_central_plan,op);}
+size_t mt76_rf_table_packet(unsigned op,uint8_t *out,size_t capacity){return rf_plan_packet(&rf_central_plan,op,out,capacity);}
+bool mt76_rf_table_admit(const struct mt76_rf_table *state,unsigned op){return rf_plan_admit(&rf_central_plan,state,op);}
+enum mt76_mcu_timing_status mt76_rf_table_capture(struct mt76_rf_table *state,const struct mt76_mcu_timing_io *io){return rf_plan_capture(&rf_central_plan,state,io);}
+
+unsigned mt76_rf_bank5_sequence(unsigned command){return rf_plan_sequence(&rf_bank5_plan,command);}
+uint32_t mt76_rf_bank5_guard_address(unsigned op){return rf_plan_guard_address(&rf_bank5_plan,op);}
+size_t mt76_rf_bank5_packet(unsigned op,uint8_t *out,size_t capacity){return rf_plan_packet(&rf_bank5_plan,op,out,capacity);}
+bool mt76_rf_bank5_admit(const struct mt76_rf_table *state,unsigned op){return rf_plan_admit(&rf_bank5_plan,state,op);}
+enum mt76_mcu_timing_status mt76_rf_bank5_capture(struct mt76_rf_table *state,const struct mt76_mcu_timing_io *io){return rf_plan_capture(&rf_bank5_plan,state,io);}
+uint32_t mt76_rf_bank5_address(unsigned i){return rf_plan_address(&rf_bank5_plan,i);}
+unsigned mt76_rf_bank5_value(unsigned i){return i<MT76_RF_BANK5_COUNT?rf_bank5_values[i]:UINT32_MAX;}
+bool mt76_rf_table_zero_profile_valid(const struct mt76_rf_table *s){
+    if(!s || !s->complete || s->operations!=MT76_RF_TABLE_OPS || !rf_plan_state_valid(&rf_central_plan,s,MT76_RF_TABLE_OPS) ||
+       s->equal!=43 || s->mismatch_mask!=(1ull<<5))return false;
+    for(unsigned i=0;i<MT76_RF_CENTRAL_COUNT;i++)if(s->values[i]!=(i==5?0:mt76_rf_central_value(i)))return false;
+    return true;
 }

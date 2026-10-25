@@ -458,19 +458,31 @@ uint32_t mt76_rf_state_request(unsigned operation);
 bool mt76_rf_state_admit(const struct mt76_rf_state *s);
 enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const struct mt76_mcu_timing_io *io);
 /* Observation only: reference-order writes, then a separate read pass. */
+#define MT76_RF_BANK5_COUNT 68u
+#define MT76_RF_BANK5_COMMANDS (MT76_RF_BANK5_COUNT*2u)
+#define MT76_RF_BANK5_OPS (MT76_RF_BANK5_COMMANDS*7u)
 #define MT76_RF_TABLE_COMMANDS (MT76_RF_CENTRAL_COUNT*2u)
 #define MT76_RF_TABLE_OPS (MT76_RF_TABLE_COMMANDS*7u)
 struct mt76_rf_table {
     bool attempted,complete;
     unsigned operations,reads,exchanges,acks,observed,equal;
     int received;
-    uint64_t mismatch_mask;
-    uint32_t guards[MT76_RF_TABLE_COMMANDS*2][3],words[MT76_RF_TABLE_COMMANDS][4];
-    uint8_t values[MT76_RF_CENTRAL_COUNT];
+    uint64_t mismatch_mask,mismatch_hi;
+    uint32_t guards[MT76_RF_BANK5_COMMANDS*2][3],words[MT76_RF_BANK5_COMMANDS][4];
+    uint8_t values[MT76_RF_BANK5_COUNT];
 };
 unsigned mt76_rf_table_sequence(unsigned command);
 uint32_t mt76_rf_table_guard_address(unsigned operation);
 size_t mt76_rf_table_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_table_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_table_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+/* Exact captured central-table proof; RF0:6 is observed zero, not accepted. */
+bool mt76_rf_table_zero_profile_valid(const struct mt76_rf_table *s);
+uint32_t mt76_rf_bank5_address(unsigned index);
+unsigned mt76_rf_bank5_value(unsigned index);
+unsigned mt76_rf_bank5_sequence(unsigned command);
+uint32_t mt76_rf_bank5_guard_address(unsigned operation);
+size_t mt76_rf_bank5_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_bank5_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_bank5_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
 #endif

@@ -2750,3 +2750,34 @@ only; the original strict engine remains unchanged. Next observe the next fixed
 reference RF bank table with this exact full central profile as a prerequisite.
 Do not promote table command completion to calibrated radio acceptance or run
 trim/DAC/VCO calibration automatically.
+
+
+### Fixed RF bank5 observation (v67 candidate)
+
+`--wifi-rf-bank5` requires the full central-table observation and all earlier
+prerequisites. Admission validates the complete central616-operation proof,
+including all command replies/guards,43 equal values and only index5 RF0:6=00.
+This is an exact captured prerequisite, not acceptance of RF0:6 or a widened
+strict-engine exception. The original strict engine and all earlier recipes
+remain unchanged.
+
+The fixed USB bank5 plan has68 entries from the pinned reference2G channel0
+initialization table, including USB5:2=0c and the final5:127=04. It writes all68
+in order, then reads all68. Each command has three preguards and three postguards,
+so there are952 operations:816 guard reads and136 exchanges, with68 exact ACKs
+and68 uint8 observations. Sequences begin7 after the central pass ends6, then
+wrap1..15 only between completed exchanges. No caller-provided plan/address/value
+or replay is admitted. Two mismatch fields cover indices0..63 and64..67 without
+overshifting; every read contributes to equal/mismatch accounting.
+
+Full central+bank5 receipts exceed128KiB. Only this explicit profile selects the
+new256KiB startup capture. Ordinary64KiB and existing128KiB capture behavior is
+preserved. Both growth points refuse an already discarded prefix; oversized or
+truncated saved evidence cannot pass. The strict full-prefix fixtures are at
+most159350bytes and retain all central and bank5 commands,448 guard triplets
+and112 observed values. The larger window remains bounded and byte-verified.
+
+Bank5 values are observations, not accepted register settings or radio function.
+No bank6, RF0:22 trim, bandwidth/band selection, DAC/VCO calibration or packet
+traffic follows this experiment automatically. New plan-specific wrappers share
+the locally written two-pass mechanism; plan selection remains private and fixed.

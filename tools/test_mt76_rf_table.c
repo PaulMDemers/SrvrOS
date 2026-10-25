@@ -49,5 +49,11 @@ int main(void){
   if(op>1){s=states[op];s.guards[0][0]=1;assert(!mt76_rf_table_admit(&s,op));}
  }
  for(int n=0;n<=1025;n++)if(n!=16){f=(struct fake){.received=n};s=(struct mt76_rf_table){0};assert(run(&f,&s)==MT76_TIMING_REPLY && !s.complete && f.ops==4);}
+ s=states[615];s.guards[175][2]=0x40000050;s.reads++;s.operations++;s.complete=true;
+ assert(!mt76_rf_table_zero_profile_valid(&s));s.values[5]=0;s.words[49][2]=0;assert(mt76_rf_table_zero_profile_valid(&s));
+ struct mt76_rf_table complete=s;
+ for(unsigned i=0;i<176;i++)for(unsigned n=0;n<3;n++){s=complete;s.guards[i][n]^=1;assert(!mt76_rf_table_zero_profile_valid(&s));}
+ for(unsigned q=0;q<88;q++)for(unsigned n=0;n<4;n++){s=complete;s.words[q][n]^=1;assert(!mt76_rf_table_zero_profile_valid(&s));}
+ s=complete;s.mismatch_hi=1;assert(!mt76_rf_table_zero_profile_valid(&s));s=complete;s.equal--;assert(!mt76_rf_table_zero_profile_valid(&s));
  puts("mt76 RF table: PASS fixed two-pass order, all I/O/cancel/guard boundaries, reply-bit checks, complete mismatch accounting, proof mutation and no replay");
 }
