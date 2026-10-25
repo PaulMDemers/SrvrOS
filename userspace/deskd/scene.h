@@ -33,6 +33,7 @@ struct desktop_scene {
     char calendar_date[64],calendar_zone[32];
     uint64_t stack_serial;
     char notice[96],clock[64],battery[32];
+    int automatic_test;
     int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };

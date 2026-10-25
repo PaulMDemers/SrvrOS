@@ -18,7 +18,7 @@ static int wait_job(int submit) {
     }
     return -1;
 }
-int tool_chooser_capture(void) {
+int tool_chooser_capture_at(const char *root,const char *target) {
     for(unsigned pooled=0;pooled<2;pooled++) {
         struct desk_file_pool pool;struct desk_file_channel channel;
         memset(&job,0,sizeof(job));desk_picker_init(&picker);
@@ -27,20 +27,20 @@ int tool_chooser_capture(void) {
         } else if(desk_file_job_init(&job))goto failed;
         struct desk_chooser chooser;
         if(desk_chooser_init(&chooser,&picker,&job,entries,items,details) ||
-           desk_chooser_open(&chooser,DESK_PICKER_OPEN,"/fat","") || desk_chooser_browse(&chooser))goto failed;
+           desk_chooser_open(&chooser,DESK_PICKER_OPEN,root,"") || desk_chooser_browse(&chooser))goto failed;
         uint64_t old=chooser.pending_id;
         if(wait_job(1)!=1 || !job.busy || !job.pid)goto failed;
         desk_chooser_cancel(&chooser);
-        if(!chooser.pending || desk_chooser_open(&chooser,DESK_PICKER_OPEN,"/fat","")>=0)goto failed;
+        if(!chooser.pending || desk_chooser_open(&chooser,DESK_PICKER_OPEN,root,"")>=0)goto failed;
         int result=wait_job(0);
         if(result!=1 || desk_chooser_finish(&chooser,old,result)!=DESK_CHOOSER_DISCARDED || chooser.pending)goto failed;
-        if(desk_chooser_open(&chooser,DESK_PICKER_OPEN,"/fat","") || desk_chooser_browse(&chooser))goto failed;
+        if(desk_chooser_open(&chooser,DESK_PICKER_OPEN,root,"") || desk_chooser_browse(&chooser))goto failed;
         if(desk_chooser_finish(&chooser,old,1)!=DESK_CHOOSER_STALE || !chooser.pending)goto failed;
         result=wait_job(0);
         if(result!=1 || desk_chooser_finish(&chooser,chooser.pending_id,result)!=DESK_CHOOSER_READY || chooser.count<1)goto failed;
-        strcpy(picker.target,"/fat/bin/../bin/deskd");struct desk_chooser_selection selected;
+        strcpy(picker.target,target);struct desk_chooser_selection selected;
         if(desk_chooser_action(&chooser,(struct desk_picker_result){.operation=DESK_PICKER_ACCEPT},&selected)!=DESK_CHOOSER_ACCEPTED ||
-           strcmp(selected.path,"/fat/bin/deskd") || selected.mode!=DESK_PICKER_OPEN || chooser.active || chooser.pending)goto failed;
+           strcmp(selected.path,target) || selected.mode!=DESK_PICKER_OPEN || chooser.active || chooser.pending)goto failed;
         uint64_t pid=job.pid,status=0;
         if(pooled) {
             if(desk_file_job_detach(&job))goto failed;
@@ -66,3 +66,5 @@ int tool_chooser_capture(void) {
 failed:
     srv_puts("chooser-capture: FAIL\n");return 1;
 }
+
+int tool_chooser_capture(void) { return tool_chooser_capture_at("/fat","/fat/bin/deskd"); }

@@ -54,7 +54,7 @@ def main():
     if args.services and not args.boot_session:parser.error('services requires boot-session')
     if entry_refusal and not args.boot_session:parser.error('entry refusal cases require --boot-session')
     if args.stage and (not args.boot_session or args.case!='profile-refusal'):parser.error('stage requires --boot-session --case profile-refusal')
-    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-automatic' if args.automatic else '')+('-mixed' if args.mixed_apps else '')+('-capacity-low' if args.capacity_low_memory else '-capacity' if args.capacity_auto else ''));out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-automatic' if args.automatic else '')+('-mixed' if args.mixed_apps else '')+('-capacity-documents-low' if args.capacity_low_memory else '-capacity-documents' if args.capacity_auto else ''));out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-home-apps-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -152,13 +152,16 @@ def main():
                     shortcut('meta_l-spc');type_text(name);qmp.key('ret');wait(marker)
                 if args.capacity_auto:
                     expected=b'FAIL' if args.capacity_low_memory else b'PASS'
-                    wait(b'desktop-reopen-test: result='+expected+b' unmounted=yes; returning to Ubuntu',300)
+                    wait(b'desktop-reopen-test: result='+expected+b' unmounted=yes; returning to Ubuntu',540)
                     assert process.wait(timeout=30)==0
                     output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
                     assert output.count(b'battery-desktop-lifetime: released')==2
                     assert b'battery: HALTED' not in output
                     if not args.capacity_low_memory:
                         assert output.count(b'desktop-capacity: rendered=24 processes=24')==2
+                        assert output.count(b'document-capacity: result=PASS checkpoints=5 pooled=yes retired=1')==2
+                        assert output.count(b'desktop-capacity: document-inputs=60 acknowledged=yes')==2
+                        assert output.count(b'chooser-capture: PASS')==2
                         assert output.count(b'desktop-capacity: result=PASS launched=24 reaped=24 errors=0 screenshot=yes normal_exit=1')==2
                     else:
                         assert b'deskd: launch-failed' in output
@@ -174,6 +177,12 @@ def main():
                         assert b'battery-desktop-lifetime: released' in log
                         assert b'desktop-capacity: result='+expected in log
                     if not args.capacity_low_memory:
+                        folders=re.findall(rb'document-capacity: verified directory=/work/(\S+) files=5 bytes_each=2 chooser=PASS',output)
+                        assert len(folders)==2 and folders[0]!=folders[1],folders
+                        for folder in folders:
+                            folder=folder.decode()
+                            assert {n for n,_ in final.entries(final.read(folder))}=={f'text-{i}.txt' for i in range(1,6)}
+                            for i in range(1,6):assert final.read(folder+f'/text-{i}.txt')==b'AA'
                         shots=list(final.entries(final.read('srvros-work/Screenshots')));assert len(shots)==2
                         for name,_ in shots:
                             data=final.read('srvros-work/Screenshots/'+name);assert data[:2]==b'BM'
@@ -182,6 +191,7 @@ def main():
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result=dict(status='PASS',guest_result=expected.decode(),capacity_auto=True,windows_per_round=0 if args.capacity_low_memory else 24,rounds=2,
+                        documents_per_round=0 if args.capacity_low_memory else 5,document_bytes='AA',
                         stage=args.stage,physical_acceptance=False,offline_allocation='PASS',automatic_return=True,
                         source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                         source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),

@@ -150,3 +150,11 @@ child exits and complete battery/logger retirement. Prior files were preserved
 and offline filesystem/allocation checks passed. This accepts automated native
 capacity/reuse; physical input and interactive document/chooser checks at higher
 counts remain pending.
+
+The subsequent attended Air7,2 return on release `80904d5e5fd6f6ac` exercised a
+mid-20s window count and sensors. The user did not receive chat instructions
+before the machine rebooted; do not count the entire document checklist as
+completed. Future attended checklists must open automatically in the guest or
+be captured by the user before reboot. Current unattended v73 capture performs
+acknowledged Text edits, five fresh USB save/rename/reread checkpoints and shared
+picker cancellation per round, displays progress and returns automatically.

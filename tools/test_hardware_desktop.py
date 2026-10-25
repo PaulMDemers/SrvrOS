@@ -10,6 +10,8 @@ class CollectionTests(unittest.TestCase):
         self.assertFalse(desktop.needs_attention(row.replace("opened", "retired")))
         for bad in (row + " error=1", row.replace("opened", "quota"),
                     row.replace("clients=24", "clients=invalid"),
+                    "document-capacity: result=FAIL checkpoints=4 pooled=yes retired=1",
+                    "chooser-capture: FAIL",
                     "desktop-capacity: result=FAIL launched=23 reaped=23 errors=1 screenshot=no normal_exit=1"):
             self.assertTrue(desktop.needs_attention(bad))
 

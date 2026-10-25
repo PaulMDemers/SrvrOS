@@ -2,39 +2,38 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Attended document candidate installed
+### Active automated document/capacity round
 
-Release `80904d5e5fd6f6ac`, clean source `7c2880a`, is installed for the ordinary
-v55 combined-services Runtime trial. Exact staged GRUB → Limine Q35 rehearsal
-passes 24 independent app processes, exact document persistence after growth,
-PCM playback, 35-descendant cleanup, desktop reopen, monitor reboot and offline
-allocation. Native firmware profile refusal in Q35 is expected, not a physical
-battery result. Matched builds/desktop tests and 79 staging tests pass. USB has
-1,071 files identical to the last collection; offline fsck/allocation/headroom
-passes with 2,671 clusters and no errors. Current/recovery and Ubuntu default
-verified; recovery remains `9aa8dbf6fbda8252`. Candidate and old payload are backed
-up outside build. PR155 is the attended checklist/evidence follow-up.
+User reports mid-20s windows and sensors working on `80904d5e5fd6f6ac` but did
+not see chat instructions before reboot. Future attended instructions must be
+visible in the guest or acknowledged before reboot. The requested follow-up is
+unattended: extend the explicit v73 capacity capture with actual Text runtime
+editing/clipboard acknowledgements, five fresh USB save/rename/reread files and
+shared chooser cancel/drain/reopen checks while 24 processes are live. Display
+progress inside SrvrOS, persist receipts/screenshots and return automatically.
+Do not count synthetic events as physical input acceptance.
 
-**Human input is required.** Open Help, Ctrl-L, search Runtime trial, Return;
-there is no timed exit. Use fresh `runtime24-*.txt` names. Normal desktop exit,
-`desktop battery` reopen and monitor `reboot` finish the trial. After return,
-collect both sessions and artifacts before any next stage; physical acceptance
-is pending. See the local run record for one-shot/reboot state.
+Base main `6e06bfb` (Air6,1 endurance harness integrated); Pro PR19 at `c417313`
+remains Wi-Fi work. Scope: deskd diagnostic, Text diagnostic hooks shared with
+ordinary runtime, chooser fixture, existing v73 harness/collection and guides.
+No firmware gate changes. PR155 will describe this revised scope; exact stage,
+recovery, USB checks and durable run record precede the authorized reboot.
+Evidence: `build/documents-native-20261025/`.
 
-### Active attended high-count document round
+### Attended high-count return collected
 
-Base main `d441b7d`; Pro PR19 `db95022` and Air6,1 PR154 `44b5706` remain
-independent device/endurance work. Scope: prepare the existing ordinary v55
-combined-services desktop for the remaining Runtime trial checks: independent
-Text windows above sixteen, window switching/arrangement, clipboard/editing during
-save, picker cancellation, exact file reopen, then normal desktop exit/reopen.
-No runtime or firmware changes are planned. The user has authorized proceeding;
-this round needs human input, announced before boot, and has no timed exit.
-Use fresh `runtime24-*.txt` files to preserve earlier documents. Rehearse the
-exact stage with the 24-process combined-services VM workload, verify local
-recovery and USB, record source/release before installation and one-shot reboot.
-Evidence/checkpoint: `build/runtime-interactive-20261025/`, backed up outside
-build. Physical interactive acceptance remains pending matching collection.
+Release `80904d5e5fd6f6ac` / source `7c2880a` returned on October 25. The user
+opened a mid-20s count of windows and checked sensors successfully. Chat
+instructions were not visible before reboot, so the detailed document checklist
+is not accepted from this observation. Sessions `session-00065eae867725d0-00`
+and reopened `session-00065eaeb5319670-00` have clean exit snapshots, lifetime
+drains (peaks 33 and 22), and battery retirement with zero heap/errors/denials.
+The second monitor-started session has no boot release token; it is associated
+with the same boot by its inherited prior tail and lifetime epoch progression.
+All prior files are unchanged except `.srvros/meta`; two user-created artifacts
+and eight logs were saved. Offline fsck/allocation/headroom passes: 1,081 files,
+2,690 clusters, zero leaks/mismatches/errors. Evidence and artifacts are backed
+up outside build under `reviewed-evidence/runtime-interactive-20261025`.
 
 ### Automated 24-app native capacity accepted
 

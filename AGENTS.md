@@ -19,6 +19,10 @@ bounded objective, touched subsystems and dependencies in your own unit record.
 - Follow the guide's build, exact-stage VM, install, one-shot boot and collection
   sequence. Keep Ubuntu as the recovery OS and retain a known-good boot payload.
   A source change is not physically accepted until the machine's evidence says so.
+- For attended trials, open the complete checklist automatically in the guest,
+  or wait until the user confirms they captured it before rebooting. Chat updates
+  immediately before reboot are not reliable instruction delivery. Unattended
+  trials must show progress in the guest and save their results.
 - Before reboot, save an on-disk run record with model, source/release, workspace,
   recovery, reboot state and checks. After return, collect the matching session
   before starting a new run. Halts and missing completion markers are failures
