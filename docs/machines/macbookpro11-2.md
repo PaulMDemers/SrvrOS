@@ -5864,3 +5864,14 @@ Touch MCU/xHCI, v66 opt-in staging, host/native/collector tests and current docs
 Fetched main `a6d43616`; shared desktop/runtime work remains separate from this
 RF diagnostic. Native integration base remains `d5bc4b3`. Next checkpoint:
 fault-tested fixed two-pass engine, exact-stage VM and unarmed installation.
+
+
+Implemented separate v66 two-pass central-table observation. Host tests cover
+all616 I/O and617 cancellation boundaries, every guard, reply-bit validation,
+arbitrary uint8 observations, exact mismatch accounting and proof/replay faults.
+Native binding tests cover every command and guard position, every packet bit,
+prerequisite faults and DMA quarantine. All145 staging tests pass and130 older
+Wi-Fi recipes are byte-identical. The strict collector rejects2393 malformed
+full-prefix proofs; four complete readback patterns fit at most102527bytes.
+Build, sanitizer/regression and exact-stage VM checks precede unarmed install.
+No native results for this table observation yet.

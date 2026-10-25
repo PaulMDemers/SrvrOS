@@ -2708,3 +2708,32 @@ transport/guard checks and mismatch accounting. Preserve the original strict
 engine and distinguish command completion, observed register values and actual
 calibrated radio function. No automatic calibration or traffic follows a table
 observation.
+
+
+### Two-pass central RF table observation (v66 candidate)
+
+`--wifi-rf-table` requires the accepted antenna setup and RF0:22 read probe.
+It excludes the older central/six/CSR/write/state comparison modes. The original
+strict central engine and v61–65 configurations remain unchanged. This separate
+experiment follows the reference44-entry central write order, then reads all44
+targets in a separate pass. It does not require immediate equality between writes.
+RF0:22 trim, other RF banks/band tables, DAC/VCO calibration and packet traffic
+are absent. Completed capture is explicitly an observation, not initialization
+or radio-function acceptance.
+
+Each of88 commands has three preguards and three postguards: MAC1004=0,
+CORE2000=f000f200 and WPDMA208 neither all-ones nor enabled/busy in its low nibble.
+The engine therefore performs616 operations:528 guard reads and88 exchanges.
+Write acknowledgements require the exact16-byte header/sequence/address/value/
+trailer echo; read replies require the exact envelope and one uint8 value.
+Sequences start9 and wrap1..15 only after each completed exchange. Independent
+native admission checks the precise next request and complete accumulated proof;
+malformed/uncertain transfers stop with quarantine and are never retried.
+
+The receipt retains all88 raw command replies,176 guard triplets and44 observed
+values. It reports equal-count and a44-bit mismatch mask derived from every read.
+Arbitrary readback patterns may complete an observation when their transport and
+guards are valid; this does not accept those values or permit later calibration.
+The full fixture is at most102527bytes, below the131072-byte startup capture cap.
+The strict collector requires the complete prior initialization proof, both
+completion markers and the complete untruncated saved prefix.
