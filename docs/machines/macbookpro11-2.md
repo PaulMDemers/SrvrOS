@@ -7069,7 +7069,7 @@ ACK admission. No later baseband/RF/channel programming, MAC enable or traffic.
 
 Source `83a869fc23f81602c0038f38dc420cad9dcaa6b5`, release
 `4c8563c12db92578`, session `session-00065eb1d61ee32d-00`. Full earlier
-initialization, both supported VCO-timing policy checks, exact inventory and USB
+initialization, selected VCO-timing profile, exact inventory and USB
 cycle setup proof passed. This run used the pending variant; six delayed reads30.
 Fixed CMD1/sequence15/function2/value0 sent16 bytes and returned16, cc13/residue1008.
 Response words were4a0f0008/00000002/00000000/4a0f0008. Seven operations,
