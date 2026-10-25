@@ -2795,3 +2795,30 @@ hardware acceptance. Strict validation and recovery/offline filesystem checks
 passed. This is native command/guard/readback evidence only; calibrated radio
 operation and connectivity remain untested. Next is bounded reference bank6
 initialization/readback, separate from trim, DAC/VCO and channel/traffic work.
+
+
+### Fixed RF bank6 observation (v68 candidate)
+
+`--wifi-rf-bank6` requires `--wifi-rf-bank5` and the entire earlier capture
+chain. Native admission revalidates all central and bank5 command/guard proof:
+central43/44 with only RF0:6=00, bank5 complete68/68 exact readbacks and zero
+low/high mismatch fields. Neither source tables nor prior strict acceptance
+are weakened. The fixed bank6 plan follows Linux v7.0
+`mt76x0_rf_5g_channel_0_tab`:38 entries, beginning6:2=0c and ending6:65=0f.
+This is initialization of the next reference bank, not channel selection.
+
+The private plan uses the existing two-pass mechanism:38 writes then38 reads,
+532 operations,456 guard reads,76 exact command replies,38 ACKs/observations
+and152 guard triplets. Its first sequence is8 after bank5 ends7; sequences wrap
+only between complete exchanges. Each command still checks MAC0, COREf000f200
+and disabled/idle DMA before and after I/O. A prior-proof failure refuses all
+new traffic; uncertain USB errors quarantine and never replay. Every uint8
+readback contributes to the low38-bit mismatch field; the high field must be0.
+Observed read differences are evidence, not automatic register acceptance.
+
+The v68 recipe adds only `srvros.wifi-rf-bank6=1` to v67. Existing64KiB ordinary,
+128KiB earlier capture and256KiB bank5 capture behavior remains unchanged;
+v68 also uses the complete256KiB window. Saved proof must contain all prior
+receipts, every new command/guard/value, exact byte count and both completion
+markers. No VGA table, bandwidth/band switching, trim, DAC/VCO calibration,
+scan/association/security or packet traffic follows this experiment.

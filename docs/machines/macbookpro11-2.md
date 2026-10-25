@@ -6011,3 +6011,23 @@ fault tests, strict saved-evidence collector and this unit record/current guide.
 Use existing256KiB capture; verify complete prefix and exact-stage VM before
 install. No VGA/bandwidth/band switching, frequency trim, DAC/VCO calibration,
 scanning, association or traffic in this trial. No live Linux adapter reset.
+
+
+Implemented the fixed38-entry bank6 plan using the existing private two-pass
+engine; bank5 completion validates every stored guard/reply and68 exact values
+before admission. New tests cover all532 I/O and533 cancellation boundaries,
+malformed replies, guard errors, complete mismatch accounting and replay
+refusal. Native wrappers exercise all76 command and456 guard positions,
+central/bank5 proof faults, packet-bit mutations and USB error quarantine.
+The147 staging tests and134 historical-recipe identity checks pass. Strict
+saved-prefix fixtures cover all-match, all-different, all-ff and all-zero reads;
+2138 malformed complete-prefix cases are refused. Largest fixture is191118bytes,
+within existing256KiB capacity. Full build/regression/sanitizer and exact-stage
+VM save/return checks precede installation; no native bank6 result yet.
+
+
+Full xHCI host regression passed with all new bank6 command/guard positions and
+prefix-fault/refusal/quarantine cases. Full build and MCU/compact/bring-up,
+original strict central engine, two-pass central engine and logger regressions
+passed. Documentation links checked cleanly. Exact-stage VM and missing-workspace
+recovery checks are next; install remains contingent on those results.
