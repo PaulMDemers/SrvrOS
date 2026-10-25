@@ -1,10 +1,10 @@
 #include <srvros/desk_clipboard.h>
 #include <string.h>
 void desk_clipboard_init(struct desk_clipboard_client *c,void *buffer) {
-    *c=(struct desk_clipboard_client){.buffer=buffer};
+    *c=(struct desk_clipboard_client){.buffer=buffer,.window=DESK_DEFAULT_WINDOW};
 }
 static int begin(struct desk_clipboard_client *c,uint64_t server,int mode,uint64_t tick) {
-    if(c->mode || !server || !c->buffer) return -1;
+    if(c->mode || !server || !c->window || !c->buffer) return -1;
     c->mode=mode;c->server=server;c->tick=tick;c->offset=c->length=0;c->sent=0;
     if(!++c->request) c->request++;
     return 0;
@@ -20,7 +20,7 @@ int desk_clipboard_tick(struct desk_clipboard_client *c,uint64_t tick) {
     if(tick-c->tick>1000) { c->mode=0;return -1; }
     for(unsigned n=0;n<4 && !c->sent;n++) {
         struct desk_packet p=desk_packet_new(c->mode==1?DESK_CLIPBOARD_SET:DESK_CLIPBOARD_GET);
-        p.serial=c->request;
+        p.window=c->window;p.serial=c->request;
         if(c->mode==1) {
             p.generation=c->offset;p.width=c->length;p.height=c->length-c->offset;
             if(p.height>sizeof(p.text)) p.height=sizeof(p.text);
@@ -32,7 +32,7 @@ int desk_clipboard_tick(struct desk_clipboard_client *c,uint64_t tick) {
     return 0;
 }
 int desk_clipboard_receive(struct desk_clipboard_client *c,const struct desk_packet *p) {
-    if(!c->mode || p->serial!=c->request) return 0;
+    if(!c->mode || p->window!=c->window || p->serial!=c->request) return 0;
     if(c->mode==1 && p->type==DESK_CLIPBOARD_ACK) {
         int ok=c->sent && !p->value;c->mode=0;return ok?1:-1;
     }

@@ -1,6 +1,7 @@
 #ifndef SRVROS_POSIX_STDIO_H
 #define SRVROS_POSIX_STDIO_H
 
+#include <srvros/path_limits.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <sys/types.h>
@@ -11,7 +12,7 @@
 #define SEEK_END 2
 
 #define BUFSIZ 1024
-#define FILENAME_MAX 160
+#define FILENAME_MAX SRV_PATH_MAX
 #define L_tmpnam FILENAME_MAX
 #define TMP_MAX 10000
 
@@ -33,6 +34,8 @@ extern "C" {
 int printf(const char *format, ...);
 int fprintf(FILE *stream, const char *format, ...);
 int vfprintf(FILE *stream, const char *format, va_list args);
+int dprintf(int fd, const char *format, ...);
+int vdprintf(int fd, const char *format, va_list args);
 int snprintf(char *buffer, size_t size, const char *format, ...);
 int sprintf(char *buffer, const char *format, ...);
 int vsnprintf(char *buffer, size_t size, const char *format, va_list args);

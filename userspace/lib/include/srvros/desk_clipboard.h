@@ -8,7 +8,7 @@
  * insert, and must recheck the document revision/selection before doing so. */
 struct desk_clipboard_client {
     unsigned char *buffer;
-    uint64_t server,request,tick;
+    uint64_t server,window,request,tick;
     uint32_t length,offset;
     int mode,sent;
 };

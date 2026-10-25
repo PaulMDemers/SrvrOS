@@ -1,5 +1,6 @@
 #include <srvros/desk_menu.h>
 #include <string.h>
+#include <limits.h>
 #include <srvros/desk_text.h>
 
 static int text_valid(const char *s,unsigned capacity) {
@@ -7,8 +8,8 @@ static int text_valid(const char *s,unsigned capacity) {
     while(n<capacity && s[n]) { if((unsigned char)s[n]<32 || (unsigned char)s[n]==127) return 0;n++; }
     return n<capacity && desk_text_utf8_valid(s,n);
 }
-int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
-    if(count>DESK_MENU_ITEMS || (count && !items)) return 0;
+static int menu_valid(const struct desk_menu_item *items,unsigned count,unsigned capacity,unsigned row_limit) {
+    if(count>capacity || capacity>INT_MAX/64 || (count && !items)) return 0;
     unsigned groups=0,rows=0;
     for(unsigned i=0;i<count;i++) {
         const struct desk_menu_item *p=&items[i];
@@ -20,7 +21,7 @@ int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
             for(unsigned j=0;j<i;j++) if((items[j].flags&DESK_MENU_HEADING) && !strcmp(items[j].label,p->label)) return 0;
             rows=0;
         } else {
-            if(!groups || ++rows>32) return 0;
+            if(!groups || ++rows>row_limit) return 0;
             if(p->flags&DESK_MENU_SEPARATOR) {
                 if(p->flags!=DESK_MENU_SEPARATOR || p->id || p->label[0] || p->shortcut[0]) return 0;
             } else {
@@ -31,16 +32,29 @@ int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
     }
     return !count || rows>0;
 }
+int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
+    return menu_valid(items,count,DESK_MENU_ITEMS,32);
+}
+static int snapshot_valid(const struct desk_menu *m,const struct desk_menu_item *items,unsigned count) {
+    unsigned capacity=m->capacity?m->capacity:DESK_MENU_ITEMS;
+    return menu_valid(items,count,capacity,m->items && m->items!=m->inline_items?capacity:32);
+}
+int desk_menu_bind_storage(struct desk_menu *m,struct desk_menu_item *items,unsigned capacity) {
+    if(!items || capacity<m->count || !capacity || capacity>INT_MAX/64)return -1;
+    if(m->count)memmove(items,m->items?m->items:m->inline_items,m->count*sizeof(*items));
+    m->items=items;m->capacity=capacity;m->armed=0;return 0;
+}
 void desk_menu_cancel(struct desk_menu *m) { m->open=m->selected=-1;m->armed=0;m->scroll=0; }
-void desk_menu_init(struct desk_menu *m) { *m=(struct desk_menu){0};desk_menu_cancel(m); }
+void desk_menu_init(struct desk_menu *m) { *m=(struct desk_menu){0};m->items=m->inline_items;m->capacity=DESK_MENU_ITEMS;desk_menu_cancel(m); }
 int desk_menu_configure(struct desk_menu *m,const struct desk_menu_item *items,unsigned count,
     struct desk_rect bar,struct desk_rect bounds,const struct desk_font *font) {
-    if(!desk_menu_valid(items,count) || !font || bar.w<0 || bar.h<0 || bounds.w<0 || bounds.h<0 ||
+    if(!snapshot_valid(m,items,count) || !font || bar.w<0 || bar.h<0 || bounds.w<0 || bounds.h<0 ||
        bar.w>16384 || bar.h>128 || bounds.w>16384 || bounds.h>16384 ||
        bar.x<0 || bar.y<0 || bounds.x<0 || bounds.y<0 || bar.x>16384 || bar.y>16384 || bounds.x>16384 || bounds.y>16384) return -1;
+    if(!m->items) { m->items=m->inline_items;m->capacity=DESK_MENU_ITEMS; }
     if(count) memmove(m->items,items,count*sizeof(*items));
     m->count=count;m->groups=0;m->bar=bar;m->bounds=bounds;m->font=font;
-    for(unsigned i=0;i<count;i++) if(items[i].flags&DESK_MENU_HEADING) m->headings[m->groups++]=i;
+    for(unsigned i=0;i<count;i++) if(m->items[i].flags&DESK_MENU_HEADING) m->headings[m->groups++]=i;
     desk_menu_cancel(m);return 0;
 }
 static unsigned end(const struct desk_menu *m) {
@@ -48,18 +62,24 @@ static unsigned end(const struct desk_menu *m) {
 }
 static void reveal(struct desk_menu *m);
 int desk_menu_replace(struct desk_menu *m,const struct desk_menu_item *items,unsigned count) {
-    if(!desk_menu_valid(items,count)) return -1;
-    struct desk_menu_item old[33],selected={0};unsigned old_count=0;int armed=m->armed,scroll=m->scroll;
+    if(!snapshot_valid(m,items,count)) return -1;
+    struct desk_menu_item heading={0},selected={0};
+    unsigned old_count=0;int armed=m->armed,scroll=m->scroll,same_group=0;
     if(m->open>=0 && m->open<(int)m->groups) {
-        unsigned first=m->headings[m->open];old_count=end(m)-first;
-        memcpy(old,m->items+first,old_count*sizeof(old[0]));
-        if(m->selected>=0) selected=m->items[m->selected];
+        unsigned first=m->headings[m->open];old_count=end(m)-first;heading=m->items[first];
+        if(m->selected>=0)selected=m->items[m->selected];
+        /* Compare before configure overwrites storage. A large group needs no
+         * stack-sized copy or allocator, only its heading/selection snapshots. */
+        for(unsigned i=0;i<count;i++)if((items[i].flags&DESK_MENU_HEADING) && !strcmp(items[i].label,heading.label)) {
+            unsigned last=i+1;while(last<count && !(items[last].flags&DESK_MENU_HEADING))last++;
+            same_group=last-i==old_count && !memcmp(items+i,m->items+first,old_count*sizeof(*items));break;
+        }
     }
     if(desk_menu_configure(m,items,count,m->bar,m->bounds,m->font)) return -1;
     if(!old_count) return 0;
-    for(unsigned g=0;g<m->groups;g++) if(!strcmp(m->items[m->headings[g]].label,old[0].label)) {
+    for(unsigned g=0;g<m->groups;g++) if(!strcmp(m->items[m->headings[g]].label,heading.label)) {
         m->open=g;unsigned first=m->headings[g],last=end(m);
-        if(last-first==old_count && !memcmp(m->items+first,old,old_count*sizeof(old[0]))) { m->armed=armed;m->scroll=scroll; }
+        if(same_group) { m->armed=armed;m->scroll=scroll; }
         if(selected.id) for(unsigned i=first+1;i<last;i++)
             if(!(m->items[i].flags&DESK_MENU_DISABLED) && !memcmp(&m->items[i],&selected,sizeof(selected))) m->selected=i;
         break;
@@ -93,12 +113,15 @@ struct desk_rect desk_menu_popup(const struct desk_menu *m) {
     if(y+height>m->bounds.y+m->bounds.h) y=m->bounds.y+m->bounds.h-height;
     return (struct desk_rect){x,y,width,height};
 }
+static struct desk_rect row_content(const struct desk_menu *m,unsigned index,struct desk_rect popup) {
+    int y=popup.y+4-m->scroll;
+    for(unsigned i=m->headings[m->open]+1;i<index;i++)y+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
+    return (struct desk_rect){popup.x+4,y,popup.w>8?popup.w-8:0,m->items[index].flags&DESK_MENU_SEPARATOR?9:30};
+}
 struct desk_rect desk_menu_row(const struct desk_menu *m,unsigned index) {
-    struct desk_rect p=desk_menu_popup(m);
-    if(m->open<0 || index<=m->headings[m->open] || index>=end(m)) return (struct desk_rect){0};
-    int y=p.y+4-m->scroll;
-    for(unsigned i=m->headings[m->open]+1;i<index;i++) y+=m->items[i].flags&DESK_MENU_SEPARATOR?9:30;
-    return desk_intersect(p,(struct desk_rect){p.x+4,y,p.w>8?p.w-8:0,m->items[index].flags&DESK_MENU_SEPARATOR?9:30});
+    if(m->open<0 || index<=m->headings[m->open] || index>=end(m))return (struct desk_rect){0};
+    struct desk_rect popup=desk_menu_popup(m);
+    return desk_intersect(popup,row_content(m,index,popup));
 }
 struct desk_menu_result desk_menu_scroll(struct desk_menu *m,int pixels) {
     if(m->open<0)return (struct desk_menu_result){0};
@@ -204,7 +227,10 @@ void desk_menu_popup_draw(struct desk_canvas *c,const struct desk_menu *m,const 
     desk_fill(c,p,t->border);desk_fill(c,desk_widget_inset(p,1),t->surface);
     desk_clip(c,desk_intersect(clip,p));
     for(unsigned i=m->headings[m->open]+1;i<end(m);i++) {
-        struct desk_rect row=desk_menu_row(m,i);const struct desk_menu_item *item=&m->items[i];
+        /* Keep text/checkmarks at the original content position. Clipping the
+         * row before positioning glyphs moves a partial row over its neighbor. */
+        struct desk_rect row=row_content(m,i,p);const struct desk_menu_item *item=&m->items[i];
+        if(!desk_intersect(row,c->clip).h)continue;
         if(item->flags&DESK_MENU_SEPARATOR) { desk_fill(c,(struct desk_rect){row.x+12,row.y+4,row.w>24?row.w-24:0,1},t->border);continue; }
         if((int)i==m->selected) desk_fill(c,row,t->selected);
         uint32_t color=item->flags&DESK_MENU_DISABLED?t->muted:t->text;

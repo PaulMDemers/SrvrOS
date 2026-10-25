@@ -1,10 +1,32 @@
 # Desktop capacity and buffer ownership
 
-The desktop supports sixteen client windows, with demand-allocated compositor
-caches and current-size client canvases. Kernel GUI capacity is 32 queues and
-64 surfaces, derived from the shared sixteen-window policy; 64 process slots
-remain unchanged. File workers and terminal shells consume additional processes,
+The desktop grows window and child-connection registries on demand instead of
+refusing the seventeenth window. Stable records and reusable scene/UI scratch
+storage share an 8 MiB additional-metadata budget. The initial sixteen inline
+records are compatibility/bootstrap storage, not a production admission ceiling.
+Compositor caches and client canvases follow current window sizes. Kernel GUI receive queues are now
+demand-allocated under a 2 MiB requested-byte budget, with 64 messages per FIFO;
+surface records are demand-allocated under separate 256 KiB metadata and
+256 MiB pixel budgets. These include prepared and retired storage until freed.
+The former 64-surface table is gone; 64 process slots remain unchanged. File workers and terminal shells consume additional processes,
 so window capacity is a ceiling, not an unconditional launch guarantee.
+
+The current admission budgets are named together in
+`shared/include/srvros/desktop_protocol.h`: windows, kernel queues and queue
+depth, kernel surface metadata/pixel bytes, ordered input queue depth and
+compositor cache bytes.
+Clipboard transfer state belongs to each admitted client; there is no separate
+eight-peer table. Client retirement releases a staged write and pending replies
+before reusing the record. One blocked reader keeps its own retry state and does
+not hold other readers. The global clipboard remains a single 64 KiB committed
+value with one staged writer; concurrent revision changes cancel partial reads.
+
+`--apps-trace` logs separate live client, child and clipboard-owner counts,
+cache bytes/budget and transport limits on admission, retirement and refusal.
+Launch capacity produces a visible close-a-window notice; process-launch refusal
+and pixel-cache pressure retain their distinct diagnostics. These are the current
+admission budgets; each pool can independently refuse a request. A surface byte budget does not guarantee that physical
+memory is available.
 
 The compositor pixel-cache budget is 96 MiB, including published and private
 buffers. It excludes the desktop canvas, client memory, kernel surfaces, page
@@ -29,16 +51,26 @@ packets retry queue pressure; stale requests/refusals are ignored. An initial
 window that cannot allocate its first frame still fails to open. Copy/protocol
 errors retain their existing bounded retirement policy.
 
-Menus allow 96 items and up to 32 rows per group. The Window menu lists all live
-clients; wheel scrolling and automatic keyboard selection reveal entries that
-exceed the viewport. The launcher has 64 entries, enough for twelve app entries
-and sixteen windows. Match kernel and all desktop binaries for v12; earlier
-protocol images are incompatible rather than silently negotiated.
+Menu and palette widgets keep their inline defaults (96 menu entries/32 rows
+per group and 64 palette entries) but accept larger caller-owned storage. The
+compositor grows their backing/scratch arrays with its registry, so Window lists
+all live clients and the launcher searches every admitted window. Wheel scrolling
+and keyboard selection reveal entries beyond the viewport. The shared list model
+retains its 4096-item geometry bound; the compositor metadata budget is reached
+before that bound. Application menu wire snapshots remain separately limited. Matched protocol v14 (168 bytes) supports explicit window
+IDs and an opt-in connection dispatcher with acknowledged creation and close.
+The ID1 single-window source wrapper remains available. Kernel stream surfaces
+bind to their first committed window for their lifetime; release also matches
+serial/generation. Input, capture, menus, clipboard and notifications follow
+window identity. See [desktop connections](desktop-connections.md) for ownership,
+refusal and disposal. Match kernel and all desktop binaries; earlier protocol
+images are incompatible.
 
 Host regressions cover transaction failure, published-pixel preservation,
 reserved-spare protection, budget exhaustion/reclamation, stale refusal,
 rollback without allocation, close/reopen and scrolling menus. The updated
-`tools/desktop_capacity_smoke.py` targets sixteen apps, seventeenth refusal,
+`tools/desktop_capacity_smoke.py` now uses an explicit one-byte registry-growth
+diagnostic budget to retain deterministic sixteen-app/seventeenth-refusal coverage,
 slot reuse, exact saved text, screenshot work at capacity and process cleanup.
 Arrange and compositor fixtures cover repeated generations, maximize/restore,
 sealed surfaces and input. The sixteen-window persistence/cleanup VM, arrange fixtures at 800x600 and
@@ -53,3 +85,179 @@ and exit cleanly; prior files, offline allocation and Ubuntu recovery checks
 pass. That non-trace session did not record cache totals or a screenshot, and
 this round did not independently accept injected pressure failures or resizing.
 Those retain host/VM evidence; see the reference machine record.
+
+The additional `tools/desktop_capacity_smoke.py --clipboard` mode exercises
+sixteen mixed app processes through their actual kernel/compositor clipboard path,
+then refusal and slot reuse. It verifies saved cross-client contents byte-for-byte,
+a screenshot and complete process/cache retirement. The host clipboard fixture
+exercises 32 independently owned transfer states, full 64 KiB simultaneous reads,
+a blocked reader, focus refusal, writer timeout and reuse. See the machine record
+for which revisions have passed these checks; no new native acceptance is implied.
+
+The first all-Text capacity probe exposed a separate worker-resource refusal:
+the thirteenth Text process could copy/paste but its file worker was unavailable.
+The document remained intact and a visible message explained the refusal. The
+mixed clipboard workload uses one Text and fifteen Calculator processes; its
+success alone does not establish sixteen simultaneous file workers. This reinforces
+the distinction between window admission and auxiliary process/thread budgets.
+
+D1a identity foundation runtime `d9a678b` passes full desktop host/build gates,
+existing apps and persistence, sixteen clipboard clients with slot reuse, and
+compositor lifecycle/resize QEMU regressions. These are VM results; that foundation
+admitted only ID1 per process, before the connection dispatcher below.
+
+Protocol v14 adds the opt-in [connection dispatcher](desktop-connections.md),
+acknowledged admission/close and multiple windows per process. Runtime `e5ad6c2`
+passes host/build, real two-document transport, app and capacity/lifecycle VM
+regressions. Normal Text runtime `f4f4c9c` now passes sixteen independent
+documents in one process, all with file workers: seventeen exact saved files
+including post-refusal edits and a replacement document, correlated seventeenth
+refusal, a fresh ID after close and complete worker/process retirement. This
+is a different resource shape from sixteen Text processes. Large document
+records use independently released anonymous mappings rather than exhausting
+the legacy brk arena. The launcher selects sibling windows by non-reused
+compositor identities, not PID alone. Dynamic registries follow in D2c below.
+
+D2a replaces kernel surface slots with stable allocated records and monotonic
+positive IDs. Metadata and pixel charges are reserved before preparation;
+allocation failure rolls both back. Cleanup detaches records before freeing
+outside the GUI metadata section. A retirement epoch rejects publication if any
+process retired during preparation, conservatively including unrelated owners.
+Such a failed initial allocation may be retried by opening again; existing
+surfaces are unaffected. This structural change does not claim reduced total
+syscall interrupt exclusion or native latency. The actual-protocol connection
+consumer holds 128 tiny auxiliary surfaces while exercising its windows, then
+retires them and relaunches. Those surfaces are not 128 desktop windows.
+
+Surface budgets account for requested record/pixel payload bytes, not heap
+headers or page rounding. The surface-create syscall also validates its writable
+result buffer before allocation and destroys an unpublished result if copying
+it back fails. The ABI probe rejects 300 read-only result buffers without
+consuming an ID, then allocates the normal pool and renders windows. An earlier
+probe reproduced memory exhaustion from unreachable surfaces before this fix.
+
+Runtime `028ded1` passes the full desktop host/image build, the 128-surface
+actual-ABI consumer with malformed result buffers, and sixteen normal Text
+documents with exact file readback, refusal/reuse and worker cleanup. This accepts
+the dynamic surface foundation in QEMU, not dynamic compositor window admission
+or native latency. D2c adds dynamic compositor admission below.
+
+D2b removes the fixed process-queue table. Queue payload charges include pending
+candidates and detached records until actually freed; allocator overhead remains
+outside the accounting. Preparation happens outside GUI-owned critical sections.
+Before publication, send revalidates the server identity, retirement epoch,
+packet direction and surface owner/window/serial state. An intervening retirement
+conservatively refuses the operation; caller retry remains responsible for
+pressure. Competing queue creation uses the already-published FIFO and releases
+the unused reservation. Queue insertion and surface sealing/release remain one
+transaction. Invalid packets and readiness queries do not allocate. Registration
+cannot steal a live server or resurrect a retired owner.
+
+Host coverage forces quota exhaustion beyond 32 connections, allocation failure,
+retirement during preparation, competing publication/full FIFO, reentrant release
+and server replacement. The `guifail --queues` actual-ABI workload creates 24
+clients plus one server simultaneously, authenticates both directions, retires
+and reaps all children, and repeats three times before a normal multiwindow
+compositor trial. These are receive queues, not 24 desktop windows.
+
+The first 40-client VM fixture hit the independent scheduler task budget at
+fork index 26 (`EAGAIN`), before queue pressure. Its failed evidence is retained.
+The production scheduler budget is unchanged; the positive VM workload uses 24
+clients, while host fixtures independently exhaust the GUI queue byte budget.
+
+D2c allocates stable window/child record chunks and replaces only pointer and
+scratch tables during growth. Clipboard writer pointers remain valid. Child
+connections grow independently from windows. Metadata reservation includes the
+old and replacement tables until publication/free, but excludes inline records,
+allocator/page overhead and all pixel caches. Chunks retain the session's high
+water mark; closed slots are reusable and pixel caches retire immediately. All
+registry mappings retire at compositor shutdown. This is bounded by available
+memory, not a claim of infinite windows or removal of process/task limits.
+
+Window menu actions, launcher selection, overlay return and drag/resize use
+non-reused lifetime identity. Global menu action IDs are 32-bit; the session
+refuses new identities before that namespace wraps. Scene sorting uses reusable
+scratch storage rather than a window-count-sized stack allocation. Preparation
+failure leaves the old registry, windows and widget snapshots intact.
+
+`--registry-pressure-test` is a diagnostic with only one additional metadata
+byte, leaving the inline records usable while forcing growth refusal. Ordinary
+startup uses the 8 MiB budget. `--window-growth-smoke` runs the separate RAM-only
+128-window consumer in one process; these are stress points, not new maxima.
+Host tests exercise 128 stable records, 200 menu/search entries, allocation and
+quota failure, independent child growth, stale identity and full reclamation.
+QEMU acceptance for this candidate is tracked in the machine record; native
+large-window/input acceptance is pending.
+
+Runtime `bba1c39` passes the actual 128-window consumer, complete launcher/menu
+selection, first/middle/last input, resize/replacement and 129 acknowledged
+retirements. Requested registry peak is 2,020,656 bytes and pixel-cache peak
+38,088,904 bytes; both retire completely. The final pressure-document,
+clipboard, normal Text, existing apps and compositor regressions pass too.
+These functional VM checks do not measure native input latency or total memory.
+
+D3a separates file-job ownership from worker processes. Normal Text documents
+share a lazy two-channel pool, so opening an empty document does not consume a
+scheduler slot. Jobs retain their own request/result buffers; transport failure
+retains the poisoned child until reaped, and last-document close drains accepted
+work before pool shutdown. Files uses the same service. Existing diagnostic
+captures may still use dedicated workers; independent app/process limits remain.
+Candidate `fc30d06` passes 32 same-process Text documents, 33 exact files with
+replacement/reuse and one shared worker reaped. A separate actual pipe/process
+fixture queues forty 64 KiB writes and readbacks through two workers, then checks
+exact contents, standard exFAT metadata and independent allocation traversal.
+These do not accept native input latency or higher window counts on hardware.
+
+
+## Scheduler storage after the mixed-app native trial
+
+The combined Air7,2 session exposed an independent 32-thread scheduler ceiling
+at fifteen app windows. Thread records now retain an inline 32-slot bootstrap
+chunk and grow in stable, page-backed chunks of 32. Existing context, FPU and
+stack addresses never move. CPU0 IRQ exclusion covers allocation and publication,
+as it already did for kernel stacks; failed stack/record allocation publishes no
+slot, identity or chunk and releases any candidate stack.
+
+Admission charges a 32 MiB budget for 128 KiB scheduler kernel stacks plus
+page-rounded dynamic record chunks. The inline bootstrap records, pointer table
+and bounded diagnostic scratch are static overhead outside that charge. The
+budget-derived directory can address at most 256 slots; metadata charges or
+physical memory pressure can refuse earlier. This is a memory admission policy,
+not unlimited threads or processes. Process-table, per-process thread, file,
+client-surface and compositor budgets remain independent.
+
+Dead stacks stay charged until a later spawn reuses their slot. Record chunks
+retain their high-water storage until reboot; there is no IRQ-time compaction.
+Quarantined slots/stacks remain charged and cannot be reused. Kernel identities
+remain monotonic and are not recycled with slots.
+
+Wait queues hold a waiter count; each stable thread record owns its queue
+membership. Wake, timeout, user-thread cancellation and quarantine detach that
+membership exactly once. Slots above 63 do not shift a bitmap or alias low slots,
+and a stale queue cannot wake a reused slot belonging to a different queue.
+Selection/expiry/wake scans remain bounded by resident capacity, and empty wake
+queues return without scanning. Scheduling policy and storage I/O eligibility are
+unchanged. Diagnostics use serialized static scratch, avoiding large arrays on
+small kernel entry stacks. Worker snapshot version 2 permits slots 0..255;
+collectors continue to accept version 1 with its original 32-slot bounds.
+
+Desktop launch refusal emits `deskd: launch-failed` with app/error identity and a
+rate-limited visible warning. The UI distinguishes resource pressure from other
+launch errors without guessing whether a process slot, scheduler stack or memory
+allocation failed. No refused child is installed in the compositor registry.
+
+The combined-services regression is
+`tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session
+--services --audio --mixed-apps`. It opens 24 separate app processes including
+file/image workers, saves exact document contents after growth, retires the whole
+lifetime, reopens and checks disposable filesystem allocation. It complements the
+single-process 128-window and 32-document fixtures; it does not replace native
+acceptance. The same test against old staged release `2750e5efa04573ba` reproduced
+scheduler-table exhaustion after fifteen windows.
+
+The mixed-process workload uses 2 GiB guest RAM, matching the exact-stage
+reproduction. A 512 MiB run of the fixed scheduler passed the old fifteen-window
+boundary but exhausted physical memory before the final Text process could
+open; the desktop retained the session and displayed its resource warning.
+This is an independent memory limit, not evidence of unlimited app admission.
+Ordinary service fixtures retain their 512 MiB allocation.

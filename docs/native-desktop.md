@@ -70,6 +70,24 @@ profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
 saves a screenshot and exits. Normal launches and the interactive hardware trial
 retain their existing manual exit behavior. See the [device-agent guide](ubuntu-device-agent-setup.md).
 
+## Repainting and covered windows
+
+The compositor sorts the window stack once per immutable frame and reuses that
+order for each damage rectangle. It can skip a lower window when both its
+clipped frame and shadow are fully covered by higher opaque window pieces.
+The two pieces stay separate: their bounding union contains unpainted corners.
+Partially covered windows retain normal back-to-front painting. This optimization
+allocates no visibility regions and changes neither damage generation nor frame
+acknowledgements, cache ownership, output scaling or framebuffer copying.
+
+The internal unculled path remains a pixel oracle for deterministic/randomized
+host fixtures. Those compare identical scenes, clips and caches, including 128
+records, shadow holes, overlays and malformed small diagnostic frames. Host
+benchmarks report pixel writes and timing distributions for the same workload;
+they do not measure physical input latency, display scanout or power use.
+Opaque replacement pixels/shadows are part of the proof: translucent windows or
+decoration outside the frame require revisiting it before enabling occlusion.
+
 ## Desktop controls
 
 The top bar contains the SrvrOS menu, the focused application's menus, Arrange,
@@ -93,9 +111,9 @@ Mac keyboard's Command key, or the Meta/Windows key in a VM.
 | Return to the monitor | SrvrOS → Return to console |
 
 The launcher lists open windows as well as app launch entries. Select an existing
-window to resume it; choose the app entry to open another instance. Sixteen client
-windows can be open at once, subject to process and memory availability. A full
-desktop asks you to close a window before opening another app.
+window to resume it; choose the app entry to open another instance. Window and
+child registries grow under a metadata budget rather than a fixed window count.
+Memory, processes and worker resources can still refuse an opening request.
 
 The compositor now allocates buffers for live window sizes instead of reserving
 eight full-screen cache pairs at startup. Published and private buffers share a
@@ -104,10 +122,11 @@ refuse a resize and return to their last working size without discarding documen
 state. Closing a window releases its caches. Oversized Window menus scroll with
 the wheel, and keyboard selection remains visible.
 
-Kernel capacity is 32 GUI queues and 64 surfaces, with the existing 64 process
-slots. Workers and terminal shells consume extra resources, so sixteen is an
-intentional ceiling rather than a guarantee under every memory/workload mix.
-See [window capacity and ownership](window-capacity.md) for protocol v12,
+Kernel GUI records are demand-allocated: 2 MiB queue storage, 256 KiB surface
+metadata and 256 MiB surface pixels, with the existing 64 process
+slots. Workers and terminal shells consume extra resources independently of
+window count; multiple Text documents can share one application process.
+See [window capacity and ownership](window-capacity.md) for the matched desktop protocol,
 allocation guarantees and exact validation. Sixteen-window persistence and
 resize/lifecycle VMs pass. Air7,2 physically accepts sixteen-window opening,
 saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; native pressure
@@ -150,6 +169,12 @@ Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
 
 ## Documents and background work
+
+Text supports multiple documents in one application process. Choose File → New
+Window or press Ctrl-Shift-N; each window has its own undo history, clipboard
+selection, file path and unsaved-close dialog. Ctrl-N creates a fresh document
+in the current window after resolving edits. Closing one window preserves the
+others; the last close waits for owned file work and worker retirement.
 
 Files and Text use a persistent worker with bounded nonblocking communication.
 Save operates on a snapshot, verifies stored bytes, and leaves later edits dirty.
@@ -452,8 +477,9 @@ subject to review against the active Air branch.
 a configured, clean window with no sealed frame, pending resize, failed send or
 unfinished menu publication. The application must separately exclude jobs,
 clipboard transactions, timers and diagnostic work that require shorter service.
-Text uses a ten-tick (100 ms) maintenance bound only when quiescent; other app
-roles and the compositor retain their existing cadence.
+The legacy GUI-only helper keeps a ten-tick (100 ms) maintenance bound.
+Normal Text/Files now use the combined worker wait described below; other app
+roles and the compositor retain their own cadence.
 
 The additive `SYS_GUI_WAIT` (136) takes the expected compositor PID and a maximum
 of 100 ticks. It returns 1 for pending messages, 0 on timeout, -1 for invalid
@@ -470,10 +496,17 @@ unrelated readiness waiters. The syscall accesses only bounded GUI state and
 retains the existing audited storage-service scheduling rules. No pointers to
 userspace buffers or reusable GUI queue slots survive a wait.
 
-An ineligible/failed wait falls back to the prior one-tick client loop. Text's
-active save, clipboard, title/menu/frame publication and explicit diagnostic
-workloads keep that prior path. This changes no firmware, device polling or CPU
-policy. Native energy improvement requires a matched repeated comparison against
+An ineligible/failed wait falls back to the prior one-tick client loop. Clipboard,
+title/menu/frame publication and explicit diagnostic workloads keep that path.
+Normal Text/Files can wait on active file-worker pipes with `SYS_GUI_WAIT_IO`
+(152); `SYS_GUI_CANCEL_WAIT` (153) interrupts combined process-local waits without canceling
+accepted jobs. These helpers capture up to eight explicit nonblocking pipe/PTY
+interests, an absolute monotonic deadline and a cancellation epoch. Close/dup2
+invalidation, peer loss and signals are checked on each wake. During owned
+storage I/O the kernel defers ordinary pipe readiness but still returns GUI
+input; it does not enter the filesystem gate. See [desktop connections](desktop-connections.md)
+for ownership, ready flags and short-retry policy. This changes no firmware,
+device polling or CPU policy. Native energy improvement requires a matched repeated comparison against
 the worker-attributed baseline; reduced timer wakes alone are not an energy result.
 
 ### Quiescent compositor waits

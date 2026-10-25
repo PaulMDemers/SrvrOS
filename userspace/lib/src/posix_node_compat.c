@@ -70,6 +70,12 @@ struct posix_epoll {
 static struct posix_eventfd eventfds[POSIX_EVENTFD_MAX];
 static struct posix_epoll epolls[POSIX_EPOLL_MAX];
 
+int __posix_node_fork_ready(void) {
+    for(unsigned i=0;i<POSIX_EVENTFD_MAX;i++) if(eventfds[i].used) return 0;
+    for(unsigned i=0;i<POSIX_EPOLL_MAX;i++) if(epolls[i].used) return 0;
+    return 1;
+}
+
 static int epoll_trace_enabled(void) {
     const char *trace = getenv("SRVROS_EPOLL_TRACE");
     return trace != 0 && trace[0] != '\0' && trace[0] != '0';
@@ -470,12 +476,6 @@ int inotify_rm_watch(int fd, int wd) {
     return -1;
 }
 
-int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void)) {
-    (void)prepare;
-    (void)parent;
-    (void)child;
-    return 0;
-}
 
 int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *mask) {
     return sched_getaffinity((pid_t)thread, cpusetsize, mask) == 0 ? 0 : errno;
@@ -485,56 +485,16 @@ int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t 
     return sched_setaffinity((pid_t)thread, cpusetsize, mask) == 0 ? 0 : errno;
 }
 
-int pthread_getschedparam(pthread_t thread, int *policy, void *param) {
-    (void)thread;
-    (void)param;
-    if (policy != 0) {
-        *policy = 0;
-    }
-    return 0;
+int pthread_getschedparam(pthread_t thread, int *policy, struct sched_param *param) {
+    if(!policy || !param) return EINVAL;
+    if(srv_thread_signal((uint64_t)(uintptr_t)thread,0)<0) return ESRCH;
+    *policy=SCHED_OTHER;param->sched_priority=0;return 0;
+}
+int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param *param) {
+    if(!param || policy!=SCHED_OTHER || param->sched_priority!=0) return EINVAL;
+    return srv_thread_signal((uint64_t)(uintptr_t)thread,0)<0?ESRCH:0;
 }
 
-int pthread_setschedparam(pthread_t thread, int policy, const void *param) {
-    (void)thread;
-    (void)policy;
-    (void)param;
-    return 0;
-}
-
-int fork(void) {
-    errno = ENOSYS;
-    return -1;
-}
-
-int openat(int dirfd, const char *path, int flags, ...) {
-    (void)dirfd;
-    mode_t mode = 0;
-    if ((flags & O_CREAT) != 0) {
-        va_list ap;
-        va_start(ap, flags);
-        mode = (mode_t)va_arg(ap, int);
-        va_end(ap);
-    }
-    if (dirfd != AT_FDCWD) {
-        errno = ENOSYS;
-        return -1;
-    }
-    return open(path, flags, mode);
-}
-
-int unlinkat(int dirfd, const char *path, int flags) {
-    if (dirfd != AT_FDCWD || (flags & ~AT_REMOVEDIR) != 0) {
-        errno = ENOSYS;
-        return -1;
-    }
-    return (flags & AT_REMOVEDIR) != 0 ? rmdir(path) : unlink(path);
-}
-
-DIR *fdopendir(int fd) {
-    (void)fd;
-    errno = ENOSYS;
-    return 0;
-}
 
 ssize_t readlink(const char *path, char *buffer, size_t size) {
     (void)path;

@@ -57,6 +57,8 @@ def main():
             source.seek(0)
             data = source.read()
         packed = runtime_elf(data)
+        # Staged ELF payloads are executable even if their source file lost mode bits.
+        path.chmod(path.stat().st_mode | 0o111)
         before += len(data)
         after += len(packed)
         count += 1

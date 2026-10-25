@@ -72,8 +72,14 @@ bool vfs_update_file_size(const char *path, uint64_t size);
 bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out);
 bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata);
 bool vfs_chmod(const char *path, uint64_t mode);
+void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime);
 bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime);
 bool vfs_unregister_path(const char *path);
+/* Publish a regular-file replacement under filesystem exclusion. No allocation
+ * or metadata callback: backend persists the operation and sidecar. Storage
+ * belongs to the source backend node and must outlive its VFS registration. */
+bool vfs_replace_file_path(const char *old_path, const char *new_path,
+    char *storage, uint64_t capacity);
 uint64_t vfs_unregister_prefix(const char *prefix);
 
 #endif

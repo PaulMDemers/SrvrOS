@@ -25,6 +25,7 @@ typedef struct {
 
 #define SIGINT 2
 #define SIGQUIT 3
+#define SIGABRT 6
 #define SIGKILL 9
 #define SIGUSR1 10
 #define SIGSEGV 11

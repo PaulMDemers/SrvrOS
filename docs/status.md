@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-24. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-10-25. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -43,14 +43,27 @@ Earlier unexpected app closures are not conclusively explained by these fixes.
 Air7,2 accepts sixteen-window opening, saved document integrity and clean exit
 at `bf68e4e9b88b8ae7` (2026-10-24); allocation-pressure preservation and cache
 retirement have host/VM evidence, without native cache totals in that round.
-Current limits include sixteen client windows, software rendering and bounded
-client surfaces up to 1440×900 logical pixels. Explicit 2× scaling passes VM
-checks at 2880×1800, but is pixel enlargement, not a high-density font renderer
-or Retina Mac acceptance. See the [desktop guide](native-desktop.md) and [device parity ledger](device-parity.md).
+Current source uses dynamically allocated window/GUI records with explicit byte
+budgets. Normal Text has multiple documents per process and shares a bounded lazy
+file-worker pool; Files uses the same service. A combined GUI/nonblocking-pipe
+wait preserves a single dispatcher and keeps accepted I/O owned until drained.
+Text and Preview also share an asynchronous file chooser controller; canceled
+folder reads drain before its buffers can be reused.
+Local coverage includes 128 small windows, 32 real Text documents/33 exact files,
+clipboard capacity, allocation refusal, worker retirement and input during
+throttled QEMU writes. These do not extend native acceptance beyond its recorded
+release or establish native latency/energy improvements. Covered-window repainting
+now uses conservative opaque-piece tests with an exact unculled pixel oracle and
+identical-workload host benchmarks. See the [runtime validation guide](desktop-runtime-validation.md)
+for repeatable local gates and the remaining interactive acceptance round.
 
-The [desktop architecture/API plan](desktop-api-evolution.md) proposes separate
-connection/window identities, multiple windows per app and dynamic resource-based
-admission. These are future work; the sixteen-window limit remains in the code.
+Remaining limits include software rendering, 1440×900 logical client surfaces,
+process/descriptor budgets and pixel-memory admission. Explicit 2× scaling passes
+VM checks at 2880×1800, but is pixel enlargement, not a high-density font renderer
+or Retina Mac acceptance. See the [desktop guide](native-desktop.md),
+[API evolution plan](desktop-api-evolution.md) and [device parity ledger](device-parity.md).
+Parented dialogs, broader shared app services, rendering/latency profiling and
+native acceptance of the new runtime remain further work.
 
 ## Files, services and devices
 
@@ -63,7 +76,7 @@ admission. These are future work; the sixteen-window limit remains in the code.
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
 | Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
-| POSIX / ports | [Source audit](posix-compatibility.md): useful subset, with thread-local errno, positional I/O and readiness semantics needing correction; not full POSIX or Linux binary compatibility; full Node runtime recovery remains incomplete |
+| POSIX / ports | [Portable C profile](posix-supported-profile.md): thread-local errno/TLS, shared files/descriptors, positional/vectored I/O, ordered spawn, bounded fork, readiness/time and stream contracts implemented with host/VM regressions; not full POSIX, Linux or Node compatibility |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 
 ## Measured checkpoints and current acceptance

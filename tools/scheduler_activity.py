@@ -2,7 +2,7 @@
 import re
 
 _U = r'([0-9]{1,20})'
-_HEADER = re.compile(r'worker-snapshot: us=' + _U + r' count=' + _U + r' version=1')
+_HEADER = re.compile(r'worker-snapshot: us=' + _U + r' count=' + _U + r' version=([12])')
 _END = re.compile(r'worker-snapshot-end: us=' + _U + r' count=' + _U)
 _ROW = re.compile(r'worker: us=' + _U + r' slot=' + _U + r' id=' + _U +
                   r' name=([^\s]{1,31}) state=' + _U + r' ticks=' + _U +
@@ -25,10 +25,11 @@ def worker_activity(text, start_us, end_us):
             continue
         header = _HEADER.fullmatch(line)
         if header:
-            at, count = map(int, header.groups())
-            if active is not None or not 0 < at < 2**64 or not 0 <= count <= 32:
+            at, count, version = map(int, header.groups())
+            limit = 32 if version == 1 else 256
+            if active is not None or not 0 < at < 2**64 or not 0 <= count <= limit:
                 return None
-            active = (at, count, {})
+            active = (at, count, {}, limit)
             continue
         row = _ROW.fullmatch(line)
         if row:
@@ -37,7 +38,7 @@ def worker_activity(text, start_us, end_us):
             at, slot, identity, name, state, *counts = row.groups()
             at, slot, identity, state = map(int, (at, slot, identity, state))
             counts = list(map(int, counts))
-            if at != active[0] or not 0 <= slot < 32 or not 0 < identity < 2**64 or \
+            if at != active[0] or not 0 <= slot < active[3] or not 0 < identity < 2**64 or \
                not 1 <= state <= 5 or any(n >= 2**64 for n in counts) or \
                identity in active[2] or any(r['slot'] == slot for r in active[2].values()):
                 return None

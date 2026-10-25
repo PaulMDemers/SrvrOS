@@ -39,7 +39,8 @@ def check(data):
     data=complete_lines(data)
     result=check_text_capture(data,files=True,workspace=True)
     assert [r for r in data.splitlines() if r.startswith(b'battery-workspace:')]==[b'battery-workspace: PASS descendants=3; retired=yes mounted=yes']
-    assert [r for r in data.splitlines() if r.startswith(b'text-files:')]==[b'text-files: cycles=5 pending=0 storage=workspace']
+    from battery_desktop_smoke import check_file_progress
+    check_file_progress(data,'workspace')
     rows=re.findall(rb'^desktools: file-result role=text op=(\d+) status=(\d+) bytes=(\d+)\r?$',data,re.M)
     assert len(rows)==sum(r.startswith(b'desktools: file-result ') for r in data.splitlines())
     assert [tuple(map(int,r)) for r in rows]==[(op,0,length) for _ in range(5) for op,length in ((2,0),(8,32),(5,0),(1,2))]

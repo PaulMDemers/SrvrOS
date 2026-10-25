@@ -1,14 +1,23 @@
 #ifndef SRVROS_DESK_APP_H
 #define SRVROS_DESK_APP_H
 #include <srvros/desktop.h>
+#include <srvros/gui_wait.h>
 #include <srvros/desktop_preferences.h>
 #include <srvros/desktop_menu.h>
 #include <srvros/desk_render.h>
 
-/* One-window client transport. Independent of the widget library and app data.
- * Application controls its bounded event batches and sleep cadence. */
+/* Per-window canvas and transport state, independent of widgets/app data.
+ * open/poll retain the one-window compatibility path. Multiwindow clients use
+ * desk_connection.h for admission, one dispatcher and acknowledged disposal. */
+struct desk_connection;
 struct desk_app {
-    uint64_t server,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
+    struct desk_connection *connection;
+    struct desk_app *next;
+    struct desk_packet open_request;
+    unsigned open_result;
+    int opening,open_sent,closing,close_sent;
+    uint64_t wait_epoch;
+    uint64_t server,window,surface,serial,generation,pending,pending_generation,last,input_serial,send_since,rejected_generation,retry_after;
     struct desk_packet configure;
     struct desk_menu_item menus[DESK_APP_MENU_ITEMS];
     uint64_t menu_revision;
@@ -26,6 +35,9 @@ int desk_app_poll(struct desk_app *app,struct desk_packet *event);
 /* Only a fully published/clean client may wait: 1 message, 0 timeout, -1
  * ineligible/error. Caller must exclude its own jobs/timers and use a short fallback. */
 int desk_app_wait(struct desk_app *app,uint64_t ticks);
+/* Combined wait uses request.count/fds/deadline_us, fills ready/revents. Return
+ * ready flags or negative error/ineligible. Caller still owns job/timer policy. */
+int desk_app_wait_io(struct desk_app *app,struct srv_gui_wait *request);
 /* 1 caller may draw into canvas; 0 waiting/clean, -1 failure. */
 int desk_app_canvas(struct desk_app *app,struct desk_canvas *canvas);
 int desk_app_present(struct desk_app *app);

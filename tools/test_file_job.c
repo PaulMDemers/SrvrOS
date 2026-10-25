@@ -8,6 +8,13 @@ static unsigned char response_bytes[DESK_FILE_BYTES+sizeof(struct desk_file_resp
 static unsigned char sent_bytes[DESK_FILE_BYTES+sizeof(struct desk_file_request)];
 static size_t received,sent,total;
 static int alive=1,again,reads,writes;
+/* Dedicated-job tests never enter the optional pool transport factory. */
+long srv_pipe(int fds[2]) { (void)fds;assert(0);return -1; }
+long srv_close(int fd) { (void)fd;assert(0);return -1; }
+long srv_fcntl(int fd,int command,uint64_t flags) { (void)fd;(void)command;(void)flags;assert(0);return -1; }
+long srv_spawn_bg_args_fds(const char *path,const char *args,int input,int output) { (void)path;(void)args;(void)input;(void)output;assert(0);return -1; }
+long srv_signal_config(uint64_t sig,uint64_t action) { (void)sig;(void)action;assert(0);return -1; }
+long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) { (void)pid;(void)status;(void)flags;assert(0);return -1; }
 long srv_write(int fd,const void *buffer,size_t length) {
     assert(fd==11);writes++;if(again && writes%3==0) return SRV_ERR_AGAIN;
     if(length>7) length=7;
@@ -58,6 +65,10 @@ int main(void) {
     reset();assert(!desk_file_job_start(&job,DESK_FILE_READ,"/fat/text",NULL,0,0,0));response(0,NULL,0);
     response_bytes[0]=0;assert(finish()<0);
     reset();assert(!desk_file_job_start(&job,DESK_FILE_READ,"/fat/text",NULL,0,0,0));alive=0;assert(finish()<0);
+    reset();assert(!desk_file_job_start(&job,DESK_FILE_READ,"/fat/complete",NULL,0,0,0));
+    while(desk_file_job_submit(&job)!=1) {}
+    response(0,data,sizeof(data));alive=0;again=0;
+    assert(finish()==1 && !memcmp(job.incoming,data,sizeof(data)));
     reset();assert(desk_file_job_start(&job,DESK_FILE_READ,"relative",NULL,0,0,0)<0);
     assert(desk_file_job_start(&job,DESK_FILE_READ,"/fat/text",data,1,0,0)<0);
     reset();struct desk_file_change change={.inode=71};strcpy(change.destination,"/fat/new");

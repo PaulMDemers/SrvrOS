@@ -7,7 +7,7 @@
  * Retry after one second; time out after ten. No blocking or allocation. */
 struct desk_notify_client {
     struct desk_notification text;
-    uint64_t server,serial,started,last_send;
+    uint64_t server,window,serial,started,last_send;
     unsigned tone;
     int busy,sent;
 };

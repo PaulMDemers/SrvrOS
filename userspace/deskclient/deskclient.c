@@ -90,7 +90,7 @@ int main(int argc,char **argv) {
             int r=desk_receive(&source,&p);
             if (r<0) { failed=1; quit=1; break; }
             if (!r) break;
-            if (r==2) continue;
+            if (r==2 || p.window!=DESK_DEFAULT_WINDOW) continue;
             if (!server && p.type==DESK_CONFIGURE) server=source;
             if (!server || server!=source) continue;
             if (p.type==DESK_CLOSE) { quit=1; break; }

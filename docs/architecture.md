@@ -1,6 +1,6 @@
 # Architecture
 
-Current overview, 2026-10-24. SrvrOS is a freestanding C/x86_64 kernel with
+Current overview, 2026-10-25. SrvrOS is a freestanding C/x86_64 kernel with
 assembly entry points and ring-3 applications. It uses Limine for boot and
 selected upstream libraries for ports, decoding, fonts and ACPI. The system is
 still small, with explicit resource ceilings and incomplete isolation.
@@ -86,19 +86,24 @@ and control packets get a delivery attempt before response timeouts are applied.
 These contracts have host/VM regressions; the machine record distinguishes the
 accepted native interactions from cases covered only by synthetic tests.
 
-Current limits are sixteen client windows, 1440×900 logical client surfaces and
-software rendering. Explicit 2× output expands the logical pixels without changing
+Window records, GUI queues and surfaces now grow under separate byte budgets;
+sixteen inline compositor records are bootstrap storage, not a count ceiling.
+Client surfaces remain bounded to 1440×900 logical pixels with software rendering. Explicit 2× output expands the logical pixels without changing
 app geometry. GPU discovery is not GPU rendering acceleration. The older
 `gui`/`displayd`/`gui2` stack remains for historical regressions and is not the
 current desktop entry point; its [archived architecture](history/architecture-before-native-desktop.md#gui)
 is retained for reference.
 
-The current client library and compositor associate one window with one process.
-Removing the count ceiling needs separate connection/window/surface identities,
-dynamic registries and resource-based admission. See the
-[desktop API evolution plan](desktop-api-evolution.md) for the source inventory,
-service capacity gaps and staged migration. These changes are planned, not yet
-implemented.
+A process connection dispatches explicit, non-reused window identities. Normal
+Text owns multiple independent documents in one process; other apps can retain
+the single-window wrapper. Text/Files share lazy bounded file-worker pools and
+wait for GUI plus nonblocking worker pipes without adding a dispatcher per window.
+Accepted file work drains before its owner or transport retires. Dynamic metadata,
+pixel caches, process slots and descriptor budgets remain separate constraints.
+See [desktop connections](desktop-connections.md), [window capacity](window-capacity.md)
+and the [API evolution plan](desktop-api-evolution.md) for implemented contracts
+and remaining work. Host/QEMU acceptance includes 128 small windows and 32 normal
+Text documents; physical acceptance remains scoped in the machine record.
 
 ## Networking and services
 

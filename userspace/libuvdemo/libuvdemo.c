@@ -6,6 +6,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
@@ -2405,6 +2406,40 @@ static int process_validation_test(void) {
     return 0;
 }
 
+static int process_swap_child(int argc,char **argv) {
+    if(argc!=4) return 1;
+    char a=0,b=0;
+    return read(atoi(argv[2]),&a,1)!=1 || a!='B' || read(atoi(argv[3]),&b,1)!=1 || b!='A';
+}
+static int process_swap_test(void) {
+    int a=open("/fat/uv-swap-a",O_CREAT|O_TRUNC|O_RDWR|O_CLOEXEC,0600);
+    int b=open("/fat/uv-swap-b",O_CREAT|O_TRUNC|O_RDWR|O_CLOEXEC,0600);
+    if(a<3 || b<3 || a>=16 || b>=16 || write(a,"A",1)!=1 || write(b,"B",1)!=1 ||
+        lseek(a,0,SEEK_SET)!=0 || lseek(b,0,SEEK_SET)!=0) { printf("libuvdemo: swap setup a=%d b=%d errno=%d\n",a,b,errno);return 1; }
+    int count=(a>b?a:b)+1;
+    uv_stdio_container_t stdio[16]={0};
+    for(int i=0;i<3;i++) { stdio[i].flags=UV_INHERIT_FD;stdio[i].data.fd=i; }
+    stdio[a].flags=stdio[b].flags=UV_INHERIT_FD;
+    stdio[a].data.fd=b;stdio[b].data.fd=a;
+    char aa[16],bb[16];snprintf(aa,sizeof(aa),"%d",a);snprintf(bb,sizeof(bb),"%d",b);
+    char *args[]={"libuvdemo","swap-child",aa,bb,NULL};
+    uv_process_options_t options={0};
+    options.file="/libuvdemo";options.args=args;options.stdio=stdio;options.stdio_count=count;options.exit_cb=process_exit_cb;
+    process_exit_seen=process_failed=0;process_stdout_eof=1;
+    if(uv_loop_init(&process_loop)<0) return 1;
+    int result=uv_spawn(&process_loop,&process_handle,&options);
+    if(result) { printf("libuvdemo: process descriptor swap spawn failed %d\n",result);return 1; }
+    (void)uv_run(&process_loop,UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&process_handle,0);
+    if(process_failed || !process_exit_seen || lseek(a,0,SEEK_CUR)!=1 || lseek(b,0,SEEK_CUR)!=1 ||
+        fcntl(a,F_GETFD)!=FD_CLOEXEC || fcntl(b,F_GETFD)!=FD_CLOEXEC) {
+        puts("libuvdemo: process descriptor swap failed");return 1;
+    }
+    close(a);close(b);unlink("/fat/uv-swap-a");unlink("/fat/uv-swap-b");
+    if(uv_loop_close(&process_loop)) return 1;
+    puts("libuvdemo: process descriptor swap ok");return 0;
+}
+
 static int process_inherit_fd_test(void) {
     const char *path = "/fat/libuvdemo-inherit-input.txt";
     char *argv[] = {"libuvdemo", "inherit-child", 0};
@@ -2810,6 +2845,7 @@ static int process_inherit_stream_stderr_child(void) {
 }
 
 int main(int argc, char **argv) {
+    if(argc>1 && !strcmp(argv[1],"swap-child")) return process_swap_child(argc,argv);
     if (argc > 1 && strcmp(argv[1], "duplex-child") == 0) {
         return process_duplex_child();
     }
@@ -2834,6 +2870,7 @@ int main(int argc, char **argv) {
 
     puts("libuvdemo: srvros libuv port staging");
     if (version_test() != 0 ||
+        process_swap_test() != 0 ||
         error_test() != 0 ||
         platform_test() != 0 ||
         core_api_test() != 0 ||

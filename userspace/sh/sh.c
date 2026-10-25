@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <errno.h>
 #include <srvros/cli.h>
 #include <srvros/conio.h>
 #include <srvros/sys.h>
@@ -30,7 +32,7 @@ static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
 };
 static size_t path_count = 3;
 static uint64_t last_status = 0;
-static int workspace_interactive, history_dirty;
+static int workspace_interactive, history_dirty, shell_interactive;
 static uint64_t shell_pid = 0;
 static uint64_t substitution_counter = 0;
 static int shell_argc = 1;
@@ -5343,9 +5345,7 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
     }
     wait_pipeline_pids(pids, segment_count, &final_status);
     (void)srv_proc_group(0, 0, 1);
-    cli_puts("status ");
-    cli_putn(final_status);
-    cli_puts("\n");
+    if(shell_interactive) { cli_puts("status ");cli_putn(final_status);cli_puts("\n"); }
     return final_status;
 }
 
@@ -5509,7 +5509,19 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return apropos_command(args);
     }
     if (cli_streq(command, "exit")) {
-        srv_exit(finish_workspace_history(args[0] != '\0' ? (int)parse_u64(args) : (int)last_status));
+        char words[EXPANDED_LINE_MAX],*values[2];
+        cli_copy(words,sizeof(words),args);
+        int count=split_words(words,values,2);
+        if(count<0 || count>1) { cli_puts("exit: too many arguments\n");return 2; }
+        long long status=(long long)last_status;
+        if(count) {
+            char *end;errno=0;status=strtoll(values[0],&end,10);
+            if(errno==ERANGE || end==values[0] || *end) {
+                cli_puts("exit: numeric argument required\n");
+                srv_exit(finish_workspace_history(2));
+            }
+        }
+        srv_exit(finish_workspace_history((unsigned char)status));
     }
     if (cli_streq(command, "exec")) {
         if (background) {
@@ -5615,7 +5627,6 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     }
     if (cli_streq(command, "cd")) {
         char next[CLI_PATH_MAX];
-        struct srv_stat info;
         const char *target = args[0] != '\0' ? args : "/";
         if (cli_streq(target, "-")) {
             target = getenv("OLDPWD");
@@ -5624,12 +5635,8 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
                 return 1;
             }
         }
-        cli_normalize_path(next, sizeof(next), cwd, target);
-        if (!cli_streq(next, "/") && (srv_stat(next, &info) < 0 || info.type != 1)) {
-            cli_puts("cd: not a directory: ");
-            cli_puts(next);
-            cli_puts("\n");
-            return 1;
+        if(chdir(target)<0 || !getcwd(next,sizeof(next))) {
+            cli_puts("cd: cannot change directory: ");cli_puts(target);cli_puts("\n");return 1;
         }
         setenv("OLDPWD", cwd, 1);
         cli_copy(cwd, CLI_PATH_MAX, next);
@@ -5748,9 +5755,7 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return 126;
     }
     (void)srv_proc_group(0, shell_pid, 1);
-    cli_puts("status ");
-    cli_putn((uint64_t)status);
-    cli_puts("\n");
+    if(shell_interactive) { cli_puts("status ");cli_putn((uint64_t)status);cli_puts("\n"); }
     return (uint64_t)status;
 }
 
@@ -6851,6 +6856,7 @@ int main(int argc, char **argv) {
         break;
     }
 
+    shell_interactive=command_text==NULL && script_path==NULL && isatty(STDIN_FILENO);
     if (positional_start > 0 && positional_start < argc) {
         shell_argv = &argv[positional_start];
         shell_argc = argc - positional_start;
@@ -6881,18 +6887,8 @@ int main(int argc, char **argv) {
             (uint64_t)DEFAULT_HISTORY_SIZE);
         setenv("HISTSIZE", default_history_size, 1);
     }
-    /* PWD is this OS's userspace working-directory handoff to child processes. */
-    const char *inherited_pwd = getenv("PWD");
-    if (inherited_pwd != 0 && inherited_pwd[0] == '/' &&
-        strlen(inherited_pwd) < sizeof(cwd)) {
-        char candidate[CLI_PATH_MAX];
-        struct srv_stat info;
-        cli_normalize_path(candidate, sizeof(candidate), "/", inherited_pwd);
-        if (cli_streq(candidate, "/") ||
-            (srv_stat(candidate, &info) >= 0 && info.type == 1)) {
-            cli_copy(cwd, sizeof(cwd), candidate);
-        }
-    }
+    /* Kernel process state survives spawn/exec independently of PWD. */
+    if(!getcwd(cwd,sizeof(cwd))) { cli_puts("sh: working directory unavailable\n");return 1; }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
     setenv("OLDPWD", cwd, 1);
@@ -6914,6 +6910,7 @@ int main(int argc, char **argv) {
         }
         cli_join_path(history_path, sizeof(history_path), cwd, ".history");
         cli_join_path(profile_path, sizeof(profile_path), cwd, ".profile");
+        if(chdir(cwd)<0) { cli_puts("sh: cannot enter workspace\n");return 1; }
         setenv("HOME", cwd, 1);
         setenv("PWD", cwd, 1);
         setenv("HISTFILE", history_path, 1);

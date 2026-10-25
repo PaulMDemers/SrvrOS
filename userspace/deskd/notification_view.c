@@ -73,7 +73,7 @@ struct desktop_notice_action desktop_notice_view_action(struct desktop_notice_vi
     struct desktop_notice_action result={0};const struct desktop_notice *record=selected(v);
     if(a.id==NOTICE_LIST && (a.flags&DESK_WIDGET_CHANGED)) { if(record) card(&v->detail,record);v->ui.controls[1].label=record && record->target[0]?"Open folder":"Open app"; }
     if(!(a.flags&DESK_WIDGET_ACTIVATED)) return result;
-    if((a.id==NOTICE_OPEN || a.id==NOTICE_LIST) && record) { result.owner=record->owner;result.application=record->application;strcpy(result.target,record->target);result.close=1; }
+    if((a.id==NOTICE_OPEN || a.id==NOTICE_LIST) && record) { result.owner=record->owner;result.window=record->window;result.application=record->application;strcpy(result.target,record->target);result.close=1; }
     else if(a.id==NOTICE_REMOVE && record) { desktop_notification_remove(&v->store,record->id);desktop_notice_view_refresh(v); }
     else if(a.id==NOTICE_CLEAR) { v->store.count=0;memset(v->store.records,0,sizeof(v->store.records));desktop_notice_view_refresh(v); }
     else if(a.id==NOTICE_CLOSE) result.close=1;
@@ -82,7 +82,7 @@ struct desktop_notice_action desktop_notice_view_action(struct desktop_notice_vi
 struct desktop_notice_action desktop_notice_toast_action(struct desktop_notice_view *v,struct desk_action a) {
     struct desktop_notice_action result={0};if(!(a.flags&DESK_WIDGET_ACTIVATED)) return result;
     const struct desktop_notice *record=desktop_notification_find(&v->store,v->toast_id);
-    if(a.id==NOTICE_TOAST_OPEN && record) { result.owner=record->owner;result.application=record->application;strcpy(result.target,record->target); }
+    if(a.id==NOTICE_TOAST_OPEN && record) { result.owner=record->owner;result.window=record->window;result.application=record->application;strcpy(result.target,record->target); }
     if(a.id==NOTICE_TOAST_OPEN || a.id==NOTICE_TOAST_CLOSE) {
         for(unsigned i=0;i<v->store.count;i++) if(v->store.records[i].id==v->toast_id) v->store.records[i].unread=0;
         v->toast_id=0;

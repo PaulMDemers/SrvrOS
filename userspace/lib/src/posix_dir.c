@@ -6,144 +6,56 @@
 
 #include <srvros/sys.h>
 
-#define POSIX_PATH_MAX 160
-#define POSIX_CHILD_MAX 96
+#include <fcntl.h>
+#include <unistd.h>
 
-int __posix_make_path(const char *path, char *out, size_t capacity);
+struct DIR { int fd; struct dirent entry; };
 
-struct DIR {
-    char path[POSIX_PATH_MAX];
-    char prefix[POSIX_PATH_MAX+1];
-    uint64_t index;
-    size_t seen_count,seen_capacity;
-    char (*seen)[POSIX_CHILD_MAX];
-    struct dirent entry;
-};
-
-static int starts_with(const char *text, const char *prefix) {
-    while (*prefix != '\0') {
-        if (*text++ != *prefix++) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-static int seen(DIR *dir, const char *name) {
-    for (size_t i = 0; i < dir->seen_count; i++) {
-        if (strcmp(dir->seen[i], name) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-static int remember(DIR *dir, const char *name) {
-    if (dir->seen_count == dir->seen_capacity) {
-        size_t capacity=dir->seen_capacity?dir->seen_capacity*2:16;
-        if(capacity<dir->seen_capacity || capacity>SIZE_MAX/POSIX_CHILD_MAX) {
-            errno=ENOMEM;return -1;
-        }
-        void *next=realloc(dir->seen,capacity*POSIX_CHILD_MAX);
-        if(!next) { errno=ENOMEM;return -1; }
-        dir->seen=next;dir->seen_capacity=capacity;
-    }
-    memcpy(dir->seen[dir->seen_count],name,strlen(name)+1);
-    dir->seen_count++;
-    return 0;
-}
-
-static void make_prefix(DIR *dir) {
-    strcpy(dir->prefix, dir->path);
-    size_t len = strlen(dir->prefix);
-    while (len > 1 && dir->prefix[len - 1] == '/') {
-        dir->prefix[--len] = '\0';
-    }
-    if (len + 2 <= sizeof(dir->prefix) && dir->prefix[len - 1] != '/') {
-        dir->prefix[len++] = '/';
-        dir->prefix[len] = '\0';
-    }
-}
-
-DIR *opendir(const char *path) {
+DIR *fdopendir(int fd) {
     struct stat st;
-    DIR *dir = malloc(sizeof(DIR));
-    if (dir == 0) {
-        errno = ENOMEM;
-        return 0;
-    }
-    memset(dir, 0, sizeof(*dir));
-    if (__posix_make_path(path, dir->path, sizeof(dir->path)) < 0 || stat(dir->path, &st) < 0) {
-        free(dir);
-        return 0;
-    }
-    if (!S_ISDIR(st.st_mode)) {
-        free(dir);
-        errno = ENOTDIR;
-        return 0;
-    }
-    make_prefix(dir);
+    if(fstat(fd,&st)<0) return NULL;
+    if(!S_ISDIR(st.st_mode)) { errno=ENOTDIR;return NULL; }
+    int flags=fcntl(fd,F_GETFL);
+    if(flags<0) return NULL;
+    if((flags&O_ACCMODE)==O_WRONLY) { errno=EBADF;return NULL; }
+    DIR *dir=calloc(1,sizeof(*dir));
+    if(!dir) { errno=ENOMEM;return NULL; }
+    dir->fd=fd;return dir;
+}
+DIR *opendir(const char *path) {
+    int fd=open(path,O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+    if(fd<0) return NULL;
+    DIR *dir=fdopendir(fd);
+    if(!dir) { int error=errno;close(fd);errno=error; }
     return dir;
 }
-
+int dirfd(DIR *dir) {
+    if(!dir) { errno=EBADF;return -1; }
+    return dir->fd;
+}
 struct dirent *readdir(DIR *dir) {
-    char path[POSIX_PATH_MAX];
-    uint64_t size = 0;
-    if (dir == 0) {
-        errno = EBADF;
-        return 0;
-    }
-
-    for (;;) {
-        long result=srv_list(dir->index,path,sizeof(path),&size);
-        if(result<=0) { if(result<0) errno=EIO;return 0; }
-        dir->index++;
-        if (strcmp(path, dir->path) == 0 || !starts_with(path, dir->prefix)) {
-            continue;
-        }
-
-        const char *rest = path + strlen(dir->prefix);
-        char child[POSIX_CHILD_MAX];
-        size_t child_len = 0;
-        while (rest[child_len] != '\0' &&
-            rest[child_len] != '/' &&
-            child_len + 1 < sizeof(child)) {
-            child[child_len] = rest[child_len];
-            child_len++;
-        }
-        child[child_len] = '\0';
-        if(rest[child_len] && rest[child_len]!='/') { errno=ENAMETOOLONG;return 0; }
-        if (child[0] == '\0' || seen(dir, child)) {
-            continue;
-        }
-
-        if(remember(dir,child)<0) { dir->index--;return 0; }
-        memset(&dir->entry, 0, sizeof(dir->entry));
-        memcpy(dir->entry.d_name,child,child_len+1);
-        dir->entry.d_ino = dir->index;
-        dir->entry.d_type = rest[child_len] == '/' ? DT_DIR : DT_UNKNOWN;
-        if(!rest[child_len]) {
-            struct stat st;int saved_errno=errno;
-            if(!stat(path,&st)) dir->entry.d_type=S_ISDIR(st.st_mode)?DT_DIR:S_ISREG(st.st_mode)?DT_REG:DT_UNKNOWN;
-            errno=saved_errno;
-        }
-        return &dir->entry;
-    }
-    return 0;
+    if(!dir) { errno=EBADF;return NULL; }
+    struct srv_dirent entry;
+    long result=srv_directory(SRV_DIRECTORY_READ,dir->fd,&entry,sizeof(entry));
+    if(result<0) { errno=(int)-result;return NULL; }
+    if(!result) return NULL;
+    memset(&dir->entry,0,sizeof(dir->entry));
+    dir->entry.d_ino=entry.inode;
+    dir->entry.d_type=entry.type==1?DT_DIR:DT_REG;
+    memcpy(dir->entry.d_name,entry.name,strlen(entry.name)+1);
+    return &dir->entry;
 }
-
-struct dirent *readdir64(DIR *dir) {
-    return readdir(dir);
+struct dirent *readdir64(DIR *dir) { return readdir(dir); }
+long telldir(DIR *dir) { return dir?lseek(dir->fd,0,SEEK_CUR):(errno=EBADF,-1); }
+void seekdir(DIR *dir,long location) {
+    if(!dir) { errno=EBADF;return; }
+    if(location<0) { errno=EINVAL;return; }
+    (void)lseek(dir->fd,location,SEEK_SET);
 }
-
+void rewinddir(DIR *dir) { seekdir(dir,0); }
 int closedir(DIR *dir) {
-    if (dir == 0) {
-        errno = EBADF;
-        return -1;
-    }
-    free(dir->seen);
-    free(dir);
-    return 0;
+    if(!dir) { errno=EBADF;return -1; }
+    int result=close(dir->fd);free(dir);return result;
 }
 
 int alphasort(const struct dirent **left, const struct dirent **right) {

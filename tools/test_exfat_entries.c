@@ -81,6 +81,15 @@ int main(void) {
     assert(!build_file_entry_set(entries, "bad:name", 5, 1, 0x20, true, &count, &names));
     assert(build_file_entry_set(entries, "b287ed1f63ab4073.req", 5, 35, 0x20, true, &count, &names));
     assert(names == 2);
+    char child[64],short_child[8]="intact";
+    const struct exfat_stream_entry *stream=(const void *)(entries+32);
+    const struct exfat_name_entry *name_entries=(const void *)(entries+64);
+    assert(!build_child_path(short_child,sizeof(short_child),"/vol",stream,name_entries,names));
+    assert(!strcmp(short_child,"intact"));
+    assert(!build_child_path(child,sizeof(child),"/vol",stream,name_entries,1));
+    assert(build_child_path(child,sizeof(child),"/vol",stream,name_entries,names));
+    assert(!strcmp(child,"/vol/b287ed1f63ab4073.req"));
+
     memcpy(disk + 128, entries, count * 32);
     struct block_device device = {0};
     struct exfat_volume volume = {.device=&device, .image_size=sizeof(disk)};

@@ -1,9 +1,9 @@
 # Desktop architecture and API evolution
 
-Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130).
-This is a proposed implementation sequence, not an implemented API or a new
-hardware acceptance claim. The [capacity contract](window-capacity.md) describes
-the shipping sixteen-window implementation. The companion
+Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130); D0/D1
+progress and D2/D3 implementation plus D4a rendering updated 2026-10-25. Later blocks remain proposals, not implemented APIs
+or new hardware acceptance claims. The [capacity contract](window-capacity.md) describes
+current dynamic storage and the separately scoped physical acceptance. The companion
 [POSIX audit](posix-compatibility.md) covers the userspace foundation.
 
 ## Goal and boundary
@@ -14,10 +14,10 @@ without corrupting existing windows, losing documents or freezing input.
 “Unlimited windows” means dynamic allocation and useful refusal, not unlimited
 RAM, unbounded queues or a promise that every workload fits on every machine.
 
-The next step is object identity and lifetime, not another increase to
-`DESK_MAX_WINDOWS`. A process currently identifies a desktop client and effectively
-one window. That coupling also limits dialogs, multiple documents and application
-activation. Dynamic arrays alone would preserve the wrong public contract.
+D1 separates object identity and lifetime from processes before changing
+`DESK_MAX_WINDOWS`. A connection now dispatches multiple window identities, and
+normal Text exercises independent real documents. Other apps retain the source
+compatibility wrapper. Dynamic allocation must preserve these ownership contracts.
 
 Keep the native desktop, software renderer and reusable widget library. A GPU,
 full POSIX implementation or a port of a large external toolkit is not a
@@ -27,13 +27,13 @@ prerequisite for multiple windows per application.
 
 | Layer and source | Current responsibility | Constraint to address |
 | --- | --- | --- |
-| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Fixed queue/surface tables; linear lookups; desktop packet knowledge in kernel |
-| [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v12, 160-byte packets; configure/commit/release, input, titles, menus, services | No explicit connection/window identity or capability negotiation; kernel/userspace must match |
+| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Dynamic queues/surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
+| [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
-| [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | One window's canvas, generations, pending input/frame, resize rollback, retry and menu state | Two instances would compete for one process queue; no connection-level dispatcher |
-| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Client lookup by PID; parallel slot arrays; slot-index actions and focus; child launch records coupled to windows |
+| [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
+| [`deskd.c`](../userspace/deskd/deskd.c), [`scene.h`](../userspace/deskd/scene.h) | Launch, clients, frames, focus, stacking, input capture, presentation | Stable dynamically allocated records and independent child storage; lifetime-safe UI actions; linear lookup/stacking remains |
 | [`widgets/`](../userspace/widgets/README.md) | Pure models/controllers, layout and rendering primitives | Deliberately owns neither allocation, process transport nor an event loop; preserve that separation |
-| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Repeated application lifetime/dispatch logic; generally one window per process |
+| Native apps and workers | Documents, workflows, asynchronous file/image jobs | Text shares one connection across documents; Text/Files use bounded lazy file-worker pools; other apps retain the compatibility wrapper |
 
 Useful existing guarantees must survive the migration: validate packet direction
 and surface ownership; publish only sealed complete frames; reject stale
@@ -49,30 +49,63 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 
 | Current bound | Location / consequence |
 | --- | --- |
-| 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; one client per PID |
-| 32 GUI queues, 64 messages per queue | `GUI_MAX_QUEUES = DESK_MAX_WINDOWS + 16`, `GUI_QUEUE_DEPTH`; process queues also need room for services |
-| 64 GUI surfaces | `GUI_MAX_SURFACES = DESK_MAX_WINDOWS * 4`; surface count should follow active allocations, not window-count arithmetic |
+| Dynamic compositor windows and child connections | Stable chunks, 8 MiB additional metadata budget including replacement table overlap; inline sixteen records remain bootstrap storage |
+| Dynamic GUI queues, 64 messages per queue | 2 MiB requested-byte budget includes prepared/retired records; process and window budgets remain independent |
+| Dynamic GUI surfaces | 256 KiB record budget plus 256 MiB pixel budget, including in-flight reservations and retirement; no fixed surface slot array |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
 | 1440×900 logical client surface | Protocol/kernel bound; explicit 2× output is enlargement, not native-density text rendering |
-| **8 clipboard peers** | `userspace/deskd/clipboard.h`; `peer()` returns NULL and requests receive no response after all peer records are occupied |
-| 96 menu items / 32 visible group rows; 64 palette items | Shared menu/palette storage can become the next window-list ceiling even if compositor records grow |
+| Clipboard transfer state per admitted client (D0 merged) | No independent peer table; one global 64 KiB committed value and staged writer |
+| Menu/palette caller-owned storage | Inline defaults remain 96/32 and 64; compositor grows storage to enumerate all admitted windows; shared list geometry bound 4096 |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |
-| 64 processes, 64 open files per process | `kernel/include/srvros/process.h`; more windows should not require one new process each |
+| 64 processes; originally 64 extra file slots plus standard streams, now 67 unified native descriptors in the POSIX branch | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
 | 8 additional user-thread slots per process; 32 kernel scheduler-thread slots | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
 
-Clipboard capacity is already below the accepted window count. Its current host
-test exercises a single client extensively, so sixteen-window opening does not
-establish clipboard service for sixteen distinct applications. Add a multi-peer
-regression and fix refusal/service behavior before treating that as supported.
-An audit-only host fixture against the actual `clipboard.c` reproduced this:
-eight retained peers receive replies, the ninth does not. This is a confirmed
-service-capacity gap, not evidence of an input-device failure.
+The audit reproduced a clipboard gap: eight retained peers received replies,
+and a ninth did not. D0 replaces the independent peer table with state owned by
+each admitted client. Runtime `18d92f1` passes multi-peer host and actual-protocol VM coverage on
+this branch; the current machine record tracks integration and native status. Window
+admission and clipboard teardown must stay coupled during D1/D2 migration.
 
 The 96 MiB cache statistic is not total desktop memory. Client canvases, kernel
 surfaces, framebuffer backing, worker buffers, queues and metadata also cost RAM.
 Admission must account for the peak during resize, including the old image, new
 image and in-flight frame. Cache trace output is optional; the accepted native
 sixteen-window round contains no cache totals.
+
+## Combined wait contract (D3b)
+
+The D3b implementation provides one wait for an authenticated GUI server and up
+to eight explicit nonblocking pipe/PTY interests. It uses an absolute monotonic
+deadline, bounded to one second ahead, and a process-local cancellation epoch.
+Zero/past deadlines probe immediately. The ready set reports GUI messages,
+descriptor events, cancellation, peer loss or deadline without consuming data.
+This is a native desktop primitive; it does not turn GUI connections into POSIX
+file descriptors or extend arbitrary VFS/network polling during owned I/O.
+
+The kernel copies immutable interests once, captures descriptor lifetime
+generations, then checks readiness and registers the common wake queue with IRQs
+masked. Close/dup2 publication invalidates old descriptor watches even when the
+numeric FD or underlying endpoint is reused. Generations saturate, never wrap.
+GUI enqueue/disconnect, pipe changes, cancellation and signals wake the same
+queue. Spurious wakes recheck readiness and the absolute deadline. Cancellation
+is acknowledged by the connection helper's observed epoch; it does not cancel
+accepted file mutations or create a second queue reader.
+
+`desk_connection_wait_io` and `desk_app_wait_io` require fully published,
+quiescent windows. The caller owns timer/clipboard/control deadlines and keeps
+bounded dispatch batches. `desk_file_pool_interests` supplies active worker
+transport interests; queued work needing a lease, a complete buffered reply and
+child retirement retain a short dispatch retry. Text/Files use this path.
+During owned storage I/O, normal pipe readiness is suppressed (the actual try
+read/write would defer), but GUI/cancel/descriptor invalidation still return.
+The wait rechecks deferred pipes within one scheduler tick without entering
+filesystem cleanup. General POSIX poll admission is unchanged.
+
+Focused host fixtures cover immutable snapshots, registration/spurious races,
+simultaneous readiness, descriptor close/reuse, copy faults, cancellation, signal
+interruption and partial-tick deadlines. Actual-ABI and application QEMU gates
+must be read from the machine record. Idle CPU and p95/p99 latency profiling,
+physical input latency and broader desktop service integration remain pending.
 
 ## Proposed object model and API contracts
 
@@ -171,7 +204,20 @@ preserves the other document. Cover rejected creation, server death, client deat
 queued stale events, handle reuse, parent close, save deferral and failed resize.
 Tests must exercise the actual kernel/client/compositor protocol, not only mocks.
 
+D1a/b are merged in PR141/142 and normal Text migration in PR143:
+`f4f4c9c` passes actual multi-document save/close/reopen/launcher and sixteen-document
+refusal/reuse/exact persistence gates. Parented/transient dialogs are not yet an
+API; their acceptance follows D3. Native gesture/latency acceptance is separate.
+
 ### D2 — Allocate registries dynamically
+
+D2a/b are merged in PR144/145: kernel surface/queue slots have been replaced
+with byte-budgeted stable storage. D2c merged through PR146 (`bba1c39` runtime) implements stable
+compositor chunks, separate child growth, reusable scene scratch and complete
+menu/palette enumeration. Host/full-build gates pass; QEMU/native acceptance
+must be read from the current machine record. D2 latency/large-workload profiling
+and native acceptance remain distinct from storage correctness.
+
 
 Replace client/scene/child arrays with stable object storage and explicit maps,
 separate z-order from storage, and remove slot indices from UI actions. Grow kernel
@@ -195,9 +241,17 @@ resource totals. VM scale evidence does not accept physical gestures or latency.
 
 ### D3 — Share the application runtime and desktop services
 
+D3a implements reusable file-worker ownership for Text/Files: caller-owned
+job records, lazy bounded transport leases, FIFO admission and drain/reap before
+application exit. This removes per-document worker allocation without claiming
+all desktop services are complete. D3b adds the bounded GUI/pipe/PTY wait
+contract above. D3c shares an asynchronous [file chooser controller](desktop-chooser.md)
+between Text and Preview, preserving canceled-read ownership and correlating
+completion before reuse; source acceptance is recorded per machine.
+
 Build a small allocating application layer above the pure widgets: event loop,
 actions, multiple windows, document lifecycle and job ownership. Migrate remaining
-apps incrementally. Add transient dialogs, reusable chooser APIs and app
+apps incrementally. Extend the in-window chooser service with transient dialogs and app
 activation/open-document routing. Preserve the quiet, refined native style.
 
 **Gate:** two apps use the same contracts without copied lifecycle code; cancel
@@ -205,6 +259,13 @@ and failed saves retain data; background work does not block typing; last-window
 close and explicit Quit obey documented policy. Service errors are recoverable.
 
 ### D4 — Rendering, text and accessibility
+
+D4a prepares one stack ordering per frame and conservatively skips fully covered
+opaque window frames/shadows. The unculled path remains an exact pixel oracle;
+identical host workloads measure writes and timing. See the [rendering
+contract](native-desktop.md#repainting-and-covered-windows) and machine record
+for source/VM acceptance. Damage policy, framebuffer copying and surface lifetime
+are unchanged. This is an overdraw reduction, not completion of this roadmap.
 
 Add frame pacing/damage contracts, output scale queries, native-density text,
 keyboard-only navigation and semantic accessibility data. Specify composition,
@@ -235,6 +296,9 @@ before implementation across protocol, kernel GUI and client libraries. Device
 agents continue their independent drivers/profiles and consume matched merged
 images. Pro11,2 PR19 is Wi-Fi work; this plan does not take over that scope.
 
-Current evidence remains the PR130 host/VM regressions and Air sixteen-window
-opening on `bf68e4e9b88b8ae7`. Nothing in this proposal claims dynamic windows,
-multi-window applications or new POSIX behavior is implemented yet.
+D0–D2 and D3a are merged through PR140–147. D3b's combined wait is in
+PR148, D4a repaint work in PR149, and D3c's shared chooser in PR150. Current host/QEMU evidence includes 128 small windows, 32 normal Text
+documents/33 exact files, worker fault/reap behavior and actual wait/input-under-I/O
+fixtures. Physical window acceptance remains the Air sixteen-window round on
+`bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.
+The selected POSIX profile has its own acceptance record and remaining gaps.

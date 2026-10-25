@@ -2,23 +2,36 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v12 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v14 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 12
+#define DESK_PROTOCOL_VERSION 14
+/* Window IDs are scoped to the authenticated process/desktop connection.
+ * The compatibility wrapper uses ID1; connection windows never reuse IDs. */
+#define DESK_DEFAULT_WINDOW 1ull
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 /* Bounded surfaces cover the initial 1440x900 laptop target. */
 #define DESK_MAX_WIDTH 1440
 #define DESK_MAX_HEIGHT 900
 #define DESK_CLIPBOARD_BYTES 65536
-#define DESK_MAX_WINDOWS 16
+#define DESK_MAX_WINDOWS 16 /* Inline compatibility storage, not dynamic admission. */
+#define DESK_REGISTRY_BYTES (8ull*1024*1024)
+/* Current admission budgets; distinct pools, not promises of available RAM. */
+#define DESK_GUI_QUEUE_BYTES (2ull*1024*1024)
+#define DESK_GUI_QUEUE_DEPTH 64
+#define DESK_GUI_SURFACE_RECORD_BYTES (256ull*1024)
+#define DESK_GUI_PIXEL_BYTES (256ull*1024*1024)
+#define DESK_INPUT_QUEUE 64
+#define DESK_CACHE_BYTES (96ull*1024*1024)
 #define DESK_RELEASE_RETRY 1u
+#define DESK_OPEN_CONNECTION 1u
+enum desk_open_result { DESK_OPEN_OK, DESK_OPEN_INVALID, DESK_OPEN_CAPACITY, DESK_OPEN_MEMORY };
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO, DESK_RESIZE_REFUSED
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO, DESK_RESIZE_REFUSED, DESK_OPEN_REPLY, DESK_CLOSE_ACK
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_SKETCH, DESK_APP_NETWORK, DESK_APP_FIND, DESK_APP_COUNT=12 };
@@ -32,11 +45,22 @@ struct desk_packet {
     uint32_t width, height;
     int32_t x, y;
     uint32_t value, reserved2;
-    uint64_t input_serial;
+    uint64_t input_serial,window;
     char text[88];
 };
-_Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
-/* COMMIT publishes the entire surface and seals it against writes/destruction.
+_Static_assert(sizeof(struct desk_packet) == 168, "desktop wire layout");
+/* OPEN.value=DESK_OPEN_CONNECTION opts into acknowledged window lifetime.
+ * IDs increase strictly within the authenticated process connection, including
+ * refused requests. Only one OPEN may be outstanding. OPEN_REPLY echoes window
+ * and value=desk_open_result, before CONFIGURE on success. Legacy OPEN.value=0
+ * retains ID1 and process-exit cleanup. CLOSE in connection mode requests final
+ * retirement; the server sends any RELEASE before CLOSE_ACK, then forgets the
+ * window. Client disposal waits for both. Server-originated CLOSE requires the
+ * same client retirement handshake. Process/server death is connection-wide.
+ * Every packet carries a nonzero window ID; PID transport ownership does not
+ * substitute for window identity. A stream surface binds to its first committed
+ * window for its lifetime. RELEASE must match that window as well as its serial.
+ * COMMIT publishes the entire surface and seals it against writes/destruction.
  * RELEASE.value=0 acknowledges a private snapshot, not scanout completion.
  * RELEASE_RETRY releases the seal without publishing; retain app state and
  * redraw after a bounded delay. It does not acknowledge input_serial.

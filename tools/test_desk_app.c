@@ -3,19 +3,26 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/desk_app.h>
+#include <srvros/desk_connection.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
 
 static uint64_t ticks=1,next_surface=10,source=42;
-static int alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
+static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
 int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
+static unsigned io_waits;
+int gui_wait_io(struct srv_gui_wait *r) {
+    assert(r->server==42 && r->abi_version==SRV_GUI_WAIT_VERSION && r->struct_size==sizeof(*r));
+    assert(r->deadline_us==54321 && r->count==1 && r->fds[0].fd==7 && r->cancel_epoch==io_waits);
+    r->cancel_epoch=++io_waits;r->ready=SRV_GUI_CANCELED|SRV_GUI_FD_READY;r->fds[0].revents=SRV_POLLIN;return 0;
+}
 static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
-int desk_process_alive(uint64_t pid) { assert(pid==42);return alive; }
+int desk_process_alive(uint64_t pid) { assert(pid==42);liveness_checks++;return alive; }
 uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { return pixel_failure?NULL:calloc((size_t)w*h,4); }
 void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;free(p); }
 struct desk_packet desk_packet_new(uint32_t type) {
-    return (struct desk_packet){.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
+    return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
 }
 int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==0 || target==42);if(full) return -1;last_sent=*p;sends++;return 0;
@@ -68,6 +75,89 @@ static void refused_resize(void) {
     assert(desk_app_poll(&a,&event)==2 && !a.pending && !a.dirty);
     desk_app_close(&a);
 }
+static int connection_receive(struct desk_connection *c,struct desk_app **target,struct desk_packet *event) {
+    int r=0;for(int n=0;n<8 && queued;n++)r=desk_connection_poll(c,target,event);
+    assert(!queued);return r;
+}
+static void connection_configure(struct desk_connection *c,struct desk_app *a) {
+    struct desk_app *target;struct desk_packet event;
+    receive(DESK_CONFIGURE,1);incoming.window=a->window;incoming.width=400;incoming.height=300;
+    assert(connection_receive(c,&target,&event)==2);
+    for(int n=0;n<8 && !a->surface;n++)desk_connection_poll(c,&target,&event);
+    assert(a->surface && a->width==400 && a->height==300);
+}
+static void connection_windows(void) {
+    alive=1;full=0;source=42;queued=0;
+    struct desk_connection c;struct desk_app a,b,*target;struct desk_packet event;
+    desk_connection_init(&c);
+    assert(!desk_window_open(&c,&a,"First",400,300));
+    assert(desk_window_open(&c,&b,"Second",400,300)<0); /* One creation credit. */
+    full=1;assert(!desk_connection_poll(&c,&target,&event) && !a.open_sent);
+    full=0;assert(!desk_connection_poll(&c,&target,&event) && a.open_sent && last_sent.window==1);
+    receive(DESK_OPEN_REPLY,0);assert(connection_receive(&c,&target,&event)==1 && target==&a && !a.opening);
+    connection_configure(&c,&a);a.pixels[0]=0x123456;assert(desk_app_present(&a)==1);
+    assert(desk_app_poll(&a,&event)<0); /* A second queue reader is forbidden. */
+    assert(!desk_window_open(&c,&b,"Second",400,300));
+    for(int n=0;n<8 && !b.open_sent;n++)desk_connection_poll(&c,&target,&event);
+    assert(b.open_sent && b.window==2);
+    /* No pre-admission service traffic. */
+    int sent_before=sends;b.menu_pending=1;desk_app_menu_tick(&b);
+    assert(sends==sent_before && b.menu_pending && desk_app_title(&b,"Early")<0);b.menu_pending=0;
+    receive(DESK_OPEN_REPLY,0);incoming.window=2;assert(connection_receive(&c,&target,&event)==1 && target==&b);
+    connection_configure(&c,&b);b.pixels[0]=0xabcdef;assert(desk_app_present(&b)==1);
+    receive(DESK_RELEASE,1);incoming.window=2;incoming.surface=a.surface;incoming.serial=a.pending;
+    assert(connection_receive(&c,&target,&event)==2 && a.pending && b.pending);
+    receive(DESK_RELEASE,1);incoming.window=2;incoming.surface=b.surface;incoming.serial=b.pending;
+    assert(connection_receive(&c,&target,&event)==2 && !b.pending && a.pending);
+    receive(DESK_FOCUS,0);incoming.window=2;incoming.value=1;
+    assert(connection_receive(&c,&target,&event)==1 && target==&b && b.focused && !a.focused);
+    int checks_before=liveness_checks;
+    source=99;receive(DESK_CLOSE,0);incoming.window=2;
+    assert(connection_receive(&c,&target,&event)==2 && !b.closing && checks_before==liveness_checks);source=42;
+    desk_window_close(&a);assert(desk_window_dispose(&a)<0 && desk_app_present(&a)<0);
+    full=1;for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);assert(!a.close_sent);
+    full=0;for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);assert(a.close_sent);
+    receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=a.pending;
+    assert(connection_receive(&c,&target,&event)==2 && !a.pending && desk_window_dispose(&a)<0);
+    receive(DESK_CLOSE_ACK,0);assert(connection_receive(&c,&target,&event)==1 && target==&a && a.closed);
+    assert(!desk_window_dispose(&a) && b.pixels[0]==0xabcdef && !b.closed && !b.failed);
+    assert(!desk_window_open(&c,&a,"Refused",400,300) && a.window==3);
+    for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_OPEN_REPLY,0);incoming.window=3;incoming.value=DESK_OPEN_CAPACITY;
+    assert(connection_receive(&c,&target,&event)==1 && a.closed && a.open_result==DESK_OPEN_CAPACITY);
+    assert(!desk_window_dispose(&a) && !b.closed);
+    assert(!desk_window_open(&c,&a,"Reused storage",400,300) && a.window==4);
+    for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_OPEN_REPLY,0);incoming.window=4;assert(connection_receive(&c,&target,&event)==1);
+    connection_configure(&c,&a);
+    receive(DESK_CLOSE,0);incoming.window=3;assert(connection_receive(&c,&target,&event)==2 && !a.closing);
+    desk_window_close(&a);
+    for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_CLOSE_ACK,0);incoming.window=4;assert(connection_receive(&c,&target,&event)==1);
+    assert(!desk_window_dispose(&a));
+    assert(!desk_window_open(&c,&a,"No canvas",400,300) && a.window==5);
+    for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_OPEN_REPLY,0);incoming.window=5;assert(connection_receive(&c,&target,&event)==1);
+    receive(DESK_CONFIGURE,1);incoming.window=5;incoming.width=400;incoming.height=300;
+    assert(connection_receive(&c,&target,&event)==2);pixel_failure=1;
+    for(int n=0;n<3 && !a.closing;n++)desk_connection_poll(&c,&target,&event);
+    pixel_failure=0;assert(a.closing && a.failed && !c.failed && event.type==DESK_WINDOW_FAILED && !b.closed);
+    for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_CLOSE_ACK,0);incoming.window=5;assert(connection_receive(&c,&target,&event)==1);
+    assert(!desk_window_dispose(&a));
+    assert(!desk_window_open(&c,&a,"Final",400,300) && a.window==6);
+    for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
+    receive(DESK_OPEN_REPLY,0);incoming.window=6;assert(connection_receive(&c,&target,&event)==1);
+    connection_configure(&c,&a);
+    assert(desk_app_present(&a)==1);b.dirty=1;assert(desk_app_present(&b)==1);
+    alive=0;assert(desk_connection_poll(&c,&target,&event)<0 && c.disconnected && !a.pending && !b.pending);
+    assert(!desk_window_dispose(&a) && !desk_window_dispose(&b) && !c.windows);alive=1;
+    desk_connection_init(&c);assert(!desk_window_open(&c,&a,"Timeout",400,300));
+    assert(!desk_connection_poll(&c,&target,&event));ticks+=501;
+    receive(DESK_KEY,0);incoming.window=99;
+    assert(desk_connection_poll(&c,&target,&event)<0 && c.failed);queued=0;
+    puts("desk-connection: PASS two windows, single reader, creation credit/refusal, independent focus/frames, blocked close, stale IDs, server death and flood deadline");
+}
 int main(void) {
     struct desk_app stable={.server=42,.surface=1,.generation=7,.configure={.generation=7}};
     assert(desk_app_wait(&stable,10)==0 && waits==1);
@@ -79,9 +169,18 @@ int main(void) {
     REFUSE(server,0);REFUSE(surface,0);REFUSE(generation,8);REFUSE(closed,1);REFUSE(failed,1);
     REFUSE(dirty,1);REFUSE(pending,1);REFUSE(send_since,1);REFUSE(menu_pending,1);
 #undef REFUSE
+    struct srv_gui_wait watch={.deadline_us=54321,.count=1,.fds={{.fd=7,.events=SRV_POLLIN}}};
+    assert(desk_app_wait_io(&stable,&watch)==(SRV_GUI_CANCELED|SRV_GUI_FD_READY) && stable.wait_epoch==1 && io_waits==1);
+    assert(desk_app_wait_io(&stable,&watch)>0 && stable.wait_epoch==2);
+    blocked=stable;blocked.dirty=1;assert(desk_app_wait_io(&blocked,&watch)<0 && io_waits==2);
+    struct desk_connection quiet={.server=42,.windows=&stable,.wait_epoch=2};stable.connection=&quiet;
+    assert(desk_app_wait_io(&stable,&watch)<0 && desk_connection_wait_io(&quiet,&watch)>0 && quiet.wait_epoch==3);
+    stable.pending=1;assert(desk_connection_wait_io(&quiet,&watch)<0 && io_waits==3);
     struct desk_app a;struct desk_packet event;struct desk_canvas canvas;
     assert(!desk_app_open(&a,"Test",400,300));assert(last_sent.type==DESK_OPEN);
     assert(!desk_app_canvas(&a,&canvas));
+    receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;incoming.window=2;
+    assert(desk_app_poll(&a,&event)==2 && !a.server && !a.configure.generation);
     receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;
     assert(desk_app_poll(&a,&event)==2 && a.server==42);
     assert(desk_app_poll(&a,&event)==1 && event.type==DESK_CONFIGURE && created==1);
@@ -94,6 +193,9 @@ int main(void) {
     receive(DESK_CONTEXT,1);assert(desk_app_poll(&a,&event)==2);
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=999;
     desk_app_poll(&a,&event);assert(a.pending==1);
+    receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=1;incoming.window=2;
+    assert(desk_app_poll(&a,&event)==2 && a.pending==1);
+    receive(DESK_CLOSE,1);incoming.window=2;assert(desk_app_poll(&a,&event)==2 && !a.closed);
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=1;
     assert(desk_app_poll(&a,&event)==2 && !a.pending);
     assert(desk_app_poll(&a,&event)==1 && a.width==500 && created==2 && destroyed==1);
@@ -127,5 +229,6 @@ int main(void) {
     alive=1;assert(!desk_app_open(&a,"Timeout",400,300));ticks+=501;
     assert(desk_app_poll(&a,&event)<0 && a.failed);desk_app_close(&a);
     refused_resize();
+    connection_windows();
     puts("desk-app: PASS ownership, release-before-resize, stale input, retry, launch chunks, close veto, server loss and timeout");
 }

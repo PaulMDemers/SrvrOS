@@ -18,11 +18,20 @@ extern "C" {
 #define _SC_NPROCESSORS_ONLN 2
 #define _SC_CLK_TCK 3
 #define _SC_OPEN_MAX 4
+#define _SC_ARG_MAX 10
 #define _SC_NPROCESSORS_CONF 5
 #define _SC_HOST_NAME_MAX 6
 #define _SC_LOGIN_NAME_MAX 7
+#define _SC_THREAD_KEYS_MAX 8
+#define _SC_THREAD_DESTRUCTOR_ITERATIONS 9
 
 #define _PC_PATH_MAX 1
+#define _PC_NAME_MAX 2
+#define _PC_LINK_MAX 3
+#define _PC_NO_TRUNC 4
+#define _PC_CHOWN_RESTRICTED 5
+#define _PC_PIPE_BUF 6
+#define _PC_SYMLINK_MAX 7
 
 #define F_OK 0
 #define X_OK 1
@@ -60,14 +69,19 @@ int ftruncate64(int fd, off_t length);
 int truncate(const char *path, off_t length);
 int rmdir(const char *path);
 int rename(const char *old_path, const char *new_path);
+int renameat(int oldfd,const char *oldpath,int newfd,const char *newpath);
 int access(const char *path, int mode);
 int isatty(int fd);
 int brk(void *address);
 void *sbrk(intptr_t increment);
 char *getcwd(char *buffer, size_t size);
 int chdir(const char *path);
+int fchdir(int fd);
+int faccessat(int fd,const char *path,int mode,int flags);
 int gethostname(char *name, size_t length);
 long pathconf(const char *path, int name);
+long fpathconf(int fd, int name);
+pid_t fork(void);
 pid_t getpid(void);
 pid_t getppid(void);
 uid_t getuid(void);
@@ -85,6 +99,10 @@ pid_t getsid(pid_t pid);
 pid_t setsid(void);
 int kill(pid_t pid, int sig);
 int execve(const char *path, char *const argv[], char *const envp[]);
+int execv(const char *path,char *const argv[]);
+int execl(const char *path,const char *arg,...);
+int execlp(const char *file,const char *arg,...);
+int execle(const char *path,const char *arg,...);
 int execvp(const char *file, char *const argv[]);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);

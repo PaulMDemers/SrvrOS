@@ -8,6 +8,7 @@ struct initramfs_file {
     const char *path;
     const uint8_t *data;
     uint64_t size;
+    uint64_t mode;
 };
 
 void initramfs_init(const void *address, uint64_t size);

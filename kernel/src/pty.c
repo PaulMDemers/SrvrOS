@@ -3,7 +3,7 @@
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #define PTY_MAX 16
-struct pty_slot { struct pty_model model;uint64_t generation,masters,slaves; };
+struct pty_slot { struct pty_model model;uint64_t generation,masters,slaves,master_flags,slave_flags; };
 static struct pty_slot slots[PTY_MAX];
 static uint64_t generation;
 static struct scheduler_wait_queue waiters;
@@ -33,6 +33,7 @@ uint64_t pty_create(void) {
     uint64_t flags=lock(),id=0;
     for(unsigned i=0;i<PTY_MAX;i++) if(!slots[i].masters && !slots[i].slaves) {
         struct pty_slot *p=&slots[i];pty_model_init(&p->model);p->masters=p->slaves=1;
+        p->master_flags=p->slave_flags=0;
         p->generation=++generation;if(!p->generation) p->generation=++generation;
         id=(p->generation<<8)|(i+1);break;
     }
@@ -42,6 +43,15 @@ bool pty_ref(uint64_t handle,bool master) {
     uint64_t flags=lock();struct pty_slot *p=slot(handle);bool ok=p && (master?p->masters:p->slaves);
     if(ok) { if(master) p->masters++;else p->slaves++; }
     unlock(flags);return ok;
+}
+int64_t pty_get_flags(uint64_t handle,bool master) {
+    struct pty_slot *p=slot(handle);
+    return p?(int64_t)(master?p->master_flags:p->slave_flags):SRV_ERR_BADF;
+}
+int64_t pty_set_flags(uint64_t handle,bool master,uint64_t status) {
+    uint64_t flags=lock();struct pty_slot *p=slot(handle);
+    if(p) { if(master) p->master_flags=status;else p->slave_flags=status; }
+    unlock(flags);return p?0:SRV_ERR_BADF;
 }
 void pty_close(uint64_t handle,bool master) {
     uint64_t flags=lock();struct pty_slot *p=slot(handle);

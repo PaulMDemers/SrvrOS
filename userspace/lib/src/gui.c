@@ -33,6 +33,10 @@ int gui_send(const struct gui_message *message) {
 int gui_wait(uint64_t expected_server,uint64_t ticks) {
     return (int)srv_syscall2(SYS_GUI_WAIT,expected_server,ticks);
 }
+int gui_wait_io(struct srv_gui_wait *request) {
+    return (int)srv_syscall1(SYS_GUI_WAIT_IO,(long)request);
+}
+long gui_cancel_wait(void) { return srv_syscall0(SYS_GUI_CANCEL_WAIT); }
 int gui_server_wait(uint64_t ticks) {
     return (int)srv_syscall1(SYS_GUI_SERVER_WAIT,ticks);
 }

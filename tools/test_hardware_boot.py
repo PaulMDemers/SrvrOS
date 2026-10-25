@@ -478,6 +478,19 @@ class InstallTests(unittest.TestCase):
         for bad in ("-37d8c5d0","37d8--c5d0","37d8c5d00","not-a-uuid"):
             with self.assertRaises(boot.argparse.ArgumentTypeError): boot.compact_volume_uuid(bad)
 
+    def test_posix_profile_is_separate(self):
+        version='ram-usb-v1-posix-laptop-probe-37d8c5d0-auto-return'
+        self.assertIsNotNone(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=posix',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        for option in ('srvros.aml', 'srvros.battery', 'srvros.laptop-services', 'srvros.audio'):
+            self.assertNotIn(option,cfg)
+        for extra in ({},{'desktop_idle_capture':True},{'hold_on_failure':True},{'battery_air61':True},{'storage_wait_capture':True}):
+            options={'posix_capture':True,**extra}
+            if extra:options['laptop_probe_volume']='37d8c5d0'
+            with self.assertRaises(ValueError):boot.stage(**options)
+
     def test_storage_wait_profile_is_separate(self):
         version='ram-usb-v1-storage-wait-laptop-probe-37d8c5d0-auto-return'
         self.assertIsNotNone(boot.LAPTOP_PROBE_RE.fullmatch(version))

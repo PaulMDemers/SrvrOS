@@ -2,6 +2,7 @@
 import argparse
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -29,6 +30,18 @@ def read_until(sock, marker, seconds):
     deadline = time.time() + seconds
     while marker not in data and time.time() < deadline:
         data += read_for(sock, 0.5)
+    return data
+
+
+def read_test_result(sock, seconds):
+    data = b""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        data += read_for(sock, 0.5)
+        if (b"threadstress: ok" in data or
+                re.search(rb"threadstress: [^\r\n]*failed[\r\n]", data) or
+                b"process: exited status=" in data):
+            break
     return data
 
 
@@ -82,6 +95,7 @@ def main():
             "-m", args.memory,
             "-cdrom", iso,
             "-boot", "d",
+            "-display", "none",
             "-serial", f"tcp:127.0.0.1:{port},server,nowait",
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
@@ -96,13 +110,14 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            command_line = "run /fat/bin/threadstress"
-            if args.test != "all":
-                command_line += f" {args.test}"
-            sock.sendall((command_line + "\n").encode("ascii"))
-            output += read_until(sock, b"threadstress: ok", args.run_wait)
-            output += read_until(sock, b"srv> ", 10)
-            output += read_for(sock, 1)
+            if b"srv> " in output:
+                command_line = "run /fat/bin/threadstress"
+                if args.test != "all":
+                    command_line += f" {args.test}"
+                sock.sendall((command_line + "\n").encode("ascii"))
+                output += read_test_result(sock, args.run_wait)
+                output += read_until(sock, b"srv> ", 10)
+                output += read_for(sock, 1)
         finally:
             try:
                 process.terminate()
@@ -120,6 +135,37 @@ def main():
     if args.test == "all":
         expected.extend([
             "threadstress: yield ok",
+            "threadstress: errno ok",
+            "threadstress: positional ok",
+            "threadstress: open ok",
+            "threadstress: coherence ok",
+            "threadstress: orphan ok",
+            "threadstress: path ok",
+            "threadstress: path-limits ok",
+            "threadstress: directory ok",
+            "threadstress: rename ok",
+            "threadstress: stdio-access ok",
+            "threadstress: stdio-format ok",
+            "threadstress: sleep ok",
+            "threadstress: usage ok",
+            "threadstress: resource ok",
+            "threadstress: wait ok",
+            "threadstress: fork ok",
+            "threadstress: exec-vectors ok",
+            "threadstress: pipe-atomic ok",
+            "threadstress: vector-io ok",
+            "threadstress: file-errors ok",
+            "threadstress: endpoint-flags ok",
+            "threadstress: readiness ok",
+            "threadstress: dprintf ok",
+            "threadstress: fd-publication ok",
+            "threadstress: umask ok",
+            "threadstress: stdio-registry ok",
+            "threadstress: descriptors ok",
+            "threadstress: spawn-actions ok",
+            "threadstress: masked poll ok",
+            "threadstress: pthread contracts ok",
+            "threadstress: targeted-signal ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",

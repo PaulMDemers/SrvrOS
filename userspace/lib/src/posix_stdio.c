@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <math.h>
+#include <limits.h>
 #include <spawn.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -12,13 +13,16 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "stdio_float.h"
 
 struct FILE {
     int fd;
     int eof;
     int error;
     int owned;
+    int allocated;
     int append;
+    int readable, writable;
     int has_unget;
     unsigned char unget;
     int buffer_mode;
@@ -37,6 +41,8 @@ struct FILE {
     unsigned lock_depth;
     char path[FILENAME_MAX];
     struct FILE *next;
+    size_t references; /* Registry snapshot pins plus the live stream owner. */
+    int closing;
 };
 
 enum {
@@ -45,11 +51,16 @@ enum {
     FILE_OP_WRITE = 2,
 };
 
-static FILE stdin_file = {.fd = STDIN_FILENO, .buffer_mode = _IOFBF, .known_size = -1};
-static FILE stdout_file = {.fd = STDOUT_FILENO, .buffer_mode = _IOLBF, .known_size = -1};
-static FILE stderr_file = {.fd = STDERR_FILENO, .buffer_mode = _IONBF, .known_size = -1};
-static FILE *open_streams;
-static int stdio_initialized;
+static FILE stdin_file,stdout_file,stderr_file;
+static FILE stdin_file = {.fd = STDIN_FILENO, .owned=1, .readable=1, .buffer_mode = _IOFBF, .known_size = -1,
+    .next=&stdout_file,.references=1};
+static FILE stdout_file = {.fd = STDOUT_FILENO, .owned=1, .writable=1, .buffer_mode = _IOLBF, .known_size = -1,
+    .next=&stderr_file,.references=1};
+static FILE stderr_file = {.fd = STDERR_FILENO, .owned=1, .writable=1, .buffer_mode = _IONBF, .known_size = -1,
+    .references=1};
+static FILE *open_streams=&stdin_file;
+static pthread_mutex_t stream_registry_lock=PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t popen_lock=PTHREAD_MUTEX_INITIALIZER;
 
 FILE *stdin = &stdin_file;
 FILE *stdout = &stdout_file;
@@ -69,7 +80,7 @@ void flockfile(FILE *stream) {
     }
     pthread_t self = pthread_self();
     if (__atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) != 0 &&
-        stream->lock_owner == self) {
+        __atomic_load_n(&stream->lock_owner, __ATOMIC_RELAXED) == self) {
         stream->lock_depth++;
         return;
     }
@@ -83,7 +94,7 @@ void flockfile(FILE *stream) {
         expected = 0;
         (void)srv_futex_wait((uint32_t *)&stream->lock, 1, 0);
     }
-    stream->lock_owner = self;
+    __atomic_store_n(&stream->lock_owner, self, __ATOMIC_RELAXED);
     stream->lock_depth = 1;
 }
 
@@ -93,7 +104,7 @@ int ftrylockfile(FILE *stream) {
     }
     pthread_t self = pthread_self();
     if (__atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) != 0 &&
-        stream->lock_owner == self) {
+        __atomic_load_n(&stream->lock_owner, __ATOMIC_RELAXED) == self) {
         stream->lock_depth++;
         return 0;
     }
@@ -106,7 +117,7 @@ int ftrylockfile(FILE *stream) {
             __ATOMIC_RELAXED)) {
         return -1;
     }
-    stream->lock_owner = self;
+    __atomic_store_n(&stream->lock_owner, self, __ATOMIC_RELAXED);
     stream->lock_depth = 1;
     return 0;
 }
@@ -114,47 +125,50 @@ int ftrylockfile(FILE *stream) {
 void funlockfile(FILE *stream) {
     if (stream == 0 ||
         __atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) == 0 ||
-        stream->lock_owner != pthread_self()) {
+        __atomic_load_n(&stream->lock_owner, __ATOMIC_RELAXED) != pthread_self()) {
         return;
     }
     if (stream->lock_depth > 1) {
         stream->lock_depth--;
         return;
     }
-    stream->lock_owner = 0;
+    __atomic_store_n(&stream->lock_owner, 0, __ATOMIC_RELAXED);
     stream->lock_depth = 0;
     __atomic_store_n(&stream->lock, 0, __ATOMIC_RELEASE);
     (void)srv_futex_wake((uint32_t *)&stream->lock, 1);
 }
 
-static void ensure_stdio_initialized(void) {
-    if (stdio_initialized) {
-        return;
-    }
-    stdin_file.next = &stdout_file;
-    stdout_file.next = &stderr_file;
-    stderr_file.next = 0;
-    open_streams = &stdin_file;
-    stdio_initialized = 1;
-}
-
+/* Registry locking never spans a FILE lock or stream I/O. A close removes the
+ * owner, but snapshot pins keep its allocation alive until blocked flushers can
+ * acquire the FILE lock, observe closing, and release their pins. */
 static void register_stream(FILE *stream) {
-    ensure_stdio_initialized();
-    stream->next = open_streams;
-    open_streams = stream;
+    pthread_mutex_lock(&stream_registry_lock);
+    stream->references=1;stream->closing=0;
+    stream->next=open_streams;open_streams=stream;
+    pthread_mutex_unlock(&stream_registry_lock);
 }
-
 static void unregister_stream(FILE *stream) {
-    ensure_stdio_initialized();
-    FILE **slot = &open_streams;
-    while (*slot != 0) {
-        if (*slot == stream) {
-            *slot = stream->next;
-            stream->next = 0;
-            return;
-        }
-        slot = &(*slot)->next;
-    }
+    pthread_mutex_lock(&stream_registry_lock);
+    FILE **slot=&open_streams;
+    while(*slot && *slot!=stream) slot=&(*slot)->next;
+    if(*slot) *slot=stream->next;
+    stream->next=NULL;stream->closing=1;
+    pthread_mutex_unlock(&stream_registry_lock);
+}
+static void release_stream(FILE *stream) {
+    pthread_mutex_lock(&stream_registry_lock);
+    int destroy=--stream->references==0 && stream->closing && stream->allocated;
+    pthread_mutex_unlock(&stream_registry_lock);
+    if(destroy) free(stream);
+}
+static FILE **snapshot_streams(size_t *count) {
+    pthread_mutex_lock(&stream_registry_lock);
+    size_t n=0;for(FILE *s=open_streams;s;s=s->next) n++;
+    FILE **snapshot=n?malloc(n*sizeof(*snapshot)):NULL;
+    if(n && !snapshot) { pthread_mutex_unlock(&stream_registry_lock);errno=ENOMEM;*count=SIZE_MAX;return NULL; }
+    size_t i=0;
+    for(FILE *s=open_streams;s;s=s->next) { s->references++;snapshot[i++]=s; }
+    pthread_mutex_unlock(&stream_registry_lock);*count=n;return snapshot;
 }
 
 struct out_stream {
@@ -163,6 +177,7 @@ struct out_stream {
     size_t used;
     size_t total;
     FILE *file;
+    int failed;
 };
 
 static void out_char(struct out_stream *out, char c) {
@@ -171,32 +186,10 @@ static void out_char(struct out_stream *out, char c) {
     } else if (out->file != 0) {
         if (fwrite(&c, 1, 1, out->file) != 1) {
             out->file->error = 1;
+            out->failed=1;
         }
     }
     out->total++;
-}
-
-static void out_text(struct out_stream *out, const char *text) {
-    while (text != 0 && *text != '\0') {
-        out_char(out, *text++);
-    }
-}
-
-static void out_unsigned(struct out_stream *out, unsigned long long value, unsigned base, int uppercase) {
-    char digits[32];
-    const char *alphabet = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
-    size_t count = 0;
-    if (value == 0) {
-        out_char(out, '0');
-        return;
-    }
-    while (value > 0 && count < sizeof(digits)) {
-        digits[count++] = alphabet[value % base];
-        value /= base;
-    }
-    while (count > 0) {
-        out_char(out, digits[--count]);
-    }
 }
 
 static void out_repeat(struct out_stream *out, char ch, int count) {
@@ -276,7 +269,6 @@ static void out_integer_field(struct out_stream *out,
     int alternate,
     int zero_pad) {
     char digits[64];
-    char field[96];
     size_t digit_count = build_unsigned_digits(digits, sizeof(digits), magnitude, base, uppercase);
     if (precision == 0 && magnitude == 0) {
         digit_count = 0;
@@ -294,96 +286,50 @@ static void out_integer_field(struct out_stream *out,
             prefix[prefix_count++] = ' ';
         }
     }
-    if (alternate && magnitude != 0) {
-        if (base == 8) {
-            if (digit_count == 0 || digits[0] != '0') {
-                prefix[prefix_count++] = '0';
-            }
-        } else if (base == 16) {
-            prefix[prefix_count++] = '0';
-            prefix[prefix_count++] = uppercase ? 'X' : 'x';
-        }
+    int precision_zeroes=precision>(int)digit_count?precision-(int)digit_count:0;
+    if(alternate && base==8 && (!digit_count || digits[0]!='0') && !precision_zeroes)
+        precision_zeroes=1;
+    if(alternate && base==16 && magnitude) {
+        prefix[prefix_count++]='0';prefix[prefix_count++]=uppercase?'X':'x';
     }
-
-    int precision_zeroes = precision > (int)digit_count ? precision - (int)digit_count : 0;
-    char pad = (zero_pad && !left_adjust && precision < 0) ? '0' : ' ';
-    if (pad == '0') {
-        int body_width = width - (int)prefix_count;
-        for (size_t i = 0; i < prefix_count; i++) {
-            out_char(out, prefix[i]);
-        }
-        out_field(out, digits, digit_count, body_width, 0, '0');
-        return;
-    }
-
-    size_t used = 0;
-    for (size_t i = 0; i < prefix_count && used + 1 < sizeof(field); i++) {
-        field[used++] = prefix[i];
-    }
-    while (precision_zeroes-- > 0 && used + 1 < sizeof(field)) {
-        field[used++] = '0';
-    }
-    for (size_t i = 0; i < digit_count && used + 1 < sizeof(field); i++) {
-        field[used++] = digits[i];
-    }
-    out_field(out, field, used, width, left_adjust, ' ');
+    size_t length=prefix_count+(size_t)precision_zeroes+digit_count;
+    if(length>INT_MAX) { errno=EOVERFLOW;out->failed=1;return; }
+    int padding=width>(int)length?width-(int)length:0;
+    int zeros=zero_pad && !left_adjust && precision<0;
+    if(!left_adjust && !zeros) out_repeat(out,' ',padding);
+    for(size_t i=0;i<prefix_count;i++) out_char(out,prefix[i]);
+    if(zeros) out_repeat(out,'0',padding);
+    out_repeat(out,'0',precision_zeroes);
+    for(size_t i=0;i<digit_count;i++) out_char(out,digits[i]);
+    if(left_adjust) out_repeat(out,' ',padding);
 }
 
-static void out_double_fixed(struct out_stream *out, double value, int precision, int trim) {
-    if (isnan(value)) {
-        out_text(out, "nan");
-        return;
-    }
-    if (isinf(value)) {
-        if (value < 0.0) {
-            out_char(out, '-');
-        }
-        out_text(out, "inf");
-        return;
-    }
-    if (precision < 0) {
-        precision = 6;
-    }
-    if (precision > 18) {
-        precision = 18;
-    }
-    if (value < 0.0) {
-        out_char(out, '-');
-        value = -value;
-    }
-
-    unsigned long long integer = (unsigned long long)value;
-    double fraction = value - (double)integer;
-    out_unsigned(out, integer, 10, 0);
-    if (precision == 0) {
-        return;
-    }
-
-    char digits[18];
-    for (int i = 0; i < precision; i++) {
-        fraction *= 10.0;
-        int digit = (int)fraction;
-        if (digit < 0) {
-            digit = 0;
-        } else if (digit > 9) {
-            digit = 9;
-        }
-        digits[i] = (char)('0' + digit);
-        fraction -= (double)digit;
-    }
-    int count = precision;
-    if (trim) {
-        while (count > 0 && digits[count - 1] == '0') {
-            count--;
-        }
-    }
-    if (count == 0) {
-        return;
-    }
-    out_char(out, '.');
-    for (int i = 0; i < count; i++) {
-        out_char(out, digits[i]);
-    }
+static void float_put(void *context, char c) { out_char(context,c); }
+struct float_output { struct out_stream *out; int skip; };
+static void float_body_put(void *context,char c) {
+    struct float_output *body=context;
+    if(body->skip) { body->skip--;return; }
+    out_char(body->out,c);
+}
+static void out_float_field(struct out_stream *out,double value,char spec,int precision,
+    int width,int left,int plus,int space,int alternate,int zero) {
+    if(precision>INT_MAX-1100) { errno=EOVERFLOW;out->failed=1;return; }
+    char sign=signbit(value)?'-':plus?'+':space?' ':0;
+    size_t body=fp_format(0,0,value,spec,precision,alternate);
+    size_t length=body+(sign!=0);
+    if(length>INT_MAX || out->total>(size_t)INT_MAX-length) { errno=EOVERFLOW;out->failed=1;return; }
+    int padding=width>(int)length?width-(int)length:0;
+    if(!isfinite(value)) zero=0;
+    if(!left && !zero) out_repeat(out,' ',padding);
+    if(sign) out_char(out,sign);
+    if(!left && zero) {
+        int hex=(spec=='a' || spec=='A') && isfinite(value);
+        if(hex) { out_char(out,'0');out_char(out,spec=='A'?'X':'x'); }
+        out_repeat(out,'0',padding);
+        struct float_output result={out,hex?2:0};
+        fp_format(float_body_put,&result,value,spec,precision,alternate);
+    } else fp_format(float_put,out,value,spec,precision,alternate);
+    if(left) out_repeat(out,' ',padding);
 }
 
 static int format_to(struct out_stream *out, const char *format, va_list args) {
@@ -441,6 +387,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             format++;
         } else {
             while (*format >= '0' && *format <= '9') {
+                if(width>(INT_MAX-(*format-'0'))/10) { errno=EOVERFLOW;return -1; }
                 width = width * 10 + (*format - '0');
                 format++;
             }
@@ -455,12 +402,17 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
                 format++;
             } else {
                 while (*format >= '0' && *format <= '9') {
+                    if(precision>(INT_MAX-(*format-'0'))/10) { errno=EOVERFLOW;return -1; }
                     precision = precision * 10 + (*format - '0');
                     format++;
                 }
             }
         }
 
+        if(width<0) {
+            if(width==INT_MIN) { errno=EOVERFLOW;return -1; }
+            width=-width;left_adjust=1;zero_pad=0;
+        }
         int long_count = 0;
         int short_count = 0;
         while (*format == 'h') {
@@ -471,7 +423,7 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             long_count++;
             format++;
         }
-        if (*format == 'z' || *format == 't') {
+        if (*format == 'z' || *format == 't' || *format == 'j') {
             long_count = 1;
             format++;
         } else if (*format == 'L') {
@@ -578,48 +530,11 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             out_integer_field(out, value, 0, 8, 0, 0, width, precision, left_adjust, 0, 0, alternate, zero_pad);
             break;
         }
-        case 'f': {
-            char number[128];
-            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
-            number[0] = '\0';
-            if (long_count == 3) {
-                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 0);
-            } else {
-                out_double_fixed(&temp, va_arg(args, double), precision, 0);
-            }
-            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
-            size_t length = strlen(number);
-            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
-            break;
-        }
-        case 'g':
-        case 'G': {
-            char number[128];
-            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
-            number[0] = '\0';
-            if (long_count == 3) {
-                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
-            } else {
-                out_double_fixed(&temp, va_arg(args, double), precision, 1);
-            }
-            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
-            size_t length = strlen(number);
-            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
-            break;
-        }
-        case 'e':
-        case 'E': {
-            char number[128];
-            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
-            number[0] = '\0';
-            if (long_count == 3) {
-                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
-            } else {
-                out_double_fixed(&temp, va_arg(args, double), precision, 1);
-            }
-            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
-            size_t length = strlen(number);
-            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
+        case 'f': case 'F': case 'g': case 'G':
+        case 'e': case 'E': case 'a': case 'A': {
+            double value=long_count==3?(double)va_arg(args,long double):va_arg(args,double);
+            out_float_field(out,value,format[-1],precision,width,left_adjust,
+                plus_sign,space_sign,alternate,zero_pad);
             break;
         }
         case 'p': {
@@ -653,15 +568,40 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         size_t nul = out->used < out->capacity ? out->used : out->capacity - 1;
         out->buffer[nul] = '\0';
     }
-    return (int)out->total;
+    if(out->total>INT_MAX) { errno=EOVERFLOW;return -1; }
+    return out->failed?-1:(int)out->total;
 }
 
 int vfprintf(FILE *stream, const char *format, va_list args) {
-    struct out_stream out = {0, 0, 0, 0, stream};
+    struct out_stream out = {.file=stream};
     flockfile(stream);
     int result = format_to(&out, format, args);
     funlockfile(stream);
     return result;
+}
+
+int vdprintf(int fd,const char *format,va_list args) {
+    int flags=fcntl(fd,F_GETFL);
+    if(flags<0) return -1;
+    if((flags&O_ACCMODE)==O_RDONLY) { errno=EBADF;return -1; }
+    if(!format) { errno=EINVAL;return -1; }
+    /* A private stack stream borrows the descriptor. It needs no spare FD,
+     * registry entry or allocation, and evaluates conversions (including %n)
+     * only once. Never close or change flags on the caller's descriptor. */
+    unsigned char buffer[4096];
+    FILE stream={.fd=fd,.writable=1,.buffer_mode=_IOFBF,.buffer=buffer,
+        .buffer_size=sizeof(buffer),.known_size=-1};
+    struct out_stream out={.file=&stream};
+    int result=format_to(&out,format,args);
+    if(result<0 || stream.error) return -1;
+    if(flush_write_buffer(&stream)<0) return -1;
+    return result;
+}
+
+int dprintf(int fd,const char *format,...) {
+    va_list args;va_start(args,format);
+    int result=vdprintf(fd,format,args);
+    va_end(args);return result;
 }
 
 int __vfprintf_chk(FILE *stream, int flag, const char *format, va_list args) {
@@ -741,7 +681,7 @@ int vprintf(const char *format, va_list args) {
 }
 
 int vsnprintf(char *buffer, size_t size, const char *format, va_list args) {
-    struct out_stream out = {buffer, size, 0, 0, 0};
+    struct out_stream out = {.buffer=buffer,.capacity=size};
     return format_to(&out, format, args);
 }
 
@@ -1004,7 +944,8 @@ int vsscanf(const char *text, const char *format, va_list args) {
         }
         int width = 0;
         while (*format >= '0' && *format <= '9') {
-            width = width * 10 + (*format - '0');
+            if(width>(INT_MAX-(*format-'0'))/10) { errno=EOVERFLOW;return -1; }
+                width = width * 10 + (*format - '0');
             format++;
         }
         int short_count = 0;
@@ -1364,34 +1305,28 @@ static int mode_to_flags(const char *mode, struct mode_info *info) {
     if (mode == 0 || mode[0] == '\0') {
         return -1;
     }
-    int plus = 0;
-    for (const char *scan = mode + 1; *scan != '\0'; scan++) {
-        if (*scan == '+') {
-            plus = 1;
-        }
+    int plus=0,binary=0,exclusive=0,cloexec=0;
+    for(const char *scan=mode+1;*scan;scan++) {
+        if(*scan=='+' && !plus) plus=1;
+        else if(*scan=='b' && !binary) binary=1;
+        else if(*scan=='x' && !exclusive && mode[0]=='w') exclusive=1;
+        else if(*scan=='e' && !cloexec) cloexec=1;
+        else return -1;
     }
-    info->append = mode[0] == 'a';
-    if (mode[0] == 'r') {
-        info->flags = plus ? O_RDWR : O_RDONLY;
-        return 0;
-    }
-    if (mode[0] == 'w') {
-        info->flags = (plus ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC;
-        return 0;
-    }
-    if (mode[0] == 'a') {
-        info->flags = (plus ? O_RDWR : O_WRONLY) | O_CREAT | O_APPEND;
-        return 0;
-    }
-    return -1;
+    info->append=mode[0]=='a';
+    if(mode[0]=='r') info->flags=plus?O_RDWR:O_RDONLY;
+    else if(mode[0]=='w') info->flags=(plus?O_RDWR:O_WRONLY)|O_CREAT|O_TRUNC;
+    else if(mode[0]=='a') info->flags=(plus?O_RDWR:O_WRONLY)|O_CREAT|O_APPEND;
+    else return -1;
+    if(exclusive) info->flags|=O_EXCL;
+    if(cloexec) info->flags|=O_CLOEXEC;
+    return 0;
 }
 
 static long refresh_size(FILE *stream) {
-    if (stream == 0 || stream->path[0] == '\0') {
-        return stream != 0 ? stream->known_size : -1;
-    }
+    if(!stream) return -1;
     struct stat st;
-    if (stat(stream->path, &st) == 0) {
+    if (fstat(stream->fd, &st) == 0 && S_ISREG(st.st_mode)) {
         stream->known_size = (long)st.st_size;
     }
     return stream->known_size;
@@ -1448,6 +1383,7 @@ static int write_all_at_current_fd(FILE *stream, const unsigned char *data, size
     while (written < count) {
         ssize_t n = write(stream->fd, data + written, count - written);
         if (n <= 0) {
+            if(n==0) errno=EIO;
             stream->error = 1;
             return -1;
         }
@@ -1495,8 +1431,9 @@ static int sync_underlying_after_read(FILE *stream) {
 }
 
 static int prepare_read(FILE *stream) {
-    if (stream == 0) {
+    if (stream == 0 || !stream->readable) {
         errno = EBADF;
+        if(stream) stream->error=1;
         return EOF;
     }
     if (stream->last_op == FILE_OP_WRITE && flush_write_buffer(stream) < 0) {
@@ -1511,8 +1448,9 @@ static int prepare_read(FILE *stream) {
 }
 
 static int prepare_write(FILE *stream) {
-    if (stream == 0) {
+    if (stream == 0 || !stream->writable) {
         errno = EBADF;
+        if(stream) stream->error=1;
         return EOF;
     }
     if (stream->last_op == FILE_OP_READ && sync_underlying_after_read(stream) < 0) {
@@ -1536,15 +1474,27 @@ FILE *fdopen(int fd, const char *mode) {
         errno = EINVAL;
         return 0;
     }
+    int flags=fcntl(fd,F_GETFL);
+    if(flags<0) return NULL;
+    int access=flags&O_ACCMODE, requested=info.flags&O_ACCMODE;
+    if((requested!=O_WRONLY && access==O_WRONLY) || (requested!=O_RDONLY && access==O_RDONLY)) {
+        errno=EINVAL;return NULL;
+    }
     FILE *stream = malloc(sizeof(FILE));
     if (stream == 0) {
         return 0;
+    }
+    if(info.append && !(flags&O_APPEND) && fcntl(fd,F_SETFL,flags|O_APPEND)<0) {
+        free(stream);return NULL;
     }
     stream->fd = fd;
     stream->eof = 0;
     stream->error = 0;
     stream->owned = 1;
-    stream->append = info.append;
+    stream->allocated = 1;
+    stream->append = info.append || (flags&O_APPEND);
+    stream->readable=requested!=O_WRONLY;
+    stream->writable=requested!=O_RDONLY;
     stream->has_unget = 0;
     stream->unget = 0;
     stream->buffer_mode = _IOFBF;
@@ -1556,10 +1506,13 @@ FILE *fdopen(int fd, const char *mode) {
     stream->write_len = 0;
     stream->last_op = FILE_OP_NONE;
     stream->position = 0;
+    int saved_errno=errno;off_t position=lseek(fd,0,SEEK_CUR);
+    if(position>=0) stream->position=position;
+    errno=saved_errno;
     stream->known_size = -1;
     stream->popen_pid = 0;
     stream->lock = 0;
-    stream->lock_owner = 0;
+    __atomic_store_n(&stream->lock_owner, 0, __ATOMIC_RELAXED);
     stream->lock_depth = 0;
     stream->path[0] = '\0';
     stream->next = 0;
@@ -1573,7 +1526,7 @@ FILE *fopen(const char *path, const char *mode) {
         errno = EINVAL;
         return 0;
     }
-    int fd = open(path, info.flags);
+    int fd = open(path, info.flags, 0666);
     if (fd < 0) {
         return 0;
     }
@@ -1582,6 +1535,7 @@ FILE *fopen(const char *path, const char *mode) {
         close(fd);
         return 0;
     }
+    flockfile(stream);
     stream->append = info.append;
     remember_path(stream, path);
     long size = refresh_size(stream);
@@ -1590,6 +1544,7 @@ FILE *fopen(const char *path, const char *mode) {
             stream->position = size;
         }
     }
+    funlockfile(stream);
     return stream;
 }
 
@@ -1598,74 +1553,65 @@ FILE *fopen64(const char *path, const char *mode) {
 }
 
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
-    if (stream == 0) {
-        errno = EBADF;
-        return 0;
-    }
-    struct mode_info info;
-    if (mode_to_flags(mode, &info) < 0) {
-        errno = EINVAL;
-        return 0;
-    }
-    int fd = open(path, info.flags);
-    if (fd < 0) {
-        return 0;
-    }
+    if(!stream) { errno=EBADF;return NULL; }
+    flockfile(stream);
+    /* Flush before a same-path truncating open. A failed reopen closes the
+     * original stream too; the caller must not use that FILE afterwards. */
     (void)fflush(stream);
-    if (stream->owned) {
-        close(stream->fd);
-    }
-    stream->fd = fd;
-    stream->eof = 0;
-    stream->error = 0;
-    stream->append = info.append;
-    stream->unget = 0;
-    reset_buffer_state(stream);
-    stream->position = 0;
-    stream->known_size = -1;
-    remember_path(stream, path);
-    long size = refresh_size(stream);
-    if (stream->append && size >= 0) {
-        if (lseek(stream->fd, size, SEEK_SET) >= 0) {
-            stream->position = size;
+    struct mode_info info;
+    int error=0;
+    if(!path || mode_to_flags(mode,&info)<0) { error=EINVAL;goto failed; }
+    int fd=open(path,info.flags,0666);
+    if(fd<0) { error=errno;goto failed; }
+    if(stream->fd>=0 && fd!=stream->fd) {
+        /* Keep the original number occupied until replacement, so another
+         * thread cannot allocate it between close and open. */
+        int target=stream->fd;
+        if(dup3(fd,target,(info.flags&O_CLOEXEC)?O_CLOEXEC:0)<0) {
+            error=errno;close(fd);goto failed;
         }
+        close(fd);fd=target;
     }
-    stream->owned = 1;
-    return stream;
+    stream->fd=fd;stream->eof=stream->error=0;
+    stream->append=info.append;
+    stream->readable=(info.flags&O_ACCMODE)!=O_WRONLY;
+    stream->writable=(info.flags&O_ACCMODE)!=O_RDONLY;
+    stream->unget=0;reset_buffer_state(stream);
+    stream->position=0;stream->known_size=-1;stream->owned=1;
+    remember_path(stream,path);
+    long size=refresh_size(stream);
+    if(stream->append && size>=0 && lseek(fd,size,SEEK_SET)>=0) stream->position=size;
+    funlockfile(stream);return stream;
+failed:
+    /* fclose consumes this caller's recursive FILE lock and registry owner;
+     * concurrent global flush snapshots retain their own lifetime pins. */
+    (void)fclose(stream);errno=error;return NULL;
 }
 
 int fclose(FILE *stream) {
-    if (stream == 0) {
-        errno = EBADF;
-        return EOF;
-    }
-    flockfile(stream);
-    int flush_result = fflush(stream);
-    int result = stream->owned ? close(stream->fd) : 0;
-    if (stream->owned) {
-        unregister_stream(stream);
-        if (stream->buffer_owned) {
-            free(stream->buffer);
-        }
-        free(stream);
-    } else {
-        funlockfile(stream);
-    }
-    return flush_result < 0 || result < 0 ? EOF : 0;
+    if(!stream) { errno=EBADF;return EOF; }
+    flockfile(stream);unregister_stream(stream);
+    int flush_result=fflush(stream);
+    int result=stream->owned?close(stream->fd):0;
+    if(stream->buffer_owned) free(stream->buffer);
+    stream->buffer=NULL;stream->buffer_owned=0;stream->fd=-1;
+    stream->readable=stream->writable=0;
+    /* Destruction consumes recursive locks held by the closing caller. */
+    stream->lock_depth=1;funlockfile(stream);release_stream(stream);
+    return flush_result<0 || result<0?EOF:0;
 }
 
 int fflush(FILE *stream) {
     if (stream == 0) {
-        ensure_stdio_initialized();
-        int result = 0;
-        for (FILE *scan = open_streams; scan != 0; scan = scan->next) {
-            flockfile(scan);
-            if (scan->write_len != 0 && flush_write_buffer(scan) < 0) {
-                result = EOF;
-            }
-            funlockfile(scan);
+        size_t count=0;FILE **snapshot=snapshot_streams(&count);
+        if(!snapshot && count==SIZE_MAX) return EOF;
+        int result=0;
+        for(size_t i=0;i<count;i++) {
+            FILE *scan=snapshot[i];flockfile(scan);
+            if(!scan->closing && scan->write_len && flush_write_buffer(scan)<0) result=EOF;
+            funlockfile(scan);release_stream(scan);
         }
-        return result;
+        free(snapshot);return result;
     }
     flockfile(stream);
     if (stream->last_op == FILE_OP_READ) {
@@ -2027,7 +1973,7 @@ int fseek(FILE *stream, long offset, int whence) {
     if (whence == SEEK_SET) {
         target = offset;
     } else if (whence == SEEK_CUR) {
-        target = stream->position + offset;
+        if(__builtin_add_overflow(stream->position,offset,&target)) { errno=EOVERFLOW;funlockfile(stream);return -1; }
     } else if (whence == SEEK_END) {
         long size = refresh_size(stream);
         if (size < 0) {
@@ -2035,7 +1981,7 @@ int fseek(FILE *stream, long offset, int whence) {
             funlockfile(stream);
             return -1;
         }
-        target = size + offset;
+        if(__builtin_add_overflow(size,offset,&target)) { errno=EOVERFLOW;funlockfile(stream);return -1; }
     } else {
         errno = EINVAL;
         funlockfile(stream);
@@ -2070,8 +2016,10 @@ int fseeko(FILE *stream, off_t offset, int whence) {
 
 void rewind(FILE *stream) {
     if (stream != 0) {
+        flockfile(stream);
         (void)fseek(stream, 0, SEEK_SET);
         clearerr(stream);
+        funlockfile(stream);
     }
 }
 
@@ -2124,23 +2072,27 @@ char *tmpnam(char *buffer) {
 }
 
 FILE *tmpfile(void) {
-    char name[L_tmpnam];
-    tmpnam(name);
-    return fopen(name, "w");
+    char name[]="/fat/tmp-XXXXXX";
+    int fd=mkstemp(name);
+    if(fd<0) return NULL;
+    if(unlink(name)<0) { int saved=errno;close(fd);errno=saved;return NULL; }
+    FILE *stream=fdopen(fd,"w+");
+    if(!stream) { int saved=errno;close(fd);errno=saved; }
+    return stream;
 }
 
 FILE *tmpfile64(void) {
     return tmpfile();
 }
 
-FILE *popen(const char *command, const char *mode) {
+static FILE *popen_locked(const char *command, const char *mode) {
     if (command == 0 || mode == 0 || (mode[0] != 'r' && mode[0] != 'w') || mode[1] != '\0') {
         errno = EINVAL;
         return 0;
     }
 
     int fds[2];
-    if (pipe(fds) < 0) {
+    if (pipe2(fds,O_CLOEXEC) < 0) {
         return 0;
     }
 
@@ -2169,6 +2121,19 @@ FILE *popen(const char *command, const char *mode) {
     }
 
     int action_error = posix_spawn_file_actions_adddup2(&actions, close_fd, target_fd);
+    if(!action_error && parent_fd!=target_fd) action_error=posix_spawn_file_actions_addclose(&actions,parent_fd);
+    if(!action_error && close_fd!=target_fd) action_error=posix_spawn_file_actions_addclose(&actions,close_fd);
+    size_t count=0;FILE **snapshot=snapshot_streams(&count);
+    if(!snapshot && count==SIZE_MAX) action_error=ENOMEM;
+    else {
+        for(size_t i=0;i<count;i++) {
+            FILE *scan=snapshot[i];flockfile(scan);
+            if(!action_error && !scan->closing && scan->popen_pid>0 && scan->fd!=target_fd)
+                action_error=posix_spawn_file_actions_addclose(&actions,scan->fd);
+            funlockfile(scan);release_stream(scan);
+        }
+        free(snapshot);
+    }
     if (action_error != 0) {
         posix_spawn_file_actions_destroy(&actions);
         close(fds[0]);
@@ -2188,6 +2153,7 @@ FILE *popen(const char *command, const char *mode) {
         return 0;
     }
 
+    (void)fcntl(parent_fd,F_SETFD,0);
     FILE *stream = fdopen(parent_fd, stream_mode);
     if (stream == 0) {
         int saved = errno;
@@ -2196,21 +2162,30 @@ FILE *popen(const char *command, const char *mode) {
         errno = saved;
         return 0;
     }
-    stream->popen_pid = child;
+    flockfile(stream);stream->popen_pid = child;funlockfile(stream);
+    return stream;
+}
+
+FILE *popen(const char *command,const char *mode) {
+    /* Keep the previous-popen-stream snapshot and publication ordered between
+     * concurrent callers. General descriptor/exec synchronization remains the
+     * application's responsibility. */
+    pthread_mutex_lock(&popen_lock);FILE *stream=popen_locked(command,mode);pthread_mutex_unlock(&popen_lock);
     return stream;
 }
 
 int pclose(FILE *stream) {
-    if (stream == 0 || stream->popen_pid <= 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    pid_t child = stream->popen_pid;
-    stream->popen_pid = 0;
-    int close_result = fclose(stream);
-    int status = 0;
-    if (waitpid(child, &status, 0) != child) {
-        return -1;
-    }
-    return close_result == 0 ? status : -1;
+    if(!stream) { errno=EINVAL;return -1; }
+    /* Serialize removal with popen's child-close snapshot. Otherwise a stream
+     * removed before its buffered close finishes could leak into a new child. */
+    pthread_mutex_lock(&popen_lock);flockfile(stream);
+    pid_t child=stream->popen_pid;
+    if(child<=0) { funlockfile(stream);pthread_mutex_unlock(&popen_lock);errno=EINVAL;return -1; }
+    stream->popen_pid=0;
+    int close_result=fclose(stream),close_errno=errno;
+    pthread_mutex_unlock(&popen_lock);
+    int status=0;
+    if(waitpid(child,&status,0)!=child) return -1;
+    if(close_result) { errno=close_errno;return -1; }
+    return status;
 }

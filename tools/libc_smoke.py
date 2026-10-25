@@ -93,6 +93,8 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
+            "-netdev", "user,id=net0",
+            "-device", "e1000,netdev=net0",
             "-monitor", "none", "-display", "none",
             "-qmp", f"unix:{temp_dir}/qmp,server=on,wait=off",
             "-no-reboot",
@@ -113,6 +115,7 @@ def main():
             for command_line, marker in [
                 ("libcprobe\n", b"libcprobe: ok"),
                 ("nodeprobe\n", b"nodeprobe: ok"),
+                ("tlsprobe\n", b"tlsprobe: ok"),
             ]:
                 send_serial_line(sock, command_line)
                 output += read_until(sock, marker, args.command_wait)
@@ -137,8 +140,10 @@ def main():
         "libcprobe: temp/env ok",
         "libcprobe: time/wchar ok",
         "libcprobe: ok",
+        "libcprobe: readiness semantics ok",
         "nodeprobe: libc helpers ok",
         "nodeprobe: ok",
+        "tlsprobe: ok",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

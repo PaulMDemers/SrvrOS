@@ -1,8 +1,10 @@
+#include <srvros/path_limits.h>
 #include "uv.h"
 
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -44,7 +46,7 @@
 #define UV_HANDLE_SIGNAL UV_SIGNAL
 #define UV_MAX_STDIO_HANDLES 32
 #define UV_SCANDIR_INITIAL_CAPACITY 8
-#define UV_REALPATH_MAX 160
+#define UV_REALPATH_MAX SRV_PATH_MAX
 #define UV_WORKER_POOL_SIZE 4
 
 static uv_loop_t default_loop;
@@ -120,7 +122,7 @@ static int loop_ensure_wakeup(uv_loop_t *loop) {
         return 0;
     }
     int wake_fds[2];
-    if (pipe(wake_fds) < 0) {
+    if (pipe2(wake_fds, O_CLOEXEC) < 0) {
         return uv_error_from_errno();
     }
     loop->wake_read_fd = wake_fds[0];
@@ -945,22 +947,16 @@ void uv_os_free_group(uv_group_t *grp) {
     memset(grp, 0, sizeof(*grp));
 }
 
-int uv_os_getpriority(uv_pid_t pid, int *priority) {
-    if (priority == 0) {
-        return UV_EINVAL;
-    }
-    if (pid < 0) {
-        return UV_ESRCH;
-    }
-    *priority = 0;
-    return 0;
+int uv_os_getpriority(uv_pid_t pid,int *priority) {
+    if(!priority) return UV_EINVAL;
+    errno=0;
+    int value=getpriority(PRIO_PROCESS,pid);
+    if(value==-1 && errno) return uv_translate_sys_error(errno);
+    *priority=value;return 0;
 }
-
-int uv_os_setpriority(uv_pid_t pid, int priority) {
-    if (pid < 0 || priority < UV_PRIORITY_HIGHEST || priority > UV_PRIORITY_LOW) {
-        return UV_EINVAL;
-    }
-    return 0;
+int uv_os_setpriority(uv_pid_t pid,int priority) {
+    if(priority<UV_PRIORITY_HIGHEST || priority>UV_PRIORITY_LOW) return UV_EINVAL;
+    return setpriority(PRIO_PROCESS,pid,priority)<0?uv_translate_sys_error(errno):0;
 }
 
 unsigned int uv_available_parallelism(void) {
@@ -1510,7 +1506,7 @@ static void run_process_exits(uv_loop_t *loop) {
             continue;
         }
         base->active = 0;
-        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : status;
+        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
         process->term_signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
         if (process->exit_cb != 0) {
             process->exit_cb(process, process->exit_status, process->term_signal);
@@ -2609,7 +2605,7 @@ int uv_pipe(uv_file fds[2], int read_flags, int write_flags) {
     if (fds == 0) {
         return UV_EINVAL;
     }
-    if (pipe(fds) < 0) {
+    if (pipe2(fds, O_CLOEXEC) < 0) {
         return uv_error_from_errno();
     }
     if ((read_flags & UV_NONBLOCK_PIPE) != 0) {
@@ -2627,7 +2623,7 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
         (flags1 & ~UV_NONBLOCK_PIPE) != 0) {
         return UV_EINVAL;
     }
-    if (socketpair(AF_UNIX, type, protocol, socket_vector) < 0) {
+    if (socketpair(AF_UNIX,type|SOCK_CLOEXEC,protocol,socket_vector) < 0) {
         return uv_error_from_errno();
     }
     if ((flags0 & UV_NONBLOCK_PIPE) != 0) {
@@ -2654,6 +2650,9 @@ int uv_pipe_open(uv_pipe_t *handle, uv_file fd) {
     if (handle == 0 || fd < 0 || handle->handle.type != UV_HANDLE_PIPE) {
         return UV_EINVAL;
     }
+    /* Only an explicit spawn dup action should export this handle. Otherwise
+     * an unrelated child can retain a writer and prevent EOF indefinitely. */
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) return uv_error_from_errno();
     if (handle->handle.fd >= 0) {
         close(handle->handle.fd);
     }
@@ -3532,20 +3531,30 @@ static int validate_spawn_stdio(const uv_stdio_container_t *stdio, int index) {
         return UV_EINVAL;
     }
     if ((flags & UV_INHERIT_FD) != 0) {
-        return stdio[index].data.fd >= 0 ? 0 : UV_EBADF;
+        return fcntl(stdio[index].data.fd,F_GETFD)<0?uv_error_from_errno():0;
     }
     if ((flags & (UV_INHERIT_STREAM | UV_CREATE_PIPE)) != 0 && stdio[index].data.stream == 0) {
         return UV_EINVAL;
     }
+    if(flags&UV_INHERIT_STREAM) {
+        uv_os_fd_t fd;int error=uv_fileno((const uv_handle_t *)stdio[index].data.stream,&fd);
+        if(error) return error;
+        if(fcntl(fd,F_GETFD)<0) return uv_error_from_errno();
+    }
     return 0;
 }
 
-static int spawn_dup2_and_close(posix_spawn_file_actions_t *actions, int old_fd, int new_fd) {
-    int error = posix_spawn_file_actions_adddup2(actions, old_fd, new_fd);
-    if (error != 0 || old_fd == new_fd || new_fd < 3) {
-        return error;
+static int spawn_map_fd(posix_spawn_file_actions_t *actions,int old_fd,int new_fd,
+    int target_count,int snapshots[],int sources[]) {
+    sources[new_fd]=old_fd;
+    /* Actions run in order in the child. Preserve a low source before another
+     * target can replace it; CLOEXEC retires the snapshot after all actions. */
+    if(old_fd<target_count && old_fd!=new_fd) {
+        int copy=fcntl(old_fd,F_DUPFD_CLOEXEC,target_count);
+        if(copy<0) return errno;
+        snapshots[new_fd]=copy;old_fd=copy;
     }
-    return posix_spawn_file_actions_addclose(actions, old_fd);
+    return posix_spawn_file_actions_adddup2(actions,old_fd,new_fd);
 }
 
 static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
@@ -3553,7 +3562,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
     int index,
     int parent_fds[],
     int child_fds[],
-    uv_pipe_t *parent_pipes[]) {
+    uv_pipe_t *parent_pipes[],int target_count,int snapshots[],int sources[]) {
     int flags = stdio[index].flags;
     int target_fd = index;
     parent_fds[index] = -1;
@@ -3563,7 +3572,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         return posix_spawn_file_actions_addclose(actions, target_fd);
     }
     if ((flags & UV_INHERIT_FD) != 0) {
-        return spawn_dup2_and_close(actions, stdio[index].data.fd, target_fd);
+        return spawn_map_fd(actions,stdio[index].data.fd,target_fd,target_count,snapshots,sources);
     }
     if ((flags & UV_INHERIT_STREAM) != 0) {
         uv_os_fd_t fd = -1;
@@ -3571,7 +3580,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         if (error < 0) {
             return -error;
         }
-        return spawn_dup2_and_close(actions, fd, target_fd);
+        return spawn_map_fd(actions,fd,target_fd,target_count,snapshots,sources);
     }
     if ((flags & UV_CREATE_PIPE) != 0) {
         int fds[2];
@@ -3583,10 +3592,10 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
                 return EINVAL;
             }
             pipe_error = pipe_handle->ipc ?
-                socketpair(AF_UNIX, SOCK_STREAM, 0, fds) :
-                srv_pipe_pair(fds);
+                socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0,fds) :
+                srv_pipe_pair_flags(fds,SRV_FD_CLOEXEC);
             if (pipe_error < 0) {
-                return errno != 0 ? errno : EINVAL;
+                return pipe_handle->ipc?(errno?errno:EINVAL):(pipe_error==-1?EINVAL:-pipe_error);
             }
             parent_fds[index] = fds[0];
             child_fds[index] = fds[1];
@@ -3603,9 +3612,9 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
                 return EINVAL;
             }
             parent_pipes[index] = pipe_handle;
-            return spawn_dup2_and_close(actions, child_fds[index], target_fd);
+            return spawn_map_fd(actions,child_fds[index],target_fd,target_count,snapshots,sources);
         }
-        if (pipe_handle == 0 || pipe(fds) < 0) {
+        if (pipe_handle == 0 || pipe2(fds, O_CLOEXEC) < 0) {
             return errno != 0 ? errno : EINVAL;
         }
         if (child_uses_read) {
@@ -3628,7 +3637,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             return EINVAL;
         }
         parent_pipes[index] = pipe_handle;
-        return spawn_dup2_and_close(actions, child_fds[index], target_fd);
+        return spawn_map_fd(actions,child_fds[index],target_fd,target_count,snapshots,sources);
     }
     return EINVAL;
 }
@@ -3644,6 +3653,7 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     posix_spawn_file_actions_t actions;
     int parent_fds[UV_MAX_STDIO_HANDLES];
     int child_fds[UV_MAX_STDIO_HANDLES];
+    int snapshots[UV_MAX_STDIO_HANDLES],sources[UV_MAX_STDIO_HANDLES];
     uv_pipe_t *parent_pipes[UV_MAX_STDIO_HANDLES];
     int actions_ready = 0;
     int cwd_changed = 0;
@@ -3672,6 +3682,7 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     for (int i = 0; i < UV_MAX_STDIO_HANDLES; i++) {
         parent_fds[i] = -1;
         child_fds[i] = -1;
+        snapshots[i]=sources[i]=-1;
         parent_pipes[i] = 0;
     }
     if (posix_spawn_file_actions_init(&actions) != 0) {
@@ -3679,10 +3690,17 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     }
     actions_ready = 1;
     for (int i = 0; i < options->stdio_count; i++) {
-        error = configure_spawn_stdio(&actions, options->stdio, i, parent_fds, child_fds, parent_pipes);
+        error = configure_spawn_stdio(&actions,options->stdio,i,parent_fds,child_fds,parent_pipes,options->stdio_count,snapshots,sources);
         if (error != 0) {
             goto out;
         }
+    }
+    /* All consumers have their source before any extra original is closed. */
+    for(int i=0;i<options->stdio_count;i++) {
+        int fd=sources[i];
+        if(fd<options->stdio_count || (fcntl(fd,F_GETFD)&FD_CLOEXEC)) continue;
+        int repeated=0;for(int j=0;j<i;j++) if(sources[j]==fd) repeated=1;
+        if(!repeated && (error=posix_spawn_file_actions_addclose(&actions,fd))) goto out;
     }
     if (options->cwd != 0) {
         if (getcwd(saved_cwd, sizeof(saved_cwd)) == 0 || chdir(options->cwd) < 0) {
@@ -3705,6 +3723,7 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
         process->handle.active = 1;
     }
 out:
+    for(int i=0;i<UV_MAX_STDIO_HANDLES;i++) if(snapshots[i]>=0) close(snapshots[i]);
     if (actions_ready) {
         posix_spawn_file_actions_destroy(&actions);
     }
@@ -4190,7 +4209,11 @@ static void fs_execute(uv_fs_t *request) {
                 break;
             }
             struct dirent *entry;
-            while ((entry = readdir(dir)) != 0) {
+            int read_error=0;
+            for(;;) {
+                errno=0;entry=readdir(dir);
+                if(!entry) { if(errno) read_error=uv_error_from_errno();break; }
+                if(!strcmp(entry->d_name,".") || !strcmp(entry->d_name,"..")) continue;
                 int error = uv_scandir_append(request, entry);
                 if (error < 0) {
                     closedir(dir);
@@ -4198,8 +4221,8 @@ static void fs_execute(uv_fs_t *request) {
                     return;
                 }
             }
-            closedir(dir);
-            request->result = (ssize_t)request->dirent_count;
+            if(closedir(dir)<0 && !read_error) read_error=uv_error_from_errno();
+            request->result = read_error?read_error:(ssize_t)request->dirent_count;
             break;
         }
         case UV_FS_REALPATH: {

@@ -3,16 +3,10 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/times.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
-struct tms {
-    clock_t tms_utime;
-    clock_t tms_stime;
-    clock_t tms_cutime;
-    clock_t tms_cstime;
-};
 
 int _open(const char *path, int flags, int mode) {
     (void)mode;
@@ -79,15 +73,7 @@ int _kill(int pid, int signal) {
     return kill((pid_t)pid, signal);
 }
 
-clock_t _times(struct tms *buffer) {
-    if (buffer != 0) {
-        buffer->tms_utime = 0;
-        buffer->tms_stime = 0;
-        buffer->tms_cutime = 0;
-        buffer->tms_cstime = 0;
-    }
-    return 0;
-}
+clock_t _times(struct tms *buffer) { return times(buffer); }
 
 int _gettimeofday(struct timeval *tv, void *tz) {
     return gettimeofday(tv, tz);

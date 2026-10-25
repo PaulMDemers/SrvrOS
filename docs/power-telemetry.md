@@ -245,7 +245,10 @@ deadline-expiry wakes and explicit wait-queue wakes. A wake is counted only when
 a blocked thread becomes ready. An already-ready thread is not counted again;
 slot reuse resets counters and receives a new identity. No userspace ABI or
 scheduling deadline changes. Ordinary boots with power telemetry disabled do
-not emit these additional records.
+not emit these additional records. Worker snapshot version 2 supports the
+budgeted scheduler's slots 0..255; collectors retain version-1 parsing with its
+original 32-slot bound. Missing/invalid versions and out-of-range slots still
+refuse attribution.
 
 `hardware_desktop.py` adds `desktop_worker_sample` to collection. It requires a
 completed desktop capture and at least three complete, strictly ordered

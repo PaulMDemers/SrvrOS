@@ -27,6 +27,7 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,TOOL_OPEN,"Open…","Ctrl-O",busy);
         append(items,&count,TOOL_SAVE,"Save","Ctrl-S",busy);
         append(items,&count,MENU_SAVE_AS,"Save as…","Ctrl-Shift-S",busy);
+        if(t->window.connection)append(items,&count,MENU_NEW_WINDOW,"New window","Ctrl-Shift-N",blocked);
     } else {
         append(items,&count,MENU_NEW_WINDOW,"New window",NULL,blocked);
         if(t->role==DESK_APP_FILES) {
@@ -103,7 +104,7 @@ void tool_menu_action(struct tool *t,unsigned id) {
     } else if(id==MENU_CLOSE) {
         if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
     } else if(id==MENU_SAVE_AS) tool_text_save(t,1);
-    else if(id==MENU_NEW_WINDOW) tool_launch(t,t->role,t->role==DESK_APP_FILES?t->saved_path:"");
+    else if(id==MENU_NEW_WINDOW) tool_new_window(t);
     else if(id==MENU_LOCATION || id==MENU_NEW_FOLDER) {
         if(t->job.busy) return;
         unsigned target=id==MENU_LOCATION?TOOL_PATH:TOOL_NAME;

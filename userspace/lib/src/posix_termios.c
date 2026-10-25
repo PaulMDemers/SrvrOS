@@ -33,8 +33,9 @@ int tcgetattr(int fd, struct termios *termios_p) {
     }
 
     struct srv_termios srv;
-    if (srv_tty_getattr(fd, &srv) < 0) {
-        errno = ENOTTY;
+    long result=srv_tty_getattr(fd,&srv);
+    if(result<0) {
+        errno=result==-1?ENOTTY:(int)-result;
         return -1;
     }
     termios_from_srv(termios_p, &srv);
@@ -50,8 +51,9 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
 
     struct srv_termios srv;
     termios_to_srv(&srv, termios_p);
-    if (srv_tty_setattr(fd, optional_actions, &srv) < 0) {
-        errno = ENOTTY;
+    long result=srv_tty_setattr(fd,optional_actions,&srv);
+    if(result<0) {
+        errno=result==-1?ENOTTY:(int)-result;
         return -1;
     }
     return 0;
