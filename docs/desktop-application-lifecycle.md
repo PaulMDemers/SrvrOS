@@ -25,9 +25,9 @@ CLOSE and refuses parent disposal until child records are disposed.
 never consumes events or blocks. Dispatch its child through the application's
 single connection, draw the borrowed widget into that child's canvas and keep
 storage until acknowledged retirement. A successful admission is not canvas
-readiness: `sync` returns 0 until CONFIGURE has produced a usable canvas, and
-again while a replacement configure is unapplied. Keep the widget's previous
-layout while pending; zero-sized relayout can lose its keyboard focus. Admission
+readiness: the PR160 correction keeps `sync` pending until CONFIGURE has
+produced the first usable canvas. Keep the widget's previous layout while
+pending; zero-sized relayout can lose its keyboard focus. Admission
 refusal leaves an embedded fallback available; cancellation and allocation failure
 preserve the document.
 Titles update with the active view; dimensions are an initial admission request.

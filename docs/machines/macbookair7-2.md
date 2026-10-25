@@ -2,19 +2,21 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active: delay modal presentation until a usable canvas exists
+### Active: validate PR160's reconciled modal readiness fix
 
-Independent PR160 review at clean `29c75d8` passes core/matched builds, but the
-normal lifecycle VM fails its first save: the picker lists `/fat`, then Enter
-browses Up to `/` instead of saving. Capture is retained in
-`build/pr160-review-20261025/lifecycle/`. Inspection finds the shared modal
-presenter reports ready after OPEN_REPLY, before delayed CONFIGURE creates its
-canvas. Consumers lay out their existing picker at zero dimensions, disabling
-its controls and losing filename focus. Publish a deterministic host regression
-and fix the presenter readiness contract in the Air7,2-owned shared library;
-do not change PR160's worker. Validate main and an explicit candidate-plus-fix
-review commit. Installed current/recovery and Ubuntu default remain unchanged;
-no physical reboot is armed. Original VM failure remains a failure.
+Independent clean `29c75d8` passes core/matched builds, but the normal lifecycle
+VM fails its first save: the picker lists `/fat`, then Enter browses Up to `/`.
+The shared presenter reports ready after OPEN_REPLY, before delayed CONFIGURE
+creates its canvas; zero-sized layout loses filename focus. The original VM
+failure and deterministic failing host regression remain in
+`build/pr160-review-20261025/`. A local fix passed core/build, but PR160
+independently published the same first-canvas correction as `433480a`. The
+Air7,2 duplicate production/test patch was reverted before integration; preserve
+PR160 as the single implementation owner. Its later `7ddf215` also handles
+interleaved compositor launch traces in the lifecycle checker without loosening
+saved-data or duplicate-startup checks. Review that exact clean source with
+normal/crash/refusal lifecycle and sustained PCM/USB checks. Installed current,
+independent recovery and Ubuntu default remain unchanged; no reboot is armed.
 
 ### Document-routing failure paths covered; compositor integration still pending
 
