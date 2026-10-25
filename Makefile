@@ -3828,3 +3828,11 @@ test-mt76-channel-observe: build/tests/mt76-channel-observe-host$(HOST_EXE)
 build/tests/mt76-channel-observe-host$(HOST_EXE): tools/test_mt76_channel_observe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-usb-cycle
+test-core: test-mt76-usb-cycle
+test-mt76-usb-cycle: build/tests/mt76-usb-cycle-host$(HOST_EXE)
+	build/tests/mt76-usb-cycle-host$(HOST_EXE)
+build/tests/mt76-usb-cycle-host$(HOST_EXE): tools/test_mt76_usb_cycle.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

@@ -4678,6 +4678,48 @@ static void test_wifi_vco_ready_inventory_ownership(void){
  }
  reset_test();puts("xhci early-clear inventory: PASS all18 ownership positions require full delayed-read/path proof and explicit mode");
 }
+static void usb_cycle_fixture(struct xhci_device *d,unsigned op){
+ channel_state_fixture(d,17);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->vco_ready_mode=m->channel_observe_mode=true;
+ m->channel_state.complete=m->channel_state.raw_ibi9=true;m->channel_state.reads=m->channel_state_submitted=18;
+ const uint32_t values[]={0,0x583f,2,0x21400,0,4,0xffe4,0x601,0xffffffff,0x2f2f1b1b,0x640,0xc00020};
+ for(unsigned i=0;i<12;i++)m->channel_state.values[i]=values[i];
+ assert(mt76_channel_observe_exact_profile_valid(&m->channel_state));
+ m->usb_cycle_mode=m->usb_cycle_active=true;m->usb_cycle_submitted=op;
+ m->usb_cycle=(struct mt76_usb_cycle){.attempted=true,.operations=op,.writes=op>4,.verified=op>5,.reads=op-(op>4)};
+ m->usb_cycle.after[0]=30;
+ for(unsigned i=0;i<2;i++){m->usb_cycle.guards[i][1]=0xf000f200;m->usb_cycle.guards[i][2]=0x40000050;}
+}
+static void test_wifi_usb_cycle(void){
+ for(unsigned op=0;op<9;op++)for(unsigned fault=0;fault<159;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[105]={0},events[105]={0};uint8_t buffer[4096]={0},data[4]={0};
+  struct xhci_device *d=&xhci.devices[0];usb_cycle_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==158?6:1,0);
+  bool write;uint32_t a;assert(mt76_usb_cycle_request(op,&write,&a));
+  uint32_t v=write?30:op==3?0:op==5?30:op<3?m->usb_cycle.guards[0][op]:m->usb_cycle.guards[1][op-6];
+  if(write)data[0]=30;else{trim_reply_device=d;trim_reply_value=v;}
+  if(fault<=144){if(fault==138)m->channel_state.complete=false;else channel_state_fault(m,fault);}
+  if(fault==145)m->usb_cycle_mode=false;
+  if(fault==146)m->usb_cycle_active=false;
+  if(fault==147)m->vco_ready_mode=false;
+  if(fault==148)m->channel_observe_mode=false;
+  if(fault==149)m->channel_state.raw_ibi9=false;
+  if(fault==150)m->channel_state_submitted++;
+  if(fault==151)m->channel_state.complete=false;
+  if(fault==152)m->usb_cycle.operations++;
+  if(fault==153)m->usb_cycle_submitted++;
+  if(fault==154)m->usb_cycle.complete=true;
+  if(fault==155)a++;
+  if(fault==156)write=!write;
+  if(fault==157){if(op>=4)m->usb_cycle.before[0]=1;else m->channel_state.values[0]=1;}
+  bool ok=wifi_usb_cycle_transfer(d,op,write,a,data,4);if(ok!=!fault)fprintf(stderr,"usb-cycle op=%u fault=%u ok=%u\n",op,fault,ok);assert(ok==!fault);
+  if(!fault){assert(m->usb_cycle_submitted==op+1);assert(!wifi_usb_cycle_transfer(d,op,write,a,data,4));}
+  else if(fault==158)assert(d->ep0_quarantined && m->failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_usb_cycle());puts("xhci USB cycle: PASS all9 transfers,157 prerequisite/state/profile faults, no USB on refusal, no replay and quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6021,6 +6063,7 @@ int main(int argc, char **argv) {
     test_wifi_path();
     test_wifi_channel_state();
     test_wifi_channel_observe();
+    test_wifi_usb_cycle();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

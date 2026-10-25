@@ -585,6 +585,19 @@ enum mt76_mcu_timing_status mt76_path_apply(struct mt76_path *s,const struct mt7
 /* Fixed read-only channel/calibration prerequisite inventory, not RF readiness. */
 struct mt76_channel_state {bool attempted,complete,raw_ibi9;unsigned reads;uint32_t values[12],guards[2][3];};
 bool mt76_path_exact_profile_valid(const struct mt76_path *s);
+struct mt76_usb_cycle {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[1],after[1],guards[2][3];
+};
+struct mt76_usb_cycle_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,unsigned,bool,uint32_t,uint8_t *,unsigned);};
+uint32_t mt76_usb_cycle_address(unsigned index);
+uint32_t mt76_usb_cycle_value(unsigned index,uint32_t before);
+bool mt76_usb_cycle_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_usb_cycle_transfer_valid(const struct mt76_usb_cycle *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_usb_cycle_apply(struct mt76_usb_cycle *s,const struct mt76_usb_cycle_io *io);
+bool mt76_usb_cycle_exact_profile_valid(const struct mt76_usb_cycle *s);
+bool mt76_channel_observe_exact_profile_valid(const struct mt76_channel_state *s);
 uint32_t mt76_channel_state_address(unsigned index);
 uint32_t mt76_channel_state_request(unsigned operation);
 bool mt76_channel_state_admit(const struct mt76_channel_state *s);

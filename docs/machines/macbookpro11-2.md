@@ -6935,3 +6935,17 @@ eight reads/one write, two MAC/CORE/disabled-DMA guard triplets, no replay.
 Scope: bounded MT76 engine/native/staging/host+USB tests/strict collector.
 No USB DMA changes, RF writes, channel tuning, MAC enable or traffic. Preserve
 historical profiles, failures and known-good recovery; native result pending.
+
+
+Implemented a separate nine-operation USB timing engine with one masked
+low-byte write and independent verification. Native mode56 requires exact v77
+inventory completion/values/guards and refuses a changed fresh value before
+write. Host tests cover1024 upper-word preservation cases, every transfer/
+authorization/guard/readback boundary, payload/counter mutation and no replay;
+all12 prerequisite words and both full guards are bit-mutated. USB tests pass
+all9 transfer positions and157 prerequisite/state/profile faults, no-USB refusal,
+no replay and quarantine. Full xHCI suite,157 staging tests,154 historical
+recipe identities,105 malformed collector cases, full build and ASan/UBSan pass.
+Complete synthetic prefix251631bytes remains within262144 capacity. Next:
+exact-stage VM save/return and missing-workspace rehearsal before install.
+Native timing readback remains pending; no radio-function acceptance.

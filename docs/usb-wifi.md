@@ -3174,3 +3174,21 @@ register semantics, calibrated radio operation or connectivity. Full250364-byte
 prefix, both completion markers, recovery/one-shot/hashes and offline clean
 filesystem/allocation checks passed; evidence archived and no reboot armed.
 Original strict modes and failed v75/v76 evidence remain unchanged.
+
+
+### USB microsecond-cycle setup (v78 candidate)
+
+After v77's complete disabled-MAC inventory,02a4 read0 while1340 already
+matched583f. The pinned Linux USB initialization sets
+[US_CYC_CNT low8 at02a4](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+to1e after hardware/beacon initialization. Separate `--wifi-usb-cycle` requires
+the complete early-clear-aware inventory and selects native mode56. It requires
+the exact12 captured inventory values/mask and both guards before any timing
+transfer. Only then: three guard reads, fresh02a4 read, one masked write setting
+low8=1e while preserving upper24, independent readback and three final guards.
+Nine transfers/eight reads/one write/one verification; no retries. Native write
+refuses if the fresh value differs from captured0. All-ones, failed transfer,
+changed guard or readback mismatch stops the phase. MAC remains disabled;
+no USB DMA change, RF write, channel tuning, scan or traffic. Original v77 and
+older recipes/policies remain unchanged; native acceptance pending. Full saved
+prefix/both completion markers and recovery/offline checks remain required.

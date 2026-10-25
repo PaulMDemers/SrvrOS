@@ -2179,3 +2179,63 @@ unsigned mt76_channel_observe_all_ones(const struct mt76_channel_state *s){
 }
 enum mt76_mcu_timing_status mt76_channel_state_capture(struct mt76_channel_state *s,const struct mt76_mcu_timing_io *io){return channel_state_capture(s,io,false);}
 enum mt76_mcu_timing_status mt76_channel_observe_capture(struct mt76_channel_state *s,const struct mt76_mcu_timing_io *io){return channel_state_capture(s,io,true);}
+
+uint32_t mt76_usb_cycle_address(unsigned i){return i<1?0x2a4:UINT32_MAX;}
+uint32_t mt76_usb_cycle_value(unsigned i,uint32_t before){return i<1?(before&~255u)|30u:UINT32_MAX;}
+bool mt76_usb_cycle_request(unsigned op,bool *write,uint32_t *address){
+    if(op>=9 || !write || !address)return false;
+    unsigned n=op%9;*write=n==4;*address=n<3?mt76_rf_probe_read_address(n):n>=6?mt76_rf_probe_read_address(n-6):mt76_usb_cycle_address(op/9);
+    return true;
+}
+static bool usb_cycle_state_valid(const struct mt76_usb_cycle *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>9)return false;
+    unsigned writes=0,verified=0;
+    for(unsigned i=0;i<1;i++){
+        unsigned done=op>=9*(i+1)?9:op>9*i?op-9*i:0;
+        for(unsigned j=0;j<3;j++){
+            if(done>j && !rf_central_guard_valid(j,s->guards[i*2][j]))return false;
+            if(done>6+j && !rf_central_guard_valid(j,s->guards[i*2+1][j]))return false;
+        }
+        if(done>3 && s->before[i]==UINT32_MAX)return false;
+        if(done>4)writes++;
+        if(done>5){if(s->after[i]!=mt76_usb_cycle_value(i,s->before[i]))return false;verified++;}
+    }
+    return s->writes==writes && s->verified==verified && s->reads==op-writes;
+}
+bool mt76_usb_cycle_transfer_valid(const struct mt76_usb_cycle *s,unsigned op,bool write,uint32_t a,const uint8_t *data,unsigned length){
+    bool w;uint32_t address;
+    if(!s || s->complete || !data || length!=4 || !mt76_usb_cycle_request(op,&w,&address) || write!=w || a!=address || !usb_cycle_state_valid(s,op))return false;
+    if(write){uint32_t v=mt76_usb_cycle_value(op/9,s->before[op/9]);for(unsigned j=0;j<4;j++)if(data[j]!=(uint8_t)(v>>(8*j)))return false;}
+    return true;
+}
+enum mt76_mcu_timing_status mt76_usb_cycle_apply(struct mt76_usb_cycle *s,const struct mt76_usb_cycle_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_usb_cycle){.attempted=true};
+    for(unsigned op=0;op<9;op++){
+        bool write;uint32_t a;unsigned i=op/9,n=op%9;uint8_t data[4]={0};
+        if(!mt76_usb_cycle_request(op,&write,&a))return MT76_TIMING_STATE;
+        if(write){uint32_t v=mt76_usb_cycle_value(i,s->before[i]);for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(v>>(8*j));}
+        if(!mt76_usb_cycle_transfer_valid(s,op,write,a,data,4))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->transfer(io->context,op,write,a,data,4))return MT76_TIMING_IO;
+        uint32_t v=0;for(unsigned j=0;j<4;j++)v|=(uint32_t)data[j]<<(8*j);
+        s->operations++;if(write)s->writes++;else s->reads++;
+        if(n<3 || n>=6){unsigned j=n<3?n:n-6;s->guards[i*2+(n>=6)][j]=v;if(!rf_central_guard_valid(j,v))return MT76_TIMING_STATE;}
+        else if(n==3){s->before[i]=v;if(v==UINT32_MAX)return MT76_TIMING_STATE;}
+        else if(n==5){s->after[i]=v;if(v!=mt76_usb_cycle_value(i,s->before[i]))return MT76_TIMING_STATE;s->verified++;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!usb_cycle_state_valid(s,9))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
+
+bool mt76_usb_cycle_exact_profile_valid(const struct mt76_usb_cycle *s){
+    return s && s->complete && usb_cycle_state_valid(s,9) && s->before[0]==0 && s->after[0]==30;
+}
+bool mt76_channel_observe_exact_profile_valid(const struct mt76_channel_state *s){
+    static const uint32_t values[12]={0,0x583f,2,0x21400,0,4,0xffe4,0x601,0xffffffff,0x2f2f1b1b,0x640,0xc00020};
+    if(!s || !s->attempted || !s->complete || !s->raw_ibi9 || s->reads!=18)return false;
+    for(unsigned i=0;i<12;i++)if(s->values[i]!=values[i])return false;
+    for(unsigned e=0;e<2;e++)for(unsigned j=0;j<3;j++)if(s->guards[e][j]!=(j==1?0xf000f200u:j==2?0x40000050u:0))return false;
+    return true;
+}
