@@ -3164,10 +3164,10 @@ build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_mode
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c -Wl,--gc-sections -o $@
 
-$(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o $(USER_LIB_OBJ) userspace/app.ld
+$(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o build/userspace/playwav/io_stress.c.o $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o $(USER_LIB_OBJ) -o $@
--include build/userspace/playwav/playwav.c.d build/userspace/playwav/wav.c.d build/userspace/playwav/convert.c.d
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o build/userspace/playwav/io_stress.c.o $(USER_LIB_OBJ) -o $@
+-include build/userspace/playwav/playwav.c.d build/userspace/playwav/wav.c.d build/userspace/playwav/convert.c.d build/userspace/playwav/io_stress.c.d
 
 .PHONY: test-audio-stream
 test-core: test-audio-stream
@@ -3647,3 +3647,11 @@ build/tests/posix-capture-host$(HOST_EXE): tools/test_posix_capture.c kernel/src
 build/tests/block-ram-host$(HOST_EXE): tools/test_block_ram.c kernel/src/block_ram.c kernel/include/srvros/block.h $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_block_ram.c kernel/src/block_ram.c -o $@
+
+.PHONY: test-audio-io-receipt
+test-core: test-audio-io-receipt
+test-audio-io-receipt: build/tests/audio-io-receipt$(HOST_EXE)
+	$<
+build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace/playwav/io_stress_receipt.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

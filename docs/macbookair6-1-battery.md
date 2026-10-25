@@ -871,3 +871,34 @@ Run the overlap harness again with `--full-round` to exercise one complete
 one-minute play and all forty disk bursts using native per-round parameters.
 The default two-round test checks repetition with shorter pacing. Neither is
 a substitute for the native thirty-minute run or listening observations.
+
+### Fully automatic audio and filesystem stress
+
+The fixed forty-burst shell workload was not accepted: native run
+`93a364b8128b185a` completed 32 bursts before the first 60-second play ended.
+Use the new explicit `--desktop-audio-io-test` staging option with
+`--desktop-volume YOUR_UUID --desktop-battery --desktop-services --battery-air61`.
+It selects v74; ordinary sessions remain unchanged.
+
+Boot opens the desktop, waits for fresh battery telemetry, then automatically
+starts a thirty-minute PCM producer and a separate filesystem worker. The worker
+repeatedly creates a 256 KiB pattern, flushes/closes it, renames, reopens and
+verifies every byte, then removes it and syncs. It runs without intentional
+pacing. Each new diagnostic directory is exclusive and contains a binary disk
+receipt and readable result. The result requires sustained I/O timestamps within
+the live PCM interval, exact PCM bytes, clean worker exit and zero underruns.
+It records actual burst count, bytes and maximum burst latency; no fixed native
+throughput is assumed. Only bounded scratch storage is live at once.
+
+No commands, saves, clicks or manual exit are required. Keep AC and USB connected
+and listen for dropouts; desktop progress is visible. Normal app/battery teardown,
+log flush and USB unmount precede automatic return to Ubuntu. Mounted ownership
+faults still halt; photograph those rather than call them successful returns.
+This exercises ordinary filesystem operations, not a claim of Text UI automation.
+
+Validation uses `tools/host-env.sh python3 tools/audio_io_stress_smoke.py` for a
+fully automatic sixty-second Q35 run with observed non-silent audio and USB-write
+overlap, and `--stage RELEASE` for exact GRUB→Limine native-profile refusal and
+automatic return on Q35. `make test-audio-io-receipt` rejects missing, delayed,
+out-of-window, insufficient-duration, incomplete-PCM and underrun receipts.
+Native listening and endurance remain separate acceptance evidence.

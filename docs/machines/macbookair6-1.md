@@ -2445,8 +2445,9 @@ reboot is scheduled, and listening/native overlap acceptance remains pending.
 ## Automatic audio / filesystem stress scope (2026-10-25)
 
 Run `93a364b8128b185a` returned with clean desktop retirement but failed the
-workload: one 60-second PCM completion with zero underruns and no recorded disk
-burst. Manual Text saves do not accept sustained overlap. Preserve this failure.
+workload: one 60-second PCM completion with zero underruns and 32 of 40
+recorded disk bursts. The next burst crossed playback completion; the fixed
+count/pacing underestimated native filesystem overhead. Manual Text saves do not accept sustained overlap. Preserve this failure.
 The replacement is fully automatic, with listening as the only human task:
 a dedicated PCM producer and separate continuous verified filesystem worker,
 automatic desktop startup/progress/exit, normal battery retirement and Ubuntu
