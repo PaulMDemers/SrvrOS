@@ -4893,10 +4893,12 @@ static bool file_lock_wait_ready(void *arg) {
 static bool file_watch_supported(struct process *process,int64_t fd,uint16_t events) {
     if(!events || (events&~(SRV_POLLIN|SRV_POLLOUT)))return false;
     struct process_file *file=process_file_at(process,(uint64_t)fd);
-    if(!file || !process_file_nonblocking(process,fd))return false;
-    if(file->type==PROCESS_FILE_PIPE_READ)return events==SRV_POLLIN;
-    if(file->type==PROCESS_FILE_PIPE_WRITE)return events==SRV_POLLOUT;
-    return file->type==PROCESS_FILE_PIPE_DUPLEX || file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE;
+    if(!file)return false;
+    /* Refuse other families before even resolving their shared status flags. */
+    if(file->type==PROCESS_FILE_PIPE_READ) { if(events!=SRV_POLLIN)return false; }
+    else if(file->type==PROCESS_FILE_PIPE_WRITE) { if(events!=SRV_POLLOUT)return false; }
+    else if(file->type!=PROCESS_FILE_PIPE_DUPLEX && file->type!=PROCESS_FILE_PTY_MASTER && file->type!=PROCESS_FILE_PTY_SLAVE)return false;
+    return process_file_nonblocking(process,fd);
 }
 int process_file_watch_capture(struct process *process,int64_t fd,uint16_t events,uint64_t *generation) {
     uint64_t irq=process_irq_save();int result=-1;
