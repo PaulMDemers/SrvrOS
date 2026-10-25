@@ -79,8 +79,8 @@ termination policy. This can affect all windows in that process.
 
 `desk_connection_wait` checks every registered window before waiting on the one
 GUI queue. The caller must also exclude active jobs, service transfers and its
-own timer deadlines. Combined GUI/descriptor waits, shared worker scheduling,
-parented dialogs and dynamic window registries remain later work.
+own timer deadlines. Combined GUI/descriptor waits and parented dialogs remain
+later work. Window registries now grow under explicit metadata budgets.
 
 ## Validation
 
@@ -98,10 +98,12 @@ tools/host-env.sh python3 tools/desktop_multiwindow_smoke.py
 Normal Text now uses this connection runtime. File → New Window or
 Ctrl-Shift-N creates an independent document; Ctrl-N still resets the current
 document after resolving unsaved edits. Each document owns its history, picker,
-clipboard transfer and asynchronous file worker. A closed document remains owned
-until accepted I/O completes, the window is acknowledged and its worker exits
-and is reaped. Closing one document preserves its siblings. Last-window close
-exits the application after those retirements finish.
+clipboard transfer and asynchronous file-job state. Normal Text shares a lazy
+two-channel file-worker pool across its documents. A closed document remains owned
+until accepted I/O completes and the window is acknowledged, then detaches its
+job. Idle transports remain available to siblings. Last-window close retires the
+pool and reaps its children before the application exits. Files uses the same
+service with its single job; diagnostic captures retain dedicated workers.
 
 Run `tools/host-env.sh python3 tools/desktop_text_windows_smoke.py` for the normal
 Text path: independent documents, clipboard, undo/redo, exact persisted files,
@@ -109,4 +111,43 @@ unsaved cancel, close/reopen with a new ID, save-on-close and process cleanup.
 The surface reuse regression also checks that a recycled kernel table slot can
 bind to a new window after its prior surface is destroyed. The machine record
 identifies tested sources; VM evidence does not accept native input latency.
-File workers remain per document; shared/lazy worker scheduling is later work.
+
+## Shared file-worker service
+
+`srvros/desk_file_job.h` supplies `desk_file_pool` with caller-owned channels
+and jobs. Initialize a pool with an explicit concurrency budget (1–32 channels),
+then bind zero-initialized, stable job records. Binding creates no process. The
+normal Text/Files policy uses two channels; that bounds workers, not documents.
+All pool/job calls belong to one dispatcher thread. A job owns its request and
+response buffers, so another document cannot overwrite its retained result.
+
+`desk_file_job_start` snapshots the path/payload and queues one request for that
+job. Successful return means local acceptance, not a completed filesystem write.
+The FIFO head acquires an idle transport when submit/poll next runs; polling a
+later job cannot jump the queue. Progress remains bounded and nonblocking. A
+pool-wide request ID never repeats; exhaustion refuses a new request. Response
+magic, ID, size, operation-specific shape and checksum are validated before
+completion. An idle channel is returned only after the full response drains.
+
+Transport/spawn failures return through the requesting job. A poisoned channel
+closes its pipes but retains its child PID and concurrency charge until reaped;
+no uncertain mutation is retried automatically. A later explicit operation may
+retry using a healthy channel. Other queued jobs retain their snapshots. One
+unavailable channel cannot consume more than its original concurrency slot.
+
+`desk_file_job_detach` refuses a busy job, including one still queued. Keep its
+owner and poll until completion/failure even if its GUI connection has gone.
+There is no cancellation of accepted mutations in this contract. Detach idle
+jobs before releasing their records. `desk_file_pool_shutdown` refuses bound
+jobs; once unbound, it closes idle transports, polls child exit and returns one
+only when every worker has been reaped. It never kills a worker. The legacy
+`desk_file_job_init` still creates a dedicated transport for existing consumers.
+
+The host fixture covers forty queued jobs, two leases, immutable snapshots,
+response isolation, FIFO/reuse, busy detach/shutdown refusal, transport factory
+failures, poisoned-child retention, explicit retry and request-ID exhaustion.
+`tools/desktop_file_pool_smoke.py` exercises forty queued 64 KiB writes/readbacks
+through actual worker processes and checks the disposable image offline.
+`tools/desktop_capacity_smoke.py --document-growth` exercises 32 real Text
+documents with exact persistence and shared worker retirement. See the machine
+record for validated revisions; these fixtures do not establish native latency.

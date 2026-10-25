@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise all sixteen desktop slots, launch refusal/reuse and input under load in a disposable VM."""
+"""Exercise explicit quota refusal/reuse or normal document growth in a disposable VM."""
 import argparse
 import os
 import re
@@ -18,11 +18,15 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--clipboard",action="store_true",help="Exercise copy/paste in sixteen admitted mixed clients")
     parser.add_argument("--documents",action="store_true",help="Exercise sixteen documents in one Text connection, refusal and worker reuse")
+    parser.add_argument("--document-growth",action="store_true",help="Exercise 32 normal Text documents with bounded shared workers")
     args=parser.parse_args()
+    if args.document_growth:args.documents=True
+    document_count=32 if args.document_growth else 16
+    replacement=document_count+1 if args.document_growth else 18
     if args.documents and args.clipboard:parser.error("Choose one workload")
     width,height=1280,800
     root=Path(__file__).resolve().parents[1]
-    out=root/("build/review/desktop-document-capacity" if args.documents else "build/review/desktop-clipboard-capacity" if args.clipboard else "build/review/desktop-capacity")
+    out=root/("build/review/desktop-document-growth" if args.document_growth else "build/review/desktop-document-capacity" if args.documents else "build/review/desktop-clipboard-capacity" if args.clipboard else "build/review/desktop-capacity")
     expected_files={}
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
@@ -72,7 +76,7 @@ def main():
                 serial.sendall(b"ps\n");wait(b"pid name status");wait(b"srv> ")
                 baseline_processes=set(re.findall(rb"^(\d+) (\S+) (background|exited|foreground)",output.split(b"pid name status")[-1].split(b"srv> ")[0],re.M))
                 if not baseline_processes: raise RuntimeError("Missing baseline process snapshot")
-                serial.sendall(b"run /fat/bin/deskd --registry-pressure-test\n")
+                serial.sendall(b"run /fat/bin/deskd "+(b"--apps-trace" if args.document_growth else b"--registry-pressure-test")+b"\n")
                 wait(b"deskd: commit")
                 applications=[("Files",1),("Calculator",3),("Terminal",6),("Preview",7),("Sketch",10),("Clock",9),("Find Files",12),("Calculator",3),("Clock",9),("Help",8),("Settings",5),("Files",1),("Preview",7),("Text",2),("Calculator",3)]
                 pids=[]
@@ -88,27 +92,28 @@ def main():
                         wait(b"file-result role=text op=2 status=0")
                         expected_files[f"document-{index}.txt"]=contents.encode()
                     save_document(1)
-                    for index in range(2,17):
+                    for index in range(2,document_count+1):
                         shortcut("ctrl-shift-n");wait(f"text-runtime: admitted window={index} ".encode());wait(b"deskd: commit")
                         save_document(index)
-                    assert re.findall(rb"deskd: opened pid=(\d+)",output)==[owner]*16
-                    assert b"clients=16 children=1 clipboard_peers=16" in output
-                    shot("sixteen-documents")
-                    shortcut("ctrl-shift-n");wait(b"resources reason=window-capacity")
-                    # Refusal must preserve the focused document and its worker.
+                    assert re.findall(rb"deskd: opened pid=(\d+)",output)==[owner]*document_count
+                    assert f"clients={document_count} children=1 clipboard_peers={document_count}".encode() in output
+                    shot(f"{document_count}-documents")
+                    if not args.document_growth:
+                        shortcut("ctrl-shift-n");wait(b"resources reason=window-capacity")
+                    # Keep editing the focused document after growth or quota refusal.
                     type_text(" Refusal kept.");shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
-                    expected_files["document-16.txt"]+=b" Refusal kept."
+                    expected_files[f"document-{document_count}.txt"]+=b" Refusal kept."
                     shot("refused-document-retained")
-                    shortcut("ctrl-w");wait(b"text-runtime: closed window=16")
-                    wait(b"window=16\r\n")
-                    assert re.search(rb"worker-retired pid=\d+ window=16",output)
-                    shortcut("ctrl-shift-n");wait(b"text-runtime: admitted window=18 ");wait(b"deskd: commit")
-                    save_document(18)
-                    # Exercise all per-document close acknowledgements and worker reaps.
-                    for index in [18]+list(range(15,0,-1)):
+                    shortcut("ctrl-w");wait(f"text-runtime: closed window={document_count}".encode())
+                    shortcut("ctrl-shift-n");wait(f"text-runtime: admitted window={replacement} ".encode());wait(b"deskd: commit")
+                    save_document(replacement)
+                    # Exercise per-document close/detach and application-owned worker reaping.
+                    for index in [replacement]+list(range(document_count-1,0,-1)):
                         shortcut("ctrl-w");wait(f"text-runtime: closed window={index} ".encode())
                     wait(b"desktools: exited role=text failure=0")
-                    assert len(re.findall(rb"worker-retired pid=\d+ window=",output))==17
+                    assert f"text-runtime: documents admitted={document_count+1} retired={document_count+1} refused={int(not args.document_growth)}".encode() in output
+                    pools=re.findall(rb"file-pool: retired role=text spawned=(\d+) reaped=(\d+) peak=(\d+) live=0 bound=0",output)
+                    assert pools and all(a==b and 1<=int(c)<=2 for a,b,c in pools),pools
                     shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)
                     shot("all-documents-retired")
                 elif args.clipboard:
@@ -180,7 +185,7 @@ def main():
                     if processes==baseline_processes: break
                     if time.monotonic()>cleanup_deadline: raise RuntimeError("Process set did not return to baseline after full-session cleanup")
                     time.sleep(.5)
-                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows=16",output)
+                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows="+str(document_count if args.documents else 16).encode(),output)
                 assert cache and int(cache[2])==0 and 0<int(cache[1])<=int(cache[3])
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
@@ -196,7 +201,7 @@ def main():
             capture=fixture.read(screenshots[0].decode().removeprefix("/fat/"))
             assert capture[:2]==b"BM" and len(capture)>width*height*3
     if args.documents:
-        print(f"desktop-document-capacity: PASS sixteen same-process documents, seventeen exact files, correlated refusal/preserved edits, fresh ID/reuse and all workers reaped. Evidence: {out}")
+        print(f"desktop-document-{'growth' if args.document_growth else 'capacity'}: PASS {document_count} same-process documents, {len(expected_files)} exact files, preserved edits, fresh ID/reuse, at most two shared workers and complete retirement; refusal={not args.document_growth}. Evidence: {out}")
         return
     if args.clipboard:
         print(f"desktop-clipboard-capacity: PASS sixteen real clients copy/paste, refusal, slot reuse, exact saved cross-client contents, screenshot and full process cleanup. Evidence: {out}")

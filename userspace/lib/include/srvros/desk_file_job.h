@@ -2,6 +2,9 @@
 #define SRVROS_DESK_FILE_JOB_H
 #include <srvros/desktop_file.h>
 #include <stddef.h>
+#define DESK_FILE_POOL_MAX_CHANNELS 32u
+struct desk_file_pool;
+struct desk_file_channel;
 struct desk_file_job {
     uint64_t pid;
     int reader,writer,busy,broken;
@@ -10,7 +13,34 @@ struct desk_file_job {
     struct desk_file_response response;
     size_t sent,received;
     unsigned char outgoing[DESK_FILE_BYTES],incoming[DESK_FILE_BYTES];
+    struct desk_file_pool *pool;
+    struct desk_file_channel *channel;
+    struct desk_file_job *queued_next;
 };
+/* Single-dispatcher, caller-owned service. Channels own workers; bound jobs own
+ * immutable requests/results. Do not move/free either while bound. No threads,
+ * callbacks or allocation; spawn only when a request needs an idle transport. */
+struct desk_file_channel {
+    uint64_t pid;
+    int reader,writer,retiring;
+    struct desk_file_job *owner;
+};
+struct desk_file_pool {
+    struct desk_file_channel *channels;
+    unsigned count,bound;
+    uint32_t next_id;
+    int closing;
+    struct desk_file_job *head,*tail;
+    uint64_t spawned,reaped,live,peak;
+};
+/* Channel count is an explicit concurrency budget (1..32), independent of jobs. */
+int desk_file_pool_init(struct desk_file_pool *pool,struct desk_file_channel *channels,unsigned count);
+/* Job must be zero-initialized or detached/closed, and idle. */
+int desk_file_job_bind(struct desk_file_job *job,struct desk_file_pool *pool);
+/* Refuse while accepted work is pending. Does not terminate a worker. */
+int desk_file_job_detach(struct desk_file_job *job);
+/* -1 bound jobs remain; 0 waiting for child exit; 1 fully retired. No kill. */
+int desk_file_pool_shutdown(struct desk_file_pool *pool);
 int desk_file_job_init(struct desk_file_job *job);
 int desk_file_job_start(struct desk_file_job *job,unsigned operation,const char *path,
     const void *data,size_t length,unsigned flags,uint32_t expected_crc);
@@ -19,5 +49,7 @@ int desk_file_job_start(struct desk_file_job *job,unsigned operation,const char 
 int desk_file_job_submit(struct desk_file_job *job);
 /* 1 completed response, 0 pending/idle, -1 worker or protocol failure. */
 int desk_file_job_poll(struct desk_file_job *job);
+/* For pooled jobs, busy close is refused by retaining the binding. Prefer the
+ * checked detach API before releasing caller storage. */
 void desk_file_job_close(struct desk_file_job *job);
 #endif

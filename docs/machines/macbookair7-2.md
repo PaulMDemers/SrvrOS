@@ -2,6 +2,36 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active shared file-worker lifetime work (D3a)
+
+PR146 is merged as `91b258e` and consumed. Next bounded scope: reusable,
+caller-owned file-worker pools for normal Text and Files. Empty documents must
+not each spawn a process; queued requests keep their own snapshots and completion
+ownership while a small lazy pool leases nonblocking transports. Preserve FIFO
+admission, validated responses, visible failure without automatic mutation retry,
+and busy-owner retention. Retire poisoned channels and reap their children before
+reuse; last-document/application close drains accepted work and then retires the
+pool. Dedicated legacy workers remain for the existing diagnostic captures.
+Touch the file-job library, Text/Files lifetime and focused host/QEMU fixtures.
+Validate actual document growth beyond scheduler-sized worker counts and existing
+file/dialog/clipboard/capture behavior. Combined GUI/FD waits and other desktop
+services remain separate blocks. Pro PR19 `e409c07` is independent Wi-Fi work.
+Host/QEMU only: no installation, USB writes or reboot; native acceptance pending.
+
+D3a candidate `fc30d06` passes full desktop host/image gates, forty queued
+actual 64 KiB writes/readbacks using two workers, exact offline contents, fsck and
+independent allocation traversal, and restored process baseline. Thirty-two
+normal Text documents in one process save independently; a replacement ID33
+opens, all 33 files match exactly, and the single reused worker is reaped at
+last-window close. The first growth collector relied on individual log lines
+and rejected an interleaved diagnostic; application retirement totals now verify
+all 33 lifetimes. Dedicated-worker reply draining also has a failing-before
+regression for a complete large reply retained after child exit. Existing
+Text/Files/capacity/app regressions pass. The matched battery/Text capture also
+passes 20 worker operations, all 60 scripted and 44 injected key presentations,
+replacement compositor, outside-image preservation and offline allocation.
+PR147 carries the reviewed host/QEMU checkpoint; native acceptance is pending.
+
 ### Active dynamic compositor and enumeration work (D2c)
 
 PR145 merged as `11a4ef2` and consumed. Next bounded scope: remove the

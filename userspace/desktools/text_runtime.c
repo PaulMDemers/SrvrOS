@@ -11,7 +11,7 @@
 struct text_document {
     struct tool tool;
     struct text_document *next;
-    uint64_t requester,logged_job,retiring_worker;
+    uint64_t requester,logged_job;
     char initial_path[DESK_FILE_PATH];
     int ready,retired,worker_closed,bad_path;
 };
@@ -46,28 +46,23 @@ static int create(struct desk_connection *connection,struct text_document **list
     d->tool.clip.window=d->tool.window.window;d->next=*list;*list=d;
     return 0;
 }
-/* No blocking wait and no kill: idle worker receives EOF, then is reaped even
- * when another document keeps this application process alive. */
-static int retire_worker(struct text_document *d) {
+/* A document releases its binding only after its accepted operation drains.
+ * Idle transports belong to the application, so a sibling can reuse them. */
+static int retire_job(struct text_document *d) {
     if(d->tool.job.busy)return 0;
     if(!d->worker_closed) {
-        d->worker_closed=1;
-        if(d->tool.worker_ready) {
-            d->retiring_worker=d->tool.job.pid;
-            desk_file_job_close(&d->tool.job);d->tool.worker_ready=0;
-        }
-    }
-    if(d->retiring_worker) {
-        uint64_t status=0;long pid=srv_wait(d->retiring_worker,&status,SRV_WAIT_NOHANG);
-        if(pid!=(long)d->retiring_worker && (pid>=0 || desk_process_alive(d->retiring_worker)))return 0;
-        desk_log("text-runtime: worker-retired pid=%llu window=%llu\n",(unsigned long long)d->retiring_worker,(unsigned long long)d->tool.window.window);
-        d->retiring_worker=0;
+        if(d->tool.worker_ready && desk_file_job_detach(&d->tool.job))return 0;
+        d->worker_closed=1;d->tool.worker_ready=0;
+        desk_log("text-runtime: job-detached window=%llu\n",(unsigned long long)d->tool.window.window);
     }
     return 1;
 }
 int tool_text_runtime(const char *path) {
     struct desk_connection connection;desk_connection_init(&connection);
+    struct desk_file_pool pool;struct desk_file_channel channels[2];
+    if(desk_file_pool_init(&pool,channels,2))return 1;
     struct text_document *documents=NULL;int failed=0;
+    unsigned admitted_count=0,retired_count=0,refused_count=0;
     srv_puts("desktools: starting role=text\n");
     if(create(&connection,&documents,0,path))return 1;
     while(documents) {
@@ -81,11 +76,12 @@ int tool_text_runtime(const char *path) {
             struct tool *t=&d->tool;
             if(p.type==DESK_OPEN_REPLY) {
                 if(p.value) {
+                    refused_count++;
                     notice(documents,d->requester,p.value==DESK_OPEN_CAPACITY?
                         "The desktop is full. Close a window before opening another.":"The new document window could not be opened. Your other documents were kept.");
                     d->retired=1;if(desk_window_dispose(window))failed=1;
                 } else {
-                    d->ready=1;t->worker_ready=desk_file_job_init(&t->job)==0;
+                    d->ready=1;admitted_count++;t->worker_ready=desk_file_job_bind(&t->job,&pool)==0;
                     tool_text_init(t,d->initial_path);
                     if(d->bad_path)tool_status(t,"This path is too long. Choose a file to open.");
                     else if(!t->worker_ready)tool_status(t,"The file worker is unavailable. Your document was kept.");
@@ -111,7 +107,9 @@ int tool_text_runtime(const char *path) {
                 }
             }
             if(d->retired) {
-                if(!retire_worker(d)) { busy=1;drained=0;link=&d->next;continue; }
+                int already_retired=d->worker_closed;
+                if(!retire_job(d)) { busy=1;drained=0;link=&d->next;continue; }
+                if(d->ready && !already_retired)retired_count++;
                 if(t->window.connection && !failed) { failed=1;link=&d->next;continue; }
                 if(failed) { link=&d->next;continue; } /* Process exit owns uncertain GUI resources. */
                 *link=d->next;free(t->body_history);munmap(d,sizeof(*d));continue;
@@ -135,5 +133,7 @@ int tool_text_runtime(const char *path) {
         }
         if(documents && (busy || desk_connection_wait(&connection,10)<0))srv_sleep_ticks(1);
     }
+    desk_log("text-runtime: documents admitted=%u retired=%u refused=%u\n",admitted_count,retired_count,refused_count);
+    if(tool_file_pool_retire(&pool,DESK_APP_TEXT))failed=1;
     desk_log("desktools: exited role=text failure=%d\n",failed);return failed?1:0;
 }
