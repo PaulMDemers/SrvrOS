@@ -106,8 +106,8 @@ The checklist covers:
    accepting the exact release. Immediate Ctrl-Alt-Escape is a stuck-session
    escape, not the normal completion path.
 
-Use fresh names such as `runtime-a.txt`, `runtime-b.txt`, `runtime-c.txt` and
-`runtime-notes.txt`; preserve earlier files rather than overwriting them. The
+Use fresh names such as `runtime24-a.txt`, `runtime24-b.txt`, `runtime24-c.txt` and
+`runtime24-notes.txt`; preserve earlier files rather than overwriting them. The
 notes should name completed/skipped checks and any input pauses or drawing
 artifacts. Capture many windows and the reopened documents with Command-Shift-3,
 and wait for save confirmation. Keep expected document text alongside the

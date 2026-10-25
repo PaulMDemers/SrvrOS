@@ -2,6 +2,21 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active attended high-count document round
+
+Base main `d441b7d`; Pro PR19 `db95022` and Air6,1 PR154 `44b5706` remain
+independent device/endurance work. Scope: prepare the existing ordinary v55
+combined-services desktop for the remaining Runtime trial checks: independent
+Text windows above sixteen, window switching/arrangement, clipboard/editing during
+save, picker cancellation, exact file reopen, then normal desktop exit/reopen.
+No runtime or firmware changes are planned. The user has authorized proceeding;
+this round needs human input, announced before boot, and has no timed exit.
+Use fresh `runtime24-*.txt` files to preserve earlier documents. Rehearse the
+exact stage with the 24-process combined-services VM workload, verify local
+recovery and USB, record source/release before installation and one-shot reboot.
+Evidence/checkpoint: `build/runtime-interactive-20261025/`, backed up outside
+build. Physical interactive acceptance remains pending matching collection.
+
 ### Automated 24-app native capacity accepted
 
 Release `c9e59c1b11d5c239`, clean source `7fc5077`, completed two automatic
