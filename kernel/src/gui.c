@@ -87,7 +87,7 @@ static struct gui_queue *queue_prepare(uint64_t pid) {
     struct gui_queue *queue=kmalloc(sizeof(*queue));
     if(queue) {
         /* Unused message cells are never read; zero only the published header. */
-        queue->next=NULL;queue->pid=pid;queue->head=0;queue->count=0;
+        queue->next=NULL;queue->pid=pid;queue->head=0;queue->count=0;queue->cancel_epoch=0;
     } else {
         flags=irq_save();queue_bytes-=sizeof(struct gui_queue);irq_restore(flags);
     }

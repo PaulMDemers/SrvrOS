@@ -28,7 +28,7 @@ void *kmalloc(size_t bytes) {
     if(allocation_hook) { void (*hook)(void)=allocation_hook;allocation_hook=NULL;hook(); }
     if(heap_calls==retire_at)gui_process_cleanup(retire_pid);
     if(heap_calls==heap_fail_at)return NULL;
-    void *p=malloc(bytes);if(p)heap_live++;return p;
+    void *p=malloc(bytes);if(p) { heap_live++;memset(p,0xa5,bytes); }return p;
 }
 void kfree(void *p) { assert(!gui_test_irq_depth);if(p) { assert(heap_live);heap_live--; }free(p); }
 

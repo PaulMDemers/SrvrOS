@@ -47,7 +47,9 @@ static int client(uint64_t peer) {
     struct gui_message message={.type=GUI_MSG_SET_TEXT,.value=1};
     CHECK(!gui_send(&message) && receive(&message)==1 && message.source_pid==peer && message.value==1);
     struct srv_gui_wait r=request(peer,-1,0);r.deadline_us=0;
-    CHECK(!gui_wait_io(&r) && r.ready==SRV_GUI_DEADLINE);
+    int probe=gui_wait_io(&r);
+    desk_log("gui-wait-capture: probe result=%d ready=%u epoch=%llu peer=%llu\n",probe,r.ready,(unsigned long long)r.cancel_epoch,(unsigned long long)peer);
+    CHECK(!probe && r.ready==SRV_GUI_DEADLINE);
     r=request(peer,-1,0);uint64_t start=srv_monotonic_us();r.deadline_us=start+35000;
     CHECK(!gui_wait_io(&r) && r.ready==SRV_GUI_DEADLINE && (uint64_t)srv_monotonic_us()-start>=35000);
     int pipefd[2],spare[2];CHECK(!pipe(pipefd) && !pipe(spare));
