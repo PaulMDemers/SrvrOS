@@ -1753,8 +1753,12 @@ int main(int argc,char **argv) {
             }
         }
         long render_start=(io_mode || hardware_trial) && s.damage.count?srv_monotonic_us():0;
+        /* No scene mutation/dispatch during this frame. Sort once, then borrow
+         * the registry scratch order for all damage rectangles. */
+        int inline_order[DESKD_WINDOWS];int *frame_order=s.scene.order?s.scene.order:inline_order;
+        if(s.damage.count) desktop_stack(&s.scene,frame_order);
         for (unsigned n=0;n<s.damage.count;n++) {
-            struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
+            struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw_ordered(&canvas,&s.scene,frame_order,1);
             if (blitrect_scaled((uint64_t)r.x*scale,(uint64_t)r.y*scale,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride,scale)!=0) failed=1;
             uint64_t physical_w=(uint64_t)r.w*scale,physical_h=(uint64_t)r.h*scale;
             if(physical_w>info.width-(uint64_t)r.x*scale) physical_w=info.width-(uint64_t)r.x*scale;

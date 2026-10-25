@@ -50,7 +50,10 @@ wait preserves a single dispatcher and keeps accepted I/O owned until drained.
 Local coverage includes 128 small windows, 32 real Text documents/33 exact files,
 clipboard capacity, allocation refusal, worker retirement and input during
 throttled QEMU writes. These do not extend native acceptance beyond its recorded
-release or establish native latency/energy improvements.
+release or establish native latency/energy improvements. Covered-window repainting
+now uses conservative opaque-piece tests with an exact unculled pixel oracle and
+identical-workload host benchmarks. See the [runtime validation guide](desktop-runtime-validation.md)
+for repeatable local gates and the remaining interactive acceptance round.
 
 Remaining limits include software rendering, 1440×900 logical client surfaces,
 process/descriptor budgets and pixel-memory admission. Explicit 2× scaling passes

@@ -43,7 +43,8 @@ int main(void) {
             assert(!desk_popup_open(&s.context,items,3,630,470,(struct desk_rect){0,44,W,H-124},&desk_font_16,1));
         }
         for (unsigned i=0;i<S*H;i++) full[i]=tiles[i]=0xdeadbeef;
-        desk_clip(&a,(struct desk_rect){0,0,W,H}); desktop_draw(&a,&s);
+        int order[DESKD_WINDOWS];desktop_stack(&s,order);
+        desk_clip(&a,(struct desk_rect){0,0,W,H}); desktop_draw_ordered(&a,&s,order,0);
         for (int y=0;y<H;y+=29) for (int x=0;x<W;x+=31) {
             desk_clip(&b,(struct desk_rect){x,y,31,29}); desktop_draw(&b,&s);
         }

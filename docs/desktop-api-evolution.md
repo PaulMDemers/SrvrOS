@@ -1,7 +1,7 @@
 # Desktop architecture and API evolution
 
 Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130); D0/D1
-progress and D2/D3 implementation updated 2026-10-25. Later blocks remain proposals, not implemented APIs
+progress and D2/D3 implementation plus D4a rendering updated 2026-10-25. Later blocks remain proposals, not implemented APIs
 or new hardware acceptance claims. The [capacity contract](window-capacity.md) describes
 current dynamic storage and the separately scoped physical acceptance. The companion
 [POSIX audit](posix-compatibility.md) covers the userspace foundation.
@@ -258,6 +258,13 @@ close and explicit Quit obey documented policy. Service errors are recoverable.
 
 ### D4 — Rendering, text and accessibility
 
+D4a prepares one stack ordering per frame and conservatively skips fully covered
+opaque window frames/shadows. The unculled path remains an exact pixel oracle;
+identical host workloads measure writes and timing. See the [rendering
+contract](native-desktop.md#repainting-and-covered-windows) and machine record
+for source/VM acceptance. Damage policy, framebuffer copying and surface lifetime
+are unchanged. This is an overdraw reduction, not completion of this roadmap.
+
 Add frame pacing/damage contracts, output scale queries, native-density text,
 keyboard-only navigation and semantic accessibility data. Specify composition,
 selection and grapheme behavior before growing text APIs. GPU work is independently
@@ -288,7 +295,7 @@ agents continue their independent drivers/profiles and consume matched merged
 images. Pro11,2 PR19 is Wi-Fi work; this plan does not take over that scope.
 
 D0–D2 and D3a are merged through PR140–147. D3b's combined wait is tracked in
-PR148. Current host/QEMU evidence includes 128 small windows, 32 normal Text
+merged PR148; D4a repaint work is tracked in PR149. Current host/QEMU evidence includes 128 small windows, 32 normal Text
 documents/33 exact files, worker fault/reap behavior and actual wait/input-under-I/O
 fixtures. Physical window acceptance remains the Air sixteen-window round on
 `bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.

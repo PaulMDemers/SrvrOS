@@ -70,6 +70,24 @@ profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
 saves a screenshot and exits. Normal launches and the interactive hardware trial
 retain their existing manual exit behavior. See the [device-agent guide](ubuntu-device-agent-setup.md).
 
+## Repainting and covered windows
+
+The compositor sorts the window stack once per immutable frame and reuses that
+order for each damage rectangle. It can skip a lower window when both its
+clipped frame and shadow are fully covered by higher opaque window pieces.
+The two pieces stay separate: their bounding union contains unpainted corners.
+Partially covered windows retain normal back-to-front painting. This optimization
+allocates no visibility regions and changes neither damage generation nor frame
+acknowledgements, cache ownership, output scaling or framebuffer copying.
+
+The internal unculled path remains a pixel oracle for deterministic/randomized
+host fixtures. Those compare identical scenes, clips and caches, including 128
+records, shadow holes, overlays and malformed small diagnostic frames. Host
+benchmarks report pixel writes and timing distributions for the same workload;
+they do not measure physical input latency, display scanout or power use.
+Opaque replacement pixels/shadows are part of the proof: translucent windows or
+decoration outside the frame require revisiting it before enabling occlusion.
+
 ## Desktop controls
 
 The top bar contains the SrvrOS menu, the focused application's menus, Arrange,

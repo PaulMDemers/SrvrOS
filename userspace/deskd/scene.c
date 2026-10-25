@@ -173,7 +173,45 @@ static void calendar_panel(struct desk_canvas *c,const struct desktop_scene *s) 
     desk_label_draw(c,(struct desk_rect){r.x+16,r.y+r.h-82,r.w-32,24},&desk_font_16,s->calendar_date,desk_theme_quiet.text);
     desk_clip(c,clip);
 }
+/* draw_window paints only these two opaque rectangles for ordinary frames.
+ * Keep them separate: their bounding union has two unpainted corners. If
+ * decorations grow outside the frame or shadows become translucent, revise
+ * this proof before allowing those windows to participate in occlusion. Tiny
+ * diagnostic frames can place controls outside the frame, so never cull them. */
+static int bounded_window(const struct desktop_window *w) {
+    return w->frame.w>=128 && w->frame.h>=45;
+}
+static struct desk_rect window_shadow(struct desk_rect r) {
+    return (struct desk_rect){r.x+5,r.y+7,r.w,r.h};
+}
+static int contains(struct desk_rect outer,struct desk_rect inner) {
+    return inner.x>=outer.x && inner.y>=outer.y &&
+        (int64_t)inner.x+inner.w<=(int64_t)outer.x+outer.w &&
+        (int64_t)inner.y+inner.h<=(int64_t)outer.y+outer.h;
+}
+static int window_covered(const struct desktop_scene *s,const int *order,int n,
+    struct desk_rect clip) {
+    const struct desktop_window *w=desktop_window_at(s,order[n]);
+    if(!w->visible || w->minimized) return 1;
+    if(!bounded_window(w)) return 0;
+    struct desk_rect frame=desk_intersect(w->frame,clip);
+    struct desk_rect shadow=desk_intersect(window_shadow(w->frame),clip);
+    int frame_done=!frame.w,shadow_done=!shadow.w;
+    for(int higher=desktop_capacity(s)-1;higher>n && !(frame_done && shadow_done);higher--) {
+        const struct desktop_window *cover=desktop_window_at(s,order[higher]);
+        if(!cover->visible || cover->minimized || !bounded_window(cover)) continue;
+        struct desk_rect r=cover->frame,sh=window_shadow(r);
+        frame_done|=contains(r,frame) || contains(sh,frame);
+        shadow_done|=contains(r,shadow) || contains(sh,shadow);
+    }
+    return frame_done && shadow_done;
+}
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
+    int inline_order[DESKD_WINDOWS];int *order=s->order?s->order:inline_order;
+    desktop_stack(s,order);desktop_draw_ordered(c,s,order,1);
+}
+void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
+    const int *order,int occlusion) {
     static const uint32_t backgrounds[]={0xd6dcd2,0xe2dace,0xcbd5da};
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},backgrounds[s->wallpaper>=0 && s->wallpaper<3?s->wallpaper:0]);
     desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
@@ -229,8 +267,10 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
             desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==4?tap_steps[i]:s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
     }
-    int inline_order[DESKD_WINDOWS];int *order=s->order?s->order:inline_order;desktop_stack(s,order);
-    for(int n=0;n<desktop_capacity(s);n++) draw_window(c,desktop_window_at(s,order[n]),order[n]==s->focus,s->apps);
+    for(int n=0;n<desktop_capacity(s);n++) {
+        if(occlusion && window_covered(s,order,n,c->clip)) continue;
+        draw_window(c,desktop_window_at(s,order[n]),order[n]==s->focus,s->apps);
+    }
     if(s->apps) {
         dock(c,s);
         if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
