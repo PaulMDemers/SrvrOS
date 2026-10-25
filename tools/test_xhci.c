@@ -4371,6 +4371,69 @@ static void test_wifi_rf_trim(void){
  puts("xhci RF trim: PASS all fixed command/guard positions, packet-bit mutation, prefix faults, no replay and quarantine");
 }
 
+static void rf_cal_fixture(struct xhci_device *d,unsigned op){
+ rf_trim_fixture(d,13);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->rf_trim.complete=true;m->rf_trim.operations=14;m->rf_trim.reads=12;m->rf_trim.equal=1;m->rf_trim.mismatch_mask=0;
+ m->rf_trim.values[0]=68;m->rf_trim.words[1][2]=68;m->rf_trim_submitted=14;
+ assert(mt76_rf_trim_exact_profile_valid(&m->rf_trim));
+ m->rf_cal_active=m->rf_cal_mode=true;m->rf_cal_submitted=op;
+ unsigned q=op/7,n=op%7,ex=q+(n>3),acks=0;struct mt76_rf_cal *t=&m->rf_cal;
+ *t=(struct mt76_rf_cal){.attempted=true,.operations=op,.reads=q*6+(n<3?n:3)+(n>4?n-4:0),.exchanges=ex,.received=ex?16:-1};
+ const unsigned values[]={0x93,0x93,0x93,0x13,0x13,0x93,0x30,0xb0,0x93,0x30};
+ for(unsigned j=0;j<ex;j++){
+  t->words[j][0]=t->words[j][3]=0x4a000008|(mt76_rf_cal_sequence(j)<<16);
+  t->words[j][1]=mt76_rf_cal_address(j);t->words[j][2]=values[j];if(mt76_rf_cal_write(j))acks++;
+ }
+ t->acks=acks;t->observed=ex-acks;
+ for(unsigned j=0;j<20;j++){t->guards[j][1]=0xf000f200;t->guards[j][2]=0x40000050;}
+ assert(mt76_rf_cal_admit(t,op));
+}
+static void rf_cal_fault(struct xhci_wifi_mcu *m,unsigned fault){
+ if(fault<=103){if(fault==20)m->rf_trim.complete=false;else rf_trim_fault(m,fault);}
+ if(fault==104)m->rf_cal_mode=false;
+ if(fault==105)m->rf_cal_active=false;
+ if(fault==106)m->rf_cal.attempted=false;
+ if(fault==107)m->rf_cal.complete=true;
+ if(fault==108)m->rf_cal.operations++;
+ if(fault==109)m->rf_cal.reads++;
+ if(fault==110)m->rf_cal.exchanges++;
+ if(fault==111)m->rf_cal.acks++;
+ if(fault==112)m->rf_cal.observed++;
+ if(fault==113)m->rf_cal_submitted++;
+}
+static void test_wifi_rf_cal(void){
+ for(unsigned op=0;op<70;op++)for(unsigned fault=0;fault<((op==0 || op==3 || op==66 || op==69)?117u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};
+  uint8_t tx[4096]={0},rx[1024]={0},packet[16],reply[1024];struct xhci_device *d=&xhci.devices[0];rf_cal_fixture(d,op);
+  struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  if(op%7==3){
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   assert(mt76_rf_cal_packet(&m->rf_cal,op,packet,16)==16);
+   rf_cal_fault(m,fault);
+   if(fault==114)packet[4]^=1;
+   if(fault==115)events[0].status=6u<<24;
+   if(fault==116)events[1].status=6u<<24;
+   if(!fault){for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_rf_cal_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}}
+   assert(wifi_rf_cal_exchange(d,packet,16,reply,1024)==(!fault?16:-1));
+   if(!fault){assert(m->rf_cal_submitted==op+1);assert(wifi_rf_cal_exchange(d,packet,16,reply,1024)==-1);}
+   else if(fault>=115)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!f->ep.enqueue && !m->response.enqueue);
+  }else{
+   d->ep0_ring=out;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=tx;d->descriptor_buffer_phys=(uintptr_t)tx;
+   events[0]=control_event(0x9020,fault>=115?6:1,0);
+   uint32_t address=mt76_rf_cal_guard_address(op),value=0;rf_cal_fault(m,fault);if(fault==114)address++;
+   assert(wifi_rf_cal_read(d,address,&value)==!fault);
+   if(!fault){assert(m->rf_cal_submitted==op+1);assert(!wifi_rf_cal_read(d,address,&value));}
+   else if(fault>=115)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!d->ep0_enqueue);
+  }
+ }
+ reset_test();assert(!xhci_wifi_capture_rf_cal());
+ puts("xhci RF DAC/VCO: PASS all70 operations,113 prerequisite/state faults, every packet bit, no replay and quarantine");
+}
+
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -5706,6 +5769,7 @@ int main(int argc, char **argv) {
     test_wifi_rf_vga();
     test_wifi_rf_g20();
     test_wifi_rf_trim();
+    test_wifi_rf_cal();
     test_wifi_trim_fields();
     test_wifi_ant_init();
     test_wifi_mac_private();

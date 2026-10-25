@@ -6373,3 +6373,33 @@ Next: implement a bounded reference DAC pulse/VCO initiation with preserved
 register bits, guarded replies and appropriate self-clearing observation.
 No DAC/VCO pulses, channel-frequency tuning, scanning, association/security
 or traffic occurred in this run.
+
+## 2026-10-25 — bounded DAC/VCO initiation scope
+
+Fresh-field/trim native evidence is collected and archived at `2c40c368`.
+Fetched main `6e06bfb0` includes desktop endurance/capacity work; open PR155
+owns Air7,2 document progress and PR156 Air6,1 audio/USB overlap. Their inspected
+changes do not own Wi-Fi RF/MCU state. Keep integration base `d5bc4b3` for this
+bounded trial. Pro PR19 owns fixed RF initialization and native evidence.
+
+Objective: reproduce the pinned Linux v7.0 power-up DAC bit7 set/clear/set in
+RF0:73 and initiate RF0:4 bit7 VCO calibration, after exact fresh trim proof.
+Each modification reads the register afresh and preserves other bits. Capture
+one final read of each register; a self-cleared VCO bit is observed, never a
+claim of successful radio calibration. Scope: separate fixed MCU engine,
+native xHCI ownership, opt-in staging, fault tests and strict saved-log proof.
+No channel tuning, MAC enable, scanning, association or traffic. Keep the
+256KiB full-prefix capture; do not widen existing profile gates.
+
+Implemented separate fixed DAC/VCO engine and native ownership after complete
+exact trim proof. Tests pass all70 I/O and71 authorization boundaries, every
+command reply byte/bit, guard/proof mutation, all256 preserved-byte patterns
+with VCO clear/still-set final observations, and no replay. Native xHCI tests
+pass all70 positions,113 prerequisite/state faults, packet-bit refusal and
+transport quarantine. All151 staging tests and142 historical recipe identity
+checks pass. Strict full-prefix tests accept three valid observation patterns
+at most241410bytes and reject319 malformed proofs. Full build, prior RF/MCU/
+EFUSE/logger regressions, ASan/UBSan for new engine/exact trim validator and
+499 documentation links pass. Native DAC/VCO results remain pending; next
+checkpoint is exact-stage GPT save/return and missing-workspace rehearsal,
+then install with Ubuntu and known-good recovery preserved.

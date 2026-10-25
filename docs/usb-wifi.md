@@ -2967,3 +2967,24 @@ startup prefix. Ubuntu default, consumed one-shot, payload/recovery hashes and
 offline workspace checks passed;285files/681clusters/116directories, zero
 leaks/mismatches/errors, unmounted and unarmed. Results are archived outside
 build. Calibrated radio operation remains untested; bounded DAC/VCO work is next.
+
+
+### Bounded DAC power-up pulses and VCO initiation (v72 candidate)
+
+`--wifi-rf-cal` requires exact fresh-board trim and every earlier prerequisite.
+The separate fixed engine follows the pinned Linux v7.0 RF-init order: read
+RF0:73 and set bit7, read again and clear bit7, read again and set bit7; read
+RF0:4 and set bit7 to initiate VCO calibration. Every write preserves the other
+seven freshly read bits; no arbitrary register/value input is exposed. Two
+final reads observe RF0:73 and RF0:4 without asserting a fixed VCO value or
+calibration success. VCO bit7 self-clears in the reference description; a clear
+or still-set final bit is recorded, with no polling, replay or forced clearing.
+
+Ten commands use sequences14,15,1..8 following trim sequence13:70 operations,
+60 guard reads,10 exact replies,4 ACKs,6 read observations and20 MAC/CORE/
+disabled-DMA guard triplets. The native single-submission gate requires all
+fresh fields and14-operation exact trim proof before any command. All prior
+strict profiles remain unchanged. Opt-in v72 adds only its token to v71 and
+retains256KiB complete-prefix logging and automatic save/return. This trial
+adds no channel tuning, MAC enable, scanning, association/security or traffic;
+calibrated radio operation remains untested.

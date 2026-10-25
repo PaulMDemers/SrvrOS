@@ -532,4 +532,21 @@ uint32_t mt76_rf_trim_guard_address(unsigned operation);
 size_t mt76_rf_trim_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_trim_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_trim_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+/* Fixed DAC power-up pulse and VCO initiation; final reads are observations. */
+#define MT76_RF_CAL_COMMANDS 10u
+#define MT76_RF_CAL_OPS 70u
+struct mt76_rf_cal {
+    bool attempted,complete;
+    unsigned operations,reads,exchanges,acks,observed;
+    int received;
+    uint32_t guards[20][3],words[10][4];
+};
+bool mt76_rf_trim_exact_profile_valid(const struct mt76_rf_table *s);
+unsigned mt76_rf_cal_sequence(unsigned command);
+uint32_t mt76_rf_cal_address(unsigned command);
+bool mt76_rf_cal_write(unsigned command);
+uint32_t mt76_rf_cal_guard_address(unsigned operation);
+bool mt76_rf_cal_admit(const struct mt76_rf_cal *s,unsigned operation);
+size_t mt76_rf_cal_packet(const struct mt76_rf_cal *s,unsigned operation,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_rf_cal_capture(struct mt76_rf_cal *s,const struct mt76_mcu_timing_io *io);
 #endif

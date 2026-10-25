@@ -3788,3 +3788,11 @@ test-mt76-rf-trim: build/tests/mt76-rf-trim-host$(HOST_EXE)
 build/tests/mt76-rf-trim-host$(HOST_EXE): tools/test_mt76_rf_trim.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-cal
+test-core: test-mt76-rf-cal
+test-mt76-rf-cal: build/tests/mt76-rf-cal-host$(HOST_EXE)
+	build/tests/mt76-rf-cal-host$(HOST_EXE)
+build/tests/mt76-rf-cal-host$(HOST_EXE): tools/test_mt76_rf_cal.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

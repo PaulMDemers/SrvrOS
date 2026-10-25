@@ -1934,3 +1934,76 @@ bool mt76_rf_g20_exact_profile_valid(const struct mt76_rf_table *s){
         rf_plan_state_valid(&rf_g20_plan,s,MT76_RF_G20_OPS) &&
         s->equal==MT76_RF_G20_COUNT && !s->mismatch_mask && !s->mismatch_hi;
 }
+
+bool mt76_rf_trim_exact_profile_valid(const struct mt76_rf_table *s){
+    return s && s->complete && s->operations==MT76_RF_TRIM_OPS &&
+        rf_plan_state_valid(&rf_trim_plan,s,MT76_RF_TRIM_OPS) &&
+        s->equal==1 && !s->mismatch_mask && !s->mismatch_hi;
+}
+/* RMW each pulse independently, following Linux v7.0 mt76x0_phy_rf_init.
+ * No channel or MAC enable commands. Final reads do not certify calibration. */
+unsigned mt76_rf_cal_sequence(unsigned q){return q<10?(418+q)%15+1:0;}
+bool mt76_rf_cal_write(unsigned q){return q<8 && (q&1);}
+uint32_t mt76_rf_cal_address(unsigned q){return q<10?0x80000000u|((q<6 || q==8)?73:4):UINT32_MAX;}
+uint32_t mt76_rf_cal_guard_address(unsigned op){
+    unsigned n=op%7;return op<70 && n!=3?mt76_rf_probe_read_address(n<3?n:n-4):UINT32_MAX;
+}
+static unsigned rf_cal_value(const struct mt76_rf_cal *s,unsigned q){
+    unsigned v=s->words[q-1][2];return q==3?v&0x7f:v|0x80;
+}
+static bool rf_cal_state_valid(const struct mt76_rf_cal *s,unsigned op){
+    if(!s || !s->attempted || op>70 || s->operations!=op)return false;
+    unsigned q=op/7,n=op%7,exchanges=q+(n>3),acks=0;
+    if(exchanges>10)return false;
+    if(s->reads!=q*6+(n<3?n:3)+(n>4?n-4:0) || s->exchanges!=exchanges || s->received!=(exchanges?16:-1))return false;
+    for(unsigned i=0;i<exchanges;i++){
+        uint32_t h=0x4a000008u|(mt76_rf_cal_sequence(i)<<16);
+        if(s->words[i][0]!=h || s->words[i][1]!=mt76_rf_cal_address(i) || s->words[i][2]>255 || s->words[i][3]!=h)return false;
+        if(mt76_rf_cal_write(i)){if(s->words[i][2]!=rf_cal_value(s,i))return false;acks++;}
+    }
+    if(s->acks!=acks || s->observed!=exchanges-acks)return false;
+    for(unsigned i=0;i<10 && i<=q;i++){
+        unsigned done=i<q?7:n;
+        for(unsigned j=0;j<3;j++){
+            if(done>j && !rf_central_guard_valid(j,s->guards[2*i][j]))return false;
+            if(done>4+j && !rf_central_guard_valid(j,s->guards[2*i+1][j]))return false;
+        }
+    }
+    return true;
+}
+bool mt76_rf_cal_admit(const struct mt76_rf_cal *s,unsigned op){return s && !s->complete && op<70 && rf_cal_state_valid(s,op);}
+size_t mt76_rf_cal_packet(const struct mt76_rf_cal *s,unsigned op,uint8_t *out,size_t capacity){
+    if(!mt76_rf_cal_admit(s,op) || op%7!=3)return 0;
+    unsigned q=op/7;uint8_t payload[8]={0};uint32_t address=mt76_rf_cal_address(q);
+    for(unsigned b=0;b<4;b++)payload[b]=(uint8_t)(address>>(8*b));
+    if(mt76_rf_cal_write(q))payload[4]=(uint8_t)rf_cal_value(s,q);
+    return mt76_mcu_encode(mt76_rf_cal_write(q)?12:10,mt76_rf_cal_sequence(q),payload,8,out,capacity);
+}
+enum mt76_mcu_timing_status mt76_rf_cal_capture(struct mt76_rf_cal *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_cal){.attempted=true,.received=-1};
+    for(unsigned op=0;op<70;op++){
+        if(!mt76_rf_cal_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        unsigned q=op/7,n=op%7;
+        if(n!=3){
+            unsigned edge=2*q+(n>=4),j=n<3?n:n-4;uint32_t *v=&s->guards[edge][j];
+            if(!io->read(io->context,mt76_rf_cal_guard_address(op),v))return MT76_TIMING_IO;
+            s->reads++;s->operations++;
+            if(!rf_central_guard_valid(j,*v))return MT76_TIMING_STATE;
+        }else{
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+            if(mt76_rf_cal_packet(s,op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,sizeof packet,reply,sizeof reply);s->exchanges++;
+            for(unsigned j=0;j<4;j++)if(s->received>=(int)(4*j+4))for(unsigned b=0;b<4;b++)s->words[q][j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|(mt76_rf_cal_sequence(q)<<16);
+            if(s->received!=16 || s->words[q][0]!=h || s->words[q][1]!=mt76_rf_cal_address(q) || s->words[q][2]>255 || s->words[q][3]!=h)return MT76_TIMING_REPLY;
+            if(mt76_rf_cal_write(q)){if(s->words[q][2]!=rf_cal_value(s,q))return MT76_TIMING_REPLY;s->acks++;}else s->observed++;
+            s->operations++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!rf_cal_state_valid(s,70))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
