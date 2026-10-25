@@ -26,8 +26,13 @@ refusal fixture also pass. A test-only first attempt stopped when the software
 cursor obscured a button border during visual discovery; its raw evidence is
 retained and the locator now moves the pointer away before scanning.
 
-Scope and code are in PR165; PR164 retains separate Air6,1 Files-under-I/O scope,
-and PR19 owns Pro Wi-Fi. Evidence is in `build/modal-pointer-20261025/` and the
+Scope and code are in PR165. Main `cd5ec0a` (PR164) is now integrated:
+Air6,1 startup/loop instrumentation remains diagnostic, not a resolution of its
+Files-under-I/O issue. PR19 owns Pro Wi-Fi. The initial clean `eb66c74` exact v75
+stage `d203e4b1c640bde8` passes GRUB → staged Limine, the automatically opened
+Help guide, saved work, playback, exit/reopen and clean retirement/unmount; native
+battery correctly refuses Q35. Both guide screenshots were visually checked.
+Rebuild and repeat affected checks on the integrated tree before installing. Evidence is in `build/modal-pointer-20261025/` and the
 collected `build/lifecycle-native-20261025/` return. The next v75 attended guide
 opens with a focused physical button/picker checklist and has no timed exit.
 Validate its exact stage before installation; preserve independent recovery
