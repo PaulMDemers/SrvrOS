@@ -77,12 +77,18 @@ guard triplets; both mismatch fields zero. Full earlier initialization proof
 and both completion markers passed. Ubuntu default, consumed one-shot and
 installed/recovery payload hashes verified; offline workspace clean:
 285files/681clusters/116directories, zero leaks, mismatches or errors;
-unmounted. Evidence is durably archived. Candidate `d27f0d2f10e5ae0b` (source `cfc0cfdd`) is installed unarmed for
-bounded DAC power-up pulses/VCO initiation. Local/regression/sanitizer and
-exact-stage GPT save/return plus missing-workspace checks passed. Next:
-attended cold adapter cycle, then collect matching session FIRST. Results save
-automatically and return to Ubuntu; no photos/commands needed. No channel
-tuning, scanning or traffic yet. No reboot armed.
+unmounted. Evidence is durably archived.
+
+Release `d27f0d2f10e5ae0b` (source `cfc0cfdd`) completed the bounded DAC/VCO
+initiation observation in session `session-00065eaf209e71b6-00`. All70
+operations,60 guard reads,10 replies,4 ACKs,6 observations and20 guard triplets
+passed, with full prior proof. RF0:73 showed93 ->13 ->93 across the DAC pulse;
+RF0:4 showed30 ->b0 and remainedb0 at the final read. VCO self-clear was not
+observed, so successful calibration is unconfirmed. Complete241416-byte startup
+prefix and both completion markers saved. Recovery/default/one-shot/payload
+checks passed; offline workspace clean287files/685clusters/117directories,
+zero leaks/mismatches/errors, unmounted and unarmed. Next: bounded delayed VCO
+read observation; no repeated start pulse or channel/traffic work yet.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6428,3 +6434,25 @@ bits. Record both final values and VCO-clear observation without claiming
 successful radio calibration. Entire prefix and both completion markers are
 required. No channel tuning, MAC enable or traffic. No reboot armed; native
 DAC/VCO initiation results pending.
+
+
+## 2026-10-25 — DAC/VCO initiation native return
+
+Collected source `cfc0cfddd8475250393a1797f1d327d1c242caf7`, release
+`d27f0d2f10e5ae0b`, session `session-00065eaf209e71b6-00`. Strict full-prefix
+proof passed70 operations/submissions,60 guard reads,10 verified replies,
+4 ACKs,6 read observations and20 valid MAC/CORE/disabled-DMA guard triplets.
+Fresh mapped fields, trim68 and all earlier initialization proof passed.
+Observed RF0:73 read/write sequence93/93/93/13/13/93, preserving all lower
+bits; final93. RF0:4 initial30, writeb0, finalb0: bit7 remained set at this
+immediate observation. VCO-clear flag0 is an observed result, not a transport
+failure or proof of completed calibration. Do not promote to calibrated RF.
+
+Entire241416-byte startup prefix within262144 capacity and both completion
+markers saved. Ubuntu default, consumed one-shot and installed/recovery hashes
+passed. Offline exFAT/allocation clean287files/685clusters/117directories,
+zero leaks/mismatches/errors; unmounted, no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-cal-cfc0cfd/`.
+Next: bounded delayed read-only VCO observation after this exact initiation
+proof. No repeated initiation pulse, forced bit clear, channel tuning, MAC
+enable, scanning, association/security or traffic before reviewing that result.

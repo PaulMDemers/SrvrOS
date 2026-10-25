@@ -2969,7 +2969,7 @@ leaks/mismatches/errors, unmounted and unarmed. Results are archived outside
 build. Calibrated radio operation remains untested; bounded DAC/VCO work is next.
 
 
-### Bounded DAC power-up pulses and VCO initiation (v72 candidate)
+### Bounded DAC power-up pulses and VCO initiation (v72 native observation)
 
 `--wifi-rf-cal` requires exact fresh-board trim and every earlier prerequisite.
 The separate fixed engine follows the pinned Linux v7.0 RF-init order: read
@@ -2988,3 +2988,16 @@ strict profiles remain unchanged. Opt-in v72 adds only its token to v71 and
 retains256KiB complete-prefix logging and automatic save/return. This trial
 adds no channel tuning, MAC enable, scanning, association/security or traffic;
 calibrated radio operation remains untested.
+
+
+Native release `d27f0d2f10e5ae0b` (source `cfc0cfdd`) completed in session
+`session-00065eaf209e71b6-00`. All70 submissions,60 guard reads,10 replies,
+4 ACKs,6 observations and20 guard triplets passed, including full earlier
+proof. DAC RF0:73 followed93/13/93 with preserved lower bits and final93.
+VCO RF0:4 initial30 was writtenb0 and still readb0 at the final observation;
+self-clear was not observed. This establishes command/guard/observation
+completion, not successful VCO calibration. Next is a bounded delayed read
+observation without repeating the start pulse or forcing the bit clear.
+The entire241416-byte prefix and both completion markers passed; recovery,
+one-shot, hashes and clean offline filesystem/allocation checks verified.
+Workspace unmounted, no reboot armed; evidence archived outside build.
