@@ -149,8 +149,13 @@ This run used pending1/early_clear0 and all six delayed reads30; v77 exercised
 the early-clear variant. Entire251629-byte prefix/both success markers saved.
 Recovery/default/one-shot/hashes passed; offline clean299files/709clusters/
 123directories, zero leaks/mismatches/errors; unmounted/unarmed. Timing setup
-accepted on the captured adapter. Next: channel-specific preparation/calibration
-dependency audit. Radio operation/connectivity remain untested.
+accepted on the captured adapter. Separate v79 bandwidth-response trial
+`4c8563c12db92578`, source `83a869fc`, is installed/unarmed after local and
+both exact-stage VM checks. One fixed CMD1/BW_SETTING2/value0/sequence15 reply
+is recorded after full timing proof; no semantic ACK acceptance or later BBP/RF
+programming. Ubuntu default and recovery `e47dca3a6b30c6c1` retained. Await
+readiness for cold-cycle shutdown; collect matching session first after return.
+Radio operation/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -7033,3 +7038,25 @@ pass. Collector validates whole earlier proof and opaque reply consistency;
 89 malformed proofs rejected,252903-byte fixture within262144 capacity.
 Full build,ASan/UBSan and documentation links pass. Next: exact-stage save/return
 and missing-workspace VM checks before installing; native response pending.
+
+
+## 2026-10-25 — Firmware bandwidth response trial installed
+
+Source `83a869fc23f81602c0038f38dc420cad9dcaa6b5`, release
+`4c8563c12db92578`, config `ram-usb-wifi-fw-v79-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; Ubuntu default and known-good recovery
+`e47dca3a6b30c6c1` retained. Accepted v78 payload remains installed/archived;
+v77 payload removed from ESP only after full durable archive byte equality.
+Offline preboot exFAT/allocation clean299files/709clusters/123directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-bw-observe-83a869f/`.
+After readiness, cold-cycle Wi-Fi10s while off; leave workspace connected.
+Automatic capture saves and returns to Ubuntu; no photos or commands needed.
+Collect matching release/session first with `bw-observe/collect_return.py`;
+require full earlier proof, fixed sequence15 response framing, seven operation
+receipts/two guard triplets, opaque payload consistency, whole prefix and both
+completion markers. Preserve failures; audit actual response before semantic
+ACK admission. No later baseband/RF/channel programming, MAC enable or traffic.
