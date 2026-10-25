@@ -489,7 +489,44 @@ static void descriptor_regression(void) {
     for(unsigned i=0;i<PROCESS_MAX_PIPES;i++) assert(!pipes[i].used);
     clear_process(&subject);
 }
+uint16_t net_poll_events(uint64_t handle,uint16_t events) { (void)handle;(void)events;assert(0);return 0; }
+static void watch_regression(void) {
+    clear_process(&subject);uint64_t fds[2],g;
+    assert(!process_file_pty_pair(&subject,fds));
+    assert(process_file_watch_capture(&subject,fds[0],SRV_POLLIN,&g)<0); /* Must be nonblocking. */
+    assert(!process_file_set_flags(&subject,fds[0],SRV_FD_NONBLOCK));
+    assert(!process_file_watch_capture(&subject,fds[0],SRV_POLLOUT,&g));
+    assert(process_file_watch_poll(&subject,fds[0],SRV_POLLOUT,g,false)==SRV_POLLOUT);
+    assert(!process_file_watch_poll(&subject,fds[0],SRV_POLLOUT,g,true));
+    assert(process_file_watch_capture(&subject,fds[0],SRV_POLLNVAL,&g)<0);
+    assert(process_file_dup2(&subject,fds[0],8)==8);
+    assert(!process_file_watch_capture(&subject,8,SRV_POLLIN,&g));
+    assert(process_file_dup2(&subject,fds[0],8)==8); /* Even same endpoint has a new binding. */
+    assert(process_file_watch_poll(&subject,8,SRV_POLLIN,g,true)==SRV_POLLNVAL);
+    assert(!process_file_watch_capture(&subject,8,SRV_POLLIN,&g));
+    assert(!process_file_close(&subject,8) && process_file_dup2(&subject,fds[0],8)==8);
+    assert(process_file_watch_poll(&subject,8,SRV_POLLIN,g,false)==SRV_POLLNVAL);
+    subject.file_generations[8]=UINT64_MAX-1;
+    assert(!process_file_watch_capture(&subject,8,SRV_POLLIN,&g));
+    assert(!process_file_close(&subject,8) && process_file_dup2(&subject,fds[0],8)==8);
+    assert(subject.file_generations[8]==UINT64_MAX && process_file_watch_capture(&subject,8,SRV_POLLIN,&g)<0);
+    assert(!process_file_close(&subject,8));
+    assert(!process_file_close(&subject,fds[0]) && !process_file_close(&subject,fds[1]));
+    assert(!process_file_pipe(&subject,fds));
+    assert(!process_file_set_flags(&subject,fds[0],SRV_FD_NONBLOCK));
+    assert(!process_file_watch_capture(&subject,fds[0],SRV_POLLIN,&g));
+    assert(!process_file_watch_poll(&subject,fds[0],SRV_POLLIN,g,false));
+    assert(process_file_watch_capture(&subject,fds[0],SRV_POLLOUT,&g)<0);
+    assert(!process_file_close(&subject,fds[1]));
+    assert(process_file_watch_poll(&subject,fds[0],SRV_POLLIN,g,false)&SRV_POLLHUP);
+    assert(!process_file_close(&subject,fds[0]));
+    subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_NET_CONNECTION};
+    assert(process_file_watch_capture(&subject,3,SRV_POLLIN,&g)<0);
+    subject.files[3]=(struct process_file){0};
+    puts("process-watch: PASS pipe/PTY readiness, ownership deferral, close/dup2 ABA and generation exhaustion");
+}
 int main(void) {
+    watch_regression();
     rename_failure_regression();
     orphan_io_failure_regression();
     path_context_regression();

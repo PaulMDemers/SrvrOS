@@ -84,11 +84,24 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
     if(r==2) return 2;
     return app_check(a);
 }
+static int app_quiescent(const struct desk_app *a) {
+    return a && !a->connection && a->server && !a->closed && !a->failed && !a->dirty && !a->pending &&
+       a->surface && a->generation==a->configure.generation && !a->send_since && !a->menu_pending;
+}
+static int wait_io(uint64_t server,uint64_t *epoch,struct srv_gui_wait *r) {
+    if(!r)return -1;
+    r->abi_version=SRV_GUI_WAIT_VERSION;r->struct_size=sizeof(*r);r->server=server;r->cancel_epoch=*epoch;
+    int result=gui_wait_io(r);
+    if(result<0)return result;
+    *epoch=r->cancel_epoch;return (int)r->ready;
+}
 int desk_app_wait(struct desk_app *a,uint64_t ticks) {
-    if(!a || a->connection || !a->server || a->closed || a->failed || a->dirty || a->pending ||
-       !a->surface || a->generation!=a->configure.generation || a->send_since ||
-       a->menu_pending || ticks>100) return -1;
+    if(!app_quiescent(a) || ticks>100)return -1;
     return gui_wait(a->server,ticks);
+}
+int desk_app_wait_io(struct desk_app *a,struct srv_gui_wait *r) {
+    if(!app_quiescent(a))return -1;
+    return wait_io(a->server,&a->wait_epoch,r);
 }
 
 int desk_app_canvas(struct desk_app *a,struct desk_canvas *canvas) {
@@ -265,12 +278,20 @@ int desk_connection_poll(struct desk_connection *c,struct desk_app **target,stru
     if(a->closing && p.type!=DESK_RELEASE)return 2;
     r=app_receive(a,source,&p,event);*target=a;return r;
 }
-int desk_connection_wait(struct desk_connection *c,uint64_t ticks) {
-    if(!c || c->failed || !c->server || c->opening || ticks>100)return -1;
+static int connection_quiescent(struct desk_connection *c) {
+    if(!c || c->failed || !c->server || c->opening)return 0;
     for(struct desk_app *a=c->windows;a;a=a->next) {
         if(a->closed)continue;
         if(a->failed || a->closing || a->dirty || a->pending || !a->surface ||
-           a->generation!=a->configure.generation || a->send_since || a->menu_pending)return -1;
+           a->generation!=a->configure.generation || a->send_since || a->menu_pending)return 0;
     }
+    return 1;
+}
+int desk_connection_wait(struct desk_connection *c,uint64_t ticks) {
+    if(!connection_quiescent(c) || ticks>100)return -1;
     return gui_wait(c->server,ticks);
+}
+int desk_connection_wait_io(struct desk_connection *c,struct srv_gui_wait *r) {
+    if(!connection_quiescent(c))return -1;
+    return wait_io(c->server,&c->wait_epoch,r);
 }

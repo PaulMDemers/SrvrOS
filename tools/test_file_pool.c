@@ -93,17 +93,31 @@ static void retired(void) {
     for(int fd=100;fd<next_fd;fd++)assert(closed[fd]);
 }
 int main(void) {
+    reset();bind(0);
+    assert(!desk_file_job_start(&jobs[0],DESK_FILE_READ,"/fat/snapshot-reuse",NULL,0,0,0));
+    assert(finish(0)==1);
+    assert(!desk_file_job_start(&jobs[0],DESK_FILE_WRITE,jobs[0].request.path,jobs[0].incoming,19,0,0));
+    assert(!strcmp(jobs[0].request.path,"/fat/snapshot-reuse") && !memcmp(jobs[0].outgoing,"/fat/snapshot-reuse",19));
+    assert(finish(0)==1);retired();
     reset();hold_response=1;
     for(unsigned i=0;i<JOBS;i++) {
         bind(i);char value=(char)i;
         assert(!desk_file_job_start(&jobs[i],DESK_FILE_WRITE,"/fat/snapshot",&value,1,0,0));
         value=99;assert(jobs[i].outgoing[0]==i && jobs[i].busy);
     }
+    struct srv_gui_wait watch={0};
+    assert(desk_file_pool_interests(&pool,&watch)==0 && !watch.count); /* A free lease needs dispatch. */
     assert(!spawned && pool.bound==JOBS && pool.head==jobs && pool.tail==jobs+JOBS-1);
     assert(desk_file_job_submit(&jobs[39])==0 && !spawned); /* FIFO despite reverse polling. */
     for(int i=0;i<100;i++) { (void)desk_file_job_submit(&jobs[0]);(void)desk_file_job_submit(&jobs[1]); }
     assert(spawned==2 && pool.peak==2 && jobs[0].channel && jobs[1].channel);
     assert(!desk_file_job_submit(&jobs[2]) && !jobs[2].channel);
+    assert(desk_file_pool_interests(&pool,&watch)==1 && watch.count==2 && watch.fds[0].events==SRV_POLLIN && watch.fds[1].events==SRV_POLLIN);
+    size_t sent_before=jobs[0].sent;jobs[0].sent=0;
+    assert(desk_file_pool_interests(&pool,&watch)==1 && watch.fds[0].events==SRV_POLLOUT && watch.fds[0].fd==channels[0].writer);
+    jobs[0].sent=sent_before;jobs[0].received=sizeof(jobs[0].response);
+    assert(desk_file_pool_interests(&pool,&watch)==0); /* Complete header-only reply needs dispatch. */
+    jobs[0].received=0;
     assert(desk_file_job_detach(&jobs[0])<0 && desk_file_job_detach(&jobs[39])<0);
     desk_file_job_close(&jobs[39]);assert(jobs[39].busy && jobs[39].pool==&pool);
     assert(desk_file_pool_shutdown(&pool)<0 && !pool.closing && !workers[0].eof);
@@ -136,6 +150,7 @@ int main(void) {
     reset();bind(0);bind(1);bad_response=hold_exit=1;
     assert(!desk_file_job_start(&jobs[0],DESK_FILE_WRITE,"/fat/bad","x",1,0,0));
     assert(finish(0)<0 && channels[0].retiring && pool.live==1 && !pool.reaped);
+    assert(desk_file_pool_interests(&pool,&watch)==0);
     assert(!desk_file_job_start(&jobs[1],DESK_FILE_READ,"/fat/other",NULL,0,0,0));
     assert(finish(1)==1 && pool.peak==2); /* The poisoned worker still occupies its lease. */
     assert(!desk_file_job_detach(&jobs[0]) && !desk_file_job_detach(&jobs[1]));

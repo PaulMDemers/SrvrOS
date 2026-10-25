@@ -313,7 +313,10 @@ int main(int argc,char **argv) {
         /* Text has no periodic animation when quiescent. Queue readiness wakes
          * it immediately on input/release/close; keep job/clipboard/diagnostic
          * progress and unfinished publication on the existing one-tick path. */
-        if(t->role!=DESK_APP_TEXT || coexist || t->quit || t->closing ||
+        if(pooled && !t->quit && !t->closing && !t->clip.mode && !t->title_dirty) {
+            struct srv_gui_wait wait={.deadline_us=(uint64_t)srv_monotonic_us()+100000};
+            if(desk_file_pool_interests(&pool,&wait)!=1 || desk_app_wait_io(&t->window,&wait)<0)srv_sleep_ticks(1);
+        } else if(t->role!=DESK_APP_TEXT || coexist || t->quit || t->closing ||
            t->job.busy || t->clip.mode || t->title_dirty || desk_app_wait(&t->window,10)<0)
             srv_sleep_ticks(1);
     }

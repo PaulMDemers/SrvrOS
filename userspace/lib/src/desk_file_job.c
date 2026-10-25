@@ -57,6 +57,21 @@ int desk_file_pool_shutdown(struct desk_file_pool *p) {
     for(unsigned i=0;i<p->count;i++)channel_retire(p,&p->channels[i]);
     return p->live?0:1;
 }
+int desk_file_pool_interests(const struct desk_file_pool *p,struct srv_gui_wait *r) {
+    if(!p || !p->channels || !r)return -1;
+    r->count=0;
+    for(unsigned i=0;i<p->count;i++) {
+        const struct desk_file_channel *c=&p->channels[i];
+        const struct desk_file_job *j=c->owner;
+        if(c->retiring || (p->head && !j))return 0;
+        if(!j)continue;
+        if(j->received>=sizeof(j->response) && j->received==sizeof(j->response)+j->response.length)return 0;
+        if(r->count==SRV_GUI_WAIT_FDS)return -1;
+        int writing=j->sent<sizeof(j->request)+j->request.length;
+        r->fds[r->count++]=(struct srv_gui_wait_fd){.fd=writing?c->writer:c->reader,.events=writing?SRV_POLLOUT:SRV_POLLIN};
+    }
+    return 1;
+}
 static void dequeue(struct desk_file_job *j) {
     struct desk_file_pool *p=j->pool;p->head=j->queued_next;
     if(!p->head)p->tail=NULL;
@@ -95,10 +110,13 @@ int desk_file_job_start(struct desk_file_job *j,unsigned operation,const char *p
     const void *data,size_t length,unsigned flags,uint32_t expected_crc) {
     if(j->busy || (j->pool?(j->pool->closing || j->pool->next_id==UINT32_MAX):(j->broken || !j->pid || j->next_id==UINT32_MAX)) || !path || path[0]!='/' || strlen(path)>=DESK_FILE_PATH ||
        length>DESK_FILE_BYTES || (length && !data) || !desk_file_payload_valid(operation,(unsigned)length,flags)) return -1;
+    /* Reusing a prior request path or incoming/outgoing slice is valid. Snapshot
+     * before resetting headers; memmove also covers overlapping output slices. */
+    char saved_path[DESK_FILE_PATH];strcpy(saved_path,path);
+    if(length)memmove(j->outgoing,data,length);
     j->request=(struct desk_file_request){.magic=DESK_FILE_MAGIC,.id=j->pool?++j->pool->next_id:++j->next_id,
         .operation=operation,.length=length,.flags=flags,.expected_crc=expected_crc};
-    strcpy(j->request.path,path);
-    if(length) memcpy(j->outgoing,data,length);
+    strcpy(j->request.path,saved_path);
     j->response=(struct desk_file_response){0};j->sent=j->received=0;j->busy=1;j->broken=0;
     if(j->pool) {
         j->queued_next=NULL;

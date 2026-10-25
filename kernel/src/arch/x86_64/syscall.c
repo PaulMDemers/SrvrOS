@@ -2498,6 +2498,67 @@ static int64_t syscall_gui_wait_common(uint64_t server,uint64_t ticks,bool compo
     }
 }
 
+/* All snapshots stay on the waiting thread's kernel stack. The scheduler only
+ * calls this predicate synchronously on that thread, with IRQs masked, before
+ * registering it on the common GUI/file/signal wake queue. */
+struct gui_io_wait {
+    struct process *process;
+    struct srv_gui_wait request;
+    uint64_t generations[SRV_GUI_WAIT_FDS],expected_epoch;
+};
+static bool gui_io_wait_ready(void *arg) {
+    struct gui_io_wait *wait=arg;
+    struct srv_gui_wait *r=&wait->request;
+    uint64_t irq=irq_save();
+    r->ready=gui_client_wait_state(r->server,wait->expected_epoch,&r->cancel_epoch);
+    bool deferred=scheduler_io_busy();
+    for(unsigned i=0;i<r->count;i++) {
+        r->fds[i].revents=process_file_watch_poll(wait->process,r->fds[i].fd,
+            r->fds[i].events,wait->generations[i],deferred);
+        if(r->fds[i].revents)r->ready|=SRV_GUI_FD_READY;
+    }
+    if(!r->ready && timer_monotonic_us()>=r->deadline_us)r->ready=SRV_GUI_DEADLINE;
+    bool ready=r->ready || process_should_exit_current() || process_signal_pending_current();
+    irq_restore(irq);return ready;
+}
+static int64_t syscall_gui_wait_io(struct srv_gui_wait *user) {
+    struct gui_io_wait wait={.process=process_current()};
+    struct srv_gui_wait *r=&wait.request;
+    if(!user_buffer_ok(user,sizeof(*user),true) || !copy_from_user(r,user,sizeof(*r)) ||
+       r->abi_version!=SRV_GUI_WAIT_VERSION || r->struct_size!=sizeof(*r) ||
+       !r->server || r->count>SRV_GUI_WAIT_FDS)return -1;
+    uint64_t now=timer_monotonic_us();
+    if(r->deadline_us>now && r->deadline_us-now>SRV_GUI_WAIT_MAX_US)return -1;
+    wait.expected_epoch=r->cancel_epoch;
+    for(unsigned i=0;i<r->count;i++) {
+        if(r->fds[i].reserved || process_file_watch_capture(wait.process,r->fds[i].fd,
+            r->fds[i].events,&wait.generations[i]))return -1;
+    }
+#ifndef SRVROS_SYSCALL_POLL_HOST_TEST
+    __asm__ volatile ("sti" : : : "memory");
+#endif
+    for(;;) {
+        if(process_should_exit_current())return -1;
+        if(process_signal_pending_current())return SRV_ERR_INTR;
+        if(gui_io_wait_ready(&wait)) {
+            if(process_should_exit_current())return -1;
+            if(process_signal_pending_current())return SRV_ERR_INTR;
+            return copy_to_user(user,r,sizeof(*r))?0:-1;
+        }
+        now=timer_monotonic_us();
+        if(now>=r->deadline_us)continue;
+        uint64_t remaining=r->deadline_us-now;
+        uint64_t ticks=remaining/10000+(remaining%10000!=0);
+        /* Try pipe/PTY I/O is deferred while storage owns the kernel. Continue
+         * servicing GUI now; recheck deferred endpoints in at most one tick.
+         * Never enter the general filesystem gate from this metadata wait. */
+        if(scheduler_io_busy() && ticks>1)ticks=1;
+        uint64_t start=timer_ticks();
+        uint64_t end=ticks>UINT64_MAX-start?UINT64_MAX:start+ticks;
+        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),gui_io_wait_ready,&wait,end))scheduler_yield();
+    }
+}
+
 static int64_t syscall_gui_wait(uint64_t server,uint64_t ticks) {
     return syscall_gui_wait_common(server,ticks,false);
 }
@@ -2580,6 +2641,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
      * Mapping/spawn/kill remain gated. */
+    case SYS_GUI_WAIT_IO: case SYS_GUI_CANCEL_WAIT:
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_BATTERY_CONTROL: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
@@ -2870,6 +2932,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GUI_SERVER_WAIT:
         frame->rax=(uint64_t)syscall_gui_server_wait(frame->rdi);
+        return;
+    case SYS_GUI_WAIT_IO:
+        frame->rax=(uint64_t)syscall_gui_wait_io((struct srv_gui_wait *)frame->rdi);
+        return;
+    case SYS_GUI_CANCEL_WAIT:
+        frame->rax=(uint64_t)gui_cancel_wait();
         return;
     case SYS_GUI_WAIT:
         frame->rax=(uint64_t)syscall_gui_wait(frame->rdi,frame->rsi);

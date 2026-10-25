@@ -59,7 +59,9 @@ static void draw_app(struct gui2_window *window, const char *mode) {
 }
 
 int gui_queue_capture(void);
+int gui_wait_capture(void);
 int main(int argc, char **argv) {
+    if(argc==2 && streq(argv[1],"--wait"))return gui_wait_capture();
     if(argc==2 && streq(argv[1],"--queues"))return gui_queue_capture();
     if (argc==2 && streq(argv[1],"--keyboard-events")) {
         if (gui_keyboard_mode(1)!=-1 || gui_register_server()!=0 || gui_keyboard_mode(1)!=0) return 1;

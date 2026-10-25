@@ -12,7 +12,7 @@
  * shutdown; disposal cannot assume a still-live server released its surfaces. */
 struct desk_connection {
     struct desk_app *windows,*cursor,*opening;
-    uint64_t server,next_window;
+    uint64_t server,next_window,wait_epoch;
     int failed,disconnected;
 };
 void desk_connection_init(struct desk_connection *connection);
@@ -30,4 +30,7 @@ void desk_window_close(struct desk_app *window);
 int desk_window_dispose(struct desk_app *window);
 /* Caller must also exclude its jobs/timers. All windows must be quiescent. */
 int desk_connection_wait(struct desk_connection *connection,uint64_t ticks);
+/* Quiescent windows plus explicit nonblocking pipe/PTY interests. No second
+ * GUI reader; cancel updates the connection token, not any file operation. */
+int desk_connection_wait_io(struct desk_connection *connection,struct srv_gui_wait *request);
 #endif

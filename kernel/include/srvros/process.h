@@ -203,6 +203,10 @@ int64_t process_file_recv_rights(struct process *process,
     uint64_t capacity,
     uint64_t *flags_out);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
+/* GUI wait snapshots only explicit nonblocking pipe/PTY endpoints. Replaced
+ * descriptor numbers report NVAL; readiness is suppressed during owned I/O. */
+int process_file_watch_capture(struct process *process,int64_t fd,uint16_t events,uint64_t *generation);
+uint16_t process_file_watch_poll(struct process *process,int64_t fd,uint16_t events,uint64_t generation,bool deferred);
 struct scheduler_wait_queue *process_file_poll_wait_queue(void);
 void process_file_poll_wake(void);
 int64_t process_handle_alloc(struct process *process,

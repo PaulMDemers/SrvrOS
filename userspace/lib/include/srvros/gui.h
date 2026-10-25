@@ -2,6 +2,7 @@
 #define SRVROS_USER_GUI_H
 
 #include <stdint.h>
+#include <srvros/gui_wait.h>
 #include <srvros/key_event.h>
 #include <srvros/pointer_config.h>
 #include <srvros/audio_abi.h>
@@ -61,6 +62,10 @@ int gui_send(const struct gui_message *message);
 int gui_recv(struct gui_message *message);
 /* Interruptible client readiness, at most 100 ticks. Does not consume a message. */
 int gui_wait(uint64_t expected_server,uint64_t ticks);
+/* 0 ready set copied back, negative error/interrupt. Does not consume data.
+ * Cancel wakes all waits in this process; it does not cancel accepted I/O. */
+int gui_wait_io(struct srv_gui_wait *request);
+long gui_cancel_wait(void);
 /* Server only: wait for messages/structured keys/pointer, maximum 10 ticks. */
 int gui_server_wait(uint64_t ticks);
 int gui_surface_create(uint64_t width, uint64_t height, uint64_t flags, uint64_t *surface_id_out);

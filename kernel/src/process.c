@@ -244,6 +244,7 @@ struct process {
     struct process_context context;
     struct fpu_state fpu;
     struct process_file files[PROCESS_MAX_OPEN_FILES];
+    uint64_t file_generations[PROCESS_MAX_OPEN_FILES];
     struct process_mapping mappings[PROCESS_MAX_MAPPINGS];
     uint64_t mapping_count;
     struct process_mmap_region mmap_regions[PROCESS_MAX_MMAP_REGIONS];
@@ -4889,6 +4890,32 @@ static bool file_lock_wait_ready(void *arg) {
     return process_signal_pending_current();
 }
 
+static bool file_watch_supported(struct process *process,int64_t fd,uint16_t events) {
+    if(!events || (events&~(SRV_POLLIN|SRV_POLLOUT)))return false;
+    struct process_file *file=process_file_at(process,(uint64_t)fd);
+    if(!file || !process_file_nonblocking(process,fd))return false;
+    if(file->type==PROCESS_FILE_PIPE_READ)return events==SRV_POLLIN;
+    if(file->type==PROCESS_FILE_PIPE_WRITE)return events==SRV_POLLOUT;
+    return file->type==PROCESS_FILE_PIPE_DUPLEX || file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE;
+}
+int process_file_watch_capture(struct process *process,int64_t fd,uint16_t events,uint64_t *generation) {
+    uint64_t irq=process_irq_save();int result=-1;
+    if(generation && file_watch_supported(process,fd,events) && process->file_generations[fd]!=UINT64_MAX) {
+        *generation=process->file_generations[fd];result=0;
+    }
+    process_irq_restore(irq);return result;
+}
+uint16_t process_file_watch_poll(struct process *process,int64_t fd,uint16_t events,uint64_t generation,bool deferred) {
+    uint64_t irq=process_irq_save();uint16_t result=SRV_POLLNVAL;
+    if(file_watch_supported(process,fd,events) && generation!=UINT64_MAX && process->file_generations[fd]==generation)
+        result=deferred?0:process_file_poll(process,fd,events);
+    process_irq_restore(irq);return result;
+}
+static void file_generation_invalidate(struct process *process,uint64_t fd) {
+    if(process->file_generations[fd]!=UINT64_MAX)process->file_generations[fd]++;
+    process_file_poll_wake();
+}
+
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events) {
     if (process == NULL) {
         return SRV_POLLNVAL;
@@ -5233,7 +5260,7 @@ static int64_t process_file_dup_replace(struct process *process, uint64_t old_fd
     replacement.flags&=~SRV_FD_CLOEXEC;
     if(cloexec) replacement.flags|=SRV_FD_CLOEXEC;
     struct process_file retired=process->files[new_fd];
-    process->files[new_fd]=replacement;
+    process->files[new_fd]=replacement;file_generation_invalidate(process,new_fd);
     process_irq_restore(irq);
     if(retired.used) (void)process_file_close_entry(process,&retired);
     return (int64_t)new_fd;
@@ -5558,6 +5585,7 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
     struct process_file *file=process_file_at(process,fd);
     if(!file) { process_irq_restore(irq);return SRV_ERR_BADF; }
     struct process_file retired=*file;*file=(struct process_file){0};
+    file_generation_invalidate(process,fd);
     process_irq_restore(irq);
     return process_file_close_entry(process,&retired);
 }
