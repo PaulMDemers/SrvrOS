@@ -1,6 +1,46 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
+
+### Active desktop runtime work
+
+PR134 is merged as `7a00518`; this branch consumes that exact shared baseline.
+The native POSIX capture below is complete. Branch:
+`device/macbookair7-2/desktop-runtime`. Overnight work is host/QEMU only; no
+laptop reboot or boot-install changes before 10:00 AM America/New_York on
+October 25, and no automatic reboot scheduled for that time.
+
+First scope (D0): eliminate the separate eight-peer clipboard ceiling by owning
+transfer state with each admitted desktop client, cover many clients and queue
+pressure, and document resource/refusal behavior. Touch compositor clipboard,
+client lifecycle, shared budget definitions and host/VM tests. Next D1 adds
+connection/window identity and a single dispatcher, with multiwindow Text as
+its consumer; dynamic window storage follows identity. The existing
+[desktop API plan](../desktop-api-evolution.md) owns the sequence and gates.
+Pro PR19 at `2674fa7` remains separate Wi-Fi work. Shared kernel transport changes
+will be published explicitly before D1. Evidence/checkpoints:
+`build/desktop-overnight-20261025/`, backed up outside build. Actions stay disabled;
+serialize all builds and VM harnesses. Existing native acceptance remains scoped
+to its recorded releases.
+
+D0 runtime `18d92f1` passes full desktop host tests and image build. The
+32-owner clipboard fixture covers 64 KiB transfers, blocked readers, focus
+refusal, writer timeout and slot reuse; compositor tests cover retiring a writer
+before its client record is cleared. The corrected mixed-app VM now passes
+sixteen real clipboard connections, seventeenth launch refusal, slot reuse,
+exact cross-client saved contents, screenshot and full process/cache cleanup.
+Existing mixed-capacity and desktop app regressions also pass, including saved
+file contents and process/cache retirement. The standalone capacity rerun exits
+zero; an earlier combined wrapper ended with143 after printing the complete
+capacity PASS and before launching the next test. Both receipts are retained.
+
+The first all-Text run reached thirteen clients: clipboard worked, but the
+thirteenth file worker was unavailable. Its document stayed intact and the UI
+reported the refusal. Keep that result as a separate process/worker capacity
+limit for the shared application runtime; the mixed clipboard pass does not
+accept sixteen simultaneous file workers. An intermediate fixture expected
+empty-selection Copy to send a request; the UI correctly sends none. That
+fixture was corrected to nonempty data. Failed receipts remain local.
 
 ### Native POSIX regression accepted
 

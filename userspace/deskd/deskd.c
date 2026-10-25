@@ -26,7 +26,7 @@ static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
 struct pixel_cache { uint32_t *pixels,width,height; };
-#define DESKD_CACHE_BUDGET (96ull*1024*1024)
+#define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
     uint64_t pid,generation,progress,present_input;
     int configure,awaiting,closing,close_requested,preferences_dirty;
@@ -40,6 +40,7 @@ struct client {
     uint64_t control_since;
     int control_blocked,close_sent,pointer_cancel_pending;
     struct desk_menu_store menus;
+    struct desk_clipboard_peer clipboard;
     char launch_path[160];
     unsigned launch_length,launch_application;
     uint64_t notice_last,notice_at,notice_ack_serial;
@@ -75,6 +76,18 @@ struct session {
     struct pixel_cache cache[DESKD_WINDOWS][2];
     uint64_t cache_bytes,cache_peak,memory_notice_at,memory_notice_serial;
 };
+/* Trace the separate owners rather than interpreting a launch count as memory. */
+static void resource_trace(const struct session *s,const char *reason) {
+    if(!s->trace) return;
+    unsigned clients=0,children=0,peers=0;
+    for(unsigned i=0;i<DESKD_WINDOWS;i++) {
+        clients+=s->clients[i].pid!=0;children+=s->children[i]!=0;
+        peers+=s->clients[i].clipboard.pid!=0;
+    }
+    desk_log("deskd: resources reason=%s clients=%u children=%u clipboard_peers=%u window_limit=%u cache_bytes=%llu cache_budget=%llu gui_queues=%u gui_queue_depth=%u gui_surfaces=%u\n",
+        reason,clients,children,peers,DESKD_WINDOWS,(unsigned long long)s->cache_bytes,
+        (unsigned long long)DESKD_CACHE_BUDGET,DESK_GUI_QUEUES,DESK_GUI_QUEUE_DEPTH,DESK_GUI_SURFACES);
+}
 /* Only live windows own caches. A private spare receives each whole frame;
  * published pixels remain untouched until copy succeeds. Budget includes both. */
 static void cache_drop(struct session *s,int i,int j) {
@@ -230,7 +243,7 @@ static void focus(struct session *s,int i) {
 }
 static void forget(struct session *s,int i) {
     if((s->scene.launcher_open || s->scene.calendar_open) && s->overlay_return==i) s->overlay_return=-1;
-    desk_clipboard_forget(&clipboard,s->clients[i].pid);
+    desk_clipboard_forget(&clipboard,&s->clients[i].clipboard);
     if (s->pointer_pid==s->clients[i].pid && s->pointer_pid) {
         s->pointer_pid=0; s->pointer_blocked=1;
     }
@@ -239,6 +252,7 @@ static void forget(struct session *s,int i) {
     desk_log("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
     cache_retire(s,i);
     memset(w,0,sizeof(*w)); memset(&s->clients[i],0,sizeof(s->clients[i]));
+    resource_trace(s,"retired");
     if(s->scene.apps) desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
     if (s->scene.focus==i) {
         focus(s,-1);
@@ -359,10 +373,11 @@ static void spawn_app(struct session *s,int application,const char *path) {
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         long pid=srv_exec(&request);
         if(pid>0) { s->children[i]=pid;s->child_apps[i]=application;s->scene.notice[0]=0; }
-        else strcpy(s->scene.notice,"The application could not be opened.");
+        else { strcpy(s->scene.notice,"The application could not be opened.");resource_trace(s,"process-launch"); }
         desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
         return;
     }
+    resource_trace(s,"launch-capacity");
     strcpy(s->scene.notice,"Close a window before opening another application.");
     desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
 }
@@ -814,9 +829,9 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     if (i==DESKD_WINDOWS) {
         if (p->type!=DESK_OPEN || !known_child(s,pid)) return;
         for (i=0;i<DESKD_WINDOWS;i++) if (!s->clients[i].pid) break;
-        if (i==DESKD_WINDOWS) return;
+        if (i==DESKD_WINDOWS) { resource_trace(s,"window-capacity");return; }
         struct desktop_window *w=&s->scene.windows[i];
-        s->clients[i].pid=pid;s->clients[i].preferences_dirty=s->scene.apps;
+        s->clients[i].pid=pid;s->clients[i].clipboard.pid=pid;s->clients[i].preferences_dirty=s->scene.apps;
         w->visible=1;
         for(int n=0;n<DESKD_WINDOWS;n++) if(s->children[n]==pid) w->application=s->child_apps[n];
         w->frame.x=32+24*(i%4); w->frame.y=64+24*(i%4);
@@ -828,6 +843,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
             s->damage.height-w->frame.y-(s->scene.apps?125:85):DESK_MAX_HEIGHT))) { close_client(s,i);return; }
         focus(s,i);
         desk_log("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
+        resource_trace(s,"opened");
         return;
     }
     struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
@@ -850,7 +866,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         return;
     }
     if(p->type==DESK_CLIPBOARD_SET || p->type==DESK_CLIPBOARD_GET) {
-        if(s->scene.apps || s->ram_text) desk_clipboard_request(&clipboard,pid,s->scene.focus==i,p,srv_ticks());
+        if(s->scene.apps || s->ram_text) desk_clipboard_request(&clipboard,&c->clipboard,s->scene.focus==i,p,srv_ticks());
         return;
     }
     if(p->type==DESK_AUDIO) {
@@ -1017,7 +1033,7 @@ static void service(struct session *s) {
             c->input_since=srv_ticks();c->input_blocked=0;
         }
         if(!c->input_count || c->configure || c->closing) c->input_blocked=0;
-        if((s->scene.apps || s->ram_text) && !c->closing) desk_clipboard_service(&clipboard,c->pid,srv_ticks());
+        if((s->scene.apps || s->ram_text) && !c->closing) desk_clipboard_service(&clipboard,&c->clipboard,srv_ticks());
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
         uint64_t status=0;
@@ -1039,13 +1055,12 @@ static int session_quiescent(const struct session *s) {
     if(s->exiting || s->damage.count || s->capture.busy || s->capture_pending ||
        s->preferences.loading || s->preferences.dirty || s->preferences.job.busy ||
        s->pointer_pid || s->pointer_blocked || clipboard.writer) return 0;
-    for(unsigned i=0;i<DESK_CLIPBOARD_PEERS;i++)
-        if(clipboard.peers[i].reading || clipboard.peers[i].reply.type) return 0;
     for(unsigned i=0;i<DESKD_WINDOWS;i++) {
         const struct client *c=&s->clients[i];
         if(s->children[i] && !c->pid) return 0;
         if(!c->pid) continue;
-        if(c->configure || c->awaiting || c->closing || c->close_requested ||
+        if(c->clipboard.reading || c->clipboard.reply.type ||
+           c->configure || c->awaiting || c->closing || c->close_requested ||
            c->preferences_dirty || c->release.type || c->brightness_reply.type ||
            c->audio_reply.type || c->input_count || c->input_blocked ||
            c->control_blocked || c->pointer_cancel_pending || c->notice_ack_pending) return 0;

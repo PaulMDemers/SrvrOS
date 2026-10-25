@@ -161,9 +161,9 @@ static void idle_admission(void) {
     s.capture.busy=1;assert(!session_quiescent(&s));s.capture.busy=0;
     s.capture_pending=1;assert(!session_quiescent(&s));s.capture_pending=0;
     s.pointer_pid=42;assert(!session_quiescent(&s));s.pointer_pid=0;
-    clipboard.writer=42;assert(!session_quiescent(&s));clipboard.writer=0;
-    clipboard.peers[0].reply=desk_packet_new(DESK_CLOSE);
-    assert(!session_quiescent(&s));memset(&clipboard,0,sizeof(clipboard));
+    clipboard.writer=&s.clients[0].clipboard;assert(!session_quiescent(&s));clipboard.writer=0;
+    s.clients[0].clipboard.reply=desk_packet_new(DESK_CLOSE);
+    assert(!session_quiescent(&s));memset(&s.clients[0].clipboard,0,sizeof(s.clients[0].clipboard));
     assert(session_quiescent(&s));sends=0;
 }
 static void buffer_budget(void) {
@@ -203,6 +203,28 @@ static void resize_refusal(void) {
     incoming(&s,42,&p);assert(s.clients[0].generation==generation+1); /* Stale refusal. */
     cache_free(&s);
 }
+static void clipboard_client_retirement(void) {
+    struct session s={.scene={.focus=-1,.apps=1},.children={42}};
+    memset(&clipboard,0,sizeof(clipboard));alive=1;queue_full=0;sends=0;
+    desk_damage_init(&s.damage,800,600);
+    struct desk_packet q=desk_packet_new(DESK_OPEN);q.width=400;q.height=280;
+    incoming(&s,42,&q);assert(s.clients[0].clipboard.pid==42);
+    assert(!desk_clipboard_write_local(&clipboard,"retained",8));
+    q=desk_packet_new(DESK_CLIPBOARD_SET);q.serial=81;q.width=100;q.height=3;memcpy(q.text,"new",3);
+    incoming(&s,42,&q);assert(clipboard.writer==&s.clients[0].clipboard);
+    /* Client close retires clipboard ownership before clearing its storage. */
+    q=desk_packet_new(DESK_CLOSE);incoming(&s,42,&q);
+    assert(!clipboard.writer && !s.clients[0].clipboard.pid && !s.clients[0].clipboard.reply.type);
+    assert(clipboard.length==8 && !memcmp(clipboard.data,"retained",8));
+    q=desk_packet_new(DESK_OPEN);q.width=400;q.height=280;incoming(&s,42,&q);
+    assert(s.clients[0].clipboard.pid==42 && !s.clients[0].clipboard.request);
+    q=desk_packet_new(DESK_CLIPBOARD_GET);q.serial=82;incoming(&s,42,&q);
+    assert(s.clients[0].clipboard.reading);
+    queue_full=1;desk_clipboard_service(&clipboard,&s.clients[0].clipboard,now);
+    assert(s.clients[0].clipboard.reading && !s.clients[0].clipboard.offset);
+    forget(&s,0);assert(!s.clients[0].clipboard.reading && !s.clients[0].clipboard.pid);
+    queue_full=0;sends=0;memset(&clipboard,0,sizeof(clipboard));
+}
 int main(void) {
     buffer_budget();resize_refusal();
     idle_admission();
@@ -214,6 +236,7 @@ int main(void) {
     struct desk_packet p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     strcpy(p.text,"Test"); incoming(&s,42,&p); service(&s);
     assert(s.clients[0].awaiting && !s.clients[0].configure && sends==1 && sent[0]==DESK_CONFIGURE);
+    assert(s.clients[0].clipboard.pid==42);
     p=desk_packet_new(DESK_COMMIT); p.generation=1; p.surface=7; p.serial=1; p.width=400; p.height=280; p.input_serial=5;
     incoming(&s,42,&p);
     assert(s.scene.windows[0].pixels && !s.clients[0].awaiting && s.clients[0].present_input==5);
@@ -495,6 +518,7 @@ int main(void) {
     assert(!failed.children[4] && strstr(failed.scene.notice,"could not be opened"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
+    clipboard_client_retirement();
     delayed_control_delivery();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;

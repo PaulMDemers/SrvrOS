@@ -12,6 +12,12 @@
 #define DESK_MAX_HEIGHT 900
 #define DESK_CLIPBOARD_BYTES 65536
 #define DESK_MAX_WINDOWS 16
+/* Current admission budgets; distinct pools, not promises of available RAM. */
+#define DESK_GUI_QUEUES (DESK_MAX_WINDOWS+16)
+#define DESK_GUI_QUEUE_DEPTH 64
+#define DESK_GUI_SURFACES (DESK_MAX_WINDOWS*4)
+#define DESK_INPUT_QUEUE 64
+#define DESK_CACHE_BYTES (96ull*1024*1024)
 #define DESK_RELEASE_RETRY 1u
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
