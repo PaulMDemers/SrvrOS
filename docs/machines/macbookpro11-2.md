@@ -5925,3 +5925,17 @@ receipts and full evidence are archived with the payload under
 Ubuntu default, consumed one-shot and installed/known-good recovery payload
 hashes verified. Offline workspace clean275files/661clusters/111directories,
 zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
+
+
+Active scope (2026-10-25): v67 fixed68-entry RF bank5 observation, requiring the
+exact complete central44-entry profile (43 matches; only0:6 read00). Write bank5
+in reference order, then read all68 targets; maintain exact command/guard proof
+and mismatch accounting, without register/radio acceptance or calibration.
+Reuse the bounded two-pass mechanism with independently fixed central/bank5
+plans; preserve all prior recipes and the original strict engine. Touch MCU/xHCI,
+opt-in v67 staging/collector tests and startup logging: full receipts require a
+separate256KiB opt-in window, preserving64KiB ordinary/128KiB existing capture
+behavior and refusing lost prefixes. No unrelated main logging edits overlap as
+fetched (`a6d43616`); desktop runtime work remains separate. Integration base is
+`d5bc4b3`. Publish fault tests, exact-stage VM recovery and an unarmed candidate
+before the next attended cold cycle. No RF0:22 trim, bank6, DAC/VCO or traffic.
