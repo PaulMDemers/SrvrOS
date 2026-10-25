@@ -55,8 +55,14 @@ completion markers were saved. Strict validation, consumed one-shot, Ubuntu
 default and installed/recovery hashes passed. Latest offline workspace checks:
 281files/673clusters/114directories, zero leaks, mismatches or errors;
 unmounted. This is command/guard/readback evidence, not calibrated radio
-acceptance. Next: bounded reference bandwidth/band initialization, before
-frequency trim, DAC/VCO calibration and scanning. No reboot is armed.
+acceptance.
+
+Candidate `e75a52b56efa282b` (source `b4be310b`) is installed unarmed for the
+fixed19-target default20MHz/G-band RF initialization observation. Full local,
+regression and sanitizer checks, exact-stage GPT VM save/return and
+missing-workspace recovery passed. Next: attended cold adapter cycle, then
+collect matching release/session FIRST. Frequency trim, DAC/VCO calibration,
+scanning and connectivity remain later steps. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6212,3 +6218,26 @@ bank5/bank6 and logger regressions passed with the optional private address
 representation. New G20 engine and full VGA prerequisite validator both passed
 ASan/UBSan. Documentation links checked cleanly. Exact-stage GPT save/return
 and missing-workspace checks precede installation; native G20 pending.
+
+
+Default G20 source `b4be310b1ba3a13e88ecf8067927188d37605f66`, release
+`e75a52b56efa282b`, installed unarmed. Full build, Wi-Fi/old-plan/logger
+regressions and ASan/UBSan for the mixed-bank engine and complete VGA proof
+validator passed. All1079 malformed full-prefix cases were refused; four valid
+patterns fit at most235613bytes. Exact-stage GPT VM saved and byte-verified
+capture, passed offline exFAT checks and returned automatically with the
+selected tail_limit262144 confirmed. Missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` remain, as does completed VGA
+release `de89daa6bdc3024e`. Older bank6 `7b329891c0606f1c` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+281files/673clusters/114directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned reference, fault/strict/sanitizer/regression checks, both VM
+receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-g20-b4be310/`.
+
+On return collect matching release/session FIRST. Require full prior central+
+bank5+bank6+VGA proof, all38 G20 command replies,76 guard triplets,19 indexed
+observations, exact mismatch accounting and complete startup prefix with both
+completion markers. No channel-frequency plan, trim, DAC/VCO or traffic in
+this trial. No reboot armed; native default G20 results pending.
