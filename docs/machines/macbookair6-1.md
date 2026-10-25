@@ -2802,3 +2802,27 @@ authorized thirty-minute automatic native audio/disk/Text–Files–System stres
 with listening only, automatic Ubuntu return and collection. Preserve accepted
 recovery and the prior failed run; require complete matching receipts before
 claiming hardware acceptance.
+
+### I/O handoff native stress return — 2026-10-25 (failed)
+
+Release `95f8a9cf59b25ba1` / compiled source `74939958` (PR167) returned matching
+session `session-00065eb25dc59f36-00`. Thirty-four automatic Text/Files/System
+cycles completed; the next Files cycle became ready after 7,991,615 us and hit
+the unchanged whole-cycle deadline at 10,000,506 us during close/reap. Its
+window was still present at the deadline. The process subsequently exited zero
+during teardown. The run ended after roughly 2.5 minutes without a final
+workload receipt, so thirty-minute endurance and the latency fix remain unaccepted.
+
+The loop maximum was 110,744 us, completed close/reap maximum 5,571,788 us, and
+PCM recorded zero underruns. Files' final OPEN request reached compositor
+admission in 794 us; most startup delay preceded that request. This narrows
+the next investigation to app bootstrap/allocation and close/retirement timing
+under sustained disk contention, without proving the remaining kernel cause.
+Keep the ten-second whole-cycle, client deadlines and 500 ms loop bound intact.
+
+Battery epoch 1 retired cleanly with 862 queries, eight notifications and zero
+heap/errors/denied. All 350 prior USB files are preserved except expected workspace
+metadata. Offline fsck/allocation pass: 355 files, 1,019 clusters, zero leaks,
+bitmap mismatches or errors. Matching evidence and diagnosis are backed up
+outside build with verified hashes. Ubuntu returned, next_entry is empty and
+the collector is disabled; no new reboot is armed. Integration remains `b537c2a2`.
