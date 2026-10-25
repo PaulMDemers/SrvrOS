@@ -2,43 +2,39 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Automated document candidate installed — awaiting return
+### Automated many-app documents accepted
 
-Release `f01d4049daae0b4a`, clean source `044d0b4`, is installed with recovery
-`9aa8dbf6fbda8252` and Ubuntu default retained. Exact GRUB → staged Limine/native
-Q35 rehearsal passes two 24-process rounds, ten exact `AA` files, both shared
-chooser transport checks, normal Text/pool retirement, screenshots, full service
-cleanup, offline allocation and automatic return. The opaque guest progress
-banner was visually checked. Native battery-profile refusal in Q35 is expected;
-physical document acceptance remains pending. No human input is needed.
+Release `f01d4049daae0b4a`, clean source `044d0b4`, passed both automatic native
+rounds on October 25 and returned to Ubuntu. Sessions
+`session-00065eaef7987f3c-00` and `session-00065eaefa2f6651-00` each rendered 24
+independent app processes, acknowledged 60 editing/clipboard inputs in the
+ordinary pooled Text runtime, saved/stat'ed/renamed/cleared/reread five files,
+and passed legacy/pooled chooser submitted-cancel/drain/reopen/stale checks.
+All ten files contain exact `AA` bytes in distinct fresh Home directories.
+Both 1440×900 screenshots show the reopened fifth document and readable progress
+banner. Each round reaped all 24 children normally, drained its lifetime (peak
+32 descendants), and retired battery service with zero heap/errors/denials and
+zero rejected samples. Collector attention is empty for both sessions.
 
-Local builds/desktop suite, collector tests and docs links pass; low-memory
-admission-failure VM saved failure and returned with clean allocation. All 1,081
-prior USB files were rehashed unchanged since collection. Candidate, previous
-payload and evidence have independent backups outside build. An obsolete,
-unreferenced EFI payload was archived and hash-verified before freeing space;
-current/recovery were preserved. See `build/documents-native-20261025/run.json`
-for authoritative installation/reboot state. On return require both document
-receipts, five exact files in each fresh directory, both screenshots, native
-retirement and prior-file/offline-allocation checks before accepting the run.
+All 1,080 prior non-metadata files retained their hashes; only `.srvros/meta`
+changed. Ten document files, eight logs and two screenshots were added. Offline
+read-only fsck/allocation/headroom passes: 1,101 files, 2,792 clusters, zero leaks,
+bitmap mismatches or errors. Current payload, independent recovery
+`9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot were verified after return.
+No reboot is armed. Installed current remains the explicit automatic diagnostic.
+Evidence/run records are in `build/documents-native-20261025/`, with hash-verified
+backup under the unit's `reviewed-evidence` directory outside build.
 
-### Active automated document/capacity round
-
-User reports mid-20s windows and sensors working on `80904d5e5fd6f6ac` but did
-not see chat instructions before reboot. Future attended instructions must be
-visible in the guest or acknowledged before reboot. The requested follow-up is
-unattended: extend the explicit v73 capacity capture with actual Text runtime
-editing/clipboard acknowledgements, five fresh USB save/rename/reread files and
-shared chooser cancel/drain/reopen checks while 24 processes are live. Display
-progress inside SrvrOS, persist receipts/screenshots and return automatically.
-Do not count synthetic events as physical input acceptance.
-
-Base main `6e06bfb` (Air6,1 endurance harness integrated); Pro PR19 at `c417313`
-remains Wi-Fi work. Scope: deskd diagnostic, Text diagnostic hooks shared with
-ordinary runtime, chooser fixture, existing v73 harness/collection and guides.
-No firmware gate changes. PR155 will describe this revised scope; exact stage,
-recovery, USB checks and durable run record precede the authorized reboot.
-Evidence: `build/documents-native-20261025/`.
+PR155 publishes the diagnostic, visible progress and instruction-delivery rule.
+Matched builds/desktop suite, 30 collector tests, 565 documentation links,
+two-round positive VM and 384 MiB admission-failure/clean-return fixture passed.
+The final clean native stage also passed GRUB → staged Limine Q35 rehearsal and
+its banner was visually inspected. No Actions used. Main base `6e06bfb`; Pro
+PR19 `2c40c36` and Air6,1 PR156 `ee96e1d` retain separate Wi-Fi/endurance scope.
+This accepts automated capacity, editing/clipboard, file persistence, shared
+chooser transport and reuse under the tested load. Synthetic inputs do not
+measure physical input latency or accept manual Preview-picker visuals. The
+prior attended mid-20s-window/sensor observation remains recorded below.
 
 ### Attended high-count return collected
 

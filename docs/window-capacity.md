@@ -306,3 +306,12 @@ all five exact files and its screenshot. Guest progress is visible above the
 dock; no chat instructions or human input are required. Older v73 releases that
 only opened windows do not establish these new document checks. This fixture
 does not measure physical input latency or accept manual Preview-picker visuals.
+
+Air7,2 release `f01d4049daae0b4a` / source `044d0b4` physically passed the extended
+workload on October 25: two rounds, 24 app processes each, 60 acknowledged edits,
+five exact files each, both chooser transports, normal pooled Text retirement,
+screenshots and complete service cleanup. Offline comparison preserved all prior
+non-metadata files; filesystem/allocation checks were clean. This closes the
+automated document/save/reread and shared chooser-transport acceptance at this
+load; synthetic events do not establish physical input latency or manual picker
+visual acceptance.

@@ -158,3 +158,11 @@ completed. Future attended checklists must open automatically in the guest or
 be captured by the user before reboot. Current unattended v73 capture performs
 acknowledged Text edits, five fresh USB save/rename/reread checkpoints and shared
 picker cancellation per round, displays progress and returns automatically.
+
+The extended unattended round is now physically accepted on Air7,2 release
+`f01d4049daae0b4a` / source `044d0b4`: both 24-process rounds completed 60
+acknowledged edit/clipboard events, five exact USB save/rename/reread files,
+legacy/pooled chooser cancel/reopen checks, screenshots and normal retirement.
+All ten saved files were compared in Ubuntu; prior non-metadata files were
+unchanged and offline fsck/allocation passed. See the current machine record for
+session identities and remaining physical-input/manual-visual limits.
