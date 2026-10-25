@@ -2,6 +2,28 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Runtime native trial prepared (2026-10-25)
+
+Release `2750e5efa04573ba`, clean source/main `16bbe49`, is installed for the
+attended D0–D3c/D4a acceptance round. Combined Home/battery v55 retains the
+existing device gates and recovery `9aa8dbf6fbda8252`; Ubuntu remains default.
+Matched kernel/userspace rebuild, ordinary combined-service QEMU lifecycle,
+audio/file persistence/reopen and exact staged GRUB → Limine → native-kernel
+rehearsal pass. Q35's native-profile refusal is expected and not native battery
+acceptance. The USB's 1059 files have pre-run hashes; offline filesystem and
+allocation/headroom checks pass with zero leaks/mismatches/errors. Current and
+recovery payloads are independently backed up. One unused EFI payload was
+archived and verified before its EFI copy was removed for installation space.
+
+Interactive instructions live in Help → Topics → Runtime trial. Exercise 17+
+windows, independent documents, chooser cancellation, redraw and save/input
+coexistence; save notes/screenshots, exit normally, reopen with `desktop battery`
+and use monitor `reboot` for the final flushed/unmounted return. Human input was
+announced before boot. Physical acceptance remains pending. On return collect
+matching sessions before another installation; local run state/evidence is in
+`build/runtime-native-20261025/`, backed up outside build. Pro PR19 inspected at
+`73e35e9` remains independent; this preparation changes no shared runtime code.
+
 ### Runtime hardware-round preparation
 
 Bounded scope on main `a6d4361`: prepare a dedicated on-screen Runtime trial
