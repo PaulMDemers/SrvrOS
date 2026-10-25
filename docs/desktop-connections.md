@@ -1,6 +1,6 @@
 # Desktop connections and window lifetime
 
-The desktop connection implementation uses matched protocol v14. It adds multiple
+The desktop connection implementation uses matched protocol v15. It adds multiple
 window identities per authenticated process. Compositor registries grow under
 explicit byte budgets; refusal remains part of the creation contract. The shared header, kernel, compositor and applications must
 come from the same build. This is not a stable external binary ABI.
@@ -52,8 +52,8 @@ retains the originating window; two sibling windows may use the same request
 serial without merging their notices. The history quota remains per process.
 
 The compositor routes input and pointer capture to the PID/window pair. Changing
-focus between sibling windows also changes the global menu owner. There is no
-new focus-stealing policy or transient-parent API in this block.
+focus between sibling windows also changes the global menu owner. Document-owned modal children and explicit application open/quit policy are
+now described in [the application lifecycle contract](desktop-application-lifecycle.md).
 
 ## Close and failure
 

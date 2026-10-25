@@ -202,6 +202,7 @@ static void protocol_tests(void) {
     bad=commit; bad.text[0]=1; assert(gui_send(&bad)==-1); /* v1 has no text acknowledgement. */
     bad=packet_message(DESK_OPEN_REPLY,0,0,0);assert(gui_send(&bad)==-1);
     bad=packet_message(DESK_CLOSE_ACK,0,0,0);assert(gui_send(&bad)==-1);
+    bad=packet_message(DESK_OPEN_DOCUMENT,0,0,0);assert(gui_send(&bad)==-1); /* Only the server delivers paths. */
     struct gui_message legacy={.type=1};
     for (unsigned i=0;i<GUI_QUEUE_DEPTH;i++) assert(gui_send(&legacy)==0);
     assert(gui_send(&commit)==-1 && !surface_for_id(id)->sealed);

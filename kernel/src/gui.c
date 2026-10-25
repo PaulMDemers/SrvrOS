@@ -217,12 +217,12 @@ retry:
     if (message->type == DESK_TRANSPORT_MESSAGE) {
         for (size_t i=0;i<sizeof(packet);i++) ((uint8_t *)&packet)[i]=(uint8_t)message->text[i];
         if (packet.version != DESK_PROTOCOL_VERSION || packet.size != sizeof(packet) ||
-            packet.reserved || packet.reserved2 || !packet.window || packet.type < DESK_OPEN || packet.type > DESK_CLOSE_ACK)
+            packet.reserved || packet.reserved2 || !packet.window || packet.type < DESK_OPEN || packet.type > DESK_OPEN_DOCUMENT_REPLY)
             goto rejected;
         bool from_server = source_pid == server_pid;
-        if ((!from_server && packet.type != DESK_OPEN && packet.type != DESK_COMMIT && packet.type != DESK_CLOSE &&
+        if ((!from_server && packet.type != DESK_APP_SERVICE && packet.type != DESK_OPEN_DOCUMENT_REPLY && packet.type != DESK_OPEN && packet.type != DESK_COMMIT && packet.type != DESK_CLOSE &&
              packet.type != DESK_RESIZE_REFUSED && packet.type != DESK_CANCEL_CLOSE && packet.type != DESK_TITLE && packet.type != DESK_LAUNCH && packet.type != DESK_PREFERENCES_SET && packet.type != DESK_CLIPBOARD_SET && packet.type != DESK_CLIPBOARD_GET && packet.type != DESK_MENU_SET && packet.type != DESK_NOTIFY && packet.type != DESK_BRIGHTNESS && packet.type != DESK_AUDIO) ||
-            (from_server && (packet.type == DESK_RESIZE_REFUSED || packet.type == DESK_OPEN || packet.type == DESK_COMMIT ||
+            (from_server && (packet.type == DESK_APP_SERVICE || packet.type == DESK_OPEN_DOCUMENT_REPLY || packet.type == DESK_RESIZE_REFUSED || packet.type == DESK_OPEN || packet.type == DESK_COMMIT ||
                             packet.type == DESK_CANCEL_CLOSE || packet.type == DESK_TITLE || packet.type == DESK_LAUNCH || packet.type == DESK_PREFERENCES_SET || packet.type == DESK_CLIPBOARD_SET || packet.type == DESK_CLIPBOARD_GET || packet.type == DESK_MENU_SET || packet.type == DESK_NOTIFY))) goto rejected;
         if (packet.type == DESK_COMMIT || packet.type == DESK_RELEASE) {
             transition = surface_for_id(packet.surface);

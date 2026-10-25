@@ -9,6 +9,7 @@ static void browse(struct tool *t) {
     desk_picker_focus(&t->picker,t->window.focused);t->window.dirty=1;
 }
 static void open_failed(struct tool *t,const char *message) {
+    if(t->pending==TOOL_PENDING_CLOSE || t->closing)t->close_canceled=1;
     t->pending=t->closing=0;desk_app_cancel_close(&t->window);tool_status(t,message);
 }
 void tool_picker_open(struct tool *t,int mode) {
@@ -30,6 +31,7 @@ void tool_picker_open(struct tool *t,int mode) {
     browse(t);desk_log("desktools: picker mode=%d opened\n",mode);
 }
 void tool_picker_cancel(struct tool *t) {
+    if(t->pending==TOOL_PENDING_CLOSE || t->closing)t->close_canceled=1;
     t->picker_mode=0;t->pending=0;t->closing=0;desk_chooser_cancel(&t->chooser);
     desk_app_cancel_close(&t->window);desk_ui_window_focus(&t->ui,t->window.focused);desk_ui_focus(&t->ui,TOOL_BODY);
     tool_status(t,"File selection canceled. Your document was kept.");

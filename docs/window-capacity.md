@@ -57,7 +57,7 @@ compositor grows their backing/scratch arrays with its registry, so Window lists
 all live clients and the launcher searches every admitted window. Wheel scrolling
 and keyboard selection reveal entries beyond the viewport. The shared list model
 retains its 4096-item geometry bound; the compositor metadata budget is reached
-before that bound. Application menu wire snapshots remain separately limited. Matched protocol v14 (168 bytes) supports explicit window
+before that bound. Application menu wire snapshots remain separately limited. Matched protocol v15 (168 bytes) supports explicit window
 IDs and an opt-in connection dispatcher with acknowledged creation and close.
 The ID1 single-window source wrapper remains available. Kernel stream surfaces
 bind to their first committed window for their lifetime; release also matches

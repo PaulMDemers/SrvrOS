@@ -302,3 +302,9 @@ documents/33 exact files, worker fault/reap behavior and actual wait/input-under
 fixtures. Physical window acceptance remains the Air sixteen-window round on
 `bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.
 The selected POSIX profile has its own acceptance record and remaining gaps.
+
+D3 follow-up implementation is in progress in the Air7,2 unit record and
+[application lifecycle contract](desktop-application-lifecycle.md): same-process
+parented dialogs, sequential cancellable app Quit, and bounded existing-process
+open-document routing. These are matched protocol v15 changes. Host validation
+and actual consumer/VM acceptance must be read from the current checkpoint.

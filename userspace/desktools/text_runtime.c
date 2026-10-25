@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include <srvros/desk_application.h>
 #include <srvros/desk_connection.h>
 #include <srvros/desk_log.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
  * child wait result have both drained. */
 struct text_document {
     struct tool tool;
+    struct desk_dialog_window dialog;
     struct text_document *next;
     uint64_t requester,logged_job;
     char initial_path[DESK_FILE_PATH];
@@ -21,7 +23,7 @@ void tool_new_window(struct tool *t) {
     } else tool_launch(t,t->role,t->role==DESK_APP_FILES?t->saved_path:"");
 }
 static struct text_document *find(struct text_document *list,struct desk_app *window) {
-    for(;list;list=list->next)if(&list->tool.window==window)return list;
+    for(;list;list=list->next)if(&list->tool.window==window || &list->dialog.window==window)return list;
     return NULL;
 }
 static void notice(struct text_document *list,uint64_t requester,const char *message) {
@@ -57,11 +59,72 @@ static int retire_job(struct text_document *d) {
     }
     return 1;
 }
+static void cancel_dialog(struct text_document *d) {
+    if(d->tool.picker_mode)tool_picker_cancel(&d->tool);
+    else if(d->tool.modal)tool_text_dialog(&d->tool,1003);
+}
+static void dialog_event(struct text_document *d,struct desk_packet p) {
+    struct tool *t=&d->tool;struct desk_action action={0};
+    if(t->picker_mode)desk_picker_focus(&t->picker,d->dialog.window.focused);
+    else if(t->modal)desk_dialog_focus(&t->dialog,d->dialog.window.focused);
+    if(p.type==DESK_CLOSE_REQUEST || p.type==DESK_WINDOW_FAILED) {cancel_dialog(d);return;}
+    if(p.type==DESK_FOCUS) {
+        if(t->picker_mode)desk_picker_focus(&t->picker,p.value!=0);
+        else desk_dialog_focus(&t->dialog,p.value!=0);
+    } else if(p.type==DESK_KEY) {
+        struct srv_key_event key;memcpy(&key,p.text,sizeof(key));
+        if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && key.usage==0x14) {cancel_dialog(d);t->quit_application=1;return;}
+        if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) && key.usage==0x1a) {cancel_dialog(d);return;}
+        if(t->picker_mode)tool_picker_result(t,desk_picker_key(&t->picker,&key));
+        else action=desk_dialog_key(&t->dialog,&key);
+    } else if(p.type==DESK_POINTER) {
+        struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
+            .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
+        if(t->picker_mode)tool_picker_result(t,desk_picker_pointer(&t->picker,e,srv_monotonic_us()));
+        else action=desk_dialog_pointer(&t->dialog,e,srv_monotonic_us());
+    } else if(p.type==DESK_SCROLL && t->picker_mode)tool_picker_result(t,desk_picker_scroll(&t->picker,p.width,p.height,p.y));
+    else if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
+        int done=desk_clipboard_receive(&t->clip,&p);if(done)tool_clipboard_result(t,done);
+    }
+    if(action.flags&DESK_WIDGET_ACTIVATED)tool_text_dialog(t,action.id);
+    d->dialog.window.dirty=1;
+}
+static void dialog_tick(struct text_document *d) {
+    struct tool *t=&d->tool;
+    int wanted=!d->retired && (t->modal || t->picker_mode);
+    int ready=desk_dialog_window_sync(&d->dialog,&t->window,wanted,
+        t->picker_mode?(t->picker_mode==DESK_PICKER_SAVE?"Save document":"Open document"):t->modal==2?"Replace file":"Unsaved document",
+        t->picker_mode?720:560,t->picker_mode?480:280);
+    int previous_separate=t->dialog_separate;
+    t->dialog_separate=wanted && ready>=0;
+    if(previous_separate!=t->dialog_separate)t->window.dirty=1;
+    if(wanted && ready<0) {
+        struct desk_rect bounds={0,0,t->window.width,t->window.height};
+        if(t->picker_mode) {desk_picker_configure(&t->picker,bounds);if(desk_picker_focus(&t->picker,t->window.focused))t->window.dirty=1;}
+        else {desk_dialog_configure(&t->dialog,bounds);if(desk_dialog_focus(&t->dialog,t->window.focused))t->window.dirty=1;}
+    }
+    if(!t->clip.mode)t->clip.window=t->dialog_separate && d->dialog.window.connection?d->dialog.window.window:t->window.window;
+    if(!wanted || ready!=1)return;
+    struct desk_app *window=&d->dialog.window;
+    struct desk_rect bounds={0,0,window->width,window->height};
+    if(t->picker_mode) {desk_picker_configure(&t->picker,bounds);desk_picker_focus(&t->picker,window->focused);}
+    else {desk_dialog_configure(&t->dialog,bounds);desk_dialog_focus(&t->dialog,window->focused);}
+    if(t->window.dirty)window->dirty=1;
+    struct desk_canvas canvas;
+    if(desk_app_canvas(window,&canvas)==1) {
+        desk_fill(&canvas,canvas.clip,desk_theme_quiet.surface);
+        if(t->picker_mode)desk_picker_draw(&canvas,&t->picker,&desk_theme_quiet);
+        else desk_dialog_draw(&canvas,&t->dialog,&desk_theme_quiet);
+        desk_app_present(window);
+    }
+}
 int tool_file_capture_capacity_setup(void);
 int tool_text_runtime(const char *path) {
     int capacity=strcmp(path,"--capacity-files")==0;
     if(capacity) { if(tool_file_capture_capacity_setup())return 1;path=""; }
     unsigned capture_checkpoints=0;
+    struct desk_application_lifecycle application={0};
+    struct desk_open_document open_request={0};uint64_t service_window=0;
     struct desk_connection connection;desk_connection_init(&connection);
     struct desk_file_pool pool;struct desk_file_channel channels[2];
     if(desk_file_pool_init(&pool,channels,2))return 1;
@@ -78,6 +141,8 @@ int tool_text_runtime(const char *path) {
             struct text_document *d=find(documents,window);
             if(!d) { failed=1;break; }
             struct tool *t=&d->tool;
+            if(window==&d->dialog.window) {dialog_event(d,p);continue;}
+            if(p.type==DESK_OPEN_DOCUMENT) {desk_open_document_receive(&open_request,&p);continue;}
             if(p.type==DESK_OPEN_REPLY) {
                 if(p.value) {
                     refused_count++;
@@ -93,8 +158,9 @@ int tool_text_runtime(const char *path) {
                 }
             } else if(p.type==DESK_CLOSE_ACK) {
                 d->retired=1;t->pending=t->closing=0;
+                desk_application_closed(&application,window->window);
+                if(service_window==window->window)service_window=0;
                 desk_log("text-runtime: closed window=%llu bytes=%u\n",(unsigned long long)window->window,(unsigned)t->body_text.length);
-                if(desk_window_dispose(window))failed=1;
             } else if(p.type==DESK_WINDOW_FAILED) {
                 notice(documents,d->requester,"A document window could not be displayed. Other windows remain open.");
             } else if(d->ready && !d->retired && !t->quit) {
@@ -104,7 +170,13 @@ int tool_text_runtime(const char *path) {
                 }
             }
         }
-        int busy=failed || connection.opening!=NULL,drained=1;
+        desk_open_document_tick(&open_request,connection.server);
+        if(open_request.ready && !connection.opening) {
+            int accepted=!application.quitting && !create(&connection,&documents,0,open_request.path);
+            desk_log("text-runtime: open-document accepted=%u\n",accepted);
+            desk_open_document_finish(&open_request,accepted);
+        }
+        int busy=failed || connection.opening!=NULL || open_request.reply_pending || open_request.ready,drained=1;
         struct text_document **link=&documents;
         while(*link) {
             struct text_document *d=*link;struct tool *t=&d->tool;
@@ -122,7 +194,12 @@ int tool_text_runtime(const char *path) {
                 }
             }
             if(capacity && t->window.failed)failed=1;
+            if(t->close_canceled) {desk_application_cancel_quit(&application,t->window.window);t->close_canceled=0;}
+            if(t->quit_application) {t->quit_application=0;desk_application_quit(&application);}
+            dialog_tick(d);
             if(d->retired) {
+                if(d->dialog.window.connection) {busy=1;link=&d->next;continue;}
+                if(!failed && t->window.connection && desk_window_dispose(&t->window)) {failed=1;link=&d->next;continue;}
                 int already_retired=d->worker_closed;
                 if(!retire_job(d)) { busy=1;drained=0;link=&d->next;continue; }
                 if(d->ready && !already_retired)retired_count++;
@@ -132,6 +209,8 @@ int tool_text_runtime(const char *path) {
             }
             drained=0;
             if(d->ready && !failed) {
+                if(!capacity && !application.quitting && !service_window && !t->window.closing && !desk_application_service(&t->window,DESK_SERVICE_OPEN_DOCUMENT))service_window=t->window.window;
+                if(application.quitting && service_window==t->window.window && !desk_application_service(&t->window,0))service_window=0;
                 if(t->quit && !t->job.busy)desk_window_close(&t->window);
                 if(!t->quit && !t->window.closing) {
                     if(desk_clipboard_tick(&t->clip,srv_ticks())<0)tool_clipboard_result(t,-1);
@@ -142,7 +221,15 @@ int tool_text_runtime(const char *path) {
             link=&d->next;
         }
         if(failed && drained)break;
-        if(!failed && !connection.opening) {
+        if(!failed && application.quitting && !application.closing_window) {
+            for(struct text_document *d=documents;d;d=d->next)if(d->ready && !d->retired && !d->tool.quit && !d->tool.window.closing) {
+                if(desk_application_close_next(&application,d->tool.window.window)) {
+                    d->tool.close_canceled=0;tool_text_request(&d->tool,TOOL_PENDING_CLOSE);busy=1;
+                }
+                break;
+            }
+        }
+        if(!failed && !application.quitting && !connection.opening) {
             for(struct text_document *d=documents;d;d=d->next)if(d->tool.new_window && !d->retired && !d->tool.quit) {
                 d->tool.new_window=0;create(&connection,&documents,d->tool.window.window,"");busy=1;break;
             }

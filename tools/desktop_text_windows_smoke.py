@@ -55,7 +55,10 @@ def main():
                 serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
                 baseline=set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
                 serial.sendall(b'run /fat/bin/deskd --apps-trace\n')
-                wait(b'text-runtime: admitted window=1');wait(b'deskd: commit')
+                def admitted_window():
+                    wait(b'text-runtime: admitted window=');wait(b'\n')
+                    return int(re.findall(rb'text-runtime: admitted window=(\d+)',output)[-1])
+                first=admitted_window();wait(b'deskd: commit')
                 opened=re.findall(rb'deskd: opened pid=(\d+) window=(\d+)',output);pid=opened[-1][0]
                 def save_as(path):
                     shortcut('ctrl-l');shortcut('ctrl-a');text(path);shortcut('ctrl-shift-s')
@@ -63,27 +66,27 @@ def main():
                 text('First document');save_as('/fat/text-first.txt')
                 shortcut('ctrl-a');shortcut('ctrl-c');wait(b'clipboard role=2 action=8 bytes=14')
                 shortcut('ctrl-end');shortcut('ctrl-shift-n')
-                wait(b'text-runtime: admitted window=2');wait(b'deskd: commit')
+                second=admitted_window();wait(b'deskd: commit')
                 opened=re.findall(rb'deskd: opened pid=(\d+) window=(\d+)',output)
-                assert len(opened)==2 and all(p[0]==pid for p in opened),opened
+                assert len(re.findall(rb'text-runtime: admitted window=',output))==2 and all(p[0]==pid for p in opened),opened
                 text('Second document');shortcut('ctrl-z');shortcut('ctrl-shift-z')
                 shortcut('ctrl-end');shortcut('ctrl-v');wait(b'clipboard role=2 action=32 bytes=14')
                 save_as('/fat/text-second.txt');shot('two-saved-documents')
                 # Same-PID windows must be distinct launcher destinations.
-                for name,window in [('text-first',1),('text-second',2)]:
+                for name,window in [('text-first',first),('text-second',second)]:
                     shortcut('meta_l-spc');wait(b'launcher opened');text(name);qmp.key('ret')
                     wait(b'launcher window='+pid+f' id={window}'.encode())
                 text(' changed');shortcut('ctrl-w');shot('unsaved-close');qmp.key('esc')
                 text(' kept');shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
-                shortcut('ctrl-w');wait(b'text-runtime: closed window=2')
+                shortcut('ctrl-w');wait(f'text-runtime: closed window={second}'.encode())
                 shortcut('ctrl-end');text(' tail');shortcut('ctrl-shift-n')
-                wait(b'text-runtime: admitted window=3');wait(b'deskd: commit')
+                third=admitted_window();wait(b'deskd: commit')
                 shortcut('ctrl-l');shortcut('ctrl-a');text('/fat/text-second.txt')
                 shortcut('ctrl-o');wait(b'picker ready mode=1');text('text-second');qmp.key('ret')
                 wait(b'file-result role=text op=1 status=0');shot('reopened-second-document')
-                shortcut('ctrl-w');wait(b'text-runtime: closed window=3')
+                shortcut('ctrl-w');wait(f'text-runtime: closed window={third}'.encode())
                 shortcut('ctrl-w');shot('save-on-close');shortcut('shift-tab');shortcut('shift-tab');qmp.key('ret')
-                wait(b'file-result role=text op=2 status=0');wait(b'text-runtime: closed window=1')
+                wait(b'file-result role=text op=2 status=0');wait(f'text-runtime: closed window={first}'.encode())
                 wait(b'desktools: exited role=text failure=0');wait(b'deskd: child-exit pid='+pid+b' status=0')
                 assert b'text-runtime: documents admitted=3 retired=3 refused=0' in output
                 pools=re.findall(rb'file-pool: retired role=text spawned=(\d+) reaped=(\d+) peak=(\d+) live=0 bound=0',output)

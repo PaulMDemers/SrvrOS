@@ -2,20 +2,35 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Active application lifecycle and dialog work
+### Application lifecycle implementation; final local gates
 
-User authorized D3 follow-up: native document-owned dialogs, Close Window versus
-Quit Application, activation/open-document routing and Text/Preview consumers.
-Process limits remain unchanged. Base main `e253a60`; Pro PR19 `0ef47c3` is Wi-Fi,
-Air6,1 PR156 `cc8bacf` is audio/I/O endurance. Scope: matched desktop protocol,
-kernel message validation, compositor ownership/focus/launch routing, shared client
-runtime and Text/Preview; focused host and actual-protocol VM gates. No firmware
-changes. Implement one level of same-process modal dialog ownership, preserving
-sibling document dispatch, asynchronous file ownership and failed-save recovery.
-Then add application-wide quit with cancellation and bounded open-document reuse.
-Physical acceptance stays separate; no hardware reboot until matched VM evidence
-and a guest-visible checklist/automatic test are prepared. Evidence checkpoint:
-`build/desktop-lifecycle-20261025/`.
+Base main `e253a60`; D3 follow-up is implemented on this device branch/PR157.
+Matched protocol v15 adds one-level same-process document-modal windows, parent
+focus/input redirection and child-before-parent retirement. The shared presenter
+hosts Text's unsaved/replacement prompts and file pickers, and Preview's picker;
+admission refusal retains an embedded fallback. Text now distinguishes Ctrl-W
+from Ctrl-Q, resolving Quit one document at a time and stopping on cancel or
+failed save. Existing capable Text/Preview processes accept copied file-open
+requests with bounded chunks/cookies, acknowledgement retries and explicit
+refusal fallback. Unconfirmed requests are not blindly replayed. Process limits
+and device firmware gates are unchanged.
+
+Initial Text and Preview consumer VMs pass. The lifecycle VM passes independent
+sibling input during a modal prompt, Quit cancellation, failed-save retention,
+existing-process Text/Preview routing, exact saved contents and process baseline.
+Crash (Preview killed with a picker live) and forced dialog-refusal cases pass.
+The baseline check exposed uncollected exited workers; explicit idle-file-worker
+retirement now retains/reaps PIDs, and Preview drains image-worker retirement.
+Compositor preferences shutdown also collects its worker. Host tests cover the
+new ownership, quit, routing/chunk and worker-retirement contracts. Full core,
+desktop and matched normal/native/VM battery builds pass. Final clean-source
+consumer/failure/combined-service regressions follow this checkpoint.
+
+Evidence: `build/desktop-lifecycle-20261025/`, to be backed up outside build.
+The installed/recovery payload remains the prior physically accepted v14 image;
+this v15 change has no new physical acceptance yet. Future attended testing must
+open its full checklist in the guest before relying on input. Pro PR19 and Air6,1
+PR156 retain separate Wi-Fi/endurance scope. No reboot is armed by this work.
 
 ### Automated many-app documents accepted
 
