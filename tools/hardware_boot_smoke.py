@@ -367,7 +367,7 @@ def main():
                         assert measured and int(measured[1])>=59000000
                         assert 0<int(measured[3])<=int(measured[2])
                         assert "srvros.aml=probe" not in text
-                    if desktop_idle_capture:
+                    if desktop_idle_capture or posix_capture:
                         from hardware_desktop import desktop_idle_sample
                         assert desktop_idle_sample(text) is not None
                         assert "srvros.aml=probe" not in text and "deskd: exited" in text
@@ -446,7 +446,7 @@ def main():
                         assert comparison is not None, 'Incomplete storage wait comparison'
                         assert stored.read(comparison['path'].removeprefix('/work/'))==PAYLOAD
                         (logs/'storage-wait-result.json').write_text(json.dumps(comparison,indent=2)+'\n')
-                    if desktop_idle_capture:
+                    if desktop_idle_capture or posix_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         assert desktop_idle_sample(exit_log) is not None
                         if power_telemetry:
