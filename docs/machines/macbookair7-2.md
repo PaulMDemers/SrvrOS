@@ -13,6 +13,19 @@ combined-services mixed-process VM coverage, and desktop launch-failure alerts.
 Touch scheduler/header, process launch diagnostics, desktop session policy and
 focused tests/docs. No new firmware gates or physical reboot in this work block.
 
+Host/core/desktop suites and matched kernel/userspace builds pass. The new
+mixed-app QEMU fixture reproduces the native symptom on staged old release
+`2750e5efa04573ba`: fifteen windows followed by scheduler-table exhaustion.
+The fixed combined-service VM is the next gate; native validation remains pending.
+Thread storage is charged to a 32 MiB stack/dynamic-record budget; 32-slot stable
+chunks and non-bitmap waits preserve addresses and identities above slot 63.
+Host fixtures cover growth beyond 95 live slots, PMM failure rollback, quota
+refusal/reuse, high-slot waits/timeouts/cancellation and quarantine retention.
+Launch failures now produce visible rate-limited app alerts and unconditional
+error records. Worker attribution version 2 is bounded to 256 directory slots;
+version-1 evidence remains readable. Evidence is in scheduler-capacity-20261025.
+
+
 ### Runtime native return: scheduler capacity blocker
 
 Release `2750e5efa04573ba` / source `16bbe49`, session

@@ -145,6 +145,7 @@ def main():
     forbidden = [
         "process table full",
         "scheduler thread table full",
+        "scheduler admission failed",
         "kernel stack alloc failed",
         "failed to create address space",
         "background spawn failed",

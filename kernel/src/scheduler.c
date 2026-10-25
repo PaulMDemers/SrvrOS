@@ -10,7 +10,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SCHEDULER_MAX_THREADS 32
+#define SCHEDULER_INITIAL_THREADS 32
+#define SCHEDULER_STORAGE_BUDGET (32ull * 1024 * 1024)
 #define SCHEDULER_STACK_SIZE 131072
 #define SCHEDULER_STACK_MIN_PHYSICAL 0x100000ull
 #define SCHEDULER_PREEMPT_QUANTUM_TICKS 2
@@ -67,7 +68,27 @@ void scheduler_context_switch(struct scheduler_context *old_context, struct sche
 uint64_t gdt_default_kernel_stack_top(void);
 void gdt_set_kernel_stack(uint64_t stack_top);
 
-static struct thread threads[SCHEDULER_MAX_THREADS];
+/* Stable records: context/FPU pointers survive growth and suspended switches.
+ * Only spawn allocates, under CPU0 IRQ exclusion like kernel-stack allocation.
+ * Dead stacks remain charged until reuse; quarantined stacks are never reused.
+ * Dynamic record chunks stay resident at the high-water mark until reboot. */
+#define SCHEDULER_CHUNKS ((SCHEDULER_STORAGE_BUDGET / SCHEDULER_STACK_SIZE + SCHEDULER_INITIAL_THREADS - 1) / SCHEDULER_INITIAL_THREADS)
+#define SCHEDULER_MAX_THREADS (SCHEDULER_CHUNKS * SCHEDULER_INITIAL_THREADS)
+#define SCHEDULER_CHUNK_FRAMES ((sizeof(struct thread) * SCHEDULER_INITIAL_THREADS + PMM_FRAME_SIZE - 1) / PMM_FRAME_SIZE)
+static struct thread threads[SCHEDULER_INITIAL_THREADS];
+static struct thread *thread_chunks[SCHEDULER_CHUNKS] = { threads };
+static uint64_t thread_capacity=SCHEDULER_INITIAL_THREADS;
+static uint64_t thread_storage_bytes;
+static uint64_t thread_storage_budget=SCHEDULER_STORAGE_BUDGET;
+static struct thread *thread_at(uint64_t index) {
+    return &thread_chunks[index/SCHEDULER_INITIAL_THREADS][index%SCHEDULER_INITIAL_THREADS];
+}
+static void detach_wait(struct thread *thread) {
+    if(thread->blocked_queue && thread->blocked_queue->waiters)
+        thread->blocked_queue->waiters--;
+    thread->blocked_queue=NULL;
+    thread->blocked_deadline_ticks=0;
+}
 static uint64_t current_thread;
 static uint64_t next_identity=2;
 static bool initialized;
@@ -79,7 +100,7 @@ static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
 static uint64_t sampled_ticks;
 static uint64_t context_switches;
-static uint64_t idle_thread=SCHEDULER_MAX_THREADS;
+static uint64_t idle_thread=UINT64_MAX;
 
 static uint64_t irq_save(void) {
 #ifdef SRVROS_SCHEDULER_HOST_TEST
@@ -102,7 +123,7 @@ static void irq_restore(uint64_t flags) {
 }
 
 static void account_current_at(uint64_t now) {
-    struct thread *thread=&threads[current_thread];
+    struct thread *thread=thread_at(current_thread);
     if(thread->user_context && now>=thread->account_at)
         process_account_cpu(thread->user_context,thread->user_thread_context,
             thread->account_user,now-thread->account_at);
@@ -117,7 +138,7 @@ static void account_transition(bool user) {
     uint64_t flags=irq_save();
     if(initialized) {
         account_current_at(timer_monotonic_us());
-        threads[current_thread].account_user=user;
+        thread_at(current_thread)->account_user=user;
     }
     irq_restore(flags);
 }
@@ -169,10 +190,10 @@ static struct fpu_state *thread_user_fpu(struct thread *thread) {
 }
 
 static bool io_thread_allowed(uint64_t index) {
-    struct thread *thread = &threads[index];
+    struct thread *thread = thread_at(index);
     return io_depth == 0 || index == io_owner ||
         (thread->user_context != NULL && thread->io_user_safe &&
-         thread->user_context != threads[io_owner].user_context) ||
+         thread->user_context != thread_at(io_owner)->user_context) ||
         (thread->user_context == NULL && thread->io_eligible != NULL &&
          thread->io_eligible(thread->arg));
 }
@@ -201,7 +222,7 @@ void scheduler_io_end(void) {
 
 void scheduler_io_set_user_safe(bool safe) {
     uint64_t flags=irq_save();
-    if (initialized) threads[current_thread].io_user_safe=safe;
+    if (initialized) thread_at(current_thread)->io_user_safe=safe;
     irq_restore(flags);
 }
 
@@ -225,7 +246,7 @@ void scheduler_io_wait(void) {
 
 bool scheduler_io_yield(void) {
     if (io_depth == 0 || io_owner != current_thread ||
-        vmm_current_address_space() != thread_address_space(&threads[current_thread])) return false;
+        vmm_current_address_space() != thread_address_space(thread_at(current_thread))) return false;
     io_service_at=timer_monotonic_us();
     /* The caller restored its scheduler-recorded address space before entry.
      * Service IRQs even when there is no other eligible runnable thread. */
@@ -252,7 +273,7 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
     if(!initialized || !io_services_enabled || switching || !queue || !condition ||
        !io_depth || io_owner!=current_thread || !now || !timer_reference_ready() ||
        deadline_ticks<=now || deadline_ticks-now>1 ||
-       vmm_current_address_space()!=thread_address_space(&threads[current_thread])) return false;
+       vmm_current_address_space()!=thread_address_space(thread_at(current_thread))) return false;
     io_service_at=timer_monotonic_us();
 #ifndef SRVROS_SCHEDULER_HOST_TEST
     __asm__ volatile("sti":::"memory");
@@ -273,10 +294,10 @@ void scheduler_io_checkpoint(void) {
 }
 
 static bool has_ready_thread_except(uint64_t skipped_index) {
-    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
+    for (uint64_t i = 0; i < thread_capacity; i++) {
         /* A retired service may already have released its callback context. */
         if (i != skipped_index &&
-            (threads[i].state == THREAD_READY || threads[i].state == THREAD_RUNNING) &&
+            (thread_at(i)->state == THREAD_READY || thread_at(i)->state == THREAD_RUNNING) &&
             io_thread_allowed(i)) {
             return true;
         }
@@ -287,7 +308,7 @@ static bool has_ready_thread_except(uint64_t skipped_index) {
 static void scheduler_trampoline(void) {
     switching = false;
     __asm__ volatile ("sti" : : : "memory");
-    struct thread *thread = &threads[current_thread];
+    struct thread *thread = thread_at(current_thread);
     thread->entry(thread->arg);
     thread->state = THREAD_DEAD;
 
@@ -297,17 +318,17 @@ static void scheduler_trampoline(void) {
 }
 
 void scheduler_init(void) {
-    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        threads[i].state = THREAD_UNUSED;
+    for (uint64_t i = 0; i < thread_capacity; i++) {
+        thread_at(i)->state = THREAD_UNUSED;
     }
 
     current_thread = 0;
-    threads[0].state = THREAD_RUNNING;
-    threads[0].name = "bootstrap";
-    threads[0].identity = 1;
+    thread_at(0)->state = THREAD_RUNNING;
+    thread_at(0)->name = "bootstrap";
+    thread_at(0)->identity = 1;
     next_identity = 2;
-    fpu_init_state(&threads[0].kernel_fpu);
-    fpu_set_current_kernel_state(&threads[0].kernel_fpu);
+    fpu_init_state(&thread_at(0)->kernel_fpu);
+    fpu_set_current_kernel_state(&thread_at(0)->kernel_fpu);
     initialized = true;
     console_write("scheduler: timer-preemptive kernel threads ready\n");
 }
@@ -328,50 +349,49 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
 
     uint64_t flags=irq_save();
     if(next_identity==UINT64_MAX) { irq_restore(flags);return false; }
-    for (uint64_t i = 1; i < SCHEDULER_MAX_THREADS; i++) {
-        if (threads[i].state == THREAD_UNUSED || threads[i].state == THREAD_DEAD) {
-            if (threads[i].state == THREAD_DEAD && threads[i].stack_physical != 0) {
-                pmm_free_frame_range(threads[i].stack_physical, SCHEDULER_STACK_SIZE / PMM_FRAME_SIZE);
-                threads[i].stack_physical = 0;
-                threads[i].stack = NULL;
-            }
-            uint64_t stack_physical = pmm_alloc_frames_above_tagged(
-                SCHEDULER_STACK_SIZE / PMM_FRAME_SIZE,
-                SCHEDULER_STACK_MIN_PHYSICAL,
-                PMM_FRAME_KERNEL_STACK);
-            if (stack_physical == 0) {
-                irq_restore(flags);return false;
-            }
-            uint8_t *stack = pmm_phys_to_virt(stack_physical);
-
-            uint64_t stack_top = ((uint64_t)stack + SCHEDULER_STACK_SIZE) & ~0xfull;
-            threads[i] = (struct thread) {
-                .state = THREAD_READY,
-                .name = name,
-                .identity = next_identity++,
-                .entry = entry,
-                .io_eligible = io_eligible,
-                .arg = arg,
-                .user_context = NULL,
-                .user_thread_context = NULL,
-                .user_fpu = NULL,
-                .user_fs_base = 0,
-                .address_space = 0,
-                .kernel_stack_top = 0,
-                .stack = stack,
-                .stack_physical = stack_physical,
-                .context = {
-                    .rsp = initial_thread_stack(stack_top),
-                    .rip = (uint64_t)scheduler_trampoline,
-                },
-                .switches = 0,
-            };
-            fpu_init_state(&threads[i].kernel_fpu);
-            irq_restore(flags);return true;
-        }
+    uint64_t i;
+    for(i=1;i<thread_capacity;i++)
+        if(i!=current_thread && (thread_at(i)->state==THREAD_UNUSED || thread_at(i)->state==THREAD_DEAD))break;
+    bool grow=i==thread_capacity;
+    if(grow && thread_capacity==SCHEDULER_MAX_THREADS) { irq_restore(flags);return false; }
+    struct thread *slot=grow?NULL:thread_at(i);
+    if(slot && slot->stack_physical) {
+        pmm_free_frame_range(slot->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
+        thread_storage_bytes-=SCHEDULER_STACK_SIZE;
+        slot->stack_physical=0;slot->stack=NULL;
     }
-
-    irq_restore(flags);return false;
+    uint64_t metadata=grow?SCHEDULER_CHUNK_FRAMES*PMM_FRAME_SIZE:0;
+    uint64_t needed=SCHEDULER_STACK_SIZE+metadata;
+    if(thread_storage_bytes>thread_storage_budget || needed>thread_storage_budget-thread_storage_bytes) {
+        irq_restore(flags);return false;
+    }
+    uint64_t physical=pmm_alloc_frames_above_tagged(SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE,
+        SCHEDULER_STACK_MIN_PHYSICAL,PMM_FRAME_KERNEL_STACK);
+    if(!physical) { irq_restore(flags);return false; }
+    struct thread *chunk=NULL;
+    if(grow) {
+        uint64_t record_physical=pmm_alloc_frames_above_tagged(SCHEDULER_CHUNK_FRAMES,
+            SCHEDULER_STACK_MIN_PHYSICAL,PMM_FRAME_GENERAL);
+        if(!record_physical) {
+            pmm_free_frame_range(physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
+            irq_restore(flags);return false;
+        }
+        chunk=pmm_phys_to_virt(record_physical);
+        for(unsigned n=0;n<SCHEDULER_INITIAL_THREADS;n++)chunk[n]=(struct thread){0};
+        slot=&chunk[0];
+    }
+    uint8_t *stack=pmm_phys_to_virt(physical);
+    *slot=(struct thread){.state=THREAD_READY,.name=name,.identity=next_identity++,
+        .entry=entry,.io_eligible=io_eligible,.arg=arg,.stack=stack,.stack_physical=physical,
+        .context={.rsp=initial_thread_stack((uint64_t)stack+SCHEDULER_STACK_SIZE),
+                  .rip=(uint64_t)scheduler_trampoline}};
+    fpu_init_state(&slot->kernel_fpu);
+    if(grow) {
+        thread_chunks[thread_capacity/SCHEDULER_INITIAL_THREADS]=chunk;
+        thread_capacity+=SCHEDULER_INITIAL_THREADS;
+    }
+    thread_storage_bytes+=needed;
+    irq_restore(flags);return true;
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
@@ -385,56 +405,55 @@ bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
 }
 
 static uint64_t next_ready_thread(uint64_t old_index) {
-    for (uint64_t i = 1; i <= SCHEDULER_MAX_THREADS; i++) {
-        uint64_t candidate = (old_index + i) % SCHEDULER_MAX_THREADS;
-        if (candidate != old_index && threads[candidate].state == THREAD_RUNNING) {
-            threads[candidate].state = THREAD_READY;
+    for (uint64_t i = 1; i <= thread_capacity; i++) {
+        uint64_t candidate = (old_index + i) % thread_capacity;
+        if (candidate != old_index && thread_at(candidate)->state == THREAD_RUNNING) {
+            thread_at(candidate)->state = THREAD_READY;
         }
-        if (candidate!=idle_thread && threads[candidate].state == THREAD_READY && io_thread_allowed(candidate))
+        if (candidate!=idle_thread && thread_at(candidate)->state == THREAD_READY && io_thread_allowed(candidate))
             return candidate;
     }
     /* Idle is a fallback, never a peer that steals a runnable worker's turn. */
-    if(old_index!=idle_thread && threads[old_index].state==THREAD_RUNNING) return old_index;
-    if(idle_thread<SCHEDULER_MAX_THREADS &&
-       (threads[idle_thread].state==THREAD_READY || threads[idle_thread].state==THREAD_RUNNING)) return idle_thread;
+    if(old_index!=idle_thread && thread_at(old_index)->state==THREAD_RUNNING) return old_index;
+    if(idle_thread<thread_capacity &&
+       (thread_at(idle_thread)->state==THREAD_READY || thread_at(idle_thread)->state==THREAD_RUNNING)) return idle_thread;
     return old_index;
 }
 
 /* Identities are boot-monotonic; an old slot index is not authority. */
 static uint64_t identity_index(uint64_t identity) {
-    if(identity)for(uint64_t i=0;i<SCHEDULER_MAX_THREADS;i++)
-        if(threads[i].identity==identity)return i;
-    return SCHEDULER_MAX_THREADS;
+    if(identity)for(uint64_t i=0;i<thread_capacity;i++)
+        if(thread_at(i)->identity==identity)return i;
+    return thread_capacity;
 }
 bool scheduler_service_pair_quarantined(uint64_t caller,uint64_t peer) {
     uint64_t flags=irq_save(),a=identity_index(caller),b=identity_index(peer);
-    bool ok=initialized && a<SCHEDULER_MAX_THREADS && b<SCHEDULER_MAX_THREADS && a!=b &&
-        threads[a].state==THREAD_QUARANTINED && threads[b].state==THREAD_QUARANTINED;
+    bool ok=initialized && a<thread_capacity && b<thread_capacity && a!=b &&
+        thread_at(a)->state==THREAD_QUARANTINED && thread_at(b)->state==THREAD_QUARANTINED;
     irq_restore(flags);return ok;
 }
 static bool quarantine_pair(uint64_t caller,uint64_t peer,bool external) {
     /* The caller owns IRQ exclusion and its explicit recovery boundary. Keep
      * validation entirely before mutation; failure retains both original slots. */
     uint64_t a=identity_index(caller),b=identity_index(peer);
-    if(!initialized || switching || current_thread>=SCHEDULER_MAX_THREADS ||
-       threads[current_thread].state!=THREAD_RUNNING || a==0 ||
-       a>=SCHEDULER_MAX_THREADS || b>=SCHEDULER_MAX_THREADS || b==0 || a==b ||
-       a==idle_thread || b==idle_thread || idle_thread>=SCHEDULER_MAX_THREADS ||
-       (threads[idle_thread].state!=THREAD_READY && threads[idle_thread].state!=THREAD_RUNNING) ||
+    if(!initialized || switching || current_thread>=thread_capacity ||
+       thread_at(current_thread)->state!=THREAD_RUNNING || a==0 ||
+       a>=thread_capacity || b>=thread_capacity || b==0 || a==b ||
+       a==idle_thread || b==idle_thread || idle_thread>=thread_capacity ||
+       (thread_at(idle_thread)->state!=THREAD_READY && thread_at(idle_thread)->state!=THREAD_RUNNING) ||
        (external ? (a==current_thread || b==current_thread ||
-         (threads[a].state!=THREAD_READY && threads[a].state!=THREAD_BLOCKED)) :
-         (a!=current_thread || threads[a].state!=THREAD_RUNNING)) ||
-       (threads[b].state!=THREAD_READY && threads[b].state!=THREAD_BLOCKED) ||
+         (thread_at(a)->state!=THREAD_READY && thread_at(a)->state!=THREAD_BLOCKED)) :
+         (a!=current_thread || thread_at(a)->state!=THREAD_RUNNING)) ||
+       (thread_at(b)->state!=THREAD_READY && thread_at(b)->state!=THREAD_BLOCKED) ||
        (io_depth && (io_owner==a || io_owner==b)))return false;
     for(unsigned j=0;j<2;j++) {
-        struct thread *t=&threads[j?b:a];
+        struct thread *t=thread_at(j?b:a);
         if(t->user_context || t->user_thread_context || t->address_space ||
            !t->stack || !t->stack_physical || !t->io_eligible)return false;
     }
     for(unsigned j=0;j<2;j++) {
-        uint64_t i=j?b:a;struct thread *t=&threads[i];
-        if(t->blocked_queue)t->blocked_queue->waiters&=~(1ull<<i);
-        t->blocked_queue=NULL;t->blocked_deadline_ticks=0;
+        uint64_t i=j?b:a;struct thread *t=thread_at(i);
+        detach_wait(t);
         t->io_eligible=NULL;t->state=THREAD_QUARANTINED;
     }
     return true;
@@ -465,8 +484,8 @@ void scheduler_yield(void) {
     uint64_t account_now=timer_monotonic_us();
     account_current_at(account_now);
     switching = true;
-    struct thread *old = &threads[old_index];
-    struct thread *next = &threads[next_index];
+    struct thread *old = thread_at(old_index);
+    struct thread *next = thread_at(next_index);
     old->resume_address_space=vmm_current_address_space();
     if (old->user_context != NULL) {
         old->user_fs_base = read_fs_base();
@@ -508,7 +527,7 @@ void scheduler_exit_current(void) {
         }
     }
 
-    threads[current_thread].state = THREAD_DEAD;
+    thread_at(current_thread)->state = THREAD_DEAD;
     for (;;) {
         scheduler_yield();
         __asm__ volatile ("hlt");
@@ -521,8 +540,8 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
     }
 
     uint64_t flags = irq_save();
-    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        struct thread *thread = &threads[i];
+    for (uint64_t i = 0; i < thread_capacity; i++) {
+        struct thread *thread = thread_at(i);
         if (thread->state == THREAD_UNUSED ||
             thread->state == THREAD_DEAD ||
             thread->user_context != process ||
@@ -530,11 +549,7 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
             thread->user_thread_context == except_user_thread_context) {
             continue;
         }
-        if (thread->blocked_queue != NULL) {
-            thread->blocked_queue->waiters &= ~(1ull << i);
-        }
-        thread->blocked_queue = NULL;
-        thread->blocked_deadline_ticks = 0;
+        detach_wait(thread);
         if(i==current_thread) account_current_at(timer_monotonic_us());
         thread->account_user=false;
         thread->user_context = NULL;
@@ -568,11 +583,11 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
         return false;
     }
 
-    struct thread *thread = &threads[current_thread];
+    struct thread *thread = thread_at(current_thread);
     thread->state = THREAD_BLOCKED;
     thread->blocked_queue = queue;
     thread->blocked_deadline_ticks = deadline_ticks;
-    queue->waiters |= (1ull << current_thread);
+    queue->waiters++;
     irq_restore(flags);
 
     scheduler_yield();
@@ -591,26 +606,19 @@ uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_c
     }
 
     uint64_t flags = irq_save();
-    uint64_t waiters = queue->waiters;
-    uint64_t woken = 0;
-
-    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        if ((waiters & (1ull << i)) == 0) {
-            continue;
-        }
-        if (threads[i].state != THREAD_BLOCKED) {
-            queue->waiters &= ~(1ull << i);
-            continue;
-        }
-        if (woken < max_count) {
-            queue->waiters &= ~(1ull << i);
-            threads[i].state = THREAD_READY;
-            threads[i].signal_wakes++;
-            threads[i].blocked_queue = NULL;
-            threads[i].blocked_deadline_ticks = 0;
-            woken++;
-        }
+    if(!queue->waiters) { irq_restore(flags);return 0; }
+    uint64_t woken=0,remaining=0;
+    /* Membership belongs to the stable thread record, not a slot-sized bitmap.
+     * Never let a stale queue wake a reused slot waiting on another queue. */
+    for(uint64_t i=0;i<thread_capacity;i++) {
+        struct thread *t=thread_at(i);
+        if(t->blocked_queue!=queue)continue;
+        if(t->state!=THREAD_BLOCKED) { detach_wait(t);continue; }
+        if(woken<max_count) {
+            detach_wait(t);t->state=THREAD_READY;t->signal_wakes++;woken++;
+        } else remaining++;
     }
+    queue->waiters=remaining;
     irq_restore(flags);
     return woken;
 }
@@ -621,18 +629,14 @@ void scheduler_wake_all(struct scheduler_wait_queue *queue) {
 
 static void wake_expired_waits(void) {
     uint64_t now = timer_ticks();
-    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        struct thread *thread = &threads[i];
+    for (uint64_t i = 0; i < thread_capacity; i++) {
+        struct thread *thread = thread_at(i);
         if (thread->state != THREAD_BLOCKED ||
             thread->blocked_deadline_ticks == 0 ||
             now < thread->blocked_deadline_ticks) {
             continue;
         }
-        if (thread->blocked_queue != NULL) {
-            thread->blocked_queue->waiters &= ~(1ull << i);
-        }
-        thread->blocked_queue = NULL;
-        thread->blocked_deadline_ticks = 0;
+        detach_wait(thread);
         thread->state = THREAD_READY;
         thread->timeout_wakes++;
     }
@@ -644,7 +648,7 @@ void scheduler_preempt_tick(void) {
     }
 
     sampled_ticks++;
-    threads[current_thread].sampled_ticks++;
+    thread_at(current_thread)->sampled_ticks++;
 
     wake_expired_waits();
 
@@ -669,7 +673,7 @@ void scheduler_set_user_context_fpu(void *process,
         return;
     }
 
-    struct thread *thread = &threads[current_thread];
+    struct thread *thread = thread_at(current_thread);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
     thread->user_context = process;
@@ -698,7 +702,7 @@ void scheduler_clear_user_context(void) {
         return;
     }
 
-    struct thread *thread = &threads[current_thread];
+    struct thread *thread = thread_at(current_thread);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
     thread->user_context = NULL;
@@ -723,27 +727,27 @@ void *scheduler_current_user_context(void) {
     if (!initialized) {
         return NULL;
     }
-    return threads[current_thread].user_context;
+    return thread_at(current_thread)->user_context;
 }
 
 void scheduler_set_user_thread_context(void *context) {
     if (!initialized) {
         return;
     }
-    threads[current_thread].user_thread_context = context;
+    thread_at(current_thread)->user_thread_context = context;
 }
 
 void *scheduler_current_user_thread_context(void) {
     if (!initialized) {
         return NULL;
     }
-    return threads[current_thread].user_thread_context;
+    return thread_at(current_thread)->user_thread_context;
 }
 
 uint64_t scheduler_thread_count(void) {
     uint64_t count = 0;
-    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        if (threads[i].state != THREAD_UNUSED && threads[i].state != THREAD_DEAD) {
+    for (uint64_t i = 0; i < thread_capacity; i++) {
+        if (thread_at(i)->state != THREAD_UNUSED && thread_at(i)->state != THREAD_DEAD) {
             count++;
         }
     }
@@ -758,17 +762,27 @@ void scheduler_print_status(void) {
     /* Copy with IRQs masked, then print outside the critical section. These
      * timer samples show where the boot CPU spends time, not process CPU time
      * or an energy estimate. Short tasks can fall between samples. */
-    struct sample { const char *name; unsigned state; uint64_t ticks, switches; } sample[SCHEDULER_MAX_THREADS];
-    uint64_t flags=irq_save(),total=sampled_ticks,preemptions=preemption_count;
-    for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) sample[i]=(struct sample){
-        threads[i].name,threads[i].state,threads[i].sampled_ticks,threads[i].switches};
+    struct sample { char name[32]; unsigned state; uint64_t ticks, switches; };
+    static struct sample sample[SCHEDULER_MAX_THREADS];
+    static bool busy; /* Diagnostic scratch is never placed on a 16 KiB entry stack. */
+    uint64_t flags=irq_save(),total=sampled_ticks,preemptions=preemption_count,capacity=thread_capacity;
+    if(busy) { irq_restore(flags);return; }busy=true;
+    uint64_t storage=thread_storage_bytes,budget=thread_storage_budget;
+    for(unsigned i=0;i<capacity;i++) {
+        const struct thread *t=thread_at(i);sample[i]=(struct sample){.state=t->state,.ticks=t->sampled_ticks,.switches=t->switches};
+        const char *name=t->name?t->name:"unknown";
+        unsigned j=0;for(;j<sizeof(sample[i].name)-1 && name[j];j++)sample[i].name[j]=name[j];
+        sample[i].name[j]=0;
+    }
     irq_restore(flags);
+    console_printf("scheduler: capacity=%u storage_bytes=%u budget_bytes=%u\n",capacity,storage,budget);
     console_printf("scheduler: threads=%u preemptions=%u sampled_ticks=%u\n",
         scheduler_thread_count(),preemptions,total);
-    for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) if(sample[i].state!=THREAD_UNUSED)
+    for(unsigned i=0;i<capacity;i++) if(sample[i].state!=THREAD_UNUSED)
         console_printf("scheduler: thread=%u name=%s state=%u sampled_ticks=%u switches=%u\n",
-            (uint64_t)i,sample[i].name?sample[i].name:"unknown",(uint64_t)sample[i].state,
+            (uint64_t)i,sample[i].name,(uint64_t)sample[i].state,
             sample[i].ticks,sample[i].switches);
+    flags=irq_save();busy=false;irq_restore(flags);
 }
 
 /* Diagnostic-only, one bounded CPU0 snapshot; no output while IRQs are masked.
@@ -782,8 +796,8 @@ static unsigned activity_snapshot(struct activity_sample *out, uint64_t *at) {
     unsigned count=0;
     uint64_t flags=irq_save();
     *at=timer_monotonic_us();
-    if(initialized) for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) {
-        const struct thread *t=&threads[i];
+    if(initialized) for(unsigned i=0;i<thread_capacity;i++) {
+        const struct thread *t=thread_at(i);
         if(t->state==THREAD_UNUSED) continue;
         struct activity_sample *v=&out[count++];
         *v=(struct activity_sample){.slot=i,.identity=t->identity,.state=t->state,
@@ -801,23 +815,27 @@ static unsigned activity_snapshot(struct activity_sample *out, uint64_t *at) {
     return count;
 }
 void scheduler_print_activity(void) {
-    struct activity_sample rows[SCHEDULER_MAX_THREADS];
+    static struct activity_sample rows[SCHEDULER_MAX_THREADS];
+    static bool busy;
+    uint64_t flags=irq_save();
+    if(busy) { irq_restore(flags);return; }busy=true;irq_restore(flags);
     uint64_t at;
     unsigned count=activity_snapshot(rows,&at);
-    console_printf("worker-snapshot: us=%u count=%u version=1\n",at,(uint64_t)count);
+    console_printf("worker-snapshot: us=%u count=%u version=2\n",at,(uint64_t)count);
     for(unsigned i=0;i<count;i++) {
         const struct activity_sample *v=&rows[i];
         console_printf("worker: us=%u slot=%u id=%u name=%s state=%u ticks=%u switches=%u timeouts=%u signals=%u\n",
             at,v->slot,v->identity,v->name,v->state,v->ticks,v->switches,v->timeouts,v->signals);
     }
     console_printf("worker-snapshot-end: us=%u count=%u\n",at,(uint64_t)count);
+    flags=irq_save();busy=false;irq_restore(flags);
 }
 
 void scheduler_snapshot(struct scheduler_stats *out) {
     if(!out) return;
     uint64_t flags=irq_save();
     *out=(struct scheduler_stats){sampled_ticks,
-        idle_thread<SCHEDULER_MAX_THREADS?threads[idle_thread].sampled_ticks:0,
+        idle_thread<thread_capacity?thread_at(idle_thread)->sampled_ticks:0,
         context_switches,preemption_count};
     irq_restore(flags);
 }
@@ -842,9 +860,9 @@ static void idle_worker(void *arg) {
 }
 
 bool scheduler_start_idle_worker(void) {
-    if(idle_thread<SCHEDULER_MAX_THREADS) return true;
+    if(idle_thread<thread_capacity) return true;
     if(!scheduler_spawn_io_service("idle",idle_worker,NULL,idle_eligible)) return false;
-    for(uint64_t i=1;i<SCHEDULER_MAX_THREADS;i++) if(threads[i].entry==idle_worker) {
+    for(uint64_t i=1;i<thread_capacity;i++) if(thread_at(i)->entry==idle_worker) {
         idle_thread=i;return true;
     }
     return false;
@@ -853,6 +871,6 @@ bool scheduler_start_idle_worker(void) {
 /* Monotonic lifetime identity; a recycled worker slot receives a fresh ID. */
 uint64_t scheduler_current_thread_id(void) {
     uint64_t flags=irq_save();
-    uint64_t id=initialized?threads[current_thread].identity:0;
+    uint64_t id=initialized?thread_at(current_thread)->identity:0;
     irq_restore(flags);return id;
 }

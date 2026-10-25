@@ -207,3 +207,50 @@ replacement/reuse and one shared worker reaped. A separate actual pipe/process
 fixture queues forty 64 KiB writes and readbacks through two workers, then checks
 exact contents, standard exFAT metadata and independent allocation traversal.
 These do not accept native input latency or higher window counts on hardware.
+
+
+## Scheduler storage after the mixed-app native trial
+
+The combined Air7,2 session exposed an independent 32-thread scheduler ceiling
+at fifteen app windows. Thread records now retain an inline 32-slot bootstrap
+chunk and grow in stable, page-backed chunks of 32. Existing context, FPU and
+stack addresses never move. CPU0 IRQ exclusion covers allocation and publication,
+as it already did for kernel stacks; failed stack/record allocation publishes no
+slot, identity or chunk and releases any candidate stack.
+
+Admission charges a 32 MiB budget for 128 KiB scheduler kernel stacks plus
+page-rounded dynamic record chunks. The inline bootstrap records, pointer table
+and bounded diagnostic scratch are static overhead outside that charge. The
+budget-derived directory can address at most 256 slots; metadata charges or
+physical memory pressure can refuse earlier. This is a memory admission policy,
+not unlimited threads or processes. Process-table, per-process thread, file,
+client-surface and compositor budgets remain independent.
+
+Dead stacks stay charged until a later spawn reuses their slot. Record chunks
+retain their high-water storage until reboot; there is no IRQ-time compaction.
+Quarantined slots/stacks remain charged and cannot be reused. Kernel identities
+remain monotonic and are not recycled with slots.
+
+Wait queues hold a waiter count; each stable thread record owns its queue
+membership. Wake, timeout, user-thread cancellation and quarantine detach that
+membership exactly once. Slots above 63 do not shift a bitmap or alias low slots,
+and a stale queue cannot wake a reused slot belonging to a different queue.
+Selection/expiry/wake scans remain bounded by resident capacity, and empty wake
+queues return without scanning. Scheduling policy and storage I/O eligibility are
+unchanged. Diagnostics use serialized static scratch, avoiding large arrays on
+small kernel entry stacks. Worker snapshot version 2 permits slots 0..255;
+collectors continue to accept version 1 with its original 32-slot bounds.
+
+Desktop launch refusal emits `deskd: launch-failed` with app/error identity and a
+rate-limited visible warning. The UI distinguishes resource pressure from other
+launch errors without guessing whether a process slot, scheduler stack or memory
+allocation failed. No refused child is installed in the compositor registry.
+
+The combined-services regression is
+`tools/host-env.sh python3 tools/battery_home_desktop_smoke.py --boot-session
+--services --audio --mixed-apps`. It opens 24 separate app processes including
+file/image workers, saves exact document contents after growth, retires the whole
+lifetime, reopens and checks disposable filesystem allocation. It complements the
+single-process 128-window and 32-document fixtures; it does not replace native
+acceptance. The same test against old staged release `2750e5efa04573ba` reproduced
+scheduler-table exhaustion after fifteen windows.
