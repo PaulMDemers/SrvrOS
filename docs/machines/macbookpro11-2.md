@@ -33,8 +33,11 @@ Strict full-prefix validation passed after collection. Ubuntu default, consumed
 one-shot and installed/recovery payload hashes verified. Known-good
 `e47dca3a6b30c6c1` remains recovery. Offline workspace checks are clean:
 277files/665clusters/112directories, zero leaks, mismatches or errors.
-Evidence is durably archived outside build. Next: bounded reference RF bank6
-initialization/readback groundwork. No reboot is armed.
+Evidence is durably archived outside build. Candidate `7b329891c0606f1c`
+(source `00f04fb3`) is installed unarmed for the fixed38-entry RF bank6
+observation. Local/sanitizer/regression and exact-stage VM save/return plus
+missing-workspace recovery passed. Next: attended cold Wi-Fi adapter cycle,
+then collect the matching session FIRST. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6031,3 +6034,22 @@ prefix-fault/refusal/quarantine cases. Full build and MCU/compact/bring-up,
 original strict central engine, two-pass central engine and logger regressions
 passed. Documentation links checked cleanly. Exact-stage VM and missing-workspace
 recovery checks are next; install remains contingent on those results.
+
+
+Bank6 source `00f04fb342717a625719ce4e173837d0d948f05d`, release
+`7b329891c0606f1c`, installed unarmed. Sanitizer and full build/regression checks
+passed. Exact-stage GPT VM saved and byte-verified its capture, passed offline
+exFAT checks and returned automatically, with tail_limit262144 confirmed.
+Missing-workspace refusal/return also passed. Ubuntu default and known-good
+`e47dca3a6b30c6c1` remain; completed bank5 release `242e84b15d20babc` retained.
+Older central observation `257e68678e55ba49` removed from ESP only after full
+byte-for-byte durable backup equality. Preboot workspace is clean:
+277files/665clusters/112directories, zero leaks, mismatches or errors; unmounted.
+
+Payload, pinned references, fault/sanitizer/regression/collector checks, both
+VM receipts and run/checkpoint are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-bank6-00f04fb/`.
+Ready for attended shutdown/cold adapter cycle. On return collect matching
+release/session FIRST and verify every prerequisite and all38 observations,
+76 command replies,152 guard triplets, mismatch accounting and complete prefix.
+No automatic further tables, trim, DAC/VCO or traffic; native bank6 pending.
