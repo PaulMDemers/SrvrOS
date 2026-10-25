@@ -2537,3 +2537,17 @@ same unpaced workload, measure event-loop gaps plus launch/close phases and I/O
 gate wait/hold time, then move blocking lifecycle work off the event loop or fix
 measured contention as appropriate. Preserve integrity and ownership checks and
 keep full disk pressure; do not hide the failure by adding workload sleeps.
+
+### Active scope: responsive desktop during automatic audio/I/O (2026-10-25)
+
+Base `3ab4a385`, branch `device/macbookair6-1/desktop-io-latency`. Reproduce and
+measure event-loop stalls with automatic real app open/close during unchanged
+unpaced verified disk work and PCM playback; move blocking compositor lifecycle
+operations off its input/render loop where measurements justify it. Expected
+scope: `userspace/deskd`, a bounded userspace lifecycle worker, regression and
+VM harness, native trial records. Preserve filesystem integrity and kernel I/O
+ownership gates. Air7,2 branch `dfba5295` owns process/memory lifecycle latency;
+PR157 also changes document routing, so avoid competing kernel/process edits and
+keep compositor integration explicit. Pro PR19 is separate Wi-Fi work.
+User authorizes tests, merge and automated native reboot. Prior run is collected;
+no new reboot is armed until matched builds, VM checks and recovery preflight pass.
