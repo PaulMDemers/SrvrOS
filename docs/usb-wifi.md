@@ -2836,7 +2836,7 @@ command/guard/readback observations only. Next is bounded reference VGA-table
 initialization/readback; calibrated RF and connectivity remain untested.
 
 
-### Fixed RF VGA observation (v69 candidate)
+### Fixed RF VGA observation (v69 native observation)
 
 `--wifi-rf-vga` requires `--wifi-rf-bank6` and the full earlier initialization
 chain. The native owner revalidates every completed bank6 command/guard and
@@ -2861,3 +2861,16 @@ every new command/guard/value, exact prefix byte accounting and both completion
 markers. Ordinary64KiB and older128KiB logging are unchanged. No bandwidth/band
 selection, RF0:22 trim, DAC/VCO calibration, scan, association, security or packet
 traffic follows the experiment automatically.
+
+
+Native MacBookPro11,2 source `22f757bf`, release `de89daa6bdc3024e`, session
+`session-00065eadd298077c-00` completed the fixed VGA plan:490 operations,
+420 guard reads,70 verified command replies,35 ACKs and35 matching readbacks.
+All140 guard triplets passed; both mismatch fields zero. Full central43/44
+(RF0:6=00), bank5 68/68 and bank6 38/38 proof remained valid. Both completion
+markers and the entire219878-byte startup prefix within262144 capacity were
+saved and strictly verified. Ubuntu default, consumed one-shot, payload/recovery
+hashes and offline filesystem/allocation checks passed. This establishes native
+command/guard/readback observations only. Next is bounded reference bandwidth/
+band initialization; frequency trim, DAC/VCO calibration, scanning and actual
+Wi-Fi connectivity remain untested.

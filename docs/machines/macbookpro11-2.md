@@ -46,12 +46,17 @@ default and installed/recovery hashes passed. Latest offline workspace checks:
 unmounted. This is command/guard/readback evidence, not calibrated radio
 acceptance.
 
-Candidate `de89daa6bdc3024e` (source `22f757bf`) is installed unarmed for the
-fixed35-entry RF VGA (bank7) observation. Local/regression and sanitizer checks,
-exact-stage VM save/return and missing-workspace recovery passed. Next: attended
-cold adapter cycle, then collect the matching release/session FIRST. No reboot
-is armed. Bandwidth/band selection, trim and DAC/VCO calibration remain later
-steps.
+Release `de89daa6bdc3024e` (source `22f757bf`) completed the fixed35-entry
+RF VGA (bank7) observation in native session `session-00065eadd298077c-00`.
+All35 readbacks matched:490 operations,420 guard reads,70 verified replies,
+35 ACKs and140 valid guard triplets; both mismatch fields zero. Full central,
+bank5 and bank6 proof passed. The entire219878-byte startup prefix and both
+completion markers were saved. Strict validation, consumed one-shot, Ubuntu
+default and installed/recovery hashes passed. Latest offline workspace checks:
+281files/673clusters/114directories, zero leaks, mismatches or errors;
+unmounted. This is command/guard/readback evidence, not calibrated radio
+acceptance. Next: bounded reference bandwidth/band initialization, before
+frequency trim, DAC/VCO calibration and scanning. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6147,3 +6152,23 @@ bank6 proof, all70 VGA command replies,140 guard triplets,35 observations,
 complete mismatch accounting and entire startup prefix with both completion
 markers. No bandwidth/band switching, trim, DAC/VCO or traffic in this trial.
 No reboot armed; native RF VGA results pending.
+
+
+## 2026-10-25 — RF VGA native return
+
+Collected source `22f757bf67ec13fe4f177f58103ac122ef84aec1`, release
+`de89daa6bdc3024e`, session `session-00065eadd298077c-00`. Exact native proof
+passed:490 submissions,420 guard reads,70 verified16-byte replies,35 ACKs and
+35 matching indexed readbacks. All140 MAC/CORE/DMA guard triplets passed;
+both mismatch fields zero. Central remains43/44 with only RF0:6=00; bank5
+remains68/68 and bank6 38/38. Full219878-byte startup prefix within262144
+capacity and both completion markers verified; no partial evidence promoted.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes passed.
+Offline exFAT/allocation checks clean281files/673clusters/114directories,
+zero leaks, mismatches or errors; workspace unmounted, no reboot armed.
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-vga-22f757b/`.
+Next is bounded reference bandwidth/band initialization, followed by frequency
+trim and DAC/VCO calibration. This run added no bandwidth/band settings, trim,
+DAC/VCO calibration, scanning, association or traffic. Native command/guard/
+readback observations do not accept calibrated radio operation/connectivity.
