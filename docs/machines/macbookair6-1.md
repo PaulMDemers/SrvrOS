@@ -2784,3 +2784,21 @@ during handoff. Initial VM experiments are retained: the overbroad prototype
 failed a 512,391 us loop gap; at 100 IOPS Text completed but Files exceeded the
 whole-cycle deadline. These are failures, not native acceptance. The narrowed
 implementation and its matched physical payload require fresh validation.
+
+Final narrowed source `74939958` passes build/core, full smoke and the storage
+service VM (throttled writes, USB typing, cancellation, copy comparison, fsck and
+timeout/quarantine). The populated-Home 400-write-IOPS automatic stress passes
+15 complete app cycles: maximum ready 1,423,863 us, close/reap 2,526,714 us and
+loop 480,204 us, with zero app errors or PCM underruns. It verifies 117 unpaced
+256-KiB bursts, 223 observed PCM/write overlap windows, preservation of all
+66 prior fixture files and clean offline allocation. All original limits remain.
+
+Release `95f8a9cf59b25ba1` freezes that clean source. Its exact-stage Q35 rehearsal
+passes the expected native-profile refusal, save/unmount and automatic return;
+this is not physical battery or stress acceptance. PR167 carries the fix and
+this documentation-only follow-up. Main remains `296f86bb`; Pro PR19 `3e979549`
+retains separate Wi-Fi scope without scheduler/dispatch overlap. Next is the
+authorized thirty-minute automatic native audio/disk/Text–Files–System stress,
+with listening only, automatic Ubuntu return and collection. Preserve accepted
+recovery and the prior failed run; require complete matching receipts before
+claiming hardware acceptance.
