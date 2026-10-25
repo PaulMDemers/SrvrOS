@@ -2633,3 +2633,22 @@ split the single Text startup message. Extend the existing trace-interleaving
 decoder to that line type, preserving exact startup counts, duplicate detection,
 failure markers and raw evidence; rerun crash/refusal cases. No timeout or file
 acceptance predicate is relaxed.
+
+Final integrated candidate: source `7ddf2153`, native release
+`8dd177cef12cec3b`. Build/core and desktop/routing host checks pass; the normal,
+crash and refused-dialog VMs pass exact file contents, offline allocation and
+restored process baseline. The automatic stress VM passes 19 app cycles with
+maximum loop gap 438,388 us, ready time 1,212,207 us and close time 1,392,331 us,
+zero app errors/PCM underruns, 393 verified bursts (103,022,592 bytes) and 224
+observed PCM/write overlap windows. The full smoke suite passed on integrated
+`29c75d8a`; the later dialog correction has a failing-before/passing-after host
+regression and all three directed lifecycle VMs. Exact-stage GRUB/Limine boot,
+expected native-profile refusal on Q35, unmount and automatic return pass.
+
+PR160 is ready for integration and the authorized thirty-minute native launch.
+The replacement payload/evidence are backed up outside build; retain Ubuntu,
+console recovery and previously accepted desktop/reopen payloads. The automatic
+trial opens/closes real apps throughout continuous PCM and unchanged verified
+USB stress, then retires the battery runtime and returns to Ubuntu for automatic
+collection. No human file work is required. Keep AC/USB connected and listen;
+native responsiveness/endurance remains pending that run's complete receipts.
