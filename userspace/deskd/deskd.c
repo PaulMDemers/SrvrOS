@@ -101,9 +101,9 @@ static void resource_trace(const struct session *s,const char *reason) {
         clients+=s->clients[i].pid!=0;children+=s->children[i]!=0;
         peers+=s->clients[i].clipboard.pid!=0;
     }
-    desk_log("deskd: resources reason=%s clients=%u children=%u clipboard_peers=%u window_limit=%u cache_bytes=%llu cache_budget=%llu gui_queues=%u gui_queue_depth=%u gui_surfaces=%u\n",
+    desk_log("deskd: resources reason=%s clients=%u children=%u clipboard_peers=%u window_limit=%u cache_bytes=%llu cache_budget=%llu gui_queues=%u gui_queue_depth=%u gui_surface_record_budget=%llu gui_surface_pixel_budget=%llu\n",
         reason,clients,children,peers,DESKD_WINDOWS,(unsigned long long)s->cache_bytes,
-        (unsigned long long)DESKD_CACHE_BUDGET,DESK_GUI_QUEUES,DESK_GUI_QUEUE_DEPTH,DESK_GUI_SURFACES);
+        (unsigned long long)DESKD_CACHE_BUDGET,DESK_GUI_QUEUES,DESK_GUI_QUEUE_DEPTH,(unsigned long long)DESK_GUI_SURFACE_RECORD_BYTES,(unsigned long long)DESK_GUI_PIXEL_BYTES);
 }
 /* Only live windows own caches. A private spare receives each whole frame;
  * published pixels remain untouched until copy succeeds. Budget includes both. */

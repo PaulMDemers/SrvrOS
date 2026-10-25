@@ -2,6 +2,33 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active dynamic surface storage (D2a)
+
+PR143 is merged as `fd38097` and consumed on the same device branch. Next
+bounded objective: replace the kernel's fixed 64-surface array with stable,
+demand-allocated records and explicit metadata/pixel byte budgets, including
+in-flight allocation and retired storage. Preserve atomic seal/queue transitions,
+owner/window/serial checks and close/server-death cleanup. Never recycle surface
+IDs. Allocate/initialize outside the GUI metadata critical section; recheck
+retirement before publishing. Do not claim shorter syscall interrupt exclusion
+or native latency from that structural change.
+
+Touch kernel GUI storage and syscall output-fault rollback, shared budget
+definitions, resource tracing and host/actual-protocol lifetime and pressure fixtures. Compositor admission remains
+sixteen windows in this block; dynamic queues and compositor/scene registries
+follow independently. Pro PR19 `e409c07` remains Wi-Fi diagnostics. No hardware
+or boot changes; host/QEMU only through 10AM, and no automatic reboot then.
+
+D2a PR144 runtime `028ded1` passes full desktop host/build, 128 live surface
+records with independent byte-quota and allocation/retirement failure injection,
+actual ABI readback/reuse/stale-ID and multiwindow/relaunch, and sixteen Text
+documents with exact persistence and worker retirement. Compositor client-death,
+resize and console return/relaunch passed the preceding surface implementation.
+The malformed output-buffer probe reproduced guest memory exhaustion before the
+syscall fix; 300 read-only requests now consume no IDs before normal rendering.
+No kernel heap allocation/free occurs inside the GUI-owned metadata section in
+the instrumented host fixture. Native input timing remains untested.
+
 ### Active multi-document Text migration (D1c)
 
 PR142 is merged as `ed2015a` and consumed. Next bounded scope: migrate normal

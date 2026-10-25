@@ -1,14 +1,16 @@
 # Desktop capacity and buffer ownership
 
 The desktop supports sixteen client windows, with demand-allocated compositor
-caches and current-size client canvases. Kernel GUI capacity is 32 queues and
-64 surfaces, derived from the shared sixteen-window policy; 64 process slots
-remain unchanged. File workers and terminal shells consume additional processes,
+caches and current-size client canvases. Kernel GUI capacity remains 32 queues;
+surface records are now demand-allocated under separate 256 KiB metadata and
+256 MiB pixel budgets. These include prepared and retired storage until freed.
+The former 64-surface table is gone; 64 process slots remain unchanged. File workers and terminal shells consume additional processes,
 so window capacity is a ceiling, not an unconditional launch guarantee.
 
 The current admission budgets are named together in
 `shared/include/srvros/desktop_protocol.h`: windows, kernel queues and queue
-depth, kernel surfaces, ordered input queue depth and compositor cache bytes.
+depth, kernel surface metadata/pixel bytes, ordered input queue depth and
+compositor cache bytes.
 Clipboard transfer state belongs to each admitted client; there is no separate
 eight-peer table. Client retirement releases a staged write and pending replies
 before reusing the record. One blocked reader keeps its own retry state and does
@@ -19,7 +21,9 @@ value with one staged writer; concurrent revision changes cancel partial reads.
 cache bytes/budget and transport limits on admission, retirement and refusal.
 Launch capacity produces a visible close-a-window notice; process-launch refusal
 and pixel-cache pressure retain their distinct diagnostics. These are the current
-fixed admission budgets; dynamic registries are the next architecture stage.
+admission budgets; dynamic queues and compositor registries remain the next
+architecture stage. A surface byte budget does not guarantee that physical
+memory is available.
 
 The compositor pixel-cache budget is 96 MiB, including published and private
 buffers. It excludes the desktop canvas, client memory, kernel surfaces, page
@@ -106,3 +110,28 @@ is a different resource shape from sixteen Text processes. Large document
 records use independently released anonymous mappings rather than exhausting
 the legacy brk arena. The launcher selects sibling windows by non-reused
 compositor identities, not PID alone. Dynamic registries remain next.
+
+D2a replaces kernel surface slots with stable allocated records and monotonic
+positive IDs. Metadata and pixel charges are reserved before preparation;
+allocation failure rolls both back. Cleanup detaches records before freeing
+outside the GUI metadata section. A retirement epoch rejects publication if any
+process retired during preparation, conservatively including unrelated owners.
+Such a failed initial allocation may be retried by opening again; existing
+surfaces are unaffected. This structural change does not claim reduced total
+syscall interrupt exclusion or native latency. The actual-protocol connection
+consumer holds 128 tiny auxiliary surfaces while exercising its windows, then
+retires them and relaunches. Those surfaces are not 128 desktop windows.
+
+Surface budgets account for requested record/pixel payload bytes, not heap
+headers or page rounding. The surface-create syscall also validates its writable
+result buffer before allocation and destroys an unpublished result if copying
+it back fails. The ABI probe rejects 300 read-only result buffers without
+consuming an ID, then allocates the normal pool and renders windows. An earlier
+probe reproduced memory exhaustion from unreachable surfaces before this fix.
+
+Runtime `028ded1` passes the full desktop host/image build, the 128-surface
+actual-ABI consumer with malformed result buffers, and sixteen normal Text
+documents with exact file readback, refusal/reuse and worker cleanup. This accepts
+the dynamic surface foundation in QEMU, not dynamic compositor window admission
+or native latency. Queues and the sixteen-window compositor still follow their
+separate current limits.
