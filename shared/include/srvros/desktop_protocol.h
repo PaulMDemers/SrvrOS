@@ -16,7 +16,7 @@
 #define DESK_CLIPBOARD_BYTES 65536
 #define DESK_MAX_WINDOWS 16
 /* Current admission budgets; distinct pools, not promises of available RAM. */
-#define DESK_GUI_QUEUES (DESK_MAX_WINDOWS+16)
+#define DESK_GUI_QUEUE_BYTES (2ull*1024*1024)
 #define DESK_GUI_QUEUE_DEPTH 64
 #define DESK_GUI_SURFACE_RECORD_BYTES (256ull*1024)
 #define DESK_GUI_PIXEL_BYTES (256ull*1024*1024)

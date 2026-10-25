@@ -50,7 +50,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | Current bound | Location / consequence |
 | --- | --- |
 | 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; multiple windows may share a PID |
-| 32 GUI queues, 64 messages per queue | `GUI_MAX_QUEUES = DESK_MAX_WINDOWS + 16`, `GUI_QUEUE_DEPTH`; process queues also need room for services |
+| Dynamic GUI queues, 64 messages per queue | 2 MiB requested-byte budget includes prepared/retired records; process and window budgets remain independent |
 | Dynamic GUI surfaces | 256 KiB record budget plus 256 MiB pixel budget, including in-flight reservations and retirement; no fixed surface slot array |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
 | 1440×900 logical client surface | Protocol/kernel bound; explicit 2× output is enlargement, not native-density text rendering |

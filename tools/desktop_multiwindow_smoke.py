@@ -41,7 +41,7 @@ def main():
                             chunk=serial.recv(16384)
                             if not chunk:raise RuntimeError('Serial disconnected')
                             output+=chunk;(out/'serial.log').write_bytes(output)
-                            if b'multi-window: FAIL' in output:raise RuntimeError('Guest multiwindow failure; see serial.log')
+                            if b'multi-window: FAIL' in output or b'gui-queues: FAIL' in output:raise RuntimeError('Guest multiwindow failure; see serial.log')
                         except socket.timeout:pass
                     consumed=output.index(marker,consumed)+len(marker)
                 def shortcut(keys):
@@ -51,6 +51,12 @@ def main():
                 def shot(name):
                     time.sleep(.3);qmp.call('screendump',{'filename':str(out/f'{name}.ppm')})
                 wait(b'srv> ',100)
+                serial.sendall(b'run /fat/bin/guifail --queues\n')
+                wait(b'gui-queues: PASS three rounds, 72 clients, all reaped',120)
+                for round_number in range(1,4):
+                    assert f'gui-queues: round={round_number} 24 clients authenticated; 25 live FIFOs'.encode() in output
+                    assert f'gui-queues: round={round_number} 24 clients retired and reaped'.encode() in output
+                wait(b'srv> ')
                 serial.sendall(b'run /fat/bin/deskd --multiwindow-smoke\n')
                 wait(b'multi-window: ready two windows one process')
                 opened=re.findall(rb'deskd: opened pid=(\d+) window=(\d+)',output)
@@ -87,7 +93,7 @@ def main():
                 raise
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
-    print(f'desktop-multiwindow: PASS 128 live kernel surfaces/readback/reuse, one process/two documents, focus, clipboard, close preserves sibling, increasing ID, resize, cleanup and relaunch. Evidence: {out}')
+    print(f'desktop-multiwindow: PASS 25 live process FIFOs/72 clients reaped, 128 live kernel surfaces/readback/reuse, one process/two documents, focus, clipboard, close preserves sibling, increasing ID, resize, cleanup and relaunch. Evidence: {out}')
 
 
 if __name__=='__main__':main()

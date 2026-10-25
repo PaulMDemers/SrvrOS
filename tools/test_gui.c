@@ -21,9 +21,11 @@ struct process *process_current(void) { return (struct process *)(uintptr_t)curr
 uint64_t process_pid(const struct process *p) { return (uintptr_t)p; }
 static unsigned heap_calls,heap_live,heap_fail_at,retire_at;
 static uint64_t retire_pid;
+static void (*allocation_hook)(void);
 void *kmalloc(size_t bytes) {
     assert(!gui_test_irq_depth);
     heap_calls++;
+    if(allocation_hook) { void (*hook)(void)=allocation_hook;allocation_hook=NULL;hook(); }
     if(heap_calls==retire_at)gui_process_cleanup(retire_pid);
     if(heap_calls==heap_fail_at)return NULL;
     void *p=malloc(bytes);if(p)heap_live++;return p;
@@ -85,8 +87,88 @@ static void packet_window(struct gui_message *message,uint64_t window) {
     packet.window=window;memcpy(message->text,&packet,sizeof(packet));
 }
 
+static struct gui_message hook_message;
+static unsigned hook_count;
+static void competing_send(void) {
+    for(unsigned i=0;i<hook_count;i++)assert(gui_send(&hook_message)==0);
+}
+static void competing_register(void) { assert(gui_register_server()==0); }
+static void replace_server(void) {
+    gui_process_cleanup(1);current_pid=3;assert(gui_register_server()==0);current_pid=1;
+}
+static void dynamic_queues(void) {
+    assert(!queues && !queue_bytes && !heap_live && !server_pid);
+    current_pid=1;assert(gui_register_server()==0);
+    struct gui_message message={.type=1},got;
+    unsigned records=DESK_GUI_QUEUE_BYTES/sizeof(struct gui_queue);
+    assert(records>64);
+    /* Fill all metadata budget with independent FIFOs, then retire/reuse half. */
+    for(unsigned i=1;i<records;i++) {
+        message.target_pid=i+10;message.value=i;
+        assert(gui_send(&message)==0);
+    }
+    unsigned calls=heap_calls;message.target_pid=10000;
+    assert(gui_send(&message)==-1 && calls==heap_calls);
+    assert(queue_bytes==records*sizeof(struct gui_queue));
+    for(unsigned i=1;i<records;i++) {
+        current_pid=i+10;
+        assert(gui_recv(&got)==1 && got.source_pid==1 && got.target_pid==i+10 && got.value==i);
+        assert(gui_recv(&got)==0);
+    }
+    for(unsigned i=1;i<records;i+=2)gui_process_cleanup(i+10);
+    current_pid=1;
+    for(unsigned i=1;i<records;i+=2) {
+        message.target_pid=i+10000;assert(gui_send(&message)==0);
+    }
+    for(unsigned i=1;i<records;i++)gui_process_cleanup((i&1)?i+10000:i+10);
+    assert(queue_bytes==sizeof(struct gui_queue) && heap_live==1);
+    message.target_pid=2;
+    heap_fail_at=heap_calls+1;assert(gui_send(&message)==-1 && !queue_for_pid(2));heap_fail_at=0;
+    assert(queue_bytes==sizeof(struct gui_queue) && heap_live==1);
+    /* Invalid packets never prepare a queue or consume a reservation. */
+    struct gui_message bad=packet_message(DESK_COMMIT,2,0,1);
+    calls=heap_calls;assert(gui_send(&bad)==-1 && heap_calls==calls);
+    /* Another thread installs this queue during candidate allocation. One FIFO
+     * survives, the unused reservation is freed, both messages retain order. */
+    hook_message=message;hook_message.value=31;hook_count=1;
+    allocation_hook=competing_send;message.value=32;
+    assert(gui_send(&message)==0 && queue_bytes==2*sizeof(struct gui_queue) && heap_live==2);
+    current_pid=2;assert(gui_recv(&got)==1 && got.value==31);
+    assert(gui_recv(&got)==1 && got.value==32 && gui_recv(&got)==0);
+    gui_process_cleanup(2);current_pid=1;
+    hook_count=GUI_QUEUE_DEPTH;allocation_hook=competing_send;
+    assert(gui_send(&message)==-1 && queue_for_pid(2)->count==GUI_QUEUE_DEPTH);
+    assert(queue_bytes==2*sizeof(struct gui_queue) && heap_live==2);gui_process_cleanup(2);
+    /* Release allocation failure leaves the seal intact; a retry can deliver. */
+    current_pid=2;int64_t surface=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
+    struct gui_message commit=packet_message(DESK_COMMIT,0,surface,1);
+    assert(gui_send(&commit)==0);current_pid=1;assert(gui_recv(&got)==1);
+    struct gui_message release=packet_message(DESK_RELEASE,2,surface,1);
+    heap_fail_at=heap_calls+1;assert(gui_send(&release)==-1 && surface_for_id(surface)->sealed);
+    heap_fail_at=0;
+    /* Reentrant release changes the surface transition during preparation;
+     * revalidation must reject our now-stale duplicate without another packet. */
+    hook_message=release;hook_count=1;allocation_hook=competing_send;
+    assert(gui_send(&release)==-1 && !surface_for_id(surface)->sealed);
+    current_pid=2;assert(gui_recv(&got)==1 && gui_recv(&got)==0);
+    gui_process_cleanup(2);current_pid=1;
+    retire_at=heap_calls+1;retire_pid=2;
+    assert(gui_send(&message)==-1 && !queue_for_pid(2));retire_at=0;
+    assert(queue_bytes==sizeof(struct gui_queue) && heap_live==1);
+    allocation_hook=replace_server;
+    assert(gui_send(&message)==-1 && server_pid==3 && !queue_for_pid(2));
+    gui_process_cleanup(3);assert(!queue_bytes && !heap_live);
+    /* Registration may also allocate concurrently or lose its owner. */
+    current_pid=1;allocation_hook=competing_register;
+    assert(gui_register_server()==-1 && server_pid==1);
+    assert(queue_bytes==sizeof(struct gui_queue) && heap_live==1);gui_process_cleanup(1);
+    retire_at=heap_calls+1;retire_pid=1;
+    assert(gui_register_server()==-1 && !server_pid && !queues && !queue_bytes && !heap_live);
+    retire_at=0;
+    puts("gui-queues: PASS byte quota beyond 32 FIFOs, allocation/retirement rollback, competing publication/full FIFO, atomic release and server replacement");
+}
+
 static void protocol_tests(void) {
-    for (unsigned i=0;i<GUI_MAX_QUEUES;i++) gui_process_cleanup(i+10);
     current_pid=1; assert(gui_register_server()==0);
     assert(gui_audio_request(1,0)==0 && gui_audio_request(0x100000001ull,0)==-1);
     assert(gui_brightness(0)==14 && gui_brightness(50)==50 && brightness_calls==2);
@@ -202,9 +284,10 @@ int main(void) {
     assert(gui_surface_copy(3,surface,0,0,8,8,pixels,8)==-1);
     gui_process_cleanup(3);
     assert(server_pid==0);
-    for (unsigned i=0;i<GUI_MAX_QUEUES;i++) assert(queue_for_pid(i+10,true));
+    heap_fail_at=heap_calls+1;
     current_pid=100;
     assert(gui_register_server()==-1 && server_pid==0);
+    heap_fail_at=0;
     protocol_tests();
     current_pid=1; assert(gui_register_server()==0);
     assert(gui_server_ready()==0);
@@ -216,10 +299,10 @@ int main(void) {
     current_pid=1;assert(gui_server_ready()==1);
     struct gui_message queued;assert(gui_recv(&queued)==1 && gui_server_ready()==0);
     assert(gui_client_ready(1)==-1); /* Server cannot sleep on client messages. */
-    gui_process_cleanup(2);assert(queue_for_pid(2,false)==NULL);
+    gui_process_cleanup(2);assert(queue_for_pid(2)==NULL);
     current_pid=0;assert(gui_client_ready(1)==-1 && gui_server_ready()==-1);
     current_pid=2;assert(gui_client_ready(0)==-1 && gui_client_ready(99)==-1);
-    assert(gui_client_ready(1)==0 && queue_for_pid(2,false)==NULL); /* No allocation. */
+    assert(gui_client_ready(1)==0 && queue_for_pid(2)==NULL); /* No allocation. */
     current_pid=1;
     struct gui_message wheel=packet_message(DESK_SCROLL,2,0,0),received;
     current_pid=2; assert(gui_send(&wheel)==-1); /* Clients cannot forge input. */
@@ -255,7 +338,7 @@ int main(void) {
     assert(poll_wakes>wakes_before && gui_client_ready(1)==-1);
     current_pid=3;assert(gui_register_server()==0);
     current_pid=2;assert(gui_client_ready(1)==-1 && gui_client_ready(3)==0);
-    gui_process_cleanup(3);dynamic_surfaces();
+    gui_process_cleanup(3);dynamic_queues();dynamic_surfaces();
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;
 }
