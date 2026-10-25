@@ -303,7 +303,8 @@ fixtures. Physical window acceptance remains the Air sixteen-window round on
 `bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.
 The selected POSIX profile has its own acceptance record and remaining gaps.
 
-D3 follow-up implementation is in progress in the Air7,2 unit record and
+D3 follow-up is implemented on PR157, with local host/VM gates and pending
+physical acceptance in the Air7,2 unit record and
 [application lifecycle contract](desktop-application-lifecycle.md): same-process
 parented dialogs, sequential cancellable app Quit, and bounded existing-process
 open-document routing. These are matched protocol v15 changes. Host validation

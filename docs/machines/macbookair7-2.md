@@ -2,7 +2,7 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Application lifecycle implementation; final local gates
+### Application lifecycle implemented; merge held for shutdown investigation
 
 Base main `e253a60`; D3 follow-up is implemented on this device branch/PR157.
 Matched protocol v15 adds one-level same-process document-modal windows, parent
@@ -30,11 +30,25 @@ combined-service VM passes two rounds of 24 apps and exact document persistence.
 
 Main `afb2c3b` (Air6,1 audio/USB work from PR156/158) is integrated at `c0ce49b`;
 the guide uses distinct profile v75 and session selector 5, preserving v74 and
-selectors 3/4 for audio stress. Integrated local gates are being finalized.
+selectors 3/4 for audio stress. Integrated core/desktop builds, 81 staging tests and all three lifecycle cases
+pass on clean source `3699b58`. Exact v75 release `1564f1d0adb0916b` passes
+GRUB → staged Limine guide startup, saved Text/Terminal work, audio playback,
+normal exit/reopen and clean unmount; its native battery profile refuses Q35
+as expected. Both guide pages were visually checked.
 The explicit lifecycle profile opens the full attended checklist in Help with
 no timed exit; ordinary reopen remains ordinary. No hardware reboot is armed.
 
-Evidence: `build/desktop-lifecycle-20261025/`, to be backed up outside build.
+One extra integrated audio/USB stress run completed its full minute (508 bursts,
+133,169,152 bytes, zero underruns), then halted on a synthetic EC sample timeout
+at shutdown. The unchanged candidate retry passed with clean retirement and
+return. Three diagnostic main-compositor-only runs also passed; they do not
+prove a cause or constitute full-main/native comparisons. PR157 stays draft:
+merge is held for a bounded teardown/latency reproduction. No timeout or model
+gates were widened. The candidate compositor source and build were restored.
+
+Evidence: `build/desktop-lifecycle-20261025/`, with 280 files hash-verified under
+this unit's `reviewed-evidence/desktop-lifecycle-20261025` outside build, including
+the exact stage, original failure, isolation provenance and raw logs.
 The installed/recovery payload remains the prior physically accepted v14 image;
 this v15 change has no new physical acceptance yet. Future attended testing must
 open its full checklist in the guest before relying on input. Pro PR19 and Air6,1
