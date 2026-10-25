@@ -50,7 +50,9 @@ def main():
                         written=next(x['stats']['wr_bytes'] for x in qmp.call('query-blockstats') if x.get('device')=='stick')
                         pcm=(out/'tone.wav').stat().st_size if (out/'tone.wav').exists() else 0
                         if previous and pcm>previous[1] and written-previous[0]>=65536:
-                            overlap.append(dict(usb_written=written-previous[0],pcm_bytes=pcm-previous[1]))
+                            with (out/'tone.wav').open('rb') as capture:
+                                capture.seek(max(44,previous[1]));audible=any(capture.read(pcm-max(44,previous[1])))
+                            if audible:overlap.append(dict(usb_written=written-previous[0],pcm_bytes=pcm-previous[1]))
                         previous=(written,pcm)
                 def wait(marker,timeout=90):
                     nonlocal consumed
@@ -78,6 +80,11 @@ def main():
                 assert b'runtime_retired=yes' in output
                 stop_process(process);data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
                 final=ExfatFixture(data[2048*512:end]);read=lambda name:final.read('srvros-work/'+name)
+                evidence={}
+                for name in ['first-status.txt','refusal-status.txt','refusal.txt',stem+'/io.txt',stem+'/rounds.txt',stem+'/audio-1.txt',stem+'/audio-2.txt',stem+'/complete.txt']:
+                    try:evidence[name]=read(name).decode(errors='replace')
+                    except Exception as e:evidence[name]=repr(e)
+                (out/'guest-evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
                 proof=verify(read,run,2,1,6,2)
                 assert read('first-status.txt')==b'0\n' and read('refusal-status.txt')==b'1\n'
                 assert read('refusal.txt')==b'REFUSED existing combined trial\n'
