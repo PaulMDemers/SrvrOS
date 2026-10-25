@@ -141,8 +141,12 @@ mask100; all other targets and both guard triplets valid. Entire250364-byte
 prefix and both success markers saved. Recovery/default/one-shot/hashes passed;
 offline clean297files/705clusters/122directories, zero leaks/mismatches/errors;
 unmounted/unarmed. Observation evidence archived; original strict modes and
-v75/v76 failures unchanged. US_CYC at2a4 remains0: audit remaining USB-tail
-timing before channel/calibration work. No target/calibration/radio acceptance.
+v75/v76 failures unchanged. Separate v78 timing trial `5c86ad12e5f185ca`, source
+`da8b7fce`, is installed/unarmed after local and both exact-stage VM checks.
+It requires this exact inventory then fresh02a4=0, writes only low8=1e and
+requires independent readback plus final guards. Recovery remains
+`e47dca3a6b30c6c1`, Ubuntu default unchanged. Await readiness for cold-cycle
+shutdown; collect matching session first after return. No radio acceptance.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6949,3 +6953,24 @@ recipe identities,105 malformed collector cases, full build and ASan/UBSan pass.
 Complete synthetic prefix251631bytes remains within262144 capacity. Next:
 exact-stage VM save/return and missing-workspace rehearsal before install.
 Native timing readback remains pending; no radio-function acceptance.
+
+
+## 2026-10-25 — USB cycle timing trial installed
+
+Source `da8b7fce6d4ff8bf6e4f18283f05cf0dc8e23441`, release
+`5c86ad12e5f185ca`, config `ram-usb-wifi-fw-v78-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; Ubuntu default and known-good recovery
+`e47dca3a6b30c6c1` retained. Completed v77 payload remains installed/archived;
+failed v76 payload removed from ESP only after full durable archive byte equality.
+Offline preboot exFAT/allocation clean297files/705clusters/122directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-usb-cycle-da8b7fc/`.
+After readiness, cold-cycle Wi-Fi10s while off; leave workspace connected.
+SrvrOS saves results and returns automatically, no photos or commands needed.
+Collect matching release/session first with `usb-cycle/collect_return.py`;
+require full earlier proof, exact inventory, nine timing receipts, fresh0 to1e,
+postguards and both completion markers. Preserve failures; no automatic DMA
+change, RF write, channel tuning, MAC enable or traffic. Timing acceptance pending.
