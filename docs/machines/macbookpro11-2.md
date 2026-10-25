@@ -98,8 +98,11 @@ not measure a precise10ms completion deadline. All42 operations,36 guard reads,
 244743-byte startup prefix and both completion markers saved. Recovery/default/
 one-shot/payload checks passed; offline workspace clean289files/689clusters/
 118directories, zero leaks/mismatches/errors, unmounted and unarmed. Evidence
-is durably archived. Next: audit remaining reference RX-path/TX-DAC setup and
-calibration/channel prerequisites; no radio-connectivity acceptance yet.
+is durably archived. Candidate `0aaf20927414846c` (source `67e5e5af`) is installed unarmed for fixed
+one-chain RX-path/TX-DAC masked setup. Local/regression/sanitizer and exact-stage
+GPT save/return plus missing-workspace checks passed. Next: attended cold
+adapter cycle, then collect matching release/session FIRST. Results save
+automatically and return to Ubuntu. No radio-connectivity acceptance yet.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6574,3 +6577,23 @@ logger regressions, full build, ASan/UBSan for the new engine and VCO validator,
 499 documentation links and nine pinned-reference hashes pass. Next checkpoint:
 exact-stage GPT save/return and missing-workspace rehearsal before installation.
 Native path setup remains pending; no reboot armed.
+
+
+One-chain path source `67e5e5afa4c3d2fd4a8962d0d2f6088e24a2aa35`, release
+`0aaf20927414846c`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB capture
+confirmed. Missing-workspace refusal/return passed. Ubuntu default and
+known-good `e47dca3a6b30c6c1` retained, as is completed delayed VCO release
+`cd775567c529231f`. Older initiation `d27f0d2f10e5ae0b` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+289files/689clusters/118directories, zero leaks/mismatches/errors; unmounted.
+Payload, pinned reference audit/hashes, local/fault/strict/sanitizer checks,
+both VM receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-path-67e5e5a/`.
+
+On return collect matching release/session FIRST. Require full prior/delayed
+VCO clear proof,18 ordered path receipts,16 reads/2 writes/2 exact masked
+readbacks and4 complete guard triplets, then both completion markers and
+entire prefix. Review actual before/after at2300/2714 with only18/3 cleared.
+This phase adds no RF data write, channel tuning, MAC enable or traffic.
+No reboot armed; native one-chain path setup results pending.
