@@ -7197,3 +7197,17 @@ Require exact complete v80 layout and full earlier proof; both final markers,
 full prefix and offline/recovery checks. No frequency choice, RF data write,
 calibration, MAC enable, scan or traffic. Larger capture must be tested with
 this real prerequisite trial rather than a separate reboot only for logging.
+
+
+Implemented fixed read-only116-operation channel prerequisite engine and native
+ownership after exact v80 completion. Host tests cover every I/O/cancellation/
+guard/all-ones/reply-bit/length boundary, packet/state checks and no replay.
+Native tests pass116 positions,160 ownership/state faults, all packet bits,
+no-USB refusal/replay and quarantine; full xHCI suite passes. Logger tests cover
+512KiB complete byte persistence, boundary growth/wrap, lost-prefix refusal and
+return to ordinary64KiB policy; older sizes still pass. All160 staging,29
+collection and160 historical recipe identity checks pass.274891-byte fixture
+validates whole earlier proof,512KiB marker and all116 receipts;1089 malformed
+bounded proofs and3 full-prefix failures rejected. Full build andASan/UBSan
+pass. Next: exact-stage GPT save/return and missing-workspace rehearsal before
+install. RF values/native larger-capture acceptance remain pending.

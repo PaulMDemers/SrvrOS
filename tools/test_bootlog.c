@@ -3,7 +3,7 @@
 #include <string.h>
 #define SRVROS_BOOTLOG_HOST_TEST
 #include "../kernel/src/bootlog.c"
-static char saved[BOOTLOG_LARGE_CAPTURE_CAPACITY];
+static char saved[BOOTLOG_FULL_CAPTURE_CAPACITY];
 static uint64_t saved_size;
 void console_putc(char c) { bootlog_putc(c); }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t count) {
@@ -14,7 +14,7 @@ static void reset(void) {
 }
 static void append(unsigned start,unsigned end) { for(unsigned i=start;i<end;i++)bootlog_putc('a'+i%26); }
 static void check(unsigned total,unsigned retained) {
-    static char out[BOOTLOG_LARGE_CAPTURE_CAPACITY];uint64_t seq;
+    static char out[BOOTLOG_FULL_CAPTURE_CAPACITY];uint64_t seq;
     assert(bootlog_snapshot(out,sizeof(out),&seq)==retained && seq==total && bootlog_size()==retained);
     for(unsigned i=0;i<retained;i++)assert(out[i]==(char)('a'+(total-retained+i)%26));
     assert(bootlog_persist("/test") && saved_size==retained && !memcmp(saved,out,retained));
@@ -46,5 +46,12 @@ int main(void) {
     reset();append(0,65536);assert(!bootlog_extend_capture_to(65536) && !bootlog_extend_capture_to(262145));check(65536,65536);
     assert(bootlog_extend_capture_to(262144));append(65536,262144);check(262144,262144);
     reset();assert(bootlog_extend_capture());append(0,131073);assert(!bootlog_extend_capture_to(262144));check(131073,131072);
+    const unsigned full_points[]={0,65536,131072,262143,262144};
+    for(unsigned i=0;i<sizeof(full_points)/sizeof(full_points[0]);i++){
+        reset();assert(bootlog_extend_capture_to(262144));append(0,full_points[i]);assert(bootlog_extend_capture_to(524288));
+        append(full_points[i],524288);check(524288,524288);append(524288,600000);check(600000,524288);assert(!bootlog_extend_capture_to(524288));
+    }
+    reset();assert(bootlog_extend_capture_to(262144));append(0,262145);assert(!bootlog_extend_capture_to(524288));check(262145,262144);
+    reset();assert(!bootlog_extend_capture_to(524289));
     puts("bootlog: PASS ordinary/extended boundaries, complete persistence, wrap ordering, lost-prefix refusal and suppressed replay");
 }

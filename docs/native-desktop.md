@@ -512,3 +512,11 @@ idle capture uses the new path. Clock, cached battery, notification and child
 housekeeping are bounded by the 100 ms idle maintenance cap. New timed features
 must update idle admission or supply an earlier deadline rather than assuming a
 10 ms loop. VM functional input checks are not physical latency acceptance.
+
+
+Explicit USB Wi-Fi firmware prerequisite profile v81 uses512KiB complete-prefix
+capture; ordinary desktop logging stays64KiB and older firmware profiles keep
+their128/256KiB selection. The larger capture still refuses an already-lost
+prefix and checks byte-preserving save/collection. This opt-in diagnostic does
+not enable Wi-Fi traffic or ordinary desktop startup probing; see
+[USB Wi-Fi bring-up](usb-wifi.md).

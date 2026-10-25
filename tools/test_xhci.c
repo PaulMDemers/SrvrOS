@@ -4815,6 +4815,55 @@ static void test_wifi_bbp20(void){
  }
  reset_test();assert(!xhci_wifi_capture_bbp20());puts("xhci BBP20: PASS all45 transfers,165 prerequisite/state/profile faults, no USB on refusal, no replay and quarantine");
 }
+static void channel_probe_fixture(struct xhci_device *d,unsigned op){
+ bbp20_fixture(d,44);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->bbp20.complete=true;m->bbp20.operations=m->bbp20_submitted=45;m->bbp20.reads=40;
+ assert(mt76_bbp20_exact_profile_valid(&m->bbp20));
+ unsigned ex=op<11?0:(op-11)/7+((op-11)%7>3);m->channel_probe_mode=m->channel_probe_active=true;m->channel_probe_submitted=op;
+ m->channel_probe=(struct mt76_channel_probe){.attempted=true,.operations=op,.reads=op-ex,.exchanges=ex,.received=ex?16:-1};
+ for(unsigned j=0;j<32;j++){m->channel_probe.guards[j][1]=0xf000f200;m->channel_probe.guards[j][2]=0x40000050;}
+ for(unsigned q=0;q<15;q++){m->channel_probe.words[q][0]=m->channel_probe.words[q][3]=0x4a000008|((q+1)<<16);m->channel_probe.words[q][1]=mt76_channel_probe_rf_address(q);m->channel_probe.words[q][2]=q;}
+ assert(mt76_channel_probe_admit(&m->channel_probe,op));
+}
+static void test_wifi_channel_probe(void){
+ for(unsigned op=0;op<116;op++)for(unsigned fault=0;fault<((op==0 || op==14 || op==115)?164u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};uint8_t tx[4096]={0},rx[1024]={0},packet[16],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];channel_probe_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_firmware *f=&d->firmware;bool command;uint32_t a;assert(mt76_channel_probe_request(op,&command,&a));
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  if(fault<=144){if(fault==138)m->channel_state.complete=false;else channel_state_fault(m,fault);}
+  if(fault==145)m->channel_probe_mode=false;
+  if(fault==146)m->channel_probe_active=false;
+  if(fault==147)m->bbp20.complete=false;
+  if(fault==148)m->bbp20.before[0]^=1;
+  if(fault==149)m->bbp20.after[4]^=1;
+  if(fault==150)m->bbp20.guards[9][2]=1;
+  if(fault==151)m->bbp20_submitted++;
+  if(fault==152)m->channel_probe.operations++;
+  if(fault==153)m->channel_probe.reads++;
+  if(fault==154)m->channel_probe.exchanges++;
+  if(fault==155)m->channel_probe_submitted++;
+  if(fault==156)m->channel_probe.complete=true;
+  if(fault==157)m->bbp20_mode=false;
+  if(fault==158)m->bw_observe_submitted++;
+  if(fault==159)m->bw_observe.words[2]=1;
+  if(fault==160)m->channel_probe.attempted=false;
+  if(command){
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   uint8_t payload[8]={0};for(unsigned j=0;j<4;j++)payload[j]=(uint8_t)(a>>(8*j));assert(mt76_mcu_encode(10,(op-11)/7+1,payload,8,packet,16)==16);
+   if(fault==161)packet[4]^=1;
+   if(fault==162)events[0].status=6u<<24;
+   if(fault==163)events[1].status=6u<<24;
+   if(!fault)for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_channel_probe_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}
+   assert(wifi_channel_probe_exchange(d,packet,16,reply,1024)==(!fault?16:-1));if(!fault)assert(wifi_channel_probe_exchange(d,packet,16,reply,1024)==-1);
+   else if(fault>=162)assert(d->ep0_quarantined && f->failed && !freed);else assert(!f->ep.enqueue && !m->response.enqueue);
+  }else{
+   d->ep0_ring=out;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=tx;d->descriptor_buffer_phys=(uintptr_t)tx;events[0]=control_event(0x9020,fault>=162?6:1,0);uint32_t v=0;if(fault==161)a++;
+   assert(wifi_channel_probe_read(d,a,&v)==!fault);if(!fault)assert(!wifi_channel_probe_read(d,a,&v));else if(fault>=162)assert(d->ep0_quarantined && f->failed && !freed);else assert(!d->ep0_enqueue);
+  }
+ }
+ reset_test();assert(!xhci_wifi_capture_channel_probe());puts("xhci channel prerequisites: PASS116 positions,160 ownership/state faults, every packet bit, refused USB/no replay/quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6161,6 +6210,7 @@ int main(int argc, char **argv) {
     test_wifi_usb_cycle();
     test_wifi_bw_observe();
     test_wifi_bbp20();
+    test_wifi_channel_probe();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

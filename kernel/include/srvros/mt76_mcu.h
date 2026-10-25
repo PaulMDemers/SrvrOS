@@ -627,4 +627,12 @@ enum mt76_mcu_timing_status mt76_bbp20_apply(struct mt76_bbp20 *s,const struct m
 bool mt76_bbp20_exact_profile_valid(const struct mt76_bbp20 *s);
 bool mt76_bw_observe_exact_profile_valid(const struct mt76_bw_observe *s);
 uint32_t mt76_bbp20_initial(unsigned index);
+/* Batched fixed RF-channel prerequisites:5 MAC observations+15 RF reads. */
+struct mt76_channel_probe {bool attempted,complete;unsigned operations,reads,exchanges;int received;uint32_t guards[32][3],mac[5],words[15][4];};
+uint32_t mt76_channel_probe_mac_address(unsigned index);
+uint32_t mt76_channel_probe_rf_address(unsigned index);
+bool mt76_channel_probe_request(unsigned operation,bool *command,uint32_t *address);
+bool mt76_channel_probe_admit(const struct mt76_channel_probe *s,unsigned operation);
+size_t mt76_channel_probe_packet(const struct mt76_channel_probe *s,unsigned operation,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_channel_probe_capture(struct mt76_channel_probe *s,const struct mt76_mcu_timing_io *io);
 #endif

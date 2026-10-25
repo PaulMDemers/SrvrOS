@@ -18,7 +18,7 @@
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
-static char directory[128],path[160],snapshot[BOOTLOG_LARGE_CAPTURE_CAPACITY];
+static char directory[128],path[160],snapshot[BOOTLOG_FULL_CAPTURE_CAPACITY];
 static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
@@ -204,6 +204,7 @@ static bool start(uint64_t limit) {
 bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY); }
 bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY); }
 bool workspace_log_start_large_capture(void) { return start(BOOTLOG_LARGE_CAPTURE_CAPACITY); }
+bool workspace_log_start_full_capture(void) { return start(BOOTLOG_FULL_CAPTURE_CAPACITY); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);

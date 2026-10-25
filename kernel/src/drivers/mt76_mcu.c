@@ -2335,3 +2335,54 @@ bool mt76_bw_observe_exact_profile_valid(const struct mt76_bw_observe *s){
     for(unsigned e=0;e<2;e++)for(unsigned j=0;j<3;j++)if(s->guards[e][j]!=(j==1?0xf000f200u:j==2?0x40000050u:0))return false;
     return s->words[0]==0x4a0f0008 && s->words[1]==2 && s->words[2]==0 && s->words[3]==0x4a0f0008;
 }
+
+uint32_t mt76_channel_probe_mac_address(unsigned i){static const uint32_t a[5]={0x13c8,0x13a0,0x13a8,0x13b4,0x518};return i<5?a[i]:UINT32_MAX;}
+uint32_t mt76_channel_probe_rf_address(unsigned i){return i<2?(i?0x80060000u:0x80050000u):i<15?0x80000000u|(i==2?24u:23u+i):UINT32_MAX;}
+bool mt76_channel_probe_request(unsigned op,bool *command,uint32_t *a){
+    if(op>=116 || !command || !a)return false;
+    if(op<11){*command=false;*a=op<3?mt76_rf_probe_read_address(op):op<8?mt76_channel_probe_mac_address(op-3):mt76_rf_probe_read_address(op-8);}
+    else{unsigned q=(op-11)/7,n=(op-11)%7;*command=n==3;*a=n==3?mt76_channel_probe_rf_address(q):mt76_rf_probe_read_address(n<3?n:n-4);}
+    return true;
+}
+static uint32_t *channel_probe_value(struct mt76_channel_probe *s,unsigned op){
+    if(op<11)return op<3?&s->guards[0][op]:op<8?&s->mac[op-3]:&s->guards[1][op-8];
+    unsigned q=(op-11)/7,n=(op-11)%7;return n==3?NULL:&s->guards[2+2*q+(n>3)][n<3?n:n-4];
+}
+static bool channel_probe_state_valid(const struct mt76_channel_probe *s,unsigned op){
+    if(!s || !s->attempted || op>116 || s->operations!=op)return false;
+    unsigned reads=0,exchanges=0;
+    for(unsigned k=0;k<op;k++){
+        bool command;uint32_t a;if(!mt76_channel_probe_request(k,&command,&a))return false;
+        if(command){unsigned q=(k-11)/7;uint32_t h=0x4a000008u|((q+1)<<16);const uint32_t *w=s->words[q];if(w[0]!=h || w[1]!=a || w[2]>255 || w[3]!=h)return false;exchanges++;}
+        else{
+            uint32_t v=*channel_probe_value((struct mt76_channel_probe *)s,k);reads++;
+            if(k>=3 && k<8){if(v==UINT32_MAX)return false;}
+            else{unsigned j=k<11?(k<3?k:k-8):((k-11)%7<3?(k-11)%7:(k-11)%7-4);if(v!=(j==1?0xf000f200u:j==2?0x40000050u:0))return false;}
+        }
+    }
+    return s->reads==reads && s->exchanges==exchanges && s->received==(exchanges?16:-1);
+}
+bool mt76_channel_probe_admit(const struct mt76_channel_probe *s,unsigned op){return op<116 && s && !s->complete && channel_probe_state_valid(s,op);}
+size_t mt76_channel_probe_packet(const struct mt76_channel_probe *s,unsigned op,uint8_t *out,size_t cap){
+    bool command;uint32_t a;if(!mt76_channel_probe_admit(s,op) || !mt76_channel_probe_request(op,&command,&a) || !command)return 0;
+    uint8_t payload[8]={0};for(unsigned j=0;j<4;j++)payload[j]=(uint8_t)(a>>(8*j));return mt76_mcu_encode(10,(op-11)/7+1,payload,8,out,cap);
+}
+enum mt76_mcu_timing_status mt76_channel_probe_capture(struct mt76_channel_probe *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_channel_probe){.attempted=true,.received=-1};
+    for(unsigned op=0;op<116;op++){
+        bool command;uint32_t a;if(!mt76_channel_probe_admit(s,op) || !mt76_channel_probe_request(op,&command,&a))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(command){unsigned q=(op-11)/7;uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];if(mt76_channel_probe_packet(s,op,packet,16)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);s->exchanges++;
+            for(unsigned j=0;j<4;j++)if(s->received>=(int)(4*j+4))for(unsigned b=0;b<4;b++)s->words[q][j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|((q+1)<<16);if(s->received!=16 || s->words[q][0]!=h || s->words[q][1]!=a || s->words[q][2]>255 || s->words[q][3]!=h)return MT76_TIMING_REPLY;
+        }else{uint32_t *v=channel_probe_value(s,op);if(!io->read(io->context,a,v))return MT76_TIMING_IO;s->reads++;}
+        s->operations++;
+        if(!channel_probe_state_valid(s,s->operations))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!channel_probe_state_valid(s,116))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}

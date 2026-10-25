@@ -3285,3 +3285,25 @@ frequency/channel selection, calibrated radio operation and connectivity are
 not accepted. Original v79 framing-only observation remains unchanged. The local
 return collector's boot-module variable collision was corrected without changing
 proof checks or native log bytes, with namespace-preservation regression coverage.
+
+
+### Batched channel prerequisites with full capture (v81 candidate)
+
+The accepted v80 prefix is258464bytes, leaving only3680 in256KiB. New explicit
+`--wifi-channel-probe` requires full v80 proof and selects512KiB complete-prefix
+logging before diagnostics start. Ordinary64KiB and historical128/256KiB capture
+selection remains unchanged. Prefix loss still refuses extension/save; no ring
+wrap is reclassified as complete. Ubuntu transport collection is bounded512KiB
+per log and preserves every byte; full proof/physical acceptance remain separate.
+
+The new phase is read-only: fixed MAC13c8/13a0/13a8/13b4/518 observations,
+then RF5:0,6:0,0:24,0:26..37. The MAC group has two guard triplets; each RF
+read has two more.116 ordered operations,101 reads (96 guards+5 MAC),15 CMD10
+reads at sequence1..15,32 complete MAC0/COREf000f200/DMA40000050 triplets.
+MAC targets reject all-ones; RF responses require exact16-byte header/sequence/
+address/uint8/trailer. No caller-selected address or RF data write. All indexed
+observations and ordered receipts, complete512KiB prefix and both markers are
+required. Values remain observations, not RF readiness. No frequency choice,
+calibration, MAC enable, scan or traffic. The collected values will ground the
+next channel-band/synthesizer and fresh gain/power plan, rather than guessing
+uncaptured initial register state. Native validation pending.
