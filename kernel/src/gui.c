@@ -15,7 +15,6 @@ _Static_assert(sizeof(struct desk_packet)<=GUI_TEXT_MAX,"desktop packet fits tra
 
 #define GUI_MAX_QUEUES DESK_GUI_QUEUES
 #define GUI_QUEUE_DEPTH DESK_GUI_QUEUE_DEPTH
-#define GUI_MAX_SURFACES DESK_GUI_SURFACES
 #define GUI_SURFACE_MAX_PIXELS (DESK_MAX_WIDTH * DESK_MAX_HEIGHT)
 
 struct gui_queue {
@@ -31,6 +30,7 @@ static uint64_t server_pid;
 static uint64_t next_surface_id = 1;
 
 struct gui_surface {
+    struct gui_surface *next;
     bool used;
     uint64_t id;
     uint64_t owner_pid;
@@ -41,11 +41,16 @@ struct gui_surface {
     uint64_t serial, generation, window;
 };
 
-static struct gui_surface surfaces[GUI_MAX_SURFACES];
+static struct gui_surface *surfaces;
+/* Charges include prepared and detached storage until it is actually freed. */
+static uint64_t surface_pixel_bytes,surface_record_bytes,surface_retirement_epoch;
+#ifdef SRVROS_GUI_HOST_TEST
+static unsigned gui_test_irq_depth;
+#endif
 
 static uint64_t irq_save(void) {
 #ifdef SRVROS_GUI_HOST_TEST
-    return 0;
+    return gui_test_irq_depth++;
 #else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
@@ -55,7 +60,7 @@ static uint64_t irq_save(void) {
 
 static void irq_restore(uint64_t flags) {
 #ifdef SRVROS_GUI_HOST_TEST
-    (void)flags;
+    gui_test_irq_depth=(unsigned)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
@@ -104,12 +109,18 @@ static bool surface_access_allowed(const struct gui_surface *surface, uint64_t p
 }
 
 static struct gui_surface *surface_for_id(uint64_t surface_id) {
-    for (uint64_t i = 0; i < GUI_MAX_SURFACES; i++) {
-        if (surfaces[i].used && surfaces[i].id == surface_id) {
-            return &surfaces[i];
-        }
-    }
+    for(struct gui_surface *s=surfaces;s;s=s->next)
+        if(s->id==surface_id)return s;
     return NULL;
+}
+/* Detach while serialized; release storage outside the GUI metadata section.
+ * Uncharge last so another creator cannot spend bytes still being retired. */
+static void surface_storage_free(struct gui_surface *surface) {
+    uint64_t bytes=surface->width*surface->height*sizeof(uint32_t);
+    kfree(surface->pixels);kfree(surface);
+    uint64_t flags=irq_save();
+    surface_pixel_bytes-=bytes;surface_record_bytes-=sizeof(struct gui_surface);
+    irq_restore(flags);
 }
 
 static int64_t validate_surface_rect(const struct gui_surface *surface,
@@ -293,82 +304,45 @@ int64_t gui_client_ready(uint64_t expected_server) {
     irq_restore(flags);return result;
 }
 
-int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t flags) {
-    if ((flags & ~(uint64_t)DESK_SURFACE_STREAM) || owner_pid == 0 || width == 0 || height == 0 ||
+int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t options) {
+    if ((options & ~(uint64_t)DESK_SURFACE_STREAM) || owner_pid == 0 || width == 0 || height == 0 ||
         width > GUI_SURFACE_MAX_PIXELS || height > GUI_SURFACE_MAX_PIXELS ||
         width > UINT64_MAX / height || width * height > GUI_SURFACE_MAX_PIXELS ||
-        width * height > SIZE_MAX / sizeof(uint32_t)) {
-        return -1;
-    }
+        width * height > SIZE_MAX / sizeof(uint32_t))return -1;
+    uint64_t bytes=width*height*sizeof(uint32_t),flags=irq_save();
+    if(surface_pixel_bytes>DESK_GUI_PIXEL_BYTES || bytes>DESK_GUI_PIXEL_BYTES-surface_pixel_bytes ||
+       surface_record_bytes>DESK_GUI_SURFACE_RECORD_BYTES-sizeof(struct gui_surface) ||
+       next_surface_id>INT64_MAX) { irq_restore(flags);return -1; }
+    surface_pixel_bytes+=bytes;surface_record_bytes+=sizeof(struct gui_surface);
+    uint64_t epoch=surface_retirement_epoch;
+    irq_restore(flags);
 
-    uint64_t flags_saved = irq_save();
-    struct gui_surface *slot = NULL;
-    for (uint64_t i = 0; i < GUI_MAX_SURFACES; i++) {
-        if (!surfaces[i].used) {
-            slot = &surfaces[i];
-            break;
-        }
+    struct gui_surface *slot=kmalloc(sizeof(*slot));
+    uint32_t *pixels=slot?kmalloc((size_t)bytes):NULL;
+    if(pixels)for(uint64_t i=0;i<width*height;i++)pixels[i]=0xff000000u;
+    flags=irq_save();
+    /* Cleanup during preparation invalidates publication. A conservative
+     * refusal on unrelated retirement is retryable by creating a new window;
+     * it must never resurrect storage for a retired owner. */
+    if(!pixels || epoch!=surface_retirement_epoch || next_surface_id>INT64_MAX) {
+        irq_restore(flags);kfree(pixels);kfree(slot);
+        flags=irq_save();surface_pixel_bytes-=bytes;surface_record_bytes-=sizeof(struct gui_surface);
+        irq_restore(flags);return -1;
     }
-    if (slot == NULL) {
-        irq_restore(flags_saved);
-        return -1;
-    }
-    slot->used = true;
-    slot->id = next_surface_id++;
-    if (next_surface_id == 0) {
-        next_surface_id = 1;
-    }
-    slot->owner_pid = owner_pid;
-    slot->width = width;
-    slot->height = height;
-    slot->pixels = NULL;
-    slot->stream = (flags & DESK_SURFACE_STREAM) != 0;
-    slot->sealed = false;
-    slot->serial = slot->generation = slot->window = 0;
-    uint64_t id = slot->id;
-    irq_restore(flags_saved);
-
-    uint32_t *pixels = kmalloc((size_t)(width * height * sizeof(uint32_t)));
-    if (pixels == NULL) {
-        gui_surface_destroy(owner_pid, id);
-        return -1;
-    }
-    for (uint64_t i = 0; i < width * height; i++) {
-        pixels[i] = 0xff000000u;
-    }
-
-    flags_saved = irq_save();
-    slot = surface_for_id(id);
-    if (slot == NULL || !slot->used || slot->owner_pid != owner_pid) {
-        irq_restore(flags_saved);
-        kfree(pixels);
-        return -1;
-    }
-    slot->pixels = pixels;
-    irq_restore(flags_saved);
-    return (int64_t)id;
+    uint64_t id=next_surface_id++;
+    *slot=(struct gui_surface){.next=surfaces,.used=true,.id=id,.owner_pid=owner_pid,
+        .width=width,.height=height,.pixels=pixels,.stream=(options&DESK_SURFACE_STREAM)!=0};
+    surfaces=slot;irq_restore(flags);return (int64_t)id;
 }
 
 int64_t gui_surface_destroy(uint64_t pid, uint64_t surface_id) {
-    uint32_t *pixels = NULL;
-    uint64_t flags_saved = irq_save();
-    struct gui_surface *surface = surface_for_id(surface_id);
-    if (!surface_access_allowed(surface, pid) || surface->sealed) {
-        irq_restore(flags_saved);
-        return -1;
-    }
-    pixels = surface->pixels;
-    surface->used = false;
-    surface->id = 0;
-    surface->owner_pid = 0;
-    surface->width = 0;
-    surface->height = 0;
-    surface->pixels = NULL;
-    irq_restore(flags_saved);
-    if (pixels != NULL) {
-        kfree(pixels);
-    }
-    return 0;
+    uint64_t flags=irq_save();
+    struct gui_surface **link=&surfaces;
+    while(*link && (*link)->id!=surface_id)link=&(*link)->next;
+    struct gui_surface *surface=*link;
+    if(!surface_access_allowed(surface,pid) || surface->sealed) { irq_restore(flags);return -1; }
+    *link=surface->next;surface->used=false;
+    irq_restore(flags);surface_storage_free(surface);return 0;
 }
 
 int64_t gui_surface_blit(uint64_t pid,
@@ -432,9 +406,9 @@ int64_t gui_surface_copy(uint64_t pid,
 }
 
 void gui_process_cleanup(uint64_t pid) {
-    uint32_t *free_list[GUI_MAX_SURFACES];
-    uint64_t free_count = 0;
-    uint64_t flags_saved = irq_save();
+    struct gui_surface *retired=NULL;
+    uint64_t flags_saved=irq_save();
+    surface_retirement_epoch++;
     for (uint64_t i = 0; i < GUI_MAX_QUEUES; i++) {
         if (queues[i].used && queues[i].pid == pid) {
             queues[i].used = false;
@@ -447,26 +421,19 @@ void gui_process_cleanup(uint64_t pid) {
         keyboard_set_event_mode(false);
         mouse_trackpad_settings(3,0);
         server_pid = 0;
-        /* The server's receive queue is gone. Owners can reclaim outstanding
-         * buffers after detecting its death; no old server can acknowledge. */
-        for (uint64_t i=0;i<GUI_MAX_SURFACES;i++) surfaces[i].sealed=false;
+        /* The server queue is gone; outstanding owners may reclaim buffers. */
+        for(struct gui_surface *s=surfaces;s;s=s->next)s->sealed=false;
     }
-    for (uint64_t i = 0; i < GUI_MAX_SURFACES; i++) {
-        if (surfaces[i].used && surfaces[i].owner_pid == pid) {
-            free_list[free_count++] = surfaces[i].pixels;
-            surfaces[i].used = false;
-            surfaces[i].id = 0;
-            surfaces[i].owner_pid = 0;
-            surfaces[i].width = 0;
-            surfaces[i].height = 0;
-            surfaces[i].pixels = NULL;
-        }
+    struct gui_surface **link=&surfaces;
+    while(*link) {
+        struct gui_surface *s=*link;
+        if(s->owner_pid!=pid) { link=&s->next;continue; }
+        *link=s->next;s->used=false;s->next=retired;retired=s;
     }
-    process_file_poll_wake(); /* Includes client waits on a retiring server. */
+    process_file_poll_wake();
     irq_restore(flags_saved);
-    for (uint64_t i = 0; i < free_count; i++) {
-        if (free_list[i] != NULL) {
-            kfree(free_list[i]);
-        }
+    while(retired) {
+        struct gui_surface *next=retired->next;
+        surface_storage_free(retired);retired=next;
     }
 }

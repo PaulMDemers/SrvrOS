@@ -74,6 +74,8 @@ def main():
                 serial.sendall(b'run /fat/bin/deskd --multiwindow-smoke\n')
                 wait(b'multi-window: ready two windows one process');shortcut('ctrl-q')
                 wait(b'multi-window: PASS all windows retired; process exiting')
+                assert output.count(b'multi-window: surface-pool 128 live, readback/reuse/stale IDs verified')==1
+                assert output.count(b'multi-window: surface-pool retired')==1
                 wait(b'deskd: child-exit');shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
                 if b'FAIL' in output or b'exception:' in output:raise RuntimeError('Guest failure')
                 serial.close();qmp.stream.close();qmp.sock.close()
@@ -84,7 +86,7 @@ def main():
                 raise
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
-    print(f'desktop-multiwindow: PASS one process/two documents, focus, clipboard, close preserves sibling, increasing ID, resize, cleanup and relaunch. Evidence: {out}')
+    print(f'desktop-multiwindow: PASS 128 live kernel surfaces/readback/reuse, one process/two documents, focus, clipboard, close preserves sibling, increasing ID, resize, cleanup and relaunch. Evidence: {out}')
 
 
 if __name__=='__main__':main()

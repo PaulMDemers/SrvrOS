@@ -19,8 +19,57 @@ void keyboard_set_event_mode(bool enabled) { keyboard_events=enabled; }
 bool keyboard_read_event(struct srv_key_event *event) { (void)event; return keyboard_events; }
 struct process *process_current(void) { return (struct process *)(uintptr_t)current_pid; }
 uint64_t process_pid(const struct process *p) { return (uintptr_t)p; }
-void *kmalloc(size_t bytes) { return malloc(bytes); }
-void kfree(void *p) { free(p); }
+static unsigned heap_calls,heap_live,heap_fail_at,retire_at;
+static uint64_t retire_pid;
+void *kmalloc(size_t bytes) {
+    assert(!gui_test_irq_depth);
+    heap_calls++;
+    if(heap_calls==retire_at)gui_process_cleanup(retire_pid);
+    if(heap_calls==heap_fail_at)return NULL;
+    void *p=malloc(bytes);if(p)heap_live++;return p;
+}
+void kfree(void *p) { assert(!gui_test_irq_depth);if(p) { assert(heap_live);heap_live--; }free(p); }
+
+static void dynamic_surfaces(void) {
+    assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    int64_t ids[128];
+    for(unsigned i=0;i<128;i++) { ids[i]=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);assert(ids[i]>0); }
+    assert(surface_pixel_bytes==128*16 && surface_record_bytes==128*sizeof(struct gui_surface));
+    for(unsigned i=0;i<128;i+=2)assert(gui_surface_destroy(2,ids[i])==0);
+    for(unsigned i=0;i<128;i+=2) {
+        int64_t id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
+        assert(id>ids[127] && !surface_for_id(ids[i]));
+    }
+    gui_process_cleanup(2);assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    for(unsigned failure=1;failure<=2;failure++) {
+        heap_fail_at=heap_calls+failure;
+        assert(gui_surface_create(2,2,2,0)==-1);
+        assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    }
+    heap_fail_at=0;
+    for(unsigned allocation=1;allocation<=2;allocation++) {
+        assert(gui_surface_create(2,2,2,0)>0);
+        retire_at=heap_calls+allocation;retire_pid=2;
+        assert(gui_surface_create(2,2,2,0)==-1);
+        assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    }
+    retire_at=0;
+    /* Byte budgets, not a replacement fixed record count. Tiny surfaces reach
+     * metadata admission; large ones independently reach the pixel budget. */
+    unsigned records=DESK_GUI_SURFACE_RECORD_BYTES/sizeof(struct gui_surface);
+    for(unsigned i=0;i<records;i++)assert(gui_surface_create(2,1,1,0)>0);
+    unsigned calls=heap_calls;assert(gui_surface_create(2,1,1,0)==-1 && heap_calls==calls);
+    gui_process_cleanup(2);assert(!surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    uint64_t bytes=(uint64_t)DESK_MAX_WIDTH*DESK_MAX_HEIGHT*4;
+    for(unsigned i=0;i<DESK_GUI_PIXEL_BYTES/bytes;i++)assert(gui_surface_create(2,DESK_MAX_WIDTH,DESK_MAX_HEIGHT,0)>0);
+    calls=heap_calls;assert(gui_surface_create(2,DESK_MAX_WIDTH,DESK_MAX_HEIGHT,0)==-1 && heap_calls==calls);
+    gui_process_cleanup(2);assert(!surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    uint64_t saved=next_surface_id;next_surface_id=INT64_MAX;
+    assert(gui_surface_create(2,1,1,0)==INT64_MAX);
+    assert(gui_surface_create(2,1,1,0)==-1);gui_process_cleanup(2);next_surface_id=saved;
+    assert(!surfaces && !surface_pixel_bytes && !surface_record_bytes && !heap_live);
+    puts("gui-surfaces: PASS 128 live records, monotonic reuse, independent byte quotas, allocation/retirement rollback and ID exhaustion");
+}
 
 static struct gui_message packet_message(unsigned type, uint64_t target,
     uint64_t surface, uint64_t serial) {
@@ -206,6 +255,7 @@ int main(void) {
     assert(poll_wakes>wakes_before && gui_client_ready(1)==-1);
     current_pid=3;assert(gui_register_server()==0);
     current_pid=2;assert(gui_client_ready(1)==-1 && gui_client_ready(3)==0);
+    gui_process_cleanup(3);dynamic_surfaces();
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;
 }

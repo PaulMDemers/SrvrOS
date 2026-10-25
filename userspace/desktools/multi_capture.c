@@ -5,6 +5,7 @@
 #include <srvros/desk_log.h>
 #include <srvros/sys.h>
 #include <srvros/key_event.h>
+#include <srvros/gui.h>
 #include <string.h>
 #include <stdio.h>
 struct capture_window {
@@ -18,6 +19,24 @@ struct capture_window {
 static struct capture_window windows[3];
 static struct desk_connection connection;
 static int opened,quitting;
+/* Hold more surfaces than the former kernel table while the actual connection
+ * exercises rendering and retirement. These are not extra desktop windows. */
+static uint64_t pool[128];
+static int surface_pool(void) {
+    uint32_t pixels[4]={0xff010203,0xff040506,0xff070809,0xff101112},copy[4];
+    for(unsigned i=0;i<128;i++)if(gui_surface_create(2,2,0,&pool[i]))return -1;
+    uint64_t high=pool[127];
+    for(unsigned i=0;i<128;i++) {
+        if(gui_surface_blit(pool[i],0,0,2,2,pixels,2) ||
+           gui_surface_copy(pool[i],0,0,2,2,copy,2) || memcmp(pixels,copy,sizeof(copy)))return -1;
+        if(!(i&1)) {
+            uint64_t old=pool[i];
+            if(gui_surface_destroy(old) || gui_surface_create(2,2,0,&pool[i]) || pool[i]<=high ||
+               gui_surface_copy(old,0,0,2,2,copy,2)!=-1)return -1;
+        }
+    }
+    srv_puts("multi-window: surface-pool 128 live, readback/reuse/stale IDs verified\n");return 0;
+}
 static int open_next(void) {
     if(opened==3 || connection.opening)return -1;
     struct capture_window *w=&windows[opened];char title[64];
@@ -42,6 +61,7 @@ static void paste(struct capture_window *w,int result) {
     desk_log("multi-window: paste window=%llu text=%s\n",(unsigned long long)w->app.window,w->text);
 }
 int tool_multi_capture(void) {
+    if(surface_pool()) { srv_puts("multi-window: FAIL surface-pool\n");return 1; }
     desk_connection_init(&connection);if(open_next())return 1;
     uint64_t start=srv_ticks();int ready=0;
     while(connection.windows && (uint64_t)srv_ticks()-start<18000) {
@@ -100,5 +120,7 @@ int tool_multi_capture(void) {
         if(quitting || desk_connection_wait(&connection,10)<0)srv_sleep_ticks(1);
     }
     if(connection.windows) { srv_puts("multi-window: FAIL deadline\n");return 1; }
+    for(unsigned i=0;i<128;i++)if(gui_surface_destroy(pool[i])) { srv_puts("multi-window: FAIL surface-pool retirement\n");return 1; }
+    srv_puts("multi-window: surface-pool retired\n");
     srv_puts("multi-window: PASS all windows retired; process exiting\n");return 0;
 }

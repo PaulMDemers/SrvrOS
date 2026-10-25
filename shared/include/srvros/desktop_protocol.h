@@ -18,7 +18,8 @@
 /* Current admission budgets; distinct pools, not promises of available RAM. */
 #define DESK_GUI_QUEUES (DESK_MAX_WINDOWS+16)
 #define DESK_GUI_QUEUE_DEPTH 64
-#define DESK_GUI_SURFACES (DESK_MAX_WINDOWS*4)
+#define DESK_GUI_SURFACE_RECORD_BYTES (256ull*1024)
+#define DESK_GUI_PIXEL_BYTES (256ull*1024*1024)
 #define DESK_INPUT_QUEUE 64
 #define DESK_CACHE_BYTES (96ull*1024*1024)
 #define DESK_RELEASE_RETRY 1u

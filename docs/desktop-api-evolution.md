@@ -27,7 +27,7 @@ prerequisite for multiple windows per application.
 
 | Layer and source | Current responsibility | Constraint to address |
 | --- | --- | --- |
-| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Fixed queue/surface tables; linear lookups; desktop packet knowledge in kernel |
+| [`kernel/src/gui.c`](../kernel/src/gui.c) | PID-addressed queues, one registered server, owned surfaces, atomic packet insertion/seal transitions | Fixed queue table; dynamic surface records with byte budgets; linear lookups; desktop packet knowledge in kernel |
 | [`desktop_protocol.h`](../shared/include/srvros/desktop_protocol.h) | v14, 168-byte packets with explicit window ID; configure/commit/release, input, titles, menus, services | Opt-in creation/close acknowledgements; retain matched kernel/userspace; broader capability negotiation remains later |
 | [`desktop.c`](../userspace/lib/src/desktop.c) | Transport wrappers, process liveness, pixel allocation | Process-based routing and separate size ceilings |
 | [`desk_app.h`](../userspace/lib/include/srvros/desk_app.h), [`desk_app.c`](../userspace/lib/src/desk_app.c) | Per-window canvas, generations, frames, resize rollback and menus | Connection dispatcher now available; migrate normal apps from the compatibility wrapper |
@@ -51,7 +51,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | --- | --- |
 | 16 windows and child launch slots | `DESK_MAX_WINDOWS`, `DESKD_WINDOWS`, session/scene arrays; multiple windows may share a PID |
 | 32 GUI queues, 64 messages per queue | `GUI_MAX_QUEUES = DESK_MAX_WINDOWS + 16`, `GUI_QUEUE_DEPTH`; process queues also need room for services |
-| 64 GUI surfaces | `GUI_MAX_SURFACES = DESK_MAX_WINDOWS * 4`; surface count should follow active allocations, not window-count arithmetic |
+| Dynamic GUI surfaces | 256 KiB record budget plus 256 MiB pixel budget, including in-flight reservations and retirement; no fixed surface slot array |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
 | 1440×900 logical client surface | Protocol/kernel bound; explicit 2× output is enlargement, not native-density text rendering |
 | Clipboard transfer state per admitted client (D0 merged) | No independent peer table; one global 64 KiB committed value and staged writer |
