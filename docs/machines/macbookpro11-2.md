@@ -6542,3 +6542,21 @@ zero leaks/mismatches/errors; unmounted, no reboot armed. Durable archive:
 Next: audit the remaining pinned reference RX-path/TX-DAC settings and
 calibration/channel prerequisites before a bounded next implementation. No
 channel tuning, MAC enable, scanning, association/security or traffic accepted.
+
+## 2026-10-25 — one-chain RX-path/TX-DAC scope
+
+Delayed VCO results are collected/archived at `7144c8ed`; no outstanding run
+or reboot. Main remains `2c1ffc6b`. PR157 owns Air7,2 application lifecycle;
+PR158 owns Air6,1 continuous audio/USB and desktop harness changes. Inspected
+files do not own Wi-Fi MCU/RF/baseband state. Pro PR19 retains integration
+base `d5bc4b3`; no unrelated desktop changes in this bounded candidate.
+
+Pinned Linux v7.0 mt76x02_init_device selects chainmask101 for MT7610;
+fresh NICfd11 confirms one RX/TX stream. mt76x02_phy_set_rxpath clears AGC0
+bits4/3, and mt76x02_phy_set_txdac clears TXBE5 bits1/0. Targets2300/2714 are
+baseband controls, not MAC enable. Objective: after full delayed VCO clear
+proof, fresh-read/modify/write/read these two targets, preserving all other
+bits, with MAC/CORE/disabled-DMA guards before and after each target. Scope:
+fixed two-target engine, native ownership, staging/tests and strict collector.
+No RF data write, channel tuning, TX/RX MAC enable or traffic. Keep256KiB full
+capture; refuse all-ones/uncertain transfers and never replay an attempted write.
