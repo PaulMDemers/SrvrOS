@@ -2,6 +2,25 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Attended document candidate installed
+
+Release `80904d5e5fd6f6ac`, clean source `7c2880a`, is installed for the ordinary
+v55 combined-services Runtime trial. Exact staged GRUB → Limine Q35 rehearsal
+passes 24 independent app processes, exact document persistence after growth,
+PCM playback, 35-descendant cleanup, desktop reopen, monitor reboot and offline
+allocation. Native firmware profile refusal in Q35 is expected, not a physical
+battery result. Matched builds/desktop tests and 79 staging tests pass. USB has
+1,071 files identical to the last collection; offline fsck/allocation/headroom
+passes with 2,671 clusters and no errors. Current/recovery and Ubuntu default
+verified; recovery remains `9aa8dbf6fbda8252`. Candidate and old payload are backed
+up outside build. PR155 is the attended checklist/evidence follow-up.
+
+**Human input is required.** Open Help, Ctrl-L, search Runtime trial, Return;
+there is no timed exit. Use fresh `runtime24-*.txt` names. Normal desktop exit,
+`desktop battery` reopen and monitor `reboot` finish the trial. After return,
+collect both sessions and artifacts before any next stage; physical acceptance
+is pending. See the local run record for one-shot/reboot state.
+
 ### Active attended high-count document round
 
 Base main `d441b7d`; Pro PR19 `db95022` and Air6,1 PR154 `44b5706` remain
