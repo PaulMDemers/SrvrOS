@@ -2693,3 +2693,32 @@ launch; preserve that work and inspect its actual integration before staging.
 Pro PR19 retains independent Wi-Fi scope. User authorizes testing, self-merge,
 installation and automatic reboot. Previous failed evidence is collected and
 backed up; no new physical result is accepted.
+
+### Files startup investigation checkpoint — 2026-10-25
+
+The native missing-admission failure is not yet reproduced or fixed. Synthetic
+populated-Home stress (64 existing files) passes with 400 write IOPS: source
+`02b1e4c1`, ten Text/Files/System cycles, maximum loop 349,423 us, ready
+3,904,186 us, close 2,809,892 us, zero app errors and 222 observed PCM/write
+overlap windows. All 66 prior fixture files and offline allocation checks pass.
+Build/core tests pass after consuming merged PR162 (`f4e9fbcb`).
+
+Keep the failed experiments: 40 write IOPS delays the first Text launch past the
+cycle bound; 100 write IOPS admits Text but misses its first-frame timeout.
+Neither reproduces the native missing Files OPEN. An unthrottled populated run
+also exceeded the loop limit (505,077 us) and remains a failure, despite passing
+its audio/disk receipt. Do not convert those results into startup acceptance.
+
+Fixed a measurement omission: an iteration that breaks on timeout was absent
+from the loop maximum. The final interval now counts against the same 500 ms
+limit, with a host regression. The earlier native 108,087 us maximum may therefore
+understate the final stall. Added successful legacy OPEN timestamps, compositor
+admission identity and deadline child/window state, plus a populated-Home VM
+fixture. The ten-second app-cycle and all client deadlines, filesystem, PCM,
+process/admission and native ownership checks remain unchanged.
+
+PR164 is a diagnostic/measurement change, not a claimed Files startup fix. The
+next authorized automatic native run repeats the unchanged thirty-minute
+workload with these receipts, no human file work, and automatic return/collection.
+Preserve the previous failed release and accepted recovery. Inspect the new
+matching failure boundary before proposing a production startup change.
