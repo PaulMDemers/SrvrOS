@@ -66,8 +66,15 @@ both completion markers were saved. Strict validation, consumed one-shot,
 Ubuntu default and installed/recovery hashes passed. Latest offline workspace
 checks:283files/677clusters/115directories, zero leaks, mismatches or errors;
 unmounted. This is command/guard/readback evidence, not calibrated radio
-acceptance. Next: audit captured board frequency trim and the bounded reference
-DAC/VCO calibration sequence, before scanning or traffic. No reboot is armed.
+acceptance.
+
+Candidate `4ec251f79c97532b` (source `b15867d7`) is installed unarmed for fresh
+mapped board-field verification and one RF0:22 trim write/read. Local,
+regression/sanitizer and exact-stage VM save/return plus missing-workspace
+recovery passed. Next: attended cold adapter cycle, then collect matching
+release/session FIRST. The offline frequency/temperature signed-magnitude
+decoder is corrected; this board's trim stays68. DAC/VCO pulses, channel-frequency
+tuning, scanning and traffic remain later steps. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6315,3 +6322,26 @@ command/guard and fresh-field transfer paths with no-I/O refusal and quarantine.
 The historical redacted capture was re-audited without exposing address bytes;
 trim remains68 and temperature metadata is+120 calibration units, unvalidated.
 Exact-stage GPT save/return and missing-workspace checks precede installation.
+
+
+Fresh-fields/trim source `b15867d7c87f817e54d5c7bec0c111db7b0c1f74`, release
+`4ec251f79c97532b`, installed unarmed. Full build, relevant RF/EFUSE/controller/
+logger regressions, offline audit tests and ASan/UBSan for trim, complete G20
+proof and fresh EFUSE capture passed. All108 malformed full-prefix cases were
+refused; four valid patterns fit at most236822bytes. Exact-stage GPT VM saved
+and byte-verified capture, passed offline exFAT checks and returned automatically,
+with tail_limit262144 confirmed. Missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` remain, as does completed G20
+release `e75a52b56efa282b`. Older VGA `de89daa6bdc3024e` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+283files/677clusters/115directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned references and hashes, corrected redacted metadata audit, local/
+fault/strict/sanitizer checks, both VM receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-trim-b15867d/`.
+
+On return collect matching release/session FIRST. Require full prior proof,
+fresh mapped30/d0 profile/counters/guards, two RF trim replies, four guard
+triplets, exact one-value mismatch accounting and entire prefix with both
+completion markers. No DAC/VCO, channel-frequency plan or traffic in this
+trial. No reboot armed; native fresh-field/trim results pending.
