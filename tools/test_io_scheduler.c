@@ -41,9 +41,24 @@ static bool completion_wait_test,completion_signal,completion_ready,reference=tr
 bool timer_reference_ready(void) { return reference; }
 static struct scheduler_wait_queue completion_queue;
 static bool high_wait_test;
+static bool handoff_test;
+static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(handoff_test) {
+        assert(old==&threads[3].context && next==&threads[6].context);
+        assert(current_thread==6 && !io_depth && threads[6].io_gate_waiting);
+        assert(threads[4].state==THREAD_READY); /* Do not merely yield to the next slot. */
+        switching=false; /* The resumed scheduler_yield continuation clears it. */
+        scheduler_io_wait();
+        assert(!threads[6].io_gate_waiting && !io_gate_pending);
+        assert(scheduler_io_begin()); /* App enters before writer's next operation. */
+        assert(!io_thread_allowed(4)); /* Unsafe peers still cannot overlap it. */
+        scheduler_io_end();handoff_admissions++;
+        threads[6].state=THREAD_READY;threads[3].state=THREAD_RUNNING;current_thread=3;
+        return;
+    }
     if(high_wait_test) {
         assert(old==&thread_at(95)->context && thread_at(95)->state==THREAD_BLOCKED);
         assert(high_wait.waiters==1 && thread_at(95)->blocked_queue==&high_wait);
@@ -78,6 +93,35 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
 }
 static bool retired_context(void *arg) { (void)arg;assert(!"retired eligibility callback");return false; }
 static bool ready(void *arg) { return arg != NULL; }
+static void test_gate_handoff(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[4]=(struct thread){.state=THREAD_READY};
+    handoff_test=true;
+    for(unsigned round=0;round<64;round++) {
+        assert(scheduler_io_begin() && scheduler_io_begin());
+        threads[6]=(struct thread){.state=THREAD_BLOCKED,.io_gate_waiting=true,.blocked_queue=&io_waiters};
+        io_waiters.waiters=io_gate_pending=1;
+        scheduler_io_handoff();assert(handoff_admissions==round && io_depth==2);
+        scheduler_io_end();scheduler_io_handoff();assert(handoff_admissions==round && io_depth==1);
+        scheduler_io_end();assert(threads[6].state==THREAD_READY && !io_waiters.waiters && io_gate_pending==1);
+        /* Returning to userspace is required; a partial kernel operation may
+         * not hand off even after dropping its innermost I/O scope. */
+        threads[3].io_user_safe=false;scheduler_io_handoff();assert(handoff_admissions==round);
+        threads[3].io_user_safe=true;scheduler_io_handoff();assert(handoff_admissions==round+1);
+        scheduler_io_handoff();assert(handoff_admissions==round+1);
+    }
+    handoff_test=false;
+    /* Forced retirement must not leave a phantom admission or reuse its slot. */
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.io_gate_waiting=true,
+        .blocked_queue=&io_waiters,.user_context=(void*)42,.user_thread_context=(void*)43};
+    io_gate_pending=io_waiters.waiters=1;
+    scheduler_kill_user_threads((void*)42,NULL);
+    assert(!io_gate_pending && !io_waiters.waiters && !threads[6].io_gate_waiting && threads[6].state==THREAD_DEAD);
+    memset(threads,0,sizeof(threads));current_thread=0;idle_thread=UINT64_MAX;initialized=false;
+    puts("io-handoff: PASS 64 continuous writer rounds, awakened app admission, nested ownership, unsafe caller refusal and canceled waiter retirement");
+}
 static void test_completion_wait(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     clock_us=100000;current_thread=3;idle_thread=1;actual_space=2;
@@ -367,6 +411,7 @@ int main(void) {
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
     test_completion_wait();
+    test_gate_handoff();
     test_growth();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }

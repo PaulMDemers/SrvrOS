@@ -2752,3 +2752,53 @@ contention, including gated allocation/unmapping and process retirement. The
 receipts establish the delayed phases, not the exact kernel cause. Preserve the
 10-second whole-cycle, client deadlines, 500 ms loop and all integrity checks;
 do not treat successful Files admission or a zero-status late exit as a pass.
+
+### Shared app latency under disk load — active scope (2026-10-25)
+
+Base `296f86bb`, including PR165 modal correction and PR166 return evidence.
+Investigate starvation at the shared I/O admission gate: waking blocked app
+allocation/cleanup calls does not necessarily let them run before a disk writer
+starts another owned operation. Scope is scheduler gate handoff at a completed
+userspace syscall boundary, dispatch/cancellation integration, deterministic
+scheduler regressions and automatic disk/audio/app VM/native validation. Do not
+release ownership mid-operation or admit unsafe calls during owned I/O. Preserve
+all existing integrity checks, the ten-second whole-cycle and 500 ms loop limits.
+Pro PR19 (`200ab19b`) remains separate USB Wi-Fi work; no other open shared-runtime
+MR was found. The previous run is collected and backed up. User explicitly
+authorizes tests, self-merge and reboot into the automatic stress workload.
+
+The implementation retains each blocked call's admission flag after wake-all,
+clearing it only when the gate wait returns or the thread retires. A fully
+completed userspace syscall that required the I/O gate gives one ready waiter
+a turn before the writer can submit another operation. No handoff occurs with
+active/nested ownership or an unsafe caller. GUI/audio-safe syscalls retain their
+normal turns. The scheduler's ordinary round-robin/service eligibility, syscall
+whitelist, VFS checks and desktop timing limits are unchanged. Cancellation is
+rechecked after handoff; killed/quarantined waiters cannot retain stale admission.
+
+The syscall-boundary regression fails on the old implementation. New host cases
+exercise 64 successive writer rounds, preferred awakened admission, nested-owner
+and unfinished-kernel refusal, canceled waiter retirement, and cancellation
+during handoff. Initial VM experiments are retained: the overbroad prototype
+(which also handed off after GUI-safe calls) completed 13 cycles at 400 IOPS but
+failed a 512,391 us loop gap; at 100 IOPS Text completed but Files exceeded the
+whole-cycle deadline. These are failures, not native acceptance. The narrowed
+implementation and its matched physical payload require fresh validation.
+
+Final narrowed source `74939958` passes build/core, full smoke and the storage
+service VM (throttled writes, USB typing, cancellation, copy comparison, fsck and
+timeout/quarantine). The populated-Home 400-write-IOPS automatic stress passes
+15 complete app cycles: maximum ready 1,423,863 us, close/reap 2,526,714 us and
+loop 480,204 us, with zero app errors or PCM underruns. It verifies 117 unpaced
+256-KiB bursts, 223 observed PCM/write overlap windows, preservation of all
+66 prior fixture files and clean offline allocation. All original limits remain.
+
+Release `95f8a9cf59b25ba1` freezes that clean source. Its exact-stage Q35 rehearsal
+passes the expected native-profile refusal, save/unmount and automatic return;
+this is not physical battery or stress acceptance. PR167 carries the fix and
+this documentation-only follow-up. Main remains `296f86bb`; Pro PR19 `3e979549`
+retains separate Wi-Fi scope without scheduler/dispatch overlap. Next is the
+authorized thirty-minute automatic native audio/disk/Text–Files–System stress,
+with listening only, automatic Ubuntu return and collection. Preserve accepted
+recovery and the prior failed run; require complete matching receipts before
+claiming hardware acceptance.

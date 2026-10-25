@@ -10,6 +10,12 @@ static unsigned calls;
 static uint64_t exit_status;
 static bool safe_call, user_safe, kill_while_waiting;
 static unsigned waits;
+static unsigned handoffs;
+static bool kill_during_handoff;
+void scheduler_io_handoff(void) {
+    assert(user_safe && !in_call); /* Only a fully unwound syscall may hand off. */
+    handoffs++;if(kill_during_handoff)killed=true;
+}
 void scheduler_io_set_user_safe(bool safe) { user_safe=safe; }
 void scheduler_user_enter(void) { user_safe=true; }
 void scheduler_io_wait(void) { assert(!user_safe); waits++; if(kill_while_waiting) killed=true; }
@@ -33,8 +39,10 @@ int main(void) {
     dispatch_syscall_with_cancellation(&frame);
     assert(calls==1 && frame.rax==42);
     assert(waits==1 && user_safe);
+    assert(handoffs==1); /* A fast writer must yield to awakened gate waiters. */
     safe_call=true; dispatch_syscall_with_cancellation(&frame);
     assert(calls==2 && waits==1 && user_safe);
+    assert(handoffs==1); /* GUI/audio-safe calls keep their normal service turn. */
     safe_call=false;
     killed=true;
     if(setjmp(exited)==0) { dispatch_syscall_with_cancellation(&frame); assert(0); }
@@ -45,9 +53,13 @@ int main(void) {
     frame.cs=0x08;
     dispatch_syscall_with_cancellation(&frame);
     assert(calls==4 && !user_safe); /* Kernel callers are not a userspace-return boundary. */
+    assert(handoffs==1);
     frame.cs=0x23;killed=kill_during_call=false;kill_while_waiting=true;
     if(setjmp(exited)==0) { dispatch_syscall_with_cancellation(&frame); assert(0); }
     assert(calls==4 && exit_status==130); /* No side effects after a kill in the wait queue. */
+    killed=kill_while_waiting=false;kill_during_handoff=true;
+    if(setjmp(exited)==0) { dispatch_syscall_with_cancellation(&frame); assert(0); }
+    assert(calls==5 && handoffs==2 && exit_status==130 && !user_safe);
     puts("syscall-cancel-host: PASS (pending kill, deferred I/O kill, normal return, kernel entry)");
 }
 

@@ -193,7 +193,20 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
         scheduler_io_wait();
         process_exit(process_current_kill_status());
     }
-    if ((frame->cs & 3)==3) scheduler_user_enter();
+    if ((frame->cs & 3)==3) {
+        /* The syscall is fully unwound. A continuously writing process must
+         * not immediately reacquire I/O ahead of an app we just woke. */
+        if(!safe) {
+            scheduler_io_set_user_safe(true);
+            scheduler_io_handoff();
+            scheduler_io_set_user_safe(false);
+        }
+        if(process_should_exit_current()) {
+            scheduler_io_wait();
+            process_exit(process_current_kill_status());
+        }
+        scheduler_user_enter();
+    }
 }
 
 static void isr_dispatch_inner(struct isr_frame *frame) {
