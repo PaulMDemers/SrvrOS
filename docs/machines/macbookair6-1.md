@@ -2496,3 +2496,44 @@ prior-file preservation and offline allocation; listening remains separate.
 User explicitly authorized reboot and automatic startup after validation. Save
 armed state and durable run/payload copies before launch. Native endurance is
 pending this run, not accepted by VM success.
+
+### Automatic stress partial result and desktop latency failure (2026-10-25)
+
+Evidence-review scope only: collect run `6e0147a2ac774722`, document audio/UI and
+retirement outcomes, and identify the next bounded investigation. Integration
+baseline is `afb2c3b0`; open PR157 owns shared desktop document/application
+lifecycle changes and must be considered before implementing launch/close changes.
+No new payload or reboot is prepared by this review.
+
+Release `a70f9540f3aa39dd`, session `00065eafdcd77b12-00`, was intentionally
+exited early. The user reports persistent, stable sound but multi-second app
+open/close delays and a 3–4-second UI freeze after a dock click while audio kept
+playing. Final PCM position corresponds to 1,379.66 seconds (about 23 minutes),
+with zero underruns; cancellation releases the PCM owner and queue. Battery
+retires with 536 attempts, 8,122 queries, 98 notifications, zero heap/errors/denied
+operations and a released lifetime. This supports audio continuity for the
+observed interval, not a completed thirty-minute endurance or responsiveness pass.
+
+The automatic collector correctly reports incomplete: cancellation left no final
+disk/result receipt. There is one residual private payload; no verified total
+burst count/throughput can be recovered from it. Existing files are preserved
+except `.srvros/meta`. Offline checks pass at 340 files / 1,000 clusters with zero
+leaks/bitmap mismatches; Ubuntu's one-shot entry is empty. Full raw evidence and
+the user report are retained outside build.
+
+Close-request to process-exit intervals visible in the retained log include
+3.23, 4.60 and 4.65 seconds (also 1.28 and 1.70 seconds). These include client
+cleanup and are not direct measurements of the dock-to-render freeze. System
+and one Files process also exit with failure status; their cause is unresolved.
+The overall workload/desktop FAIL markers remain failures/incomplete evidence,
+not a successful completed trial; normal battery retirement is distinct.
+
+Code inspection identifies synchronous `srv_exec` from `deskd`'s event loop and
+storage-gated process/lifetime operations as a plausible freeze path. PCM calls
+remain admitted while storage is owned, consistent with stable audio. No timing
+in this capture separates gate contention, executable loading, cleanup or render
+stall, so root cause is not yet proven. Next: automate app launch/close during the
+same unpaced workload, measure event-loop gaps plus launch/close phases and I/O
+gate wait/hold time, then move blocking lifecycle work off the event loop or fix
+measured contention as appropriate. Preserve integrity and ownership checks and
+keep full disk pressure; do not hide the failure by adding workload sleeps.
