@@ -21,6 +21,9 @@ int main(void){
  struct mt76_rf_csr s={0};static struct fake f,baseline;f=(struct fake){0};
  assert(run(&f,&s)==MT76_TIMING_OK && s.complete && s.operations==45 && s.reads==40 && s.writes==5 && s.index==5 && !s.phase && f.ops==45 && f.auth==46);baseline=f;
  assert(s.result[0]==0x600 && s.result[3]==0x641 && run(&f,&s)==MT76_TIMING_REFUSED);
+ assert(!mt76_rf_csr_zero_valid(&s));s.result[3]=0x600;assert(mt76_rf_csr_zero_valid(&s));
+ for(unsigned i=0;i<30;i++){s.guards[i/3][i%3]^=1;assert(!mt76_rf_csr_zero_valid(&s));s.guards[i/3][i%3]^=1;}
+ for(unsigned i=0;i<5;i++){s.result[i]^=1;assert(!mt76_rf_csr_zero_valid(&s));s.result[i]^=1;}
  for(unsigned op=1;op<=45;op++){
   s=(struct mt76_rf_csr){0};f=(struct fake){.fail=op};assert(run(&f,&s)==MT76_TIMING_IO && !s.complete && f.ops==op);assert(run(&f,&s)==MT76_TIMING_REFUSED);
   if(baseline.states[op-1].phase!=4){s=(struct mt76_rf_csr){0};f=(struct fake){.bad=op};assert(run(&f,&s)==MT76_TIMING_STATE && !s.complete && f.ops==op);}

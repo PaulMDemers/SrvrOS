@@ -61,6 +61,14 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_wifi_rf_write_profile(self):
+        v="ram-usb-wifi-fw-v64-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-write=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v64-","v63-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-write=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_write=True)
+
     def test_wifi_rf_csr_profile(self):
         v="ram-usb-wifi-fw-v63-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

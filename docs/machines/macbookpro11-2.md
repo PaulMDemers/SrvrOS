@@ -5652,3 +5652,12 @@ even a41 readback does not accept the complete central table. Touch MCU/xHCI,
 dedicated v64 staging and host/collector tests in PR19. Main211f17c2 and POSIX
 PR134 964dbd15 inspected; integration base remainsd5bc4b3. Next checkpoint:
 fault-tested one-write admission, then exact-stage VM and unarmed installation.
+
+Implemented the one-write v64 comparison. Host tests cover all256 observed
+readback bytes, every normal I/O/cancellation boundary, guards, poll exhaustion,
+accounting and replay. Native binding tests cover every selector bit and complete
+zero-profile/ownership admission with quarantine on transfer failure. All143
+staging tests pass and126 historical Wi-Fi recipes remain byte-identical. The
+strict collector rejects203 malformed proofs; the maximum-poll full-prefix
+fixture is129097bytes. Exact-stage VM and unarmed installation follow the full
+build. The direct RF write and resulting readback are physically untested.

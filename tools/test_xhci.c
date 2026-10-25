@@ -3720,6 +3720,55 @@ static void test_wifi_rf_csr(void){
  puts("xhci RF CSR: PASS fixed selector/guard admissions, full prefix and comparison prerequisites, every selector bit, replay and DMA quarantine");
 }
 
+static void rf_write_fixture(struct xhci_device *d,unsigned op){
+ rf_csr_fixture(d,45);struct xhci_wifi_mcu *m=&d->firmware.mcu;m->rf_csr.complete=true;
+ m->rf_write_mode=m->rf_write_active=true;m->rf_write_submitted=op;
+ struct mt76_rf_write *s=&m->rf_write;*s=(struct mt76_rf_write){.attempted=true,.operations=op,.phase=op,.writes=(op>4)+(op>9)};s->reads=op-s->writes;
+ const unsigned phases[]={3,5,10};
+ for(unsigned i=0;i<3;i++){s->polls[i]=op>phases[i];s->guards[i][1]=0xf000f200;s->words[i]=i==0?0x1600:i==1?0x40000641:0x600;}
+}
+static void test_wifi_rf_write(void){
+ for(unsigned op=0;op<14;op++)for(unsigned fault=0;fault<27;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];rf_write_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==26?6:1,0);
+  bool write;uint32_t address,value;assert(mt76_rf_write_request(&m->rf_write,&write,&address,&value));
+  if(fault==1)m->rf_write_mode=false;
+  if(fault==2)m->rf_write_active=false;
+  if(fault==3)m->rf_csr.complete=false;
+  if(fault==4)m->rf_csr_submitted--;
+  if(fault==5)m->rf_csr.reads--;
+  if(fault==6)m->rf_csr.writes--;
+  if(fault==7)m->rf_csr.polls[1][0]=0;
+  if(fault==8)m->rf_csr.result[0]=0x641;
+  if(fault==9)m->rf_csr.result[3]=0x641;
+  if(fault==10)m->rf_csr.guards[9][2]=UINT32_MAX;
+  if(fault==11)m->rf_six.values[0]=1;
+  if(fault==12)m->rf_six.values[3]=1;
+  if(fault==13)m->rf_central.words[2]=1;
+  if(fault==14)m->rf_write_submitted++;
+  if(fault==15)m->rf_write.complete=true;
+  if(fault==16)m->rf_write.reads++;
+  if(fault==17)address++;
+  if(fault==18)write=!write;
+  if(fault==19)m->failed=true;
+  if(fault==20)m->pending=true;
+  if(fault==21)m->rf_csr_active=false;
+  if(fault==22)m->rf_central.guards[10][0]=1;
+  if(fault==23)m->rf_six.complete=false;
+  if(fault==24)m->rf_csr.phase=1;
+  if(fault==25)m->rf_csr.index=4;
+  if(!fault && write){for(unsigned b=0;b<32;b++){uint32_t wrong=value^(1u<<b);assert(!wifi_rf_write_transfer(d,op,write,address,&wrong));}}
+  assert(wifi_rf_write_transfer(d,op,write,address,&value)==!fault);
+  if(!fault){assert(m->rf_write_submitted==op+1 && d->firmware.control_request==(write?6:7) && d->firmware.control_length==4 && d->firmware.control_index==address);assert(!wifi_rf_write_transfer(d,op,write,address,&value));}
+  else if(fault==26)assert(d->ep0_quarantined && d->firmware.failed && !freed);
+  else assert(!d->ep0_enqueue && m->rf_write_submitted==op+(fault==14));
+ }
+ reset_test();assert(!xhci_wifi_capture_rf_write());
+ puts("xhci RF write: PASS exact write/read selectors, zero-profile and full-prefix admission, request mutation/replay and quarantine");
+}
+
 static void test_wifi_ant_init(void){
  for(unsigned target=0;target<5;target++)for(unsigned write=0;write<2;write++)for(unsigned fault=0;fault<34;fault++){
   reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
@@ -4935,6 +4984,7 @@ int main(int argc, char **argv) {
     test_wifi_rf_central();
     test_wifi_rf_six();
     test_wifi_rf_csr();
+    test_wifi_rf_write();
     test_wifi_ant_init();
     test_wifi_mac_private();
     test_wifi_efuse_map();

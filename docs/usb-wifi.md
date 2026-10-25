@@ -2611,3 +2611,31 @@ points away from an MCU reply-decoding error but does not distinguish an ignored
 write from RF hardware semantics or missing initialization prerequisites. Next
 investigate the write path and those prerequisites before relaxing any readback
 rule or continuing the table. Calibration and connectivity remain untested.
+
+### One direct RF0:6 write (v64 candidate)
+
+`--wifi-rf-write` requires `--wifi-rf-csr` and all previous proof. Admission
+requires the v62 MCU observations and v63 direct reads to reproduce the captured
+zero RF0:6 profile, including the expected controls, every guard and all transfer
+counts. No write occurs if that profile changes or the prerequisite is incomplete.
+
+The fixed comparison uses the reference RF-CSR write encoding at0500: c0000641
+selects bank0/register6, value41, WR and KICK. There is exactly one such write.
+Three MAC0/COREf000f200/disabled-DMA guards precede bounded idle polling; the write
+is followed by bounded completion polling and another guard triplet. A separate
+80000600 read selector then starts an independent RF0:6 read, followed by bounded
+completion polling and the final guard triplet. Each poll phase permits at most32
+reads. Completion must report the correct bank/register and clear KICK; the
+independent read must also clear WR. The returned byte remains an observation.
+The write-completion data/WR fields are retained without treating them as an
+independent RF readback. No arbitrary payload, retry, later table entry, RF0:22
+trim, calibration trigger or packet traffic is added.
+
+Success requires9 guard reads,2 selector writes and3–96 poll reads (14–107
+transfers), with every USB result and poll value retained in order. Native
+admission independently checks the full prerequisite and exact operation/value;
+uncertain USB transfers retain DMA quarantine. The full worst-poll fixture fits
+within128KiB. Completed capture accepts the experiment only. A41 independent
+read would distinguish this direct write from the earlier MCU write; zero would
+leave hardware semantics/prerequisites unresolved. Neither result accepts the
+remaining central table or calibrated radio operation.

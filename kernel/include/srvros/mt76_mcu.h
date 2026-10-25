@@ -436,4 +436,14 @@ uint32_t mt76_rf_csr_selector(unsigned index);
 bool mt76_rf_csr_request(const struct mt76_rf_csr *s,bool *write,uint32_t *address,uint32_t *value);
 enum mt76_mcu_timing_status mt76_rf_csr_apply(struct mt76_rf_csr *s,const struct mt76_rf_csr_io *io);
 
+/* One fixed RF0:6=41 CSR write followed by independent RF0:6 read.
+ * Observation only; no table continuation, retries or caller-selected payload. */
+struct mt76_rf_write {
+    bool attempted,complete;
+    unsigned operations,reads,writes,phase,polls[3];
+    uint32_t guards[3][3],words[3];
+};
+bool mt76_rf_csr_zero_valid(const struct mt76_rf_csr *s);
+bool mt76_rf_write_request(const struct mt76_rf_write *s,bool *write,uint32_t *address,uint32_t *value);
+enum mt76_mcu_timing_status mt76_rf_write_apply(struct mt76_rf_write *s,const struct mt76_rf_csr_io *io);
 #endif

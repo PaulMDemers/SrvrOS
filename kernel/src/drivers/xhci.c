@@ -283,6 +283,9 @@ struct xhci_wifi_mcu {
     bool rf_csr_mode,rf_csr_active;
     unsigned rf_csr_submitted;
     struct mt76_rf_csr rf_csr;
+    bool rf_write_mode,rf_write_active;
+    unsigned rf_write_submitted;
+    struct mt76_rf_write rf_write;
     bool ant_init_mode,ant_fields_active,ant_init_active;
     struct mt76_ant_fields ant_fields;
     struct mt76_efuse_map_gate ant_fields_gate;
