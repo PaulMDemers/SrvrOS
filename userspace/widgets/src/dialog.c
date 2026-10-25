@@ -34,13 +34,20 @@ void desk_dialog_configure(struct desk_dialog *d,struct desk_rect bounds) {
     if(bounds.w<0 || bounds.h<0 || bounds.w>16384 || bounds.h>16384 || bounds.x<0 || bounds.y<0 || bounds.x>16384 || bounds.y>16384) return;
     int w=bounds.w>32?bounds.w-32:bounds.w;if(w>480) w=480;
     int h=bounds.h>32?bounds.h-32:bounds.h;if(h>208) h=208;
-    d->frame=(struct desk_rect){bounds.x+(bounds.w-w)/2,bounds.y+(bounds.h-h)/2,w,h};
+    struct desk_rect frame={bounds.x+(bounds.w-w)/2,bounds.y+(bounds.h-h)/2,w,h};
+    int changed=memcmp(&d->frame,&frame,sizeof(frame))!=0;d->frame=frame;
     int available=w>32?w-32:0,gaps=d->count>1?(d->count-1)*8:0;
     int bw=d->count && available>gaps?(available-gaps)/(int)d->count:0;if(bw>112) bw=112;
     int x=d->frame.x+w-16-(bw*(int)d->count+gaps),y=d->frame.y+h-48;
-    for(unsigned i=0;i<d->count;i++) desk_button_configure(&d->buttons[i],
-        desk_intersect(d->frame,(struct desk_rect){x+(int)i*(bw+8),y,bw,32}),d->choices[i].enabled);
-    desk_ui_layout_changed(&d->ui);
+    for(unsigned i=0;i<d->count;i++) {
+        struct desk_rect old=d->buttons[i].frame;int enabled=d->buttons[i].enabled;
+        desk_button_configure(&d->buttons[i],
+            desk_intersect(d->frame,(struct desk_rect){x+(int)i*(bw+8),y,bw,32}),d->choices[i].enabled);
+        changed|=enabled!=d->buttons[i].enabled || memcmp(&old,&d->buttons[i].frame,sizeof(old))!=0;
+    }
+    /* Native presenters may check layout on every tick. Cancel an accepted
+     * press only when its geometry or enabled state actually changes. */
+    if(changed)desk_ui_layout_changed(&d->ui);
 }
 unsigned desk_dialog_focus(struct desk_dialog *d,int active) { return desk_ui_window_focus(&d->ui,active); }
 struct desk_action desk_dialog_key(struct desk_dialog *d,const struct srv_key_event *key) {

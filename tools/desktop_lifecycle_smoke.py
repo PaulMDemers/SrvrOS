@@ -22,14 +22,15 @@ def application_output(data):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--pointer',action='store_true',help='hold and release real pointer clicks on modal and picker buttons')
     parser.add_argument('--crash',action='store_true',help='kill Preview with an owned picker, then save through healthy apps')
     parser.add_argument('--refuse-dialogs',action='store_true',help='force modal admission refusal and validate embedded recovery')
     args=parser.parse_args()
-    if args.crash and args.refuse_dialogs:parser.error('choose one failure fixture')
+    if sum((args.crash,args.refuse_dialogs,args.pointer))>1:parser.error('choose one directed fixture')
     root=Path(__file__).resolve().parents[1]
-    out=root/('build/review/desktop-lifecycle-crash' if args.crash else 'build/review/desktop-lifecycle-refusal' if args.refuse_dialogs else 'build/review/desktop-lifecycle');out.mkdir(parents=True,exist_ok=True)
+    out=root/('build/review/desktop-lifecycle-pointer' if args.pointer else 'build/review/desktop-lifecycle-crash' if args.crash else 'build/review/desktop-lifecycle-refusal' if args.refuse_dialogs else 'build/review/desktop-lifecycle');out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True)
-    shots=[]
+    shots=[];pointer_actions=[]
     output=b'';consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-text-windows-') as directory:
         tmp=Path(directory)
@@ -97,6 +98,36 @@ def main():
                     wait(b'text-runtime: admitted window=');wait(b'\n')
                     return int(re.findall(rb'text-runtime: admitted window=(\d+)',output)[-1])
                 first=admitted();wait(b'deskd: commit');pid=re.findall(rb'deskd: opened pid=(\d+)',output)[-1]
+                pointer=[24,56]
+                def click_modal(kind,index,label):
+                    # Locate the visible widget row, rather than infer its
+                    # position from private compositor placement state.
+                    from PIL import Image
+                    # Keep the software pointer from covering a button border
+                    # while identifying the next visible row.
+                    qmp.mouse(24-pointer[0],56-pointer[1]);pointer[:]=[24,56]
+                    width,height,count=(112,32,3) if kind=='dialog' else (84,28,2)
+                    end=time.monotonic()+8;buttons=[]
+                    while time.monotonic()<end:
+                        path=out/'pointer-target.ppm';qmp.call('screendump',{'filename':str(path)})
+                        im=Image.open(path).convert('RGB');pixels=im.load();rows={}
+                        for y in range(100,im.height-height):
+                            x=0
+                            while x<im.width-width:
+                                color=pixels[x,y]
+                                if color not in ((116,139,121),(56,100,79)) or (x and pixels[x-1,y]==color):x+=1;continue
+                                right=x+width-1;bottom=y+height-1
+                                if all(pixels[t,y]==color and pixels[t,bottom]==color for t in range(x,x+width)) and all(pixels[x,t]==color and pixels[right,t]==color for t in range(y,y+height)):
+                                    rows.setdefault(y,[]).append((x,y));x+=width
+                                else:x+=1
+                        candidates=[row for row in rows.values() if len(row)==count]
+                        if candidates:buttons=max(candidates,key=lambda row:row[0][1]);break
+                        time.sleep(.1)
+                    assert buttons,f'No visible {kind} button row'
+                    x,y=buttons[index];x+=width//2;y+=height//2
+                    qmp.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
+                    qmp.mouse(0,0,1);time.sleep(.35);qmp.mouse(0,0,0)
+                    pointer_actions.append(label);time.sleep(.3)
                 def launch(query,marker):
                     shortcut('meta_l-spc');wait(b'launcher opened');text(query);qmp.key('ret');wait(marker)
                 def save_as(path):
@@ -106,6 +137,20 @@ def main():
                     launch('Files window',b'launcher window=')
                     shortcut('ctrl-l');shortcut('ctrl-a');text(folder);qmp.key('ret')
                     wait(b'file-result role=files op=3 status=0');time.sleep(.4);qmp.key('home');qmp.key('ret')
+                if args.pointer:
+                    shortcut('ctrl-shift-n');clicked=admitted();wait(b'deskd: commit')
+                    text('Click draft');shortcut('ctrl-w');wait(f'parent={clicked}'.encode())
+                    click_modal('dialog',2,'Cancel');text(' remains')
+                    shortcut('ctrl-w');wait(f'parent={clicked}'.encode());click_modal('dialog',0,'Save-to-picker')
+                    wait(b'picker ready mode=2');click_modal('picker',0,'Cancel-picker')
+                    shortcut('ctrl-w');wait(f'parent={clicked}'.encode());click_modal('dialog',0,'Save')
+                    wait(b'picker ready mode=2');shortcut('ctrl-a');text('pointer.txt')
+                    click_modal('picker',1,'Save-picker');wait(b'file-result role=text op=2 status=0')
+                    wait(f'text-runtime: closed window={clicked}'.encode())
+                    shortcut('ctrl-shift-n');discarded=admitted();wait(b'deskd: commit')
+                    text('Discard only');shortcut('ctrl-w');wait(f'parent={discarded}'.encode())
+                    click_modal('dialog',1,'Discard');wait(f'text-runtime: closed window={discarded}'.encode())
+                    shot('pointer-actions-complete')
                 text('Draft');shortcut('ctrl-shift-n');second=admitted();wait(b'deskd: commit')
                 text('Sibling');shortcut('ctrl-w');wait(f'parent={second}'.encode());shot('owned-unsaved-dialog')
                 shortcut('alt-tab');text(' extra');shortcut('alt-tab');qmp.key('esc');time.sleep(.5)
@@ -139,7 +184,9 @@ def main():
                     shortcut('ctrl-end');text(' after crash');save_as('/fat/after-crash.txt');shot('healthy-after-preview-crash')
                     shortcut('ctrl-q');wait(b'desktools: exited role=text failure=0')
                 else:
-                    qmp.key('esc');wait(b'deskview: picker canceled pending=0 retained=1');time.sleep(.5);shortcut('ctrl-q')
+                    if args.pointer:click_modal('picker',0,'Preview-cancel-picker')
+                    else:qmp.key('esc')
+                    wait(b'deskview: picker canceled pending=0 retained=1');time.sleep(.5);shortcut('ctrl-q')
                     wait(b'deskview: workers retired=1');wait(b'deskview: exited failure=0')
                 shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
                 serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
@@ -164,6 +211,7 @@ def main():
             disk=ExfatFixture((tmp/'disk.exfat').read_bytes())
             for name,expected in {'sibling.txt':b'Sibling kept','survivor.txt':b'Draft extra survives','routed-copy.txt':b'Routed text\n edited','route-text/Routed.txt':b'Routed text\n'}.items():
                 assert disk.read(name)==expected,(name,disk.read(name))
+            if args.pointer:assert disk.read('home/pointer.txt')==b'Click draft remains'
             if args.crash:assert disk.read('after-crash.txt')==b'Routed text\n after crash'
             from exfat_test_image import check_clean_image
             (out/'fsck.txt').write_text(check_clean_image(tmp/'disk.exfat'))
@@ -172,9 +220,9 @@ def main():
             if allocation.returncode:
                 shutil.copyfile(tmp/'disk.exfat',out/'failure.exfat')
                 raise RuntimeError('Offline allocation failed')
-            names=['sibling.txt','survivor.txt','routed-copy.txt','route-text/Routed.txt']+(['after-crash.txt'] if args.crash else [])
+            names=(['home/pointer.txt'] if args.pointer else [])+['sibling.txt','survivor.txt','routed-copy.txt','route-text/Routed.txt']+(['after-crash.txt'] if args.crash else [])
             result={'status':'PASS','crash':args.crash,'refused_dialogs':args.refuse_dialogs,
-                'physical_acceptance':False,'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+                'physical_acceptance':False,'pointer_actions':pointer_actions,'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                 'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                 'saved_files':{name:hashlib.sha256(disk.read(name)).hexdigest() for name in names},
                 'process_baseline_restored':True,'offline_allocation':'PASS','screenshots':shots,

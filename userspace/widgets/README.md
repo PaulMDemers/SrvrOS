@@ -313,7 +313,9 @@ background update from sending the user's next Enter into the document.
 shared button/focus router. Apps choose the initial safe focus and cancel ID;
 Escape activates cancellation, and Enter activates the focused choice. Blank
 or outside clicks preserve keyboard focus and do not dismiss the dialog.
-Focus loss and layout changes cancel captures. Applications own modal lifetime
+Focus loss and actual geometry/enabled-state changes cancel captures. Repeating
+`desk_dialog_configure` with an unchanged effective layout preserves a held
+button until release; it does not restart or cancel the click. Applications own modal lifetime
 and any Save/Replace/Close behavior. Text and Terminal now use this component.
 The shared text-block helper wraps words and long UTF-8 words without allocation,
 honors explicit newlines, and preserves the incoming drawing clip.
@@ -325,7 +327,9 @@ into a reusable Open/Save panel. It owns the location/filename text and borrows
 validated listing items. It returns Browse, Accept and Cancel requests with a
 bounded absolute path; it never performs I/O or assumes a particular filesystem.
 The app marks loading and supplies a completed listing or error. Cancel stays
-available while loading. Ctrl-L edits the folder, Alt-Up navigates to its parent,
+available while loading. Repeating `desk_picker_configure` with the same bounds
+preserves pointer capture; a resize, loading transition or new listing cancels
+it. Ctrl-L edits the folder, Alt-Up navigates to its parent,
 F5 refreshes, Enter opens/accepts, and Escape cancels. Clipboard requests identify
 the relevant editor field. Lexical validation preserves UTF-8 but filesystem
 rules may further restrict names (the current exFAT writer creates ASCII names).
