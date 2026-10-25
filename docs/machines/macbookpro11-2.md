@@ -124,9 +124,18 @@ strict profile remains unchanged. Separate v76 observation release
 `2351cfa9efee6bb1`, source `5426417e`, is installed and unarmed. Only fixed
 IBI9 may record all-ones; the other11 targets and every guard stay strict.
 All18 reads, full postguards, derived mask and both completion markers are
-required. Local/VM checks passed; native observation is pending. Ubuntu stays
-default with known-good recovery `e47dca3a6b30c6c1`. Await user readiness for
-cold-cycle shutdown; collect the matching saved session first after return.
+required. Native v76 session `session-00065eb0f7e9e13b-00` stopped earlier:
+RF0:4 had already cleared fromb0 to30 at the initiation final read. All70
+initiation operations/guards/replies passed, but the historical pending-VCO
+profile requires finalb0, so the wait owner refused before any wait operation.
+Wait/path/inventory are NOT_RUN; no IBI9 observation obtained. Complete243533-byte
+prefix saved with both failure markers; strict success correctly refused it.
+Full prior proof through initiation verified separately on unchanged log.
+Recovery/default/one-shot/hashes passed; offline workspace clean295files/
+701clusters/121directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Next: explicitly handle the observed early-clear timing variant with bounded
+profile tests before retrying; preserve failed v76 and historical strict policy.
+No calibration or radio-function acceptance from this run.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6792,3 +6801,29 @@ Next: after readiness, cold-cycle Wi-Fi for10s while powered off, keeping the
 workspace connected. Automatic capture saves and returns to Ubuntu. Collect
 matching release/session first using the separate strict observation collector;
 preserve any failure. No photos or commands required during the trial.
+
+
+## 2026-10-25 — v76 saved return: earlier VCO-clear timing refusal
+
+Source `5426417e`, release `2351cfa9efee6bb1`, session
+`session-00065eb0f7e9e13b-00`; automatic disk collection verified the full
+243533-byte startup prefix within262144 capacity. Both final markers explicitly
+report completed=NO. Strict success collector refused; separate failure checker
+validated unchanged log bytes and all earlier proof through DAC/VCO initiation.
+
+Initiation completed70 operations,60 guard reads,10 exact replies,4 ACKs and
+20 valid MAC0/COREf000f200/disabled-DMA guard triplets. Values were
+147,147,147,19,19,147,48,176,147,48: final RF0:4 bit7 cleared before the
+immediate final sample, unlike the historical final176 profile. This observes
+self-clear, not successful radio calibration. `wifi_rf_wait_owned` requires
+`mt76_rf_cal_pending_profile_valid`, whose exact final176 comparison refused
+this variant. Wait reports status1/attempted0/operations0/delays0; later path and
+channel observation never executed. Zero wait rows are placeholders, not reads.
+
+Ubuntu default, consumed one-shot and current/recovery manifests verified.
+Offline exFAT clean295files/701clusters/121directories, zero leaks/mismatches/
+errors; unmounted and unarmed. Failure archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-observe-5426417/`.
+Next: bounded explicit early-clear admission audit and regression coverage,
+retaining strict historical profile and failed candidate. No automatic retry,
+MAC enable, channel tuning or traffic; requested IBI9 inventory remains pending.
