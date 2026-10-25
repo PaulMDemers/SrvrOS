@@ -6267,3 +6267,29 @@ Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-g20-b4be310/`.
 Next: audit captured board frequency trim and the reference DAC/VCO sequence.
 This run added no frequency trim, DAC/VCO calibration, channel-frequency plan,
 scanning, association/security or traffic. RF/connectivity remain untested.
+
+
+## 2026-10-25 — bounded fresh frequency-trim scope
+
+Pro PR19 owns Wi-Fi; G20 v70 is collected/archived at `538b711a`. No outstanding
+run or armed reboot. Fetched main remains `3647dc7c`; PR153/Air7,2 runtime
+`182d5fc0` edits desktop capture dispatch/staging, not Wi-Fi MCU/EFUSE ownership.
+PR154/Air6,1 owns desktop endurance. This candidate uses native integration base
+`d5bc4b3`; keep bounded opt-in Wi-Fi changes separate from desktop/scheduler work.
+
+Audit of pinned Linux v7.0 EEPROM code and shared helper confirms base byte3a,
+correction bytedb, signed-magnitude correction with bit7 positive, uint8 wrap,
+then trim capped atbf. The existing offline auditor incorrectly used two's
+complement for frequency correction and temperature metadata; RSSI is ordinary
+signed8 and must stay separate. This board has base44/correction00, so its trim
+remains44, but temperature bytef8 decodes+120, not the older reported-8. Dated
+journals preserve the prior audit; current interpretation is corrected before
+any native frequency write.
+
+Objective: fresh mapped logical blocks30/d0 only, requiring this captured
+board's NICfd11/1004 and base44/correction00, then one fixed RF0:22 write44
+and independent readback after complete G20 proof. No block0/factory-address
+bytes, no raw data logging, no OTP programming. Scope: fixed EFUSE read profile,
+private decoder/profile validator, guarded RF trim plan, xHCI/staging/tests and
+strict collector. Keep256KiB full-prefix capture. DAC/VCO pulses, frequency-plan
+tuning, scanning, association/security and traffic remain outside this trial.

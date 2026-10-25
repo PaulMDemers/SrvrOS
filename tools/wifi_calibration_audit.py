@@ -20,11 +20,14 @@ def receive_calibration(data, unmapped, nic0, nic1):
         return data[offset]
     def signed(value):
         return value - 256 if value & 128 else value
+    def encoded_delta(value):
+        magnitude = value & 127
+        return magnitude if value & 128 else -magnitude
     def valid(value):
         return value is not None and value not in (0, 255)
     frequency, correction = byte(0x3a), byte(0xdb)
     offset = None if frequency is None or correction is None else (
-        (frequency if valid(frequency) else 0) - (signed(correction) if valid(correction) else 0))
+        ((frequency if valid(frequency) else 0) - (encoded_delta(correction) if valid(correction) else 0)) & 255)
     temperature = byte(0xd1)
     lna = [byte(x) for x in (0x44, 0x45, 0x49, 0x4d)]
     gains = lna.copy()
@@ -47,8 +50,10 @@ def receive_calibration(data, unmapped, nic0, nic1):
         'frequency_base_raw': frequency, 'frequency_correction_raw': correction,
         'frequency_offset_decoded': offset,
         'frequency_offset_requires_hardware_range_validation': True,
+        'frequency_trim_linux_capped': None if offset is None else min(offset, 0xbf),
+        'frequency_temperature_encoding': 'bit7-positive signed magnitude; frequency wraps uint8',
         'temperature_raw': temperature,
-        'temperature_offset_decoded': None if temperature is None else signed(temperature) if valid(temperature) else -10,
+        'temperature_offset_decoded': None if temperature is None else encoded_delta(temperature) if valid(temperature) else -10,
         'lna_gain_raw_2ghz_low_mid_high_5ghz': lna,
         'lna_gain_linux_fallback_2ghz_low_mid_high_5ghz': gains,
         'rssi_raw_2ghz_5ghz': rssi, 'rssi_offset_linux_clamped_2ghz_5ghz': normalized,

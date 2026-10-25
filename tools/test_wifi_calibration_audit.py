@@ -26,13 +26,25 @@ class AuditTests(unittest.TestCase):
                              (0x46,0xf6),(0x47,10),(0x4a,11),(0x4b,0xf5)):
             self.data[offset]=value
         r=audit(self.data,0)['receive_calibration']
-        self.assertEqual(r['frequency_offset_decoded'],70)
-        self.assertEqual(r['temperature_offset_decoded'],-10)
+        self.assertEqual(r['frequency_offset_decoded'],198)
+        self.assertEqual(r['frequency_trim_linux_capped'],191)
+        self.assertEqual(r['temperature_offset_decoded'],118)
         self.assertEqual(r['lna_gain_linux_fallback_2ghz_low_mid_high_5ghz'],[5,12,12,12])
         self.assertEqual(r['rssi_offset_linux_clamped_2ghz_5ghz'],[-10,10,0,0])
         self.assertEqual(r['band_hint'],'both')
         self.assertTrue(r['external_pa_5ghz'])
         self.assertFalse(r['hardware_programming_validated'])
+    def test_frequency_encoding_and_uint8_wrap(self):
+        for base,correction,expected in ((68,0,68),(68,255,68),(68,2,70),
+             (68,130,66),(1,130,255),(254,127,125),(255,2,2),(0,128,0)):
+            self.data[0x3a]=base;self.data[0xdb]=correction
+            r=audit(self.data,0)['receive_calibration']
+            self.assertEqual(r['frequency_offset_decoded'],expected)
+            self.assertEqual(r['frequency_trim_linux_capped'],min(expected,191))
+        for raw,expected in ((0,-10),(255,-10),(1,-1),(127,-127),(128,0),(248,120)):
+            self.data[0xd1]=raw
+            self.assertEqual(audit(self.data,0)['receive_calibration']['temperature_offset_decoded'],expected)
+
     def test_missing_receive_fields_are_unknown(self):
         r=audit(self.data,1<<13)['receive_calibration']
         self.assertIsNone(r['frequency_offset_decoded'])
