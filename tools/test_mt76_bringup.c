@@ -419,4 +419,29 @@ static void ant_fields_test(void){
  puts("Antenna fields: PASS fixed logical20/30, all field-bit mutations, unmapped/control refusal; ordered sequence, single submission, exact preserved command, faults, cancellation, timeout, guard receipts");
 }
 
-int main(void) { ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+struct tf_map {struct map_fake f;struct mt76_efuse_map_gate g;};
+static void tf_init(struct tf_map *f){*f=(struct tf_map){0};map_init(&f->f);memset(f->f.bytes,0,32);f->f.bytes[4]=0x11;f->f.bytes[5]=0xfd;f->f.bytes[6]=4;f->f.bytes[7]=0x10;f->f.bytes[10]=0x44;}
+static bool tf_read(void *p,uint32_t a,uint32_t *v){struct tf_map *f=p;*v=0;if(!mt76_trim_fields_begin(&f->g,false,a,0))return false;bool ok=map_read(&f->f,a,v);return mt76_trim_fields_finish(&f->g,ok,*v);}
+static bool tf_write(void *p,uint32_t a,uint32_t v){struct tf_map *f=p;if(!mt76_trim_fields_begin(&f->g,true,a,v))return false;
+ bool ok=map_step(&f->f);if(ok){assert(a==0x24 && f->f.writes<2 && !(v&(3u<<6)) && ((v>>16)&0x3ff)==(f->f.writes?0xd0:0x30));f->f.block=f->f.writes++;f->f.ctrl=v;}
+ return mt76_trim_fields_finish(&f->g,ok,v);}
+static bool tf_delay(void *p,uint32_t us){struct tf_map *f=p;return mt76_efuse_map_delay(&f->g,us) && map_delay(&f->f,us);}
+static bool tf_auth(void *p){struct tf_map *f=p;return !f->g.failed && map_auth(&f->f);}
+static enum mt76_capture_status tf_run(struct tf_map *f,struct mt76_trim_fields *s){const struct mt76_identity id={0x76100002,0x76502000};const struct mt76_efuse_map_io io={{f,tf_read,tf_write,tf_delay},tf_auth};return mt76_capture_trim_fields(&io,&id,s);}
+static void trim_fields_test(void){
+ struct tf_map f;tf_init(&f);struct mt76_trim_fields s={0};assert(tf_run(&f,&s)==MT76_CAPTURE_OK && mt76_trim_fields_valid(&s));
+ unsigned calls=f.f.calls,auth=f.f.auth;assert(s.reads==24 && s.writes==2 && s.polls==2 && f.g.phase==15 && f.g.block==2 && f.g.submitted==26);
+ assert(tf_run(&f,&s)==MT76_CAPTURE_REFUSED && f.f.calls==calls);
+ for(unsigned i=1;i<=calls;i++){tf_init(&f);f.f.fail=i;s=(struct mt76_trim_fields){0};assert(tf_run(&f,&s)!=MT76_CAPTURE_OK && !s.valid && !s.base && !s.correction && !s.nic0 && !s.nic1);}
+ for(unsigned i=1;i<=auth;i++){tf_init(&f);f.f.deny=i;s=(struct mt76_trim_fields){0};assert(tf_run(&f,&s)!=MT76_CAPTURE_OK && !s.valid && !s.base && !s.correction);}
+ const unsigned offsets[]={4,5,6,7,10,27};
+ for(unsigned i=0;i<6;i++)for(unsigned bit=0;bit<8;bit++){tf_init(&f);f.f.bytes[offsets[i]]^=1u<<bit;s=(struct mt76_trim_fields){0};assert(tf_run(&f,&s)==MT76_CAPTURE_REFUSED && !s.valid && !s.base && !s.nic0);}
+ tf_init(&f);f.f.unmapped=true;s=(struct mt76_trim_fields){0};assert(tf_run(&f,&s)!=MT76_CAPTURE_OK);
+ tf_init(&f);f.f.stuck=true;s=(struct mt76_trim_fields){0};assert(tf_run(&f,&s)==MT76_CAPTURE_TIMEOUT && s.polls==1024);
+ for(unsigned i=0;i<2;i++)for(unsigned bit=0;bit<32;bit++)if(bit==6 || bit==7 || (bit>=16 && bit<=25) || bit==30){tf_init(&f);f.f.ctrl_fault_call=i?22:8;f.f.ctrl_flip=1u<<bit;s=(struct mt76_trim_fields){0};assert(tf_run(&f,&s)!=MT76_CAPTURE_OK);}
+ for(unsigned b=0;b<2;b++){uint32_t cmd;assert(mt76_trim_fields_command(0x8000a500,b,&cmd));assert(((cmd>>16)&0x3ff)==(b?0xd0:0x30) && !(cmd&(3u<<6)));for(unsigned bit=0;bit<32;bit++){struct mt76_efuse_map_gate g={.phase=4,.block=b,.control=0x8000a500};assert(!mt76_trim_fields_begin(&g,true,0x24,cmd^(1u<<bit)));}}
+ for(unsigned base=0;base<256;base++)for(unsigned corr=0;corr<256;corr++){unsigned v=base && base<255?base:0;if(corr && corr<255){if(corr<128)v+=corr;else v-=corr-128;}v&=255;if(v>191)v=191;assert(mt76_trim_decode(base,corr)==v);}
+ puts("trim fields: PASS fixed30/d0, captured profile, every transfer/cancel/field bit, unmapped/timeout/control refusal, no replay and all65536 decoder cases");
+}
+
+int main(void) { trim_fields_test(); ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

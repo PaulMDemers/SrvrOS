@@ -458,6 +458,9 @@ uint32_t mt76_rf_state_request(unsigned operation);
 bool mt76_rf_state_admit(const struct mt76_rf_state *s);
 enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const struct mt76_mcu_timing_io *io);
 /* Observation only: reference-order writes, then a separate read pass. */
+#define MT76_RF_TRIM_COUNT 1u
+#define MT76_RF_TRIM_COMMANDS 2u
+#define MT76_RF_TRIM_OPS 14u
 #define MT76_RF_G20_COUNT 19u
 #define MT76_RF_G20_COMMANDS (MT76_RF_G20_COUNT*2u)
 #define MT76_RF_G20_OPS (MT76_RF_G20_COMMANDS*7u)
@@ -521,4 +524,12 @@ uint32_t mt76_rf_g20_guard_address(unsigned operation);
 size_t mt76_rf_g20_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_g20_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_g20_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_rf_g20_exact_profile_valid(const struct mt76_rf_table *s);
+uint32_t mt76_rf_trim_address(unsigned index);
+unsigned mt76_rf_trim_value(unsigned index);
+unsigned mt76_rf_trim_sequence(unsigned command);
+uint32_t mt76_rf_trim_guard_address(unsigned operation);
+size_t mt76_rf_trim_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_trim_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_trim_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
 #endif

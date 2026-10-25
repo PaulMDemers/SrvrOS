@@ -61,6 +61,13 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_wifi_rf_trim_profile(self):
+        v="ram-usb-wifi-fw-v71-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v71-","v70-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-trim=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_trim=True)
+
     def test_wifi_rf_g20_profile(self):
         v="ram-usb-wifi-fw-v70-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

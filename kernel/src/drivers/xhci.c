@@ -295,6 +295,12 @@ struct xhci_wifi_mcu {
     bool rf_g20_mode,rf_g20_active;
     unsigned rf_g20_submitted;
     struct mt76_rf_table rf_g20;
+    bool rf_trim_mode,rf_trim_active;
+    unsigned rf_trim_submitted;
+    struct mt76_rf_table rf_trim;
+    bool trim_fields_active;
+    struct mt76_trim_fields trim_fields;
+    struct mt76_efuse_map_gate trim_fields_gate;
     bool rf_table_mode,rf_table_active;
     unsigned rf_table_submitted;
     struct mt76_rf_table rf_table;

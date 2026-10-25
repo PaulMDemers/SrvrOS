@@ -79,6 +79,8 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static struct xhci_device *wifi_test_device;
+static struct xhci_device *trim_reply_device;
+static uint32_t trim_reply_value;
 static unsigned wifi_doorbells;
 static struct xhci_device *recovery_device;
 static unsigned recovery_fault, recovery_calls;
@@ -86,6 +88,8 @@ static bool recovery_integrated, recovery_delay_ok=true;
 bool timer_delay_us(uint64_t us) { assert(us==10000); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(trim_reply_device && offset==xhci.db_base+4*trim_reply_device->slot_id && value==1)
+        for(unsigned i=0;i<4;i++)trim_reply_device->descriptor_buffer[i]=(uint8_t)(trim_reply_value>>(8*i));
     if(recovery_device) {
         struct xhci_device *d=recovery_device;
         unsigned e=xhci.event_dequeue;unsigned cycle=xhci.event_cycle?1:0;
@@ -163,6 +167,7 @@ void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
 void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
 
 static void reset_test(void) {
+    trim_reply_device=NULL;trim_reply_value=0;
     firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=wifi_mac_startup=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
@@ -4213,6 +4218,182 @@ static void test_wifi_rf_g20(void){
  puts("xhci RF g20: PASS all fixed command/guard positions, packet-bit mutation, prefix faults, no replay and quarantine");
 }
 
+static void rf_trim_fixture(struct xhci_device *d,unsigned op){
+ rf_g20_fixture(d,265);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->rf_g20.operations=266;m->rf_g20.reads=228;m->rf_g20.complete=true;
+ m->rf_g20.values[5]=mt76_rf_g20_value(5);m->rf_g20.words[24][2]=mt76_rf_g20_value(5);
+ m->rf_g20.equal=19;m->rf_g20.mismatch_mask=0;m->rf_g20_submitted=266;
+ assert(mt76_rf_g20_exact_profile_valid(&m->rf_g20));
+ m->trim_fields=(struct mt76_trim_fields){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2,.nic0=0xfd11,.nic1=0x1004,.base=0x44,.trim=0x44};
+ m->trim_fields_gate=(struct mt76_efuse_map_gate){.phase=15,.block=2,.submitted=26,.polls=2};for(unsigned i=0;i<4;i++)m->trim_fields_gate.core[i]=0xf000f200;
+ m->rf_trim_mode=m->rf_trim_active=true;m->rf_trim_submitted=op;
+ unsigned q=op/7,step=op%7,ex=q+(step>3),acks=ex<1?ex:1;
+ struct mt76_rf_table *t=&m->rf_trim;*t=(struct mt76_rf_table){.attempted=true,.operations=op,.reads=q*6+(step<3?step:3)+(step>4?step-4:0),.exchanges=ex,.acks=acks,.observed=ex-acks,.received=ex?16:-1};
+ for(unsigned i=0;i<4;i++){t->guards[i][1]=0xf000f200;t->guards[i][2]=0x40000050;}
+ for(unsigned i=0;i<t->observed;i++){t->values[i]=mt76_rf_trim_value(i)^(i==0);if(i==0)t->mismatch_mask|=1ull<<i;else t->equal++;}
+ for(unsigned j=0;j<ex;j++){unsigned i=j%1;t->words[j][0]=t->words[j][3]=0x4a000008|(mt76_rf_trim_sequence(j)<<16);t->words[j][1]=mt76_rf_trim_address(i);t->words[j][2]=j<1?mt76_rf_trim_value(i):t->values[i];}
+ assert(mt76_rf_trim_admit(t,op));
+}
+static void rf_trim_fault(struct xhci_wifi_mcu *m,unsigned fault){
+ if(fault==1)m->rf_trim_mode=false;
+ if(fault==2)m->rf_trim_active=false;
+ if(fault==3)m->rf_probe_mode=false;
+ if(fault==4)m->rf_probe.complete=false;
+ if(fault==5)m->rf_probe.reply_valid=false;
+ if(fault==6)m->rf_probe.reads--;
+ if(fault==7)m->rf_probe_reads--;
+ if(fault==8)m->rf_probe_submitted=false;
+ if(fault==9)m->rf_probe.value=1;
+ if(fault==10)m->rf_probe.words[2]=1;
+ if(fault==11)m->rf_probe.words[0]^=1;
+ if(fault==12)m->rf_probe.words[1]^=1;
+ if(fault==13)m->rf_probe.words[3]^=1;
+ if(fault==14)m->rf_probe.received=15;
+ if(fault==15)m->rf_probe.mac[1]=1;
+ if(fault==16)m->rf_probe.core[1]=0;
+ if(fault==17)m->rf_probe.dma[1]=1;
+ if(fault==18)m->ant_init.complete=false;
+ if(fault==19)m->rf_trim.attempted=false;
+ if(fault==20)m->rf_trim.complete=true;
+ if(fault==21)m->rf_trim.operations++;
+ if(fault==22)m->rf_trim.reads++;
+ if(fault==23)m->rf_trim.exchanges++;
+ if(fault==24)m->rf_trim.acks++;
+ if(fault==25)m->rf_trim.observed++;
+ if(fault==26)m->rf_trim.equal++;
+ if(fault==27)m->rf_trim.mismatch_mask^=1ull<<43;
+ if(fault==28)m->rf_trim_submitted++;
+ if(fault==29)m->pending=true;
+ if(fault==30)m->failed=true;
+ if(fault==31)m->ant_init_active=false;
+ if(fault==32)m->rf_table.complete=false;
+ if(fault==33)m->rf_table_submitted--;
+ if(fault==34)m->rf_table.values[5]=1;
+ if(fault==35)m->rf_table.words[49][2]=1;
+ if(fault==36)m->rf_table.guards[175][2]=UINT32_MAX;
+ if(fault==37)m->rf_table.equal--;
+ if(fault==38)m->rf_table.mismatch_mask=0;
+ if(fault==39)m->rf_table.mismatch_hi=1;
+ if(fault==40)m->rf_trim.mismatch_hi^=8;
+ if(fault==41)m->rf_table_active=false;
+ if(fault==42)m->rf_table_mode=false;
+ if(fault==43)m->rf_bank5.complete=false;
+ if(fault==44)m->rf_bank5_submitted--;
+ if(fault==45)m->rf_bank5.values[5]^=1;
+ if(fault==46)m->rf_bank5.words[73][2]^=1;
+ if(fault==47)m->rf_bank5.guards[271][2]=UINT32_MAX;
+ if(fault==48)m->rf_bank5.equal--;
+ if(fault==49)m->rf_bank5.mismatch_mask=1;
+ if(fault==50)m->rf_bank5.mismatch_hi=1;
+ if(fault==51)m->rf_bank5_active=false;
+ if(fault==52)m->rf_bank5_mode=false;
+ if(fault==53)m->rf_bank6.complete=false;
+ if(fault==54)m->rf_bank6_submitted--;
+ if(fault==55)m->rf_bank6.values[5]^=1;
+ if(fault==56)m->rf_bank6.words[43][2]^=1;
+ if(fault==57)m->rf_bank6.guards[151][2]=UINT32_MAX;
+ if(fault==58)m->rf_bank6.equal--;
+ if(fault==59)m->rf_bank6.mismatch_mask=1;
+ if(fault==60)m->rf_bank6.mismatch_hi=1;
+ if(fault==61)m->rf_bank6_active=false;
+ if(fault==62)m->rf_bank6_mode=false;
+ if(fault==63)m->rf_vga.complete=false;
+ if(fault==64)m->rf_vga_submitted--;
+ if(fault==65)m->rf_vga.values[5]^=1;
+ if(fault==66)m->rf_vga.words[40][2]^=1;
+ if(fault==67)m->rf_vga.guards[139][2]=UINT32_MAX;
+ if(fault==68)m->rf_vga.equal--;
+ if(fault==69)m->rf_vga.mismatch_mask=1;
+ if(fault==70)m->rf_vga.mismatch_hi=1;
+ if(fault==71)m->rf_vga_active=false;
+ if(fault==72)m->rf_vga_mode=false;
+ if(fault==73)m->rf_g20.complete=false;
+ if(fault==74)m->rf_g20_submitted--;
+ if(fault==75)m->rf_g20.values[5]^=1;
+ if(fault==76)m->rf_g20.words[24][2]^=1;
+ if(fault==77)m->rf_g20.guards[75][2]=UINT32_MAX;
+ if(fault==78)m->rf_g20.equal--;
+ if(fault==79)m->rf_g20.mismatch_mask=1;
+ if(fault==80)m->rf_g20.mismatch_hi=1;
+ if(fault==81)m->rf_g20_active=false;
+ if(fault==82)m->rf_g20_mode=false;
+ if(fault==83)m->trim_fields.valid=false;
+ if(fault==84)m->trim_fields.complete=false;
+ if(fault==85)m->trim_fields.base^=1;
+ if(fault==86)m->trim_fields.correction=1;
+ if(fault==87)m->trim_fields.trim=0;
+ if(fault==88)m->trim_fields.nic0^=1;
+ if(fault==89)m->trim_fields.nic1^=1;
+ if(fault==90)m->trim_fields.reads--;
+ if(fault==91)m->trim_fields.polls--;
+ if(fault==92)m->trim_fields_gate.phase=14;
+ if(fault==93)m->trim_fields_gate.block=1;
+ if(fault==94)m->trim_fields_gate.pending=true;
+ if(fault==95)m->trim_fields_gate.failed=true;
+ if(fault==96)m->trim_fields_gate.submitted--;
+ if(fault==97)m->trim_fields_gate.mac[3]=1;
+ if(fault==98)m->trim_fields_gate.core[3]=0;
+ if(fault==99)m->trim_fields_gate.dma[1]=1;
+ if(fault==100)m->trim_fields_active=true;
+ if(fault==101)m->trim_fields_gate.polls--;
+ if(fault==102)m->trim_fields.blocks=1;
+ if(fault==103)m->trim_fields.writes=1;
+}
+static void test_wifi_rf_trim(void){
+ for(unsigned op=0;op<14;op++)if(op%7==3){
+  for(unsigned fault=0;fault<((op==3 || op==10)?107u:1u);fault++){
+   reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};uint8_t tx[200]={0},rx[1024]={0},packet[16],reply[1024];
+   struct xhci_device *d=&xhci.devices[0];rf_trim_fixture(d,op);struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   rf_trim_fault(m,fault);if(fault==105)events[0].status=6u<<24;if(fault==106)events[1].status=6u<<24;
+   assert(mt76_rf_trim_packet(op,packet,16)==16);if(fault==104)packet[4]^=1;
+   if(!fault){for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_rf_trim_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}assert(wifi_rf_trim_exchange(d,packet,15,reply,1024)==-1);assert(wifi_rf_trim_exchange(d,packet,16,reply,1023)==-1);}
+   assert(wifi_rf_trim_exchange(d,packet,16,reply,1024)==(!fault?16:-1));
+   if(!fault){assert(m->rf_trim_submitted==op+1);assert(wifi_rf_trim_exchange(d,packet,16,reply,1024)==-1);}
+   else if(fault>=105)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!f->ep.enqueue && !m->response.enqueue && m->rf_trim_submitted==op+(fault==28));
+  }
+ }
+ for(unsigned op=0;op<14;op++)if(op%7!=3)for(unsigned fault=0;fault<((op==0 || op==13)?106u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[105]={0},events[105]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];rf_trim_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==105?6:1,0);
+  uint32_t address=mt76_rf_trim_guard_address(op),value=0;rf_trim_fault(m,fault);if(fault==104)address++;
+  assert(wifi_rf_trim_read(d,address,&value)==!fault);
+  if(!fault){assert(m->rf_trim_submitted==op+1 && d->firmware.control_request==7);assert(!wifi_rf_trim_read(d,address,&value));}
+  else if(fault==105)assert(d->ep0_quarantined && d->firmware.failed && !freed);
+  else assert(!d->ep0_enqueue && m->rf_trim_submitted==op+(fault==28));
+ }
+ reset_test();assert(!xhci_wifi_capture_rf_trim());
+ puts("xhci RF trim: PASS all fixed command/guard positions, packet-bit mutation, prefix faults, no replay and quarantine");
+}
+
+static void test_wifi_trim_fields(void){
+ const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
+ for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];rf_trim_fixture(d,0);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->rf_trim_active=false;m->trim_fields_active=true;m->trim_fields.complete=false;
+  unsigned phase=phases[n];uint32_t cmd;assert(mt76_trim_fields_command(0x8000a500,block,&cmd));
+  m->trim_fields_gate=(struct mt76_efuse_map_gate){.phase=phase,.block=block,.control=0x8000a500,.command=cmd};
+  uint32_t value=phase==1 || phase==14?0xf000f200:phase==3?0x8000a500:phase==8?cmd&~(1u<<30):0;
+  for(unsigned i=0;i<4;i++)buffer[i]=(uint8_t)(value>>(8*i));
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==3?6:1,0);
+  if(fault==1)m->rf_g20.complete=false;
+  if(fault==2)m->rf_trim_active=true;
+  uint32_t address=phase==0 || phase==13?0x1004:phase==1 || phase==14?0x2000:phase==2?0x208:phase>=9 && phase<=12?0x28+(phase-9)*4:0x24;
+  if(phase!=4){trim_reply_device=d;trim_reply_value=value;}
+  bool ok=phase==4?wifi_trim_fields_write(d,address,cmd):wifi_trim_fields_read(d,address,&value);
+  assert(ok==!fault);
+  if(fault<3 && fault)assert(!d->ep0_enqueue);
+  if(fault==3)assert(d->ep0_quarantined && d->firmware.failed && !freed);
+ }
+ puts("xhci trim fields: PASS all transfer phases/two fixed blocks, G20 ownership, no USB on refusal and quarantine");
+}
 static void rf_write_fixture(struct xhci_device *d,unsigned op){
  rf_csr_fixture(d,45);struct xhci_wifi_mcu *m=&d->firmware.mcu;m->rf_csr.complete=true;
  m->rf_write_mode=m->rf_write_active=true;m->rf_write_submitted=op;
@@ -5524,6 +5705,8 @@ int main(int argc, char **argv) {
     test_wifi_rf_bank6();
     test_wifi_rf_vga();
     test_wifi_rf_g20();
+    test_wifi_rf_trim();
+    test_wifi_trim_fields();
     test_wifi_ant_init();
     test_wifi_mac_private();
     test_wifi_efuse_map();

@@ -9,7 +9,7 @@ from pathlib import Path
 def receive_calibration(data, unmapped, nic0, nic1):
     """Decode EEPROM quantities only; these are not hardware programming values.
 
-    Offsets/encodings: Linux v6.18 mt76x0/eeprom.c and mt76x02_eeprom.c.
+    Offsets/encodings: Linux v7.0 mt76x0/eeprom.c and mt76x02_eeprom.c.
     Unmapped data stays unknown instead of silently adopting driver defaults.
     """
     missing = []

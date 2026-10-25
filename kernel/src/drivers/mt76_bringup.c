@@ -61,9 +61,10 @@ fail:
     return failure;
 }
 
+/* Software profile3 selects logical30/d0; hardware EFUSE_MODE stays0. */
 static bool efuse_read_command(uint32_t previous,unsigned block,unsigned profile,uint32_t *command){
-    if(!command || block>=(profile==1?1u:2u) || previous==UINT32_MAX || (previous&EFUSE_KICK))return false;
-    *command=(previous&~(EFUSE_ADDRESS|EFUSE_MODE))|((profile==1?0:(profile==2?0x20u:0x1e0u)+16u*block)<<16)|(profile?0:1u<<6)|EFUSE_KICK;
+    if(!command || profile>3 || block>=(profile==1?1u:2u) || previous==UINT32_MAX || (previous&EFUSE_KICK))return false;
+    *command=(previous&~(EFUSE_ADDRESS|EFUSE_MODE))|((profile==1?0:profile==3?(block?0xd0u:0x30u):(profile==2?0x20u:0x1e0u)+16u*block)<<16)|(profile?0:1u<<6)|EFUSE_KICK;
     return true;
 }
 bool mt76_efuse_map_command(uint32_t previous,unsigned block,uint32_t *command){return efuse_read_command(previous,block,0,command);}
@@ -466,6 +467,63 @@ enum mt76_capture_status mt76_capture_ant_fields(const struct mt76_efuse_map_io 
     result=s->valid?MT76_CAPTURE_OK:MT76_CAPTURE_REFUSED;
 done:
     if(result!=MT76_CAPTURE_OK)s->antenna=s->cfg1=s->nic0=s->nic1=0;
+    for(unsigned i=0;i<sizeof data;i++)((volatile uint8_t *)data)[i]=0;
+    return result;
+#undef MAP_AUTH
+#undef MAP_READ
+#undef MAP_GUARDS
+}
+
+unsigned mt76_trim_decode(uint8_t base,uint8_t correction){
+    unsigned initial=base && base!=255?base:0;
+    int delta=0;
+    if(correction && correction!=255){int magnitude=correction&127;delta=correction&128?magnitude:-magnitude;}
+    uint8_t wrapped=(uint8_t)((int)initial-delta);
+    return wrapped>0xbf?0xbf:wrapped;
+}
+bool mt76_trim_fields_valid(const struct mt76_trim_fields *s){
+    return s && s->attempted && s->complete && s->blocks==2 && s->writes==2 &&
+        s->polls>=2 && s->polls<=1024 && s->reads==22+s->polls &&
+        s->nic0==0xfd11 && s->nic1==0x1004 && s->base==0x44 && !s->correction && s->trim==0x44;
+}
+bool mt76_trim_fields_command(uint32_t previous,unsigned block,uint32_t *command){return efuse_read_command(previous,block,3,command);}
+bool mt76_trim_fields_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,3,w,a,v);}
+bool mt76_trim_fields_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,3,ok,v);}
+enum mt76_capture_status mt76_capture_trim_fields(const struct mt76_efuse_map_io *io,
+    const struct mt76_identity *identity,struct mt76_trim_fields *s){
+    if(!s || s->attempted || !io || !io->authorize || !io->registers.read || !io->registers.write ||
+       !io->registers.delay || !identity || identity->asic!=0x76100002 || identity->mac!=0x76502000)return MT76_CAPTURE_REFUSED;
+    *s=(struct mt76_trim_fields){.attempted=true};uint8_t data[32]={0};enum mt76_capture_status result=MT76_CAPTURE_IO;
+    const struct mt76_register_io *r=&io->registers;uint32_t v,command;
+#define MAP_AUTH() do{if(!io->authorize(r->context)){result=MT76_CAPTURE_CANCELLED;goto done;}}while(0)
+#define MAP_READ(a) do{MAP_AUTH();if(!r->read(r->context,(a),&v))goto done;s->reads++;}while(0)
+#define MAP_GUARDS() do{MAP_READ(0x1004);if(v){result=MT76_CAPTURE_BUSY;goto done;}MAP_READ(0x2000);if(v!=0xf000f200){result=MT76_CAPTURE_BUSY;goto done;}}while(0)
+    for(unsigned block=0;block<2;block++){
+        MAP_GUARDS();MAP_READ(0x208);if(v&15){result=MT76_CAPTURE_BUSY;goto done;}
+        MAP_READ(EFUSE_CTRL);
+        if(!mt76_trim_fields_command(v,block,&command)){result=MT76_CAPTURE_BUSY;goto done;}
+        MAP_AUTH();if(!r->write(r->context,EFUSE_CTRL,command))goto done;s->writes++;
+        for(;;){
+            if(s->polls==EFUSE_POLL_BUDGET){result=MT76_CAPTURE_TIMEOUT;goto done;}
+            s->polls++;MAP_READ(EFUSE_CTRL);if(v==UINT32_MAX){result=MT76_CAPTURE_BUSY;goto done;}if(!(v&EFUSE_KICK))break;
+            MAP_AUTH();if(!r->delay(r->context,1000)){result=MT76_CAPTURE_CANCELLED;goto done;}
+        }
+        MAP_AUTH();if(!r->delay(r->context,2)){result=MT76_CAPTURE_CANCELLED;goto done;}
+        MAP_READ(EFUSE_CTRL);
+        if(v==UINT32_MAX || v&EFUSE_KICK || (v&EFUSE_MODE)!=0 || (v&EFUSE_ADDRESS)!=(command&EFUSE_ADDRESS)){
+            result=MT76_CAPTURE_BUSY;goto done;
+        }
+        if((v&63)==63){result=MT76_CAPTURE_EMPTY;goto done;}
+        for(unsigned word=0;word<4;word++){MAP_READ(EFUSE_DATA+word*4);for(unsigned byte=0;byte<4;byte++)data[block*16+word*4+byte]=(uint8_t)(v>>(8*byte));}
+        MAP_GUARDS();s->blocks++;
+    }
+    MAP_AUTH();s->complete=true;
+    s->nic0=(uint16_t)data[4]|((uint16_t)data[5]<<8);s->nic1=(uint16_t)data[6]|((uint16_t)data[7]<<8);
+    s->base=data[10];s->correction=data[27];s->trim=(uint8_t)mt76_trim_decode(s->base,s->correction);
+    s->valid=mt76_trim_fields_valid(s);
+    result=s->valid?MT76_CAPTURE_OK:MT76_CAPTURE_REFUSED;
+done:
+    if(result!=MT76_CAPTURE_OK)s->base=s->correction=s->trim=0,s->nic0=s->nic1=0;
     for(unsigned i=0;i<sizeof data;i++)((volatile uint8_t *)data)[i]=0;
     return result;
 #undef MAP_AUTH

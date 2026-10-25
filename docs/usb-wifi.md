@@ -455,7 +455,9 @@ are labeled separately from raw fields. Frequency arithmetic still needs hardwar
 range validation. The audit never prints the MAC and never authorizes radio use.
 
 The accepted redacted logical capture has all receive fields mapped. Its decoded
-frequency offset is68, temperature offset−8, 5GHz low/mid/high LNA gains12/12/12,
+frequency offset is68; the corrected reference decoding of temperature metadata
+bytef8 is+120 calibration units (not a physical temperature). The older-8
+audit used the wrong encoding. 5GHz low/mid/high LNA gains are12/12/12,
 and RSSI offsets1/1 for2GHz and0/0 for5GHz. The board hint is both bands; it is
 not a country/channel policy or proof of usable bands on the finished product.
 Per-channel transmit power, physical usage-map validation and regulatory policy
@@ -2919,3 +2921,37 @@ payload/recovery hashes and offline filesystem/allocation checks passed.
 This establishes native command/guard/readback observations only. Next is
 captured-board frequency-trim auditing and the bounded reference DAC/VCO
 sequence; calibrated RF, scanning and Wi-Fi connectivity remain untested.
+
+
+### Fresh mapped board frequency trim (v71 candidate)
+
+`--wifi-rf-trim` requires full G20 and all earlier proof, including19/19 exact
+G20 readbacks. A fixed logical EFUSE read profile fetches only mapped blocks30
+andd0, never block0/factory-address bytes and never programming mode. The
+native gate checks every transfer, preserved command bits, mapped completion,
+bounded polling, pre/post MAC/CORE guards and disabled DMA. It requires fresh
+NICfd11/1004, base44 at3a and correction00 atdb. No fallback profile is admitted.
+Local raw buffers clear on completion/failure; descriptor DMA remains retained
+on uncertainty and is never logged. Diagnostics expose counters/profile success,
+not raw EFUSE data. Existing physical-map/header/antenna profiles are unchanged.
+
+Pinned [Linux v7.0 EEPROM decoding](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c)
+and its [shared encoding helper](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.h)
+use bit7-positive signed magnitude for frequency correction and temperature,
+not ordinary signed8. Frequency subtraction wraps through uint8 before the
+[RF initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+cap atbf. The offline auditor now separates this encoding from ordinary signed8
+RSSI; boundary tests cover polarity, defaults, wrap and cap. This board still
+decodes/caps to44 with zero correction. Its bytef8 temperature metadata decodes
++120 calibration units; earlier-8 reports are historical audit errors, not
+accepted temperature calibration or a physical thermometer reading.
+
+Only after the fresh profile succeeds does the fixed RF plan write0:22=44,
+then independently read0:22. Two commands use sequences12/13 after G20 ends11:
+14 operations,12 guard reads,2 verified command replies,1 ACK,1 observation and
+4 guard triplets. An arbitrary uint8 observation is recorded with exact
+one-bit mismatch accounting; it is not promoted to calibrated RF acceptance.
+Full earlier proof, fresh-field status/count/guard checks, complete startup
+prefix and both completion markers are required. v71 adds only the trim flag
+to v70 and retains256KiB capture. DAC/VCO pulses, channel-frequency tuning,
+scanning, association/security and traffic remain outside this trial.

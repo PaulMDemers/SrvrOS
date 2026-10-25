@@ -6293,3 +6293,25 @@ bytes, no raw data logging, no OTP programming. Scope: fixed EFUSE read profile,
 private decoder/profile validator, guarded RF trim plan, xHCI/staging/tests and
 strict collector. Keep256KiB full-prefix capture. DAC/VCO pulses, frequency-plan
 tuning, scanning, association/security and traffic remain outside this trial.
+
+
+Implemented fixed logical30/d0 capture and native single-submission gate,
+correct signed-magnitude/uint8-wrap/cap decoding, exact board-profile admission,
+and the fixed RF0:22 write/read observation. Fresh fields tests cover every
+transfer/cancellation, field bit, command bit, unmapped/control/timeout refusal
+and all65536 decoder inputs. Native tests cover every transfer phase of both
+fixed blocks, G20 ownership and uncertainty quarantine, plus every RF command/
+guard position, all packet bits and103 prerequisite/state faults. All150
+staging tests and140 historical recipe byte-identity checks pass. Four valid
+full-prefix proofs fit at most236822bytes, and108 malformed proofs are refused.
+Full build/regression/sanitizer and exact-stage VM checks precede installation;
+no physical trim readback accepted yet. DAC/VCO remains later work.
+
+
+Full build, MCU/compact, original strict and two-pass RF plans and logger
+regressions passed. ASan/UBSan passed for the trim engine, complete G20
+validator and full bring-up/fresh-EFUSE suite. Native xHCI tests passed all new
+command/guard and fresh-field transfer paths with no-I/O refusal and quarantine.
+The historical redacted capture was re-audited without exposing address bytes;
+trim remains68 and temperature metadata is+120 calibration units, unvalidated.
+Exact-stage GPT save/return and missing-workspace checks precede installation.

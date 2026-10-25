@@ -155,4 +155,14 @@ bool mt76_ant_fields_command(uint32_t previous,unsigned block,uint32_t *command)
 bool mt76_ant_fields_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
 bool mt76_ant_fields_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
 enum mt76_capture_status mt76_capture_ant_fields(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_ant_fields *);
+/* Fresh mapped blocks30/d0 only; no factory address and never programming.
+ * Raw fields are private and must not be logged. Output valid only for the
+ * captured NICfd11/1004, base44/correction00 profile; no fallback admission. */
+struct mt76_trim_fields {bool attempted,complete,valid;unsigned reads,writes,polls,blocks;uint16_t nic0,nic1;uint8_t base,correction,trim;};
+unsigned mt76_trim_decode(uint8_t base,uint8_t correction);
+bool mt76_trim_fields_valid(const struct mt76_trim_fields *);
+bool mt76_trim_fields_command(uint32_t previous,unsigned block,uint32_t *command);
+bool mt76_trim_fields_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
+bool mt76_trim_fields_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
+enum mt76_capture_status mt76_capture_trim_fields(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_trim_fields *);
 #endif
