@@ -19,13 +19,22 @@ All command/guard/recovery checks passed. Live Linux reads08 there after its
 initialization/calibration. Register semantics remain unresolved; the original
 strict engine is unchanged and full radio initialization remains unaccepted.
 
-Candidate `242e84b15d20babc` (source `8fbd311d`) is installed unarmed for the
-fixed68-entry RF bank5 write/read observation. It requires the exact complete
-central profile and uses an opt-in256KiB complete startup log. Local/sanitizer
-and exact-stage VM recovery checks passed; native bank5 results are pending.
-Ubuntu remains default, known-good `e47dca3a6b30c6c1` remains recovery, and the
-completed central-table diagnostic is retained. Next: attended cold adapter
-cycle, then collect matching release/session FIRST. No reboot is armed.
+Release `242e84b15d20babc` (source `8fbd311d`) completed the fixed68-entry
+RF bank5 write/read observation in native session `session-00065ead199515d2-00`.
+All68 readbacks matched:952 operations,816 guard reads,136 verified replies,
+68 ACKs and272 valid guard triplets; both mismatch fields zero. The complete
+159281-byte startup prefix and both completion markers were saved. Earlier
+central-table proof remained43/44 with only RF0:6=00. This accepts the bounded
+command/guard/readback observation, not calibrated radio operation.
+
+The return collector's old128KiB ceiling initially refused this larger log;
+its transport ceiling is now256KiB, with byte-preservation boundary tests.
+Strict full-prefix validation passed after collection. Ubuntu default, consumed
+one-shot and installed/recovery payload hashes verified. Known-good
+`e47dca3a6b30c6c1` remains recovery. Offline workspace checks are clean:
+277files/665clusters/112directories, zero leaks, mismatches or errors.
+Evidence is durably archived outside build. Next: bounded reference RF bank6
+initialization/readback groundwork. No reboot is armed.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -5962,3 +5971,26 @@ Require the full exact central prerequisite plus136 bank5 command replies,
 272 bank5 guard triplets,68 observations and both mismatch fields. Both completion
 markers and the full untruncated262144-capacity prefix are required. No automatic
 bank6, trim, DAC/VCO calibration or traffic. No reboot armed; native result pending.
+
+
+## 2026-10-25 — RF bank5 native return
+
+Collected source `8fbd311de9c02a398b992b508d03582d078abed2`, release
+`242e84b15d20babc`, session `session-00065ead199515d2-00`. Exact native proof
+passed:952 submissions,816 guard reads,136 verified16-byte command replies,
+68 write ACKs and68 matching indexed readbacks. All272 MAC/CORE/DMA guard
+triplets passed. Low64/high4 mismatch masks are both zero. Central prerequisite
+remains complete with43 matches and only RF0:6 expected41/read00.
+
+Both completion markers and the entire159281-byte exit snapshot are present
+under the opt-in262144-byte capacity. The generic collector initially rejected
+this valid log at its stale128KiB transport limit; updated to256KiB with tests
+at old/new boundaries and oversized rejection. All29 collector tests passed.
+This transport change does not grant hardware acceptance. Strict native
+validation, Ubuntu default/consumed one-shot, payload/recovery hashes and offline
+exFAT/allocation checks passed; workspace unmounted and no reboot armed.
+
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-bank5-8fbd311/`.
+Next scope is bounded RF bank6 reference initialization/readback; bank5 readback
+success does not accept calibration, channel selection, scan, association,
+security or packet traffic. No automatic trim or DAC/VCO work in this run.

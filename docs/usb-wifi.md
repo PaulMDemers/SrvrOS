@@ -2752,7 +2752,7 @@ Do not promote table command completion to calibrated radio acceptance or run
 trim/DAC/VCO calibration automatically.
 
 
-### Fixed RF bank5 observation (v67 candidate)
+### Fixed RF bank5 observation (v67 native observation)
 
 `--wifi-rf-bank5` requires the full central-table observation and all earlier
 prerequisites. Admission validates the complete central616-operation proof,
@@ -2781,3 +2781,17 @@ Bank5 values are observations, not accepted register settings or radio function.
 No bank6, RF0:22 trim, bandwidth/band selection, DAC/VCO calibration or packet
 traffic follows this experiment automatically. New plan-specific wrappers share
 the locally written two-pass mechanism; plan selection remains private and fixed.
+
+
+Native MacBookPro11,2 source `8fbd311d`, release `242e84b15d20babc`, session
+`session-00065ead199515d2-00` completed this fixed plan:952 operations/submissions,
+816 guard reads,136 verified replies,68 ACKs,68 observations and68 matches.
+All272 guard triplets passed; low/high mismatch fields zero. The central
+prerequisite remained43/44, with only RF0:6=00. Both completion markers and the
+complete159281-byte startup prefix were saved within262144 bytes. The host
+collector now permits256KiB transport, preserving bytes at both prior limits
+and the new boundary and refusing262145 bytes; collection never implies
+hardware acceptance. Strict validation and recovery/offline filesystem checks
+passed. This is native command/guard/readback evidence only; calibrated radio
+operation and connectivity remain untested. Next is bounded reference bank6
+initialization/readback, separate from trim, DAC/VCO and channel/traffic work.
