@@ -2,6 +2,23 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active combined desktop wait work (D3b)
+
+PR147 merged as `0a89d5f` and consumed. Next bounded scope: let a client wait
+for its authenticated GUI queue and explicit nonblocking pipe/PTY interests in
+one request, with an absolute monotonic deadline and cancellation generation.
+Capture immutable interests, reject close/dup2 descriptor reuse with lifetime
+generations, and recheck readiness atomically before scheduler registration.
+During owned storage I/O preserve GUI responsiveness and defer pipe readiness
+without entering descriptor cleanup or spinning. General POSIX poll/VFS/network
+admission remains unchanged. Add library wrappers and use them for the shared
+Text/Files worker service when windows are quiescent; keep accepted jobs owned
+when a wait is canceled. Also audit job snapshot reuse while extending its wait
+helpers. Touch GUI/syscalls, process descriptor lifetime, client/runtime helpers
+and focused host/actual-ABI/desktop QEMU tests. Native timing remains pending.
+Pro PR19 `e409c07` remains independent Wi-Fi diagnostics. Host/QEMU only;
+no boot/USB installation or reboot, and no automatic reboot at the deadline.
+
 ### Active shared file-worker lifetime work (D3a)
 
 PR146 is merged as `91b258e` and consumed. Next bounded scope: reusable,
