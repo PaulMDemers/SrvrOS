@@ -2352,3 +2352,9 @@ battery budget or desktop startup changes. PR153 owns capacity automation and
 shared staging/battery harness changes; avoid those files. PR19 remains Wi-Fi.
 Validate the newly merged scheduler/desktop baseline, keep accepted payloads and
 console recovery, and leave the next physical run ready-unarmed.
+
+The refreshed full CLI smoke exposed one stale pre-POSIX diagnostic expectation:
+`cd /fat/status.txt` correctly refuses and leaves cwd unchanged, but the newer
+shell prints `cannot change directory` rather than `not a directory`. Update
+only that expected text and add explicit status=1/unchanged-cwd evidence; do not
+alter runtime behavior. Rerun the full suite after this harness correction.
