@@ -24,8 +24,12 @@ def validate_saved_console(data):
         if data.count(record)!=2:raise ValueError(f'Missing/duplicate saved completion: {record!r}')
     for record in (b'multi-window: retired window=1 text=AlphaX',
                    b'multi-window: retired window=3 text=Gamma',
-                   b'clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes=0'):
+                   b'clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes='):
         if record not in data:raise ValueError(f'Missing saved lifetime evidence: {record!r}')
+    # Window removal transfers buffers to the worker. Require both completed
+    # compositor lifetimes to release every byte, not premature accounting.
+    caches=re.findall(rb'deskd: cache peak_bytes=\d+ retired_bytes=(\d+) budget_bytes=100663296 windows=16',data)
+    if caches!=[b'0',b'0']:raise ValueError('Missing, duplicate or retained cache lifetime')
     if b'FAIL' in data or b'exception:' in data:raise ValueError('Saved guest failure')
 
 

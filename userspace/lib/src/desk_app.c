@@ -329,7 +329,9 @@ int desk_dialog_window_sync(struct desk_dialog_window *d,struct desk_app *parent
             return d->refused?-1:0;
         }
         if(!d->window.opening && !d->window.closing && strcmp(d->title,title) && !desk_app_title(&d->window,title))strcpy(d->title,title);
-        return !d->window.opening && !d->window.closing;
+        /* OPEN_REPLY reserves the window; CONFIGURE and its canvas can arrive
+         * later. A zero-sized layout would discard the dialog's initial focus. */
+        return !d->window.opening && !d->window.closing && d->window.generation!=0;
     }
     if(!wanted) { d->refused=0;return 0; }
     if(d->refused)return -1;

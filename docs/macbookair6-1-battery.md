@@ -910,3 +910,12 @@ and close caused multi-second delays; desktop responsiveness under unpaced I/O
 is **not accepted**. Future validation must automate lifecycle actions and measure
 event-loop/launch/close latency alongside audio and file integrity. See the unit
 record for measured close intervals and the unresolved contention hypothesis.
+
+The next candidate extends this same explicit stress mode with automatic Text,
+Files and System open/render/close cycles throughout playback. The compositor
+must stay within a 500 ms loop-gap bound; the final `desktop-life` receipt records
+cycle count, errors, maximum loop/ready/close intervals and first/last cycle times.
+Lifecycle coverage must span at least duration minus twenty seconds, with at
+least six completed cycles and no app errors. A clean PCM receipt alone is not a
+pass. No manual opening, saving or closing is needed. The worker's original disk
+pressure, byte comparison, flush/sync and PCM overlap checks remain unchanged.
