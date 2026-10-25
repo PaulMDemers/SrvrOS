@@ -2,6 +2,21 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Active application lifecycle and dialog work
+
+User authorized D3 follow-up: native document-owned dialogs, Close Window versus
+Quit Application, activation/open-document routing and Text/Preview consumers.
+Process limits remain unchanged. Base main `e253a60`; Pro PR19 `0ef47c3` is Wi-Fi,
+Air6,1 PR156 `cc8bacf` is audio/I/O endurance. Scope: matched desktop protocol,
+kernel message validation, compositor ownership/focus/launch routing, shared client
+runtime and Text/Preview; focused host and actual-protocol VM gates. No firmware
+changes. Implement one level of same-process modal dialog ownership, preserving
+sibling document dispatch, asynchronous file ownership and failed-save recovery.
+Then add application-wide quit with cancellation and bounded open-document reuse.
+Physical acceptance stays separate; no hardware reboot until matched VM evidence
+and a guest-visible checklist/automatic test are prepared. Evidence checkpoint:
+`build/desktop-lifecycle-20261025/`.
+
 ### Automated many-app documents accepted
 
 Release `f01d4049daae0b4a`, clean source `044d0b4`, passed both automatic native
