@@ -6919,3 +6919,19 @@ mismatches or errors; unmounted and unarmed. Evidence durably archived at
 Next: bounded USB-tail timing audit (US_CYC0 still lacks pinned low8=1e), then
 channel-specific preparation/calibration dependencies. No automatic writes,
 MAC enable, scanning or traffic; Wi-Fi connectivity remains untested.
+
+
+## 2026-10-25 — USB microsecond-cycle timing scope
+
+Collected v77 at `9819fcd1`; no outstanding run or armed reboot. Fetched main
+`b35b8895` (PR160 desktop I/O merge); PR162 owns compositor modal readiness.
+No RF/MT76 ownership overlap; retain Pro integration base `d5bc4b3` without
+unrelated desktop merges. Pinned Linux USB initialization sets US_CYC_CFG low8
+to1e after hardware/beacon initialization; native v77 observed full02a4=0.
+Objective: explicit v78 timing-only stage after complete v77 inventory proof,
+one guarded fresh-read/masked-write/independent-readback at02a4; preserve upper24,
+require captured fresh0 before native write and readback1e. Nine USB transfers,
+eight reads/one write, two MAC/CORE/disabled-DMA guard triplets, no replay.
+Scope: bounded MT76 engine/native/staging/host+USB tests/strict collector.
+No USB DMA changes, RF writes, channel tuning, MAC enable or traffic. Preserve
+historical profiles, failures and known-good recovery; native result pending.
