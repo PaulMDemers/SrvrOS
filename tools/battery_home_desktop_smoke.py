@@ -303,7 +303,9 @@ def main():
                             qmp.key('ret');wait(b'file-result role=text op=2 status=0')
                             assert b'workspace-devices: pcm_state=4' not in output[audio_begin:],'playback ended before document I/O'
                             shortcut('ctrl-q');wait(b'desktools: exited role=text failure=0')
-                            launch('Terminal window',b'launcher window=')
+                            # Exact native stages omit the optional focus trace.
+                            # Later terminal-proof bytes verify the selected window.
+                            shortcut('meta_l-spc');type_text('Terminal window');qmp.key('ret');time.sleep(.5)
                             wait(b'workspace-devices: pcm_state=4',150)
                             result['workload_audio_wall_seconds']=round(time.monotonic()-began,3)
                             assert result['workload_audio_wall_seconds']>=115
@@ -450,7 +452,7 @@ def main():
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result['offline_allocation']='PASS'
-                result.update(status='PASS',source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+                result.update(stage_source=manifest['git_head'] if stage else None,status='PASS',source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                               source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                               payload_sha256={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (kernel,initramfs)})
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
