@@ -22,15 +22,16 @@ def application_output(data):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--shutdown',action='store_true',help='resolve unsaved edits during ordinary Return to console, including cancellation and existing prompts')
     parser.add_argument('--pointer',action='store_true',help='hold and release real pointer clicks on modal and picker buttons')
     parser.add_argument('--crash',action='store_true',help='kill Preview with an owned picker, then save through healthy apps')
     parser.add_argument('--refuse-dialogs',action='store_true',help='force modal admission refusal and validate embedded recovery')
     args=parser.parse_args()
-    if sum((args.crash,args.refuse_dialogs,args.pointer))>1:parser.error('choose one directed fixture')
+    if sum((args.crash,args.refuse_dialogs,args.pointer,args.shutdown))>1:parser.error('choose one directed fixture')
     root=Path(__file__).resolve().parents[1]
-    out=root/('build/review/desktop-lifecycle-pointer' if args.pointer else 'build/review/desktop-lifecycle-crash' if args.crash else 'build/review/desktop-lifecycle-refusal' if args.refuse_dialogs else 'build/review/desktop-lifecycle');out.mkdir(parents=True,exist_ok=True)
+    out=root/('build/review/desktop-lifecycle-shutdown' if args.shutdown else 'build/review/desktop-lifecycle-pointer' if args.pointer else 'build/review/desktop-lifecycle-crash' if args.crash else 'build/review/desktop-lifecycle-refusal' if args.refuse_dialogs else 'build/review/desktop-lifecycle');out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True)
-    shots=[];pointer_actions=[]
+    shots=[];pointer_actions=[];shutdown_actions=[]
     output=b'';consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-text-windows-') as directory:
         tmp=Path(directory)
@@ -188,7 +189,43 @@ def main():
                     else:qmp.key('esc')
                     wait(b'deskview: picker canceled pending=0 retained=1');time.sleep(.5);shortcut('ctrl-q')
                     wait(b'deskview: workers retired=1');wait(b'deskview: exited failure=0')
-                shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
+                if args.shutdown:
+                    def return_to_console():
+                        shortcut('f10');shortcut('end');shortcut('ret')
+                    # The normal scenario above saved/closed Text. A fresh app
+                    # now exercises shutdown itself rather than emergency exit.
+                    launch('Text new app',b'desktools: starting role=text');exitdoc=admitted();wait(b'deskd: commit')
+                    text('Exit draft')
+                    def check_stable(parent,begin,name):
+                        nonlocal output
+                        deadline=time.monotonic()+2
+                        while time.monotonic()<deadline:
+                            assert process.poll() is None
+                            try:chunk=serial.recv(16384)
+                            except socket.timeout:continue
+                            assert chunk;output+=chunk
+                        opened=re.findall(rb'id=(\d+) parent='+str(parent).encode()+rb'\r?\n',output[begin:])
+                        assert len(opened)==1,('Shutdown recreated prompt',opened)
+                        assert f'text-runtime: closed window={parent}'.encode() not in application_output(output[begin:])
+                        shot(name)
+                    begin=len(output);return_to_console();wait(f'parent={exitdoc}'.encode());check_stable(exitdoc,begin,'shutdown-unsaved-stable')
+                    click_modal('dialog',2,'Shutdown-cancel');shutdown_actions.append('Cancel-exit')
+                    text(' survives')
+                    begin=len(output);return_to_console();wait(f'parent={exitdoc}'.encode());check_stable(exitdoc,begin,'shutdown-save-prompt')
+                    click_modal('dialog',0,'Shutdown-save-to-picker');wait(b'picker ready mode=2')
+                    click_modal('picker',0,'Shutdown-cancel-picker');shutdown_actions.append('Cancel-save-picker')
+                    text(' intact');save_as('/fat/exit-retained.txt');text(' saved during exit')
+                    begin=len(output);return_to_console();wait(f'parent={exitdoc}'.encode());check_stable(exitdoc,begin,'shutdown-save-existing')
+                    click_modal('dialog',0,'Shutdown-save');wait(b'file-result role=text op=2 status=0')
+                    wait(b'deskd: exited');wait(b'srv> ');shutdown_actions.append('Save-and-exit')
+                    # Existing modal before shutdown must also stay alive.
+                    serial.sendall(b'run /fat/bin/deskd --apps-trace\n');discarddoc=admitted();wait(b'deskd: commit')
+                    text('Discard only on exit');begin=len(output);shortcut('ctrl-w');wait(f'parent={discarddoc}'.encode())
+                    return_to_console();check_stable(discarddoc,begin,'shutdown-existing-prompt')
+                    click_modal('dialog',1,'Shutdown-discard');wait(b'deskd: exited');wait(b'srv> ')
+                    shutdown_actions.append('Discard-existing-prompt-and-exit')
+                else:
+                    shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
                 serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
                 after=set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
                 if args.crash:
@@ -211,6 +248,7 @@ def main():
             disk=ExfatFixture((tmp/'disk.exfat').read_bytes())
             for name,expected in {'sibling.txt':b'Sibling kept','survivor.txt':b'Draft extra survives','routed-copy.txt':b'Routed text\n edited','route-text/Routed.txt':b'Routed text\n'}.items():
                 assert disk.read(name)==expected,(name,disk.read(name))
+            if args.shutdown:assert disk.read('exit-retained.txt')==b'Exit draft survives intact saved during exit'
             if args.pointer:assert disk.read('home/pointer.txt')==b'Click draft remains'
             if args.crash:assert disk.read('after-crash.txt')==b'Routed text\n after crash'
             from exfat_test_image import check_clean_image
@@ -220,9 +258,9 @@ def main():
             if allocation.returncode:
                 shutil.copyfile(tmp/'disk.exfat',out/'failure.exfat')
                 raise RuntimeError('Offline allocation failed')
-            names=(['home/pointer.txt'] if args.pointer else [])+['sibling.txt','survivor.txt','routed-copy.txt','route-text/Routed.txt']+(['after-crash.txt'] if args.crash else [])
+            names=(['exit-retained.txt'] if args.shutdown else [])+(['home/pointer.txt'] if args.pointer else [])+['sibling.txt','survivor.txt','routed-copy.txt','route-text/Routed.txt']+(['after-crash.txt'] if args.crash else [])
             result={'status':'PASS','crash':args.crash,'refused_dialogs':args.refuse_dialogs,
-                'physical_acceptance':False,'pointer_actions':pointer_actions,'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+                'physical_acceptance':False,'shutdown_actions':shutdown_actions,'pointer_actions':pointer_actions,'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                 'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                 'saved_files':{name:hashlib.sha256(disk.read(name)).hexdigest() for name in names},
                 'process_baseline_restored':True,'offline_allocation':'PASS','screenshots':shots,

@@ -18,7 +18,8 @@ tones and no PCM file-playback owner: sustained listening/I/O overlap is not
 accepted. All 1,106 prior non-metadata files retain their hashes; only
 `.srvros/meta` changed. Three logs and one saved test document were added.
 Local evidence: `build/modal-pointer-native-20261025/physical-after/` and its
-return proof; perform offline filesystem checks before the next native trial.
+return proof. Offline fsck/headroom/allocation pass: 1,111 files, 2,804 clusters,
+zero leaks/mismatches/errors.
 Installed current remains `336d81743ca03a33`, independent recovery
 `9aa8dbf6fbda8252`; Ubuntu default and consumed one-shot are verified. No new
 reboot is armed. Collect/diagnose, reproduce shutdown with pending edits, preserve
