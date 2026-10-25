@@ -2210,6 +2210,7 @@ test-desktop: build/tests/desktop-host$(HOST_EXE) build/tests/gui-host$(HOST_EXE
 	build/tests/calculator-host$(HOST_EXE)
 	build/tests/deskfs-host$(HOST_EXE)
 	build/tests/file-job-host$(HOST_EXE)
+	build/tests/file-pool-host$(HOST_EXE)
 	build/tests/clipboard-host$(HOST_EXE)
 	build/tests/tool-clipboard-host$(HOST_EXE)
 build/tests/desktop-host$(HOST_EXE): tools/test_desktop.c userspace/deskstudy/scene.c userspace/deskstudy/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c userspace/lib/include/srvros/desk_render.h
@@ -2361,7 +2362,12 @@ build/tests/syscall-replace-host$(HOST_EXE): tools/test_syscall_replace.c kernel
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 test-desktop: build/tests/file-job-host$(HOST_EXE)
-build/tests/file-job-host$(HOST_EXE): tools/test_file_job.c userspace/lib/src/desk_file_job.c shared/include/srvros/desktop_file.h
+build/tests/file-job-host$(HOST_EXE): tools/test_file_job.c userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h shared/include/srvros/desktop_file.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+test-desktop: build/tests/file-pool-host$(HOST_EXE)
+build/tests/file-pool-host$(HOST_EXE): tools/test_file_pool.c userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h shared/include/srvros/desktop_file.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 

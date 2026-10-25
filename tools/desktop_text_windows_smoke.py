@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normal Text documents: independent save/dialog/undo state and worker retirement."""
+"""Normal Text documents: independent save/dialog/undo state and shared worker retirement."""
 import os
 from pathlib import Path
 import re
@@ -75,17 +75,19 @@ def main():
                     wait(b'launcher window='+pid+f' id={window}'.encode())
                 text(' changed');shortcut('ctrl-w');shot('unsaved-close');qmp.key('esc')
                 text(' kept');shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
-                shortcut('ctrl-w');wait(b'text-runtime: closed window=2');wait(b'text-runtime: worker-retired pid=')
-                assert re.search(rb'worker-retired pid=\d+ window=2',output)
+                shortcut('ctrl-w');wait(b'text-runtime: closed window=2');wait(b'text-runtime: job-detached window=2')
+                assert b'text-runtime: job-detached window=2' in output
                 shortcut('ctrl-end');text(' tail');shortcut('ctrl-shift-n')
                 wait(b'text-runtime: admitted window=3');wait(b'deskd: commit')
                 shortcut('ctrl-l');shortcut('ctrl-a');text('/fat/text-second.txt')
                 shortcut('ctrl-o');wait(b'picker ready mode=1');text('text-second');qmp.key('ret')
                 wait(b'file-result role=text op=1 status=0');shot('reopened-second-document')
-                shortcut('ctrl-w');wait(b'text-runtime: closed window=3');wait(b'text-runtime: worker-retired pid=')
+                shortcut('ctrl-w');wait(b'text-runtime: closed window=3');wait(b'text-runtime: job-detached window=3')
                 shortcut('ctrl-w');shot('save-on-close');shortcut('shift-tab');shortcut('shift-tab');qmp.key('ret')
                 wait(b'file-result role=text op=2 status=0');wait(b'text-runtime: closed window=1')
                 wait(b'desktools: exited role=text failure=0');wait(b'deskd: child-exit pid='+pid+b' status=0')
+                pools=re.findall(rb'file-pool: retired role=text spawned=(\d+) reaped=(\d+) peak=(\d+) live=0 bound=0',output)
+                assert pools and all(a==b and 1<=int(c)<=2 for a,b,c in pools),pools
                 shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
                 deadline=time.monotonic()+10
                 while True:
@@ -108,7 +110,7 @@ def main():
             disk=ExfatFixture((tmp/'disk.exfat').read_bytes())
             assert disk.read('text-first.txt')==b'First document tail',disk.read('text-first.txt')
             assert disk.read('text-second.txt')==b'Second documentFirst document changed kept',disk.read('text-second.txt')
-    print(f'desktop-text-windows: PASS same-process documents, independent undo/clipboard/save, unsaved cancel, fresh ID/reopen, save-on-close, worker retirement and exact persisted contents. Evidence: {out}')
+    print(f'desktop-text-windows: PASS same-process documents, independent undo/clipboard/save, unsaved cancel, fresh ID/reopen, save-on-close, shared worker retirement and exact persisted contents. Evidence: {out}')
 
 
 if __name__=='__main__':main()

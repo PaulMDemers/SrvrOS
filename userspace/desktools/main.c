@@ -230,6 +230,14 @@ int tool_runtime_file_poll(struct tool *t,uint64_t *logged_job) {
     if(result) desk_log("desktools: file-result role=%s op=%u status=%u bytes=%u\n",roles[t->role-1],t->job.request.operation,t->job.response.status,t->job.response.length);
     return result;
 }
+int tool_file_pool_retire(struct desk_file_pool *pool,int role) {
+    int result;
+    while(!(result=desk_file_pool_shutdown(pool)))srv_sleep_ticks(1);
+    desk_log("file-pool: retired role=%s spawned=%llu reaped=%llu peak=%llu live=%llu bound=%u\n",
+        roles[role-1],(unsigned long long)pool->spawned,(unsigned long long)pool->reaped,
+        (unsigned long long)pool->peak,(unsigned long long)pool->live,pool->bound);
+    return result==1?0:-1;
+}
 void tool_runtime_draw(struct tool *t) {
     if(t->role==DESK_APP_TEXT && t->title_dirty && t->window.server) {
         const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:"Untitled";char title[88];
@@ -256,8 +264,11 @@ int main(int argc,char **argv) {
     int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
     if(t->role==DESK_APP_TEXT && !coexist)return tool_text_runtime(argc>2?argv[2]:"");
     unsigned captured=0;uint64_t logged_job=0;
+    struct desk_file_pool pool;struct desk_file_channel channels[2];
+    int pooled=t->role==DESK_APP_FILES;
     tool_runtime_init(t,t->role);
-    if((!coexist || file_capture) && (t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES)) t->worker_ready=desk_file_job_init(&t->job)==0;
+    if(pooled)t->worker_ready=desk_file_pool_init(&pool,channels,2)==0 && desk_file_job_bind(&t->job,&pool)==0;
+    else if((!coexist || file_capture) && t->role==DESK_APP_TEXT)t->worker_ready=desk_file_job_init(&t->job)==0;
     desk_log("desktools: starting role=%s\n",roles[t->role-1]);
     if(desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role==DESK_APP_CALCULATOR?640:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_CALCULATOR?520:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320)) return 1;
     if(t->role==DESK_APP_TEXT) tool_text_init(t,!coexist && argc>2?argv[2]:"");
@@ -311,7 +322,11 @@ int main(int argc,char **argv) {
         if(file_capture) { if(!tool_file_capture_report() || tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
     }
     free(t->body_history);
-    if(t->worker_ready) desk_file_job_close(&t->job);
+    if(t->worker_ready && pooled) {
+        /* Even a failed GUI connection cannot abandon an accepted mutation. */
+        while(t->job.busy) { if(tool_runtime_file_poll(t,&logged_job)<0)t->window.failed=1;if(t->job.busy)srv_sleep_ticks(1); }
+        if(desk_file_job_detach(&t->job) || tool_file_pool_retire(&pool,t->role))t->window.failed=1;
+    } else if(t->worker_ready)desk_file_job_close(&t->job);
     desk_app_close(&t->window);desk_log("desktools: exited role=%s failure=%d\n",roles[t->role-1],t->window.failed);
     return t->window.failed?1:0;
 }
