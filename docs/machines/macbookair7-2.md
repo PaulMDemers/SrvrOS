@@ -2,6 +2,26 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Automated document candidate installed — awaiting return
+
+Release `f01d4049daae0b4a`, clean source `044d0b4`, is installed with recovery
+`9aa8dbf6fbda8252` and Ubuntu default retained. Exact GRUB → staged Limine/native
+Q35 rehearsal passes two 24-process rounds, ten exact `AA` files, both shared
+chooser transport checks, normal Text/pool retirement, screenshots, full service
+cleanup, offline allocation and automatic return. The opaque guest progress
+banner was visually checked. Native battery-profile refusal in Q35 is expected;
+physical document acceptance remains pending. No human input is needed.
+
+Local builds/desktop suite, collector tests and docs links pass; low-memory
+admission-failure VM saved failure and returned with clean allocation. All 1,081
+prior USB files were rehashed unchanged since collection. Candidate, previous
+payload and evidence have independent backups outside build. An obsolete,
+unreferenced EFI payload was archived and hash-verified before freeing space;
+current/recovery were preserved. See `build/documents-native-20261025/run.json`
+for authoritative installation/reboot state. On return require both document
+receipts, five exact files in each fresh directory, both screenshots, native
+retirement and prior-file/offline-allocation checks before accepting the run.
+
 ### Active automated document/capacity round
 
 User reports mid-20s windows and sensors working on `80904d5e5fd6f6ac` but did
