@@ -6,6 +6,21 @@ caches and current-size client canvases. Kernel GUI capacity is 32 queues and
 remain unchanged. File workers and terminal shells consume additional processes,
 so window capacity is a ceiling, not an unconditional launch guarantee.
 
+The current admission budgets are named together in
+`shared/include/srvros/desktop_protocol.h`: windows, kernel queues and queue
+depth, kernel surfaces, ordered input queue depth and compositor cache bytes.
+Clipboard transfer state belongs to each admitted client; there is no separate
+eight-peer table. Client retirement releases a staged write and pending replies
+before reusing the record. One blocked reader keeps its own retry state and does
+not hold other readers. The global clipboard remains a single 64 KiB committed
+value with one staged writer; concurrent revision changes cancel partial reads.
+
+`--apps-trace` logs separate live client, child and clipboard-owner counts,
+cache bytes/budget and transport limits on admission, retirement and refusal.
+Launch capacity produces a visible close-a-window notice; process-launch refusal
+and pixel-cache pressure retain their distinct diagnostics. These are the current
+fixed admission budgets; dynamic registries are the next architecture stage.
+
 The compositor pixel-cache budget is 96 MiB, including published and private
 buffers. It excludes the desktop canvas, client memory, kernel surfaces, page
 rounding and other OS work. Empty slots allocate no pixel caches. A spare with
@@ -53,3 +68,18 @@ and exit cleanly; prior files, offline allocation and Ubuntu recovery checks
 pass. That non-trace session did not record cache totals or a screenshot, and
 this round did not independently accept injected pressure failures or resizing.
 Those retain host/VM evidence; see the reference machine record.
+
+The additional `tools/desktop_capacity_smoke.py --clipboard` mode exercises
+sixteen mixed app processes through their actual kernel/compositor clipboard path,
+then refusal and slot reuse. It verifies saved cross-client contents byte-for-byte,
+a screenshot and complete process/cache retirement. The host clipboard fixture
+exercises 32 independently owned transfer states, full 64 KiB simultaneous reads,
+a blocked reader, focus refusal, writer timeout and reuse. See the machine record
+for which revisions have passed these checks; no new native acceptance is implied.
+
+The first all-Text capacity probe exposed a separate worker-resource refusal:
+the thirteenth Text process could copy/paste but its file worker was unavailable.
+The document remained intact and a visible message explained the refusal. The
+mixed clipboard workload uses one Text and fifteen Calculator processes; its
+success does not establish sixteen simultaneous file workers. This reinforces
+the distinction between window admission and auxiliary process/thread budgets.

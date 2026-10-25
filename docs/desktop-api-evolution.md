@@ -54,19 +54,17 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | 64 GUI surfaces | `GUI_MAX_SURFACES = DESK_MAX_WINDOWS * 4`; surface count should follow active allocations, not window-count arithmetic |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
 | 1440×900 logical client surface | Protocol/kernel bound; explicit 2× output is enlargement, not native-density text rendering |
-| **8 clipboard peers** | `userspace/deskd/clipboard.h`; `peer()` returns NULL and requests receive no response after all peer records are occupied |
+| Clipboard transfer state per admitted client (D0 candidate) | No independent peer table; one global 64 KiB committed value and staged writer |
 | 96 menu items / 32 visible group rows; 64 palette items | Shared menu/palette storage can become the next window-list ceiling even if compositor records grow |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |
 | 64 processes; originally 64 extra file slots plus standard streams, now 67 unified native descriptors in the POSIX branch | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
 | 8 additional user-thread slots per process; 32 kernel scheduler-thread slots | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
 
-Clipboard capacity is already below the accepted window count. Its current host
-test exercises a single client extensively, so sixteen-window opening does not
-establish clipboard service for sixteen distinct applications. Add a multi-peer
-regression and fix refusal/service behavior before treating that as supported.
-An audit-only host fixture against the actual `clipboard.c` reproduced this:
-eight retained peers receive replies, the ninth does not. This is a confirmed
-service-capacity gap, not evidence of an input-device failure.
+The audit reproduced a clipboard gap: eight retained peers received replies,
+and a ninth did not. D0 replaces the independent peer table with state owned by
+each admitted client. Multi-peer host and actual-protocol VM coverage are required
+before acceptance; the current machine record tracks their status. Window
+admission and clipboard teardown must stay coupled during D1/D2 migration.
 
 The 96 MiB cache statistic is not total desktop memory. Client canvases, kernel
 surfaces, framebuffer backing, worker buffers, queues and metadata also cost RAM.

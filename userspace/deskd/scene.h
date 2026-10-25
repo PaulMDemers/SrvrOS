@@ -7,7 +7,6 @@
 #include <srvros/desk_palette.h>
 #include "notification_view.h"
 #define DESKD_WINDOWS DESK_MAX_WINDOWS
-#define DESK_INPUT_QUEUE 64
 struct desktop_window {
     struct desk_rect frame;
     const uint32_t *pixels;

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise all sixteen desktop slots, launch refusal/reuse and input under load in a disposable VM."""
+import argparse
 import os
 import re
 from pathlib import Path
@@ -14,9 +15,13 @@ from desktop_foundation_smoke import QMP
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--clipboard",action="store_true",help="Exercise copy/paste in sixteen admitted mixed clients")
+    args=parser.parse_args()
     width,height=1280,800
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-capacity"
+    out=root/("build/review/desktop-clipboard-capacity" if args.clipboard else "build/review/desktop-capacity")
+    expected_files={}
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)
@@ -71,33 +76,66 @@ def main():
                 pids=[]
                 def launch(name,number):
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text(name+" new app");qmp.key("ret");wait(f"launcher application={number}".encode())
-                for index,(name,number) in enumerate(applications):
-                    launch(name,number);start=consumed;wait(b"deskd: commit")
+                if args.clipboard:
+                    # One Text plus fifteen Calculators fits the current worker
+                    # budget. Sixteen Text processes exhaust file-worker resources.
+                    shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8 bytes=0")
+                    shortcut("ctrl-v");wait(b"clipboard role=2 action=32 bytes=0")
+                    def clipboard_document(index):
+                        contents=str(index);type_text(contents);shortcut("ctrl-a");shortcut("ctrl-c")
+                        wait(f"clipboard role=3 action=8 bytes={len(contents)}".encode())
+                        shortcut("ctrl-v");wait(f"clipboard role=3 action=32 bytes={len(contents)}".encode())
+                        qmp.key("ret");wait(f"calculator result={index} history=1".encode())
+                        shortcut("meta_l-spc");wait(b"launcher opened");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
+                        shortcut("ctrl-end");shortcut("ctrl-v");wait(f"clipboard role=2 action=32 bytes={len(contents)}".encode());qmp.key("ret")
+                    for index in range(1,16):
+                        launch("Calculator",3);start=consumed;wait(b"deskd: commit")
+                        registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
+                        assert registered and int(registered[-1][1])==index
+                        pids.append(registered[-1][0]);clipboard_document(index)
+                    shot("sixteen-clipboard-clients")
+                    launch("Calculator",3)
+                    shortcut("meta_l-spc");wait(b"launcher opened items=28");shortcut("esc")
+                    assert len(re.findall(rb"deskd: opened pid=",output))==16
+                    assert b"resources reason=launch-capacity clients=16 children=16 clipboard_peers=16" in output
+                    shortcut("alt-shift-tab");shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
+                    launch("Calculator",3);start=consumed;wait(b"deskd: commit")
                     registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
-                    if not registered: raise RuntimeError("Missing client registration")
-                    pid,slot=registered[-1];assert int(slot)==index+1;pids.append(pid)
-                    if name=="Terminal":
-                        type_text("exit\n");wait(b"deskterm: shell exited status=0")
-                    shortcut("meta_l-alt-"+("left" if index%2 else "right"));wait(b"arranged pid="+pid)
-                shot("sixteen-windows")
-                # Window heading contains all sixteen entries plus its commands.
-                shortcut("f10");shortcut("left");shot("full-window-menu");shortcut("esc");shortcut("esc")
-                launch("System",4)
-                # Reopening the launcher is an ordered event fence. Refusal must
-                # leave exactly sixteen windows, with no seventeenth process registered.
-                shortcut("meta_l-spc");wait(b"launcher opened items=28");shot("capacity-refused");shortcut("esc")
-                assert len(re.findall(rb"deskd: opened pid=",output))==16
-                # Free the last slot and prove the previously refused app opens.
-                shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
-                launch("System",4);start=consumed;wait(b"deskd: commit")
-                registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
-                assert registered and registered[-1][1]==b"15"
-                shortcut("meta_l-alt-left");wait(b"arranged pid="+registered[-1][0]);shot("reused-slot")
-                # Focus the existing Text window; do not consume another slot.
-                shortcut("meta_l-spc");wait(b"launcher opened items=28");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
-                type_text("Sixteen windows remain responsive.")
-                shortcut("ctrl-l");type_text("/fat/capacity-proof.txt");shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
-                shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80);shot("capacity-capture")
+                    assert registered and registered[-1][1]==b"15"
+                    clipboard_document(16)
+                    shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/clipboard-capacity.txt");shortcut("ctrl-s")
+                    wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                    expected_files["clipboard-capacity.txt"]="".join(f"{i}\n" for i in range(1,17)).encode()
+                    shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)
+                    shot("clipboard-reused-slot")
+                else:
+                    for index,(name,number) in enumerate(applications):
+                        launch(name,number);start=consumed;wait(b"deskd: commit")
+                        registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
+                        if not registered: raise RuntimeError("Missing client registration")
+                        pid,slot=registered[-1];assert int(slot)==index+1;pids.append(pid)
+                        if name=="Terminal":
+                            type_text("exit\n");wait(b"deskterm: shell exited status=0")
+                        shortcut("meta_l-alt-"+("left" if index%2 else "right"));wait(b"arranged pid="+pid)
+                    shot("sixteen-windows")
+                    # Window heading contains all sixteen entries plus its commands.
+                    shortcut("f10");shortcut("left");shot("full-window-menu");shortcut("esc");shortcut("esc")
+                    launch("System",4)
+                    # Reopening the launcher is an ordered event fence. Refusal must
+                    # leave exactly sixteen windows, with no seventeenth process registered.
+                    shortcut("meta_l-spc");wait(b"launcher opened items=28");shot("capacity-refused");shortcut("esc")
+                    assert len(re.findall(rb"deskd: opened pid=",output))==16
+                    # Free the last slot and prove the previously refused app opens.
+                    shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
+                    launch("System",4);start=consumed;wait(b"deskd: commit")
+                    registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
+                    assert registered and registered[-1][1]==b"15"
+                    shortcut("meta_l-alt-left");wait(b"arranged pid="+registered[-1][0]);shot("reused-slot")
+                    # Focus the existing Text window; do not consume another slot.
+                    shortcut("meta_l-spc");wait(b"launcher opened items=28");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
+                    type_text("Sixteen windows remain responsive.")
+                    shortcut("ctrl-l");type_text("/fat/capacity-proof.txt");shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                    shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80);shot("capacity-capture")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",90);wait(b"srv> ")
                 cleanup_deadline=time.monotonic()+10
                 while True:
@@ -116,11 +154,15 @@ def main():
                 stop_process(process);(out/"serial.log").write_bytes(output)
             from exfat_test_image import ExfatFixture
             fixture=ExfatFixture((tmp/"disk.exfat").read_bytes())
-            assert fixture.read("capacity-proof.txt")==b"Sixteen windows remain responsive."
+            if not args.clipboard: expected_files["capacity-proof.txt"]=b"Sixteen windows remain responsive."
+            for name,contents in expected_files.items(): assert fixture.read(name)==contents,(name,fixture.read(name),contents)
             screenshots=re.findall(rb"deskd: screenshot saved status=0 path=([^\r\n ]+)",output)
             assert len(screenshots)==1
             capture=fixture.read(screenshots[0].decode().removeprefix("/fat/"))
             assert capture[:2]==b"BM" and len(capture)>width*height*3
+    if args.clipboard:
+        print(f"desktop-clipboard-capacity: PASS sixteen real clients copy/paste, refusal, slot reuse, exact saved cross-client contents, screenshot and full process cleanup. Evidence: {out}")
+        return
     print(f"desktop-capacity: PASS sixteen simultaneous clients, seventeenth launch refusal, slot reuse, full Window menu, exact saved text, screenshot worker at capacity and complete cleanup. Evidence: {out}")
 
 
