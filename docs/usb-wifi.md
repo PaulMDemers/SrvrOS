@@ -2834,3 +2834,30 @@ strictly verified. Ubuntu default, consumed one-shot, payload/recovery hashes
 and offline filesystem/allocation checks passed. This establishes native
 command/guard/readback observations only. Next is bounded reference VGA-table
 initialization/readback; calibrated RF and connectivity remain untested.
+
+
+### Fixed RF VGA observation (v69 candidate)
+
+`--wifi-rf-vga` requires `--wifi-rf-bank6` and the full earlier initialization
+chain. The native owner revalidates every completed bank6 command/guard and
+all38 matching observations with zero mismatch fields, in addition to the
+central zero-profile and exact bank5 proof. The original strict central
+acceptance contract remains unchanged.
+
+The fixed35-entry bank7 plan is the pinned Linux v7.0
+`mt76x0_rf_vga_channel_0_tab`, beginning7:0=47 and ending7:74=00. It uses the
+existing private two-pass mechanism:35 ordered writes then35 independent
+reads,490 operations,420 guard reads,70 verified command replies,35 ACKs and
+35 uint8 observations. All140 pre/post guard triplets require MAC0,
+COREf000f200 and disabled/idle DMA. The first sequence is9 after bank6 ends8;
+sequence wrap occurs only between complete exchanges. Prior-proof faults
+refuse new I/O, uncertain transport quarantines and replay is refused.
+All35 observations contribute to the low35-bit mismatch mask; high mask0.
+Readback equality is recorded separately from calibrated radio acceptance.
+
+The v69 recipe adds only `srvros.wifi-rf-vga=1` to v68, retaining the opt-in
+256KiB complete startup window. The collector requires full earlier proof,
+every new command/guard/value, exact prefix byte accounting and both completion
+markers. Ordinary64KiB and older128KiB logging are unchanged. No bandwidth/band
+selection, RF0:22 trim, DAC/VCO calibration, scan, association, security or packet
+traffic follows the experiment automatically.

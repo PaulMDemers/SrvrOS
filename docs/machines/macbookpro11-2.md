@@ -6099,3 +6099,22 @@ saved-evidence collection. Keep the existing256KiB full-prefix capture.
 No bandwidth/band switching, trim, DAC/VCO calibration, scanning, association,
 security or packet traffic. Build/local checks and exact-stage VM save/return
 must pass before unarmed installation and the next attended cold cycle.
+
+
+Implemented the fixed35-entry RF VGA plan with no new public arbitrary target
+or value API. Complete bank6 validation checks every stored guard/reply and
+38 exact readbacks at native admission. Host tests cover all490 I/O and491
+cancellation boundaries, malformed reply bits/lengths, guards, full mismatch
+accounting, proof mutation and replay refusal. Native tests exercise all70
+command and420 guard positions, inherited prefix/bank6 faults, packet mutations
+and uncertain-transfer quarantine. All148 staging tests and136 historical
+recipe byte-identity checks pass. Full-prefix valid fixtures are at most
+219914bytes within the existing256KiB window. Full build/regression/sanitizer
+and exact-stage VM checks precede installation; native VGA acceptance pending.
+
+
+Full build, MCU/compact/bring-up, original strict and two-pass central, bank5
+and logger regressions passed. New VGA engine and the complete-bank6 proof
+validator both passed ASan/UBSan runs. Documentation links checked cleanly.
+Exact-stage GPT save/return and missing-workspace recovery checks precede
+installation; no physical VGA result has been accepted.
