@@ -2393,3 +2393,106 @@ file, prior-file preservation (apart from metadata/preferences) and offline
 allocation, then backs up evidence and disables itself. Human audio/input
 confirmation remains distinct. Run and payload backups survive distclean.
 Ready-unarmed: no reboot is scheduled; longer native acceptance remains pending.
+
+## Audio/USB overlap correction scope (2026-10-25)
+
+The prepared long-session script serialized copy/readback before playback; it
+did not establish audio/disk overlap. Supersede that unarmed workload with a
+fresh run: one-minute PCM plays in the background while bounded paced copies,
+flushes and comparisons execute in the foreground, requiring the player to remain
+live at both ends of each recorded burst. Retain audio completions/underruns and
+per-burst evidence. The disposable VM must observe PCM output advancing during
+USB writes. Keep the already validated native payload `3f0896783e4c8fe7` and its
+runtime source `78859c4`; only Python workload/tests and documents change. Actual
+main is `6e06bfb`; separate capacity work from PR153/155 is not introduced into
+this immutable payload. PR19 remains independent Wi-Fi work. Prior run is
+ready-unarmed, not physically executed; replace its collector and launch record
+only after preserving its inputs/evidence. Leave the corrected test unarmed.
+
+### Audio/USB overlap ready (PR156)
+
+Corrected workload source `ee96e1d`, run `93a364b8128b185a`, replaces unexecuted
+run `db3ea7d68555f544`. Installed native payload remains `3f0896783e4c8fe7`, source
+`78859c4`, hash-identical to its already validated build and exact-stage rehearsal.
+Thirty one-minute plays run in the background, each with forty foreground
+256-KiB copy/flush/rename/readback bursts paced one second apart. Playing-receipt,
+before/after PID liveness, absence of an early completion, explicit burst totals,
+wait status and retained audio completion/zero-underrun evidence guard the trial.
+Total copy/readback is 300 MiB during thirty minutes of PCM, about 31 minutes
+elapsed including gaps. Text/Files and listening remain attended; automatic
+Ubuntu collection verifies all 1,200 bursts and thirty complete plays.
+
+Host verifier tests pass. On clean `ee96e1d`, the repeated short GPT VM passes
+four bursts/two plays with 12 observed non-silent PCM/USB-write overlap windows.
+The full native-parameter round passes all forty bursts during one complete
+60-second play, with 90 observed overlap windows. Both verify readback, no
+underruns, concurrent Text/Files, rerun refusal, clean battery retirement and
+filesystem allocation. Development tests caught quoted numeric wait parsing,
+a too-long for word list, and command substitution using read-only /fat; the
+script now uses numeric wait, eight-item groups and explicit writable count
+files. One short rerun hit a Q35 battery sample/EC fault; its evidence is retained.
+An unchanged retry and the full-minute trial passed. This does not establish that
+fixture fault's cause or native endurance acceptance.
+
+USB inputs now comprise a fresh script, 256-KiB seed and one-minute WAV. All 324
+preexisting files (including the unused prior trial inputs) remain preserved;
+preflight is clean at 327 files/981 clusters. The previous run is superseded and
+unarmed, and its collector disabled. The overlap collector replaces it. Ubuntu
+default, console recovery and accepted payloads remain intact. Payload and run
+evidence are backed up outside build. The corrected test is ready-unarmed; no
+reboot is scheduled, and listening/native overlap acceptance remains pending.
+
+## Automatic audio / filesystem stress scope (2026-10-25)
+
+Run `93a364b8128b185a` returned with clean desktop retirement but failed the
+workload: one 60-second PCM completion with zero underruns and 32 of 40
+recorded disk bursts. The next burst crossed playback completion; the fixed
+count/pacing underestimated native filesystem overhead. Manual Text saves do not accept sustained overlap. Preserve this failure.
+The replacement is fully automatic, with listening as the only human task:
+a dedicated PCM producer and separate continuous verified filesystem worker,
+automatic desktop startup/progress/exit, normal battery retirement and Ubuntu
+return. Record actual timestamps and counts rather than infer overlap from a
+shell reading a concurrently written log. Use existing PCM/filesystem interfaces;
+no firmware gates, integrity checks or startup budgets change.
+
+Base is merged main `2c1ffc6b`. Scope: a playwav stress mode, narrow boot-only
+session selection, desktop progress/worker lifecycle, staging and VM regressions.
+PR157 owns shared document-dialog/app lifecycle work; preserve it and keep these
+additions isolated from its client/dialog code. PR19 remains independent Wi-Fi.
+The prepared native payload will be rebuilt and exact-stage tested. User has
+explicitly authorized the automated reboot after validation.
+
+### Automatic audio / filesystem stress prepared (PR158)
+
+Native source `1c2bba2f`, v74 release `a70f9540f3aa39dd`, run
+`6e0147a2ac774722` uses a continuous thirty-minute PCM producer and a separate
+unpaced 256-KiB create/flush/rename/reopen/compare/delete/sync worker. A pipe starts
+file activity only after PCM reports live playback. Timestamp/byte/count receipts
+reject late, absent or insufficient-duration I/O, incomplete PCM and underruns.
+Boot waits for fresh battery telemetry, starts the workload, shows elapsed
+progress and retires the desktop/battery lifetime before unmount and automatic
+Ubuntu return. No human interaction is required beyond listening. Scratch space
+is bounded; all preexisting Home files remain outside the private test directory.
+
+Full build/core and full smoke pass, including 482 CLI commands, shell editing,
+UEFI USB input and displayd. The new receipt regression and 80 staging tests pass.
+The automatic 60-second Q35 run on clean `1c2bba2f` completes 363 verified cycles
+(95,158,272 bytes) with zero underruns and 224 independently observed non-silent
+PCM/USB-write overlap windows. It retires cleanly and returns without injected
+keyboard or mouse input; offline allocation is clean. Exact staged GRUB→Limine
+rehearsal on `95d522c2` (harness-only follow-up) confirms native profile refusal,
+no stress startup on unsupported Q35, unmount and automatic return. Its first
+harness configuration lost the reference clock with synthetic ACPI under UEFI;
+that failure is preserved, and the successful rehearsal uses the established
+native UEFI fixture without injected AML. Native source/payload did not change.
+
+USB baseline is 335 files / 992 clusters, no leaks or bitmap mismatches; no new
+USB inputs are needed. Ubuntu and console recovery `c35475f62f154f1e` are retained.
+The obsolete EFI-only copy `87bf9866baa3f8bc` is retired after exact durable backup
+verification to make installation space; accepted evidence/payload backups and
+the latest attended/automatic recovery payloads remain available. The new Ubuntu
+collector requires the matching workload receipt, clean desktop/battery retirement,
+prior-file preservation and offline allocation; listening remains separate.
+User explicitly authorized reboot and automatic startup after validation. Save
+armed state and durable run/payload copies before launch. Native endurance is
+pending this run, not accepted by VM success.
