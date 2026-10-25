@@ -6,8 +6,9 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <stdint.h>
+#include <errno.h>
 
-#define CLIENTS 40
+#define CLIENTS 24
 static int receive(struct gui_message *message) {
     uint64_t start=srv_ticks();
     while((uint64_t)srv_ticks()-start<6000) {
@@ -25,7 +26,7 @@ static int client(uint64_t parent,unsigned index,unsigned round) {
     message=(struct gui_message){.type=GUI_MSG_SET_TEXT,.value=index};
     if(gui_send(&message))return 4;
     /* Retain this process and its allocated receive FIFO until every sibling
-     * has completed its handshake: at least 41 queues are live simultaneously. */
+     * has completed its handshake: at least 25 queues are live simultaneously. */
     if(receive(&message)!=1 || message.source_pid!=parent || message.value!=-1)return 5;
     return 0;
 }
@@ -34,7 +35,7 @@ int gui_queue_capture(void) {
     uint64_t parent=getpid();pid_t children[CLIENTS]={0};
     for(unsigned round=1;round<=3;round++) {
         for(unsigned i=0;i<CLIENTS;i++) {
-            pid_t pid=fork();if(pid<0)goto failure;
+            pid_t pid=fork();if(pid<0) { desk_log("gui-queues: fork refused index=%u errno=%d\n",i,errno);goto failure; }
             if(!pid)_exit(client(parent,i,round));
             children[i]=pid;
         }
@@ -56,7 +57,7 @@ int gui_queue_capture(void) {
                message.source_pid!=(uint64_t)children[message.value] || (seen&(1ull<<message.value)))goto failure;
             seen|=1ull<<message.value;
         }
-        desk_log("gui-queues: round=%u 40 clients authenticated; 41 live FIFOs\n",round);
+        desk_log("gui-queues: round=%u 24 clients authenticated; 25 live FIFOs\n",round);
         for(unsigned i=0;i<CLIENTS;i++) {
             struct gui_message message={.type=GUI_MSG_EVENT_CLOSE,.target_pid=children[i],.value=-1};
             if(gui_send(&message))goto failure;
@@ -66,9 +67,9 @@ int gui_queue_capture(void) {
             if(waitpid(children[i],&status,0)!=children[i] || !WIFEXITED(status) || WEXITSTATUS(status))goto failure;
             children[i]=0;
         }
-        desk_log("gui-queues: round=%u 40 clients retired and reaped\n",round);
+        desk_log("gui-queues: round=%u 24 clients retired and reaped\n",round);
     }
-    srv_puts("gui-queues: PASS three rounds, 120 clients, all reaped\n");return 0;
+    srv_puts("gui-queues: PASS three rounds, 72 clients, all reaped\n");return 0;
 failure:
     for(unsigned i=0;i<CLIENTS;i++)if(children[i]>0)kill(children[i],SIGKILL);
     for(unsigned i=0;i<CLIENTS;i++)if(children[i]>0)waitpid(children[i],NULL,0);

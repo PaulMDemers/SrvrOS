@@ -150,7 +150,12 @@ cannot steal a live server or resurrect a retired owner.
 
 Host coverage forces quota exhaustion beyond 32 connections, allocation failure,
 retirement during preparation, competing publication/full FIFO, reentrant release
-and server replacement. The `guifail --queues` actual-ABI workload creates 40
+and server replacement. The `guifail --queues` actual-ABI workload creates 24
 clients plus one server simultaneously, authenticates both directions, retires
 and reaps all children, and repeats three times before a normal multiwindow
-compositor trial. These are receive queues, not 40 desktop windows.
+compositor trial. These are receive queues, not 24 desktop windows.
+
+The first 40-client VM fixture hit the independent scheduler task budget at
+fork index 26 (`EAGAIN`), before queue pressure. Its failed evidence is retained.
+The production scheduler budget is unchanged; the positive VM workload uses 24
+clients, while host fixtures independently exhaust the GUI queue byte budget.
