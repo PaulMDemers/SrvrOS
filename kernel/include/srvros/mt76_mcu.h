@@ -567,4 +567,17 @@ bool mt76_rf_wait_delay_admit(const struct mt76_rf_wait *s);
 bool mt76_rf_wait_admit(const struct mt76_rf_wait *s,unsigned operation);
 size_t mt76_rf_wait_packet(const struct mt76_rf_wait *s,unsigned operation,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_rf_wait_capture(struct mt76_rf_wait *s,const struct mt76_rf_wait_io *io);
+/* Captured MT7610 single-chain baseband path RMW; MAC remains disabled. */
+struct mt76_path {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[2],after[2],guards[4][3];
+};
+struct mt76_path_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,unsigned,bool,uint32_t,uint8_t *,unsigned);};
+bool mt76_rf_wait_clear_profile_valid(const struct mt76_rf_wait *s);
+uint32_t mt76_path_address(unsigned index);
+uint32_t mt76_path_value(unsigned index,uint32_t before);
+bool mt76_path_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_path_transfer_valid(const struct mt76_path *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_path_apply(struct mt76_path *s,const struct mt76_path_io *io);
 #endif

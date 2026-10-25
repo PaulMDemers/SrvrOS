@@ -3034,3 +3034,25 @@ filesystem/allocation verified;289files/689clusters/118directories, no leaks/
 mismatches/errors. Workspace unmounted, no reboot armed; evidence archived.
 This accepts the bounded self-clear observation, not calibrated radio operation.
 Next is remaining RX-path/TX-DAC and calibration/channel prerequisite auditing.
+
+### One-chain RX-path/TX-DAC baseband setup (v74 candidate)
+
+Pinned [Linux v7.0 one-chain setup](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_util.c)
+uses chainmask101 for MT7610; fresh captured NICfd11 has one RX and TX stream.
+The [RX-path/TX-DAC helpers](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_phy.c)
+clear bits4/3 in AGC0 (2300) and bits1/0 in TXBE5 (2714) for this profile.
+`--wifi-path` requires full prior proof and all six delayed VCO reads30,
+first_clear1 and exact counters/delays/guards. It admits no sibling profile.
+
+A separate fixed engine performs fresh read/modify/write/read at each target,
+preserving every other bit. MAC0, COREf000f200 and disabled/idle DMA guard
+triplets bracket each target. Eighteen USB transfers comprise16 reads,2 writes
+and2 verified readbacks; all-ones input or any unexpected readback stops the
+attempt. Every transfer is checked against the fixed operation, direction,
+address, length, prior state and derived write bytes, with no replay after an
+attempt. Diagnostics save18 receipts,4 guard triplets and2 before/after words.
+
+v74 adds only its explicit token to v73 and retains256KiB complete-prefix
+capture and automatic save/return. This setup does not enable the MAC or
+establish calibrated radio operation. No RF data writes, channel tuning,
+scanning, association/security or traffic are added by this phase.

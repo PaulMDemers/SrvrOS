@@ -48,5 +48,11 @@ int main(void){
   s=before[q];assert(mt76_rf_wait_delay_admit(&s));s.waits++;assert(!mt76_rf_wait_delay_admit(&s));s=before[q];s.delay_us++;assert(!mt76_rf_wait_delay_admit(&s));
  }
  for(int n=0;n<=1025;n++)if(n!=16){f=(struct fake){.received=n};s=(struct mt76_rf_wait){0};assert(run(&f,&s)==MT76_TIMING_REPLY && f.op==4);}
+ f=(struct fake){.received=16,.values={48,48,48,48,48,48}};s=(struct mt76_rf_wait){0};assert(run(&f,&s)==MT76_TIMING_OK && mt76_rf_wait_clear_profile_valid(&s));
+ struct mt76_rf_wait good=s;
+ for(unsigned q=0;q<6;q++)for(unsigned j=0;j<4;j++)for(unsigned b=0;b<32;b++){s=good;s.words[q][j]^=1u<<b;assert(!mt76_rf_wait_clear_profile_valid(&s));}
+ for(unsigned q=0;q<12;q++)for(unsigned j=0;j<3;j++){s=good;s.guards[q][j]^=1;assert(!mt76_rf_wait_clear_profile_valid(&s));}
+ s=good;s.complete=false;assert(!mt76_rf_wait_clear_profile_valid(&s));s=good;s.waits--;assert(!mt76_rf_wait_clear_profile_valid(&s));
+ s=good;s.delay_us++;assert(!mt76_rf_wait_clear_profile_valid(&s));s=good;s.first_clear++;assert(!mt76_rf_wait_clear_profile_valid(&s));assert(!mt76_rf_wait_clear_profile_valid(NULL));
  puts("RF delayed VCO: PASS six fixed delays, all64 clear/set patterns, every I/O/cancel/delay/guard/reply boundary, proof mutation and no replay");
 }

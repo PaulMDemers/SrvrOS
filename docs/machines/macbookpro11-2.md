@@ -6560,3 +6560,17 @@ bits, with MAC/CORE/disabled-DMA guards before and after each target. Scope:
 fixed two-target engine, native ownership, staging/tests and strict collector.
 No RF data write, channel tuning, TX/RX MAC enable or traffic. Keep256KiB full
 capture; refuse all-ones/uncertain transfers and never replay an attempted write.
+
+Implemented two-target masked RMW with18 ordered USB transfers, four complete
+MAC/CORE/DMA guard triplets and exact preserved-bit readback. Host tests pass
+1024 initial-word pairs, every transfer/cancellation/guard/readback failure,
+write-byte/proof mutation, all-ones refusal and no replay. Complete delayed
+VCO clear validator passes every reply-bit/guard/counter mutation test. Native
+xHCI tests pass all18 positions,134 prerequisite/state faults, every write bit,
+no-USB refusal and failure quarantine. All153 staging tests and146 historical
+recipe identity checks pass. Strict full-prefix tests accept three valid word
+patterns at247004bytes and reject178 malformed proofs. Prior RF/MCU/EFUSE/
+logger regressions, full build, ASan/UBSan for the new engine and VCO validator,
+499 documentation links and nine pinned-reference hashes pass. Next checkpoint:
+exact-stage GPT save/return and missing-workspace rehearsal before installation.
+Native path setup remains pending; no reboot armed.

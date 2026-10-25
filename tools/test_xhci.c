@@ -4515,6 +4515,56 @@ static void test_wifi_rf_wait_delays(void){
  }
  reset_test();recovery_delay_ok=true;puts("xhci delayed VCO: PASS every fixed wait boundary, wrong duration/proof/order refusal, no replay and timer-failure quarantine");
 }
+static void path_fixture(struct xhci_device *d,unsigned op){
+ rf_wait_fixture(d,41);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->rf_wait.complete=true;m->rf_wait.operations=42;m->rf_wait.reads=36;m->rf_wait.first_clear=1;
+ for(unsigned q=0;q<6;q++)m->rf_wait.words[q][2]=48;
+ m->rf_wait_submitted=42;assert(mt76_rf_wait_clear_profile_valid(&m->rf_wait));
+ m->path_mode=m->path_active=true;m->path_submitted=op;
+ struct mt76_path *t=&m->path;*t=(struct mt76_path){.attempted=true,.operations=op};
+ const uint32_t initial[]={0x21418,0xabcdef03};
+ for(unsigned i=0;i<2;i++){
+  unsigned done=op>=9*(i+1)?9:op>9*i?op-9*i:0;t->before[i]=initial[i];t->after[i]=mt76_path_value(i,initial[i]);
+  if(done>4)t->writes++;
+  if(done>5)t->verified++;
+ }
+ t->reads=op-t->writes;
+ for(unsigned q=0;q<4;q++){t->guards[q][1]=0xf000f200;t->guards[q][2]=0x40000050;}
+}
+static void path_fault(struct xhci_wifi_mcu *m,unsigned fault){
+ if(fault<=125){if(fault==117)m->rf_wait.complete=false;else rf_wait_fault(m,fault);}
+ if(fault==126)m->path_mode=false;
+ if(fault==127)m->path_active=false;
+ if(fault==128)m->path.attempted=false;
+ if(fault==129)m->path.complete=true;
+ if(fault==130)m->path.operations++;
+ if(fault==131)m->path.reads++;
+ if(fault==132)m->path.writes++;
+ if(fault==133)m->path.verified++;
+ if(fault==134)m->path_submitted++;
+}
+static void test_wifi_path(void){
+ for(unsigned op=0;op<18;op++)for(unsigned fault=0;fault<((op==0 || op==4 || op==13 || op==17)?138u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[105]={0},events[105]={0};uint8_t buffer[4096]={0},data[4]={0};
+  struct xhci_device *d=&xhci.devices[0];path_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==137?6:1,0);
+  bool write;uint32_t a;assert(mt76_path_request(op,&write,&a));unsigned step=op%9,i=op/9;
+  uint32_t v=write?mt76_path_value(i,m->path.before[i]):step==3?m->path.before[i]:step==5?m->path.after[i]:step<3?m->path.guards[i*2][step]:m->path.guards[i*2+1][step-6];
+  if(write)for(unsigned b=0;b<4;b++)data[b]=(uint8_t)(v>>(8*b));else{trim_reply_device=d;trim_reply_value=v;}
+  if(!fault){
+   assert(!wifi_path_transfer(d,op,write,a,data,3));
+   if(write)for(unsigned bit=0;bit<32;bit++){data[bit/8]^=1u<<(bit%8);assert(!wifi_path_transfer(d,op,write,a,data,4));data[bit/8]^=1u<<(bit%8);}
+  }
+  path_fault(m,fault);if(fault==135)a++;if(fault==136)write=!write;
+  assert(wifi_path_transfer(d,op,write,a,data,4)==!fault);
+  if(!fault){assert(m->path_submitted==op+1);assert(!wifi_path_transfer(d,op,write,a,data,4));for(unsigned b=0;b<4;b++)assert(!buffer[b]);}
+  else if(fault==137)assert(d->ep0_quarantined && m->failed && !freed);
+  else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_path());puts("xhci baseband path: PASS all18 fixed transfers,134 prerequisite/state faults, every write bit, no USB/replay on refusal and quarantine");
+}
+
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -5853,6 +5903,7 @@ int main(int argc, char **argv) {
     test_wifi_rf_cal();
     test_wifi_rf_wait();
     test_wifi_rf_wait_delays();
+    test_wifi_path();
     test_wifi_trim_fields();
     test_wifi_ant_init();
     test_wifi_mac_private();

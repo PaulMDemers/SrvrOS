@@ -2078,3 +2078,57 @@ enum mt76_mcu_timing_status mt76_rf_wait_capture(struct mt76_rf_wait *s,const st
     if(s->waits!=6 || !rf_wait_state_valid(s,42))return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+bool mt76_rf_wait_clear_profile_valid(const struct mt76_rf_wait *s){
+    if(!s || !s->complete || s->waits!=6 || !rf_wait_state_valid(s,42) || s->first_clear!=1)return false;
+    for(unsigned i=0;i<6;i++)if(s->words[i][2]!=48)return false;
+    return true;
+}
+uint32_t mt76_path_address(unsigned i){return i<2?(i?0x2714:0x2300):UINT32_MAX;}
+uint32_t mt76_path_value(unsigned i,uint32_t before){return i<2?before&~(i?3u:0x18u):UINT32_MAX;}
+bool mt76_path_request(unsigned op,bool *write,uint32_t *address){
+    if(op>=18 || !write || !address)return false;
+    unsigned n=op%9;*write=n==4;*address=n<3?mt76_rf_probe_read_address(n):n>=6?mt76_rf_probe_read_address(n-6):mt76_path_address(op/9);
+    return true;
+}
+static bool path_state_valid(const struct mt76_path *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>18)return false;
+    unsigned writes=0,verified=0;
+    for(unsigned i=0;i<2;i++){
+        unsigned done=op>=9*(i+1)?9:op>9*i?op-9*i:0;
+        for(unsigned j=0;j<3;j++){
+            if(done>j && !rf_central_guard_valid(j,s->guards[i*2][j]))return false;
+            if(done>6+j && !rf_central_guard_valid(j,s->guards[i*2+1][j]))return false;
+        }
+        if(done>3 && s->before[i]==UINT32_MAX)return false;
+        if(done>4)writes++;
+        if(done>5){if(s->after[i]!=mt76_path_value(i,s->before[i]))return false;verified++;}
+    }
+    return s->writes==writes && s->verified==verified && s->reads==op-writes;
+}
+bool mt76_path_transfer_valid(const struct mt76_path *s,unsigned op,bool write,uint32_t a,const uint8_t *data,unsigned length){
+    bool w;uint32_t address;
+    if(!s || s->complete || !data || length!=4 || !mt76_path_request(op,&w,&address) || write!=w || a!=address || !path_state_valid(s,op))return false;
+    if(write){uint32_t v=mt76_path_value(op/9,s->before[op/9]);for(unsigned j=0;j<4;j++)if(data[j]!=(uint8_t)(v>>(8*j)))return false;}
+    return true;
+}
+enum mt76_mcu_timing_status mt76_path_apply(struct mt76_path *s,const struct mt76_path_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_path){.attempted=true};
+    for(unsigned op=0;op<18;op++){
+        bool write;uint32_t a;unsigned i=op/9,n=op%9;uint8_t data[4]={0};
+        if(!mt76_path_request(op,&write,&a))return MT76_TIMING_STATE;
+        if(write){uint32_t v=mt76_path_value(i,s->before[i]);for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(v>>(8*j));}
+        if(!mt76_path_transfer_valid(s,op,write,a,data,4))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->transfer(io->context,op,write,a,data,4))return MT76_TIMING_IO;
+        uint32_t v=0;for(unsigned j=0;j<4;j++)v|=(uint32_t)data[j]<<(8*j);
+        s->operations++;if(write)s->writes++;else s->reads++;
+        if(n<3 || n>=6){unsigned j=n<3?n:n-6;s->guards[i*2+(n>=6)][j]=v;if(!rf_central_guard_valid(j,v))return MT76_TIMING_STATE;}
+        else if(n==3){s->before[i]=v;if(v==UINT32_MAX)return MT76_TIMING_STATE;}
+        else if(n==5){s->after[i]=v;if(v!=mt76_path_value(i,s->before[i]))return MT76_TIMING_STATE;s->verified++;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!path_state_valid(s,18))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
