@@ -832,3 +832,33 @@ readback, separate Files activity and clean battery retirement in every lifetime
 The user reports all apps working. This accepts the attended combined reopen
 case after the heap fix; roughly 10.6 minutes total across the four lifetimes
 is not extended endurance coverage. The machine record retains detailed scope.
+
+## Longer combined desktop workload
+
+Keep the untimed v71 combined profile. Generate a fresh run with
+`desktop_combined_workload.files(run)` and place its two inputs in Home. In the
+desktop Terminal, start `sh /work/srvros-work/combined-<run>.sh` once and keep that
+Terminal open. Thirty rounds each copy/readback 256 KiB, play the bundled six-second
+stereo WAV to completion and sleep sixty seconds before recording progress.
+Allow roughly 33 minutes, including at least 30 minutes of pacing. Avoid other
+Audio playback while this job owns PCM. Listen during several rounds; the saved
+PCM completion receipts do not prove audible quality. Rerunning an existing run
+is refused; the freshness check assumes one invocation, not concurrent starts.
+
+During the counter, save a new `long-<run>.txt` in Text, reopen it and append/save
+again later. Use the separate Files dock app to browse Home. Check fresh battery,
+CPU/fan values and responsiveness at the start, middle and end. Keep USB attached
+and AC connected. Wait for `COMBINED TRIAL COMPLETE`, save Text, close the Terminal,
+then Return to console, `workspace unmount`, and `reboot`. There is no timed
+forced exit. Early exit or absent completion is incomplete evidence. Photograph
+any halt before restarting manually. The Ubuntu collector verifies workload
+inputs/results, prior file preservation, matching session retirement and offline
+allocation, and backs up raw evidence. Human input and audio observations remain
+separate from the machine-readable completion.
+
+Validation uses `python3 tools/test_desktop_combined_workload.py` and
+`tools/host-env.sh python3 tools/desktop_combined_workload_smoke.py`. The disposable
+GPT Q35 test shortens only rounds/pacing, runs the generated script in the real
+shell alongside Text and Files with battery/audio, verifies repeat refusal and
+exact retained bytes/audio receipts, and checks retirement and filesystem health.
+Native duration still requires returned logs spanning at least 30 minutes.
