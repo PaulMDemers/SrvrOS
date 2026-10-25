@@ -47,6 +47,8 @@ Current source uses dynamically allocated window/GUI records with explicit byte
 budgets. Normal Text has multiple documents per process and shares a bounded lazy
 file-worker pool; Files uses the same service. A combined GUI/nonblocking-pipe
 wait preserves a single dispatcher and keeps accepted I/O owned until drained.
+Text and Preview also share an asynchronous file chooser controller; canceled
+folder reads drain before its buffers can be reused.
 Local coverage includes 128 small windows, 32 real Text documents/33 exact files,
 clipboard capacity, allocation refusal, worker retirement and input during
 throttled QEMU writes. These do not extend native acceptance beyond its recorded

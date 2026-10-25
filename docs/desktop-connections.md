@@ -204,3 +204,11 @@ QEMU disk. It checks acknowledged input, worker/process retirement, exact offlin
 files, fsck and allocation consistency. Reported kernel-key-queue-to-dispatch
 latency percentiles are histogram bounds in that VM, not physical arrival,
 scanout latency or an energy measurement.
+
+## Shared file selection (D3c)
+
+Text and Preview use a caller-owned [chooser controller](desktop-chooser.md)
+above the pure file-picker widget. It correlates asynchronous LIST completions,
+retains canceled work until drained and returns a copied path/mode without
+starting document/image I/O. It supports pooled and legacy jobs, keeps one UI
+dispatcher and does not introduce parented windows or a nested modal loop.

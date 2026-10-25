@@ -5,7 +5,7 @@
 #include <srvros/desk_file_job.h>
 
 /* Optional application-runtime library, above the pure picker widget. All
- * storage is borrowed and remains at a stable address until pending==0.
+ * storage is borrowed and remains at a stable address while active or pending.
  * Initialize once per owner; one dispatcher calls all functions. The caller
  * owns worker polling/reaping, focus, redraw, clipboard and document I/O.
  * Do not reuse/mutate the job while pending; finish takes its poll result.

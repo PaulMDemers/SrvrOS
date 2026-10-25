@@ -87,7 +87,7 @@ def main():
                     time.sleep(.5);qmp.call("screendump",{"filename":str(out/f"{name}.ppm")})
                 wait(b"srv> ",100)
                 serial.sendall(b"run /fat/bin/desktools text --chooser-capture\n")
-                wait(b"chooser-capture: PASS",80);wait(b"status 0");wait(b"srv> ")
+                wait(b"chooser-capture: PASS",80);wait(b"run: pid=");wait(b" exited status=0");wait(b"srv> ")
                 assert b"mode=legacy canceled-submitted=yes reopened=yes stale-rejected=yes worker-retired=yes" in output
                 assert b"mode=pooled canceled-submitted=yes reopened=yes stale-rejected=yes worker-retired=yes" in output
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")

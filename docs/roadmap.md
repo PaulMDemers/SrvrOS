@@ -79,7 +79,9 @@ one stack ordering per frame; exact reference pixels and identical-workload host
 benchmarks guard the change.
 
 **Next completion gates:** validate the new runtime with focused native input/save/resize checks, and mature shared actions,
-parented dialogs, chooser/document services and activation routing. Follow the
+parented dialogs, document services and activation routing. Text and Preview now
+share the in-window asynchronous [chooser controller](desktop-chooser.md); broader
+chooser/window services remain future work. Follow the
 [desktop API evolution plan](desktop-api-evolution.md). Native-density typography,
 accessibility and broader toolkit portability remain separate from 2× pixel scaling.
 The [portable C/POSIX profile](posix-supported-profile.md) supplies the selected

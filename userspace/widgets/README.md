@@ -7,6 +7,10 @@ controls and models; the build produces
 `build/userspace/widgets/libdeskwidgets.a`. It is independent of the legacy
 `ui.h` / `gui2.h` implementations.
 
+The optional [file chooser controller](../../docs/desktop-chooser.md) belongs to
+`userspace/desktop_runtime`, above this library. Text and Preview share its
+asynchronous browse/cancel ownership while the picker widget remains pure.
+
 ## Component map
 
 | Need | Shared API | Application example |

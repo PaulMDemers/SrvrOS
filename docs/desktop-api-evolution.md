@@ -245,11 +245,13 @@ D3a implements reusable file-worker ownership for Text/Files: caller-owned
 job records, lazy bounded transport leases, FIFO admission and drain/reap before
 application exit. This removes per-document worker allocation without claiming
 all desktop services are complete. D3b adds the bounded GUI/pipe/PTY wait
-contract above; current source acceptance is recorded per machine.
+contract above. D3c shares an asynchronous [file chooser controller](desktop-chooser.md)
+between Text and Preview, preserving canceled-read ownership and correlating
+completion before reuse; source acceptance is recorded per machine.
 
 Build a small allocating application layer above the pure widgets: event loop,
 actions, multiple windows, document lifecycle and job ownership. Migrate remaining
-apps incrementally. Add transient dialogs, reusable chooser APIs and app
+apps incrementally. Extend the in-window chooser service with transient dialogs and app
 activation/open-document routing. Preserve the quiet, refined native style.
 
 **Gate:** two apps use the same contracts without copied lifecycle code; cancel
@@ -294,8 +296,8 @@ before implementation across protocol, kernel GUI and client libraries. Device
 agents continue their independent drivers/profiles and consume matched merged
 images. Pro11,2 PR19 is Wi-Fi work; this plan does not take over that scope.
 
-D0–D2 and D3a are merged through PR140–147. D3b's combined wait is tracked in
-merged PR148; D4a repaint work is tracked in PR149. Current host/QEMU evidence includes 128 small windows, 32 normal Text
+D0–D2 and D3a are merged through PR140–147. D3b's combined wait is in
+PR148, D4a repaint work in PR149, and D3c's shared chooser in PR150. Current host/QEMU evidence includes 128 small windows, 32 normal Text
 documents/33 exact files, worker fault/reap behavior and actual wait/input-under-I/O
 fixtures. Physical window acceptance remains the Air sixteen-window round on
 `bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.
