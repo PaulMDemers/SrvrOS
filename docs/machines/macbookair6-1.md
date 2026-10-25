@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-24. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-25. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -2309,3 +2309,33 @@ is removed from EFI only after its durable payload backup is hash-verified;
 the latest accepted automatic release `4efd82574f07eb30` remains available.
 Payload and trial evidence are backed up outside build. This run is ready but
 unarmed; attended reopen acceptance remains pending its return.
+
+### Attended combined reopen accepted (2026-10-25)
+
+Run `f4f57726a0d1824d`, v71 release `9851d427b042227b`, returned with four
+attended desktop lifetimes and three successful reopens. User reports running
+all apps successfully. Startup took 3,600,315 / 3,791,923 / 3,732,066 / 3,753,837
+us, leaving at least 1.208 seconds below the unchanged five-second deadline.
+Epochs/tokens 1–4 all retired and released with balanced attachment and zero
+final runtime heap/errors/denied. Session durations were about 219, 35, 201 and
+179 seconds: roughly 10.6 minutes of desktop time overall, not the originally
+planned ten-minute first session or an extended endurance test.
+
+Text save/read succeeded in the first lifetime, read/append/save in the second,
+and reads of the resulting 30-byte document in the third/fourth. Separate Files
+activity is present in all four lifetimes. Audio finished two plays with no
+pending work, and read-only thermal/fan samples continued across reopens. The
+user's observation supplies the perceptual app/provider result. The generic
+collector's release filter identified only the first two sessions because later
+ring-buffer tails no longer contained the release banner; all four newly created
+session directories were assessed directly with sequential lifetime tokens,
+startup, final battery and release receipts rather than inherited exit text.
+
+No prior files are missing. Only `.srvros/meta` and desktop preferences changed
+among 304 prior files; new artifacts are 16 session logs, the Text document and
+a drawing. Offline fsck/allocation are clean at 322 files/887 clusters with no
+leaks or FAT/bitmap mismatches. Evidence and hashes are backed up outside build.
+Ubuntu one-shot state is empty and no reboot remains armed. This accepts attended
+combined desktop close/reopen with Text/Files work after the heap fix. Longer
+endurance, broad input/load coverage and other unimplemented device capabilities
+remain separate milestones; no integrity checks or startup budget were weakened.

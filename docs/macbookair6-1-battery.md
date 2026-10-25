@@ -825,3 +825,10 @@ then `reboot`. Photograph any terminal halt before manually restarting. The
 returned evidence must include both clean lifetime retirements, document content
 and separate Files activity; the prior automated pass does not substitute for
 this attended acceptance.
+
+October 25 attended result: release `9851d427b042227b` completed four desktop
+lifetimes and three reopens, with startup 3.600–3.792 seconds, Text save/append/
+readback, separate Files activity and clean battery retirement in every lifetime.
+The user reports all apps working. This accepts the attended combined reopen
+case after the heap fix; roughly 10.6 minutes total across the four lifetimes
+is not extended endurance coverage. The machine record retains detailed scope.
