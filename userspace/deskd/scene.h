@@ -48,6 +48,11 @@ struct desk_rect desktop_battery_rect(int width,const char *clock);
 struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);
+/* Borrow one desktop_stack() result for an immutable frame's damage clips.
+ * Occlusion=0 retains the unculled pixel oracle; neither path allocates or
+ * changes scene/cache lifetime. Order must cover desktop_capacity(s) entries. */
+void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
+    const int *order,int occlusion);
 /* Registry/scratch storage belongs to the compositor. Scene code never allocates. */
 #define desktop_window_at(s,i) ((s)->records?(s)->records[(i)]:&(s)->windows[(i)])
 static inline int desktop_capacity(const struct desktop_scene *s) { return s->capacity?s->capacity:DESKD_WINDOWS; }
