@@ -2358,3 +2358,38 @@ The refreshed full CLI smoke exposed one stale pre-POSIX diagnostic expectation:
 shell prints `cannot change directory` rather than `not a directory`. Update
 only that expected text and add explicit status=1/unchanged-cwd evidence; do not
 alter runtime behavior. Rerun the full suite after this harness correction.
+
+### Long combined trial ready (PR154)
+
+Source `78859c4`, v71 release `3f0896783e4c8fe7`, run `db3ea7d68555f544`
+consumes main `3647dc7` (new scheduler/desktop baseline) and retains the unchanged
+native Air6,1 battery/firmware gates and five-second startup budget. The ordinary
+Terminal workload performs thirty 256-KiB copy/sync/rename/readback rounds, each
+with a bundled six-second PCM play and sixty-second pacing before the receipt.
+It requires at least thirty minutes of pacing (roughly 33 minutes total), refuses
+reruns and saves per-play and round/completion records. A nonzero audio/file
+command aborts the job; the collector also rejects missing audio completion or
+underruns. No forced desktop exit is added. Text/Files use and listening remain
+attended, with a fresh run-specific document and checks near start/middle/end.
+
+Full build/core passes on `44b5706`; subsequent `78859c4` changes only the CLI
+harness expectation and scope documentation. Full smoke including 482 CLI
+commands passes after correcting the stale diagnostic and checking failed-cd
+status/unchanged cwd. The new workload host tests, 78 staging tests, new real-shell
+GPT battery/audio/Text/Files workload VM, ordinary combined reopen VM and exact
+staged GPT GRUB→Limine boot all pass. Workload VM checks exact outputs, zero-
+underrun audio completion, rerun refusal, clean lifetime retirement and offline
+allocation. Exact native-stage Q35 refusal is expected; it covers safe unavailable
+providers, PCM, saves, reopen, unmount and reboot, not native acceptance.
+
+USB preparation preserved all 322 existing files and added only two fresh workload
+inputs; preflight is clean at 324 files/890 clusters. Ubuntu default and console
+recovery `c35475f62f154f1e` remain verified. Superseded pre-heap combined release
+`1ae70fcf03ab6152` is retired from EFI only after its durable backup is verified;
+accepted attended `9851d427b042227b` and automated `4efd82574f07eb30` remain.
+The one-shot Ubuntu collector requires workload completion, a completed desktop
+lifetime of at least thirty minutes, clean battery retirement, the new Text
+file, prior-file preservation (apart from metadata/preferences) and offline
+allocation, then backs up evidence and disables itself. Human audio/input
+confirmation remains distinct. Run and payload backups survive distclean.
+Ready-unarmed: no reboot is scheduled; longer native acceptance remains pending.
