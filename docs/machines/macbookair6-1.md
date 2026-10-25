@@ -2616,3 +2616,12 @@ baseline, retaining both the async worker and existing-process document routing,
 child modal retirement, Air7,2 v75 guide and Air6,1 v74 automatic stress. Repeat
 core/build, affected lifecycle VMs, automatic audio/I/O and exact-stage checks
 before preparing the replacement native payload. Recovery/USB baseline unchanged.
+
+Integrated lifecycle testing exposed a modal startup race: OPEN_REPLY marked the
+dialog ready before CONFIGURE produced its canvas. Delayed compositor allocation
+therefore laid out the picker at zero size, moving its initial filename focus to
+Up. Extend the shared dialog helper's readiness condition to require the first
+configured generation. The new host regression fails on the previous helper and
+passes with this correction; retain the failing VM screenshot/log and rerun the
+normal/crash/refusal lifecycle cases before native staging. This bounded library
+change preserves window admission and buffer integrity checks.
