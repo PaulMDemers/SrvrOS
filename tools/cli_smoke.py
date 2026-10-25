@@ -467,6 +467,7 @@ def main():
         "cd -\n"
         "pwd\n"
         "cd /fat/status.txt\n"
+        "echo cd-file-status-$?-cwd-$PWD\n"
         "cd /\n"
         "read READVAR\n"
         "typed input\n"
@@ -898,7 +899,8 @@ def main():
         "/fat",
         "norm-root-/",
         "/fat/etc",
-        "cd: not a directory: /fat/status.txt",
+        "cd: cannot change directory: /fat/status.txt",
+        "\r\ncd-file-status-1-cwd-/fat/etc\r\n",
         "read-typed input",
         "subst-command-sub-ok",
         "quote-two words",

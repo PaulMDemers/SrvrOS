@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-24. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-25. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -2309,3 +2309,87 @@ is removed from EFI only after its durable payload backup is hash-verified;
 the latest accepted automatic release `4efd82574f07eb30` remains available.
 Payload and trial evidence are backed up outside build. This run is ready but
 unarmed; attended reopen acceptance remains pending its return.
+
+### Attended combined reopen accepted (2026-10-25)
+
+Run `f4f57726a0d1824d`, v71 release `9851d427b042227b`, returned with four
+attended desktop lifetimes and three successful reopens. User reports running
+all apps successfully. Startup took 3,600,315 / 3,791,923 / 3,732,066 / 3,753,837
+us, leaving at least 1.208 seconds below the unchanged five-second deadline.
+Epochs/tokens 1–4 all retired and released with balanced attachment and zero
+final runtime heap/errors/denied. Session durations were about 219, 35, 201 and
+179 seconds: roughly 10.6 minutes of desktop time overall, not the originally
+planned ten-minute first session or an extended endurance test.
+
+Text save/read succeeded in the first lifetime, read/append/save in the second,
+and reads of the resulting 30-byte document in the third/fourth. Separate Files
+activity is present in all four lifetimes. Audio finished two plays with no
+pending work, and read-only thermal/fan samples continued across reopens. The
+user's observation supplies the perceptual app/provider result. The generic
+collector's release filter identified only the first two sessions because later
+ring-buffer tails no longer contained the release banner; all four newly created
+session directories were assessed directly with sequential lifetime tokens,
+startup, final battery and release receipts rather than inherited exit text.
+
+No prior files are missing. Only `.srvros/meta` and desktop preferences changed
+among 304 prior files; new artifacts are 16 session logs, the Text document and
+a drawing. Offline fsck/allocation are clean at 322 files/887 clusters with no
+leaks or FAT/bitmap mismatches. Evidence and hashes are backed up outside build.
+Ubuntu one-shot state is empty and no reboot remains armed. This accepts attended
+combined desktop close/reopen with Text/Files work after the heap fix. Longer
+endurance, broad input/load coverage and other unimplemented device capabilities
+remain separate milestones; no integrity checks or startup budget were weakened.
+
+## Longer combined session scope (2026-10-25)
+
+Base main `3647dc7`, preserving the attended four-lifetime acceptance. Prepare a
+30-minute paced ordinary-shell workload for USB copy/readback and repeated audio,
+with a fresh-run guard, durable round/completion evidence and automatic Ubuntu
+collection after manual desktop exit. Text editing and audible playback remain
+attended observations. Scope is new workload/VM tests, this machine's record and
+current guide; retain the existing untimed v71 profile. No kernel, firmware,
+battery budget or desktop startup changes. PR153 owns capacity automation and
+shared staging/battery harness changes; avoid those files. PR19 remains Wi-Fi.
+Validate the newly merged scheduler/desktop baseline, keep accepted payloads and
+console recovery, and leave the next physical run ready-unarmed.
+
+The refreshed full CLI smoke exposed one stale pre-POSIX diagnostic expectation:
+`cd /fat/status.txt` correctly refuses and leaves cwd unchanged, but the newer
+shell prints `cannot change directory` rather than `not a directory`. Update
+only that expected text and add explicit status=1/unchanged-cwd evidence; do not
+alter runtime behavior. Rerun the full suite after this harness correction.
+
+### Long combined trial ready (PR154)
+
+Source `78859c4`, v71 release `3f0896783e4c8fe7`, run `db3ea7d68555f544`
+consumes main `3647dc7` (new scheduler/desktop baseline) and retains the unchanged
+native Air6,1 battery/firmware gates and five-second startup budget. The ordinary
+Terminal workload performs thirty 256-KiB copy/sync/rename/readback rounds, each
+with a bundled six-second PCM play and sixty-second pacing before the receipt.
+It requires at least thirty minutes of pacing (roughly 33 minutes total), refuses
+reruns and saves per-play and round/completion records. A nonzero audio/file
+command aborts the job; the collector also rejects missing audio completion or
+underruns. No forced desktop exit is added. Text/Files use and listening remain
+attended, with a fresh run-specific document and checks near start/middle/end.
+
+Full build/core passes on `44b5706`; subsequent `78859c4` changes only the CLI
+harness expectation and scope documentation. Full smoke including 482 CLI
+commands passes after correcting the stale diagnostic and checking failed-cd
+status/unchanged cwd. The new workload host tests, 78 staging tests, new real-shell
+GPT battery/audio/Text/Files workload VM, ordinary combined reopen VM and exact
+staged GPT GRUB→Limine boot all pass. Workload VM checks exact outputs, zero-
+underrun audio completion, rerun refusal, clean lifetime retirement and offline
+allocation. Exact native-stage Q35 refusal is expected; it covers safe unavailable
+providers, PCM, saves, reopen, unmount and reboot, not native acceptance.
+
+USB preparation preserved all 322 existing files and added only two fresh workload
+inputs; preflight is clean at 324 files/890 clusters. Ubuntu default and console
+recovery `c35475f62f154f1e` remain verified. Superseded pre-heap combined release
+`1ae70fcf03ab6152` is retired from EFI only after its durable backup is verified;
+accepted attended `9851d427b042227b` and automated `4efd82574f07eb30` remain.
+The one-shot Ubuntu collector requires workload completion, a completed desktop
+lifetime of at least thirty minutes, clean battery retirement, the new Text
+file, prior-file preservation (apart from metadata/preferences) and offline
+allocation, then backs up evidence and disables itself. Human audio/input
+confirmation remains distinct. Run and payload backups survive distclean.
+Ready-unarmed: no reboot is scheduled; longer native acceptance remains pending.
