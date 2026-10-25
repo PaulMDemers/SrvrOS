@@ -58,7 +58,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | Menu/palette caller-owned storage | Inline defaults remain 96/32 and 64; compositor grows storage to enumerate all admitted windows; shared list geometry bound 4096 |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |
 | 64 processes; originally 64 extra file slots plus standard streams, now 67 unified native descriptors in the POSIX branch | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
-| 8 additional user-thread slots per process; 32 kernel scheduler-thread slots | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
+| 8 additional user-thread slots per process; scheduler records grow from 32 bootstrap entries under a 32 MiB storage budget | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
 
 The audit reproduced a clipboard gap: eight retained peers received replies,
 and a ninth did not. D0 replaces the independent peer table with state owned by

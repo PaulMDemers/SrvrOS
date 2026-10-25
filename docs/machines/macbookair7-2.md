@@ -2,6 +2,47 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Combined desktop lifecycle and playback trial prepared
+
+Integrated main `b35b889` (PR160) and independently validated clean `7ddf215`:
+core/matched builds and normal/crash/refused-dialog VMs pass. The 60-second
+PCM/unpaced verified USB fixture passes 21 real app cycles, maximum loop gap
+299,756 us, zero app errors/underruns, 227 audible write-overlap windows and clean
+retirement/return. A separate four-app playback fixture has zero sample error,
+exact saved document bytes, clean allocation and restored process baseline.
+These are VM results, not native responsiveness or listening acceptance.
+
+The two-round 24-app diagnostic exposed an asynchronous launch assumption: it
+read the final Text PID immediately after queueing exec, recording zero. All
+24 windows rendered but no edit acknowledgement followed; round one reached
+its unchanged 180-second deadline and failed. Round two was interrupted after
+the same symptom and remains incomplete. Clean `ff1c1ad` retains the reserved
+child slot, obtains its PID after all frames are ready and rejects empty PID-zero
+targets. Both fixed rounds pass: 24 normal child reaps, zero errors, 60 editing
+acknowledgements, five exact `AA` files and chooser drain checks per round, saved
+screenshots/logs, clean filesystem allocation and automatic return. The process
+limit, worker implementation, audio and device gates are unchanged.
+
+Exact v75 stage `b6f4c7525115168a` from clean `ff1c1ad` passes GRUB → staged
+Limine, automatic persistent Help, saved Text/Terminal work, playback, ordinary
+exit/reopen and clean retirement/unmount. Native battery correctly refuses Q35;
+it is not physical battery acceptance. Both guide screenshots were visually
+checked. The attended checklist now includes app open/close, resizing, typing and
+pointer movement during the bundled stereo sample. No timed exit or automatic
+reboot is imposed on this human check. Save `lifecycle-notes.txt` and screenshots,
+reopen the ordinary desktop, then use monitor `reboot` to return to Ubuntu.
+
+The original modal failure at `29c75d8` and failing host regression are retained;
+PR160's `433480a` is the single first-canvas readiness implementation. The Air7,2
+duplicate was reverted before consuming it. Full desktop/build and 569 local
+documentation links pass. Evidence: `build/pr160-review-20261025/` and
+`build/lifecycle-native-20261025/`, with required payload/evidence backups outside
+build. USB preflight passes fsck plus headroom/allocation: 1,101 files, 2,792
+clusters, zero leaks or mismatches; existing file hashes are recorded. Independent
+recovery `9aa8dbf6fbda8252` and prior current `f01d4049daae0b4a` are backed up.
+The local run record owns the subsequent install/one-shot/return state. Physical
+acceptance of this new payload remains pending the announced attended trial.
+
 ### Document-routing failure paths covered; compositor integration still pending
 
 Base main `c4bee5c`; draft PR160 `29c75d8` already consumes this matched v15
