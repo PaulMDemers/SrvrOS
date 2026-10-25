@@ -20,7 +20,7 @@ class WorkloadTest(unittest.TestCase):
         s=w.files('0'*16,1,1,6,2)['combined-'+'0'*16+'.sh'].decode()
         self.assertLess(s.index('if test -e'),s.index('mkdir'))
         self.assertLess(s.index('2>&1 &'),s.index('cp ../'))
-        self.assertLess(s.rindex('cp ../'),s.index('wait "$player"'))
+        self.assertLess(s.rindex('cp ../'),s.index('wait $player'))
         self.assertEqual(s.count('kill -0 "$player"'),2)
         self.assertEqual(s.count('playback ended before disk burst'),1)
 

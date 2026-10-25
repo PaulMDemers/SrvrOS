@@ -15,7 +15,7 @@ def main():
     root=Path(__file__).resolve().parents[1];out=root/'build/review/desktop-combined-workload';out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);(out/'tone.wav').unlink(missing_ok=True);run='0123456789abcdef';stem='combined-'+run
     inputs=files(run,2,1,6,2)
-    inputs['combined-proof.sh']=(f'cd /work/srvros-work || exit 1\nsh {stem}.sh\necho $? > first-status.txt\nsh {stem}.sh > refusal.txt\necho $? > refusal-status.txt\nsync\n').encode()
+    inputs['combined-proof.sh']=(f'cd /work/srvros-work || exit 1\nsh {stem}.sh > trial-output.txt 2>&1\necho $? > first-status.txt\nsh {stem}.sh > refusal.txt\necho $? > refusal-status.txt\nsync\n').encode()
     output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
         tmp=Path(directory);volume=tmp/'volume';stick=tmp/'stick'
@@ -81,7 +81,7 @@ def main():
                 stop_process(process);data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
                 final=ExfatFixture(data[2048*512:end]);read=lambda name:final.read('srvros-work/'+name)
                 evidence={}
-                for name in ['first-status.txt','refusal-status.txt','refusal.txt',stem+'/io.txt',stem+'/rounds.txt',stem+'/audio-1.txt',stem+'/audio-2.txt',stem+'/complete.txt']:
+                for name in ['trial-output.txt','first-status.txt','refusal-status.txt','refusal.txt',stem+'/io.txt',stem+'/rounds.txt',stem+'/audio-1.txt',stem+'/audio-2.txt',stem+'/complete.txt']:
                     try:evidence[name]=read(name).decode(errors='replace')
                     except Exception as e:evidence[name]=repr(e)
                 (out/'guest-evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
