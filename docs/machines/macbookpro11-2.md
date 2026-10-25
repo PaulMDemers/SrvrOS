@@ -133,9 +133,13 @@ prefix saved with both failure markers; strict success correctly refused it.
 Full prior proof through initiation verified separately on unchanged log.
 Recovery/default/one-shot/hashes passed; offline workspace clean295files/
 701clusters/121directories, zero leaks/mismatches/errors; unmounted/unarmed.
-Next: explicitly handle the observed early-clear timing variant with bounded
-profile tests before retrying; preserve failed v76 and historical strict policy.
-No calibration or radio-function acceptance from this run.
+Separate v77 release `b2369fab9ef32f11`, source `f5549279`, is installed
+and unarmed after host/sanitizer/staging/collector and both exact-stage VM checks.
+Explicit mode55 admits only captured early30 or historical pendingb0, retains
+all six delayed reads and requires the exact clear profile before inventory.
+Original pending-only modes and failed v76 remain unchanged. Await user
+readiness for cold-cycle shutdown; collect matching session first after return.
+No calibration or radio-function acceptance from these runs.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6854,3 +6858,24 @@ delays/no replay and18 downstream ownership positions. Full xHCI suite,156
 staging checks,152 historical recipe identities,292 malformed full-prefix
 collector cases, ASan/UBSan and full build pass. Native result remains pending.
 Next: exact-stage VM save/return and missing-workspace checks, then install.
+
+
+## 2026-10-25 — Early-clear-aware inventory installed
+
+Source `f5549279821aeafb9b84226492bf1996523370af`, release
+`b2369fab9ef32f11`, config `ram-usb-wifi-fw-v77-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; known-good `e47dca3a6b30c6c1` retained;
+Ubuntu default unchanged. Failed v76 payload remains installed and archived.
+Older failed v75 payload removed from ESP only after full byte equality to its
+durable archive. Offline preboot checks clean295files/701clusters/121directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/VM receipts/helpers/tests archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-vco-ready-f554927/`.
+After readiness, cold-cycle Wi-Fi10s while off and leave workspace connected.
+Automatic capture saves results and returns to Ubuntu; no photos or commands.
+Collect matching release/session first with `vco-ready/collect_return.py` and
+require complete prior proof, mutually exclusive VCO prerequisite receipt,
+all six delayed reads and all18 inventory/postguard receipts. Preserve failure;
+no automatic calibration, MAC enable, tuning or traffic.
