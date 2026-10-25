@@ -156,9 +156,13 @@ with framing/trailer. All7 operations,6 guard reads/1 exchange and both guard
 triplets passed with full earlier proof. Entire252903-byte prefix/both success
 markers saved. Recovery/default/one-shot/hashes passed; offline clean301files/
 713clusters/124directories, zero leaks/mismatches/errors; unmounted/unarmed.
-Payload remains observation (ack_validated0); next add an exact captured reply
-prerequisite and bounded20MHz baseband/control-channel/band/CCA setup together.
-No later BBP/RF programming or calibrated radio/connectivity acceptance.
+Payload remains observation (ack_validated0). Separate v80 baseband-layout
+trial `6a9fd32642e92a7b`, source `a89af59a`, is installed/unarmed after local
+and both exact-stage VM checks. It pins the exact captured reply, then five
+masked targets/45 transfers with independent readbacks and10 guard triplets.
+Full proof fits existing256KiB capture. Ubuntu default/recovery retained;
+await readiness for cold-cycle shutdown and collect matching session first.
+No native v80 layout, RF frequency or calibrated radio/connectivity acceptance.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -7117,3 +7121,25 @@ pass. Full-prefix fixture258463bytes leaves3681bytes in262144;420 malformed
 proofs rejected. Full build,ASan/UBSan and documentation checks pass. Next:
 exact-stage save/return and missing-workspace VM rehearsal, then install.
 Baseband-layout native acceptance remains pending; no RF frequency/calibration.
+
+
+## 2026-10-25 — Guarded20MHz baseband trial installed
+
+Source `a89af59ab188f1767484b36d3f10e1eebc56c10b`, release
+`6a9fd32642e92a7b`, config `ram-usb-wifi-fw-v80-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; Ubuntu default and known-good recovery
+`e47dca3a6b30c6c1` retained. Completed v79 payload remains installed/archived;
+v78 payload removed from ESP only after full durable archive byte equality.
+Offline preboot exFAT/allocation clean301files/713clusters/124directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp20-a89af59/`.
+After readiness, cold-cycle Wi-Fi10s while off and leave workspace connected.
+Automatic capture saves/returns to Ubuntu; no photos or commands needed.
+Collect matching release/session first with `bbp20/collect_return.py`; require
+whole earlier proof/exact bandwidth reply prerequisite,45 ordered transfers,
+all five captured fresh values/masked readbacks and10 guard triplets, complete
+256KiB prefix and both completion markers. Preserve failures; no automatic RF
+frequency programming, calibration, MAC enable, scan or traffic.
