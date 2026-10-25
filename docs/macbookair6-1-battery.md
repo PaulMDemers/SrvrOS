@@ -902,3 +902,11 @@ overlap, and `--stage RELEASE` for exact GRUB→Limine native-profile refusal an
 automatic return on Q35. `make test-audio-io-receipt` rejects missing, delayed,
 out-of-window, insufficient-duration, incomplete-PCM and underrun receipts.
 Native listening and endurance remain separate acceptance evidence.
+
+Native v74 partial result (2026-10-25): about 23 minutes of continuous sound with
+zero PCM underruns, then intentional early exit. Battery retirement and offline
+filesystem checks passed, but the final workload receipt is absent. App launch
+and close caused multi-second delays; desktop responsiveness under unpaced I/O
+is **not accepted**. Future validation must automate lifecycle actions and measure
+event-loop/launch/close latency alongside audio and file integrity. See the unit
+record for measured close intervals and the unresolved contention hypothesis.
