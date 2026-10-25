@@ -2339,3 +2339,16 @@ Ubuntu one-shot state is empty and no reboot remains armed. This accepts attende
 combined desktop close/reopen with Text/Files work after the heap fix. Longer
 endurance, broad input/load coverage and other unimplemented device capabilities
 remain separate milestones; no integrity checks or startup budget were weakened.
+
+## Longer combined session scope (2026-10-25)
+
+Base main `3647dc7`, preserving the attended four-lifetime acceptance. Prepare a
+30-minute paced ordinary-shell workload for USB copy/readback and repeated audio,
+with a fresh-run guard, durable round/completion evidence and automatic Ubuntu
+collection after manual desktop exit. Text editing and audible playback remain
+attended observations. Scope is new workload/VM tests, this machine's record and
+current guide; retain the existing untimed v71 profile. No kernel, firmware,
+battery budget or desktop startup changes. PR153 owns capacity automation and
+shared staging/battery harness changes; avoid those files. PR19 remains Wi-Fi.
+Validate the newly merged scheduler/desktop baseline, keep accepted payloads and
+console recovery, and leave the next physical run ready-unarmed.
