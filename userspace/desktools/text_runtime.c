@@ -102,8 +102,11 @@ int tool_text_runtime(const char *path) {
             if(failed) { d->retired=1;t->pending=t->closing=0; }
             if(t->job.busy) {
                 int result=tool_runtime_file_poll(t,&d->logged_job);
-                if(result && !d->retired) {
-                    if(t->picker_job)tool_picker_finish(t,result);else tool_text_finish(t,result);
+                if(result) {
+                    if(d->retired) {
+                        desk_chooser_cancel(&t->chooser);
+                        if(t->chooser.pending)desk_chooser_finish(&t->chooser,t->chooser.pending_id,result);
+                    } else if(t->chooser.pending)tool_picker_finish(t,result);else tool_text_finish(t,result);
                 }
             }
             if(d->retired) {

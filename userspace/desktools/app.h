@@ -7,6 +7,7 @@
 #include <srvros/desk_searchbar.h>
 #include <srvros/desk_popup.h>
 #include <srvros/desk_file_picker.h>
+#include <srvros/desk_chooser.h>
 #include <srvros/desk_clipboard.h>
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
@@ -39,7 +40,8 @@ struct tool {
     struct desk_file_entry file_selected;
     char file_source[DESK_FILE_PATH],file_select_name[96],file_notice[80];
     struct desk_file_picker picker;
-    int picker_mode,picker_job;
+    struct desk_chooser chooser;
+    int picker_mode;
     struct desk_button buttons[32];
     struct desk_check checks[13];
     struct desk_slider pointer_speed,brightness,audio_volume;
