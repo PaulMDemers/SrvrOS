@@ -768,7 +768,10 @@ void kmain(void) {
             console_write("desktop-reopen-test: HALTED unmount failed; restart manually\n");
             console_sync();__asm__ volatile("cli":::"memory");halt_forever();
         }
-        else if(cmdline_has_token(cmdline,"srvros.battery=on"))desktop_battery_session_run();
+        else if(cmdline_has_token(cmdline,"srvros.battery=on")) {
+            if(cmdline_has_token(cmdline,"srvros.desktop-guide=application-lifecycle"))desktop_battery_lifecycle_session_run();
+            else desktop_battery_session_run();
+        }
         else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
     } else if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
         if (!workspace_active()) {

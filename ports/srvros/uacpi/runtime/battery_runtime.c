@@ -86,7 +86,7 @@ static bool mounted_home;
 static bool smbus_transitions;
 static bool continuous_home, desktop_home, desktop_capture, desktop_transitions, desktop_session, desktop_work;
 static uint64_t home_session_events;
-static bool desktop_reopen_test, desktop_capacity_test;
+static bool desktop_reopen_test, desktop_capacity_test, desktop_lifecycle_trial;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
 static struct block_device *query_capture_volume;
@@ -1760,7 +1760,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!free)return false;
     uint64_t lifetime=continuous_home?process_lifetime_create():0;
     if(continuous_home && !lifetime)return false;
-    const char *arguments=desktop_capacity_test?"--capacity-capture":desktop_work?"--battery-work-capture":desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    const char *arguments=desktop_lifecycle_trial?"--lifecycle-trial":desktop_capacity_test?"--capacity-capture":desktop_work?"--battery-work-capture":desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
     int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
         process_spawn_background_elf_args("/fat/bin/deskd",arguments);
     if(child<=0) {
@@ -2354,6 +2354,13 @@ bool battery_home_desktop_reopen_session_run(void *rsdp,struct limine_memmap_res
     desktop_reopen_test=true;
     bool ok=battery_home_desktop_session_run(rsdp,map);
     desktop_reopen_test=false;
+    return ok;
+}
+bool battery_home_desktop_lifecycle_session_run(void *rsdp,struct limine_memmap_response *map) {
+    if(desktop_lifecycle_trial || desktop_capacity_test || desktop_reopen_test)return false;
+    desktop_lifecycle_trial=true;
+    bool ok=battery_home_desktop_session_run(rsdp,map);
+    desktop_lifecycle_trial=false;
     return ok;
 }
 bool battery_home_desktop_capacity_session_run(void *rsdp,struct limine_memmap_response *map) {

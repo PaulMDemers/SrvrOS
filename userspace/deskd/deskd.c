@@ -1414,7 +1414,8 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
-    int home_apps=capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
+    int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
+    int home_apps=lifecycle_trial || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
@@ -1473,6 +1474,7 @@ int main(int argc,char **argv) {
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
     else if(capacity_capture) { /* Launch serially after each rendered admission below. */ }
+    else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
