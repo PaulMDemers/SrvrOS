@@ -87,11 +87,19 @@ RF0:4 showed30 ->b0 and remainedb0 at the final read. VCO self-clear was not
 observed, so successful calibration is unconfirmed. Complete241416-byte startup
 prefix and both completion markers saved. Recovery/default/one-shot/payload
 checks passed; offline workspace clean287files/685clusters/117directories,
-zero leaks/mismatches/errors, unmounted and unarmed. Candidate `cd775567c529231f` (source `70a3f45d`) is installed unarmed for six
-bounded delayed VCO reads. Local/regression/sanitizer, exact-stage GPT
-save/return and missing-workspace checks passed. Next: attended cold adapter
-cycle, then collect matching release/session FIRST. Results save automatically
-and return to Ubuntu. No additional RF pulse or channel/traffic work.
+zero leaks/mismatches/errors, unmounted and unarmed.
+
+Release `cd775567c529231f` (source `70a3f45d`) completed six delayed VCO reads
+in session `session-00065eafa382c5ce-00`. All six values were30: bit7 was clear
+at the first delayed sample and remained clear. Fixed requested inter-sample
+delays totaled1000000us; transport/logging time is additional, so this does
+not measure a precise10ms completion deadline. All42 operations,36 guard reads,
+6 replies/delays and12 guard triplets passed with full prior proof. Entire
+244743-byte startup prefix and both completion markers saved. Recovery/default/
+one-shot/payload checks passed; offline workspace clean289files/689clusters/
+118directories, zero leaks/mismatches/errors, unmounted and unarmed. Evidence
+is durably archived. Next: audit remaining reference RX-path/TX-DAC setup and
+calibration/channel prerequisites; no radio-connectivity acceptance yet.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -6511,3 +6519,26 @@ Both completion markers and entire prefix are required. A clear or still-set
 bit is an observation; no calibrated-radio claim. No additional RF pulse or
 forced clear, tuning, MAC enable or traffic. No reboot armed; native delayed
 VCO results pending.
+
+
+## 2026-10-25 — delayed VCO native return
+
+Collected source `70a3f45dca31abf135d87a60b801718c52700201`, release
+`cd775567c529231f`, session `session-00065eafa382c5ce-00`. Strict full-prefix
+proof passed42 operations/submissions,36 guard reads,6 verified replies,
+6 exact successful delay receipts and12 MAC/CORE/disabled-DMA guard triplets.
+Complete captured pending initiation and all earlier proof passed. Six RF0:4
+values were30, first_clear=1, final30. The start bit therefore cleared by the
+first delayed observation and remained clear at all later samples. Requested
+cumulative delays were10/50/100/200/500/1000ms, excluding command/guard/logging
+time. This does not establish an exact completion latency or calibrated radio
+operation. The delayed phase issued no additional RF writes or start pulses.
+
+Entire244743-byte prefix within262144 capacity and both completion markers
+verified. Ubuntu default, consumed one-shot and installed/recovery hashes
+passed. Offline exFAT/allocation clean289files/689clusters/118directories,
+zero leaks/mismatches/errors; unmounted, no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-wait-70a3f45/`.
+Next: audit the remaining pinned reference RX-path/TX-DAC settings and
+calibration/channel prerequisites before a bounded next implementation. No
+channel tuning, MAC enable, scanning, association/security or traffic accepted.

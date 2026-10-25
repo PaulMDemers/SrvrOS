@@ -3002,7 +3002,7 @@ The entire241416-byte prefix and both completion markers passed; recovery,
 one-shot, hashes and clean offline filesystem/allocation checks verified.
 Workspace unmounted, no reboot armed; evidence archived outside build.
 
-### Delayed read-only VCO observation (v73 candidate)
+### Delayed read-only VCO observation (v73 native observation)
 
 `--wifi-rf-wait` requires the full captured v72 initiation proof, including
 RF0:73 values93/93/93/13/13/93, RF0:4 initial30/writeb0 and final93/b0.
@@ -3020,3 +3020,17 @@ without imposing monotonic state, and a clear bit alone does not certify radio
 calibration. Full-prefix proof/counters/delay receipts/both completion markers
 remain required. v73 adds only its opt-in token to v72, retains256KiB capture
 and automatic save/return. No channel tuning, MAC enable, scanning or traffic.
+
+
+Native release `cd775567c529231f` (source `70a3f45d`) completed in session
+`session-00065eafa382c5ce-00`. All six RF0:4 reads returned30, first_clear=1,
+final30: the VCO start bit cleared by the first delayed observation and stayed
+clear at every later sample. Requested cumulative delays10/50/100/200/500/
+1000ms exclude transport/guard/logging time; this is not an exact completion
+latency measurement. All42 operations,36 guard reads,6 replies/delay receipts,
+12 guard triplets, full prior proof and both completion markers passed in the
+complete244743-byte prefix. Recovery/default/one-shot/hashes and offline clean
+filesystem/allocation verified;289files/689clusters/118directories, no leaks/
+mismatches/errors. Workspace unmounted, no reboot armed; evidence archived.
+This accepts the bounded self-clear observation, not calibrated radio operation.
+Next is remaining RX-path/TX-DAC and calibration/channel prerequisite auditing.
