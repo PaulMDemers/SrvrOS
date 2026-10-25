@@ -2,6 +2,58 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Unsaved desktop exit and sustained playback retest — active scope
+
+Base main `b537c2a` includes PR167's completed-I/O handoff. Air7,2 now owns a
+bounded follow-up in the desktop shutdown/modal admission path, its host/VM
+lifecycle tests, a longer bundled playback fixture and the attended Help guide.
+No audio driver, PCM engine, firmware gate or process-limit edits are planned;
+PR19 retains Pro Wi-Fi scope. Publish this follow-up as a separate PR.
+
+Release `336d81743ca03a33`, session `session-00065eb1e8675a07-00`, returned.
+The user reports modal controls generally working, but Return to console with an
+unsaved file repeatedly opens/closes its modal. The saved session has no exit
+snapshot, so retirement is incomplete, not passed. It records two short Settings
+tones and no PCM file-playback owner: sustained listening/I/O overlap is not
+accepted. All 1,106 prior non-metadata files retain their hashes; only
+`.srvros/meta` changed. Three logs and one saved test document were added.
+Local evidence: `build/modal-pointer-native-20261025/physical-after/` and its
+return proof. Offline fsck/headroom/allocation pass: 1,111 files, 2,804 clusters,
+zero leaks/mismatches/errors.
+Installed current remains `336d81743ca03a33`, independent recovery
+`9aa8dbf6fbda8252`; Ubuntu default and consumed one-shot are verified. No new
+reboot is armed. Collect/diagnose, reproduce shutdown with pending edits, preserve
+Save/Discard/Cancel decisions during exit, then validate locally before staging.
+
+The first new host regression fails on forced modal closure before the fix and
+passes afterward. Full core/desktop and matched builds pass. Clean `e4ebd0c`
+passes actual Text/Preview shutdown checks: stable prompts, pointer Cancel,
+canceled Save picker, exact saved edits during exit, ordinary reopen, existing
+prompt Discard, clean filesystem allocation and restored process baseline. The
+first VM attempt missed its final click because the fixture retained the prior
+session's pointer origin; reset that origin on desktop reopen and retain the
+failed attempt separately. The asset in the built image is verified as 120
+seconds/23,040,000 PCM bytes and twenty unchanged channel-check cycles. The final
+exact-stage rehearsal will play it fully while saving work; native listening and
+shutdown acceptance remain pending. The first long-sample stage `9fb28b83ea370cb3`
+passes its complete playback/save/exit/reopen rehearsal, but final provenance
+review found its prebuilt native kernel had not been relinked after PR167. Keep
+that as preliminary UI/audio evidence only; it was not installed. Rebuild matched
+normal/native/VM kernels, then stage and repeat the exact-image gate before
+hardware installation. Main `46f6212` adds only Air6,1 result documentation; PR170
+owns separate app-timing instrumentation and PR19 remains Wi-Fi.
+
+Final matched stage `1d1d5edce03523db` from clean `9bca084` rebuilds the native
+and VM kernels explicitly. Its exact GRUB → Limine → native rehearsal passes
+all 120 seconds/23,040,000 PCM bytes with zero underruns, Calculator open/close and
+exact USB document-save overlap, normal exit/reopen, provider retirement and clean
+allocation. Q35 native battery refusal remains expected. The full guest guide
+puts these two retests first and stays open without a deadline. This is VM and
+host evidence; physical listening and unsaved desktop shutdown remain pending.
+PR169 publishes the correction; local `build/unsaved-exit-native-20261025/run.json`
+owns installed/armed/return state. Preserve current/recovery and durable evidence
+before any attended reboot; collect the matching new session on return.
+
 ### Modal pointer correction validated; physical retest pending
 
 Release `b6f4c7525115168a` returned with session

@@ -41,10 +41,12 @@ def main():
     parser.add_argument('--stage',help='exact v54/v55/v70 native stage; requires --boot-session --case profile-refusal on Q35')
     parser.add_argument("--services",action="store_true",help="exercise combined optional laptop services with ordinary battery ownership")
     parser.add_argument("--audio",action="store_true",help="attach HDA and play bundled PCM during the combined session")
+    parser.add_argument('--workload-audio',action='store_true',help='play the full two-minute bundled sample while saving another document and cycling an app')
     parser.add_argument('--lifecycle-guide',action='store_true',help='verify attended guide startup, normal return and ordinary reopen')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     if args.linger_seconds<0 or args.linger_seconds>900 or (args.linger_seconds and (not args.boot_session or args.case!='normal')):parser.error('linger requires normal boot session, 0..900 seconds')
     if args.lifecycle_guide and (not args.boot_session or not args.services or args.automatic or args.capacity_auto or args.mixed_apps or args.air61 or args.case not in ('normal','profile-refusal')):parser.error('lifecycle guide requires combined Air7,2 boot normal/profile-refusal')
+    if args.workload_audio and (not args.audio or not args.lifecycle_guide):parser.error('workload audio requires --audio --lifecycle-guide')
     if args.air61 and not args.boot_session:parser.error('Air6,1 requires boot session')
     if args.case.startswith('reopen-') and (not args.boot_session or args.stage):parser.error('reopen deadline cases require unstaged boot session')
     if args.automatic and (not args.boot_session or not args.air61 or not args.services or args.case not in ('normal','cancel','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air6,1 boot and startup case')
@@ -56,7 +58,7 @@ def main():
     if args.services and not args.boot_session:parser.error('services requires boot-session')
     if entry_refusal and not args.boot_session:parser.error('entry refusal cases require --boot-session')
     if args.stage and (not args.boot_session or args.case!='profile-refusal'):parser.error('stage requires --boot-session --case profile-refusal')
-    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-guide' if args.lifecycle_guide else '')+('-automatic' if args.automatic else '')+('-mixed' if args.mixed_apps else '')+('-capacity-documents-low' if args.capacity_low_memory else '-capacity-documents' if args.capacity_auto else ''));out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-guide' if args.lifecycle_guide else '')+('-workload' if args.workload_audio else '')+('-automatic' if args.automatic else '')+('-mixed' if args.mixed_apps else '')+('-capacity-documents-low' if args.capacity_low_memory else '-capacity-documents' if args.capacity_auto else ''));out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-home-apps-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -288,8 +290,27 @@ def main():
                     launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
                     launch('Terminal',b'deskterm: ready');time.sleep(1)
                     if args.audio:
-                        type_text('/fat/bin/playwav /fat/share/examples/stereo.wav > /work/srvros-work/audio-proof.txt\n')
-                        time.sleep(9)
+                        sample='workload.wav' if args.workload_audio else 'stereo.wav'
+                        audio_begin=len(output);began=time.monotonic()
+                        type_text('/fat/bin/playwav /fat/share/examples/'+sample+' > /work/srvros-work/audio-proof.txt\n')
+                        if args.workload_audio:
+                            wait(b'workspace-devices: pcm_state=2',30)
+                            launch('Calculator new app',b'desktools: starting role=calculator');wait(b'deskd: opened pid=')
+                            time.sleep(.5);shortcut('ctrl-w');wait(b'desktools: exited role=calculator failure=0')
+                            launch('Text new app',b'desktools: starting role=text');wait(b'deskd: opened pid=')
+                            time.sleep(.5);type_text('Saved during workload playback.');shortcut('ctrl-l');shortcut('ctrl-a')
+                            type_text('/work/srvros-work/workload-proof.txt');shortcut('ctrl-s');wait(b'picker ready mode=2')
+                            qmp.key('ret');wait(b'file-result role=text op=2 status=0')
+                            assert b'workspace-devices: pcm_state=4' not in output[audio_begin:],'playback ended before document I/O'
+                            shortcut('ctrl-q');wait(b'desktools: exited role=text failure=0')
+                            # Exact native stages omit the optional focus trace.
+                            # Later terminal-proof bytes verify the selected window.
+                            shortcut('meta_l-spc');type_text('Terminal window');qmp.key('ret');time.sleep(.5)
+                            wait(b'workspace-devices: pcm_state=4',150)
+                            result['workload_audio_wall_seconds']=round(time.monotonic()-began,3)
+                            assert result['workload_audio_wall_seconds']>=115
+                            result['workload_app_and_save_overlap']=True
+                        else:time.sleep(9)
                     type_text('echo terminal-proof > /work/srvros-work/terminal-proof.txt\n')
                     time.sleep(2)
                     # A real shell job changes session and execs, then leaves two
@@ -406,11 +427,13 @@ def main():
                     final=ExfatFixture(disk[2048*512:volume_end]);assert final.read('srvros-work/.workspace')==marker and final.read('srvros-work/anchor.txt')==ANCHOR
                     assert final.read('srvros-work/desktop-proof.txt')==(b'Ordinary Home desktop. Pending save.' if args.case=='cancel' else b'Ordinary Home desktop.')
                     assert {n for n,_ in final.entries(final.chain(final.root))}=={'srvros-work','.srvros'}
-                    assert {n for n,_ in final.entries(final.read('srvros-work'))}==({'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}|({'audio-proof.txt'} if args.audio else set())|({'mixed-proof.txt'} if args.mixed_apps else set()))
+                    assert {n for n,_ in final.entries(final.read('srvros-work'))}==({'.workspace','anchor.txt','desktop-proof.txt','terminal-proof.txt','orphan-proof.txt','Logs'}|({'audio-proof.txt'} if args.audio else set())|({'mixed-proof.txt'} if args.mixed_apps else set())|({'workload-proof.txt'} if args.workload_audio else set()))
                     if args.mixed_apps:assert final.read('srvros-work/mixed-proof.txt')==b'Mixed services capacity.'
                     if args.audio:
                         audio=final.read('srvros-work/audio-proof.txt');(out/'audio-proof.txt').write_bytes(audio)
-                        assert b'playwav: complete bytes=1152000 underruns=0' in audio
+                        expected=23040000 if args.workload_audio else 1152000
+                        assert f'playwav: complete bytes={expected} underruns=0'.encode() in audio
+                        if args.workload_audio:assert final.read('srvros-work/workload-proof.txt')==b'Saved during workload playback.'
                         result['pcm_playback']='PASS'
                     assert final.read('srvros-work/terminal-proof.txt')==b'terminal-proof\n'
                     assert final.read('srvros-work/orphan-proof.txt')==b'lifetimeprobe: orphan setsid exec grandchild started\n'
@@ -429,7 +452,7 @@ def main():
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result['offline_allocation']='PASS'
-                result.update(status='PASS',source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+                result.update(stage_source=manifest['git_head'] if stage else None,status='PASS',source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                               source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                               payload_sha256={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (kernel,initramfs)})
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))

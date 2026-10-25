@@ -751,7 +751,11 @@ static void global_menu_action(struct session *s,uint32_t id) {
     else if(id==GLOBAL_TEXT) spawn_app(s,DESK_APP_TEXT,"");
     else if(id==GLOBAL_TERMINAL) spawn_app(s,DESK_APP_TERMINAL,"");
     else if(id==GLOBAL_EXIT) {
-        s->exiting=1;for(int i=0;i<session_capacity(s);i++) if(session_client(s,i)->pid) request_close(s,i);
+        /* Owned dialogs resolve their document's close request. Closing them as
+         * independent roots cancels or recreates the very decision we await. */
+        s->exiting=1;s->exit_wait=0;
+        for(int i=0;i<session_capacity(s);i++)
+            if(session_client(s,i)->pid && !session_client(s,i)->parent_window)request_close(s,i);
     } else if(id==GLOBAL_MINIMIZE && s->scene.focus>=0) minimize(s,s->scene.focus);
     else if(id==GLOBAL_ZOOM && s->scene.focus>=0) maximize(s,s->scene.focus);
     else if(s->scene.focus>=0 && (id==GLOBAL_TILE_LEFT || id==GLOBAL_TILE_RIGHT || id==GLOBAL_CENTER))
@@ -1088,7 +1092,10 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
             w->frame.y=clamp(origin.y+44,44,s->damage.height-100-w->frame.h);
         }
         if(managed)session_child_reply(s,child)->value=DESK_OPEN_OK;
-        focus(s,i);if(s->exiting)close_client(s,i);
+        focus(s,i);
+        /* Save/Discard/Cancel and its picker must remain interactive while
+         * exiting. A late root joins cooperative shutdown, never forced close. */
+        if(s->exiting && parent<0)request_close(s,i);
         desk_log("deskd: opened pid=%llu window=%d id=%llu parent=%llu\n",(unsigned long long)pid,i,(unsigned long long)p->window,(unsigned long long)session_client(s,i)->parent_window);
         resource_trace(s,"opened");
         return;

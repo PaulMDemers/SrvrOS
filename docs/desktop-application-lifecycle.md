@@ -55,6 +55,13 @@ nonblocking waits and refuses to retire accepted work while it is busy. The
 compositor also uses it to collect its preferences worker before exit. The shared lifecycle
 interface does not require applications to remain resident without windows.
 
+Return to console requests cooperative closure of top-level documents. Existing
+and newly admitted owned prompts stay interactive while their document resolves
+Save/Discard/Cancel. A root admitted from an already in-flight launch receives
+the same close request instead of a forced close. Cancel or a failed/canceled
+save stops desktop exit; no decision is answered automatically. The emergency
+Ctrl-Alt-Escape path remains separate and can discard unsaved edits.
+
 ## Open-document routing
 
 An admitted non-dialog Text/Preview window advertises OPEN_DOCUMENT service.
@@ -103,6 +110,12 @@ an unchanged effective layout, preserving capture between press and release.
 Actual resize, disabling, loading/listing changes and focus loss still cancel it.
 Keyboard-only lifecycle checks do not accept the pointer path.
 
+The `--shutdown` fixture selects the actual Return to console menu item with an
+unsaved document. It checks that the modal remains stable, Cancel retains edits,
+canceling the Save picker returns to an editable desktop, Save writes exact bytes
+before ordinary exit, and a pre-existing modal survives exit until Discard. It
+reopens the desktop and requires the final process baseline and clean allocation.
+
 Run the focused actual-consumer gates serially:
 
 ```sh
@@ -110,6 +123,7 @@ tools/host-env.sh python3 tools/desktop_text_windows_smoke.py
 tools/host-env.sh python3 tools/desktop_preview_smoke.py
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --pointer
+tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --shutdown
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --crash
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --refuse-dialogs
 ```
@@ -128,24 +142,34 @@ ordinary combined battery/services session and opens Help's **Application
 lifecycle trial** topic automatically. It has no deadline or automatic reboot.
 The full checklist covers parent/dialog focus, independent sibling input,
 Close versus Quit, cancellation, saving, Files routing, Preview retention,
-screenshots, app open/close and input during the bundled stereo sample, and a
-normal exit/reopen before returning to Ubuntu. Reopening with
+screenshots, app/file I/O and input during the separate two-minute
+`playwav /fat/share/examples/workload.wav` sample, and unsaved-work cancellation
+during normal exit/reopen before returning to Ubuntu. Settings Test sound is
+only a short tone; the original six-second `stereo.wav` remains the channel check.
+Settings Stop cancels long playback; the command can be rerun for more time. Reopening with
 `desktop battery` uses the ordinary session, without relaunching the checklist.
 It does not increase process capacity or change another machine's profile.
 
 After building matched normal/native/VM battery images, prepare an exact stage
 using this machine's own compact workspace UUID:
 
+The stage command copies prebuilt artifacts; it does not rebuild the native
+kernel. `make all` alone updates only the ordinary kernel. Relink both explicit
+battery kernels after a kernel dependency changes before recording a new stage.
+
 ```sh
+tools/host-env.sh make -j2 all acpi-battery-kernel acpi-battery-vm-kernel
 python3 tools/hardware_boot.py stage --desktop-volume YOUR_UUID \
   --desktop-battery --desktop-services --desktop-lifecycle-trial
 tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
-  --boot-session --services --audio --lifecycle-guide \
+  --boot-session --services --audio --lifecycle-guide --workload-audio \
   --case profile-refusal --stage RELEASE
 ```
 
 The exact-stage Q35 rehearsal verifies instruction delivery, application work,
-normal exit/reopen and clean retirement. Its native battery profile correctly
+normal exit/reopen and clean retirement. `--workload-audio` also runs the full
+two-minute sample, saves a separate document while it plays and cycles Calculator;
+exact playback bytes, duration and saved contents are checked. Its native battery profile correctly
 refuses Q35; this is not native battery or physical dialog acceptance. Follow
 the device-agent setup guide for install, recovery, run record and one-shot boot.
 Do not install or reboot merely because staging completed.
