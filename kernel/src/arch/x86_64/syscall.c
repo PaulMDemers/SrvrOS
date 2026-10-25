@@ -1785,7 +1785,7 @@ static int64_t syscall_gfx_console_muted(void) {
 static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_request) {
     struct srv_gui_surface_create request;
     struct process *process = process_current();
-    if (process == NULL ||
+    if (process == NULL || !user_buffer_ok(user_request,sizeof(request),true) ||
         abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
         !copy_from_user(&request, user_request, sizeof(request))) {
         return -1;
@@ -1801,7 +1801,9 @@ static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_re
     request.abi_version = SRV_ABI_VERSION;
     request.struct_size = sizeof(request);
     request.surface_id = (uint64_t)surface_id;
-    return copy_to_user(user_request, &request, sizeof(request)) ? 0 : -1;
+    if(copy_to_user(user_request,&request,sizeof(request)))return 0;
+    gui_surface_destroy(process_pid(process),(uint64_t)surface_id);
+    return -1;
 }
 
 static int64_t syscall_gui_surface_destroy(uint64_t surface_id) {

@@ -121,3 +121,10 @@ surfaces are unaffected. This structural change does not claim reduced total
 syscall interrupt exclusion or native latency. The actual-protocol connection
 consumer holds 128 tiny auxiliary surfaces while exercising its windows, then
 retires them and relaunches. Those surfaces are not 128 desktop windows.
+
+Surface budgets account for requested record/pixel payload bytes, not heap
+headers or page rounding. The surface-create syscall also validates its writable
+result buffer before allocation and destroys an unpublished result if copying
+it back fails. The ABI probe rejects 300 read-only result buffers without
+consuming an ID, then allocates the normal pool and renders windows. An earlier
+probe reproduced memory exhaustion from unreachable surfaces before this fix.

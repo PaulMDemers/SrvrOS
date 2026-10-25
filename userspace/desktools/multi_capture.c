@@ -8,6 +8,7 @@
 #include <srvros/gui.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/mman.h>
 struct capture_window {
     struct desk_app app;
     struct desk_clipboard_client clipboard;
@@ -23,8 +24,19 @@ static int opened,quitting;
  * exercises rendering and retirement. These are not extra desktop windows. */
 static uint64_t pool[128];
 static int surface_pool(void) {
+    uint64_t before;
+    if(gui_surface_create(1,1,0,&before) || gui_surface_destroy(before))return -1;
+    struct srv_gui_surface_create *request=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    if(request==MAP_FAILED)return -1;
+    *request=(struct srv_gui_surface_create){.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(*request),.width=512,.height=512};
+    if(mprotect(request,4096,PROT_READ))return -1;
+    /* Output faults must not allocate unreachable 1 MiB surfaces. Repeating
+     * past the byte budget detects a leak before the real surface pool opens. */
+    for(unsigned i=0;i<300;i++)if(srv_syscall1(SYS_GUI_SURFACE_CREATE,(long)request)!=-1)return -1;
+    if(munmap(request,4096))return -1;
     uint32_t pixels[4]={0xff010203,0xff040506,0xff070809,0xff101112},copy[4];
     for(unsigned i=0;i<128;i++)if(gui_surface_create(2,2,0,&pool[i]))return -1;
+    if(pool[0]!=before+1)return -1;
     uint64_t high=pool[127];
     for(unsigned i=0;i<128;i++) {
         if(gui_surface_blit(pool[i],0,0,2,2,pixels,2) ||

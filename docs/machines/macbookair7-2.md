@@ -13,7 +13,8 @@ IDs. Allocate/initialize outside the GUI metadata critical section; recheck
 retirement before publishing. Do not claim shorter syscall interrupt exclusion
 or native latency from that structural change.
 
-Touch kernel GUI storage, shared budget definitions, resource tracing and host/
+Touch kernel GUI storage and syscall output-fault rollback, shared budget
+definitions, resource tracing and host/
 actual-protocol lifetime and pressure fixtures. Compositor admission remains
 sixteen windows in this block; dynamic queues and compositor/scene registries
 follow independently. Pro PR19 `e409c07` remains Wi-Fi diagnostics. No hardware
