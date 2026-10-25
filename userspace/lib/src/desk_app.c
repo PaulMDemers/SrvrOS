@@ -329,12 +329,7 @@ int desk_dialog_window_sync(struct desk_dialog_window *d,struct desk_app *parent
             return d->refused?-1:0;
         }
         if(!d->window.opening && !d->window.closing && strcmp(d->title,title) && !desk_app_title(&d->window,title))strcpy(d->title,title);
-        /* Admission and canvas publication are separate asynchronous steps.
-         * A zero-sized layout can discard the borrowed widget's focus before
-         * CONFIGURE arrives, so expose only an applied, usable canvas. */
-        return !d->window.opening && !d->window.closing && !d->window.failed &&
-            d->window.surface && d->window.pixels && d->window.width && d->window.height &&
-            d->window.generation==d->window.configure.generation;
+        return !d->window.opening && !d->window.closing;
     }
     if(!wanted) { d->refused=0;return 0; }
     if(d->refused)return -1;

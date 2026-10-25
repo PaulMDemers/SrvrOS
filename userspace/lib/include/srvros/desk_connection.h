@@ -25,8 +25,7 @@ int desk_window_open_dialog(struct desk_connection *connection,struct desk_app *
     struct desk_app *parent,const char *title,uint32_t width,uint32_t height);
 /* Caller-owned reusable modal presenter. sync never consumes GUI messages and
  * never blocks. -1 keeps the caller's embedded fallback available after refusal;
- * 0 pending/closed, 1 configured with a usable canvas. Admission alone is not
- * presentation readiness. Title updates retry; size is an initial request.
+ * 0 pending/closed, 1 admitted. Title updates retry; size is an initial request.
  * Dispatch its window through the same connection. */
 struct desk_dialog_window { struct desk_app window;int refused;char title[88]; };
 int desk_dialog_window_sync(struct desk_dialog_window *dialog,struct desk_app *parent,
