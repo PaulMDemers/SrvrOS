@@ -3015,6 +3015,7 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
+	$(PYTHON) tools/test_desktop_wait_records.py
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py

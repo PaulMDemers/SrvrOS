@@ -13,6 +13,22 @@ from displayd_resolution_smoke import build_iso
 from desktop_foundation_smoke import QMP
 
 
+
+def validate_saved_console(data):
+    """Require complete guest records; live UART fragments are not a parser oracle."""
+    for record in (
+        b'multi-window: surface-pool 128 live, readback/reuse/stale IDs verified',
+        b'multi-window: surface-pool retired',
+        b'multi-window: PASS all windows retired; process exiting',
+    ):
+        if data.count(record)!=2:raise ValueError(f'Missing/duplicate saved completion: {record!r}')
+    for record in (b'multi-window: retired window=1 text=AlphaX',
+                   b'multi-window: retired window=3 text=Gamma',
+                   b'clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes=0'):
+        if record not in data:raise ValueError(f'Missing saved lifetime evidence: {record!r}')
+    if b'FAIL' in data or b'exception:' in data:raise ValueError('Saved guest failure')
+
+
 def main():
     root=Path(__file__).resolve().parents[1]
     out=root/'build/review/desktop-multiwindow';out.mkdir(parents=True,exist_ok=True)
@@ -74,19 +90,23 @@ def main():
                 shortcut('ctrl-n');wait(b'admitted window=3');wait(b'configured window=3 generation=1')
                 text('Gamma');wait(b'input window=3 text=Gamma')
                 shortcut('meta_l-alt-down');wait(b'configured window=3 generation=2');shot('new-handle-resized')
-                shortcut('ctrl-q');wait(b'multi-window: PASS all windows retired; process exiting')
-                wait(b'deskd: child-exit pid='+pid+b' status=0')
+                shortcut('ctrl-q');wait(b'deskd: child-exit pid='+pid+b' status=0')
                 shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
-                assert b'clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes=0' in output
-                assert b'multi-window: retired window=1 text=AlphaX' in output
-                assert b'multi-window: retired window=3 text=Gamma' in output
                 # A fresh process may start ID1; no stale connection state survives.
                 serial.sendall(b'run /fat/bin/deskd --multiwindow-smoke\n')
-                wait(b'multi-window: ready two windows one process');shortcut('ctrl-q')
-                wait(b'multi-window: PASS all windows retired; process exiting')
-                assert output.count(b'multi-window: surface-pool 128 live, readback/reuse/stale IDs verified')==2
-                assert output.count(b'multi-window: surface-pool retired')==2
-                wait(b'deskd: child-exit');shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
+                wait(b'multi-window: ready two windows one process')
+                second=re.findall(rb'deskd: opened pid=(\d+)',output)[-1]
+                assert second!=pid
+                shortcut('ctrl-q');wait(b'deskd: child-exit pid='+second+b' status=0')
+                shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
+                # Console records are captured atomically; UART transmission is
+                # deliberately interruptible and may interleave live writers.
+                snapshot_start=len(output)
+                serial.sendall(b'dmesg 65536\necho GUI_WAIT_SAVED_END\n')
+                wait(b'\nGUI_WAIT_SAVED_END\r\n');wait(b'srv> ')
+                snapshot=output[snapshot_start:]
+                (out/'saved-console.log').write_bytes(snapshot)
+                validate_saved_console(snapshot)
                 if b'FAIL' in output or b'exception:' in output:raise RuntimeError('Guest failure')
                 serial.close();qmp.stream.close();qmp.sock.close()
             except Exception:
