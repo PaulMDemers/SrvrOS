@@ -87,7 +87,7 @@ The first all-Text capacity probe exposed a separate worker-resource refusal:
 the thirteenth Text process could copy/paste but its file worker was unavailable.
 The document remained intact and a visible message explained the refusal. The
 mixed clipboard workload uses one Text and fifteen Calculator processes; its
-success does not establish sixteen simultaneous file workers. This reinforces
+success alone does not establish sixteen simultaneous file workers. This reinforces
 the distinction between window admission and auxiliary process/thread budgets.
 
 D1a identity foundation runtime `d9a678b` passes full desktop host/build gates,
@@ -98,4 +98,11 @@ admitted only ID1 per process, before the connection dispatcher below.
 Protocol v14 adds the opt-in [connection dispatcher](desktop-connections.md),
 acknowledged admission/close and multiple windows per process. Runtime `e5ad6c2`
 passes host/build, real two-document transport, app and capacity/lifecycle VM
-regressions. Normal Text migration and dynamic registries remain next.
+regressions. Normal Text runtime `f4f4c9c` now passes sixteen independent
+documents in one process, all with file workers: seventeen exact saved files
+including post-refusal edits and a replacement document, correlated seventeenth
+refusal, a fresh ID after close and complete worker/process retirement. This
+is a different resource shape from sixteen Text processes. Large document
+records use independently released anonymous mappings rather than exhausting
+the legacy brk arena. The launcher selects sibling windows by non-reused
+compositor identities, not PID alone. Dynamic registries remain next.

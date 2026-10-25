@@ -154,6 +154,19 @@ class ApplicationFileRecords(unittest.TestCase):
         self.assertEqual(check_files_capture(FILES)['worker_operations'],20)
         with self.assertRaises(AssertionError):check_text_capture(FILES)
 
+    def test_ordered_write_readiness(self):
+        from battery_workspace_smoke import check
+        ready=b''.join(f'text-files: write-ready serial={i*12}\n'.encode() for i in range(1,6))
+        for base,checker in ((FILES,check_files_capture),(WORKSPACE,check)):
+            current=base.replace(b'text-files: cycles=',ready+b'text-files: cycles=')
+            self.assertEqual(checker(current)['worker_operations'],20)
+            for bad in (current.replace(ready.splitlines(keepends=True)[0],b''),
+                        current+ready.splitlines(keepends=True)[0],
+                        current.replace(b'write-ready serial=12',b'write-ready serial=13'),
+                        current.replace(ready,b''.join(reversed(ready.splitlines(keepends=True)))),
+                        current+b'text-files: unexpected\n'):
+                with self.assertRaises(AssertionError):checker(bad)
+
     def test_native_recipe_and_return(self):
         prefix=b'laptop-capture: boot options=srvros.capture=battery-app-files srvros.capture-failure=reboot\n'
         suffix=b'battery-app-files-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'

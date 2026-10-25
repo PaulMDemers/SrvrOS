@@ -16,15 +16,23 @@ kernel surface binding; no hardware or boot changes. Fixed global
 sixteen-window admission and dynamic compositor registries remain separate.
 Pro PR19 `dbf46c3` continues independent Wi-Fi RF work. Host/QEMU only overnight.
 
-D1c PR143 is draft. First actual document close/reopen exposed a recycled
-kernel surface slot retaining its former window ID; a host reproducer fails
-before the reset fix. Corrected normal Text VM and existing app workflow VM pass.
-Launcher review found PID-only sibling selection, now changed to non-reused
-compositor action identities with regression coverage. The sixteen-document
-stress attempt reached nine and cleanly refused the tenth because document
-buffers consumed the small legacy brk arena. Document records now use anonymous
-mappings like canvases; the repeated capacity gate is pending. Preserve these
-failures as evidence rather than claiming sixteen-document acceptance early.
+D1c PR143 candidate `f4f4c9c` passes full desktop host/build, normal Text
+multi-document/launcher, undo/history, Find, Replace, and sixteen mixed clipboard
+client VM regressions. Sixteen same-process Text documents each save independently;
+the seventeenth refusal preserves edits, a replacement uses ID18, seventeen files
+match exactly and every worker is reaped. The original nine-document brk refusal
+is retained locally; large records now use anonymous mappings. Actual close/reopen
+also exposed the recycled kernel surface binding, fixed with a failing-before
+host regression. Launcher selection now distinguishes same-PID documents and
+rejects stale lifetime identities.
+
+The legacy file-work capture needed its dedicated Q35 kernel rebuilt for v14.
+With matched binaries the guest completes, but its collector had not learned the
+existing five write-readiness diagnostics. Ordered-record validation and negative
+fixtures now pass; the final full capture/relaunch/offline-integrity run passes: 60/60 scripted and 44/44 injected key events presented, five file cycles,
+20 worker operations, three descendants retired, replacement compositor works,
+all bytes outside the scratch image unchanged and offline allocation clean.
+No native acceptance is added; installed/recovery payloads are unchanged.
 
 ### Active connection and multiwindow lifetime work (D1b)
 
