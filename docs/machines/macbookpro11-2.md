@@ -19,6 +19,19 @@ Scanning,association,security,Wi-Fi IP traffic and UI remain unimplemented or
 unaccepted; no reliable completion percentage or delivery date yet.
 
 
+Active next block (2026-10-26): consume actual main `0858e8e6` (PR181/185
+application window/progress fixes; both Makefile test families preserved).
+PR184 owns worker admission and PR182 filesystem imports; neither overlaps
+this MT76 scope. Build a bounded,allocation-free receive decoder for MT76x02
+USB/RXWI and passive beacon/probe-response observations,with malformed packet
+and sanitizer coverage. Touched subsystems: new MT76 receive header/source,
+host tests/Makefile and Wi-Fi guide. No native endpoint scheduling,MAC enable,
+calibration,transmit,scan UI or authentication yet. This is preparation for a
+controlled MAC/RX lifecycle; calibration requires MAC start in pinned reference
+USB ordering,save/restore and validated board/power context. Last accepted
+physical payload remains v88; source main merge is not native acceptance.
+
+
 
 The user considers the core Pro bring-up generally working. Named payloads below
 have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
