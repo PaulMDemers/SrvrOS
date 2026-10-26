@@ -4089,6 +4089,14 @@ build/tests/mt76-agc-state-host$(HOST_EXE): tools/test_mt76_agc_state.c kernel/s
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
 
+.PHONY: test-mt76-rx
+test-core: test-mt76-rx
+test-mt76-rx: build/tests/mt76-rx-host$(HOST_EXE)
+	$<
+build/tests/mt76-rx-host$(HOST_EXE): tools/test_mt76_rx.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_rx.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx.c -o $@
+
 .PHONY: test-window-set
 test-desktop: test-window-set
 test-window-set: build/tests/window-set-host$(HOST_EXE)

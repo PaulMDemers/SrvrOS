@@ -3823,3 +3823,44 @@ installed/recovery hashes verified. Offline workspace clean321files/774clusters/
 Evidence retained outside build. This accepts bounded register capture and
 software state only; calibrated RF,PLL lock,packet RX/TX and connectivity remain
 untested. Next audit MAC/power/IBI9 prerequisites before full calibration.
+
+
+### Passive receive decoder groundwork (2026-10-26)
+
+The next radio-start lifecycle needs a bounded consumer for received bytes.
+`mt76_rx_usb_view` decodes one completed main-RX endpoint transfer with byte
+loads:4-byte DMA header,32-byte RXWI,14-bit MPDU length,24-byte management
+header and optional2-byte L2 padding. It bounds every view within the declared
+entry and reports consumed bytes; trailing USB bytes are not interpreted as
+another frame. CRC/ICV/MIC errors,fragments,PN/decrypted processing,aggregates,
+non-management and variable-header forms are refused. RSSI remains raw; rate
+is retained as metadata. This does not validate FCE/FCS semantics or provide
+transport scheduling/reassembly.
+
+`mt76_rx_beacon` copies infrastructure beacon/probe-response observations only
+after validating the entire information-element stream. It preserves binary
+SSID bytes/length (including hidden/zero SSIDs),BSSID/transmitter,timestamp,
+sequence,interval,capabilities and raw RSSI. Duplicate mandatory SSID/rates/DS
+and duplicate RSN/WPA advertisements refuse; malformed lengths refuse without
+publishing partial data. RSN/WPA booleans describe advertised element presence,
+not validated security suites or connectability. Caller supplies a tuned US
+channel1..11; an explicit DS channel must match it. Missing DS retains that
+caller context; the packet never authorizes a channel or radio transmission.
+
+Framing was audited against pinned Linux v7.0
+[USB entry bounds](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/usb.c),
+[RXWI fields](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.h),
+[RX padding/MPDU trim](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
+and [main/MCU queue separation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_txrx.c).
+It is separate from MCU-response decoding and currently has no native caller.
+Synthetic tests are not physical receive/scanning acceptance. Last installed
+v88 gain-state payload/recovery remain unchanged; no reboot is armed.
+
+Calibration audit: pinned USB `mt76x0u_start` starts MAC before power-on
+calibration; FULL/LC temporarily overwrite TX_ALC_CFG0 and IBI9 and restore
+both,then RXDCOC follows. Power-on adds R/VCO and conditional TSSI calibration,
+which itself uses additional MAC/baseband/RF transitions. Future native work
+must own receive DMA,stop/restoration and fresh board/power/TSSI context; do
+not issue isolated FULL under the current disabled-MAC guard or reinterpret
+prior IBI9=ffffffff as calibrated-radio acceptance. Next block is controlled
+MAC/RX lifecycle and calibration admission,not association or automatic TX.
