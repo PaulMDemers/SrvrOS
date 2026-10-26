@@ -327,6 +327,51 @@ int main(int argc, char **argv) {
         watch(ep,p[0],EPOLLIN,1); retiring_fd=eventfd(1,EFD_NONBLOCK);
         watch(ep,retiring_fd,EPOLLIN,2); during_poll=drain_eventfd;
         CHECK(epoll_wait(ep,got,2,0)==0 && last_timeout==0);
+    } else if (!strcmp(mode,"counter-boundaries")) {
+        int fd=eventfd(UINT_MAX,EFD_NONBLOCK), ep=epoll_create1(0);
+        CHECK(fd>=0 && ep>=0); watch(ep,fd,EPOLLIN|EPOLLOUT,123);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==(EPOLLIN|EPOLLOUT));
+        add=UINT64_MAX-2-UINT_MAX; CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==(EPOLLIN|EPOLLOUT));
+        add=2; CHECK(__posix_eventfd_write(fd,&add,8)==-1 && errno==EAGAIN);
+        add=1; CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLIN);
+        add=0; CHECK(__posix_eventfd_write(fd,&add,8)==8); /* legal even when full */
+        add=1; CHECK(__posix_eventfd_write(fd,&add,8)==-1 && errno==EAGAIN);
+        add=UINT64_MAX; CHECK(__posix_eventfd_write(fd,&add,8)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_write(fd,NULL,8)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_write(fd,&add,7)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_read(fd,NULL,8)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_read(fd,&value,7)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==UINT64_MAX-1);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLOUT);
+        CHECK(__posix_eventfd_write(fd,&add,8)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_read(fd,&value,8)==-1 && errno==EAGAIN);
+        /* Eight bytes, including unaligned buffers; trailing bytes untouched. */
+        unsigned char bytes[17]; memset(bytes,0xa5,sizeof(bytes)); add=17;
+        memcpy(bytes+1,&add,8); CHECK(__posix_eventfd_write(fd,bytes+1,16)==8);
+        memset(bytes,0xa5,sizeof(bytes)); CHECK(__posix_eventfd_read(fd,bytes+1,16)==8);
+        memcpy(&value,bytes+1,8); CHECK(value==17 && bytes[0]==0xa5);
+        for (int i=9;i<17;i++) CHECK(bytes[i]==0xa5);
+        CHECK(close(fd)==0 && close(ep)==0);
+    } else if (!strcmp(mode,"counter-ready-after-drain")) {
+        retiring_fd=eventfd(0,EFD_NONBLOCK); int ep=epoll_create1(0);
+        add=UINT64_MAX-1; CHECK(__posix_eventfd_write(retiring_fd,&add,8)==8);
+        watch(ep,retiring_fd,EPOLLOUT,123); during_poll=drain_eventfd;
+        CHECK(epoll_wait(ep,got,2,50)==1 && got[0].events==EPOLLOUT && got[0].data.u64==123);
+        CHECK(poll_calls==1 && last_timeout==10 && during_poll==NULL);
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==-1 && errno==EAGAIN);
+    } else if (!strcmp(mode,"semaphore-read")) {
+        int fd=eventfd(2,EFD_NONBLOCK|EFD_SEMAPHORE); CHECK(fd>=0);
+        ssize_t n=__posix_eventfd_read(fd,&value,8);
+        printf("semaphore read: result=%ld value=%llu\n",(long)n,(unsigned long long)value);
+        CHECK(n==8 && value==1);
+        CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==1);
+        CHECK(__posix_eventfd_read(fd,&value,8)==-1 && errno==EAGAIN);
+    } else if (!strcmp(mode,"invalid-flags")) {
+        int fd=eventfd(0,0x40000000);
+        printf("eventfd unknown flag: fd=%d errno=%d\n",fd,errno);
+        CHECK(fd==-1 && errno==EINVAL && __posix_node_fork_ready());
     } else if (!strcmp(mode,"counter-writable")) {
         int fd=eventfd(0,EFD_NONBLOCK), ep=epoll_create1(0);
         add=UINT64_MAX-1; CHECK(__posix_eventfd_write(fd,&add,8)==8);

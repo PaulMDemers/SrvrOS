@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 LIFETIME = ('close-capacity', 'instance-reuse', 'watched-reuse', 'aliases', 'replacement', 'wait-retirement', 'failure-retirement')
 WAITS = ('zero-timeout', 'ready-wait', 'eventfd-wakeup', 'wait-deadlines',
          'wait-infinite', 'wait-control', 'wait-interruption', 'wait-drain')
-AUDITS = ('counter-overflow', 'reserved-value', 'counter-writable')
+COUNTERS = ('counter-overflow', 'reserved-value', 'counter-writable',
+            'counter-boundaries', 'counter-ready-after-drain')
+AUDITS = ('semaphore-read', 'invalid-flags')
 
 
 def main():
@@ -61,7 +63,7 @@ def main():
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
         '-include', str(renamed), str(extracted), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    modes = ('controls',) + LIFETIME + WAITS + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
+    modes = ('controls',) + LIFETIME + WAITS + COUNTERS + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
     results = []
     for mode in modes:
         result = subprocess.run([str(executable), mode], capture_output=True, text=True, timeout=10)

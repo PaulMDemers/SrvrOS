@@ -278,3 +278,10 @@ Empty infinite waits now remain waiting. The continued audit confirms full
 counter writable readiness is also wrong; three counter probes remain explicit
 failures. The event-adapter report records interval/clock/scheduling limitations
 and the separate fairness, signal-mask and notification-queue boundaries.
+
+
+The eventfd counter follow-up now rejects reserved/over-capacity writes without
+mutation and ties EPOLLOUT to available capacity, with host boundary tests and
+concurrent public-API guest coverage. Continued audit confirms `EFD_SEMAPHORE`
+reads drain the whole count and unknown creation flags succeed; two explicit
+failing probes track those next. Blocking eventfd I/O remains unimplemented.

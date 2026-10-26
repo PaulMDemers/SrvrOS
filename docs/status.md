@@ -197,7 +197,9 @@ libc-managed epoll ownership across close, native duplication and descriptor
 reuse, with positive host/guest tests and stale-result validation. Waits now
 preserve immediate results, recheck synthetic state through bounded poll intervals,
 retain a monotonic deadline and handle interruption/empty infinite waits. The
-adapters remain experimental: unchecked eventfd writes and incorrect writable
-readiness at full capacity remain unfixed, with three explicit failing probes.
-Counter bounds/readiness are the next correction; kernel event notification,
-fairness, signal-mask waits and full Linux compatibility remain unaccepted.
+adapters remain experimental. Nonblocking eventfd writes now enforce capacity
+and reserved values without changing state on failure; writable readiness agrees
+with that capacity. Continued audit confirms semaphore reads drain the entire
+counter and unknown creation flags are silently accepted. Those two explicit
+failures are next; blocking eventfd I/O, kernel event notification, fairness,
+signal-mask waits and full Linux compatibility remain unaccepted.

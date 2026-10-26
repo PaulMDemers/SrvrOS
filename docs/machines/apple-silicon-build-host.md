@@ -730,3 +730,28 @@ writable case. Local manifests, source/log hashes and receipts are retained unde
 `build/review/epoll-wait/`. All disposable VMs stopped. No kernel/syscall ABI,
 physical acceptance or Actions setting changed. PR179 remains draft; next bounded
 correction is eventfd counter bounds and matching writable readiness.
+
+## Eventfd counter correction — active scope (2026-10-26)
+
+User authorized proceeding with counter bounds and writable readiness. Base is
+`1f83d29f`; fetched main remains `8bd43adc`, PR179 is draft at this branch head,
+and PR19 retains separate Wi-Fi ownership. Scope: checked eventfd addition,
+reserved-value rejection and matching EPOLLOUT capacity, host boundary/error
+regressions, concurrent public-API guest coverage and current docs/PR updates.
+Keep the existing lifecycle mutex and wait behavior. Blocking I/O, semaphore
+mode and flag semantics remain separate audit areas; no new kernel ABI or native
+acceptance is planned. Next checkpoint is preservation/readiness boundary tests,
+then matched build and sequential thread/libuv VMs. Actions remain disabled.
+
+
+Final counter validation: matched `all` build, twenty-one positive host modes
+and ASan/UBSan, targeted eventfd-counter VM, complete thread suite and full libuv
+consumer VM pass. Four compiled negative controls break reserved-value rejection,
+capacity enforcement, writable readiness or failed-write preservation; all fail
+their intended assertions. Five smoke-reader tests pass. Documentation checks
+655 local links with zero errors; whitespace checks pass. Baseline three-counter
+failures and two newly confirmed semaphore/flag failures are preserved separately.
+Local source/build/log hashes and receipts are under `build/review/eventfd-counter/`.
+All disposable guests stopped; no physical trial, ABI or Actions setting changed.
+PR179 remains draft. Next bounded scope is eventfd semaphore mode and creation
+flag validation; blocking I/O and broader Linux adapter semantics remain separate.

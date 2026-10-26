@@ -11,10 +11,11 @@ adapters deferred by the [initial audit](code-docs-audit-2026-10-25.md).
 The initial checkpoint at `526b6353` added executable reproductions without
 runtime changes: seven directed probes failed. The subsequent correction below
 fixes the descriptor-lifetime group. The next correction fixes immediate waits,
-eventfd readiness rechecks, deadline accounting and empty/infinite waits. Counter
-writes and writable readiness remain **unfixed**, with three explicit failing
-probes after continued audit. The supported profile limits these experimental APIs; the new evidence makes their failure modes
-concrete. It does not establish Node support or general Linux API conformance.
+eventfd readiness rechecks, deadline accounting and empty/infinite waits. Nonblocking
+counter bounds and writable readiness are now corrected too. Continued audit
+confirms **unfixed** semaphore-read and unknown-creation-flag behavior with two
+explicit failing probes. The supported profile limits these experimental APIs;
+the new evidence makes their failure modes concrete. It does not establish Node support or general Linux API conformance.
 
 ## P2: epoll state outlives descriptor ownership — corrected
 
@@ -66,7 +67,7 @@ its initial scan is followed by sleep/native poll without a counter recheck.
 That path, signal-mask handling, deadline arithmetic and wake notification need
 additional directed tests; the two probes here do not cover them.
 
-## P2: eventfd accepts reserved and overflowing counter writes
+## P2: eventfd accepts reserved and overflowing counter writes — corrected
 
 `__posix_eventfd_write` adds without checking the reserved value or available
 counter capacity. `counter-overflow` starts at one and writes `UINT64_MAX-1`;
@@ -89,10 +90,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit remaining counter failures: three probes currently exit 1.
+# Explicit remaining flag/semaphore failures: two probes currently exit 1.
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select one, for example --audit counter-writable.
+# Or select one, for example --audit semaphore-read.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -115,7 +116,7 @@ DEL and descriptor close. These narrow MOD results do not accept concurrent mask
 replacement, edge/one-shot semantics or arbitrary descriptor lifetimes. ASan/UBSan
 controls pass without diagnostics. At the initial checkpoint each directed finding exited 1 at its intended
 contract assertion, with the observed result printed first. The current default
-target includes positive controls and the corrected lifetime/wait cases; remaining
+target includes positive controls and the corrected lifetime/wait/counter cases; remaining
 known failures are neither hidden as passes nor added to the acceptance target.
 
 No kernel/libc runtime changed in the initial `526b6353` host-model audit. Native storage, full Mac test-core, Node recovery, general SMP,
@@ -269,7 +270,7 @@ empty waiting instance and targeted signal interruption of `INT_MAX` waits with
 `SA_RESTART`. The full thread harness requires its completion marker. See final
 validation below for actual results.
 
-## Continued audit: full counters incorrectly remain writable
+## Historical continued audit: full counters incorrectly remain writable — corrected
 
 `counter-writable` creates a nonblocking eventfd, writes the legal maximum
 `UINT64_MAX-1`, registers only `EPOLLOUT`, and observes one ready event. Its
@@ -292,3 +293,62 @@ writable case. Local manifests, source/log hashes and receipts are retained unde
 `build/review/epoll-wait/`. All disposable VMs stopped. No kernel/syscall ABI,
 physical acceptance or Actions setting changed. PR179 remains draft; next bounded
 correction is eventfd counter bounds and matching writable readiness.
+
+
+## Counter capacity and writable-readiness correction
+
+The `1f83d29f` wait checkpoint above retains its original three failed counter
+receipts. Nonblocking writes now reject `UINT64_MAX` with `EINVAL` before checking
+capacity. A subtraction-based check rejects additions greater than the remaining
+`UINT64_MAX-1` capacity with `EAGAIN`, before any counter mutation. Exact fills
+succeed; zero writes succeed even at full capacity. The existing lifecycle mutex
+serializes the check/add with reads and readiness, so concurrent writers cannot
+spend the same remaining capacity. EPOLLOUT is reported only below the maximum;
+read/drain restores it. No kernel or public ABI changes are required.
+
+This accepts bounded nonblocking counter behavior, not general eventfd semantics.
+Descriptors without `EFD_NONBLOCK` still return `EAGAIN`/`EWOULDBLOCK` for empty
+reads or capacity-blocked writes instead of parking. Eventfd flags/semaphore mode,
+duplication, raw mutations, cross-process state and native poll/select integration
+remain outside acceptance. The epoll adapter retains its 10 ms polling interval
+plus rounding/scheduling delay; counter fixes do not add kernel notifications.
+
+The default host gate now includes all three former counter failures plus two
+boundary/readiness modes: near/full/empty transitions, exact fills, zero writes,
+reserved values at empty/full, rejection preserving state, short/null buffers,
+unaligned eight-byte transfers and oversized buffers with trailing bytes intact.
+A poll callback drains a full counter and verifies a waiting EPOLLOUT becomes
+ready. There are twenty-one positive modes including the prior lifetime/wait
+coverage. Host services remain modeled; no host concurrency claim is inferred.
+
+`threadstress eventfd-counter` exercises public read/write/epoll APIs, boundary
+transitions and eight rounds of four guest writers making 128 writes into 31
+remaining increments: exactly 31 succeed and 97 return `EAGAIN`, then a read
+returns the legal maximum. It also waits for a worker to drain a full counter
+and restore EPOLLOUT. The full thread suite requires its completion marker.
+
+## Continued audit: semaphore reads and unknown creation flags
+
+`semaphore-read` creates `eventfd(2, EFD_NONBLOCK | EFD_SEMAPHORE)`. The first read
+returns two and drains the counter; the assertion expects one and fails. The
+creation path silently discards the semaphore bit. The
+[eventfd contract](https://man7.org/linux/man-pages/man2/eventfd.2.html) requires
+semaphore reads to return one and decrement by one while retaining remaining
+readiness. `invalid-flags` passes unknown bit `0x40000000`; creation succeeds
+instead of returning `EINVAL`, and the directed assertion fails. Both are now
+explicit known-failure modes outside the positive gate. Next bounded correction
+is retaining semaphore mode and rejecting unsupported creation bits without
+allocating state. Blocking I/O remains a separate implementation decision.
+
+
+Final counter validation: matched `all` build, twenty-one positive host modes
+and ASan/UBSan, targeted eventfd-counter VM, complete thread suite and full libuv
+consumer VM pass. Four compiled negative controls break reserved-value rejection,
+capacity enforcement, writable readiness or failed-write preservation; all fail
+their intended assertions. Five smoke-reader tests pass. Documentation checks
+655 local links with zero errors; whitespace checks pass. Baseline three-counter
+failures and two newly confirmed semaphore/flag failures are preserved separately.
+Local source/build/log hashes and receipts are under `build/review/eventfd-counter/`.
+All disposable guests stopped; no physical trial, ABI or Actions setting changed.
+PR179 remains draft. Next bounded scope is eventfd semaphore mode and creation
+flag validation; blocking I/O and broader Linux adapter semantics remain separate.

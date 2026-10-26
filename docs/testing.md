@@ -984,13 +984,17 @@ reproduction limits; the historical spontaneous incidents are not yet attributed
 
 
 `make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
-this Mac) runs sixteen ordinary-operation, lifetime and wait regression modes,
+this Mac) runs twenty-one ordinary-operation, lifetime, wait and counter modes,
 including alias duplication, replacement, reuse, immediate/mixed waits, posts,
 finite/infinite deadlines, interruption and deterministic control changes during
 poll. `threadstress epoll-lifetime` and `threadstress epoll-wait` supply public-API
-guest coverage and are included in `threadstress all`. Explicit
-`python3 tools/test_event_adapters.py --audit all` also runs three remaining counter
-contract probes (overflow, reserved writes and full-counter writable readiness)
-and currently exits 1. Those modes are excluded from `test-core`;
+guest coverage and are included in `threadstress all`.
+`threadstress eventfd-counter` adds capacity/readiness checks and eight rounds
+of four writers competing for the last 31 counter increments; it also runs in
+`all`. Host counter modes cover zero/full/reserved values, preservation after
+errors, buffer sizes/alignment and writable readiness restored during a wait.
+`python3 tools/test_event_adapters.py --audit all` also runs two remaining
+contract probes (semaphore reads and unknown creation flags) and currently exits 1.
+Those modes are excluded from `test-core`;
 see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
 boundaries, observed failures and sanitizer commands.

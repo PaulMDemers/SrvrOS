@@ -16,7 +16,8 @@ This reference choice is a development target, not certification.
 
 The [October 26 event-adapter follow-up](event-adapter-audit-2026-10-26.md)
 corrects libc-managed epoll lifetime and immediate/deadline wait behavior, with
-bounded polling for synthetic notifications. Counter bounds/writable readiness,
+bounded polling for synthetic notifications, plus nonblocking eventfd counter
+bounds and writable readiness. Blocking eventfd I/O, semaphore mode, flag validation,
 signal masks, fairness and general Linux semantics remain unaccepted.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,

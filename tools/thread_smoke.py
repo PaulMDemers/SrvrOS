@@ -138,6 +138,7 @@ def main():
         expected.extend([
             "threadstress: epoll-lifetime ok",
             "threadstress: epoll-wait ok",
+            "threadstress: eventfd-counter ok",
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",

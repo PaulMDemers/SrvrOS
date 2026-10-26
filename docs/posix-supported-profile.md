@@ -197,8 +197,12 @@ one monotonic deadline. Empty/infinite waits continue until readiness, interrupt
 or instance retirement. Synthetic state is checked through native poll intervals
 of at most 10 ms, plus kernel clock rounding and scheduling delays; this is not a
 kernel notification queue or a hard latency guarantee. Idle waits incur periodic
-wakeups. Eventfd counter bounds, full-counter writable readiness and blocking
-read/write semantics remain unfixed. Ready-set fairness, edge/one-shot delivery,
+wakeups. Nonblocking eventfd writes now reject the reserved `UINT64_MAX` value
+with `EINVAL` and additions exceeding `UINT64_MAX-1` with `EAGAIN`, preserving
+the counter. EPOLLOUT requires room for at least one and returns after draining.
+Zero writes remain valid at full capacity. Blocking read/write remains unsupported
+(the adapter returns `EAGAIN` instead of waiting); semaphore mode and unknown-flag
+validation are confirmed unfixed. Ready-set fairness, edge/one-shot delivery,
 signal-mask waits and general concurrent socket semantics are also unaccepted.
 Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
 does not establish Node support.

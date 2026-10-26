@@ -45,6 +45,7 @@ struct dl_phdr_info {
 
 #define POSIX_EVENTFD_BASE 3000
 #define POSIX_EVENTFD_MAX 16
+#define POSIX_EVENTFD_COUNTER_MAX (UINT64_MAX - 1)
 #define POSIX_EPOLL_MAX 8
 #define POSIX_EPOLL_ENTRIES 64
 
@@ -252,6 +253,12 @@ static ssize_t __posix_eventfd_write_locked(int fd, const void *buffer, size_t l
     }
     uint64_t value = 0;
     memcpy(&value, buffer, sizeof(value));
+    if (value == UINT64_MAX) { errno = EINVAL; return -1; }
+    /* Test capacity before addition, under the same lock as drain/readiness.
+     * Blocking I/O is not implemented by this compatibility adapter yet. */
+    if (value > POSIX_EVENTFD_COUNTER_MAX - slot->counter) {
+        errno = EAGAIN; return -1;
+    }
     slot->counter += value;
     return (ssize_t)sizeof(value);
 }
@@ -384,7 +391,7 @@ static int eventfd_poll_events(int fd, short requested) {
     if ((requested & POLLIN) != 0 && slot->counter != 0) {
         revents |= POLLIN;
     }
-    if ((requested & POLLOUT) != 0) {
+    if ((requested & POLLOUT) != 0 && slot->counter < POSIX_EVENTFD_COUNTER_MAX) {
         revents |= POLLOUT;
     }
     return revents;
