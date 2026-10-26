@@ -60,6 +60,12 @@ def main():
                             output+=chunk;(out/"serial.log").write_bytes(output)
                         except socket.timeout: pass
                     consumed=output.index(marker,consumed)+len(marker)
+                def wait_all(markers,timeout=40):
+                    nonlocal consumed
+                    start=consumed;end=start
+                    for marker in markers:
+                        consumed=start;wait(marker,timeout);end=max(end,consumed)
+                    consumed=end
                 def shortcut(keys):
                     qmp.call("human-monitor-command",{"command-line":f"sendkey {keys}"});time.sleep(.3)
                 def type_text(text):
@@ -96,7 +102,10 @@ def main():
                         type_text(contents)
                         shortcut("ctrl-l");shortcut("ctrl-a");type_text(f"/fat/document-{index}.txt")
                         shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret")
-                        wait(b"file-result role=text op=2 status=0")
+                        # The save result and owned-picker retirement may arrive
+                        # in either order. Both must finish before the next
+                        # document shortcut targets the restored parent.
+                        wait_all([b"file-result role=text op=2 status=0",b"deskd: retired pid="])
                         expected_files[f"document-{index}.txt"]=contents.encode()
                     save_document(1)
                     for index in range(2,document_count+1):
