@@ -2,7 +2,35 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Unsaved desktop exit and sustained playback retest — active scope
+### Desktop modal and unsaved-exit retest accepted
+
+Release `1d1d5edce03523db`, clean source `9bca084` (PR169 integration
+`f658f6b`), returned in session `session-00065eb2f55d330d-00`. The user reports
+that this round worked well, resolving the previously reported modal button and
+unsaved Return to console failures for this payload. The matching session has
+all four logs, a normal desktop exit and no collector attention. App lifetime
+drains to zero members; battery/runtime retirement has zero heap, errors, denied
+accesses and rejected samples. Both saved test documents are retained. All 1,110
+prior non-metadata files keep their hashes; only `.srvros/meta` changed. Offline
+fsck/headroom/allocation passes: 1,117 files, 2,811 clusters, no leaks, bitmap
+mismatches or errors.
+
+Native file playback was exercised with zero recorded underruns and its owner
+released. Its final PCM state is canceled, so do not claim full two-minute native
+completion from this run; complete 120-second playback/save overlap remains the
+exact-stage VM result. The human report is qualitative, not an input-latency or
+audio-endurance bound. No new screenshots were saved in this round.
+
+PR165's modal capture correction and PR169's cooperative shutdown/workload guide
+are merged. This bounded milestone is closed. Evidence and hash inventories are
+in `build/unsaved-exit-native-20261025/` with durable verified copies outside
+build. Installed current is the tested `1d1d5edce03523db`; independent recovery
+`9aa8dbf6fbda8252` is retained. Ubuntu remains default, the one-shot was consumed,
+and no new reboot is armed. Main `acc50f9` adds PR170's separate timing diagnostics;
+that newer source does not inherit this image's physical acceptance. PR19 retains
+Wi-Fi scope. Start any next feature from a freshly inspected baseline.
+
+### Unsaved desktop exit and sustained playback — implementation and trial preparation
 
 Base main `b537c2a` includes PR167's completed-I/O handoff. Air7,2 now owns a
 bounded follow-up in the desktop shutdown/modal admission path, its host/VM
