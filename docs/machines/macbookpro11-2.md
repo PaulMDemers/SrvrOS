@@ -19,10 +19,10 @@ Scanning,association,security,Wi-Fi IP traffic and UI remain unimplemented or
 unaccepted; no reliable completion percentage or delivery date yet.
 
 
-Active next block (2026-10-26): consume actual main `0858e8e6` (PR181/185
+Current development block (2026-10-26; local validation complete): consume actual main `0858e8e6` (PR181/185
 application window/progress fixes; both Makefile test families preserved).
 PR184 owns worker admission and PR182 filesystem imports; neither overlaps
-this MT76 scope. Build a bounded,allocation-free receive decoder for MT76x02
+this MT76 scope. Built a bounded,allocation-free receive decoder for MT76x02
 USB/RXWI and passive beacon/probe-response observations,with malformed packet
 and sanitizer coverage. Touched subsystems: new MT76 receive header/source,
 host tests/Makefile and Wi-Fi guide. No native endpoint scheduling,MAC enable,
@@ -8012,3 +8012,31 @@ installed/recovery hashes verified. Offline workspace clean321files/774clusters/
 Evidence retained outside build. This accepts bounded register capture and
 software state only; calibrated RF,PLL lock,packet RX/TX and connectivity remain
 untested. Next audit MAC/power/IBI9 prerequisites before full calibration.
+
+
+### 2026-10-26 — passive receive decoder groundwork validated
+
+Main `0858e8e6` (PR181/185) merged as `bda9d178`; both Makefile test families
+preserved. Source `c716dd63` adds allocation-free MT76x02 USB/RXWI management
+views and copied passive infrastructure beacon/probe-response observations.
+Binary/hidden SSIDs,optional L2 padding,strict length bounds,atomic output
+publication,mandatory/duplicate IE checks and caller-supplied US channel1..11
+context are covered. Security booleans report advertisements only; no suite,
+credential or association acceptance. Raw RSSI is not calibrated signal level.
+
+Host tests and ASan/UBSan pass,including every transfer truncation,unaligned
+buffers,corrupt/unsupported frame forms and100000 hostile transfers. Pinned
+Linux DMA/RXWI/padding/trim audit passes; calibration temporary-register/
+delay/restoration ordering is separately recorded. Full `all test-core` passes.
+Matched normal-image VM regression passes syscall ABI,all482 CLI commands,
+shell editing,UEFI USB input and displayd. Documentation checks pass. These
+validate local code/workflow,not native receive or desktop parity on this merge.
+
+Native startup,MCU/radio engines,callbacks and boot recipes are byte-unchanged
+from installed v88. No native receive caller,radio enable,calibration or
+transmission was added. Known-good Ubuntu/recovery and installed v88 remain;
+no new physical trial or reboot is armed. Required evidence is archived outside
+build. Next: controlled MAC/RX endpoint lifecycle,explicit stop/restoration and
+uncertain-DMA retention,then calibrated-radio admission using fresh board/
+power/TSSI context. Prior IBI9 and RF0:6 observations remain unresolved for
+full radio acceptance. Scanning,association/security,IP and UI remain pending.

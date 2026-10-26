@@ -3864,3 +3864,31 @@ must own receive DMA,stop/restoration and fresh board/power/TSSI context; do
 not issue isolated FULL under the current disabled-MAC guard or reinterpret
 prior IBI9=ffffffff as calibrated-radio acceptance. Next block is controlled
 MAC/RX lifecycle and calibration admission,not association or automatic TX.
+
+
+### 2026-10-26 — passive receive decoder groundwork validated
+
+Main `0858e8e6` (PR181/185) merged as `bda9d178`; both Makefile test families
+preserved. Source `c716dd63` adds allocation-free MT76x02 USB/RXWI management
+views and copied passive infrastructure beacon/probe-response observations.
+Binary/hidden SSIDs,optional L2 padding,strict length bounds,atomic output
+publication,mandatory/duplicate IE checks and caller-supplied US channel1..11
+context are covered. Security booleans report advertisements only; no suite,
+credential or association acceptance. Raw RSSI is not calibrated signal level.
+
+Host tests and ASan/UBSan pass,including every transfer truncation,unaligned
+buffers,corrupt/unsupported frame forms and100000 hostile transfers. Pinned
+Linux DMA/RXWI/padding/trim audit passes; calibration temporary-register/
+delay/restoration ordering is separately recorded. Full `all test-core` passes.
+Matched normal-image VM regression passes syscall ABI,all482 CLI commands,
+shell editing,UEFI USB input and displayd. Documentation checks pass. These
+validate local code/workflow,not native receive or desktop parity on this merge.
+
+Native startup,MCU/radio engines,callbacks and boot recipes are byte-unchanged
+from installed v88. No native receive caller,radio enable,calibration or
+transmission was added. Known-good Ubuntu/recovery and installed v88 remain;
+no new physical trial or reboot is armed. Required evidence is archived outside
+build. Next: controlled MAC/RX endpoint lifecycle,explicit stop/restoration and
+uncertain-DMA retention,then calibrated-radio admission using fresh board/
+power/TSSI context. Prior IBI9 and RF0:6 observations remain unresolved for
+full radio acceptance. Scanning,association/security,IP and UI remain pending.
