@@ -13,7 +13,10 @@ all six delayed reads30(hex) passed; bit7 clear at the first delayed sample.
 Whole earlier proof, recovery and filesystem checks passed. No repeat boot
 needed; no reboot armed. Detailed result is in the dated journal.
 Next audit AGC gain and full calibration/MAC/power prerequisites;
-PLL lock, calibrated radio and connectivity remain untested.
+PLL lock, calibrated radio and connectivity remain untested. Main `dfd63fef` is merged;
+regression release `5c9c8372adaf59d6` is installed, local/VM checks passed,
+native merged-baseline result pending. Reboot unarmed.
+
 
 The user considers the core Pro bring-up generally working. Named payloads below
 have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
@@ -7844,3 +7847,33 @@ v87 sequence on the merged baseline; next implement bounded fresh two-register
 capture/software gain state with strict failure handling. No new radio writes,
 MAC enable, full calibration or inferred power/regulatory acceptance in this
 integration regression. Desktop-runtime parity needs separate native evidence.
+
+
+### 2026-10-26 — merged-main v87 regression installed
+
+Integration baseline `dfd63fef8d569f49dc75bbaf744e4dadd25bba86` is merged,
+preserving published history. Host integration fixes are `b546c66f`; exact
+staged source `ae8fe63c6152b69f39869895cc5a6fe3375d8a88`, release
+`5c9c8372adaf59d6`, existing v87 recipe unchanged. Full build/core, all482 CLI
+commands, syscall ABI, shell editing, UEFI USB input, display startup,172 staging
+and31 collection tests pass.174 Wi-Fi and97 main profile recipes are unchanged.
+Focused contract receipts and source hashes retained, including wake-before-free
+and event/time/synchronization coverage.668 local documentation links pass.
+
+The exact GPT-stage VM saved and byte-verified diagnostics, cleanly unmounted
+and reset; missing-workspace VM refused and returned. Whole v87 collector proof
+passed for the staged release, with missing-marker/mode refusal and preserved
+namespace. No new radio operations: this repeats the accepted v87 sequence on
+the updated scheduler/process/filesystem/runtime baseline. AGC/full calibration
+remains next after native regression, as audited above. These local/VM passes
+do not accept native Wi-Fi or desktop-runtime behavior on the new baseline.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery hashes match durable
+backups. Accepted pre-merge v87 `78e47b6219211cc9` remains on the ESP as well.
+ESP v86 `8af0efef4d2a53c2` removed only after full archive byte equality.
+Ubuntu default retained; offline workspace clean317files/760clusters/
+132directories,zero leaks,mismatches or errors; unmounted and reboot unarmed.
+Candidate/run/checkpoint and test evidence archived outside build. Await cold
+Wi-Fi-cycle readiness. Collect matching merged-baseline session FIRST on return
+with main-refresh/collect_return.py. Results save and return automatically;
+no photos or commands. Native regression and radio/connectivity remain pending.
