@@ -4429,3 +4429,39 @@ the fixture corrected. Initial proof-generation errors were caught by the full
 valid fixture before staging; original failed receipts remain archived.
 Local/core/sanitizer/exact-stage VM and physical results are recorded separately.
 Guest progress and disk evidence remain automatic; no photos or commands needed.
+
+
+### 2026-10-26 — v92 power-on command trial installed, unarmed
+
+Source `b22a83eeb849e7c4a3aa1d58ee08e3610fe4eef4`, release
+`7406fc019cb09f47`, recipe `ram-usb-wifi-fw-v92-laptop-probe-0e535900-auto-return`.
+Full image/core suite passed on merged main43aff7d5; final expanded native
+fault fixtures and pure/native ASan/UBSan passed.177 staging tests,329 malformed
+whole-proof refusals and182 historical recipe-byte comparisons pass.17 native
+printf argument counts were audited. The final rebuilt kernel and independently
+firmware-packaged initramfs match the staged hashes. Exact GPT-stage VM saved
+and byte-verified logs, unmounted cleanly and returned automatically; missing
+workspace refused before probing and returned. Q35 lacks the captured adapter:
+these are workflow checks, not native calibration or reception acceptance.
+
+An initial stage `837f872d148a6ec3` preceded the explicit incremental rebuild
+after the final comment edit. It was superseded before any installation or
+one-shot; its separate pre-rebuild archive/VM receipt remains historical.
+Only rebuilt release7406fc019cb09f47 was installed. Ubuntu default and EFI order
+are preserved; e47 remains previous recovery and accepted v91 remains on ESP.
+Accepted v90 was removed from ESP only after exact durable payload equality
+was verified to free candidate space; its acceptance evidence remains archived.
+Preboot workspace:329files/802clusters/138directories, zero leaks, bitmap
+mismatches or errors; unmounted. No one-shot is armed.
+
+After readiness, power off, unplug only Wi-Fi10s while off, reconnect and power
+on; leave the workspace drive connected. Guest shows progress and saves results
+before returning automatically; no photos or commands needed. On return collect
+the matching v92 session FIRST with `poweron-native/collect_return.py`. Require
+whole prior/v91 proof,30 ordered power-on operations and all five strict replies,
+reverse saved-word restoration, parent MAC/device drain and retained RX stop,
+full1MiB prefix and both completion markers. Unexpected replies, quarantine,
+halts or missing markers are failures/incomplete, never passes. Evidence and
+payload are retained outside build in `wifi-poweron-native-b22a83e`.
+Command completion does not accept RF performance, packet reception, scanning,
+association/security, Wi-Fi IP traffic or UI. No payload inspection or rearm.
