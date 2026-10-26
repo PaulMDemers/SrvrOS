@@ -3501,3 +3501,26 @@ positions/216 ownership/state/profile faults and quarantine. Full synthetic
 prefix501863bytes fits512KiB;450 malformed proofs and an unknown raw-output
 family refuse, while four alternative valid LNA observations pass.164 staging
 tests and168 historical recipes unchanged. Native observations pending.
+
+
+### v85 native RX gain and baseband prerequisite result
+
+Release `2571de4ea5d87728` (source `e3ea53b3`) completed v85 in
+`session-00065eb4b8532f3d-00`. Fresh mapped block40 yielded LNA raw/effective0,
+RSSI offsets+1/+1 with no clamps, and derived AGC8=16344ef0(hex), matching
+the observed AGC8. One read-select,12 reads,1 poll,13 submissions and strict
+identity/MAC/CORE/DMA guards passed; raw block bytes were scrubbed and not logged.
+CORE1=2 and all20 channel-BBP values were captured with27 reads,zero data writes;
+the20 values equal the pinned G20 table with captured LNA0. These are observations,
+not calibration or permission to infer other board profiles.
+
+The whole earlier proof, complete501580-byte startup prefix and both completion
+markers passed strict collection. Ubuntu default, consumed one-shot and current/
+recovery payload hashes verified. Offline workspace clean313files/746clusters/
+130directories, zero leaks,mismatches or errors; unmounted and unarmed. Durable
+archive outside build preserves the results. No filter/BBP/RF/MAC data writes in
+this step; calibrated RF, frequency lock and Wi-Fi connectivity remain untested.
+Next: bounded channel1 filter/BBP setup using fresh captured gain with independent
+readbacks, then post-tune VCO/calibration prerequisites. Budget the whole next
+prefix:501580 of524288 bytes used; explicitly increase diagnostic capacity if
+needed while preserving historical limits and missing-prefix refusal.
