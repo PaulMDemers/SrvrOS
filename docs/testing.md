@@ -28,9 +28,17 @@ The default host suite now covers name round trips, length/error boundaries,
 pre-parent publication, initial-thread access and cleanup/reuse. The former
 `--audit-thread-names` failure is historical at `b095d9b4`. Guest `--test
 thread-names` is included in `all` and covers 24 joinable/detached lifetimes and
-concurrent complete-string reads/writes. A separate `--test main-exit-audit`
-currently fails (harness exit 3): initial-thread `pthread_exit` terminates the
-process before its live worker can complete. It is excluded from `all`.
+concurrent complete-string reads/writes. The former `--test main-exit-audit`
+failure is historical at `2ba7edce`. Positive `--test main-exit`, included in
+`all`, covers 30 subprocess lifetimes: empty/nonzero initial exits, joinable and
+detached survivors, a new descendant, completed unreaped workers, explicit
+`exit`/`_exit`, fatal and blocked signals. Pipe receipts check TLS destructors,
+worker completion, shared memory/files, `atexit` ordering and process status.
+The host `initial-exit` case models the kernel handoff and requires an `atexit`
+marker, so a silent `_exit(0)` cannot pass. Kernel lifetime is tested in the VM.
+A separate `--test main-join-audit` checks joining the initial thread; it is
+excluded from `all` and currently fails with harness exit 3 (`join=22`, process
+status 1). Initial-thread join/detach remains unsupported.
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

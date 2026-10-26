@@ -364,7 +364,9 @@ int pthread_detach(pthread_t thread) {
 void pthread_exit(void *value_ptr) {
     pthread_run_destructors();
     srv_thread_exit((uint64_t)(uintptr_t)value_ptr);
-    _exit(0);
+    /* The initial kernel continuation returns only after the last worker has
+     * retired. POSIX last-thread termination runs process exit handlers. */
+    exit(0);
 }
 
 pthread_t pthread_self(void) {

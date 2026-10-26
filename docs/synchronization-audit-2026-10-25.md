@@ -9,8 +9,10 @@ The fourth finding, worker self-stack inspection, is also corrected with
 pre-callback metadata and positive host/guest tests. The fifth finding, early
 self-detach, is now corrected with creator reservations and serialized lifecycle
 claims. The sixth finding, thread-name round trips, is corrected with bounded
-record storage and range/lifetime checks. Initial-thread `pthread_exit` killing
-live workers is the next guest-confirmed lifecycle defect; see below.
+record storage and range/lifetime checks. The seventh finding, initial-thread
+`pthread_exit` killing live workers, is corrected with retained kernel teardown
+ownership and a last-thread libc cleanup handoff; see below. Initial-thread join
+and detach remain unsupported.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -19,7 +21,9 @@ implementation. The original audit-only runner was replaced by positive
 **Matched rebuild required:** `pthread_cond_t` now includes its clock (8 bytes,
 previously 4). Static initializers retain realtime. Rebuild embedded users such
 as the libuv adapter and all apps; no binary compatibility with old objects is
-claimed.
+claimed. The initial-thread exit correction also changes `SYS_THREAD_EXIT`:
+only the initial caller can return, after all workers retire, solely to run
+libc `exit(0)`. Keep kernel and libc matched for this cleanup handoff.
 
 ## Original scope and evidence
 
@@ -423,9 +427,9 @@ complete old/new names. The targeted guest test passes. Logs, negative controls,
 source hashes and matched build manifest are retained in
 `build/review/thread-names/`; no physical hardware trial is claimed.
 
-## Continued audit — P2: initial-thread exit kills live workers
+## Historical finding — P2: initial-thread exit kills live workers
 
-`pthread_exit` calls `srv_thread_exit`. In `process_thread_exit`, an initial
+At `2ba7edce`, `pthread_exit` calls `srv_thread_exit`. In `process_thread_exit`, an initial
 thread has no `process_user_thread` record, so the kernel calls `process_exit`.
 That path kills the process's user workers and releases the process. This loses
 outstanding work when an application exits its initial thread expecting its
@@ -448,8 +452,8 @@ the positive `all` suite and retained as a failed guest receipt.
 
 A correction needs initial-thread lifetime, process resource ownership and
 last-thread retirement in the kernel; a libc-only successful return would not
-preserve the workers. The current profile excludes initial-thread exit with
-continuing workers. Worker-side exits retain their passing regression coverage.
+preserve the workers. The profile at that checkpoint excluded initial-thread
+exit with continuing workers. Worker-side exits retain their passing regression coverage.
 Once-initializer abnormal-exit recovery remains a separate unconfirmed audit
 area; this observation does not establish that behavior.
 
@@ -459,3 +463,90 @@ suite pass. The name negative controls and separate main-exit audit fail as
 intended. Documentation validates 641 local links with zero errors, and whitespace
 checks pass. The failed audit does not count as a passing conformance test.
 No Linux/core or physical hardware run is claimed.
+
+
+## Initial-thread exit correction
+
+The kernel now marks the initial user thread retired and parks its kernel
+continuation on the process thread wait queue until no worker is active. This
+retains the original launch/teardown context, address space, initial TLS, shared
+files and mappings. Dead, unreaped joinable slots do not keep a process alive.
+Workers can create descendants after initial-thread exit. Worker retirement
+wakes the continuation; explicit process exit and fatal signals wake/terminate
+it with the existing process status. The initial thread's pointer return value
+never becomes an integer process exit status.
+
+After ordinary last-worker retirement, `SYS_THREAD_EXIT` returns zero only to
+the initial libc caller, which immediately runs `exit(0)`. This executes process
+`atexit` handlers before the existing kernel teardown. Worker syscall exits
+remain nonreturning, and `pthread_exit` never returns to application code.
+The initial user thread's TLS destructors have already run before its syscall;
+worker destructors run before worker retirement. Targeted signals to the dead
+initial thread do not deliver or kill survivors; process signal eligibility
+considers live workers. A successful exec resets initial-thread retirement.
+
+This kernel/libc handoff requires matched images, despite adding no pthread
+structure layout change. The last-thread process-cleanup behavior follows the
+[thread-exit contract](https://pubs.opengroup.org/onlinepubs/009696899/functions/pthread_exit.html)
+(the accessible Issue 6 page; Issue 8 remains the project's target). Raw
+`SYS_THREAD_EXIT` callers must honor the documented cleanup handoff themselves.
+
+### Regression evidence
+
+On the ARM64 macOS build host with x86_64 QEMU TCG:
+
+- Matched `sh tools/macos/build.sh -j2 all` succeeds.
+- The positive host suite and ASan/UBSan pass. The new `initial-exit` case runs
+  real libc TLS destructor/exit code against a modeled kernel return and
+  requires an `atexit` receipt; a zero exit status alone cannot pass.
+- Guest `--test main-exit` passes 30 subprocess lifetimes (ten cases, three
+  repetitions). It covers empty initial exits with null/nonzero values,
+  joinable and detached workers, worker return and explicit pthread exit,
+  post-initial-exit descendants, completed unreaped workers, `exit(23)`,
+  `_exit(37)`, fatal SIGTERM and blocked SIGTERM. A pipe back to the parent
+  verifies main/worker TLS destruction, survivor progress, process cleanup
+  ordering, descriptor lifetime and child status. Callbacks also check shared
+  heap data and independent TLS while the initial user thread is dead.
+- Restoring premature kernel process teardown with live workers fails case 2:
+  status 256, main destructor 1, worker/destructor/atexit receipts all 0;
+  harness exit 3. The corrected image was restored and rebuilt afterward.
+- An isolated host negative control restoring `_exit(0)` fails with exit 1
+  because the required `atexit` receipt is absent.
+
+The former `main-exit-audit` remains historical at `2ba7edce`; positive
+`main-exit` replaces it in `all`. Raw logs, source hashes, sanitizer results and
+build manifests remain in ignored `build/review/initial-exit/`. Host modeling
+is not kernel scheduling evidence, and VM results are not native acceptance.
+
+## Continued audit — P2: initial-thread join is rejected
+
+With survival fixed, a worker trying to join the initial thread still gets
+`EINVAL` (22), and cannot collect its `pthread_exit` value. The initial tid 1
+has no libc `pthread_record`, so `pthread_join` rejects it before reaching the
+kernel; the kernel join lookup also rejects tids below 2. Initial-thread detach
+has the same source-level lookup restriction. This is a separate pre-existing
+join/detach gap; the current profile now states it explicitly.
+
+```sh
+python3 tools/thread_smoke.py --test main-join-audit --boot-wait 60 --run-wait 30
+# Harness exit 3; guest reports join=22 value=0x0, expected=0/0x9876.
+```
+
+The initial thread creates a worker and exits with `0x9876`; the worker attempts
+to join it, reports the unexpected error and exits the process with status 1.
+This explicit audit is excluded from `all`. The
+[POSIX thread lifecycle contract](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html)
+requires a successful join to make the terminated thread's exit value available;
+no initial-thread join/detach support is claimed by this correction. The next
+bounded work is initial-thread joinability, return-value retention and exclusive
+join/detach ownership while preserving the new teardown continuation. Abnormal
+once-initializer exit remains unconfirmed; this pass does not promote it to a
+finding.
+
+
+Final validation for this correction: the restored matched image passes the
+complete thread suite (including `main-exit`) and complete libuv suite. Host
+regressions and ASan/UBSan pass; docs check 641 local links with zero errors and
+whitespace checks pass. The two negative controls and separate initial-join audit
+are failed evidence by design, not conformance passes. Disposable VMs stopped;
+no full Linux/core or physical hardware acceptance is claimed.

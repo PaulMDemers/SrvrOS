@@ -51,10 +51,13 @@ def main():
     command += [str(path) for path in sources] + [str(shim_object), '-pthread', '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
     results = []
-    modes = (None, 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names')
+    modes = (None, 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names', 'initial-exit')
     for mode in modes:
         result = subprocess.run([str(executable)] + ([mode] if mode else []),
                                 capture_output=True, text=True, timeout=15)
+        # _exit(0) would report success while silently skipping atexit.
+        if mode == 'initial-exit' and 'initial exit destructors and process cleanup PASS' not in result.stdout:
+            result.returncode = result.returncode or 1
         print(result.stdout, end='')
         if result.stderr:
             print(result.stderr, end='')

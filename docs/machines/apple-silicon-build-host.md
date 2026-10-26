@@ -215,3 +215,37 @@ lifetime and last-thread retirement ownership. Once-initializer abnormal exit
 remains unconfirmed. Current guides also consume Air7,2's new shared-runtime
 acceptance without extending its scope to native playback or all UI edge cases.
 No VM or physical boot is left running/armed.
+
+## Initial-thread exit correction — active scope
+
+The user authorized the initial-thread exit fix, regressions, docs/PR updates
+and continued audit. Base is `2ba7edce`; fetched main remains `fa5a6cc1`.
+PR19's current Wi-Fi branch is `58f68fe4`, with no overlapping pthread scope.
+This block owns kernel initial-thread retirement, the libc last-thread cleanup
+handoff, focused host/guest tests and current documentation. Retain the initial
+kernel continuation and process resources while workers live; preserve explicit
+process exit/fatal signals and run normal libc cleanup after the last thread.
+Next checkpoint is matched-image subprocess regression coverage and sequential
+full thread/libuv suites. No native boot is armed.
+
+
+The initial-thread exit correction is complete. The retained kernel continuation
+waits for active workers, then returns only to libc's `exit(0)` cleanup path.
+Initial-thread pointer values do not become process status; explicit process
+exit and fatal signals retain their behavior. Dead initial-thread signal targets
+cannot terminate survivors. This syscall handoff requires matched kernel/libc.
+
+Matched build, host synchronization regressions, ASan/UBSan, targeted 30-lifetime
+initial-exit guest coverage, final full thread suite and final full libuv suite
+pass. Kernel premature-teardown and libc cleanup-skipping negative controls
+fail with exit 3 and 1 respectively. The corrected kernel was restored and
+rebuilt before final suites. Documentation checks 641 local links with zero
+errors; whitespace checks pass. Logs, source hashes and manifests are retained
+in `build/review/initial-exit/`. No full Linux/core or native acceptance is claimed.
+
+Continued guest audit confirms that joining the initial thread returns `EINVAL`
+(22), with no return value, then the audit exits status 1 (harness exit 3).
+`main-join-audit` is excluded from `all`; initial-thread join/detach remains
+explicitly unsupported. The next bounded work is initial-thread joinability and
+return-value/cleanup ownership. Once-initializer abnormal exit remains
+unconfirmed. All disposable VMs have stopped; no native boot is armed.

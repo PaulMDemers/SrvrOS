@@ -169,6 +169,7 @@ def main():
             "threadstress: stack-inspection ok",
             "threadstress: self-detach ok",
             "threadstress: thread-names ok",
+            "threadstress: main-exit ok",
             "threadstress: targeted-signal ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",

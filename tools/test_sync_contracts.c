@@ -16,6 +16,7 @@ static uint64_t submitted_stack, largest_ticks;
 static int inspect_early, expected_detach, lifecycle, model_detach = 1;
 static long model_tid = 1;
 static int model_exited, model_joined, joins, status_error, join_error, reenter;
+static int initial_exit, initial_destroyed, initial_handoff;
 int sync_host_is_worker(void);
 int sync_host_run_worker(uint64_t entry, uint64_t arg);
 _Noreturn void sync_host_exit_worker(void);
@@ -67,6 +68,11 @@ long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t fl
     return -EAGAIN; /* Exercise creation failure and cleanup, without a worker. */
 }
 long srv_thread_exit(uint64_t value) {
+    if (initial_exit) {
+        CHECK(value == 0x1234 && initial_destroyed == 1);
+        initial_handoff = 1;
+        return 0; /* Kernel's last-thread cleanup handoff, modeled only. */
+    }
     if (lifecycle) { CHECK(value == 0); model_exited = 1; sync_host_exit_worker(); }
     CHECK(inspect_early && value == 0);
     puts("sync-contracts: child self-inspection before parent publication PASS");
@@ -324,7 +330,23 @@ static void name_tests(void) {
     CHECK(errno == EDOM);
     puts("sync-contracts: thread names, exact limits, unchanged errors and errno PASS");
 }
+static void initial_destructor(void *value) {
+    CHECK(value == (void *)1 && !initial_handoff);
+    initial_destroyed++;
+}
+static void initial_cleanup(void) {
+    CHECK(initial_destroyed == 1 && initial_handoff == 1);
+    puts("sync-contracts: initial exit destructors and process cleanup PASS");
+}
 int main(int argc, char **argv) {
+    if (argc > 1 && !strcmp(argv[1], "initial-exit")) {
+        pthread_key_t key;
+        initial_exit = 1;
+        CHECK(pthread_key_create(&key, initial_destructor) == 0);
+        CHECK(pthread_setspecific(key, (void *)1) == 0);
+        CHECK(atexit(initial_cleanup) == 0);
+        pthread_exit((void *)(uintptr_t)0x1234);
+    }
     if (argc > 1 && !strcmp(argv[1], "thread-names")) { name_tests(); return 0; }
     if (argc == 1) {
         stack_tests(); condition_tests(); semaphore_tests();

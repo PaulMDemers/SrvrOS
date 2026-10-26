@@ -206,6 +206,7 @@ struct process {
     uint64_t pending_signals;
     uint64_t main_signal_mask;
     uint64_t main_pending_signals;
+    bool main_thread_exited;
     uint64_t user_us,system_us,main_user_us,main_system_us;
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     struct srv_rlimit fsize_limit;
@@ -587,7 +588,7 @@ static void process_discard_signals(struct process *process,uint64_t bits) {
         process->user_threads[i].pending_signals &= ~bits;
 }
 static bool process_all_threads_block_signal(struct process *process,uint64_t bit) {
-    if (!(process->main_signal_mask & bit)) return false;
+    if (!process->main_thread_exited && !(process->main_signal_mask & bit)) return false;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) {
         struct process_user_thread *thread=&process->user_threads[i];
         if(thread->used && thread->active && !(thread->signal_mask & bit)) return false;
@@ -2044,6 +2045,7 @@ int64_t process_exec_replace(const char *path,
     fpu_init_state(&process->fpu);
     process->signal_catch_mask = 0;
     process->fork_resume=false;
+    process->main_thread_exited = false;
     /* Ignored dispositions, pending signals, masks and alarms survive exec. */
     if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
         process_apply_signal_defaults(process, signal_default);
@@ -3115,10 +3117,36 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
     return (int64_t)tid;
 }
 
+static bool process_last_user_thread_done(void *arg) {
+    struct process *process = arg;
+    if (process->killed || process->exiting) return true;
+    for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
+        if (process->user_threads[i].used && process->user_threads[i].active)
+            return false;
+    }
+    return true;
+}
+
 void process_thread_exit(uint64_t value) {
     struct process_user_thread *thread = process_current_user_thread();
     if (thread == NULL || thread->owner == NULL) {
-        process_exit((uint64_t)(value != 0));
+        struct process *process = process_current();
+        if (process == NULL || !process->active) process_exit(0);
+        /* Keep the launch/teardown continuation and shared image alive. Only
+         * the user thread retires here; exited joinable slots do not keep the
+         * process alive. The initial return value is not a process status. */
+        process->main_thread_exited = true;
+        process->main_pending_signals = 0;
+        process->main_signal_mask = UINT64_MAX;
+        __asm__ volatile ("sti" : : : "memory");
+        while (!process_last_user_thread_done(process)) {
+            if (!scheduler_wait(&process->thread_wait_queue,
+                    process_last_user_thread_done, process)) scheduler_yield();
+        }
+        if (process_should_exit_current()) process_exit(process_current_kill_status());
+        /* Only this path returns: libc must immediately call exit(0), running
+         * atexit handlers before SYS_EXIT releases files, mappings and TLS. */
+        return;
     }
 
     __asm__ volatile ("cli" : : : "memory");
@@ -3182,6 +3210,8 @@ int64_t process_thread_detach(uint64_t tid) {
 
 int64_t process_thread_status(uint64_t tid) {
     struct process *process = process_current();
+    if (tid == 1 && process != NULL && process->active)
+        return process->main_thread_exited ? 0 : 1;
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL) {
         return -1;
@@ -3200,7 +3230,7 @@ int64_t process_thread_signal(uint64_t tid,uint64_t signal) {
     result=0;
     /* A joinable exited thread still has a valid ID (POSIX.1-2024), but
      * cannot receive delivery. Never apply its signal to another thread. */
-    if(!signal || (thread && !thread->active)) goto done;
+    if(!signal || (thread && !thread->active) || (tid==1 && process->main_thread_exited)) goto done;
     uint64_t bit=1ull<<signal;
     if(process->signal_ignore_mask & bit) goto done;
     uint64_t mask=thread?thread->signal_mask:process->main_signal_mask;

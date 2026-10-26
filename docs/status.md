@@ -113,8 +113,10 @@ Focused host and guest regressions cover those contracts; matched consumers must
 be rebuilt for the changed condition-variable layout. Record publication and
 exclusive cleanup ownership now cover early detach and concurrent reapers.
 Detached cleanup remains lazy; bounded libc thread names now retain independent
-values with range and lifecycle checks. Initial-thread `pthread_exit` still kills
-live workers, and broader semaphore semantics remain incomplete.
+values with range and lifecycle checks. Initial-thread `pthread_exit` now lets
+workers finish before normal process cleanup, with matched kernel/libc builds.
+Joining/detaching the initial thread and broader semaphore semantics remain
+outside the supported profile.
 
 ## Measured checkpoints and current acceptance
 

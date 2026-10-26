@@ -142,3 +142,15 @@ reported scope. Continued guest audit confirms that initial-thread `pthread_exit
 terminates live workers. The explicit failing mode is excluded from `all` and
 that contract is now excluded from the supported profile pending a kernel/process
 lifetime correction. See the synchronization report for exact receipts.
+
+
+The initial-thread exit correction now retains process resources and the kernel
+teardown continuation while workers run, then performs libc `exit(0)` after the
+last worker. Positive host and guest regressions replace the former failing
+exit audit, including TLS destructors, `atexit`, descendants, descriptors and
+explicit process termination. Kernel and libc must be rebuilt together for the
+changed `SYS_THREAD_EXIT` handoff. Continued audit isolates another pre-existing
+gap: joining the initial thread returns `EINVAL` and loses its pthread return
+value. The separate `main-join-audit` guest mode fails as expected and remains
+excluded from `all`; initial-thread join/detach is explicitly outside the current
+profile. See the synchronization report for reproduction and evidence.

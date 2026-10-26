@@ -82,10 +82,23 @@ returned directly without changing `errno`. Protected copies prevent torn reads
 under concurrent renaming. These calls do not rename kernel scheduler tasks or
 add names to desktop/process diagnostics; raw syscall workers are unsupported.
 
-Continued guest audit confirms that `pthread_exit` from the initial thread
-terminates the process and its live workers. Initial-thread exit while workers
-continue is outside the current supported profile; join workers before exiting
-the initial thread. Worker-side `pthread_exit` remains covered by lifecycle tests.
+Initial-thread `pthread_exit` now retires that user thread while joinable and
+detached workers continue, including workers created by survivors. The kernel
+retains the initial teardown continuation and shared process resources until no
+workers remain active; completed, unreaped records do not prolong the process.
+Libc then runs `exit(0)`, including `atexit` handlers, regardless of thread return
+values. Explicit `exit`, `_exit` and fatal process signals still terminate the
+whole process with their original status. TLS destructors run on thread exit;
+shared files and mappings remain usable by surviving workers. Targeted signals
+to the retired initial thread are not delivered, and it does not participate in
+process-signal eligibility. Joining/detaching the initial thread is still outside
+the supported profile; the libc record table and kernel join path cover workers.
+
+This changes the `SYS_THREAD_EXIT` contract: workers never return; the initial
+thread waits for worker retirement and returns zero solely to libc's immediate
+`exit(0)` cleanup path. Use a matched kernel and libc rebuild. There is no new
+public pthread layout change, and `pthread_exit` never returns to application
+code. Raw syscall callers must perform the process-cleanup handoff themselves.
 
 Condition variables retain `CLOCK_REALTIME` (including static/default init) or
 `CLOCK_MONOTONIC`. Timed waits recheck their absolute deadline after early tick
