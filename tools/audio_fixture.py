@@ -4,7 +4,8 @@ import struct
 import wave
 
 
-def channel_test_wav():
+def channel_test_wav(repeats=1):
+    if not isinstance(repeats,int) or not 1<=repeats<=20:raise ValueError("Expected 1 to 20 channel-check cycles")
     samples=bytearray(6*48000*4)
     for frame in range(6*48000):
         part=frame//96000;local=frame%96000
@@ -18,7 +19,7 @@ def channel_test_wav():
         struct.pack_into('<hh',samples,frame*4,left,right)
     out=io.BytesIO()
     with wave.open(out,'wb') as wav:
-        wav.setparams((2,2,48000,0,'NONE',''));wav.writeframes(samples)
+        wav.setparams((2,2,48000,0,'NONE',''));wav.writeframes(samples*repeats)
     return out.getvalue()
 
 

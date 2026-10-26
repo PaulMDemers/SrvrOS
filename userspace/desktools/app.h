@@ -7,6 +7,7 @@
 #include <srvros/desk_searchbar.h>
 #include <srvros/desk_popup.h>
 #include <srvros/desk_file_picker.h>
+#include <srvros/desk_chooser.h>
 #include <srvros/desk_clipboard.h>
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
@@ -22,7 +23,7 @@ enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PE
 #define TOOL_HISTORY 24
 struct tool_location { char path[DESK_FILE_PATH];uint64_t selected;int scroll; };
 struct tool {
-    int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty;
+    int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty,new_window;
     struct desk_app window;
     struct desk_ui ui;
     struct desk_dialog dialog;
@@ -39,7 +40,8 @@ struct tool {
     struct desk_file_entry file_selected;
     char file_source[DESK_FILE_PATH],file_select_name[96],file_notice[80];
     struct desk_file_picker picker;
-    int picker_mode,picker_job;
+    struct desk_chooser chooser;
+    int picker_mode,dialog_separate,quit_application,close_canceled;
     struct desk_button buttons[32];
     struct desk_check checks[13];
     struct desk_slider pointer_speed,brightness,audio_volume;
@@ -107,6 +109,7 @@ struct tool {
     uint32_t saved_crc,overwrite_crc;
     uint64_t refresh_tick;
 };
+void tool_new_window(struct tool *tool);
 void tool_calculator_init(struct tool *tool);
 void tool_calculator_layout(struct tool *tool);
 void tool_calculator_draw(struct tool *tool,struct desk_canvas *canvas);
@@ -140,6 +143,8 @@ void tool_text_save(struct tool *tool,int choose_path);
 void tool_text_save_path(struct tool *tool,const char *path);
 void tool_context_open(struct tool *tool,int x,int y,int keyboard);
 void tool_context_result(struct tool *tool,struct desk_menu_result result);
+int tool_command_action(struct tool *tool,unsigned id);
+int tool_command_key(struct tool *tool,const struct srv_key_event *key);
 void tool_menu_refresh(struct tool *tool);
 void tool_menu_action(struct tool *tool,unsigned id);
 void tool_dispatch(struct tool *tool,struct desk_action action);

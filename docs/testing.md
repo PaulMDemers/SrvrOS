@@ -1,5 +1,120 @@
 # Testing srvros
 
+For ARM64 macOS image builds and interactive QEMU, use the
+[macOS guide](macos-development.md). The full suite below is not qualified on
+macOS: host fixtures can require x86/ELF tooling, and VM fixtures can depend on
+Linux filesystem or GRUB utilities.
+
+`make test-sync-contracts` (or `python3 tools/test_sync_contracts.py`) runs focused
+libc regressions with modeled OS services; it is now included in `test-core`.
+The existing `tools/thread_smoke.py --test sync-contracts` runs real supplied-stack
+workers, both condition clocks and competing semaphore posts in a disposable
+x86_64 VM. The host fixture uses modeled OS services; its lifecycle case uses a
+small native pthread shim, compiled with host headers, to force child completion
+before the modeled create returns. A native pthread-capable C toolchain is needed.
+The complete thread and libuv guest suites also passed on this ARM64 Mac with
+PR175; that does not qualify the rest of the Linux-oriented suite.
+`--test stack-inspection` now covers immediate worker inspection, supplied/owned
+bounds, parent agreement, initial-process inspection and detach-state updates;
+it is included in `all`. Host cases force the child callback to execute before
+parent record publication. The former `stack-inspection-audit` guest failure is
+historical at `bc0d6418`; the original three-defect probe is at `a90ac149`.
+`--test self-detach`, also included in `all`, exercises 96 worker lifetimes with
+three concurrent creators and alternating supplied/owned stacks. The default
+host suite covers early self-detach, parent resume, single-owner reaping, failure
+retry and 40 lifetimes. The old `--audit-self-detach` failure is historical at
+`d9b1e710`; its replacement is a passing default regression.
+The default host suite now covers name round trips, length/error boundaries,
+pre-parent publication, initial-thread access and cleanup/reuse. The former
+`--audit-thread-names` failure is historical at `b095d9b4`. Guest `--test
+thread-names` is included in `all` and covers 24 joinable/detached lifetimes and
+concurrent complete-string reads/writes. The former `--test main-exit-audit`
+failure is historical at `2ba7edce`. Positive `--test main-exit`, included in
+`all`, covers 30 subprocess lifetimes: empty/nonzero initial exits, joinable and
+detached survivors, a new descendant, completed unreaped workers, explicit
+`exit`/`_exit`, fatal and blocked signals. Pipe receipts check TLS destructors,
+worker completion, shared memory/files, `atexit` ordering and process status.
+The host `initial-exit` case models the kernel handoff and requires an `atexit`
+marker, so a silent `_exit(0)` cannot pass. Kernel lifetime is tested in the VM.
+The former `--test main-join-audit` failure is historical at `b75fc79a`.
+Positive `--test main-join`, included in `all`, covers 24 subprocess lifetimes:
+waiting/late joins, null output, self/early/late detach, interrupted joins with
+reentrant signal handlers, and competing join/detach claims. Pipe receipts check
+TLS destruction, completion, last-thread cleanup and process status. Host modes
+also inject a failed join then an interrupted retry, verify unchanged output on
+error, and catch accidental freeing/unmapping of initial-thread static storage.
+The former `--audit-negative-deadline` failure is historical at `cc955159`.
+Positive host cases now cover expired negative seconds (including `INT64_MIN`),
+invalid nanoseconds, negative future values, nanosecond borrowing and signed
+range crossings. A modeled clock hook acquires/releases the real mutex during
+clock evaluation, then verifies ownership on return; this detects a timeout
+shortcut that skips the required mutex transition. Guest `--test
+absolute-deadlines`, included in `all`, covers 15 expired and six invalid cases
+across static-default, explicit realtime and monotonic conditions, with mutex
+ownership and errno checks. The existing future-deadline/wake/signal cases remain.
+The former `--test clock-resolution-audit` failure is historical at `86498be3`.
+Positive `--test clock-resolution`, included in `all`, now tests optional output
+for all four clocks, nonzero normalized resolutions, errno preservation and
+invalid-clock errors with unchanged output. `make test-time-contracts` (also in
+`test-core`, or `sh tools/macos/build.sh test-time-contracts` on ARM64 macOS)
+compiles the real `posix_time.c` with prefixed symbols and modeled OS services.
+It injects realtime/CPU source errors, tests reference/tick fallback resolution
+and checks invalid clocks with and without output. ASan/UBSan can be enabled
+through `CC`; receipts are written under `build/review/time-regression/`.
+
+The former `--audit-times-fallback` failure is historical at `cb8985e6`.
+Default timing tests now cover reference and tick fallback elapsed progress,
+zero/sub-tick/boundary/large values, 100 Hz CPU accounting, optional output,
+errno preservation and errors from each usage query with unchanged output.
+Guest `--test times`, included in `all`, brackets elapsed returns with monotonic
+samples, checks progress over sleep, CPU totals and the null-buffer extension.
+It logs the active source. Default Q35 VM checks exercise the reference path;
+missing-reference fallback coverage uses modeled host services.
+Sleep host controls now cover interruption before/after waiting, separate/aliased/
+null buffers, nanosecond borrowing and zero clamp, failed/backwards reference
+readings, invalid/oversized intervals, sub-tick rounding, and absolute-output
+preservation. Guest `--test sleep-remainder`, included in `all`, now exercises
+18 cases: fast handlers, 600 ms busy handlers and handlers that themselves sleep
+for 600 ms, across three relative APIs and both buffer forms. It checks early
+signal entry, normalized remainder, errors and errno for each case.
+
+The former `--audit-sleep-handler`, `--audit-sleep-overflow` and guest
+`--test sleep-handler-audit` failures are historical at `bd300e28`. They are
+replaced by default positive cases: 24 host long-handler combinations, captured
+output protection, wrapper behavior and 24 extreme fallback cases around the
+old multiplication limit and large tick counters. Absolute-output checks also
+use long handlers. Tick fallback and extreme intervals remain host-modeled;
+the default VM exercises the reference source.
+
+`make test-futex-contracts` (or `python3 tools/test_futex_contracts.py`), included
+in `test-core`, runs deterministic kernel futex interleavings on a native host C
+compiler. The runner extracts the real declarations/functions and replaces only
+privileged STI with a modeled interrupt-enable boundary. It models scheduler
+and IRQ services, not a complete kernel. Cases cover interruption, enqueue
+rechecks, spurious wakes, queue binding through runnable gaps, shared wait
+ownership, wake counts/process isolation, teardown and table reuse. `CC` supports
+ASan/UBSan; source hashes and results go to `build/review/futex-regression/`.
+The libc synchronization target also checks mutex/rwlock/once signal absorption
+and subsequent state rechecks. Guest `--test futex`, included in `all`, uses wake
+receipts to establish parking, then exercises 16 interruptions, 16 release/wake
+rounds, four process-exit lifetimes and 96 timeout addresses beyond table capacity.
+`make test-thread-smoke-harness` runs five host reader regressions, also in
+`test-core`. Child process exits must not end the enclosing thread suite; only
+a final test result or top-level monitor run receipt ends it. This corrects
+premature VM teardown when subprocess tests lengthen the full suite.
+These checks do not establish general SMP or physical-hardware acceptance.
+
+The futex host target also extracts the real page-removal/protection helpers.
+It models page tables to check safe word access, invalidation/wakeup, immediate
+address reuse, readable/failed protection changes and timeout addition limits.
+Guest `--test futex-lifetime` (included in `all`) runs 20 mapping lifetimes using
+wake receipts: unmap, same-address replacement, PROT_NONE, restored access and
+read-only preservation. It also checks raw UINT64_MAX timeout refusal. Near
+counter rollover remains host-modeled; these are CPU0 IRQ serialization tests.
+
+See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
+ABI changes and evidence limits.
+
 On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-device-agent-setup.md)
 and update their [machine record](machines/README.md). A VM pass is not physical
 acceptance on any of the additional models. Ordinary desktop profiles exclude
@@ -43,7 +158,7 @@ Build with `tools/host-env.sh make -j2 all` before running VM scripts.
 | --- | --- | --- |
 | Arrangement and input/save across resizes | `tools/host-env.sh python3 tools/desktop_arrange_smoke.py --resolution 1440x900` | `desktop-arrange-1440x900` |
 | Minimum supported display | `tools/host-env.sh python3 tools/desktop_arrange_smoke.py --small` | `desktop-arrange-small` |
-| Eight simultaneous windows and capacity recovery | `tools/host-env.sh python3 tools/desktop_capacity_smoke.py` | `desktop-capacity` |
+| Sixteen-window forced quota refusal and capacity recovery | `tools/host-env.sh python3 tools/desktop_capacity_smoke.py` | `desktop-capacity` |
 | Repeated app/desktop cleanup and memory plateau | `tools/host-env.sh python3 tools/desktop_lifecycle_soak.py --rounds 6` | `desktop-lifecycle` |
 | Emergency exit and usable console/desktop recovery | `tools/host-env.sh python3 tools/desktop_recovery_smoke.py` | `desktop-recovery` |
 
@@ -55,8 +170,12 @@ within 64 KiB of live heap and 128 physical frames; `samples.json` preserves the
 actual counts, not just a PASS label. This checks repeated ownership/lifetime
 behavior, not physical input latency or power-loss durability.
 
-The capacity test checks rejection of a ninth app, reuse of a freed slot,
-keyboard editing and a screenshot save while all eight slots are occupied.
+The default capacity test selects `--registry-pressure-test`, forcing refusal
+after the sixteen inline records, then checks slot reuse, editing, saving and
+screenshots. This is a deliberate quota fixture, not the normal window ceiling.
+`--documents` exercises sixteen same-process documents under refusal;
+`--document-growth` exercises 32 real Text documents without that forced quota.
+See [window capacity](window-capacity.md) for 128-window and mixed-process gates.
 The recovery test uses unsaved disposable text, a live PTY and a pending
 read-only diagnostic; it does not kill an accepted filesystem mutation.
 App-specific `desktop_*_smoke.py` scripts cover deeper workflows and independently
@@ -838,3 +957,69 @@ process lifetime. Saved Text, Terminal and orphan receipts, logger files, drain
 ordering and offline allocation are checked. Runtime-fault success means expected
 containment with live ownership retained, not clean shutdown or filesystem
 acceptance. Results do not accept native continuous monitoring or battery accuracy.
+
+
+Synchronization closeout coverage includes `test-sync-contracts` modes
+`once-exit`, `recursive-limit` and `semaphore-race`. The once tests use a native
+host thread with modeled OS exit; the semaphore fixture compiles the real adapter
+and injects post/consume events at its compare-exchange boundary. Guest
+`thread_smoke.py --test once-exit` covers four worker and four initial-thread
+lifetimes; `--test sync-contracts` adds recursive boundary-state checks and live
+semaphore contention. Both groups are included in `all`.
+
+`test-futex-contracts` checks cross-process table pressure and retired-only reuse.
+`tools/test_io_scheduler.c` checks finite-cohort wake counts and explicitly
+characterizes the slot-order fairness limit. On this Mac that existing x86 host
+fixture runs under Rosetta, compiled with `cc -arch x86_64` and `-Wl,-dead_strip`
+instead of Linux's `--gc-sections`; it is not a native ARM64 scheduler test or
+qualification of the full Mac `test-core` target.
+
+
+AHCI offline investigation: the existing `test-storage` fixture now covers
+completion/readiness at deadline and service bounds, independent per-phase
+budgets and failure receipts. `storage_service_smoke.py` also validates the
+forced timeout's phase, reason and pending register state. See the
+[investigation and Mac commands](ahci-offline-investigation-2026-10-26.md) for
+reproduction limits; the historical spontaneous incidents are not yet attributed.
+
+
+`make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
+this Mac) runs forty-six ordinary-operation, lifetime, wait, counter and mode tests,
+including alias duplication, replacement, reuse, immediate/mixed waits, posts,
+finite/infinite deadlines, interruption and deterministic control changes during
+poll. `threadstress epoll-lifetime` and `threadstress epoll-wait` supply public-API
+guest coverage and are included in `threadstress all`.
+`threadstress eventfd-counter` adds capacity/readiness checks and eight rounds
+of four writers competing for the last 31 counter increments; it also runs in
+`all`. Host counter modes cover zero/full/reserved values, preservation after
+errors, buffer sizes/alignment and writable readiness restored during a wait.
+`threadstress eventfd-modes` checks all valid flag combinations, semaphore
+readiness and eight rounds of four readers consuming 31 tokens; it is included
+in `all`. Host modes also cover each unknown flag bit, full-capacity rejection,
+mode independence from fcntl, slot reuse and invalid-read preservation.
+`threadstress epoll-rotation` fills all 64 watch slots with native/eventfd
+registrations, checks rotation through aliases across 20 seven-event batches,
+and verifies real pipe HUP/ERR with empty interest masks; it also runs in `all`.
+Host rotation modes additionally force nested wait/control changes.
+`threadstress epoll-oneshot` covers public rearming/mask changes, HUP disabling
+and eight rounds of four waiters sharing a persistent native readiness source;
+exactly one event is delivered per rearm. It runs in `all`. Host tests additionally
+force nested wait/MOD races, clipped result buffers, disabled waits, distinct alias
+registrations and priority-bit conversion using a modeled source.
+`threadstress epoll-edge` verifies explicit EPOLLET refusal on native and
+synthetic descriptors, failed-MOD state preservation and successful later rearming;
+it runs in `all`. The matching host mode repeats rejected ADDs beyond watch
+capacity and checks DEL ignores event flags.
+`python3 tools/test_event_adapters.py --audit all` currently runs the same 46
+positive modes; the historical edge failure is retained in pre-fix evidence;
+see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
+boundaries, observed failures and sanitizer commands.
+
+`threadstress event-adapter-final` covers pending/arriving signals and temporary
+mask restoration, blocking reads/writes with restartable and nonrestartable
+signals, mixed poll readiness, close/reuse cancellation, native socketpair data/
+hangup, normal-data aliases, mode refusals and adapter export/inheritance guards.
+It is included in `all`. The host runner now compiles the real public poll source
+alongside the event adapters; native descriptors, clocks and syscalls are modeled.
+`test-posix-poll` retains separate native/select regression coverage. See the
+closeout evidence in the event audit for gate results and negative controls.

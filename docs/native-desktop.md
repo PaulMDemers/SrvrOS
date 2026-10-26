@@ -9,9 +9,10 @@ run /fat/bin/deskd
 ```
 
 For an explicitly enabled Home session with battery monitoring, use the full
-battery runtime and `desktop battery` after mounting Home. **Ctrl+Alt+Esc**
-returns to the monitor after app, battery and log cleanup; Home stays mounted
-for reopening. Default `deskd` startup does not start firmware work. See
+battery runtime and `desktop battery` after mounting Home. Use **SrvrOS →
+Return to console** for cooperative shutdown with Save/Discard/Cancel decisions.
+**Ctrl+Alt+Esc** is an emergency exit and can discard unsaved edits; it still
+runs the owned cleanup path. Home stays mounted for reopening. Default `deskd` startup does not start firmware work. See
 [ordinary Home startup](battery-home-lifecycle.md#opt-in-ordinary-home-startup)
 for the v54 boot profile and validation limits. Click the battery label to open
 System. Fresh discharging readings at 20% and 5% add low-charge notifications
@@ -25,7 +26,9 @@ Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The October 23 v55 trial accepted combined Home/battery, playback,
 brightness/volume, live sensors and save/exit/reopen. See the machine record for
 the exact payload and remaining listening/gesture checks. Physical two-finger pressing now selects secondary click at press;
-specific gesture cases still need confirmation. Secondary tapping is separate.
+named secondary-click/drag/scroll checks were accepted in the later follow-up.
+Tap settling is tester-accepted in PR88 with an incomplete final diagnostic
+receipt; neither establishes every gesture combination. Secondary tapping is separate.
 The October 19 interactive round reported generally good behavior and recorded
 no recurrence of the earlier System input-timeout closure. That earlier cause
 is not conclusively established. The Terminal backspace correction passed its subsequent hardware
@@ -53,8 +56,7 @@ run /fat/bin/deskd --scale=2
 
 At a 2880×1800 boot framebuffer this gives a 1440×900 logical desktop. Windows,
 controls, pointer movement, hit testing and damage use logical pixels; the final
-copy expands each pixel to a 2×2 block. Client surfaces and the eight-window
-cache allocation stay the same size. This is integer enlargement of the existing
+copy expands each pixel to a 2×2 block. Client surfaces and window-cache budgets use logical dimensions. This is integer enlargement of the existing
 raster toolkit, not new higher-resolution font rendering or GPU acceleration.
 The mode requires at least 640×480 logical pixels; other scales are rejected.
 `--scale=1` selects the existing behavior. It can accompany `--apps-trace` or a
@@ -70,6 +72,24 @@ The unattended `--idle-capture` mode is reserved for the v25/v26 hardware diagno
 profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
 saves a screenshot and exits. Normal launches and the interactive hardware trial
 retain their existing manual exit behavior. See the [device-agent guide](ubuntu-device-agent-setup.md).
+
+## Repainting and covered windows
+
+The compositor sorts the window stack once per immutable frame and reuses that
+order for each damage rectangle. It can skip a lower window when both its
+clipped frame and shadow are fully covered by higher opaque window pieces.
+The two pieces stay separate: their bounding union contains unpainted corners.
+Partially covered windows retain normal back-to-front painting. This optimization
+allocates no visibility regions and changes neither damage generation nor frame
+acknowledgements, cache ownership, output scaling or framebuffer copying.
+
+The internal unculled path remains a pixel oracle for deterministic/randomized
+host fixtures. Those compare identical scenes, clips and caches, including 128
+records, shadow holes, overlays and malformed small diagnostic frames. Host
+benchmarks report pixel writes and timing distributions for the same workload;
+they do not measure physical input latency, display scanout or power use.
+Opaque replacement pixels/shadows are part of the proof: translucent windows or
+decoration outside the frame require revisiting it before enabling occlusion.
 
 ## Desktop controls
 
@@ -94,28 +114,26 @@ Mac keyboard's Command key, or the Meta/Windows key in a VM.
 | Return to the monitor | SrvrOS → Return to console |
 
 The launcher lists open windows as well as app launch entries. Select an existing
-window to resume it; choose the app entry to open another instance. Eight client
-windows can be open at once. A full desktop asks you to close a window before
-opening another app. The [eight-window menu](assets/screenshots/native-desktop-window-menu.png)
-shows the desktop at its current client limit.
+window to resume it; choose the app entry to open another instance. Window and
+child registries grow under a metadata budget rather than a fixed window count.
+Memory, processes and worker resources can still refuse an opening request.
 
-This is a software capacity limit, not a MacBook hardware limit. The compositor
-reserves eight client slots and two maximum-size 1440×900 pixel caches per slot:
-about 79 MiB for those caches alone. The kernel separately bounds GUI queues to
-16 and surfaces to 32. Raising only the client constant would increase the
-up-front memory cost and eventually hit those other limits. The intended next
-step is demand-sized window buffers, coordinated queue/surface capacity and
-graceful allocation failure under memory pressure; this device milestone keeps
-the existing limit.
+The compositor now allocates buffers for live window sizes instead of reserving
+eight full-screen cache pairs at startup. Published and private buffers share a
+96 MiB pixel-cache budget. Failed growth retains the old frame; clients can
+refuse a resize and return to their last working size without discarding document
+state. Closing a window releases its caches. Oversized Window menus scroll with
+the wheel, and keyboard selection remains visible.
 
-A capacity follow-up should first allocate caches for live windows at their
-actual size, while retaining the old front buffer until a replacement frame is
-complete. Failed growth must leave the displayed frame and input ownership
-intact. Then coordinate client slots, GUI queues/surfaces and process resources
-under a memory budget. Validate opening beyond eight windows, repeated maximize/
-restore, close/reopen and allocation failure without leaks or lost input before
-raising the advertised limit. There will still be a resource ceiling, but it
-should be an intentional policy rather than eight preallocated full-screen pairs.
+Kernel GUI records are demand-allocated: 2 MiB queue storage, 256 KiB surface
+metadata and 256 MiB surface pixels, with the existing 64 process
+slots. Workers and terminal shells consume extra resources independently of
+window count; multiple Text documents can share one application process.
+See [window capacity and ownership](window-capacity.md) for the matched desktop protocol,
+allocation guarantees and exact validation. Sixteen-window persistence and
+resize/lifecycle VMs pass. Air7,2 physically accepts sixteen-window opening,
+saved-file integrity and clean exit at `bf68e4e9b88b8ae7`; native pressure
+injection/cache totals were not measured in that round.
 
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size
@@ -154,6 +172,12 @@ Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
 
 ## Documents and background work
+
+Text supports multiple documents in one application process. Choose File → New
+Window or press Ctrl-Shift-N; each window has its own undo history, clipboard
+selection, file path and unsaved-close dialog. Ctrl-N creates a fresh document
+in the current window after resolving edits. Closing one window preserves the
+others; the last close waits for owned file work and worker retirement.
 
 Files and Text use a persistent worker with bounded nonblocking communication.
 Save operates on a snapshot, verifies stored bytes, and leaves later edits dirty.
@@ -462,8 +486,9 @@ subject to review against the active Air branch.
 a configured, clean window with no sealed frame, pending resize, failed send or
 unfinished menu publication. The application must separately exclude jobs,
 clipboard transactions, timers and diagnostic work that require shorter service.
-Text uses a ten-tick (100 ms) maintenance bound only when quiescent; other app
-roles and the compositor retain their existing cadence.
+The legacy GUI-only helper keeps a ten-tick (100 ms) maintenance bound.
+Normal Text/Files now use the combined worker wait described below; other app
+roles and the compositor retain their own cadence.
 
 The additive `SYS_GUI_WAIT` (136) takes the expected compositor PID and a maximum
 of 100 ticks. It returns 1 for pending messages, 0 on timeout, -1 for invalid
@@ -480,10 +505,17 @@ unrelated readiness waiters. The syscall accesses only bounded GUI state and
 retains the existing audited storage-service scheduling rules. No pointers to
 userspace buffers or reusable GUI queue slots survive a wait.
 
-An ineligible/failed wait falls back to the prior one-tick client loop. Text's
-active save, clipboard, title/menu/frame publication and explicit diagnostic
-workloads keep that prior path. This changes no firmware, device polling or CPU
-policy. Native energy improvement requires a matched repeated comparison against
+An ineligible/failed wait falls back to the prior one-tick client loop. Clipboard,
+title/menu/frame publication and explicit diagnostic workloads keep that path.
+Normal Text/Files can wait on active file-worker pipes with `SYS_GUI_WAIT_IO`
+(152); `SYS_GUI_CANCEL_WAIT` (153) interrupts combined process-local waits without canceling
+accepted jobs. These helpers capture up to eight explicit nonblocking pipe/PTY
+interests, an absolute monotonic deadline and a cancellation epoch. Close/dup2
+invalidation, peer loss and signals are checked on each wake. During owned
+storage I/O the kernel defers ordinary pipe readiness but still returns GUI
+input; it does not enter the filesystem gate. See [desktop connections](desktop-connections.md)
+for ownership, ready flags and short-retry policy. This changes no firmware,
+device polling or CPU policy. Native energy improvement requires a matched repeated comparison against
 the worker-attributed baseline; reduced timer wakes alone are not an energy result.
 
 ### Quiescent compositor waits
@@ -520,3 +552,26 @@ their128/256KiB selection. The larger capture still refuses an already-lost
 prefix and checks byte-preserving save/collection. This opt-in diagnostic does
 not enable Wi-Fi traffic or ordinary desktop startup probing; see
 [USB Wi-Fi bring-up](usb-wifi.md).
+
+### Compositor lifecycle worker
+
+Application launch and compositor pixel-cache mapping/release run on one
+persistent session worker. The input/render thread copies bounded launch requests,
+reserves child slots and polls release/acquire completions; it never waits for
+these operations. Window creation messages that race launch publication are
+held until the child is registered. Unregistered senders are never admitted.
+The kernel's storage gate, process ownership and memory integrity checks remain
+unchanged; app startup can take time while the desktop continues to render.
+
+Pixel reservations count against the existing cache budget until the worker
+actually unmaps them, including a window closed before allocation completes.
+Only complete private buffers become display fronts. Pending buffers request a
+frame retry without a false low-memory notification; allocation failure during
+resize restores the last delivered geometry and preserves its published front.
+Shutdown stops and joins the worker before releasing its session records.
+The worker queues are bounded and reject excess admission visibly. Registry
+growth, screenshot initiation and exceptional forced process termination are
+separate synchronous paths; the automatic lifecycle receipt measures the tested
+normal launch/render/close path, not every possible desktop operation. Shared-address-space exclusion still
+applies if the worker itself owns filesystem I/O; the RAM executable test does
+not promise bounded launch latency for disk-backed executables.

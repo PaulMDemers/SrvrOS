@@ -1,7 +1,45 @@
 #include "app.h"
 #include <string.h>
 #include <srvros/desk_log.h>
-enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_EDIT=200 };
+#include <srvros/desk_commands.h>
+enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_QUIT,MENU_EDIT=200 };
+static unsigned text_commands(const struct tool *t,struct desk_command commands[7]) {
+    unsigned blocked=(t->modal || t->picker_mode || t->prompt_mode || t->info_mode)?DESK_MENU_DISABLED:0;
+    unsigned busy=blocked|(t->job.busy?DESK_MENU_DISABLED:0);
+    const struct desk_command values[]={
+        {TOOL_NEW,busy,0x11,SRV_KEY_CTRL,"New document","Ctrl-N"},
+        {TOOL_OPEN,busy,0x12,SRV_KEY_CTRL,"Open…","Ctrl-O"},
+        {TOOL_SAVE,busy,0x16,SRV_KEY_CTRL,"Save","Ctrl-S"},
+        {MENU_SAVE_AS,busy,0x16,SRV_KEY_CTRL|SRV_KEY_SHIFT,"Save as…","Ctrl-Shift-S"},
+        {MENU_NEW_WINDOW,blocked|(!t->window.connection?DESK_MENU_DISABLED:0),0x11,SRV_KEY_CTRL|SRV_KEY_SHIFT,"New window","Ctrl-Shift-N"},
+        {MENU_CLOSE,blocked,0x1a,SRV_KEY_CTRL,"Close window","Ctrl-W"},
+        {MENU_QUIT,0,0x14,SRV_KEY_CTRL,"Quit Text","Ctrl-Q"}};
+    memcpy(commands,values,sizeof(values));return 7;
+}
+static void text_command(void *context,unsigned id) {
+    struct tool *t=context;
+    if(id==MENU_QUIT) {
+        if(t->picker_mode)tool_picker_cancel(t);else if(t->modal)tool_text_dialog(t,1003);
+        t->quit_application=1;
+    } else if(id==MENU_CLOSE)tool_text_request(t,TOOL_PENDING_CLOSE);
+    else if(id==MENU_NEW_WINDOW)tool_new_window(t);
+    else if(id==MENU_SAVE_AS)tool_text_save(t,1);
+    else tool_text_action(t,(struct desk_action){id,DESK_WIDGET_ACTIVATED});
+}
+int tool_command_action(struct tool *t,unsigned id) {
+    if(t->role!=DESK_APP_TEXT)return 0;
+    struct desk_command commands[7];unsigned count=text_commands(t,commands);
+    for(unsigned i=0;i<count;i++)if(commands[i].id==id) {
+        desk_commands_invoke(commands,count,id,text_command,t);return 1;
+    }
+    return 0;
+}
+int tool_command_key(struct tool *t,const struct srv_key_event *key) {
+    if(t->role!=DESK_APP_TEXT)return 0;
+    struct desk_command commands[7];unsigned count=text_commands(t,commands);
+    unsigned id=desk_commands_key(commands,count,key);
+    return id?desk_commands_invoke(commands,count,id,text_command,t):0;
+}
 static struct desk_edit *edit_target(struct tool *t,unsigned *id) {
     if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
     if(t->search_open && t->search_focus) {
@@ -23,10 +61,8 @@ void tool_menu_refresh(struct tool *t) {
     unsigned blocked=(t->modal || t->picker_mode || t->prompt_mode || t->info_mode)?DESK_MENU_DISABLED:0,busy=blocked|(t->job.busy?DESK_MENU_DISABLED:0);
     append(items,&count,0,"File",NULL,DESK_MENU_HEADING);
     if(t->role==DESK_APP_TEXT) {
-        append(items,&count,TOOL_NEW,"New document","Ctrl-N",busy);
-        append(items,&count,TOOL_OPEN,"Open…","Ctrl-O",busy);
-        append(items,&count,TOOL_SAVE,"Save","Ctrl-S",busy);
-        append(items,&count,MENU_SAVE_AS,"Save as…","Ctrl-Shift-S",busy);
+        struct desk_command commands[7];text_commands(t,commands);
+        for(unsigned i=0;i<(t->window.connection?5u:4u);i++)desk_command_menu(&commands[i],&items[count++]);
     } else {
         append(items,&count,MENU_NEW_WINDOW,"New window",NULL,blocked);
         if(t->role==DESK_APP_FILES) {
@@ -41,7 +77,10 @@ void tool_menu_refresh(struct tool *t) {
         }
     }
     append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
-    append(items,&count,MENU_CLOSE,"Close window","Ctrl-W",blocked);
+    if(t->role==DESK_APP_TEXT) {
+        struct desk_command commands[7];text_commands(t,commands);
+        desk_command_menu(&commands[5],&items[count++]);desk_command_menu(&commands[6],&items[count++]);
+    } else append(items,&count,MENU_CLOSE,"Close window","Ctrl-W",blocked);
     if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES || t->role==DESK_APP_CALCULATOR || t->role==DESK_APP_SETTINGS) {
         unsigned id=0;struct desk_edit *e=edit_target(t,&id);struct desk_text_buffer *text=e?e->text:NULL;
         unsigned disabled=blocked|(!e?DESK_MENU_DISABLED:0),selection=disabled|(!text || text->anchor==text->caret?DESK_MENU_DISABLED:0);
@@ -96,14 +135,16 @@ void tool_menu_refresh(struct tool *t) {
     desk_app_menus(&t->window,items,count);
 }
 void tool_menu_action(struct tool *t,unsigned id) {
+    if(tool_command_action(t,id))return;
     if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode) return;
     if(id>=MENU_EDIT && id<=MENU_EDIT+DESK_EDIT_REDO) {
         unsigned target=0;struct desk_edit *e=edit_target(t,&target);
         if(e) tool_dispatch(t,(struct desk_action){target,desk_edit_command(e,id-MENU_EDIT)});
+    } else if(id==MENU_QUIT && t->role==DESK_APP_TEXT) {t->quit_application=1;
     } else if(id==MENU_CLOSE) {
         if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
     } else if(id==MENU_SAVE_AS) tool_text_save(t,1);
-    else if(id==MENU_NEW_WINDOW) tool_launch(t,t->role,t->role==DESK_APP_FILES?t->saved_path:"");
+    else if(id==MENU_NEW_WINDOW) tool_new_window(t);
     else if(id==MENU_LOCATION || id==MENU_NEW_FOLDER) {
         if(t->job.busy) return;
         unsigned target=id==MENU_LOCATION?TOOL_PATH:TOOL_NAME;

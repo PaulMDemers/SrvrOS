@@ -76,6 +76,7 @@ int mbtowc(wchar_t *pwc, const char *s, size_t n);
 int atexit(void (*function)(void));
 int system(const char *command);
 int mkstemp(char *template_path);
+char *mkdtemp(char *template_path);
 int mkostemp(char *template_path, int flags);
 void abort(void) __attribute__((noreturn));
 void exit(int status) __attribute__((noreturn));

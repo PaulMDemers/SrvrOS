@@ -4,9 +4,14 @@
 #include <srvros/desk_notify.h>
 #include "../userspace/deskd/notification_view.h"
 static struct desk_packet sent;static int blocked,sends;
-struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)}; }
+struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)}; }
 int desk_send(uint64_t target,const struct desk_packet *p) { assert(target==42);if(blocked) return -1;sent=*p;sends++;return 0; }
 static void transport(void) {
+    struct desk_notify_client identity;desk_notify_init(&identity);
+    assert(!desk_notify_begin(&identity,42,0,"Window","Bound reply",1));
+    struct desk_packet wrong=desk_packet_new(DESK_NOTIFY_ACK);wrong.serial=identity.serial;wrong.window=2;
+    assert(!desk_notify_receive(&identity,&wrong) && identity.busy);
+
     struct desk_notify_client c;desk_notify_init(&c);char title[]="Timer finished",message[]="Your timer has finished.";
     assert(!desk_notify_begin(&c,42,1,title,message,50));title[0]='X';assert(!strcmp(c.text.title,"Timer finished"));
     assert(desk_notify_begin(&c,42,0,"second","message",50)<0);blocked=1;desk_notify_tick(&c,51);assert(!sends && !c.sent);

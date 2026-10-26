@@ -354,8 +354,11 @@ def idle_sample(exit_text):
 
 def desktop_idle_sample(exit_text):
     records=re.findall(r"^desktop-idle: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) frames=([0-9]{1,20}) fb_bytes=([0-9]{1,20}) measured=yes$",exit_text,re.M)
+    from posix_capture_result import capture_result as posix_result
+    returned=("desktop-idle-capture: returned=yes clean=yes" in exit_text.splitlines() or
+              posix_result(exit_text) is not None)
     if len(records)!=1 or exit_text.splitlines().count("desktop-idle: completed=yes screenshot=yes")!=1 or \
-       "desktop-idle-capture: returned=yes clean=yes" not in exit_text.splitlines() or "deskd: FAIL" in exit_text:return None
+       not returned or "deskd: FAIL" in exit_text:return None
     elapsed,total,idle,switches,preemptions,frames,fb_bytes=map(int,records[0])
     if elapsed<59000000 or not total or idle>total:return None
     return {"elapsed_us":elapsed,"sampled_ticks":total,"idle_ticks":idle,
@@ -573,6 +576,16 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    # App tracing emits accounting on normal admission/retirement. Match the
+    # entire schema so refusal reasons or appended error details stay visible.
+    if re.fullmatch(r"deskd: resources reason=(?:opened|retired) clients=\d+ children=\d+ clipboard_peers=\d+ window_capacity=\d+ cache_bytes=\d+ cache_budget=\d+ gui_queue_budget=\d+ gui_queue_depth=\d+ gui_surface_record_budget=\d+ gui_surface_pixel_budget=\d+", line):
+        return False
+    if line.startswith(("desktop-capacity: result=FAIL", "document-capacity: result=FAIL", "chooser-capture: FAIL")):
+        return True
+    # Moving contacts must not become taps. This exact cumulative counter is
+    # expected during pointer work; other reason/failure lines remain actionable.
+    if re.fullmatch(r"trackpad-tap-reject: reason=movement count=[0-9]{1,10} two_finger=[0-9]{1,10} max_age_us=[0-9]{1,10} max_travel=[0-9]{1,10}",line):
+        return False
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
@@ -776,6 +789,10 @@ def collect(mount, volume, output):
         preflight=battery_preflight_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.battery-preflight=air61' in text and preflight is None:
             attention.append('collection: passive battery preflight missing, refused or incomplete')
+        from posix_capture_result import capture_result as posix_result
+        posix_proof=posix_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=posix(?:\s|$)',text) and posix_proof is None:
+            attention.append('collection: POSIX capture missing, failed or incomplete')
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -791,6 +808,7 @@ def collect(mount, volume, output):
         if 'srvros.capture=storage-wait' in text and storage_wait is None:
             attention.append('collection: storage wait comparison missing or invalid')
         records.append({
+            "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,
             "session": name,

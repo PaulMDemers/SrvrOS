@@ -305,7 +305,7 @@ USER_STL_CXXFLAGS := \
 	-D_LIBCPP_HAS_FILESYSTEM=1 \
 	-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE=1 \
 	-D_LIBCPP_HARDENING_MODE_DEFAULT=_LIBCPP_HARDENING_MODE_NONE \
-	-DPATH_MAX=160 \
+	-DPATH_MAX=1024 \
 	-DHOST_NAME_MAX=63 \
 	-I $(ZIG_DIR)/lib/libcxx/include \
 	-I $(ZIG_DIR)/lib/libcxx/src/include \
@@ -1003,6 +1003,7 @@ LUA_CORE_NAMES := \
 	lmathlib.c \
 	lmem.c \
 	lobject.c \
+	loslib.c \
 	lopcodes.c \
 	lparser.c \
 	lstate.c \
@@ -1679,9 +1680,9 @@ $(LUA_PREPARED): tools/prepare_lua_port.py $(shell find ports/upstream/lua -maxd
 $(LUA_CORE_C): | $(LUA_PREPARED)
 	@test -f $@ || { echo "Missing $@; remove $(LUA_PREPARED) and rerun make to regenerate Lua." >&2; exit 1; }
 
-$(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
+$(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED) ports/srvros/lua_config.h
 	mkdir -p $(dir $@)
-	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
+	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -include ports/srvros/lua_config.h -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
 $(EXFAT_IMAGE): $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
@@ -2047,6 +2048,14 @@ build/tests/syscall-poll-host$(HOST_EXE): tools/test_syscall_poll.c kernel/src/a
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-syscall-poll
 
+.PHONY: test-gui-wait
+test-gui-wait: build/tests/gui-wait-host$(HOST_EXE)
+	$<
+build/tests/gui-wait-host$(HOST_EXE): tools/test_gui_wait.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-desktop: test-gui-wait
+
 .PHONY: test-net-worker
 test-net-worker: build/tests/net-worker-host$(HOST_EXE)
 	$<
@@ -2203,12 +2212,14 @@ test-desktop: build/tests/desktop-host$(HOST_EXE) build/tests/gui-host$(HOST_EXE
 	build/tests/gui-host$(HOST_EXE)
 	build/tests/apple-trackpad-host$(HOST_EXE)
 	build/tests/desktop-scene-host$(HOST_EXE)
+	build/tests/desktop-overdraw-host$(HOST_EXE)
 	build/tests/desktop-session-host$(HOST_EXE)
 	build/tests/deskclient-host$(HOST_EXE)
 	build/tests/desk-app-host$(HOST_EXE)
 	build/tests/calculator-host$(HOST_EXE)
 	build/tests/deskfs-host$(HOST_EXE)
 	build/tests/file-job-host$(HOST_EXE)
+	build/tests/file-pool-host$(HOST_EXE)
 	build/tests/clipboard-host$(HOST_EXE)
 	build/tests/tool-clipboard-host$(HOST_EXE)
 build/tests/desktop-host$(HOST_EXE): tools/test_desktop.c userspace/deskstudy/scene.c userspace/deskstudy/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c userspace/lib/include/srvros/desk_render.h
@@ -2254,13 +2265,17 @@ $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) 
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
 
-test-desktop: build/tests/desktop-scene-host$(HOST_EXE)
+test-desktop: build/tests/desktop-scene-host$(HOST_EXE) build/tests/desktop-overdraw-host$(HOST_EXE)
+build/tests/desktop-overdraw-host$(HOST_EXE): tools/test_desktop_overdraw.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_overdraw.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
 build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
@@ -2329,19 +2344,37 @@ build/tests/desktop-io-state-host$(HOST_EXE): tools/test_desktop_io_state.c user
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 
+# Optional application services live above the pure widget library. Link this
+# archive before widgets and libc; generic userspace programs do not depend on it.
+DESK_RUNTIME_SRC := $(wildcard userspace/desktop_runtime/*.c)
+DESK_RUNTIME_OBJ := $(DESK_RUNTIME_SRC:%.c=build/%.c.o)
+DESK_RUNTIME_A := build/userspace/desktop_runtime/libdeskruntime.a
+$(DESK_RUNTIME_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
+$(DESK_RUNTIME_A): $(ZIG) $(DESK_RUNTIME_OBJ)
+	$(AR) rcs $@ $(DESK_RUNTIME_OBJ)
+-include $(DESK_RUNTIME_OBJ:.o=.d)
+
+.PHONY: test-desktop-chooser
+test-desktop: test-desktop-chooser
+test-desktop-chooser: build/tests/desktop-chooser-host$(HOST_EXE)
+	$<
+build/tests/desktop-chooser-host$(HOST_EXE): tools/test_desktop_chooser.c userspace/desktop_runtime/chooser.c userspace/lib/include/srvros/desk_chooser.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_desktop_chooser.c userspace/desktop_runtime/chooser.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
 DESKTOOLS_OBJ := $(patsubst %.c,build/%.c.o,$(wildcard userspace/desktools/*.c))
 DESKFS_OBJ := build/userspace/deskfs/deskfs.c.o
 $(DESKTOOLS_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
-$(USER_DESKTOOLS): $(ZIG) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+$(USER_DESKTOOLS): $(ZIG) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 $(USER_DESKFS): $(ZIG) $(USER_CRT0_OBJ) $(DESKFS_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKFS_OBJ) $(USER_LIB_OBJ) -o $@
 -include $(DESKTOOLS_OBJ:.o=.d) $(DESKFS_OBJ:.o=.d)
 
 test-desktop: build/tests/desk-app-host$(HOST_EXE) build/tests/calculator-host$(HOST_EXE)
-build/tests/desk-app-host$(HOST_EXE): tools/test_desk_app.c userspace/lib/src/desk_app.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+build/tests/desk-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_application.h userspace/lib/include/srvros/desk_connection.h userspace/lib/include/srvros/desk_app.h shared/include/srvros/desktop_protocol.h tools/test_desk_app.c userspace/lib/src/desk_app.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $^ -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $(filter %.c,$^) -o $@
 build/tests/calculator-host$(HOST_EXE): tools/test_calculator.c userspace/desktools/calculator.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $^ -lm -o $@
@@ -2360,7 +2393,12 @@ build/tests/syscall-replace-host$(HOST_EXE): tools/test_syscall_replace.c kernel
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 test-desktop: build/tests/file-job-host$(HOST_EXE)
-build/tests/file-job-host$(HOST_EXE): tools/test_file_job.c userspace/lib/src/desk_file_job.c shared/include/srvros/desktop_file.h
+build/tests/file-job-host$(HOST_EXE): tools/test_file_job.c userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h shared/include/srvros/desktop_file.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+test-desktop: build/tests/file-pool-host$(HOST_EXE)
+build/tests/file-pool-host$(HOST_EXE): tools/test_file_pool.c userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h shared/include/srvros/desktop_file.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 
@@ -2373,6 +2411,14 @@ test-desktop: build/tests/tool-clipboard-host$(HOST_EXE)
 build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/desktools/app.h userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+.PHONY: test-posix-poll
+test-core: test-posix-poll
+test-posix-poll: build/tests/posix-poll-host$(HOST_EXE)
+	$<
+build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
 
 .PHONY: test-posix-dir
 test-core: test-posix-dir
@@ -2479,9 +2525,9 @@ build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
-build/tests/tool-picker-host$(HOST_EXE): tools/test_tool_picker.c userspace/desktools/picker.c userspace/desktools/files_app.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/desktools/picker.c userspace/desktools/files_app.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktools/picker.c userspace/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/desktools/picker.c userspace/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-rtc
 test-rtc: build/tests/rtc-host$(HOST_EXE)
@@ -2677,17 +2723,17 @@ build/tests/image-job-host$(HOST_EXE): tools/test_image_job.c userspace/lib/src/
 
 DESKVIEW_OBJ := build/userspace/deskview/deskview.c.o
 $(DESKVIEW_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
-$(USER_DESKVIEW): $(ZIG) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+$(USER_DESKVIEW): $(ZIG) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKVIEW_OBJ:.o=.d)
 test-desktop: test-image-view test-image-decode test-image-job
 
 .PHONY: test-preview-app
 test-preview-app: build/tests/preview-app-host$(HOST_EXE)
 	$<
-build/tests/preview-app-host$(HOST_EXE): tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/preview-app-host$(HOST_EXE): userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h userspace/lib/include/srvros/desk_runtime.h userspace/lib/include/srvros/desk_chooser.h userspace/desktop_runtime/chooser.c tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/desktop_runtime/commands.c userspace/desktop_runtime/chooser.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-preview-app
 
 .PHONY: test-image-worker
@@ -2992,6 +3038,7 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
+	$(PYTHON) tools/test_desktop_wait_records.py
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py
@@ -3117,10 +3164,10 @@ build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_mode
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c -Wl,--gc-sections -o $@
 
-$(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o $(USER_LIB_OBJ) userspace/app.ld
+$(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o build/userspace/playwav/io_stress.c.o $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o $(USER_LIB_OBJ) -o $@
--include build/userspace/playwav/playwav.c.d build/userspace/playwav/wav.c.d build/userspace/playwav/convert.c.d
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o build/userspace/playwav/io_stress.c.o $(USER_LIB_OBJ) -o $@
+-include build/userspace/playwav/playwav.c.d build/userspace/playwav/wav.c.d build/userspace/playwav/convert.c.d build/userspace/playwav/io_stress.c.d
 
 .PHONY: test-audio-stream
 test-core: test-audio-stream
@@ -3928,3 +3975,108 @@ test-mt76-post-vco: build/tests/mt76-post-vco-host$(HOST_EXE)
 build/tests/mt76-post-vco-host$(HOST_EXE): tools/test_mt76_post_vco.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-battery-startup-timing
+test-core: test-battery-startup-timing
+test-battery-startup-timing: build/tests/battery-startup-timing$(HOST_EXE)
+	$<
+build/tests/battery-startup-timing$(HOST_EXE): tools/test_battery_startup_timing.c ports/srvros/uacpi/runtime/battery_startup_timing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-stdio-float
+test-core: test-stdio-float
+test-stdio-float: build/tests/stdio-float-host$(HOST_EXE)
+	$<
+build/tests/stdio-float-host$(HOST_EXE): tools/test_stdio_float.c userspace/lib/src/stdio_float.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_stdio_float.c -lm -o $@
+
+# Private formatter header also participates in userspace incremental builds.
+build/userspace/lib/src/posix_stdio.c.o: userspace/lib/src/stdio_float.h
+
+.PHONY: bench-heap-startup
+bench-heap-startup: build/tests/heap-startup-bench$(HOST_EXE)
+	$<
+build/tests/heap-startup-bench$(HOST_EXE): tools/bench_heap_startup.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-posix-capture
+test-core: test-posix-capture
+test-posix-capture: build/tests/posix-capture-host$(HOST_EXE) build/tests/block-ram-host$(HOST_EXE)
+	build/tests/block-ram-host$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_posix_capture_result.py
+build/tests/posix-capture-host$(HOST_EXE): tools/test_posix_capture.c kernel/src/posix_capture.c kernel/include/srvros/posix_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_posix_capture.c -o $@
+
+build/tests/block-ram-host$(HOST_EXE): tools/test_block_ram.c kernel/src/block_ram.c kernel/include/srvros/block.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_block_ram.c kernel/src/block_ram.c -o $@
+
+.PHONY: test-audio-io-receipt
+test-core: test-audio-io-receipt
+test-audio-io-receipt: build/tests/audio-io-receipt$(HOST_EXE)
+	$<
+build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace/playwav/io_stress_receipt.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-process-service
+test-process-service: build/tests/process-service-host$(HOST_EXE)
+	$<
+build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-process-service
+
+.PHONY: test-graphics-service
+test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)
+	$<
+build/tests/graphics-service-host$(HOST_EXE): tools/test_graphics_service.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-graphics-service
+
+.PHONY: test-time-contracts
+test-core: test-time-contracts
+test-time-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_time_contracts.py
+
+.PHONY: test-sync-contracts
+test-core: test-sync-contracts
+test-sync-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_sync_contracts.py
+
+.PHONY: test-desktop-runtime
+test-desktop: test-desktop-runtime
+test-desktop-runtime: build/tests/desktop-runtime-host$(HOST_EXE)
+	$<
+build/tests/desktop-runtime-host$(HOST_EXE): tools/test_desktop_runtime.c userspace/desktop_runtime/runtime.c userspace/desktop_runtime/runtime_jobs.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_runtime.h userspace/lib/include/srvros/desk_commands.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $(filter %.c,$^) -o $@
+
+.PHONY: test-tool-commands
+test-desktop: test-tool-commands
+test-tool-commands: build/tests/tool-commands-host$(HOST_EXE)
+	$<
+build/tests/tool-commands-host$(HOST_EXE): tools/test_tool_commands.c userspace/desktools/menus.c userspace/desktools/app.h userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_commands.c userspace/desktop_runtime/commands.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+
+.PHONY: test-futex-contracts
+test-core: test-futex-contracts
+test-futex-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_futex_contracts.py
+
+.PHONY: test-thread-smoke-harness
+test-core: test-thread-smoke-harness
+test-thread-smoke-harness:
+	$(PYTHON) tools/test_thread_smoke.py
+
+.PHONY: test-event-adapters
+test-core: test-event-adapters
+test-event-adapters:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py

@@ -193,10 +193,23 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
         scheduler_io_wait();
         process_exit(process_current_kill_status());
     }
-    if ((frame->cs & 3)==3) scheduler_user_enter();
+    if ((frame->cs & 3)==3) {
+        /* The syscall is fully unwound. A continuously writing process must
+         * not immediately reacquire I/O ahead of an app we just woke. */
+        if(!safe) {
+            scheduler_io_set_user_safe(true);
+            scheduler_io_handoff();
+            scheduler_io_set_user_safe(false);
+        }
+        if(process_should_exit_current()) {
+            scheduler_io_wait();
+            process_exit(process_current_kill_status());
+        }
+        scheduler_user_enter();
+    }
 }
 
-void isr_dispatch(struct isr_frame *frame) {
+static void isr_dispatch_inner(struct isr_frame *frame) {
     if (frame->vector == 255) {
         return;
     }
@@ -266,4 +279,13 @@ void isr_dispatch(struct isr_frame *frame) {
     console_write("last log lines:\n");
     bootlog_dump(2048);
     halt_forever();
+}
+
+/* Account privilege transitions independently of I/O admission: syscall-safe
+ * is not a CPU mode, and blocked time belongs to no userspace process. */
+void isr_dispatch(struct isr_frame *frame) {
+    bool user=(frame->cs & 3)==3;
+    if(user) scheduler_account_kernel_enter();
+    isr_dispatch_inner(frame);
+    if(user) scheduler_user_enter();
 }

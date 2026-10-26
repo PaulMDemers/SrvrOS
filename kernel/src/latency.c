@@ -31,6 +31,15 @@ static void record(struct latency_sample *sample, uint64_t us) {
     if (us >= 1000) sample->over_1ms++;
     if (us >= 10000) sample->over_10ms++;
 }
+void latency_work_record(enum latency_work_site site,uint64_t start,bool entry_masked) {
+    if(!start || (unsigned)site>=LATENCY_WORK_COUNT)return;
+    uint64_t flags=save_irq();
+    if(measured.enabled) {
+        uint64_t now=timer_monotonic_us();
+        if(now>=start) {record(&measured.work[site],now-start);measured.work_entry_masked[site]+=entry_masked;}
+    }
+    restore_irq(flags);
+}
 void latency_enter(enum latency_site site) {
     if (!measured.enabled || (unsigned)site >= LATENCY_SITE_COUNT) return;
     if (depths[site]++ == 0) starts[site] = timer_monotonic_us();

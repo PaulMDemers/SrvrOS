@@ -36,12 +36,19 @@ int desk_palette_message(struct desk_palette *p,const char *message) {
     strcpy(p->notice,message);return 0;
 }
 void desk_palette_init(struct desk_palette *p) {
-    *p=(struct desk_palette){0};desk_ui_init(&p->ui);desk_list_init(&p->list);
+    *p=(struct desk_palette){0};p->items=p->inline_items;p->visible=p->inline_visible;p->capacity=DESK_PALETTE_ITEMS;desk_ui_init(&p->ui);desk_list_init(&p->list);
     desk_text_buffer_init(&p->text,p->storage[0],p->storage[1],DESK_PALETTE_QUERY);desk_edit_init(&p->query,&p->text,0);
     desk_ui_add(&p->ui,QUERY,DESK_CONTROL_EDIT,&p->query,NULL);desk_ui_add(&p->ui,RESULTS,DESK_CONTROL_LIST,&p->list,NULL);
 }
+int desk_palette_bind_storage(struct desk_palette *p,struct desk_palette_item *items,
+    struct desk_list_item *visible,unsigned capacity) {
+    if(!items || !visible || !capacity || capacity<p->count || capacity>DESK_LIST_MAX_ITEMS)return -1;
+    uint64_t selected=p->list.selected>=0?p->visible[p->list.selected].id:0;
+    if(p->count)memmove(items,p->items,p->count*sizeof(*items));
+    p->items=items;p->visible=visible;p->capacity=capacity;filter(p,selected);return 0;
+}
 int desk_palette_items(struct desk_palette *p,const struct desk_palette_item *items,unsigned count) {
-    if(count>DESK_PALETTE_ITEMS || (!items && count)) return -1;
+    if(count>p->capacity || (!items && count)) return -1;
     for(unsigned i=0;i<count;i++) {
         if(!items[i].id || !items[i].label[0] || !valid(items[i].label,sizeof(items[i].label)) || !valid(items[i].detail,sizeof(items[i].detail))) return -1;
         for(unsigned j=0;j<i;j++) if(items[i].id==items[j].id) return -1;

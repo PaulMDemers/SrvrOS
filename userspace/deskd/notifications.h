@@ -4,7 +4,7 @@
 #define DESKTOP_NOTICES 16
 #define DESKTOP_NOTICES_PER_OWNER 4
 struct desktop_notice {
-    uint64_t id,owner,serial,time_us;
+    uint64_t id,owner,window,serial,time_us;
     unsigned application,tone,unread;
     struct desk_notification text;
     char target[160]; /* Server-owned launch path; never accepted from client packets. */
@@ -14,6 +14,7 @@ struct desktop_notice {
 struct desktop_notifications { struct desktop_notice records[DESKTOP_NOTICES];unsigned count;uint64_t next_id; };
 int desktop_notification_valid(const struct desk_notification *text,unsigned tone);
 int desktop_notification_add(struct desktop_notifications *store,uint64_t owner,unsigned application,uint64_t serial,uint64_t time_us,unsigned tone,const struct desk_notification *text,uint64_t *id);
+int desktop_notification_add_window(struct desktop_notifications *store,uint64_t owner,uint64_t window,unsigned application,uint64_t serial,uint64_t time_us,unsigned tone,const struct desk_notification *text,uint64_t *id);
 const struct desktop_notice *desktop_notification_find(const struct desktop_notifications *store,uint64_t id);
 int desktop_notification_target(struct desktop_notifications *store,uint64_t id,const char *path);
 int desktop_notification_remove(struct desktop_notifications *store,uint64_t id);

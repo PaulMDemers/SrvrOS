@@ -8,12 +8,13 @@
 
 #define PTHREAD_ONCE_INIT 0
 #define PTHREAD_MUTEX_INITIALIZER {0}
-#define PTHREAD_COND_INITIALIZER {0}
+#define PTHREAD_COND_INITIALIZER {0, CLOCK_REALTIME}
 #define PTHREAD_RWLOCK_INITIALIZER {0}
 
 #define PTHREAD_CREATE_JOINABLE 0
 #define PTHREAD_CREATE_DETACHED 1
-#define PTHREAD_KEYS_MAX 32
+#define PTHREAD_KEYS_MAX 128
+#define PTHREAD_DESTRUCTOR_ITERATIONS 4
 #define PTHREAD_STACK_MIN 16384
 #define PTHREAD_MUTEX_NORMAL 0
 #define PTHREAD_MUTEX_ERRORCHECK 1
@@ -33,6 +34,7 @@ typedef struct {
 
 typedef struct {
     unsigned int sequence;
+    int clock;
 } pthread_cond_t;
 
 typedef struct {
@@ -124,10 +126,16 @@ void *pthread_getspecific(pthread_key_t key);
 int pthread_setspecific(pthread_key_t key, const void *value);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_kill(pthread_t thread, int sig);
+/* Libc names: at most 15 bytes plus NUL; empty names allowed. Default is
+ * "srvros-thread". ERANGE leaves the stored name/output unchanged; getter
+ * needs strlen(name)+1 bytes. Live or unreaped pthreads, including the initial
+ * thread; joined/reaped handles return ESRCH.
+ * Returns error numbers without setting errno; does not rename kernel tasks. */
 int pthread_setname_np(pthread_t thread, const char *name);
 int pthread_getname_np(pthread_t thread, char *name, size_t length);
-int pthread_getschedparam(pthread_t thread, int *policy, void *param);
-int pthread_setschedparam(pthread_t thread, int policy, const void *param);
+struct sched_param;
+int pthread_getschedparam(pthread_t thread, int *policy, struct sched_param *param);
+int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param *param);
 
 #ifdef __cplusplus
 }

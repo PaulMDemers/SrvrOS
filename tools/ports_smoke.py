@@ -108,6 +108,7 @@ def main():
             "-m", args.memory,
             "-cdrom", iso,
             "-boot", "d",
+            "-display", "none",
             "-serial", f"tcp:127.0.0.1:{port},server,nowait",
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
@@ -177,6 +178,10 @@ def main():
             send_serial_line(sock, "fsck /fat\n", args.key_delay)
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
+        except BaseException:
+            sys.stdout.write(output.decode("utf-8", "replace"))
+            sys.stdout.flush()
+            raise
         finally:
             try:
                 process.terminate()

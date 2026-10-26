@@ -8,6 +8,7 @@
 #include <srvros/desk_log.h>
 #include <srvros/sys.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 
 #define INPUT_BYTES (DESK_CLIPBOARD_BYTES+32)
@@ -67,7 +68,10 @@ static void start(void) {
     struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=environment,
         .flags=SRV_EXEC_BACKGROUND,.stdin_fd=pair[1],.stdout_fd=pair[1],.stderr_fd=pair[1],
         .process_group=UINT64_MAX,.foreground=1};
+    char previous[160];
+    if(!getcwd(previous,sizeof(previous)) || chdir(desk_home())<0) goto failed;
     long pid=srv_exec(&request);
+    (void)chdir(previous);
     if(pid<=0) goto failed;
     app.child=pid;srv_close(pair[1]);status("Ctrl-Shift-C copies selection · Ctrl-Shift-V pastes · Ctrl-C interrupts");
     desk_log("deskterm: ready shell=%llu columns=%u rows=%u\n",(unsigned long long)app.child,app.view.columns,app.view.rows);

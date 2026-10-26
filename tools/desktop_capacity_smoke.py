@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Exercise all eight desktop slots, launch refusal/reuse and input under load in a disposable VM."""
+"""Exercise explicit quota refusal/reuse or normal document growth in a disposable VM."""
+import argparse
 import os
 import re
 from pathlib import Path
@@ -14,9 +15,19 @@ from desktop_foundation_smoke import QMP
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--clipboard",action="store_true",help="Exercise copy/paste in sixteen admitted mixed clients")
+    parser.add_argument("--documents",action="store_true",help="Exercise sixteen documents in one Text connection, refusal and worker reuse")
+    parser.add_argument("--document-growth",action="store_true",help="Exercise 32 normal Text documents with bounded shared workers")
+    args=parser.parse_args()
+    if args.document_growth:args.documents=True
+    document_count=32 if args.document_growth else 16
+    replacement=document_count+1 if args.document_growth else 18
+    if args.documents and args.clipboard:parser.error("Choose one workload")
     width,height=1280,800
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-capacity"
+    out=root/("build/review/desktop-document-growth" if args.document_growth else "build/review/desktop-document-capacity" if args.documents else "build/review/desktop-clipboard-capacity" if args.clipboard else "build/review/desktop-capacity")
+    expected_files={}
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)
@@ -49,6 +60,12 @@ def main():
                             output+=chunk;(out/"serial.log").write_bytes(output)
                         except socket.timeout: pass
                     consumed=output.index(marker,consumed)+len(marker)
+                def wait_all(markers,timeout=40):
+                    nonlocal consumed
+                    start=consumed;end=start
+                    for marker in markers:
+                        consumed=start;wait(marker,timeout);end=max(end,consumed)
+                    consumed=end
                 def shortcut(keys):
                     qmp.call("human-monitor-command",{"command-line":f"sendkey {keys}"});time.sleep(.3)
                 def type_text(text):
@@ -65,39 +82,131 @@ def main():
                 serial.sendall(b"ps\n");wait(b"pid name status");wait(b"srv> ")
                 baseline_processes=set(re.findall(rb"^(\d+) (\S+) (background|exited|foreground)",output.split(b"pid name status")[-1].split(b"srv> ")[0],re.M))
                 if not baseline_processes: raise RuntimeError("Missing baseline process snapshot")
-                serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
+                serial.sendall(b"run /fat/bin/deskd "+(b"--apps-trace" if args.document_growth else b"--registry-pressure-test")+b"\n")
                 wait(b"deskd: commit")
-                applications=[("Files",1),("Calculator",3),("Terminal",6),("Preview",7),("Sketch",10),("Clock",9),("Find Files",12)]
+                applications=[("Files",1),("Calculator",3),("Terminal",6),("Preview",7),("Sketch",10),("Clock",9),("Find Files",12),("Calculator",3),("Clock",9),("Help",8),("Settings",5),("Files",1),("Preview",7),("Text",2),("Calculator",3)]
                 pids=[]
                 def launch(name,number):
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text(name+" new app");qmp.key("ret");wait(f"launcher application={number}".encode())
-                for index,(name,number) in enumerate(applications):
-                    launch(name,number);start=consumed;wait(b"deskd: commit")
+                if args.documents:
+                    owner=re.findall(rb"deskd: opened pid=(\d+)",output)[0]
+                    document_ids=[int(re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1])]
+                    def admitted():
+                        wait(b"text-runtime: admitted window=");wait(b"\n")
+                        identity=int(re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1])
+                        assert identity>max(document_ids), (identity,document_ids)
+                        document_ids.append(identity)
+                        return identity
+                    def save_document(index):
+                        contents=f"Document {index} kept."
+                        type_text(contents)
+                        shortcut("ctrl-l");shortcut("ctrl-a");type_text(f"/fat/document-{index}.txt")
+                        shortcut("ctrl-s")
+                        if args.document_growth or index<document_count:
+                            # The listing can finish before its owned window's
+                            # first configure/commit and keyboard focus delivery.
+                            wait_all([b"picker ready mode=2",b"deskd: commit"])
+                        else:wait(b"picker ready mode=2")
+                        qmp.key("ret")
+                        # The save result and owned-picker retirement may arrive
+                        # in either order. Both must finish before the next
+                        # document shortcut targets the restored parent.
+                        if args.document_growth or index<document_count:
+                            wait_all([b"file-result role=text op=2 status=0",b"deskd: retired pid="])
+                        else:
+                            # The pressure fixture refuses the sixteenth
+                            # document's picker, which falls back in its parent.
+                            wait(b"file-result role=text op=2 status=0")
+                        expected_files[f"document-{index}.txt"]=contents.encode()
+                    save_document(1)
+                    for index in range(2,document_count+1):
+                        shortcut("ctrl-shift-n");admitted();wait(b"deskd: commit")
+                        save_document(index)
+                    # Save pickers also have identities in the same connection.
+                    # Count document parents separately, and require all children
+                    # to remain in that application rather than assuming IDs 1..N.
+                    assert re.findall(rb"deskd: opened pid=(\d+) window=\d+ id=\d+ parent=0",output)==[owner]*document_count
+                    assert set(re.findall(rb"deskd: opened pid=(\d+)",output))=={owner}
+                    assert f"clients={document_count} children=1 clipboard_peers={document_count}".encode() in output
+                    shot(f"{document_count}-documents")
+                    if not args.document_growth:
+                        shortcut("ctrl-shift-n");wait(b"resources reason=window-capacity")
+                    # Keep editing the focused document after growth or quota refusal.
+                    type_text(" Refusal kept.");shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
+                    expected_files[f"document-{document_count}.txt"]+=b" Refusal kept."
+                    shot("refused-document-retained")
+                    shortcut("ctrl-w");wait(f"text-runtime: closed window={document_ids[-1]} ".encode())
+                    shortcut("ctrl-shift-n");replacement_id=admitted();wait(b"deskd: commit")
+                    save_document(replacement)
+                    # Exercise per-document close/detach and application-owned worker reaping.
+                    for index in [replacement_id]+list(reversed(document_ids[:document_count-1])):
+                        shortcut("ctrl-w");wait(f"text-runtime: closed window={index} ".encode())
+                    wait(b"desktools: exited role=text failure=0")
+                    assert f"text-runtime: documents admitted={document_count+1} retired={document_count+1} refused={int(not args.document_growth)}".encode() in output
+                    pools=re.findall(rb"file-pool: retired role=text spawned=(\d+) reaped=(\d+) peak=(\d+) live=0 bound=0",output)
+                    assert pools and all(a==b and 1<=int(c)<=2 for a,b,c in pools),pools
+                    shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)
+                    shot("all-documents-retired")
+                elif args.clipboard:
+                    # One Text plus fifteen Calculators fits the current worker
+                    # budget. Sixteen Text processes exhaust file-worker resources.
+                    type_text("0");shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8 bytes=1")
+                    shortcut("ctrl-v");wait(b"clipboard role=2 action=32 bytes=1");qmp.key("ret")
+                    def clipboard_document(index):
+                        contents=str(index);type_text(contents);shortcut("ctrl-a");shortcut("ctrl-c")
+                        wait(f"clipboard role=3 action=8 bytes={len(contents)}".encode())
+                        shortcut("ctrl-v");wait(f"clipboard role=3 action=32 bytes={len(contents)}".encode())
+                        qmp.key("ret");wait(f"calculator result={index} history=1".encode())
+                        shortcut("meta_l-spc");wait(b"launcher opened");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
+                        shortcut("ctrl-end");shortcut("ctrl-v");wait(f"clipboard role=2 action=32 bytes={len(contents)}".encode());qmp.key("ret")
+                    for index in range(1,16):
+                        launch("Calculator",3);start=consumed;wait(b"deskd: commit")
+                        registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
+                        assert registered and int(registered[-1][1])==index
+                        pids.append(registered[-1][0]);clipboard_document(index)
+                    shot("sixteen-clipboard-clients")
+                    launch("Calculator",3)
+                    shortcut("meta_l-spc");wait(b"launcher opened items=28");shortcut("esc")
+                    assert len(re.findall(rb"deskd: opened pid=",output))==16
+                    assert b"resources reason=launch-capacity clients=16 children=16 clipboard_peers=16" in output
+                    shortcut("alt-shift-tab");shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
+                    launch("Calculator",3);start=consumed;wait(b"deskd: commit")
                     registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
-                    if not registered: raise RuntimeError("Missing client registration")
-                    pid,slot=registered[-1];assert int(slot)==index+1;pids.append(pid)
-                    if name=="Terminal":
-                        type_text("exit\n");wait(b"deskterm: shell exited status=0")
-                    shortcut("meta_l-alt-"+("left" if index%2 else "right"));wait(b"arranged pid="+pid)
-                shot("eight-windows")
-                # Window heading contains all eight entries plus its commands.
-                shortcut("f10");shortcut("left");shot("full-window-menu");shortcut("esc");shortcut("esc")
-                launch("System",4)
-                # Reopening the launcher is an ordered event fence. Refusal must
-                # leave exactly eight windows, with no ninth process registered.
-                shortcut("meta_l-spc");wait(b"launcher opened items=20");shot("capacity-refused");shortcut("esc")
-                assert len(re.findall(rb"deskd: opened pid=",output))==8
-                # Free the last slot and prove the previously refused app opens.
-                shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
-                launch("System",4);start=consumed;wait(b"deskd: commit")
-                registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
-                assert registered and registered[-1][1]==b"7"
-                shortcut("meta_l-alt-left");wait(b"arranged pid="+registered[-1][0]);shot("reused-slot")
-                # Focus the existing Text window; do not consume another slot.
-                shortcut("meta_l-spc");wait(b"launcher opened items=20");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
-                type_text("Eight windows remain responsive.")
-                shortcut("ctrl-l");type_text("/fat/capacity-proof.txt");shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
-                shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80);shot("capacity-capture")
+                    assert registered and registered[-1][1]==b"15"
+                    clipboard_document(16)
+                    shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/clipboard-capacity.txt");shortcut("ctrl-s")
+                    wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                    expected_files["clipboard-capacity.txt"]="".join(f"{i}\n" for i in range(17)).encode()
+                    shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80)
+                    shot("clipboard-reused-slot")
+                else:
+                    for index,(name,number) in enumerate(applications):
+                        launch(name,number);start=consumed;wait(b"deskd: commit")
+                        registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
+                        if not registered: raise RuntimeError("Missing client registration")
+                        pid,slot=registered[-1];assert int(slot)==index+1;pids.append(pid)
+                        if name=="Terminal":
+                            type_text("exit\n");wait(b"deskterm: shell exited status=0")
+                        shortcut("meta_l-alt-"+("left" if index%2 else "right"));wait(b"arranged pid="+pid)
+                    shot("sixteen-windows")
+                    # Window heading contains all sixteen entries plus its commands.
+                    shortcut("f10");shortcut("left");shot("full-window-menu");shortcut("esc");shortcut("esc")
+                    launch("System",4)
+                    # Reopening the launcher is an ordered event fence. Refusal must
+                    # leave exactly sixteen windows, with no seventeenth process registered.
+                    shortcut("meta_l-spc");wait(b"launcher opened items=28");shot("capacity-refused");shortcut("esc")
+                    assert len(re.findall(rb"deskd: opened pid=",output))==16
+                    # Free the last slot and prove the previously refused app opens.
+                    shortcut("meta_l-w");wait(b"deskd: retired pid="+pids[-1])
+                    launch("System",4);start=consumed;wait(b"deskd: commit")
+                    registered=re.findall(rb"deskd: opened pid=(\d+) window=(\d+)",output[start:consumed])
+                    assert registered and registered[-1][1]==b"15"
+                    shortcut("meta_l-alt-left");wait(b"arranged pid="+registered[-1][0]);shot("reused-slot")
+                    # Focus the existing Text window; do not consume another slot.
+                    shortcut("meta_l-spc");wait(b"launcher opened items=28");type_text("Text Untitled");qmp.key("ret");wait(b"launcher window=")
+                    type_text("Sixteen windows remain responsive.")
+                    shortcut("ctrl-l");type_text("/fat/capacity-proof.txt");shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                    shortcut("meta_l-shift-3");wait(b"deskd: screenshot saved status=0 path=",80);shot("capacity-capture")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",90);wait(b"srv> ")
                 cleanup_deadline=time.monotonic()+10
                 while True:
@@ -107,6 +216,12 @@ def main():
                     if processes==baseline_processes: break
                     if time.monotonic()>cleanup_deadline: raise RuntimeError("Process set did not return to baseline after full-session cleanup")
                     time.sleep(.5)
+                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows=(\d+)",output)
+                assert cache and int(cache[2])==0 and 0<int(cache[1])<=int(cache[3])
+                # windows reports allocated registry capacity, not live count.
+                # The growth run needs room for 32 documents plus a save picker;
+                # the separate pressure fixture retains its explicit quota.
+                assert int(cache[4])>=document_count+1 if args.document_growth else int(cache[4])==16
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
@@ -114,12 +229,19 @@ def main():
                 stop_process(process);(out/"serial.log").write_bytes(output)
             from exfat_test_image import ExfatFixture
             fixture=ExfatFixture((tmp/"disk.exfat").read_bytes())
-            assert fixture.read("capacity-proof.txt")==b"Eight windows remain responsive."
+            if not args.clipboard and not args.documents: expected_files["capacity-proof.txt"]=b"Sixteen windows remain responsive."
+            for name,contents in expected_files.items(): assert fixture.read(name)==contents,(name,fixture.read(name),contents)
             screenshots=re.findall(rb"deskd: screenshot saved status=0 path=([^\r\n ]+)",output)
             assert len(screenshots)==1
             capture=fixture.read(screenshots[0].decode().removeprefix("/fat/"))
             assert capture[:2]==b"BM" and len(capture)>width*height*3
-    print(f"desktop-capacity: PASS eight simultaneous clients, ninth launch refusal, slot reuse, full Window menu, exact saved text, screenshot worker at capacity and complete cleanup. Evidence: {out}")
+    if args.documents:
+        print(f"desktop-document-{'growth' if args.document_growth else 'capacity'}: PASS {document_count} same-process documents, {len(expected_files)} exact files, preserved edits, fresh ID/reuse, at most two shared workers and complete retirement; refusal={not args.document_growth}. Evidence: {out}")
+        return
+    if args.clipboard:
+        print(f"desktop-clipboard-capacity: PASS sixteen real clients copy/paste, refusal, slot reuse, exact saved cross-client contents, screenshot and full process cleanup. Evidence: {out}")
+        return
+    print(f"desktop-capacity: PASS sixteen simultaneous clients, seventeenth launch refusal, slot reuse, full Window menu, exact saved text, screenshot worker at capacity and complete cleanup. Evidence: {out}")
 
 
 if __name__=="__main__": main()

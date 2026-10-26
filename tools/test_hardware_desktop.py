@@ -4,6 +4,25 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_capacity_accounting_keeps_failures_visible(self):
+        row = "deskd: resources reason=opened clients=24 children=24 clipboard_peers=24 window_capacity=32 cache_bytes=33177600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456"
+        self.assertFalse(desktop.needs_attention(row))
+        self.assertFalse(desktop.needs_attention(row.replace("opened", "retired")))
+        for bad in (row + " error=1", row.replace("opened", "quota"),
+                    row.replace("clients=24", "clients=invalid"),
+                    "document-capacity: result=FAIL checkpoints=4 pooled=yes retired=1",
+                    "chooser-capture: FAIL",
+                    "desktop-capacity: result=FAIL launched=23 reaped=23 errors=1 screenshot=no normal_exit=1"):
+            self.assertTrue(desktop.needs_attention(bad))
+
+    def test_pointer_movement_tap_counter_is_not_a_runtime_failure(self):
+        row="trackpad-tap-reject: reason=movement count=77 two_finger=22 max_age_us=100008 max_travel=506"
+        self.assertFalse(desktop.needs_attention(row))
+        for bad in (row+" error=1",row.replace("reason=movement","reason=clock"),
+                    row.replace("count=77","count=bad"),"deskd: closing pid=42 reason=surface-copy",
+                    "deskd: deferred frame pid=42 reason=cache-memory"):
+            self.assertTrue(desktop.needs_attention(bad))
+
     def test_battery_preflight_requires_complete_bounded_evidence(self):
         header='battery-preflight: model=MacBookAir6,1 pm1_control=0x0 pm1_status=0x1 pm1_enable=0x0 ec_status=0x0 SCI=9 EC_GPE=0x4e\n'
         rows=''.join(f'battery-preflight: gpe_byte={i} status=0x0 enable=0x0\n' for i in range(16))

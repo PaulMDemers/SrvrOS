@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-24. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-25. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -1927,3 +1927,1077 @@ Console recovery remains `c35475f62f154f1e`; the superseded `78fe53e8cacdb1ba`
 EFI copy was removed only after its independent backup matched. Corrected
 capture and accepted recovery payloads remain available. Main is still `468ca20`;
 Air7,2 PR130 and Pro PR19 `d0a0b57` retain independent scopes.
+
+### Ordinary monitoring physical result (2026-10-24)
+
+Run `d34f847c1520e40c`, release `87bf9866baa3f8bc`, session
+`00065e9aafda5da4-00` returned with a clean exit snapshot at 797.659 seconds
+from boot, beyond the former eight-minute deadline. Battery generation reached
+304 with 4,553 events and no alarms. Runtime retired with zero heap, errors or
+denied operations; the six-member peak lifetime drained and released. A new
+nine-byte `test.txt` persisted; prior file bytes except workspace metadata are
+unchanged. Offline fsck/allocation pass: 272 files, 817 clusters, no leaks or
+bitmap mismatches. Ubuntu returned with an empty one-shot entry. Evidence and
+hashes are backed up outside build.
+
+This accepts opt-in monitoring beyond eight minutes with clean native retirement
+and a persisted document, not multi-hour endurance or a reopen receipt absent
+from retained logs. Default battery startup remains off. The reported 16-window
+result belongs to another machine.
+
+## Combined built-in services scope (2026-10-24)
+
+Base `bc0edb9` includes ordinary Air6,1 admission and shared 16-window support.
+Objective: a distinct opt-in Air6,1 ordinary session combining battery, panel
+brightness, HDA audio and read-only CPU/SMC sensors, without USB networking or
+the optional AML probe. Scope: staging recipes, combined-session VM harness and
+this unit's current guides. Reuse existing exact device gates and lifetimes;
+no driver permission changes. Pro Wi-Fi and Air7,2 desktop API work remain
+independent. Next checkpoint: combined audio/absent-provider/exit/reopen and
+refusal VM coverage, exact staged GPT rehearsal, then an unarmed attended test.
+
+### Combined candidate validated (PR132)
+
+Source `59c1836`, v71 release `1ae70fcf03ab6152`, combines the ordinary Air6,1
+battery owner with brightness, HDA and read-only CPU/SMC providers; USB networking
+and optional AML probing remain off. Full build/core, 76 staging tests and docs
+checks pass. Seven GPT VM cases pass: audio/normal exit/reopen, pending save,
+fault retention, opt-out, missing Home, absent providers and Air7,2 regression.
+The normal Air6,1 run records 712 battery events and ten lifetime members; PCM
+has no remaining owner/queue or underruns. Exact staged GRUB→Limine GPT rehearsal
+passes with Q35 native-profile refusal, working HDA, apps, clean exit/reopen,
+offline allocation and monitor reboot.
+
+Two earlier Air7,2 runs timed out waiting for a missing serial close-request
+receipt; the first saved screen shows Terminal's expected confirmation dialog.
+Their evidence remains retained. The harness now confirms Close after a short
+UI settling period and retains all completion, lifetime, runtime, logger and
+file-integrity assertions; the full final matrix passes. No runtime deadlines
+or hardware gates changed. Main advanced to `76a55dd` with documentation-only
+architecture work; no tested binary changes are needed for that integration.
+
+Unarmed run `2319b6df4b7f2dbd` preserves 272 files/817 clusters and reserves
+`combined-services.txt`. Exercise brightness, Audio playback/volume/Stop, System
+CPU/fan/battery freshness, and Text/Files for at least ten minutes; exit and
+reopen with `desktop battery`, then exit and `reboot`. No timed completion or
+automatic return. The obsolete `2cd5b8604f2406c5` EFI copy was removed only after
+its durable payload/trial hashes matched; accepted ordinary battery, console
+recovery and Ubuntu remain preserved. Combined native acceptance is pending.
+
+### Combined session returned (2026-10-24)
+
+Run `2319b6df4b7f2dbd`, release `1ae70fcf03ab6152`, produced one session
+`00065e9bf077c2fc-00` with a clean exit snapshot at 1315.719 seconds from boot.
+All four providers were enabled with networking off. Battery reached generation
+500 over 500 attempts (one rejected sample), 7,492 events, two alarms and two
+acknowledgements; generation advanced past invalid-through 227. Runtime retired
+with zero heap/errors/denied and 531 handled/zero unclaimed SCI deliveries. The
+12-member peak lifetime drained and released. This does not identify the early
+rejected sample's cause: retained rotating logs do not cover the whole session.
+
+Final sensor snapshots show 1,312 fan samples with zero failures and 1,315 thermal
+samples. Audio records four starts/three completions, volume 68, no final error;
+PCM has zero owner/queue/underruns. The user confirms everything worked normally, including sound and brightness.
+The fourth audio start has no completion count; its exact stopping action is
+not separately recorded.
+A new 11-byte `ten-minute-demo.txt` persisted; prior bytes except metadata remain
+unchanged. Offline fsck/allocation pass at 277 files/823 clusters with no leaks
+or bitmap mismatches. Ubuntu returned with empty one-shot state; evidence and
+hashes are backed up outside build. No reboot is armed.
+
+The user confirms that desktop close/reopen was not attempted. This accepts
+the observed combined session with battery, brightness, audio and sensors,
+file persistence and clean exit. Combined-provider desktop reopen remains
+untested on this machine; multi-hour endurance is also outside this result.
+
+## Combined close/reopen follow-up scope (2026-10-24)
+
+Integration baseline `e79e220`; retain accepted v71 release `1ae70fcf03ab6152`
+(compiled source `59c1836`) for a focused two-session native check. No runtime or
+staging changes: rerun combined HDA/battery exit/reopen VM and exact staged GPT
+rehearsal, then use a fresh run record and USB baseline. Publish the preceding
+combined-session acceptance and this scope. PR134 POSIX work and PR19 Wi-Fi
+remain independent; neither is imported into this accepted payload. Check file
+persistence, provider availability, battery lifetime retirement and normal exit
+on both sides of `desktop battery`. Multi-hour endurance is not this test.
+
+### Reopen trial ready (PR135)
+
+Fresh rehearsal source `ef184f3` differs from compiled `59c1836` only in
+documentation. The unchanged combined HDA/battery GPT VM passes normal
+exit/reopen with fresh lifetime, exact saved files, retired PCM and clean
+allocation. Exact installed v71 release `1ae70fcf03ab6152` separately passes
+GRUB→Limine GPT boot, Q35 native-profile refusal, working HDA, normal exit/reopen,
+file/allocation checks and monitor reboot. Documentation checks pass.
+
+Unarmed run `c655eca6a4f00313` uses the new 277-file/823-cluster baseline and
+`reopen-services.txt`. Briefly exercise brightness, audio, sensors and battery;
+save the document and return to console. Enter `desktop battery`, reopen the
+document and exercise the providers again. Exit normally, then `reboot`. No
+ten-minute wait or automatic return is required. The preceding combined native
+run remains independently backed up; this new run has its own backup directory.
+Ubuntu and console recovery stay unchanged. Physical reopen acceptance awaits
+the returned evidence and user observations.
+
+### Reopen trial failed (2026-10-24)
+
+Run `c655eca6a4f00313` on unchanged v71 `1ae70fcf03ab6152` completed its first
+session `00065e9c895ac1d7-00` with clean retirement at 87.970 seconds from boot.
+The user confirms all providers worked and the document was saved. Brightness
+16/44/78 and one completed audio test are logged, with live CPU/fan data and
+no final audio/SMC errors. New `reopn-services.txt` persisted (four bytes).
+
+After `desktop battery`, session `00065e9c8f025226-00` saved its startup log,
+but halted before a periodic/final snapshot. The user's photograph reports
+`HALTED operation deadline`, setup `complete`, elapsed 5,037,205 us, zero
+errors/denied/EC error/queries and retained live state. The source gives namespace
+setup a 5,000 ms operation budget. Completion timing and deadline handling need
+investigation; this evidence does not yet identify a driver or scheduler defect.
+Do not widen the budget or claim native reopen acceptance from VM passes.
+
+All 277 prior file bytes except metadata are preserved. Offline fsck/allocation
+pass at 283 files/831 clusters with no leaks or mismatches. Ubuntu returned with
+empty one-shot state. Both sessions, the photograph and file hashes are backed
+up independently outside build. No reboot is armed. First-session combined
+acceptance remains valid; native combined reopen is now a recorded failure.
+
+## Reopen deadline investigation scope (2026-10-24)
+
+Base `36080fc`. Investigate the stale worker-drain result between a timed slice
+and the outer battery operation deadline. The native photograph reports setup
+complete and no in-flight work at containment; reproduce that boundary using
+VM-only second-lifetime scheduling hooks before changing production behavior.
+Scope: battery operation loop, disposable battery VM model and desktop regression
+harness, plus this record. Preserve the five-second setup budget and live-state
+containment for still-running work. PR134 owns POSIX/scheduler changes; avoid
+scheduler edits. PR19 Wi-Fi is independent. Next checkpoint: failing regression,
+completion-vs-busy proof, combined exit/reopen and exact staged GPT rehearsal.
+
+### Deadline completion fix validated (PR136)
+
+Source `faacdf2` adds a nonblocking worker completion poll at operation expiry,
+retaining the five-second setup budget, callback error checks and busy-work
+containment. A VM-only second-lifetime fixture reproduces the old failure:
+setup complete at 5.364 seconds, no work in flight, zero EC errors/queries, then
+operation-deadline HALT. With the fix it drains both lifetimes cleanly. A separate
+six-second setup fixture still halts and retains the second lifetime. This
+proves the stale-observation defect and is consistent with the native photo;
+native confirmation is pending rather than inferred from the model.
+
+Full build/core, 76 staging tests, documentation checks and nine combined GPT
+VM cases pass: both deadline regressions, normal playback/exit/reopen, pending
+save, runtime fault retention, opt-out, missing Home, absent providers and Air7,2
+regression. Exact staged v71 release `06b0976a58151901` passes GRUB→Limine GPT
+boot with native-profile refusal, HDA, app/file work, exit/reopen, clean allocation
+and monitor reboot. No scheduler or firmware permission changes. PR134 POSIX
+and PR19 Wi-Fi remain independent; main is `36080fc`.
+
+Unarmed run `227c377cefd26812` retains 283 files/831 clusters and uses new
+`deadline-reopen.txt`. Briefly check providers and save, return to console,
+enter `desktop battery`, reopen the document and check providers, then exit
+and reboot. No ten-minute wait or automatic return. Prior native failure and
+before-fix VM evidence remain backed up separately. The old `a18d72aecdf808c7`
+three-minute capture EFI copy was removed only after durable payload verification;
+combined, ordinary-battery, console recovery and Ubuntu remain available.
+
+### Deadline retry failed on native reopen (2026-10-24)
+
+Run `227c377cefd26812`, release `06b0976a58151901` (PR136), again halted
+on its second desktop lifetime. First session `00065e9cec2debcc-00` completed
+cleanly at 234.640 seconds from boot: 87 battery attempts, 1,308 queries, balanced
+EC attachment, zero final heap/errors/denied, working brightness/audio and live
+CPU/fan samples. First setup took 4,766,350 us, including namespace load through
+the contract marker at 4,326,472 us and namespace initialization beginning at
+4,425,243 us.
+
+Second session `00065e9cfa6ff1bc-00` saved only its startup log. The photograph
+shows `HALTED operation deadline`, `setup=namespace-initialize`, elapsed
+5,047,305 us, `completed=0 in_flight=1`, zero errors/denied/EC error/queries and
+retained live state. Unlike the preceding photo, work was still active: PR136's
+completion repoll does not resolve this native startup overrun. Its synthetic
+completion-race regression remains valid but does not establish native repair.
+Next investigation should locate namespace/AML execution and wait time before
+changing the five-second bound; the current evidence does not identify a hang
+or distinguish execution cost from scheduling and firmware waits.
+
+All 283 preexisting files except metadata retain identical bytes. Five new log
+files were collected; no new document appeared. Offline checks pass at 288 files/
+838 clusters, with no leaks or mismatches. Ubuntu recovered with empty one-shot
+state. Logs, photograph and file hashes are backed up outside build. No reboot
+is armed; native combined reopen remains failed.
+
+## Startup timing scope (2026-10-24)
+
+Base main `85d5939`, preserving the failed retry evidence commit. Add bounded
+per-stage startup accounting for AML sleep/stall/semaphore, allocation/free and
+EC work, including active waits at containment. No firmware gate, scheduler or
+five-second deadline changes. Add an explicit automated two-desktop-session
+recipe with normal lifetime/logger teardown and Ubuntu return on completed
+runs. Fatal mounted-Home containment must still halt without flushing/resetting
+live storage; a photograph/manual recovery may remain necessary on failure.
+PR134 (`d9876eb`) owns POSIX/scheduler and PR19 (`7873b63`) owns Wi-Fi; neither
+scope is imported. Validate timing accounting, completed/busy startup regressions,
+automated success/refusal/failure and exact staged GPT boot before installation.
+
+### Automated startup diagnostic ready (PR137)
+
+Final runtime source `582cc59`, v72 release `837ce4f6bfab6775`, records fixed-size
+setup-worker sleep/stall/semaphore/EC wall times and sampled allocation/free
+cost, including active waits at containment. Existing phase markers remain.
+The five-second deadline and hardware permissions are unchanged. The explicit
+reopen diagnostic runs two 20-second app lifetimes with fresh battery samples,
+normal retirement and log saving; it rejects early manual exit. Ordinary desktop
+sessions retain no timer. Fatal mounted ownership still halts without storage
+writes/reset; normal diagnostic completion unmounts and returns to Ubuntu.
+
+Full build/core, 77 staging tests and docs checks pass. On `4b41c06`, ordinary
+Air6,1 save/audio/reopen, pending-save and runtime-fault cases and the Air7,2
+combined regression pass. The final change only makes early diagnostic exit
+incomplete; full core and all five automatic cases pass on `582cc59`: early exit,
+normal, completed-at-expiry, still-busy containment and profile refusal. Exact
+staged GRUB→Limine GPT boot passes two refused-but-cleanly-retired Q35 sessions,
+unchanged fixture files, clean allocation and automatic recovery. Refusal is
+expected VM coverage, not native acceptance. Main remains `85d5939`; PR134
+`e4b7b02` and PR19 `67575f0` retain separate POSIX and Wi-Fi scopes. Shared staging/
+boot files need both independent profiles preserved in later integration.
+
+Run `d3d219186d3bc6e6` retains the 288-file/838-cluster USB baseline and requires
+no human input or document edits. A machine-local one-shot Ubuntu service collects
+matching sessions, requires both fresh-sample/retirement receipts, verifies prior
+file hashes and offline allocation, backs up evidence and disables itself after
+recovery. A halt still requires a photograph/manual restart. The user explicitly
+authorizes automated reboot without another permission gate. Installed payload
+hashes and Ubuntu default are verified; console recovery `c35475f62f154f1e` remains.
+The obsolete `fc1d1f4c45d30252` EFI image-capture copy was removed for space only
+after its durable payload backup was hash-verified. Native reopen remains failed
+pending this diagnostic's returned evidence; this is not a claimed native fix.
+
+### Automated startup timing result (2026-10-24)
+
+Run `d3d219186d3bc6e6`, release `837ce4f6bfab6775`, passes the automated
+two-session check. Sessions `00065e9d64761993-00` and `00065e9d65e8d7a2-00`
+each reached fresh battery generation 6 and retired epochs 1/2 with balanced
+attachment and zero final heap/errors/denied. Normal Ubuntu return and the
+one-shot collector completed; the collector disabled itself. All 288 prior
+files except metadata retain identical bytes; eight new logs bring the clean
+filesystem to 296 files/848 clusters. One-shot boot state is empty. Evidence
+and hashes are backed up outside build; no new reboot is armed.
+
+First startup took 4,796,986 us; reopening took 4,917,553 us, only 82,447 us below
+the unchanged five-second deadline. Namespace load alone took 4,455,910 us in
+the second lifetime. Neither startup called AML sleep or stall. Second-start
+semaphore wall time totaled 10,906 us and four EC byte transfers totaled 312 us.
+Allocation made 18,847 calls, with 295 sampled calls totaling 61,586 us; free
+made 7,411 calls, with 116 samples totaling 14,180 us. These sampled wall times
+are not exact totals or CPU measurements. The allocator's whole-heap validation
+on both entry and exit, plus its linear free-block search, is a strong next
+investigation target; establish cost and preserve integrity checks in any fix.
+
+This accepts only the short automated startup/reopen/retirement sequence. It
+does not resolve the prior attended failure or establish sufficient timing
+margin under interactive load. No timeout increase or allocator change was
+made in this run.
+
+## Allocator startup investigation scope (2026-10-24)
+
+Base `4f8acd2`, retaining the collected startup result. Profile/replay the real
+allocator and remove redundant allocation traversal while preserving full
+before/after heap validation, free checks and the five-second battery deadline.
+Scope: kernel heap allocation traversal, deterministic host integrity/performance
+regressions and this machine's v72 automated startup trial. Avoid scheduler,
+firmware and EC changes. PR134 `e4b7b02` has no heap implementation changes;
+PR19 `807fb51` remains independent Wi-Fi scope. Publish measured old/new work
+counts and reject corrupt heaps even when a suitable early free block exists.
+Native timing improvement remains pending the next automated trial.
+
+### Heap traversal trial ready (PR138)
+
+Runtime source `e7b29e7`, v72 release `4efd82574f07eb30`, selects the first
+fitting free block during the existing full entry validation walk. It finishes
+that entire walk before mutation and retains the complete exit walk and both
+free walks. First-fit, splitting/coalescing, metadata, firmware permissions and
+the five-second startup deadline remain unchanged. Later corrupt blocks must
+still halt even when an earlier suitable free block exists.
+
+Three sequential alternating baseline/candidate replay pairs (two lifetimes
+each, 18,847 allocations and 7,411 frees during each setup) reduce median host
+setup time from 5.707 s to 4.856 s, about 14.9%. Cleanup/free time is similar
+(1.272 s versus 1.294 s). Full validation visits and payload checksums match
+exactly; about 105.45 million redundant search visits disappear per lifetime.
+This is a deterministic namespace-sized workload, not a captured AML trace or
+native timing prediction. Native timing margin remains to be measured.
+
+On clean `e7b29e7`, full build/core, general smoke (including 481 CLI commands),
+77 staging tests and docs checks pass. Nine battery VM cases pass: automatic
+early exit, normal, completed-at-expiry, busy containment and profile refusal;
+ordinary combined desktop save/reopen, pending-save cancellation, runtime fault;
+and the Air7,2 combined regression. Exact staged GPT GRUB→Limine boot passes
+two refused-but-cleanly-retired sessions, clean allocation and automatic return.
+Q35 profile refusal is expected and is not native acceptance. Refreshed main
+is `4f8acd2`; PR134 `d5d0fa1` still has no heap implementation change and PR19
+`d5010dc` remains independent Wi-Fi scope.
+
+Run `c741adb1f4bd0f75` uses this unit's USB `6ADA-85BB`, preserving all 296
+files/848 clusters. The automated trial opens two 20-second desktop lifetimes,
+requires fresh samples and clean retirement, then returns to Ubuntu. The one-shot
+collector checks saved sessions, startup timings, prior hashes and offline
+allocation, backs up evidence outside build and disables itself. No human input
+is required. User authorization permits this automated reboot without asking;
+fatal mounted ownership still halts and requires a photograph/manual recovery.
+Ubuntu remains default and console recovery `c35475f62f154f1e` is retained.
+The obsolete failed `06b0976a58151901` EFI copy is retired for space only after
+its durable payload backup is hash-verified. Prior accepted payloads and the
+previous automated diagnostic remain preserved. Native improvement is pending
+returned evidence; this does not yet resolve the attended intermittent failure.
+
+### Automated heap trial result (2026-10-24)
+
+Run `c741adb1f4bd0f75`, release `4efd82574f07eb30`, runtime source `e7b29e7`
+(merged through PR138, `27f0870`) passes both automated native desktop lifetimes.
+Sessions `00065e9dea272465-00` and `00065e9deb7d9404-00` completed startup in
+3,604,290 and 3,618,725 us, respectively, versus 4,796,986 and 4,917,553 us in
+the preceding diagnostic. This run is 24.86%/26.41% faster and leaves at least
+1,381,275 us below the unchanged five-second startup deadline. This is an
+observed paired-run improvement, not a worst-case bound under interactive load.
+
+Fresh battery generations 7/6 and epochs 1/2 each retired with balanced attach/
+detach, zero final heap/errors/denied and released desktop lifetimes. Queries
+were 105/90, with one notification in each lifetime. All 296 prior files except
+mutable `.srvros/meta` retain identical contents; eight new session logs bring
+the clean filesystem to 304 files/858 clusters, with no leaks or FAT/bitmap
+mismatches. Automatic Ubuntu return and collection completed; all 303 durable
+trial backup files were hash-verified. The collector is disabled and GRUB's
+one-shot entry is empty; no reboot remains armed.
+
+This accepts the short automated startup/reopen/retirement trial with the heap
+optimization and preserved full integrity checks. It does not yet accept the
+previously failing attended reopen under Text/file/audio work or extended
+endurance. Next useful coverage is an attended combined desktop session followed
+by close/reopen and resumed Text/file work, retaining the same startup deadline.
+
+## Attended heap-fix reopen scope (2026-10-24)
+
+Base main `27f0870`, preserving collected PR138 physical evidence. Prepare the
+existing untimed v71 combined desktop recipe with the validated heap fix; no
+runtime, firmware, deadline or shared subsystem change is planned. Rehearse
+Text/Files/audio and normal close/reopen plus the exact staged GPT boot path.
+The attended run must save a new document, browse it in the separate Files app,
+close the desktop normally, reopen with `desktop battery`, and resume file work.
+PR134 `d5d0fa1` owns POSIX and PR19 `b02be44` owns Wi-Fi; neither is imported.
+The previous automated run is collected, backed up and unarmed. Preserve Ubuntu
+and console recovery; report ready without starting this attended run.
+
+### Attended reopen ready (PR139)
+
+Source `5d858df`, v71 release `9851d427b042227b`, run `f4f57726a0d1824d` uses
+the exact native kernel/initramfs bytes accepted in the prior automated heap
+trial, with the existing untimed combined-session configuration. Full build/core,
+77 staging tests and docs checks pass. The combined Text/Files/audio normal VM
+and exact staged GPT GRUB→Limine profile-refusal VM pass, including clean
+close/reopen, provider/PCM teardown, offline allocation and monitor reboot.
+Q35's expected native-profile refusal is not physical acceptance. The previous
+full smoke and nine-case battery matrix remain evidence for the unchanged code.
+
+The attended checklist is in the current battery guide: ten minutes with a new
+`heap-reopen.txt`, separate Files dock app and battery/brightness/audio/sensor
+checks; Return to console, `desktop battery`, then reopen/append/save/reopen the
+document and repeat checks for at least two minutes. Save, exit, unmount and
+reboot manually. There is no timer or completion prompt. USB baseline is 304
+files/858 clusters, unchanged and clean. Ubuntu default and console recovery
+`c35475f62f154f1e` remain verified. Superseded startup diagnostic `837ce4f6bfab6775`
+is removed from EFI only after its durable payload backup is hash-verified;
+the latest accepted automatic release `4efd82574f07eb30` remains available.
+Payload and trial evidence are backed up outside build. This run is ready but
+unarmed; attended reopen acceptance remains pending its return.
+
+### Attended combined reopen accepted (2026-10-25)
+
+Run `f4f57726a0d1824d`, v71 release `9851d427b042227b`, returned with four
+attended desktop lifetimes and three successful reopens. User reports running
+all apps successfully. Startup took 3,600,315 / 3,791,923 / 3,732,066 / 3,753,837
+us, leaving at least 1.208 seconds below the unchanged five-second deadline.
+Epochs/tokens 1–4 all retired and released with balanced attachment and zero
+final runtime heap/errors/denied. Session durations were about 219, 35, 201 and
+179 seconds: roughly 10.6 minutes of desktop time overall, not the originally
+planned ten-minute first session or an extended endurance test.
+
+Text save/read succeeded in the first lifetime, read/append/save in the second,
+and reads of the resulting 30-byte document in the third/fourth. Separate Files
+activity is present in all four lifetimes. Audio finished two plays with no
+pending work, and read-only thermal/fan samples continued across reopens. The
+user's observation supplies the perceptual app/provider result. The generic
+collector's release filter identified only the first two sessions because later
+ring-buffer tails no longer contained the release banner; all four newly created
+session directories were assessed directly with sequential lifetime tokens,
+startup, final battery and release receipts rather than inherited exit text.
+
+No prior files are missing. Only `.srvros/meta` and desktop preferences changed
+among 304 prior files; new artifacts are 16 session logs, the Text document and
+a drawing. Offline fsck/allocation are clean at 322 files/887 clusters with no
+leaks or FAT/bitmap mismatches. Evidence and hashes are backed up outside build.
+Ubuntu one-shot state is empty and no reboot remains armed. This accepts attended
+combined desktop close/reopen with Text/Files work after the heap fix. Longer
+endurance, broad input/load coverage and other unimplemented device capabilities
+remain separate milestones; no integrity checks or startup budget were weakened.
+
+## Longer combined session scope (2026-10-25)
+
+Base main `3647dc7`, preserving the attended four-lifetime acceptance. Prepare a
+30-minute paced ordinary-shell workload for USB copy/readback and repeated audio,
+with a fresh-run guard, durable round/completion evidence and automatic Ubuntu
+collection after manual desktop exit. Text editing and audible playback remain
+attended observations. Scope is new workload/VM tests, this machine's record and
+current guide; retain the existing untimed v71 profile. No kernel, firmware,
+battery budget or desktop startup changes. PR153 owns capacity automation and
+shared staging/battery harness changes; avoid those files. PR19 remains Wi-Fi.
+Validate the newly merged scheduler/desktop baseline, keep accepted payloads and
+console recovery, and leave the next physical run ready-unarmed.
+
+The refreshed full CLI smoke exposed one stale pre-POSIX diagnostic expectation:
+`cd /fat/status.txt` correctly refuses and leaves cwd unchanged, but the newer
+shell prints `cannot change directory` rather than `not a directory`. Update
+only that expected text and add explicit status=1/unchanged-cwd evidence; do not
+alter runtime behavior. Rerun the full suite after this harness correction.
+
+### Long combined trial ready (PR154)
+
+Source `78859c4`, v71 release `3f0896783e4c8fe7`, run `db3ea7d68555f544`
+consumes main `3647dc7` (new scheduler/desktop baseline) and retains the unchanged
+native Air6,1 battery/firmware gates and five-second startup budget. The ordinary
+Terminal workload performs thirty 256-KiB copy/sync/rename/readback rounds, each
+with a bundled six-second PCM play and sixty-second pacing before the receipt.
+It requires at least thirty minutes of pacing (roughly 33 minutes total), refuses
+reruns and saves per-play and round/completion records. A nonzero audio/file
+command aborts the job; the collector also rejects missing audio completion or
+underruns. No forced desktop exit is added. Text/Files use and listening remain
+attended, with a fresh run-specific document and checks near start/middle/end.
+
+Full build/core passes on `44b5706`; subsequent `78859c4` changes only the CLI
+harness expectation and scope documentation. Full smoke including 482 CLI
+commands passes after correcting the stale diagnostic and checking failed-cd
+status/unchanged cwd. The new workload host tests, 78 staging tests, new real-shell
+GPT battery/audio/Text/Files workload VM, ordinary combined reopen VM and exact
+staged GPT GRUB→Limine boot all pass. Workload VM checks exact outputs, zero-
+underrun audio completion, rerun refusal, clean lifetime retirement and offline
+allocation. Exact native-stage Q35 refusal is expected; it covers safe unavailable
+providers, PCM, saves, reopen, unmount and reboot, not native acceptance.
+
+USB preparation preserved all 322 existing files and added only two fresh workload
+inputs; preflight is clean at 324 files/890 clusters. Ubuntu default and console
+recovery `c35475f62f154f1e` remain verified. Superseded pre-heap combined release
+`1ae70fcf03ab6152` is retired from EFI only after its durable backup is verified;
+accepted attended `9851d427b042227b` and automated `4efd82574f07eb30` remain.
+The one-shot Ubuntu collector requires workload completion, a completed desktop
+lifetime of at least thirty minutes, clean battery retirement, the new Text
+file, prior-file preservation (apart from metadata/preferences) and offline
+allocation, then backs up evidence and disables itself. Human audio/input
+confirmation remains distinct. Run and payload backups survive distclean.
+Ready-unarmed: no reboot is scheduled; longer native acceptance remains pending.
+
+## Audio/USB overlap correction scope (2026-10-25)
+
+The prepared long-session script serialized copy/readback before playback; it
+did not establish audio/disk overlap. Supersede that unarmed workload with a
+fresh run: one-minute PCM plays in the background while bounded paced copies,
+flushes and comparisons execute in the foreground, requiring the player to remain
+live at both ends of each recorded burst. Retain audio completions/underruns and
+per-burst evidence. The disposable VM must observe PCM output advancing during
+USB writes. Keep the already validated native payload `3f0896783e4c8fe7` and its
+runtime source `78859c4`; only Python workload/tests and documents change. Actual
+main is `6e06bfb`; separate capacity work from PR153/155 is not introduced into
+this immutable payload. PR19 remains independent Wi-Fi work. Prior run is
+ready-unarmed, not physically executed; replace its collector and launch record
+only after preserving its inputs/evidence. Leave the corrected test unarmed.
+
+### Audio/USB overlap ready (PR156)
+
+Corrected workload source `ee96e1d`, run `93a364b8128b185a`, replaces unexecuted
+run `db3ea7d68555f544`. Installed native payload remains `3f0896783e4c8fe7`, source
+`78859c4`, hash-identical to its already validated build and exact-stage rehearsal.
+Thirty one-minute plays run in the background, each with forty foreground
+256-KiB copy/flush/rename/readback bursts paced one second apart. Playing-receipt,
+before/after PID liveness, absence of an early completion, explicit burst totals,
+wait status and retained audio completion/zero-underrun evidence guard the trial.
+Total copy/readback is 300 MiB during thirty minutes of PCM, about 31 minutes
+elapsed including gaps. Text/Files and listening remain attended; automatic
+Ubuntu collection verifies all 1,200 bursts and thirty complete plays.
+
+Host verifier tests pass. On clean `ee96e1d`, the repeated short GPT VM passes
+four bursts/two plays with 12 observed non-silent PCM/USB-write overlap windows.
+The full native-parameter round passes all forty bursts during one complete
+60-second play, with 90 observed overlap windows. Both verify readback, no
+underruns, concurrent Text/Files, rerun refusal, clean battery retirement and
+filesystem allocation. Development tests caught quoted numeric wait parsing,
+a too-long for word list, and command substitution using read-only /fat; the
+script now uses numeric wait, eight-item groups and explicit writable count
+files. One short rerun hit a Q35 battery sample/EC fault; its evidence is retained.
+An unchanged retry and the full-minute trial passed. This does not establish that
+fixture fault's cause or native endurance acceptance.
+
+USB inputs now comprise a fresh script, 256-KiB seed and one-minute WAV. All 324
+preexisting files (including the unused prior trial inputs) remain preserved;
+preflight is clean at 327 files/981 clusters. The previous run is superseded and
+unarmed, and its collector disabled. The overlap collector replaces it. Ubuntu
+default, console recovery and accepted payloads remain intact. Payload and run
+evidence are backed up outside build. The corrected test is ready-unarmed; no
+reboot is scheduled, and listening/native overlap acceptance remains pending.
+
+## Automatic audio / filesystem stress scope (2026-10-25)
+
+Run `93a364b8128b185a` returned with clean desktop retirement but failed the
+workload: one 60-second PCM completion with zero underruns and 32 of 40
+recorded disk bursts. The next burst crossed playback completion; the fixed
+count/pacing underestimated native filesystem overhead. Manual Text saves do not accept sustained overlap. Preserve this failure.
+The replacement is fully automatic, with listening as the only human task:
+a dedicated PCM producer and separate continuous verified filesystem worker,
+automatic desktop startup/progress/exit, normal battery retirement and Ubuntu
+return. Record actual timestamps and counts rather than infer overlap from a
+shell reading a concurrently written log. Use existing PCM/filesystem interfaces;
+no firmware gates, integrity checks or startup budgets change.
+
+Base is merged main `2c1ffc6b`. Scope: a playwav stress mode, narrow boot-only
+session selection, desktop progress/worker lifecycle, staging and VM regressions.
+PR157 owns shared document-dialog/app lifecycle work; preserve it and keep these
+additions isolated from its client/dialog code. PR19 remains independent Wi-Fi.
+The prepared native payload will be rebuilt and exact-stage tested. User has
+explicitly authorized the automated reboot after validation.
+
+### Automatic audio / filesystem stress prepared (PR158)
+
+Native source `1c2bba2f`, v74 release `a70f9540f3aa39dd`, run
+`6e0147a2ac774722` uses a continuous thirty-minute PCM producer and a separate
+unpaced 256-KiB create/flush/rename/reopen/compare/delete/sync worker. A pipe starts
+file activity only after PCM reports live playback. Timestamp/byte/count receipts
+reject late, absent or insufficient-duration I/O, incomplete PCM and underruns.
+Boot waits for fresh battery telemetry, starts the workload, shows elapsed
+progress and retires the desktop/battery lifetime before unmount and automatic
+Ubuntu return. No human interaction is required beyond listening. Scratch space
+is bounded; all preexisting Home files remain outside the private test directory.
+
+Full build/core and full smoke pass, including 482 CLI commands, shell editing,
+UEFI USB input and displayd. The new receipt regression and 80 staging tests pass.
+The automatic 60-second Q35 run on clean `1c2bba2f` completes 363 verified cycles
+(95,158,272 bytes) with zero underruns and 224 independently observed non-silent
+PCM/USB-write overlap windows. It retires cleanly and returns without injected
+keyboard or mouse input; offline allocation is clean. Exact staged GRUB→Limine
+rehearsal on `95d522c2` (harness-only follow-up) confirms native profile refusal,
+no stress startup on unsupported Q35, unmount and automatic return. Its first
+harness configuration lost the reference clock with synthetic ACPI under UEFI;
+that failure is preserved, and the successful rehearsal uses the established
+native UEFI fixture without injected AML. Native source/payload did not change.
+
+USB baseline is 335 files / 992 clusters, no leaks or bitmap mismatches; no new
+USB inputs are needed. Ubuntu and console recovery `c35475f62f154f1e` are retained.
+The obsolete EFI-only copy `87bf9866baa3f8bc` is retired after exact durable backup
+verification to make installation space; accepted evidence/payload backups and
+the latest attended/automatic recovery payloads remain available. The new Ubuntu
+collector requires the matching workload receipt, clean desktop/battery retirement,
+prior-file preservation and offline allocation; listening remains separate.
+User explicitly authorized reboot and automatic startup after validation. Save
+armed state and durable run/payload copies before launch. Native endurance is
+pending this run, not accepted by VM success.
+
+### Automatic stress partial result and desktop latency failure (2026-10-25)
+
+Evidence-review scope only: collect run `6e0147a2ac774722`, document audio/UI and
+retirement outcomes, and identify the next bounded investigation. Integration
+baseline is `afb2c3b0`; open PR157 owns shared desktop document/application
+lifecycle changes and must be considered before implementing launch/close changes.
+No new payload or reboot is prepared by this review.
+
+Release `a70f9540f3aa39dd`, session `00065eafdcd77b12-00`, was intentionally
+exited early. The user reports persistent, stable sound but multi-second app
+open/close delays and a 3–4-second UI freeze after a dock click while audio kept
+playing. Final PCM position corresponds to 1,379.66 seconds (about 23 minutes),
+with zero underruns; cancellation releases the PCM owner and queue. Battery
+retires with 536 attempts, 8,122 queries, 98 notifications, zero heap/errors/denied
+operations and a released lifetime. This supports audio continuity for the
+observed interval, not a completed thirty-minute endurance or responsiveness pass.
+
+The automatic collector correctly reports incomplete: cancellation left no final
+disk/result receipt. There is one residual private payload; no verified total
+burst count/throughput can be recovered from it. Existing files are preserved
+except `.srvros/meta`. Offline checks pass at 340 files / 1,000 clusters with zero
+leaks/bitmap mismatches; Ubuntu's one-shot entry is empty. Full raw evidence and
+the user report are retained outside build.
+
+Close-request to process-exit intervals visible in the retained log include
+3.23, 4.60 and 4.65 seconds (also 1.28 and 1.70 seconds). These include client
+cleanup and are not direct measurements of the dock-to-render freeze. System
+and one Files process also exit with failure status; their cause is unresolved.
+The overall workload/desktop FAIL markers remain failures/incomplete evidence,
+not a successful completed trial; normal battery retirement is distinct.
+
+Code inspection identifies synchronous `srv_exec` from `deskd`'s event loop and
+storage-gated process/lifetime operations as a plausible freeze path. PCM calls
+remain admitted while storage is owned, consistent with stable audio. No timing
+in this capture separates gate contention, executable loading, cleanup or render
+stall, so root cause is not yet proven. Next: automate app launch/close during the
+same unpaced workload, measure event-loop gaps plus launch/close phases and I/O
+gate wait/hold time, then move blocking lifecycle work off the event loop or fix
+measured contention as appropriate. Preserve integrity and ownership checks and
+keep full disk pressure; do not hide the failure by adding workload sleeps.
+
+### Active scope: responsive desktop during automatic audio/I/O (2026-10-25)
+
+Base `3ab4a385`, branch `device/macbookair6-1/desktop-io-latency`. Reproduce and
+measure event-loop stalls with automatic real app open/close during unchanged
+unpaced verified disk work and PCM playback; move blocking compositor lifecycle
+operations off its input/render loop where measurements justify it. Expected
+scope: `userspace/deskd`, a bounded userspace lifecycle worker, regression and
+VM harness, native trial records. Preserve filesystem integrity and kernel I/O
+ownership gates. Air7,2 branch `dfba5295` owns process/memory lifecycle latency;
+PR157 also changes document routing, so avoid competing kernel/process edits and
+keep compositor integration explicit. Pro PR19 is separate Wi-Fi work.
+User authorizes tests, merge and automated native reboot. Prior run is collected;
+no new reboot is armed until matched builds, VM checks and recovery preflight pass.
+
+
+Candidate reproduction: a fully automatic Q35 Text/Files/System lifecycle loop
+under unchanged PCM/disk stress recorded a maximum compositor loop gap of
+863,447 us; a second instrumented run showed cache allocation waiting 532,954 us
+and free waiting hundreds of milliseconds. The initial worker candidate reduced
+the maximum loop gap to 179,769 us across 21 cycles, with zero app errors,
+zero PCM underruns and 218 independently observed PCM/write overlap windows.
+These are development VM measurements, not native acceptance. Final clean-source
+regressions and exact-stage validation precede installation and reboot.
+
+
+### Responsive lifecycle stress candidate prepared (PR160)
+
+Native source `ae5b8680`, release `4e8c2c95b707acbf`, run `97f910f8a1024bbe`
+retains the thirty-minute unpaced 256 KiB write/flush/rename/readback/delete/sync
+work and PCM stream, and automatically cycles Text, Files and System throughout.
+The compositor uses a persistent worker for launch and pixel-cache map/unmap;
+no kernel I/O eligibility or integrity checks change. Pending/discarded mappings
+retain budget until release completes. Resize failure preserves the last delivered
+geometry/front, and memory pressure waits for reclaimable buffers without early
+byte credit. Worker metadata covers the existing cache budget; child admission
+and early OPEN delivery are explicitly tracked. Ordinary screenshot initiation,
+registry growth and forced termination are separate synchronous paths.
+
+Final clean-source core/build and strict automatic VM pass on `ae5b8680`: 23 app
+cycles, maximum loop gap 139,364 us, ready 1,303,625 us and close 924,975 us, zero
+app errors and zero PCM underruns, with 221 independently observed PCM/write
+overlap windows. Both lifecycle and I/O timestamps fall within live playback.
+The full smoke suite passed on `43d9e1ef` (482 CLI cases, shell editing, UEFI USB
+and displayd); later changes refine memory-budget admission and validation.
+All twelve apps pass maximize/restore/close. Multiple-document close/relaunch
+passes with explicit completed cache-release checks. The 128-window growth
+fixture on `efd6bb1d` passes 129 retirements, restored process baseline and zero
+retained registry/cache bytes. Host tests cover delayed allocation, discarded
+pending allocation, copied launch inputs, child reservation, early OPEN messages,
+launch failure, resize failure and full-budget delayed reclamation. Eighty staging
+tests and documentation checks pass. A superseded multiwindow checker failure is
+retained: it expected premature cache credit at window removal; the replacement
+requires zero bytes after completed unmaps and rejects missing/nonzero receipts.
+
+Exact native release passes GRUB→Limine rehearsal, expected Q35 native-profile
+refusal, no unsupported stress startup, clean unmount and automatic return. This
+is not native responsiveness acceptance. Physical validation requires the saved
+PCM/disk receipt plus at least six completed app cycles spanning 1,780 seconds,
+zero app errors, loop gaps no greater than 500 ms, clean battery retirement,
+prior-file preservation and offline allocation. Listening remains the only human
+task; keep AC/USB attached and allow automatic return after thirty minutes.
+
+USB baseline is 340 files / 1,000 clusters, zero leaks/bitmap mismatches. Ubuntu,
+console recovery `c35475f62f154f1e` and the latest accepted desktop/reopen payloads
+are retained. Obsolete EFI-only `3f0896783e4c8fe7` was removed after verifying its
+independent durable payload. Raw results, source/stage and run records are backed
+up outside build before reboot. User explicitly authorizes this automatic launch.
+Air7,2's `2eb23c11` process/graphics service-window work remains separate and
+unmerged; this candidate neither consumes its v15 protocol nor changes its gates.
+
+
+Integration update: PR157 merged as `c4bee5cd` before PR160 integration. The
+pre-merge `4e8c2c95b707acbf` stage is superseded and was never installed or armed.
+Integrate the matched v15 document/modal lifecycle and kernel service-window
+baseline, retaining both the async worker and existing-process document routing,
+child modal retirement, Air7,2 v75 guide and Air6,1 v74 automatic stress. Repeat
+core/build, affected lifecycle VMs, automatic audio/I/O and exact-stage checks
+before preparing the replacement native payload. Recovery/USB baseline unchanged.
+
+Integrated lifecycle testing exposed a modal startup race: OPEN_REPLY marked the
+dialog ready before CONFIGURE produced its canvas. Delayed compositor allocation
+therefore laid out the picker at zero size, moving its initial filename focus to
+Up. Extend the shared dialog helper's readiness condition to require the first
+configured generation. The new host regression fails on the previous helper and
+passes with this correction; retain the failing VM screenshot/log and rerun the
+normal/crash/refusal lifecycle cases before native staging. This bounded library
+change preserves window admission and buffer integrity checks.
+
+Consume PR161 (`44c70a12`), which adds host routing regressions without changing
+production binaries. The corrected normal lifecycle VM passes. The crash variant
+initially failed its startup count because the new compositor launch timing line
+split the single Text startup message. Extend the existing trace-interleaving
+decoder to that line type, preserving exact startup counts, duplicate detection,
+failure markers and raw evidence; rerun crash/refusal cases. No timeout or file
+acceptance predicate is relaxed.
+
+Final integrated candidate: source `7ddf2153`, native release
+`8dd177cef12cec3b`. Build/core and desktop/routing host checks pass; the normal,
+crash and refused-dialog VMs pass exact file contents, offline allocation and
+restored process baseline. The automatic stress VM passes 19 app cycles with
+maximum loop gap 438,388 us, ready time 1,212,207 us and close time 1,392,331 us,
+zero app errors/PCM underruns, 393 verified bursts (103,022,592 bytes) and 224
+observed PCM/write overlap windows. The full smoke suite passed on integrated
+`29c75d8a`; the later dialog correction has a failing-before/passing-after host
+regression and all three directed lifecycle VMs. Exact-stage GRUB/Limine boot,
+expected native-profile refusal on Q35, unmount and automatic return pass.
+
+PR160 is ready for integration and the authorized thirty-minute native launch.
+The replacement payload/evidence are backed up outside build; retain Ubuntu,
+console recovery and previously accepted desktop/reopen payloads. The automatic
+trial opens/closes real apps throughout continuous PCM and unchanged verified
+USB stress, then retires the battery runtime and returns to Ubuntu for automatic
+collection. No human file work is required. Keep AC/USB connected and listen;
+native responsiveness/endurance remains pending that run's complete receipts.
+
+### Automatic UI/audio/USB stress return — 2026-10-25 (failed)
+
+Release `8dd177cef12cec3b` / source `7ddf2153` returned automatically after
+roughly half a minute, not the required thirty minutes. Matching session
+`session-00065eb146d235a5-00` completed one Text open/render/close cycle:
+1,624,727 us to ready and 707,052 us to close. Files then launched (exec
+2,236,784 us), submitted and completed its Home directory listing, but never
+produced the compositor's opened/ready receipt before the unchanged ten-second
+cycle limit. The test reports FAIL and stops the workload; the temporary payload
+is retained, with no final disk/PCM receipt. The logs do not yet identify the
+missing window-admission/first-frame boundary, so do not assume the directory
+listing alone caused the failure or increase the deadline to call this a pass.
+
+Maximum measured desktop-loop gap was 108,087 us; no PCM underruns were recorded
+during the short run. These are encouraging bounded observations, not endurance
+or full responsiveness acceptance. Battery runtime retired with heap/errors/
+denied all zero, 11 handled and zero unclaimed SCI events. All 340 prior files
+are preserved except the expected workspace metadata update. Offline checks pass:
+345 files / 1,007 clusters, zero leaks, bitmap mismatches or errors. Ubuntu is
+back, next_entry is empty, automatic collection completed and the collector is
+disabled. Failed evidence and payload remain backed up outside build.
+
+Next investigation: reproduce and trace Files' OPEN publication, child
+registration/admission and first-frame delivery under sustained disk pressure,
+including the populated Home directory. Preserve the existing integrity checks,
+ten-second cycle failure and 500 ms loop bound. No replacement run is armed.
+
+### Files startup under load — active investigation (2026-10-25)
+
+Base `d4715774` / merged PR160 and PR163. The local objective is to reproduce
+the missing Files admission/first frame under the unchanged automatic PCM/USB
+stress, fix the proven cause and repeat the fully automatic native trial.
+Scope: compositor launch/admission, Files startup and narrowly required shared
+runtime code, regression fixtures, this machine record and local run/collector
+scripts. Preserve all integrity checks and the 10-second cycle / 500 ms loop
+limits. PR162 separately owns automatic capacity-capture targeting after async
+launch; preserve that work and inspect its actual integration before staging.
+Pro PR19 retains independent Wi-Fi scope. User authorizes testing, self-merge,
+installation and automatic reboot. Previous failed evidence is collected and
+backed up; no new physical result is accepted.
+
+### Files startup investigation checkpoint — 2026-10-25
+
+The native missing-admission failure is not yet reproduced or fixed. Synthetic
+populated-Home stress (64 existing files) passes with 400 write IOPS: source
+`02b1e4c1`, ten Text/Files/System cycles, maximum loop 349,423 us, ready
+3,904,186 us, close 2,809,892 us, zero app errors and 222 observed PCM/write
+overlap windows. All 66 prior fixture files and offline allocation checks pass.
+Build/core tests pass after consuming merged PR162 (`f4e9fbcb`).
+
+Keep the failed experiments: 40 write IOPS delays the first Text launch past the
+cycle bound; 100 write IOPS admits Text but misses its first-frame timeout.
+Neither reproduces the native missing Files OPEN. An unthrottled populated run
+also exceeded the loop limit (505,077 us) and remains a failure, despite passing
+its audio/disk receipt. Do not convert those results into startup acceptance.
+
+Fixed a measurement omission: an iteration that breaks on timeout was absent
+from the loop maximum. The final interval now counts against the same 500 ms
+limit, with a host regression. The earlier native 108,087 us maximum may therefore
+understate the final stall. Added successful legacy OPEN timestamps, compositor
+admission identity and deadline child/window state, plus a populated-Home VM
+fixture. The ten-second app-cycle and all client deadlines, filesystem, PCM,
+process/admission and native ownership checks remain unchanged.
+
+PR164 is a diagnostic/measurement change, not a claimed Files startup fix. The
+next authorized automatic native run repeats the unchanged thirty-minute
+workload with these receipts, no human file work, and automatic return/collection.
+Preserve the previous failed release and accepted recovery. Inspect the new
+matching failure boundary before proposing a production startup change.
+
+### Instrumented app/audio/USB stress return — 2026-10-25 (failed)
+
+Release `d96ecb5806eba5c9` / source `6a0efaaf`, merged PR164, returned and
+collected matching session `session-00065eb1d5c0e3e5-00`. Six complete cycles
+(Text, Files, System twice) passed. Both Files OPEN requests reached compositor
+admission in under 1 ms; ready took 3,213,396 and 4,658,569 us, and close/reap
+took 1,783,328 and 1,796,376 us. The previous missing Files admission did not recur.
+
+The seventh cycle, Text, took 7,678,976 us to its first frame. Its window then
+closed, but the process had not completed cleanup/reap when the unchanged
+whole-cycle deadline fired at 10,000,722 us (phase 3, no pending OPEN or app error).
+It subsequently exited with status zero during test teardown. This is a failed
+stress run, not acceptance: no final workload/disk receipt exists. The measured
+loop maximum, now including the final interval, was 110,197 us. PCM had zero
+recorded underruns during the short run; thirty-minute endurance remains pending.
+
+Battery epoch 1 retired with heap/errors/denied zero, 315 queries and one
+notification. All 345 prior USB files are preserved except expected workspace
+metadata. Offline checks pass: 350 files / 1,013 clusters, no leaks, bitmap
+mismatches or errors. Ubuntu recovered, next_entry is empty, collector disabled,
+and matching raw evidence plus diagnosis are backed up outside build. No reboot
+is armed. Current integration `f1131519` also contains PR165's independent modal
+pointer correction; this returned payload predates that correction.
+
+Next target: shared app startup and cleanup delays under sustained disk
+contention, including gated allocation/unmapping and process retirement. The
+receipts establish the delayed phases, not the exact kernel cause. Preserve the
+10-second whole-cycle, client deadlines, 500 ms loop and all integrity checks;
+do not treat successful Files admission or a zero-status late exit as a pass.
+
+### Shared app latency under disk load — active scope (2026-10-25)
+
+Base `296f86bb`, including PR165 modal correction and PR166 return evidence.
+Investigate starvation at the shared I/O admission gate: waking blocked app
+allocation/cleanup calls does not necessarily let them run before a disk writer
+starts another owned operation. Scope is scheduler gate handoff at a completed
+userspace syscall boundary, dispatch/cancellation integration, deterministic
+scheduler regressions and automatic disk/audio/app VM/native validation. Do not
+release ownership mid-operation or admit unsafe calls during owned I/O. Preserve
+all existing integrity checks, the ten-second whole-cycle and 500 ms loop limits.
+Pro PR19 (`200ab19b`) remains separate USB Wi-Fi work; no other open shared-runtime
+MR was found. The previous run is collected and backed up. User explicitly
+authorizes tests, self-merge and reboot into the automatic stress workload.
+
+The implementation retains each blocked call's admission flag after wake-all,
+clearing it only when the gate wait returns or the thread retires. A fully
+completed userspace syscall that required the I/O gate gives one ready waiter
+a turn before the writer can submit another operation. No handoff occurs with
+active/nested ownership or an unsafe caller. GUI/audio-safe syscalls retain their
+normal turns. The scheduler's ordinary round-robin/service eligibility, syscall
+whitelist, VFS checks and desktop timing limits are unchanged. Cancellation is
+rechecked after handoff; killed/quarantined waiters cannot retain stale admission.
+
+The syscall-boundary regression fails on the old implementation. New host cases
+exercise 64 successive writer rounds, preferred awakened admission, nested-owner
+and unfinished-kernel refusal, canceled waiter retirement, and cancellation
+during handoff. Initial VM experiments are retained: the overbroad prototype
+(which also handed off after GUI-safe calls) completed 13 cycles at 400 IOPS but
+failed a 512,391 us loop gap; at 100 IOPS Text completed but Files exceeded the
+whole-cycle deadline. These are failures, not native acceptance. The narrowed
+implementation and its matched physical payload require fresh validation.
+
+Final narrowed source `74939958` passes build/core, full smoke and the storage
+service VM (throttled writes, USB typing, cancellation, copy comparison, fsck and
+timeout/quarantine). The populated-Home 400-write-IOPS automatic stress passes
+15 complete app cycles: maximum ready 1,423,863 us, close/reap 2,526,714 us and
+loop 480,204 us, with zero app errors or PCM underruns. It verifies 117 unpaced
+256-KiB bursts, 223 observed PCM/write overlap windows, preservation of all
+66 prior fixture files and clean offline allocation. All original limits remain.
+
+Release `95f8a9cf59b25ba1` freezes that clean source. Its exact-stage Q35 rehearsal
+passes the expected native-profile refusal, save/unmount and automatic return;
+this is not physical battery or stress acceptance. PR167 carries the fix and
+this documentation-only follow-up. Main remains `296f86bb`; Pro PR19 `3e979549`
+retains separate Wi-Fi scope without scheduler/dispatch overlap. Next is the
+authorized thirty-minute automatic native audio/disk/Text–Files–System stress,
+with listening only, automatic Ubuntu return and collection. Preserve accepted
+recovery and the prior failed run; require complete matching receipts before
+claiming hardware acceptance.
+
+### I/O handoff native stress return — 2026-10-25 (failed)
+
+Release `95f8a9cf59b25ba1` / compiled source `74939958` (PR167) returned matching
+session `session-00065eb25dc59f36-00`. Thirty-four automatic Text/Files/System
+cycles completed; the next Files cycle became ready after 7,991,615 us and hit
+the unchanged whole-cycle deadline at 10,000,506 us during close/reap. Its
+window was still present at the deadline. The process subsequently exited zero
+during teardown. The run ended after roughly 2.5 minutes without a final
+workload receipt, so thirty-minute endurance and the latency fix remain unaccepted.
+
+The loop maximum was 110,744 us, completed close/reap maximum 5,571,788 us, and
+PCM recorded zero underruns. Files' final OPEN request reached compositor
+admission in 794 us; most startup delay preceded that request. This narrows
+the next investigation to app bootstrap/allocation and close/retirement timing
+under sustained disk contention, without proving the remaining kernel cause.
+Keep the ten-second whole-cycle, client deadlines and 500 ms loop bound intact.
+
+Battery epoch 1 retired cleanly with 862 queries, eight notifications and zero
+heap/errors/denied. All 350 prior USB files are preserved except expected workspace
+metadata. Offline fsck/allocation pass: 355 files, 1,019 clusters, zero leaks,
+bitmap mismatches or errors. Matching evidence and diagnosis are backed up
+outside build with verified hashes. Ubuntu returned, next_entry is empty and
+the collector is disabled; no new reboot is armed. Integration remains `b537c2a2`.
+
+### App lifecycle timing — active scope (2026-10-25)
+
+Base `46f6212f`, with the preceding native failure collected and backed up.
+Add bounded timing receipts in desktools main/Text runtime for entry,
+initialization, window creation/publication, close delivery, worker retirement
+and memory cleanup; validate the receipts in the automatic audio/disk/app VM.
+This is instrumentation, not another claimed latency fix. Do not change the
+workload, scheduling, ownership checks, ten-second whole-cycle, five-second
+client deadlines or 500 ms loop bound. Prepare the same automatic native trial,
+self-merge and reboot under the user's explicit authorization.
+
+PR169 (`edc320d8`) owns compositor unsaved-work shutdown interactions; keep its
+deskd/session changes separate. PR19 (`c4af7dcc`) retains USB Wi-Fi scope. The
+planned edits are desktools runtime/timing, stress-receipt validation and this
+unit record, with no overlapping production file edits in those open PRs.
+
+Implemented sparse `app-timing` records with PID/role/window identity and
+begin/end/event timestamps. Spans include scheduling, I/O waits and diagnostic
+overhead; they are not CPU-time or gate-wait attribution. A begin without an end
+remains incomplete evidence. First-publication and close-delivery events connect
+initialization/cleanup phases to compositor ready/reap receipts. The VM validates
+required phases, paired durations and lifecycle ordering for each completed app.
+Native collection preserves the available timing tail even on early failure.
+
+Source `23cf7ca3` passes build/core, timing-validator positive/negative cases,
+full smoke and populated-Home 400-write-IOPS stress (13 cycles). Its first VM
+attempt halted in a synthetic battery sample with an EC error before any
+instrumented app started; that failure is retained. An identical repeat passed
+without configuration or predicate changes. Files worker-pool retirement reached
+4,337,451 us in the repeat, demonstrating phase separation, not a native cause.
+
+Consumed merged PR169 / main `f658f6b7` as `a54e1717`. Combined build/core and
+the same automatic stress pass: 15 complete timing-validated app cycles, maximum
+ready 1,457,954 us, close/reap 3,168,146 us, loop 136,962 us, zero app errors or
+PCM underruns, 221 observed playback/write overlap windows, all 66 prior fixture
+files preserved and clean offline allocation. The earlier full smoke remains
+at `23cf7ca3`; the combined source has fresh focused runtime validation.
+
+Release `282c3f6a06afd9eb` freezes clean runtime source `a54e1717`. Exact-stage
+Q35 rehearsal passes expected native-profile refusal and automatic save/unmount/
+return, not native battery or endurance acceptance. PR170's final follow-up is
+documentation only. Next is the authorized automatic thirty-minute native trial
+with unchanged workload/limits, listening only and automatic return/collection.
+
+### Timing trial: three native attempts — 2026-10-25 (failed/incomplete)
+
+Release `282c3f6a06afd9eb` / source `a54e1717` (PR170) produced three matching
+sessions. The user reports interrupting the first boot, unplugging AC after a
+missing battery percentage on the second, and an automatic restart after about
+nine to ten minutes on the third. The single-session collector refused the three
+matches; preserve its original failure and reconcile all three separately.
+
+- `session-00065eb30ecc535a-00`: boot log only, consistent with the reported
+  interruption. No completion or runtime acceptance.
+- `session-00065eb30ffd922b-00`: native battery preflight refused SSDT fingerprint
+  `faa7c4fc101b8bed`, absent from the exact captured set. No PCM/app cycles started;
+  the failed session drained and saved its exit log at 18.28 seconds. This explains
+  the missing battery indicator and is consistent with automatic failure return,
+  not evidence that AC unplug caused a crash. Preserve the firmware gate; the
+  differing table needs a separate read-only capture/comparison before any change.
+- `session-00065eb312133238-00`: 139 app cycles completed before Files cycle 139
+  exceeded the unchanged whole-cycle deadline at 10,000,118 us during close.
+  Exit log saved at 545.22 seconds uptime. No final workload receipt, so the
+  thirty-minute endurance test failed. The loop maximum was 346,152 us and PCM
+  recorded zero underruns. Battery epoch 1 retired with 3,151 queries, 18
+  notifications and zero heap/errors/denied; 220 SCI deliveries were handled.
+
+The final Files cycle reached ready in 5,692,308 us, but main-entry to first
+publication took only 210,971 us. Runtime/pool/window/role initialization took
+26/48/23/25 us. Most startup delay lies outside those initializers; inspect process
+launch/first scheduling before assuming widget work is responsible. After close
+delivery, worker-pool retirement took 4,069,936 us and crossed the cycle deadline;
+history free took 13 us and window close 985 us. Files exited zero during teardown.
+Next focus is process startup and file-worker retirement under disk contention,
+with all existing deadlines/integrity checks retained. PR172's shared application
+dispatch work must be inspected before overlapping userspace changes.
+
+Reconciled all three sessions and available timing tails without promoting any
+attempt to pass. All 355 prior USB files remain unchanged except expected workspace
+metadata. Offline fsck/allocation pass: 364 files, 1,032 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu recovered, next_entry is empty and the
+collector is disabled. Evidence/diagnosis are retained outside build; no new
+boot is armed. Integration baseline for this return record is `eda8bfbc`.
+
+### Process admission and worker retirement — active scope (2026-10-25)
+
+Base `aa7b7392`, with all three preceding attempts reconciled and backed up.
+Investigate READY process startup/kernel retirement threads excluded by the I/O
+gate without entering its explicit wait queue, and nonblocking child reaping
+that repeatedly defers while I/O is owned. Extend quiescent handoff accounting
+to those contenders without changing eligibility, nonblocking behavior, deadlines,
+filesystem/ownership checks or workload. Scope: scheduler, syscall wait admission,
+host regressions, automatic stress/boot validation and this unit record.
+Retain the targeted app timings and the separate unresolved SSDT-fingerprint
+refusal; no firmware gate changes. User authorizes tests, self-merge and reboot.
+
+PR172 (`27a97f0f`) owns shared application dispatch/waiting/actions; the proposed
+kernel admission changes avoid its userspace implementation scope. PR19
+(`4030debb`) retains USB Wi-Fi work. Inspect their actual updated diffs before
+integration; no cross-task messages or parallel local harnesses are authorized.
+
+The scheduler now records actual READY exclusion and deferred nonblocking reaps
+as pending quiescent turns. Ordinary owner-free selection consumes the request;
+owned-I/O service turns preserve it. This covers process entry and post-exit
+cleanup without running either under another owner's I/O. Host regression fails
+on the previous scheduler and passes with the fix, including repeated requests,
+service eligibility, sleeping threads and retirement continuations. Build/core
+passes; automatic workload and native acceptance remain pending.
+
+The first positive VM completed 14 app cycles with zero app errors/PCM underruns,
+but strict timing validation failed on an interleaved live UART line. Preserve
+that failed harness evidence. The console already saves whole diagnostic records
+before preemptible UART output; validate those saved overlapping snapshots instead.
+The validator retains phase, ordering, duration and missing-record checks, rejects
+duplicates within one snapshot, and deduplicates only exact overlapping records.
+No production console path, workload or limit changes are needed.
+
+Source `cca1f818` passes build/core, all 482 CLI commands and the complete smoke
+suite, storage-service slow writes/input/cancellation/copy/relaunch/quarantine,
+and the populated-Home 400-write-IOPS automatic workload. The positive VM
+completed 19 timing-validated app cycles with zero errors and PCM underruns;
+maximum ready/close/loop were 1,161,076 / 2,140,722 / 228,514 us. Files pool
+retirement peaked at 742,552 us. All 66 prior fixture files survived and offline
+allocation was clean. These VM timings do not establish native acceptance.
+
+Release `788873710e559400` freezes that clean source. Exact-stage Q35 rehearsal
+passes the expected native-profile refusal, saved logs, unmount and automatic
+return. This follow-up changes documentation only. PR172 (`122fe555`) retains
+shared app runtime ownership, PR19 (`50e4dce5`) USB Wi-Fi, and PR175 (`a90ac149`)
+macOS build/docs; no overlapping kernel production edits were found.
+
+Next is the authorized thirty-minute native audio/disk/app trial, with automatic
+Text/Files/System launches and closes, continuous verified I/O, battery monitoring
+and listening only. Whole-cycle ten seconds, client five seconds and loop 500 ms
+remain unchanged. USB baseline is 364 files / 1,032 clusters with zero leaks,
+bitmap mismatches or errors. Ubuntu remains default with console recovery and
+accepted reopen payloads retained. The collector saves/checks multiple attempts
+before refusing aggregate acceptance; missing completion remains failure.
+
+### Process-admission native return — 2026-10-25 (failed)
+
+Run `5732b14012b34571`, release `788873710e559400`, runtime `cca1f818`
+(PR174) returned one matching session, `session-00065eb3b8aaf11c-00`.
+The automatic trial failed after 49 complete app cycles: Files cycle 49 / PID73
+crossed the unchanged ten-second whole-cycle deadline at 10,010,054 us during
+close. Exit log saved at 190.998 seconds uptime. No final workload receipt was
+written; this is not thirty-minute endurance acceptance.
+
+The aggregate maximum ready time was 1,341,489 us, versus 7,313,178 us in the
+preceding run; different run lengths prevent a general performance claim. Maximum
+completed close was 7,869,937 us, and maximum loop gap 341,476 us. The failing
+Files instance received Close at 180,124,884 us but did not leave its main loop
+until 188,505,227 us, an 8,380,343 us gap. Its directory-list request 1 to worker74
+was first logged submitted during post-deadline job drain. It then exited with
+status143 during failed-session teardown, before a pool-retirement completion.
+This failure precedes the pool-retirement phase seen in the previous trial.
+
+Next investigate worker request/reply pipe admission under continuous disk
+ownership. The current nonblocking pipe deferral returns AGAIN without requesting
+the quiescent turn now used by deferred reaps. That is a concrete candidate
+mechanism, not yet a demonstrated cause of this native delay. Preserve accepted
+mutation ownership, CRC/reply validation and all deadlines; do not bypass cleanup.
+PR172 still owns the shared application runtime and must be inspected before
+any overlapping userspace work.
+
+PCM recorded zero underruns. Battery epoch1 retired with 1,065 queries, one
+notification, 71 handled SCI deliveries and zero heap/errors/denied. Overall
+battery-controls reports FAIL because the desktop trial failed; clean provider
+retirement does not promote the workload result. All 364 prior files survived
+except expected workspace metadata. Offline fsck/allocation pass: 369 files,
+1,038 clusters, zero leaks, bitmap mismatches or errors. Matching logs, original
+automatic assessment and diagnosis are hash-verified outside build. Ubuntu
+recovered, next_entry is empty and collection disabled; no new reboot is armed.
+Integration baseline for this evidence record is `a679115f`.

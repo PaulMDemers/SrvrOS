@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-25. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-10-26. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -7799,3 +7799,20 @@ Wi-Fi connectivity remain untested. No repeat boot required. Next audit AGC gain
 initialization and full calibration/MAC/power prerequisites, including the
 previous IBI9 all-ones observation; do not blindly issue standalone calibration
 or infer transmit power. No MAC enable or traffic in this trial.
+
+
+### 2026-10-26 — integration refresh to main dfd63fef
+
+Merge actual `origin/main` `dfd63fef` into the published device branch, preserving
+its hardware-evidence history per coordination policy. Local backup ref retains
+pre-merge `eababae2`; accepted native v87 payload/evidence remain outside build.
+Resolved shared Makefile, main automatic-capture dispatch, boot profile/CLI/smoke
+and desktop-guide conflicts by retaining both Wi-Fi and new POSIX/desktop paths.
+No MT76 engine or descriptor/profile gate widened. Early combined checks pass:
+172 staging tests and31 desktop collection tests. Next run full build/core and
+exact-stage save/refusal VM checks, then a physical whole-chain v87 regression
+on the merged baseline before extending calibration. Same model/USB/recovery,
+no new hardware writes in the integration regression. AGC/full-calibration audit
+can proceed locally; full calibration remains gated on native context evidence.
+Open PR19 owns Wi-Fi; current main includes merged PR175/178/179 fixes. No other
+open shared-code PRs found at refresh. Battery/headphones/trackpad deferrals stay.

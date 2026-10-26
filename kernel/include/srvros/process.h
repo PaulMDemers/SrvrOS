@@ -1,6 +1,7 @@
 #ifndef SRVROS_PROCESS_H
 #define SRVROS_PROCESS_H
 
+#include <srvros/path_limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -8,7 +9,7 @@
 #include <srvros/syscall_numbers.h>
 #include <srvros/vfs.h>
 
-#define PROCESS_MAX_OPEN_FILES 64
+#define PROCESS_MAX_OPEN_FILES 67
 #define PROCESS_MAX_PROCESSES 64
 
 enum process_file_type {
@@ -40,7 +41,7 @@ struct process_file {
     uint64_t flags;
     bool dirty;
     bool failed;
-    char path[160];
+    char path[SRV_PATH_MAX];
 };
 
 struct process_spawn_file_action {
@@ -48,9 +49,13 @@ struct process_spawn_file_action {
     int32_t reserved;
     int64_t fd;
     int64_t new_fd;
+    const char *path;
+    uint64_t open_flags;
 };
 
 struct process;
+struct isr_frame;
+int64_t process_fork(const struct isr_frame *frame);
 struct scheduler_wait_queue;
 
 bool process_run_elf(const char *path);
@@ -109,6 +114,7 @@ bool process_lifetime_release(uint64_t token);
 uint64_t process_lifetime_of(uint64_t pid);
 
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
+int64_t process_wait_posix(int64_t selector,uint64_t *status_out,bool nohang);
 /* Kernel-designated init may reap children whose userspace parent has exited. */
 bool process_set_reaper(uint64_t pid);
 bool process_exit_status(uint64_t pid, uint64_t *status_out);
@@ -120,8 +126,10 @@ uint64_t process_list(uint64_t start_index,
 uint64_t process_list_details(uint64_t start_index, uint64_t *pid_out,
     const char **name_out, const char **state_out, uint64_t *parent_out, uint64_t *mapped_bytes_out);
 bool process_kill_pid(uint64_t pid);
+bool process_signal_is_supported(uint64_t signal);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
 bool process_signal_target(int64_t pid, uint64_t signal);
+int64_t process_signal_action_current(uint64_t signal);
 bool process_signal_config_current(uint64_t signal, uint64_t action);
 bool process_signal_pending_current(void);
 uint64_t process_signal_pending_mask_current(void);
@@ -163,9 +171,14 @@ int64_t process_file_alloc(struct process *process,
     const struct vfs_node *node,
     const uint8_t *data,
     uint64_t size);
+int64_t process_file_open_flags(struct process *process,const char *path,uint64_t flags);
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags);
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+/* Positional operations never change the shared open-file-description offset.
+ * Errors use SRV_ERR_*; buffers must already have passed user access checks. */
+int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, int64_t offset);
+int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, int64_t offset);
 bool process_file_nonblocking(struct process *process, uint64_t fd);
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
 struct pty_model;
@@ -190,6 +203,10 @@ int64_t process_file_recv_rights(struct process *process,
     uint64_t capacity,
     uint64_t *flags_out);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
+/* GUI wait snapshots only explicit nonblocking pipe/PTY endpoints. Replaced
+ * descriptor numbers report NVAL; readiness is suppressed during owned I/O. */
+int process_file_watch_capture(struct process *process,int64_t fd,uint16_t events,uint64_t *generation);
+uint16_t process_file_watch_poll(struct process *process,int64_t fd,uint16_t events,uint64_t generation,bool deferred);
 struct scheduler_wait_queue *process_file_poll_wait_queue(void);
 void process_file_poll_wake(void);
 int64_t process_handle_alloc(struct process *process,
@@ -197,7 +214,9 @@ int64_t process_handle_alloc(struct process *process,
     uint64_t handle);
 int64_t process_file_close(struct process *process, uint64_t fd);
 int64_t process_file_dup(struct process *process, uint64_t old_fd);
+int64_t process_file_dup_min(struct process *process, uint64_t old_fd, uint64_t minimum, bool cloexec);
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd);
+int64_t process_file_dup3(struct process *process, uint64_t old_fd, uint64_t new_fd, uint64_t flags);
 int64_t process_file_get_flags(struct process *process, uint64_t fd);
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags);
 int64_t process_file_get_fd_flags(struct process *process, uint64_t fd);
@@ -208,6 +227,12 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_sync_all(void);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
+int64_t process_path_utime(const char *path,uint64_t atime,uint64_t mtime);
+int64_t process_unlink_file(const char *path);
+int64_t process_rename_file(const char *old_path, const char *new_path);
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity);
+int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity);
+bool process_open_file_size(const char *path,uint64_t *size);
 int64_t process_file_stat(struct process *process,
     uint64_t fd,
     struct vfs_metadata *metadata_out,
@@ -233,10 +258,16 @@ int64_t process_msync(struct process *process,
     uint64_t length,
     uint64_t flags);
 int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);
-void process_thread_exit(uint64_t value) __attribute__((noreturn));
+/* Initial thread returns only after all workers exit, for libc exit(0). */
+void process_thread_exit(uint64_t value);
 int64_t process_thread_join(uint64_t tid, uint64_t *value_out);
 int64_t process_thread_detach(uint64_t tid);
 int64_t process_thread_status(uint64_t tid);
+int64_t process_thread_signal(uint64_t tid,uint64_t signal);
+/* CPU0 scheduler-owned accounting, while IRQs are masked. */
+void process_account_cpu(void *process,void *thread,bool user,uint64_t elapsed_us);
+int64_t process_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out);
+int64_t process_usage(int64_t who,struct srv_usage *out);
 uint64_t process_thread_self(void);
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);
 int64_t process_futex_wake(uint32_t *address, uint64_t max_count);
@@ -245,5 +276,9 @@ uint64_t process_fs_base(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);
 void process_exit(uint64_t status) __attribute__((noreturn));
+
+/* Process-wide creation policy, shared by threads and inherited by children. */
+int64_t process_umask(uint64_t mask);
+uint64_t process_creation_mode(uint64_t mode);
 
 #endif

@@ -681,3 +681,241 @@ remains incomplete history, not a hardware regression or acceptance claim.
 
 This accepts the explicit bounded desktop transition capture only. Gauge
 calibration, longer endurance and ordinary battery startup remain separate.
+
+## Combined built-in desktop session
+
+Use the distinct v71 recipe to combine the accepted Air6,1 battery owner with
+existing brightness, HDA and read-only CPU/SMC providers:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume YOUR-UUID \
+  --desktop-battery --battery-air61 --desktop-services
+```
+
+This profile has no diagnostic session deadline and does not request USB network
+discovery or the optional AML probe. v70 remains battery-only; v55 retains the
+reference machine's original combined recipe. Device gates are unchanged.
+Rehearse the exact payload with `battery_home_desktop_smoke.py --boot-session
+--air61 --services --audio --workspace-table gpt --case profile-refusal --stage
+RELEASE`. Q35 refuses native battery/brightness/SMC while exercising HDA and
+ordinary app exit/reopen; hardware coexistence still requires the attended run.
+
+For the attended test, keep Home USB attached and start on AC. Use Settings to
+adjust brightness and restore a comfortable level; play a WAV in Audio, vary
+volume and Stop; view temperature/fan freshness and battery/AC in System. Save
+and reopen a new `combined-services.txt` in Text, browse Home with Files, and
+use the session for at least ten minutes. Save work and select Return to console,
+then `desktop battery` to check provider availability after reopening. Exit again
+and enter `reboot` at `srv>`. There is no automatic completion prompt or return.
+Headphone routing and AC unplug/reconnect may be exercised while attended; no
+low-charge drain, fan writes or suspend is requested.
+
+### Reopen startup deadline boundary
+
+The first native combined reopen attempt halted at the five-second setup budget
+while its failure display reported setup complete and no work in flight. The
+operation loop used a stale timed-drain result: completion could occur while the
+owner was descheduled before the deadline check. It now performs a nonblocking
+completion poll at expiry, preserving callback error checks and the unchanged
+budget/containment for unfinished work. This matches the worker's existing
+completion-first wait semantics; it does not grant active work extra time.
+
+Disposable regression commands (after building the Air6,1 VM kernel):
+
+```sh
+python3 tools/battery_home_desktop_smoke.py --boot-session --air61 --services \
+  --audio --workspace-table gpt --case reopen-completed
+python3 tools/battery_home_desktop_smoke.py --boot-session --air61 --services \
+  --audio --workspace-table gpt --case reopen-busy
+```
+
+The first delays the second-lifetime owner past its deadline after a pending
+drain while the worker completes; the original code reproduces the halt. The
+second keeps setup unfinished and must still halt with ownership retained.
+These scheduling hooks are VM-only. The native retry remains required.
+
+## Startup timing and automated reopen diagnostic
+
+The second native reopen retry still exceeded five seconds with namespace
+initialization in flight. `battery-startup` records fixed-size counters for
+setup-worker sleep, stall, semaphore waits, EC byte transfers and allocation/free.
+`requested` is milliseconds, microseconds, semaphore timeout milliseconds
+(`65535` means indefinite), byte transfers, or allocated/freed bytes according
+to `kind`. Allocation/free wall times sample one call in 64; their call/byte
+counts cover all calls. Other categories time every call. `active_us` and
+`argument` describe an unfinished call at terminal containment. Nested categories
+overlap, and elapsed wall time includes scheduling; these are not additive CPU
+time measurements. Existing setup markers identify phase boundaries. Counters
+reset on every runtime open and exclude owner-thread sleeps and later sampling.
+Reports print after setup drains or during terminal containment, never to USB
+from the fatal path. The setup deadline remains five seconds.
+
+For an input-free native two-session startup check, build the native Air6,1
+runtime and stage the distinct v72 recipe:
+
+```sh
+python3 tools/hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" \
+  --desktop-battery --desktop-services --battery-air61 --desktop-reopen-test
+```
+
+Each session opens ordinary apps, samples for 20 seconds, requires fresh battery
+data, and follows normal lifetime revocation, runtime retirement and log saving.
+The second session repeats from the same boot with Home still mounted. After
+both return normally the test unmounts Home and returns to Ubuntu. Do not edit
+files during this diagnostic: its timer revokes the diagnostic app lifetime.
+It tests startup/retirement, not interactive saves or perceptual audio/brightness.
+Ordinary v70/v71 sessions retain no deadline or automatic exit.
+
+A fatal startup with Home mounted still **halts**, retaining uncertain ownership.
+Photograph the final timing lines and restart manually. Automation does not
+permit reset or filesystem writes from that context. Missing/refused battery
+support is a failed native test even if normal cleanup succeeds. Two matching
+session exit logs with fresh-sample and clean-retirement receipts are required;
+old exit text inherited by a new boot log is not second-session completion.
+
+Disposable validation uses `battery_home_desktop_smoke.py --boot-session --air61
+--services --audio --automatic --workspace-table gpt` with cases `normal`,
+`reopen-completed`, `reopen-busy`, `cancel` and `profile-refusal`.
+The automatic `cancel` case exits the first desktop early and requires failure,
+with normal teardown and a second session; early exit cannot count as a pass. The busy case must halt
+with an active 6000 ms sleep and only the first lifetime released. Exact-stage
+Q35 uses `--case profile-refusal --stage RELEASE`: two cleanly retired unavailable
+sessions and automatic recovery are harness success, never hardware acceptance.
+
+### Heap traversal follow-up
+
+The startup follow-up folds first-fit selection into the existing full entry
+validation pass. Finding a candidate never ends the scan: corrupt metadata later
+in the chain still halts before mutation. Full post-mutation validation remains,
+as do both free-side passes, invalid-free checks, block layout and allocation
+policy. The battery deadline is unchanged. This removes redundant search work;
+it does not replace integrity validation with sampling or defer it to idle time.
+
+`make test-heap` covers 6,000 live allocations, fragmentation, first-fit reuse,
+entry/exit visit counts, distal corruption despite an early fit, invalid frees,
+overflow and OOM. `make bench-heap-startup` runs two namespace-sized synthetic
+allocation/recycling lifecycles and prints wall time, validation/search visits
+and payload checksums. It is a deterministic workload shape, not a captured AML
+allocation trace. Host timing is informative rather than a CI threshold; native
+startup timing and clean retirement remain the acceptance evidence.
+
+Native release `4efd82574f07eb30` completed both automated lifetimes in the
+October 24 trial: startup took 3.604/3.619 seconds, versus 4.797/4.918 seconds
+before the heap change, with fresh samples and clean retirement. Full integrity
+checks and the five-second deadline remain intact. This accepts the short
+automated lifecycle; attended combined-session reopen and endurance still need
+revalidation. See the machine record for the evidence scope.
+
+### Attended reopen after the heap fix
+
+Use the untimed v71 recipe above. Keep Home USB attached and start on AC.
+There is no automatic completion prompt. In the first desktop, spend at least
+ten minutes on Text/Files and provider checks. Save a new `heap-reopen.txt` in
+Home containing `First session before reopening.`; close/reopen it to verify.
+Open the separate Files app from the dock folder icon and browse to the document
+(Text's Open dialog does not exercise Files). Check Settings brightness, Audio
+WAV playback/volume/Stop and System battery/AC, temperature and fan freshness.
+
+Save work and stop audio, select Return to console, then enter `desktop battery`
+at `srv>`. Wait for fresh battery data. Reopen the document in Text, append
+`Second session after reopening.`, save and close/reopen it to verify both lines.
+Browse it again in Files, repeat the provider checks and use this second session
+for at least two minutes. Save, Return to console, run `workspace unmount`, and
+then `reboot`. Photograph any terminal halt before manually restarting. The
+returned evidence must include both clean lifetime retirements, document content
+and separate Files activity; the prior automated pass does not substitute for
+this attended acceptance.
+
+October 25 attended result: release `9851d427b042227b` completed four desktop
+lifetimes and three reopens, with startup 3.600–3.792 seconds, Text save/append/
+readback, separate Files activity and clean battery retirement in every lifetime.
+The user reports all apps working. This accepts the attended combined reopen
+case after the heap fix; roughly 10.6 minutes total across the four lifetimes
+is not extended endurance coverage. The machine record retains detailed scope.
+
+## Longer combined desktop workload
+
+Keep the untimed v71 combined profile. Generate a fresh run with
+`desktop_combined_workload.files(run)` and place its script, seed and WAV in Home.
+In desktop Terminal, start `sh /work/srvros-work/combined-<run>.sh` once and keep
+that Terminal open. Each of thirty rounds launches a one-minute stereo WAV in
+the background, waits for its playing receipt, then performs forty paced 256-KiB
+copy/sync/rename/readback bursts. Each burst checks player liveness before and
+after I/O and refuses an already-complete playback. The shell then waits for the
+player and records the round. This overlaps I/O and playback rather than copying
+before playback. It is a bounded 300-MiB write/readback trial, not a throughput
+benchmark. Allow about 31 minutes. Avoid competing Audio playback. Listen for
+glitches; zero reported underruns does not prove audible quality. A reused run
+directory is refused; start only one instance (the guard is not a concurrent lock).
+
+During the workload, save a new `long-<run>.txt` in Text, reopen it and append/save
+again later. Use the separate Files dock app to browse Home. Check fresh battery,
+CPU/fan values and responsiveness near start, middle and end. Keep USB and AC
+connected. Wait for `COMBINED TRIAL COMPLETE`, save Text, close Terminal, Return
+to console, `workspace unmount`, then `reboot`. There is no forced exit. Early
+exit or absent completion is incomplete evidence. Photograph any halt before
+manual restart. The Ubuntu collector checks all 1,200 burst receipts, thirty
+complete audio results with zero underruns, inputs/outputs, a completed desktop
+lifetime of at least thirty minutes and filesystem integrity, then backs up
+returned evidence. Human audio/input observations remain separate.
+
+Validation uses `python3 tools/test_desktop_combined_workload.py` and
+`tools/host-env.sh python3 tools/desktop_combined_workload_smoke.py`. The GPT Q35
+test shortens rounds, tone duration and burst count while retaining the same shell
+sequence. It requires actual captured PCM output growth during substantial USB
+writes, Text/Files work, exact retained outputs, repeat refusal, clean retirement
+and filesystem checks. Native per-burst liveness receipts establish player/I/O
+coexistence; listening remains required to assess actual sound interruption.
+
+Run the overlap harness again with `--full-round` to exercise one complete
+one-minute play and all forty disk bursts using native per-round parameters.
+The default two-round test checks repetition with shorter pacing. Neither is
+a substitute for the native thirty-minute run or listening observations.
+
+### Fully automatic audio and filesystem stress
+
+The fixed forty-burst shell workload was not accepted: native run
+`93a364b8128b185a` completed 32 bursts before the first 60-second play ended.
+Use the new explicit `--desktop-audio-io-test` staging option with
+`--desktop-volume YOUR_UUID --desktop-battery --desktop-services --battery-air61`.
+It selects v74; ordinary sessions remain unchanged.
+
+Boot opens the desktop, waits for fresh battery telemetry, then automatically
+starts a thirty-minute PCM producer and a separate filesystem worker. The worker
+repeatedly creates a 256 KiB pattern, flushes/closes it, renames, reopens and
+verifies every byte, then removes it and syncs. It runs without intentional
+pacing. Each new diagnostic directory is exclusive and contains a binary disk
+receipt and readable result. The result requires sustained I/O timestamps within
+the live PCM interval, exact PCM bytes, clean worker exit and zero underruns.
+It records actual burst count, bytes and maximum burst latency; no fixed native
+throughput is assumed. Only bounded scratch storage is live at once.
+
+No commands, saves, clicks or manual exit are required. Keep AC and USB connected
+and listen for dropouts; desktop progress is visible. Normal app/battery teardown,
+log flush and USB unmount precede automatic return to Ubuntu. Mounted ownership
+faults still halt; photograph those rather than call them successful returns.
+This exercises ordinary filesystem operations, not a claim of Text UI automation.
+
+Validation uses `tools/host-env.sh python3 tools/audio_io_stress_smoke.py` for a
+fully automatic sixty-second Q35 run with observed non-silent audio and USB-write
+overlap, and `--stage RELEASE` for exact GRUB→Limine native-profile refusal and
+automatic return on Q35. `make test-audio-io-receipt` rejects missing, delayed,
+out-of-window, insufficient-duration, incomplete-PCM and underrun receipts.
+Native listening and endurance remain separate acceptance evidence.
+
+Native v74 partial result (2026-10-25): about 23 minutes of continuous sound with
+zero PCM underruns, then intentional early exit. Battery retirement and offline
+filesystem checks passed, but the final workload receipt is absent. App launch
+and close caused multi-second delays; desktop responsiveness under unpaced I/O
+is **not accepted**. Future validation must automate lifecycle actions and measure
+event-loop/launch/close latency alongside audio and file integrity. See the unit
+record for measured close intervals and the unresolved contention hypothesis.
+
+The next candidate extends this same explicit stress mode with automatic Text,
+Files and System open/render/close cycles throughout playback. The compositor
+must stay within a 500 ms loop-gap bound; the final `desktop-life` receipt records
+cycle count, errors, maximum loop/ready/close intervals and first/last cycle times.
+Lifecycle coverage must span at least duration minus twenty seconds, with at
+least six completed cycles and no app errors. A clean PCM receipt alone is not a
+pass. No manual opening, saving or closing is needed. The worker's original disk
+pressure, byte comparison, flush/sync and PCM overlap checks remain unchanged.

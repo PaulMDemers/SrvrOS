@@ -86,6 +86,10 @@ def main():
                 def shot(name):
                     time.sleep(.5);qmp.call("screendump",{"filename":str(out/f"{name}.ppm")})
                 wait(b"srv> ",100)
+                serial.sendall(b"run /fat/bin/desktools text --chooser-capture\n")
+                wait(b"chooser-capture: PASS",80);wait(b"run: pid=");wait(b" exited status=0");wait(b"srv> ")
+                assert b"mode=legacy canceled-submitted=yes reopened=yes stale-rejected=yes worker-retired=yes" in output
+                assert b"mode=pooled canceled-submitted=yes reopened=yes stale-rejected=yes worker-retired=yes" in output
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait_all([b"deskd: commit",b"text history=multi-step"])
                 shortcut("meta_l-spc");wait(b"launcher opened");type_text("Preview");qmp.key("ret")
@@ -117,7 +121,11 @@ def main():
                 qmp.key("equal",True);wait(b"view scale=131072 fit=0");shot("preview-zoom")
                 qmp.key("0");wait(b"fit=1")
                 if args.stress:
-                    open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png");qmp.key("esc")
+                    open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
+                    # Loading starts in the picker acceptance callback. Wait for
+                    # its owned window to retire and restore parent focus before
+                    # sending the parent's Cancel command.
+                    wait(b"deskd: retired pid=");qmp.key("esc")
                     wait(b"deskview: action=2");shot("preview-canceled")
                     open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
                     click(width//2-150,height-50);type_text("Preview remained responsive.")
@@ -132,6 +140,8 @@ def main():
                 open_name("Sample.jpg");wait(b"loaded path=/fat/pictures/Sample.jpg width=19 height=13")
                 open_name("Sample.bmp");wait(b"loaded path=/fat/pictures/Sample.bmp width=19 height=13")
                 open_name("Sample.png");wait(b"loaded path=/fat/pictures/Sample.png width=19 height=13")
+                shortcut("ctrl-o");wait(b"deskview: picker ready");shortcut("esc")
+                wait(b"deskview: picker canceled pending=0 retained=1");shot("preview-picker-canceled")
                 # The picker uses the shared asynchronous clipboard path.
                 shortcut("ctrl-o");wait(b"deskview: picker ready");shortcut("tab");type_text("Landscape.png")
                 shortcut("ctrl-a");shortcut("ctrl-c");time.sleep(.5);type_text("wrong");shortcut("ctrl-a");shortcut("ctrl-v");time.sleep(.5);qmp.key("ret")
@@ -151,7 +161,7 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 if args.stress:
                     serial.sendall(b"cat /fat/preview-input-proof.txt\n");wait(b"Preview remained responsive.");wait(b"srv> ")
-                if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
+                if b"failure=1" in output or b"deskd: FAIL" in output or b"chooser-capture: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:

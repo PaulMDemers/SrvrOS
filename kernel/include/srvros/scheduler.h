@@ -10,7 +10,7 @@ typedef void (*scheduler_thread_fn)(void *arg);
 typedef bool (*scheduler_wait_condition_fn)(void *arg);
 
 struct scheduler_wait_queue {
-    uint64_t waiters;
+    uint64_t waiters; /* Count, not a bitmap. Membership is owned by thread records. */
 };
 
 struct scheduler_stats {
@@ -40,8 +40,17 @@ bool scheduler_io_yield(void);
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,void *arg,uint64_t deadline_ticks);
 void scheduler_io_wait(void);
+/* A nonblocking operation deferred by another I/O owner requests a later
+ * quiescent turn without blocking, waking sleepers or widening eligibility. */
+void scheduler_io_request_turn(void);
+/* Completed userspace syscall only: no mutable operation or lock remains,
+ * caller is marked user-safe, IRQs masked. Give one pending gate contender a
+ * turn before this caller can submit another operation. Never releases I/O. */
+void scheduler_io_handoff(void);
 void scheduler_io_set_user_safe(bool safe);
 void scheduler_user_enter(void);
+void scheduler_account_kernel_enter(void);
+void scheduler_account_now(void);
 void scheduler_yield(void);
 /* CPU0 fatal service boundary, IRQs already masked. Ordinary thread boundary
  * or a terminal IRQ exit hook AFTER EOI, every completion callback and registry

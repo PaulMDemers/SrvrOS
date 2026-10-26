@@ -4,7 +4,7 @@
 #include "../userspace/desktools/settings.c"
 static int brightness_send_fail;static uint64_t ticks=10;static struct desk_packet brightness_sent;
 long srv_ticks(void) { return ticks; }
-struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.type=type}; }
+struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type}; }
 int desk_send(uint64_t target,const struct desk_packet *p) { (void)target;brightness_sent=*p;return brightness_send_fail?-1:0; }
 void srv_puts(const char *text) { (void)text; }
 static unsigned mask,sends;static struct desk_preferences requested;static int fail;

@@ -203,6 +203,14 @@ def main():
                     send('echo timeout-keys-ok\n')
                     text = wait_for(serial, lambda s: 'failed; disk offline' in s[offset:] and
                                     '\ntimeout-keys-ok\n' in s[offset:] and s.endswith(' $ '), process, 60)
+                    timeout = re.search(
+                        r'failed; disk offline phase=completion reason=deadline '
+                        r'lba=\d+ elapsed_us=(\d+) spins=\d+ windows=\d+ '
+                        r'ci=(0x[0-9a-f]+) is=(0x[0-9a-f]+) tfd=0x[0-9a-f]+ serr=0x[0-9a-f]+',
+                        text[offset:])
+                    if (timeout is None or int(timeout[1]) < 2000000 or
+                            not (int(timeout[2], 16) & 1) or (int(timeout[3], 16) & (1 << 30))):
+                        raise RuntimeError('Forced pending command lacks the expected deadline/register receipt')
                     throttle()
                     offset = len(current())
                     text = shell('sync')

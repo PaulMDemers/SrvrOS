@@ -15,11 +15,18 @@ struct desk_palette {
     struct desk_text_buffer text;
     char storage[2][DESK_PALETTE_QUERY],title[96],notice[128];
     struct desk_list list;
-    struct desk_palette_item items[DESK_PALETTE_ITEMS];
-    struct desk_list_item visible[DESK_PALETTE_ITEMS];
+    struct desk_palette_item inline_items[DESK_PALETTE_ITEMS];
+    struct desk_list_item inline_visible[DESK_PALETTE_ITEMS];
+    struct desk_palette_item *items;
+    struct desk_list_item *visible;
+    unsigned capacity;
     unsigned count;
 };
 void desk_palette_init(struct desk_palette *palette);
+/* Borrow both arrays until rebound/destroyed. Preserve query/selected identity,
+ * copy current items and cancel pointer capture. No allocation or truncation. */
+int desk_palette_bind_storage(struct desk_palette *palette,struct desk_palette_item *items,
+    struct desk_list_item *visible,unsigned capacity);
 int desk_palette_open(struct desk_palette *palette,const char *title,const struct desk_palette_item *items,unsigned count);
 int desk_palette_items(struct desk_palette *palette,const struct desk_palette_item *items,unsigned count);
 void desk_palette_configure(struct desk_palette *palette,struct desk_rect bounds);

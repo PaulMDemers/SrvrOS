@@ -470,6 +470,11 @@ static void command_latency(const char *args) {
         snapshot.enabled ? "yes" : "no", timer_reference_ready() ? "acpi-pm" : "unavailable");
     static const char *names[] = {"console", "heap", "ahci", "serial", "pmm"};
     for (unsigned i = 0; i < LATENCY_SITE_COUNT; i++) print_latency_sample(names[i], &snapshot.critical[i]);
+    static const char *work_names[]={"process-record","process-image","process-memory","process-exit","process-mapping","process-refresh"};
+    for(unsigned i=0;i<LATENCY_WORK_COUNT;i++) {
+        print_latency_sample(work_names[i],&snapshot.work[i]);
+        console_printf("latency: %s entry_if_off=%u (whole operation, includes scheduling)\n",work_names[i],snapshot.work_entry_masked[i]);
+    }
     print_latency_sample("timer-gap", &snapshot.tick_gap);
     print_latency_sample("usb-poll-gap", &snapshot.input_poll_gap);
     keyboard_print_status();

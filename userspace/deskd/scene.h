@@ -1,12 +1,12 @@
 #ifndef DESKD_SCENE_H
 #define DESKD_SCENE_H
+#include <srvros/desktop_protocol.h>
 #include <srvros/desk_render.h>
 #include <srvros/desk_menu.h>
 #include <srvros/desk_popup.h>
 #include <srvros/desk_palette.h>
 #include "notification_view.h"
-#define DESKD_WINDOWS 8
-#define DESK_INPUT_QUEUE 64
+#define DESKD_WINDOWS DESK_MAX_WINDOWS
 struct desktop_window {
     struct desk_rect frame;
     const uint32_t *pixels;
@@ -16,7 +16,9 @@ struct desktop_window {
     char title[96];
 };
 struct desktop_scene {
-    struct desktop_window windows[DESKD_WINDOWS];
+    struct desktop_window windows[DESKD_WINDOWS]; /* Inline compatibility storage. */
+    struct desktop_window **records;
+    int capacity,*order;
     int focus,cursor_x,cursor_y,trackpad_trial,apps;
     struct desk_menu menu;
     struct desk_popup context;
@@ -31,6 +33,7 @@ struct desktop_scene {
     char calendar_date[64],calendar_zone[32];
     uint64_t stack_serial;
     char notice[96],clock[64],battery[32];
+    int automatic_test;
     int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };
@@ -46,6 +49,14 @@ struct desk_rect desktop_battery_rect(int width,const char *clock);
 struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);
-void desktop_stack(const struct desktop_scene *scene,int order[DESKD_WINDOWS]);
+/* Borrow one desktop_stack() result for an immutable frame's damage clips.
+ * Occlusion=0 retains the unculled pixel oracle; neither path allocates or
+ * changes scene/cache lifetime. Order must cover desktop_capacity(s) entries. */
+void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
+    const int *order,int occlusion);
+/* Registry/scratch storage belongs to the compositor. Scene code never allocates. */
+#define desktop_window_at(s,i) ((s)->records?(s)->records[(i)]:&(s)->windows[(i)])
+static inline int desktop_capacity(const struct desktop_scene *s) { return s->capacity?s->capacity:DESKD_WINDOWS; }
+void desktop_stack(const struct desktop_scene *scene,int *order);
 struct desk_rect desktop_dock_item(int width,int height,int application);
 #endif

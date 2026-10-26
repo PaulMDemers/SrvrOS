@@ -7,6 +7,10 @@ controls and models; the build produces
 `build/userspace/widgets/libdeskwidgets.a`. It is independent of the legacy
 `ui.h` / `gui2.h` implementations.
 
+The optional [file chooser controller](../../docs/desktop-chooser.md) belongs to
+`userspace/desktop_runtime`, above this library. Text and Preview share its
+asynchronous browse/cancel ownership while the picker widget remains pure.
+
 ## Component map
 
 | Need | Shared API | Application example |
@@ -34,6 +38,15 @@ see the [native desktop guide](../../docs/native-desktop.md).
 
 ## Adding a native application
 
+For multiple windows, start with the connection-owned runtime in
+`userspace/desktop_runtime` and the [application lifecycle
+contract](../../docs/desktop-application-lifecycle.md). Current protocol v15
+supports shared connection ownership, parented dialogs and cooperative app Quit;
+`desk_app` remains the per-window interface. The single-window sequence below
+is not a reason to create a new process or transport for each document. Read the
+[desktop API evolution](../../docs/desktop-api-evolution.md) for allocation budgets
+and the distinction between window growth and process/descriptor limits.
+
 Keep one application-owned state object containing its `desk_app` transport,
 control instances, document/model state and any worker jobs. `deskclock` is a
 useful composed-control example; `desknet` demonstrates bounded read-only jobs,
@@ -60,7 +73,8 @@ start from the old `gui2` apps.
 5. Publish menu snapshots and service `desk_app_menu_tick`. Use the same action
    handlers for shortcuts, menu commands and contextual actions. Global heading
    names **SrvrOS**, **Arrange** and **Window** are reserved. Apps may publish
-   at most 32 entries and four headings; each popup has at most twelve rows.
+   at most 32 entries and four headings; the shared popup model supports up to
+   32 rows per group and scrolls when the screen cannot display them all.
 6. Draw only when `desk_app_canvas` returns 1. Present through
    `desk_app_present`; never retain and mutate a sealed pixel buffer while the
    compositor owns it. Keep polling releases/configures even when no repaint is
@@ -280,7 +294,11 @@ Ctrl-C for the foreground command; Shift-PageUp/PageDown scroll history.
 pointer activation, press-drag selection, hover switching, F10/arrow/Home/End
 navigation, Escape cancellation, disabled items, checkmarks and shortcut labels.
 It validates UTF-8 labels and unique action IDs. Flat headings group at most
-12 rows each; snapshots contain at most 64 entries and eight headings. The
+32 rows each by default; inline snapshots contain 96 entries and eight headings.
+`desk_menu_bind_storage` borrows caller-owned larger item storage, copies the
+existing snapshot and disarms pending pointer activation. Larger groups remain
+scrollable; group count and arithmetic bounds still validate. Replacement compares
+old/new group contents before copying, without variable-sized stack storage. The
 compositor uses this same control for its global UI. Drawing preserves parent
 clips and supports tiled damage; opening, changing or closing a popup damages
 only its old/new bounds and the menu bar.
@@ -304,7 +322,9 @@ background update from sending the user's next Enter into the document.
 shared button/focus router. Apps choose the initial safe focus and cancel ID;
 Escape activates cancellation, and Enter activates the focused choice. Blank
 or outside clicks preserve keyboard focus and do not dismiss the dialog.
-Focus loss and layout changes cancel captures. Applications own modal lifetime
+Focus loss and actual geometry/enabled-state changes cancel captures. Repeating
+`desk_dialog_configure` with an unchanged effective layout preserves a held
+button until release; it does not restart or cancel the click. Applications own modal lifetime
 and any Save/Replace/Close behavior. Text and Terminal now use this component.
 The shared text-block helper wraps words and long UTF-8 words without allocation,
 honors explicit newlines, and preserves the incoming drawing clip.
@@ -316,7 +336,9 @@ into a reusable Open/Save panel. It owns the location/filename text and borrows
 validated listing items. It returns Browse, Accept and Cancel requests with a
 bounded absolute path; it never performs I/O or assumes a particular filesystem.
 The app marks loading and supplies a completed listing or error. Cancel stays
-available while loading. Ctrl-L edits the folder, Alt-Up navigates to its parent,
+available while loading. Repeating `desk_picker_configure` with the same bounds
+preserves pointer capture; a resize, loading transition or new listing cancels
+it. Ctrl-L edits the folder, Alt-Up navigates to its parent,
 F5 refreshes, Enter opens/accepts, and Escape cancels. Clipboard requests identify
 the relevant editor field. Lexical validation preserves UTF-8 but filesystem
 rules may further restrict names (the current exFAT writer creates ASCII names).
@@ -717,3 +739,18 @@ under Trackpad. Defaults and v1/v2/v3 migration enable them; v4 saves their choi
 They map to `SRV_POINTER_TAP_CLICK` and `SRV_POINTER_TWO_FINGER_TAP` flags in the
 owner-only pointer syscall. Secondary taps reuse the existing right-button /
 `DESK_CONTEXT` path: widgets do not implement their own tap recognizers.
+
+### Caller-owned palette storage
+
+`desk_palette_bind_storage` binds item and visible-list arrays supplied by the
+caller. It copies existing items, preserves query and selected identity, and
+cancels pointer capture. Capacity must cover the existing model and stay within
+the list geometry bound; invalid binding/replacement leaves it intact. The caller
+keeps storage alive until rebind or destruction. Widgets perform no allocations.
+The desktop owns growth and accounts for both model and scratch arrays. Ordinary
+small users retain inline defaults. Do not move initialized palette/menu objects;
+internal pointers and UI-control references require a stable owner address.
+
+Application event dispatch, waits, timers and command snapshots live in the
+[shared desktop runtime](../../docs/desktop-application-runtime.md), above this
+pure widget archive. Controls retain their model/input/rendering responsibilities.

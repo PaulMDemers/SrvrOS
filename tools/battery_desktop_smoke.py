@@ -98,6 +98,15 @@ def check_load_capture(data, injected=False):
     return result
 
 
+def check_file_progress(data, storage):
+    rows=[r for r in data.splitlines() if r.startswith(b'text-files:')]
+    summary=f'text-files: cycles=5 pending=0 storage={storage}'.encode()
+    ready=[f'text-files: write-ready serial={i*12}'.encode() for i in range(1,6)]
+    # Retain historical receipts without readiness diagnostics. Current traces
+    # must contain all five ordered boundaries, with no duplicates/unknown rows.
+    assert rows==[summary] or rows==ready+[summary],rows
+
+
 def check_files_capture(data, injected=False):
     data=complete_lines(data)
     result=check_text_capture(data,injected,files=True)
@@ -105,7 +114,7 @@ def check_files_capture(data, injected=False):
     assert len(extent)==1 and sum(r.startswith(b'workspace-image: prepared ') for r in data.splitlines())==1 and int(extent[0])>0 and int(extent[0])%512==0
     result.update(raw_offset=int(extent[0]),bytes=16777216)
     assert [r for r in data.splitlines() if r.startswith(b'battery-app-files:')]==[b'battery-app-files: PASS descendants=3; retired=yes revoked=yes']
-    assert [r for r in data.splitlines() if r.startswith(b'text-files:')]==[b'text-files: cycles=5 pending=0 storage=image']
+    check_file_progress(data,'image')
     rows=re.findall(rb'^desktools: file-result role=text op=(\d+) status=(\d+) bytes=(\d+)\r?$',data,re.MULTILINE)
     assert len(rows)==sum(r.startswith(b'desktools: file-result ') for r in data.splitlines())
     assert [tuple(map(int,r)) for r in rows]==[(op,0,length) for _ in range(5) for op,length in ((2,0),(8,32),(5,0),(1,2))],rows

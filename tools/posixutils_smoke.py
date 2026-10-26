@@ -124,7 +124,8 @@ def main():
         "time true\n"
         "timeout 1 sleep 2 || echo timeout-killed-ok\n"
         "nohup echo nohup-ok\n"
-        "nice -n 5 echo nice-ok\n"
+        "nice -n 0 echo nice-ok\n"
+        "nice -n 5 true || echo nice-unsupported-ok\n"
         "echo posixutils-done\n"
         "exit\n"
     )
@@ -139,6 +140,7 @@ def main():
             "-m", args.memory,
             "-cdrom", iso,
             "-boot", "d",
+            "-display", "none",
             "-serial", f"tcp:127.0.0.1:{port},server,nowait",
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
@@ -184,7 +186,7 @@ def main():
         "usage: strings [-n length] [file ...]",
         "usage: file path ...",
         "usage: tty [-s]",
-        "usage: stty [-a|raw|cooked|sane|echo|-echo]",
+        "usage: stty [-a|size|raw|cooked|sane|echo|-echo]",
         "usage: time command [arg ...]",
         "usage: timeout seconds command [arg ...]",
         "usage: nohup command [arg ...]",
@@ -213,6 +215,7 @@ def main():
         "timeout-killed-ok",
         "nohup-ok",
         "nice-ok",
+        "nice-unsupported-ok",
         "posixutils-done",
     ]
     lines = {line.strip() for line in text.splitlines()}

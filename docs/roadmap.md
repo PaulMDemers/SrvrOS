@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated October 23, 2026. The goal is a pleasant native desktop on the MacBook
+Updated October 25, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -60,13 +60,38 @@ audio or battery regressions. Temperature and idle percentage alone are not ener
 
 ## 5. Make the desktop less constrained
 
-Replace eight preallocated window-cache pairs with demand-sized buffers and align
-process, queue and surface budgets. Handle allocation failure before raising the
-limit. Continue reusable controls, keyboard accessibility, app save/recovery and
-text coverage. Native-density typography is separate from current 2× pixel scaling.
+The desktop uses demand-allocated pixel caches under a 96 MiB budget, dynamic
+window/child registries under an 8 MiB additional metadata budget, and separate
+kernel surface/queue byte budgets. Window identity is independent of process
+identity; normal Text exercises multiple real documents through one dispatcher.
+Shared lazy file-worker channels and combined GUI/pipe waits remove one-worker
+and one-poll-loop-per-document assumptions. Host/VM coverage includes 128 small
+windows, 32 Text documents/33 exact files, explicit pressure refusal, clipboard,
+worker cleanup and typing during throttled writes. See [window capacity](window-capacity.md)
+and [desktop connections](desktop-connections.md).
 
-**Done when:** workloads beyond eight windows, resizing, close/reopen and memory
-pressure preserve documents, input and resource stability.
+Air7,2 release `f01d4049daae0b4a` accepts two automated 24-app rounds with
+acknowledged edits, exact saved files, chooser cancellation and retirement.
+Release `1d1d5edce03523db` separately accepts reported modal and unsaved-exit
+corrections. These supersede the earlier sixteen-window capacity checkpoint for
+their named checks; they do not accept arbitrary workloads or pressure injection.
+
+The renderer now conservatively skips fully covered opaque windows and reuses
+one stack ordering per frame; exact reference pixels and identical-workload host
+benchmarks guard the change.
+
+**Next completion gates:** close the unresolved Air6,1 app startup/retirement
+latency under sustained I/O without relaxing deadlines, and expand measured
+input/resize/pressure coverage. Parented dialogs, cancellable Close/Quit and
+existing-process document routing are implemented in protocol v15. Text and
+Preview share the asynchronous [chooser controller](desktop-chooser.md) hosted
+in native owned dialogs with an embedded fallback. Broader app services remain
+future work; see the [lifecycle contract](desktop-application-lifecycle.md). Follow the
+[desktop API evolution plan](desktop-api-evolution.md). Native-density typography,
+accessibility and broader toolkit portability remain separate from 2× pixel scaling.
+The [portable C/POSIX profile](posix-supported-profile.md) supplies the selected
+thread/file/process/readiness foundation; broader Unix and Linux-adapter gaps
+remain separate, with no claim of full POSIX conformance.
 
 ## 6. Suspend and expand hardware deliberately
 

@@ -21,6 +21,7 @@ extern "C" {
 #define O_CLOEXEC 0x80000
 
 #define AT_FDCWD -100
+#define AT_EACCESS 0x2000
 #define AT_REMOVEDIR 0x200
 #define AT_SYMLINK_NOFOLLOW 0x100
 

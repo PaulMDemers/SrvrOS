@@ -62,6 +62,11 @@ static struct posix_socket sockets[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
 const struct in6_addr in6addr_any = {{0}};
 
+int __posix_socket_fork_ready(void) {
+    for(unsigned i=0;i<POSIX_SOCKET_MAX;i++) if(sockets[i].used) return 0;
+    return 1;
+}
+
 static struct posix_socket *socket_at(int fd) {
     if (fd < POSIX_SOCKET_BASE || fd >= POSIX_SOCKET_BASE + POSIX_SOCKET_MAX) {
         return 0;
@@ -564,7 +569,7 @@ int socketpair(int domain, int type, int protocol, int fds[2]) {
     int flags = type & (SOCK_NONBLOCK | SOCK_CLOEXEC);
     int base_type = type & ~(SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (fds == 0) {
-        errno = EINVAL;
+        errno = EFAULT;
         return -1;
     }
     if (domain != AF_UNIX) {
@@ -575,23 +580,9 @@ int socketpair(int domain, int type, int protocol, int fds[2]) {
         errno = EPROTONOSUPPORT;
         return -1;
     }
-    if (srv_pipe_pair(fds) < 0) {
-        errno = EMFILE;
-        return -1;
-    }
-    uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
-    uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
-    if ((fd_flags != 0 &&
-            (srv_fcntl(fds[0], SRV_F_SETFL, fd_flags) < 0 ||
-                srv_fcntl(fds[1], SRV_F_SETFL, fd_flags) < 0)) ||
-        (descriptor_flags != 0 &&
-            (srv_fcntl(fds[0], SRV_F_SETFD, descriptor_flags) < 0 ||
-                srv_fcntl(fds[1], SRV_F_SETFD, descriptor_flags) < 0))) {
-        (void)srv_close(fds[0]);
-        (void)srv_close(fds[1]);
-        errno = EBADF;
-        return -1;
-    }
+    uint64_t native_flags=((flags&SOCK_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags&SOCK_CLOEXEC)?SRV_FD_CLOEXEC:0);
+    long result=srv_pipe_pair_flags(fds,native_flags);
+    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
 
@@ -1152,6 +1143,8 @@ static int message_rights_capacity(const struct msghdr *message) {
     return fd_capacity > SRV_RIGHTS_MAX ? SRV_RIGHTS_MAX : (int)fd_capacity;
 }
 
+int __posix_event_export_allowed(int fd);
+
 static int message_extract_rights(const struct msghdr *message, int rights[SRV_RIGHTS_MAX], size_t *count_out) {
     *count_out = 0;
     if (message->msg_control == 0 || message->msg_controllen == 0) {
@@ -1178,6 +1171,8 @@ static int message_extract_rights(const struct msghdr *message, int rights[SRV_R
             return -1;
         }
         memcpy(&rights[*count_out], CMSG_DATA(cmsg), bytes);
+        for (size_t i=0; i<count; i++)
+            if (!__posix_event_export_allowed(rights[*count_out+i])) return -1;
         *count_out += count;
     }
     return 0;

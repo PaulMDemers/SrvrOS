@@ -4,6 +4,7 @@
 #include <srvros/desk_log.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static struct {
     unsigned phase,cycles;
@@ -18,6 +19,16 @@ static struct {
     unsigned requests,waiting,submit;
     uint64_t epoch,serial,deadline;
 } controls;
+static char capacity_root[DESK_FILE_PATH]="/work/srvros-work/capacity-XXXXXX";
+static int capacity_mode,capacity_picker;
+int tool_chooser_capture_at(const char *,const char *);
+int tool_file_capture_capacity_setup(void) {
+    if(!mkdtemp(capacity_root))return -1;
+    root=capacity_root;storage="capacity";capacity_mode=1;
+    snprintf(draft,sizeof(draft),"%s/text-draft.txt",root);
+    desk_log("document-capacity: directory=%s fresh=yes\n",root);
+    return 0;
+}
 static void capture_write(struct tool *t);
 void tool_file_capture_controls_enable(int cancel) { controls.enabled=1;controls.cancel=cancel; }
 static int control_request(struct tool *t,unsigned op) {
@@ -140,12 +151,18 @@ void tool_file_capture_finish(struct tool *t,int result) {
            t->body_text.length!=2 || memcmp(t->body_text.data,"AA",2) ||
            t->body_text.caret!=0 || t->body_text.anchor!=0) goto failed;
         capture.cycles++;capture.phase=0;
+        if(capacity_mode && capture.cycles==5) {
+            if(tool_chooser_capture_at(root,capture.destination))goto failed;
+            capacity_picker=1;
+            desk_log("document-capacity: verified directory=%s files=5 bytes_each=2 chooser=PASS\n",root);
+        }
         t->window.input_serial=capture.serial;t->window.dirty=1;
     } else goto failed;
     return;
 failed:t->window.failed=1;
 }
 int tool_file_capture_report(void) {
+    if(capacity_mode && (!capacity_picker || capture.cycles!=5 || capture.phase))return 0;
     desk_log("text-files: cycles=%u pending=%u storage=%s\n",capture.cycles,capture.phase?1u:0u,storage);
     if(controls.enabled) {
         struct srv_battery_status status={0};

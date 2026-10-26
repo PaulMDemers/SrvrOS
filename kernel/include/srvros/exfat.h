@@ -46,10 +46,17 @@ bool exfat_scratch_range(const char *path, struct block_device **device, uint64_
 bool exfat_exclusive_range(const char *path, uint64_t bytes,
     struct block_device **device, uint64_t *offset);
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size);
+bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size, uint64_t mode);
+bool exfat_create_directory_mode(const char *path, uint64_t mode);
 bool exfat_delete_file(const char *path);
 bool exfat_create_directory(const char *path);
 bool exfat_delete_directory(const char *path);
 bool exfat_rename(const char *old_path, const char *new_path);
+/* POSIX regular-file replacement; native guarded rename stays non-overwriting.
+ * published distinguishes a post-publication I/O failure from an unchanged VFS.
+ * Caller retains any open target contents before entry/cluster retirement. */
+bool exfat_replace_file(const char *old_path, const char *new_path, bool *published);
+bool exfat_same_mount(const char *first, const char *second);
 /* Read-only node-table admission, including metadata replacement and VFS slots.
  * Caller owns filesystem exclusion. This is a point-in-time check, not a lease. */
 bool exfat_creation_capacity(const char *path, uint64_t files, uint64_t dirs);

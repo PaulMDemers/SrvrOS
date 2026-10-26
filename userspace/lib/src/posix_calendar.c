@@ -5,6 +5,13 @@
 #include <srvros/calendar.h>
 /* SrvrOS libc's local zone is UTC. Desktop fixed offsets are presentation state,
  * not a process-global TZ database. Conversion does no allocation or year loop. */
+double difftime(time_t end,time_t beginning) {
+    /* Subtract in the integer domain before conversion: nearby times beyond
+     * double's exact integer range must still yield their small difference. */
+    return end>=beginning?(double)((uint64_t)end-(uint64_t)beginning):
+        -(double)((uint64_t)beginning-(uint64_t)end);
+}
+
 struct tm *gmtime_r(const time_t *timer,struct tm *result) {
     if(!timer || !result) { errno=EINVAL;return NULL; }
     int64_t seconds=*timer,days=seconds/86400,remaining=seconds%86400;

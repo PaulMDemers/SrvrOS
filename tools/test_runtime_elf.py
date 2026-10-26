@@ -3,6 +3,9 @@
 from pathlib import Path
 import struct
 import unittest
+import subprocess
+import sys
+import tempfile
 from pack_runtime_elf import runtime_elf
 
 
@@ -36,6 +39,16 @@ class RuntimeElfTests(unittest.TestCase):
             data=bytearray(self.fixture());struct.pack_into('<'+fmt,data,offset,value)
             with self.subTest(offset=offset,value=value),self.assertRaises(ValueError): runtime_elf(bytes(data))
         with self.assertRaises(ValueError): runtime_elf(b'\x7fELF')
+
+    def test_staged_modes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            binary=root/'app';binary.write_bytes(self.fixture());binary.chmod(0o640)
+            document=root/'note';document.write_bytes(b'ordinary data');document.chmod(0o640)
+            subprocess.run([sys.executable,str(Path(__file__).with_name('pack_runtime_elf.py')),str(root)],check=True,capture_output=True)
+            self.assertEqual(binary.stat().st_mode&0o777,0o751)
+            self.assertEqual(document.stat().st_mode&0o777,0o640)
+            self.assertEqual(binary.read_bytes(),runtime_elf(self.fixture()))
 
     def test_real_programs(self):
         root=Path(__file__).resolve().parents[1]

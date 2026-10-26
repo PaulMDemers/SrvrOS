@@ -1,9 +1,11 @@
 # SrvrOS agent entry point
 
-This repository is developed by agents working locally on separate Ubuntu Macs.
-Start with `docs/ubuntu-device-agent-setup.md`, `docs/machines/README.md` and the
-record for this host's actual model. The reference machine is MacBookAir7,2;
-Air7,1, Pro11,2, Pro11,3 and Mini7,1 are planned targets, not accepted siblings.
+Native device agents work locally on separate Ubuntu Macs. ARM64 macOS build
+hosts use `docs/macos-development.md`; these run emulated x86_64 guests, not native
+SrvrOS. Read `docs/machines/README.md` and the applicable host/unit record.
+For physical work, start with `docs/ubuntu-device-agent-setup.md`. MacBookAir7,2
+is the reference; Air6,1 and Pro11,2 have independent partial acceptance.
+Air7,1, Pro11,3 and Mini7,1 remain planned targets, not accepted siblings.
 Read `docs/agent-coordination.md` before shared work. Fetch and inspect the actual
 integration baseline, relevant PRs and other machines' active scope; publish your
 bounded objective, touched subsystems and dependencies in your own unit record.
@@ -19,6 +21,10 @@ bounded objective, touched subsystems and dependencies in your own unit record.
 - Follow the guide's build, exact-stage VM, install, one-shot boot and collection
   sequence. Keep Ubuntu as the recovery OS and retain a known-good boot payload.
   A source change is not physically accepted until the machine's evidence says so.
+- For attended trials, open the complete checklist automatically in the guest,
+  or wait until the user confirms they captured it before rebooting. Chat updates
+  immediately before reboot are not reliable instruction delivery. Unattended
+  trials must show progress in the guest and save their results.
 - Before reboot, save an on-disk run record with model, source/release, workspace,
   recovery, reboot state and checks. After return, collect the matching session
   before starting a new run. Halts and missing completion markers are failures

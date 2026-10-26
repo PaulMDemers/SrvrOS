@@ -1,5 +1,29 @@
 # Release Notes
 
+## 2026-10-25 source and development-host checkpoint
+
+This is a source checkpoint, not a stable binary release. Desktop protocol v15
+and the shared application runtime implement dynamic window admission, parented
+dialogs, cooperative Quit and bounded existing-process open-document routing.
+Air7,2 has later bounded native 24-window/mixed-service and modal/unsaved-work
+acceptance; Air6,1 still has an unresolved native input-under-I/O latency failure.
+See [current status](status.md) and the per-machine records for exact evidence;
+these results do not transfer to sibling hardware.
+
+The selected [POSIX profile](posix-supported-profile.md) includes merged file,
+process and synchronization correctness work, with explicit exclusions. A full
+Node runtime remains unreproduced from the restored upstream checkout. Native
+battery/runtime acceptance is model-specific; suspend/resume remains outside
+this checkpoint.
+
+The [Apple Silicon setup](macos-development.md) now provides a checksum-pinned
+ARM64 compiler, GNU host-tool wrapper and persistent x86_64 QEMU launcher in the
+repository. A disposable TCG boot of the audited source reached the desktop and
+first application frame in 5.13 seconds. This is a build/boot result, not native
+Apple Silicon support or broad performance/feature acceptance. The
+[code/documentation audit](code-docs-audit-2026-10-25.md) records scope and gaps.
+
+
 ## 2026-10-19 desktop and reliability development checkpoint
 
 This is a source checkpoint, not a stable binary release. The current desktop

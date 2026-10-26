@@ -1,6 +1,1179 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-24. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
+
+### Shared application runtime — concurrent-app hardware trial accepted
+
+PR172 is merged as `aa93109`, consuming PR174's process-admission baseline.
+Release `986d6c68fa19ba18` returned in matching session
+`session-00065eb407f09862-00`. The user reports applications working properly
+with several open concurrently. Logs confirm a successful Text save, Preview
+loading an existing 1440×900 screenshot, and normal app/worker retirement. The
+session has all four logs, a normal desktop exit and no collector attention.
+The desktop lifetime drains to zero members (peak seven); battery service/runtime
+retirement has zero heap, errors, denied accesses and rejected samples.
+
+All 1,116 prior non-metadata files retain their hashes; only `.srvros/meta`
+changed. One new document and four session logs were added; no new screenshots
+were saved. Offline fsck, allocation and headroom checks pass: 1,122 files,
+2,817 allocated clusters, zero leaks, bitmap mismatches or errors. The exact-stage
+VM rehearsal separately completes all two-minute playback bytes with zero
+underruns, application/save overlap, ordinary reopen and clean retirement.
+
+This closes the bounded shared-runtime implementation and concurrent-app
+regression milestone. It does not claim physical latency/energy measurements,
+native playback overlap (no PCM stream ran here), or separately confirmed
+menu/button/shortcut parity, maximum-image cancellation, sequential multi-document
+Quit decisions or repeated desktop exit/reopen. Those paths retain host/VM
+evidence and remain focused physical follow-ups when relevant.
+
+Installed accepted current is `986d6c68fa19ba18`; independent recovery
+`9aa8dbf6fbda8252` and prior accepted `1d1d5edce03523db` are retained. Ubuntu is
+default, the one-shot was consumed and no next reboot is armed. The run record
+and matching collection live in `build/app-runtime-native-20261025/`, with
+verified durable evidence and an acceptance-scoped payload copy outside build.
+PR19 retains Wi-Fi scope; sibling models do not inherit this acceptance. This
+closeout changes documentation only; no next shared implementation is claimed.
+
+### Shared application runtime — implementation and local validation checkpoint
+
+Base main `eda8bfb`; PR170's app-timing diagnostics are already consumed.
+Air7,2 owns the next bounded desktop-runtime block: shared bounded connection
+dispatch, deadline/timer and worker-readiness wait preparation, plus reusable
+standard-action enablement/shortcut/menu plumbing. Migrate normal Text and
+Preview first, retaining their document/image models, accepted-job lifetime,
+modal cancellation and sequential Quit behavior. Keep pure controls in the
+widget library and orchestration in `userspace/desktop_runtime/`; no kernel,
+protocol, driver, process-budget or firmware changes are planned.
+
+Touched consumers are `userspace/desktools/text_runtime.c`, its standard action
+plumbing and `userspace/deskview/deskview.c`, with shared headers/library, focused
+host/consumer VM tests and current guides. PR19 retains Wi-Fi scope; Air6,1 owns
+the separate heavy-I/O latency investigation. Preserve its timing receipts and
+consume any new dependency explicitly. Validate dispatch fairness, timers,
+worker completion/cancellation, close/quit/save retention and the existing actual
+Text/Preview/pointer/shutdown/failure gates before preparing a hardware retest.
+The existing timed GUI/file-worker load diagnostic also consumes the runtime,
+including its registered phase timer and merged readiness; its workload and
+acceptance predicates remain unchanged.
+Installed accepted current remains `1d1d5edce03523db`, recovery
+`9aa8dbf6fbda8252`; the prior return is collected, and no new boot is armed.
+
+Text, Preview and the GUI/file-worker load diagnostic now use the optional
+allocation-free shared runtime. It bounds dispatch and due-timer callbacks,
+merges existing pipe readiness with deadlines and a service heartbeat, and keeps
+accepted-job/document teardown with its application owner. Standard command
+snapshots guard Text/Preview menus, toolbar buttons and application shortcuts.
+Widgets remain pure; no protocol, driver, resource-budget or native model gate
+is changed by this block.
+
+Local consumer validation through clean `ce413bf` passes actual pointer actions,
+unsaved desktop shutdown, crash/refused-dialog recovery, maximum-image cancel and
+format failures, 32 same-process documents with 33 exact files and complete
+retirement, the separate sixteen-document quota/refusal run with 17 exact files,
+and four app cycles during a captured 20-second stream with zero sample error.
+The growth fixture now uses actual monotonic document identities, separates owned
+pickers from document counts, waits for picker first-frame/retirement receipts,
+and distinguishes allocated registry capacity from live windows. Earlier failed
+fixture assumptions remain in ignored evidence; deadlines and byte/resource
+checks are retained.
+
+Main `a679115` (PR174 process entry/reap admission) is consumed in clean
+`1854676`. The combined tree passes full core/desktop host suites, matched
+normal/native/VM builds, actual 16-idle/32-write-key and forty 64 KiB write/readback
+wait-load checks, and unsaved desktop shutdown with exact files and process
+baseline recovery. Runtime ASan/UBSan and current documentation links pass.
+PR172 publishes this shared block; Actions remain disabled. Local evidence is
+`build/app-runtime-20261025/`; the new attended run record is
+`build/app-runtime-native-20261025/`. Native runtime/input/audio acceptance is
+pending an exact-stage rehearsal and the in-guest persistent checklist. The prior
+accepted current/recovery above remain installed; no new reboot is armed at this
+source checkpoint. PR19 retains Wi-Fi, and Air6,1 owns its physical process-
+admission acceptance; consuming its shared fix does not claim that result here.
+
+### Desktop modal and unsaved-exit retest accepted
+
+Release `1d1d5edce03523db`, clean source `9bca084` (PR169 integration
+`f658f6b`), returned in session `session-00065eb2f55d330d-00`. The user reports
+that this round worked well, resolving the previously reported modal button and
+unsaved Return to console failures for this payload. The matching session has
+all four logs, a normal desktop exit and no collector attention. App lifetime
+drains to zero members; battery/runtime retirement has zero heap, errors, denied
+accesses and rejected samples. Both saved test documents are retained. All 1,110
+prior non-metadata files keep their hashes; only `.srvros/meta` changed. Offline
+fsck/headroom/allocation passes: 1,117 files, 2,811 clusters, no leaks, bitmap
+mismatches or errors.
+
+Native file playback was exercised with zero recorded underruns and its owner
+released. Its final PCM state is canceled, so do not claim full two-minute native
+completion from this run; complete 120-second playback/save overlap remains the
+exact-stage VM result. The human report is qualitative, not an input-latency or
+audio-endurance bound. No new screenshots were saved in this round.
+
+PR165's modal capture correction and PR169's cooperative shutdown/workload guide
+are merged. This bounded milestone is closed. Evidence and hash inventories are
+in `build/unsaved-exit-native-20261025/` with durable verified copies outside
+build. Installed current is the tested `1d1d5edce03523db`; independent recovery
+`9aa8dbf6fbda8252` is retained. Ubuntu remains default, the one-shot was consumed,
+and no new reboot is armed. Main `acc50f9` adds PR170's separate timing diagnostics;
+that newer source does not inherit this image's physical acceptance. PR19 retains
+Wi-Fi scope. Start any next feature from a freshly inspected baseline.
+
+### Unsaved desktop exit and sustained playback — implementation and trial preparation
+
+Base main `b537c2a` includes PR167's completed-I/O handoff. Air7,2 now owns a
+bounded follow-up in the desktop shutdown/modal admission path, its host/VM
+lifecycle tests, a longer bundled playback fixture and the attended Help guide.
+No audio driver, PCM engine, firmware gate or process-limit edits are planned;
+PR19 retains Pro Wi-Fi scope. Publish this follow-up as a separate PR.
+
+Release `336d81743ca03a33`, session `session-00065eb1e8675a07-00`, returned.
+The user reports modal controls generally working, but Return to console with an
+unsaved file repeatedly opens/closes its modal. The saved session has no exit
+snapshot, so retirement is incomplete, not passed. It records two short Settings
+tones and no PCM file-playback owner: sustained listening/I/O overlap is not
+accepted. All 1,106 prior non-metadata files retain their hashes; only
+`.srvros/meta` changed. Three logs and one saved test document were added.
+Local evidence: `build/modal-pointer-native-20261025/physical-after/` and its
+return proof. Offline fsck/headroom/allocation pass: 1,111 files, 2,804 clusters,
+zero leaks/mismatches/errors.
+Installed current remains `336d81743ca03a33`, independent recovery
+`9aa8dbf6fbda8252`; Ubuntu default and consumed one-shot are verified. No new
+reboot is armed. Collect/diagnose, reproduce shutdown with pending edits, preserve
+Save/Discard/Cancel decisions during exit, then validate locally before staging.
+
+The first new host regression fails on forced modal closure before the fix and
+passes afterward. Full core/desktop and matched builds pass. Clean `e4ebd0c`
+passes actual Text/Preview shutdown checks: stable prompts, pointer Cancel,
+canceled Save picker, exact saved edits during exit, ordinary reopen, existing
+prompt Discard, clean filesystem allocation and restored process baseline. The
+first VM attempt missed its final click because the fixture retained the prior
+session's pointer origin; reset that origin on desktop reopen and retain the
+failed attempt separately. The asset in the built image is verified as 120
+seconds/23,040,000 PCM bytes and twenty unchanged channel-check cycles. The final
+exact-stage rehearsal will play it fully while saving work; native listening and
+shutdown acceptance remain pending. The first long-sample stage `9fb28b83ea370cb3`
+passes its complete playback/save/exit/reopen rehearsal, but final provenance
+review found its prebuilt native kernel had not been relinked after PR167. Keep
+that as preliminary UI/audio evidence only; it was not installed. Rebuild matched
+normal/native/VM kernels, then stage and repeat the exact-image gate before
+hardware installation. Main `46f6212` adds only Air6,1 result documentation; PR170
+owns separate app-timing instrumentation and PR19 remains Wi-Fi.
+
+Final matched stage `1d1d5edce03523db` from clean `9bca084` rebuilds the native
+and VM kernels explicitly. Its exact GRUB → Limine → native rehearsal passes
+all 120 seconds/23,040,000 PCM bytes with zero underruns, Calculator open/close and
+exact USB document-save overlap, normal exit/reopen, provider retirement and clean
+allocation. Q35 native battery refusal remains expected. The full guest guide
+puts these two retests first and stays open without a deadline. This is VM and
+host evidence; physical listening and unsaved desktop shutdown remain pending.
+PR169 publishes the correction; local `build/unsaved-exit-native-20261025/run.json`
+owns installed/armed/return state. Preserve current/recovery and durable evidence
+before any attended reboot; collect the matching new session on return.
+
+### Modal pointer correction validated; physical retest pending
+
+Release `b6f4c7525115168a` returned with session
+`session-00065eb18ba89a8d-00`. Modal windows display, but the user reports
+Save/Discard/Cancel highlighting without acting: physical pointer acceptance
+failed. Runtime retirement itself is clean (collector attention empty, battery
+heap/errors/denied/rejected zero). All 1,100 prior non-metadata files retain their
+hashes; only `.srvros/meta` changed. Four logs and two test documents were added.
+Offline fsck/headroom/allocation passes: 1,107 files, 2,799 clusters, no leaks or
+bitmap mismatches. Unreported lifecycle/audio checks remain unaccepted.
+
+Repeated modal configuration canceled the UI capture between press and release.
+Shared dialogs now invalidate capture only on effective frame/button geometry or
+enabled-state changes; pickers skip identical-bounds configuration, retaining
+loading/listing and resize cancellation. No driver, protocol, worker, process
+limit or firmware change. Before-fix dialog and picker host regressions fail;
+fixed desktop/widget suites and matched builds pass. Actual Text/Preview QMP
+pointer validation on clean `f8e5fe2` passes seven held-click actions, exact saved
+`Click draft remains` bytes plus normal lifecycle files, clean allocation and
+process baseline recovery. The normal lifecycle sequence and forced-dialog
+refusal fixture also pass. A test-only first attempt stopped when the software
+cursor obscured a button border during visual discovery; its raw evidence is
+retained and the locator now moves the pointer away before scanning.
+
+Scope and code are in PR165. Main `cd5ec0a` (PR164) is now integrated:
+Air6,1 startup/loop instrumentation remains diagnostic, not a resolution of its
+Files-under-I/O issue. PR19 owns Pro Wi-Fi. The initial clean `eb66c74` exact v75
+stage `d203e4b1c640bde8` passes GRUB → staged Limine, the automatically opened
+Help guide, saved work, playback, exit/reopen and clean retirement/unmount; native
+battery correctly refuses Q35. Both guide screenshots were visually checked.
+The combined desktop/build and real-click fixture pass on clean `60dbb2d`. Its
+final v75 stage `336d81743ca03a33` repeats the exact boot/save/playback/exit/reopen
+rehearsal successfully with clean allocation and retirement; the focused guest
+instructions remain visible. This is the staged candidate for the attended
+pointer retest, not new physical acceptance. Evidence is in `build/modal-pointer-20261025/` and the
+collected `build/lifecycle-native-20261025/` return. The next v75 attended guide
+opens with a focused physical button/picker checklist and has no timed exit.
+Validate its exact stage before installation; preserve independent recovery
+`9aa8dbf6fbda8252` and record install/one-shot/return state locally. No new physical
+acceptance is claimed until that retest. No reboot is armed at this checkpoint.
+
+### Combined desktop lifecycle and playback trial prepared
+
+Integrated main `b35b889` (PR160) and independently validated clean `7ddf215`:
+core/matched builds and normal/crash/refused-dialog VMs pass. The 60-second
+PCM/unpaced verified USB fixture passes 21 real app cycles, maximum loop gap
+299,756 us, zero app errors/underruns, 227 audible write-overlap windows and clean
+retirement/return. A separate four-app playback fixture has zero sample error,
+exact saved document bytes, clean allocation and restored process baseline.
+These are VM results, not native responsiveness or listening acceptance.
+
+The two-round 24-app diagnostic exposed an asynchronous launch assumption: it
+read the final Text PID immediately after queueing exec, recording zero. All
+24 windows rendered but no edit acknowledgement followed; round one reached
+its unchanged 180-second deadline and failed. Round two was interrupted after
+the same symptom and remains incomplete. Clean `ff1c1ad` retains the reserved
+child slot, obtains its PID after all frames are ready and rejects empty PID-zero
+targets. Both fixed rounds pass: 24 normal child reaps, zero errors, 60 editing
+acknowledgements, five exact `AA` files and chooser drain checks per round, saved
+screenshots/logs, clean filesystem allocation and automatic return. The process
+limit, worker implementation, audio and device gates are unchanged.
+
+Exact v75 stage `b6f4c7525115168a` from clean `ff1c1ad` passes GRUB → staged
+Limine, automatic persistent Help, saved Text/Terminal work, playback, ordinary
+exit/reopen and clean retirement/unmount. Native battery correctly refuses Q35;
+it is not physical battery acceptance. Both guide screenshots were visually
+checked. The attended checklist now includes app open/close, resizing, typing and
+pointer movement during the bundled stereo sample. No timed exit or automatic
+reboot is imposed on this human check. Save `lifecycle-notes.txt` and screenshots,
+reopen the ordinary desktop, then use monitor `reboot` to return to Ubuntu.
+
+The original modal failure at `29c75d8` and failing host regression are retained;
+PR160's `433480a` is the single first-canvas readiness implementation. The Air7,2
+duplicate was reverted before consuming it. Full desktop/build and 569 local
+documentation links pass. Evidence: `build/pr160-review-20261025/` and
+`build/lifecycle-native-20261025/`, with required payload/evidence backups outside
+build. USB preflight passes fsck plus headroom/allocation: 1,101 files, 2,792
+clusters, zero leaks or mismatches; existing file hashes are recorded. Independent
+recovery `9aa8dbf6fbda8252` and prior current `f01d4049daae0b4a` are backed up.
+The local run record owns the subsequent install/one-shot/return state. Physical
+acceptance of this new payload remains pending the announced attended trial.
+
+### Document-routing failure paths covered; compositor integration still pending
+
+Base main `c4bee5c`; draft PR160 `29c75d8` already consumes this matched v15
+baseline and owns asynchronous compositor launch/cache implementation. Focused
+host tests now cover a copied 160-byte chunked path across a wrapped queue,
+PID/window/request authentication, stale and duplicate acknowledgements, explicit
+refusal fallback, queue headroom, request-ID exhaustion, malformed sender
+fragments, timeout uncertainty, owner retirement and refusal while closing or
+exiting. No uncertain request is replayed; no late refusal resurrects an app
+behind shutdown. The full local desktop suite passes on this branch. The same
+new fixture also passes against PR160's exact `29c75d8` compositor/registry/worker
+source extracted into ignored review storage, including its existing worker
+checks. That host replay is not a combined VM or native latency result.
+
+This scope changes tests and current lifecycle documentation only. No competing
+worker, sound, process-capacity or device-profile changes. Evidence is in
+`build/lifecycle-route-review-20261025/`; installed/recovery state is unchanged
+and no reboot is armed. PR160 remains draft while its owner completes integrated
+VM/exact-stage validation. Consume its reviewed result before a combined trial;
+the existing v75 attended guide remains available for physical acceptance.
+
+### Kernel lifecycle service windows validated; physical acceptance pending
+
+PR157 now includes bounded non-audio kernel work from clean `2eb23c1`: process
+record/image/mapping/refresh/retirement service windows and graphics private-copy
+and surface-fill windows. The original 57 ms IRQ-masked retirement walk is split
+at completed page batches while retaining the existing serialization owner,
+unsafe-entry/sibling exclusion, cancellation lifetime, frame poisoning, surface
+quota/epoch checks and failure semantics. Process limits and native gates remain
+unchanged. No HDA, codec, PCM or player implementation was edited.
+
+An audio-free Q35 fixture cycles 16 real Calculator/Files/Text/Preview apps,
+resizes/closes them, preserves an editable document and checks its exact saved
+bytes plus the process baseline. Baseline maximum timer/USB-poll gaps were
+61,684/79,743 us; the combined candidate measured 46,319/57,520 us. These are
+whole-fixture VM observations including desktop entry/exit and host scheduling,
+not physical guarantees. Whole-operation spans include scheduling and QMP wall
+timings include automated typing/shortcut delays. Remaining stalls are not hidden.
+
+Full core/desktop, ownership/failure/CR3/retirement fixtures and matched normal,
+native battery, Air7,2 VM battery and Air6,1 VM battery builds pass. Normal,
+Preview-crash and forced-dialog-refusal lifecycle VMs pass. Two unchanged
+60-second PCM/USB/battery stress VMs pass with clean retirement/automatic return;
+the earlier EC timeout has not recurred in those two runs, which does not prove
+its root cause. Exact v75 stage `2f871ca3f7401849` passes GRUB → staged Limine,
+automatically opened Help, save/exit/reopen, playback and clean unmount. It remains
+staged, not installed. The guide was visually checked.
+
+A separate clean `9746b0a` regression opens, resizes and closes four apps during a
+20-second stream using the unchanged player/HDA. Captured PCM has zero sample
+error and the player reports zero underruns. Saved document/process baseline and
+filesystem checks pass. The attempted 80-second fixture was terminated (exit 143)
+without a completion report; preserve it as incomplete, not a pass. Test fixture
+size/setup failures are retained separately. This is VM audio evidence only.
+
+Main `3ab4a38` (Air6,1 result documentation) is integrated at `038633d`; production
+sources match the tested `2eb23c1` tree. PR160 owns asynchronous compositor
+lifecycle/cache work; preserve its worker design and integrate it against this
+matched v15 baseline explicitly. Same-PID siblings remain excluded while their
+worker owns mutable kernel memory operations; service windows do not make app
+startup asynchronous. Larger UI/gate-wait stalls remain PR160's scope.
+
+Evidence is in `build/app-latency-20261025/`, retained with hash verification under
+this unit's `reviewed-evidence/app-latency-20261025` outside build. Installed
+current `f01d4049daae0b4a`, independent recovery `9aa8dbf6fbda8252`, Ubuntu default
+and no armed one-shot are verified. Neither new UI nor kernel changes have new
+Air7,2 physical acceptance. No physical reboot was requested.
+
+### Application lifecycle checkpoint before kernel service-window work
+
+Base main `e253a60`; D3 follow-up is implemented on this device branch/PR157.
+Matched protocol v15 adds one-level same-process document-modal windows, parent
+focus/input redirection and child-before-parent retirement. The shared presenter
+hosts Text's unsaved/replacement prompts and file pickers, and Preview's picker;
+admission refusal retains an embedded fallback. Text now distinguishes Ctrl-W
+from Ctrl-Q, resolving Quit one document at a time and stopping on cancel or
+failed save. Existing capable Text/Preview processes accept copied file-open
+requests with bounded chunks/cookies, acknowledgement retries and explicit
+refusal fallback. Unconfirmed requests are not blindly replayed. Process limits
+and device firmware gates are unchanged.
+
+Initial Text and Preview consumer VMs pass. The lifecycle VM passes independent
+sibling input during a modal prompt, Quit cancellation, failed-save retention,
+existing-process Text/Preview routing, exact saved contents and process baseline.
+Crash (Preview killed with a picker live) and forced dialog-refusal cases pass.
+The baseline check exposed uncollected exited workers; explicit idle-file-worker
+retirement now retains/reaps PIDs, and Preview drains image-worker retirement.
+Compositor preferences shutdown also collects its worker. Host tests cover the
+new ownership, quit, routing/chunk and worker-retirement contracts. Full core,
+desktop and matched normal/native/VM battery builds pass. Clean source `6eb9495`
+passes the normal, crash and forced-refusal lifecycle fixtures with exact saved
+bytes, clean formatted exFAT allocation and process-baseline recovery. The
+combined-service VM passes two rounds of 24 apps and exact document persistence.
+
+Main `afb2c3b` (Air6,1 audio/USB work from PR156/158) is integrated at `c0ce49b`;
+the guide uses distinct profile v75 and session selector 5, preserving v74 and
+selectors 3/4 for audio stress. Integrated core/desktop builds, 81 staging tests and all three lifecycle cases
+pass on clean source `3699b58`. Exact v75 release `1564f1d0adb0916b` passes
+GRUB → staged Limine guide startup, saved Text/Terminal work, audio playback,
+normal exit/reopen and clean unmount; its native battery profile refuses Q35
+as expected. Both guide pages were visually checked.
+The explicit lifecycle profile opens the full attended checklist in Help with
+no timed exit; ordinary reopen remains ordinary. No hardware reboot is armed.
+
+One extra integrated audio/USB stress run completed its full minute (508 bursts,
+133,169,152 bytes, zero underruns), then halted on a synthetic EC sample timeout
+at shutdown. The unchanged candidate retry passed with clean retirement and
+return. Three diagnostic main-compositor-only runs also passed; they do not
+prove a cause or constitute full-main/native comparisons. At that checkpoint
+PR157 was held for a bounded teardown/latency reproduction. No timeout or model
+gates were widened. The candidate compositor source and build were restored.
+
+Evidence: `build/desktop-lifecycle-20261025/`, with 280 files hash-verified under
+this unit's `reviewed-evidence/desktop-lifecycle-20261025` outside build, including
+the exact stage, original failure, isolation provenance and raw logs.
+The installed/recovery payload remains the prior physically accepted v14 image;
+this v15 change has no new physical acceptance yet. Future attended testing must
+open its full checklist in the guest before relying on input. Pro PR19 and Air6,1
+PR156 retain separate Wi-Fi/endurance scope. No reboot is armed by this work.
+
+### Automated many-app documents accepted
+
+Release `f01d4049daae0b4a`, clean source `044d0b4`, passed both automatic native
+rounds on October 25 and returned to Ubuntu. Sessions
+`session-00065eaef7987f3c-00` and `session-00065eaefa2f6651-00` each rendered 24
+independent app processes, acknowledged 60 editing/clipboard inputs in the
+ordinary pooled Text runtime, saved/stat'ed/renamed/cleared/reread five files,
+and passed legacy/pooled chooser submitted-cancel/drain/reopen/stale checks.
+All ten files contain exact `AA` bytes in distinct fresh Home directories.
+Both 1440×900 screenshots show the reopened fifth document and readable progress
+banner. Each round reaped all 24 children normally, drained its lifetime (peak
+32 descendants), and retired battery service with zero heap/errors/denials and
+zero rejected samples. Collector attention is empty for both sessions.
+
+All 1,080 prior non-metadata files retained their hashes; only `.srvros/meta`
+changed. Ten document files, eight logs and two screenshots were added. Offline
+read-only fsck/allocation/headroom passes: 1,101 files, 2,792 clusters, zero leaks,
+bitmap mismatches or errors. Current payload, independent recovery
+`9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot were verified after return.
+No reboot is armed. Installed current remains the explicit automatic diagnostic.
+Evidence/run records are in `build/documents-native-20261025/`, with hash-verified
+backup under the unit's `reviewed-evidence` directory outside build.
+
+PR155 publishes the diagnostic, visible progress and instruction-delivery rule.
+Matched builds/desktop suite, 30 collector tests, 565 documentation links,
+two-round positive VM and 384 MiB admission-failure/clean-return fixture passed.
+The final clean native stage also passed GRUB → staged Limine Q35 rehearsal and
+its banner was visually inspected. No Actions used. Main base `6e06bfb`; Pro
+PR19 `2c40c36` and Air6,1 PR156 `ee96e1d` retain separate Wi-Fi/endurance scope.
+This accepts automated capacity, editing/clipboard, file persistence, shared
+chooser transport and reuse under the tested load. Synthetic inputs do not
+measure physical input latency or accept manual Preview-picker visuals. The
+prior attended mid-20s-window/sensor observation remains recorded below.
+
+### Attended high-count return collected
+
+Release `80904d5e5fd6f6ac` / source `7c2880a` returned on October 25. The user
+opened a mid-20s count of windows and checked sensors successfully. Chat
+instructions were not visible before reboot, so the detailed document checklist
+is not accepted from this observation. Sessions `session-00065eae867725d0-00`
+and reopened `session-00065eaeb5319670-00` have clean exit snapshots, lifetime
+drains (peaks 33 and 22), and battery retirement with zero heap/errors/denials.
+The second monitor-started session has no boot release token; it is associated
+with the same boot by its inherited prior tail and lifetime epoch progression.
+All prior files are unchanged except `.srvros/meta`; two user-created artifacts
+and eight logs were saved. Offline fsck/allocation/headroom passes: 1,081 files,
+2,690 clusters, zero leaks/mismatches/errors. Evidence and artifacts are backed
+up outside build under `reviewed-evidence/runtime-interactive-20261025`.
+
+### Automated 24-app native capacity accepted
+
+Release `c9e59c1b11d5c239`, clean source `7fc5077`, completed two automatic
+combined-services rounds on October 25 and returned to Ubuntu. Matching sessions
+`session-00065eae2764edfa-00` and `session-00065eae28c055f4-00` each record 24
+independent mixed app processes rendered, a saved 1440×900 screenshot, 24 normal
+successful child reaps and zero child errors. Both inherited lifetimes drained
+all members (peak 31 descendants) and retired the battery runtime with heap zero,
+zero rejected samples/errors/denials. This accepts the tested capacity and reuse
+past the old fifteen-app scheduler failure; it does not claim unlimited admission,
+physical typing/pointer quality, or manual document editing under this load.
+
+All 1,062 prior non-metadata files retained their hashes; only `.srvros/meta`
+changed, with six new session logs and two screenshots. Offline read-only fsck and
+allocation/headroom checks pass: 1,071 files, 2,671 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot, current payload
+and independent recovery `9aa8dbf6fbda8252` were verified after return. Previous
+installed `2750e5efa04573ba` retains its independent backup. No reboot is armed.
+Local proofs are in `build/capacity-native-20261025/` and the unit's
+`reviewed-evidence/capacity-native-20261025` backup outside build.
+
+PR153 adds the explicit v73 capture, bounded compositor/owner deadlines,
+normal retirement, screenshot/result persistence and automatic return on handled
+success or failure. Local core/desktop suites, builds, 79 staging tests, successful
+2 GiB Q35 and handled admission-failure 384 MiB Q35 fixtures pass; the exact native
+GRUB → staged Limine payload rehearsal also passes. The initial 256 MiB Limine
+memory failure is preserved separately. Thirty collector tests pass, including
+strict exclusion of routine opened/retired resource traces while retaining
+capacity failure detection. No Actions used. Base main `3647dc7`; Pro PR19 at
+`db95022` remains independent RF/Wi-Fi work, and Air6,1 PR154 at `44b5706` adds
+a separate paced endurance harness without overlapping runtime changes. Firmware gates and ordinary startup
+are unchanged. Next acceptance work is interactive document/chooser behavior
+with many apps, not another automatic capacity reboot.
+
+### Scheduler capacity fix: host/VM validated
+
+Base main `16bbe49` plus this unit's collected-run notes; Pro PR19 inspected at
+`2f9032d` remains independent Wi-Fi work. Scope: scheduler storage grows in stable chunks
+under a kernel-stack/metadata byte budget; wait queues must support slots above
+63 without bit shifts or aliasing. Preserve identities, I/O ownership, quarantined
+stacks and existing wait semantics. Add host rollback/reuse/high-slot coverage,
+combined-services mixed-process VM coverage, and desktop launch-failure alerts.
+Touch scheduler/header, process launch diagnostics, desktop session policy and
+focused tests/docs. No new firmware gates or physical reboot in this work block.
+
+Host/core/desktop suites and matched kernel/userspace builds pass. The new
+mixed-app QEMU fixture reproduces the native symptom on staged old release
+`2750e5efa04573ba`: fifteen windows followed by scheduler-table exhaustion.
+Runtime `8d1a05a` passes the fixed combined-service VM with 2 GiB guest RAM:
+24 independent app windows, exact saved text after growth, PCM playback, all
+35 tracked descendants drained, battery/logger retirement, desktop reopen and
+offline filesystem/allocation checks. A prior 512 MiB run reached 23 windows
+then exhausted physical memory; its visible resource warning and failure
+artifacts are retained separately. The final harness change only matches the
+2 GiB exact-stage allocation and fails promptly on logged launch refusal.
+Actual `threadstress` (all cases) and the explicit desktop quota-refusal/reuse,
+save/capture and complete-cleanup VM tests pass. Native 24-app capacity/reuse is now accepted by the trial above.
+The throttled-I/O desktop regression also passes: all 48 input events acknowledged
+(32 while writes were active), forty exact 64 KiB writes/readbacks, both workers
+reaped, process baseline restored and no leaked filesystem allocation.
+Thread storage is charged to a 32 MiB stack/dynamic-record budget; 32-slot stable
+chunks and non-bitmap waits preserve addresses and identities above slot 63.
+Host fixtures cover growth beyond 95 live slots, PMM failure rollback, quota
+refusal/reuse, high-slot waits/timeouts/cancellation and quarantine retention.
+Launch failures now produce visible rate-limited app alerts and unconditional
+error records. Worker attribution version 2 is bounded to 256 directory slots;
+version-1 evidence remains readable. PR152 publishes the change; local validation
+uses no GitHub Actions. Evidence is in scheduler-capacity-20261025 and copied to
+the unit's reviewed-evidence directory outside build. The automated native 24-app/reopen trial above completes capacity acceptance;
+interactive documents remain a separate check.
+
+
+### Runtime native return: scheduler capacity blocker
+
+Release `2750e5efa04573ba` / source `16bbe49`, session
+`session-00065ead489f2265-00`, returned and was collected on October 25. The user
+reports sensors/controls working and about fifteen application windows, after
+which no additional app would open. Matching logs contain three explicit
+`exec: scheduler thread table full` errors. That release's scheduler has
+32 global thread slots shared by app main threads, workers and boot/device
+services. The launcher is an overlay, not another admitted client window.
+This is a scheduler admission failure, not evidence of a restored compositor
+sixteen-window ceiling. Large single-process window fixtures and ordinary
+mixed-client tests did not cover this services-heavy native workload.
+
+The app lifetime drained all members (peak 21 descendants); battery retirement
+reports zero errors/denials and heap=0. Collection has an exit snapshot and no
+attention flags. All 1059 prior files are unchanged except expected `.srvros/meta`
+bookkeeping; four new session logs were saved, with no new documents/screenshots.
+Offline checks pass: 1063 files, 2583 allocated clusters, zero leaks, bitmap
+mismatches or errors. Ubuntu is default, the one-shot is consumed, and recovery
+`9aa8dbf6fbda8252` remains verified. Do not promote this run to full capacity,
+chooser/document persistence or reopen acceptance.
+
+Next bounded work: reproduce mixed-app admission with combined device services
+in QEMU; replace the small scheduler slot ceiling with explicitly budgeted,
+stable thread storage while preserving stack/FPU/context and I/O-owner lifetime;
+retain refusal behavior under real memory pressure. Make application-launch
+resource failures visible and logged without requiring trace mode. Cover slot
+reuse, failed admission rollback, waits/cancellation, retirement and service
+coexistence, then repeat the native 17+ mixed-window check. Independent process,
+per-process thread, stack and surface budgets still apply. No new candidate is
+installed or reboot armed by this collection; Pro PR19 at `5341990` remains
+independent Wi-Fi work. Native evidence and file hashes are backed up outside
+build under the runtime-native-20261025 reviewed-evidence directory.
+
+### Runtime native trial prepared (2026-10-25)
+
+Release `2750e5efa04573ba`, clean source/main `16bbe49`, is installed for the
+attended D0–D3c/D4a acceptance round. Combined Home/battery v55 retains the
+existing device gates and recovery `9aa8dbf6fbda8252`; Ubuntu remains default.
+Matched kernel/userspace rebuild, ordinary combined-service QEMU lifecycle,
+audio/file persistence/reopen and exact staged GRUB → Limine → native-kernel
+rehearsal pass. Q35's native-profile refusal is expected and not native battery
+acceptance. The USB's 1059 files have pre-run hashes; offline filesystem and
+allocation/headroom checks pass with zero leaks/mismatches/errors. Current and
+recovery payloads are independently backed up. One unused EFI payload was
+archived and verified before its EFI copy was removed for installation space.
+
+Interactive instructions live in Help → Topics → Runtime trial. Exercise 17+
+windows, independent documents, chooser cancellation, redraw and save/input
+coexistence; save notes/screenshots, exit normally, reopen with `desktop battery`
+and use monitor `reboot` for the final flushed/unmounted return. Human input was
+announced before boot. Physical acceptance remains pending. On return collect
+matching sessions before another installation; local run state/evidence is in
+`build/runtime-native-20261025/`, backed up outside build. Pro PR19 inspected at
+`73e35e9` remains independent; this preparation changes no shared runtime code.
+
+### Runtime hardware-round preparation
+
+Bounded scope on main `a6d4361`: prepare a dedicated on-screen Runtime trial
+Help topic, remove stale capacity/tap wording from the general trial entry,
+and rehearse topic navigation and readable instructions in QEMU. Touch Help
+content, its existing VM harness and current validation docs only; no new
+runtime/device features, host installation, physical USB writes or reboot.
+PR19 inspected at `b9240eb` remains independent Edimax Wi-Fi work. The next
+physical round is interactive; its exact stage, recovery and USB preflight are
+still required immediately before installation.
+
+Validation passes: Help host content/history/clipboard/layout suite, full image
+build, documentation links, and actual Help QEMU navigation/clipboard/app routing/
+retirement. The new topic's beginning, return instructions and compact layout
+were visually inspected. Instructions distinguish ordinary Home's retained mount
+and `desktop battery` reopen from the basic trial's unmount-on-exit behavior.
+Evidence is retained in the October 25 overnight archive and durable reviewed
+backup. The installed payload/recovery remain unchanged; physical acceptance is
+pending and no reboot is armed.
+
+
+### Shared chooser controller checkpoint (D3c)
+
+PR150 runtime `2689a8d`, based on merged renderer baseline `a354eed`, shares Text
+and Preview's asynchronous file-picker ownership through an optional application
+runtime library above the pure widget library. It borrows existing job/widget/
+listing storage, correlates completions with nonwrapping controller IDs, retains
+canceled submitted reads until drained, and rejects stale/foreign/duplicate
+responses. Selection copies a normalized path before hiding. Document/image
+operations, overwrite decisions, clipboard, focus and worker retirement remain
+caller-owned. Preview now drains its pending listing before exit.
+
+Full desktop host tests/image build and final focused chooser/Text/Preview tests
+pass. Actual QEMU submits and cancels LIST with both legacy and pooled workers,
+then drains, reopens, rejects an old completion and retires the worker. Normal
+Preview PNG/JPEG/BMP, image/error retention, chooser cancellation/clipboard,
+maximize/restore/compact/Files launch and exit pass. Normal multi-document Text
+and app workflows pass; 32 documents preserve 33 exact files and retire their
+shared workers. Throttled-write regression retains all 16 idle/32 active keys,
+40 exact 64 KiB files/readbacks, both worker reaps and clean offline integrity.
+Screenshots are inspected, source/artifact hashes recorded and evidence backed
+up outside `build`. An initial collector used an obsolete status-line spelling;
+the corrected collector passes and its failed receipt is retained separately.
+
+See the [chooser contract](../desktop-chooser.md) and [runtime validation
+checklist](../desktop-runtime-validation.md). This completes the overnight
+capacity/shared-runtime block; parented windows, broader activation/document
+services, native-density text and accessibility remain separate milestones.
+Physical acceptance of this new runtime is pending. No host reboot, installation,
+physical USB mutation or automatic 10AM reboot was performed or armed. Pro PR19
+remains independent.
+
+### Renderer overdraw checkpoint (D4a)
+
+PR149 merged `a354eed`; runtime `36f8800`, based on PR148 merge `a3f959c`, reuses one stack ordering
+per frame and skips only fully covered clipped opaque frames/shadows. It leaves
+window/cache/ACK lifetime, damage policy and framebuffer copying unchanged.
+Full desktop host tests and image build pass. Exact reference comparisons cover
+160 deterministic randomized scenes with multiple clips, up to 128 records,
+shadow-union holes, hidden/minimized windows, stale-size caches, tiny-frame
+fallback, overlays and stride guards. The actual 128-window growth and normal
+multi-document Text QEMU gates pass, as do mixed 16-client clipboard, normal apps,
+compositor lifecycle/relaunch and throttled-write input gates. The last records
+16 idle plus 32 during-write keys, all 48 frame acknowledgements, 40 exact 64 KiB
+files/readbacks, both workers reaped and clean offline integrity. Growth retires
+all 129 window lifetimes with zero cache/registry bytes. Screenshots were inspected;
+source hashes and full evidence are retained in the overnight checkpoint and its
+durable backup.
+
+Same-scene host measurement at 640×480, 128 stacked 300×285 frames, full repaint:
+44,581,463 pixel writes unculled versus 737,871 culled. Fifteen alternating timing
+samples gave median 25.59 ms versus 0.382 ms; these are descriptive host painting
+measurements, excluding sorting/IPC/blit/scanout, not native latency or energy.
+The dispersed 128-window case reduces full-repaint writes from 24,398,798 to
+20,967,867; the optimization deliberately does not subtract partial occlusion.
+
+The [runtime validation guide](../desktop-runtime-validation.md) describes the
+completed blocks, repeatable local gates and next interactive acceptance round.
+This is one rendering optimization, not completion of native-density text,
+accessibility or the entire D4 roadmap. Pro PR19 `e409c07` remains independent.
+Host/QEMU only: no installation, USB mutation or reboot. Native installed
+`284e53065081672f` and recovery `9aa8dbf6fbda8252` remain unchanged; new desktop
+runtime acceptance is pending and no automatic 10AM reboot is scheduled.
+
+### Active combined desktop wait work (D3b)
+
+PR147 merged as `0a89d5f` and consumed. Next bounded scope: let a client wait
+for its authenticated GUI queue and explicit nonblocking pipe/PTY interests in
+one request, with an absolute monotonic deadline and cancellation generation.
+Capture immutable interests, reject close/dup2 descriptor reuse with lifetime
+generations, and recheck readiness atomically before scheduler registration.
+During owned storage I/O preserve GUI responsiveness and defer pipe readiness
+without entering descriptor cleanup or spinning. General POSIX poll/VFS/network
+admission remains unchanged. Add library wrappers and use them for the shared
+Text/Files worker service when windows are quiescent; keep accepted jobs owned
+when a wait is canceled. Also audit job snapshot reuse while extending its wait
+helpers. Touch GUI/syscalls, process descriptor lifetime, client/runtime helpers
+and focused host/actual-ABI/desktop QEMU tests. Native timing remains pending.
+Pro PR19 `e409c07` remains independent Wi-Fi diagnostics. Host/QEMU only;
+no boot/USB installation or reboot, and no automatic reboot at the deadline.
+
+D3b PR148 final runtime `13d8ac8` completes the local validation checkpoint. Full host/core suites and image gates pass;
+actual GUI wait tests use real threads/pipes and cover cancellation, descriptor
+replacement, simultaneous readiness and peer exit. The first guest run caught an
+uninitialized cancellation epoch in reused queue memory; a poisoned-allocation
+host fixture reproduces it, and explicit initialization fixes both. A separate
+throttled QEMU trial receives 16 idle and 32 active-write keystrokes during forty
+64 KiB writes/readbacks, acknowledges all 48 in app frames, reaps both workers and
+checks exact offline files, fsck and allocation. Its initial collector sampled
+processes before the compositor's ancillary child retired; bounded collection
+now confirms the restored baseline. Native latency/energy remain unaccepted.
+Normal Text/Files and 32-document/33-file growth regressions also pass. Clipboard/apps and the matched diagnostic regressions also pass. Review added
+an ownership-transition recheck at atomic wait registration, reproduced against
+the earlier source in a focused host test. A later lifecycle run exited cleanly
+but its live UART success line interleaved; the collector now requires exact
+atomic saved-console completions as well as successful child exits. Final actual-ABI,
+load and matched-capture checks pass on that corrected checkpoint. The matched
+capture validates 20 worker operations, 60 scripted and 44 injected key
+presentations, descendant retirement, replacement compositor, outside-image
+preservation and offline allocation. Public source guides are refreshed; no
+installed native payload or hardware acceptance changed.
+
+### Active shared file-worker lifetime work (D3a)
+
+PR146 is merged as `91b258e` and consumed. Next bounded scope: reusable,
+caller-owned file-worker pools for normal Text and Files. Empty documents must
+not each spawn a process; queued requests keep their own snapshots and completion
+ownership while a small lazy pool leases nonblocking transports. Preserve FIFO
+admission, validated responses, visible failure without automatic mutation retry,
+and busy-owner retention. Retire poisoned channels and reap their children before
+reuse; last-document/application close drains accepted work and then retires the
+pool. Dedicated legacy workers remain for the existing diagnostic captures.
+Touch the file-job library, Text/Files lifetime and focused host/QEMU fixtures.
+Validate actual document growth beyond scheduler-sized worker counts and existing
+file/dialog/clipboard/capture behavior. Combined GUI/FD waits and other desktop
+services remain separate blocks. Pro PR19 `e409c07` is independent Wi-Fi work.
+Host/QEMU only: no installation, USB writes or reboot; native acceptance pending.
+
+D3a candidate `fc30d06` passes full desktop host/image gates, forty queued
+actual 64 KiB writes/readbacks using two workers, exact offline contents, fsck and
+independent allocation traversal, and restored process baseline. Thirty-two
+normal Text documents in one process save independently; a replacement ID33
+opens, all 33 files match exactly, and the single reused worker is reaped at
+last-window close. The first growth collector relied on individual log lines
+and rejected an interleaved diagnostic; application retirement totals now verify
+all 33 lifetimes. Dedicated-worker reply draining also has a failing-before
+regression for a complete large reply retained after child exit. Existing
+Text/Files/capacity/app regressions pass. The matched battery/Text capture also
+passes 20 worker operations, all 60 scripted and 44 injected key presentations,
+replacement compositor, outside-image preservation and offline allocation.
+PR147 carries the reviewed host/QEMU checkpoint; native acceptance is pending.
+
+### Active dynamic compositor and enumeration work (D2c)
+
+PR145 merged as `11a4ef2` and consumed. Next bounded scope: remove the
+compositor's sixteen-window admission ceiling using stable allocated records,
+separate child-connection storage, transactional registry/scratch growth and
+explicit metadata/cache budgets. Extend menu/palette widgets with caller-owned
+storage while keeping their allocation-free boundary and inline defaults.
+Window menus, launcher, overlay return and drag/resize must retain lifetime
+identity rather than select a reused slot. Test growth/refusal preservation,
+large window enumeration and actual 32/64/128 small windows in few processes;
+existing document persistence and desktop lifetime regressions remain required.
+Touch compositor/scene, widgets, shared budgets and focused host/QEMU consumers.
+The scheduler/process and surface-dimension bounds remain separate. Pro PR19
+`e409c07` still covers Wi-Fi; no native installation or reboot in this block.
+
+D2c runtime `bba1c39` passes the full desktop host/image build and final
+QEMU 32/64/128-window workload in one process: complete launcher/Window-menu
+discovery, input to first/middle/last windows, maximize/restore, ID129 replacement,
+129 retirements, zero registry/cache charges and process-baseline/relaunch checks.
+The matched battery/Text file capture also passes 20 worker operations, 60/60
+scripted and 44/44 injected key presentations, replacement compositor, unchanged
+bytes outside the scratch image and clean offline allocation.
+Peak requested registry reservation was 2,020,656 bytes and compositor pixel
+cache 38,088,904 bytes. These are separate pools, not total memory. Final sixteen
+Text document persistence/refusal/reuse, normal Text editing/dialogs, mixed
+clipboard and existing-app/lifecycle QEMU regressions also pass. Screenshot QA
+found a partially clipped menu row shifting its glyph origin; a failing-before
+pixel regression and corrected VM screenshot cover the fix. Native acceptance
+and p95/p99 input/frame measurements remain pending. PR146 carries this work.
+
+### Active dynamic GUI queue storage (D2b)
+
+PR144 is merged as `58bd3cf` and consumed. Next bounded objective: replace
+32 fixed kernel receive queues with stable allocated records under a 2 MiB
+requested-byte budget, retaining the 64-message per-connection FIFO. Prepare
+outside GUI-owned critical sections, then revalidate route, server identity,
+retirement epoch and surface transition before atomic publication/delivery.
+Failures must preserve seals, FIFO state and byte accounting. Touch kernel GUI,
+shared budgets/resource traces and host/actual transport fixtures. Add allocation,
+retirement, server replacement and competing-publication cases before integration.
+Compositor/scene sixteen-window storage remains a separate D2c step. Pro PR19
+at `e409c07` still covers independent Wi-Fi diagnostics. No hardware changes;
+keep Ubuntu running and preserve installed/recovery payloads.
+
+D2b runtime `1825ee1` passes the full desktop host/image build and final
+fixture rebuild, queue fault/quota/race fixtures, actual 25 simultaneous FIFOs
+with 72 client lifetimes reaped across three rounds, multiwindow clipboard/input/
+resize/relaunch and sixteen Text documents with seventeen exact files and all
+workers retired. The initial 40-client probe failed at fork index26 (`EAGAIN`)
+before queue pressure; the independent scheduler task budget remains unchanged.
+Host tests separately exercise queue storage beyond 32 records. No native result
+or installation changed. PR145 carries this checkpoint.
+
+### Active dynamic surface storage (D2a)
+
+PR143 is merged as `fd38097` and consumed on the same device branch. Next
+bounded objective: replace the kernel's fixed 64-surface array with stable,
+demand-allocated records and explicit metadata/pixel byte budgets, including
+in-flight allocation and retired storage. Preserve atomic seal/queue transitions,
+owner/window/serial checks and close/server-death cleanup. Never recycle surface
+IDs. Allocate/initialize outside the GUI metadata critical section; recheck
+retirement before publishing. Do not claim shorter syscall interrupt exclusion
+or native latency from that structural change.
+
+Touch kernel GUI storage and syscall output-fault rollback, shared budget
+definitions, resource tracing and host/actual-protocol lifetime and pressure fixtures. Compositor admission remains
+sixteen windows in this block; dynamic queues and compositor/scene registries
+follow independently. Pro PR19 `e409c07` remains Wi-Fi diagnostics. No hardware
+or boot changes; host/QEMU only through 10AM, and no automatic reboot then.
+
+D2a PR144 runtime `028ded1` passes full desktop host/build, 128 live surface
+records with independent byte-quota and allocation/retirement failure injection,
+actual ABI readback/reuse/stale-ID and multiwindow/relaunch, and sixteen Text
+documents with exact persistence and worker retirement. Compositor client-death,
+resize and console return/relaunch passed the preceding surface implementation.
+The malformed output-buffer probe reproduced guest memory exhaustion before the
+syscall fix; 300 read-only requests now consume no IDs before normal rendering.
+No kernel heap allocation/free occurs inside the GUI-owned metadata section in
+the instrumented host fixture. Native input timing remains untested.
+
+### Active multi-document Text migration (D1c)
+
+PR142 is merged as `ed2015a` and consumed. Next bounded scope: migrate normal
+Text to one connection dispatcher with dynamically allocated document records,
+shared tool event handlers and independent undo/save/dialog/clipboard state.
+Add New Window while preserving Ctrl-N's current document-reset behavior.
+Close must drain accepted file work, await window retirement and reap the file
+worker without closing siblings. Keep diagnostic capture recipes compatible.
+Touch desktools/runtime, file-job ownership, connection liveness checks and
+host/QEMU document/persistence tests, launcher window identity and recycled
+kernel surface binding; no hardware or boot changes. Fixed global
+sixteen-window admission and dynamic compositor registries remain separate.
+Pro PR19 `dbf46c3` continues independent Wi-Fi RF work. Host/QEMU only overnight.
+
+D1c PR143 candidate `f4f4c9c` passes full desktop host/build, normal Text
+multi-document/launcher, undo/history, Find, Replace, and sixteen mixed clipboard
+client VM regressions. Sixteen same-process Text documents each save independently;
+the seventeenth refusal preserves edits, a replacement uses ID18, seventeen files
+match exactly and every worker is reaped. The original nine-document brk refusal
+is retained locally; large records now use anonymous mappings. Actual close/reopen
+also exposed the recycled kernel surface binding, fixed with a failing-before
+host regression. Launcher selection now distinguishes same-PID documents and
+rejects stale lifetime identities.
+
+The legacy file-work capture needed its dedicated Q35 kernel rebuilt for v14.
+With matched binaries the guest completes, but its collector had not learned the
+existing five write-readiness diagnostics. Ordered-record validation and negative
+fixtures now pass; the final full capture/relaunch/offline-integrity run passes: 60/60 scripted and 44/44 injected key events presented, five file cycles,
+20 worker operations, three descendants retired, replacement compositor works,
+all bytes outside the scratch image unchanged and offline allocation clean.
+No native acceptance is added; installed/recovery payloads are unchanged.
+
+### Active connection and multiwindow lifetime work (D1b)
+
+PR141 is merged as `b51c21b`; this checkout consumes it. Next bounded scope:
+one process-level dispatcher, monotonic window handles, correlated creation
+refusal and asynchronous close acknowledgement. Route input/capture, menus,
+clipboard and notifications by window. Preserve the single-window source wrapper
+and existing limits. Touch shared protocol, kernel packet validation, desktop
+client runtime, compositor admission/lifetime and host/actual-protocol VM tests.
+A two-window transport consumer will precede Text document migration; do not
+claim full D1 acceptance until real independent documents and close/save paths
+are exercised. Dynamic registries and combined GUI/FD waits remain later blocks.
+Host/QEMU only; installed/recovery remain unchanged. No parallel harnesses.
+
+The candidate connection contract is documented in
+[desktop connections](../desktop-connections.md). Focused host fixtures pass
+identity/lifetime, blocked delivery, typed refusals, independent capture/notices
+and local canvas failure. Runtime `e5ad6c2` passes the matched build/full host gates and actual-protocol
+VM consumer: two independent editable documents in one process, focus/clipboard,
+close preserves sibling, fresh ID, resize, cleanup and relaunch. Existing apps,
+sixteen clipboard clients/refusal/reuse/exact data, and compositor lifecycle
+regressions also pass. PR142 is ready; normal Text saving/dialog migration remains
+next. Screenshots were inspected; native payloads remain untouched.
+
+### Active explicit window identity foundation (D1a)
+
+D0 clipboard PR140 is merged as `d8f6c71` and consumed on
+`device/macbookair7-2/desktop-runtime`. Next bounded scope is matched protocol
+v13 with an explicit 64-bit window ID, kernel surface seal/release checks and
+client-side event filtering. The current one-window wrapper uses ID1; other
+window IDs are not yet admitted by the compositor. This is a staged migration,
+not multiwindow app or dynamic capacity acceptance. Touch shared protocol,
+kernel GUI seal validation, desktop/clipboard/notification client helpers,
+compositor routing and their host/VM fixtures. D1b will add connection dispatch,
+multiple window admission and lifecycle semantics before multiwindow Text.
+
+D1a runtime `d9a678b` passes cross-window event filtering, clipboard/notification
+reply identity, atomic surface binding/release, full desktop host coverage and
+the matched image build. QEMU passes desktop app/file/menu regressions, sixteen
+clipboard clients with refusal/reuse/exact saved contents, and compositor
+input/resize/client-death/server-exit/relaunch. PR141 holds this foundation;
+no new native acceptance is claimed. Raw receipts and inspected screenshots
+remain in the overnight evidence root and durable backup.
+
+Pro PR19 at `7b95685` remains independent Wi-Fi work. Host/QEMU only through
+10AM America/New_York; no boot installation or laptop reboot. Preserve the
+native accepted payload/recovery. The same overnight checkpoint/evidence root
+and automation apply. Tests and PRs must identify which stage they accept.
+
+### Active desktop runtime work
+
+PR134 is merged as `7a00518`; this branch consumes that exact shared baseline.
+The native POSIX capture below is complete. Branch:
+`device/macbookair7-2/desktop-runtime`. Overnight work is host/QEMU only; no
+laptop reboot or boot-install changes before 10:00 AM America/New_York on
+October 25, and no automatic reboot scheduled for that time.
+
+First scope (D0): eliminate the separate eight-peer clipboard ceiling by owning
+transfer state with each admitted desktop client, cover many clients and queue
+pressure, and document resource/refusal behavior. Touch compositor clipboard,
+client lifecycle, shared budget definitions and host/VM tests. Next D1 adds
+connection/window identity and a single dispatcher, with multiwindow Text as
+its consumer; dynamic window storage follows identity. The existing
+[desktop API plan](../desktop-api-evolution.md) owns the sequence and gates.
+Pro PR19 at `2674fa7` remains separate Wi-Fi work. Shared kernel transport changes
+will be published explicitly before D1. Evidence/checkpoints:
+`build/desktop-overnight-20261025/`, backed up outside build. Actions stay disabled;
+serialize all builds and VM harnesses. Existing native acceptance remains scoped
+to its recorded releases.
+
+D0 runtime `18d92f1` passes full desktop host tests and image build. The
+32-owner clipboard fixture covers 64 KiB transfers, blocked readers, focus
+refusal, writer timeout and slot reuse; compositor tests cover retiring a writer
+before its client record is cleared. The corrected mixed-app VM now passes
+sixteen real clipboard connections, seventeenth launch refusal, slot reuse,
+exact cross-client saved contents, screenshot and full process/cache cleanup.
+Existing mixed-capacity and desktop app regressions also pass, including saved
+file contents and process/cache retirement. The standalone capacity rerun exits
+zero; an earlier combined wrapper ended with143 after printing the complete
+capacity PASS and before launching the next test. Both receipts are retained.
+
+The first all-Text run reached thirteen clients: clipboard worked, but the
+thirteenth file worker was unavailable. Its document stayed intact and the UI
+reported the refusal. Keep that result as a separate process/worker capacity
+limit for the shared application runtime; the mixed clipboard pass does not
+accept sixteen simultaneous file workers. An intermediate fixture expected
+empty-selection Copy to send a request; the UI correctly sends none. That
+fixture was corrected to nonempty data. Failed receipts remain local.
+
+### Native POSIX regression accepted
+
+Runtime `1882029`, release `284e53065081672f`, completed unattended on this
+Air7,2 in session `session-00065e9fe3b89b2a-00`. Full thread contracts,
+posixdemo, TLS, SQLite and the desktop/Text capture all exited zero; all five
+owned process trees retired. The matching four saved logs have no collector
+attention. The 1440x900 screenshot was hash-verified and visually inspected.
+The desktop's 60-second sample recorded 98.48% idle scheduler ticks; this is
+an idle workload observation, not a measure of energy or interactive latency.
+
+All 1054 previous files retained their bytes; only expected `.srvros/meta`
+bookkeeping changed. Offline fsck is clean (1059 files); independent allocation
+traversal reports 2578 clusters, zero leaks, mismatches or errors. Ubuntu returned
+with its default preserved and the one-shot selection consumed. Installed and
+recovery payload hashes match; recovery `9aa8dbf6fbda8252` and independent copies
+remain available. Full raw evidence is retained under
+`build/posix-core-20261024/native` with a durable copy outside `build`.
+
+Preparation added an explicit `--posix-capture` and independent volatile RAM disk.
+It exposed a pending signal after an already-completed pthread join; `dddb07f`
+fixes the delivery checkpoint after record retirement. The directed test fails
+before and passes afterward; full core/build, libuv and exact-stage positive and
+missing-workspace VM rehearsals pass. Failed attempts remain in local evidence.
+Normal device startup gates are unchanged. This bounded test does not establish
+new physical gesture, battery, sound, networking or full POSIX acceptance.
+
+Main `211f17c` remains the integration base; Pro PR19 `631105b` has independent
+Wi-Fi scope. PR134 is ready for integration with these native results. Next is
+the desktop connection/window identity milestone described in the
+[API evolution plan](../desktop-api-evolution.md), before dynamic capacity and
+combined GUI/descriptor event waits.
+
+### POSIX portable-application milestone checkpoint
+
+The selected profile is implemented and locally validated at runtime source
+`7e2cf54`. Full core, forced partial-tick poll timing, focused readiness and full
+thread suites pass. The final combined gate passes libc, ports, process/shell,
+libuv, utilities, Lua files/strings/UTF-8/bitwise, Terminal and Files. Public scope,
+bounds, remaining Unix/Linux gaps and reproduction commands are in the
+[portable C profile](../posix-supported-profile.md). This is not POSIX certification.
+
+Key final corrections: shared endpoint state/errors `6c83966`, libuv descriptor
+mapping `0d0258b`, atomic socketpairs `050a837`, stream reopening `12b33d9`, and
+monotonic poll deadlines `7e2cf54`. The measured wait fixture found and retained
+a real early-timeout failure before the corrected host/VM passes. Evidence:
+`build/posix-core-20261024/final-gate-checked.json` plus its prerequisite receipts;
+backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+
+Main remains `211f17c` (consumed as `88c2cbb`); Pro PR19 `e66d47d` retains Wi-Fi
+scope. PR134 contains the reviewable shared changes. Desktop implementation is
+deferred; combined GUI/FD wait is a documented design only. No physical trial is
+armed. Installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252` and USB
+`37D8-C5D0` are unchanged. Next discussion: integration/native regression of this
+profile and the planned connection/window identity migration; do not repeat the
+completed POSIX blocks or claim untested broader APIs.
+
+
+User authorizes sustained implementation of the POSIX plan before the desktop
+overhaul. Base `76a55dd` (merged architecture audit PR133), branch
+`device/macbookair7-2/posix-core`. First shared changes: libc error state,
+positional I/O syscalls/process-file operations, poll/select and signal/time
+contracts, guest semantic probes and local host/VM harnesses. Continue through
+the audit's compatibility blocks with explicit unsupported features rather than
+claiming certification. Desktop identity/capacity work is deferred.
+Pro PR19 Wi-Fi and Air6,1 PR132 combined device services remain independent;
+preserve their profiles and acceptance. Publish coherent commits and validate
+locally with Actions disabled. No native reboot is needed for the first blocks;
+installed `bf68e4e9b88b8ae7`, recovery `9aa8dbf6fbda8252`, USB `37D8-C5D0`
+remain unchanged. Progress/evidence: `build/posix-core-20261024/`.
+
+Published implementation commits through `a9e63e5`: per-thread errno, kernel
+positional I/O, select/readiness corrections, interrupted/absolute sleep,
+reclaimed worker TLS, thread-directed signals, actual CPU accounting and peak
+mapped-memory usage. Focused host tests and full thread/libc/TLS/libuv guest
+suites pass for their respective blocks. Pthread key/read-write lock semantics
+now pass their semantic guest tests. A same-process scheduler CR3 regression
+exposed by stress is fixed in `fad4bf4`. Regular-file access/exclusive-create/shared flags and safe truncation pass the
+full core and thread VM suites. Kernel file-size limits, inheritance across
+spawn/exec, thread-directed SIGXFSZ and explicit unsupported priority controls
+also pass full core/thread validation; wider port regressions are running.
+Wait-status/child-group selection and pselect/ppoll mask restoration now pass
+full core/thread tests. Descriptor coherence and the broader profile remain
+in progress. Resource libc/libuv/utility suites pass; the full ports suite exposed
+an old poll fixture which sent its signal before waiting, now replaced by a
+delayed targeted signal and being rerun. Main advanced to `e79e220` with Air6,1 PR132; its device-profile/test
+changes do not overlap these runtime files. Pro PR19 at `31638a9` remains Wi-Fi
+work. No native reboot has been armed or physical acceptance claimed.
+
+Integrated shared main `e79e220` as `1cd62ae`, retaining Air6,1 changes. The
+pre-fork image passes full local core, thread, ports (including SQLite/posixdemo),
+process, libuv, utility and libc/TLS VM suites. Expanded tests exposed outdated
+signal recipient/timing assumptions and an optional shell-banner assertion;
+corrected fixtures pass and original failures remain in local evidence. Native
+installed/recovery payloads are unchanged. PR134 remains a draft because the
+compatibility milestone is not complete.
+
+Next bounded block: replace the fork stub with eager private-address-space cloning,
+new child register/TLS/FPU continuation, inherited regular descriptors/pipes,
+atfork callbacks and guest failure/exec/reaping tests. Start with a single-thread
+CLI profile; refuse active-worker and unsupported pseudo-descriptor cases rather
+than copying inconsistent state. Shared-file coherence and general multithreaded
+fork remain separate acceptance. Touch process/syscall/usermode continuation,
+libc process glue and focused tests; no hardware profile changes or reboot.
+
+The first native fork VM fixture passes private memory/TLS, shared descriptors,
+parent/child returns, callback ordering, resource/mask inheritance, repeated
+reaping and fork/exec. Expanded exec-family/error/signal inheritance checks pass in the full
+`thread-fork-contracts.log` guest suite. Next shared-files block will separate cached contents from open
+description offsets, preserve bounded in-memory reads during owned I/O, and test
+cross-open writes/truncation/stat/close ordering and allocation failure. Native
+filesystem publication and unsupported unlink-while-open remain explicitly
+separate from this coherence block. The shared-content host tests, full core/build
+and full `thread-shared-files.log` suite pass, including four concurrent appenders.
+Main advanced to `36080fc` with Air6,1 documentation-only PR135; no runtime overlap.
+Ports and process/shell regressions also pass. The libuv duplex-spawn regression
+exposed missing execute metadata on an initramfs program; the loader correctly
+refuses it. Current follow-up preserves tar modes/stages executable ELF permissions.
+Orphan-file/lock lifetime host checks, full core/runtime-ELF tests and all six
+thread/libuv/ports/process/posixutils/libc VM regressions pass. Deleted open files
+retain data/identity/locks until close, pathname reuse stays isolated, and
+`tmpfile` creates an unlinked stream. A focused guest failure exposed libc
+turning a correct zero link count into one; the correction passes the rerun.
+Original failures remain in the evidence directory.
+Evidence backup: `~/.local/share/srvros/reviewed-evidence/posix-core-20261024`.
+Next bounded scope: kernel-owned working directory inherited by fork/spawn and
+preserved by exec, checked path traversal, native shell/Terminal handoff, then
+directory descriptors and portable consumer tests. Touch process/syscall/libc,
+shell/Terminal and semantic tests; retain existing file and I/O guarantees.
+No reboot is needed. The working-directory block passes full core, focused path
+VM and process/libuv regressions, including empty-environment exec and shared
+thread CWD. The first build missed the shell's unistd include; corrected build
+and tests pass. Next: descriptor-backed directories/openat/fchdir and real
+file timestamp updates. Main remains `36080fc`; Air6,1 PR136 battery deadline and
+Pro PR19 `d7fb8f9` Wi-Fi changes do not overlap this compatibility block.
+
+Directory/timestamp candidate passes full core, focused host/guest and all
+thread/libuv/ports/process/posixutils/libc/directory VM regressions. One process
+run stopped at the bootloader; headless rerun with checked admission passed.
+Unattended serial tests no longer open graphical windows. Directory handles
+pin paths; timestamp updates use real metadata with NOW/OMIT and second resolution. Next bounded compatibility scope is a pinned Lua
+5.4.8 consumer gate with its unmodified file tests, enabling the OS library and
+POSIX build profile. Its rename expectations also require reviewing exFAT
+cross-directory placement and replacement publication. Air owns any resulting
+shared `kernel/src/fs/exfat.c`, process-content identity, libc stdio and regression
+fixes in PR134. Preserve the native guarded file-manager rename contract and
+quarantine on uncertain I/O; no native USB trial or acceptance is implied.
+
+The next consumer block passes the focused rename and stdio-access guest tests
+and pinned Lua file/date tests plus subprocess output/EOF/exit checks. It adds
+regular-file replacement/open-handle lifetime, exact binary32/64 parsing, missing
+OS-library primitives and noninteractive shell output cleanup. Full local
+regressions are running. Fault injection explicitly exposes non-atomic dirty
+rename recovery: fsck can retain the source and truncate the duplicate target.
+Do not claim journaled/old-or-new recovery. Original failure logs and images are
+under the existing evidence directory. Main advanced to `85d5939` (Air6,1 PR136
+battery deadline); integrate after this checkpoint. Air6,1 PR137 startup timing
+and Pro PR19 `b754d92` Wi-Fi remain outside this compatibility scope.
+
+The ports regression exposed a native spawn namespace collision: closing a
+parent-numbered pipe descriptor could close a newly allocated child standard
+stream. Removing those invalid close actions restores the full ports probe;
+ordered inherited file actions require a separate descriptor-table block.
+The default-ignored signal cleanup also has a focused host regression. Remaining
+Lua/libuv/utility checks are running. Main is now `4f8acd2` (Air6,1 startup timing);
+PR138 heap optimization and Pro PR19 `d5010dc` Wi-Fi are separate active scopes.
+Next bounded block is path/limit accuracy and exec fallback: shared path capacity,
+checked directory import, pathconf/fpathconf and semantic guest/remount tests.
+General descriptor inheritance, atomic mode/umask creation and asynchronous
+signals remain required follow-ups before the compatibility milestone can close.
+
+Published through `d5d0fa1`, consuming main `4f8acd2`. Consumer block completes
+all thread/process/libc/ports/Lua-files/libuv/utility checks locally. Current
+1,024-byte path/255-byte name and exec-shell-fallback candidate passes full core
+and full thread VM tests; exhaustive exFAT remount/fault checks pass, including
+long paths on 4K/128K clusters and independent offline traversal.
+The first fallback test exposed quoted shell exit operands returning zero;
+corrected parsing passes the full guest suite. Remaining boundaries include
+resolved-absolute-path capacity, native GUI message limits, 16 arguments/256-byte
+strings, general FD inheritance and atomic mode/umask creation. No hardware test
+or desktop architecture change is claimed by these compatibility results.
+
+### Desktop architecture, scalable windows and POSIX audit
+
+Base `bc0edb9` / merged PR130. Review connection/window identity, compositor
+storage and scheduling, GUI transport and surface ownership, public application
+and widget APIs, service boundaries and portability. Plan removal of the fixed
+window count through demand allocation and explicit resource admission. Audit
+the actual POSIX/libc implementations and tests, distinguishing working subsets,
+restricted semantics, unsupported calls and compatibility placeholders.
+Deliver source-backed inventories, phased API/resource migration and test gates;
+this planning block changes documentation and audit evidence, not the native ABI.
+Pro PR19 at `3996f9f` owns independent Edimax Wi-Fi work. No overlapping device
+implementation is planned. Installed `bf68e4e9b88b8ae7`, recovery
+`9aa8dbf6fbda8252`, USB UUID `37D8-C5D0`; the previous run is collected and
+accepted for its bounded checks. No physical test or reboot is needed here.
+
+Review complete: [desktop evolution](../desktop-api-evolution.md) inventories
+PID/window coupling, dynamic-registry prerequisites, resource/service limits and
+the proposed API migration gates. The [POSIX audit](../posix-compatibility.md)
+classifies implemented subsets, semantic defects and compatibility placeholders.
+Local libc, thread and libuv guest smoke suites pass; host fixtures reproduce
+the eight-peer clipboard ceiling and process-shared errno storage. These are
+known gaps, not passing semantics. Evidence and image hashes are in
+`build/desktop-api-audit-20261024/`; runtime source and installed payload are
+unchanged. Current architecture, status, roadmap, porting and toolkit guides now
+link the review and correct stale window/PTY/provider descriptions.
+
+Next bounded implementation: current clipboard service capacity/refusal and
+thread-local errno with focused regressions, followed by connection/window
+identity. Publish that scope before editing shared runtime code. No new native
+acceptance is needed for this documentation checkpoint; dynamic windows and new
+POSIX semantics remain proposals.
+Final integration check: main remains `bc0edb9`; Pro PR19 advanced to `b071f38`
+and Air6,1 PR132 adds its combined-services profile. Neither owns this desktop
+API/POSIX review's files; their device acceptance remains in their own records.
+
+### Desktop window capacity: native result and integration
+
+On return from `bf68e4e9b88b8ae7`, tester reports all sixteen windows opened
+well. Session `session-00065e9a46b48da1-00` registers slots 0–15, saves
+`capacity-proof.txt`, retires the desktop normally and saves its exit snapshot.
+All 1049 prior files retain their bytes except expected exFAT metadata; offline
+filesystem/allocation checks and Ubuntu/default/recovery checks pass. No new
+screenshot was saved. This non-trace session omits cache totals and per-frame
+commit traces, so native cache retirement and pressure injection are unmeasured;
+those mechanisms have host/VM coverage. Acceptance here is sixteen-window
+opening and saved-file/clean-exit integrity, not an additional physical resize,
+pressure-failure or screenshot claim.
+
+Collection initially flagged the normal exact `trackpad-tap-reject` movement
+counter because its generic rule treats `reason=` as actionable. Correct that
+specific expected telemetry with regression tests while retaining malformed,
+unknown and actual failure lines. Keep the original collection receipt and
+review the saved evidence again; no rerun is needed to correct host analysis.
+Integrated main `d5bc4b3` (Air6,1 PR131) as `e22f328`, preserving its battery
+gates and staging work. Full local build/core/docs and the sixteen-window VM
+regression pass on that integration. PR130 is ready for baseline promotion;
+GitHub Actions remain disabled. Raw/reviewed evidence and the accepted payload
+survive `make distclean` in local pending-trials/reviewed-evidence storage.
+No reboot is armed. Installed payload remains `bf68e4e9b88b8ae7`; source merge
+validation does not silently install a different native image.
+
+### Window capacity implementation checkpoint
+
+Base `468ca20`. Replace eager full-screen compositor cache pairs with bounded
+buffers allocated for live window sizes. Preserve the published frame and input
+ownership on failed growth, release buffers when a window retires, and test
+allocation/copy failures. Audit process, GUI queue/surface, menu and launcher
+budgets before raising the client limit toward sixteen; exercise opening beyond
+eight windows, repeated maximize/restore, close/reopen and pressure refusal.
+Scope: compositor/client buffer lifecycle, shared desktop capacity/protocol if
+needed, GUI resource budgets, host/VM regressions and current desktop guides.
+Candidate implementation and local tests cover sixteen windows, 96 MiB bounded
+private cache storage, current-size client canvases, transactional resize refusal,
+and delayed redraw under pressure. Protocol v12 requires a matched image. Native
+acceptance is pending the attended capacity trial; Help includes a persistent
+checklist. Pro PR19 at `d0a0b57` remains independent Wi-Fi work; Air6,1 PR131
+at `75ddde8` changes opt-in battery startup and separate staging/tests.
+Neither overlaps the compositor/client/menu changes. At `b96e990` the full local
+build/core/docs checks, sixteen-window exact text/screenshot/cleanup workload,
+800x600 and 1440x900 arrange tests and 640x480 compositor lifecycle tests pass.
+The exact staged two-session desktop persistence rehearsal passes for
+`bf68e4e9b88b8ae7`; its sixty-round workload, saved text/preferences, logger
+snapshots and both clean unmounts pass. Physical acceptance remains pending.
+Installed attended candidate `bf68e4e9b88b8ae7` (compiled `b96e990`), recovery
+`9aa8dbf6fbda8252`. Ubuntu remains the default; native acceptance awaits the
+capacity round. No timer closes this interactive desktop; tester exits and
+reboots from the monitor. Local run/collector:
+`build/window-capacity-20261024/run.json` and `collect-native.py`; durable payload
+and recovery are under the local pending-trials archive outside `build`.
+Publish this branch/PR, validate one build/VM at a time, then prepare a physical
+trial with explicit on-screen instructions if human interaction is required.
 
 ### Pending USB event-service gaps: bounded native result
 

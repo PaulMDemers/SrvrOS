@@ -62,5 +62,44 @@ int main(void) {
     for(unsigned i=STRIDE*H;i<sizeof(pixels)/sizeof(*pixels);i++) assert(pixels[i]==0xdeadbeef);
     assert(!desk_menu_configure(&m,NULL,0,(struct desk_rect){0,0,W,44},(struct desk_rect){0,0,W,H},&desk_font_16));
     assert(m.open<0 && !key(SRV_KEY_F10).consumed);
+    struct desk_menu_item many[25]={{.flags=DESK_MENU_HEADING,.label="Window"}};
+    for(unsigned i=1;i<25;i++) { many[i].id=i;snprintf(many[i].label,sizeof(many[i].label),"Window %u",i); }
+    assert(!desk_menu_configure(&m,many,25,(struct desk_rect){0,0,400,44},(struct desk_rect){0,0,640,480},&desk_font_16));
+    key(SRV_KEY_F10);key(SRV_KEY_END);
+    struct desk_rect last=desk_menu_row(&m,24),popup=desk_menu_popup(&m);
+    assert(m.selected==24 && m.scroll>0 && last.h==30 && last.y+last.h<=popup.y+popup.h);
+    assert(!desk_menu_replace(&m,many,25) && desk_menu_row(&m,24).h==30);
+    assert(desk_menu_scroll(&m,-4096).consumed && !m.scroll && desk_menu_row(&m,1).h==30);
+    assert(desk_menu_scroll(&m,4096).redraw && desk_menu_row(&m,24).h==30);
+    desk_menu_cancel(&m);
+    static struct desk_menu_item storage[256],replacement_storage[512],large[201];
+    large[0]=(struct desk_menu_item){.flags=DESK_MENU_HEADING,.label="Window"};
+    for(unsigned i=1;i<201;i++) { large[i].id=1000+i;snprintf(large[i].label,sizeof(large[i].label),"Document %u",i); }
+    assert(!desk_menu_valid(large,201)); /* Default wire/menu snapshot remains bounded. */
+    assert(!desk_menu_bind_storage(&m,storage,256));
+    assert(!desk_menu_configure(&m,large,201,(struct desk_rect){0,0,400,44},(struct desk_rect){0,0,640,480},&desk_font_16));
+    key(SRV_KEY_F10);key(SRV_KEY_END);assert(m.selected==200 && desk_menu_row(&m,200).h==30);
+    m.armed=1;int old_scroll=m.scroll;
+    assert(!desk_menu_replace(&m,large,201) && m.selected==200 && m.armed && m.scroll==old_scroll);
+    strcpy(large[199].label,"Changed document");
+    assert(!desk_menu_replace(&m,large,201) && m.selected==200 && !m.armed);
+    m.armed=1;assert(!desk_menu_bind_storage(&m,replacement_storage,512) && !m.armed && m.selected==200);
+    assert(!strcmp(m.items[199].label,"Changed document") && m.items==replacement_storage);
+    assert(desk_menu_bind_storage(&m,storage,100)==-1 && m.items==replacement_storage);
+    large[200].id=large[199].id;
+    assert(desk_menu_replace(&m,large,201)==-1 && m.items[200].id==1200 && m.selected==200);
+    assert(key(SRV_KEY_ENTER).action==1200);
+    /* Scrolling shifts content, not glyph origins. Compare the interior with
+     * the corresponding unscrolled pixels, including the partially clipped row. */
+    large[200].id=1200;
+    assert(!desk_menu_configure(&m,large,201,(struct desk_rect){0,0,W,44},(struct desk_rect){0,0,W,H},&desk_font_16));
+    m.open=0;m.selected=-1;m.scroll=0;
+    memset(pixels,0,sizeof(pixels));memset(tiles,0,sizeof(tiles));
+    desk_clip(&a,(struct desk_rect){0,0,W,H});desk_clip(&b,(struct desk_rect){0,0,W,H});
+    desk_menu_popup_draw(&a,&m,&desk_theme_quiet);m.scroll=7;desk_menu_popup_draw(&b,&m,&desk_theme_quiet);
+    popup=desk_menu_popup(&m);
+    for(int y=popup.y+1;y<popup.y+popup.h-9;y++)for(int x=popup.x+5;x<popup.x+popup.w-5;x++)
+        assert(tiles[y*STRIDE+x]==pixels[(y+7)*STRIDE+x]);
+    puts("menu-storage: PASS 200 rows, caller-owned growth, selected identity, release cancellation and refusal preservation");
     puts("menu: PASS snapshot validation, pointer release/drag/cancel, disabled rows, keyboard traversal, clipping/tiled rendering and guards");
 }

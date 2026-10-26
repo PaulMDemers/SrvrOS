@@ -9,8 +9,9 @@ void kfree(void *p) { free(p); }
 static int64_t wall=-1;
 static unsigned notifications;
 static const struct initramfs_file boot_files[]={
-    {"/etc/motd",(const uint8_t *)"welcome",7},{"/share/test/note",(const uint8_t *)"note",4},
-    {"/init",(const uint8_t *)"init",4},{"/init/invalid",NULL,0},{"relative",NULL,0},{"/invalid/../x",NULL,0},{"/double//x",NULL,0}};
+    {"/etc/motd",(const uint8_t *)"welcome",7,0640},{"/share/test/note",(const uint8_t *)"note",4,0600},
+    {"/init",(const uint8_t *)"init",4,0755},{"/init/invalid",NULL,0,0},{"relative",NULL,0,0},
+    {"/invalid/../x",NULL,0,0},{"/double//x",NULL,0,0}};
 uint64_t initramfs_file_count(void) { return sizeof(boot_files)/sizeof(*boot_files); }
 const struct initramfs_file *initramfs_file_at(uint64_t index) { return &boot_files[index]; }
 int64_t timer_realtime_us(void) { return wall; }
@@ -28,6 +29,7 @@ int main(void) {
     for(unsigned i=0;i<4;i++) { struct vfs_metadata m;uint64_t type,size;
         assert(vfs_stat(folders[i],&m,&size,&type) && type==VFS_NODE_DIRECTORY && m.inode && !size && !m.mtime);
     }
+    assert((vfs_lookup("/init")->metadata.mode&0777)==0755 && (vfs_lookup("/etc/motd")->metadata.mode&0777)==0640);
     assert(!vfs_lookup("/init/invalid") && !vfs_lookup("relative") && !vfs_lookup("/invalid") && !vfs_lookup("/double"));
     const struct vfs_node *motd=vfs_lookup("/etc/motd");const uint8_t *bytes;uint64_t length;
     assert(motd && vfs_read_all(motd,&bytes,&length) && length==7 && !memcmp(bytes,"welcome",7));
@@ -44,6 +46,13 @@ int main(void) {
     wall+=1000000;assert(vfs_chmod("/test",0600));assert(file->metadata.ctime==1792326899 && file->metadata.mtime==1792326898);
     wall+=1000000;assert(vfs_utime("/test",1000,2000));
     assert(file->metadata.atime==1000 && file->metadata.mtime==2000 && file->metadata.ctime==1792326900 && notifications==3);
+    assert(vfs_utime("/test",SRV_TIME_OMIT,SRV_TIME_NOW));
+    assert(file->metadata.atime==1000 && file->metadata.mtime==1792326900 && notifications==4);
+    assert(vfs_utime("/test",SRV_TIME_OMIT,SRV_TIME_OMIT) && notifications==4);
+    assert(vfs_utime("/test",1000,2000));
+    struct vfs_metadata orphan=file->metadata;
+    vfs_metadata_utime(&orphan,SRV_TIME_NOW,SRV_TIME_OMIT);
+    assert(orphan.atime==1792326900 && orphan.mtime==2000);
     struct vfs_metadata persisted=file->metadata;
     assert(vfs_register_file_with_metadata("/imported",3,NULL,read_test,NULL,&persisted));
     assert(vfs_lookup("/imported")->metadata.mtime==2000);
@@ -73,6 +82,18 @@ int main(void) {
         const struct vfs_node *a=vfs_node_at(i);assert(a && a->metadata.inode);
         for(uint64_t j=0;j<i;j++) assert(a->metadata.inode!=vfs_node_at(j)->metadata.inode);
     }
+    /* Replacement publishes without allocating and keeps the source node/inode. */
+    static char replacement_path[32]="/replace-source";
+    assert(vfs_register_file(replacement_path,3,NULL,read_test));
+    assert(vfs_register_file("/replace-target",3,NULL,read_test));
+    const struct vfs_node *replacement=vfs_lookup(replacement_path);uint64_t replacement_inode=replacement->metadata.inode;
+    uint64_t before_replace=vfs_count();fail_alloc=true;
+    assert(!vfs_replace_file_path("/replace-source","/replace-target",replacement_path,2));
+    assert(vfs_lookup("/replace-source")==replacement && vfs_count()==before_replace);
+    assert(vfs_replace_file_path("/replace-source","/replace-target",replacement_path,sizeof(replacement_path)));
+    assert(!vfs_lookup("/replace-source") && vfs_lookup("/replace-target")==replacement &&
+        replacement->metadata.inode==replacement_inode && vfs_count()==before_replace-1);
+    fail_alloc=false;
     /* Cross the previous 4096-node ceiling without moving referenced nodes. */
     static char names[6000][32];
     const struct vfs_node *retained=file;

@@ -23,6 +23,12 @@ class Activity(unittest.TestCase):
         self.assertEqual(result['workers'][0]['timeout_wakes_per_second'], 10)
         self.assertEqual(result['workers'][0]['signal_wakes_per_second'], 5)
 
+    def test_expanded_slots(self):
+        expanded = self.text.replace('version=1', 'version=2').replace('slot=0', 'slot=95')
+        self.assertIsNotNone(worker_activity(expanded, 1, 40_000_000))
+        self.assertIsNone(worker_activity(expanded.replace('slot=95', 'slot=256'), 1, 40_000_000))
+        self.assertIsNone(worker_activity(expanded.replace('version=2', 'version=1'), 1, 40_000_000))
+
     def test_window_excludes_later_work(self):
         later = block(50_000_000, 9000, 9000, 9000, 9000)
         self.assertEqual(worker_activity(self.text+later, 1, 40_000_000),
@@ -41,7 +47,7 @@ class Activity(unittest.TestCase):
                     self.text.replace('switches=400', f'switches={2**64}'),
                     self.text+self.text,
                     self.text.replace('worker: us=10000000', 'worker: us=9999999'),
-                    self.text.replace('version=1', 'version=2')):
+                    self.text.replace('version=1', 'version=3')):
             with self.subTest(bad=bad):
                 self.assertIsNone(worker_activity(bad, 1, 40_000_000))
 
