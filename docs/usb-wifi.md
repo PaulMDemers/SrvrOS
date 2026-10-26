@@ -3550,3 +3550,24 @@ all receipts/order/guards/full-prefix arithmetic and rejects1721 malformed
 proofs.165 staging tests,170 historical recipes and29 desktop-collection tests
 passed; full build and xHCI regression passed. Exact-stage VM/install follows;
 physical acceptance remains pending.
+
+
+### v86 installation checkpoint
+
+Exact source `3614ddb2b8377e666a016e13d8f803752f44ae19`, release
+`8af0efef4d2a53c2`, config `ram-usb-wifi-fw-v86-laptop-probe-0e535900-auto-return`.
+Full build,189-position/221-fault native admissions, engine/logger/collection
+regressions, ASan/UBSan, independent source audit and strict collector tests
+passed. Exact GPT-stage VM saved and byte-verified diagnostics, cleanly unmounted
+and reset; missing-workspace VM refused the probe and returned. Explicit1MiB
+snapshot confirmed. These VM passes validate workflow, not the physical radio.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads match
+durable backups. Ubuntu remains default; reboot unarmed. ESP v84
+`e57afcf9eb1fab7e` removed only after full archive byte equality; v85 retained
+alongside recovery. Offline workspace clean313files/746clusters/130directories,
+zero leaks,mismatches or errors; unmounted. Candidate and run/checkpoint archived
+outside build. Await readiness for cold Wi-Fi cycle; collect matching session
+FIRST on return with the strict v86 collector. Results save and return
+automatically, no photos/commands. Native filter/BBP readback acceptance pending;
+no calibrated-radio/connectivity acceptance.
