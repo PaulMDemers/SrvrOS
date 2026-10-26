@@ -30,9 +30,13 @@ int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)pe
 static unsigned pointer_options;
 int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_options=options;return 0; }
 static int capture_loop_log;
-static char captured_loop_log[1024];
+static char captured_loop_log[4096];
 void srv_puts(const char *text) {
-    if(capture_loop_log) {assert(strlen(text)<sizeof(captured_loop_log));strcpy(captured_loop_log,text);}
+    if(capture_loop_log) {
+        assert(strlen(text)<1024);
+        if(!strncmp(text,"desktop-loop-worst:",19))captured_loop_log[0]=0;
+        assert(strlen(captured_loop_log)+strlen(text)<sizeof(captured_loop_log));strcat(captured_loop_log,text);
+    }
     else fputs(text,stdout);
 }
 static uint64_t now=1;
@@ -570,6 +574,8 @@ static void persistent_loop_timing(void) {
     for(unsigned stage=1;stage<LOOP_STAGE_COUNT;stage++) {
         at+=stage*10;loop_trace_mark(&t,stage,at);
     }
+    t.current.wait=(struct loop_wait_record){.valid=1,.begin=at,.sleep_begin=at+10,
+        .sleep_end=at+640000,.end=at+640010,.scheduler={.version=1,.ready_us=620000,.max_ready_us=620000}};
     at+=650000;loop_trace_end(&t,at,4,0,0);
     struct loop_record retained=t.worst;
     assert(retained.sequence==2 && retained.cycle==3 && retained.pid==42 && retained.phase==3);
@@ -583,6 +589,8 @@ static void persistent_loop_timing(void) {
         at+=1000;loop_trace_end(&t,at,5+n,0,0);loop_trace_report(&t,0);
         assert(!memcmp(&retained,&t.worst,sizeof(retained)) && t.over_limit==1);
         assert(strstr(captured_loop_log,"wait_us=650000 final=0\n"));
+        assert(strstr(captured_loop_log,"desktop-loop-wait: seq=2 valid=1"));
+        assert(strstr(captured_loop_log,"ready_us=620000"));
     }
     assert(t.samples==1002 && !t.invalid);
     /* A final early break still accounts the unfinished stage and full gap. */
@@ -596,6 +604,8 @@ static void persistent_loop_timing(void) {
     loop_trace_begin(&t,at,0,0,0);loop_trace_end(&t,at-1,0,0,0);assert(t.invalid==2);
     memset(&t,255,sizeof(t));loop_trace_report(&t,1);
     assert(strstr(captured_loop_log,"wait_us=18446744073709551615 final=1\n"));
+    assert(strstr(captured_loop_log,"desktop-loop-sched: seq=18446744073709551615"));
+    assert(strstr(captured_loop_log,"late_ticks=18446744073709551615 final=1"));
     capture_loop_log=0;
     puts("desktop-loop-timing: PASS exact bound, conserved stages, 1000-loop retention, periodic/final records, partial exit, invalid clock and bounded formatting");
 }

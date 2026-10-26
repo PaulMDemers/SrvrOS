@@ -145,7 +145,7 @@ static void loop_trace_report(const struct loop_trace *t,unsigned final) {
     /* One bounded console record; the ordinary 384-byte desk_log buffer is
      * too short for a complete worst-loop receipt. No heap/stdio buffering. */
     char text[1024];
-    int length=snprintf(text,sizeof(text),"desktop-loop-worst: version=1 samples=%llu over_limit=%llu invalid=%llu seq=%llu start_us=%llu end_us=%llu gap_us=%llu cycle=%llu pid=%llu phase=%llu end_cycle=%llu end_pid=%llu end_phase=%llu control_us=%llu messages_us=%llu lifecycle_us=%llu service_us=%llu trial_us=%llu input_us=%llu render_us=%llu post_us=%llu wait_us=%llu final=%u\n",
+    int length=snprintf(text,sizeof(text),"desktop-loop-worst: version=2 samples=%llu over_limit=%llu invalid=%llu seq=%llu start_us=%llu end_us=%llu gap_us=%llu cycle=%llu pid=%llu phase=%llu end_cycle=%llu end_pid=%llu end_phase=%llu control_us=%llu messages_us=%llu lifecycle_us=%llu service_us=%llu trial_us=%llu input_us=%llu render_us=%llu post_us=%llu wait_us=%llu final=%u\n",
         (unsigned long long)t->samples,(unsigned long long)t->over_limit,(unsigned long long)t->invalid,
         (unsigned long long)w->sequence,(unsigned long long)w->start,(unsigned long long)w->end,(unsigned long long)w->gap,
         (unsigned long long)w->cycle,(unsigned long long)w->pid,(unsigned long long)w->phase,
@@ -157,6 +157,27 @@ static void loop_trace_report(const struct loop_trace *t,unsigned final) {
         (unsigned long long)w->stage_us[LOOP_WAIT],final);
     if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
     else srv_puts("desktop-loop-worst: invalid=record-overflow\n");
+    const struct loop_wait_record *v=&w->wait;
+    length=snprintf(text,sizeof(text),"desktop-loop-wait: seq=%llu valid=%llu begin_us=%llu gui_begin_us=%llu gui_end_us=%llu sleep_begin_us=%llu sleep_end_us=%llu end_us=%llu gui_result=%lld sleep_result=%lld final=%u\n",
+        (unsigned long long)w->sequence,(unsigned long long)v->valid,(unsigned long long)v->begin,
+        (unsigned long long)v->gui_begin,(unsigned long long)v->gui_end,
+        (unsigned long long)v->sleep_begin,(unsigned long long)v->sleep_end,(unsigned long long)v->end,
+        (long long)v->gui_result,(long long)v->sleep_result,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    else srv_puts("desktop-loop-wait: invalid=record-overflow\n");
+    const struct srv_sched_trace *q=&v->scheduler;
+    length=snprintf(text,sizeof(text),"desktop-loop-sched: seq=%llu version=%llu start_us=%llu end_us=%llu start_tick=%llu end_tick=%llu blocked_us=%llu ready_us=%llu blocks=%llu signals=%llu timeouts=%llu dispatches=%llu exclusions=%llu invalid=%llu max_ready_us=%llu wake_us=%llu run_us=%llu wake_tick=%llu deadline_tick=%llu reason=%llu ready_exclusions=%llu late_ticks=%llu final=%u\n",
+        (unsigned long long)w->sequence,(unsigned long long)q->version,
+        (unsigned long long)q->start_us,(unsigned long long)q->end_us,
+        (unsigned long long)q->start_tick,(unsigned long long)q->end_tick,
+        (unsigned long long)q->blocked_us,(unsigned long long)q->ready_us,
+        (unsigned long long)q->blocks,(unsigned long long)q->signals,(unsigned long long)q->timeouts,
+        (unsigned long long)q->dispatches,(unsigned long long)q->exclusions,(unsigned long long)q->invalid,
+        (unsigned long long)q->max_ready_us,(unsigned long long)q->wake_us,(unsigned long long)q->run_us,
+        (unsigned long long)q->wake_tick,(unsigned long long)q->deadline_tick,(unsigned long long)q->reason,
+        (unsigned long long)q->ready_exclusions,(unsigned long long)q->late_ticks,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    else srv_puts("desktop-loop-sched: invalid=record-overflow\n");
 }
 static int window_lifetime_valid(const struct session *s,int i,uint64_t identity) {
     return i>=0 && i<session_capacity(s) && session_client(s,i)->pid &&
@@ -2306,10 +2327,32 @@ int main(int argc,char **argv) {
         }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
         loop_trace_stamp(&loop_trace,LOOP_WAIT);
-        if(!apps || coexist || control_capture || battery_guided || hardware_trial ||
-           quit || painted || buttons || drag>=0 || resize>=0 || pending_key ||
-           !session_quiescent(&s) || gui_server_wait(10)<0)
-            srv_sleep_ticks(1);
+        struct loop_wait_record *wait=loop_trace.active?&loop_trace.current.wait:NULL;
+        if(wait) {
+            wait->begin=(uint64_t)srv_monotonic_us();
+            if(srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&wait->scheduler))loop_trace.invalid++;
+            else wait->valid=1;
+        }
+        int sleep=!apps || coexist || control_capture || battery_guided || hardware_trial ||
+            quit || painted || buttons || drag>=0 || resize>=0 || pending_key || !session_quiescent(&s);
+        if(!sleep) {
+            if(wait)wait->gui_begin=(uint64_t)srv_monotonic_us();
+            int result=gui_server_wait(10);
+            if(wait) {wait->gui_end=(uint64_t)srv_monotonic_us();wait->gui_result=result;}
+            sleep=result<0;
+        }
+        if(sleep) {
+            if(wait)wait->sleep_begin=(uint64_t)srv_monotonic_us();
+            long result=srv_sleep_ticks(1);
+            if(wait) {wait->sleep_end=(uint64_t)srv_monotonic_us();wait->sleep_result=result;}
+        }
+        if(wait) {
+            if(wait->valid && srv_sched_trace(SRV_SCHED_TRACE_END,&wait->scheduler)) {
+                wait->valid=0;loop_trace.invalid++;
+            }
+            wait->end=(uint64_t)srv_monotonic_us();
+            if(wait->scheduler.invalid)loop_trace.invalid++;
+        }
     }
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
     if(audio_io && loop_last) {

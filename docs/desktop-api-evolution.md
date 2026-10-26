@@ -112,6 +112,30 @@ with the existing maximum fails validation. Periodic re-emission retains the
 worst observation through bounded log rotation; a final receipt is required
 for complete evidence. No new filesystem writes or flush policy are introduced.
 
+Version2 retains matching `desktop-loop-wait` and `desktop-loop-sched` records
+by the same worst sequence and final marker. The first records explicit GUI
+wait (ten ticks), fallback/direct sleep (one tick), returns and user timestamps.
+The second brackets that section with opt-in `SYS_SCHED_TRACE` (154), exact-size
+`srv_sched_trace` version1, BEGIN/END on the calling thread only. Ordinary desktop
+loops do not call it. Nested BEGIN, unmatched END, invalid operations/sizes or
+unmapped output are refused. Records are fixed-size, reset on thread-slot reuse,
+and never change scheduling, eligibility, deadlines, wakeups or I/O ownership.
+
+Scheduler durations measure blocked state and READY-to-selection, including
+bookkeeping; they are not CPU time. The longest READY interval retains its wake/
+selection timestamps, wake tick, original deadline tick, reason (yield0, signal1,
+timeout2) and observed exclusion count. Counts reflect actual eligibility checks,
+not time continuously excluded. Maximum timeout lateness is measured in ticks;
+it cannot establish wall-clock interrupt latency. Signal wakeups may be unrelated
+and retry. A diagnostic spans all such waits/preemptions between BEGIN and END;
+user boundaries also retain syscall entry/return overhead outside that bracket.
+No attribution to storage or firmware follows from a long READY interval alone.
+
+Version1 historical receipts remain readable. Version2 requires matching,
+unchanged companions, conserved/bounded state totals and ordered call/clock
+boundaries. A loop that exits before WAIT carries explicit zero companions.
+Missing or invalid evidence fails validation; no synthetic zero delay is inferred.
+
 ## Combined wait contract (D3b)
 
 The D3b implementation provides one wait for an authenticated GUI server and up

@@ -3766,3 +3766,11 @@ test-storage-leases: build/tests/block-host$(HOST_EXE) build/tests/workspace-hos
 	build/tests/workspace-host$(HOST_EXE)
 	build/tests/usb-storage-host$(HOST_EXE)
 	$(PYTHON) tools/test_storage_leases.py
+
+.PHONY: test-scheduler-trace
+test-scheduler-trace: build/tests/scheduler-trace-host$(HOST_EXE)
+	$<
+build/tests/scheduler-trace-host$(HOST_EXE): tools/test_scheduler_trace.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-scheduler-trace

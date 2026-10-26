@@ -1322,3 +1322,14 @@ bounded question: process writeback retry after a clean backend space refusal,
 which currently shares the failed-content latch used for uncertain I/O. Native
 unregister/rebind, physical power-loss recovery and broader subsystem coverage
 remain open.
+
+
+### Retirement checkpoint integration — active scope
+
+After publishing `d34fcc97`, main advanced to `4ee18f69` with PR190's scheduler
+wait attribution and desktop diagnostic ABI. The only textual conflict is the
+Makefile tail: preserve both `test-storage-leases` and `test-scheduler-trace`.
+No exFAT implementation conflict exists. Rebuild matched artifacts and rerun
+the affected scheduler/syscall/desktop host checks, storage gates and six VMs
+before republishing. The pre-integration evidence above remains tied to its
+original runtime. PR19 remains separate at `9a50f4dc`.
