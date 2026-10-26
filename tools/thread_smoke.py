@@ -136,6 +136,14 @@ def main():
     ]
     if args.test == "all":
         expected.extend([
+            "threadstress: epoll-lifetime ok",
+            "threadstress: epoll-wait ok",
+            "threadstress: eventfd-counter ok",
+            "threadstress: eventfd-modes ok",
+            "threadstress: epoll-rotation ok",
+            "threadstress: epoll-oneshot ok",
+            "threadstress: epoll-edge ok",
+            "threadstress: event-adapter-final ok",
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",

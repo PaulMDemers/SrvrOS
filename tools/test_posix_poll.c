@@ -3,6 +3,7 @@
 #include "../userspace/lib/src/posix_poll.c"
 #include <assert.h>
 
+int __posix_eventfd_poll(int fd,short requested,uint64_t *identity) { (void)fd;(void)requested;(void)identity;return -1; }
 static short readiness[FD_SETSIZE],requested[FD_SETSIZE];
 static int64_t last_timeout;
 static int calls,dispatch;

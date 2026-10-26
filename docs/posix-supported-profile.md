@@ -183,10 +183,60 @@ not establish libc `sem_*` support. Process sharing and full blocking semantics
 remain outside the validated profile.
 
 The Linux-oriented `epoll`, `eventfd`, inotify and other Node compatibility
-symbols remain experimental adapters. In particular, eventfd blocking/overflow,
-epoll edge/one-shot delivery, mask replacement and descriptor reuse semantics
-are not accepted by this profile. Use the tested native poll/pipe path for new
-portable consumers. A successful Node link probe does not establish Node support.
+symbols remain experimental adapters. The [event-adapter audit](event-adapter-audit-2026-10-26.md)
+corrects libc-managed epoll lifetime through close, native dup/dup2/dup3/F_DUPFD*,
+final-alias retirement and descriptor reuse. Host/guest regressions cover native
+alias watches and eventfd close; snapshot validation rejects stale wait results.
+Eventfd duplication and nested epoll are refused. Adapter handles cannot be
+exported through SCM_RIGHTS. Exec/spawn refuses live non-CLOEXEC adapters; close
+them or mark every handle (including epoll aliases) close-on-exec first. Spawn
+file actions cannot duplicate adapter handles into the child. Fork
+continues to refuse live adapter state. Pseudo-socket epoll registration is
+refused; native socketpairs remain supported. Raw `srv_*` descriptor mutation,
+SCM_RIGHTS transfer of watched native descriptions, concurrent process inheritance
+and cross-process adapter sharing remain outside this process-local contract.
+
+Epoll waits now preserve zero timeouts, return already-ready events without
+blocking on idle native descriptors, and recheck eventfd/control changes against
+one monotonic deadline. Empty/infinite waits continue until readiness, interruption
+or instance retirement. Synthetic state is checked through native poll intervals
+of at most 10 ms, plus kernel clock rounding and scheduling delays; this is not a
+kernel notification queue or a hard latency guarantee. Idle waits incur periodic
+wakeups. Nonblocking eventfd writes now reject the reserved `UINT64_MAX` value
+with `EINVAL` and additions exceeding `UINT64_MAX-1` with `EAGAIN`, preserving
+the counter. EPOLLOUT requires room for at least one and returns after draining.
+Zero writes remain valid at full capacity. `EFD_SEMAPHORE` reads return one and
+subtract one, preserving remaining readiness; ordinary reads drain the counter.
+Creation accepts only `EFD_SEMAPHORE`, `EFD_NONBLOCK` and `EFD_CLOEXEC`, rejects
+unknown bits with `EINVAL` before allocation, and resets mode on slot reuse.
+Changes to descriptor/status flags do not toggle semaphore mode; F_GETFL reports
+O_RDWR. Blocking reads wait for a token/count; writes wait for sufficient capacity,
+using interruptible 10 ms kernel poll slices without holding the lifecycle mutex.
+SA_RESTART handlers retry the I/O; other interruption returns EINTR without
+changing the counter/output. Close/reuse cancels a parked operation with EBADF.
+F_SETFL changes are rechecked. Public poll/ppoll now recognize eventfds, including
+mixed native/synthetic sets, monotonic finite deadlines and POLLNVAL on close/reuse.
+The fixed FD_SETSIZE=1024 cannot represent eventfds numbered 3000..3015: use poll
+or epoll for them; select/pselect are not a supported eventfd interface.
+Epoll rotates delivery across stable ready sets using a per-instance cursor shared
+by aliases, chosen under the lifecycle mutex after polling. All armed watches are
+snapshotted; native HUP/ERR can be returned even with an empty interest mask.
+This does not promise thread-scheduling fairness under arbitrary mutation.
+One-shot registrations disable only on delivery (including HUP/ERR); successful
+MOD rearms with its current mask/data. Overlapping waits cannot deliver the same
+armed revision twice. Undelivered entries remain armed, and changing to ordinary
+level mode removes the one-shot restriction. EPOLLPRI/POLLPRI conversion is
+covered with modeled native readiness; no driver urgent-data support is implied.
+Normal-data aliases EPOLLRDNORM/EPOLLWRNORM preserve the requested result bits.
+Edge, half-close, message and band modes (EPOLLET, EPOLLRDHUP, EPOLLMSG,
+EPOLLRDBAND, EPOLLWRBAND) return EOPNOTSUPP on ADD/MOD; unknown bits return EINVAL.
+Failed MOD preserves mask/data and disabled one-shot state; DEL ignores its event
+argument. epoll_pwait temporarily installs a supplied mask and restores it on
+success, timeout and error, including pending signals at immediate-ready waits.
+This follows the existing cooperative signal ABI, not asynchronous signal frames.
+General concurrent pseudo-socket transitions remain outside acceptance.
+Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
+does not establish Node support.
 
 exFAT replacement is serialized during normal execution but is **not
 power-loss atomic**. A failed write can quarantine the filesystem; a flush does

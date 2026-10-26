@@ -12,6 +12,7 @@
 int __posix_socket_poll_fd(int fd);
 short __posix_socket_poll_update(int fd, short requested, short current_revents);
 int __posix_signal_dispatch_pending(void);
+int __posix_eventfd_poll(int fd, short requested, uint64_t *identity);
 
 #define POSIX_POLL_MAX 64
 
@@ -20,7 +21,7 @@ static int poll_trace_enabled(void) {
     return trace != 0 && trace[0] != '\0' && trace[0] != '0';
 }
 
-int __posix_poll_ms(struct pollfd *fds,nfds_t nfds,int64_t timeout) {
+static int poll_native_ms(struct pollfd *fds,nfds_t nfds,int64_t timeout) {
     struct srv_pollfd srv_fds[POSIX_POLL_MAX];
     if (nfds > POSIX_POLL_MAX || (nfds != 0 && fds == 0)) {
         errno = EINVAL;
@@ -86,6 +87,55 @@ int __posix_poll_ms(struct pollfd *fds,nfds_t nfds,int64_t timeout) {
     }
     (void)result;
     return ready;
+}
+
+int __posix_poll_ms(struct pollfd *fds,nfds_t nfds,int64_t timeout) {
+    if (nfds > POSIX_POLL_MAX || (nfds && !fds)) { errno = EINVAL; return -1; }
+    uint64_t identities[POSIX_POLL_MAX] = {0};
+    int synthetic[POSIX_POLL_MAX], has_synthetic = 0;
+    for (nfds_t i = 0; i < nfds; i++) {
+        synthetic[i] = __posix_eventfd_poll(fds[i].fd, fds[i].events, &identities[i]);
+        has_synthetic |= synthetic[i] >= 0;
+    }
+    if (!has_synthetic) return poll_native_ms(fds, nfds, timeout);
+    struct timespec start = {0};
+    if (timeout > 0 && clock_gettime(CLOCK_MONOTONIC, &start) < 0) return -1;
+    int64_t remaining = timeout;
+    for (;;) {
+        struct pollfd native[POSIX_POLL_MAX];
+        int pre_ready = 0;
+        for (nfds_t i = 0; i < nfds; i++) {
+            native[i] = fds[i];
+            if (synthetic[i] >= 0) {
+                synthetic[i] = __posix_eventfd_poll(fds[i].fd, fds[i].events, &identities[i]);
+                native[i].fd = -1;
+                pre_ready |= synthetic[i] != 0;
+            }
+        }
+        int64_t slice = pre_ready || timeout == 0 ? 0 :
+            remaining < 0 || remaining > 10 ? 10 : remaining;
+        if (poll_native_ms(native, nfds, slice) < 0) return -1;
+        int ready = 0;
+        for (nfds_t i = 0; i < nfds; i++) {
+            fds[i].revents = synthetic[i] >= 0 ?
+                (short)__posix_eventfd_poll(fds[i].fd, fds[i].events, &identities[i]) : native[i].revents;
+            ready += fds[i].revents != 0;
+        }
+        if (ready || timeout == 0) return ready;
+        if (timeout > 0) {
+            struct timespec now;
+            if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) return -1;
+            int64_t seconds = now.tv_sec - start.tv_sec;
+            long ns = now.tv_nsec - start.tv_nsec;
+            if (ns < 0) { seconds--; ns += 1000000000; }
+            /* Compare before multiplication, including saturated ppoll/select
+             * timeouts. Floor elapsed time so sub-ms waits never finish early. */
+            if (seconds > timeout / 1000) return 0;
+            int64_t elapsed = seconds < 0 ? 0 : seconds * 1000;
+            if (elapsed >= timeout || ns / 1000000 >= timeout - elapsed) return 0;
+            remaining = timeout - elapsed - ns / 1000000;
+        }
+    }
 }
 
 int poll(struct pollfd *fds,nfds_t nfds,int timeout) { return __posix_poll_ms(fds,nfds,timeout); }

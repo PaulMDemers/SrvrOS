@@ -157,9 +157,18 @@ coverage.
   children until the srvros process ABI grows those semantics.
 - PTYs now exist and back the native Terminal. Complete terminal/session and
   job-control semantics still need a focused compatibility audit.
-- A poll-backed `epoll` adapter exists, but timeout, signal-mask and event-mode
-  semantics are incomplete; `kqueue` is absent. A supported upstream backend
-  needs explicit readiness contracts and semantic tests, not just symbol shims.
+- The poll-backed `epoll` adapter has tested libc-managed descriptor lifetime,
+  immediate/deadline waits and bounded synthetic-readiness rechecks; see the
+  [event-adapter audit](event-adapter-audit-2026-10-26.md). Nonblocking counter
+  bounds, writable readiness, semaphore reads and creation-flag validation are
+  corrected, as are stable ready-set rotation and zero-interest native HUP/ERR.
+  One-shot disabling/rearming and priority-bit conversion are corrected too;
+  modeled priority tests do not establish native urgent-data support. Blocking
+  eventfd I/O, eventfd poll integration and cooperative epoll_pwait masks are
+  implemented. Unsupported edge/half-close/band modes and adapter-handle export
+  are refused; process inheritance requires all adapter handles close-on-exec.
+  Edge delivery and concurrent pseudo-socket epoll transitions remain unsupported;
+  `kqueue` is absent. General upstream backend acceptance remains separate.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker
   pool map onto srvros pthreads and are useful for portable consumers. Queued

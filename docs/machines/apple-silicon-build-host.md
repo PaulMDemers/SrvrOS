@@ -642,3 +642,259 @@ original failed runs and the new per-run evidence under `build/review/ahci-repea
 Update draft PR178 with this documentation-only checkpoint; no merge requested.
 Next step is other project work unless new diagnostics justify reopening AHCI.
 No physical trial is armed; Actions remain disabled.
+
+
+## Eventfd/epoll audit — active scope (2026-10-26)
+
+PR178 merged as `8bd43adc`; the clean checkout fast-forwarded to that baseline.
+Branch `device/apple-silicon/eventfd-epoll-audit` takes the deferred experimental
+descriptor-adapter review. PR19 retains independent Wi-Fi ownership. Scope is
+`posix_node_compat.c`, libc descriptor close integration, focused host probes and
+current-profile documentation: first establish lifecycle, wait and counter-bound
+behavior with deterministic executable evidence. This is an audit checkpoint,
+not acceptance of the full Linux API or Node port. Preserve native and Node
+recovery work as separate follow-ups. No physical trial or Actions run is armed.
+
+Audit checkpoint: three unfixed finding groups are confirmed by seven directed
+host probes (all exit 1 at the intended assertion): epoll lifetime/reuse, immediate
+wait timeouts and eventfd counter bounds. Real adapter code and public close are
+compiled with modeled native services. Positive controls and ASan/UBSan pass;
+no runtime changed and no new guest acceptance is claimed. Current profile/status
+and the dedicated audit report now state these concrete limitations. Next bounded
+correction is epoll ownership across close, duplication and descriptor reuse.
+Evidence is in `build/review/event-adapters{,-audit,-sanitized}/`. No VM is running
+from this work, no physical boot is armed, and Actions remain disabled.
+
+Validation: `sh tools/macos/build.sh test-event-adapters` passes; sanitized
+controls pass without diagnostics; explicit `--audit all` exits 1 with seven
+intended failed contract assertions. Documentation checks 653 local inline links
+with zero errors, and whitespace checks pass. Publish this audit-only checkpoint
+in a new draft PR; it does not contain runtime corrections.
+
+
+## Epoll lifetime correction — active scope (2026-10-26)
+
+User authorizes close/duplication/reuse fixes, regression tests, docs and draft
+PR179 update, then continued audit. Baseline is `526b6353` on merged main
+`8bd43adc`; fetched PR179 matches and PR19 retains separate Wi-Fi ownership.
+Scope: libc event adapter and close/dup/F_DUPFD integration, identity/alias
+tracking and wait snapshots, host and matched-guest regressions. No new public
+syscall ABI is planned. Preserve the separate unfixed wait/counter findings.
+Next checkpoint: positive lifetime tests including duplicate-before-registration,
+replacement, failure rollback and concurrent wait/control interleavings.
+
+Lifetime correction implemented: protected libc identities cover native dup,
+dup2, dup3 and F_DUPFD*, final-alias retirement, close-error cleanup and number
+reuse. Wait snapshots validate instance/watch/descriptor identity after polling.
+The original three lifetime probes and four broader lifetime modes pass with
+ordinary controls and ASan/UBSan. Targeted and full-thread guests pass, including
+concurrent lifetimes and post-cleanup fork. Four source-copy negative controls
+compile and fail the intended assertions. Continued audit adds a fifth remaining
+wait/counter failure: an eventfd post during the modeled sleep is missed.
+No kernel/syscall ABI or native gate change; raw descriptor mutations, rights
+transfer and general Linux epoll semantics are outside this bounded acceptance.
+
+
+Final revision validation: matched build, eight positive host modes and their
+ASan/UBSan runs, complete thread guest (including epoll lifetime), libuv guest
+and five smoke-reader tests all pass. Four negative controls compile and fail
+the intended assertions. The five explicit remaining wait/counter probes fail
+as documented. Documentation checks 653 local inline links with zero errors;
+whitespace checks pass. Source/build/log hashes and all directed receipts are
+retained under `build/review/epoll-lifetime/`. All disposable guests stopped.
+No physical trial is armed and Actions remain disabled. Draft PR179 now carries
+the lifetime correction; the next bounded item is wait/notification handling.
+
+## Epoll wait correction — active scope (2026-10-26)
+
+User authorized proceeding with the wait/notification findings. Baseline is
+`b51143cb`; fetched main remains `8bd43adc`, PR179 is draft at this branch head,
+and PR19 retains separate Wi-Fi ownership. This block owns the libc epoll wait
+loop, monotonic timeout accounting, rechecking synthetic readiness and control
+changes, focused host/guest regressions and current docs/PR updates. Preserve
+identity/revision validation and keep signal delivery outside the lifecycle lock.
+Use bounded native poll intervals for synthetic state, since it has no kernel
+notification source; document this latency/efficiency limitation. Counter bounds,
+full Linux epoll semantics and native acceptance remain separate. Next checkpoint
+is deterministic wait/deadline/interruption coverage, then a matched build and
+sequential guest thread/libuv checks. No physical trial or Actions run is armed.
+
+
+Final wait validation: matched `all` build, sixteen positive host modes and
+ASan/UBSan, targeted epoll-wait guest, complete thread guest, full libuv consumer
+guest and five smoke-reader tests pass. Five compiled negative controls restore
+zero-timeout sleeping, ready-event delay, premature infinite-wait return, missing
+deadline clamping or stale counter readiness; each fails its intended assertion.
+Three explicit counter probes fail as documented, including the new full-counter
+writable case. Local manifests, source/log hashes and receipts are retained under
+`build/review/epoll-wait/`. All disposable VMs stopped. No kernel/syscall ABI,
+physical acceptance or Actions setting changed. PR179 remains draft; next bounded
+correction is eventfd counter bounds and matching writable readiness.
+
+## Eventfd counter correction — active scope (2026-10-26)
+
+User authorized proceeding with counter bounds and writable readiness. Base is
+`1f83d29f`; fetched main remains `8bd43adc`, PR179 is draft at this branch head,
+and PR19 retains separate Wi-Fi ownership. Scope: checked eventfd addition,
+reserved-value rejection and matching EPOLLOUT capacity, host boundary/error
+regressions, concurrent public-API guest coverage and current docs/PR updates.
+Keep the existing lifecycle mutex and wait behavior. Blocking I/O, semaphore
+mode and flag semantics remain separate audit areas; no new kernel ABI or native
+acceptance is planned. Next checkpoint is preservation/readiness boundary tests,
+then matched build and sequential thread/libuv VMs. Actions remain disabled.
+
+
+Final counter validation: matched `all` build, twenty-one positive host modes
+and ASan/UBSan, targeted eventfd-counter VM, complete thread suite and full libuv
+consumer VM pass. Four compiled negative controls break reserved-value rejection,
+capacity enforcement, writable readiness or failed-write preservation; all fail
+their intended assertions. Five smoke-reader tests pass. Documentation checks
+655 local links with zero errors; whitespace checks pass. Baseline three-counter
+failures and two newly confirmed semaphore/flag failures are preserved separately.
+Local source/build/log hashes and receipts are under `build/review/eventfd-counter/`.
+All disposable guests stopped; no physical trial, ABI or Actions setting changed.
+PR179 remains draft. Next bounded scope is eventfd semaphore mode and creation
+flag validation; blocking I/O and broader Linux adapter semantics remain separate.
+
+## Eventfd semaphore/flags correction — active scope (2026-10-26)
+
+User authorized proceeding with semaphore reads and creation-flag validation.
+Base is `e37213bf`; fetched main remains `8bd43adc`, PR179 matches and stays draft,
+and PR19 retains Wi-Fi ownership. Scope: private eventfd mode storage, one-token
+reads under the existing mutex, validation before slot allocation, host tests for
+flag combinations/lifetime/readiness and concurrent guest consumption. Update
+current guides and PR179, then continue the bounded adapter audit. Blocking I/O
+and kernel notification remain separate; no new ABI or physical acceptance.
+Next checkpoint is host regressions and matched sequential thread/libuv VMs.
+Actions remain disabled and historical failed evidence must be retained.
+
+
+Final mode/flag validation: matched `all` build, twenty-five positive host modes
+and ASan/UBSan, targeted eventfd-modes VM, complete thread suite and full libuv
+consumer VM pass. Four compiled negative controls break flag rejection, mode
+storage, one-token subtraction or fcntl mode independence; each fails its intended
+assertion. Five smoke-reader tests pass. Documentation checks 655 local links with
+zero errors; whitespace checks pass. The baseline's two semaphore/flag failures
+and the two new fairness/hangup failures are retained separately, under
+`build/review/eventfd-modes/`, with source/build/log hashes. All disposable guests
+stopped. PR179 remains draft; next bounded scope is epoll ready-set rotation and
+zero-interest native error/hangup reporting. Blocking I/O, kernel notification,
+physical acceptance and Actions settings remain unchanged.
+
+## Epoll rotation/hangup correction — active scope (2026-10-26)
+
+User authorized proceeding with ready-set fairness and zero-interest hangups.
+Base is `87c48440`; fetched main remains `8bd43adc`, draft PR179 matches, and PR19
+retains separate Wi-Fi scope. Own libc epoll delivery rotation and unconditional
+native HUP/ERR observation, host stable-set/alias/control regressions and matched
+guest coverage. Keep lifetime/revision validation and monotonic wait deadlines.
+Use a per-instance cursor shared by aliases, advance only on delivered events,
+and select against its current value under the lifecycle mutex. Snapshot all
+watches so native/synthetic ordering cannot bias delivery. No new ABI, hardware
+trial or Actions run. Next checkpoint: deterministic regressions, then matched
+build and sequential thread/libuv VMs; continue auditing adjacent adapter modes.
+
+
+Final rotation/hangup validation: matched `all` build, twenty-nine positive host
+modes and ASan/UBSan, targeted epoll-rotation VM, complete thread suite and full
+libuv consumer VM pass. Four compiled negative controls break cursor advancement,
+full snapshot scanning, empty-mask polling or current-cursor selection; each
+fails its intended assertion. Five smoke-reader tests pass. Documentation checks
+655 local links with zero errors; whitespace checks pass. Baseline failures,
+initial fixture corrections and two new one-shot/priority failures are retained
+under `build/review/epoll-rotation/` with source/build/log hashes. All disposable
+VMs stopped. PR179 remains draft. Next bounded scope is one-shot disabling/rearm
+and native priority-bit conversion; broader event modes, signal masks and blocking
+eventfd I/O remain separate. No physical acceptance or Actions setting changed.
+
+## Epoll one-shot/priority correction — active scope (2026-10-26)
+
+User authorized proceeding with one-shot disabling/rearming and priority mapping.
+Base is `9a0f51a9`; fetched main remains `8bd43adc`, draft PR179 matches, and PR19
+retains separate Wi-Fi scope. Own private per-registration armed state, delivery
+serialization with overlapping waits, MOD rearming/revision checks, and both
+EPOLLPRI/POLLPRI conversions. Add deterministic host and matched guest regressions,
+update current docs/PR179, then continue the adapter audit. Preserve rotation,
+timeouts and descriptor identities. Priority mapping tests model a native source;
+no unsupported device/urgent-data capability is implied. Edge delivery, signal
+masks and blocking eventfd I/O remain separate. No ABI/hardware/Actions changes.
+
+
+Final one-shot/priority validation: matched `all` build, thirty-three positive
+host modes and ASan/UBSan, targeted epoll-oneshot VM, complete thread suite and
+full libuv consumer VM pass. Six compiled negative controls break disarming,
+MOD rearming, disabled snapshot/delivery checks or either priority conversion;
+each fails its intended assertion. Five smoke-reader tests pass. Documentation
+checks 655 local links with zero errors; whitespace checks pass. Baseline failures
+and the new EPOLLET failure remain separate under `build/review/epoll-oneshot/`,
+with source/build/log hashes. All disposable VMs stopped. PR179 remains draft.
+Next bounded scope is an honest edge-mode contract; blocking eventfd I/O, signal
+masks, kernel notifications and native priority-source support remain separate.
+No public ABI, physical acceptance or Actions setting changed.
+
+## Epoll edge-mode contract — active scope (2026-10-26)
+
+User authorized fixing the confirmed EPOLLET defect, regressions, docs/PR179 and
+continued audit with a coverage inventory. Base `aba0999a`; fetched main remains
+`8bd43adc`, draft PR179 matches and PR19 retains separate Wi-Fi ownership. Reject
+EPOLLET on ADD/MOD with EOPNOTSUPP before mutating identity/watch state; preserve
+level and one-shot behavior, including failed MOD on a disabled watch. Own only
+the adapter, host/guest regressions and current audit documentation. Validate
+sequentially with host/sanitizers, matched build and disposable thread/libuv VMs.
+Actual edge notifications, signal-mask waits and blocking eventfd remain separate.
+No ABI, hardware acceptance or Actions changes.
+
+Final edge-contract validation: all 34 host modes pass normally and with
+ASan/UBSan. Four compiled negative controls fail the intended refusal or
+state-preservation assertions. Matched `all` build, targeted epoll-edge VM,
+complete thread suite and full libuv consumer VM pass sequentially. Five
+smoke-reader tests pass; docs check 664 local links with zero errors and
+whitespace checks pass. Baseline failure, source/build hashes and logs are
+retained under `build/review/epoll-edge/`. All disposable guests stopped.
+The current audit inventory separates completed bounded work from the event
+adapter queue and broader OS reviews. Next scope is epoll_pwait mask semantics;
+edge delivery remains explicitly unsupported. PR179 stays draft; no physical
+acceptance, public ABI or Actions setting changed.
+
+## Event-adapter completion and merge — active scope (2026-10-26)
+
+User authorizes completing the bounded event-adapter audit and merging PR179.
+Base `c98dcded`; fetched main remains `8bd43adc`. PR179 is mergeable with no
+required checks reported; Actions remain disabled. PR19 retains separate Wi-Fi
+ownership and is not part of this merge. Use the WNP development completion
+criteria in the existing audit inventory. Required: correct epoll_pwait masks,
+blocking eventfd and native poll integration; check remaining event/control
+contracts and ownership boundaries, rejecting unsupported modes explicitly.
+Own libc event/poll glue, regression fixtures/guests and current docs. Preserve
+public syscall ABI and device gates. Sequential host/sanitizer, matched build,
+thread/libuv VM gates and final PR review precede merge. Actual edge notifications,
+cross-process adapter sharing and full Linux parity are outside this target.
+
+Closeout ownership review also covers process/rights glue: refuse adapter-handle
+SCM_RIGHTS export and exec/spawn inheritance of non-CLOEXEC adapters, rather than
+allowing a kernel placeholder with lost libc state. Pseudo-socket epoll registration
+is explicitly refused until its connect/listener transitions share lifecycle
+serialization; native socketpair readiness remains covered. Raw syscalls and
+native watched descriptors transferred before/after registration remain outside
+the process-local ownership contract. No general transfer-tracking ABI is added.
+
+## Closeout validation and delivery
+
+The bounded process-local event-adapter audit is complete. All 46 host modes pass
+normally and under ASan/UBSan. Ten compiled negative controls fail their intended
+mask entry/restoration, blocking retry/generation, signal dispatch/restart, poll
+identity/immediacy, normal-event-bit or export-guard assertions. Native poll/select
+host regressions and five smoke-reader tests pass. The matched x86_64 build,
+corrected targeted event-adapter-final guest, complete thread suite (all eight
+event-adapter groups) and full libuv consumer suite pass sequentially. Docs check
+664 local links with zero errors; whitespace checks pass. No unresolved confirmed
+defect remains within this selected contract. Failed diagnostic runs remain
+separate evidence, not passes.
+
+Source/build/log hashes and the validation receipt are retained under
+`build/review/event-adapter-closeout/`. All disposable guests stopped. Delivery is
+[PR179](https://github.com/PaulMDemers/SrvrOS/pull/179), whose GitHub record is the
+source of the final merge state/SHA. The user authorized merge after these gates;
+PR19 remains separate Wi-Fi work. No kernel/syscall ABI, native-hardware acceptance
+or Actions setting changed. Broader filesystem/network/process/security reviews
+and optional adapter capabilities remain in the current audit inventory.

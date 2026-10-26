@@ -190,3 +190,24 @@ offline events remain unattributed. A follow-up campaign passes six full-thread
 VMs, two storage stress VMs and a ten-cycle relaunch VM with no spontaneous
 recurrence; active investigation is shelved pending new evidence. Genuine
 pending-command failures still quarantine the disk and retain DMA memory.
+
+
+The subsequent [eventfd/epoll audit](event-adapter-audit-2026-10-26.md) corrects
+libc-managed epoll ownership across close, native duplication and descriptor
+reuse, with positive host/guest tests and stale-result validation. Waits now
+preserve immediate results, recheck synthetic state through bounded poll intervals,
+retain a monotonic deadline and handle interruption/empty infinite waits. The
+adapters remain experimental. Nonblocking eventfd writes now enforce capacity
+and reserved values without changing state on failure; writable readiness agrees
+with that capacity. Semaphore reads now consume one token; creation validates
+flags before allocating state. Epoll now rotates across stable ready sets and
+reports native HUP/ERR with an empty interest mask. One-shot delivery now disables
+its registration until MOD rearms it; priority bits survive conversion. Continued
+audit corrected silent EPOLLET acceptance: ADD/MOD now returns EOPNOTSUPP and
+preserves existing state. Closeout adds epoll_pwait masks, interruptible blocking
+eventfd I/O, eventfd poll readiness, normal-data event aliases and explicit mode/
+ownership refusals. Kernel notification, edge delivery, native priority-source
+support and full Linux compatibility remain outside this bounded profile. See the [current coverage and backlog](audit-progress-2026-10-26.md).
+
+The bounded event-adapter audit is complete with passing host/sanitizer, matched
+thread and libuv VM gates. PR179 carries the implementation and delivery record.

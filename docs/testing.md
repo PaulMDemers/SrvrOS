@@ -981,3 +981,45 @@ budgets and failure receipts. `storage_service_smoke.py` also validates the
 forced timeout's phase, reason and pending register state. See the
 [investigation and Mac commands](ahci-offline-investigation-2026-10-26.md) for
 reproduction limits; the historical spontaneous incidents are not yet attributed.
+
+
+`make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
+this Mac) runs forty-six ordinary-operation, lifetime, wait, counter and mode tests,
+including alias duplication, replacement, reuse, immediate/mixed waits, posts,
+finite/infinite deadlines, interruption and deterministic control changes during
+poll. `threadstress epoll-lifetime` and `threadstress epoll-wait` supply public-API
+guest coverage and are included in `threadstress all`.
+`threadstress eventfd-counter` adds capacity/readiness checks and eight rounds
+of four writers competing for the last 31 counter increments; it also runs in
+`all`. Host counter modes cover zero/full/reserved values, preservation after
+errors, buffer sizes/alignment and writable readiness restored during a wait.
+`threadstress eventfd-modes` checks all valid flag combinations, semaphore
+readiness and eight rounds of four readers consuming 31 tokens; it is included
+in `all`. Host modes also cover each unknown flag bit, full-capacity rejection,
+mode independence from fcntl, slot reuse and invalid-read preservation.
+`threadstress epoll-rotation` fills all 64 watch slots with native/eventfd
+registrations, checks rotation through aliases across 20 seven-event batches,
+and verifies real pipe HUP/ERR with empty interest masks; it also runs in `all`.
+Host rotation modes additionally force nested wait/control changes.
+`threadstress epoll-oneshot` covers public rearming/mask changes, HUP disabling
+and eight rounds of four waiters sharing a persistent native readiness source;
+exactly one event is delivered per rearm. It runs in `all`. Host tests additionally
+force nested wait/MOD races, clipped result buffers, disabled waits, distinct alias
+registrations and priority-bit conversion using a modeled source.
+`threadstress epoll-edge` verifies explicit EPOLLET refusal on native and
+synthetic descriptors, failed-MOD state preservation and successful later rearming;
+it runs in `all`. The matching host mode repeats rejected ADDs beyond watch
+capacity and checks DEL ignores event flags.
+`python3 tools/test_event_adapters.py --audit all` currently runs the same 46
+positive modes; the historical edge failure is retained in pre-fix evidence;
+see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
+boundaries, observed failures and sanitizer commands.
+
+`threadstress event-adapter-final` covers pending/arriving signals and temporary
+mask restoration, blocking reads/writes with restartable and nonrestartable
+signals, mixed poll readiness, close/reuse cancellation, native socketpair data/
+hangup, normal-data aliases, mode refusals and adapter export/inheritance guards.
+It is included in `all`. The host runner now compiles the real public poll source
+alongside the event adapters; native descriptors, clocks and syscalls are modeled.
+`test-posix-poll` retains separate native/select regression coverage. See the
+closeout evidence in the event audit for gate results and negative controls.

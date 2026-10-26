@@ -1,5 +1,9 @@
 # Code and documentation audit — 2026-10-25
 
+For current completion status and remaining work, see the
+[October 26 audit inventory](audit-progress-2026-10-26.md). Dated findings and
+next-step lists below are historical; later corrections supersede them.
+
 ## Scope and baseline
 
 First pass against fetched `origin/main` at
@@ -250,3 +254,63 @@ contention; capacity and wake-policy checks document limits without claiming FIF
 or starvation freedom. See the [final matrix and receipts](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26).
 The broader follow-ups listed earlier remain separate: this is not an exhaustive
 OS correctness/security audit or native acceptance of this Mac's emulated guest.
+
+
+## Event adapter continuation — 2026-10-26
+
+After merged PR178 (`8bd43adc`) and the clean bounded AHCI repeat campaign, the
+[eventfd/epoll audit](event-adapter-audit-2026-10-26.md) addresses the deferred
+experimental descriptor adapters. Seven directed host probes confirm unreclaimed
+epoll instances/stale watch reuse, incorrect immediate-wait timeouts and eventfd
+counter-bound failures. Runtime behavior remains unchanged; these are separate
+unfixed findings with passing controls and explicit known-failure modes. Native
+Air6,1 work and recovery of missing Node history remain separate dependencies.
+
+
+The epoll lifetime correction now preserves native duplicate aliases, retires
+instances/watches on final close or replacement, separates reused descriptor
+identities and validates wait snapshots. Positive host/guest regressions replace
+the three original lifecycle failures. Continued audit confirms eventfd posts
+during the wait are missed; five wait/counter probes remain explicit failures.
+See the event-adapter report for the libc-only ownership boundary and evidence.
+
+
+The subsequent epoll wait correction preserves zero/already-ready results,
+rechecks synthetic readiness and control changes through at-most-10-ms native
+poll intervals, retains one monotonic deadline and propagates interruption.
+Empty infinite waits now remain waiting. The continued audit confirms full
+counter writable readiness is also wrong; three counter probes remain explicit
+failures. The event-adapter report records interval/clock/scheduling limitations
+and the separate fairness, signal-mask and notification-queue boundaries.
+
+
+The eventfd counter follow-up now rejects reserved/over-capacity writes without
+mutation and ties EPOLLOUT to available capacity, with host boundary tests and
+concurrent public-API guest coverage. Continued audit confirms `EFD_SEMAPHORE`
+reads drain the whole count and unknown creation flags succeed; two explicit
+failing probes track those next. Blocking eventfd I/O remains unimplemented.
+
+
+The eventfd mode follow-up now preserves `EFD_SEMAPHORE`, consumes one token per
+read, and rejects unknown creation flags before slot allocation. Host tests cover
+flag combinations, fcntl independence, slot reuse and readiness; guest tests add
+concurrent one-token consumption. Continued audit confirms starvation when the
+ready set exceeds `maxevents` and missed native hangups for an empty interest
+mask. Both remain explicit failing probes; blocking eventfd I/O remains separate.
+
+
+Epoll now rotates delivery through a stable ready set using the current shared
+instance cursor after polling, and includes native HUP/ERR observation for empty
+interest masks. Full-capacity host/guest alias rotation and pipe close coverage
+are added. Continued audit confirms ignored one-shot disabling and omitted native
+priority-bit conversion; both remain explicit failing probes. This does not
+accept arbitrary-mutation scheduling fairness or edge/signal-mask behavior.
+
+
+One-shot delivery now disables a registration until successful MOD rearms it,
+with snapshot/revision checks protecting overlapping waits. Priority bits are
+preserved in both conversion directions, tested against modeled native readiness.
+Host race cases and a guest group with eight rounds of four competing waiters
+cover the change. Continued audit confirms EPOLLET is silently treated as level
+readiness; an explicit failed probe tracks that next contract decision. Native
+priority-source support, edge notifications and signal masks remain separate.

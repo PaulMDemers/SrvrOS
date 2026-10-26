@@ -3707,3 +3707,8 @@ test-futex-contracts:
 test-core: test-thread-smoke-harness
 test-thread-smoke-harness:
 	$(PYTHON) tools/test_thread_smoke.py
+
+.PHONY: test-event-adapters
+test-core: test-event-adapters
+test-event-adapters:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py

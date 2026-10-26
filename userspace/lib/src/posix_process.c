@@ -49,6 +49,9 @@ static const posix_spawn_file_action_t *spawn_actions_const(const posix_spawn_fi
         file_actions->actions;
 }
 
+int __posix_event_exec_ready(void);
+int __posix_event_export_allowed(int fd);
+
 static int spawn_file_actions_reserve(posix_spawn_file_actions_t *file_actions) {
     if (file_actions->action_count < file_actions->action_capacity) {
         return 0;
@@ -99,6 +102,8 @@ static int spawn_path(pid_t *pid,
         return error;
     }
 
+    if (!__posix_event_exec_ready()) return EOPNOTSUPP;
+
     struct srv_spawn_file_action srv_actions[POSIX_SPAWN_FILE_ACTIONS_MAX];
     uint64_t srv_action_count=0;
     if(file_actions) {
@@ -108,7 +113,10 @@ static int spawn_path(pid_t *pid,
             const posix_spawn_file_action_t *action=&actions[i];
             struct srv_spawn_file_action next={.fd=action->fd,.new_fd=action->newfd};
             if(action->type==SPAWN_ACTION_CLOSE) next.type=SRV_SPAWN_FILE_ACTION_CLOSE;
-            else if(action->type==SPAWN_ACTION_DUP2) next.type=SRV_SPAWN_FILE_ACTION_DUP2;
+            else if(action->type==SPAWN_ACTION_DUP2) {
+                if (!__posix_event_export_allowed(action->fd)) return EOPNOTSUPP;
+                next.type=SRV_SPAWN_FILE_ACTION_DUP2;
+            }
             else if(action->type==SPAWN_ACTION_OPEN) {
                 next.type=SRV_SPAWN_FILE_ACTION_OPEN;next.path=action->path;
                 int saved_errno=errno;
@@ -467,6 +475,7 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
         return -1;
     }
 
+    if (!__posix_event_exec_ready()) { errno = EOPNOTSUPP; return -1; }
     long result = srv_execve(full, argv, effective_envp(envp));
     errno = result < 0 ? (int)-result : EIO;
     return -1;
