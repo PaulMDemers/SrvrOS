@@ -14,8 +14,9 @@ fixes the descriptor-lifetime group. The next correction fixes immediate waits,
 eventfd readiness rechecks, deadline accounting and empty/infinite waits. Nonblocking
 counter bounds, writable readiness, semaphore reads and creation-flag validation
 are now corrected too, along with stable ready-set rotation and native HUP/ERR
-reporting for empty interest masks. Continued audit confirms **unfixed** one-shot
-rearming and priority-event mapping with two explicit failing probes. The supported profile limits these experimental APIs;
+reporting for empty interest masks, one-shot disabling/rearming and priority-bit
+conversion. Continued audit confirms **unfixed** edge-triggered delivery with an
+explicit failing probe. The supported profile limits these experimental APIs;
 the new evidence makes their failure modes concrete. It does not establish Node support or general Linux API conformance.
 
 ## P2: epoll state outlives descriptor ownership — corrected
@@ -91,10 +92,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit remaining one-shot/priority failures: two probes currently exit 1.
+# Explicit remaining edge-triggered failure: one probe currently exits 1.
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select one, for example --audit epoll-oneshot.
+# Or select it directly with --audit epoll-edge.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -450,7 +451,7 @@ The first control fixture also incorrectly treated aliases of one object as
 independently ready; it now uses distinct pipes. Those failed host receipts are
 preserved as `host-first` and `host-second`, not counted as passing evidence.
 
-## Continued audit: one-shot rearming and native priority mapping
+## Historical continued audit: one-shot rearming and native priority mapping — corrected
 
 `epoll-oneshot` registers a ready eventfd with `EPOLLONESHOT`, receives it once,
 then receives it again without MOD/rearming. The assertion expects zero and
@@ -476,3 +477,60 @@ under `build/review/epoll-rotation/` with source/build/log hashes. All disposabl
 VMs stopped. PR179 remains draft. Next bounded scope is one-shot disabling/rearm
 and native priority-bit conversion; broader event modes, signal masks and blocking
 eventfd I/O remain separate. No physical acceptance or Actions setting changed.
+
+
+## One-shot delivery/rearming and priority conversion correction
+
+The `9a0f51a9` checkpoint retains its original two failed one-shot/priority probes.
+Each registration now has private disabled state. A delivered EPOLLONESHOT entry
+is disabled while holding the lifecycle mutex; entries excluded by `maxevents`
+remain armed. Disabled registrations are omitted from snapshots and rechecked at
+delivery, including HUP/ERR, so overlapping waits cannot return the same armed
+revision twice and disabled ready sources cannot cause a busy poll loop. Aliases
+of the epoll instance share this state; separate registrations of duplicated
+watched descriptors remain independently armed.
+
+Successful MOD updates mask/data and revision before rearming, even when supplied
+values are unchanged. Failed control calls do not rearm. Old snapshots fail the
+revision check and cannot consume a new rearm. Removing EPOLLONESHOT via MOD
+restores repeated level delivery. DEL, final close and slot reuse retain the
+existing ownership cleanup. Both priority conversion helpers now preserve
+EPOLLPRI/POLLPRI; native priority-source availability is not added or accepted.
+No public ABI or kernel change is needed.
+
+Thirty-three positive host modes cover the original failures plus unchanged and
+changed MOD, mode removal, failed controls, clipped buffers, alias independence,
+finite disabled waits, close/reuse, nested delivery, rearm while parked, rearm
+against an old active snapshot and HUP/ERR disabling. Priority tests model native
+POLLPRI, verify unrequested priority is filtered, and combine IN/PRI/HUP with
+one-shot. They do not claim a real pipe or a driver produces priority events.
+The guest `epoll-oneshot` exercises public API rearming/mask changes and eight
+rounds of four competing waiters on one persistent pipe source via epoll aliases:
+one delivery per rearm, with other waits timing out. It also verifies a disabled
+HUP stays suppressed until MOD. The full suite requires its completion marker.
+
+## Continued audit: EPOLLET is silently treated as level-triggered
+
+`epoll-edge` registers a readable eventfd with EPOLLIN|EPOLLET. Two consecutive
+zero-timeout waits return the unchanged readiness. The second assertion expects
+zero and fails: the flag is stored but no transition handling exists. The
+[epoll edge-triggered contract](https://man7.org/linux/man-pages/man7/epoll.7.html)
+differs from repeatedly reporting a persistent level. This directed failure
+remains outside the positive gate. Next bounded scope is defining an honest
+edge-mode contract: actual transition support or explicit refusal, rather than
+silently accepting the flag. The current 10 ms sampling adapter is not a kernel
+notification queue; unseen readiness transitions need consideration before
+claiming edge support. Signal-mask waits and blocking eventfd I/O remain separate.
+
+
+Final one-shot/priority validation: matched `all` build, thirty-three positive
+host modes and ASan/UBSan, targeted epoll-oneshot VM, complete thread suite and
+full libuv consumer VM pass. Six compiled negative controls break disarming,
+MOD rearming, disabled snapshot/delivery checks or either priority conversion;
+each fails its intended assertion. Five smoke-reader tests pass. Documentation
+checks 655 local links with zero errors; whitespace checks pass. Baseline failures
+and the new EPOLLET failure remain separate under `build/review/epoll-oneshot/`,
+with source/build/log hashes. All disposable VMs stopped. PR179 remains draft.
+Next bounded scope is an honest edge-mode contract; blocking eventfd I/O, signal
+masks, kernel notifications and native priority-source support remain separate.
+No public ABI, physical acceptance or Actions setting changed.

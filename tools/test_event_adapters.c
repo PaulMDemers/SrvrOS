@@ -144,6 +144,10 @@ static void modify_watch(void) {
     struct epoll_event e={.events=EPOLLIN,.data.u64=999};
     CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_MOD,retiring_fd,&e)==0);
 }
+static void rearm_one(void) {
+    struct epoll_event event={.events=EPOLLIN|EPOLLONESHOT,.data.u64=999};
+    CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_MOD,retiring_fd,&event)==0);
+}
 static void aliases_test(void) {
     int p[2]; CHECK(pipe(p)==0); readiness[p[0]]=POLLIN;
     /* Alias predates the watch; closing the registered number must retain it. */
@@ -451,6 +455,63 @@ int main(int argc, char **argv) {
         CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_DEL,a,NULL)==0);
         int fd=eventfd(1,EFD_NONBLOCK); watch(retiring_ep,fd,EPOLLIN,777);
         CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].data.u64==777);
+    } else if (!strcmp(mode,"epoll-rearm")) {
+        int ep=epoll_create1(0), alias=dup(ep), fd=eventfd(2,EFD_NONBLOCK);
+        struct epoll_event event={.events=EPOLLIN|EPOLLONESHOT,.data.u64=123};
+        CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,fd,&event)==0);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].events==EPOLLIN);
+        CHECK(epoll_wait(alias,got,1,0)==0);
+        CHECK(epoll_ctl(alias,EPOLL_CTL_ADD,fd,&event)==-1 && errno==EEXIST);
+        CHECK(epoll_ctl(alias,EPOLL_CTL_MOD,fd,NULL)==-1 && errno==EINVAL);
+        CHECK(epoll_wait(ep,got,1,0)==0); /* failed controls cannot rearm */
+        CHECK(epoll_ctl(alias,EPOLL_CTL_MOD,fd,&event)==0); /* unchanged data */
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].data.u64==123);
+        CHECK(epoll_wait(ep,got,1,0)==0);
+        event.events=EPOLLOUT|EPOLLONESHOT; event.data.u64=456;
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,fd,&event)==0);
+        CHECK(epoll_wait(alias,got,1,0)==1 && got[0].events==EPOLLOUT && got[0].data.u64==456);
+        CHECK(epoll_wait(ep,got,1,0)==0);
+        event.events=EPOLLIN; CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,fd,&event)==0);
+        CHECK(epoll_wait(ep,got,1,0)==1 && epoll_wait(alias,got,1,0)==1);
+        CHECK(epoll_ctl(ep,EPOLL_CTL_DEL,fd,NULL)==0);
+        watch(ep,fd,EPOLLIN|EPOLLONESHOT,777);
+        int other=eventfd(1,EFD_NONBLOCK); watch(ep,other,EPOLLIN|EPOLLONESHOT,888);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].data.u64==888);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].data.u64==777);
+        CHECK(epoll_wait(ep,got,2,23)==0 && last_timeout==3); /* parked, no ready spin */
+        CHECK(close(fd)==0); int fresh=eventfd(1,EFD_NONBLOCK); CHECK(fresh==fd);
+        watch(ep,fresh,EPOLLIN|EPOLLONESHOT,999);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].data.u64==999);
+        CHECK(close(fresh)==0 && close(other)==0 && close(ep)==0 && close(alias)==0);
+    } else if (!strcmp(mode,"epoll-oneshot-races")) {
+        int p[2]; CHECK(pipe(p)==0); readiness[p[0]]=POLLIN;
+        retiring_ep=epoll_create1(0); retiring_fd=p[0];
+        watch(retiring_ep,p[0],EPOLLIN|EPOLLONESHOT,123);
+        during_poll=nested_wait;
+        CHECK(epoll_wait(retiring_ep,got,1,0)==0 && nested_tag==123);
+        int before=poll_calls; CHECK(epoll_wait(retiring_ep,got,1,0)==0 && poll_calls==before);
+        /* MOD while a disabled wait is parked takes effect on the next snapshot. */
+        during_poll=rearm_one;
+        CHECK(epoll_wait(retiring_ep,got,1,50)==1 && got[0].data.u64==999);
+        rearm_one(); during_poll=rearm_one; /* active snapshot becomes stale */
+        CHECK(epoll_wait(retiring_ep,got,1,0)==0);
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].data.u64==999);
+        CHECK(epoll_wait(retiring_ep,got,1,0)==0);
+        int alias=dup(p[0]); CHECK(alias>=0);
+        watch(retiring_ep,alias,EPOLLIN|EPOLLONESHOT,456);
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].data.u64==456);
+        CHECK(epoll_wait(retiring_ep,got,1,0)==0);
+        struct epoll_event event={.events=EPOLLONESHOT,.data.u64=789};
+        CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_MOD,p[0],&event)==0);
+        readiness[p[0]]=POLLHUP|POLLERR;
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].events==(EPOLLHUP|EPOLLERR));
+        CHECK(epoll_wait(retiring_ep,got,1,0)==0);
+    } else if (!strcmp(mode,"epoll-edge")) {
+        int ep=epoll_create1(0), fd=eventfd(1,EFD_NONBLOCK);
+        watch(ep,fd,EPOLLIN|EPOLLET,123);
+        CHECK(epoll_wait(ep,got,1,0)==1);
+        int n=epoll_wait(ep,got,1,0); printf("unchanged edge readiness: ready=%d\n",n);
+        CHECK(n==0);
     } else if (!strcmp(mode,"epoll-oneshot")) {
         int ep=epoll_create1(0), fd=eventfd(1,EFD_NONBLOCK);
         watch(ep,fd,EPOLLIN|EPOLLONESHOT,123);
@@ -462,6 +523,14 @@ int main(int argc, char **argv) {
         watch(ep,p[0],EPOLLPRI,123); readiness[p[0]]=POLLPRI;
         int n=epoll_wait(ep,got,1,0); printf("native priority readiness: ready=%d\n",n);
         CHECK(n==1 && got[0].events==EPOLLPRI && got[0].data.u64==123);
+        struct epoll_event event={.events=EPOLLIN,.data.u64=456};
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,p[0],&event)==0);
+        CHECK(epoll_wait(ep,got,1,0)==0); /* unrequested priority is suppressed */
+        event.events=EPOLLIN|EPOLLPRI|EPOLLONESHOT;
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,p[0],&event)==0);
+        readiness[p[0]]=POLLIN|POLLPRI|POLLHUP;
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].events==(EPOLLIN|EPOLLPRI|EPOLLHUP));
+        CHECK(epoll_wait(ep,got,1,0)==0);
     } else if (!strcmp(mode,"epoll-fairness")) {
         int ep=epoll_create1(0), a=eventfd(1,EFD_NONBLOCK), b=eventfd(1,EFD_NONBLOCK);
         watch(ep,a,EPOLLIN,1); watch(ep,b,EPOLLIN,2);

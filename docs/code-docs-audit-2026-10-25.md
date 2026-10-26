@@ -301,3 +301,12 @@ interest masks. Full-capacity host/guest alias rotation and pipe close coverage
 are added. Continued audit confirms ignored one-shot disabling and omitted native
 priority-bit conversion; both remain explicit failing probes. This does not
 accept arbitrary-mutation scheduling fairness or edge/signal-mask behavior.
+
+
+One-shot delivery now disables a registration until successful MOD rearms it,
+with snapshot/revision checks protecting overlapping waits. Priority bits are
+preserved in both conversion directions, tested against modeled native readiness.
+Host race cases and a guest group with eight rounds of four competing waiters
+cover the change. Continued audit confirms EPOLLET is silently treated as level
+readiness; an explicit failed probe tracks that next contract decision. Native
+priority-source support, edge notifications and signal masks remain separate.

@@ -60,6 +60,7 @@ struct posix_eventfd {
 
 struct posix_epoll_entry {
     int used;
+    int disabled;
     int fd;
     uint64_t identity, revision;
     struct epoll_event event;
@@ -331,6 +332,7 @@ int __posix_eventfd_fcntl(int fd, int command, uint64_t flags) {
 
 static short epoll_to_poll_events(uint32_t events) {
     short out = 0;
+    if (events & EPOLLPRI) out |= POLLPRI;
     if ((events & (EPOLLIN | EPOLLRDNORM | EPOLLRDBAND)) != 0) {
         out |= POLLIN;
     }
@@ -342,6 +344,7 @@ static short epoll_to_poll_events(uint32_t events) {
 
 static uint32_t poll_to_epoll_events(short revents) {
     uint32_t out = 0;
+    if (revents & POLLPRI) out |= EPOLLPRI;
     if ((revents & POLLIN) != 0) {
         out |= EPOLLIN;
     }
@@ -486,6 +489,7 @@ static int epoll_ctl_locked(int epfd, int op, int fd, struct epoll_event *event)
         if (!revision) return -1;
         entry->event = *event;
         entry->revision = revision;
+        entry->disabled = 0; /* MOD rearms even when mask/data are unchanged. */
         return 0;
     }
     if (op != EPOLL_CTL_ADD) {
@@ -563,7 +567,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
          * bits: poll must still observe their unconditional HUP/ERR events. */
         for (int i = 0; i < POSIX_EPOLL_ENTRIES; i++) {
             struct posix_epoll_entry *entry = &epoll->entries[i];
-            if (!entry->used) continue;
+            if (!entry->used || entry->disabled) continue;
             int fd = event_alias(entry->identity);
             short requested = epoll_to_poll_events(entry->event.events);
             if (fd < 0) continue;
@@ -620,7 +624,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
             int n = map[slot];
             if (n < 0) continue;
             struct posix_epoll_entry *entry = &epoll->entries[slot];
-            if (!entry->used || entry->revision != snapshots[n].revision ||
+            if (!entry->used || entry->disabled || entry->revision != snapshots[n].revision ||
                 entry->identity != snapshots[n].identity) continue;
             int fd = event_alias(entry->identity);
             if (__posix_eventfd_is_pseudo(fd))
@@ -629,6 +633,10 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
             if (!observed[n]) continue;
             events[ready] = snapshots[n].event;
             events[ready++].events = observed[n];
+            /* Disarm only a delivered registration, under the same lock used
+             * by other waits and MOD. A snapshot from an overlapping wait can
+             * neither deliver it twice nor consume a newly rearmed revision. */
+            if (entry->event.events & EPOLLONESHOT) entry->disabled = 1;
             epoll->next_entry = (slot + 1) % POSIX_EPOLL_ENTRIES;
         }
         __posix_event_unlock();

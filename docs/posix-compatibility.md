@@ -19,8 +19,9 @@ corrects libc-managed epoll lifetime and immediate/deadline wait behavior, with
 bounded polling for synthetic notifications, plus nonblocking eventfd counter
 bounds, writable readiness, semaphore reads and creation-flag validation.
 Stable ready-set rotation and zero-interest native HUP/ERR reporting are corrected.
-Blocking eventfd I/O, signal masks, one-shot rearming, priority mapping and general
-Linux semantics remain unaccepted.
+One-shot disabling/rearming and priority-bit conversion are also corrected;
+priority-source availability remains a separate native-device contract. Blocking
+eventfd I/O, edge delivery, signal masks and general Linux semantics remain unaccepted.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
@@ -487,7 +488,8 @@ Linux implementation: epoll_wait changed timeout zero to
 a 10 ms poll and returned after a short sleep for an indefinitely waiting
 eventfd-only set. The October 26 follow-up above corrects those waits and adds
 close/dup/reuse coverage. `epoll_pwait` still ignores its signal mask; registration
-stores event flags without implementing edge-triggered/one-shot lifetime rules.
+still accepts edge-triggered flags without implementing their semantics. One-shot
+disabling/MOD rearming and priority-bit conversion now have focused regressions.
 Stable ready-set rotation and zero-interest native HUP/ERR now have regressions.
 Audit/reject the remaining modes before using this as a general upstream runtime
 backend. These are Linux compatibility issues, not POSIX requirements.

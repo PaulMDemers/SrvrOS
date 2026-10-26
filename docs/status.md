@@ -201,8 +201,8 @@ adapters remain experimental. Nonblocking eventfd writes now enforce capacity
 and reserved values without changing state on failure; writable readiness agrees
 with that capacity. Semaphore reads now consume one token; creation validates
 flags before allocating state. Epoll now rotates across stable ready sets and
-reports native HUP/ERR with an empty interest mask. Continued audit confirms
-one-shot events repeat without rearming and priority readiness is lost in the
-adapter mapping. Those two explicit failures are next; blocking eventfd I/O,
-kernel event notification, edge delivery, signal-mask waits and full Linux
-compatibility remain unaccepted.
+reports native HUP/ERR with an empty interest mask. One-shot delivery now disables
+its registration until MOD rearms it; priority bits survive conversion. Continued
+audit confirms EPOLLET requests still behave as level-triggered. That explicit
+failure is next; blocking eventfd I/O, kernel notification, native priority-source
+support, signal-mask waits and full Linux compatibility remain unaccepted.

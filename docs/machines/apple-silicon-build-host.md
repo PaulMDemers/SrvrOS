@@ -806,3 +806,28 @@ under `build/review/epoll-rotation/` with source/build/log hashes. All disposabl
 VMs stopped. PR179 remains draft. Next bounded scope is one-shot disabling/rearm
 and native priority-bit conversion; broader event modes, signal masks and blocking
 eventfd I/O remain separate. No physical acceptance or Actions setting changed.
+
+## Epoll one-shot/priority correction — active scope (2026-10-26)
+
+User authorized proceeding with one-shot disabling/rearming and priority mapping.
+Base is `9a0f51a9`; fetched main remains `8bd43adc`, draft PR179 matches, and PR19
+retains separate Wi-Fi scope. Own private per-registration armed state, delivery
+serialization with overlapping waits, MOD rearming/revision checks, and both
+EPOLLPRI/POLLPRI conversions. Add deterministic host and matched guest regressions,
+update current docs/PR179, then continue the adapter audit. Preserve rotation,
+timeouts and descriptor identities. Priority mapping tests model a native source;
+no unsupported device/urgent-data capability is implied. Edge delivery, signal
+masks and blocking eventfd I/O remain separate. No ABI/hardware/Actions changes.
+
+
+Final one-shot/priority validation: matched `all` build, thirty-three positive
+host modes and ASan/UBSan, targeted epoll-oneshot VM, complete thread suite and
+full libuv consumer VM pass. Six compiled negative controls break disarming,
+MOD rearming, disabled snapshot/delivery checks or either priority conversion;
+each fails its intended assertion. Five smoke-reader tests pass. Documentation
+checks 655 local links with zero errors; whitespace checks pass. Baseline failures
+and the new EPOLLET failure remain separate under `build/review/epoll-oneshot/`,
+with source/build/log hashes. All disposable VMs stopped. PR179 remains draft.
+Next bounded scope is an honest edge-mode contract; blocking eventfd I/O, signal
+masks, kernel notifications and native priority-source support remain separate.
+No public ABI, physical acceptance or Actions setting changed.

@@ -141,6 +141,7 @@ def main():
             "threadstress: eventfd-counter ok",
             "threadstress: eventfd-modes ok",
             "threadstress: epoll-rotation ok",
+            "threadstress: epoll-oneshot ok",
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",
