@@ -4280,3 +4280,36 @@ from actual words,raw reverse restoration,MAC teardown and exact retained RX
 stop. Distinguish completed observations from calibration admission;preserve
 failed masks/cleanup markers. Candidate payload/run/evidence are retained under
 `~/.local/share/srvros/macbookpro11-2/wifi-cal-probe-90b8a20/`.
+
+
+### 2026-10-26 — v91 native IBI9 write effect and raw restoration verified
+
+Source `90b8a203`, release `7c1728fccd4ae567`, session
+`session-00065ec686798b50-00` completed and returned to Ubuntu automatically.
+The strict collector verified the whole earlier firmware/MAC/BBP/RF/channel/
+post-VCO/AGC proof, parent MAC lifecycle, new observation and retained RX stop.
+The child completed 17 operations: 12 reads, four writes and one 500us wait.
+Fresh TX_ALC0 was `2f2f1b1b`, suppressed to zero with independent readback.
+IBI9 saved after the delay was `ffffffff`; its temporary `ffffff7e` write
+read back exactly (`ibi_write_matched=1`, `ibi_changed=1`). Reverse saved-word
+writes independently read back IBI9=`ffffffff` and TX_ALC0=`2f2f1b1b`.
+Both raw restore masks were complete. This demonstrates a writable register in
+this bounded context; all-ones alone did not imply an unreadable register.
+
+Parent MAC startup/drain/disable/filter and TXOP restoration completed in
+54 operations (46 reads, seven writes, one wait; hold10033us; TX1/RX7 drain
+rounds). The one4096-byte RX request waited10001us and stopped with owned
+context/dequeue and retained DMA. CC26/4096 remaining is cancellation metadata,
+not a received packet. Total new writes11; no calibration command or packet
+inspection. Full exit prefix and both completion markers were saved.
+Ubuntu default, consumed one-shot, current/e47 payload hashes and retained v90
+backup equality passed. Offline329files/802clusters/138directories, zero leaks,
+bitmap mismatches or errors; workspace unmounted and no reboot armed.
+Evidence is retained outside build in `wifi-cal-probe-90b8a20`.
+
+Next: audit fresh board/power/TSSI context and initial power-on calibration
+ordering, then implement bounded calibration admission and verified cleanup.
+The original strict helper remains unchanged and refuses saved IBI9 all-ones;
+this experiment does not silently relax that contract. RF0:6 semantics remain
+unresolved. Calibration, controlled reception, scanning, association/security,
+Wi-Fi IP traffic and UI remain untested.

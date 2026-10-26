@@ -7,43 +7,22 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v90 release `b6c18039f1c36e8d`, source `6af7ec60`,
-session `session-00065ec5caf54f87-00`, PASSED the bounded MAC lifecycle.
-Whole prior initialization/post-VCO/AGC proof passed. MAC4 then12,raw snapshot,
-10ms hold,device TX/RX drains,MAC0 and exact filter/TXOP restoration completed:
-54 operations,46 reads,7 writes,1 wait. TX_ALC0=2f2f1b1b;IBI9 remainsffffffff
-with MAC active. These are observations,not calibration admission. One retained
-RX request stopped with context3/owned dequeue/DCS1;CC26/4096 remaining is
-cancellation metadata,no packet reception. Full543084-byte prefix and both
-completion markers saved. Recovery,consumed one-shot and offline allocation
-passed;unmounted/unarmed. Accepted v90 remains retained on ESP,e47 is previous recovery,
-and v89/v88 remain durably archived. Next: audit IBI9 behavior and fresh board/
-power/TSSI/calibration admission before calibration commands and packet reception.
-Scanning,association,security,Wi-Fi IP traffic and UI remain pending.
+Latest physical run: v91 release `7c1728fccd4ae567`, source `90b8a203`,
+session `session-00065ec686798b50-00`. Whole prior proof, temporary IBI9 write
+and reverse raw restoration, MAC shutdown and retained RX stop passed.
+IBI9 changed from `ffffffff` to `ffffff7e` and restored to `ffffffff`;
+TX_ALC0 restored to `2f2f1b1b`. No calibration commands or packet reception.
+Recovery and offline allocation checks passed; unmounted/unarmed. Accepted v90
+remains retained, e47 is previous recovery. Next: audit fresh board/power/TSSI
+and initial power-on calibration ordering before bounded native calibration.
+Original strict calibration helper is unchanged; RF0:6 remains unresolved.
+Scanning, association/security, Wi-Fi IP traffic and UI remain pending.
 
-
-Installed pending trial: v91 `7c1728fccd4ae567`, source `90b8a203`.
-Local/core/sanitizer and exact-stage VM save/return plus missing-workspace
-refusal pass. The17-operation reversible calibration-register observation is
-not yet native acceptance;write-effect flags remain data. Original strict
-calibration admission is unchanged. Ubuntu default,e47 recovery and accepted
-v90 retained;v89 removed from ESP only after durable equality for staging space.
-Offline workspace clean,unmounted/unarmed. Await cold-cycle readiness and collect
-matching v91 results FIRST on return with `cal-probe/collect_return.py`.
-
-
-Active block (2026-10-26): consume actual main `d24dbc11` (PR191 Air6,1
-evidence only),PR182 remains filesystem scope. Audit confirmed Linux/vendor
-IBI9 address2124 and raw save/restore policy. Build separate v91 temporary
-TX_ALC0/IBI9 readback observation inside the accepted MAC/RX lifetime. Touched:
-new calibration-probe helper/native callbacks,optional MAC inspection hook,
-actual selector/host tests,staging/smoke and unit/Wi-Fi docs. Fixed captured
-TX_ALC0=2f2f1b1b;zero/verify,500us wait,fresh IBI save,ffffff7e write/read,
-reverse saved-word restores and MAC-active guards. Raw IBI all-ones is allowed
-only in this explicit observation;original strict calibration admission remains
-unchanged. No calibration command,rearm,packet inspection or network data OUT.
-Checkpoint: local/sanitizer/exact-stage VM,install/recovery/archive/run checks
-before cold trial;last native acceptance remains v90.
+Completed block (2026-10-26): v91 on actual main `d24dbc11` (PR191 evidence
+only). Calibration-probe helper, optional MAC inspection hook, native selector,
+host/staging/smoke tests and docs validated locally and on this unit. Scope
+accepted only the reversible register observation and existing cleanup. Full
+dated results are retained below. No new trial staged or reboot armed.
 
 
 Completed physical block (2026-10-26): consumed actual main `4ee18f69` (PR190 scheduler/
@@ -8484,3 +8463,36 @@ from actual words,raw reverse restoration,MAC teardown and exact retained RX
 stop. Distinguish completed observations from calibration admission;preserve
 failed masks/cleanup markers. Candidate payload/run/evidence are retained under
 `~/.local/share/srvros/macbookpro11-2/wifi-cal-probe-90b8a20/`.
+
+
+### 2026-10-26 — v91 native IBI9 write effect and raw restoration verified
+
+Source `90b8a203`, release `7c1728fccd4ae567`, session
+`session-00065ec686798b50-00` completed and returned to Ubuntu automatically.
+The strict collector verified the whole earlier firmware/MAC/BBP/RF/channel/
+post-VCO/AGC proof, parent MAC lifecycle, new observation and retained RX stop.
+The child completed 17 operations: 12 reads, four writes and one 500us wait.
+Fresh TX_ALC0 was `2f2f1b1b`, suppressed to zero with independent readback.
+IBI9 saved after the delay was `ffffffff`; its temporary `ffffff7e` write
+read back exactly (`ibi_write_matched=1`, `ibi_changed=1`). Reverse saved-word
+writes independently read back IBI9=`ffffffff` and TX_ALC0=`2f2f1b1b`.
+Both raw restore masks were complete. This demonstrates a writable register in
+this bounded context; all-ones alone did not imply an unreadable register.
+
+Parent MAC startup/drain/disable/filter and TXOP restoration completed in
+54 operations (46 reads, seven writes, one wait; hold10033us; TX1/RX7 drain
+rounds). The one4096-byte RX request waited10001us and stopped with owned
+context/dequeue and retained DMA. CC26/4096 remaining is cancellation metadata,
+not a received packet. Total new writes11; no calibration command or packet
+inspection. Full exit prefix and both completion markers were saved.
+Ubuntu default, consumed one-shot, current/e47 payload hashes and retained v90
+backup equality passed. Offline329files/802clusters/138directories, zero leaks,
+bitmap mismatches or errors; workspace unmounted and no reboot armed.
+Evidence is retained outside build in `wifi-cal-probe-90b8a20`.
+
+Next: audit fresh board/power/TSSI context and initial power-on calibration
+ordering, then implement bounded calibration admission and verified cleanup.
+The original strict helper remains unchanged and refuses saved IBI9 all-ones;
+this experiment does not silently relax that contract. RF0:6 semantics remain
+unresolved. Calibration, controlled reception, scanning, association/security,
+Wi-Fi IP traffic and UI remain untested.
