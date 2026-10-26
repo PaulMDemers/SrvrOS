@@ -236,7 +236,9 @@ owns desktop runtime and175 Apple Silicon setup/synchronization. No MT76
 scope overlap; Pro PR19 continues this work on integration base `d5bc4b3`.
 
 
-Next bounded scope v85: capture mapped logical40 RX LNA/RSSI fields and
+Installed/unarmed v85 candidate `2571de4ea5d87728`, source `e3ea53b3`,
+passed local/sanitizer and both exact-stage VM checks. It captures mapped
+logical40 RX LNA/RSSI fields and
 CORE1 plus20 fixed channel-BBP targets after exact v84 proof. Decode pinned
 reference gain arithmetic for observation only; no BBP/RF/MAC data writes.
 One mode-zero EFUSE read-select command is required; no programming mode.
@@ -7567,3 +7569,25 @@ tests/168 historical recipes unchanged. Full501863-byte synthetic prefix passes
 whole prior proof/namespace preservation,450 malformed refusals, unknown raw
 family refusal and four valid alternate LNA observations. Exact-stage VM/install
 follows; native gain values unknown. No calibrated-radio/connectivity acceptance.
+
+
+### 2026-10-25 — v85 installed, native observations pending
+
+Exact source `e3ea53b3c53e7d6dd009775cbd5160963c91b68e`, release
+`2571de4ea5d87728`, config `ram-usb-wifi-fw-v85-laptop-probe-0e535900-auto-return`.
+Full build, old/new EFUSE/inventory host suites, complete xHCI suite, both
+ASan/UBSan suites,164 staging tests/168 historical recipes, independent source
+audit and strict collector/alternative-observation/privacy-family checks passed.
+Exact GPT-stage VM saved and byte-verified diagnostics, unmounted cleanly and
+reset. Missing-workspace VM refused the probe and returned.512KiB selection
+confirmed. These VM checks validate workflow/refusal, not native RX gain data.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads matched
+durable backups. Ubuntu remains default; reboot unarmed. ESP v83
+`be37d545e93f1aed` removed only after full archive byte equality; v84 post-tune
+payload retained alongside recovery. Offline workspace clean311files/
+740clusters/129directories, zero leaks/mismatches/errors; unmounted. Candidate
+and run/checkpoint archived outside build. Await readiness for cold Wi-Fi
+cycle; collect matching session FIRST on return. Capture saves and returns
+automatically, no photos/commands. LNA/RSSI and21 BBP values remain native
+observations pending; no BBP/RF/MAC data write or calibrated-radio acceptance.
