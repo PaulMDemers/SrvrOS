@@ -3307,3 +3307,20 @@ empty and collection is disabled; no reboot is armed.
 Closeout base is `4d195e25`. PR182 (`16b81077`) retains exFAT/storage-ownership
 work and PR19 (`f70ee542`) Wi-Fi. This closeout only records this unit's evidence;
 no shared implementation is changed or new native trial prepared.
+
+### Wake/resume attribution — active scope (2026-10-26)
+
+Base `ee5468f6`, same local device branch. Isolate the retained WAIT gap with
+opt-in, fixed-size per-thread scheduler diagnostics and compositor wait selection/
+call boundaries. Retain blocked-state versus ready-to-dispatch totals, timeout/
+signal wakes, deadline lateness in ticks and observed I/O eligibility exclusions.
+These are diagnostic observations, not permission to widen scheduler admission.
+Keep 500 ms loops, five-second clients, ten-second app cycles, continuous verified
+I/O, PCM checks and all integrity/ownership gates unchanged.
+
+Scope: scheduler bookkeeping, a bounded current-thread diagnostic ABI, compositor
+worst-loop receipts, host/receipt/VM regressions and this unit record. PR182
+(`16b81077`) owns exFAT/storage ownership; PR19 (`f70ee542`) owns Wi-Fi. Do not
+change those implementations. Prior run is fully collected and listening confirmed.
+Next checkpoint: reviewed/merged diagnostics, matched host/core and stress/boot
+validation, then the authorized automatic thirty-minute native run and recovery.
