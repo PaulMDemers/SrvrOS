@@ -401,6 +401,19 @@ pass. Six sequential disposable VMs pass: aliases 16.55 s, bitmap quarantine
 The guest runs validate the integrated boot/storage consumers; the teardown and
 runtime-failure schedules are forced by the directed host fixtures.
 
+### Final baseline integration
+
+After checkpoint `801ac9ca`, main `4d195e25` incorporated PR187's retained desktop
+loop diagnostics. The merge was clean and all 19 tracked storage source/test
+files in the evidence manifest remained unchanged. The integrated storage host
+gate (61 modes plus adapters), three loop-timing tests, matched build and
+372-entry generated-image check pass. All six VMs pass again: aliases 16.52 s,
+quarantine 16.46 s, imports 16.45 s, corrupt-entry fallback 16.44 s, complete
+threads 40.03 s and libuv 10.06 s. `integrated-*.log`,
+`integrated-tested-sha256.json`, `integrated-macos-build.json` and
+`integrated-vms/result.json` retain the combined baseline's evidence. No desktop
+UI or native timing acceptance is inferred from these storage/consumer checks.
+
 ### Follow-on audit disposition
 
 The next boundary is mutation failure/recovery. Source tracing confirms dirty

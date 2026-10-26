@@ -1142,3 +1142,14 @@ quarantine are not a journal. Next: namespace/sidecar interruption and durable
 rename/replacement recovery. Live media replacement, arbitrary retained kernel
 pointers and hardware hot-unplug remain unaccepted. No physical trial or Actions
 dispatch occurred.
+
+### Lifetime checkpoint integration verification
+
+Checkpoint `801ac9ca` was then integrated with main `4d195e25`/PR187's desktop
+loop diagnostics. The merge was clean; all 19 storage source/test manifest files
+are unchanged. The integrated storage host gate, 61 modes, three loop-timing
+tests, matched build and 372-entry generated-image check pass. Six VMs pass again:
+aliases 16.52 s, bitmap quarantine 16.46 s, imports 16.45 s, corrupt-entry fallback
+16.44 s, complete threads 40.03 s and libuv 10.06 s. Integrated logs, tested hashes
+and build/VM receipts remain under `build/review/storage-lifetime/`. PR19 remains
+separate. These runs do not extend native desktop or hardware acceptance.
