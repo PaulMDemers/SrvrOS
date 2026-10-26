@@ -143,6 +143,8 @@ void tool_text_save(struct tool *tool,int choose_path);
 void tool_text_save_path(struct tool *tool,const char *path);
 void tool_context_open(struct tool *tool,int x,int y,int keyboard);
 void tool_context_result(struct tool *tool,struct desk_menu_result result);
+int tool_command_action(struct tool *tool,unsigned id);
+int tool_command_key(struct tool *tool,const struct srv_key_event *key);
 void tool_menu_refresh(struct tool *tool);
 void tool_menu_action(struct tool *tool,unsigned id);
 void tool_dispatch(struct tool *tool,struct desk_action action);

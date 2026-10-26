@@ -2731,9 +2731,9 @@ test-desktop: test-image-view test-image-decode test-image-job
 .PHONY: test-preview-app
 test-preview-app: build/tests/preview-app-host$(HOST_EXE)
 	$<
-build/tests/preview-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h userspace/desktop_runtime/chooser.c tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/preview-app-host$(HOST_EXE): userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h userspace/lib/include/srvros/desk_runtime.h userspace/lib/include/srvros/desk_chooser.h userspace/desktop_runtime/chooser.c tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/desktop_runtime/chooser.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/desktop_runtime/commands.c userspace/desktop_runtime/chooser.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-preview-app
 
 .PHONY: test-image-worker
@@ -3676,3 +3676,19 @@ test-core: test-graphics-service
 test-core: test-sync-contracts
 test-sync-contracts:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_sync_contracts.py
+
+.PHONY: test-desktop-runtime
+test-desktop: test-desktop-runtime
+test-desktop-runtime: build/tests/desktop-runtime-host$(HOST_EXE)
+	$<
+build/tests/desktop-runtime-host$(HOST_EXE): tools/test_desktop_runtime.c userspace/desktop_runtime/runtime.c userspace/desktop_runtime/runtime_jobs.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_runtime.h userspace/lib/include/srvros/desk_commands.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $(filter %.c,$^) -o $@
+
+.PHONY: test-tool-commands
+test-desktop: test-tool-commands
+test-tool-commands: build/tests/tool-commands-host$(HOST_EXE)
+	$<
+build/tests/tool-commands-host$(HOST_EXE): tools/test_tool_commands.c userspace/desktools/menus.c userspace/desktools/app.h userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_commands.c userspace/desktop_runtime/commands.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
