@@ -3060,3 +3060,40 @@ and PR19's Wi-Fi work are not included. Native run `d10d796558a34499` will repea
 the same authorized thirty-minute automatic workload with unchanged limits.
 USB baseline: 369 files / 1,038 clusters, zero leaks/mismatches/errors. Ubuntu
 remains default; console recovery and accepted reopen backups are retained.
+
+### Integrated-main native return — 2026-10-26 (failed)
+
+Run `d10d796558a34499`, release `83c919c9b7a24b6b`, compiled `5f0326b4`
+(PR180, merged as `afc8bb67`) returned one matching session,
+`session-00065ec131ee0a4e-00`. The automated trial again failed during Files
+close: cycle13 / PID25 crossed the unchanged ten-second whole-cycle limit at
+10,020,194 us after 13 completed app cycles. The final snapshot was saved at
+67.914 seconds uptime; no complete workload receipt exists. This is failed
+native endurance evidence despite the passing preboot host/VM checks.
+
+Maximum ready/completed-close/desktop-loop times were 1,363,239 / 7,260,207 /
+109,543 us. All 13 completed cycles pass the saved-record timing validator.
+The failed Files process received Close at 56,508,490 us, but left its main loop
+at 65,489,095 us: an 8,980,605 us gap. Its directory-list request1 to worker26
+was logged submitted between the 57.210 and 62.551 second battery records,
+before the deadline. Job drain began only after the deadline; teardown exited
+PID25 with status143, without a pool-retirement completion. Unlike the previous
+run, submission occurred before failure, so request admission alone is not a
+proven explanation. Inspect both request and reply progress under continuous
+disk ownership; the existing nonblocking pipe deferral remains a candidate,
+not an established cause. Keep all ownership/integrity checks and limits.
+
+PCM recorded zero underruns. Battery epoch1 retired with 360 queries, one
+notification, 24 handled/zero unclaimed SCI deliveries and zero heap/errors/denied.
+The overall desktop/battery-controls result remains FAIL. All 369 prior files
+were preserved except expected workspace metadata. Read-only fsck and allocation
+checks pass with 374 files / 1,044 clusters and zero leaks/mismatches/errors.
+Raw evidence and diagnosis are retained outside build with verified hashes.
+Ubuntu recovered, the one-shot entry is empty and collection is disabled; no
+new reboot is armed.
+
+Closeout baseline is `afc8bb67`. Open PR181 (`7bd16b5e`) owns shared Text/Files
+window lifecycle and accepted-job retirement; inspect its current implementation
+before overlapping userspace changes. PR182 (`352f9b0d`) owns exFAT import
+validation and PR19 (`3e16ff6a`) USB Wi-Fi. None was included in this physical
+payload. This closeout changes only this unit's evidence record.
