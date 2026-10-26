@@ -2,14 +2,21 @@
 #define DESKD_LOOP_TIMING_H
 #include <stdint.h>
 #include <string.h>
+#include <srvros/scheduler_abi.h>
 
 /* One current interval and one retained maximum: no allocation or unbounded
  * event history. Stages measure wall time, including scheduling and interrupts. */
 enum loop_stage { LOOP_CONTROL, LOOP_MESSAGES, LOOP_LIFECYCLE, LOOP_SERVICE,
     LOOP_TRIAL, LOOP_INPUT, LOOP_RENDER, LOOP_POST, LOOP_WAIT, LOOP_STAGE_COUNT };
+struct loop_wait_record {
+    uint64_t valid,begin,gui_begin,gui_end,sleep_begin,sleep_end,end;
+    int64_t gui_result,sleep_result;
+    struct srv_sched_trace scheduler;
+};
 struct loop_record {
     uint64_t start,end,gap,sequence,cycle,pid,phase,end_cycle,end_pid,end_phase;
     uint64_t stage_us[LOOP_STAGE_COUNT];
+    struct loop_wait_record wait;
 };
 struct loop_trace {
     struct loop_record current,worst;

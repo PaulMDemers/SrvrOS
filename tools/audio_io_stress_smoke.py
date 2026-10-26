@@ -134,6 +134,7 @@ def main():
                     timing=validate_app_timing(saved_app_timing(snapshots),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
+                    assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
                 volume.write_bytes(final.data);check_clean_image(volume)
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)

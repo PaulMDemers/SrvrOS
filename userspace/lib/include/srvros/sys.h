@@ -93,6 +93,7 @@ struct srv_spawn_file_action {
 };
 
 long srv_scheduler_status(struct srv_scheduler_status *out);
+long srv_sched_trace(unsigned operation,struct srv_sched_trace *out);
 long srv_smc_status(struct srv_smc_status *out);
 long srv_thermal_status(struct srv_thermal_status *out);
 long srv_device_list(unsigned kind,uint64_t index,struct srv_device_info *info);

@@ -4125,3 +4125,11 @@ test-terminal-commands: build/tests/terminal-commands-host$(HOST_EXE)
 build/tests/terminal-commands-host$(HOST_EXE): tools/test_terminal_commands.c userspace/deskterm/deskterm.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_terminal_commands.c userspace/desktop_runtime/commands.c -Wl,--gc-sections -o $@
+
+.PHONY: test-scheduler-trace
+test-scheduler-trace: build/tests/scheduler-trace-host$(HOST_EXE)
+	$<
+build/tests/scheduler-trace-host$(HOST_EXE): tools/test_scheduler_trace.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-scheduler-trace
