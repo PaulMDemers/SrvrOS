@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #define AHCI_POLL_LIMIT 1000
 #define AHCI_SERVICE_LIMIT 4
@@ -10,10 +11,13 @@ static struct hba_command_header header;
 static struct hba_command_table table;
 static uint8_t buffer[4096];
 static uint64_t now, current_space;
-static unsigned polls, behavior;
+static unsigned polls, behavior, issued_polls;
 static bool services_enabled, in_service, io_active;
 static unsigned yields, profile_depth;
 static struct ahci_disk *active_disk;
+static const char *failure_phase,*failure_reason;
+static uint64_t failure_ci,failure_is,failure_elapsed;
+static unsigned failure_logs;
 void latency_enter(enum latency_site site) { assert(site==LATENCY_AHCI); profile_depth++; }
 void latency_leave(enum latency_site site) { assert(site==LATENCY_AHCI && profile_depth); profile_depth--; }
 bool scheduler_io_begin(void) {
@@ -35,12 +39,22 @@ bool scheduler_io_yield(void) {
     dev.private_data=&another;
     assert(!ahci_read(&dev,0,&byte,1)); /* Cross-device storage rejected in service scope. */
     in_service=false;
-    if (behavior==5 || (behavior==10 && yields==6)) model.ci=0;
-    if (behavior==6) model.tfd=0;
+    if (behavior==5 || (behavior==10 && yields==6) || (behavior==15 && yields==AHCI_SERVICE_LIMIT) || (behavior==17 && yields==AHCI_SERVICE_LIMIT+3)) model.ci=0;
+    if (behavior==6 || (behavior==16 && yields==AHCI_SERVICE_LIMIT) || (behavior==17 && yields==3)) model.tfd=0;
     return true;
 }
 
-void console_printf(const char *fmt, ...) { (void)fmt; }
+void console_printf(const char *fmt, ...) {
+    if (!strstr(fmt,"failed; disk offline phase=")) return;
+    va_list args;va_start(args,fmt);
+    (void)va_arg(args,uint64_t);(void)va_arg(args,uint64_t);
+    failure_phase=va_arg(args,const char *);failure_reason=va_arg(args,const char *);
+    (void)va_arg(args,uint64_t);failure_elapsed=va_arg(args,uint64_t);
+    (void)va_arg(args,uint64_t);(void)va_arg(args,uint64_t);
+    failure_ci=va_arg(args,uint64_t);failure_is=va_arg(args,uint64_t);
+    (void)va_arg(args,uint64_t);(void)va_arg(args,uint64_t);
+    va_end(args);failure_logs++;
+}
 void console_write(const char *s) { (void)s; }
 uint64_t vmm_current_address_space(void) { return current_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
@@ -48,10 +62,15 @@ void vmm_switch_address_space(uint64_t s) { current_space=s; }
 bool vmm_virt_to_phys(uint64_t v, uint64_t *p) { *p=v; return true; }
 bool vmm_map_page(uint64_t v, uint64_t p, uint64_t f) { (void)v;(void)p;(void)f; return true; }
 uint64_t timer_monotonic_us(void) {
-    if (behavior != 4) now += behavior >= 5 ? 1000 : 100000;
+    if (behavior != 4 && behavior != 15 && behavior != 16 && behavior != 17) now += behavior >= 5 ? 1000 : 100000;
     polls++;
+    if(behavior==14 && model.tfd && polls==2) { model.tfd=0;now+=AHCI_COMMAND_TIMEOUT_US; }
     if(model.ci) {
-        if(behavior==0 || behavior==6 || behavior==8) model.ci=0;
+        if((behavior==11 || behavior==12) && ++issued_polls==2) {
+            model.ci=0;now+=AHCI_COMMAND_TIMEOUT_US;
+            if(behavior==12) model.is=HBA_PORT_IS_TFES;
+        }
+        if(behavior==0 || behavior==6 || behavior==8 || behavior==14 || behavior==16) model.ci=0;
         if(behavior==2) model.is=HBA_PORT_IS_TFES;
         if(behavior==3) { model.is=HBA_PORT_IS_TFES; model.ci=0; }
     }
@@ -60,8 +79,9 @@ uint64_t timer_monotonic_us(void) {
 static struct ahci_disk setup(unsigned mode) {
     memset(&model,0,sizeof(model)); memset(&header,0,sizeof(header)); memset(&table,0,sizeof(table));
     assert(profile_depth==0);
+    failure_logs=0;failure_phase=failure_reason=NULL;failure_ci=failure_is=failure_elapsed=0;
     services_enabled=in_service=io_active=false; yields=0; last_service_us=0; commands_issued=0;
-    hba_physical=0x1000; now=0; polls=0; behavior=mode; current_space=2;
+    hba_physical=0x1000; now=0; polls=issued_polls=0; behavior=mode; current_space=2;
     return (struct ahci_disk){.port=&model,.command_list=&header,.command_table=&table,
         .io_buffer=buffer,.sectors=8,.flush_command=ATA_CMD_FLUSH_CACHE_EXT};
 }
@@ -76,12 +96,17 @@ int main(void) {
     for(unsigned mode=1;mode<=3;mode++) {
         disk=setup(mode); assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
         assert(disk.failed && current_space==2 && polls<30);
+        assert(failure_logs==1 && !strcmp(failure_phase,"completion"));
+        assert(!strcmp(failure_reason,mode==1?"deadline":"task-file"));
+        if(mode==1)assert(failure_elapsed>=AHCI_COMMAND_TIMEOUT_US && failure_ci==1);
+        else assert(failure_is&HBA_PORT_IS_TFES);
         unsigned old=polls; assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false)); assert(old==polls);
     }
     disk=setup(0); model.tfd=0x80; assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(disk.failed && model.ci==0 && polls<30);
+    assert(!strcmp(failure_phase,"ready") && !strcmp(failure_reason,"deadline"));
     disk=setup(4); assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
-    assert(disk.failed && polls<=1002);
+    assert(disk.failed && polls<=1002 && !strcmp(failure_reason,"poll-limit"));
     disk=setup(5); services_enabled=true; active_disk=&disk;
     assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(yields>=1 && !disk.busy && !io_active && current_space==2 && profile_depth==0);
@@ -99,12 +124,30 @@ int main(void) {
     disk=setup(4); services_enabled=true; active_disk=&disk;
     assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(yields==AHCI_SERVICE_LIMIT && polls<AHCI_POLL_LIMIT && disk.failed && !disk.busy && !io_active);
+    assert(!strcmp(failure_reason,"service-limit"));
     disk=setup(10); services_enabled=true; active_disk=&disk;
     assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(yields>AHCI_SERVICE_LIMIT && !disk.failed); /* Healthy time keeps its full deadline. */
     disk=setup(8); services_enabled=true; active_disk=&disk;
     assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(yields==1 && current_space==2); /* Fast completion still services a long sequence. */
+    disk=setup(11);
+    assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
+    assert(!disk.failed && issued_polls==2 && !model.ci && current_space==2);
+    disk=setup(12);assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
+    assert(disk.failed && !model.ci && (model.is&HBA_PORT_IS_TFES));
+    disk=setup(14);model.tfd=0x80;
+    assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false) && !disk.failed);
+    disk=setup(15);services_enabled=true;active_disk=&disk;
+    assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
+    assert(yields==AHCI_SERVICE_LIMIT && !disk.failed);
+    disk=setup(16);services_enabled=true;active_disk=&disk;model.tfd=0x80;
+    assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
+    assert(yields==AHCI_SERVICE_LIMIT && !disk.failed);
+    disk=setup(17);services_enabled=true;active_disk=&disk;model.tfd=0x80;
+    assert(issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
+    assert(yields==AHCI_SERVICE_LIMIT+3 && !disk.failed && failure_logs==0);
+    puts("ahci-host: PASS completion/readiness at deadline/service bounds, phase budgets, error precedence and diagnostics");
     uint8_t identify[512]={0}; identify[167]=0x60; assert(identify_flush_command(identify)==ATA_CMD_FLUSH_CACHE_EXT);
     identify[167]=0x50; assert(identify_flush_command(identify)==ATA_CMD_FLUSH_CACHE);
     identify[167]=0x10; assert(identify_flush_command(identify)==0);
