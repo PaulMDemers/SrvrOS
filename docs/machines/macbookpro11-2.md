@@ -8055,3 +8055,24 @@ build. Next: controlled MAC/RX endpoint lifecycle,explicit stop/restoration and
 uncertain-DMA retention,then calibrated-radio admission using fresh board/
 power/TSSI context. Prior IBI9 and RF0:6 observations remain unresolved for
 full radio acceptance. Scanning,association/security,IP and UI remain pending.
+
+
+### 2026-10-26 — retained packet-RX lifecycle implemented
+
+The v89 explicit endpoint trial is implemented after exact full v88 admission.
+It configures captured84/DCI9,posts once,waits at most10ms or completion,then
+stops with exact command/slot/stopped-context/owned-dequeue proof. Six fixed
+read-only guards bracket the attempt; all DMA is retained. No packet bytes,
+MAC enable,RF writes,full calibration,Set Dequeue,rearm,retry or free.
+
+Local full image/core tests pass,including native helper configuration/prior-
+proof faults,guard transport/state boundaries,normal/short/stopped/invalid
+completions,stale/wrong-slot/wrong-endpoint routing,failed-stop retention and
+cleanup after admission loss. Staging174 tests and176 historical recipe byte
+comparisons pass. Strict whole-prefix proof passes and79 malformed receipts
+refuse; six completion variants are distinguished without interpreting stopped
+lengths as data. Initial missing v89 regex entry and generated C string newline
+errors were corrected; original failed logs preserved. Sanitizer/exact-stage
+VM and install follow; native result pending. Main `5bcd061c` is merged; no
+competing worker/filesystem scope was edited. Last physical v88 remains
+accepted and no reboot is armed.

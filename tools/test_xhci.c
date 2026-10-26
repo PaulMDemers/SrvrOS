@@ -13,8 +13,10 @@ struct xhci_device;
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
+static bool rx_guard_model;static uint32_t rx_guard_value;
 /* Model a controller inspecting setup before software gives it ownership. */
 static void xhci_test_control_publish(struct xhci_device *d, uint64_t phys, bool cycle) {
+    if(rx_guard_model)for(unsigned n=0;n<4;n++)d->descriptor_buffer[n]=(uint8_t)(rx_guard_value>>(8*n));
     unsigned i=(phys-d->ep0_ring_phys)/16;
     assert((d->ep0_ring[i].control & 1) != cycle);
     unsigned stages=(d->ep0_ring[i].control & (3u<<16)) ? 3 : 2;
@@ -6593,7 +6595,10 @@ static void test_wifi_mcu_transport(void) {
     puts("xhci-mcu: PASS endpoint configuration, bounded IN/OUT, short packets, stale events, quarantine and DMA retention");
 }
 
+#include "test_xhci_wifi_rx.inc"
+
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-rx-lifecycle")){test_wifi_rx_lifecycle();return 0;}
     assert(argc == 4);
     test_wifi_radio_binding();
     test_wifi_mcu_queue_order();
@@ -6665,6 +6670,7 @@ int main(int argc, char **argv) {
     test_wifi_post_vco();
     test_wifi_post_vco_delays();
     test_wifi_agc_state();
+    test_wifi_rx_lifecycle();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

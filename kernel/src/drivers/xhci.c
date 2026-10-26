@@ -228,6 +228,17 @@ struct xhci_trackpad_endpoint {
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
 
+/* One retained main-packet IN endpoint, independent of MCU replies. */
+struct xhci_wifi_rx {
+    struct xhci_bulk_endpoint ep;
+    uint64_t buffer_phys,trb,stop_dequeue,waited_us;
+    uint8_t *buffer;
+    uint32_t requested,remaining,completion,stop_state;
+    unsigned reads,posts,events,late_events;
+    uint32_t guards[2][3];
+    bool active,attempted,configured,pending,done,stopping,stop_attempted,stopped,failed,wait_ok;
+};
+
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
     uint64_t buffer_phys, trb;
@@ -309,6 +320,7 @@ struct xhci_wifi_mcu {
     bool gain_mode,gain_active,gain_inventory_active;struct mt76_rx_fields gain_fields;struct mt76_efuse_map_gate gain_gate;unsigned gain_inventory_submitted;struct mt76_gain_inventory gain_inventory;
     bool channel_bbp_mode,channel_bbp_active;unsigned channel_bbp_submitted;struct mt76_channel_bbp channel_bbp;
     bool post_vco_mode,post_vco_active;unsigned post_vco_submitted,post_vco_delays;struct mt76_post_vco post_vco;
+    bool rx_lifecycle_mode;struct xhci_wifi_rx rx;
     bool agc_state_mode,agc_state_active;unsigned agc_state_submitted;struct mt76_agc_state agc_state;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
@@ -628,6 +640,7 @@ void xhci_set_wifi_firmware_enabled(bool enabled) { wifi_firmware_enabled=enable
 static bool configure_wifi_firmware(struct xhci_device *d);
 static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event);
+static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event);
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -2416,6 +2429,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    if(wifi_rx_event(device,event)) return;
     if(wifi_mcu_event(device,event)) return;
     if(wifi_firmware_event(device,event)) return;
     if(network_event(device,dci,pointer,completion,remaining)) return;

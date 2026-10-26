@@ -3892,3 +3892,34 @@ build. Next: controlled MAC/RX endpoint lifecycle,explicit stop/restoration and
 uncertain-DMA retention,then calibrated-radio admission using fresh board/
 power/TSSI context. Prior IBI9 and RF0:6 observations remain unresolved for
 full radio acceptance. Scanning,association/security,IP and UI remain pending.
+
+### Retained main-RX endpoint lifecycle (v89 candidate)
+
+After whole v88 proof and exact captured AGC9=0/gain1=0, explicit
+`--wifi-rx-lifecycle` configures only captured packet endpoint84/DCI9/512-byte
+bulk-IN, separate from MCU85/DCI11 and command08/DCI16. Three fixed
+MAC0/COREf000f200/DMA40000050 reads precede configuration; three follow stop.
+One4KiB IN is posted,with a bounded10ms wait (or earlier completion),then one
+exact-pointer/slot Stop Endpoint command15. Success requires output context
+state3 and current/next owned TRB dequeue with DCS1. No Set Dequeue,rearm,retry,
+DMA free,radio register write,MAC enable,calibration or transmit occurs. Ring
+and buffer survive all outcomes until controller/host reset.
+
+Matching ordinary completions accept onlyCC1/13 and bounded residue; stopped
+CC26/27/28 are accepted as cancellation metadata only during Stop. CC27 length
+is explicitly unusable and never converted into packet bytes. A successful
+Stop plus stopped context can quiesce without a Transfer Event. Wrong endpoint,
+slot,pointer and stale completions cannot retire another request. Late exact
+completions after retirement are absorbed without rearm. Failed/uncertain
+configuration or stop retains DMA and marks failure. Cleanup remains available
+if earlier RF/software admission is revoked after the post.
+
+The guest prints progress and saves ordered guard/config/post/stop/summary
+receipts within the inherited1MiB full-prefix policy,then returns automatically.
+Payload/SSID bytes are never logged or delivered. Even unexpected normal data
+completion is not packet-reception,calibration or scanning acceptance. This
+trial proves bounded endpoint ownership/retirement before later MAC/RX work.
+Pinned [Linux Stop Endpoint handling](https://github.com/torvalds/linux/blob/v7.0/drivers/usb/host/xhci-ring.c)
+was audited alongside the captured descriptor. Existing firmware/RF routines
+and the original strict predicates retain their behavior; v1-v88 recipe bytes
+remain unchanged. Native lifecycle acceptance is pending.
