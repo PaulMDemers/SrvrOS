@@ -3287,7 +3287,7 @@ return collector's boot-module variable collision was corrected without changing
 proof checks or native log bytes, with namespace-preservation regression coverage.
 
 
-### Batched channel prerequisites with full capture (v81 candidate)
+### Batched channel prerequisites with full capture (v81)
 
 The accepted v80 prefix is258464bytes, leaving only3680 in256KiB. New explicit
 `--wifi-channel-probe` requires full v80 proof and selects512KiB complete-prefix
@@ -3306,4 +3306,24 @@ observations and ordered receipts, complete512KiB prefix and both markers are
 required. Values remain observations, not RF readiness. No frequency choice,
 calibration, MAC enable, scan or traffic. The collected values will ground the
 next channel-band/synthesizer and fresh gain/power plan, rather than guessing
-uncaptured initial register state. Native validation pending.
+uncaptured initial register state. Native result follows.
+
+
+### v81 native prerequisite capture result
+
+MacBookPro11,2 release `dde8fcb03f3ea0d5` (source `74d1599e`), session
+`session-00065eb2f077e6da-00`, completed all116 operations:101 USB reads,
+15 exact CMD10 replies and32 strict MAC0/COREf000f200/DMA40000050 guard
+triplets. All prior initialization and exact BBP20/bandwidth proof passed.
+Fresh MAC values (hex) were13c8=0,13a0=0,13a8=6c6c6c6c,13b4=c9540000,
+518=1. RF5:0 and6:0 were0; RF0:24 was33(hex); RF0:26..37 were0.
+No new data writes occurred. These values ground subsequent channel-band and
+synthesizer work; they do not accept RF readiness or calibrated operation.
+
+The full274888-byte prefix exceeded256KiB and was preserved within explicit
+512KiB capture, with both completion markers. Strict ordered receipts,
+indexed observations, Ubuntu default/consumed one-shot, installed/recovery
+hashes and offline workspace checks passed.305files/722clusters/126directories,
+zero leaks/mismatches/errors; evidence archived, unmounted/unarmed. Next scope:
+bounded channel-band/synthesizer setup from the pinned reference and fresh
+values. Scanning, association/security, connectivity and Wi-Fi UI remain pending.

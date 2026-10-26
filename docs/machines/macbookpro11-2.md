@@ -164,12 +164,16 @@ CORE1/AGC0/TXBE0/TX_BAND remained2/21400/0/4; EXT_CCA changedffe4->f1e4,
 preserving ED_CCA upper nibblef. Entire258464-byte prefix/both success markers
 saved. Recovery/default/one-shot/hashes passed; offline clean303files/717clusters/
 125directories, zero leaks/mismatches/errors; unmounted/unarmed. Captured layout
-accepted. Separate v81 prerequisite trial `dde8fcb03f3ea0d5`, source `74d1599e`,
-is installed/unarmed after local and both exact-stage VM checks. It selects
-explicit512KiB capture and reads5 fixed MAC plus15 RF targets,116 operations/
-32 strict guard triplets, zero new data writes. Ubuntu default/recovery retained;
-await readiness for cold-cycle shutdown and collect matching session first.
-RF frequency/calibrated radio/connectivity remain untested.
+accepted. Release `dde8fcb03f3ea0d5`, source `74d1599e`, completed v81 in
+`session-00065eb2f077e6da-00`:116 ordered operations,101 reads/15 RF replies,
+32 strict guard triplets and20 indexed observations, zero new data writes.
+The entire274888-byte prefix exceeded the old256KiB limit and was preserved
+with explicit512KiB capture; both completion markers and all prior proof passed.
+Ubuntu default, consumed one-shot and installed/recovery hashes verified;
+offline clean305files/722clusters/126directories, zero leaks/mismatches/errors;
+unmounted/unarmed. MAC/RF values remain observations. Next scope is bounded
+channel-band/synthesizer setup grounded in these fresh values and pinned source;
+frequency/calibrated radio/connectivity remain untested.
 
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
@@ -7237,3 +7241,28 @@ Collect matching release/session first with `channel-probe/collect_return.py`;
 require whole earlier proof,116 receipts/32 guards/5 MAC+15 RF observations,
 whole512KiB-capacity prefix and both completion markers. Preserve failures;
 no automatic RF data write/frequency selection,calibration,MAC enable or traffic.
+
+
+### 2026-10-25 — v81 native batched channel prerequisite result
+
+Source `74d1599e14ee1170b6d1fe1b6827eacd1c475b66`, release
+`dde8fcb03f3ea0d5`, session `session-00065eb2f077e6da-00`, passed strict
+whole-chain collection after the attended cold adapter power cycle. All116
+ordered receipts,101 USB reads,15 exact MCU replies,32 disabled-MAC guard
+triplets and20 indexed observations passed. No new MAC/RF data writes occurred.
+
+Fresh MAC values (hex):13c8=0,13a0=0,13a8=6c6c6c6c,13b4=c9540000,518=1.
+RF5:0=0,6:0=0,0:24=33(hex),0:26..37=0. These are observations; zero
+synthesizer fields do not establish channel readiness. Full prior exact BBP20,
+bandwidth response and initialization proof passed. Both completion markers
+and the entire274888-byte startup prefix survived the new524288-byte capture,
+including bytes beyond the prior262144 limit.
+
+Ubuntu remained default; one-shot consumed; current and known-good
+`e47dca3a6b30c6c1` recovery manifests matched durable backups. Offline exFAT
+checks:305files,722clusters,126directories, zero leaks/mismatches/errors;
+workspace unmounted and reboot unarmed. Full evidence retained outside build
+in the local `wifi-channel-probe-74d1599` archive. Next: audit the pinned
+channel-band/synthesizer sequence against fresh observations, then implement
+and locally verify a bounded candidate. No frequency/calibrated-radio,
+scanning, association/security, connectivity or network-UI acceptance claimed.
