@@ -96,6 +96,7 @@ struct session {
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
+    unsigned launcher_application;
     uint64_t pointer_pid,pointer_window;
     int notice_visible,context_down;
     unsigned child_reaped,child_errors;
@@ -382,8 +383,10 @@ static void focus(struct session *s,int i) {
     if (i>=0) {
         desktop_window_at(&s->scene,i)->minimized=0;
         if(session_client(s,i)->parent_window)for(int j=0;j<session_capacity(s);j++)
-            if(session_client(s,j)->pid==session_client(s,i)->pid && session_client(s,j)->window==session_client(s,i)->parent_window)
+            if(session_client(s,j)->pid==session_client(s,i)->pid && session_client(s,j)->window==session_client(s,i)->parent_window) {
+                desktop_window_at(&s->scene,j)->minimized=0;damage_window(s,j);
                 desktop_window_at(&s->scene,j)->z=++s->scene.stack_serial;
+            }
         desktop_window_at(&s->scene,i)->z=++s->scene.stack_serial;
         damage_window(s,i);
         if((s->scene.apps || s->ram_text) && previous!=i) {
@@ -823,11 +826,13 @@ static void launcher_catalog(struct session *s) {
     for(int n=session_capacity(s)-1;n>=0;n--) {
         int i=order[n];uint64_t pid=session_client(s,i)->pid;
         if(!pid || !session_client(s,i)->identity || session_client(s,i)->closing) continue;
+        if(s->launcher_application && (desktop_window_at(&s->scene,i)->application!=(int)s->launcher_application || session_client(s,i)->parent_window))continue;
         struct desk_palette_item *item=&items[count++];item->id=session_client(s,i)->identity+DESK_APP_COUNT;
         snprintf(item->label,sizeof(item->label),"%s",desktop_window_at(&s->scene,i)->title[0]?desktop_window_at(&s->scene,i)->title:"Window");
         strcpy(item->detail,desktop_window_at(&s->scene,i)->minimized?"Hidden window":"Open window");
     }
     for(unsigned app=1;app<=DESK_APP_COUNT;app++) {
+        if(s->launcher_application && app!=s->launcher_application)continue;
         struct desk_palette_item *item=&items[count++];item->id=app;strcpy(item->label,desk_application_info(app)->title);strcpy(item->detail,"New app");
     }
     struct desk_palette *p=&s->scene.launcher;
@@ -839,6 +844,7 @@ static void launcher_open(struct session *s) {
     context_close(s);
     if(s->scene.notifications.opened) notifications_close(s);
     if(s->exiting || s->scene.launcher_open) return;
+    s->launcher_application=0;
     if(s->scene.calendar_open) calendar_close(s);
     s->overlay_return=s->scene.focus;s->overlay_identity=s->scene.focus>=0?session_client(s,s->scene.focus)->identity:0;s->overlay_down=0;
     desk_menu_cancel(&s->scene.menu);global_menu_damage(s);focus(s,-1);
@@ -847,6 +853,14 @@ static void launcher_open(struct session *s) {
     desk_palette_configure(p,(struct desk_rect){0,44,s->damage.width,s->damage.height-120});
     s->scene.launcher_open=1;launcher_damage(s);
     if(s->trace) desk_log("deskd: launcher opened items=%u\n",p->count);
+}
+static void dock_windows(struct session *s,unsigned app) {
+    launcher_open(s);if(!s->scene.launcher_open)return;
+    s->launcher_application=app;launcher_catalog(s);
+    char title[96];snprintf(title,sizeof(title),"%s windows",desk_application_info(app)->title);
+    struct desk_palette *p=&s->scene.launcher;desk_palette_open(p,title,p->items,p->count);
+    desk_palette_configure(p,(struct desk_rect){0,44,s->damage.width,s->damage.height-120});launcher_damage(s);
+    if(s->trace)desk_log("deskd: dock windows application=%u items=%u\n",app,p->count);
 }
 static void launcher_close(struct session *s) {
     if(!s->scene.launcher_open) return;
@@ -1117,7 +1131,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         }
         struct desktop_window *w=desktop_window_at(&s->scene,i);
         session_client(s,i)->pid=pid;session_client(s,i)->window=p->window;session_client(s,i)->identity=++s->window_serial;session_client(s,i)->managed=managed;session_client(s,i)->clipboard.pid=pid;session_client(s,i)->clipboard.window=p->window;session_client(s,i)->preferences_dirty=s->scene.apps;
-        w->visible=1;session_client(s,i)->parent_window=parent<0?0:p->generation;
+        w->visible=1;w->dialog=parent>=0;session_client(s,i)->parent_window=parent<0?0:p->generation;
         for(int n=0;n<children_capacity(s);n++) if((*session_children(s,n))==pid) w->application=(*session_child_apps(s,n));
         w->frame.x=32+24*(i%4); w->frame.y=64+24*(i%4);
         if(!s->scene.apps) { w->frame.x=32+40*i;w->frame.y=64+36*i; }
@@ -1141,6 +1155,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
          * exiting. A late root joins cooperative shutdown, never forced close. */
         if(s->exiting && parent<0)request_close(s,i);
         desk_log("deskd: opened pid=%llu window=%d id=%llu parent=%llu\n",(unsigned long long)pid,i,(unsigned long long)p->window,(unsigned long long)session_client(s,i)->parent_window);
+        if(s->trace)desk_log("deskd: geometry pid=%llu window=%llu frame=%d,%d,%d,%d\n",(unsigned long long)pid,(unsigned long long)p->window,w->frame.x,w->frame.y,w->frame.w,w->frame.h);
         resource_trace(s,"opened");
         return;
     }
@@ -1447,6 +1462,21 @@ static int hit(struct session *s,int x,int y) {
     }
     return -1;
 }
+static int dock_activate(struct session *s,unsigned app) {
+    int active=s->scene.focus>=0 && desktop_window_at(&s->scene,s->scene.focus)->application==(int)app;
+    int found=-1,present=0;
+    for(int i=0;i<session_capacity(s);i++) {
+        const struct client *c=session_client(s,i);const struct desktop_window *w=desktop_window_at(&s->scene,i);
+        if(!c->pid || !w->visible || w->application!=(int)app || c->parent_window)continue;
+        present=1;if(c->closing)continue;
+        if(found<0 || (active?w->z<desktop_window_at(&s->scene,found)->z:w->z>desktop_window_at(&s->scene,found)->z))found=i;
+    }
+    if(found>=0) {
+        damage_window(s,found);desktop_window_at(&s->scene,found)->minimized=0;focus(s,found);
+        if(s->trace)desk_log("deskd: dock activate application=%u identity=%llu cycle=%d\n",app,(unsigned long long)session_client(s,found)->identity,active);
+    } else if(!present)spawn_app(s,app,"");
+    return found;
+}
 static int global_click(struct session *s,int x,int y) {
     if(!s->scene.apps) return 0;
     if(s->scene.battery[0] && desk_widget_contains(desktop_battery_rect(s->damage.width,s->scene.clock),x,y)) {
@@ -1457,19 +1487,12 @@ static int global_click(struct session *s,int x,int y) {
     }
     if(desk_widget_contains(desktop_alert_rect(s->damage.width,s->scene.clock),x,y)) { notifications_open(s);return 1; }
     if(desk_widget_contains(desktop_clock_rect(s->damage.width,s->scene.clock),x,y)) { calendar_open(s);return 1; }
-    for(int app=1;app<=DESK_APP_COUNT;app++) {
-        struct desk_rect r=desktop_dock_item(s->damage.width,s->damage.height,app);
-        if(x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h) {
-            int found=-1;
-            for(int i=0;i<session_capacity(s);i++) if(session_client(s,i)->pid && desktop_window_at(&s->scene,i)->application==app &&
-                (found<0 || desktop_window_at(&s->scene,i)->z>desktop_window_at(&s->scene,found)->z)) found=i;
-            if(found>=0) focus(s,found);else spawn_app(s,app,"");
-            return 1;
-        }
-    }
-    return 0;
+    unsigned app=desktop_dock_hit(&s->scene,s->damage.width,s->damage.height,x,y);
+    if(app) {dock_activate(s,app);return 1;}
+    return desk_widget_contains(desktop_dock_frame(&s->scene,s->damage.width,s->damage.height),x,y);
 }
 static void scroll_at(struct session *s,int x,int y,int wx,int wy) {
+    if(s->scene.apps && desk_widget_contains(desktop_dock_frame(&s->scene,s->damage.width,s->damage.height),x,y))return;
     int i=hit(s,x,y);
     if (i<0 || session_client(s,i)->closing || modal_child(s,i)>=0) return;
     struct desktop_window *w=desktop_window_at(&s->scene,i);
@@ -1508,6 +1531,11 @@ static int context_key(const struct srv_key_event *key) {
         ((key->usage==SRV_KEY_F10 && (key->modifiers&SRV_KEY_SHIFT)) || key->usage==0x65);
 }
 static void context_at(struct session *s,int x,int y,int keyboard) {
+    if(!keyboard && s->scene.apps) {
+        unsigned app=desktop_dock_hit(&s->scene,s->damage.width,s->damage.height,x,y);
+        if(app) {dock_windows(s,app);return;}
+        if(desk_widget_contains(desktop_dock_frame(&s->scene,s->damage.width,s->damage.height),x,y))return;
+    }
     int i=keyboard?s->scene.focus:hit(s,x,y);
     if(i>=0 && modal_child(s,i)>=0) {focus(s,i);return;}
     if(i<0) {
@@ -1528,6 +1556,7 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
         if (!(buttons&MOUSE_LEFT)) s->pointer_blocked=0;
         return;
     }
+    if(!s->pointer_pid && s->scene.apps && desk_widget_contains(desktop_dock_frame(&s->scene,s->damage.width,s->damage.height),x,y))return;
     if (pressed && !s->pointer_pid) {
         int i=hit(s,x,y);
         if(i>=0 && modal_child(s,i)>=0) {focus(s,i);return;}
@@ -2033,6 +2062,9 @@ int main(int argc,char **argv) {
                     .x=x,.y=y,.down=s.overlay_down,.pressed=s.overlay_down && !(buttons&MOUSE_LEFT)};
                 if(e.wheel_y && !e.buttons) launcher_result(&s,desk_palette_scroll(&s.scene.launcher,x,y,e.wheel_y));
                 launcher_result(&s,desk_palette_pointer(&s.scene.launcher,event,srv_monotonic_us()));
+                /* The overlay owns this release. Do not leave the opener's
+                 * right-click block latched onto the next application click. */
+                if(!e.buttons) {s.pointer_blocked=0;s.context_down=0;}
                 buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
             }
             if (e.flags&MOUSE_CANCEL) {
@@ -2076,18 +2108,28 @@ int main(int argc,char **argv) {
                     else if (!desktop_window_at(&s.scene,i)->maximized && y<w.y+43) { drag=i;drag_identity=session_client(&s,i)->identity; grabx=x-w.x; graby=y-w.y; }
                 }
             }
-            if (!(e.buttons&MOUSE_LEFT)) drag=resize=-1;
+            if (!(e.buttons&MOUSE_LEFT)) {
+                if(drag>=0 && s.trace && window_lifetime_valid(&s,drag,drag_identity)) {
+                    struct desk_rect r=desktop_window_at(&s.scene,drag)->frame;
+                    desk_log("deskd: moved identity=%llu frame=%d,%d,%d,%d\n",(unsigned long long)drag_identity,r.x,r.y,r.w,r.h);
+                }
+                drag=resize=-1;
+            }
             if(drag>=0 && !window_lifetime_valid(&s,drag,drag_identity)) { drag=-1;s.pointer_blocked=1; }
             if(resize>=0 && !window_lifetime_valid(&s,resize,resize_identity)) { resize=-1;s.pointer_blocked=1; }
             if (drag>=0 && session_client(&s,drag)->pid) {
                 struct desktop_window *w=desktop_window_at(&s.scene,drag); damage_window(&s,drag);
-                w->frame.x=clamp(x-grabx,0,canvas.width-w->frame.w-6);
-                w->frame.y=clamp(y-graby,44,canvas.height-w->frame.h-(s.scene.apps?80:36)); damage_window(&s,drag);
+                if(s.scene.apps)desktop_window_drag(canvas.width,canvas.height,w->frame,(int64_t)x-grabx,(int64_t)y-graby,&w->frame);
+                else {
+                    w->frame.x=clamp(x-grabx,0,canvas.width-w->frame.w-6);
+                    w->frame.y=clamp(y-graby,44,canvas.height-w->frame.h-36);
+                }
+                damage_window(&s,drag);
             }
             if (resize>=0 && session_client(&s,resize)->pid) {
                 struct desk_rect w=desktop_window_at(&s.scene,resize)->frame;
-                int width=clamp(x-w.x-1,280,clamp(canvas.width-w.x-8,280,DESK_MAX_WIDTH));
-                int height=clamp(y-w.y-44,240,clamp(canvas.height-w.y-(s.scene.apps?125:85),240,DESK_MAX_HEIGHT));
+                int width=clamp(x-w.x-1,280,s.scene.apps?DESK_MAX_WIDTH:clamp(canvas.width-w.x-8,280,DESK_MAX_WIDTH));
+                int height=clamp(y-w.y-44,240,s.scene.apps?DESK_MAX_HEIGHT:clamp(canvas.height-w.y-85,240,DESK_MAX_HEIGHT));
                 if (w.w!=width+2 || w.h!=height+45) configure(&s,resize,width,height);
             }
             /* A stationary two-finger scroll must not insert HOVER between

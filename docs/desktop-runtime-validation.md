@@ -52,6 +52,7 @@ tools/host-env.sh python3 tools/desktop_wait_load_smoke.py
 tools/host-env.sh python3 tools/desktop_text_windows_smoke.py
 tools/host-env.sh python3 tools/desktop_files_smoke.py
 tools/host-env.sh python3 tools/desktop_files_windows_smoke.py
+tools/host-env.sh python3 tools/desktop_window_dock_smoke.py
 tools/host-env.sh python3 tools/desktop_terminal_smoke.py
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --pointer
 tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --shutdown

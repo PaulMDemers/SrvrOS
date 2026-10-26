@@ -780,6 +780,29 @@ int main(void) {
     placement_key.flags=SRV_KEY_DOWN_EVENT;placement_key.modifiers|=SRV_KEY_CTRL;assert(!arrange_shortcut(&placement_key));
     minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
     focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
+    /* Dock clicks select actual main windows, cycle all siblings and preserve
+     * modal focus. A closing app must not become a duplicate launch. */
+    s.scene.stack_serial=10;s.scene.windows[0].z=10;s.clients[0].identity=101;
+    s.clients[1].pid=42;s.clients[1].window=2;s.clients[1].identity=102;
+    s.scene.windows[1]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.frame=original,.z=8,.minimized=1};
+    s.clients[2].pid=42;s.clients[2].window=3;s.clients[2].identity=103;
+    s.scene.windows[2]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.frame=original,.z=9};
+    assert(dock_activate(&s,DESK_APP_TEXT)==1 && s.scene.focus==1 && !s.scene.windows[1].minimized);
+    assert(dock_activate(&s,DESK_APP_TEXT)==2 && s.scene.focus==2);
+    assert(dock_activate(&s,DESK_APP_TEXT)==0 && s.scene.focus==0);
+    s.clients[3].pid=42;s.clients[3].window=4;s.clients[3].identity=104;s.clients[3].parent_window=2;
+    s.scene.windows[3]=(struct desktop_window){.visible=1,.dialog=1,.application=DESK_APP_TEXT,.frame=original,.z=20,.minimized=1};
+    assert(dock_activate(&s,DESK_APP_TEXT)==1 && s.scene.focus==3 && !s.scene.windows[3].minimized);
+    s.clients[1].closing=1;assert(dock_activate(&s,DESK_APP_TEXT)==2);
+    char prior_executed[sizeof(executed_path)];strcpy(prior_executed,executed_path);
+    s.clients[0].closing=s.clients[2].closing=1;strcpy(executed_path,"dock-unchanged");
+    assert(dock_activate(&s,DESK_APP_TEXT)==-1 && !strcmp(executed_path,"dock-unchanged"));
+    s.clients[0].closing=s.clients[2].closing=0;strcpy(executed_path,prior_executed);
+    desk_palette_init(&s.scene.launcher);s.scene.launcher_open=0;s.launcher_application=DESK_APP_TEXT;
+    launcher_catalog(&s);assert(s.scene.launcher.count==3); /* Two main windows plus New app; no dialog/closing entry. */
+    s.launcher_application=0;
+    for(unsigned i=1;i<4;i++){memset(&s.clients[i],0,sizeof(s.clients[i]));memset(&s.scene.windows[i],0,sizeof(s.scene.windows[i]));}
+    focus(&s,0);
     s.preferences.value=desk_preferences_default();
     p=desk_packet_new(DESK_BRIGHTNESS);p.serial=1;p.value=50;
     unsigned bc=brightness_calls;
