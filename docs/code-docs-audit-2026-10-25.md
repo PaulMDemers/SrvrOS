@@ -122,3 +122,13 @@ parent agreement and detach-state updates. Initial-process inspection retains
 explicit kernel layouts. Continued host audit now isolates early self-detach
 failing before parent record publication. See the synchronization report for
 the separate failing reproduction and the limits of this modeled evidence.
+
+The next pass corrects early self-detach and serializes record publication and
+cleanup claims, consuming main `aa931093` (shared Text/Preview runtime). Positive
+host cases cover child exit before create returns, parent resumption, cleanup
+retry and slot reuse; guest cases add concurrent creators/reapers. Continued
+source review confirms fork refuses even exited-but-unreaped kernel workers,
+so the supported profile now states that limit. A separate host reproduction
+shows thread-name setters silently discard their input; these nonportable APIs
+are now explicitly documented as stubs. Neither documentation change claims
+new kernel fork behavior or working thread-name storage.

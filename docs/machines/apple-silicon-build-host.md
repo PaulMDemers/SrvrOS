@@ -145,3 +145,38 @@ is inferred. Next scope is record publication/lifecycle ownership, including
 reaping. Current status also reconciles PR176's failed Air6,1 native trial; worker
 pipe admission is still only a candidate explanation. This block is complete;
 no VM or physical boot is left running/armed.
+
+## Early self-detach correction — active scope
+
+The user authorized the publication-order fix, regressions, docs/PR updates and
+continued audit. Base is `d9b1e710`, consuming main `aa931093` (merged PR172 shared
+Text/Preview runtime). PR19 retains Wi-Fi diagnostics; no overlapping libc edits
+were found. This block owns libc pthread record publication and cleanup ownership,
+focused host/guest lifecycle tests and documentation. Install the record before
+callbacks, retain creator ownership until create returns, and serialize join/reap
+claims without holding the table lock across kernel waits or memory teardown.
+Next checkpoint is deterministic early-child/parent-resume coverage, matched
+build and sequential thread/libuv guest suites. No native trial is armed.
+
+The early-detach fix is complete. Child publication precedes callbacks; creator
+reservations prevent early cleanup, and exclusive join/reap claims serialize
+teardown without blocking under the table lock. Self-join returns `EDEADLK`.
+Failed queries/joins retain ownership for retry. No public ABI change is added.
+
+Matched `all`, positive host regressions (40 forced early detached lifetimes plus
+ordinary join failure/interruption retry), ASan/UBSan, targeted guest self-detach
+(96 lifetimes/three concurrent creators), full thread suite and full libuv suite
+pass. The newly merged desktop-runtime host target passes on this Mac as well.
+Four isolated lifecycle negative controls each fail with exit 1. Documentation
+checks 639 local links with zero errors and whitespace checks pass. Host native
+pthread execution forces ordering; it does not replace guest kernel validation.
+Raw logs, manifests and source hashes remain under `build/review/self-detach/`.
+All disposable VMs stopped; no native boot was performed or armed.
+
+Continued audit confirms nonportable thread-name APIs are stubs: setting
+`audit-worker` succeeds but reading returns `srvros-thread`. A separate explicit
+host audit exits 1; current guides exclude real naming. Source review also
+corrected the fork limit to include exited-but-unreaped workers. The next
+bounded work can address naming storage/error semantics; abnormal once-initializer
+exit remains an unconfirmed audit area. Detached cleanup is still lazy and raw
+kernel lifecycle operations must not be mixed with libc-owned workers.

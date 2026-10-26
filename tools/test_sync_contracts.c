@@ -1,4 +1,4 @@
-/* Real libc, modeled OS services. No actual thread is created in this fixture. */
+/* Real libc and modeled OS services; a native shim forces early child exit. */
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -13,17 +13,48 @@
 static int error_value, last_clock, futex_calls, dispatches, wait_mode, clock_error;
 static int creates, mappings, unmappings, fail_mapping;
 static uint64_t submitted_stack, largest_ticks;
-static int inspect_early, expected_detach, audit_self_detach;
+static int inspect_early, expected_detach, lifecycle, model_detach = 1;
+static long model_tid = 1;
+static int model_exited, model_joined, joins, status_error, join_error, reenter;
+int sync_host_is_worker(void);
+int sync_host_run_worker(uint64_t entry, uint64_t arg);
+_Noreturn void sync_host_exit_worker(void);
 static void *expected_stack;
 static size_t expected_size;
 static struct timespec now[2];
 int *__errno_location(void) { return &error_value; }
-long srv_thread_self(void) { return 1; }
-long srv_thread_status(uint64_t tid) { (void)tid; return -ESRCH; }
-long srv_thread_join(uint64_t tid, uint64_t *value) { (void)tid; (void)value; return -ESRCH; }
+long srv_thread_self(void) { return sync_host_is_worker() ? model_tid : 1; }
+long srv_thread_status(uint64_t tid) {
+    if (!lifecycle || tid != (uint64_t)model_tid || model_joined) return -ESRCH;
+    if (status_error) { status_error = 0; return -EIO; }
+    if (reenter) {
+        reenter = 0;
+        /* Another API entry tries to reap while this record is already claimed. */
+        CHECK(pthread_detach((pthread_t)999) == EINVAL);
+        CHECK(!model_joined);
+    }
+    return model_exited ? 0 : 1;
+}
+long srv_thread_join(uint64_t tid, uint64_t *value) {
+    if (!lifecycle || tid != (uint64_t)model_tid || model_joined) return -ESRCH;
+    if (join_error) { int error = join_error; join_error = 0; return error; }
+    CHECK(model_exited); model_joined = 1; joins++; *value = 0; return 0;
+}
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t flags) {
     (void)flags;
     creates++; submitted_stack = stack;
+    if (lifecycle) {
+        model_tid++; model_exited = model_joined = 0;
+        int before = unmappings, joined = joins;
+        CHECK(sync_host_run_worker(entry, arg) == 0);
+        CHECK(model_exited);
+        pthread_attr_t attr;
+        CHECK(pthread_getattr_np((pthread_t)model_tid, &attr) == 0);
+        CHECK(attr.detachstate == (model_detach ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE));
+        CHECK(pthread_detach((pthread_t)999) == EINVAL);
+        CHECK(unmappings == before && joins == joined); /* Creator still pins it. */
+        return model_tid;
+    }
     if (inspect_early) {
         ((void (*)(uint64_t))(uintptr_t)entry)(arg);
         abort();
@@ -31,6 +62,7 @@ long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t fl
     return -EAGAIN; /* Exercise creation failure and cleanup, without a worker. */
 }
 long srv_thread_exit(uint64_t value) {
+    if (lifecycle) { CHECK(value == 0); model_exited = 1; sync_host_exit_worker(); }
     CHECK(inspect_early && value == 0);
     puts("sync-contracts: child self-inspection before parent publication PASS");
     exit(0); /* Dedicated process; never return to parent publication. */
@@ -64,7 +96,7 @@ void *mmap(void *address, size_t size, int protection, int flags, int fd, off_t 
     if (fail_mapping) return MAP_FAILED;
     CHECK(size >= PTHREAD_STACK_MIN && !(size & 4095));
     void *memory = malloc(size); CHECK(memory != NULL);
-    if (inspect_early) { expected_stack = memory; expected_size = size; }
+    if (inspect_early || lifecycle) { expected_stack = memory; expected_size = size; }
     return memory;
 }
 int munmap(void *address, size_t size) { (void)size; unmappings++; free(address); return 0; }
@@ -194,14 +226,73 @@ static void *inspect_worker(void *arg) {
     CHECK(pthread_getattr_np(pthread_self(), &attr) == 0);
     CHECK(attr.stackaddr == expected_stack && attr.stacksize == expected_size);
     CHECK(attr.detachstate == expected_detach);
-    if (audit_self_detach) {
-        int result = pthread_detach(pthread_self());
-        printf("thread-publication-audit: immediate self-detach returned=%d expected=0\n", result);
-        CHECK(result == 0);
+    if (lifecycle) {
+        CHECK(pthread_join(pthread_self(), NULL) == EDEADLK);
+        if (model_detach) {
+            CHECK(pthread_detach(pthread_self()) == 0);
+            CHECK(pthread_detach(pthread_self()) == EINVAL);
+            CHECK(pthread_getattr_np(pthread_self(), &attr) == 0);
+            CHECK(attr.detachstate == PTHREAD_CREATE_DETACHED);
+            CHECK(pthread_join(pthread_self(), NULL) == EDEADLK);
+        }
     }
     return NULL;
 }
+static void lifecycle_tests(void) {
+    lifecycle = 1;
+    for (int i = 0; i < 40; i++) {
+        pthread_attr_t attr; pthread_t thread;
+        CHECK(pthread_attr_init(&attr) == 0);
+        int supplied = i & 1;
+        if (supplied) {
+            expected_size = PTHREAD_STACK_MIN + 1;
+            expected_stack = malloc(expected_size); CHECK(expected_stack != NULL);
+            CHECK(pthread_attr_setstack(&attr, expected_stack, expected_size) == 0);
+        }
+        expected_detach = PTHREAD_CREATE_JOINABLE;
+        int before = unmappings, joined = joins;
+        CHECK(pthread_create(&thread, &attr, inspect_worker, NULL) == 0);
+        CHECK(pthread_getattr_np(thread, &attr) == 0 && attr.detachstate == PTHREAD_CREATE_DETACHED);
+        /* Neither transient status errors nor interrupted reaps discard ownership. */
+        status_error = 1;
+        CHECK(pthread_detach((pthread_t)999) == EINVAL);
+        CHECK(joins == joined && unmappings == before);
+        join_error = SRV_ERR_INTR;
+        CHECK(pthread_detach((pthread_t)999) == EINVAL);
+        CHECK(joins == joined && unmappings == before);
+        reenter = 1;
+        CHECK(pthread_join(thread, NULL) == EINVAL); /* Reaps; cannot join detached. */
+        CHECK(joins == joined + 1 && unmappings == before + !supplied);
+        CHECK(pthread_getattr_np(thread, &attr) == ESRCH);
+        CHECK(pthread_detach((pthread_t)999) == EINVAL);
+        CHECK(joins == joined + 1 && unmappings == before + !supplied);
+        if (supplied) free(expected_stack);
+    }
+    /* A failed ordinary join releases its claim; interruption retries it. */
+    model_detach = 0;
+    pthread_t thread; pthread_attr_t attr;
+    int before = unmappings, joined = joins;
+    CHECK(pthread_create(&thread, NULL, inspect_worker, NULL) == 0);
+    join_error = -EIO;
+    CHECK(pthread_join(thread, NULL) == EINVAL);
+    CHECK(joins == joined && unmappings == before);
+    CHECK(pthread_getattr_np(thread, &attr) == 0 && attr.detachstate == PTHREAD_CREATE_JOINABLE);
+    join_error = SRV_ERR_INTR;
+    void *value = (void *)1;
+    CHECK(pthread_join(thread, &value) == 0 && value == NULL);
+    CHECK(joins == joined + 1 && unmappings == before + 1);
+    CHECK(pthread_getattr_np(thread, &attr) == ESRCH);
+    puts("sync-contracts: early self-detach, parent resume, reap ownership, 40 lifetimes and join retry PASS");
+}
 int main(int argc, char **argv) {
+    if (argc > 1 && !strcmp(argv[1], "thread-names")) {
+        char name[32];
+        int set = pthread_setname_np(pthread_self(), "audit-worker");
+        int get = pthread_getname_np(pthread_self(), name, sizeof(name));
+        printf("thread-name-audit: set=%d get=%d requested=audit-worker reported=%s\n", set, get, get ? "<error>" : name);
+        CHECK(set == 0 && get == 0 && !strcmp(name, "audit-worker"));
+        return 0;
+    }
     if (argc == 1) {
         stack_tests(); condition_tests(); semaphore_tests();
         pthread_attr_t attr;
@@ -210,8 +301,8 @@ int main(int argc, char **argv) {
         CHECK(pthread_getattr_np(pthread_self(), NULL) == EINVAL);
         return 0;
     }
+    if (!strcmp(argv[1], "lifecycle")) { lifecycle_tests(); return 0; }
     inspect_early = 1;
-    audit_self_detach = !strcmp(argv[1], "audit-self-detach");
     pthread_attr_t attr; pthread_t thread;
     CHECK(pthread_attr_init(&attr) == 0);
     expected_detach = !strcmp(argv[1], "detached") ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE;

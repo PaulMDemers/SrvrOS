@@ -104,11 +104,12 @@ passes. See the [Air6,1 record](machines/macbookair6-1.md) for exact evidence.
 
 The [synchronization audit](synchronization-audit-2026-10-25.md) led to PR175 fixes
 for supplied-stack bounds, selected condition clocks, semaphore count overflow
-and worker self-stack inspection.
+and worker self-stack inspection/early self-detach.
 Focused host and guest regressions cover those contracts; matched consumers must
-be rebuilt for the changed condition-variable layout. Continued host audit
-reproduces early self-detach failing before parent record publication; thread
-record concurrency and broader semaphore semantics remain open.
+be rebuilt for the changed condition-variable layout. Record publication and
+exclusive cleanup ownership now cover early detach and concurrent reapers.
+Detached cleanup remains lazy; thread-name setters/getters are placeholder
+implementations, and broader semaphore semantics remain incomplete.
 
 ## Measured checkpoints and current acceptance
 

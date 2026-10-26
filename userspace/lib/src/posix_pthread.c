@@ -37,11 +37,13 @@ struct pthread_start_record {
     size_t stack_size;
     int owns_stack;
     int detachstate;
+    struct pthread_record *record;
 };
 
 struct pthread_record {
     int used;
-    int detached;
+    int creating;
+    int claimed;
     pthread_t tid;
     struct pthread_start_record *start;
 };
@@ -52,6 +54,12 @@ static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
 static _Thread_local struct pthread_key_value key_values[PTHREAD_KEYS_MAX];
 /* Owned by this live worker until kernel exit/join permits record cleanup. */
 static _Thread_local struct pthread_start_record *self_start;
+/* Protects table publication and cleanup claims, never held across OS calls. */
+static unsigned record_lock;
+static void lock_records(void) {
+    while (__atomic_exchange_n(&record_lock, 1, __ATOMIC_ACQUIRE)) srv_yield();
+}
+static void unlock_records(void) { __atomic_store_n(&record_lock, 0, __ATOMIC_RELEASE); }
 static unsigned key_lock;
 static void lock_keys(void) {
     while(__atomic_exchange_n(&key_lock,1,__ATOMIC_ACQUIRE)) srv_yield();
@@ -101,70 +109,66 @@ static int pthread_ticks_until(int clock_id, const struct timespec *abstime, uin
     return 0;
 }
 
+/* Caller holds record_lock. Only a published, nonzero tid is discoverable. */
 static struct pthread_record *pthread_record_find(pthread_t tid) {
+    if (!tid) return NULL;
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
-        if (pthread_records[i].used && pthread_records[i].tid == tid) {
+        if (pthread_records[i].used && pthread_records[i].tid == tid)
             return &pthread_records[i];
+    }
+    return NULL;
+}
+
+static struct pthread_record *pthread_record_alloc(struct pthread_start_record *start) {
+    lock_records();
+    for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
+        if (!pthread_records[i].used) {
+            struct pthread_record *record = &pthread_records[i];
+            *record = (struct pthread_record){ .used = 1, .creating = 1, .start = start };
+            unlock_records();
+            return record;
         }
     }
-    return 0;
+    unlock_records();
+    return NULL;
 }
 
-static struct pthread_record *pthread_record_alloc(void) {
-    for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
-        int expected = 0;
-        if (__atomic_compare_exchange_n(&pthread_records[i].used,
-                &expected,
-                1,
-                0,
-                __ATOMIC_ACQ_REL,
-                __ATOMIC_ACQUIRE)) {
-            pthread_records[i].tid = 0;
-            pthread_records[i].detached = 0;
-            pthread_records[i].start = 0;
-            return &pthread_records[i];
-        }
-    }
-    return 0;
-}
-
-static void pthread_record_release(struct pthread_record *record) {
-    if (record == 0) {
-        return;
-    }
-    record->tid = 0;
-    record->detached = 0;
-    record->start = 0;
-    __atomic_store_n(&record->used, 0, __ATOMIC_RELEASE);
-}
-
+/* Caller owns the creation reservation or an exclusive join/reap claim. */
 static void pthread_record_cleanup(struct pthread_record *record) {
-    struct pthread_start_record *start = record != 0 ? record->start : 0;
-    pthread_record_release(record);
-    if (start == 0) {
-        return;
-    }
-    if (start->owns_stack) {
-        munmap(start->stack, start->stack_size);
-    }
+    lock_records();
+    struct pthread_start_record *start = record->start;
+    *record = (struct pthread_record){0};
+    unlock_records();
+    if (start->owns_stack) munmap(start->stack, start->stack_size);
     free(start);
+}
+
+static void pthread_record_unclaim(struct pthread_record *record) {
+    lock_records();
+    record->claimed = 0;
+    unlock_records();
 }
 
 static void pthread_reap_detached(void) {
     pthread_t self = pthread_self();
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
+        lock_records();
         struct pthread_record *record = &pthread_records[i];
-        if (!record->used || !record->detached || record->tid == self) {
+        if (!record->used || record->creating || record->claimed || record->tid == self ||
+            __atomic_load_n(&record->start->detachstate, __ATOMIC_ACQUIRE) != PTHREAD_CREATE_DETACHED) {
+            unlock_records();
             continue;
         }
-        long status = srv_thread_status(pthread_tid_value(record->tid));
-        if (status == 0) {
-            uint64_t ignored = 0;
-            if (srv_thread_join(pthread_tid_value(record->tid), &ignored) == 0) {
-                pthread_record_cleanup(record);
-            }
-        } else if (status < 0) {
-            pthread_record_release(record);
+        record->claimed = 1;
+        pthread_t tid = record->tid;
+        unlock_records();
+        uint64_t ignored = 0;
+        if (srv_thread_status(pthread_tid_value(tid)) == 0 &&
+            srv_thread_join(pthread_tid_value(tid), &ignored) == 0) {
+            pthread_record_cleanup(record);
+        } else {
+            /* Failed/interrupted joins retain ownership for a later retry. */
+            pthread_record_unclaim(record);
         }
     }
 }
@@ -191,6 +195,10 @@ static void pthread_run_destructors(void) {
 static void pthread_start_trampoline(uint64_t raw_start) {
     struct pthread_start_record *start = (struct pthread_start_record *)(uintptr_t)raw_start;
     self_start = start;
+    pthread_t self = pthread_self();
+    lock_records();
+    start->record->tid = self;
+    unlock_records();
     void *result = start->start_routine(start->arg);
     pthread_exit(result);
 }
@@ -259,7 +267,7 @@ int pthread_create(pthread_t *thread,
         .detachstate = detachstate,
     };
 
-    struct pthread_record *record = pthread_record_alloc();
+    struct pthread_record *record = pthread_record_alloc(start);
     if (record == 0) {
         free(start);
         if (owns_stack) {
@@ -267,6 +275,8 @@ int pthread_create(pthread_t *thread,
         }
         return EAGAIN;
     }
+
+    start->record = record;
 
     uint64_t stack_top = (((uint64_t)(uintptr_t)stack + stack_size) & ~(uint64_t)0xf) - 8;
     *(uint64_t *)(uintptr_t)stack_top = 0;
@@ -276,27 +286,38 @@ int pthread_create(pthread_t *thread,
         stack_top,
         flags);
     if (tid < 0) {
-        pthread_record_release(record);
-        free(start);
-        if (owns_stack) {
-            munmap(stack, stack_size);
-        }
+        pthread_record_cleanup(record);
         return EAGAIN;
     }
 
+    lock_records();
     *thread = (pthread_t)(uintptr_t)tid;
     record->tid = (pthread_t)(uintptr_t)tid;
-    record->detached = detachstate == PTHREAD_CREATE_DETACHED;
-    record->start = start;
+    record->creating = 0;
+    /* Do not overwrite detachstate: the child may already have detached/exited.
+     * After unlocking a reaper may free the record, so do not touch it again. */
+    unlock_records();
     return 0;
 }
 
 int pthread_join(pthread_t thread, void **value_ptr) {
+    if (thread == pthread_self()) return EDEADLK;
     pthread_reap_detached();
-    struct pthread_record *record = pthread_record_find(thread);
-    if (record == 0 || record->detached) {
-        return EINVAL;
+    struct pthread_record *record;
+    for (;;) {
+        lock_records();
+        record = pthread_record_find(thread);
+        if (record == NULL || record->claimed ||
+            __atomic_load_n(&record->start->detachstate, __ATOMIC_ACQUIRE) == PTHREAD_CREATE_DETACHED) {
+            unlock_records();
+            return EINVAL;
+        }
+        if (!record->creating) break;
+        unlock_records();
+        srv_yield();
     }
+    record->claimed = 1;
+    unlock_records();
 
     uint64_t value = 0;
     for (;;) {
@@ -305,6 +326,7 @@ int pthread_join(pthread_t thread, void **value_ptr) {
             break;
         }
         if (result != SRV_ERR_INTR) {
+            pthread_record_unclaim(record);
             return EINVAL;
         }
         (void)__posix_signal_dispatch_pending();
@@ -323,18 +345,16 @@ int pthread_join(pthread_t thread, void **value_ptr) {
 
 int pthread_detach(pthread_t thread) {
     pthread_reap_detached();
+    lock_records();
     struct pthread_record *record = pthread_record_find(thread);
-    if (record == 0 || record->start == 0 || record->detached) {
+    if (record == NULL || record->claimed ||
+        __atomic_load_n(&record->start->detachstate, __ATOMIC_ACQUIRE) == PTHREAD_CREATE_DETACHED) {
+        unlock_records();
         return EINVAL;
     }
     __atomic_store_n(&record->start->detachstate, PTHREAD_CREATE_DETACHED, __ATOMIC_RELEASE);
-    record->detached = 1;
-    if (srv_thread_status(pthread_tid_value(thread)) == 0) {
-        uint64_t ignored = 0;
-        if (srv_thread_join(pthread_tid_value(thread), &ignored) == 0) {
-            pthread_record_cleanup(record);
-        }
-    }
+    unlock_records();
+    pthread_reap_detached();
     return 0;
 }
 
@@ -504,13 +524,16 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
         }
         return ESRCH;
     }
+    lock_records();
     struct pthread_record *record = pthread_record_find(thread);
-    if (record == 0 || record->start == 0) {
+    if (record == NULL) {
+        unlock_records();
         return ESRCH;
     }
     attr->detachstate = __atomic_load_n(&record->start->detachstate, __ATOMIC_ACQUIRE);
     attr->stacksize = record->start->stack_size;
     attr->stackaddr = record->start->stack;
+    unlock_records();
     return 0;
 }
 

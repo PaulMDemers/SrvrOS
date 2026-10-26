@@ -33,7 +33,7 @@ shutdown; it is not the full upstream libuv implementation or test suite.
 | Descriptor lifecycle | Unified standard/native FD table, atomic pipe2/dup3/F_DUPFD_CLOEXEC, ordered spawn open/close/dup actions | 67 native descriptors; socket/eventfd pseudo-descriptors have separate namespaces and restrictions |
 | Streams | Buffered file/pipe I/O, fdopen, global flush and concurrent retirement, descriptor printf, C-locale binary64 formatting | No complete locale/wide-character/extended-precision formatting; NULL-pathname freopen mode changes are rejected with EINVAL and close the stream |
 | Namespace | Kernel process CWD, openat/fchdir, directory streams, file replacement and timestamps | No hard links or symlinks; directory subtree/replacement rename and open-directory lifetime are unfinished |
-| Processes | POSIX spawn/exec with argument/environment budgets, single-thread CLI fork, wait selectors and exit/signal status, popen/system | Fork refuses live-worker/unsupported pseudo-FD cases; no shared mmap, dynamic linker or full shell job control |
+| Processes | POSIX spawn/exec with argument/environment budgets, single-thread CLI fork, wait selectors and exit/signal status, popen/system | Fork refuses live or unreaped worker slots and unsupported pseudo-FD cases; no shared mmap, dynamic linker or full shell job control |
 | Signals and time | Thread/process pending masks, supported dispositions at libc checkpoints, interrupted sleeps, absolute deadlines, CPU accounting | No general asynchronous signal frames, altstack or siginfo; stop/continue and unsupported flags fail explicitly |
 | Readiness | Native poll and select masks, invalid-FD/error handling, interruption and checked timeouts | At most 64 poll interests; select FD_SETSIZE=1024; separate native GUI wait accepts up to eight nonblocking pipe/PTY interests; GUI is not a POSIX descriptor |
 | Sockets | Selected IPv4 TCP/UDP and local stream/socketpair operations | No IPv6 or complete BSD socket semantics; pseudo-socket inheritance and duplicate operations remain restricted |
@@ -54,7 +54,7 @@ facility is supported.
 ## Deliberate exclusions
 
 The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)
-found four defects now corrected on the PR175 branch. Caller-supplied pthread
+found five defects now corrected on the PR175 branch. Caller-supplied pthread
 stacks retain their declared region, require a 16-byte-aligned base and at least
 `PTHREAD_STACK_MIN` bytes, and are checked for address overflow before any write.
 Only library-owned allocations are rounded upward, with checked size arithmetic.
@@ -64,9 +64,18 @@ before the callback, preserving exact supplied bounds or the actual rounded
 owned allocation and current detach state. Initial-process inspection recognizes
 the kernel's two fixed 2 MiB stack layouts by frame containment; unregistered
 stacks outside those layouts return `ESRCH`. This adds no public layout change.
-Early self-detach still depends on parent record publication and can fail with
-`EINVAL`; the separate host audit reproduces this ordering. Broader concurrent
-record publication/reaping is not qualified by the inspection tests.
+Workers publish their tid into a reserved record before entering callbacks, so
+early self-detach succeeds and survives parent completion. A creator reservation
+prevents premature cleanup; exclusive join/reap claims and a short table lock
+serialize record ownership. Self-join returns `EDEADLK`. Failed/interrupted reaps
+retain ownership for retry. Detached cleanup remains lazy, triggered by later
+create/join/detach calls; there is no background collector. Mixing raw kernel
+thread joins/detaches with libc-owned pthreads is outside this lifecycle contract.
+
+The nonportable name APIs remain stubs: `pthread_setname_np` returns success
+without retaining the name, while `pthread_getname_np` reports `srvros-thread`
+(and silently truncates short buffers). Do not treat these as working diagnostic
+labels; the separate host audit records the failed set/get round trip.
 
 Condition variables retain `CLOCK_REALTIME` (including static/default init) or
 `CLOCK_MONOTONIC`. Timed waits recheck their absolute deadline after early tick

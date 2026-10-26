@@ -6,8 +6,10 @@ The three original findings below are fixed on PR175: supplied storage is never
 expanded, condition variables retain their selected clock and recheck absolute
 deadlines, and semaphore increments enforce `SEM_VALUE_MAX=INT_MAX` atomically.
 The fourth finding, worker self-stack inspection, is also corrected with
-pre-callback metadata and positive host/guest tests. Early self-detach remains
-a separate publication-order defect; see the continued audit below.
+pre-callback metadata and positive host/guest tests. The fifth finding, early
+self-detach, is now corrected with creator reservations and serialized lifecycle
+claims. Thread-name round trips remain a separately reproduced stub limitation;
+see the continued audit below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -265,7 +267,9 @@ containment; initial-process inspection; and rejection after record cleanup.
 The host ordering test is deterministic; the VM test does not force the early
 scheduling window. Evidence is retained under `build/review/stack-inspection/`.
 
-## Continued audit — P2: early self-detach depends on parent publication
+## Historical fifth finding — P2: early self-detach depends on parent publication
+
+The following receipt is from `d9b1e710`, before the correction below.
 
 `pthread_detach(pthread_self())` still looks up `pthread_records` by tid. When a
 joinable child calls it before the parent returns from `srv_thread_create` and
@@ -298,3 +302,80 @@ separate self-detach audit fail as intended. The merged app-timing parser's thre
 Python tests pass. Documentation checks and `git diff --check` pass. No full
 Linux/core or native-hardware test is claimed. Final source/log hashes and the
 matched build manifest are retained in `build/review/stack-inspection/`.
+
+
+## Early self-detach correction
+
+This pass consumes main `aa931093`, including the shared Text/Preview runtime.
+The only merge conflict appended independent Make targets; both the existing
+synchronization target and new desktop runtime/command targets are retained.
+No kernel or public pthread layout changes accompany this fix.
+
+A record is reserved with its start metadata before the kernel can run a child.
+The trampoline publishes the child's tid under the record lock before invoking
+its callback. Parent completion publishes the returned handle and releases the
+creation reservation without overwriting the child's detach decision. The
+reservation prevents reaping even if the child exits before create returns.
+
+Joiners and detached reapers claim a record exclusively under the same short
+lock. Kernel status/join calls, yielding waits, stack unmapping and freeing run
+outside that lock. Other-thread attribute inspection copies metadata while
+locked. Failed/interrupted reaps release the claim but retain the record for a
+later attempt. Joining a child still being created waits for the creator to
+release its reservation; self-join returns `EDEADLK` before such a wait. After
+cleanup detaches a record from the table, only the cleanup owner frees its saved
+start metadata and owned stack. Supplied storage is never freed by libc.
+
+Validation:
+
+- Default host regressions pass. A separately compiled native pthread shim runs
+  the actual libc trampoline to completion before the modeled create returns.
+  Across 40 alternating supplied/owned lifetimes it verifies early self-detach,
+  repeated-detach refusal, self-join refusal, self inspection, creator pinning,
+  parent preservation, status-error/interrupted-join retries, a reentrant reaper,
+  one cleanup per worker and record-slot reuse. An ordinary failed join releases
+  its claim; a subsequent interrupted join retries and cleans up once. Other
+  existing host cases remain.
+- AddressSanitizer/UndefinedBehaviorSanitizer host runs pass with no diagnostics.
+- Four isolated negative controls remove child publication, restore the parent's
+  detach overwrite, remove the creator reservation check, or remove the reap
+  claim check. Each fails the positive lifecycle test with exit 1.
+- Matched `all` build and targeted `threadstress self-detach` pass. The guest
+  completes 96 child lifetimes across three concurrent creators, alternating
+  supplied/owned stacks, checking immediate self-detach, metadata, duplicate
+  refusal and detached join refusal, followed by a fresh create/join.
+- Complete thread and libuv guest suites pass sequentially on ARM64 macOS using
+  x86_64 QEMU. This is bounded concurrency coverage, not a general SMP proof or
+  physical-device acceptance. Full Linux/core coverage is not claimed.
+
+The old failing self-detach option is retained at `d9b1e710`; the current default
+host suite and `--test self-detach` guest group are positive regression gates.
+Logs, negative controls, hashes and build manifest are retained under
+`build/review/self-detach/`. Detached cleanup remains lazy until a subsequent
+create/join/detach call; mixing raw kernel lifecycle operations with libc-owned
+pthread records is unsupported. There is no new background collector.
+
+## Continued audit — P3: thread-name success discards the requested name
+
+`pthread_setname_np` validates the target and pointer, then returns zero without
+storing anything. `pthread_getname_np` always copies `srvros-thread` and returns
+zero, even when truncating to a short buffer. These nonportable entry points do
+not implement a name round trip, which can mislabel diagnostic workers.
+
+```sh
+python3 tools/test_sync_contracts.py --audit-thread-names --output build/review/thread-name-audit
+# Expected exit 1: known stub behavior, excluded from the positive default suite.
+```
+
+Observed with the real libc: `set=0 get=0 requested=audit-worker
+reported=srvros-thread`. This is host evidence for library behavior; no kernel
+or VM name-display behavior is inferred. The supported profile now explicitly
+excludes real thread naming. A future correction should define storage, lifetime,
+length and truncation/error semantics, or refuse unsupported setting explicitly.
+
+Adjacent source review also verified that `process_fork` refuses every used
+kernel worker slot, including an exited but unreaped worker; the current profile
+previously said only live workers. That wording is corrected. No new fork
+runtime behavior is claimed. Once-initializer abnormal exit and broader raw
+kernel lifecycle interactions remain future audit areas, not confirmed failures
+from this pass.

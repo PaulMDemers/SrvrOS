@@ -191,3 +191,51 @@ int posix_stack_inspection_test(void) {
     puts("threadstress: stack-inspection ok");
     return 0;
 }
+
+/* Three independent creators exercise shared reaping and table reuse. */
+struct detach_probe { unsigned done; int error; };
+static void *detach_worker(void *arg) {
+    struct detach_probe *probe = arg;
+    pthread_attr_t attr;
+    probe->error = pthread_join(pthread_self(), NULL) != EDEADLK;
+    probe->error |= pthread_detach(pthread_self()) != 0;
+    probe->error |= pthread_getattr_np(pthread_self(), &attr) != 0;
+    probe->error |= attr.detachstate != PTHREAD_CREATE_DETACHED;
+    probe->error |= pthread_detach(pthread_self()) != EINVAL;
+    __atomic_store_n(&probe->done, 1, __ATOMIC_RELEASE);
+    return NULL;
+}
+static void *detach_creator(void *unused) {
+    (void)unused;
+    const size_t size = 65536;
+    void *stack = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (stack == MAP_FAILED) return (void *)1;
+    int failed = 0;
+    for (unsigned round = 0; round < 32; round++) {
+        pthread_attr_t attr; pthread_t worker;
+        struct detach_probe probe = {0};
+        if (pthread_attr_init(&attr) ||
+            ((round & 1) && pthread_attr_setstack(&attr, stack, size)) ||
+            pthread_create(&worker, &attr, detach_worker, &probe)) { failed = 1; break; }
+        while (!__atomic_load_n(&probe.done, __ATOMIC_ACQUIRE)) sched_yield();
+        /* A concurrent creator may already have reaped this exited worker. */
+        while (srv_thread_status((uint64_t)(uintptr_t)worker) > 0) sched_yield();
+        if (probe.error || pthread_join(worker, NULL) != EINVAL) { failed = 1; break; }
+    }
+    if (munmap(stack, size)) failed = 1;
+    return failed ? (void *)1 : NULL;
+}
+int posix_self_detach_test(void) {
+    pthread_t creators[3];
+    for (unsigned i = 0; i < 3; i++) CHECK(pthread_create(&creators[i], NULL, detach_creator, NULL) == 0);
+    for (unsigned i = 0; i < 3; i++) {
+        void *result = (void *)1;
+        CHECK(pthread_join(creators[i], &result) == 0 && result == NULL);
+    }
+    /* Reclaim any final detached worker and prove a fresh create/join works. */
+    pthread_t final;
+    CHECK(pthread_create(&final, NULL, inspection_noop, NULL) == 0);
+    CHECK(pthread_join(final, NULL) == 0);
+    puts("threadstress: self-detach ok");
+    return 0;
+}

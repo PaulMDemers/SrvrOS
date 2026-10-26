@@ -9,7 +9,9 @@ Linux filesystem or GRUB utilities.
 libc regressions with modeled OS services; it is now included in `test-core`.
 The existing `tools/thread_smoke.py --test sync-contracts` runs real supplied-stack
 workers, both condition clocks and competing semaphore posts in a disposable
-x86_64 VM. These supplement each other; the host fixture does not create threads.
+x86_64 VM. The host fixture uses modeled OS services; its lifecycle case uses a
+small native pthread shim, compiled with host headers, to force child completion
+before the modeled create returns. A native pthread-capable C toolchain is needed.
 The complete thread and libuv guest suites also passed on this ARM64 Mac with
 PR175; that does not qualify the rest of the Linux-oriented suite.
 `--test stack-inspection` now covers immediate worker inspection, supplied/owned
@@ -17,11 +19,16 @@ bounds, parent agreement, initial-process inspection and detach-state updates;
 it is included in `all`. Host cases force the child callback to execute before
 parent record publication. The former `stack-inspection-audit` guest failure is
 historical at `bc0d6418`; the original three-defect probe is at `a90ac149`.
-A separate `python3 tools/test_sync_contracts.py --audit-self-detach` command
-currently exits 1 (use `--output` to retain its receipt separately): the modeled
-early child cannot detach itself. It is an audit reproduction, excluded from
-the positive default suite. See the [audit/fix record](synchronization-audit-2026-10-25.md) for
-reproductions, ABI changes and evidence limits.
+`--test self-detach`, also included in `all`, exercises 96 worker lifetimes with
+three concurrent creators and alternating supplied/owned stacks. The default
+host suite covers early self-detach, parent resume, single-owner reaping, failure
+retry and 40 lifetimes. The old `--audit-self-detach` failure is historical at
+`d9b1e710`; its replacement is a passing default regression.
+A separate `python3 tools/test_sync_contracts.py --audit-thread-names` currently
+exits 1 because setting a name succeeds but the getter returns a fixed placeholder.
+Use `--output` to retain that known-failure audit separately from positive tests.
+See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
+ABI changes and evidence limits.
 
 On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-device-agent-setup.md)
 and update their [machine record](machines/README.md). A VM pass is not physical
