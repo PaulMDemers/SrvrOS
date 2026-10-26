@@ -3499,3 +3499,23 @@ only the Air6,1 machine record. The next useful acceptance is attended interacti
 use under the same automated background workload, if desired, rather than a
 higher latency limit. Retain separate limits for this bounded result and broader
 interactive behavior.
+
+### Attended interaction under automatic load — active scope (2026-10-26)
+
+Base `43aff7d5` includes merged PR194 window movement/running dock work and the
+accepted PR192 private-image scheduling fix. Previous run is fully collected
+and listening confirmed. Prepare a separate attended Air6,1 profile: launch Help
+with the complete window/dock/Text checklist, automatically run the same bounded
+continuous PCM and verified filesystem workload, and leave normal app interaction
+to the user. Keep desktop open at workload completion so unsaved edits can be
+resolved normally. Do not automatically close user-owned windows or claim the
+automatic app-cycle requirement was exercised in this separate attended profile.
+
+Scope: explicit diagnostic profile routing, compositor workload lifecycle and
+Help content, staging/refusal and VM regression coverage, and this unit record.
+The original unattended workload and all existing limits/integrity/firmware gates
+remain unchanged. PR182 owns storage hardening and PR19 Wi-Fi; avoid their
+implementation scope. Next checkpoint: matched build/core, window/dock and loaded
+VM tests, exact-stage native refusal and verified recovery, then attended native
+trial with guest instructions and durable return collection. User’s existing
+self-merge/install/reboot authorization applies; no new reboot is armed yet.
