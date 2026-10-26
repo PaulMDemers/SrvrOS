@@ -3118,3 +3118,30 @@ verified I/O, PCM checks, firmware gates and accepted-operation draining intact.
 Next checkpoint: failing-before/passing-after host tests, matched build and VM
 stress/storage checks, exact-stage rehearsal, merged candidate and authorized
 automated native trial with saved evidence and Ubuntu recovery.
+
+Implemented `49f51e9b` requests the existing quiescent turn from both nonblocking
+pipe/PTY deferrals. The new directed syscall test fails before the fix and passes
+after for read/write/duplex/PTY retries, with blocking, invalid and nonpipe
+exclusions. Scheduler coverage retains one coalesced request across 64 owned-I/O
+service turns and consumes it only at quiescence; cleanup/owner gates remain.
+The current admission guide records this shared contract. PR181 edits different
+sections of that guide; no userspace implementation is changed here.
+
+Matched normal/native-battery/VM-kernel build and full core suite pass, as do
+thread, general smoke (482 CLI commands, shell edits, syscall ABI, UEFI keyboard
+and display), and storage-service cancellation/timeout/quarantine regressions.
+The populated-Home 400-write-IOPS VM completes 19 timing-validated app cycles,
+117 verified bursts / 30,670,848 bytes, and 218 observed audio/write overlap
+windows with zero app errors or PCM underruns. Maximum ready/close/loop times
+are 1,291,587 / 1,860,049 / 402,419 us. All 66 prior fixture files survive and
+allocation is clean. Files' maximum Close-to-return is 1,753,005 us versus
+6,373,924 us in the prior VM run; this is a run comparison, not native acceptance
+or proof that all sources of delay are fixed.
+
+Release `09f42ae5a75b3fef` freezes clean compiled source `49f51e9b`. Exact-stage
+Q35 rehearsal passes expected native-profile refusal, saved logs, clean unmount
+and automatic return. This follow-up changes documentation only. Native run
+`6d1b066474954f5d` repeats the unchanged thirty-minute automated workload with
+374 baseline files / 1,044 clusters, continuous audio/verified disk work and
+automatic Text/Files/System cycles. Ubuntu remains default; console and accepted
+reopen recovery payloads remain verified and independent of build storage.
