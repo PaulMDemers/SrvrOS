@@ -3233,3 +3233,32 @@ combined stress/exact-stage validation and this unit record. PR182 (`a35e2c33`)
 owns exFAT/storage ownership; PR19 (`88dff107`) owns Wi-Fi. No competing storage,
 driver, firmware or scheduler change is planned. Next checkpoint is a merged,
 locally validated candidate and the authorized fully automatic native trial.
+
+Candidate `a8cdd087` adds fixed-size current/worst records and nine elapsed-time
+stages, with periodic/final whole-record logging through the existing console.
+The final partial loop remains included in the original maximum; diagnostic
+formatting/emission is measured rather than excluded. No new writes/flushes,
+workload pacing, app deadlines or hardware/ownership policy are introduced.
+The host regression retains an old maximum through 1,000 shorter loops, checks
+exact-bound behavior, conserved stages, partial exit, invalid clocks and complete
+bounded formatting. Receipt tests reject truncated/missing/conflicting records,
+lost maxima and disagreement with the existing lifecycle aggregate.
+
+Matched build/core passes. The populated-Home 400-write-IOPS VM completes twenty
+timing-validated app cycles, 117 verified bursts / 30,670,848 bytes and 220
+observed audio/write overlap windows, with zero app errors or PCM underruns,
+all 66 prior fixture files preserved and clean allocation. Maximum ready/close/
+loop are 1,202,132 / 1,960,929 / 330,784 us. The final diagnostic covers 1,989
+samples with zero over-limit/invalid measurements and exactly matches the loop
+maximum. Its stages sum to the interval; render accounts for 323,275 us. An
+older worst interval is preserved unchanged in several later periodic reports.
+This proves diagnostic retention, not the cause of the earlier native gap.
+
+The ordinary desktop shutdown VM passes cancellation, failed-save retention,
+save/discard decisions and exact file/process cleanup, with no opt-in loop
+diagnostic emitted. Release `080b645e1b3a5533` freezes clean `a8cdd087`;
+exact EFI rehearsal passes the expected Q35 native-profile refusal, saved logs,
+unmount and automatic return. Native run `d66265a8b5ea4b59` repeats the unchanged
+thirty-minute workload on 380 baseline files / 1,052 clusters. Its collector
+preserves the retained worst-loop record even when later acceptance fails.
+Ubuntu remains default with console and accepted reopen recovery retained.
