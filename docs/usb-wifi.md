@@ -3726,3 +3726,27 @@ Candidate/run/checkpoint and test evidence archived outside build. Await cold
 Wi-Fi-cycle readiness. Collect matching merged-baseline session FIRST on return
 with main-refresh/collect_return.py. Results save and return automatically;
 no photos or commands. Native regression and radio/connectivity remain pending.
+
+
+### Native merged-main v87 regression result
+
+Release `5c9c8372adaf59d6` (source `ae8fe63c`, merged main `dfd63fef`)
+completed the whole v87 regression in `session-00065ec13fa73dce-00`.
+Full earlier initialization/firmware/guard proofs passed on the updated
+scheduler/process/filesystem/runtime baseline. Fresh mapped LNA0/RSSI+1,+1,
+all21 channel-BBP/filter independent readbacks and post-channel VCO proof
+passed:63 ordered operations,54 guard reads,9 replies,1 ACK,8 observations,
+18 strict MAC0/COREf000f200/DMA40000050 triplets,six waits/1000000us requested.
+RF0:4 values were30,B0,B0,then six30(hex),matching the pre-merge result;
+bit7 clear by the first delayed sample. Timing includes transport/logging,
+so this is not a precise10ms completion bound or PLL-lock/calibration proof.
+
+The full534735-byte startup prefix and both completion markers passed strict
+validation within1MiB capacity. Ubuntu default, consumed one-shot and installed/
+recovery hashes verified; offline workspace clean319files/767clusters/
+133directories,zero leaks,mismatches or errors; unmounted and unarmed. Evidence
+archived outside build. Bounded Wi-Fi initialization regression on this merged
+baseline accepted; full calibrated radio/connectivity and desktop-runtime parity
+remain untested. No repeat boot required. Next implement bounded fresh AGC8/9
+capture and software gain initialization; retain MAC/power/IBI9 prerequisites
+before full calibration. Never infer the uncaptured second gain or transmit power.

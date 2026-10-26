@@ -7,16 +7,13 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical result: v87 (`78e47b6219211cc9`) completed the guarded
-post-channel1 VCO trigger and six delayed observations. Immediate readB0 and
-all six delayed reads30(hex) passed; bit7 clear at the first delayed sample.
-Whole earlier proof, recovery and filesystem checks passed. No repeat boot
-needed; no reboot armed. Detailed result is in the dated journal.
-Next audit AGC gain and full calibration/MAC/power prerequisites;
-PLL lock, calibrated radio and connectivity remain untested. Main `dfd63fef` is merged;
-regression release `5c9c8372adaf59d6` is installed, local/VM checks passed,
-native merged-baseline result pending. Reboot unarmed.
-
+Latest physical result: merged-main `dfd63fef` regression release
+`5c9c8372adaf59d6` passed the whole accepted v87 Wi-Fi initialization sequence.
+All21 channel-BBP readbacks and post-tune VCO observations matched; recovery
+and filesystem checks passed. No repeat boot needed; no reboot armed.
+Next: bounded fresh AGC8/9 capture and software gain initialization, preserving
+MAC/power/IBI9 prerequisites. PLL lock, full calibration/connectivity and native
+desktop-runtime parity on this baseline remain untested.
 
 The user considers the core Pro bring-up generally working. Named payloads below
 have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
@@ -7877,3 +7874,27 @@ Candidate/run/checkpoint and test evidence archived outside build. Await cold
 Wi-Fi-cycle readiness. Collect matching merged-baseline session FIRST on return
 with main-refresh/collect_return.py. Results save and return automatically;
 no photos or commands. Native regression and radio/connectivity remain pending.
+
+
+### 2026-10-26 — native merged-main Wi-Fi regression result
+
+Release `5c9c8372adaf59d6` (source `ae8fe63c`, merged main `dfd63fef`)
+completed the whole v87 regression in `session-00065ec13fa73dce-00`.
+Full earlier initialization/firmware/guard proofs passed on the updated
+scheduler/process/filesystem/runtime baseline. Fresh mapped LNA0/RSSI+1,+1,
+all21 channel-BBP/filter independent readbacks and post-channel VCO proof
+passed:63 ordered operations,54 guard reads,9 replies,1 ACK,8 observations,
+18 strict MAC0/COREf000f200/DMA40000050 triplets,six waits/1000000us requested.
+RF0:4 values were30,B0,B0,then six30(hex),matching the pre-merge result;
+bit7 clear by the first delayed sample. Timing includes transport/logging,
+so this is not a precise10ms completion bound or PLL-lock/calibration proof.
+
+The full534735-byte startup prefix and both completion markers passed strict
+validation within1MiB capacity. Ubuntu default, consumed one-shot and installed/
+recovery hashes verified; offline workspace clean319files/767clusters/
+133directories,zero leaks,mismatches or errors; unmounted and unarmed. Evidence
+archived outside build. Bounded Wi-Fi initialization regression on this merged
+baseline accepted; full calibrated radio/connectivity and desktop-runtime parity
+remain untested. No repeat boot required. Next implement bounded fresh AGC8/9
+capture and software gain initialization; retain MAC/power/IBI9 prerequisites
+before full calibration. Never infer the uncaptured second gain or transmit power.
