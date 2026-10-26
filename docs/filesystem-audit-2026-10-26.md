@@ -613,6 +613,18 @@ failures after allocation/data/metadata changes can still quarantine the volume,
 including a later sidecar allocation failure. It adds no journal, durable
 rollback promise, new errno mapping or physical power-loss acceptance.
 
+
+
+### Allocation checkpoint integration verification
+
+Runtime checkpoint `497e2e6d` was merged cleanly with main `ee5468f6` (PR188/189).
+The incoming change is confined to the Air6,1 machine record. Every tested source
+and output hash is unchanged; `all` needed no recompilation and refreshed the
+matched-build receipt. A fresh disposable import VM passes in 17.00 s. The full
+six-VM results above remain evidence for the identical runtime artifacts.
+`integrated-build.log`, `integrated-macos-build.json` and `integrated-result.json`
+retain this verification under `build/review/allocation-growth/`.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
