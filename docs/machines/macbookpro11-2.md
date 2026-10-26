@@ -22,6 +22,18 @@ packet reception. Scanning,association,security,Wi-Fi IP traffic and UI remain
 pending. v88 remains retained as an accepted fallback.
 
 
+Active block (2026-10-26): consume actual main `4ee18f69` (PR190 scheduler/
+desktop wake attribution),preserving all Wi-Fi profiles; PR182 owns filesystem
+imports,no MT76 overlap. Build v90 bounded MAC startup/shutdown around one
+retained main-RX request,then fresh TX_ALC0/IBI9 observations. Touched: MT76 MAC
+cycle helper/host tests,xHCI callback adapter and actual selector,main/staging/
+smoke recipes and machine/Wi-Fi docs. Require full prior proof,independent
+MAC-disable cleanup,device TX/RX queue draining,exact endpoint stop and retained
+DMA. No calibration command,packet delivery,rearm,scan or association. Unknown
+IBI9 stays observational. Checkpoint: full local/exact-stage VM validation,
+installed/recovery/run/archive verification before a cold hardware trial.
+
+
 Completed offline block (2026-10-26): consumed actual main `ee5468f6` (PR186–189,
 Air6,1 desktop timing/evidence; PR190 continues timing attribution and PR182
 owns filesystem imports). No MT76 overlap found. Build an allocation-free,
