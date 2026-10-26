@@ -99,6 +99,27 @@ removes a waiter's pending admission. This prevents a fast writer repeatedly
 reacquiring ownership ahead of calls it woke; it does not promise that arbitrarily
 slow storage can satisfy the existing desktop deadlines.
 
+App-image construction has a distinct ownership scope only for the fresh child
+reserved by `process_spawn_exec`. Its executable path is copied into kernel
+storage before the first service window. With no target scheduler thread and no
+inherited I/O owner, `scheduler_io_begin_process_image` retains the global gate
+but excludes the child's process identity rather than the caller's. This lets
+audited UI siblings run while only private child mappings/TLS/stack are built.
+No parent descriptors, user pointers or parent mappings are changed in that
+scope. Unsafe syscalls and cancellation remain gated; the target identity stays
+excluded even if a thread unexpectedly appears. Nested owner depth preserves
+the identity, and only the outer owner clears it.
+
+Null/current targets, live target threads, wrong address space, nested/foreign
+ownership and unavailable scheduling refuse the special scope. Fresh-child/path
+checks and rejection of existing image/thread state happen in the process layer;
+refusal falls back to the original scope, never an unguarded service window.
+The scope ends on success and every loader failure before vector/file setup,
+parent refresh, publication or cleanup outside the image loader. Ordinary exec
+replacement, parent mapping changes and all other service windows retain their
+existing sibling exclusion. No deadline, resource limit, unsafe-call allowlist,
+filesystem ownership or rollback/integrity validation is removed.
+
 The opt-in audio/disk/app stress test retains a fixed-size worst-loop record in
 the compositor and emits it every ten seconds and at exit. Its versioned
 `desktop-loop-worst` receipt includes sample/over-limit counts, the original

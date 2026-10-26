@@ -1668,6 +1668,35 @@ static int64_t load_elf_image_checked(const char *path,struct process *process,u
     process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
 }
 
+/* Only process_spawn_exec calls this path: its fresh child has no runnable
+ * thread, and no parent files/vectors/mappings are changed until this scope ends.
+ * Snapshot even the path again here so the service contract is self-contained. */
+static struct process_service_scope process_spawn_image_scope(struct process *parent,
+    struct process *child,const char *path,char *snapshot,uint64_t capacity) {
+    struct process_service_scope scope={0};
+    bool private=parent && child && child!=parent && child->allocated && child->active &&
+        child->parent_pid==parent->pid && !child->startup_ready && !child->entry &&
+        !child->address_space && !child->mapping_count && !child->killed && !child->exiting;
+    if(private)for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+        if(child->user_threads[i].used)private=false;
+    if(!copy_process_path(snapshot,capacity,path)) {if(snapshot && capacity)snapshot[0]=0;private=false;}
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    scope.flags=process_irq_save();
+    if(private)scope.held=scheduler_io_begin_process_image(child);
+    if(!scope.held)scope.held=scheduler_io_begin();
+#else
+    (void)private;
+#endif
+    return scope;
+}
+static int64_t load_spawn_image_checked(struct process *parent,struct process *child,const char *path) {
+    char snapshot[PROCESS_PATH_MAX]={0};
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_spawn_image_scope(parent,child,path,snapshot,sizeof(snapshot));
+    int64_t result=snapshot[0]?load_elf_image_checked_impl(snapshot,child,USER_STACK_TOP,&child->entry):SRV_ERR_NAMETOOLONG;
+    process_service_end(scope);process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
+}
+
 static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
     return load_elf_image_checked(path,process,stack_top,entry_out)==0;
 }
@@ -1898,7 +1927,7 @@ int64_t process_spawn_exec(const char *path,
         return SRV_ERR_NOMEM;
     }
 
-    int64_t error=load_elf_image_checked(path,child,USER_STACK_TOP,&child->entry);
+    int64_t error=load_spawn_image_checked(parent,child,path);
     if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
     if(!error && (signal_flags&SRV_EXEC_INHERIT_FILES)) {
         error=process_inherit_files(child,parent);
