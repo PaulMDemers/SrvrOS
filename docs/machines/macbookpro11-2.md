@@ -11,8 +11,9 @@ Latest physical result: v85 RX gain/baseband prerequisite capture completed;
 LNA0, RSSI+1/+1, derived/current AGC8=16344ef0. Whole proof and recovery checks
 passed. Channel-specific filter/BBP setup is next; radio/connectivity untested.
 No reboot armed. Detailed result follows in the dated journal.
-Candidate v86 (`8af0efef4d2a53c2`) is now installed for guarded channel1 BBP/
-filter setup; local/VM checks passed, native results pending.
+Latest v86 (`8af0efef4d2a53c2`) completed native guarded channel1 BBP/filter
+setup: all21 readbacks and recovery checks passed. No repeat boot needed.
+Next audit post-tune VCO/calibration prerequisites; radio/connectivity untested.
 
 The user considers the core Pro bring-up generally working. Named payloads below
 have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
@@ -7685,3 +7686,24 @@ outside build. Await readiness for cold Wi-Fi cycle; collect matching session
 FIRST on return with the strict v86 collector. Results save and return
 automatically, no photos/commands. Native filter/BBP readback acceptance pending;
 no calibrated-radio/connectivity acceptance.
+
+
+### 2026-10-26 — v86 native channel1 BBP/filter result
+
+Release `8af0efef4d2a53c2` (source `3614ddb2`) completed v86 in
+`session-00065eb63c87b85a-00`. All21 channel1/20MHz filter/BBP writes passed
+fresh-input and independent readback checks:189 ordered operations,168 reads,
+21 writes/verified and42 strict MAC0/COREf000f200/DMA40000050 guard triplets.
+CORE1 bit5 clear preserved input2; all20 selected BBP words matched the fixed
+profile, including AGC8=16344ef0(hex). Same-boot mapped LNA raw/effective0,
+RSSI+1/+1, no clamps and exact21-target inventory passed before writing.
+
+Whole earlier proof, complete526069-byte startup prefix and both completion
+markers passed strict validation. Explicit1MiB capture preserved the full log.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean315files/753clusters/131directories, zero leaks,
+mismatches or errors; unmounted and unarmed. Results durably archived outside
+build. Bounded channel1 BBP/filter setup/readbacks accepted; calibrated RF,
+frequency lock and Wi-Fi connectivity remain untested. No repeat boot needed.
+Next: audit post-tune VCO and calibration prerequisites before MAC enable;
+preserve disabled MAC/DMA and explicit full-prefix capture.
