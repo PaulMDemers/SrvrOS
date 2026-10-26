@@ -309,6 +309,7 @@ struct xhci_wifi_mcu {
     bool gain_mode,gain_active,gain_inventory_active;struct mt76_rx_fields gain_fields;struct mt76_efuse_map_gate gain_gate;unsigned gain_inventory_submitted;struct mt76_gain_inventory gain_inventory;
     bool channel_bbp_mode,channel_bbp_active;unsigned channel_bbp_submitted;struct mt76_channel_bbp channel_bbp;
     bool post_vco_mode,post_vco_active;unsigned post_vco_submitted,post_vco_delays;struct mt76_post_vco post_vco;
+    bool agc_state_mode,agc_state_active;unsigned agc_state_submitted;struct mt76_agc_state agc_state;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
     bool path_mode,path_active;

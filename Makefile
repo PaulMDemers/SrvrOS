@@ -4080,3 +4080,11 @@ test-thread-smoke-harness:
 test-core: test-event-adapters
 test-event-adapters:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py
+
+.PHONY: test-mt76-agc-state
+test-core: test-mt76-agc-state
+test-mt76-agc-state: build/tests/mt76-agc-state-host$(HOST_EXE)
+	build/tests/mt76-agc-state-host$(HOST_EXE)
+build/tests/mt76-agc-state-host$(HOST_EXE): tools/test_mt76_agc_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

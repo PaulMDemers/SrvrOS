@@ -726,4 +726,11 @@ bool mt76_post_vco_delay_admit(const struct mt76_post_vco *);
 bool mt76_post_vco_admit(const struct mt76_post_vco *,unsigned operation);
 size_t mt76_post_vco_packet(const struct mt76_post_vco *,unsigned operation,uint8_t *,size_t capacity);
 enum mt76_mcu_timing_status mt76_post_vco_capture(struct mt76_post_vco *,const struct mt76_rf_wait_io *);
+/* Fixed post-channel gain reads and reference software initialization only. */
+struct mt76_agc_state {bool attempted,complete,init_done;unsigned reads;uint32_t guards[2][3],raw[2];unsigned initial[2],current[2];int low_gain;};
+bool mt76_post_vco_captured_profile_valid(const struct mt76_post_vco *);
+uint32_t mt76_agc_state_address(unsigned operation);
+bool mt76_agc_state_admit(const struct mt76_agc_state *,unsigned operation);
+bool mt76_agc_state_valid(const struct mt76_agc_state *);
+enum mt76_mcu_timing_status mt76_agc_state_capture(struct mt76_agc_state *,const struct mt76_mcu_timing_io *);
 #endif

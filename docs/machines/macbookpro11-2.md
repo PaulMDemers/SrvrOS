@@ -7921,3 +7921,31 @@ prerequisites retained. Touched: MT76 engine/header,native xHCI diagnostic mode,
 boot recipe/directed tests and current unit/Wi-Fi guides. Inherit explicit1MiB
 full-prefix capture and Ubuntu/known-good recovery. Last run collected; no reboot
 armed. Unattended trial prints progress and automatically saves/returns.
+
+
+### 2026-10-26 — v88 fresh AGC capture and software initialization
+
+After exact captured whole v87 proof (including immediateVCO B0 and six delayed
+30 values), explicit `wifi-agc-state` reads MAC/CORE/DMA,AGC8/AGC9,MAC/CORE/DMA:
+eight fixed reads,zero new register writes,two strict0/f000f200/40000050 guard
+triplets. AGC8 must remain16344ef0 for this captured LNA0/channel1 profile.
+AGC9 is freshly observed; either all-ones target refuses. Only after both reads,
+postguards and final authorization validate are bits14:8 copied into both
+initial/current software slots,low_gain=-1 and init_done=true. Before that,
+initialized state stays absent; failure logs explicitly mark unread targets.
+Second software slot does not accept a second physical RF chain. No calibration,
+MAC enable,traffic or power inference. Guest prints a fixed progress line.
+
+Engine tests cover all transfer/cancel/authorization mutations, guard/target
+boundaries,65536 alternate second-word decodes,final-state corruption and no
+replay/partial publication. Native callbacks cover8 positions,243 prerequisite/
+state/profile faults,zero USB on refusal and uncertain-transfer quarantine.
+Independent Linux v7.0 source/order/mask audit and engine ASan/UBSan pass.
+Full image build/core suite,173 staging tests,31 desktop collection tests and
+174 historical Wi-Fi recipes pass. Complete536025-byte fixture fits inherited
+1MiB capture;93 malformed proofs refuse,while five alternative valid AGC9 words
+pass with their actual decoded values. Old post-VCO capture behavior remains
+unchanged; the new prerequisite predicate is exact and separate. Canonical
+upstream host fixes/main `9f18d7d6` merged; no additional production changes from
+that merge. Exact-stage VM/install follows; native gain1/init-state acceptance
+remains pending. Existing IBI9/MAC/power calibration prerequisites remain open.

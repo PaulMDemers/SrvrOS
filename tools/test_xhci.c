@@ -5273,6 +5273,43 @@ static void test_wifi_post_vco_delays(void){
  }
  reset_test();recovery_delay_ok=true;puts("xhci post VCO delays: PASS all six waits,wrong duration/state/order,no replay,timer-failure quarantine");
 }
+
+static void agc_state_fixture(struct xhci_device *d,unsigned op){
+ post_vco_fixture(d,62);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_post_vco *p=&m->post_vco;
+ p->complete=true;p->operations=63;p->reads=54;p->first_clear=1;for(unsigned j=3;j<9;j++)p->words[j][2]=48;
+ m->post_vco_submitted=63;assert(mt76_post_vco_captured_profile_valid(p));m->agc_state_mode=m->agc_state_active=true;m->agc_state_submitted=op;
+ m->agc_state=(struct mt76_agc_state){.attempted=true,.reads=op};
+ if(op>=4)m->agc_state.raw[0]=0x16344ef0;
+ if(op>=5)m->agc_state.raw[1]=0x12345678;
+ for(unsigned j=0;j<2;j++){m->agc_state.guards[j][1]=0xf000f200;m->agc_state.guards[j][2]=0x40000050;}
+ assert(wifi_agc_state_owned(d) && mt76_agc_state_admit(&m->agc_state,op));
+}
+static void test_wifi_agc_state(void){
+ for(unsigned op=0;op<8;op++)for(unsigned fault=0;fault<245;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};struct xhci_device *d=&xhci.devices[0];agc_state_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==244?6:1,0);
+  uint32_t a=mt76_agc_state_address(op),v=0;
+  if(fault<=229)post_vco_fault(m,fault);
+  if(fault==226)m->post_vco.complete=false;
+  if(fault==230)m->post_vco.guards[17][2]^=1;
+  if(fault==231)m->post_vco_submitted++;
+  if(fault==232)m->post_vco.words[8][2]=176;
+  if(fault==233)m->agc_state_mode=false;
+  if(fault==234)m->agc_state_active=false;
+  if(fault==235)m->agc_state_submitted++;
+  if(fault==236)m->agc_state.reads++;
+  if(fault==237)m->agc_state.complete=true;
+  if(fault==238)m->agc_state.init_done=true;
+  if(fault==239)m->agc_state.low_gain=-1;
+  if(fault==240)m->agc_state.initial[0]=78;
+  if(fault==241)m->agc_state.current[1]=1;
+  if(fault==242)a++;
+  if(fault==243)m->post_vco.words[2][2]=48;
+  bool ok=wifi_agc_state_read(d,a,&v);assert(ok==!fault);
+  if(!fault)assert(!wifi_agc_state_read(d,a,&v));else if(fault==244)assert(d->ep0_quarantined && m->failed && !freed);else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_agc_state());puts("xhci AGC state: PASS8 read positions,243 prerequisite/state/profile faults,no USB on refusal,no replay,quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6627,6 +6664,7 @@ int main(int argc, char **argv) {
     test_wifi_channel_bbp();
     test_wifi_post_vco();
     test_wifi_post_vco_delays();
+    test_wifi_agc_state();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

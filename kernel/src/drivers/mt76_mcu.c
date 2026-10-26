@@ -2745,3 +2745,42 @@ enum mt76_mcu_timing_status mt76_post_vco_capture(struct mt76_post_vco *s,const 
     if(s->complete || !post_vco_state_valid(s,63))return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+
+bool mt76_post_vco_captured_profile_valid(const struct mt76_post_vco *s){
+    if(!s || !s->complete || !post_vco_state_valid(s,63) || s->first_clear!=1 || s->words[2][2]!=0xb0)return false;
+    for(unsigned i=3;i<9;i++)if(s->words[i][2]!=0x30)return false;
+    return true;
+}
+uint32_t mt76_agc_state_address(unsigned op){return op<3?mt76_rf_probe_read_address(op):op<5?0x2320+4*(op-3):op<8?mt76_rf_probe_read_address(op-5):UINT32_MAX;}
+static bool agc_state_prefix_valid(const struct mt76_agc_state *s,unsigned op){
+    if(!s || !s->attempted || s->reads!=op || op>8)return false;
+    for(unsigned i=0;i<op;i++)if(i<3 || i>=5){unsigned edge=i>=5,j=edge?i-5:i;if(!rf_central_guard_valid(j,s->guards[edge][j]))return false;}
+    if(op>=4 && s->raw[0]!=0x16344ef0)return false;
+    if(op>=5 && s->raw[1]==UINT32_MAX)return false;
+    return true;
+}
+static bool agc_state_pending(const struct mt76_agc_state *s,unsigned op){
+    return agc_state_prefix_valid(s,op) && !s->complete && !s->init_done && !s->low_gain && !s->initial[0] && !s->initial[1] && !s->current[0] && !s->current[1];
+}
+bool mt76_agc_state_admit(const struct mt76_agc_state *s,unsigned op){return op<8 && agc_state_pending(s,op);}
+bool mt76_agc_state_valid(const struct mt76_agc_state *s){
+    if(!agc_state_prefix_valid(s,8) || !s->complete || !s->init_done || s->low_gain!=-1)return false;
+    for(unsigned i=0;i<2;i++)if(s->initial[i]!=((s->raw[i]>>8)&127) || s->current[i]!=s->initial[i])return false;
+    return true;
+}
+enum mt76_mcu_timing_status mt76_agc_state_capture(struct mt76_agc_state *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_agc_state){.attempted=true};
+    for(unsigned op=0;op<8;op++){
+        if(!mt76_agc_state_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!mt76_agc_state_admit(s,op))return MT76_TIMING_STATE;
+        uint32_t *v=op<3?&s->guards[0][op]:op>=5?&s->guards[1][op-5]:&s->raw[op-3];
+        if(!io->read(io->context,mt76_agc_state_address(op),v))return MT76_TIMING_IO;
+        s->reads++;if(!agc_state_pending(s,op+1))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!agc_state_pending(s,8))return MT76_TIMING_STATE;
+    for(unsigned i=0;i<2;i++)s->current[i]=s->initial[i]=(s->raw[i]>>8)&127;
+    s->low_gain=-1;s->init_done=s->complete=true;return MT76_TIMING_OK;
+}
