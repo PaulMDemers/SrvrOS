@@ -8511,3 +8511,54 @@ The original strict helper remains unchanged and refuses saved IBI9 all-ones;
 this experiment does not silently relax that contract. RF0:6 semantics remain
 unresolved. Calibration, controlled reception, scanning, association/security,
 Wi-Fi IP traffic and UI remain untested.
+
+
+### 2026-10-26 — initial power-on calibration transaction groundwork
+
+Main `9465c68f` was merged, preserving the accepted v91 source as historical
+hardware evidence. PR192 adds private child-image ownership; PR193/195 carry
+Air evidence. Open PR194 owns window/dock behavior and PR182 filesystem work;
+no overlapping MT76 implementation was found.
+
+Pinned Linux v7.0 `mt76x0u_start` starts MAC before calling power-on calibration.
+`mt76x0_phy_calibrate(true)` issues R(0), VCO(channel), waits10–20us, then
+conditionally performs TSSI DC before the TX_ALC0/IBI9 FULL/LC transaction.
+TSSI is selected by mapped NIC_CONF1 bit13, not by a guessed chipset capability.
+This captured board has NIC0=`fd11`, NIC1=`1004`; bit13 is clear. Existing fresh
+mapped antenna/trim captures already enforce these exact words. Vendor reference
+also orders initial R/VCO before the saved-word sequence, though its detailed
+calibration API differs; the new helper follows pinned Linux ordering.
+
+`mt76_poweron_calibration_run` is separate from both existing helpers and has
+no native caller. It requires captured ASIC/MAC, valid mapped board capture and
+fixed channel1/20MHz. Its callback must additionally prove current ownership,
+firmware/channel/power setup and same-lifetime field freshness before every
+forward operation. Copying a valid-looking struct does not establish freshness.
+TSSI-enabled/unknown profiles refuse before I/O. The sequence is R(0), VCO(1),
+10us minimum wait, active-MAC guards, fresh TX_ALC0=`2f2f1b1b`, zero/independent
+readback,500us minimum wait, fresh raw IBI9=`ffffffff`, temporary `ffffff7e`
+with mandatory independent matching readback, FULL(600), LC(0),15ms minimum
+wait, reverse IBI9/TX_ALC0 saved-word writes/independent readbacks, active-MAC
+guards, RXDCOC(1), final guards/authorization. The all-ones IBI saved value is
+an explicit captured-profile condition supported by v91 write-effect evidence;
+other register all-ones values and mismatched temporary readbacks refuse.
+Original strict non-power-on admission is unchanged.
+
+A reported failed temporary write is marked as possibly applied before calling
+transport. Both touched saved words get independent cleanup attempts even after
+forward cancellation, board-context loss or restoration failure. No RXDCOC is
+issued after incomplete restoration. Successful calibration commands cannot be
+undone by saved-word restoration: the caller must always drain/disable MAC and
+retire RX, retaining uncertain DMA and refusing retry after transport failure.
+Semantic commands are not wire IDs; a future native adapter must validate exact
+framing, sequence, replies and deadlines. This block does not introduce a new
+boot profile, install a payload or enable calibration on hardware.
+
+Host fault-injection covers each of28 callbacks,27 authorization boundaries,
+27 board-context losses, every read mismatch/all-ones case, read-only IBI,
+both reverse restoration failures, reentry/no replay and invalid identities,
+board fields, callbacks and channel/width. Successful model counts are16 reads,
+two forward writes,five commands,three waits and two cleanup callbacks; cleanup
+callbacks must themselves perform a write and independent read on hardware.
+Native RF0:6 semantics and operational power setup remain unresolved; this is
+transaction groundwork, not radio calibration or packet reception acceptance.

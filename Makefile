@@ -4149,3 +4149,11 @@ test-mt76-calibration-probe: build/tests/mt76-calibration-probe-host$(HOST_EXE)
 build/tests/mt76-calibration-probe-host$(HOST_EXE): tools/test_mt76_calibration_probe.c kernel/src/drivers/mt76_calibration.c kernel/include/srvros/mt76_calibration.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
+
+.PHONY: test-mt76-poweron-calibration
+test-core: test-mt76-poweron-calibration
+test-mt76-poweron-calibration: build/tests/mt76-poweron-calibration-host$(HOST_EXE)
+	./$<
+build/tests/mt76-poweron-calibration-host$(HOST_EXE): tools/test_mt76_poweron_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c kernel/include/srvros/mt76_poweron_calibration.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include $< kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c -Wl,--gc-sections -o $@
