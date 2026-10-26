@@ -102,6 +102,7 @@ static bool initialized;
 static bool switching;
 static bool io_services_enabled;
 static uint64_t io_owner, io_depth, io_service_at;
+static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
 static void yield_to(uint64_t preferred);
@@ -261,7 +262,7 @@ static bool io_thread_allowed(uint64_t index) {
     struct thread *thread = thread_at(index);
     bool allowed=io_depth == 0 || index == io_owner ||
         (thread->user_context != NULL && thread->io_user_safe &&
-         thread->user_context != thread_at(io_owner)->user_context) ||
+         thread->user_context != (io_private_image?io_private_image:thread_at(io_owner)->user_context)) ||
         (thread->user_context == NULL && thread->io_eligible != NULL &&
          thread->io_eligible(thread->arg));
     /* Fresh process threads and post-exit kernel continuations have no syscall
@@ -294,13 +295,29 @@ void scheduler_io_request_turn(void) {
 bool scheduler_io_begin(void) {
     if (!initialized || !io_services_enabled || switching) return false;
     if (io_depth != 0 && io_owner != current_thread) return false;
-    if (io_depth++ == 0) { io_owner = current_thread; io_service_at=timer_monotonic_us(); latency_owner_begin(); }
+    if (io_depth++ == 0) {
+        io_owner = current_thread;io_private_image=NULL;
+        io_service_at=timer_monotonic_us();latency_owner_begin();
+    }
     return true;
+}
+
+bool scheduler_io_begin_process_image(void *image) {
+    if(!initialized || !io_services_enabled || switching || io_depth || !image ||
+       !thread_at(current_thread)->user_context || image==thread_at(current_thread)->user_context ||
+       thread_at(current_thread)->state!=THREAD_RUNNING ||
+       vmm_current_address_space()!=thread_address_space(thread_at(current_thread)))return false;
+    for(uint64_t i=0;i<thread_capacity;i++) {
+        struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==image)return false;
+    }
+    if(!scheduler_io_begin())return false;
+    io_private_image=image;return true;
 }
 
 void scheduler_io_end(void) {
     if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
-        latency_owner_end(); scheduler_wake_all(&io_waiters);
+        io_private_image=NULL;latency_owner_end(); scheduler_wake_all(&io_waiters);
     }
 }
 
@@ -427,7 +444,7 @@ void scheduler_init(void) {
         thread_at(i)->state = THREAD_UNUSED;
         thread_at(i)->io_gate_waiting=false;
     }
-    io_gate_pending=0;
+    io_gate_pending=0;io_private_image=NULL;
 
     current_thread = 0;
     thread_at(0)->state = THREAD_RUNNING;
