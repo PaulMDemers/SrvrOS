@@ -3097,3 +3097,85 @@ window lifecycle and accepted-job retirement; inspect its current implementation
 before overlapping userspace changes. PR182 (`352f9b0d`) owns exFAT import
 validation and PR19 (`3e16ff6a`) USB Wi-Fi. None was included in this physical
 payload. This closeout changes only this unit's evidence record.
+
+### Worker pipe admission — active scope (2026-10-26)
+
+Proceeding from main `9f18d7d6` after collecting the failed integrated retest.
+Scope is the kernel nonblocking pipe/PTY admission boundary, its directed syscall
+and scheduler regressions, and this unit's unchanged automatic audio/disk/app
+trial. Both request writes and reply reads currently return AGAIN during another
+storage owner's turn without requesting the quiescent admission already used by
+nonblocking reaps. Test and repair that missing request while preserving immediate
+deferral, user service eligibility, descriptor cleanup safety and coalesced
+scheduler ownership. This is a candidate mechanism for the observed close delay;
+native acceptance remains pending.
+
+PR181 (`dafd5bed`) owns shared Text/Files window and accepted-job lifecycle;
+avoid competing userspace changes. PR182 (`352f9b0d`) owns exFAT import validation
+and PR19 (`7961d09e`) Wi-Fi. Neither requires changes to this kernel admission
+scope. Keep ten-second cycles, five-second clients, 500 ms loop bound, continuous
+verified I/O, PCM checks, firmware gates and accepted-operation draining intact.
+Next checkpoint: failing-before/passing-after host tests, matched build and VM
+stress/storage checks, exact-stage rehearsal, merged candidate and authorized
+automated native trial with saved evidence and Ubuntu recovery.
+
+Implemented `49f51e9b` requests the existing quiescent turn from both nonblocking
+pipe/PTY deferrals. The new directed syscall test fails before the fix and passes
+after for read/write/duplex/PTY retries, with blocking, invalid and nonpipe
+exclusions. Scheduler coverage retains one coalesced request across 64 owned-I/O
+service turns and consumes it only at quiescence; cleanup/owner gates remain.
+The current admission guide records this shared contract. PR181 edits different
+sections of that guide; no userspace implementation is changed here.
+
+Matched normal/native-battery/VM-kernel build and full core suite pass, as do
+thread, general smoke (482 CLI commands, shell edits, syscall ABI, UEFI keyboard
+and display), and storage-service cancellation/timeout/quarantine regressions.
+The populated-Home 400-write-IOPS VM completes 19 timing-validated app cycles,
+117 verified bursts / 30,670,848 bytes, and 218 observed audio/write overlap
+windows with zero app errors or PCM underruns. Maximum ready/close/loop times
+are 1,291,587 / 1,860,049 / 402,419 us. All 66 prior fixture files survive and
+allocation is clean. Files' maximum Close-to-return is 1,753,005 us versus
+6,373,924 us in the prior VM run; this is a run comparison, not native acceptance
+or proof that all sources of delay are fixed.
+
+Release `09f42ae5a75b3fef` freezes clean compiled source `49f51e9b`. Exact-stage
+Q35 rehearsal passes expected native-profile refusal, saved logs, clean unmount
+and automatic return. This follow-up changes documentation only. Native run
+`6d1b066474954f5d` repeats the unchanged thirty-minute automated workload with
+374 baseline files / 1,044 clusters, continuous audio/verified disk work and
+automatic Text/Files/System cycles. Ubuntu remains default; console and accepted
+reopen recovery payloads remain verified and independent of build storage.
+
+Before installation, main advanced to `0858e8e6` with PR181's shared Text/Files
+window lifecycle and PR185's bounded UART progress matcher. Merged that actual
+baseline at `85fdf6c8`; the earlier candidate remains separately preserved and
+was not installed. Extend integration scope only to the stress timing validator:
+explicitly select the new Files mapped-model/disposal lifecycle, require its
+close acknowledgement and complete phases, and retain the old validator mode
+for historical captures. Do not infer a layout from absent phases or relax the
+timing limits. Rebuild and repeat the combined stress and affected window/close
+VMs before staging the integrated native payload.
+
+Integrated clean candidate `c275c098` passes matched build/core and the fresh
+populated-Home 400-write-IOPS stress VM: 19 validated cycles, 116 verified bursts /
+30,408,704 bytes, 223 observed audio/write overlap windows, zero app errors and
+PCM underruns, preserved prior files and clean allocation. Maximum ready/close/
+loop times are 1,100,329 / 2,289,616 / 149,988 us. New timing-layout tests require
+complete mapped-model disposal/acknowledgement and reject missing phases or a
+wrong layout while retaining historical validation.
+
+Fresh actual-consumer VMs also pass twenty same-process Files windows with
+independent history, owned dialog cancel/collision, an accepted 8 MiB copy retained
+through close, concurrent Text save, exact contents and complete cleanup;
+ordinary shutdown cancellation, failed-save retention and save/discard decisions;
+and real Terminal shell/PTY input, paste, backspace, independent sessions, Ctrl-C,
+close cancellation and persisted output. Earlier thread/general/storage checks
+above apply to `49f51e9b`; the kernel admission fix is identical in the integrated
+candidate. No new production change was needed beyond that fix and merged main.
+
+Final release `52eb28003f5be609` freezes `c275c098`, superseding uninstalled
+`09f42ae5a75b3fef`. Its exact EFI rehearsal passes native-profile refusal on Q35,
+saved logs, unmount and automatic return. Run `6d1b066474954f5d` now targets this
+integrated release; baseline files, workload and all acceptance limits remain
+unchanged. Final documentation is separate from the compiled source. Physical
+acceptance requires the complete thirty-minute receipt after Ubuntu returns.

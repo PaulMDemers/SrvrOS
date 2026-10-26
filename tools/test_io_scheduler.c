@@ -151,7 +151,7 @@ static void test_ready_gate_admission(void) {
     assert(threads[6].io_gate_waiting && !threads[6].user_context);
     scheduler_io_end();scheduler_io_handoff();assert(handoff_admissions==2 && !io_gate_pending);
     handoff_test=false;handoff_admissions=0;
-    /* Nonblocking reaping stays runnable during owned I/O, but its request
+    /* Nonblocking pipe retries/reaping stay runnable during owned I/O, but their request
      * survives those service turns and is consumed only at quiescence. */
     threads[6].user_context=(void*)42;threads[6].io_user_safe=true;
     assert(scheduler_io_begin());
@@ -161,7 +161,8 @@ static void test_ready_gate_admission(void) {
     assert(io_gate_pending==1 && threads[6].state==THREAD_RUNNING && !threads[6].blocked_queue);
     assert(io_thread_allowed(6)); /* No service eligibility was narrowed or widened. */
     current_thread=3;threads[3].state=THREAD_RUNNING;threads[6].state=THREAD_READY;
-    retry_turn_test=true;yield_to(6);assert(io_gate_pending==1);
+    retry_turn_test=true;
+    for(unsigned n=0;n<64;n++) { yield_to(6);assert(io_gate_pending==1); }
     scheduler_io_end();scheduler_io_handoff();assert(!io_gate_pending);
     scheduler_io_request_turn();assert(!io_gate_pending); /* No owner, no request. */
     retry_turn_test=false;
