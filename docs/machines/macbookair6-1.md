@@ -2870,3 +2870,43 @@ Q35 rehearsal passes expected native-profile refusal and automatic save/unmount/
 return, not native battery or endurance acceptance. PR170's final follow-up is
 documentation only. Next is the authorized automatic thirty-minute native trial
 with unchanged workload/limits, listening only and automatic return/collection.
+
+### Timing trial: three native attempts — 2026-10-25 (failed/incomplete)
+
+Release `282c3f6a06afd9eb` / source `a54e1717` (PR170) produced three matching
+sessions. The user reports interrupting the first boot, unplugging AC after a
+missing battery percentage on the second, and an automatic restart after about
+nine to ten minutes on the third. The single-session collector refused the three
+matches; preserve its original failure and reconcile all three separately.
+
+- `session-00065eb30ecc535a-00`: boot log only, consistent with the reported
+  interruption. No completion or runtime acceptance.
+- `session-00065eb30ffd922b-00`: native battery preflight refused SSDT fingerprint
+  `faa7c4fc101b8bed`, absent from the exact captured set. No PCM/app cycles started;
+  the failed session drained and saved its exit log at 18.28 seconds. This explains
+  the missing battery indicator and is consistent with automatic failure return,
+  not evidence that AC unplug caused a crash. Preserve the firmware gate; the
+  differing table needs a separate read-only capture/comparison before any change.
+- `session-00065eb312133238-00`: 139 app cycles completed before Files cycle 139
+  exceeded the unchanged whole-cycle deadline at 10,000,118 us during close.
+  Exit log saved at 545.22 seconds uptime. No final workload receipt, so the
+  thirty-minute endurance test failed. The loop maximum was 346,152 us and PCM
+  recorded zero underruns. Battery epoch 1 retired with 3,151 queries, 18
+  notifications and zero heap/errors/denied; 220 SCI deliveries were handled.
+
+The final Files cycle reached ready in 5,692,308 us, but main-entry to first
+publication took only 210,971 us. Runtime/pool/window/role initialization took
+26/48/23/25 us. Most startup delay lies outside those initializers; inspect process
+launch/first scheduling before assuming widget work is responsible. After close
+delivery, worker-pool retirement took 4,069,936 us and crossed the cycle deadline;
+history free took 13 us and window close 985 us. Files exited zero during teardown.
+Next focus is process startup and file-worker retirement under disk contention,
+with all existing deadlines/integrity checks retained. PR172's shared application
+dispatch work must be inspected before overlapping userspace changes.
+
+Reconciled all three sessions and available timing tails without promoting any
+attempt to pass. All 355 prior USB files remain unchanged except expected workspace
+metadata. Offline fsck/allocation pass: 364 files, 1,032 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu recovered, next_entry is empty and the
+collector is disabled. Evidence/diagnosis are retained outside build; no new
+boot is armed. Integration baseline for this return record is `eda8bfbc`.
