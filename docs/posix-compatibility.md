@@ -22,9 +22,10 @@ overflow, followed by PR175's fixes and focused host/guest regressions. Later
 passes correct self-stack inspection, early detach, thread-name storage and
 initial-thread exit with surviving workers, followed by initial-thread join and
 detach ownership and valid negative absolute condition deadlines. Historical
-failure receipts remain separate from corrected contracts. The latest guest
-audit confirms null-output `clock_getres` probes incorrectly fail for realtime
-and monotonic clocks.
+failure receipts remain separate from corrected contracts. Null-output
+`clock_getres` probes are also corrected with source/error and fallback coverage.
+The latest source/host audit confirms `times()` fails to advance its elapsed
+return when the high-resolution reference is unavailable.
 
 ## Implementation progress after the audit
 

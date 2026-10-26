@@ -176,3 +176,13 @@ for realtime/monotonic clocks, although non-null outputs and CPU-clock probes
 succeed. The separate `clock-resolution-audit` guest mode records this failure;
 current guides state the output-buffer workaround. See the synchronization
 report for evidence and the next bounded correction.
+
+
+Null-output `clock_getres` is now corrected without bypassing clock/source
+validation or changing resolution values. The explicit failed guest audit at
+`86498be3` is replaced by positive host/guest regressions. A new `test-core`
+timing target injects source failures and both resolution modes. Continued
+source/host audit confirms that `times()` returns a frozen elapsed value without
+the high-resolution reference, although kernel ticks and the public monotonic
+fallback advance. This separate known-failure mode remains excluded from the
+positive suite; the synchronization report records its evidence and limits.

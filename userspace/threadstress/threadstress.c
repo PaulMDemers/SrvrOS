@@ -623,7 +623,7 @@ int posix_path_limits_test(void);
 int posix_pthread_contract_test(void);
 int posix_sync_contract_test(void);
 int posix_absolute_deadline_test(void);
-int posix_clock_resolution_audit(void);
+int posix_clock_resolution_test(void);
 int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
 int posix_thread_name_test(void);
@@ -649,7 +649,6 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
-    if (!strcmp(only, "clock-resolution-audit")) return posix_clock_resolution_audit();
 
 #define RUN_TEST(name, fn) \
     do { \
@@ -692,6 +691,7 @@ int main(int argc, char **argv) {
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("sync-contracts", posix_sync_contract_test);
     RUN_TEST("absolute-deadlines", posix_absolute_deadline_test);
+    RUN_TEST("clock-resolution", posix_clock_resolution_test);
     RUN_TEST("stack-inspection", posix_stack_inspection_test);
     RUN_TEST("self-detach", posix_self_detach_test);
     RUN_TEST("thread-names", posix_thread_name_test);

@@ -118,9 +118,11 @@ workers finish before normal process cleanup, with matched kernel/libc builds.
 Initial-thread join/detach now retains return values and exclusive collection
 ownership without releasing process teardown resources. Negative absolute
 condition deadlines now follow normal timeout and mutex reacquisition semantics;
-broader semaphore semantics remain outside the supported profile. Continued
-audit confirms that realtime/monotonic `clock_getres` probes incorrectly reject
-a null output pointer; passing a real output buffer succeeds.
+broader semaphore semantics remain outside the supported profile. Null-output
+`clock_getres` probes now validate supported clocks and source availability
+without requiring storage. Continued source/host audit confirms that `times()`
+returns a frozen elapsed value when the high-resolution reference is unavailable;
+monotonic `clock_gettime` retains a working tick fallback.
 
 ## Measured checkpoints and current acceptance
 

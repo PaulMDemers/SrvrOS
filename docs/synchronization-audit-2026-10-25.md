@@ -15,8 +15,9 @@ ownership and a last-thread libc cleanup handoff. The eighth finding,
 initial-thread join, is corrected with retained return values and exclusive
 join/detach ownership. The ninth finding, negative absolute condition deadlines,
 is corrected by accepting signed seconds and using the existing timeout path.
-The continued timing API audit confirms incorrect rejection of null-output
-clock-resolution queries; see below.
+The tenth finding, null-output clock resolution, is corrected while preserving
+clock/source validation. Continued source/host audit confirms a separate elapsed
+`times()` fallback defect; see below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -670,7 +671,9 @@ with the evidence above. No full Linux/core, general SMP or native hardware
 acceptance is claimed.
 
 
-## Continued audit — P2: clock_getres rejects an optional output pointer
+## Historical P2 finding: clock_getres rejects an optional output pointer
+
+The following reproduction describes `86498be3`, before the correction below.
 
 For `CLOCK_REALTIME` and `CLOCK_MONOTONIC`, `clock_getres(clock, NULL)` returns
 `-1`/`EINVAL`, although the same clocks succeed with a non-null output pointer.
@@ -693,4 +696,66 @@ fails with `EINVAL`, as expected. This audit is excluded from `all`; the current
 profile documents passing a real output buffer as the workaround. The next
 bounded correction is optional-output validation while retaining unsupported
 clock and unavailable-source errors. No fix to `clock_getres` is included here.
+Abnormal once-initializer exit remains unconfirmed.
+
+
+## Clock resolution optional output correction
+
+`clock_getres` now validates the realtime/monotonic clock ID independently of
+its output pointer and writes only when a buffer is provided. Realtime source
+availability is still checked for both forms; the existing CPU branch still
+checks usage availability and propagates errors. Unknown IDs remain `EINVAL`.
+Existing 1 us reference and 10 ms tick-fallback values are unchanged. No public
+layout, syscall, kernel or device-profile change is introduced.
+
+The new `tools/test_time_contracts.py` target compiles the actual timing source
+with prefixed symbols and modeled kernel services. Positive coverage tests all
+four clock IDs with/without output in both resolution modes, invalid IDs,
+unchanged output on errors, preserved errno on success, unavailable realtime,
+CPU `EIO`/`ESRCH`, and monotonic fallback without realtime. It is in `test-core`.
+Guest `--test clock-resolution` replaces the old audit and is included in `all`:
+all four clocks accept optional output, stored resolutions are positive and
+normalized, and invalid IDs fail without modifying the caller's buffer.
+
+Three isolated host negative controls fail with exit 1: the original null
+rejection, unconditional success for null output, and skipping realtime source
+validation for null output. They compile source copies without mutating the
+checkout. Evidence is retained in ignored `build/review/clock-resolution/`.
+
+Final ARM64 macOS/x86_64 QEMU TCG validation passes: matched build, host timing
+and synchronization targets, final timing ASan/UBSan, targeted guest resolution
+group, complete thread suite and full libuv suite. Docs check 641 local links
+with zero errors; whitespace checks pass. Manifests and source/log hashes are
+retained with the evidence above. No full Linux/core, general SMP or native
+hardware acceptance is claimed.
+
+## Continued audit — P2: times elapsed return freezes without reference clock
+
+`times()` in `posix_time.c` divides `srv_monotonic_us()` by 10000 without checking
+for source unavailability. The real kernel `SYS_MONOTONIC_US` returns `-1` when
+`timer_reference_ready()` is false, while `SYS_TICKS` continues to provide the
+100 Hz tick count. Signed division turns `-1 / 10000` into zero, so successive
+successful `times()` calls report no elapsed time. The CPU accounting fields
+are a separate output and are not implicated by this reproduction.
+
+The elapsed-return contract is described in the [GNU libc manual, Processor
+Time Inquiry](https://www.gnu.org/s/libc/manual/pdf/libc.pdf): clock ticks since
+a fixed past origin. Callers measuring durations with return-value differences
+will observe a frozen interval in this fallback configuration.
+
+```sh
+python3 tools/test_time_contracts.py --audit-times-fallback \
+  --output build/review/clock-resolution/times-fallback-audit
+# time-contracts: times fallback start=0 end=0 delta=0 expected=50
+# Exit 1; excluded from the default positive target.
+```
+
+The host probe advances modeled ticks from 123 to 173 (500 ms). The real libc
+`clock_gettime(CLOCK_MONOTONIC)` advances by 500 ms using those ticks, and a
+reference-enabled `times()` control advances by 50 ticks, but the fallback
+`times()` delta is zero. This confirms the source-level path with modeled
+services; the default reference-enabled VM and native hardware have not been
+used to reproduce this configuration. Use monotonic `clock_gettime` for elapsed
+intervals until corrected. The next bounded work is `times()` source selection
+and fallback/error coverage. No `times()` implementation change is included.
 Abnormal once-initializer exit remains unconfirmed.

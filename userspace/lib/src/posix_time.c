@@ -73,13 +73,16 @@ int clock_getres(int clock_id, struct timespec *tp) {
         if(tp) { tp->tv_sec=0;tp->tv_nsec=(long)usage.resolution_us*1000; }
         return 0;
     }
-    if (tp == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
+    if (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC) {
         errno = EINVAL;
         return -1;
     }
     if (clock_id == CLOCK_REALTIME && srv_realtime_us() < 0) { errno = EIO; return -1; }
-    tp->tv_sec = 0;
-    tp->tv_nsec = srv_monotonic_us() >= 0 ? 1000 : 10000000;
+    /* The output is optional, but clock/source validation still applies. */
+    if (tp) {
+        tp->tv_sec = 0;
+        tp->tv_nsec = srv_monotonic_us() >= 0 ? 1000 : 10000000;
+    }
     return 0;
 }
 

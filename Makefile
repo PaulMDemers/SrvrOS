@@ -3672,6 +3672,11 @@ build/tests/graphics-service-host$(HOST_EXE): tools/test_graphics_service.c kern
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
 test-core: test-graphics-service
 
+.PHONY: test-time-contracts
+test-core: test-time-contracts
+test-time-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_time_contracts.py
+
 .PHONY: test-sync-contracts
 test-core: test-sync-contracts
 test-sync-contracts:

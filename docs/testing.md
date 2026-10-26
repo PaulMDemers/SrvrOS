@@ -52,10 +52,22 @@ shortcut that skips the required mutex transition. Guest `--test
 absolute-deadlines`, included in `all`, covers 15 expired and six invalid cases
 across static-default, explicit realtime and monotonic conditions, with mutex
 ownership and errno checks. The existing future-deadline/wake/signal cases remain.
-A separate `--test clock-resolution-audit` examines null-output clock resolution
-queries: stored outputs pass, but null outputs return `EINVAL` for realtime and
-monotonic clocks. It currently fails with guest status 1/harness exit 3 and is
-excluded from the positive `all` suite.
+The former `--test clock-resolution-audit` failure is historical at `86498be3`.
+Positive `--test clock-resolution`, included in `all`, now tests optional output
+for all four clocks, nonzero normalized resolutions, errno preservation and
+invalid-clock errors with unchanged output. `make test-time-contracts` (also in
+`test-core`, or `sh tools/macos/build.sh test-time-contracts` on ARM64 macOS)
+compiles the real `posix_time.c` with prefixed symbols and modeled OS services.
+It injects realtime/CPU source errors, tests reference/tick fallback resolution
+and checks invalid clocks with and without output. ASan/UBSan can be enabled
+through `CC`; receipts are written under `build/review/time-regression/`.
+
+The separate `python3 tools/test_time_contracts.py --audit-times-fallback
+--output build/review/times-fallback-audit` currently fails with exit 1: advancing
+modeled ticks by 50 leaves the elapsed `times()` return at zero. High-resolution
+`times()` and fallback `clock_gettime` controls advance correctly. This explicit
+audit is excluded from default positive checks; the default VM does not exercise
+the missing-reference configuration.
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

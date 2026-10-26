@@ -124,11 +124,18 @@ This validation correction adds no layout or syscall change. Host tests include
 negative future values with modeled clocks; guest tests cover expired negative
 values with the actual realtime/monotonic clocks.
 
-The current `clock_getres` implementation requires a non-null output buffer for
-`CLOCK_REALTIME` and `CLOCK_MONOTONIC`; null-output probes incorrectly return
-`EINVAL`. Process/thread CPU clock probes accept null output. Pass a real
-`struct timespec` for realtime/monotonic resolution queries until this separate
-confirmed defect is corrected.
+`clock_getres` accepts an optional output pointer for realtime, monotonic and
+process/thread CPU clocks. Null output still validates the clock and required
+source: unknown clocks return `EINVAL`, unavailable realtime returns `EIO`, and
+CPU usage errors propagate. Non-null output retains the existing 1 us reference
+or 10 ms tick-fallback resolution. This correction changes no layout or syscall.
+
+A separate confirmed fallback defect remains in `times()`: its elapsed-time
+return stays zero when the high-resolution reference is unavailable, even as
+kernel ticks advance. CPU accounting fields are separate from this finding.
+Use `clock_gettime(CLOCK_MONOTONIC, ...)` for elapsed intervals; its tick fallback
+is covered by the host audit. This failure is modeled and source-confirmed, not
+reproduced on a native machine or in the default reference-enabled VM.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing

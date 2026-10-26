@@ -315,3 +315,35 @@ and harness exit 3 and is excluded from `all`. Current guides document a real
 output buffer as the workaround. Optional-output validation is the next bounded
 correction. Once-initializer abnormal exit remains unconfirmed. All disposable
 VMs have stopped; no physical boot is armed.
+
+## Clock resolution optional output correction — active scope
+
+The user authorized null-output clock resolution, regression tests, docs/PR
+updates and continued audit. Base is `86498be3`; fetched main remains `fa5a6cc1`
+and PR19 remains `b68df8cd` with separate Wi-Fi scope. This block owns libc
+`clock_getres` validation and focused host/guest timing tests. Preserve unknown
+clock errors, realtime/CPU source failures and existing resolution values. The
+next checkpoint is modeled source/fallback tests, matched build and sequential
+thread/libuv VM suites. No physical boot is armed.
+
+The optional-output correction is complete. Realtime/monotonic resolution
+queries accept null output while retaining unknown-clock and source errors;
+CPU queries and resolution values are unchanged. No layout/syscall change.
+
+Matched build, host timing/synchronization targets, final timing ASan/UBSan,
+targeted clock-resolution guest group, complete thread suite and full libuv
+suite pass. Three source-copy negative controls fail with exit 1 (original
+rejection, unconditional null success, skipped realtime validation). Docs check
+641 local links with zero errors; whitespace checks pass. Evidence, source
+hashes and manifests are retained in `build/review/clock-resolution/`. No full
+Linux/core, general SMP or native acceptance is claimed.
+
+Continued source/host audit confirms a `times()` fallback defect: with the
+high-resolution reference unavailable, 50 advancing modeled ticks produce a
+zero elapsed return delta. Reference-enabled `times()` and fallback monotonic
+`clock_gettime` controls pass. The explicit `--audit-times-fallback` fails with
+exit 1 and is excluded from default positive checks. This configuration has
+not been reproduced in the default VM or on native hardware. Current guides
+state the monotonic-clock workaround. The next bounded correction is elapsed
+source selection/fallback. Once-initializer abnormal exit remains unconfirmed.
+Disposable VMs stopped; no physical boot is armed.
