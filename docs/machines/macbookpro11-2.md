@@ -22,6 +22,19 @@ packet reception. Scanning,association,security,Wi-Fi IP traffic and UI remain
 pending. v88 remains retained as an accepted fallback.
 
 
+Active block (2026-10-26): consume actual main `ee5468f6` (PR186–189,
+Air6,1 desktop timing/evidence; PR190 continues timing attribution and PR182
+owns filesystem imports). No MT76 overlap found. Build an allocation-free,
+callback-driven FULL/LC/RXDCOC transaction for the fixed US channel1/20MHz
+profile,with fresh TX_ALC0/IBI9 capture,exact temporary writes,ordered waits,
+verified restoration and cleanup after cancellation/failure. Touched: new MT76
+transaction header/source,host tests/Makefile and unit/Wi-Fi docs. No native
+caller,MAC enable,calibration command or boot recipe change in this block.
+Dependencies: later native MAC/RX ownership and fresh board/power/TSSI proof;
+current IBI9/RF0:6 observations do not authorize calibration. Checkpoint is
+reviewable host/sanitizer/build/VM evidence before physical integration.
+
+
 Current development block (2026-10-26; local validation complete): consume actual main `0858e8e6` (PR181/185
 application window/progress fixes; both Makefile test families preserved).
 PR184 owns worker admission and PR182 filesystem imports; neither overlaps
