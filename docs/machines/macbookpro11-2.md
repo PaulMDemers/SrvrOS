@@ -235,6 +235,18 @@ scan or traffic. Fetched main `1eb60b8f` adds Air process admission; PR172
 owns desktop runtime and175 Apple Silicon setup/synchronization. No MT76
 scope overlap; Pro PR19 continues this work on integration base `d5bc4b3`.
 
+
+Next bounded scope v85: capture mapped logical40 RX LNA/RSSI fields and
+CORE1 plus20 fixed channel-BBP targets after exact v84 proof. Decode pinned
+reference gain arithmetic for observation only; no BBP/RF/MAC data writes.
+One mode-zero EFUSE read-select command is required; no programming mode.
+Touched: fixed EFUSE profile/capture, MT76 read-only inventory, gated native
+mode, boot recipe/tests and unit/current guide. Dependencies: whole post-tune
+proof and512KiB complete prefix; next gain writes wait for native fields.
+Fetched main `aa931093` merges shared Text/Preview runtime; no MT76 overlap.
+Open PR175 owns Apple Silicon synchronization; Pro PR19 continues this scope.
+Retain integration base `d5bc4b3` during this bounded trial.
+
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
 source, dependencies and evidence; observations are not radio acceptance.
