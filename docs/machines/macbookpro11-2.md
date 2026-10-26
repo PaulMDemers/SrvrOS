@@ -176,7 +176,9 @@ channel-band/synthesizer setup grounded in these fresh values and pinned source;
 frequency/calibrated radio/connectivity remain untested.
 
 
-Next bounded implementation scope (v82): reference-order2GHz band preparation:
+Installed v82 candidate `7e269653eebe03c3`, source `83edd6be`, is unarmed
+after host, full build, ASan/UBSan and exact-stage GPT/missing-workspace VM
+checks. Reference-order2GHz band preparation:
 replay the fixed68-entry bank5 table, set RF5:0=45 and6:0=44(hex), then set
 MAC13c8=00050007 and13a0=003e0002 with independent readbacks. Require fresh
 v81 exact observations and all earlier proof; maintain disabled MAC/CORE/DMA
@@ -7300,3 +7302,23 @@ Strict collector fixture402659bytes preserves the full prior proof and rejects
 4247 malformed captures. All162 historical boot recipes remain byte-identical;
 161 staging tests pass. Pinned reference table/order independently compared.
 Build/exact-stage VM/install checkpoint follows; native acceptance pending.
+
+
+### 2026-10-25 — v82 installed, native result pending
+
+Exact source `83edd6beefe281b351f335051282ef8ad1bdf707`, release
+`7e269653eebe03c3`, config `ram-usb-wifi-fw-v82-laptop-probe-0e535900-auto-return`.
+Full build, directed/new and earlier MT76 engine regressions, complete xHCI
+suite, ASan/UBSan, staging/history and strict collector checks passed. Exact
+GPT-stage VM saved/byte-verified diagnostics, cleanly unmounted and reset;
+missing-workspace VM refused the probe and returned. VM confirms512KiB capture.
+These validate the workflow/refusal paths; they do not simulate MT7610 RF.
+
+Installed/current/recovery manifests and all payload bytes matched durable
+backups. Ubuntu remains default, known-good `e47dca3a6b30c6c1` retained. Old
+ESP v80 `6a9fd32642e92a7b` removed only after byte-for-byte archive equality;
+v81 remains installed alongside recovery. Workspace preboot checks clean:
+305files/722clusters/126directories, zero leaks/mismatches/errors; unmounted.
+Run record and candidate evidence retained outside build. No reboot armed.
+Await readiness for cold Wi-Fi power cycle; collect matching session FIRST
+on return. No commands or photos needed; capture saves and returns automatically.
