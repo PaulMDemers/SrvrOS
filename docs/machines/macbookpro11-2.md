@@ -18,6 +18,20 @@ and initial power-on calibration ordering before bounded native calibration.
 Original strict calibration helper is unchanged; RF0:6 remains unresolved.
 Scanning, association/security, Wi-Fi IP traffic and UI remain pending.
 
+Active block (2026-10-26): consume main `43aff7d5` (PR194 window/dock and
+PR196 Air audio evidence). PR182 remains filesystem scope; no MT76 overlap.
+Wire the power-on helper through a fixed five-command packet/reply adapter,
+exclusive active MAC/retained RX ownership, same-boot captured NIC/trim/channel/
+PA/default TX_ALC proof and independent saved-word cleanup. New explicit v92
+profile70 follows the full v91 observation, then R/VCO/FULL/LC/RXDCOC with
+strict bounded sequence/event/body/trailer validation. A mismatched first reply
+stops the sequence and is saved as failed evidence. Touched: MT76 power-on
+helper/header, native xHCI hook/selector and tests, main/staging/smoke, proof
+collector and unit/Wi-Fi docs. No packet delivery/rearm/data OUT, scan or IP.
+Require local/core/sanitizer and exact-stage VM plus durable run/recovery
+checks before cold hardware trial. Original profiles/helpers remain unchanged.
+
+
 Completed offline block (2026-10-26): consumed actual main `9465c68f` (PR192 private
 child-image ownership, PR193/195 evidence). PR194 owns window/dock behavior;
 PR182 filesystem imports; neither overlaps this scope. Implement a separate,
