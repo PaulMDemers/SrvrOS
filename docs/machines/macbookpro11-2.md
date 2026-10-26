@@ -7,13 +7,13 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical result: v86 (`8af0efef4d2a53c2`) completed native guarded
-channel1 BBP/filter setup. All21 independent readbacks, whole earlier proof and
-recovery checks passed. Same-boot LNA0/RSSI+1,+1 and AGC8=16344ef0 verified.
-No repeat boot needed; no reboot armed. Detailed result is in the dated journal.
-Next audit post-tune VCO/calibration prerequisites; radio/connectivity untested.
-Candidate v87 (`78e47b6219211cc9`) is installed for the post-tune VCO trigger
-and timed observations. Local/VM checks passed; native result pending.
+Latest physical result: v87 (`78e47b6219211cc9`) completed the guarded
+post-channel1 VCO trigger and six delayed observations. Immediate readB0 and
+all six delayed reads30(hex) passed; bit7 clear at the first delayed sample.
+Whole earlier proof, recovery and filesystem checks passed. No repeat boot
+needed; no reboot armed. Detailed result is in the dated journal.
+Next audit AGC gain and full calibration/MAC/power prerequisites;
+PLL lock, calibrated radio and connectivity remain untested.
 
 The user considers the core Pro bring-up generally working. Named payloads below
 have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
@@ -7774,3 +7774,28 @@ matching session FIRST with the v87 strict collector; preserve failures and
 actual immediate/delayed observations without guessing values. Results save
 and return automatically; no photos or commands. No full calibration, MAC enable,
 traffic or calibrated-radio/connectivity acceptance.
+
+
+### 2026-10-26 — v87 native post-channel1 VCO result
+
+Release `78e47b6219211cc9` (source `816a4b30`) completed v87 in
+`session-00065ec046be9096-00`. RF0:4 fresh-read30(hex), setbit7 write/echoB0
+and independent immediate readB0 passed. All six delayed samples read30:
+bit7 was clear by the first delayed sample and remained clear. Requested
+inter-sample waits were10/40/50/100/300/500ms,total1000000us; transport/logging
+time is additional, so this does not measure a precise10ms completion deadline.
+63 ordered submissions,54 guard reads,9 exact replies,1 ACK,8 observations,
+18 strict MAC0/COREf000f200/DMA40000050 triplets and all six waits passed.
+Sequences2..10 followed actual prior sequence1. Whole earlier initialization,
+fresh mapped gain and all21 channel-BBP readbacks passed in this same boot.
+
+The complete534735-byte startup prefix and both completion markers were saved
+and strictly validated within explicit1MiB capacity. Ubuntu default, consumed
+one-shot and installed/recovery hashes verified. Offline workspace clean:
+317files/760clusters/132directories,zero leaks,mismatches or errors; unmounted
+and unarmed. Evidence archived outside build. This accepts the bounded trigger,
+independent read and timed observations; PLL lock, full radio calibration and
+Wi-Fi connectivity remain untested. No repeat boot required. Next audit AGC gain
+initialization and full calibration/MAC/power prerequisites, including the
+previous IBI9 all-ones observation; do not blindly issue standalone calibration
+or infer transmit power. No MAC enable or traffic in this trial.

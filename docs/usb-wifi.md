@@ -3643,3 +3643,28 @@ matching session FIRST with the v87 strict collector; preserve failures and
 actual immediate/delayed observations without guessing values. Results save
 and return automatically; no photos or commands. No full calibration, MAC enable,
 traffic or calibrated-radio/connectivity acceptance.
+
+
+### v87 native post-channel1 VCO result
+
+Release `78e47b6219211cc9` (source `816a4b30`) completed v87 in
+`session-00065ec046be9096-00`. RF0:4 fresh-read30(hex), setbit7 write/echoB0
+and independent immediate readB0 passed. All six delayed samples read30:
+bit7 was clear by the first delayed sample and remained clear. Requested
+inter-sample waits were10/40/50/100/300/500ms,total1000000us; transport/logging
+time is additional, so this does not measure a precise10ms completion deadline.
+63 ordered submissions,54 guard reads,9 exact replies,1 ACK,8 observations,
+18 strict MAC0/COREf000f200/DMA40000050 triplets and all six waits passed.
+Sequences2..10 followed actual prior sequence1. Whole earlier initialization,
+fresh mapped gain and all21 channel-BBP readbacks passed in this same boot.
+
+The complete534735-byte startup prefix and both completion markers were saved
+and strictly validated within explicit1MiB capacity. Ubuntu default, consumed
+one-shot and installed/recovery hashes verified. Offline workspace clean:
+317files/760clusters/132directories,zero leaks,mismatches or errors; unmounted
+and unarmed. Evidence archived outside build. This accepts the bounded trigger,
+independent read and timed observations; PLL lock, full radio calibration and
+Wi-Fi connectivity remain untested. No repeat boot required. Next audit AGC gain
+initialization and full calibration/MAC/power prerequisites, including the
+previous IBI9 all-ones observation; do not blindly issue standalone calibration
+or infer transmit power. No MAC enable or traffic in this trial.
