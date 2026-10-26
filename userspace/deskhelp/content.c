@@ -127,7 +127,7 @@ static const struct desk_document_block find_guide[]={
 static const struct desk_document_block lifecycle_trial[]={
  T(1,"Application lifecycle trial"),
  P(2,"This attended check has no time limit. Keep AC power and the USB workspace connected. Keep this guide open; reopen it through Help > Topics and search Application lifecycle trial. These changes need real keyboard and trackpad acceptance; automatic VM tests already check saved bytes, failed saves, crashes and process cleanup."),
- N(16,"Retest this round: step 5 uses a two-minute workload.wav sample from Terminal; Settings Test sound is only a short tone. Step 6 tests Return to console with a throwaway document left unsaved. The prompt must stay open until you answer. Cancel or canceling its Save picker must keep the desktop and edits; Discard closes only throwaway work. Save your real documents and observations before returning to Ubuntu."),
+ N(16,"Shared runtime retest: Text and Preview now share event dispatch, waiting and command state. In Text compare File > Save, its toolbar button and Ctrl-S; try File > New window and Ctrl-Shift-N. In Preview compare Open, Cancel and Fit in its toolbar, File/View menus and shortcuts. Cancel opening an image, reopen one, then continue the document and playback checks below. Disabled commands must preserve existing content. Keep this guide open; there is no timer."),
  H(3,"1. Two independent documents"),
  P(4,"Open Text using Command-Space. Type a few lines, then use Ctrl-Shift-N to add another document in the same application. Give each different text. Ctrl-W closes only the current document; Ctrl-Q quits Text and resolves its documents one at a time. Leave both documents unsaved for the next step."),
  H(5,"2. Owned prompts and focus"),

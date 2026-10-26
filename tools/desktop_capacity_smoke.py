@@ -60,6 +60,12 @@ def main():
                             output+=chunk;(out/"serial.log").write_bytes(output)
                         except socket.timeout: pass
                     consumed=output.index(marker,consumed)+len(marker)
+                def wait_all(markers,timeout=40):
+                    nonlocal consumed
+                    start=consumed;end=start
+                    for marker in markers:
+                        consumed=start;wait(marker,timeout);end=max(end,consumed)
+                    consumed=end
                 def shortcut(keys):
                     qmp.call("human-monitor-command",{"command-line":f"sendkey {keys}"});time.sleep(.3)
                 def type_text(text):
@@ -84,18 +90,43 @@ def main():
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text(name+" new app");qmp.key("ret");wait(f"launcher application={number}".encode())
                 if args.documents:
                     owner=re.findall(rb"deskd: opened pid=(\d+)",output)[0]
+                    document_ids=[int(re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1])]
+                    def admitted():
+                        wait(b"text-runtime: admitted window=");wait(b"\n")
+                        identity=int(re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1])
+                        assert identity>max(document_ids), (identity,document_ids)
+                        document_ids.append(identity)
+                        return identity
                     def save_document(index):
                         contents=f"Document {index} kept."
                         type_text(contents)
                         shortcut("ctrl-l");shortcut("ctrl-a");type_text(f"/fat/document-{index}.txt")
-                        shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret")
-                        wait(b"file-result role=text op=2 status=0")
+                        shortcut("ctrl-s")
+                        if args.document_growth or index<document_count:
+                            # The listing can finish before its owned window's
+                            # first configure/commit and keyboard focus delivery.
+                            wait_all([b"picker ready mode=2",b"deskd: commit"])
+                        else:wait(b"picker ready mode=2")
+                        qmp.key("ret")
+                        # The save result and owned-picker retirement may arrive
+                        # in either order. Both must finish before the next
+                        # document shortcut targets the restored parent.
+                        if args.document_growth or index<document_count:
+                            wait_all([b"file-result role=text op=2 status=0",b"deskd: retired pid="])
+                        else:
+                            # The pressure fixture refuses the sixteenth
+                            # document's picker, which falls back in its parent.
+                            wait(b"file-result role=text op=2 status=0")
                         expected_files[f"document-{index}.txt"]=contents.encode()
                     save_document(1)
                     for index in range(2,document_count+1):
-                        shortcut("ctrl-shift-n");wait(f"text-runtime: admitted window={index} ".encode());wait(b"deskd: commit")
+                        shortcut("ctrl-shift-n");admitted();wait(b"deskd: commit")
                         save_document(index)
-                    assert re.findall(rb"deskd: opened pid=(\d+)",output)==[owner]*document_count
+                    # Save pickers also have identities in the same connection.
+                    # Count document parents separately, and require all children
+                    # to remain in that application rather than assuming IDs 1..N.
+                    assert re.findall(rb"deskd: opened pid=(\d+) window=\d+ id=\d+ parent=0",output)==[owner]*document_count
+                    assert set(re.findall(rb"deskd: opened pid=(\d+)",output))=={owner}
                     assert f"clients={document_count} children=1 clipboard_peers={document_count}".encode() in output
                     shot(f"{document_count}-documents")
                     if not args.document_growth:
@@ -104,11 +135,11 @@ def main():
                     type_text(" Refusal kept.");shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
                     expected_files[f"document-{document_count}.txt"]+=b" Refusal kept."
                     shot("refused-document-retained")
-                    shortcut("ctrl-w");wait(f"text-runtime: closed window={document_count}".encode())
-                    shortcut("ctrl-shift-n");wait(f"text-runtime: admitted window={replacement} ".encode());wait(b"deskd: commit")
+                    shortcut("ctrl-w");wait(f"text-runtime: closed window={document_ids[-1]} ".encode())
+                    shortcut("ctrl-shift-n");replacement_id=admitted();wait(b"deskd: commit")
                     save_document(replacement)
                     # Exercise per-document close/detach and application-owned worker reaping.
-                    for index in [replacement]+list(range(document_count-1,0,-1)):
+                    for index in [replacement_id]+list(reversed(document_ids[:document_count-1])):
                         shortcut("ctrl-w");wait(f"text-runtime: closed window={index} ".encode())
                     wait(b"desktools: exited role=text failure=0")
                     assert f"text-runtime: documents admitted={document_count+1} retired={document_count+1} refused={int(not args.document_growth)}".encode() in output
@@ -185,8 +216,12 @@ def main():
                     if processes==baseline_processes: break
                     if time.monotonic()>cleanup_deadline: raise RuntimeError("Process set did not return to baseline after full-session cleanup")
                     time.sleep(.5)
-                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows="+str(document_count if args.documents else 16).encode(),output)
+                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows=(\d+)",output)
                 assert cache and int(cache[2])==0 and 0<int(cache[1])<=int(cache[3])
+                # windows reports allocated registry capacity, not live count.
+                # The growth run needs room for 32 documents plus a save picker;
+                # the separate pressure fixture retains its explicit quota.
+                assert int(cache[4])>=document_count+1 if args.document_growth else int(cache[4])==16
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()

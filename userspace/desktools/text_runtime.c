@@ -2,6 +2,7 @@
 #include "timing.h"
 #include <srvros/desk_application.h>
 #include <srvros/desk_connection.h>
+#include <srvros/desk_runtime.h>
 #include <srvros/desk_log.h>
 #include <stdlib.h>
 #include <string.h>
@@ -79,7 +80,7 @@ static void dialog_event(struct text_document *d,struct desk_packet p) {
         else desk_dialog_focus(&t->dialog,p.value!=0);
     } else if(p.type==DESK_KEY) {
         struct srv_key_event key;memcpy(&key,p.text,sizeof(key));
-        if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && key.usage==0x14) {cancel_dialog(d);t->quit_application=1;return;}
+        if(tool_command_key(t,&key))return;
         if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) && key.usage==0x1a) {cancel_dialog(d);return;}
         if(t->picker_mode)tool_picker_result(t,desk_picker_key(&t->picker,&key));
         else action=desk_dialog_key(&t->dialog,&key);
@@ -125,6 +126,53 @@ static void dialog_tick(struct text_document *d) {
     }
 }
 int tool_file_capture_capacity_setup(void);
+struct text_events {
+    struct text_document **documents;
+    struct desk_application_lifecycle *application;
+    uint64_t *service_window;
+    unsigned *admitted,*refused;
+    int capacity;
+    struct desk_file_pool *pool;
+    struct desk_open_document *open_request;
+};
+static int text_event(void *context,struct desk_app *window,struct desk_packet p) {
+    struct text_events *events=context;
+    struct text_document *d=find(*events->documents,window);
+    if(!d)return -1;
+    struct tool *t=&d->tool;
+    if(window==&d->dialog.window) {dialog_event(d,p);return 0;}
+    if(p.type==DESK_OPEN_DOCUMENT) {desk_open_document_receive(events->open_request,&p);return 0;}
+    if(p.type==DESK_OPEN_REPLY) {
+        if(p.value) {
+            (*events->refused)++;
+            notice(*events->documents,d->requester,p.value==DESK_OPEN_CAPACITY?
+                "The desktop is full. Close a window before opening another.":"The new document window could not be opened. Your other documents were kept.");
+            d->retired=1;if(desk_window_dispose(window))return -1;
+        } else {
+            d->ready=1;(*events->admitted)++;t->worker_ready=desk_file_job_bind(&t->job,events->pool)==0;
+            uint64_t timing=tool_timing_begin(DESK_APP_TEXT,window->window,"role-init");
+            tool_text_init(t,d->initial_path);
+            tool_timing_end(DESK_APP_TEXT,window->window,"role-init",timing);
+            if(d->bad_path)tool_status(t,"This path is too long. Choose a file to open.");
+            else if(!t->worker_ready)tool_status(t,"The file worker is unavailable. Your document was kept.");
+            desk_log("text-runtime: admitted window=%llu worker=%llu\n",(unsigned long long)window->window,(unsigned long long)t->job.pid);
+        }
+    } else if(p.type==DESK_CLOSE_ACK) {
+        tool_timing_event(DESK_APP_TEXT,window->window,"close-ack");
+        d->retired=1;t->pending=t->closing=0;
+        desk_application_closed(events->application,window->window);
+        if(*events->service_window==window->window)*events->service_window=0;
+        desk_log("text-runtime: closed window=%llu bytes=%u\n",(unsigned long long)window->window,(unsigned)t->body_text.length);
+    } else if(p.type==DESK_WINDOW_FAILED) {
+        notice(*events->documents,d->requester,"A document window could not be displayed. Other windows remain open.");
+    } else if(d->ready && !d->retired && !t->quit) {
+        tool_runtime_event(t,p);
+        if(events->capacity && p.type==DESK_KEY && p.input_serial && p.input_serial<=60 && !(p.input_serial%12)) {
+            tool_file_capture_begin(t,p.input_serial);
+        }
+    }
+    return 0;
+}
 int tool_text_runtime(const char *path) {
     int capacity=strcmp(path,"--capacity-files")==0;
     if(capacity) { if(tool_file_capture_capacity_setup())return 1;path=""; }
@@ -138,49 +186,12 @@ int tool_text_runtime(const char *path) {
     tool_timing_end(DESK_APP_TEXT,0,"pool-init",timing);if(initialized)return 1;
     struct text_document *documents=NULL;int failed=0;
     unsigned admitted_count=0,retired_count=0,refused_count=0;
+    struct desk_runtime runtime;desk_runtime_init(&runtime,&connection);
+    struct text_events events={&documents,&application,&service_window,&admitted_count,&refused_count,capacity,&pool,&open_request};
     srv_puts("desktools: starting role=text\n");
     if(create(&connection,&documents,0,path))return 1;
     while(documents) {
-        for(unsigned batch=0;!failed && batch<32;batch++) {
-            struct desk_app *window;struct desk_packet p;
-            int r=desk_connection_poll(&connection,&window,&p);
-            if(r<0) { failed=1;break; }
-            if(!r)break;if(r==2)continue;
-            struct text_document *d=find(documents,window);
-            if(!d) { failed=1;break; }
-            struct tool *t=&d->tool;
-            if(window==&d->dialog.window) {dialog_event(d,p);continue;}
-            if(p.type==DESK_OPEN_DOCUMENT) {desk_open_document_receive(&open_request,&p);continue;}
-            if(p.type==DESK_OPEN_REPLY) {
-                if(p.value) {
-                    refused_count++;
-                    notice(documents,d->requester,p.value==DESK_OPEN_CAPACITY?
-                        "The desktop is full. Close a window before opening another.":"The new document window could not be opened. Your other documents were kept.");
-                    d->retired=1;if(desk_window_dispose(window))failed=1;
-                } else {
-                    d->ready=1;admitted_count++;t->worker_ready=desk_file_job_bind(&t->job,&pool)==0;
-                    timing=tool_timing_begin(DESK_APP_TEXT,window->window,"role-init");
-                    tool_text_init(t,d->initial_path);
-                    tool_timing_end(DESK_APP_TEXT,window->window,"role-init",timing);
-                    if(d->bad_path)tool_status(t,"This path is too long. Choose a file to open.");
-                    else if(!t->worker_ready)tool_status(t,"The file worker is unavailable. Your document was kept.");
-                    desk_log("text-runtime: admitted window=%llu worker=%llu\n",(unsigned long long)window->window,(unsigned long long)t->job.pid);
-                }
-            } else if(p.type==DESK_CLOSE_ACK) {
-                tool_timing_event(DESK_APP_TEXT,window->window,"close-ack");
-                d->retired=1;t->pending=t->closing=0;
-                desk_application_closed(&application,window->window);
-                if(service_window==window->window)service_window=0;
-                desk_log("text-runtime: closed window=%llu bytes=%u\n",(unsigned long long)window->window,(unsigned)t->body_text.length);
-            } else if(p.type==DESK_WINDOW_FAILED) {
-                notice(documents,d->requester,"A document window could not be displayed. Other windows remain open.");
-            } else if(d->ready && !d->retired && !t->quit) {
-                tool_runtime_event(t,p);
-                if(capacity && p.type==DESK_KEY && p.input_serial && p.input_serial<=60 && !(p.input_serial%12)) {
-                    tool_file_capture_begin(t,p.input_serial);
-                }
-            }
-        }
+        if(!failed && desk_runtime_dispatch(&runtime,text_event,&events)<0)failed=1;
         desk_open_document_tick(&open_request,connection.server);
         if(open_request.ready && !connection.opening) {
             int accepted=!application.quitting && !create(&connection,&documents,0,open_request.path);
@@ -258,11 +269,11 @@ int tool_text_runtime(const char *path) {
             }
         }
         if(documents) {
-            struct srv_gui_wait wait={.deadline_us=(uint64_t)srv_monotonic_us()+100000};
-            if(busy || desk_file_pool_interests(&pool,&wait)!=1 || desk_connection_wait_io(&connection,&wait)<0)
-                srv_sleep_ticks(1);
+            desk_runtime_file_pool(&runtime,&pool);
+            desk_runtime_idle(&runtime,busy);
         }
     }
+    desk_runtime_timers_clear(&runtime);
     desk_log("text-runtime: documents admitted=%u retired=%u refused=%u\n",admitted_count,retired_count,refused_count);
     if(tool_file_pool_retire(&pool,DESK_APP_TEXT))failed=1;
     if(capacity) {

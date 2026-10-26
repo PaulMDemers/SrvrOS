@@ -121,7 +121,11 @@ def main():
                 qmp.key("equal",True);wait(b"view scale=131072 fit=0");shot("preview-zoom")
                 qmp.key("0");wait(b"fit=1")
                 if args.stress:
-                    open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png");qmp.key("esc")
+                    open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
+                    # Loading starts in the picker acceptance callback. Wait for
+                    # its owned window to retire and restore parent focus before
+                    # sending the parent's Cancel command.
+                    wait(b"deskd: retired pid=");qmp.key("esc")
                     wait(b"deskview: action=2");shot("preview-canceled")
                     open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
                     click(width//2-150,height-50);type_text("Preview remained responsive.")
