@@ -3097,3 +3097,24 @@ window lifecycle and accepted-job retirement; inspect its current implementation
 before overlapping userspace changes. PR182 (`352f9b0d`) owns exFAT import
 validation and PR19 (`3e16ff6a`) USB Wi-Fi. None was included in this physical
 payload. This closeout changes only this unit's evidence record.
+
+### Worker pipe admission — active scope (2026-10-26)
+
+Proceeding from main `9f18d7d6` after collecting the failed integrated retest.
+Scope is the kernel nonblocking pipe/PTY admission boundary, its directed syscall
+and scheduler regressions, and this unit's unchanged automatic audio/disk/app
+trial. Both request writes and reply reads currently return AGAIN during another
+storage owner's turn without requesting the quiescent admission already used by
+nonblocking reaps. Test and repair that missing request while preserving immediate
+deferral, user service eligibility, descriptor cleanup safety and coalesced
+scheduler ownership. This is a candidate mechanism for the observed close delay;
+native acceptance remains pending.
+
+PR181 (`dafd5bed`) owns shared Text/Files window and accepted-job lifecycle;
+avoid competing userspace changes. PR182 (`352f9b0d`) owns exFAT import validation
+and PR19 (`7961d09e`) Wi-Fi. Neither requires changes to this kernel admission
+scope. Keep ten-second cycles, five-second clients, 500 ms loop bound, continuous
+verified I/O, PCM checks, firmware gates and accepted-operation draining intact.
+Next checkpoint: failing-before/passing-after host tests, matched build and VM
+stress/storage checks, exact-stage rehearsal, merged candidate and authorized
+automated native trial with saved evidence and Ubuntu recovery.
