@@ -91,3 +91,19 @@ enum mt76_calibration_status mt76_poweron_calibration_run(
     s->complete=ok;
     return ok?MT76_CAL_OK:s->failure;
 }
+
+/* Linux v7.0 CMD_CALIBRATION_OP31, little-endian id/argument. */
+static const uint32_t poweron_ids[5]={1,12,255,3,2};
+static const uint32_t poweron_args[5]={0,1,0x600,0,1};
+size_t mt76_poweron_packet(unsigned step,uint8_t *out,size_t cap) {
+    if(step>=5 || !out || cap<16)return 0;
+    uint32_t words[4]={0x51f00008u|((step+1)<<16),poweron_ids[step],poweron_args[step],0};
+    for(unsigned i=0;i<16;i++)out[i]=(uint8_t)(words[i/4]>>(8*(i%4)));
+    return 16;
+}
+bool mt76_poweron_reply(unsigned step,const uint8_t *data,size_t size) {
+    if(step>=5 || !data || size!=16)return false;
+    uint32_t words[4]={0x4a000008u|((step+1)<<16),poweron_ids[step],poweron_args[step],0x4a000008u|((step+1)<<16)};
+    for(unsigned i=0;i<16;i++)if(data[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return false;
+    return true;
+}

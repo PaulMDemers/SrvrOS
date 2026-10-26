@@ -8592,3 +8592,53 @@ Source, reference audit and validation evidence are retained outside build under
 e47 remains previous recovery; no physical run or one-shot was staged/armed.
 Next: add the native command adapter with exact MCU reply/sequence/deadline
 validation and verified MAC/RX cleanup, retaining fresh board/power admission.
+
+
+### 2026-10-26 — v92 native power-on command adapter candidate
+
+The explicit profile70/v92 chains the whole prior initialization and v91
+reversible register observation before the separate power-on helper. Native
+admission requires exclusive retained RX/MAC ownership, fresh mapped antenna
+and trim fields, the captured channel1/20MHz/PA/gain/post-VCO proof, and the
+parent TX_ALC0=`2f2f1b1b`/IBI9=`ffffffff` snapshot. v91 must demonstrate the
+IBI9 temporary write effect and both raw restorations in this same lifetime.
+Mapped NIC1004 has TSSI bit13 clear; enabled/unknown board profiles refuse.
+This is initial calibration under captured default context, not operational
+transmit-power selection or authorization to deliver network frames.
+
+The command adapter allows only ordered R(0), VCO(1), FULL(600), LC(0),
+RXDCOC(1), encoded as command31, IDs1/12/ff/3/2 and sequences1..5.
+Each OUT/IN uses the existing bounded MCU transport. Ownership and the OUT
+half-budget are checked before posting IN; aggregate elapsed must be <=1s.
+The initial strict reply hypothesis is16 bytes: CMD_DONE/sequence header,
+exact ID/argument echo and matching trailer, with exact actual length/residue.
+Reference validates sequence/event; the stricter echo shape is a candidate
+contract, not yet native evidence for these commands. A mismatch stops before
+any later command and logs the actual receipt. Never relax it automatically.
+
+A successful transaction contributes30 native operations:18 USB reads,four
+writes,three waits and five command exchanges. Mandatory minimum waits are
+10us/500us/15ms. Reverse saved-word cleanup is independently admitted after
+forward cancellation, followed by parent device draining, MAC disable,
+filter/TXOP restoration and exact retained endpoint stop. MCU timeout uses the
+existing quarantine policy: it cannot claim saved-word or MAC cleanup through
+a quarantined EP0, never retries or frees uncertain DMA, and remains failed.
+Both restoration callbacks are still attempted by the transaction. Total new
+register writes are15 (parent7, v91 probe4, power-on4). Successful commands
+cannot be undone by saved-word restoration, and command completion does not
+establish calibrated RF, packet reception or frequency lock. No packet
+inspection/delivery, rearm or network data OUT is introduced.
+
+Host fixtures execute actual selector70, parent/probe hook, EP0 setup/readback,
+OUT/IN ring submission and reply validation. They cover91 USB ownership losses,
+each command reply mismatch, all ten OUT/IN timeouts and all ten bulk ownership
+losses, invalid board gates and no replay. Serializer tests refuse every reply
+bit mutation and incorrect length. The strict whole-chain collector refuses329
+malformed proofs;182 historical recipe-byte comparisons remain identical.
+Early staging tests caught missing v92 recipe recognition and a stale unknown-
+version fixture; both were fixed. The first timeout fixture wrongly expected
+cleanup through quarantined EP0; actual quarantine behavior was preserved and
+the fixture corrected. Initial proof-generation errors were caught by the full
+valid fixture before staging; original failed receipts remain archived.
+Local/core/sanitizer/exact-stage VM and physical results are recorded separately.
+Guest progress and disk evidence remain automatic; no photos or commands needed.

@@ -4,7 +4,7 @@
 #include <srvros/mt76_bringup.h>
 
 /* Semantic operations, not wire IDs. A native adapter must encode and validate
- * bounded, sequence-matched replies. No native caller exists yet. */
+ * bounded, sequence-matched replies. Native use is explicit diagnostic only. */
 enum mt76_poweron_command {
     MT76_POWERON_R, MT76_POWERON_VCO, MT76_POWERON_FULL,
     MT76_POWERON_LC, MT76_POWERON_RXDCOC
@@ -37,4 +37,9 @@ enum mt76_calibration_status mt76_poweron_calibration_run(
     struct mt76_calibration *, const struct mt76_poweron_io *,
     const struct mt76_identity *, const struct mt76_ant_fields *,
     unsigned channel, unsigned bandwidth);
+/* Fixed command/argument pairs and sequences1..5. Reply contract is the strict
+ * 16-byte echo-shaped CMD_DONE hypothesis; native evidence must establish it.
+ * A matching reply proves command completion only, never calibrated RF. */
+size_t mt76_poweron_packet(unsigned step,uint8_t *out,size_t capacity);
+bool mt76_poweron_reply(unsigned step,const uint8_t *data,size_t length);
 #endif

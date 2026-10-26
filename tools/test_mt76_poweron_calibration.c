@@ -99,6 +99,21 @@ static void retired(struct fixture *f) {
     assert(f->calls==calls && f->auths==auths && !memcmp(&copy,&f->state,sizeof copy));
 }
 int main(void) {
+    static const uint32_t ids[5]={1,12,255,3,2},args[5]={0,1,0x600,0,1};
+    for(unsigned step=0;step<5;step++) {
+        uint8_t packet[16],reply[16];
+        assert(mt76_poweron_packet(step,packet,16)==16);
+        uint32_t wire[4]={0x51f00008u|((step+1)<<16),ids[step],args[step],0};
+        uint32_t response[4]={0x4a000008u|((step+1)<<16),ids[step],args[step],0x4a000008u|((step+1)<<16)};
+        for(unsigned i=0;i<16;i++){assert(packet[i]==(uint8_t)(wire[i/4]>>(8*(i%4))));reply[i]=(uint8_t)(response[i/4]>>(8*(i%4)));}
+        assert(mt76_poweron_reply(step,reply,16));
+        for(unsigned bit=0;bit<128;bit++){reply[bit/8]^=1u<<(bit%8);assert(!mt76_poweron_reply(step,reply,16));reply[bit/8]^=1u<<(bit%8);}
+        for(unsigned n=0;n<32;n++)if(n!=16)assert(!mt76_poweron_reply(step,reply,n));
+        for(unsigned n=0;n<16;n++)assert(!mt76_poweron_packet(step,packet,n));
+        assert(!mt76_poweron_reply(step,0,16) && !mt76_poweron_packet(step,0,16));
+    }
+    uint8_t invalid[16]={0};assert(!mt76_poweron_packet(5,invalid,16) && !mt76_poweron_reply(5,invalid,16));
+
     static const struct event expected[]={
         {'r',0x1004,0},{'r',0x2000,0},{'r',0x208,0},
         {'c',MT76_POWERON_R,0},{'c',MT76_POWERON_VCO,1},{'d',0,10},

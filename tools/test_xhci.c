@@ -13,6 +13,8 @@ struct xhci_device;
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
+static struct xhci_device *poweron_test_device;
+static void poweron_test_bulk(unsigned);
 static bool rx_guard_model;static uint32_t rx_guard_value;
 static bool mac_cycle_model;
 static void xhci_test_mac_publish(struct xhci_device *,uint64_t);
@@ -95,6 +97,7 @@ static uint64_t rf_wait_expected_delay;
 bool timer_delay_us(uint64_t us) { if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(poweron_test_device && offset==xhci.db_base+4*poweron_test_device->slot_id && (value==11 || value==16))poweron_test_bulk(value);
     if(trim_reply_device && offset==xhci.db_base+4*trim_reply_device->slot_id && value==1)
         for(unsigned i=0;i<4;i++)trim_reply_device->descriptor_buffer[i]=(uint8_t)(trim_reply_value>>(8*i));
     if(recovery_device) {
@@ -6602,8 +6605,10 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_rx.inc"
 #include "test_xhci_wifi_mac_cycle.inc"
 #include "test_xhci_wifi_cal_probe.inc"
+#include "test_xhci_wifi_poweron.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-poweron")){test_wifi_poweron();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-cal-probe")){test_wifi_cal_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-mac-cycle")){test_wifi_mac_cycle();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-rx-lifecycle")){test_wifi_rx_lifecycle();return 0;}
@@ -6679,6 +6684,7 @@ int main(int argc, char **argv) {
     test_wifi_post_vco_delays();
     test_wifi_agc_state();
     test_wifi_cal_probe();
+    test_wifi_poweron();
     test_wifi_mac_cycle();
     test_wifi_rx_lifecycle();
     test_wifi_vco_ready_inventory_ownership();
