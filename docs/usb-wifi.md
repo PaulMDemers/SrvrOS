@@ -3778,3 +3778,30 @@ unchanged; the new prerequisite predicate is exact and separate. Canonical
 upstream host fixes/main `9f18d7d6` merged; no additional production changes from
 that merge. Exact-stage VM/install follows; native gain1/init-state acceptance
 remains pending. Existing IBI9/MAC/power calibration prerequisites remain open.
+
+
+### v88 installation checkpoint
+
+Exact source `9e7d2ef07d0519e537bf52a127fd91915e0f5783`, release
+`413af14583fe167c`, config `ram-usb-wifi-fw-v88-laptop-probe-0e535900-auto-return`.
+Main `9f18d7d6` is an ancestor,with canonical host-test fixes merged. Full image
+build/core and all old/new MT76/xHCI tests pass; engine sanitizer,independent
+reference audit,173 staging tests,31 collection tests,174 historical recipes
+and93 strict-proof refusals pass. Native fixture completion-flag mutation was
+corrected before the final complete suite; original failed test log preserved.
+
+Exact GPT-stage VM saved and byte-verified diagnostics,unmounted cleanly and
+reset; missing-workspace VM refused and returned. Guest mode has explicit
+progress and saved result/return. These VM checks validate workflow,not native
+AGC9 data or software-state acceptance. Complete1MiB-prefix policy retained.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads match durable
+backups. Accepted merged-baseline `5c9c8372adaf59d6` retained on ESP beside
+recovery; old `78e47b6219211cc9` removed only after full archive byte equality.
+Ubuntu default retained; offline workspace clean319files/767clusters/
+133directories,zero leaks,mismatches or errors; unmounted and reboot unarmed.
+Candidate/run/checkpoint/evidence archived outside build. Await cold Wi-Fi-cycle
+readiness; on return collect matching session FIRST with agc-state/collect_return.py.
+Results save and return automatically,no photos or commands. Native AGC9 and
+initialized state pending; no new radio writes,calibration,MAC enable,traffic,
+second physical-chain or power acceptance.
