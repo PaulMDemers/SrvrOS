@@ -99,6 +99,19 @@ removes a waiter's pending admission. This prevents a fast writer repeatedly
 reacquiring ownership ahead of calls it woke; it does not promise that arbitrarily
 slow storage can satisfy the existing desktop deadlines.
 
+The opt-in audio/disk/app stress test retains a fixed-size worst-loop record in
+the compositor and emits it every ten seconds and at exit. Its versioned
+`desktop-loop-worst` receipt includes sample/over-limit counts, the original
+interval and app-cycle identities, and conserved wall-time stages: control,
+messages, lifecycle, service, trial, input, render, post-render and wait. Stages
+include preemption/interrupts; they do not identify CPU cost or a kernel/firmware
+cause. Diagnostic emission is itself included in measured control time.
+The exact loop interval and 500 ms pass/fail bound remain unchanged, including
+the final partial iteration on early exit. A clock/order error or disagreement
+with the existing maximum fails validation. Periodic re-emission retains the
+worst observation through bounded log rotation; a final receipt is required
+for complete evidence. No new filesystem writes or flush policy are introduced.
+
 ## Combined wait contract (D3b)
 
 The D3b implementation provides one wait for an authenticated GUI server and up
