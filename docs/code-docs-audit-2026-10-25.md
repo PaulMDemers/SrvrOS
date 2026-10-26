@@ -98,3 +98,12 @@ final verification checkpoint.
    scheduler/thread lifetime, networking and experimental eventfd/epoll adapters
    with directed reproductions. Those contracts were not exhaustively audited in
    this pass. Expand current-guide checks as each subsystem is reviewed.
+
+## Continued synchronization pass
+
+The [synchronization/stack audit](synchronization-audit-2026-10-25.md) adds source-
+level executable evidence for a caller-supplied stack out-of-bounds write, the
+condition-clock gap and silent semaphore overflow. The supported profile and
+port guides now exclude those contracts accurately. It also reconciles current
+fork/spawn/readiness/time descriptions and PR173's newer Air6,1 failure records.
+These findings are not fixed by documentation or by reproducing the failures.

@@ -5,6 +5,14 @@ For ARM64 macOS image builds and interactive QEMU, use the
 macOS: host fixtures can require x86/ELF tooling, and VM fixtures can depend on
 Linux filesystem or GRUB utilities.
 
+`python3 tools/audit_sync_contracts.py` is a separate source-level audit probe:
+it currently exits 1 because known stack/clock/semaphore defects are reproduced.
+`--expect-known-defects` checks that receipt and exits 0 only for the four known
+observations; that is not a conformance pass. It compiles the actual libc sources
+with prefixed symbols and modeled OS services on this ARM64 Mac, without starting
+a guest or creating threads. See the [audit](synchronization-audit-2026-10-25.md)
+for commands, evidence limits and positive controls. It is not part of `test-core`.
+
 On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-device-agent-setup.md)
 and update their [machine record](machines/README.md). A VM pass is not physical
 acceptance on any of the additional models. Ordinary desktop profiles exclude

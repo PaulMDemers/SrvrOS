@@ -77,8 +77,11 @@ improvements remain further work. See the [lifecycle contract](desktop-applicati
 
 Air6,1 release `95f8a9cf59b25ba1` still failed the ten-second app lifecycle bound
 after 34 completed cycles under disk/audio load, despite the merged I/O handoff.
-PR170 adds phase timing, not a proven fix. Its subsequent native trial is pending
-in the unit record at this documentation baseline. Thirty-minute endurance is
+PR170 adds phase timing, not a proven fix. Its three subsequent native attempts
+at `282c3f6a06afd9eb` are now reconciled in PR173: one interrupted boot, one
+battery fingerprint refusal and one lifecycle timeout after 139 completed cycles.
+The last run exceeded ten seconds during Files worker-pool retirement; PR174
+owns the process-startup/retirement investigation. Thirty-minute endurance is
 not accepted; late zero-status exits do not turn failed runs into passes.
 
 ## Files, services and devices
@@ -94,6 +97,11 @@ not accepted; late zero-status exits do not turn failed runs into passes.
 | Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
 | POSIX / ports | [Portable C profile](posix-supported-profile.md): thread-local errno/TLS, shared files/descriptors, positional/vectored I/O, ordered spawn, bounded fork, readiness/time and stream contracts implemented with host/VM regressions; not full POSIX, Linux or Node compatibility |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
+
+The [synchronization audit](synchronization-audit-2026-10-25.md) confirms an
+out-of-bounds write for caller-supplied pthread stacks, ignored condition-clock
+attributes and POSIX semaphore overflow. These contracts are excluded from the
+supported profile pending fixes; earlier consumer passes do not cover them.
 
 ## Measured checkpoints and current acceptance
 

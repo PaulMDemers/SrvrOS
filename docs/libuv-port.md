@@ -14,6 +14,10 @@ backend.
 The [POSIX compatibility audit](posix-compatibility.md) records current thread,
 file-offset, readiness and compatibility-stub limitations. Passing the adapter
 smoke test is not acceptance of the full upstream backend or Node runtime.
+For example, `uv_sem_*` uses the adapter's mutex/condition implementation, not
+libc `sem_*`; its tests do not cover the POSIX semaphore overflow defect. The
+[synchronization audit](synchronization-audit-2026-10-25.md) records this distinction
+and caller-supplied stack/condition-clock gaps.
 
 ## Current Adapter Surface
 

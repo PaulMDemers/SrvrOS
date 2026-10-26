@@ -64,3 +64,27 @@ clock attributes, Air6,1 native lifecycle latency, Node source-history recovery,
 macOS test-suite portability and deeper subsystem review. The Linux host/core,
 full desktop/VM suites, physical save durability, UEFI boot and audio endurance
 were not accepted by this Mac build/boot check. Keep those gates separate.
+
+## Continued audit scope — 2026-10-25 evening
+
+PR175 publishes the first pass. The continued audit consumes `origin/main`
+`aa7b7392` (PR173 adds three failed/incomplete Air6,1 timing attempts; no runtime
+change). PR174 owns process startup/worker retirement under disk contention;
+PR172 owns shared desktop application dispatch; PR19 retains Wi-Fi diagnostics.
+This pass audits libc synchronization/stack contracts, creates bounded host
+reproducers, and corrects current documentation. It does not implement changes
+in those active runtime scopes or claim new native acceptance.
+
+The continued pass confirms three defect categories in the
+[synchronization audit](../synchronization-audit-2026-10-25.md): supplied-stack
+bounds (two cases), selected condition clocks and semaphore count overflow.
+`tools/audit_sync_contracts.py` compiles real library sources with prefixed
+symbols and modeled OS services; no threads or VM are started. Default mode
+exits 1 for the known defects; `--expect-known-defects` exits 0 for all four
+observations. Separate JSON receipts under `build/review/sync-audit/default`
+and `build/review/sync-audit/known` retain source/header hashes and output.
+The exact-size stack and ordinary semaphore operations are positive controls.
+This is source-level host evidence, not a full thread/concurrency suite. Current
+guides exclude the affected contracts and distinguish libc from libuv semaphore
+coverage. Documentation links and whitespace validation pass. Runtime corrections
+remain follow-up work; no kernel/library implementation was changed.

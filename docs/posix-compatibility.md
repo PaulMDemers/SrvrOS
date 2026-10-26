@@ -16,6 +16,10 @@ This reference choice is a development target, not certification.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
+The [October 25 synchronization follow-up](synchronization-audit-2026-10-25.md)
+adds executable evidence for caller-supplied stack corruption, ignored condition
+clocks and semaphore counter overflow. These remain unresolved even though the
+selected earlier consumer gates passed.
 
 ## Implementation progress after the audit
 
@@ -339,7 +343,7 @@ Paths below are relative to `userspace/lib/src/` unless stated otherwise.
 has passed a conformance suite. Limits may be valid implementation choices;
 silent semantic substitutions are a different problem.
 
-| Area | Evidence in current implementation | Boundary / missing contract |
+| Area | Evidence at original baseline | Boundary / missing contract at that baseline |
 | --- | --- | --- |
 | C strings, conversion, formatting, allocation, stdio | Library sources; `libcprobe`, `nodeprobe`, thread stdio/heap tests | Useful tested subset; no complete ISO C or POSIX libc certification |
 | File descriptors and regular files | `posix_file.c`, `posix_dir.c`; kernel VFS/open-file descriptions, dup, pipe, metadata and exFAT | Bounded descriptors/paths; positional I/O race below; broader file/flag/error semantics need explicit tests |
@@ -360,6 +364,11 @@ silent semantic substitutions are a different problem.
 | libuv / Node | `ports/srvros/uv.c` adapter and selected upstream source | Adapter is not full upstream libuv; historical Node execution is not a current reproduced full runtime port |
 
 ## Original semantic findings and remaining priorities
+
+This section preserves the original `bc0edb9` findings, including defects fixed
+by the progress entries above. It is not the current support matrix; consult the
+supported profile and subsequent audit before carrying a historical failure
+forward as an open issue.
 
 ### P0. Thread-local error state
 
