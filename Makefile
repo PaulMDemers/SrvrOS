@@ -3860,3 +3860,20 @@ test-mt76-channel-probe: build/tests/mt76-channel-probe-host$(HOST_EXE)
 build/tests/mt76-channel-probe-host$(HOST_EXE): tools/test_mt76_channel_probe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-band2g
+test-core: test-mt76-rf-band2g
+test-mt76-rf-band2g: build/tests/mt76-rf-band2g-host$(HOST_EXE)
+	build/tests/mt76-rf-band2g-host$(HOST_EXE)
+build/tests/mt76-rf-band2g-host$(HOST_EXE): tools/test_mt76_rf_band2g.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+
+.PHONY: test-mt76-band-mac
+test-core: test-mt76-band-mac
+test-mt76-band-mac: build/tests/mt76-band-mac-host$(HOST_EXE)
+	build/tests/mt76-band-mac-host$(HOST_EXE)
+build/tests/mt76-band-mac-host$(HOST_EXE): tools/test_mt76_band_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

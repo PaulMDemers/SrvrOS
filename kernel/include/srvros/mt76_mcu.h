@@ -480,8 +480,8 @@ struct mt76_rf_table {
     unsigned operations,reads,exchanges,acks,observed,equal;
     int received;
     uint64_t mismatch_mask,mismatch_hi;
-    uint32_t guards[MT76_RF_BANK5_COMMANDS*2][3],words[MT76_RF_BANK5_COMMANDS][4];
-    uint8_t values[MT76_RF_BANK5_COUNT];
+    uint32_t guards[280][3],words[140][4];
+    uint8_t values[70];
 };
 unsigned mt76_rf_table_sequence(unsigned command);
 uint32_t mt76_rf_table_guard_address(unsigned operation);
@@ -635,4 +635,30 @@ bool mt76_channel_probe_request(unsigned operation,bool *command,uint32_t *addre
 bool mt76_channel_probe_admit(const struct mt76_channel_probe *s,unsigned operation);
 size_t mt76_channel_probe_packet(const struct mt76_channel_probe *s,unsigned operation,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_channel_probe_capture(struct mt76_channel_probe *s,const struct mt76_mcu_timing_io *io);
+/* Fixed reference 2GHz band step; no synthesizer, MAC enable or caller plan. */
+#define MT76_RF_BAND2G_COUNT 70u
+#define MT76_RF_BAND2G_COMMANDS 140u
+#define MT76_RF_BAND2G_OPS 980u
+uint32_t mt76_rf_band2g_address(unsigned index);
+unsigned mt76_rf_band2g_value(unsigned index);
+unsigned mt76_rf_band2g_sequence(unsigned command);
+uint32_t mt76_rf_band2g_guard_address(unsigned operation);
+size_t mt76_rf_band2g_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_band2g_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_band2g_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_rf_band2g_exact_profile_valid(const struct mt76_rf_table *s);
+bool mt76_channel_probe_exact_profile_valid(const struct mt76_channel_probe *s);
+struct mt76_band_mac {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[2],after[2],guards[4][3];
+};
+struct mt76_band_mac_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,unsigned,bool,uint32_t,uint8_t *,unsigned);};
+uint32_t mt76_band_mac_address(unsigned index);
+uint32_t mt76_band_mac_value(unsigned index,uint32_t before);
+bool mt76_band_mac_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_band_mac_transfer_valid(const struct mt76_band_mac *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_band_mac_apply(struct mt76_band_mac *s,const struct mt76_band_mac_io *io);
+bool mt76_band_mac_exact_profile_valid(const struct mt76_band_mac *s);
+uint32_t mt76_band_mac_initial(unsigned index);
 #endif

@@ -3327,3 +3327,32 @@ hashes and offline workspace checks passed.305files/722clusters/126directories,
 zero leaks/mismatches/errors; evidence archived, unmounted/unarmed. Next scope:
 bounded channel-band/synthesizer setup from the pinned reference and fresh
 values. Scanning, association/security, connectivity and Wi-Fi UI remain pending.
+
+
+### Fixed 2GHz band preparation (v82 candidate)
+
+After exact v81 observations, follow pinned Linux v7.0
+`mt76x0_phy_set_band(NL80211_BAND_2GHZ)` order: replay the68-entry2G bank5
+table, write RF5:0=45 and6:0=44(hex), then MAC13c8=00050007 and13a0=003e0002.
+The70-target RF plan performs all writes then separate reads, each command
+surrounded by disabled-MAC/CORE/disabled-DMA triplets.980 ordered operations,
+840 guard reads,140 exact16-byte replies,70 ACKs,70 independent observations,
+280 guard triplets and complete low64/high6 mismatch accounting. Sequences
+start1 after v81 ends15. Only exact70 matching readbacks admit MAC setup.
+
+The two MAC full-word writes require fresh0 at each captured target and
+independent readback:18 ordered transfers,16 reads,2 writes,2 verified and4
+more guard triplets. Both native callbacks and the bounded engine reject a
+changed fresh value before write. No caller-selected targets, plan, payload or
+retry. The v81 prerequisite predicate checks its entire116-operation proof,
+all32 guards, five captured MAC values and15 exact captured RF values.
+Existing v81 observation behavior and all162 historical recipes are unchanged.
+
+Directed host checks cover every new I/O/cancellation/guard boundary, reply
+bits/lengths, both mismatch masks, completed-proof mutations and replay refusal.
+Native admission tests cover980 RF and18 MAC positions,162 earlier ownership/
+state faults, command packet bits and quarantine on failure. The full collector
+fixture is402659bytes;4247 missing/duplicate/altered/incomplete proofs refuse,
+with whole earlier-chain verification and boot-module namespace preservation.
+Explicit512KiB capture remains mandatory. No synthesizer frequency, transmit
+power selection, MAC enable, scanning or traffic; physical acceptance pending.

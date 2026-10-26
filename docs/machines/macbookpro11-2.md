@@ -7280,3 +7280,23 @@ in the local `wifi-channel-probe-74d1599` archive. Next: audit the pinned
 channel-band/synthesizer sequence against fresh observations, then implement
 and locally verify a bounded candidate. No frequency/calibrated-radio,
 scanning, association/security, connectivity or network-UI acceptance claimed.
+
+
+### 2026-10-25 — bounded v82 band implementation and local verification
+
+Implemented pinned reference-order2GHz band preparation after exact v81 proof:
+68 bank5 replay targets then RF5:0=45,6:0=44(hex),70 independent readbacks;
+only exact completion admits MAC13c8=00050007 and13a0=003e0002 from fresh0,
+with separate readbacks.980 RF operations/840 guards/140 replies/280 triplets;
+18 MAC transfers/16 reads/2 writes/2 verified/4 triplets. No synthesizer tuning,
+power selection, MAC enable or traffic. Fixed-plan storage grows from68 to70
+entries; historical plans and predicates remain unchanged.
+
+Host tests cover every RF/MAC transfer and cancellation boundary, guard and
+reply faults, both mismatch masks, proof mutation and no replay. Native xHCI
+admission checks cover980 RF and18 MAC positions plus162 prerequisite/state
+faults, every command payload bit, refusal before USB and failure quarantine.
+Strict collector fixture402659bytes preserves the full prior proof and rejects
+4247 malformed captures. All162 historical boot recipes remain byte-identical;
+161 staging tests pass. Pinned reference table/order independently compared.
+Build/exact-stage VM/install checkpoint follows; native acceptance pending.
