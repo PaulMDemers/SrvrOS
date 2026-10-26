@@ -83,7 +83,8 @@ static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event) {
     bool normal=(r->completion==1 || r->completion==13) && r->remaining<=r->requested;
     /* Length-invalid stopped events carry no usable byte count. Only the
      * command completion plus output-context proof can quiesce this buffer. */
-    bool stopped=r->stopping && r->completion>=26 && r->completion<=28;
+    bool stopped=r->stopping && r->completion>=26 && r->completion<=28 &&
+        (r->completion==27 || r->remaining<=r->requested);
     if(!normal && !stopped)wifi_rx_fail(d);
     return true;
 }

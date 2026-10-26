@@ -78,7 +78,7 @@ static void test_wifi_rx_lifecycle(void) {
         if(success){unsigned late=r->late_events;assert(wifi_rx_event(d,&events[1])==(events[1].parameter_low==0x9000));if(events[1].parameter_low==0x9000)assert(r->late_events==late+1);}
         strict_control.device=NULL;
     }
-    for(unsigned fault=0;fault<9;fault++) {
+    for(unsigned fault=0;fault<11;fault++) {
         reset_test();struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);struct xhci_wifi_rx *r=&d->firmware.mcu.rx;
         r->configured=true;r->posts=1;r->pending=true;r->requested=4096;r->trb=0x9000;
         struct xhci_trb e={.parameter_low=0x9000,.status=(13u<<24)|4000,.control=(32u<<10)|(9u<<16)|(1u<<24)|1};
@@ -90,9 +90,11 @@ static void test_wifi_rx_lifecycle(void) {
         if(fault==6)e.status=6u<<24;
         if(fault==7)e.control|=4;
         if(fault==8)r->stopping=true;
+        if(fault==9){r->stopping=true;e.status=(26u<<24)|4097;}
+        if(fault==10){r->stopping=true;e.status=(27u<<24)|0xffffff;}
         bool matches=fault==0 || fault>=4;
         assert(wifi_rx_event(d,&e)==matches);
-        assert(r->failed==(fault>=4 && fault<=7));
+        assert(r->failed==((fault>=4 && fault<=7) || fault==9));
         if(!matches)assert(r->pending && !r->events);
         if(fault==0)assert(r->done && r->remaining==4000 && !r->pending);
     }
