@@ -355,3 +355,11 @@ Both memory and block mounts validate geometry and stream extents; unsupported
 revision/multiple-FAT images are refused. Dirty/media-error single-FAT media stay
 read-only. See the [filesystem audit](filesystem-audit-2026-10-26.md) for host/VM
 coverage and the remaining parser, ownership and crash-recovery work.
+
+File entry imports now require checked entry/name hashes, one stream followed by
+its exact consecutive ASCII name records, valid allocation flags and empty-file
+fields. Unsupported non-ASCII names and secondary extensions are refused rather
+than renamed or dropped. Directory scans reject traversed FAT cycles, invalid
+successors and premature termination. This remains a bounded import profile;
+boot/upcase recovery, full Unicode, allocation ownership and crash safety are
+separate work. Rebuild older generated images whose entry checksums were unset.

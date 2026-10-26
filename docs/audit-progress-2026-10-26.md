@@ -52,14 +52,17 @@ These limits do not reopen the completed target once the specified gates pass.
 They require a separately scoped implementation and acceptance pass if broader
 compatibility is wanted.
 
-## Broader audit: first filesystem checkpoint
+## Broader audit: filesystem checkpoints
 
 The [exFAT import audit](filesystem-audit-2026-10-26.md) corrects unchecked boot
-geometry and stale-byte exposure beyond imported `ValidDataLength`. Sixteen host
-modes, sanitizers and six negative controls cover mount validation, initialized
-reads and boundary preservation through rename/replacement/overwrite/remount.
-A dedicated disposable-image VM exercises the public file API. Entry integrity,
-allocation ownership, unmount lifetime and crash recovery remain next in scope.
+geometry and stale-byte exposure beyond imported `ValidDataLength`. The first
+checkpoint's sixteen host modes cover mount validation, initialized
+reads and preservation through rename/replacement/overwrite/remount. The next
+checkpoint expands to 29 modes and corrects entry checksums/layouts, ASCII name
+identity and directory-chain termination/cycles. Generator and parser changes
+land together; seven new negative controls and a recursive generated-image check
+cover this pass. Dedicated disposable VMs exercise valid imports and corruption
+refusal. Allocation ownership, unmount lifetime and crash recovery remain next.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

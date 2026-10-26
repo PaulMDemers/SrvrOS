@@ -3716,4 +3716,5 @@ test-event-adapters:
 .PHONY: test-exfat-import
 test-core: test-exfat-import
 test-exfat-import:
+	$(PYTHON) tools/test_exfat_generator.py
 	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_import.py

@@ -96,9 +96,12 @@ passes. See the [Air6,1 record](machines/macbookair6-1.md) for exact evidence.
 
 The [October 26 exFAT import audit](filesystem-audit-2026-10-26.md) adds checked
 single-FAT boot geometry and zero-filled reads beyond imported `ValidDataLength`,
-including preservation across rename/replacement. Host/sanitizer and disposable
-VM coverage establish this bounded contract; full media integrity, mount lifetime
-and crash recovery remain under audit.
+including preservation across rename/replacement. Entry-set/name validation and
+bounded directory-chain traversal now reject malformed imports; the image packer
+emits matching checksums/flags. Older generated images need rebuilding.
+Host/sanitizer and disposable VM coverage establish these bounded contracts;
+allocation ownership, full media integrity, mount lifetime and crash recovery
+remain under audit.
 
 | Area | Current boundary |
 | --- | --- |

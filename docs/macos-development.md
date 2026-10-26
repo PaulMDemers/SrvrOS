@@ -112,3 +112,13 @@ For PR175's synchronization corrections, the complete `tools/thread_smoke.py`
 Those selected harnesses use disposable disks and stop their own QEMU instances.
 `sh tools/macos/build.sh test-sync-contracts` runs the associated host regressions.
 This does not qualify every `test-core` target or other guest/hardware harness.
+
+### Rebuild images after entry-integrity changes
+
+The exFAT import parser now refuses unset or incorrect entry-set checksums and
+unsupported stream/name layouts. Older generated disks must be rebuilt with
+`sh tools/macos/build.sh -j2 all` and paired with the matching kernel. This rebuilds
+generated build artifacts; it is not an upgrade/repair procedure for persistent
+workspace or recovery media. Run `sh tools/macos/build.sh test-exfat-import` and
+see the [filesystem audit](filesystem-audit-2026-10-26.md) for the supported ASCII
+entry subset, regression evidence and remaining gaps.

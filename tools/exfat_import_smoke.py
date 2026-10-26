@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--disk', type=Path, default=ROOT/'build/srvros.exfat')
     parser.add_argument('--iso', type=Path, default=ROOT/'build/srvros-x86_64.iso')
     parser.add_argument('--qemu', default='qemu-system-x86_64')
+    parser.add_argument('--corrupt-entry', action='store_true', help='Require mount refusal after corrupting an entry checksum')
     args = parser.parse_args()
     raw = args.disk.read_bytes()
     fixture = ExfatFixture(raw)
@@ -37,6 +38,8 @@ def main():
                 checksum = (((checksum >> 1) | ((checksum & 1) << 15)) + byte) & 65535
         struct.pack_into('<H', fixture.data, cursor+2, checksum)
         cursor += len(entry)
+    if args.corrupt_entry:
+        fixture.data[start+2] ^= 1
     with tempfile.TemporaryDirectory(prefix='srvros-import-') as folder:
         disk = Path(folder)/'fixture.exfat'
         disk.write_bytes(fixture.data)
@@ -44,9 +47,18 @@ def main():
         print('fixture disk sha256:', hashlib.sha256(fixture.data).hexdigest(), flush=True)
         result = subprocess.run([sys.executable, str(ROOT/'tools/thread_smoke.py'),
             '--root', str(ROOT), '--disk', str(disk), '--iso', str(args.iso.resolve()),
-            '--qemu', args.qemu, '--test', 'exfat-import', '--boot-wait', '60', '--run-wait', '120'],
+            '--qemu', args.qemu, '--test', 'exfat-refused' if args.corrupt_entry else 'exfat-import',
+            '--boot-wait', '60', '--run-wait', '120'],
             capture_output=True, text=True)
         print(result.stdout + result.stderr, end='')
+        if args.corrupt_entry:
+            from thread_smoke import has_fatal_exception
+            passed = (result.returncode == 0 and not has_fatal_exception(result.stdout) and
+                      'exfat: failed to scan block root directory' in result.stdout and
+                      'exfat: mounted /fat from initramfs-exfat' in result.stdout and
+                      'threadstress: exfat-refused ok' in result.stdout)
+            print('exfat-import: corrupt-entry refusal', 'PASS' if passed else 'FAIL')
+            return int(not passed)
         return result.returncode or int('threadstress: exfat-import ok' not in result.stdout)
 
 if __name__ == '__main__':

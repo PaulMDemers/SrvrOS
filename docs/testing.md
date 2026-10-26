@@ -1026,13 +1026,17 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 16 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 29 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
 The fixtures cover invalid and supported boot geometry, dirty-volume refusal,
 stream length/range validation, initialized-data zero fill and preservation
-through rename, replacement, overwrite and remount.
+through rename, replacement, overwrite and remount. Entry-integrity modes cover
+checksums, stream/name ordering, ASCII name identity, empty streams, import cleanup
+and directory-chain cycles/termination. Four generator test groups run with this
+target; `python3 tools/test_exfat_generator.py --image build/srvros.exfat` additionally
+checks every generated file/directory entry set recursively.
 
 After a matched build, `python3 tools/exfat_import_smoke.py` prepares a temporary
 image with deliberately stale backing bytes and runs the explicit
@@ -1040,3 +1044,8 @@ image with deliberately stale backing bytes and runs the explicit
 as well as normal thread-harness completion. Ordinary `thread_smoke.py` does not
 include this fixture-dependent mode. See the
 [filesystem audit](filesystem-audit-2026-10-26.md) for evidence and remaining gaps.
+
+`python3 tools/exfat_import_smoke.py --corrupt-entry` requires explicit mount
+refusal after corrupting one entry checksum. It requires clean initramfs fallback and the `exfat-refused` guest mode, which
+checks that rejected fixture paths are absent and the fallback remains readable.
+Fatal exceptions or missing completion are failures. Rebuild older generated disks: unset entry checksums are now refused.

@@ -195,6 +195,7 @@ static bool reserve_metadata(struct exfat_mount *m,uint64_t nodes) {
     return true;
 }
 
+static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count);
 static bool streq(const char *a, const char *b);
 static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster);
 static bool allocate_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster, bool *no_fat_chain);
@@ -597,6 +598,37 @@ static bool register_directory(struct exfat_mount *mount,
     return true;
 }
 
+/* This driver can mutate only the basic stream + ASCII name entry set.
+ * Refuse extensions rather than silently discard their metadata on rename. */
+static bool valid_import_entry_set(const uint8_t *entry, uint64_t available) {
+    uint64_t count = (uint64_t)entry[1] + 1;
+    if (count < 3 || count > EXFAT_MAX_FILE_ENTRIES ||
+        count * EXFAT_ENTRY_SIZE > available ||
+        read_u16(entry + 2) != entry_set_checksum(entry, count)) return false;
+    const struct exfat_stream_entry *stream = (const void *)(entry + EXFAT_ENTRY_SIZE);
+    uint64_t names = ((uint64_t)stream->name_length + 14) / 15;
+    if (stream->entry_type != EXFAT_ENTRY_STREAM || !stream->name_length ||
+        count != 2 + names || !(stream->flags & 1) ||
+        (!stream->data_length && (stream->first_cluster || (stream->flags & 2)))) return false;
+    uint16_t hash = 0;
+    for (uint64_t i = 0; i < names; i++) {
+        const uint8_t *name = entry + (2 + i) * EXFAT_ENTRY_SIZE;
+        if (name[0] != EXFAT_ENTRY_NAME || (name[1] & 3)) return false;
+        for (uint64_t j = 0; j < 15 && i * 15 + j < stream->name_length; j++) {
+            uint16_t c = read_u16(name + 2 + j * 2);
+            if (c < 0x20 || c >= 0x7f || c == '"' || c == '*' || c == '/' ||
+                c == ':' || c == '<' || c == '>' || c == '?' || c == '\\' || c == '|') return false;
+            uint16_t upper = c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c;
+            hash = (uint16_t)(((hash >> 1) | (hash << 15)) + upper);
+            hash = (uint16_t)((hash >> 1) | (hash << 15));
+        }
+    }
+    if (read_u16(entry + 2 * EXFAT_ENTRY_SIZE + 2) == '.' &&
+        (stream->name_length == 1 || (stream->name_length == 2 &&
+         read_u16(entry + 2 * EXFAT_ENTRY_SIZE + 4) == '.'))) return false;
+    return hash == stream->name_hash;
+}
+
 static bool scan_directory(const char *path,
     struct exfat_mount *mount,
     uint32_t first_cluster,
@@ -611,6 +643,9 @@ static bool scan_directory(const char *path,
     uint32_t cluster = first_cluster;
     uint64_t visited = 0;
     uint64_t scanned = 0;
+    /* Brent cycle detection: bounded state, without a volume-sized bitmap. */
+    uint32_t chain_anchor = first_cluster;
+    uint64_t chain_power = 1, chain_distance = 0;
     bool ok = true;
     uint8_t *cluster_buffer = kmalloc(volume->cluster_size);
 
@@ -658,29 +693,15 @@ static bool scan_directory(const char *path,
             }
 
             const struct exfat_file_entry *file_entry = (const struct exfat_file_entry *)entry;
-            uint64_t remaining_entries = cluster_limit - entry_offset;
-            if ((uint64_t)(file_entry->secondary_count + 1) * EXFAT_ENTRY_SIZE > remaining_entries) {
+            if (!valid_import_entry_set(entry, cluster_limit - entry_offset)) {
                 ok = false;
                 goto out;
             }
+            const struct exfat_stream_entry *stream = (const void *)(entry + EXFAT_ENTRY_SIZE);
+            const struct exfat_name_entry *names = (const void *)(entry + 2 * EXFAT_ENTRY_SIZE);
+            uint64_t name_entry_count = ((uint64_t)stream->name_length + 14) / 15;
 
-            const struct exfat_stream_entry *stream = NULL;
-            const struct exfat_name_entry *names = NULL;
-            uint64_t name_entry_count = 0;
-
-            for (uint64_t i = 1; i <= file_entry->secondary_count; i++) {
-                const uint8_t *secondary = entry + i * EXFAT_ENTRY_SIZE;
-                if (secondary[0] == EXFAT_ENTRY_STREAM) {
-                    stream = (const struct exfat_stream_entry *)secondary;
-                } else if (secondary[0] == EXFAT_ENTRY_NAME) {
-                    if (names == NULL) {
-                        names = (const struct exfat_name_entry *)secondary;
-                    }
-                    name_entry_count++;
-                }
-            }
-
-            if (stream != NULL && names != NULL) {
+            {
                 uint64_t heap_bytes = (uint64_t)volume->cluster_count * volume->cluster_size;
                 bool directory = (file_entry->file_attributes & EXFAT_ATTR_DIRECTORY) != 0;
                 if (stream->valid_data_length > stream->data_length ||
@@ -737,11 +758,22 @@ static bool scan_directory(const char *path,
 
         if (no_fat_chain) {
             cluster++;
-        } else if (!next_cluster(volume, cluster, &cluster)) {
-            ok = false;
-            break;
+        } else {
+            if (!next_cluster(volume, cluster, &cluster)) { ok = false; goto out; }
+            if (cluster >= EXFAT_FAT_CHAIN_END) {
+                ok = data_length == 0; /* Otherwise the declared directory was short. */
+                goto out;
+            }
+            if (cluster < 2 || cluster >= volume->cluster_count + 2 ||
+                cluster == chain_anchor) { ok = false; goto out; }
+            if (++chain_distance == chain_power) {
+                chain_anchor = cluster;
+                chain_power *= 2;
+                chain_distance = 0;
+            }
         }
     }
+    ok = false; /* Invalid start or exhausted traversal budget is not an EOF. */
 
 out:
     kfree(cluster_buffer);

@@ -90,9 +90,99 @@ static void reject_geometry(unsigned field,uint64_t value) {
     assert(!exfat_mount_block_device("/vol",&device));
     assert(!vfs_count() && !writes && !flushes && allocations==before && reads==1);
 }
+static void reject_import(void) {
+    assert(!exfat_mount_image("/vol",disk,sizeof(disk)) && !vfs_count());
+    assert(!exfat_mount_block_device("/vol",&device) && !vfs_count());
+    assert(!writes && !flushes && !io_depth);
+    /* A refused partial import must release its mount and VFS publication. */
+    fixture(1100,true);
+    assert(exfat_mount_image("/vol",disk,sizeof(disk)));
+    check_data("/vol/source",1100);assert(exfat_unmount("/vol"));
+}
+static void name_checksum(uint8_t *entry) {
+    unsigned hash=0,length=entry[35];
+    for(unsigned i=0;i<length;i++) {
+        unsigned c=read_u16(entry+64+(i/15)*32+2+(i%15)*2);
+        if(c>='a' && c<='z') c-=32;
+        hash=(((hash>>1)|((hash&1)<<15))+(c&255))&65535;
+        hash=(((hash>>1)|((hash&1)<<15))+(c>>8))&65535;
+    }
+    write_u16(entry+36,(uint16_t)hash);checksum(entry);
+}
+static void entry_case(const char *mode) {
+    fixture(1100,true);uint8_t *entry=disk+offset(2)+64;
+    if(!strcmp(mode,"entry-checksum")) { entry[2]^=1;reject_import(); }
+    else if(!strcmp(mode,"entry-layout")) {
+        for(unsigned c=0;c<5;c++) {
+            fixture(1100,true);uint8_t tmp[32];
+            if(c==0) {memcpy(tmp,entry+32,32);memcpy(entry+32,entry+64,32);memcpy(entry+64,tmp,32);}
+            if(c==1) {entry[1]=3;memcpy(entry+96,entry+32,32);}
+            if(c==2) entry[32]=0x40; /* inactive stream */
+            if(c==3) entry[64]=0xe1; /* unsupported name record */
+            if(c==4) {entry[1]=3;memcpy(entry+96,entry+64,32);} /* excess name */
+            checksum(entry);reject_import();
+        }
+    } else if(!strcmp(mode,"entry-name-length")) {
+        for(unsigned n=0;n<2;n++) {fixture(1100,true);entry[35]=n?16:0;checksum(entry);reject_import();}
+    } else if(!strcmp(mode,"entry-name-hash")) {
+        entry[36]^=1;checksum(entry);reject_import();
+    } else if(!strcmp(mode,"entry-unsafe-name")) {
+        const unsigned chars[]={0,31,127,0x100,0xd800,'/','\\',':','*','?','"','<','>','|'};
+        for(unsigned i=0;i<sizeof(chars)/sizeof(chars[0]);i++) {
+            fixture(1100,true);write_u16(entry+66,(uint16_t)chars[i]);name_checksum(entry);reject_import();
+        }
+        for(unsigned n=1;n<=2;n++) {
+            fixture(1100,true);entry[35]=(uint8_t)n;
+            write_u16(entry+66,'.');write_u16(entry+68,'.');name_checksum(entry);reject_import();
+        }
+    } else if(!strcmp(mode,"entry-flags")) {
+        entry[33]=2;checksum(entry);reject_import();
+        fixture(1100,true);entry[65]=1;checksum(entry);reject_import();
+        fixture(1100,true);write_u64(entry+40,0);write_u64(entry+56,0);checksum(entry);reject_import();
+    } else if(!strcmp(mode,"entry-extra")) {
+        entry[1]=3;entry[96]=0xe0;checksum(entry);reject_import();
+    } else if(!strcmp(mode,"entry-cleanup")) {
+        memcpy(entry+96,entry,96);entry[98]^=1;reject_import();
+    } else if(!strcmp(mode,"entry-valid")) {
+        unsigned lengths[]={1,15,16,180};
+        for(unsigned i=0;i<sizeof(lengths)/sizeof(lengths[0]);i++) {
+            fixture(1100,true);memset(entry,0,SECTOR-64);char name[181],path[190];
+            memset(name,'x',lengths[i]);name[0]='A';name[lengths[i]]=0;
+            uint64_t count,names;assert(build_file_entry_set(entry,name,5,1100,0x20,true,&count,&names));
+            snprintf(path,sizeof(path),"/vol/%s",name);
+            /* Unused name padding is not part of NameLength/NameHash. */
+            if(lengths[i]%15) {write_u16(entry+count*32-2,0x1234);checksum(entry);}
+            assert(exfat_mount_image("/vol",disk,sizeof(disk)));check_data(path,1100);assert(exfat_unmount("/vol"));
+            assert(exfat_mount_block_device("/vol",&device));check_data(path,1100);assert(exfat_unmount("/vol"));
+        }
+    } else if(!strcmp(mode,"dir-cycle") || !strcmp(mode,"dir-invalid-next")) {
+        memset(disk+offset(2),0x05,SECTOR);
+        write_u32(disk+24*SECTOR+8,!strcmp(mode,"dir-cycle")?2:0);
+        reject_import();assert(reads<100); /* Cycle refusal must not walk the volume size. */
+    } else if(!strcmp(mode,"dir-chain")) {
+        for(unsigned c=0;c<2;c++) {
+            fixture(1100,true);
+            memset(disk+offset(2),0x05,SECTOR);memset(disk+offset(8),0x05,2*SECTOR);
+            write_u32(disk+24*SECTOR+2*4,8);write_u32(disk+24*SECTOR+8*4,9);
+            write_u32(disk+24*SECTOR+9*4,c?8:0xffffffff);
+            if(c) {reject_import();assert(reads<100);}
+            else {
+                assert(exfat_mount_image("/vol",disk,sizeof(disk)) && exfat_unmount("/vol"));
+                assert(exfat_mount_block_device("/vol",&device) && exfat_unmount("/vol"));
+            }
+        }
+    } else if(!strcmp(mode,"dir-short")) {
+        write_u16(entry+4,EXFAT_ATTR_DIRECTORY);entry[33]=1;
+        write_u32(entry+52,8);write_u64(entry+40,1024);write_u64(entry+56,1024);checksum(entry);
+        memset(disk+offset(8),0x05,SECTOR);write_u32(disk+24*SECTOR+8*4,0xffffffff);
+        reject_import();
+    } else { assert(!"unknown entry mode"); }
+}
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strcmp(mode,"geometry-shifts")) {
+    if(!strncmp(mode,"entry-",6) || !strncmp(mode,"dir-",4)) {
+        entry_case(mode);
+    } else if(!strcmp(mode,"geometry-shifts")) {
         unsigned sector[]={0,8,13,63,64,255},cluster[]={17,63,64,255};
         for(unsigned i=0;i<sizeof(sector)/sizeof(sector[0]);i++)reject_geometry(0,sector[i]);
         for(unsigned i=0;i<sizeof(cluster)/sizeof(cluster[0]);i++)reject_geometry(1,cluster[i]);

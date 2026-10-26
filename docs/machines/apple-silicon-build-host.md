@@ -947,3 +947,47 @@ review; the listed follow-up defects are not represented as fixed.
 
 Published runtime commit `a8d1617b` in [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 The broader audit remains active at the next entry-integrity checkpoint.
+
+### Entry-integrity audit — active scope (2026-10-26)
+
+User authorized the next checkpoint on PR182. Base is `352f9b0d` with main at
+`afc8bb67`; refreshed PR181 remains desktop lifecycle and PR19 Wi-Fi. This pass
+owns exFAT entry-set integrity/structure, bounded ASCII name import, generated
+image entries and directed host/VM fixtures. Reproduce corrupt-checksum acceptance,
+malformed stream/name layouts and unsafe names before correction. Fix the packer
+and parser together; retain explicit unsupported-format refusal and document the
+need to rebuild older generated disks. Acceptance: actual driver regressions and
+sanitizers, independent generated-entry checks, matched build, import/thread/libuv
+VMs and docs. Allocation cross-link ownership, unmount lifetime, full Unicode,
+boot-region recovery and crash consistency remain subsequent checkpoints.
+
+### Entry-integrity checkpoint results
+
+The generator now emits correct file-entry checksums, name hashes and allocation
+flags, and avoids allocating empty streams. The driver checks basic stream/name
+layout, checksum, ASCII name identity/hash and empty-stream flags before
+publication. Additional secondary extensions and unsupported names are refused.
+Directory scans now reject traversed cycles, invalid FAT successors and chains
+shorter than their declared directory data. Older generated disks must be rebuilt
+with the matching kernel; persistent workspace/recovery media were not modified.
+
+Ten new modes failed on the previous implementation. All 29 current host modes
+pass normally and under ASan/UBSan; seven new compiled negative controls are
+caught. Four generator groups and an independent recursive check of all 372 sets
+in 16 directories pass. The existing entry-layout test, matched build and all
+four VMs pass sequentially: import 16.48 s, corrupt-entry/fallback 16.35 s,
+complete threads 40.39 s, libuv 10.22 s (60-second completion budget).
+
+The first corruption harness wrongly assumed refusal prevented all application
+startup. Its retained failure showed the intended clean initramfs fallback. The
+corrected `exfat-refused` guest test verifies rejected paths are absent and the
+fallback remains readable, alongside explicit mount-refusal/fallback diagnostics.
+No timeout is counted as a pass. Evidence and tested source/output hashes are in
+`build/review/exfat-entry-audit/`; documentation and whitespace checks pass.
+
+PR182 remains the delivery branch. Next: allocation/cross-link ownership,
+duplicate paths, bitmap/FAT disagreement and unmount/open-reference lifetime.
+Source review confirms monitor and workspace callers have busy guards; trace
+those against the direct filesystem teardown and other callers before declaring
+a lifetime defect. Boot/upcase recovery, full Unicode and power-loss atomicity
+remain outside this checkpoint. No physical tests or Actions dispatch occurred.

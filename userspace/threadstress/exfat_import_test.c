@@ -27,3 +27,13 @@ int posix_exfat_import_test(void) {
     CHECK(read(fd,bytes,sizeof(bytes))==2 && !memcmp(bytes,"OK",2) && !close(fd));
     puts("threadstress: exfat-import ok");return 0;
 }
+
+int posix_exfat_refused_test(void) {
+    struct stat st;
+    const char *paths[]={"/fat/import-test", "/fat/import-test/partial",
+        "/fat/import-test/zero", "/fat/import-test/boundary"};
+    for(unsigned i=0;i<sizeof(paths)/sizeof(paths[0]);i++)
+        CHECK(stat(paths[i],&st)==-1 && errno==ENOENT);
+    int fd=open("/fat/bin/threadstress",O_RDONLY);CHECK(fd>=0 && !close(fd));
+    puts("threadstress: exfat-refused ok");return 0;
+}

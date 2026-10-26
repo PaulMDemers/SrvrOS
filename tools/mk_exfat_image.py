@@ -35,6 +35,9 @@ def put_utf16_name(entry, text):
 def file_entry(name, first_cluster, data, attributes=0x20, data_length=None):
     if data_length is None:
         data_length = len(data)
+    if (not 1 <= len(name) <= 255 or name in (".", "..") or
+            any(ord(c) < 32 or ord(c) >= 127 or c in '\"*/:<>?\\|' for c in name)):
+        raise ValueError("exFAT image names must be supported ASCII basenames")
     name_entries = (len(name) + 14) // 15
     entries = []
 
@@ -46,10 +49,10 @@ def file_entry(name, first_cluster, data, attributes=0x20, data_length=None):
 
     stream = bytearray(32)
     stream[0] = 0xC0
-    stream[1] = 0x02
+    stream[1] = 0x03 if data_length else 0x01
     stream[3] = len(name)
     struct.pack_into("<Q", stream, 8, data_length)
-    struct.pack_into("<I", stream, 20, first_cluster)
+    struct.pack_into("<I", stream, 20, first_cluster if data_length else 0)
     struct.pack_into("<Q", stream, 24, data_length)
     entries.append(stream)
 
@@ -58,7 +61,17 @@ def file_entry(name, first_cluster, data, attributes=0x20, data_length=None):
         put_utf16_name(name_entry, name[i * 15:(i + 1) * 15])
         entries.append(name_entry)
 
-    return b"".join(entries)
+    name_hash = 0
+    for byte in name.upper().encode("utf-16le"):
+        name_hash = (((name_hash >> 1) | ((name_hash & 1) << 15)) + byte) & 0xffff
+    struct.pack_into("<H", stream, 4, name_hash)
+    result = bytearray(b"".join(entries))
+    checksum = 0
+    for i, byte in enumerate(result):
+        if i not in (2, 3):
+            checksum = (((checksum >> 1) | ((checksum & 1) << 15)) + byte) & 0xffff
+    struct.pack_into("<H", result, 2, checksum)
+    return bytes(result)
 
 
 def cluster_offset(cluster):
@@ -137,8 +150,10 @@ def main():
 
     def allocate_clusters(data_length):
         nonlocal next_cluster
+        if data_length == 0:
+            return 0
         cluster = next_cluster
-        count = max(1, (data_length + CLUSTER_SIZE - 1) // CLUSTER_SIZE)
+        count = (data_length + CLUSTER_SIZE - 1) // CLUSTER_SIZE
         allocated_clusters.update(range(cluster, cluster + count))
         next_cluster += count
         return cluster

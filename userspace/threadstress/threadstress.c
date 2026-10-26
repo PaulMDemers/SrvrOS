@@ -649,6 +649,7 @@ int posix_epoll_edge_test(void);
 int posix_event_adapter_final_test(void);
 
 int posix_exfat_import_test(void);
+int posix_exfat_refused_test(void);
 
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"once-exit-child")) return posix_once_exit_child();
@@ -680,6 +681,10 @@ int main(int argc, char **argv) {
     /* Imported-data fixtures exist only in the dedicated disposable-image run. */
     if (!strcmp(only, "exfat-import") && posix_exfat_import_test() != 0) {
         say_fail("exfat-import");
+        return 1;
+    }
+    if (!strcmp(only, "exfat-refused") && posix_exfat_refused_test() != 0) {
+        say_fail("exfat-refused");
         return 1;
     }
     RUN_TEST("yield", yield_test);

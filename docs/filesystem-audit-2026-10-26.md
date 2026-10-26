@@ -9,7 +9,7 @@ Silicon host owns this work; desktop, Air6,1 and Wi-Fi work remain
 with their device branches.
 
 Delivery: [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182), runtime
-commit `a8d1617b`. The tested source hashes match that commit; this report and the
+first-checkpoint commit `a8d1617b`. Its tested source hashes match that commit; this report and the
 host record distinguish pre-integration and post-PR180 builds.
 
 ## Confirmed defects and corrections
@@ -94,24 +94,86 @@ Run build and VM commands sequentially in a checkout. `test-exfat-import` also
 belongs to `test-core`. The guest mode is explicit (`exfat-import`) because its
 special imported-media fixtures are absent from the ordinary thread suite.
 
+## Entry-integrity checkpoint
+
+The next pass starts at `352f9b0d`, still on main integration base `afc8bb67`.
+The earlier checksum gap is now corrected in the image packer and mount parser
+together. The packer emits entry-set checksums, ASCII name hashes and allocation
+flags, and represents empty files without a cluster allocation. The test-fixture
+helper follows the same empty-stream contract. Unsupported names are rejected
+at generation time instead of producing ambiguous disk records.
+
+Before publishing a file or directory, both mount paths now validate its complete
+entry-set checksum, require exactly one immediately following stream and the
+required consecutive name records, check allocation flags/empty-stream fields,
+and verify its ASCII name hash. The previous search for arbitrary stream/name
+positions could parse a different layout from the one mutation code later wrote.
+Imports now refuse invalid characters, embedded separators, dot/dot-dot names
+and unsupported non-ASCII text instead of substituting `?` into the VFS identity.
+Unused name padding is ignored; supported single- and multi-record names pass.
+
+The supported entry set is deliberately limited to a stream and ASCII names,
+with at most 19 entries contained in one cluster. Additional vendor/benign
+secondary records are refused because this writer cannot preserve them during
+rename. This is an explicit compatibility boundary, not a claim that such
+extensions are invalid exFAT. Older generated disks with unset checksums must be
+rebuilt with the updated packer and paired with the matching kernel. This change
+does not repair, reformat or upgrade a user's existing data/recovery media.
+
+The directory walker also used to accept invalid FAT successors, premature chain
+termination and traversal-budget exhaustion as success. It now rejects invalid
+successors and chains shorter than the declared directory data, and detects
+cycles encountered during scanning using constant memory. Self-loops and a cycle
+after an acyclic prefix are covered. This does not inspect links beyond a logical
+end marker/declared length or validate file allocation ownership.
+
+Evidence is retained in `build/review/exfat-entry-audit/`:
+
+- Ten new modes failed against the previous implementation; the original sixteen
+  and two positive/bounds modes passed. The later chain-prefix case extends the
+  final suite to 29 modes, all passing normally and under ASan/UBSan.
+- Rejected partial imports leave no VFS publication or occupied mount slot; the
+  same mountpoint can immediately mount a valid fixture. Corruption checks cover
+  both memory and block mounts and require no writes or flushes on refusal.
+- Seven independently compiled negative controls are detected: checksum/hash,
+  name character validation, allocation flags, extra secondary records, cycle
+  detection and short-chain refusal.
+- Four generator test groups pass (fixed hash vector, name lengths, empty/directory
+  streams and invalid names). Running them with the old packer fails. An independent
+  recursive check of the rebuilt disk validates all 372 sets in 16 directories.
+- The matched `all` build and existing entry-layout/checksum host test pass.
+  All four final VMs pass: import (16.48 s), corrupt-entry/fallback (16.35 s),
+  complete threads (40.39 s), and libuv (10.22 s, 60-second completion budget).
+  Receipts and logs are under `vms-final/`. The corrupt-image runner requires an explicit mount
+  refusal, successful clean-initramfs fallback and a guest assertion that the
+  rejected disk's directory/files are absent. A timeout alone is not a pass.
+  The first refusal harness wrongly prohibited any test launch, overlooking
+  normal fallback; its failed log is retained. The corrected harness verifies
+  the recovery behavior explicitly.
+
+Reproduce the additional image/refusal checks after the matched build:
+
+```sh
+python3 tools/test_exfat_generator.py --image build/srvros.exfat
+python3 tools/exfat_import_smoke.py --corrupt-entry
+```
+
+The generator tests also run under `test-exfat-import`. The earlier libuv timeout
+remains historical evidence; the current acceptance command uses `--line-wait 60`.
+No native hardware or Linux exfatprogs power-cut campaign is claimed here.
+
 ## Remaining audit queue
 
-1. Directory-entry integrity and parser structure: entry-set/name checksums,
-   stream/name ordering, malformed secondary entries and directory-chain cycles.
-   Source review shows the import scan does not verify the entry-set checksum;
-   compatibility with generated images must be reviewed before enforcing it.
-   A read-only check of the tested generated disk found all 169 root entry sets
-   had stored checksum zero and a different calculated checksum. The generator's
-   `file_entry` omits the checksum; enforcement and generator correction need to
-   land together. The observation is retained in `entry-checksum-followup.json`;
-   this defect remains open for the next checkpoint.
-2. Allocation ownership and lifetime: cross-linked extents, bitmap/FAT disagreement,
-   failed import cleanup, unmount/open-file references and device removal.
-3. Mutation failure/recovery boundaries and durable metadata. Existing serialized
+1. Allocation ownership and lifetime: cross-linked extents, duplicate path
+   identities, bitmap/FAT disagreement, failed import cleanup under allocation/I/O
+   faults, unmount/open-file references and device removal. Trace caller busy
+   guards against direct `exfat_unmount` and retained process VFS references.
+2. Mutation failure/recovery boundaries and durable metadata. Existing serialized
    replacement and dirty-volume quarantine are not a journal; interrupted rename
-   and power-loss atomicity remain unproven. Multi-cluster bitmap mutation and
-   boot checksum/backup recovery remain outside this checkpoint.
-4. Networking/socket lifecycle, VM/syscall validation, process/resource isolation
+   and power-loss atomicity remain unproven. Multi-cluster bitmap mutation,
+   boot checksum/backup recovery, upcase-table integrity, full Unicode and
+   cross-cluster/extended entry sets remain outside this checkpoint.
+3. Networking/socket lifecycle, VM/syscall validation, process/resource isolation
    and remaining documentation reconciliation follow as separately bounded work.
 
 The [overall inventory](audit-progress-2026-10-26.md) tracks what has been audited
