@@ -105,7 +105,12 @@ def main():
                         # The save result and owned-picker retirement may arrive
                         # in either order. Both must finish before the next
                         # document shortcut targets the restored parent.
-                        wait_all([b"file-result role=text op=2 status=0",b"deskd: retired pid="])
+                        if args.document_growth or index<document_count:
+                            wait_all([b"file-result role=text op=2 status=0",b"deskd: retired pid="])
+                        else:
+                            # The pressure fixture refuses the sixteenth
+                            # document's picker, which falls back in its parent.
+                            wait(b"file-result role=text op=2 status=0")
                         expected_files[f"document-{index}.txt"]=contents.encode()
                     save_document(1)
                     for index in range(2,document_count+1):
@@ -205,8 +210,12 @@ def main():
                     if processes==baseline_processes: break
                     if time.monotonic()>cleanup_deadline: raise RuntimeError("Process set did not return to baseline after full-session cleanup")
                     time.sleep(.5)
-                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows="+str(document_count+1 if args.document_growth else document_count if args.documents else 16).encode(),output)
+                cache=re.search(rb"deskd: cache peak_bytes=(\d+) retired_bytes=(\d+) budget_bytes=(\d+) windows=(\d+)",output)
                 assert cache and int(cache[2])==0 and 0<int(cache[1])<=int(cache[3])
+                # windows reports allocated registry capacity, not live count.
+                # The growth run needs room for 32 documents plus a save picker;
+                # the separate pressure fixture retains its explicit quota.
+                assert int(cache[4])>=document_count+1 if args.document_growth else int(cache[4])==16
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
