@@ -2,6 +2,24 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
+### Desktop movement and dock — active scope
+
+Base main `ab7a7c93`, after closing PR193 with the tester's non-audio report.
+Air7,2 owns a bounded compositor/scene follow-up: allow ordinary windows past
+screen sides/bottom with a reachable titlebar; preserve clipping, hit testing,
+resize rollback, modal ownership and Center/tiling recovery. Make the dock's
+running/active/minimized state visible, include running unpinned applications,
+restore/cycle an app's windows and expose a filtered window chooser on secondary
+click. Reuse stable window identities and existing launcher capacity, not a new
+fixed per-app window table. Keep the quiet visual style and pure scene helpers.
+
+Planned edits: `userspace/deskd` scene/input/launcher, focused host and actual VM
+fixtures, current help/desktop docs and this record. No kernel, firmware, driver,
+audio or protocol work. PR182's filesystem audit and PR19's Wi-Fi remain separate.
+Validate locally and in QEMU before preparing any physical trial; preserve the
+accepted `a90629c8a2060e66` payload and independent `9aa8dbf6fbda8252` recovery.
+Local checkpoint: `build/window-dock-20261026/`. No next reboot is armed.
+
 ### Shared application/window layer — bounded non-audio hardware acceptance
 
 Release `a90629c8a2060e66`, source `0858e8e6` (PR181 plus PR185), returned in
