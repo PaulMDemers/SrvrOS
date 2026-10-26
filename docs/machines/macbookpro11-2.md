@@ -175,6 +175,20 @@ unmounted/unarmed. MAC/RF values remain observations. Next scope is bounded
 channel-band/synthesizer setup grounded in these fresh values and pinned source;
 frequency/calibrated radio/connectivity remain untested.
 
+
+Next bounded implementation scope (v82): reference-order2GHz band preparation:
+replay the fixed68-entry bank5 table, set RF5:0=45 and6:0=44(hex), then set
+MAC13c8=00050007 and13a0=003e0002 with independent readbacks. Require fresh
+v81 exact observations and all earlier proof; maintain disabled MAC/CORE/DMA
+guards. No synthesizer frequency, power selection, MAC enable or traffic yet.
+Touched subsystems: fixed MT76 plan/MAC engine, gated xHCI diagnostic mode,
+boot recipe, directed tests and this unit/current Wi-Fi guide. Dependencies:
+v81 native proof, pinned Linux v7.0 set_band reference, explicit512KiB capture.
+Fetched integration main `aa7b7392`; new changes concern Air lifecycle timing
+and tools, with no MT76 overlap. Open PR172 owns desktop runtime; Pro PR19 owns
+this diagnostic scope. Retain intentional integration baseline `d5bc4b3`
+during this bounded trial. No remote task messaging or parallel staging.
+
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
 source, dependencies and evidence; observations are not radio acceptance.
