@@ -3026,3 +3026,9 @@ synthetic-readiness path uses timespec/clock_gettime without including time.h,
 and its strict-C host fixture lacks the POSIX feature declaration. Extend this
 validation scope only to the explicit time header and fixture feature macro;
 retain the failed build log. No runtime policy, pipe admission or limits change.
+
+The next build gate exposed an outdated process-service host fixture: mapping
+retirement now references scheduler_wake_all for futex invalidation, but the
+fixture did not provide it. Add a checked wake hook and exercise an active futex
+on a retiring page, asserting invalidation/wake occurs before frame release.
+This updates test integration only; the merged process behavior is unchanged.
