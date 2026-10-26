@@ -18,7 +18,7 @@ and initial power-on calibration ordering before bounded native calibration.
 Original strict calibration helper is unchanged; RF0:6 remains unresolved.
 Scanning, association/security, Wi-Fi IP traffic and UI remain pending.
 
-Active block (2026-10-26): consumed actual main `9465c68f` (PR192 private
+Completed offline block (2026-10-26): consumed actual main `9465c68f` (PR192 private
 child-image ownership, PR193/195 evidence). PR194 owns window/dock behavior;
 PR182 filesystem imports; neither overlaps this scope. Implement a separate,
 allocation-free initial power-on calibration transaction for the captured
@@ -29,8 +29,9 @@ so TSSI DC is excluded only for this exact profile. Require current ownership
 and fresh mapped board fields before every forward callback, independently
 verified temporary writes and reverse cleanup after failure. Preserve both old
 helpers. No native caller/profile change, calibration claim or reboot in this
-block. Checkpoint: host fault injection/sanitizers, merged core/image validation,
-reference audit and durable archive before native integration.
+block. Checkpoint complete: host fault injection/sanitizers, merged core/image and
+GPT/OVMF boot/input validation, reference audit and durable archive. Native
+command adapter and physical trial remain next; installed v91 is unchanged.
 
 
 Completed block (2026-10-26): v91 on actual main `d24dbc11` (PR191 evidence
@@ -8562,3 +8563,18 @@ two forward writes,five commands,three waits and two cleanup callbacks; cleanup
 callbacks must themselves perform a write and independent read on hardware.
 Native RF0:6 semantics and operational power setup remain unresolved; this is
 transaction groundwork, not radio calibration or packet reception acceptance.
+
+
+Validation for power-on helper source `a614bd7f`: full image/core suite passed,
+including merged process/scheduler regressions and existing Wi-Fi/xHCI suites.
+Focused final fault injection and ASan/UBSan passed;674 local docs links pass.
+GPT/OVMF USB boot and injected `echo poweron-core-ok` input passed. Q35 checks
+merged boot/input behavior only; it has no captured adapter and establishes no
+native calibration acceptance. Link audit confirms the new power-on runner and
+old strict runner have no linked native caller; the v91 observation stays linked.
+Existing helper/header and staging/smoke files are byte-identical to v91.
+Source, reference audit and validation evidence are retained outside build under
+`wifi-poweron-core-a614bd7`. Installed remains accepted v91 `7c1728fccd4ae567`,
+e47 remains previous recovery; no physical run or one-shot was staged/armed.
+Next: add the native command adapter with exact MCU reply/sequence/deadline
+validation and verified MAC/RX cleanup, retaining fresh board/power admission.
