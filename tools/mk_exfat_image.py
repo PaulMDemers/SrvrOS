@@ -25,6 +25,29 @@ BIN_DIRECTORY_SIZE = CLUSTER_SIZE * BIN_DIRECTORY_CLUSTERS
 SMALL_DIRECTORY_SIZE = CLUSTER_SIZE * SMALL_DIRECTORY_CLUSTERS
 
 
+def checksum32(data):
+    total = 0
+    for byte in data:
+        total = ((total >> 1) | ((total & 1) << 31)) + byte
+        total &= 0xffffffff
+    return total
+
+
+def ascii_upcase_table():
+    # Full-range table: mandatory ASCII case mappings, identity elsewhere.
+    return struct.pack('<30H', 0xffff, 97, *range(65, 91), 0xffff, 65536-123)
+
+
+def write_boot_regions(image):
+    sector = 1 << image[108]
+    for number in range(1, 9):
+        struct.pack_into('<I', image, (number+1)*sector-4, 0xaa550000)
+    checksum = checksum32(image[i] for i in range(11*sector) if i not in (106, 107, 112))
+    for offset in range(11*sector, 12*sector, 4):
+        struct.pack_into('<I', image, offset, checksum)
+    image[12*sector:24*sector] = image[:12*sector]
+
+
 def put_utf16_name(entry, text):
     encoded = text.encode("utf-16le")
     entry[0] = 0xC1
@@ -116,6 +139,7 @@ def main():
     boot[112] = 1
     struct.pack_into("<H", boot, 510, 0xAA55)
     image[0:SECTOR_SIZE] = boot
+    write_boot_regions(image)
 
     fat_base = FAT_OFFSET * SECTOR_SIZE
     default_names = ["hello", "cat", "webd", "httpget", "udpdns", "udpecho", "netstat", "ifconfig", "route",
@@ -585,7 +609,7 @@ def main():
         bitmap[index // 8] |= 1 << (index % 8)
     image[cluster_offset(2):cluster_offset(2) + len(bitmap)] = bitmap
 
-    upcase = bytearray(CLUSTER_SIZE)
+    upcase = ascii_upcase_table()
     image[cluster_offset(3):cluster_offset(3) + len(upcase)] = upcase
 
     for name in app_names:
@@ -601,7 +625,8 @@ def main():
 
     root[offset] = 0x82
     struct.pack_into("<I", root, offset + 20, 3)
-    struct.pack_into("<Q", root, offset + 24, CLUSTER_SIZE)
+    struct.pack_into("<Q", root, offset + 24, len(upcase))
+    struct.pack_into("<I", root, offset + 4, checksum32(upcase))
     offset += 32
 
     bin_entries = bytearray(BIN_DIRECTORY_SIZE)

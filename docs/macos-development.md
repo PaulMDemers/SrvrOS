@@ -131,7 +131,7 @@ be canonical, unoccupied and outside other exFAT mount subtrees.
 
 ## Focused storage host tests
 
-`sh tools/macos/build.sh test-exfat-import` runs the 72 portable import/claim/lifecycle
+`sh tools/macos/build.sh test-exfat-import` runs the 100 portable import/claim/lifecycle
 modes; `python3 tools/test_exfat_import.py --sanitize` adds ASan/UBSan. The
 storage adapter aggregate also includes an existing x86 USB fixture. On this
 Mac it was run with Rosetta and the following local compiler wrapper, which
@@ -164,3 +164,11 @@ sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-e
 `test-exfat-crash` tests 144 write/flush/half-write boundaries using disposable
 synthetic media. It accepts quarantine/refusal after interrupted mutations;
 it does not certify real power-loss recovery or replace Linux exfatprogs tests.
+
+
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-exfat-boot`
+adds the 29-case boot/system-stream matrix with disposable synthetic images.
+Boot checksums, backup copies and upcase tables are now generated correctly;
+rebuild images made by older revisions instead of retaining their unchecked boot
+regions. A valid backup is a read-only fallback and is never copied over a damaged
+primary automatically. No native media repair is part of the Mac test recipe.

@@ -78,6 +78,13 @@ partial or cross-volume sidecar application, malformed fields, stale replay on
 dirty media, destructive temporary cleanup, delete-first promotion and hidden
 metadata persistence failures. Interrupted states remain quarantined; journaled
 rename, controller reordering and physical power-loss recovery are not accepted.
+The boot/system-stream checkpoint expands the suite to 100 modes plus a 29-case
+sector-size matrix. It validates complete boot regions, selects only a unique
+read-only backup fallback, enforces system-entry/stream integrity and corrects
+fragmented-system ownership. The image generator now emits both checked boot
+regions and a complete upcase table. Follow-on statfs fixes serialize reads and
+count complete bitmap chains. Automatic repair, multi-cluster bitmap mutation,
+full Unicode and journaled power-loss recovery remain outside the profile.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

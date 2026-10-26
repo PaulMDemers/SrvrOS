@@ -361,8 +361,8 @@ its exact consecutive ASCII name records, valid allocation flags and empty-file
 fields. Unsupported non-ASCII names and secondary extensions are refused rather
 than renamed or dropped. Directory scans reject traversed FAT cycles, invalid
 successors and premature termination. This remains a bounded import profile;
-boot/upcase recovery, full Unicode, complete allocation-format conformance and
-crash safety remain separate work. Rebuild older generated images whose entry checksums were unset.
+automatic boot/upcase repair, full Unicode, complete allocation-format conformance
+and crash safety remain separate work. Rebuild older generated images whose entry checksums were unset.
 
 Imported duplicate/case-colliding paths and overlapping mount subtrees are
 refused. Exact allocation aliases used by generated images retain their storage
@@ -396,3 +396,23 @@ metadata. A failed write may have changed media, so this is not a durable rollba
 Sidecar v1 has no transaction generation or document checksum, and rename and
 replacement are not journaled or crash-atomic. Prefix-write/flush fault tests
 establish bounded quarantine behavior, not physical-drive power-loss guarantees.
+
+
+Both mount paths validate full boot-region checksums (all repeated words),
+mandatory boot fields and extended-sector signatures. The checked header is the
+same snapshot used for geometry. A uniquely valid backup can provide read-only
+access when the primary is invalid/unreadable, including when its sector-size
+byte is damaged. Ambiguous or wholly invalid candidates are refused. A valid
+primary with a damaged or disagreeing backup also stays read-only. Backup flags
+and usage estimates do not override the primary; no automatic repair occurs.
+
+Exactly one root allocation bitmap and one root upcase table are required.
+Wrong bitmap identity, missing/duplicate/misplaced system descriptors, unknown
+active critical entries and invalid system FAT chains are refused. The upcase
+stream must be even-sized and at most 128 KiB, with a valid checksum, complete
+compressed/uncompressed mapping coverage and the mandatory ASCII mappings.
+Supported filenames remain ASCII. System allocation checking follows FAT chains
+rather than assuming contiguous storage. Multi-cluster bitmaps remain read-only
+and the allocation checker explicitly refuses their unsupported graph checks;
+statfs counts their complete FAT chain under storage ownership. Rebuild old
+repository-generated images with missing boot checksums or zero upcase tables.

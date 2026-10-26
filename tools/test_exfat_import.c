@@ -13,7 +13,8 @@ static uint8_t disk[BYTES];
 static unsigned allocations,reads,writes,flushes,io_depth,fail_allocation;
 static uint64_t fail_write_offset=UINT64_MAX,fail_read_offset=UINT64_MAX;
 static bool fail_bitmap_read,fail_seen,foreign_io,boot_io,live_reference,admit_reference;
-static unsigned teardown_probe,teardown_attempts;
+static unsigned teardown_probe,teardown_attempts,stale_boot_reads;
+static bool stale_boot_header;
 static void probe_teardown(unsigned phase) {
     if(teardown_probe!=phase || !mounts[0].used)return;
     teardown_probe=0;teardown_attempts++;
@@ -32,7 +33,9 @@ int64_t timer_realtime_us(void) { return 1792326896000000LL; }
 uint64_t block_device_size(const struct block_device *d) { return d?d->block_size*d->block_count:0; }
 struct block_device *block_parent(struct block_device *d) { return d; }
 bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n) {
-    (void)d;assert(off<=BYTES && n<=BYTES-off);reads++;probe_teardown(1);if(off==fail_read_offset) {fail_read_offset=UINT64_MAX;return false;}if(fail_bitmap_read && off==(HEAP+1)*SECTOR) {fail_bitmap_read=false;return false;}memcpy(p,disk+off,(size_t)n);return true;
+    (void)d;assert(off<=BYTES && n<=BYTES-off);reads++;probe_teardown(1);if(off==fail_read_offset) {fail_read_offset=UINT64_MAX;return false;}if(fail_bitmap_read && off==(HEAP+1)*SECTOR) {fail_bitmap_read=false;return false;}memcpy(p,disk+off,(size_t)n);
+    if(stale_boot_header && off==0 && n==512 && stale_boot_reads++<2)write_u32((uint8_t *)p+96,8);
+    return true;
 }
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n) {
     (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;probe_teardown(2);if(off==fail_write_offset) {fail_write_offset=UINT64_MAX;return false;}memcpy(disk+off,p,(size_t)n);return true;
@@ -45,10 +48,25 @@ static void checksum(uint8_t *entry) {
     for(unsigned i=0;i<total;i++) if(i!=2 && i!=3) sum=(((sum>>1)|((sum&1)<<15))+entry[i])&65535;
     write_u16(entry+2,(uint16_t)sum);
 }
+static uint32_t sum32(const uint8_t *p,uint64_t n) {
+    uint32_t sum=0;for(uint64_t i=0;i<n;i++)sum=(sum>>1)|(sum<<31),sum+=p[i];return sum;
+}
+static void seal_boot(void) {
+    for(unsigned sector=1;sector<=8;sector++)write_u32(disk+(sector+1)*SECTOR-4,0xaa550000);
+    uint32_t sum=0;for(unsigned i=0;i<11*SECTOR;i++)if(i!=106 && i!=107 && i!=112)sum=(sum>>1)|(sum<<31),sum+=disk[i];
+    for(unsigned i=11*SECTOR;i<12*SECTOR;i+=4)write_u32(disk+i,sum);
+    memcpy(disk+12*SECTOR,disk,12*SECTOR);
+}
+static void upcase_fixture(void) {
+    uint8_t *p=disk+offset(4);write_u16(p,0xffff);write_u16(p+2,97);
+    for(unsigned i=0;i<26;i++)write_u16(p+4+2*i,65+i);
+    write_u16(p+56,0xffff);write_u16(p+58,65536-123);
+    write_u64(disk+offset(2)+56,60);write_u32(disk+offset(2)+36,sum32(p,60));
+}
 static void fixture(uint64_t valid,bool contiguous) {
     memset(disk,0,sizeof(disk));
     struct exfat_boot_sector *b=(void *)disk;
-    memcpy(b->filesystem_name,"EXFAT   ",8);b->boot_signature=0xaa55;
+    memcpy(b->jump_boot,"\xeb\x76\x90",3);memcpy(b->filesystem_name,"EXFAT   ",8);b->boot_signature=0xaa55;
     b->volume_length=BYTES/SECTOR;b->fat_offset=24;b->fat_length=32;
     b->cluster_heap_offset=HEAP;b->cluster_count=CLUSTERS;b->root_directory_cluster=2;
     b->filesystem_revision=0x100;b->bytes_per_sector_shift=9;b->number_of_fats=1;
@@ -61,6 +79,7 @@ static void fixture(uint64_t valid,bool contiguous) {
     uint64_t count,names;
     assert(build_file_entry_set(root+64,"source",5,1100,0x20,contiguous,&count,&names));
     write_u64(root+64+32+8,valid);checksum(root+64);
+    upcase_fixture();seal_boot();
     memset(disk+offset(5),0xa5,3*SECTOR);
     for(unsigned i=0;i<valid && i<1100;i++)disk[offset(5)+i]=(uint8_t)(i%251+1);
 }
@@ -92,12 +111,13 @@ static void reject_geometry(unsigned field,uint64_t value) {
     case 9:b->filesystem_revision=(uint16_t)value;break;
     case 10:b->volume_flags=(uint16_t)value;break;
     }
+    memset(disk+12*SECTOR,0,12*SECTOR); /* No usable recovery copy. */
     unsigned before=allocations;
     assert(!exfat_mount_image("/vol",disk,sizeof(disk)));
     assert(!vfs_count() && !writes && !flushes && allocations==before);
     reads=0;
     assert(!exfat_mount_block_device("/vol",&device));
-    assert(!vfs_count() && !writes && !flushes && allocations==before && reads==1);
+    assert(!vfs_count() && !writes && !flushes && allocations==before && reads<=6);
 }
 static void reject_import(void) {
     assert(!exfat_mount_image("/vol",disk,sizeof(disk)) && !vfs_count());
@@ -171,7 +191,7 @@ static void entry_case(const char *mode) {
     } else if(!strcmp(mode,"dir-chain")) {
         for(unsigned c=0;c<2;c++) {
             fixture(1100,true);
-            memset(disk+offset(2),0x05,SECTOR);memset(disk+offset(8),0x05,2*SECTOR);
+            memset(disk+offset(2)+64,0x05,SECTOR-64);memset(disk+offset(8),0x05,2*SECTOR);
             write_u32(disk+24*SECTOR+2*4,8);write_u32(disk+24*SECTOR+8*4,9);
             write_u32(disk+24*SECTOR+9*4,c?8:0xffffffff);
             if(c) {reject_import();assert(reads<100);}
@@ -328,9 +348,63 @@ static void metadata_case(const char *mode) {
     assert(!memcmp(&outside,&vfs_lookup("/outside")->metadata,sizeof(outside)));
     assert(exfat_unmount("/vol"));assert(vfs_unregister_path("/outside"));
 }
+static void boot_system_case(const char *mode) {
+    fixture(1100,true);uint8_t *root=disk+offset(2);
+    bool readonly=false,valid=false;
+    if(!strcmp(mode,"boot-main")) {disk[120]^=1;readonly=true;}
+    else if(!strcmp(mode,"boot-header-snapshot")) {
+        memcpy(disk+offset(8),root,SECTOR);uint64_t count,names;
+        assert(build_file_entry_set(disk+offset(8)+64,"shadow",5,1100,0x20,true,&count,&names));
+        write_u32(disk+24*SECTOR+8*4,0xffffffff);disk[offset(3)]|=0x40;
+        stale_boot_header=true;readonly=true;
+    }
+    else if(!strcmp(mode,"boot-main-shift")) {disk[108]=255;readonly=true;}
+    else if(!strcmp(mode,"boot-backup-stale")) {write_u16(disk+12*SECTOR+106,6);disk[12*SECTOR+112]=255;valid=true;}
+    else if(!strcmp(mode,"boot-read-main")) {fail_read_offset=0;readonly=true;}
+    else if(!strcmp(mode,"boot-read-backup")) {fail_read_offset=12*SECTOR;readonly=true;}
+    else if(!strcmp(mode,"boot-backup")) {disk[12*SECTOR+120]^=1;readonly=true;}
+    else if(!strcmp(mode,"boot-both")) {disk[120]^=1;disk[12*SECTOR+120]^=1;}
+    else if(!strcmp(mode,"boot-repeat")) {disk[12*SECTOR-4]^=1;disk[24*SECTOR-4]^=1;}
+    else if(!strcmp(mode,"boot-fields")) {disk[11]=1;seal_boot();}
+    else if(!strcmp(mode,"boot-extended")) {disk[2*SECTOR-4]=1;disk[14*SECTOR-4]=1;}
+    else if(!strcmp(mode,"boot-disagree")) {write_u32(disk+100,123);seal_boot();write_u32(disk+100,456);
+        uint8_t backup[12*SECTOR];memcpy(backup,disk+12*SECTOR,sizeof(backup));seal_boot();memcpy(disk+12*SECTOR,backup,sizeof(backup));readonly=true;}
+    else if(!strcmp(mode,"boot-flags")) {write_u16(disk+106,2);disk[112]=0xff;readonly=true;}
+    else if(!strcmp(mode,"system-unknown-critical"))root[160]=0x84;
+    else if(!strcmp(mode,"system-nested")) {
+        uint64_t count,names;assert(build_file_entry_set(root+160,"dir",8,512,0x10,true,&count,&names));
+        memcpy(disk+offset(8),root,32);write_u32(disk+24*SECTOR+8*4,0xffffffff);disk[offset(3)]|=0x40;
+    }
+    else if(!strcmp(mode,"system-bitmap-missing"))root[0]=1;
+    else if(!strcmp(mode,"system-upcase-missing"))root[32]=1;
+    else if(!strcmp(mode,"system-bitmap-duplicate"))memcpy(root+160,root,32);
+    else if(!strcmp(mode,"system-upcase-duplicate"))memcpy(root+160,root+32,32);
+    else if(!strcmp(mode,"system-bitmap-id"))root[1]=1;
+    else if(!strcmp(mode,"system-bitmap-length"))write_u64(root+24,0);
+    else if(!strcmp(mode,"system-bitmap-chain"))write_u32(disk+24*SECTOR+3*4,3);
+    else if(!strcmp(mode,"system-upcase-checksum"))root[36]^=1;
+    else if(!strcmp(mode,"system-upcase-ascii")) {write_u16(disk+offset(4)+4,66);write_u32(root+36,sum32(disk+offset(4),60));}
+    else if(!strcmp(mode,"system-upcase-short")) {write_u16(disk+offset(4)+58,1);write_u32(root+36,sum32(disk+offset(4),60));}
+    else if(!strcmp(mode,"system-upcase-chain"))write_u32(disk+24*SECTOR+4*4,4);
+    else if(!strcmp(mode,"system-fragmented")) {
+        uint8_t table[516];for(unsigned i=0;i<256;i++)write_u16(table+i*2,i>='a'&&i<='z'?i-32:i);
+        write_u16(table+512,0xffff);write_u16(table+514,65536-256);
+        memcpy(disk+offset(4),table,512);memcpy(disk+offset(8),table+512,4);
+        write_u32(root+36,sum32(table,sizeof(table)));write_u64(root+56,sizeof(table));
+        write_u32(disk+24*SECTOR+4*4,8);write_u32(disk+24*SECTOR+8*4,0xffffffff);disk[offset(3)]|=0x40;valid=true;
+    } else assert(false);
+    if(!readonly && !valid) {reject_import();return;}
+    assert(exfat_mount_image("/vol",disk,sizeof(disk)));check_data("/vol/source",1100);assert(exfat_unmount("/vol"));
+    assert(exfat_mount_block_device("/vol",&device));check_data("/vol/source",1100);
+    assert(exfat_is_writable("/vol")==valid);
+    if(readonly) {assert(!exfat_write_file("/vol/refused",NULL,0));assert(!writes && !flushes);}
+    else {struct exfat_check_result check;assert(exfat_check("/vol",&check));assert(exfat_write_file("/vol/ok",NULL,0));}
+    assert(exfat_unmount("/vol"));
+}
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strcmp(mode,"chmod-failure") || !strcmp(mode,"utime-failure")) {
+    if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);
+    } else if(!strcmp(mode,"chmod-failure") || !strcmp(mode,"utime-failure")) {
         fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));
         assert(exfat_write_file("/vol/committed",NULL,0));
         struct vfs_metadata before=vfs_lookup("/vol/source")->metadata;
@@ -363,6 +437,8 @@ int main(int argc,char **argv) {
                 teardown_probe=1;check_data("/vol/source",1100);
             } else if(!strcmp(mode,"teardown-write")) {
                 teardown_probe=2;assert(exfat_write_file("/vol/source",(const uint8_t *)"OK",2));
+            } else if(!strcmp(mode,"teardown-statfs")) {
+                teardown_probe=1;struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
             } else if(!strcmp(mode,"teardown-check")) {
                 teardown_probe=1;struct exfat_check_result check;assert(exfat_check("/vol",&check));
             } else if(!strcmp(mode,"teardown-range")) {

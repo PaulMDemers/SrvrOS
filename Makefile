@@ -2159,6 +2159,11 @@ test-exfat-crash: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_crash.py --driver $<
 test-core: test-exfat-crash
 
+.PHONY: test-exfat-boot
+test-exfat-boot: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_boot.py --driver $<
+test-core: test-exfat-boot
+
 .PHONY: test-exfat-scale
 test-exfat-scale: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/exfat_scale_test.py

@@ -488,17 +488,89 @@ require metadata reconstruction. No native media, Actions or automatic repair
 was used. Follow-on tracing moves to boot-region/backup checks and system-stream
 validation; those remain outside the accepted import profile.
 
+## Boot-region and system-stream checkpoint
+
+This pass starts from `bc024735`, with main `4d195e25` included. PR19 was refreshed
+at `f70ee542`; its Wi-Fi/logging and separate Make targets do not overlap the
+exFAT implementation. The original driver trusted a single boot sector without
+checking its region, accepted missing/duplicate or wrongly identified system
+entries, ignored upcase integrity, and treated system allocations as contiguous.
+Nineteen original directed probes failed; a subsequent unknown-critical-entry
+probe also reproduced acceptance of unsupported metadata.
+
+Both image and block mounts now validate the checksum across the complete boot
+region, every repeated checksum word, required jump/zero/signature/usage fields
+and extended-sector signatures. Checksum calculation uses the exact header
+snapshot used for geometry. A candidate review probe made the header change
+between reads and exposed a geometry/checksum mismatch; it now falls back to the
+valid backup rather than importing the wrong directory. Read errors and damaged
+sector-size bytes have deterministic coverage.
+
+A valid primary remains authoritative. A damaged or disagreeing backup forces
+read-only admission. If the primary is invalid/unreadable, the reader probes the
+four supported sector sizes and accepts only a unique valid backup, read-only.
+Multiple valid candidates or no valid region refuse import. Backup flags and
+usage estimates do not supersede a valid primary. This is conservative access,
+not repair: no boot region is rewritten and quarantined mounts do not replay
+sidecars. The [Microsoft specification](https://learn.microsoft.com/en-us/windows/win32/fileio/exfat-specification)
+defines boot checksums, stale backup status fields, system FAT chains and upcase
+checksums/mappings; the refusal/fallback policy is SrvrOS's bounded implementation.
+
+Root scanning now requires exactly one bitmap and one upcase descriptor, rejects
+wrong bitmap identity, duplicates, misplaced system records and unknown active
+critical entries, and validates exact system FAT-chain termination. The upcase
+stream must have a matching checksum, complete compressed/uncompressed coverage
+and mandatory ASCII mappings. The bounded accepted length is even and at most
+128 KiB; filenames remain ASCII. Allocation checks follow system FAT chains, so
+a valid fragmented upcase table no longer produces a false ownership conflict.
+Multi-cluster bitmap graph checking remains unsupported and is explicitly refused.
+
+The repository generator previously emitted neither checked boot regions nor a
+valid upcase table. It now writes primary and backup checksum regions and a full
+compressed table with ASCII case mappings and identity mappings elsewhere. The
+portable fixtures use the same format policy, with independent checksum/mapping
+verification. Rebuild old generated images; do not patch persistent user media
+as part of consuming this change.
+
+Follow-on statfs tracing confirmed two adjacent defects. A read callback could
+unmount the volume during statistics collection, and a bitmap extending beyond
+one cluster was truncated when counting free space. The operation now holds
+storage ownership, and the counter follows the complete bitmap FAT chain.
+Contiguous and fragmented multi-cluster statistics are tested while mutation and
+full graph checking remain refused for those volumes. An earlier suspected
+bitmap buffer overread was ruled out: the existing helper clamps its read size.
+Its retained failed hypothesis is not counted as a confirmed memory-safety bug.
+
+Validation: all 100 directed modes pass normally and under ASan/UBSan. The
+file-backed 29-case matrix passes normally and under ASan/UBSan across all four
+sector sizes, including backup fallback, damaged/conflicting copies, stale flags,
+ambiguous backup refusal and multi-cluster bitmap statistics. The 144 sidecar/
+rename interruption boundaries, storage/lease adapters, matched OS build, six
+generator groups and recursive 372-entry check also pass. Evidence is retained
+under `build/review/boot-system/`, including original failures, candidate fixes,
+the ruled-out hypothesis, source hashes and build/VM receipts. Six sequential
+VMs pass: aliases 16.44 s, bitmap quarantine 16.51 s, imports 16.67 s,
+corrupt-entry fallback 16.53 s, complete threads 41.49 s and libuv 10.84 s.
+The final remote refresh still has main `4d195e25` and PR19 `f70ee542`.
+
+The next audit boundary is allocation exhaustion and directory-growth rollback.
+Boot repair, full Unicode, extended/cross-cluster file entry sets, multi-cluster
+bitmap mutation and controller/physical power-loss guarantees remain outside the
+accepted profile. No native media trial, Actions dispatch or automatic repair
+occurred.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Boot checksum/backup recovery and upcase/system-stream integrity are next.
-   Multi-cluster bitmap mutation, full Unicode and cross-cluster/extended entry
-   sets remain outside the supported profile. Directed mutation/sidecar faults
-   now have coverage, but controller reordering, physical power loss, journaled
-   rename and metadata reconstruction after offline repair remain unaccepted.
+2. Allocation exhaustion and directory-growth rollback are next. Complete boot
+   regions and bounded system streams now have directed validation coverage;
+   automatic repair, multi-cluster bitmap mutation, full Unicode and extended
+   file entry sets remain unsupported. Controller reordering, physical power
+   loss, journaled rename and metadata reconstruction after offline repair remain
+   unaccepted.
 3. Networking/socket lifecycle, VM/syscall validation, process/resource isolation
    and remaining documentation reconciliation follow as separately bounded work.
 

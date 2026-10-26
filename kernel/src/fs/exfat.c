@@ -93,6 +93,8 @@ struct exfat_volume {
     uint64_t allocation_bitmap_size;
     uint32_t upcase_table_cluster;
     uint64_t upcase_table_size;
+    uint32_t upcase_table_checksum;
+    bool bitmap_seen, upcase_seen;
     uint32_t cluster_count;
     uint32_t root_directory_cluster;
     uint16_t flags;
@@ -713,19 +715,28 @@ static bool scan_directory(const char *path,
                 goto out;
             }
 
-            if (entry[0] == EXFAT_ENTRY_BITMAP && depth == 0) {
+            if (entry[0] == EXFAT_ENTRY_BITMAP) {
+                if (depth || volume->bitmap_seen || (entry[1] & 1)) { ok=false;goto out; }
+                volume->bitmap_seen = true;
                 volume->allocation_bitmap_cluster = read_u32(entry + 20);
                 volume->allocation_bitmap_size = read_u64(entry + 24);
                 continue;
             }
 
-            if (entry[0] == EXFAT_ENTRY_UPCASE && depth == 0) {
+            if (entry[0] == EXFAT_ENTRY_UPCASE) {
+                if (depth || volume->upcase_seen) { ok=false;goto out; }
+                volume->upcase_seen = true;
+                volume->upcase_table_checksum = read_u32(entry + 4);
                 volume->upcase_table_cluster = read_u32(entry + 20);
                 volume->upcase_table_size = read_u64(entry + 24);
                 continue;
             }
 
             if (entry[0] != EXFAT_ENTRY_FILE) {
+                /* Unknown active critical entries may own storage or alter
+                 * interpretation. Only benign extensions can be skipped. */
+                if ((entry[0] & 0x80) && !(entry[0] & 0x20) &&
+                    (entry[0] != 0x83 || depth)) { ok=false;goto out; }
                 continue;
             }
 
@@ -817,6 +828,58 @@ out:
     return ok;
 }
 
+/* System streams use FAT chains even when their clusters happen to be
+ * adjacent. Validate exact termination before any sidecar replay or writes. */
+static bool validate_system_stream(struct exfat_volume *volume, uint32_t cluster,
+    uint64_t size, bool upcase) {
+    uint64_t remaining = size, mapped = 0;
+    uint32_t checksum = 0;
+    bool skip = false;
+    if (!size || size > (uint64_t)volume->cluster_count * volume->cluster_size ||
+        (upcase && ((size & 1) || size > 131072))) return false;
+    while (remaining) {
+        uint64_t base;
+        if (!cluster_offset(volume, cluster, &base)) return false;
+        uint64_t bytes = remaining < volume->cluster_size ? remaining : volume->cluster_size;
+        for (uint64_t off = 0; upcase && off < bytes;) {
+            uint8_t buffer[512];
+            uint64_t n = bytes-off < sizeof(buffer) ? bytes-off : sizeof(buffer);
+            if (!volume_read(volume, base+off, buffer, n)) return false;
+            for (uint64_t i=0;i<n;i++) checksum=(checksum>>1)|(checksum<<31),checksum+=buffer[i];
+            for (uint64_t i=0;i<n;i+=2) {
+                uint16_t value=read_u16(buffer+i);
+                if (skip) {
+                    if (!value || value > 65536-mapped) return false;
+                    /* Mandatory ASCII lower-case characters cannot be skipped. */
+                    if (mapped < 123 && mapped+value > 97) return false;
+                    mapped += value;skip=false;
+                } else if (value==0xffff && mapped!=65535) {
+                    skip=true;
+                } else {
+                    if (mapped>=65536 || (mapped<128 && value !=
+                        (mapped>='a' && mapped<='z' ? mapped-32 : mapped))) return false;
+                    mapped++;
+                }
+            }
+            off += n;
+        }
+        remaining -= bytes;
+        uint32_t next;
+        if (!next_cluster(volume, cluster, &next)) return false;
+        if (!remaining) return next>=EXFAT_FAT_CHAIN_END &&
+            (!upcase || (!skip && mapped==65536 && checksum==volume->upcase_table_checksum));
+        cluster=next;
+    }
+    return false;
+}
+
+static bool validate_system_streams(struct exfat_volume *volume) {
+    return volume->bitmap_seen && volume->upcase_seen &&
+        volume->allocation_bitmap_size == ((uint64_t)volume->cluster_count+7)/8 &&
+        validate_system_stream(volume,volume->allocation_bitmap_cluster,volume->allocation_bitmap_size,false) &&
+        validate_system_stream(volume,volume->upcase_table_cluster,volume->upcase_table_size,true);
+}
+
 static bool scan_root_directory(struct exfat_mount *mount) {
     char root_path[EXFAT_MAX_PATH];
     uint64_t root_length = append_mount_path(root_path, sizeof(root_path), mount->mountpoint);
@@ -827,7 +890,8 @@ static bool scan_root_directory(struct exfat_mount *mount) {
     }
 
     if (!register_directory(mount, root_path, mount->volume.root_directory_cluster, false, 0, 0, 0)) return false;
-    return scan_directory(root_path, mount, mount->volume.root_directory_cluster, false, 0, 0);
+    return scan_directory(root_path, mount, mount->volume.root_directory_cluster, false, 0, 0) &&
+        validate_system_streams(&mount->volume);
 }
 
 static void remember_mountpoint(struct exfat_mount *mount, const char *mountpoint) {
@@ -2781,7 +2845,12 @@ static void check_system_cluster_range(struct exfat_check_result *result,
             return;
         }
         check_cluster_allocation(result, mount, label, bitmap, bitmap_bits, seen, seen_bytes, cluster, false);
-        cluster++;
+        uint32_t next;
+        if (!next_cluster(&mount->volume,cluster,&next) ||
+            (i+1==clusters && next<EXFAT_FAT_CHAIN_END)) {
+            check_file_error(result,mount,label,"invalid system FAT chain");return;
+        }
+        cluster=next;
     }
 }
 
@@ -2834,6 +2903,10 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
     }
     if (volume->allocation_bitmap_cluster < 2) {
         check_error(result, mount->mountpoint, "missing allocation bitmap");
+        return false;
+    }
+    if (volume->allocation_bitmap_size > volume->cluster_size) {
+        check_error(result,mount->mountpoint,"multi-cluster bitmap checking unsupported");
         return false;
     }
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) || bitmap_bytes == 0) {
@@ -3381,7 +3454,7 @@ static bool exfat_rename_impl(const char *old_path, const char *new_path) {
     return false;
 }
 
-bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
+static bool statfs_impl(const char *path, struct exfat_fsinfo *info) {
     if (path == NULL || info == NULL) {
         return false;
     }
@@ -3396,7 +3469,7 @@ bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
 
     struct exfat_volume *volume = &mount->volume;
     uint64_t bitmap_offset = 0;
-    uint64_t bitmap_bytes = allocation_bitmap_bytes(volume);
+    uint64_t bitmap_bytes = volume->allocation_bitmap_size;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) || bitmap_bytes == 0) {
         return false;
     }
@@ -3410,6 +3483,7 @@ bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
     uint64_t bit_base = 0;
     uint64_t remaining_bytes = bitmap_bytes;
     uint64_t offset = bitmap_offset;
+    uint32_t cluster = volume->allocation_bitmap_cluster;
     while (remaining_bytes > 0 && bit_base < volume->cluster_count) {
         uint64_t chunk = remaining_bytes < volume->cluster_size ? remaining_bytes : volume->cluster_size;
         if (!volume_read(volume, offset, buffer, chunk)) {
@@ -3424,7 +3498,8 @@ bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
         used_clusters += count_used_bitmap_bits(buffer, 0, bits);
         bit_base += bits;
         remaining_bytes -= chunk;
-        offset += chunk;
+        if (remaining_bytes && (!next_cluster(volume,cluster,&cluster) ||
+            !cluster_offset(volume,cluster,&offset))) { kfree(buffer);return false; }
     }
     kfree(buffer);
 
@@ -3459,6 +3534,11 @@ bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
     return true;
 }
 
+bool exfat_statfs(const char *path,struct exfat_fsinfo *info) {
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    bool ok=statfs_impl(path,info);fs_leave(&scope);return ok;
+}
+
 /* Validate untrusted geometry before shifts, allocation, scanning or writes.
  * Only the single-FAT format is supported; TexFAT needs active-table handling.
  * Use the declared volume extent, not any trailing bytes on its backing device. */
@@ -3491,6 +3571,76 @@ static bool volume_from_boot(const struct exfat_boot_sector *boot, uint64_t back
     return true;
 }
 
+/* Validate complete boot regions in bounded stack chunks. Geometry is not
+ * trusted until its checksum (every repeated checksum word) has been checked. */
+static bool read_boot_region(struct exfat_volume *source,uint64_t base,
+    unsigned expected_shift,struct exfat_boot_sector *boot,struct exfat_volume *volume) {
+    if (!volume_read(source,base,boot,sizeof(*boot)) ||
+        boot->bytes_per_sector_shift!=expected_shift ||
+        !streqn((const char *)boot->jump_boot,"\xeb\x76\x90",3) ||
+        !streqn(boot->filesystem_name,"EXFAT   ",8) || boot->boot_signature!=0xaa55 ||
+        (boot->percent_in_use>100 && boot->percent_in_use!=255) ||
+        !volume_from_boot(boot,source->image_size,volume)) return false;
+    for (unsigned i=0;i<sizeof(boot->must_be_zero);i++) if(boot->must_be_zero[i])return false;
+    uint64_t sector=volume->sector_size;
+    if (base>source->image_size || 12*sector>source->image_size-base) return false;
+    uint32_t sum=0;
+    for (uint64_t off=0;off<12*sector;off+=512) {
+        uint8_t buffer[512];
+        if(off==0) {
+            /* Checksum the exact header used for geometry, not a later read. */
+            const uint8_t *header=(const void *)boot;
+            for(unsigned i=0;i<sizeof(buffer);i++)buffer[i]=header[i];
+        } else if(!volume_read(source,base+off,buffer,sizeof(buffer)))return false;
+        if(off<11*sector) {
+            for(unsigned i=0;i<512;i++) {
+                uint64_t at=off+i;
+                if(at==106 || at==107 || at==112)continue;
+                sum=(sum>>1)|(sum<<31);sum+=buffer[i];
+            }
+            uint64_t number=off/sector;
+            if(number>=1 && number<=8 && (off+512)%sector==0 &&
+                read_u32(buffer+508)!=0xaa550000)return false;
+        } else {
+            for(unsigned i=0;i<512;i+=4)if(read_u32(buffer+i)!=sum)return false;
+        }
+    }
+    return true;
+}
+
+static bool same_boot_geometry(const struct exfat_boot_sector *a,const struct exfat_boot_sector *b) {
+    const uint8_t *x=(const void *)a,*y=(const void *)b;
+    for(unsigned i=64;i<=110;i++)if(i!=106 && i!=107 && x[i]!=y[i])return false;
+    return true;
+}
+
+static bool select_boot(struct exfat_volume *source,struct exfat_volume *volume) {
+    struct exfat_boot_sector header,main,backup;
+    struct exfat_volume primary,secondary;
+    bool have_main=volume_read(source,0,&header,sizeof(header)) &&
+        header.bytes_per_sector_shift>=9 && header.bytes_per_sector_shift<=12 &&
+        read_boot_region(source,0,header.bytes_per_sector_shift,&main,&primary);
+    if(have_main) {
+        bool have_backup=read_boot_region(source,12*primary.sector_size,
+            main.bytes_per_sector_shift,&backup,&secondary);
+        *volume=primary;
+        /* Backup flags are stale. Only a valid primary can authorize writes;
+         * damaged or conflicting backups require offline inspection. */
+        if(!have_backup || !same_boot_geometry(&main,&backup))volume->write_blocked=true;
+        return true;
+    }
+    unsigned found=0;
+    /* Do not trust a damaged primary's sector-size byte to locate its backup. */
+    for(unsigned shift=9;shift<=12;shift++) {
+        if(read_boot_region(source,12ull*(1ull<<shift),shift,&backup,&secondary)) {
+            *volume=secondary;found++;
+        }
+    }
+    if(found!=1)return false;
+    volume->write_blocked=true;
+    return true; /* Read-only fallback, without repairing or replaying metadata. */
+}
+
 static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint64_t image_size) {
     if (!valid_mountpoint(mountpoint) || image == NULL || image_size < sizeof(struct exfat_boot_sector)) {
         return false;
@@ -3500,14 +3650,8 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
         return false;
     }
 
-    const struct exfat_boot_sector *boot = (const struct exfat_boot_sector *)image;
-    if (!streqn(boot->filesystem_name, "EXFAT   ", 8) || boot->boot_signature != 0xaa55) {
-        console_write("exfat: invalid boot sector\n");
-        return false;
-    }
-
-    struct exfat_volume volume;
-    if (!volume_from_boot(boot, image_size, &volume)) return false;
+    struct exfat_volume source={.image=image,.image_size=image_size},volume;
+    if (!select_boot(&source,&volume)) return false;
     struct exfat_mount *mount = alloc_mount();
     if (mount == NULL) {
         console_write("exfat: mount table full\n");
@@ -3535,9 +3679,8 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
 }
 
 static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim) {
-    struct exfat_boot_sector boot;
     uint64_t size = block_device_size(device);
-    if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(boot)) {
+    if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(struct exfat_boot_sector)) {
         return false;
     }
     if (mountpoint_in_use(mountpoint)) {
@@ -3552,18 +3695,8 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         }
     }
 
-    if (!block_read(device, 0, &boot, sizeof(boot))) {
-        console_write("exfat: failed to read boot sector\n");
-        return false;
-    }
-
-    if (!streqn(boot.filesystem_name, "EXFAT   ", 8) || boot.boot_signature != 0xaa55) {
-        console_printf("exfat: %s has invalid boot sector\n", device->name);
-        return false;
-    }
-
-    struct exfat_volume volume;
-    if (!volume_from_boot(&boot, size, &volume)) return false;
+    struct exfat_volume source={.device=device,.image_size=size},volume;
+    if (!select_boot(&source,&volume)) return false;
     struct exfat_mount *mount = alloc_mount();
     if (mount == NULL) {
         console_write("exfat: mount table full\n");

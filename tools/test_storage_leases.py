@@ -10,24 +10,38 @@ from pathlib import Path
 import struct
 import subprocess
 from exfat_test_image import ExfatFixture
+from mk_exfat_image import ascii_upcase_table, checksum32, write_boot_regions
 from battery_filesystem_image import SIZE, MARKER, ANCHOR, verify
 ROOT=Path(__file__).resolve().parents[1]
 
-def empty_image(size, serial=0):
+def empty_image(size, serial=0, sector_shift=9, cluster_shift=None):
+    sector=1<<sector_shift
+    if cluster_shift is None:cluster_shift=12-sector_shift
+    cluster=sector<<cluster_shift
     data=bytearray(size)
-    fat=(size//4096+2)*4//512+1
-    heap=(24+fat+7)//8*8
-    count=(size//512-heap)//8
+    fat=((size//cluster+2)*4+sector-1)//sector
+    heap=(24+fat+(1<<cluster_shift)-1)//(1<<cluster_shift)*(1<<cluster_shift)
+    count=(size//sector-heap)//(1<<cluster_shift)
+    bitmap_size=(count+7)//8
+    bitmap_clusters=(bitmap_size+cluster-1)//cluster
+    upcase=3+bitmap_clusters
+    data[:3]=b'\xeb\x76\x90'
     data[3:11]=b'EXFAT   '
-    struct.pack_into('<Q',data,72,size//512)
+    struct.pack_into('<Q',data,72,size//sector)
     struct.pack_into('<IIIIII',data,80,24,fat,heap,count,2,serial)
     struct.pack_into('<H',data,104,0x100)
-    data[108:111]=bytes([9,3,1]);data[510:512]=b'\x55\xaa'
-    for cluster in range(5):struct.pack_into('<I',data,24*512+cluster*4,0xffffffff)
-    root=heap*512
-    data[root]=0x81;struct.pack_into('<I',data,root+20,3);struct.pack_into('<Q',data,root+24,(count+7)//8)
-    data[root+32]=0x82;struct.pack_into('<I',data,root+52,4);struct.pack_into('<Q',data,root+56,4096)
-    data[root+4096]=7
+    data[108:111]=bytes([sector_shift,cluster_shift,1]);data[510:512]=b'\x55\xaa'
+    for number in range(upcase+1):struct.pack_into('<I',data,24*sector+number*4,0xffffffff)
+    for number in range(3,upcase-1):struct.pack_into('<I',data,24*sector+number*4,number+1)
+    root=heap*sector
+    data[root]=0x81;struct.pack_into('<I',data,root+20,3);struct.pack_into('<Q',data,root+24,bitmap_size)
+    data[root+32]=0x82;struct.pack_into('<I',data,root+52,upcase)
+    table=ascii_upcase_table()
+    start=root+(upcase-2)*cluster
+    data[start:start+len(table)]=table
+    struct.pack_into('<Q',data,root+56,len(table));struct.pack_into('<I',data,root+36,checksum32(table))
+    write_boot_regions(data)
+    for bit in range(upcase-1):data[root+cluster+bit//8]|=1<<(bit%8)
     return ExfatFixture(data)
 
 def main():

@@ -1191,3 +1191,47 @@ were used. The fault model covers ordered persisted prefixes; it does not accept
 controller reordering, sector atomicity, journaled rename or physical power-loss
 recovery. Follow-on tracing identifies boot-region/backup and system-stream
 validation as the next bounded audit; full-format conformance remains open.
+
+### Boot/system-stream audit — active scope (2026-10-26)
+
+Continue PR182 from `bc024735`, including main `4d195e25`. Validate boot checksums
+and backup handling before trusting geometry, then root bitmap/upcase descriptors
+and their streams before metadata recovery or mutation. Own exFAT, generated
+images, portable fixtures and related documentation. Refresh PR19 at `f70ee542`:
+its Wi-Fi/logging changes and separate Make targets do not overlap this runtime
+scope. Preserve offline recovery boundaries; no automatic boot repair, native
+media trial, Actions dispatch or new Unicode filename support is planned.
+
+
+### Boot/system-stream checkpoint results
+
+Nineteen initial directed probes reproduce missing boot-region validation and
+system-stream defects; the subsequent unknown-critical-entry probe also fails
+against the previous behavior. Boot checks now cover complete regions and all
+checksum words, required fields/signatures and exact header snapshots. A unique
+valid backup can provide read-only fallback even with a damaged primary sector
+size; ambiguous candidates are refused. A damaged or disagreeing backup also
+prevents writes through a valid primary. No automatic repair is added.
+
+Imports require single root bitmap/upcase descriptors, the correct bitmap
+identity, exact system FAT chains, and valid upcase checksum, coverage and ASCII
+mappings. Fragmented system allocations are followed correctly. Generated images
+now contain both boot regions and a complete compressed upcase table; older
+unchecked images must be rebuilt. Follow-on probes reproduce teardown during
+statfs and truncated multi-cluster bitmap counts. Statistics now hold storage
+ownership and traverse complete chains. Multi-cluster mutation/graph checking
+remain unsupported. A suspected bitmap overread was ruled out and is not counted
+as a confirmed defect; that evidence is retained.
+
+All 100 directed modes and the 29-case sector-size/backup/bitmap matrix pass
+normally and under ASan/UBSan. The 144 interruption boundaries, storage/lease host
+gates, matched build, six generator groups and 372-entry image check pass. Six
+VMs pass: aliases 16.44 s, quarantine 16.51 s, imports 16.67 s, corrupt entry
+16.53 s, complete threads 41.49 s and libuv 10.84 s. Evidence and tested hashes
+are retained under `build/review/boot-system/`.
+
+The final refresh still has main `4d195e25` and PR19 `f70ee542`; no new runtime
+overlap or integration dependency appeared. No Actions, native media test or
+physical recovery was performed. Follow-on tracing reaches allocation exhaustion
+and directory-growth rollback; full Unicode, automatic repair and physical
+power-loss guarantees remain outside the accepted profile.

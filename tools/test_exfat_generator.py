@@ -5,7 +5,7 @@ from pathlib import Path
 import struct
 import unittest
 from exfat_test_image import ExfatFixture
-from mk_exfat_image import file_entry
+from mk_exfat_image import file_entry, ascii_upcase_table, checksum32, write_boot_regions
 
 
 def folded_sum(data, bits=16):
@@ -34,7 +34,48 @@ def verify_entry(entry):
     return name
 
 
+def verify_boot(data):
+    sector=1<<data[108]
+    for base in (0,12*sector):
+        assert data[base:base+3]==b'\xeb\x76\x90'
+        assert not any(data[base+11:base+64])
+        assert data[base+510:base+512]==b'\x55\xaa'
+        for number in range(1,9):
+            assert struct.unpack_from('<I',data,base+(number+1)*sector-4)[0]==0xaa550000
+        expected=folded_sum((data[base+i] for i in range(11*sector) if i not in (106,107,112)),32)
+        assert all(struct.unpack_from('<I',data,base+i)[0]==expected for i in range(11*sector,12*sector,4))
+
+
+def verify_upcase(table, expected):
+    assert folded_sum(table,32)==expected
+    words=struct.unpack('<'+'H'*(len(table)//2),table)
+    mapping=[];i=0
+    while i<len(words):
+        value=words[i];i+=1
+        if value==0xffff and len(mapping)!=65535:
+            assert i<len(words)
+            count=words[i];i+=1
+            assert count and len(mapping)+count<=65536
+            mapping.extend(range(len(mapping),len(mapping)+count))
+        else:mapping.append(value)
+    assert len(mapping)==65536
+    assert mapping[:128]==[c-32 if 97<=c<=122 else c for c in range(128)]
+
+
 class GeneratorTests(unittest.TestCase):
+    def test_boot_regions(self):
+        for shift in range(9,13):
+            data=bytearray(24*(1<<shift));data[:3]=b'\xeb\x76\x90'
+            data[108]=shift;data[510:512]=b'\x55\xaa';write_boot_regions(data)
+            verify_boot(data)
+            data[106]=2;data[112]=255;verify_boot(data)
+            data[11*(1<<shift)+4]^=1
+            with self.assertRaises(AssertionError):verify_boot(data)
+
+    def test_upcase(self):
+        table=ascii_upcase_table();verify_upcase(table,checksum32(table))
+        with self.assertRaises(AssertionError):verify_upcase(table[:-2],checksum32(table[:-2]))
+
     def test_fixed_vector(self):
         for name in ('Aa.txt', 'aA.TXT'):
             entry = file_entry(name, 5, b'x'*35)
@@ -63,6 +104,11 @@ class GeneratorTests(unittest.TestCase):
 
 def verify_image(path):
     fixture = ExfatFixture(path.read_bytes())
+    verify_boot(fixture.data)
+    root=fixture.chain(fixture.root)
+    table_entry=next(root[i:i+32] for i in range(0,len(root),32) if root[i]==0x82)
+    table=fixture.chain(struct.unpack_from('<I',table_entry,20)[0],struct.unpack_from('<Q',table_entry,24)[0])
+    verify_upcase(table,struct.unpack_from('<I',table_entry,4)[0])
     seen = set()
     total = 0
 

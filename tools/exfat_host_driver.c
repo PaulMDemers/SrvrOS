@@ -170,6 +170,11 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"bitmap-stats")) {
+        struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
+        printf("bitmap-used=%llu\n",(unsigned long long)(info.blocks-info.blocks_free));
+        assert(!writes && !flushes);close(fd);return 0;
+    }
     if(!strcmp(argv[2],"recover")) {
         /* The mount performs sidecar promotion. Faults can interrupt it. */
     } else if(!strncmp(argv[2],"verify-",7)) {
