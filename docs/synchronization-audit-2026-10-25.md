@@ -18,8 +18,10 @@ is corrected by accepting signed seconds and using the existing timeout path.
 The tenth finding, null-output clock resolution, is corrected while preserving
 clock/source validation. The eleventh finding, frozen `times()` elapsed return
 without a reference clock, is corrected with direct tick fallback and positive
-regressions. The latest bounded adjacent review adds no confirmed finding; see
-its scope and limits below.
+regressions. The subsequent sleep audit confirms two pending remainder defects:
+signal-handler time is deducted from relative sleeps (P2), and extreme fallback
+intervals wrap during tick-to-microsecond conversion (P3). See the new audit
+receipts below; neither sleep implementation is corrected in this audit block.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -815,3 +817,103 @@ The next audit scope is deterministic sleep interruption/remainder coverage
 with unavailable clocks and boundary values. Abnormal once-initializer exit
 remains unconfirmed. Broader semaphore and other profile exclusions remain
 open; no newly confirmed finding is being presented for another fix yet.
+
+
+## Sleep interruption/remainder audit at 820c1c3e
+
+This block adds positive controls and isolated failing regressions against the
+existing implementation. The libc/kernel runtime remains unchanged. Evidence
+is retained in ignored `build/review/sleep-audit/`.
+
+### P2 — Signal-handler execution is deducted from unslept time
+
+In `posix_time.c`, `nanosleep` samples its start before dispatching pending
+signals, then samples its end only after post-wait handlers return. The computed
+elapsed time therefore includes handler execution. The [Issue 8 nanosleep
+contract](https://pubs.opengroup.org/onlinepubs/9799919799/functions/nanosleep.html)
+defines the remainder from the requested interval and time actually slept;
+handler execution occurs after suspension is interrupted. Relative
+`clock_nanosleep` delegates to this implementation and inherits the defect.
+Restarting from the reported remainder can omit time that was never slept.
+
+```sh
+python3 tools/test_time_contracts.py --audit-sleep-handler \
+  --output build/review/sleep-audit/handler-host-final
+# Exit 1: 24/24 cases report zero instead of the expected remainder.
+python3 tools/thread_smoke.py --test sleep-handler-audit --boot-wait 60 --run-wait 120
+# Guest status 1; harness exit 3: 6/6 cases fail.
+```
+
+Host cases cover `nanosleep` and relative realtime/monotonic `clock_nanosleep`,
+reference/tick fallback, signals dispatched before or after the kernel wait,
+and separate/aliased request-output buffers. The request is 1 s + 123 ns;
+modeled suspension is 250 ms, and the handler runs 1.5 s. Post-wait remainder
+should be 750000123 ns; pre-wait dispatch should retain the entire request.
+All variants return the correct interruption error but incorrectly report zero.
+
+The guest uses `SA_RESTART` handlers and thread-targeted signals. For a 500 ms
+request, handler entry occurred 25.553–32.760 ms after the start; each handler
+then ran about 600 ms. All three APIs, with separate and aliased output, returned
+zero remaining time. The probe checks interruption before 250 ms, delivery count,
+normalized output, return errors and errno, so a late signal cannot masquerade
+as this failure. Fast-handler controls run in the positive `sleep-remainder`
+group, included in `all`. Absolute `clock_nanosleep` remainder preservation has
+separate positive host coverage; this finding concerns relative sleeps.
+
+The next correction should capture the suspension end before invoking handlers
+and preserve the entire request if no wait occurred. Keep aliasing, direct
+`clock_nanosleep` error returns, errno and absolute-output rules. For deadline
+semantics, callers can keep a monotonic absolute deadline and retry it after
+`EINTR`; that intentionally counts handler wall time and is not a substitute for
+relative suspension semantics. Do not rely on the current relative remainder
+when handlers can run appreciably long.
+
+### P3 — Extreme fallback elapsed ticks wrap when scaled to microseconds
+
+The same remainder path multiplies an unsigned elapsed tick difference by
+10000 before splitting it into seconds/nanoseconds. That multiplication wraps
+once the tick difference exceeds `UINT64_MAX / 10000`. These values are accepted
+by the request-to-ticks overflow guard and fit both the kernel tick interval and
+`time_t`, so the returned remainder can be wrong even without handler execution.
+
+```sh
+python3 tools/test_time_contracts.py --audit-sleep-overflow \
+  --output build/review/sleep-audit/overflow-host
+# Exit 1: 6/6 cases return 18446744073709.991616000 rather than 0.440000000.
+```
+
+The host injects a tick difference of 1844674407370956 (the first overflowing
+value), a request of 18446744073710 seconds, and an interruption with no handler.
+All three relative APIs, with separate and aliased buffers, reproduce it. Split
+ticks into whole seconds and a bounded remainder before scaling to avoid this
+intermediate overflow. This is an extreme-range arithmetic issue: roughly
+584,000 years of elapsed time, host-modeled only, with no VM/native occurrence
+claimed. It has lower practical priority than handler-time subtraction.
+
+### Positive controls and continued review
+
+The default timing target now covers short-handler interruptions before/after
+waiting, aliased/separate/null remainder, nanosecond borrowing, expiration clamp,
+reference failure/backwards readings with tick fallback, zero and sub-tick waits,
+invalid/oversized requests, non-interruption errors and absolute remainder
+preservation. Both explicit audits are excluded from the positive default gate.
+The guest `sleep-remainder` group covers six fast-handler cases; the existing
+`sleep` group retains no-early-completion and absolute deadline controls.
+
+Continued review followed the kernel wait loop and its existing host fixtures:
+spurious wakes recheck deadlines, pending signals interrupt, and overflow is
+refused. The extreme fallback finding above came from extending this review to
+the libc conversion boundary. No third issue is confirmed. The next bounded
+implementation work is suspension-end capture, then overflow-free remainder
+conversion. Once-initializer abnormal exit remains unconfirmed; broader profile
+exclusions and general asynchronous signal delivery remain open.
+
+
+Final audit validation on ARM64 macOS/x86_64 QEMU TCG: matched build, final host
+timing/synchronization tests, final timing ASan/UBSan and the complete positive
+thread suite pass. Explicit handler and overflow host modes each exit 1; the
+handler guest audit returns status 1/harness exit 3. Docs check 641 local links
+with zero errors; whitespace checks pass. Receipts, source/log hashes and build
+manifest are retained with the evidence above. Previous libuv validation remains
+historical; this test/docs-only audit claims no new full Linux/core, general SMP,
+physical-hardware or absent-reference VM acceptance.

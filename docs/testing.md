@@ -70,6 +70,20 @@ Guest `--test times`, included in `all`, brackets elapsed returns with monotonic
 samples, checks progress over sleep, CPU totals and the null-buffer extension.
 It logs the active source. Default Q35 VM checks exercise the reference path;
 missing-reference fallback coverage uses modeled host services.
+Sleep host controls now cover interruption before/after waiting, separate/aliased/
+null buffers, nanosecond borrowing and zero clamp, failed/backwards reference
+readings, invalid/oversized intervals, sub-tick rounding, and absolute-output
+preservation. Guest `--test sleep-remainder` is included in `all` and exercises
+six fast-handler cases across the three relative APIs and both buffer forms.
+
+Two explicit known-failure modes are excluded from the default timing target:
+`--audit-sleep-handler` fails 24 host cases with exit 1 (handler time consumes
+unslept time); `--audit-sleep-overflow` fails six host cases with exit 1 (extreme
+fallback tick scaling wraps). Use separate `--output` directories to retain each
+receipt. Guest `--test sleep-handler-audit` fails six slow-handler cases with
+status 1/harness exit 3 and is excluded from `all`. These are failure evidence,
+not passing runtime regressions. The overflow configuration is host-modeled only.
+
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

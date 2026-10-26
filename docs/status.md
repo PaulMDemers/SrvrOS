@@ -123,8 +123,10 @@ broader semaphore semantics remain outside the supported profile. Null-output
 without requiring storage. `times()` now uses advancing kernel ticks when the
 reference clock is unavailable, preserving accounting units and usage errors.
 Both sources have host regression coverage; default VM checks exercise the
-reference path. The latest adjacent timing/accounting review adds no confirmed
-finding; broader profile exclusions remain open.
+reference path. The subsequent sleep audit confirms that handler execution
+incorrectly reduces relative sleep remainders, with host and guest reproduction.
+A second extreme fallback conversion overflow is host-confirmed. Both fixes
+remain pending; broader profile exclusions remain open.
 
 ## Measured checkpoints and current acceptance
 

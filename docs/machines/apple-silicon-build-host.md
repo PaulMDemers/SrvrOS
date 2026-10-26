@@ -377,3 +377,34 @@ confirmed finding. Next audit scope is deterministic sleep interruption and
 remainder behavior with unavailable clocks and boundary values. Abnormal
 once-initializer exit remains unconfirmed; broader profile exclusions remain.
 All disposable VMs stopped; no physical boot is armed.
+
+## Sleep interruption and remainder audit — active scope
+
+The user requested an audit, regression tests for confirmed issues, docs/PR
+updates and continued review. Base is `820c1c3e`; fetched main remains `fa5a6cc1`
+and PR19 remains `b68df8cd` with separate Wi-Fi scope. This block owns host/guest
+sleep probes and documentation of observed contracts. Trace signal dispatch,
+aliasing, remaining-time arithmetic, source fallback and boundary errors through
+libc/kernel. Keep confirmed failing probes separate from positive default gates.
+Next checkpoint is deterministic host cases and a matched guest reproduction for
+any practical failure. No physical boot is armed.
+
+The sleep audit confirms two pending remainder defects. P2: handler execution
+is deducted from relative unslept time (24/24 modeled cases and six guest cases).
+Guest signals arrived 25.553–32.760 ms into 500 ms requests; 600 ms handlers
+left zero remainder. P3: extreme fallback tick scaling wraps (six modeled cases,
+roughly 584,000 years; no VM/native occurrence). Libc/kernel runtime is unchanged.
+
+Matched build, final host timing/synchronization tests, final timing ASan/UBSan
+and complete positive thread suite pass, including six fast-handler remainder
+controls. Explicit host handler/overflow audits fail with exit 1; the guest
+handler audit returns status 1/harness exit 3. These are failure receipts and
+are excluded from positive defaults. Docs check 641 local links with zero
+errors; whitespace checks pass. Evidence is retained in `build/review/sleep-audit/`.
+Prior libuv validation remains historical; no new full Linux/core, general SMP,
+native or absent-reference VM acceptance is claimed.
+
+Continued kernel wait/source and boundary review adds no third confirmed issue.
+Next corrections are capturing suspension end before handlers, then splitting
+fallback ticks before scaling. Once-initializer abnormal exit remains unconfirmed.
+All disposable VMs stopped; no physical boot is armed.

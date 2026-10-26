@@ -197,3 +197,12 @@ clock/source selection, resource accounting, timestamp conversion and existing
 sleep handling. It adds no confirmed finding; no missing-reference native/VM
 acceptance or complete POSIX conformance is implied. The next audit scope is
 fault-injected sleep interruption/remainder behavior and source boundaries.
+
+
+The subsequent sleep interruption/remainder audit confirms two pending issues:
+relative remainders deduct signal-handler execution (P2, 24 modeled host cases
+and six guest cases), and extreme fallback tick scaling wraps (P3, six modeled
+host cases). Added explicit failing probes plus positive host/guest controls
+for existing interruption, aliasing, error and absolute-output behavior. Current
+guides describe both limits. The libc/kernel runtime is unchanged in this audit;
+see the synchronization report for exact receipts and suggested corrections.

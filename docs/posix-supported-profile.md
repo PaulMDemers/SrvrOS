@@ -140,6 +140,16 @@ brackets and checks CPU totals. The default VM exercises the reference path;
 the missing-reference configuration is host-modeled, not VM/native accepted.
 No layout or syscall change is introduced.
 
+Relative `nanosleep`/`clock_nanosleep` remainders currently include time spent
+executing signal handlers, so a long handler can incorrectly reduce unslept
+time to zero. Aliasing is supported but does not avoid this confirmed defect.
+Absolute `clock_nanosleep` leaves remainder storage unchanged; callers pursuing
+a wall-clock deadline can retain/retry the same monotonic absolute deadline.
+This is different from preserving relative suspension time. A separate
+host-confirmed extreme-range issue wraps fallback tick-to-microsecond arithmetic
+at roughly 584,000 years of elapsed time. These sleep findings are pending fixes;
+see the synchronization audit for reproductions and evidence limits.
+
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing
 a full count. This does not complete the POSIX semaphore contract: `pshared` is
