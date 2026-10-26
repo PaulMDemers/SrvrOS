@@ -4102,6 +4102,14 @@ build/tests/mt76-rx-host$(HOST_EXE): tools/test_mt76_rx.c kernel/src/drivers/mt7
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx.c -o $@
 
+.PHONY: test-mt76-calibration
+test-core: test-mt76-calibration
+test-mt76-calibration: build/tests/mt76-calibration-host$(HOST_EXE)
+	$<
+build/tests/mt76-calibration-host$(HOST_EXE): tools/test_mt76_calibration.c kernel/src/drivers/mt76_calibration.c kernel/include/srvros/mt76_calibration.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
+
 .PHONY: test-window-set
 test-desktop: test-window-set
 test-window-set: build/tests/window-set-host$(HOST_EXE)
