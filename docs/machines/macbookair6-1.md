@@ -3307,3 +3307,56 @@ empty and collection is disabled; no reboot is armed.
 Closeout base is `4d195e25`. PR182 (`16b81077`) retains exFAT/storage-ownership
 work and PR19 (`f70ee542`) Wi-Fi. This closeout only records this unit's evidence;
 no shared implementation is changed or new native trial prepared.
+
+### Wake/resume attribution — active scope (2026-10-26)
+
+Base `ee5468f6`, same local device branch. Isolate the retained WAIT gap with
+opt-in, fixed-size per-thread scheduler diagnostics and compositor wait selection/
+call boundaries. Retain blocked-state versus ready-to-dispatch totals, timeout/
+signal wakes, deadline lateness in ticks and observed I/O eligibility exclusions.
+These are diagnostic observations, not permission to widen scheduler admission.
+Keep 500 ms loops, five-second clients, ten-second app cycles, continuous verified
+I/O, PCM checks and all integrity/ownership gates unchanged.
+
+Scope: scheduler bookkeeping, a bounded current-thread diagnostic ABI, compositor
+worst-loop receipts, host/receipt/VM regressions and this unit record. PR182
+(`16b81077`) owns exFAT/storage ownership; PR19 (`f70ee542`) owns Wi-Fi. Do not
+change those implementations. Prior run is fully collected and listening confirmed.
+Next checkpoint: reviewed/merged diagnostics, matched host/core and stress/boot
+validation, then the authorized automatic thirty-minute native run and recovery.
+
+Candidate `f1587a2f` adds an explicit bounded current-thread trace ABI and
+version2 retained loop companions. Scheduler observations separate blocked state
+from READY-to-selection, retain the longest ready interval with its wake/deadline
+and exclusion counts, and flag invalid clocks. GUI waits and one-tick sleeps keep
+their original branches, durations and fallback behavior. No scheduler selection,
+I/O admission, lifetime, firmware, integrity or acceptance limit changes.
+
+Matched normal/native-battery/VM kernels and full core pass. Directed host tests
+separate 10 ms blocked from 520 ms ready while preserving unsafe-thread exclusion;
+cover signal wakes, late expiry, runnable preemption, reset/refusal and invalid
+clocks; and validate exact-size mapped syscall copies. Receipt tests preserve
+historical version1 support and require complete immutable version2 companions,
+ordered calls, conserved state times and explicit no-WAIT early exits. Formatting
+and thousand-loop retention tests cover the whole companion set. Thread stress
+and storage-service VMs pass, including cancellation, timeout/quarantine and file
+comparison. Ordinary shutdown passes with no opt-in loop diagnostics emitted.
+
+The populated-Home 400-write-IOPS VM passes twenty app cycles, 117 verified bursts /
+30,670,848 bytes and 221 audible-write overlap windows, with zero child errors
+or PCM underruns, 66 prior files preserved and clean allocation. Maximum ready/
+close/loop times are 1,061,653 / 1,559,799 / 139,632 us. Its final diagnostic covers
+2,068 samples, zero over-limit/invalid observations, and retains the original
+sequence135 through completion. The worst interval uses the ten-tick GUI wait:
+96,605 us blocked, 41,563 us READY-to-selection, twelve observed I/O exclusions,
+and expiry observed exactly at its deadline tick. This validates attribution in
+the VM, not the cause of the prior native over-limit interval.
+
+Release `0ede0fc436410e26` freezes clean `f1587a2f`. Exact EFI rehearsal passes
+the expected Q35 native-profile refusal, saved logs, unmount and automatic return.
+Run `f6e01ca76b5a4da2` repeats the unchanged thirty-minute automatic workload on
+386 baseline files / 1,060 clusters. Its collector requires version2 attribution
+and retains it independently of an overall failure. Payload/evidence backups
+remain outside build; Ubuntu, console and accepted reopen recoveries are retained.
+Final main remains `ee5468f6`; PR182 (`91a4f594`) and PR19 (`9a50f4dc`) keep
+separate storage and Wi-Fi scopes. Final documentation changes no compiled code.

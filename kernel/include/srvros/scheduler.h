@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+struct srv_sched_trace;
 
 struct fpu_state;
 
@@ -96,6 +97,7 @@ void scheduler_print_status(void);
 /* Bounded timestamped per-lifetime counters; diagnostic capture only. */
 void scheduler_print_activity(void);
 void scheduler_snapshot(struct scheduler_stats *out);
+bool scheduler_trace(unsigned operation,struct srv_sched_trace *out);
 bool scheduler_start_idle_worker(void);
 
 #endif
