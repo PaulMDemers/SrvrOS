@@ -63,6 +63,11 @@ struct thread {
     uint64_t account_at;
     bool account_user;
     uint64_t timeout_wakes, signal_wakes;
+    struct {
+        struct srv_sched_trace out;
+        uint64_t since,deadline,wake_tick,reason,exclusions;
+        unsigned active,state; /* 0 running, 1 blocked, 2 ready */
+    } trace;
 };
 
 void scheduler_context_switch(struct scheduler_context *old_context, struct scheduler_context *new_context);
@@ -129,6 +134,59 @@ static void irq_restore(uint64_t flags) {
         __asm__ volatile ("sti" : : : "memory");
     }
 #endif
+}
+
+/* Opt-in observations only: never influence eligibility, wakeups or selection. */
+static void trace_ready(struct thread *t,uint64_t reason) {
+    if(!t->trace.active)return;
+    uint64_t now=timer_monotonic_us();
+    if(now<t->trace.since) {t->trace.out.invalid++;return;}
+    if(t->trace.state==1)t->trace.out.blocked_us+=now-t->trace.since;
+    else if(t->trace.state!=0) {t->trace.out.invalid++;return;}
+    t->trace.state=2;t->trace.since=now;t->trace.reason=reason;
+    t->trace.wake_tick=timer_ticks();t->trace.exclusions=0;
+    if(reason==1)t->trace.out.signals++;
+    if(reason==2) {
+        t->trace.out.timeouts++;
+        uint64_t late=t->trace.wake_tick>=t->trace.deadline?t->trace.wake_tick-t->trace.deadline:0;
+        if(late>t->trace.out.late_ticks)t->trace.out.late_ticks=late;
+    }
+}
+static void trace_run(struct thread *t,uint64_t now) {
+    if(!t->trace.active || !t->trace.state)return;
+    if(t->trace.state!=2 || now<t->trace.since) {t->trace.out.invalid++;return;}
+    uint64_t ready=now-t->trace.since;
+    t->trace.out.ready_us+=ready;t->trace.out.dispatches++;
+    if(ready>t->trace.out.max_ready_us) {
+        t->trace.out.max_ready_us=ready;t->trace.out.wake_us=t->trace.since;
+        t->trace.out.run_us=now;t->trace.out.wake_tick=t->trace.wake_tick;
+        t->trace.out.deadline_tick=t->trace.deadline;t->trace.out.reason=t->trace.reason;
+        t->trace.out.ready_exclusions=t->trace.exclusions;
+    }
+    t->trace.state=0;t->trace.since=now;t->trace.deadline=0;
+}
+bool scheduler_trace(unsigned operation,struct srv_sched_trace *out) {
+    if(!out || operation>SRV_SCHED_TRACE_END)return false;
+    uint64_t flags=irq_save();
+    if(!initialized || switching || thread_at(current_thread)->state!=THREAD_RUNNING) {
+        irq_restore(flags);return false;
+    }
+    struct thread *t=thread_at(current_thread);
+    if(operation==SRV_SCHED_TRACE_BEGIN) {
+        if(t->trace.active) {irq_restore(flags);return false;}
+        t->trace.out=(struct srv_sched_trace){.version=SRV_SCHED_TRACE_VERSION,
+            .start_us=timer_monotonic_us(),.start_tick=timer_ticks()};
+        t->trace.active=1;t->trace.state=0;t->trace.since=t->trace.out.start_us;
+        t->trace.deadline=t->trace.wake_tick=t->trace.reason=t->trace.exclusions=0;
+    } else {
+        if(!t->trace.active) {irq_restore(flags);return false;}
+        if(t->trace.state)t->trace.out.invalid++;
+        t->trace.out.end_us=timer_monotonic_us();t->trace.out.end_tick=timer_ticks();
+        if(t->trace.out.end_us<t->trace.out.start_us || t->trace.out.end_tick<t->trace.out.start_tick)
+            t->trace.out.invalid++;
+        t->trace.active=0;
+    }
+    *out=t->trace.out;irq_restore(flags);return true;
 }
 
 static void account_current_at(uint64_t now) {
@@ -208,7 +266,10 @@ static bool io_thread_allowed(uint64_t index) {
     /* Fresh process threads and post-exit kernel continuations have no syscall
      * waiter. Remember their actual READY exclusion too; otherwise a continuous
      * writer can reacquire the gate before their first/last kernel turn. */
-    if(!allowed && thread->state==THREAD_READY)io_gate_request(thread);
+    if(!allowed && thread->state==THREAD_READY) {
+        io_gate_request(thread);
+        if(thread->trace.active) {thread->trace.out.exclusions++;thread->trace.exclusions++;}
+    }
     return allowed;
 }
 
@@ -529,6 +590,7 @@ static void yield_to(uint64_t preferred) {
     if(!io_depth)io_gate_leave(thread_at(next_index));
 
     if (next_index == old_index) {
+        if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
         irq_restore(flags);
         return;
     }
@@ -544,8 +606,10 @@ static void yield_to(uint64_t preferred) {
     }
 
     if (old->state == THREAD_RUNNING) {
+        trace_ready(old,0);
         old->state = THREAD_READY;
     }
+    if(next->trace.active)trace_run(next,timer_monotonic_us());
     next->state = THREAD_RUNNING;
     next->switches++;
     context_switches++;
@@ -639,6 +703,11 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     }
 
     struct thread *thread = thread_at(current_thread);
+    if(thread->trace.active) {
+        if(thread->trace.state)thread->trace.out.invalid++;
+        thread->trace.state=1;thread->trace.since=timer_monotonic_us();
+        thread->trace.deadline=deadline_ticks;thread->trace.out.blocks++;
+    }
     thread->state = THREAD_BLOCKED;
     thread->blocked_queue = queue;
     thread->blocked_deadline_ticks = deadline_ticks;
@@ -670,7 +739,7 @@ uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_c
         if(t->blocked_queue!=queue)continue;
         if(t->state!=THREAD_BLOCKED) { detach_wait(t);continue; }
         if(woken<max_count) {
-            detach_wait(t);t->state=THREAD_READY;t->signal_wakes++;woken++;
+            trace_ready(t,1);detach_wait(t);t->state=THREAD_READY;t->signal_wakes++;woken++;
         } else remaining++;
     }
     queue->waiters=remaining;
@@ -691,7 +760,7 @@ static void wake_expired_waits(void) {
             now < thread->blocked_deadline_ticks) {
             continue;
         }
-        detach_wait(thread);
+        trace_ready(thread,2);detach_wait(thread);
         thread->state = THREAD_READY;
         thread->timeout_wakes++;
     }

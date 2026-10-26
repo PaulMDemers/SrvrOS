@@ -2694,7 +2694,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
-    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS:
+    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -2754,6 +2754,12 @@ static int64_t syscall_usage(int64_t who,struct srv_usage *out,uint64_t size) {
     return result;
 }
 
+static int64_t syscall_sched_trace(uint64_t operation,struct srv_sched_trace *out,uint64_t size) {
+    if(operation>SRV_SCHED_TRACE_END || size!=sizeof(*out) || !out || !user_buffer_ok(out,size,true))return -1;
+    struct srv_sched_trace result={0};
+    if(!scheduler_trace((unsigned)operation,&result))return -1;
+    return copy_to_user(out,&result,sizeof(result))?0:-1;
+}
 static int64_t syscall_scheduler_status(struct srv_scheduler_status *out,uint64_t size) {
     if(size!=sizeof(*out) || !user_buffer_ok(out,sizeof(*out),true)) return -1;
     struct scheduler_stats stats;scheduler_snapshot(&stats);
@@ -2991,6 +2997,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GUI_REGISTER:
         frame->rax = (uint64_t)syscall_gui_register();
+        return;
+    case SYS_SCHED_TRACE:
+        frame->rax=(uint64_t)syscall_sched_trace(frame->rdi,(struct srv_sched_trace *)frame->rsi,frame->rdx);
         return;
     case SYS_SCHEDULER_STATUS:
         frame->rax=(uint64_t)syscall_scheduler_status((struct srv_scheduler_status *)frame->rdi,frame->rsi);

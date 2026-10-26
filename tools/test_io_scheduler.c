@@ -43,11 +43,27 @@ static struct scheduler_wait_queue completion_queue;
 static bool high_wait_test;
 static bool handoff_test;
 static bool retry_turn_test;
+static unsigned trace_test;
 void fpu_set_current_user_state(struct fpu_state *state) { (void)state; }
 static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(trace_test) {
+        if(current_thread==1) {
+            assert(old==&threads[0].context && threads[0].state==THREAD_BLOCKED);
+            assert(threads[0].trace.out.blocks==1);
+            switching=false;clock_us+=10000;wake_expired_waits();
+            assert(threads[0].state==THREAD_READY && threads[0].trace.out.timeouts==1);
+            io_depth=1;io_owner=1;
+            assert(!io_thread_allowed(0)); /* Recording must not admit the unsafe thread. */
+            clock_us+=520000;assert(!io_thread_allowed(0));
+            io_depth=0;scheduler_yield();
+            assert(current_thread==0);return;
+        }
+        assert(current_thread==0 && old==&threads[1].context && next==&threads[0].context);
+        return;
+    }
     if(retry_turn_test) {
         assert(old==&threads[3].context && next==&threads[6].context && current_thread==6);
         assert(threads[6].io_gate_waiting==(io_depth!=0));
@@ -309,7 +325,43 @@ static void test_growth(void) {
     puts("scheduler-growth: PASS stable records, 95+ admission, high-slot waits/wake/timeout/kill, allocation rollback, budget refusal/reuse and quarantine retention");
 }
 
+static bool trace_false(void *arg) {(void)arg;return false;}
+static void test_wait_trace(void) {
+    struct srv_sched_trace out;
+    assert(!scheduler_trace(SRV_SCHED_TRACE_END,&out));
+    initialized=true;current_thread=0;clock_us=1000;
+    threads[0]=(struct thread){.state=THREAD_RUNNING};
+    threads[1]=(struct thread){.state=THREAD_READY};
+    assert(scheduler_trace(SRV_SCHED_TRACE_BEGIN,&out));
+    assert(!scheduler_trace(SRV_SCHED_TRACE_BEGIN,&out));
+    struct scheduler_wait_queue q={0};trace_test=1;
+    assert(scheduler_wait_timeout(&q,trace_false,NULL,1));trace_test=0;
+    assert(!q.waiters && scheduler_trace(SRV_SCHED_TRACE_END,&out));
+    assert(out.version==1 && out.start_us==1000 && out.end_us==531000);
+    assert(out.blocked_us==10000 && out.ready_us==520000 && out.max_ready_us==520000);
+    assert(out.blocks==1 && out.timeouts==1 && !out.signals && out.dispatches==1);
+    assert(out.exclusions==2 && out.ready_exclusions==2 && out.reason==2 && !out.invalid);
+    assert(out.wake_us==11000 && out.run_us==531000 && out.deadline_tick==1 && !out.late_ticks);
+    assert(!scheduler_trace(SRV_SCHED_TRACE_END,&out));
+    /* Unrelated signal wakes retain their original deadline; a second blocked
+     * interval accumulates without erasing the longest ready interval. */
+    assert(scheduler_trace(SRV_SCHED_TRACE_BEGIN,&out));
+    threads[0].trace.state=1;threads[0].trace.since=clock_us;threads[0].trace.deadline=100;
+    threads[0].trace.out.blocks=1;threads[0].state=THREAD_BLOCKED;
+    threads[0].blocked_queue=&q;q.waiters=1;
+    clock_us+=4000;assert(scheduler_wake_count(&q,1)==1);
+    clock_us+=2000;trace_run(&threads[0],clock_us);threads[0].state=THREAD_RUNNING;
+    assert(scheduler_trace(SRV_SCHED_TRACE_END,&out));
+    assert(out.signals==1 && !out.timeouts && out.blocked_us==4000 && out.ready_us==2000 && out.reason==1);
+    assert(!out.invalid && out.deadline_tick==100);
+    assert(scheduler_trace(SRV_SCHED_TRACE_BEGIN,&out));
+    clock_us--;trace_ready(&threads[0],0);assert(scheduler_trace(SRV_SCHED_TRACE_END,&out));assert(out.invalid);
+    memset(threads,0,sizeof(threads));initialized=false;switching=false;io_depth=io_gate_pending=0;clock_us=0;current_thread=0;
+    puts("scheduler-wait-trace: PASS blocked versus ready, unchanged exclusion, timeout/signal, reset/refusal and invalid clock");
+}
+
 int main(void) {
+    test_wait_trace();
     test_cpu_accounting();
     test_resume_address_space();
     _Alignas(16) uint8_t stack[64];
