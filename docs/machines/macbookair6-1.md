@@ -3262,3 +3262,48 @@ unmount and automatic return. Native run `d66265a8b5ea4b59` repeats the unchange
 thirty-minute workload on 380 baseline files / 1,052 clusters. Its collector
 preserves the retained worst-loop record even when later acceptance fails.
 Ubuntu remains default with console and accepted reopen recovery retained.
+
+### Retained worst-loop native return — 2026-10-26 (wait/resume gap)
+
+Run `d66265a8b5ea4b59`, release `080b645e1b3a5533`, compiled `a8cdd087`
+(PR187 merged as `4d195e25`) returned one matching session,
+`session-00065ec2b80b0dc6-00`. The complete 1,800-second audio/disk receipt
+passes: 345,600,000 PCM bytes, zero underruns, worker status0, and 3,012 verified
+bursts / 789,577,728 bytes. The binary disk receipt exactly matches the text;
+first-to-last I/O spans 1,797.448 seconds inside playback. Audible quality for
+this run awaits the user's listening confirmation; the prior run's confirmation
+does not substitute for it.
+
+All 674 generated app cycles completed with zero child errors. Maximum ready/
+close times were 1,899,733 / 3,820,172 us, and application coverage spans
+1,784.523 seconds inside playback. The complete retained timing tails validate
+cycles655–673 with the shared Files lifecycle. The overall desktop result remains
+FAIL: two of 95,597 loop samples exceeded the unchanged 500,000 us limit, with
+a maximum of 540,803 us. No invalid timing samples were recorded.
+
+The new diagnostic retains sequence30358 across log rotation and in the final
+receipt, exactly matching the lifecycle maximum. It spans 575,911,056 through
+576,451,859 us uptime, cycle212, from phase0 to phase1 with pid0 at both ends.
+WAIT accounts for 540,740 us; all other stages together account for 63 us
+(including 4 us render). Stage totals exactly conserve the interval. This
+accepts bounded diagnostic retention on native hardware, not responsiveness.
+
+WAIT covers wait selection, the GUI wait or one-tick sleep, and resumption to
+the next loop timestamp. The receipt does not distinguish the selected branch,
+requested deadline, wake-to-run delay, I/O admission or preemption. Next isolate
+those boundaries while keeping the loop/client/cycle limits and all integrity
+and ownership checks unchanged. The evidence does not establish a storage,
+scheduler or firmware root cause and cannot attribute the other over-limit
+sample independently from this retained maximum.
+
+Battery epoch1 retired with 10,563 queries, 111 notifications, 788 handled/zero
+unclaimed SCI deliveries and zero heap/errors/denied. All 380 prior files survive
+except expected workspace metadata. Read-only fsck and independent allocation
+pass: 386 files / 1,060 clusters, zero leaks/mismatches/errors. Original automatic
+failure, matching logs, workload receipts and the detailed return diagnosis are
+preserved outside build with verified hashes. Ubuntu recovered, next_entry is
+empty and collection is disabled; no reboot is armed.
+
+Closeout base is `4d195e25`. PR182 (`16b81077`) retains exFAT/storage-ownership
+work and PR19 (`f70ee542`) Wi-Fi. This closeout only records this unit's evidence;
+no shared implementation is changed or new native trial prepared.
