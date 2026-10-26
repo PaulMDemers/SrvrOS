@@ -374,7 +374,47 @@ static void test_wait_trace(void) {
     puts("scheduler-wait-trace: PASS blocked versus ready, unchanged exclusion, timeout/signal, reset/refusal and invalid clock");
 }
 
+static void test_private_image_scope(void) {
+    struct srv_sched_trace trace;
+    void *parent=(void *)0x10,*child=(void *)0x20;
+    initialized=true;io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=parent};
+    threads[4]=(struct thread){.state=THREAD_READY,.user_context=parent,.io_user_safe=true};
+    threads[5]=(struct thread){.state=THREAD_READY,.user_context=parent};
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)0x30,.io_user_safe=true};
+    assert(!scheduler_io_begin_process_image(NULL));
+    assert(!scheduler_io_begin_process_image(parent));
+    assert(!scheduler_io_begin_process_image((void *)0x30));
+    actual_space=2;assert(!scheduler_io_begin_process_image(child));actual_space=1;
+    assert(!io_depth && !io_private_image);
+    assert(scheduler_io_begin());
+    assert(!io_thread_allowed(4) && !io_thread_allowed(5) && io_thread_allowed(6));
+    assert(!scheduler_io_begin_process_image(child) && io_depth==1 && !io_private_image);
+    scheduler_io_end();
+    /* Reproduce the stalled sibling's READY interval while a private image is
+     * built. Existing ordinary ownership must still refuse this admission. */
+    current_thread=4;threads[4].state=THREAD_RUNNING;clock_us=1000;
+    assert(scheduler_trace(SRV_SCHED_TRACE_BEGIN,&trace));trace_ready(&threads[4],2);
+    threads[4].state=THREAD_READY;current_thread=3;
+    assert(scheduler_io_begin_process_image(child) && io_depth==1 && io_private_image==child);
+    for(unsigned n=0;n<64;n++) {
+        clock_us+=4000;
+        assert(io_thread_allowed(4)); /* Fails with the old caller-identity exclusion. */
+        assert(!io_thread_allowed(5) && io_thread_allowed(6));
+    }
+    threads[7]=(struct thread){.state=THREAD_READY,.user_context=child,.io_user_safe=true};
+    assert(!io_thread_allowed(7)); /* Target identity is still excluded. */
+    assert(scheduler_io_begin() && io_depth==2 && io_private_image==child);
+    scheduler_io_end();assert(io_depth==1 && io_private_image==child);
+    current_thread=6;scheduler_io_end();assert(io_depth==1 && io_private_image==child);
+    current_thread=3;scheduler_io_end();assert(!io_depth && !io_private_image);
+    assert(scheduler_io_begin() && !io_thread_allowed(4));scheduler_io_end();
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;clock_us=0;io_gate_pending=0;
+    puts("private-image-io: PASS caller sibling service, target/unsafe exclusion, inherited/foreign refusal and exact restoration");
+}
+
 int main(void) {
+    test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();
     test_resume_address_space();

@@ -29,6 +29,13 @@ void scheduler_enable_io_services(void);
  * audited console/userspace paths in other processes may run until end.
  * All other kernel entries wait; cancellation is deferred over this scope. */
 bool scheduler_io_begin(void);
+/* IRQ-masked, new private child-image construction only. The caller has copied
+ * its path into kernel storage and touches no parent descriptors/mappings or
+ * user buffers until end. Retain global serialization/cancellation and exclude
+ * the image's process identity; audited caller siblings may service UI. Refuse
+ * nested/foreign ownership, absent caller or an image with a scheduler thread.
+ * Failure requires the ordinary process service scope, never a relaxed gate. */
+bool scheduler_io_begin_process_image(void *image);
 bool scheduler_io_active(void);
 bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked. */
 void scheduler_io_checkpoint(void);

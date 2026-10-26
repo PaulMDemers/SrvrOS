@@ -3368,8 +3368,8 @@ Run `f6e01ca76b5a4da2`, release `0ede0fc436410e26`, compiled `f1587a2f`
 `session-00065ec3dd1e846a-00`. The automatic collector passes the full thirty-minute
 workload: 345,600,000 PCM bytes, zero underruns, worker status0, 3,154 verified
 bursts / 826,802,176 bytes, and an exactly matching binary disk receipt.
-First-to-last I/O spans 1,797.058 seconds inside playback. Audible quality for
-this run awaits the user's confirmation.
+First-to-last I/O spans 1,797.058 seconds inside playback. The user confirms
+audio remained steady throughout this run.
 
 All 689 app cycles completed with zero child errors. Maximum ready/close times
 were 1,912,039 / 3,460,137 us; application coverage spans 1,785.112 seconds
@@ -3405,3 +3405,57 @@ hashes. Ubuntu recovered, next_entry is empty and collection is disabled; no
 new boot is armed. Closeout base is `4ee18f69`; PR182 (`2a091597`) and PR19
 (`db3d8633`) retain separate storage and Wi-Fi scopes. This closeout changes
 only this unit record.
+
+### Private app-image ownership audit — active scope (2026-10-26)
+
+Base `d24dbc11`, same local device branch. The lifecycle pthread runs exec;
+its image loader operates on a newly reserved child using a kernel snapshot of
+the executable path, but the service gate currently excludes the caller's UI
+siblings throughout that private child work. Parent mapping refresh, descriptor
+inheritance and record mutation require the existing caller exclusion and must
+retain it. Audit and narrowly distinguish private child-image ownership from
+parent mutation, without releasing the global I/O/cancellation gate or admitting
+unsafe syscalls. No acceptance, workload or resource limits change.
+
+Scope: process image construction, scheduler exclusion identity for that explicit
+scope, ownership/refusal regressions and this unit record/current contract.
+PR182 (`2a091597`) owns exFAT/storage changes and PR19 (`db3d8633`) Wi-Fi;
+inspect their current shared-file scope before integration. Prior return is fully
+collected and listening confirmed. Next checkpoint is failing-before/passing-after
+ownership tests, matched build/core and VM stress/lifecycle validation, then the
+merged candidate and authorized automatic native trial with preserved recovery.
+
+### Private app-image ownership — candidate validated (2026-10-26)
+
+PR192 builds at `daa94dd8` from `d24dbc11`. Only fresh child-image construction
+uses the child as the scheduler exclusion identity, after a kernel path snapshot
+and refusal of live targets or inherited/foreign ownership. Audited parent UI
+siblings may run; the global storage/cancellation gate and unsafe-call exclusion
+remain. Ordinary parent exclusion resumes before descriptor inheritance, parent
+refresh or child publication. Existing loader, mapping and rollback integrity
+checks, resource limits, 500 ms loop, five-second client and ten-second cycle
+limits remain unchanged. PR182's current `process.c` edits are confined to
+separate file-flush paths; PR19 (`97fb3750`) has no overlapping implementation.
+
+Directed scheduler/process-service/loader regressions and the matched build/full
+core suite pass. The old exclusion-predicate control fails the new sibling-service
+assertion; refusal, nesting, path snapshot and failed-load restoration tests pass.
+Terminal real-shell/PTY/clipboard/exit/persistence, threading, throttled storage
+service and desktop shutdown VM gates pass. The populated-Home automatic VM
+(400 write IOPS) completed 60 seconds, 115 verified bursts, 20 app cycles,
+zero underruns/errors, 399.027 ms worst loop, 1.251122 s worst readiness and
+1.410113 s worst close, preserving all 66 fixture files.
+
+Release `204302d98c2906fd` is staged clean from the tested code. Exact-stage VM
+verifies native-profile refusal, saved evidence and automatic return on Q35;
+it does not accept native EC ownership. Payload hashes and durable backup pass.
+The authorized next native run is the unchanged 30-minute continuous PCM,
+unpaced verified USB work and automatic Text/Files/System launch/close trial,
+retaining worst-loop wait/scheduler diagnostics. No guest input is needed beyond
+listening; keep AC and USB attached. Ubuntu remains the recovery OS with console
+`c35475f62f154f1e` and the accepted automated/attended reopen payloads retained.
+The previous bounded stress payload `0ede0fc436410e26` remains available. Native
+responsiveness improvement is pending the matching returned receipt, file
+preservation/allocation checks and listening confirmation; collect before another
+trial. Local run `b907f47823d34af2` is under
+`build/battery/air61-launch-audit-20261026`, with a durable copy outside `build`.
