@@ -16,6 +16,39 @@ bool process_fd_is_console(struct process *p,uint64_t fd,bool input) {
     assert(input ? fd==0 : fd==1);
     return console_fd;
 }
+static void test_pipe_retry_admission(void) {
+    const struct { enum process_file_type type; bool read,write; } cases[]={
+        {PROCESS_FILE_PIPE_READ,true,false},{PROCESS_FILE_PIPE_WRITE,false,true},
+        {PROCESS_FILE_PIPE_DUPLEX,true,true},{PROCESS_FILE_PTY_MASTER,true,true},
+        {PROCESS_FILE_PTY_SLAVE,true,true},{PROCESS_FILE_VFS,false,false},
+        {PROCESS_FILE_VFS_WRITE,false,false},{PROCESS_FILE_NET_CONNECTION,false,false}
+    };
+    for(unsigned i=0;i<sizeof(cases)/sizeof(*cases);i++) {
+        pipe_file.type=cases[i].type;
+        for(unsigned nonblock=0;nonblock<2;nonblock++) {
+            pipe_file.flags=nonblock?SRV_FD_NONBLOCK:0;
+            for(unsigned write=0;write<2;write++) {
+                bool eligible=nonblock && (write?cases[i].write:cases[i].read);
+                unsigned before=turn_requests;
+                busy=true;user_safe=true;
+                /* Each retry must request quiescence without blocking or
+                 * entering descriptor cleanup under the other I/O owner. */
+                for(unsigned retry=0;retry<64;retry++) {
+                    assert((write?io_defer_pipe_write(10):io_defer_pipe_read(10))==eligible);
+                    assert(user_safe && turn_requests==before+(eligible?retry+1:0));
+                }
+                before=turn_requests;busy=false;user_safe=true;
+                assert(!(write?io_defer_pipe_write(10):io_defer_pipe_read(10)));
+                assert(turn_requests==before && user_safe==!eligible);
+            }
+        }
+    }
+    busy=true;user_safe=true;unsigned before=turn_requests;
+    assert(!io_defer_pipe_read(99) && !io_defer_pipe_write(99));
+    assert(user_safe && turn_requests==before); /* Invalid descriptors are not contenders. */
+    busy=false;
+    puts("pipe-retry-admission: PASS read/write/duplex/PTY, repeated requests, blocking/invalid/nonpipe exclusion and cleanup safety");
+}
 int main(void) {
     struct isr_frame frame={.rax=SYS_READ,.rdi=0};
     assert(!syscall_io_safe(&frame));console_fd=true;assert(syscall_io_safe(&frame));
@@ -72,5 +105,6 @@ int main(void) {
     frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));
     frame.rax=SYS_TTY_GETATTR;assert(syscall_io_safe(&frame));
+    test_pipe_retry_admission();
     puts("syscall-io-host: PASS (bounded desktop admission, bounded retained-snapshot reads, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
 }
