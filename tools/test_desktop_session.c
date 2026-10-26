@@ -658,6 +658,11 @@ static void window_navigation(void) {
     forget(&s,8);assert(s.scene.focus==2 && desktop_window_at(&s.scene,6)->minimized); /* No hidden resurrection. */
     key=navigation_event(SRV_KEY_F2,SRV_KEY_CTRL,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key) && s.scene.menu.open==0);
     key=navigation_event(SRV_KEY_ESCAPE,0,SRV_KEY_DOWN_EVENT);assert(desk_menu_key(&s.scene.menu,&key).consumed);
+    for(int j=0;j<session_capacity(&s);j++)if(session_client(&s,j)->pid)desktop_window_at(&s.scene,j)->minimized=1;
+    focus_best(&s);assert(s.scene.focus==-1);
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.switching && s.scene.launcher.choose_only && !s.scene.launcher.query.enabled && s.scene.launcher.list.count==79);
+    key=navigation_event(0xe2,0,0);navigation_key(&s,&key);assert(s.scene.focus>=0 && !desktop_window_at(&s.scene,s.scene.focus)->minimized);
     registry_destroy(&s);assert(!registry_live);
     puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
 }

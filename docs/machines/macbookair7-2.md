@@ -9,7 +9,8 @@ then implement a stable most-recent-window switcher, reverse/same-app navigation
 predictable focus after minimize/retirement and keyboard access to desktop menus.
 Reuse dynamic launcher/widget storage and owned-dialog routing; no new fixed
 window cap, protocol or driver changes. Air7,2 owns compositor input/focus, focused
-host/VM fixtures, Help and combined native checklist delivery. Audio remains with
+host/VM fixtures, reusable selection-only palette mode, Help and combined native
+checklist routing through the existing battery/Home session. Audio remains with
 the other device; PR182 filesystem and PR19 Wi-Fi remain separate. Validate
 locally and in QEMU before one combined attended native trial. No reboot is armed.
 Evidence/checkpoint: `build/window-navigation-20261026/`.

@@ -371,7 +371,14 @@ static int modal_child(const struct session *s,int parent) {
 }
 static void focus(struct session *s,int i) {
     int child=modal_child(s,i);if(child>=0)i=child;
-    if(s->scene.launcher_open || s->scene.calendar_open || s->scene.notifications.opened) { if(s->switching)return; s->overlay_return=i;s->overlay_identity=i>=0?session_client(s,i)->identity:0;if(s->scene.launcher_open) launcher_catalog(s);return; }
+    if(s->scene.launcher_open || s->scene.calendar_open || s->scene.notifications.opened) {
+        /* New admissions still change dock counts while the overlay owns focus. */
+        if(s->scene.apps)desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
+        if(s->switching)return;
+        s->overlay_return=i;s->overlay_identity=i>=0?session_client(s,i)->identity:0;
+        if(s->scene.launcher_open)launcher_catalog(s);
+        return;
+    }
     int previous=s->scene.focus;
     if (previous!=i) {
         pointer_cancel(s);
@@ -953,7 +960,7 @@ static void switcher_step(struct session *s,int reverse) {
             snprintf(item->label,sizeof(item->label),"%s",desktop_window_at(&s->scene,i)->title[0]?desktop_window_at(&s->scene,i)->title:"Window");
             snprintf(item->detail,sizeof(item->detail),"%s%s",desk_application_info(desktop_window_at(&s->scene,i)->application)?desk_application_info(desktop_window_at(&s->scene,i)->application)->title:"Application",desktop_window_at(&s->scene,i)->minimized?" · Minimized":"");
         }
-        desk_palette_open(p,"Switch window",items,count);desk_palette_configure(p,(struct desk_rect){0,44,s->damage.width,s->damage.height-120});
+        desk_palette_choose(p,"Switch window",items,count);desk_palette_configure(p,(struct desk_rect){0,44,s->damage.width,s->damage.height-120});
         desk_palette_message(p,"Alt-Tab: next · Shift: reverse · release Alt: switch · Esc: cancel");
         desk_list_select(&p->list,selected);desk_ui_focus(&p->ui,2);s->switching=1;
     }

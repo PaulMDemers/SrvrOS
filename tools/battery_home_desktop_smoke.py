@@ -282,7 +282,9 @@ def main():
                     result['retained_ownership']=True
                 else:
                     if args.lifecycle_guide or args.navigation_guide:
-                        wait(b'deskhelp: page=window-navigation-trial' if args.navigation_guide else b'deskhelp: page=lifecycle-trial');wait(b'deskd: opened pid=');time.sleep(1)
+                        guide_start=consumed
+                        wait(b'deskhelp: page=window-navigation-trial' if args.navigation_guide else b'deskhelp: page=lifecycle-trial')
+                        guide_end=consumed;consumed=guide_start;wait(b'deskd: opened pid=');consumed=max(consumed,guide_end);time.sleep(1)
                         qmp.call('screendump',{'filename':str(out/'guide-start.ppm')})
                         qmp.key('end');time.sleep(1)
                         qmp.call('screendump',{'filename':str(out/'guide-return.ppm')})
