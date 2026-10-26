@@ -1615,8 +1615,9 @@ int main(int argc,char **argv) {
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
-    int audio_io_smoke=argc==2 && !strcmp(argv[1],"--audio-io-smoke");
-    int audio_io=audio_io_smoke || (argc==2 && !strcmp(argv[1],"--audio-io-stress"));
+    int audio_io_attended=argc==2 && (!strcmp(argv[1],"--audio-io-attended") || !strcmp(argv[1],"--audio-io-attended-smoke"));
+    int audio_io_smoke=argc==2 && (!strcmp(argv[1],"--audio-io-smoke") || !strcmp(argv[1],"--audio-io-attended-smoke"));
+    int audio_io=audio_io_attended || audio_io_smoke || (argc==2 && !strcmp(argv[1],"--audio-io-stress"));
     int home_apps=lifecycle_trial || audio_io || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
@@ -1644,7 +1645,7 @@ int main(int argc,char **argv) {
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1677,6 +1678,7 @@ int main(int argc,char **argv) {
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
+    else if(audio_io_attended) spawn_app(&s,DESK_APP_HELP,"audio-io-attended");
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
@@ -1713,7 +1715,7 @@ int main(int argc,char **argv) {
     }
     uint64_t audio_io_pid=0,audio_io_begin=(uint64_t)srv_monotonic_us(),audio_io_notice=0;
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
-    int audio_io_complete=0;
+    int audio_io_complete=0,audio_io_finished=0;
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
@@ -1731,14 +1733,14 @@ int main(int argc,char **argv) {
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
-        if(audio_io && audio_io_pid) {
+        if(audio_io && (audio_io_pid || (audio_io_attended && audio_io_finished))) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
             loop_trace_begin(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
             if(loop_now-loop_report_at>=10000000) {loop_trace_report(&loop_trace,0);loop_report_at=loop_now;}
             if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
         }
-        if(audio_io) {
+        if(audio_io && !audio_io_finished) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!audio_io_pid) {
                 struct srv_battery_status state={0};
@@ -1749,17 +1751,23 @@ int main(int argc,char **argv) {
                     long child=srv_exec(&request);
                     if(child<=0){failed=1;break;}
                     audio_io_pid=(uint64_t)child;audio_io_begin=now;
-                    desk_log("desktop-audio-io: started pid=%llu seconds=%u input=none\n",(unsigned long long)audio_io_pid,audio_io_seconds);
+                    desk_log("desktop-audio-io: started pid=%llu seconds=%u input=%s\n",(unsigned long long)audio_io_pid,audio_io_seconds,audio_io_attended?"attended":"none");
                     /* Lifecycle fixture launches actual apps after playback starts. */
                 } else if(now-audio_io_begin>15000000) {failed=1;break;}
             } else {
                 uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
-                if(done==(long)audio_io_pid) {audio_io_complete=status==0;audio_io_pid=0;failed=!audio_io_complete;quit=1;break;}
+                if(done==(long)audio_io_pid) {
+                    audio_io_complete=status==0;audio_io_finished=1;audio_io_pid=0;failed=!audio_io_complete;
+                    if(!audio_io_attended){quit=1;break;}
+                    desk_log("desktop-attended-load: finished complete=%s; awaiting normal user exit\n",audio_io_complete?"yes":"NO");
+                    strcpy(s.scene.notice,audio_io_complete?"Load complete. Save notes/screenshots, then SrvrOS > Return to console.":"Load FAILED. Save notes/screenshots, then Return to console; report the failure.");
+                    desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+                }
                 if(now-audio_io_begin>((uint64_t)audio_io_seconds+90)*1000000){failed=1;break;}
             }
-            if(now-audio_io_notice>=1000000) {
+            if(!audio_io_finished && now-audio_io_notice>=1000000) {
                 audio_io_notice=now;
-                snprintf(s.scene.notice,sizeof(s.scene.notice),"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
+                snprintf(s.scene.notice,sizeof(s.scene.notice),audio_io_attended?"Audio + USB: %llu / %u sec. Follow Help checklist; save before leaving.":"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
@@ -1777,7 +1785,7 @@ int main(int argc,char **argv) {
         loop_trace_stamp(&loop_trace,LOOP_SERVICE);
         service(&s);
         loop_trace_stamp(&loop_trace,LOOP_TRIAL);
-        if(audio_io && audio_io_pid) {
+        if(audio_io && !audio_io_attended && audio_io_pid) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!life_due)life_due=now+5000000;
             if(!life_phase && now>=life_due && now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000) {
@@ -1913,7 +1921,7 @@ int main(int argc,char **argv) {
         for(int n=0;(apps || coexist_text) && n<32;n++) {
             struct srv_key_event key;int read=gui_keyboard_read(&key);
             if(read<=0) break;
-            if(battery_work && (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT))work_keys++;
+            if((battery_work || (audio_io_attended && audio_io_pid)) && (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT))work_keys++;
             s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
@@ -2010,7 +2018,7 @@ int main(int argc,char **argv) {
                 desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,e.dx||e.dy);
             }
             if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
-                if(battery_work)work_motion++;
+                if(battery_work || (audio_io_attended && audio_io_pid))work_motion++;
                 stop_warning=0; io_trial_input(&s.io,1);
             }
             if (io_trial_active(&s.io)) {
@@ -2428,8 +2436,13 @@ int main(int argc,char **argv) {
         if(audio_io_pid){srv_kill(audio_io_pid);uint64_t status;srv_wait(audio_io_pid,&status,0);}
         loop_trace_report(&loop_trace,1);
         if(loop_trace.invalid || loop_trace.worst.gap!=loop_max)failed=1;
+        if(audio_io_attended) {
+            if(!audio_io_complete || s.child_errors || !loop_last || loop_max>500000 || !work_keys || !work_motion || !s.exiting)failed=1;
+            desk_log("desktop-attended-load: result=%s complete=%s keys=%llu pointer_events=%llu normal_exit=%u errors=%u max_loop_us=%llu limit_us=500000 automatic_app_cycles=no\n",failed?"FAIL":"PASS",audio_io_complete?"yes":"NO",(unsigned long long)work_keys,(unsigned long long)work_motion,s.exiting?1u:0u,s.child_errors,(unsigned long long)loop_max);
+        } else {
         if(!audio_io_complete || life_cycles<6 || life_phase || s.child_errors || !loop_last || loop_max>500000 || !life_first || life_last-life_first<((uint64_t)audio_io_seconds-20)*1000000)failed=1;
         desk_log("desktop-life: result=%s cycles=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu errors=%u limit_us=500000 first_us=%llu last_us=%llu\n",failed?"FAIL":"PASS",life_cycles,(unsigned long long)loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max,s.child_errors,(unsigned long long)life_first,(unsigned long long)life_last);
+        }
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
     }
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
