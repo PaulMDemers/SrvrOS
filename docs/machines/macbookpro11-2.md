@@ -215,6 +215,18 @@ Fetched main remains `aa7b7392`; PR172 desktop runtime,174 process admission
 and175 Apple Silicon documentation do not own this MT76 diagnostic. Pro PR19
 continues this bounded scope; integration base remains `d5bc4b3`.
 
+
+Next bounded scope v84: post-synthesizer19-entry20MHz/G-band table replay,
+then fixed RF_MISC/gain/attenuation MAC tail with fresh reads and independent
+readbacks. Same-boot mapped NIC0=fd11 sets internal2G PA bit8; require the
+complete captured-field proof, no external-PA branch or inferred TX power.
+Touched: MT76 private plan/MAC engine, gated native diagnostic, boot recipe,
+directed tests and unit/current Wi-Fi guides. Dependencies: whole exact v83
+synthesizer and earlier proof;512KiB capture. No VCO/calibration, MAC enable,
+scan or traffic. Fetched main `1eb60b8f` adds Air process admission; PR172
+owns desktop runtime and175 Apple Silicon setup/synchronization. No MT76
+scope overlap; Pro PR19 continues this work on integration base `d5bc4b3`.
+
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
 source, dependencies and evidence; observations are not radio acceptance.
