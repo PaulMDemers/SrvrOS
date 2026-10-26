@@ -3451,3 +3451,23 @@ bits, no USB on refusal, no replay and failure quarantine. Whole-chain fixture
 preservation.163 staging tests and166 historical recipes checked unchanged.
 Build/sanitizer/VM/install checks follow; physical acceptance pending. No VCO,
 calibration, MAC enable, scanning or traffic; no calibrated-radio acceptance.
+
+
+### v84 native post-tune bandwidth/band and gain result
+
+MacBookPro11,2 release `e57afcf9eb1fab7e` (source `f67ee1be`), session
+`session-00065eb40f2ab69b-00`, matched all19 RF readbacks:266 operations,
+228 guard reads,38 exact replies,19 ACKs,76 strict guard triplets and zero
+mismatch fields. Same-boot internal2G PA admission passed. Three MAC tails
+verified518 1->1,13a8 6c6c6c6c->63707400,13b4 c9540000->89440000(hex):
+27 ordered transfers,24 reads,3 writes/verified and6 strict guard triplets;
+all unmasked bits preserved. Whole earlier proof and complete495284-byte
+prefix/both completion markers passed.
+
+Ubuntu default, consumed one-shot and installed/recovery hashes verified;
+offline clean311files/740clusters/129directories, zero leaks/mismatches/errors.
+Evidence archived, unmounted/unarmed. Bounded post-tune setup/readbacks passed;
+frequency lock, calibrated radio and Wi-Fi connectivity remain untested.
+Next: channel-specific baseband/filter/gain prerequisites before VCO/calibration
+or MAC enable.512KiB capture now has only29004 bytes of headroom; any next
+candidate must budget its entire prefix before staging.

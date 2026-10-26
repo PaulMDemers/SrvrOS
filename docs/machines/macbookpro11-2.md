@@ -216,12 +216,18 @@ and175 Apple Silicon documentation do not own this MT76 diagnostic. Pro PR19
 continues this bounded scope; integration base remains `d5bc4b3`.
 
 
-Installed/unarmed v84 candidate `e57afcf9eb1fab7e`, source `f67ee1be`,
-passed local/sanitizer and both exact-stage VM checks. It tests the
-post-synthesizer19-entry20MHz/G-band table replay,
-then fixed RF_MISC/gain/attenuation MAC tail with fresh reads and independent
-readbacks. Same-boot mapped NIC0=fd11 sets internal2G PA bit8; require the
-complete captured-field proof, no external-PA branch or inferred TX power.
+Release `e57afcf9eb1fab7e`, source `f67ee1be`, completed v84 in
+`session-00065eb40f2ab69b-00`. All19 post-tune20MHz/G-band readbacks matched:
+266 operations,228 guard reads,38 exact replies,19 ACKs and76 strict guard
+triplets, both mismatch masks zero. Same-boot internal2G PA proof passed;
+three fresh MAC targets independently read back518=1,13a8=63707400,
+13b4=89440000(hex):27 transfers,24 reads/3 writes/3 verified and6 triplets.
+Whole earlier proof and complete495284-byte prefix/both markers passed.
+Ubuntu default, consumed one-shot and current/recovery hashes verified;
+offline clean311files/740clusters/129directories, zero leaks/mismatches/errors;
+unmounted/unarmed. Bounded post-tune setup/readbacks passed; frequency lock,
+calibrated radio and connectivity remain untested. Next: channel-specific
+BBP/filter/gain prerequisites before VCO/calibration or MAC enable.
 Touched: MT76 private plan/MAC engine, gated native diagnostic, boot recipe,
 directed tests and unit/current Wi-Fi guides. Dependencies: whole exact v83
 synthesizer and earlier proof;512KiB capture. No VCO/calibration, MAC enable,
@@ -7505,3 +7511,26 @@ Run/checkpoint and candidate evidence archived outside build. Await readiness
 for cold Wi-Fi power cycle; collect matching session FIRST after return.
 Results save and return automatically; no commands/photos needed. Native
 post-tune readbacks, calibrated radio and Wi-Fi connectivity remain untested.
+
+
+### 2026-10-25 — v84 native post-tune band/gain result
+
+Source `f67ee1be1263e5d5d48a903739e34e90436b9450`, release
+`e57afcf9eb1fab7e`, session `session-00065eb40f2ab69b-00`, passed strict
+whole-chain collection after the attended cold adapter cycle. All19
+post-synthesizer20MHz/G-band table values matched independent readbacks:
+266 ordered operations,228 guard reads,38 exact MCU replies,19 ACKs and76
+MAC0/COREf000f200/DMA40000050 triplets; both mismatch masks zero.
+Same-boot mapped internal2G PA admission passed without raw-field logging.
+
+MAC tail passed27 ordered transfers,24 reads/3 writes/3 verified and6 strict
+guard triplets. Fresh/readback values(hex):518 1->1;13a8 6c6c6c6c->63707400;
+13b4 c9540000->89440000. Masked fields preserved all other fresh bits. Entire
+495284-byte startup prefix and both completion markers saved within512KiB;
+whole prior proof passed. Ubuntu default, consumed one-shot and current/
+known-good recovery hashes verified. Offline workspace clean311files/
+740clusters/129directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Evidence archived outside build under `wifi-post-f67ee1b`. Bounded post-tune
+setup/readbacks accepted, not PLL lock, calibrated radio or connectivity.
+Next audit channel-specific BBP/filter/gain and VCO/calibration prerequisites;
+no new run armed.
