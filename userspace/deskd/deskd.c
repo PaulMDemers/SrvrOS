@@ -10,6 +10,7 @@
 #include <srvros/desk_text.h>
 #include "io_trial.h"
 #include "input_timing.h"
+#include "loop_timing.h"
 #include <srvros/desk_capture_job.h>
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
@@ -134,6 +135,28 @@ static uint64_t loop_sample(uint64_t *last,uint64_t *maximum,uint64_t now) {
     uint64_t gap=*last?now-*last:0;
     if(gap>*maximum)*maximum=gap;
     *last=now;return gap;
+}
+static void loop_trace_stamp(struct loop_trace *t,unsigned stage) {
+    if(t->active)loop_trace_mark(t,stage,(uint64_t)srv_monotonic_us());
+}
+static void loop_trace_report(const struct loop_trace *t,unsigned final) {
+    if(!t->samples)return;
+    const struct loop_record *w=&t->worst;
+    /* One bounded console record; the ordinary 384-byte desk_log buffer is
+     * too short for a complete worst-loop receipt. No heap/stdio buffering. */
+    char text[1024];
+    int length=snprintf(text,sizeof(text),"desktop-loop-worst: version=1 samples=%llu over_limit=%llu invalid=%llu seq=%llu start_us=%llu end_us=%llu gap_us=%llu cycle=%llu pid=%llu phase=%llu end_cycle=%llu end_pid=%llu end_phase=%llu control_us=%llu messages_us=%llu lifecycle_us=%llu service_us=%llu trial_us=%llu input_us=%llu render_us=%llu post_us=%llu wait_us=%llu final=%u\n",
+        (unsigned long long)t->samples,(unsigned long long)t->over_limit,(unsigned long long)t->invalid,
+        (unsigned long long)w->sequence,(unsigned long long)w->start,(unsigned long long)w->end,(unsigned long long)w->gap,
+        (unsigned long long)w->cycle,(unsigned long long)w->pid,(unsigned long long)w->phase,
+        (unsigned long long)w->end_cycle,(unsigned long long)w->end_pid,(unsigned long long)w->end_phase,
+        (unsigned long long)w->stage_us[LOOP_CONTROL],(unsigned long long)w->stage_us[LOOP_MESSAGES],
+        (unsigned long long)w->stage_us[LOOP_LIFECYCLE],(unsigned long long)w->stage_us[LOOP_SERVICE],
+        (unsigned long long)w->stage_us[LOOP_TRIAL],(unsigned long long)w->stage_us[LOOP_INPUT],
+        (unsigned long long)w->stage_us[LOOP_RENDER],(unsigned long long)w->stage_us[LOOP_POST],
+        (unsigned long long)w->stage_us[LOOP_WAIT],final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    else srv_puts("desktop-loop-worst: invalid=record-overflow\n");
 }
 static int window_lifetime_valid(const struct session *s,int i,uint64_t identity) {
     return i>=0 && i<session_capacity(s) && session_client(s,i)->pid &&
@@ -1643,6 +1666,7 @@ int main(int argc,char **argv) {
     int audio_io_complete=0;
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
+    struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1659,6 +1683,9 @@ int main(int argc,char **argv) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
         if(audio_io && audio_io_pid) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
+            loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
+            loop_trace_begin(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
+            if(loop_now-loop_report_at>=10000000) {loop_trace_report(&loop_trace,0);loop_report_at=loop_now;}
             if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
         }
         if(audio_io) {
@@ -1687,15 +1714,19 @@ int main(int argc,char **argv) {
             }
         }
         io_trial_loop_begin(&s.io);
+        loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
         for (int n=0;n<32;n++) {
             struct desk_packet p; uint64_t pid;
             int r=desk_receive(&pid,&p);
             if (r<=0) break;
             if (r==1) incoming(&s,pid,&p);
         }
+        loop_trace_stamp(&loop_trace,LOOP_LIFECYCLE);
         lifecycle_poll(&s);
         lifecycle_deliver(&s);
+        loop_trace_stamp(&loop_trace,LOOP_SERVICE);
         service(&s);
+        loop_trace_stamp(&loop_trace,LOOP_TRIAL);
         if(audio_io && audio_io_pid) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!life_due)life_due=now+5000000;
@@ -1784,6 +1815,7 @@ int main(int argc,char **argv) {
             }
             if ((uint64_t)srv_ticks()-start>600) { failed=1; break; }
         }
+        loop_trace_stamp(&loop_trace,LOOP_INPUT);
         for (int n=0;!apps && !coexist_text && n<32;n++) {
             int key=pending_key?pending_key:kbhit();
             if (key<=0) break;
@@ -2072,6 +2104,7 @@ int main(int argc,char **argv) {
                 desk_damage_add(&s.damage,(struct desk_rect){0,canvas.height-36,canvas.width,36});
             }
         }
+        loop_trace_stamp(&loop_trace,LOOP_RENDER);
         long render_start=(io_mode || hardware_trial) && s.damage.count?srv_monotonic_us():0;
         /* No scene mutation/dispatch during this frame. Sort once, then borrow
          * the registry scratch order for all damage rectangles. */
@@ -2106,6 +2139,7 @@ int main(int argc,char **argv) {
             coexist_script_done=1;srv_puts("desktop-text: script presented; keyboard ready\n");
         }
         s.damage.count=0;
+        loop_trace_stamp(&loop_trace,LOOP_POST);
         if(apps && !failed) capture_tick(&s,pixels);
         if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack &&
            (!control_files || coexist_ack==60 || (uint64_t)srv_monotonic_us()-coexist_begin>=coexist_limit)) {
@@ -2271,6 +2305,7 @@ int main(int argc,char **argv) {
             }
         }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
+        loop_trace_stamp(&loop_trace,LOOP_WAIT);
         if(!apps || coexist || control_capture || battery_guided || hardware_trial ||
            quit || painted || buttons || drag>=0 || resize>=0 || pending_key ||
            !session_quiescent(&s) || gui_server_wait(10)<0)
@@ -2279,6 +2314,7 @@ int main(int argc,char **argv) {
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
     if(audio_io && loop_last) {
         uint64_t gap=loop_sample(&loop_last,&loop_max,coexist_end);
+        loop_trace_end(&loop_trace,coexist_end,life_cycles,life_pid,life_phase);
         if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u final=1\n",(unsigned long long)gap,life_phase);
     }
     if(battery_work) {
@@ -2305,6 +2341,8 @@ int main(int argc,char **argv) {
     if (io_trial_finish(&s.io)!=0) failed=1;
     if(audio_io) {
         if(audio_io_pid){srv_kill(audio_io_pid);uint64_t status;srv_wait(audio_io_pid,&status,0);}
+        loop_trace_report(&loop_trace,1);
+        if(loop_trace.invalid || loop_trace.worst.gap!=loop_max)failed=1;
         if(!audio_io_complete || life_cycles<6 || life_phase || s.child_errors || !loop_last || loop_max>500000 || !life_first || life_last-life_first<((uint64_t)audio_io_seconds-20)*1000000)failed=1;
         desk_log("desktop-life: result=%s cycles=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu errors=%u limit_us=500000 first_us=%llu last_us=%llu\n",failed?"FAIL":"PASS",life_cycles,(unsigned long long)loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max,s.child_errors,(unsigned long long)life_first,(unsigned long long)life_last);
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");

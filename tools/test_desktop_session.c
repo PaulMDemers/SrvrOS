@@ -29,7 +29,12 @@ static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
 static unsigned pointer_options;
 int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_options=options;return 0; }
-void srv_puts(const char *text) { fputs(text,stdout); }
+static int capture_loop_log;
+static char captured_loop_log[1024];
+void srv_puts(const char *text) {
+    if(capture_loop_log) {assert(strlen(text)<sizeof(captured_loop_log));strcpy(captured_loop_log,text);}
+    else fputs(text,stdout);
+}
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128],sent_values[128];
@@ -553,7 +558,49 @@ static void document_routing_failures(void) {
     puts("desktop-document-route: PASS copied chunks, authenticated replies, pressure, uncertainty and shutdown without replay");
 }
 
+static void persistent_loop_timing(void) {
+    struct loop_trace t={0};
+    loop_trace_end(&t,100,0,0,0);assert(!t.samples);
+    loop_trace_begin(&t,100,2,41,1);
+    loop_trace_mark(&t,LOOP_WAIT,200);
+    loop_trace_end(&t,500100,3,0,0);
+    assert(t.worst.gap==500000 && !t.over_limit && t.worst.stage_us[LOOP_WAIT]==499900);
+    uint64_t at=600100;
+    loop_trace_begin(&t,at,3,42,3);
+    for(unsigned stage=1;stage<LOOP_STAGE_COUNT;stage++) {
+        at+=stage*10;loop_trace_mark(&t,stage,at);
+    }
+    at+=650000;loop_trace_end(&t,at,4,0,0);
+    struct loop_record retained=t.worst;
+    assert(retained.sequence==2 && retained.cycle==3 && retained.pid==42 && retained.phase==3);
+    assert(retained.end_cycle==4 && retained.end_phase==0 && t.over_limit==1);
+    uint64_t sum=0;for(unsigned n=0;n<LOOP_STAGE_COUNT;n++)sum+=retained.stage_us[n];
+    assert(sum==retained.gap && sum==retained.end-retained.start);
+    /* Shorter loops and repeated emission cannot erase a historical maximum. */
+    capture_loop_log=1;
+    for(unsigned n=0;n<1000;n++) {
+        loop_trace_begin(&t,at,4+n,43+n,0);loop_trace_mark(&t,LOOP_MESSAGES,at+10);
+        at+=1000;loop_trace_end(&t,at,5+n,0,0);loop_trace_report(&t,0);
+        assert(!memcmp(&retained,&t.worst,sizeof(retained)) && t.over_limit==1);
+        assert(strstr(captured_loop_log,"wait_us=650000 final=0\n"));
+    }
+    assert(t.samples==1002 && !t.invalid);
+    /* A final early break still accounts the unfinished stage and full gap. */
+    loop_trace_begin(&t,at,1004,2000,1);loop_trace_mark(&t,LOOP_RENDER,at+100);
+    at+=800000;loop_trace_end(&t,at,1004,2000,1);loop_trace_report(&t,1);
+    assert(t.worst.gap==800000 && t.worst.stage_us[LOOP_RENDER]==799900 && t.over_limit==2);
+    assert(strstr(captured_loop_log,"render_us=799900 post_us=0 wait_us=0 final=1\n"));
+    retained=t.worst;
+    loop_trace_begin(&t,at,0,0,0);loop_trace_mark(&t,LOOP_INPUT,at-1);
+    loop_trace_end(&t,at+900000,0,0,0);assert(t.invalid==1 && !memcmp(&retained,&t.worst,sizeof(retained)));
+    loop_trace_begin(&t,at,0,0,0);loop_trace_end(&t,at-1,0,0,0);assert(t.invalid==2);
+    memset(&t,255,sizeof(t));loop_trace_report(&t,1);
+    assert(strstr(captured_loop_log,"wait_us=18446744073709551615 final=1\n"));
+    capture_loop_log=0;
+    puts("desktop-loop-timing: PASS exact bound, conserved stages, 1000-loop retention, periodic/final records, partial exit, invalid clock and bounded formatting");
+}
 int main(void) {
+    persistent_loop_timing();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
     uint64_t loop_last=0,loop_max=0;
