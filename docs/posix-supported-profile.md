@@ -91,8 +91,19 @@ values. Explicit `exit`, `_exit` and fatal process signals still terminate the
 whole process with their original status. TLS destructors run on thread exit;
 shared files and mappings remain usable by surviving workers. Targeted signals
 to the retired initial thread are not delivered, and it does not participate in
-process-signal eligibility. Joining/detaching the initial thread is still outside
-the supported profile; the libc record table and kernel join path cover workers.
+process-signal eligibility. The initial thread is joinable by default. Workers
+can join it before or after retirement and retrieve its pointer return value,
+or pass a null output pointer. Initial-thread detach (including self-detach)
+uses the same lazy libc reaper policy as workers. Exclusive claims prevent a
+second join/detach from collecting a record while a join is in progress;
+interrupted kernel waits are retried without exposing `EINTR` to the caller.
+
+Joining or reaping the initial thread invalidates its public handle but retains
+the kernel continuation, stack and TLS for final process cleanup. Its separate
+static libc record consumes no worker slot and is never freed/unmapped as an
+allocated worker stack. Names return `ESRCH` after collection, as do kernel
+signal lookups. Self-inspection reports initial-thread detach state; inspecting
+the initial stack from a different thread remains unsupported (`ESRCH`).
 
 This changes the `SYS_THREAD_EXIT` contract: workers never return; the initial
 thread waits for worker retirement and returns zero solely to libc's immediate
@@ -105,7 +116,10 @@ Condition variables retain `CLOCK_REALTIME` (including static/default init) or
 wakes and signal interruption, and reacquire the mutex before returning. The
 condition structure changed from 4 to 8 bytes: rebuild all consumers and use
 matched library/header/application images. No compatibility with old objects
-embedding `pthread_cond_t` is claimed.
+embedding `pthread_cond_t` is claimed. A confirmed remaining edge case is a negative absolute `tv_sec` with
+valid nanoseconds: it currently returns `EINVAL` instead of timing out. Avoid
+negative absolute deadlines until corrected; positive/present-day deadlines
+retain the regression coverage described above.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing

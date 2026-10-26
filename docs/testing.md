@@ -36,9 +36,17 @@ detached survivors, a new descendant, completed unreaped workers, explicit
 worker completion, shared memory/files, `atexit` ordering and process status.
 The host `initial-exit` case models the kernel handoff and requires an `atexit`
 marker, so a silent `_exit(0)` cannot pass. Kernel lifetime is tested in the VM.
-A separate `--test main-join-audit` checks joining the initial thread; it is
-excluded from `all` and currently fails with harness exit 3 (`join=22`, process
-status 1). Initial-thread join/detach remains unsupported.
+The former `--test main-join-audit` failure is historical at `b75fc79a`.
+Positive `--test main-join`, included in `all`, covers 24 subprocess lifetimes:
+waiting/late joins, null output, self/early/late detach, interrupted joins with
+reentrant signal handlers, and competing join/detach claims. Pipe receipts check
+TLS destruction, completion, last-thread cleanup and process status. Host modes
+also inject a failed join then an interrupted retry, verify unchanged output on
+error, and catch accidental freeing/unmapping of initial-thread static storage.
+A separate `python3 tools/test_sync_contracts.py --audit-negative-deadline
+--output build/review/negative-deadline-audit` currently fails with exit 1:
+`tv_sec=-1, tv_nsec=0` returns `EINVAL` instead of `ETIMEDOUT`. This explicit
+audit is excluded from the positive default suite.
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

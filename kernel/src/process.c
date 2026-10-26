@@ -207,6 +207,8 @@ struct process {
     uint64_t main_signal_mask;
     uint64_t main_pending_signals;
     bool main_thread_exited;
+    bool main_thread_joined, main_thread_detached, main_thread_join_claimed;
+    uint64_t main_thread_return_value;
     uint64_t user_us,system_us,main_user_us,main_system_us;
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     struct srv_rlimit fsize_limit;
@@ -2046,6 +2048,9 @@ int64_t process_exec_replace(const char *path,
     process->signal_catch_mask = 0;
     process->fork_resume=false;
     process->main_thread_exited = false;
+    process->main_thread_joined = process->main_thread_detached = false;
+    process->main_thread_join_claimed = false;
+    process->main_thread_return_value = 0;
     /* Ignored dispositions, pending signals, masks and alarms survive exec. */
     if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
         process_apply_signal_defaults(process, signal_default);
@@ -3135,9 +3140,11 @@ void process_thread_exit(uint64_t value) {
         /* Keep the launch/teardown continuation and shared image alive. Only
          * the user thread retires here; exited joinable slots do not keep the
          * process alive. The initial return value is not a process status. */
+        process->main_thread_return_value = value;
         process->main_thread_exited = true;
         process->main_pending_signals = 0;
         process->main_signal_mask = UINT64_MAX;
+        scheduler_wake_all(&process->thread_wait_queue);
         __asm__ volatile ("sti" : : : "memory");
         while (!process_last_user_thread_done(process)) {
             if (!scheduler_wait(&process->thread_wait_queue,
@@ -3162,8 +3169,45 @@ void process_thread_exit(uint64_t value) {
     scheduler_exit_current();
 }
 
+static bool process_main_thread_done(void *arg) {
+    struct process *process = arg;
+    return process->main_thread_exited || process_should_exit_current() ||
+        process_signal_pending_current();
+}
+
+static int64_t process_main_thread_join(struct process *process, uint64_t *value_out) {
+    uint64_t irq = process_irq_save();
+    if (!process || !process->active || !process_current_user_thread() ||
+        process->main_thread_joined || process->main_thread_detached ||
+        process->main_thread_join_claimed) {
+        process_irq_restore(irq);
+        return -1;
+    }
+    process->main_thread_join_claimed = true;
+    process_irq_restore(irq);
+    __asm__ volatile ("sti" : : : "memory");
+    int64_t result = 0;
+    while (!process->main_thread_exited) {
+        if (process_should_exit_current()) { result = -1; break; }
+        if (process_signal_pending_current()) { result = SRV_ERR_INTR; break; }
+        if (!scheduler_wait(&process->thread_wait_queue, process_main_thread_done, process))
+            scheduler_yield();
+    }
+    irq = process_irq_save();
+    if (!result) {
+        if (value_out) *value_out = process->main_thread_return_value;
+        /* Retire the public handle only. The parked continuation, initial
+         * stack and TLS remain owned by the process until its last exit. */
+        process->main_thread_joined = true;
+    }
+    process->main_thread_join_claimed = false;
+    process_irq_restore(irq);
+    return result;
+}
+
 int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
     struct process *process = process_current();
+    if (tid == 1) return process_main_thread_join(process, value_out);
     struct process_user_thread *current_thread = process_current_user_thread();
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL ||
@@ -3196,6 +3240,17 @@ int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
 
 int64_t process_thread_detach(uint64_t tid) {
     struct process *process = process_current();
+    if (tid == 1) {
+        uint64_t irq = process_irq_save();
+        int64_t result = -1;
+        if (process && process->active && !process->main_thread_joined &&
+            !process->main_thread_detached && !process->main_thread_join_claimed) {
+            process->main_thread_detached = true;
+            result = 0;
+        }
+        process_irq_restore(irq);
+        return result;
+    }
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL || thread->joined || thread->detached) {
         return -1;
@@ -3210,8 +3265,11 @@ int64_t process_thread_detach(uint64_t tid) {
 
 int64_t process_thread_status(uint64_t tid) {
     struct process *process = process_current();
-    if (tid == 1 && process != NULL && process->active)
+    if (tid == 1 && process != NULL && process->active) {
+        if (process->main_thread_joined ||
+            (process->main_thread_detached && process->main_thread_exited)) return -1;
         return process->main_thread_exited ? 0 : 1;
+    }
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL) {
         return -1;
@@ -3227,6 +3285,8 @@ int64_t process_thread_signal(uint64_t tid,uint64_t signal) {
     struct process_user_thread *thread=process_find_user_thread(process,tid);
     int64_t result=SRV_ERR_SRCH;
     if(!process || !process->active || (tid!=1 && !thread)) goto done;
+    if(tid==1 && (process->main_thread_joined ||
+        (process->main_thread_detached && process->main_thread_exited))) goto done;
     result=0;
     /* A joinable exited thread still has a valid ID (POSIX.1-2024), but
      * cannot receive delivery. Never apply its signal to another thread. */

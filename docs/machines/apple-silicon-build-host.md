@@ -249,3 +249,37 @@ Continued guest audit confirms that joining the initial thread returns `EINVAL`
 explicitly unsupported. The next bounded work is initial-thread joinability and
 return-value/cleanup ownership. Once-initializer abnormal exit remains
 unconfirmed. All disposable VMs have stopped; no native boot is armed.
+
+## Initial-thread join correction — active scope
+
+The user authorized initial-thread join, regression tests, docs/PR updates and
+continued audit. Base is `b75fc79a`; fetched main remains `fa5a6cc1`, and PR19
+remains at `58f68fe4` with Wi-Fi scope. This block owns initial-thread lifecycle
+records in libc/kernel, retained return values, join/detach claims, wakeups and
+focused tests. Preserve the initial kernel continuation and last-thread cleanup
+even after its public pthread handle is collected. Next checkpoint is waiting
+and late joins, detach/error ownership and matched full thread/libuv VM suites.
+No physical trial is armed.
+
+
+The initial-thread join correction is complete. A separate static libc record
+uses exclusive claims and lazy detached collection. The kernel retains the
+pointer return value and wakes waiting joiners; collecting the public handle
+preserves the process-owned stack/TLS and last-thread cleanup continuation.
+Self-inspection reports detach state, and names/signals reject collected handles.
+
+Matched build, final host regressions and ASan/UBSan, targeted 24-lifetime
+initial-join guest coverage, complete final thread suite and complete final
+libuv suite pass. The libc initial-join refusal and kernel discarded-value
+negative controls fail with exit 1 and 3; the fixed kernel was restored before
+final suites. Documentation checks 641 local links with zero errors; whitespace
+checks pass. Evidence is retained in `build/review/initial-join/`. No full
+Linux/core, general SMP or native acceptance is claimed.
+
+Continued source/host audit confirms that a valid negative absolute condition
+deadline returns `EINVAL` (22) rather than `ETIMEDOUT` (110). The explicit
+`--audit-negative-deadline` mode fails with exit 1 and is excluded from default
+positive tests. Current guides state this edge case; the next bounded work is
+absolute-deadline validation and timeout-path regressions. Once-initializer
+abnormal exit remains unconfirmed. Disposable VMs stopped; no physical boot is
+armed.

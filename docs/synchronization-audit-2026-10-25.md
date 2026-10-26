@@ -11,8 +11,10 @@ self-detach, is now corrected with creator reservations and serialized lifecycle
 claims. The sixth finding, thread-name round trips, is corrected with bounded
 record storage and range/lifetime checks. The seventh finding, initial-thread
 `pthread_exit` killing live workers, is corrected with retained kernel teardown
-ownership and a last-thread libc cleanup handoff; see below. Initial-thread join
-and detach remain unsupported.
+ownership and a last-thread libc cleanup handoff. The eighth finding,
+initial-thread join, is corrected with retained return values and exclusive
+join/detach ownership. A separate audit now confirms that negative absolute
+condition deadlines return the wrong error; see below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -518,9 +520,9 @@ The former `main-exit-audit` remains historical at `2ba7edce`; positive
 build manifests remain in ignored `build/review/initial-exit/`. Host modeling
 is not kernel scheduling evidence, and VM results are not native acceptance.
 
-## Continued audit — P2: initial-thread join is rejected
+## Historical finding — P2: initial-thread join is rejected
 
-With survival fixed, a worker trying to join the initial thread still gets
+At `b75fc79a`, with survival fixed, a worker trying to join the initial thread still gets
 `EINVAL` (22), and cannot collect its `pthread_exit` value. The initial tid 1
 has no libc `pthread_record`, so `pthread_join` rejects it before reaching the
 kernel; the kernel join lookup also rejects tids below 2. Initial-thread detach
@@ -550,3 +552,75 @@ regressions and ASan/UBSan pass; docs check 641 local links with zero errors and
 whitespace checks pass. The two negative controls and separate initial-join audit
 are failed evidence by design, not conformance passes. Disposable VMs stopped;
 no full Linux/core or physical hardware acceptance is claimed.
+
+
+## Initial-thread join correction
+
+Libc now has a separate static initial-thread record using the same lock,
+exclusive claims and lazy detached reaper as worker records. It does not consume
+one of the sixteen worker slots. Collecting it clears only the public pthread
+record: its static start metadata is not freed, and its process-owned stack/TLS
+is not unmapped. Names follow the record lifetime; self-inspection reports its
+actual detach state, while foreign initial-stack inspection remains unsupported.
+
+The kernel retains the initial pointer return value before publishing exit and
+wakes blocked joiners. Its initial-thread join path waits for that retirement,
+collects the value once, and rejects self-join, duplicate claims and detached or
+joined handles. Failed/interrupted waits release the kernel claim; libc retains
+its own claim across signal dispatch/retry, so reentrant joins/detaches cannot
+steal ownership. Initial-thread kernel detach/status/signal handling follows the
+same public lifetime. Exec resets that state. The parked initial continuation
+still owns process cleanup after the last worker; joining or detaching never
+frees the process resources needed by survivors or `atexit`.
+
+The former `main-join-audit` failure is historical at `b75fc79a`. Positive
+`--test main-join` replaces it in `all` and covers eight scenarios repeated three
+times: waiting/late joins, null output, self/early/late detach, an interrupted
+join with reentrant signal-handler calls, and two workers competing for
+join/detach ownership. Parent pipe receipts verify main/worker TLS destruction,
+completion, process cleanup and status 0. Workers verify the return value,
+retired-handle rejection and shared storage surviving collection.
+
+The host fixture adds four positive modes for join/error/interruption retry,
+null output and early/late detach. It verifies unchanged error output, exclusive
+reentrant claims, name invalidation and no mapping teardown. ASan/UBSan also
+checks that static initial metadata is never freed. Host OS services remain
+modeled; actual kernel waiting/retirement is verified in QEMU.
+
+## Continued audit — P2: negative absolute condition deadlines return EINVAL
+
+`pthread_cond_timedwait` rejects `abstime->tv_sec < 0` before entering the wait
+path, even with a valid nanosecond value. This is a valid expired absolute time,
+not a malformed relative interval. The
+[POSIX.1-2024 condition wait contract](https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_cond_clockwait.html)
+requires `ETIMEDOUT` for a passed deadline; its invalid-time check concerns the
+nanosecond range. The timeout path must also release and reacquire the mutex.
+The current early rejection instead reports `EINVAL` and skips that transition.
+
+```sh
+python3 tools/test_sync_contracts.py --audit-negative-deadline \
+  --output build/review/negative-deadline-audit
+# Expected current failure: returned=22, expected=110; exit 1.
+```
+
+The explicit host audit calls the real libc with a locked initialized mutex,
+a default realtime condition, modeled current time 100 seconds and deadline
+`{-1, 0}`. It observes `EINVAL` (22), rather than `ETIMEDOUT` (110), and confirms
+the caller can still unlock. This audit is separate from the passing default
+suite; it does not claim guest scheduling coverage or prove the mutex transition.
+The next bounded correction is absolute-deadline validation and timeout-path
+regressions, including unchanged rejection of invalid nanoseconds. Once
+initializer abnormal-exit recovery remains unconfirmed. No extra defect is
+inferred from the ordinary mutex/rwlock/once source review in this pass.
+
+
+Final initial-join validation: matched build, positive host suite, ASan/UBSan,
+targeted 24-lifetime guest group, final complete thread suite and final complete
+libuv suite pass. An isolated libc negative control restores initial-thread join
+refusal and fails with exit 1; a kernel negative control discards the exit value
+and fails case 10 with guest status 91/harness exit 3. The fixed kernel was
+restored and rebuilt before final suites. Documentation checks 641 local links
+with zero errors; whitespace checks pass. Logs, source hashes, sanitizer records
+and build manifests remain in ignored `build/review/initial-join/`. The deadline
+audit failure is separate evidence, not a passing conformance result. All
+disposable guests stopped; no full Linux/core or physical run is claimed.

@@ -17,6 +17,7 @@ static int inspect_early, expected_detach, lifecycle, model_detach = 1;
 static long model_tid = 1;
 static int model_exited, model_joined, joins, status_error, join_error, reenter;
 static int initial_exit, initial_destroyed, initial_handoff;
+static int main_lifecycle, main_status, main_join_calls, main_join_failures;
 int sync_host_is_worker(void);
 int sync_host_run_worker(uint64_t entry, uint64_t arg);
 _Noreturn void sync_host_exit_worker(void);
@@ -24,8 +25,9 @@ static void *expected_stack;
 static size_t expected_size;
 static struct timespec now[2];
 int *__errno_location(void) { return &error_value; }
-long srv_thread_self(void) { return sync_host_is_worker() ? model_tid : 1; }
+long srv_thread_self(void) { return main_lifecycle ? 2 : sync_host_is_worker() ? model_tid : 1; }
 long srv_thread_status(uint64_t tid) {
+    if (main_lifecycle && tid == 1) return main_status;
     if (!lifecycle || tid != (uint64_t)model_tid || model_joined) return -ESRCH;
     if (status_error) { status_error = 0; return -EIO; }
     if (reenter) {
@@ -37,6 +39,16 @@ long srv_thread_status(uint64_t tid) {
     return model_exited ? 0 : 1;
 }
 long srv_thread_join(uint64_t tid, uint64_t *value) {
+    if (main_lifecycle && tid == 1) {
+        void *unchanged = (void *)77;
+        main_join_calls++;
+        /* A competing API entry cannot collect or detach the claimed record. */
+        CHECK(pthread_join((pthread_t)1, &unchanged) == EINVAL && unchanged == (void *)77);
+        CHECK(pthread_detach((pthread_t)1) == EINVAL);
+        if (main_join_failures) return --main_join_failures ? -EIO : SRV_ERR_INTR;
+        *value = 0x9876;
+        return 0;
+    }
     if (!lifecycle || tid != (uint64_t)model_tid || model_joined) return -ESRCH;
     if (join_error) { int error = join_error; join_error = 0; return error; }
     CHECK(model_exited); model_joined = 1; joins++; *value = 0; return 0;
@@ -338,7 +350,55 @@ static void initial_cleanup(void) {
     CHECK(initial_destroyed == 1 && initial_handoff == 1);
     puts("sync-contracts: initial exit destructors and process cleanup PASS");
 }
+static void main_lifecycle_tests(const char *mode) {
+    main_lifecycle = 1;
+    main_status = 1; /* status: running */
+    char name[16];
+    CHECK(pthread_getname_np((pthread_t)1, name, sizeof(name)) == 0);
+    if (!strcmp(mode, "initial-join")) {
+        void *value = (void *)77;
+        main_join_failures = 2;
+        CHECK(pthread_join((pthread_t)1, &value) == EINVAL && value == (void *)77);
+        CHECK(pthread_getname_np((pthread_t)1, name, sizeof(name)) == 0);
+        CHECK(pthread_join((pthread_t)1, &value) == 0 && value == (void *)0x9876);
+        CHECK(main_join_calls == 3 && dispatches >= 2);
+    } else if (!strcmp(mode, "initial-join-null")) {
+        CHECK(pthread_join((pthread_t)1, NULL) == 0 && main_join_calls == 1);
+    } else {
+        if (!strcmp(mode, "initial-detach-late")) main_status = 0;
+        CHECK(pthread_detach((pthread_t)1) == 0);
+        if (main_status) {
+            CHECK(main_join_calls == 0);
+            CHECK(pthread_detach((pthread_t)1) == EINVAL);
+            main_status = 0;
+            CHECK(pthread_detach((pthread_t)999) == EINVAL); /* Triggers lazy reap. */
+        }
+        CHECK(main_join_calls == 1);
+    }
+    CHECK(pthread_join((pthread_t)1, NULL) == EINVAL);
+    CHECK(pthread_detach((pthread_t)1) == EINVAL);
+    CHECK(pthread_getname_np((pthread_t)1, name, sizeof(name)) == ESRCH);
+    CHECK(pthread_setname_np((pthread_t)1, "gone") == ESRCH);
+    CHECK(mappings == 0 && unmappings == 0);
+    puts("sync-contracts: initial join/detach ownership and static storage PASS");
+}
 int main(int argc, char **argv) {
+    if (argc > 1 && !strcmp(argv[1], "negative-deadline-audit")) {
+        pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+        struct timespec past = {.tv_sec = -1, .tv_nsec = 0};
+        now[CLOCK_REALTIME] = (struct timespec){.tv_sec = 100};
+        CHECK(pthread_mutex_lock(&mutex) == 0);
+        int error = pthread_cond_timedwait(&cond, &mutex, &past);
+        printf("sync-contracts: negative deadline returned=%d expected=%d\n", error, ETIMEDOUT);
+        CHECK(pthread_mutex_unlock(&mutex) == 0);
+        CHECK(error == ETIMEDOUT);
+        return 0;
+    }
+    if (argc > 1 && (!strcmp(argv[1], "initial-join") || !strcmp(argv[1], "initial-join-null") ||
+        !strcmp(argv[1], "initial-detach") || !strcmp(argv[1], "initial-detach-late"))) {
+        main_lifecycle_tests(argv[1]); return 0;
+    }
     if (argc > 1 && !strcmp(argv[1], "initial-exit")) {
         pthread_key_t key;
         initial_exit = 1;

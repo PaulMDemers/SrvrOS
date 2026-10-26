@@ -57,7 +57,12 @@ static _Thread_local struct pthread_key_value key_values[PTHREAD_KEYS_MAX];
 /* Owned by this live worker until kernel exit/join permits record cleanup. */
 static _Thread_local struct pthread_start_record *self_start;
 /* Protects table publication and cleanup claims, never held across OS calls. */
-static char main_thread_name[PTHREAD_NAME_CAPACITY] = "srvros-thread";
+/* The initial stack/TLS belong to process teardown, not the pthread allocator.
+ * Keep its lifecycle record separate so all worker slots remain available. */
+static struct pthread_start_record main_start = { .detachstate = PTHREAD_CREATE_JOINABLE };
+static struct pthread_record main_record = {
+    .used = 1, .tid = (pthread_t)(uintptr_t)1, .start = &main_start, .name = "srvros-thread"
+};
 static unsigned record_lock;
 static void lock_records(void) {
     while (__atomic_exchange_n(&record_lock, 1, __ATOMIC_ACQUIRE)) srv_yield();
@@ -115,6 +120,7 @@ static int pthread_ticks_until(int clock_id, const struct timespec *abstime, uin
 /* Caller holds record_lock. Only a published, nonzero tid is discoverable. */
 static struct pthread_record *pthread_record_find(pthread_t tid) {
     if (!tid) return NULL;
+    if (tid == (pthread_t)(uintptr_t)1) return main_record.used ? &main_record : NULL;
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
         if (pthread_records[i].used && pthread_records[i].tid == tid)
             return &pthread_records[i];
@@ -142,6 +148,7 @@ static void pthread_record_cleanup(struct pthread_record *record) {
     struct pthread_start_record *start = record->start;
     *record = (struct pthread_record){0};
     unlock_records();
+    if (start == &main_start) return; /* Kernel still owns last-thread cleanup. */
     if (start->owns_stack) munmap(start->stack, start->stack_size);
     free(start);
 }
@@ -154,9 +161,9 @@ static void pthread_record_unclaim(struct pthread_record *record) {
 
 static void pthread_reap_detached(void) {
     pthread_t self = pthread_self();
-    for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
+    for (int i = -1; i < PTHREAD_MAX_RECORDS; i++) {
         lock_records();
-        struct pthread_record *record = &pthread_records[i];
+        struct pthread_record *record = i < 0 ? &main_record : &pthread_records[i];
         if (!record->used || record->creating || record->claimed || record->tid == self ||
             __atomic_load_n(&record->start->detachstate, __ATOMIC_ACQUIRE) != PTHREAD_CREATE_DETACHED) {
             unlock_records();
@@ -391,7 +398,6 @@ int pthread_kill(pthread_t thread, int sig) {
 /* Caller holds record_lock. Tid 1 is the kernel's initial process thread;
  * raw syscall-created workers have no libc record and are not supported here. */
 static char *pthread_name_find(pthread_t thread) {
-    if (thread == (pthread_t)(uintptr_t)1) return main_thread_name;
     struct pthread_record *record = pthread_record_find(thread);
     return record != NULL ? record->name : NULL;
 }
@@ -544,6 +550,8 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
             if (frame >= tops[i] - PTHREAD_DEFAULT_STACK_SIZE && frame < tops[i]) {
                 attr->stacksize = PTHREAD_DEFAULT_STACK_SIZE;
                 attr->stackaddr = (void *)(tops[i] - PTHREAD_DEFAULT_STACK_SIZE);
+                if (thread == (pthread_t)(uintptr_t)1)
+                    attr->detachstate = __atomic_load_n(&main_start.detachstate, __ATOMIC_ACQUIRE);
                 return 0;
             }
         }
@@ -551,7 +559,7 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
     }
     lock_records();
     struct pthread_record *record = pthread_record_find(thread);
-    if (record == NULL) {
+    if (record == NULL || record == &main_record) {
         unlock_records();
         return ESRCH;
     }

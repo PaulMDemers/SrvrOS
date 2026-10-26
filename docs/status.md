@@ -115,8 +115,10 @@ exclusive cleanup ownership now cover early detach and concurrent reapers.
 Detached cleanup remains lazy; bounded libc thread names now retain independent
 values with range and lifecycle checks. Initial-thread `pthread_exit` now lets
 workers finish before normal process cleanup, with matched kernel/libc builds.
-Joining/detaching the initial thread and broader semaphore semantics remain
-outside the supported profile.
+Initial-thread join/detach now retains return values and exclusive collection
+ownership without releasing process teardown resources. Negative absolute
+condition deadlines still return the wrong error; broader semaphore semantics
+remain outside the supported profile.
 
 ## Measured checkpoints and current acceptance
 

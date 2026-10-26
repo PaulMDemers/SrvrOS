@@ -154,3 +154,13 @@ gap: joining the initial thread returns `EINVAL` and loses its pthread return
 value. The separate `main-join-audit` guest mode fails as expected and remains
 excluded from `all`; initial-thread join/detach is explicitly outside the current
 profile. See the synchronization report for reproduction and evidence.
+
+
+The initial-thread join correction adds a static libc lifecycle record, retained
+kernel exit value and exclusive join/detach claims. Waiting and late joins,
+interrupted retries, detach and collection now have positive host/guest coverage;
+collecting the public handle preserves process-owned cleanup resources. The old
+initial-join audit is historical at `b75fc79a`. Continued source/host audit finds
+negative absolute condition deadlines return `EINVAL` instead of `ETIMEDOUT`;
+a separate explicit failing host audit and profile limitation record that edge
+case. The synchronization report separates these receipts from passing tests.

@@ -128,7 +128,8 @@ int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_kill(pthread_t thread, int sig);
 /* Libc names: at most 15 bytes plus NUL; empty names allowed. Default is
  * "srvros-thread". ERANGE leaves the stored name/output unchanged; getter
- * needs strlen(name)+1 bytes. Initial thread and unreaped pthreads only.
+ * needs strlen(name)+1 bytes. Live or unreaped pthreads, including the initial
+ * thread; joined/reaped handles return ESRCH.
  * Returns error numbers without setting errno; does not rename kernel tasks. */
 int pthread_setname_np(pthread_t thread, const char *name);
 int pthread_getname_np(pthread_t thread, char *name, size_t length);

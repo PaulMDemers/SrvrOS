@@ -20,9 +20,9 @@ The [October 25 synchronization follow-up](synchronization-audit-2026-10-25.md)
 records supplied-stack corruption, ignored condition clocks and semaphore count
 overflow, followed by PR175's fixes and focused host/guest regressions. Later
 passes correct self-stack inspection, early detach, thread-name storage and
-initial-thread exit with surviving workers. Joining/detaching the initial thread
-remains outside the supported profile. Historical failure receipts remain
-separate from the corrected runtime contract.
+initial-thread exit with surviving workers, followed by initial-thread join and
+detach ownership. Negative absolute condition deadlines remain a confirmed error
+case. Historical failure receipts remain separate from corrected contracts.
 
 ## Implementation progress after the audit
 

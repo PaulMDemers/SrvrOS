@@ -626,7 +626,7 @@ int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
 int posix_thread_name_test(void);
 int posix_main_exit_test(void);
-int posix_main_join_audit(void);
+int posix_main_join_test(void);
 int posix_main_exit_child(int argc, char **argv);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
@@ -647,7 +647,6 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
-    if (!strcmp(only, "main-join-audit")) return posix_main_join_audit();
 
 #define RUN_TEST(name, fn) \
     do { \
@@ -693,6 +692,7 @@ int main(int argc, char **argv) {
     RUN_TEST("self-detach", posix_self_detach_test);
     RUN_TEST("thread-names", posix_thread_name_test);
     RUN_TEST("main-exit", posix_main_exit_test);
+    RUN_TEST("main-join", posix_main_join_test);
     RUN_TEST("targeted-signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
