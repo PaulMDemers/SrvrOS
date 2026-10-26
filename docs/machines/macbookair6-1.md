@@ -3217,3 +3217,19 @@ hashes. Ubuntu recovered, next_entry is empty and collection is disabled; no new
 reboot is armed. Closeout baseline is `5bcd061c`; open PR182 (`a35e2c33`) retains
 exFAT/storage-ownership work and PR19 (`44deba4e`) Wi-Fi. This closeout edits only
 the unit record, not their implementation scope.
+
+### Persistent worst-loop diagnostics — active scope (2026-10-26)
+
+Starting from main `19a6fe05` after the complete failed responsiveness return.
+Add fixed-size worst-loop retention to the opt-in compositor stress diagnostic:
+timestamp, app cycle/phase identity, over-limit count and wall-time stage totals.
+Re-emit the retained record periodically and at completion so log rotation cannot
+erase the worst observation. These are elapsed intervals including preemption,
+not CPU-time or kernel/firmware attribution. Preserve the exact loop measurement,
+500 ms bound, app deadlines, workload and ownership/integrity checks.
+
+Scope is compositor diagnostic bookkeeping, directed host/receipt regression,
+combined stress/exact-stage validation and this unit record. PR182 (`a35e2c33`)
+owns exFAT/storage ownership; PR19 (`88dff107`) owns Wi-Fi. No competing storage,
+driver, firmware or scheduler change is planned. Next checkpoint is a merged,
+locally validated candidate and the authorized fully automatic native trial.
