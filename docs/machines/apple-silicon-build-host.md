@@ -531,3 +531,48 @@ rollback, MAP_FIXED refusal of live-region replacement, libc storage assumptions
 and exec's refusal while worker records exist. No further confirmed defect.
 Next checkpoint: futex table saturation/fairness and once-initializer exit.
 The prior AHCI disk-offline event remains unresolved.
+
+
+## Synchronization audit closeout — active scope
+
+User authorizes completion of the documented synchronization audit, confirmed
+fixes/regressions, docs/PR updates and merge of PR175 after validation. Base
+`f5f6328f`; fetched main remains `fa5a6cc1`, Pro PR19 remains `44f41e72` with
+separate Wi-Fi scope. Own futex saturation/fairness verification, once-initializer
+exit recovery and a final pass over supported pthread/timing contracts and the
+PR diff. Broader filesystem/network/native investigations remain separate from
+this bounded audit. Next checkpoint: failing once-exit probe, saturation and
+scheduler wake-policy evidence. No physical boot armed.
+
+
+Completed closeout: fixed once-initializer exit with a private TLS frame chain,
+reset/wake before destructors and nested/initial-thread coverage. Final review
+also confirmed and fixed recursive mutex depth overflow and false semaphore
+try-wait failure after a concurrent post. Capacity tests preserve existing futex
+bindings across process pressure; scheduler tests characterize slot-order wakes
+without promising FIFO or starvation freedom. No new public layout/syscall ABI.
+
+
+Final closeout validation: matched build, host synchronization/futex/timing
+contracts, five smoke-reader tests, synchronization/futex ASan+UBSan, x86_64
+scheduler fixture under Rosetta, targeted once-exit guest, complete thread suite
+and full libuv suite all pass. Five source-copy negative controls compile and
+fail their intended assertions. Three pre-fix probes reproduce the new findings.
+The complete thread suite passed first time; the historical AHCI disk-offline
+failure did not recur and remains unresolved. Docs check 645 local inline links
+with zero errors; whitespace checks pass. Source/log hashes, matched image hashes
+and receipts remain under `build/review/sync-closeout/`.
+
+Retained unsuccessful attempts: the first once guest used an incorrect subprocess
+path (fixed to `/fat/bin/threadstress`); native ARM64 scheduler compilation rejected
+existing x86 instructions, and an initial x86 command omitted the Limine include
+path. The explicit x86_64/Rosetta fixture passes. None is recorded as a guest
+runtime regression or full Mac test-core acceptance. All disposable VMs stopped.
+No full Linux/core, general SMP or physical-hardware acceptance is claimed.
+
+The bounded build/docs and synchronization/stack/timing audit is complete, with
+nineteen corrected runtime findings and the smoke-reader correction. Broader
+filesystem/network/native issues, Node recovery and Mac test-core portability
+remain separate tracked work, as specified in the audit closeout matrix. PR175
+is ready for the user-authorized merge after publishing this validated commit.
+No physical boot or installation is armed; Actions remain disabled by policy.

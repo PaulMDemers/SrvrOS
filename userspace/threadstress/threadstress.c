@@ -632,6 +632,8 @@ int posix_futex_exit_child(void);
 int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
 int posix_thread_name_test(void);
+int posix_once_exit_test(void);
+int posix_once_exit_child(void);
 int posix_main_exit_test(void);
 int posix_main_join_test(void);
 int posix_main_exit_child(int argc, char **argv);
@@ -639,6 +641,7 @@ int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"once-exit-child")) return posix_once_exit_child();
     if(argc==2 && !strcmp(argv[1],"futex-exit-child")) return posix_futex_exit_child();
     if (argc >= 2 && !strcmp(argv[1], "main-exit-child")) return posix_main_exit_child(argc, argv);
     if(argc>=2 && !strcmp(argv[1],"spawn-actions-child")) return posix_spawn_actions_child(argc,argv);
@@ -711,6 +714,7 @@ int main(int argc, char **argv) {
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);
+    RUN_TEST("once-exit", posix_once_exit_test);
     RUN_TEST("lifecycle", lifecycle_test);
     RUN_TEST("compat", compat_test);
     RUN_TEST("signal", signal_wait_test);

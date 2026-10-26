@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <sched.h>
 #include <srvros/sys.h>
@@ -56,6 +57,13 @@ static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
 static _Thread_local struct pthread_key_value key_values[PTHREAD_KEYS_MAX];
 /* Owned by this live worker until kernel exit/join permits record cleanup. */
 static _Thread_local struct pthread_start_record *self_start;
+/* Stack-owned frames stay live until initialization returns or pthread_exit
+ * abandons this thread's nested initializers. No allocation or public ABI. */
+struct pthread_once_frame {
+    pthread_once_t *control;
+    struct pthread_once_frame *previous;
+};
+static _Thread_local struct pthread_once_frame *once_frames;
 /* Protects table publication and cleanup claims, never held across OS calls. */
 /* The initial stack/TLS belong to process teardown, not the pthread allocator.
  * Keep its lifecycle record separate so all worker slots remain available. */
@@ -369,6 +377,13 @@ int pthread_detach(pthread_t thread) {
 }
 
 void pthread_exit(void *value_ptr) {
+    /* Roll back before destructors: they may retry the abandoned initializer. */
+    while (once_frames != NULL) {
+        struct pthread_once_frame *frame = once_frames;
+        once_frames = frame->previous;
+        __atomic_store_n(frame->control, 0, __ATOMIC_RELEASE);
+        (void)srv_futex_wake((uint32_t *)frame->control, UINT64_MAX);
+    }
     pthread_run_destructors();
     srv_thread_exit((uint64_t)(uintptr_t)value_ptr);
     /* The initial kernel continuation returns only after the last worker has
@@ -625,6 +640,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
     if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) != 0 &&
         __atomic_load_n(&mutex->owner, __ATOMIC_RELAXED) == self) {
         if (mutex->type == PTHREAD_MUTEX_RECURSIVE) {
+            if (mutex->depth == UINT_MAX) return EAGAIN;
             mutex->depth++;
             return 0;
         }
@@ -655,6 +671,7 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex) {
     if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) != 0 &&
         __atomic_load_n(&mutex->owner, __ATOMIC_RELAXED) == self &&
         mutex->type == PTHREAD_MUTEX_RECURSIVE) {
+        if (mutex->depth == UINT_MAX) return EAGAIN;
         mutex->depth++;
         return 0;
     }
@@ -889,7 +906,10 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
                     0,
                     __ATOMIC_ACQ_REL,
                     __ATOMIC_ACQUIRE)) {
+                struct pthread_once_frame frame = { once_control, once_frames };
+                once_frames = &frame;
                 init_routine();
+                once_frames = frame.previous;
                 __atomic_store_n(once_control, 2, __ATOMIC_RELEASE);
                 (void)srv_futex_wake((uint32_t *)once_control, UINT64_MAX);
                 return 0;

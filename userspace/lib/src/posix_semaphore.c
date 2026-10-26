@@ -40,11 +40,18 @@ int sem_trywait(sem_t *sem) {
         return -1;
     }
     unsigned int value = __atomic_load_n(&sem->__value, __ATOMIC_ACQUIRE);
-    if (value == 0 || !__atomic_compare_exchange_n(&sem->__value, &value, value - 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
-        errno = EAGAIN;
-        return -1;
+    for (;;) {
+        if (value == 0) {
+            errno = EAGAIN;
+            return -1;
+        }
+        if (__atomic_compare_exchange_n(&sem->__value, &value, value - 1, 0,
+                                        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+            return 0;
+        }
+        /* A concurrent post/consume updates value. Only an observed zero
+         * means the operation would block; CAS contention is not EAGAIN. */
     }
-    return 0;
 }
 
 int sem_post(sem_t *sem) {

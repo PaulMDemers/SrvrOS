@@ -551,3 +551,11 @@ publish a POSIX percentage without a defined denominator and semantic coverage.
 
 See [porting](ports.md), [libuv](libuv-port.md) and [Node recovery](node-port.md)
 for build instructions and their narrower current guarantees.
+
+
+The bounded synchronization audit on PR175 is complete: once-initializer exit now
+resets/wakes abandoned controls before destructors, recursive mutex depth refuses
+overflow, and `sem_trywait` retries contention while tokens remain. Futex capacity
+and scheduler-slot wake selection are verified; FIFO/starvation freedom remains
+unsupported. See the [audit closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
+for the review boundary and separate unresolved hardware/subsystem work.

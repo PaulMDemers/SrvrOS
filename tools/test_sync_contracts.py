@@ -37,7 +37,8 @@ def main():
     sources = [ROOT / path for path in (
         'tools/test_sync_contracts.c',
         'userspace/lib/src/posix_pthread.c',
-        'userspace/lib/src/posix_semaphore.c')]
+        'tools/test_sync_semaphore.c')]
+    semaphore_source = ROOT / 'userspace/lib/src/posix_semaphore.c'
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     shim = ROOT / 'tools/test_sync_host_threads.c'
     shim_object = out / 'host-threads.o'
@@ -51,7 +52,7 @@ def main():
     command += [str(path) for path in sources] + [str(shim_object), '-pthread', '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
     results = []
-    modes = (None, 'futex', 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names', 'initial-exit',
+    modes = (None, 'once-exit', 'recursive-limit', 'semaphore-race', 'futex', 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names', 'initial-exit',
              'initial-join', 'initial-join-null', 'initial-detach', 'initial-detach-late')
     for mode in modes:
         result = subprocess.run([str(executable)] + ([mode] if mode else []),
@@ -70,7 +71,7 @@ def main():
               'platform': platform.platform(), 'compile_command': command, 'shim_compile_command': shim_command,
               'exit': exit_code, 'cases': results,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                         for path in sources + headers + [shim]}}
+                         for path in sources + headers + [shim, semaphore_source]}}
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
     return exit_code
 

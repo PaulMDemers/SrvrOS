@@ -209,7 +209,31 @@ int main(int argc,char **argv) {
         assert(entry);entry->wait_queue.waiters=1;
     }
     assert(process_futex_wait(&addresses[PROCESS_MAX_FUTEXES],0,1)==-11);
+    /* Existing keys remain usable at capacity, even across processes. Only a
+     * fully retired reservation may be reused; invalidated calls still own it. */
+    struct process_futex *kept[PROCESS_MAX_FUTEXES];
+    for(unsigned i=0;i<PROCESS_MAX_FUTEXES;i++) {
+        kept[i]=process_futex_find(&a,(uintptr_t)&addresses[i],false);
+        assert(kept[i]);kept[i]->active_waits=1;
+        if(i&1)kept[i]->process=&b;
+    }
+    current=&b;assert(process_futex_wait(&addresses[PROCESS_MAX_FUTEXES],0,1)==SRV_ERR_AGAIN);
+    assert(process_futex_find(&b,(uintptr_t)&addresses[1],true)==kept[1]);
+    assert(process_futex_wait(&addresses[1],0,1)==-110);
+    assert(kept[1]->active_waits==1 && kept[1]->wait_queue.waiters==1);
+    assert(process_futex_wake(&addresses[1],1)==1);
+    assert(process_futex_wait(&addresses[PROCESS_MAX_FUTEXES],0,1)==SRV_ERR_AGAIN);
+    kept[1]->invalidated=true;
+    assert(!process_futex_find(&b,(uintptr_t)&addresses[1],true));
+    kept[1]->active_waits=0;
+    struct process_futex *reused=process_futex_find(&b,(uintptr_t)&addresses[PROCESS_MAX_FUTEXES],true);
+    assert(reused==kept[1] && !reused->invalidated);
+    for(unsigned i=0;i<PROCESS_MAX_FUTEXES;i++)if(i!=1) {
+        assert(kept[i]->address==(uintptr_t)&addresses[i] && kept[i]->active_waits==1 && kept[i]->wait_queue.waiters==1);
+    }
+    process_futex_cleanup_process(&b);current=&a;
     process_futex_cleanup_process(&a);
+    puts("futex-contracts: cross-process saturation, existing-key admission and retired-only reuse PASS");
     for(unsigned i=0;i<3*PROCESS_MAX_FUTEXES;i++) {
         word=0;mode=4;signaled=false;waits=0;
         assert(process_futex_wait(&word,0,3)==SRV_ERR_INTR);reusable();

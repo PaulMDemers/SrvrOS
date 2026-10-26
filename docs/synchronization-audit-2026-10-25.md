@@ -26,7 +26,9 @@ in the correction record. The fourteenth finding, premature futex entry reuse
 while a wait syscall still owns its queue, is corrected with active-wait
 reservations and deferred process-exit cleanup. Findings fifteen and sixteen,
 futex deadline overflow and unsafe mapping lifetime, are corrected by checked
-deadlines and mapping-aware wait cancellation.
+deadlines and mapping-aware wait cancellation. Findings seventeen through nineteen,
+once-initializer exit, recursive mutex depth overflow and spurious semaphore
+try-wait failure under contention, are corrected in the closeout below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -1153,3 +1155,111 @@ Docs check 641 local inline links with zero errors; whitespace checks pass.
 Build/test receipts and source/log hashes remain in `build/review/futex-lifetime/`.
 No full Linux/core, general SMP or physical-hardware acceptance is claimed.
 All disposable guests stopped; no physical boot is armed.
+
+
+## Final synchronization pass — 2026-10-26
+
+Base `f5f6328f`, integration main `fa5a6cc1`. This closes the bounded
+synchronization/stack/timing audit and current-guide reconciliation on PR175,
+not a complete kernel security, filesystem, networking or POSIX-conformance
+audit. Historical observations above retain their original source and meaning.
+
+### Once-initializer exit — corrected
+
+An initializer calling `pthread_exit` left its once control at state 1 forever.
+The pre-fix host reproduction fails before its thread-specific destructor can
+retry; later ordinary callers would wait for a completion that cannot occur.
+A private thread-local chain now records stack-owned initializer frames. Normal
+return removes the frame and publishes completion; `pthread_exit` removes all
+abandoned frames in reverse order, resets their controls and wakes all waiters
+before running thread-specific destructors. Completed controls remain completed.
+This uses no allocation and changes no public layout. It covers initial-thread
+and worker exit; it does not add a cancellation API, public cleanup handlers,
+nonlocal-jump recovery or support recursive calls on the same once control.
+
+Host tests cover direct and nested exit, wake counts, completed-control
+preservation and retry from a destructor. Guest `once-exit` runs four worker
+rounds with three contenders each and four initial-thread subprocess lifetimes.
+Wake receipts establish a parked contender; joins verify exit values and the
+single successful retry. The initial-thread case preserves last-thread cleanup.
+The cleanup approach is consistent with the reset/wake mechanism in
+[glibc's once implementation](https://github.com/bminor/glibc/blob/master/nptl/pthread_once.c);
+this patch implements SrvrOS's explicit supported exit path, not full cancellation.
+
+### Recursive mutex depth — corrected
+
+Both lock and trylock incremented an unsigned recursion count without checking
+its maximum. At `UINT_MAX` it wrapped to zero; the next unlock could release a
+mutex with outstanding recursive acquisitions. Both paths now return `EAGAIN`
+without modifying depth, ownership or errno. Unlocking one level permits another
+acquisition. This matches the [recursive-limit error contract](https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_mutex_lock.html).
+Host and guest tests inject the boundary state instead of performing billions
+of calls; ordinary recursive contention remains covered by existing tests.
+
+### Semaphore try-wait contention — corrected
+
+A single compare-exchange attempt returned `EAGAIN` on any conflict, including a
+concurrent post while the count was positive throughout. The new deterministic
+host boundary injects two posts between the observed value and CAS: the old code
+fails despite tokens remaining. The adapter now retries with the observed count
+until it decrements successfully or observes zero. Competing consumption to zero
+still returns `EAGAIN`; successful calls preserve errno and conserve tokens.
+The host compiles the real semaphore source through a fixture that injects only
+these atomic-boundary events. A guest adds 512 posts and 512 nonblocking consumes
+from four workers with a seed of 1,024, proving the count cannot legitimately
+reach zero and checking its final value. It does not force the host interleaving.
+
+### Saturation and fairness disposition
+
+No additional runtime correction was needed for table admission or reuse. The
+64-entry global futex table refuses a new key with `SRV_ERR_AGAIN` while every
+entry is owned, including runnable or invalidated reservations. Existing keys
+remain discoverable across processes; wake does not prematurely free ownership.
+After the final reservation retires, an entry is reusable without changing any
+other live binding. Expanded extracted-kernel tests verify these transitions.
+
+The real scheduler host fixture confirms exact wake counts, queue isolation and
+complete drainage of a finite cohort. Selection is ascending scheduler-slot
+order, not FIFO. A lower-slot waiter that repeatedly re-parks can precede an
+older higher-slot waiter. No starvation-freedom, bounded admission latency,
+priority inheritance or fair reader/writer policy is promised. Saturated libc
+callers retry and remain preemptible; the table has no capacity wait queue.
+These are explicit supported-profile limits, not evidence of general SMP safety.
+
+### Completion boundary and remaining work
+
+| Reviewed area | Disposition |
+| --- | --- |
+| Stack bounds, attributes and self-inspection | Corrected with supplied/owned boundary and guest stack coverage; fixed initial-stack layouts remain explicit. |
+| Publication, detach, join, names and initial-thread retirement | Corrected; exclusive claims, retries, lazy detached reaping and process cleanup covered. |
+| Mutex, rwlock, once and thread keys | Recursion/once corrections added; reviewed acquire/release ownership, generation reuse and bounded destructor passes; no further confirmed defect. No robust locks/cancellation/fairness guarantee. |
+| Conditions and semaphores | Selected clocks, signed deadlines, unlock/relock, counts, overflow and try-wait contention covered; process sharing and timed semaphores remain unsupported. |
+| Futex lifetime, wake/interruption, deadline arithmetic and capacity | Corrected and regression-covered; CPU0 IRQ serialization and global capacity documented. |
+| Clock resolution, accounting and sleep remainder | Prior fixes and positive regression coverage retained; source failures and absolute/relative output contracts checked. |
+| Build/VM helpers and current guides | Reproducible ARM64-host/x86_64-guest workflow documented; claims reconciled to bounded source/VM/native evidence. |
+
+The final source pass also rechecked pthread record and key cleanup, attribute
+validation, mutex/rwlock ownership transitions, condition reacquisition, semaphore
+count transitions, futex retirement and prior timing changes. No confirmed issue
+in this bounded scope remains unaddressed. The earlier AHCI disk-offline event,
+Air6,1 native latency, Node port recovery, full Mac test-core portability and
+broader filesystem/network/eventfd/epoll audits remain separate work tracked in
+the first audit and machine records. Completion here does not close those items.
+
+
+Final closeout validation: matched build, host synchronization/futex/timing
+contracts, five smoke-reader tests, synchronization/futex ASan+UBSan, x86_64
+scheduler fixture under Rosetta, targeted once-exit guest, complete thread suite
+and full libuv suite all pass. Five source-copy negative controls compile and
+fail their intended assertions. Three pre-fix probes reproduce the new findings.
+The complete thread suite passed first time; the historical AHCI disk-offline
+failure did not recur and remains unresolved. Docs check 645 local inline links
+with zero errors; whitespace checks pass. Source/log hashes, matched image hashes
+and receipts remain under `build/review/sync-closeout/`.
+
+Retained unsuccessful attempts: the first once guest used an incorrect subprocess
+path (fixed to `/fat/bin/threadstress`); native ARM64 scheduler compilation rejected
+existing x86 instructions, and an initial x86 command omitted the Limine include
+path. The explicit x86_64/Rosetta fixture passes. None is recorded as a guest
+runtime regression or full Mac test-core acceptance. All disposable VMs stopped.
+No full Linux/core, general SMP or physical-hardware acceptance is claimed.

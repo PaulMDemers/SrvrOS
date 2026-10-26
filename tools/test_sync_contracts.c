@@ -1,5 +1,6 @@
 /* Real libc and modeled OS services; a native shim forces early child exit. */
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdint.h>
@@ -21,6 +22,7 @@ static int inspect_early, expected_detach, lifecycle, model_detach = 1;
 static long model_tid = 1;
 static int model_exited, model_joined, joins, status_error, join_error, reenter;
 static int initial_exit, initial_destroyed, initial_handoff;
+static int once_exit_mode;
 static int main_lifecycle, main_status, main_join_calls, main_join_failures;
 int sync_host_is_worker(void);
 int sync_host_run_worker(uint64_t entry, uint64_t arg);
@@ -84,6 +86,7 @@ long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t fl
     return -EAGAIN; /* Exercise creation failure and cleanup, without a worker. */
 }
 long srv_thread_exit(uint64_t value) {
+    if (once_exit_mode) { CHECK(value==0x5678);sync_host_exit_worker(); }
     if (initial_exit) {
         CHECK(value == 0x1234 && initial_destroyed == 1);
         initial_handoff = 1;
@@ -309,6 +312,34 @@ static void absolute_deadline_tests(void) {
     CHECK(pthread_mutex_destroy(&mutex) == 0 && pthread_mutexattr_destroy(&mutex_attr) == 0);
     puts("sync-contracts: signed absolute deadlines, invalid nanoseconds and mutex transition PASS");
 }
+static void recursive_limit_tests(void) {
+    pthread_mutexattr_t attr;pthread_mutex_t mutex;
+    CHECK(pthread_mutexattr_init(&attr)==0 && pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE)==0);
+    CHECK(pthread_mutex_init(&mutex,&attr)==0 && pthread_mutex_lock(&mutex)==0);
+    /* Model the last two valid depths without billions of recursive calls. */
+    mutex.depth=UINT_MAX-1;errno=EDOM;
+    CHECK(pthread_mutex_lock(&mutex)==0 && mutex.depth==UINT_MAX);
+    CHECK(pthread_mutex_lock(&mutex)==EAGAIN && mutex.depth==UINT_MAX && errno==EDOM);
+    CHECK(pthread_mutex_trylock(&mutex)==EAGAIN && mutex.depth==UINT_MAX && errno==EDOM);
+    CHECK(mutex.locked==1 && mutex.owner==pthread_self());
+    CHECK(pthread_mutex_unlock(&mutex)==0 && mutex.depth==UINT_MAX-1 && mutex.locked==1);
+    CHECK(pthread_mutex_trylock(&mutex)==0 && mutex.depth==UINT_MAX);
+    mutex.depth=1;CHECK(pthread_mutex_unlock(&mutex)==0 && mutex.locked==0);
+    puts("sync-contracts: recursive mutex maximum depth, unchanged refusal and recovery PASS");
+}
+extern unsigned sync_sem_cas_posts,sync_sem_cas_consume;
+static void semaphore_race_tests(void) {
+    sem_t sem;int value;
+    CHECK(sem_init(&sem,0,1)==0);sync_sem_cas_posts=2;errno=EDOM;
+    CHECK(sem_trywait(&sem)==0 && sync_sem_cas_posts==0 && errno==EDOM);
+    CHECK(sem_getvalue(&sem,&value)==0 && value==2);
+    CHECK(sem_trywait(&sem)==0 && sem_trywait(&sem)==0);
+    CHECK(sem_trywait(&sem)==-1 && errno==EAGAIN);
+    CHECK(sem_post(&sem)==0);sync_sem_cas_consume=1;
+    CHECK(sem_trywait(&sem)==-1 && errno==EAGAIN && sync_sem_cas_consume==0);
+    CHECK(sem_getvalue(&sem,&value)==0 && value==0);
+    puts("sync-contracts: sem_trywait concurrent posts, competing consume and count conservation PASS");
+}
 static void semaphore_tests(void) {
     sem_t sem; int value;
     CHECK(sem_init(&sem, 0, 1) == 0 && sem_trywait(&sem) == 0);
@@ -465,6 +496,38 @@ static void main_lifecycle_tests(const char *mode) {
     CHECK(mappings == 0 && unmappings == 0);
     puts("sync-contracts: initial join/detach ownership and static storage PASS");
 }
+static pthread_once_t exit_outer=PTHREAD_ONCE_INIT,exit_inner=PTHREAD_ONCE_INIT;
+static pthread_once_t completed_once=PTHREAD_ONCE_INIT;
+static int retry_calls,once_destructors;
+static void retry_initializer(void) { retry_calls++; }
+static void exit_initializer(void) { pthread_exit((void *)(uintptr_t)0x5678); }
+static void nested_initializer(void) { CHECK(pthread_once(&exit_inner,exit_initializer)==0);CHECK(0); }
+static void once_destructor(void *value) {
+    CHECK(value==(void *)1 && exit_outer==0 && exit_inner==0 && completed_once==2);
+    CHECK(pthread_once(&exit_inner,retry_initializer)==0);
+    once_destructors++;
+}
+static void once_exit_worker(uint64_t nested) {
+    pthread_key_t key;
+    CHECK(pthread_once(&completed_once,retry_initializer)==0);
+    CHECK(pthread_key_create(&key,once_destructor)==0);
+    CHECK(pthread_setspecific(key,(void *)1)==0);
+    CHECK(pthread_once(&exit_outer,nested?nested_initializer:exit_initializer)==0);CHECK(0);
+}
+static void once_exit_tests(void) {
+    once_exit_mode=1;
+    for(unsigned nested=0;nested<2;nested++) {
+        exit_outer=exit_inner=completed_once=PTHREAD_ONCE_INIT;
+        retry_calls=once_destructors=wake_calls=0;
+        CHECK(sync_host_run_worker((uintptr_t)once_exit_worker,nested)==0);
+        CHECK(exit_outer==0 && exit_inner==2 && completed_once==2 && once_destructors==1);
+        CHECK(wake_calls==(nested?4:3)); /* complete, abandoned controls, destructor retry */
+        CHECK(pthread_once(&exit_outer,retry_initializer)==0);
+        CHECK(pthread_once(&exit_outer,exit_initializer)==0);
+        CHECK(retry_calls==3 && wake_calls==(nested?5:4));
+    }
+    puts("sync-contracts: once exit, nested rollback, completed preservation and destructor retry PASS");
+}
 static void unexpected_initializer(void) { CHECK(0); }
 static void futex_interruption_tests(void) {
     for(int kind=0;kind<4;kind++) {
@@ -483,6 +546,9 @@ static void futex_interruption_tests(void) {
     puts("sync-contracts: mutex, reader/writer and once interruption/recheck PASS");
 }
 int main(int argc, char **argv) {
+    if(argc>1 && !strcmp(argv[1],"semaphore-race")) { semaphore_race_tests();return 0; }
+    if(argc>1 && !strcmp(argv[1],"recursive-limit")) { recursive_limit_tests();return 0; }
+    if(argc>1 && !strcmp(argv[1],"once-exit")) { once_exit_tests();return 0; }
     if (argc>1 && !strcmp(argv[1], "futex")) { futex_interruption_tests();return 0; }
     if (argc > 1 && (!strcmp(argv[1], "initial-join") || !strcmp(argv[1], "initial-join-null") ||
         !strcmp(argv[1], "initial-detach") || !strcmp(argv[1], "initial-detach-late"))) {

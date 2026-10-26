@@ -106,6 +106,36 @@ static int live_semaphore(void) {
     }
     return 0;
 }
+static int recursive_limit(void) {
+    pthread_mutexattr_t attr;pthread_mutex_t mutex;
+    CHECK(pthread_mutexattr_init(&attr)==0 && pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE)==0);
+    CHECK(pthread_mutex_init(&mutex,&attr)==0 && pthread_mutex_lock(&mutex)==0);
+    /* Boundary state injection, not billions of live acquisitions. */
+    mutex.depth=UINT_MAX-1;errno=EDOM;
+    CHECK(pthread_mutex_lock(&mutex)==0 && mutex.depth==UINT_MAX);
+    CHECK(pthread_mutex_lock(&mutex)==EAGAIN && mutex.depth==UINT_MAX && errno==EDOM);
+    CHECK(pthread_mutex_trylock(&mutex)==EAGAIN && mutex.depth==UINT_MAX && errno==EDOM);
+    CHECK(pthread_mutex_unlock(&mutex)==0 && mutex.depth==UINT_MAX-1 && mutex.locked==1);
+    mutex.depth=1;CHECK(pthread_mutex_unlock(&mutex)==0);
+    CHECK(pthread_mutex_destroy(&mutex)==0 && pthread_mutexattr_destroy(&attr)==0);
+    return 0;
+}
+static sem_t available;
+static void *sem_race_worker(void *arg) {
+    for(unsigned i=0;i<256;i++) {
+        sched_yield();
+        if((uintptr_t)arg ? sem_post(&available) : sem_trywait(&available))return (void *)1;
+    }
+    return NULL;
+}
+static int semaphore_contention(void) {
+    CHECK(sem_init(&available,0,1024)==0);pthread_t workers[4];
+    /* Only 512 consumes: the count can never reach zero, regardless of order. */
+    for(unsigned i=0;i<4;i++)CHECK(pthread_create(&workers[i],NULL,sem_race_worker,(void *)(uintptr_t)(i&1))==0);
+    for(unsigned i=0;i<4;i++) { void *result=(void *)1;CHECK(pthread_join(workers[i],&result)==0 && !result); }
+    int value;CHECK(sem_getvalue(&available,&value)==0 && value==1024 && sem_destroy(&available)==0);
+    return 0;
+}
 int posix_sync_contract_test(void) {
     CHECK(live_stack(PTHREAD_STACK_MIN) == 0);
     CHECK(live_stack(PTHREAD_STACK_MIN + 1) == 0);
@@ -113,6 +143,7 @@ int posix_sync_contract_test(void) {
     CHECK(live_condition(CLOCK_MONOTONIC) == 0);
     CHECK(live_condition(CLOCK_REALTIME) == 0);
     CHECK(live_semaphore() == 0);
+    CHECK(recursive_limit() == 0 && semaphore_contention() == 0);
     puts("threadstress: sync-contracts ok");
     return 0;
 }

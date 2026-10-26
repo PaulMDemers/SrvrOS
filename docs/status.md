@@ -173,3 +173,11 @@ the [October 19 journal](desktop-progress-2026-10-19.md) and
 [Air7,2 record](machines/macbookair7-2.md). Missing reports and halted tests are
 incomplete or failed evidence, never passes. Linux inventory is evidence of the
 host configuration, not a SrvrOS capability claim.
+
+
+The bounded synchronization audit on PR175 is complete: once-initializer exit now
+resets/wakes abandoned controls before destructors, recursive mutex depth refuses
+overflow, and `sem_trywait` retries contention while tokens remain. Futex capacity
+and scheduler-slot wake selection are verified; FIFO/starvation freedom remains
+unsupported. See the [audit closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
+for the review boundary and separate unresolved hardware/subsystem work.

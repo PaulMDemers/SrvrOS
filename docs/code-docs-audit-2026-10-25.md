@@ -238,3 +238,15 @@ The fixes reject overflow, validate/read words under IRQ exclusion and invalidat
 wake affected waits on page mutation, preserving old-versus-new address lifetimes.
 Added host boundary/invalidation controls and 20 guest mapping lifetimes. See the
 synchronization report for error contracts, modeled limits and validation receipts.
+
+
+## Bounded audit closeout — 2026-10-26
+
+Build/VM helper migration and current-guide reconciliation are complete. The
+continued synchronization/stack/timing audit is also complete, with nineteen
+confirmed runtime defects corrected plus the smoke-reader correction. The final
+pass fixes once-initializer exit, recursive depth overflow and semaphore try-wait
+contention; capacity and wake-policy checks document limits without claiming FIFO
+or starvation freedom. See the [final matrix and receipts](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26).
+The broader follow-ups listed earlier remain separate: this is not an exhaustive
+OS correctness/security audit or native acceptance of this Mac's emulated guest.

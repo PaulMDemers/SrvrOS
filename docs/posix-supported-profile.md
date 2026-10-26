@@ -163,6 +163,16 @@ wait's mapping is removed or user access revoked. Word validation/load is
 IRQ-serialized; restoring/replacing that address does not revive an old wait.
 Readable protection changes preserve the wait. Applications must still retain
 storage for synchronization objects while other threads use them.
+The global 64-entry futex table returns `SRV_ERR_AGAIN` for new keys at saturation;
+existing keys remain usable and owned entries cannot be stolen. Wake selection
+uses scheduler-slot order, not FIFO; mutex/rwlock admission has no starvation-free
+or priority-inheritance guarantee. Saturated libc callers retry while preemptible.
+
+Once initializers abandoned through `pthread_exit` reset and wake their waiters,
+including nested initializers, before thread-specific destructors run. Completed
+controls stay completed. No cancellation API, public cleanup-handler stack or
+nonlocal-jump recovery is added. Recursive mutex depth is bounded by `UINT_MAX`;
+lock/trylock at that limit return `EAGAIN` without changing state or errno.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing
@@ -279,3 +289,9 @@ before/after regression and libuv rerun. The same release passes the bounded nat
 and retired trees, saved logs/screenshot, prior-file preservation and clean offline
 filesystem/allocation checks. See the machine record for the exact session and
 limits; the original eleven-consumer gate above identifies its own source.
+
+
+The completed bounded synchronization audit also corrects `sem_trywait` under
+contention: it retries compare-exchange conflicts while tokens remain and returns
+`EAGAIN` only after observing zero. See the [closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
+for scope, validation and remaining broader work.

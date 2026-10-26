@@ -957,3 +957,19 @@ process lifetime. Saved Text, Terminal and orphan receipts, logger files, drain
 ordering and offline allocation are checked. Runtime-fault success means expected
 containment with live ownership retained, not clean shutdown or filesystem
 acceptance. Results do not accept native continuous monitoring or battery accuracy.
+
+
+Synchronization closeout coverage includes `test-sync-contracts` modes
+`once-exit`, `recursive-limit` and `semaphore-race`. The once tests use a native
+host thread with modeled OS exit; the semaphore fixture compiles the real adapter
+and injects post/consume events at its compare-exchange boundary. Guest
+`thread_smoke.py --test once-exit` covers four worker and four initial-thread
+lifetimes; `--test sync-contracts` adds recursive boundary-state checks and live
+semaphore contention. Both groups are included in `all`.
+
+`test-futex-contracts` checks cross-process table pressure and retired-only reuse.
+`tools/test_io_scheduler.c` checks finite-cohort wake counts and explicitly
+characterizes the slot-order fairness limit. On this Mac that existing x86 host
+fixture runs under Rosetta, compiled with `cc -arch x86_64` and `-Wl,-dead_strip`
+instead of Linux's `--gc-sections`; it is not a native ARM64 scheduler test or
+qualification of the full Mac `test-core` target.
