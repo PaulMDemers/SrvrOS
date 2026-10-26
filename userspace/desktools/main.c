@@ -58,17 +58,16 @@ void tool_layout(struct tool *t) {
 void tool_dispatch(struct tool *t,struct desk_action a) {
     if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;
     tool_clipboard_action(t,a);
-    if(t->role==DESK_APP_TEXT) tool_text_action(t,a);
+    if(t->role==DESK_APP_TEXT) {
+        if(!(a.flags&DESK_WIDGET_ACTIVATED) || !tool_command_action(t,a.id))tool_text_action(t,a);
+    }
     else if(t->role==DESK_APP_FILES) tool_files_action(t,a);
     else if(t->role==DESK_APP_CALCULATOR) tool_calculator_action(t,a);
     else if(t->role==DESK_APP_SETTINGS) tool_settings_action(t,a);
     else if(t->role==DESK_APP_SYSTEM) tool_system_action(t,a);
 }
 static void key(struct tool *t,const struct srv_key_event *k) {
-    if(t->role==DESK_APP_TEXT && (k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==0x14) {
-        if(t->picker_mode)tool_picker_cancel(t);else if(t->modal)tool_text_dialog(t,1003);
-        t->quit_application=1;return;
-    }
+    if(tool_command_key(t,k))return;
     if(t->info_mode) { tool_files_info_key(t,k);return; }
     if(desk_popup_active(&t->context)) { tool_context_result(t,desk_popup_key(&t->context,k));return; }
     if(t->role==DESK_APP_SETTINGS && (k->flags&SRV_KEY_DOWN_EVENT) &&
@@ -85,8 +84,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
         return;
     }
     if((k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META))) {
-        if(k->usage==0x14 && t->role==DESK_APP_TEXT) {t->quit_application=1;return;}
-        if(k->usage==0x1a) { if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;return; }
+        if(k->usage==0x1a) { if(t->role!=DESK_APP_TEXT)t->closing=1;return; }
         if(t->role==DESK_APP_FILES) {
             if(k->usage==12) { tool_files_info_open(t);return; }
             if(k->usage==9 && !(k->flags&SRV_KEY_REPEAT)) { tool_files_action(t,(struct desk_action){TOOL_FIND,DESK_WIDGET_ACTIVATED});return; }
@@ -97,13 +95,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
             if(k->usage==0x0b) { tool_text_replace_open(t);return; }
             if(k->usage==0x09) { tool_text_search_open(t);return; }
             if(k->usage==0x0a) { tool_text_search_step(t,(k->modifiers&SRV_KEY_SHIFT)!=0,0);return; }
-            if(k->usage==0x16) { tool_text_save(t,(k->modifiers&SRV_KEY_SHIFT)!=0);return; }
-            if(k->usage==0x12) { tool_picker_open(t,DESK_PICKER_OPEN);return; }
             if(k->usage==0x0f) { if(t->search_open && t->search.replacing) tool_text_search_close(t);t->search_focus=0;tool_content_focus(t,t->window.focused);desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
-            if(k->usage==0x11) {
-                if(k->modifiers&SRV_KEY_SHIFT)tool_new_window(t);else tool_text_request(t,TOOL_PENDING_NEW);
-                return;
-            }
         }
     }
     if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && !(k->modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT|SRV_KEY_META)) &&

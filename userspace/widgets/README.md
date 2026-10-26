@@ -741,3 +741,7 @@ keeps storage alive until rebind or destruction. Widgets perform no allocations.
 The desktop owns growth and accounts for both model and scratch arrays. Ordinary
 small users retain inline defaults. Do not move initialized palette/menu objects;
 internal pointers and UI-control references require a stable owner address.
+
+Application event dispatch, waits, timers and command snapshots live in the
+[shared desktop runtime](../../docs/desktop-application-runtime.md), above this
+pure widget archive. Controls retain their model/input/rendering responsibilities.

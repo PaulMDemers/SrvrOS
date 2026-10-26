@@ -266,6 +266,12 @@ contract above. D3c shares an asynchronous [file chooser controller](desktop-cho
 between Text and Preview, preserving canceled-read ownership and correlating
 completion before reuse; source acceptance is recorded per machine.
 
+The next [shared runtime block](desktop-application-runtime.md) centralizes
+bounded dispatch, caller-owned deadlines/timers, worker-readiness wait preparation
+and standard command snapshots for Text and Preview. It does not allocate app
+models or own their accepted file/image jobs. See its validation and unit record
+for implementation evidence and physical acceptance.
+
 Build a small allocating application layer above the pure widgets: event loop,
 actions, multiple windows, document lifecycle and job ownership. Migrate remaining
 apps incrementally. Extend the in-window chooser service with transient dialogs and app

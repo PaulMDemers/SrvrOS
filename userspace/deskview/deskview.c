@@ -2,6 +2,8 @@
 #include <srvros/desk_app.h>
 #include <srvros/desk_connection.h>
 #include <srvros/desk_application.h>
+#include <srvros/desk_runtime.h>
+#include <srvros/desk_commands.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_file_picker.h>
 #include <srvros/desk_chooser.h>
@@ -19,6 +21,8 @@ enum { VIEW_OPEN=1,VIEW_CANCEL,VIEW_FIT,VIEW_ACTUAL,VIEW_OUT,VIEW_IN,VIEW_IMAGE,
 struct preview_app {
     struct desk_app window;
     struct desk_connection connection;
+    struct desk_runtime runtime;
+    const char *initial_path;
     struct desk_dialog_window dialog;
     int dialog_separate,service_registered;
     struct desk_open_document open_request;
@@ -43,13 +47,29 @@ struct preview_app {
 };
 static struct preview_app app;
 static void status(const char *message) { snprintf(app.status,sizeof(app.status),"%s",message);app.window.dirty=1; }
+static unsigned preview_commands(struct desk_command commands[9]) {
+    unsigned modal=app.picker_open?DESK_MENU_DISABLED:0;
+    unsigned empty=modal|(!app.pixels?DESK_MENU_DISABLED:0);
+    unsigned busy=app.image_job.busy || app.image_job.retiring_pid || app.file_job.busy;
+    const struct desk_command values[]={
+        {VIEW_OPEN,modal|(busy?DESK_MENU_DISABLED:0),0x12,SRV_KEY_CTRL,"Open image…","Ctrl-O"},
+        {VIEW_CANCEL,modal|(!app.image_job.busy?DESK_MENU_DISABLED:0),SRV_KEY_ESCAPE,0,"Cancel opening","Esc"},
+        {VIEW_FIT,empty|(app.view.fit?DESK_MENU_CHECKED:0),0,0,"Fit in window","0"},
+        {VIEW_ACTUAL,empty|(!app.view.fit && app.view.scale==65536?DESK_MENU_CHECKED:0),0,0,"Actual size","1"},
+        {VIEW_OUT,empty|(app.view.scale<=4096?DESK_MENU_DISABLED:0),0,0,"Zoom out","−"},
+        {VIEW_IN,empty|(app.view.scale>=262144?DESK_MENU_DISABLED:0),0,0,"Zoom in","+"},
+        {VIEW_CLOSE,modal,0x1a,SRV_KEY_CTRL,"Close window","Ctrl-W"},
+        {VIEW_SKETCH,empty|(app.image_job.busy?DESK_MENU_DISABLED:0),0x08,SRV_KEY_CTRL,"Edit in Sketch","Ctrl-E"},
+        {VIEW_QUIT,0,0x14,SRV_KEY_CTRL,"Quit Preview","Ctrl-Q"}};
+    memcpy(commands,values,sizeof(values));return 9;
+}
 static void layout(void) {
     int w=app.window.width,h=app.window.height,x=12;
+    struct desk_command commands[9];unsigned count=preview_commands(commands);
     static const int small[]={54,54,36,36,28,28},large[]={72,72,60,60,36,36};
     for(unsigned i=0;i<6;i++) {
         int width=w<420?small[i]:large[i];
-        int enabled=i==0?!app.image_job.busy && !app.image_job.retiring_pid && !app.file_job.busy:
-            i==1?app.image_job.busy:app.pixels!=NULL;
+        int enabled=desk_commands_enabled(commands,count,i+1);
         desk_button_configure(&app.buttons[i],(struct desk_rect){x,12,width,28},enabled);x+=width+4;
     }
     app.ui.controls[1].label=w<420?"Stop":"Cancel";
@@ -155,6 +175,10 @@ static void file_finish(int result) {
 }
 
 static void action(struct desk_action a) {
+    if(a.flags&DESK_WIDGET_ACTIVATED) {
+        struct desk_command commands[9];unsigned count=preview_commands(commands);
+        if(a.id!=VIEW_IMAGE && !desk_commands_enabled(commands,count,a.id))return;
+    }
     if(a.flags&DESK_WIDGET_REDRAW) app.window.dirty=1;
     if(a.id==VIEW_IMAGE && a.flags&DESK_WIDGET_CHANGED)
         desk_log("deskview: view scale=%u fit=%d x=%d y=%d\n",app.view.scale,app.view.fit,app.view.offset_x,app.view.offset_y);
@@ -170,34 +194,26 @@ static void action(struct desk_action a) {
     app.window.dirty=1;desk_ui_focus(&app.ui,VIEW_IMAGE);
     desk_log("deskview: action=%u scale=%u fit=%d x=%d y=%d\n",a.id,app.view.scale,app.view.fit,app.view.offset_x,app.view.offset_y);
 }
+static void command(void *context,unsigned id) {
+    (void)context;action((struct desk_action){id,DESK_WIDGET_ACTIVATED});
+}
 static void key(const struct srv_key_event *k) {
-    if((k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==0x14) {app.quit=1;return;}
-    if(app.picker_open) { picker_action(desk_picker_key(&app.picker,k));return; }
-    if(k->flags&SRV_KEY_DOWN_EVENT) {
-        if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==18) { picker_open();return; }
-        if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==8) { action((struct desk_action){VIEW_SKETCH,DESK_WIDGET_ACTIVATED});return; }
-        if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && (k->usage==26 || k->usage==20)) { app.quit=1;return; }
-        if(k->usage==SRV_KEY_ESCAPE && app.image_job.busy) { action((struct desk_action){VIEW_CANCEL,DESK_WIDGET_ACTIVATED});return; }
-    }
+    struct desk_command commands[9];unsigned count=preview_commands(commands);
+    unsigned id=desk_commands_key(commands,count,k);
+    if(id && desk_commands_invoke(commands,count,id,command,NULL))return;
+    if(app.picker_open) {picker_action(desk_picker_key(&app.picker,k));return;}
     action(desk_ui_key(&app.ui,k));
 }
 static void menus(void) {
-    unsigned modal=app.picker_open?DESK_MENU_DISABLED:0;
-    unsigned empty=modal|(!app.pixels?DESK_MENU_DISABLED:0);
-    struct desk_menu_item items[]={
-        {0,DESK_MENU_HEADING,"File",""},
-        {VIEW_OPEN,modal|(app.image_job.busy || app.image_job.retiring_pid || app.file_job.busy?DESK_MENU_DISABLED:0),"Open image…","Ctrl-O"},
-        {VIEW_CANCEL,modal|(!app.image_job.busy?DESK_MENU_DISABLED:0),"Cancel opening","Esc"},
-        {VIEW_SKETCH,empty|(app.image_job.busy?DESK_MENU_DISABLED:0),"Edit in Sketch","Ctrl-E"},
-        {VIEW_CLOSE,modal,"Close window","Ctrl-W"},
-        {VIEW_QUIT,0,"Quit Preview","Ctrl-Q"},
-        {0,DESK_MENU_HEADING,"View",""},
-        {VIEW_FIT,empty|(app.view.fit?DESK_MENU_CHECKED:0),"Fit in window","0"},
-        {VIEW_ACTUAL,empty|(!app.view.fit && app.view.scale==65536?DESK_MENU_CHECKED:0),"Actual size","1"},
-        {VIEW_IN,empty|(app.view.scale>=262144?DESK_MENU_DISABLED:0),"Zoom in","+"},
-        {VIEW_OUT,empty|(app.view.scale<=4096?DESK_MENU_DISABLED:0),"Zoom out","−"},
-    };
-    desk_app_menus(&app.window,items,sizeof(items)/sizeof(*items));desk_app_menu_tick(&app.window);
+    struct desk_command commands[9];preview_commands(commands);
+    struct desk_menu_item items[11]={{0,DESK_MENU_HEADING,"File",""}};
+    const unsigned order[]={0,1,7,6,8,2,3,5,4};
+    unsigned count=1;
+    for(unsigned i=0;i<9;i++) {
+        if(i==5)items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"View",""};
+        desk_command_menu(&commands[order[i]],&items[count++]);
+    }
+    desk_app_menus(&app.window,items,count);desk_app_menu_tick(&app.window);
 }
 static void draw(struct desk_canvas *c) {
     const struct desk_theme *t=&desk_theme_quiet;desk_fill(c,(struct desk_rect){0,0,c->width,c->height},t->surface);desk_ui_draw(c,&app.ui,t);
@@ -219,7 +235,9 @@ static void dialog_event(struct desk_packet p) {
     if(p.type==DESK_FOCUS)desk_picker_focus(&app.picker,p.value!=0);
     else if(p.type==DESK_KEY) {
         struct srv_key_event k;memcpy(&k,p.text,sizeof(k));
-        if((k.flags&SRV_KEY_DOWN_EVENT) && (k.modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k.usage==0x14)app.quit=1;
+        struct desk_command commands[9];unsigned count=preview_commands(commands);
+        unsigned id=desk_commands_key(commands,count,&k);
+        if(id && desk_commands_invoke(commands,count,id,command,NULL))return;
         else if((k.flags&SRV_KEY_DOWN_EVENT) && (k.modifiers&SRV_KEY_CTRL) && k.usage==0x1a)picker_close();
         else picker_action(desk_picker_key(&app.picker,&k));
     } else if(p.type==DESK_POINTER) {
@@ -253,41 +271,43 @@ static void dialog_tick(void) {
         desk_picker_draw(&canvas,&app.picker,&desk_theme_quiet);desk_app_present(window);
     }
 }
+static int preview_event(void *context,struct desk_app *window,struct desk_packet p) {
+    (void)context;
+    if(window==&app.dialog.window) {dialog_event(p);return app.quit?1:0;}
+    if(p.type==DESK_OPEN_DOCUMENT) {desk_open_document_receive(&app.open_request,&p);return 0;}
+    if(p.type==DESK_CONFIGURE) {
+        layout();desk_ui_focus(&app.ui,VIEW_IMAGE);
+        if(!app.started) { app.started=1;if(app.initial_path[0])load_image(app.initial_path); }
+    } else if(p.type==DESK_FOCUS) {
+        if(app.picker_open) desk_picker_focus(&app.picker,p.value!=0);else desk_ui_window_focus(&app.ui,p.value!=0);app.window.dirty=1;
+    } else if(p.type==DESK_MENU_ACTION) action((struct desk_action){p.value,DESK_WIDGET_ACTIVATED});
+    else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(&k); }
+    else if(p.type==DESK_POINTER) {
+        struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
+            .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
+        if(app.picker_open) picker_action(desk_picker_pointer(&app.picker,e,srv_monotonic_us()));
+        else action(desk_ui_pointer(&app.ui,e,srv_monotonic_us()));
+    } else if(p.type==DESK_SCROLL) {
+        if(app.picker_open) picker_action(desk_picker_scroll(&app.picker,p.width,p.height,p.y));
+        else action(desk_ui_scroll(&app.ui,p.width,p.height,p.x,p.y));
+    } else if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
+        int done=desk_clipboard_receive(&app.clipboard,&p);if(done) clipboard_finish(done);
+    } else if(p.type==DESK_CLOSE_REQUEST) app.quit=1;
+    return app.quit?1:0;
+}
 int main(int argc,char **argv) {
     desk_ui_init(&app.ui);desk_image_init(&app.view);desk_image_job_init(&app.image_job);desk_picker_init(&app.picker);desk_clipboard_init(&app.clipboard,app.clipboard_data);
     desk_chooser_init(&app.chooser,&app.picker,&app.file_job,app.entries,app.items,app.details);
     static const char *labels[]={"Open","Cancel","Fit","1:1","−","+"};
     for(unsigned i=0;i<6;i++) { desk_button_centered(&app.buttons[i],1);desk_ui_add(&app.ui,i+1,DESK_CONTROL_BUTTON,&app.buttons[i],labels[i]); }
     desk_ui_add(&app.ui,VIEW_IMAGE,DESK_CONTROL_IMAGE,&app.view,NULL);status("Open an image with Ctrl-O, or choose one in Files.");
-    desk_connection_init(&app.connection);
+    desk_connection_init(&app.connection);desk_runtime_init(&app.runtime,&app.connection);
+    app.initial_path=argc>2?argv[2]:"";
     if(desk_window_open(&app.connection,&app.window,"Preview",760,520)) return 1;
     desk_log("deskview: starting\n");
     while(!app.quit && !app.window.failed && !app.window.closed) {
         if(desk_clipboard_tick(&app.clipboard,srv_ticks())<0) clipboard_finish(-1);
-        for(unsigned batch=0;batch<32;batch++) {
-            struct desk_packet p;struct desk_app *window;
-            int result=desk_connection_poll(&app.connection,&window,&p);if(result<0)app.window.failed=1;if(result<=0)break;if(result==2)continue;
-            if(window==&app.dialog.window) {dialog_event(p);continue;}
-            if(p.type==DESK_OPEN_DOCUMENT) {desk_open_document_receive(&app.open_request,&p);continue;}
-            if(p.type==DESK_CONFIGURE) {
-                layout();desk_ui_focus(&app.ui,VIEW_IMAGE);
-                if(!app.started) { app.started=1;if(argc>2 && argv[2][0]) load_image(argv[2]); }
-            } else if(p.type==DESK_FOCUS) {
-                if(app.picker_open) desk_picker_focus(&app.picker,p.value!=0);else desk_ui_window_focus(&app.ui,p.value!=0);app.window.dirty=1;
-            } else if(p.type==DESK_MENU_ACTION) action((struct desk_action){p.value,DESK_WIDGET_ACTIVATED});
-            else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(&k); }
-            else if(p.type==DESK_POINTER) {
-                struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
-                    .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
-                if(app.picker_open) picker_action(desk_picker_pointer(&app.picker,e,srv_monotonic_us()));
-                else action(desk_ui_pointer(&app.ui,e,srv_monotonic_us()));
-            } else if(p.type==DESK_SCROLL) {
-                if(app.picker_open) picker_action(desk_picker_scroll(&app.picker,p.width,p.height,p.y));
-                else action(desk_ui_scroll(&app.ui,p.width,p.height,p.x,p.y));
-            } else if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
-                int done=desk_clipboard_receive(&app.clipboard,&p);if(done) clipboard_finish(done);
-            } else if(p.type==DESK_CLOSE_REQUEST) app.quit=1;
-        }
+        if(desk_runtime_dispatch(&app.runtime,preview_event,NULL)<0)app.window.failed=1;
         if(app.quit || app.window.closed || app.window.failed) break;
         int retiring=app.image_job.retiring_pid!=0;
         int result=desk_image_job_poll(&app.image_job,srv_ticks());if(result) image_finish(result);else if(retiring && !app.image_job.retiring_pid) layout();
@@ -306,8 +326,12 @@ int main(int argc,char **argv) {
             desk_log("deskview: open-document accepted=%u\n",accepted);
         }
         dialog_tick();menus();struct desk_canvas canvas;if(desk_app_canvas(&app.window,&canvas)==1) { draw(&canvas);desk_app_present(&app.window); }
-        srv_sleep_ticks(1);
+        desk_runtime_file_job(&app.runtime,&app.file_job);
+        desk_runtime_image_job(&app.runtime,&app.image_job);
+        desk_runtime_idle(&app.runtime,app.clipboard.mode || app.title_dirty || !app.service_registered ||
+            app.open_request.ready || app.open_request.reply_pending);
     }
+    desk_runtime_timers_clear(&app.runtime);
     desk_chooser_cancel(&app.chooser);
     /* The picker may have been canceled or its window closed during LIST.
      * Keep its borrowed buffers/job alive until that accepted reply drains. */
