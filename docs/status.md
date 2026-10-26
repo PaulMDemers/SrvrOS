@@ -120,9 +120,11 @@ ownership without releasing process teardown resources. Negative absolute
 condition deadlines now follow normal timeout and mutex reacquisition semantics;
 broader semaphore semantics remain outside the supported profile. Null-output
 `clock_getres` probes now validate supported clocks and source availability
-without requiring storage. Continued source/host audit confirms that `times()`
-returns a frozen elapsed value when the high-resolution reference is unavailable;
-monotonic `clock_gettime` retains a working tick fallback.
+without requiring storage. `times()` now uses advancing kernel ticks when the
+reference clock is unavailable, preserving accounting units and usage errors.
+Both sources have host regression coverage; default VM checks exercise the
+reference path. The latest adjacent timing/accounting review adds no confirmed
+finding; broader profile exclusions remain open.
 
 ## Measured checkpoints and current acceptance
 

@@ -130,12 +130,15 @@ source: unknown clocks return `EINVAL`, unavailable realtime returns `EIO`, and
 CPU usage errors propagate. Non-null output retains the existing 1 us reference
 or 10 ms tick-fallback resolution. This correction changes no layout or syscall.
 
-A separate confirmed fallback defect remains in `times()`: its elapsed-time
-return stays zero when the high-resolution reference is unavailable, even as
-kernel ticks advance. CPU accounting fields are separate from this finding.
-Use `clock_gettime(CLOCK_MONOTONIC, ...)` for elapsed intervals; its tick fallback
-is covered by the host audit. This failure is modeled and source-confirmed, not
-reproduced on a native machine or in the default reference-enabled VM.
+`times()` returns elapsed time in 100 Hz ticks using the reference clock when
+available, otherwise the kernel tick counter directly. Its four CPU accounting
+fields retain the same 100 Hz units. Errors from self/children usage queries
+propagate before output is written; successful calls preserve errno. Null output
+remains an SrvrOS extension. Host regressions cover both sources and large
+counters; the guest group compares elapsed values against monotonic clock
+brackets and checks CPU totals. The default VM exercises the reference path;
+the missing-reference configuration is host-modeled, not VM/native accepted.
+No layout or syscall change is introduced.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing

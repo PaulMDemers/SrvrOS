@@ -36,7 +36,10 @@ clock_t times(struct tms *buffer) {
     if(result<0) { errno=(int)-result;return (clock_t)-1; }
     if(buffer) *buffer=(struct tms){self.user_us/10000,self.system_us/10000,
         children.user_us/10000,children.system_us/10000};
-    return (clock_t)(srv_monotonic_us()/10000); /* _SC_CLK_TCK is 100. */
+    /* _SC_CLK_TCK is 100. Without a reference clock the kernel still counts
+     * ticks; use them directly rather than scaling through microseconds. */
+    long us=srv_monotonic_us();
+    return us>=0 ? (clock_t)(us/10000) : (clock_t)srv_ticks();
 }
 
 int utime(const char *path,const struct utimbuf *times) {

@@ -62,12 +62,14 @@ It injects realtime/CPU source errors, tests reference/tick fallback resolution
 and checks invalid clocks with and without output. ASan/UBSan can be enabled
 through `CC`; receipts are written under `build/review/time-regression/`.
 
-The separate `python3 tools/test_time_contracts.py --audit-times-fallback
---output build/review/times-fallback-audit` currently fails with exit 1: advancing
-modeled ticks by 50 leaves the elapsed `times()` return at zero. High-resolution
-`times()` and fallback `clock_gettime` controls advance correctly. This explicit
-audit is excluded from default positive checks; the default VM does not exercise
-the missing-reference configuration.
+The former `--audit-times-fallback` failure is historical at `cb8985e6`.
+Default timing tests now cover reference and tick fallback elapsed progress,
+zero/sub-tick/boundary/large values, 100 Hz CPU accounting, optional output,
+errno preservation and errors from each usage query with unchanged output.
+Guest `--test times`, included in `all`, brackets elapsed returns with monotonic
+samples, checks progress over sleep, CPU totals and the null-buffer extension.
+It logs the active source. Default Q35 VM checks exercise the reference path;
+missing-reference fallback coverage uses modeled host services.
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

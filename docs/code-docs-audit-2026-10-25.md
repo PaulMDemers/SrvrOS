@@ -186,3 +186,14 @@ source/host audit confirms that `times()` returns a frozen elapsed value without
 the high-resolution reference, although kernel ticks and the public monotonic
 fallback advance. This separate known-failure mode remains excluded from the
 positive suite; the synchronization report records its evidence and limits.
+
+
+The `times()` elapsed fallback is corrected: unavailable reference time selects
+kernel ticks directly, retaining 100 Hz accounting and error/output behavior.
+Default host regression coverage replaces the explicit failed audit at
+`cb8985e6`; guest `times` verifies elapsed clock brackets, sleep progress and
+CPU totals in the ordinary reference-enabled VM. The adjacent review covered
+clock/source selection, resource accounting, timestamp conversion and existing
+sleep handling. It adds no confirmed finding; no missing-reference native/VM
+acceptance or complete POSIX conformance is implied. The next audit scope is
+fault-injected sleep interruption/remainder behavior and source boundaries.

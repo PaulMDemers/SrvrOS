@@ -24,8 +24,9 @@ initial-thread exit with surviving workers, followed by initial-thread join and
 detach ownership and valid negative absolute condition deadlines. Historical
 failure receipts remain separate from corrected contracts. Null-output
 `clock_getres` probes are also corrected with source/error and fallback coverage.
-The latest source/host audit confirms `times()` fails to advance its elapsed
-return when the high-resolution reference is unavailable.
+The `times()` elapsed fallback is also corrected, with host boundary/error and
+guest elapsed-time regressions. The latest adjacent timing/accounting review
+adds no further confirmed finding; documented profile exclusions remain.
 
 ## Implementation progress after the audit
 
@@ -324,8 +325,11 @@ valid ID but receives no signal, matching the
 [Issue 8 pthread_kill contract](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/pthread_kill.html).
 
 `clock()` now counts process CPU microseconds (`CLOCKS_PER_SEC=1000000`);
-`times()` uses `_SC_CLK_TCK=100`. Consumers needing elapsed time must use
-`CLOCK_MONOTONIC`; the native `time`/`timeout` utilities have been corrected.
+`times()` uses `_SC_CLK_TCK=100` for both its elapsed return and CPU accounting
+fields, with direct kernel ticks when the reference clock is unavailable.
+`clock()` measures CPU time, so elapsed-time consumers use `CLOCK_MONOTONIC`
+or the elapsed return of `times()`; the native `time`/`timeout` utilities use
+monotonic time.
 CPU charging follows userspace/kernel transitions and scheduler switches, so
 sleeping time and another worker's execution are not charged to the caller.
 

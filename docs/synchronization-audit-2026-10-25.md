@@ -16,8 +16,10 @@ initial-thread join, is corrected with retained return values and exclusive
 join/detach ownership. The ninth finding, negative absolute condition deadlines,
 is corrected by accepting signed seconds and using the existing timeout path.
 The tenth finding, null-output clock resolution, is corrected while preserving
-clock/source validation. Continued source/host audit confirms a separate elapsed
-`times()` fallback defect; see below.
+clock/source validation. The eleventh finding, frozen `times()` elapsed return
+without a reference clock, is corrected with direct tick fallback and positive
+regressions. The latest bounded adjacent review adds no confirmed finding; see
+its scope and limits below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -729,7 +731,9 @@ with zero errors; whitespace checks pass. Manifests and source/log hashes are
 retained with the evidence above. No full Linux/core, general SMP or native
 hardware acceptance is claimed.
 
-## Continued audit — P2: times elapsed return freezes without reference clock
+## Historical P2 finding: times elapsed return freezes without reference clock
+
+The following reproduction describes `cb8985e6`, before the correction below.
 
 `times()` in `posix_time.c` divides `srv_monotonic_us()` by 10000 without checking
 for source unavailability. The real kernel `SYS_MONOTONIC_US` returns `-1` when
@@ -759,3 +763,55 @@ used to reproduce this configuration. Use monotonic `clock_gettime` for elapsed
 intervals until corrected. The next bounded work is `times()` source selection
 and fallback/error coverage. No `times()` implementation change is included.
 Abnormal once-initializer exit remains unconfirmed.
+
+
+## times elapsed fallback correction
+
+`times()` samples the reference microsecond service and divides valid readings
+by 10000. When that service is unavailable, it returns kernel ticks directly.
+Avoiding conversion through microseconds preserves large representable tick
+values. `_SC_CLK_TCK` remains 100; the self/child CPU fields, optional-output
+extension, usage-error propagation and unchanged output on failure are retained.
+There is no kernel, layout, syscall or device-profile change.
+
+The default timing host target replaces the explicit failed audit. Both sources
+are tested with zero, sub-tick/boundary values, fractional reference readings and
+`LONG_MAX`, with and without output; successive samples advance by 50 ticks.
+Distinct self/child user/system values verify 100 Hz accounting independently of
+the elapsed source. Injected `EIO`/`ESRCH` from either usage call verify short
+circuiting, unchanged output and absence of elapsed-clock queries on failure.
+Successful calls preserve errno. Three source-copy negative controls fail with
+exit 1: restored frozen return, erroneously dividing fallback ticks by 10000,
+and wrong CPU accounting units. The checkout remains fixed throughout.
+
+Guest `--test times`, included in `all`, checks `_SC_CLK_TCK`, brackets both
+stored/null-output elapsed returns with monotonic samples, verifies at least
+ten ticks over a 100 ms sleep and checks nondecreasing CPU totals. It reports
+which source ran. The default VM uses the reference clock; missing-reference
+coverage is host-modeled and does not claim a native or VM fallback boot.
+Evidence is retained in ignored `build/review/times-fallback/`.
+
+Final validation passes on ARM64 macOS with x86_64 QEMU TCG: matched build,
+host timing/synchronization targets, timing ASan/UBSan, targeted `times` guest
+group, complete thread suite and full libuv suite. Targeted/full guest elapsed
+samples advance 10 and 11 ticks respectively and report the reference source.
+Docs check 641 local links with zero errors; whitespace checks pass. Evidence
+includes source/log hashes and the matched image manifest. No full Linux/core,
+general SMP, native or fallback-VM acceptance is claimed.
+
+## Continued audit checkpoint after times correction
+
+The bounded review followed elapsed and CPU source selection through libc
+`clock`, `clock_gettime`, `clock_getres`, `times`, `getrusage`, `_SC_CLK_TCK`,
+`sysinfo`/`AT_CLKTCK` and the kernel usage/reference/tick services. It also
+inspected `utime`/`utimes` conversion into `utimensat`/`futimens`, and the existing
+relative/absolute sleep validation and remainder paths. CPU microseconds and
+100 Hz accounting remain distinct; file timestamps retain documented one-second
+storage and refusal of negative epochs. No additional defect was confirmed in
+this pass. This is a bounded source review plus the stated host/guest coverage,
+not exhaustive POSIX validation or acceptance of every source-failure scenario.
+
+The next audit scope is deterministic sleep interruption/remainder coverage
+with unavailable clocks and boundary values. Abnormal once-initializer exit
+remains unconfirmed. Broader semaphore and other profile exclusions remain
+open; no newly confirmed finding is being presented for another fix yet.

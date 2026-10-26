@@ -347,3 +347,33 @@ not been reproduced in the default VM or on native hardware. Current guides
 state the monotonic-clock workaround. The next bounded correction is elapsed
 source selection/fallback. Once-initializer abnormal exit remains unconfirmed.
 Disposable VMs stopped; no physical boot is armed.
+
+## times elapsed fallback correction — active scope
+
+The user authorized `times()` fallback, regression tests, docs/PR updates and
+continued audit. Base is `cb8985e6`; fetched main remains `fa5a6cc1` and PR19
+remains `b68df8cd` with separate Wi-Fi scope. This block owns libc elapsed source
+selection and focused host/guest timing tests. Preserve CPU accounting units,
+usage errors and output ownership. Next checkpoint is reference/fallback and
+boundary controls, matched build and sequential thread/libuv VM suites. No
+physical boot is armed.
+
+The `times()` elapsed fallback correction is complete. Valid reference readings
+convert to 100 Hz ticks; unavailable reference time selects kernel ticks
+directly. CPU accounting fields, optional output, error propagation and failure
+output ownership are preserved. No layout/syscall or kernel change.
+
+Matched build, host timing/synchronization targets, timing ASan/UBSan, targeted
+`times` guest group, complete thread suite and full libuv suite pass. Three
+source-copy negative controls fail with exit 1 (frozen return, wrong fallback
+scaling, wrong CPU units). Docs check 641 local links with zero errors;
+whitespace checks pass. Source/log hashes, manifests and receipts are retained
+in `build/review/times-fallback/`. Guest targeted/full runs report the reference
+source; absent-reference tests remain host-modeled. No full Linux/core, general
+SMP, native or fallback-VM acceptance is claimed.
+
+The bounded adjacent timing/accounting and timestamp-conversion review adds no
+confirmed finding. Next audit scope is deterministic sleep interruption and
+remainder behavior with unavailable clocks and boundary values. Abnormal
+once-initializer exit remains unconfirmed; broader profile exclusions remain.
+All disposable VMs stopped; no physical boot is armed.

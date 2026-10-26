@@ -624,6 +624,7 @@ int posix_pthread_contract_test(void);
 int posix_sync_contract_test(void);
 int posix_absolute_deadline_test(void);
 int posix_clock_resolution_test(void);
+int posix_times_test(void);
 int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
 int posix_thread_name_test(void);
@@ -692,6 +693,7 @@ int main(int argc, char **argv) {
     RUN_TEST("sync-contracts", posix_sync_contract_test);
     RUN_TEST("absolute-deadlines", posix_absolute_deadline_test);
     RUN_TEST("clock-resolution", posix_clock_resolution_test);
+    RUN_TEST("times", posix_times_test);
     RUN_TEST("stack-inspection", posix_stack_inspection_test);
     RUN_TEST("self-detach", posix_self_detach_test);
     RUN_TEST("thread-names", posix_thread_name_test);
