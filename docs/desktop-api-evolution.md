@@ -78,8 +78,11 @@ An I/O wake makes a blocked allocation or cleanup call runnable; it does not
 mean the call has entered the kernel operation. The scheduler records pending
 admission for explicit gate waiters and READY threads actually excluded by the
 gate, including fresh process entries and post-exit kernel cleanup. A nonblocking
-child wait deferred by another I/O owner also requests a turn while returning
-immediately. Requests are coalesced and consumed only when selected with no I/O
+child wait or explicit nonblocking pipe/PTY read or write deferred by another
+I/O owner also requests a turn while returning immediately. Pipe operations
+still return AGAIN without entering descriptor/signal cleanup under that owner;
+both worker request submission and reply consumption need this retry admission.
+Requests are coalesced and consumed only when selected with no I/O
 owner; an eligible service turn during owned I/O does not consume them. A later
 exclusion records a fresh request. Sleeping threads are not woken by this policy.
 

@@ -11,8 +11,13 @@ RECORD = re.compile(
     rb'edge=(begin|end|event) at_us=(\d+) elapsed_us=(\d+)')
 
 
-def validate_app_timing(output, completed):
-    """completed contains (cycle, pid) pairs from the existing closed receipts."""
+def validate_app_timing(output, completed, *, files_window_runtime=False):
+    """Validate the caller's known lifecycle, without inferring it from missing phases.
+
+    completed contains (cycle, pid) pairs from the existing closed receipts.
+    Historical Files captures use job-drain/window-close; the shared window
+    runtime uses mapped models, acknowledged close and explicit disposal instead.
+    """
     records = {}
     for match in RECORD.finditer(output):
         pid, role, window, stage, edge, at, elapsed = match.groups()
@@ -41,7 +46,8 @@ def validate_app_timing(output, completed):
                 events.setdefault(stage, []).append(at)
         assert not pending, (pid, 'unfinished phase', pending)
         required = {'runtime-init', 'pool-init', 'window-open', 'role-init', 'history-free'}
-        required |= {'document-map', 'window-dispose', 'document-unmap', 'pool-retire'} if role == 2 else {'job-drain', 'window-close'}
+        mapped = role == 2 or (role == 1 and files_window_runtime)
+        required |= {'document-map', 'window-dispose', 'document-unmap', 'pool-retire'} if mapped else {'job-drain', 'window-close'}
         if role == 1:
             required.add('pool-retire')
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())
@@ -49,6 +55,9 @@ def validate_app_timing(output, completed):
         assert all(len(events.get(stage, [])) == 1 for stage in order), (pid, 'missing/duplicate event')
         times = [events[stage][0] for stage in order]
         assert times == sorted(times), (pid, 'lifecycle order')
+        if role == 1 and files_window_runtime:
+            assert len(events.get('close-ack', [])) == 1, (pid, 'missing/duplicate close acknowledgement')
+            assert times[2] <= events['close-ack'][0] <= times[3], (pid, 'close acknowledgement order')
         summary.append(dict(cycle=cycle, pid=pid, role=role,
                             entry_to_publish_us=times[1]-times[0],
                             close_to_return_us=times[3]-times[2], phases_us=spans))
