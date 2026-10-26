@@ -19,7 +19,7 @@ int main(void) {
     assert(desk_canvas_init(&b,tiles,W,H,S)==0);
     for (int pass=0;pass<7;pass++) {
         if(pass==3) {
-            s.apps=1;desk_menu_init(&s.menu);
+            s.apps=1;s.windows[0].application=DESK_APP_TEXT;s.windows[1].application=DESK_APP_PREVIEW;desk_menu_init(&s.menu);
             const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"SrvrOS",""},{1,0,"Settings",""},
                 {0,DESK_MENU_HEADING,"File",""},{2,0,"New document","Ctrl-N"},{3,DESK_MENU_DISABLED,"Save","Ctrl-S"} };
             assert(!desk_menu_configure(&s.menu,menu,5,(struct desk_rect){10,0,450,44},(struct desk_rect){0,0,W,H},&desk_font_16));
@@ -38,7 +38,7 @@ int main(void) {
             strcpy(s.calendar_date,"Sunday · 2026-10-18");strcpy(s.calendar_zone,"UTC");strcpy(s.clock,"12:34 UTC");
         }
         if(pass==6) {
-            s.calendar_open=0;desk_menu_cancel(&s.menu);desk_popup_init(&s.context);
+            s.calendar_open=0;s.windows[0].minimized=1;desk_menu_cancel(&s.menu);desk_popup_init(&s.context);
             const struct desk_menu_item items[]={{1,0,"Open Files",""},{2,0,"Settings",""},{3,0,"SrvrOS Help","F1"}};
             assert(!desk_popup_open(&s.context,items,3,630,470,(struct desk_rect){0,44,W,H-124},&desk_font_16,1));
         }
@@ -73,6 +73,38 @@ int main(void) {
     assert(!desktop_window_placement(20000,800,original,DESKTOP_CENTER,&center));
     assert(!desktop_window_placement(800,400,original,DESKTOP_TILE_LEFT,&center));
     assert(!desktop_window_placement(800,600,original,0,&center));
+    struct desk_rect moved;
+    assert(desktop_window_drag(1280,800,original,-400,700,&moved));
+    assert(moved.x==-400 && moved.y==688 && moved.w==original.w && moved.h==original.h);
+    for(int x=-4000;x<=4000;x+=137)for(int y=-4000;y<=4000;y+=271) {
+        assert(desktop_window_drag(1280,800,original,x,y,&moved));
+        assert(moved.x+original.w>=160 && moved.x<=1120 && moved.y>=44 && moved.y<=688);
+        assert(moved.w==original.w && moved.h==original.h);
+    }
+    assert(desktop_window_drag(1280,800,original,INT64_MIN,INT64_MAX,&moved));
+    assert(moved.x==160-original.w && moved.y==688);
+    moved=unchanged;assert(!desktop_window_drag(128,100,original,0,0,&moved));assert(!memcmp(&moved,&unchanged,sizeof(moved)));
+    struct desktop_scene dock_scene={.focus=2};
+    dock_scene.windows[0]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.minimized=1};
+    dock_scene.windows[1]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT};
+    dock_scene.windows[2]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.dialog=1};
+    dock_scene.windows[3]=(struct desktop_window){.visible=1,.application=DESK_APP_PREVIEW,.minimized=1};
+    dock_scene.windows[4]=(struct desktop_window){.visible=1,.application=DESK_APP_HELP};
+    struct desktop_dock_entry entries[DESK_APP_COUNT];
+    unsigned count=desktop_dock_entries(&dock_scene,1280,800,entries);assert(count==8);
+    assert(entries[1].application==DESK_APP_TEXT && entries[1].windows==2 && entries[1].minimized==1 && entries[1].active);
+    assert(entries[6].application==DESK_APP_PREVIEW && entries[6].windows==1 && entries[6].minimized==1);
+    assert(entries[7].application==DESK_APP_HELP);
+    for(unsigned i=0;i<count;i++) {
+        struct desk_rect r=entries[i].frame;assert(r.x>=0 && r.x+r.w<=1280);
+        assert(desktop_dock_hit(&dock_scene,1280,800,r.x+r.w/2,r.y+20)==entries[i].application);
+        if(i)assert(entries[i-1].frame.x+entries[i-1].frame.w==r.x);
+    }
+    dock_scene.windows[3].visible=0;assert(desktop_dock_entries(&dock_scene,640,480,entries)==7);
+    assert(entries[6].application==DESK_APP_HELP);
+    for(unsigned app=1;app<=DESK_APP_COUNT;app++)dock_scene.windows[app-1]=(struct desktop_window){.visible=1,.application=app};
+    assert(desktop_dock_entries(&dock_scene,640,480,entries)==DESK_APP_COUNT);
+    assert(entries[0].frame.x>=8 && entries[DESK_APP_COUNT-1].frame.x+entries[DESK_APP_COUNT-1].frame.w<=632);
     puts("desktop-scene: PASS overlap, clipping, stale-size cache, focus, tiled/full equality, stride guards and bounded window placement");
     return 0;
 }

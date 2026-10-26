@@ -10,7 +10,7 @@
 struct desktop_window {
     struct desk_rect frame;
     const uint32_t *pixels;
-    int width,height,visible,minimized,application,maximized;
+    int width,height,visible,minimized,application,maximized,dialog;
     uint64_t z;
     struct desk_rect restore;
     char title[96];
@@ -45,6 +45,10 @@ enum desktop_placement { DESKTOP_TILE_LEFT=1,DESKTOP_TILE_RIGHT,DESKTOP_CENTER }
  * honor client surface bounds, and leave output unchanged if there is no room. */
 int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
     unsigned placement,struct desk_rect *result);
+/* Movement may put content outside the output. Keep a useful titlebar segment
+ * below the menu and above the dock; do not resize or allocate a surface. */
+int desktop_window_drag(int width,int height,struct desk_rect original,
+    int64_t x,int64_t y,struct desk_rect *result);
 struct desk_rect desktop_battery_rect(int width,const char *clock);
 struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
@@ -58,5 +62,15 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
 #define desktop_window_at(s,i) ((s)->records?(s)->records[(i)]:&(s)->windows[(i)])
 static inline int desktop_capacity(const struct desktop_scene *s) { return s->capacity?s->capacity:DESKD_WINDOWS; }
 void desktop_stack(const struct desktop_scene *scene,int *order);
-struct desk_rect desktop_dock_item(int width,int height,int application);
+struct desktop_dock_entry {
+    unsigned application,windows,minimized;
+    int active;
+    struct desk_rect frame;
+};
+/* Pinned apps first, then other admitted apps; one entry per catalog app,
+ * independent of the number of windows. No allocation or retained pointers. */
+unsigned desktop_dock_entries(const struct desktop_scene *,int width,int height,
+    struct desktop_dock_entry entries[DESK_APP_COUNT]);
+struct desk_rect desktop_dock_frame(const struct desktop_scene *,int width,int height);
+unsigned desktop_dock_hit(const struct desktop_scene *,int width,int height,int x,int y);
 #endif

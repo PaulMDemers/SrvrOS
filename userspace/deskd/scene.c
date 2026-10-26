@@ -4,6 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 
+int desktop_window_drag(int width,int height,struct desk_rect original,
+    int64_t x,int64_t y,struct desk_rect *result) {
+    if(!result || width<160 || height<156 || width>16384 || height>16384 ||
+       original.w<282 || original.h<285 || original.w>DESK_MAX_WIDTH+2 || original.h>DESK_MAX_HEIGHT+45)return 0;
+    int left=160-original.w,right=width-160,bottom=height-80-32;
+    original.x=x<left?left:x>right?right:(int)x;
+    original.y=y<44?44:y>bottom?bottom:(int)y;
+    *result=original;return 1;
+}
+
 int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
     unsigned placement,struct desk_rect *result) {
     if(!result || screen_width<1 || screen_height<1 || screen_width>16384 || screen_height>16384 ||
@@ -43,11 +53,37 @@ void desktop_stack(const struct desktop_scene *s,int *order) {
         order[j]=value;
     }
 }
-struct desk_rect desktop_dock_item(int width,int height,int application) {
-    const struct desk_application_info *info=desk_application_info(application);
-    if(!info || !info->dock) return (struct desk_rect){0};
-    int total=(int)desk_dock_count()*100;
-    return (struct desk_rect){(width-total)/2+(int)(info->dock-1)*100,height-68,100,60};
+unsigned desktop_dock_entries(const struct desktop_scene *s,int width,int height,
+    struct desktop_dock_entry entries[DESK_APP_COUNT]) {
+    if(!s || !entries || width<160 || height<156)return 0;
+    struct desktop_dock_entry apps[DESK_APP_COUNT]={0};
+    for(int i=0;i<desktop_capacity(s);i++) {
+        const struct desktop_window *w=desktop_window_at(s,i);
+        if(!w->visible || w->application<1 || w->application>DESK_APP_COUNT)continue;
+        struct desktop_dock_entry *entry=&apps[w->application-1];
+        if(!w->dialog) {entry->windows++;entry->minimized+=w->minimized!=0;}
+        entry->active|=s->focus==i && !w->minimized;
+    }
+    unsigned count=0;
+    for(unsigned position=1;position<=desk_dock_count();position++)for(unsigned app=1;app<=DESK_APP_COUNT;app++)
+        if(desk_application_info(app)->dock==position) {entries[count]=apps[app-1];entries[count++].application=app;}
+    for(unsigned app=1;app<=DESK_APP_COUNT;app++)if(!desk_application_info(app)->dock && apps[app-1].windows) {
+        entries[count]=apps[app-1];entries[count++].application=app;
+    }
+    int cell=(width-24)/(int)count;if(cell>100)cell=100;
+    int start=(width-cell*(int)count)/2;
+    for(unsigned i=0;i<count;i++)entries[i].frame=(struct desk_rect){start+(int)i*cell,height-68,cell,60};
+    return count;
+}
+struct desk_rect desktop_dock_frame(const struct desktop_scene *s,int width,int height) {
+    struct desktop_dock_entry entries[DESK_APP_COUNT];unsigned count=desktop_dock_entries(s,width,height,entries);
+    if(!count)return (struct desk_rect){0};
+    return (struct desk_rect){entries[0].frame.x-8,height-74,entries[0].frame.w*(int)count+16,70};
+}
+unsigned desktop_dock_hit(const struct desktop_scene *s,int width,int height,int x,int y) {
+    struct desktop_dock_entry entries[DESK_APP_COUNT];unsigned count=desktop_dock_entries(s,width,height,entries);
+    for(unsigned i=0;i<count;i++)if(desk_widget_contains(entries[i].frame,x,y))return entries[i].application;
+    return 0;
 }
 static void icon(struct desk_canvas *c,int app,int x,int y) {
     if(app==DESK_APP_FILES) {
@@ -71,28 +107,41 @@ static void icon(struct desk_canvas *c,int app,int x,int y) {
         desk_fill(c,(struct desk_rect){x,y+1,31,26},0x748b79);
         desk_fill(c,(struct desk_rect){x+2,y+3,27,22},0xfaf9f6);
         desk_text(c,&desk_font_16,x+5,y+3,">_",0x38644f);
-    } else {
+    } else if(app==DESK_APP_SETTINGS) {
         for(int i=0;i<3;i++) {
             desk_fill(c,(struct desk_rect){x+2,y+5+i*9,27,2},0x748b79);
             desk_fill(c,(struct desk_rect){x+7+(i%2)*12,y+2+i*9,5,8},0x38644f);
         }
+    } else {
+        char label[]={desk_application_info(app)->title[0],0};if(app==DESK_APP_HELP)label[0]='?';
+        desk_fill(c,(struct desk_rect){x+1,y+1,29,27},0x748b79);
+        desk_fill(c,(struct desk_rect){x+2,y+2,27,25},0xfaf9f6);
+        desk_text(c,&desk_font_20,x+9,y+1,label,0x38644f);
     }
 }
 static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
-    int width=(int)desk_dock_count()*100;
-    desk_fill(c,(struct desk_rect){(c->width-width)/2-8,c->height-74,width+16,70},0xf1f0eb);
-    for(int app=1;app<=DESK_APP_COUNT;app++) {
-        struct desk_rect r=desktop_dock_item(c->width,c->height,app);if(!r.w) continue;
+    struct desktop_dock_entry entries[DESK_APP_COUNT];unsigned count=desktop_dock_entries(s,c->width,c->height,entries);
+    desk_fill(c,desktop_dock_frame(s,c->width,c->height),0xf1f0eb);
+    for(unsigned i=0;i<count;i++) {
+        struct desktop_dock_entry entry=entries[i];unsigned app=entry.application;struct desk_rect r=entry.frame;
         const char *name=desk_application_info(app)->title;
-        int running=0,active=0;
-        for(int i=0;i<desktop_capacity(s);i++) if(desktop_window_at(s,i)->visible && desktop_window_at(s,i)->application==app) {
-            running=1;active|=s->focus==i;
-        }
-        if(active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},0xe0eade);
-        icon(c,app,r.x+34,r.y+2);
+        if(entry.active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},0xe0eade);
+        struct desk_rect clip=c->clip;desk_clip(c,desk_intersect(clip,r));
+        int x=r.x+(r.w-32)/2;icon(c,app,x,r.y+2);
         int text=desk_text_width(&desk_font_16,name);
-        desk_text(c,&desk_font_16,r.x+(r.w-text)/2,r.y+34,name,0x292e2b);
-        if(running) desk_fill(c,(struct desk_rect){r.x+48,r.y+56,4,2},0x38644f);
+        desk_label_ellipsis(c,(struct desk_rect){text<=r.w-8?r.x+(r.w-text)/2:r.x+4,r.y+34,r.w-8,22},&desk_font_16,name,0x292e2b);
+        if(entry.windows) {
+            struct desk_rect mark={r.x+(r.w-24)/2,r.y+55,24,4};desk_fill(c,mark,0x38644f);
+            if(entry.minimized==entry.windows)desk_fill(c,desk_widget_inset(mark,1),0xf1f0eb);
+        }
+        if(entry.windows>1 && r.w>=40) {
+            char text[16];if(entry.windows>99)strcpy(text,"99+");else snprintf(text,sizeof(text),"%u",entry.windows);
+            int width=desk_text_width(&desk_font_16,text)+6;
+            int badge=x+20;if(badge+width>r.x+r.w-2)badge=r.x+r.w-width-2;
+            desk_fill(c,(struct desk_rect){badge,r.y,width,20},0x38644f);
+            desk_text(c,&desk_font_16,badge+3,r.y,text,0xfaf9f6);
+        }
+        c->clip=clip;
     }
 }
 

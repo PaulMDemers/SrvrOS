@@ -171,6 +171,34 @@ foreground program: Ctrl-C interrupts it, Ctrl-Shift-C/V copy/paste, and
 Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
 
+## Moving windows and using the dock
+
+Ordinary windows can extend past the left, right and bottom edges. Movement
+keeps at least 160 horizontal pixels of title bar reachable below the menu and
+32 pixels above the dock's reserved area. Content is clipped to the display;
+moving does not resize the client surface. Arrange → Center / Command-Alt-Up
+brings a window fully into the work area. Maximize, restore and tiling retain
+their existing size/admission contracts. New windows and owned dialogs still
+start within the work area.
+
+The dock keeps six pinned apps, followed by other applications with admitted
+main windows. Their entries remain while minimized and disappear after the last
+main window retires. A green running bar, active background and multiple-window
+count show state; an outline bar means every main window is minimized. Dialogs
+activate their owner's entry without inflating its document count. The dock
+fits entries to the screen and clips long labels; the count displays `99+` for
+larger groups, without imposing a window limit.
+
+Click an inactive app to restore/activate its most recently used main window.
+Further clicks on an active app cycle its windows, including minimized ones.
+Right-click or Control-click an entry for its searchable window list and New app
+command. The list uses the existing dynamically sized launcher and stable
+window identities. Choosing a parent with an owned dialog returns focus to that
+dialog. A closing window is not activated, and a fully closing group does not
+launch a duplicate process. The dock owns clicks/scrolling over its panel, so
+windows beneath it do not receive those events. Pin customization and persisted
+dock ordering are outside this block.
+
 ## Documents and background work
 
 Text supports multiple documents in one application process. Choose File → New
