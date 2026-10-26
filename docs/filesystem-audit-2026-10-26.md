@@ -699,6 +699,30 @@ PR190 (`f1587a2f`) and PR19 (`9a50f4dc`) remain separate with no exFAT overlap.
 Documentation/link and whitespace checks pass. No native hardware test or
 Actions dispatch was performed.
 
+### Retirement checkpoint integrated verification
+
+Integration `9510ce8c` includes main `4ee18f69` (PR190). The Makefile conflict
+was resolved by preserving both test targets; exFAT source was unchanged.
+The scheduler admission/trace/syscall gates, five loop-timing tests, six scheduler
+activity tests and desktop-session fixture pass. The latter uses the documented
+Darwin wrapper with `-Wno-error=array-bounds` for only
+`build/tests/desktop-session-host`: Clang diagnoses the unselected inline-array
+branch at index 31 after asserted dynamic growth to 32/128 slots. Both warnings
+remain visible, and the original strict compile failure is retained; no desktop
+implementation was changed to silence it.
+
+The rebuilt 116-mode import suite, 323 retirement boundaries, storage/lease and
+process tests pass. The matched full build, six generator groups and recursive
+372-entry image check pass. A fresh six-VM pass on the integrated artifacts gives:
+aliases 16.53 s, quarantine 16.44 s, imports 16.51 s, corrupt-entry 16.38 s, threads 40.02 s, libuv 10.11 s.
+
+Commands, failures, passing reruns, build receipt and tested source/artifact
+hashes are under `build/review/retirement-sidecar/integration/`. The earlier
+ASan/UBSan evidence still covers the unchanged exFAT implementation and fixtures;
+it is distinct from the new integrated guest evidence. This final record changes
+documentation only. PR182 remains draft; the next audit question is process
+writeback retry after clean space refusal.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
