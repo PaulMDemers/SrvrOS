@@ -196,6 +196,19 @@ and tools, with no MT76 overlap. Open PR172 owns desktop runtime; Pro PR19 owns
 this diagnostic scope. Retain intentional integration baseline `d5bc4b3`
 during this bounded trial. No remote task messaging or parallel staging.
 
+
+Next bounded scope v83: fixed channel1 (2412MHz) synthesizer fields from pinned
+Linux v7.0 frequency row and declared field layout. Preserve all21 reference
+steps (including adjacent same-register masks), each with fresh exact-profile
+read, one masked/full write and separate readback; MAC/DMA remain disabled.
+No VCO trigger, power selection, bandwidth/band tail, scan or transmit enable.
+Touched: MT76 fixed engine, native diagnostic ownership, boot recipe/tests,
+this unit and current Wi-Fi guide. Dependencies: exact v82 band/MAC proof,
+v81 RF0:24=33hex and26..37=0 observations,512KiB full-prefix capture.
+Fetched main remains `aa7b7392`; PR172 desktop runtime,174 process admission
+and175 Apple Silicon documentation do not own this MT76 diagnostic. Pro PR19
+continues this bounded scope; integration base remains `d5bc4b3`.
+
 Calibration, channel setup, scanning, association/security and Wi-Fi
 connectivity/UI remain pending. The dated sections below preserve full scope,
 source, dependencies and evidence; observations are not radio acceptance.
