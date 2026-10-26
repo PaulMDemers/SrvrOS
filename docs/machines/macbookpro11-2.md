@@ -8076,3 +8076,30 @@ errors were corrected; original failed logs preserved. Sanitizer/exact-stage
 VM and install follow; native result pending. Main `5bcd061c` is merged; no
 competing worker/filesystem scope was edited. Last physical v88 remains
 accepted and no reboot is armed.
+
+
+### 2026-10-26 — v89 retained RX trial installed
+
+Final source `50e2b8929a29896f1dcae19acd36d7835d8c1de7`, release
+`dbb5191dddbe1790`, recipe `ram-usb-wifi-fw-v89-laptop-probe-0e535900-auto-return`.
+Full image/core suite passed before the final stricter CC26/28 residue guard;
+matched image rebuild and targeted native-helper/ASan/UBSan tests passed after
+that change. CC27 remains explicitly length-invalid. Staging174 tests,
+176 historical recipe comparisons,whole prior+RX synthetic proof and79
+malformed-proof refusals passed. Initial regex/C literal errors and a sanitizer
+wrapper's renamed-main return warning were corrected without warning suppression;
+original failed logs retained. Final exact GPT-stage VM saved/byte-verified,
+unmounted and returned automatically; missing workspace refused and returned.
+Prototype VM evidence remains separate. VM proves workflow,not native RX.
+
+Installed/current payload and known-good `e47dca3a6b30c6c1` recovery match durable
+backups. Accepted v88 `413af14583fe167c` is retained on ESP beside recovery;
+older `5c9c8372adaf59d6` removed only after full equality with its durable
+archive. Ubuntu default retained. Offline workspace clean321files/774clusters/
+134directories,zero leaks,bitmap mismatches or errors; unmounted and unarmed.
+Run/checkpoint/helpers and evidence archived outside build. Await cold Wi-Fi
+cycle readiness before shutdown; leave workspace connected. Guest shows progress,
+saves results and returns automatically; no photos or commands. On return,
+collect matching release/session FIRST with rx-lifecycle/collect_return.py.
+Require full prior and ordered guard/config/post/wait/stop/context/dequeue/
+retention proof. Native lifecycle/receive/calibration remain pending.
