@@ -2943,3 +2943,25 @@ before preemptible UART output; validate those saved overlapping snapshots inste
 The validator retains phase, ordering, duration and missing-record checks, rejects
 duplicates within one snapshot, and deduplicates only exact overlapping records.
 No production console path, workload or limit changes are needed.
+
+Source `cca1f818` passes build/core, all 482 CLI commands and the complete smoke
+suite, storage-service slow writes/input/cancellation/copy/relaunch/quarantine,
+and the populated-Home 400-write-IOPS automatic workload. The positive VM
+completed 19 timing-validated app cycles with zero errors and PCM underruns;
+maximum ready/close/loop were 1,161,076 / 2,140,722 / 228,514 us. Files pool
+retirement peaked at 742,552 us. All 66 prior fixture files survived and offline
+allocation was clean. These VM timings do not establish native acceptance.
+
+Release `788873710e559400` freezes that clean source. Exact-stage Q35 rehearsal
+passes the expected native-profile refusal, saved logs, unmount and automatic
+return. This follow-up changes documentation only. PR172 (`122fe555`) retains
+shared app runtime ownership, PR19 (`50e4dce5`) USB Wi-Fi, and PR175 (`a90ac149`)
+macOS build/docs; no overlapping kernel production edits were found.
+
+Next is the authorized thirty-minute native audio/disk/app trial, with automatic
+Text/Files/System launches and closes, continuous verified I/O, battery monitoring
+and listening only. Whole-cycle ten seconds, client five seconds and loop 500 ms
+remain unchanged. USB baseline is 364 files / 1,032 clusters with zero leaks,
+bitmap mismatches or errors. Ubuntu remains default with console recovery and
+accepted reopen payloads retained. The collector saves/checks multiple attempts
+before refusing aggregate acceptance; missing completion remains failure.
