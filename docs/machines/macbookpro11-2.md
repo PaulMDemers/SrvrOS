@@ -32,6 +32,21 @@ USB ordering,save/restore and validated board/power context. Last accepted
 physical payload remains v88; source main merge is not native acceptance.
 
 
+Active block: first controlled main-RX endpoint lifecycle after the whole v88
+proof. Actual main `5bcd061c` consumes merged PR184 worker-pipe admission;
+PR182 still owns filesystem imports and does not overlap. New explicit v89
+profile will configure captured endpoint84/DCI9,post one bounded4KiB IN,
+wait10ms,Stop Endpoint with exact command/slot and stopped-context proof,
+retain all DMA and verify disabled MAC/CORE/DMA guards before/after. No Set
+Dequeue,restart,retry,free,MAC enable,calibration or transmit. Unexpected
+payload is metadata-only and not receive acceptance. Touched: xHCI receive
+helper/dispatcher,host tests,main/staging/smoke recipes and unit/Wi-Fi docs.
+Bounded RX shutdown is a prerequisite to later MAC/calibration work; old
+profiles remain byte-identical. Last physical v88 remains accepted; no reboot
+armed. Complete local/VM/install/run records before asking for cold-cycle
+readiness; native results pending.
+
+
 
 The user considers the core Pro bring-up generally working. Named payloads below
 have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
