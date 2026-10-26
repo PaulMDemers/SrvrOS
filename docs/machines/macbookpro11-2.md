@@ -7,16 +7,17 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical result: v88 release `413af14583fe167c` (source `9e7d2ef0`,
-main baseline `9f18d7d6`) passed the whole prior Wi-Fi initialization proof and
-fresh AGC8/9 software-state capture. Actual raw values were16344ef0 and00000000;
-initial/current gains78 and0,low_gain=-1,init_done=true. Eight reads,zero new
-register writes and both guard triplets passed. Session
-`session-00065ec1bf446752-00` saved the complete536023-byte prefix.
-Recovery and offline filesystem checks passed; unmounted and no reboot armed.
-Next: audit MAC/power/IBI9 prerequisites before full calibration and packet RX.
-Scanning,association,security,Wi-Fi IP traffic and UI remain unimplemented or
-unaccepted; no reliable completion percentage or delivery date yet.
+Latest physical run: v89 release `dbb5191dddbe1790`, session
+`session-00065ec2cfa926d2-00`, FAILED before AGC/RX. Mode67 omitted the
+post-VCO prerequisite flag,so AGC admission correctly refused with no reads;
+RX configuration/post were never reached. Whole earlier v86 initialization,
+including all21 channel-BBP readbacks,passed. Saved526801-byte full prefix,
+strict refusal and failed-run audit are archived. Recovery/one-shot and offline
+filesystem checks passed; unmounted and unarmed.
+Latest accepted gain-state baseline remains v88 `413af14583fe167c` (source
+`9e7d2ef0`): actual AGC8/9=16344ef0/0,initial/current gains78/0. Next fix native
+profile selection and exercise the actual selector in regression before retry.
+Scanning,association,security,Wi-Fi IP traffic and UI remain pending.
 
 
 Current development block (2026-10-26; local validation complete): consume actual main `0858e8e6` (PR181/185
@@ -8103,3 +8104,46 @@ saves results and returns automatically; no photos or commands. On return,
 collect matching release/session FIRST with rx-lifecycle/collect_return.py.
 Require full prior and ordered guard/config/post/wait/stop/context/dequeue/
 retention proof. Native lifecycle/receive/calibration remain pending.
+
+
+### 2026-10-26 — v89 failed before receive endpoint execution
+
+Release `dbb5191dddbe1790`, source `50e2b892`, session
+`session-00065ec2cfa926d2-00` saved a complete526801-byte prefix with both
+completed=NO markers. Whole prior initialization through all21 channel-BBP
+readbacks passed. The native selector left post_vco_mode false for mode67;
+no post-VCO operations ran. AGC refused status1/attempted0/reads0,with unread
+zero placeholders; these are not observed register values. No RX configuration,
+post or stop was attempted. Strict success collector refused unchanged.
+
+A separate failed-run audit validated the complete prior v86 proof and exact
+refusal/unread fields,then checked Ubuntu default,consumed one-shot,installed/
+recovery/retained payloads and offline workspace. Clean323files/781clusters/
+135directories,zero leaks,bitmap mismatches or errors; unmounted/unarmed.
+Original logs/refusal preserved outside build. Failure-auditor variable shadowing
+was corrected with an isolated proof namespace; initial auditor error retained.
+
+The helper tests had manually constructed the prerequisite state and missed
+native mode wiring. New regression calls the actual mode selector for modes64
+through67; it reproduces the mode67 failure before the fix. Selector extraction
+preserves existing mode policies; mode67 must enable post-VCO before AGC/RX.
+Full build/core and targeted checks follow before any new candidate. No radio
+initialization,receive or calibration acceptance follows from this failed run.
+
+
+### 2026-10-26 — profile-selection correction validated locally
+
+The mode64..67 regression reproduced the original missing post-VCO prerequisite
+before the fix. Native mode assignment is now a separately testable helper;
+mode67 includes post-VCO,AGC and RX in order. RX ownership fixtures also pass
+through that actual selector. Full matched image/core suite passed after the
+production fix,and the focused actual-selector/endpoint tests passed under
+ASan/UBSan. Existing v1-v88 recipes remain byte-identical; staging174 tests,
+whole-prior strict proof and79 malformed-proof refusals pass. No success gate
+or hardware register predicate was weakened.
+
+Accepted v88 `413af14583fe167c` restored as current with Ubuntu default and
+e47 recovery retained. Failed v89 removed from ESP only after complete durable
+payload equality,freeing space for a separately staged retry; its original
+session and refusal remain preserved. No reboot is armed. Retry exact-stage
+VM/install and native acceptance are pending.

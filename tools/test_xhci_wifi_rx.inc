@@ -4,10 +4,18 @@ static void rx_lifecycle_fixture(struct xhci_device *d) {
     m->agc_state=(struct mt76_agc_state){.attempted=true,.complete=true,.init_done=true,.reads=8,
         .raw={0x16344ef0,0},.initial={78,0},.current={78,0},.low_gain=-1};
     for(unsigned j=0;j<2;j++){m->agc_state.guards[j][1]=0xf000f200;m->agc_state.guards[j][2]=0x40000050;}
-    m->agc_state_submitted=8;m->rx_lifecycle_mode=true;m->rx.active=m->rx.attempted=true;
+    m->agc_state_submitted=8;m->rx.active=m->rx.attempted=true;wifi_mcu_select_mode(m,67);
     assert(wifi_rx_owned(d));
 }
 static void test_wifi_rx_lifecycle(void) {
+    /* Exercise the actual capture mode selector, not a hand-built fixture. */
+    for(unsigned mode=64;mode<=67;mode++) {
+        struct xhci_wifi_mcu m={0};wifi_mcu_select_mode(&m,mode);
+        assert(m.channel_bbp_mode && m.post_vco_mode==(mode>=65));
+        assert(m.agc_state_mode==(mode>=66) && m.rx_lifecycle_mode==(mode==67));
+        assert(!m.rf_central_mode && !m.rf_six_mode && !m.rf_csr_mode && !m.rf_write_mode);
+    }
+
     for(unsigned fault=0;fault<244;fault++) {
         reset_test();struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
         struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_rx *r=&m->rx;
