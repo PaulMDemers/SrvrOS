@@ -373,4 +373,8 @@ a media-repair facility or certification of corrupt-file contents. Mounts now
 claim declared physical block-view ranges; overlapping views and active raw
 transport leases refuse competing mounts. Raw diagnostics delegate only their
 explicit inner image view and retain exclusion after I/O failure until reboot.
-Hot removal, descriptor generation changes and power-loss recovery remain open.
+Unmount now holds storage ownership while rechecking linked process references
+and refuses active backend operations. Runtime USB command failure and AHCI
+uncertain completion invalidate the device and declared aliases; cached block
+reads cannot bypass that state. No online rebind or media-generation recovery
+is supported. Hot removal/replacement and power-loss recovery remain open.

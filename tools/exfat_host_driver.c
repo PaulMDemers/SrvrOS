@@ -443,3 +443,5 @@ int main(int argc, char **argv) {
 
 #define SRVROS_BLOCK_CLAIM_HOST_TEST
 #include "../kernel/src/block_claim.c"
+
+bool process_has_open_vfs_prefix(const char *p) { (void)p;return false; }

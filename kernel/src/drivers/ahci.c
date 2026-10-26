@@ -107,6 +107,7 @@ struct hba_command_table {
 } __attribute__((packed));
 
 struct ahci_disk {
+    struct block_device *block;
     bool used;
     bool failed;
     bool busy;
@@ -405,6 +406,7 @@ failed:
     /* Keep DMA storage pinned and never reuse it after uncertain completion.
      * Recovery/reset is deliberately a separate operation. */
     disk->failed = true;
+    if(disk->block)block_invalidate(disk->block);
     failed_commands++;
     console_printf("ahci: port=%u command=%x failed; disk offline phase=%s reason=%s "
         "lba=%u elapsed_us=%u spins=%u windows=%u ci=%x is=%x tfd=%x serr=%x\n",
@@ -581,6 +583,7 @@ static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
     if (device == NULL) return false;
     device->flush = ahci_flush;
 
+    disk->block = device;
     disk->used = true;
     disk_count++;
     console_printf("ahci: registered %s port=%u sectors=%u\n",

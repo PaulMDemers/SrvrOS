@@ -77,6 +77,7 @@ static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
     if(fault==8) *actual=12;
     if(fault==9) put_le32((uint8_t *)data+8,1);
     if(cdb[0]==0 && tur_failures) { tur_failures--; ((uint8_t *)data)[12]=1; }
+    if(fault==17) ((uint8_t *)data)[12]=1;
     if(cdb[0]==0x35) syncs++;
     phase=0; return true;
 }
@@ -192,7 +193,23 @@ static void test_timing(void) {
     assert(usb_storage_timing_begin());regress_clock=true;
     assert(flush(&block));usb_storage_timing_end(&out);assert(!out.valid);regress_clock=false;
 }
+static void test_runtime_status(void) {
+    for(unsigned operation=0;operation<3;operation++) {
+        reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+        uint8_t bytes[512]={0};fault=17;
+        bool ok=operation==0?block.read(&block,0,bytes,sizeof(bytes)):
+            operation==1?block.write(&block,0,bytes,sizeof(bytes)):block.flush(&block);
+        assert(!ok);fault=0;unsigned before=calls;
+        assert(!block.write(&block,0,bytes,sizeof(bytes)) && calls==before);
+        assert(!block.read(&block,0,bytes,sizeof(bytes)) && calls==before);
+        assert(!block.flush(&block) && calls==before && storage.failed && block.offline && block.used);
+    }
+}
 int main(void) {
+    reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+    unsigned attached_calls=calls;
+    assert(!usb_storage_attach(&storage,&storage,bulk,true) && calls==attached_calls);
+    test_runtime_status();
     test_transfer_timing();
     test_timing();
     test_segment_faults();
@@ -260,3 +277,6 @@ void latency_usb(uint64_t bytes,uint8_t opcode) { (void)bytes; (void)opcode; }
 void scheduler_io_checkpoint(void) { assert(!depth || storage.busy);checkpoints++; }
 
 bool block_claim_available(struct block_device *d,struct block_device *except) { (void)d;(void)except;return !claim_busy; }
+
+void block_invalidate(struct block_device *d) { assert(d==&block);d->offline=true; }
+bool block_device_online(struct block_device *d) { return d && !block_parent(d)->offline; }

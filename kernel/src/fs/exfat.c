@@ -5,6 +5,7 @@
 #include <srvros/heap.h>
 #include <srvros/vfs.h>
 #include <srvros/scheduler.h>
+#include <srvros/process.h>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -144,6 +145,40 @@ enum exfat_io_phase exfat_io_phase(const struct block_device *device) {
         if (mounts[i].used && mounts[i].volume.device==device)
             return mounts[i].volume.io_phase;
     return EXFAT_IO_METADATA;
+}
+
+static uint64_t fs_irq_save(void) {
+#ifdef SRVROS_EXFAT_HOST_TEST
+    return 0;
+#else
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    return flags;
+#endif
+}
+static void fs_irq_restore(uint64_t flags) {
+#ifndef SRVROS_EXFAT_HOST_TEST
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#else
+    (void)flags;
+#endif
+}
+/* Hold storage ownership through publication/retirement, not only individual
+ * block transfers. The count also rejects same-owner callback teardown. */
+struct fs_scope { uint64_t irq;bool services; };
+static uint64_t fs_operations;
+static bool fs_enter(struct fs_scope *scope) {
+    scope->irq=fs_irq_save();scope->services=scheduler_io_begin();
+    if((!scope->services && scheduler_io_active()) || fs_operations==UINT64_MAX) {
+        if(scope->services)scheduler_io_end();
+        fs_irq_restore(scope->irq);return false;
+    }
+    fs_operations++;return true;
+}
+static void fs_leave(struct fs_scope *scope) {
+    fs_operations--;
+    if(scope->services)scheduler_io_end();
+    fs_irq_restore(scope->irq);
 }
 
 static bool metadata_syncing;
@@ -423,7 +458,7 @@ static bool build_child_path(char *path,
     return true;
 }
 
-static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
+static bool exfat_read_all_impl(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
     const struct exfat_file *file = node->private_data;
     if (file->valid_size > file->size) return false;
     uint8_t *buffer = kmalloc(file->size == 0 ? 1 : file->size);
@@ -467,6 +502,11 @@ static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, ui
     *data = buffer;
     *size = file->size;
     return true;
+}
+
+static bool exfat_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    bool ok=exfat_read_all_impl(node,data,size);fs_leave(&scope);return ok;
 }
 
 static void exfat_release_data(const struct vfs_node *node, const uint8_t *data) {
@@ -1190,23 +1230,7 @@ static bool serialize_metadata_record(char *out,
 
 /* Serialize a complete mutation while allowing only the existing I/O service
  * threads to run during disk waits. Nested sidecar changes share its dirty bit. */
-struct mutation_scope { uint64_t irq; bool services; struct exfat_volume *volume; };
-static uint64_t fs_irq_save(void) {
-#ifdef SRVROS_EXFAT_HOST_TEST
-    return 0;
-#else
-    uint64_t flags;
-    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
-    return flags;
-#endif
-}
-static void fs_irq_restore(uint64_t flags) {
-#ifndef SRVROS_EXFAT_HOST_TEST
-    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
-#else
-    (void)flags;
-#endif
-}
+struct mutation_scope { struct fs_scope access; struct exfat_volume *volume; };
 static bool write_volume_flags(struct exfat_volume *volume, uint16_t flags) {
     uint8_t bytes[2]; write_u16(bytes, flags);
     if (!block_write(volume->device, 106, bytes, sizeof(bytes))) return false;
@@ -1216,12 +1240,11 @@ static bool write_volume_flags(struct exfat_volume *volume, uint16_t flags) {
 static bool reserve_mutation(struct exfat_mount *,const char *,uint64_t,uint64_t);
 static bool mutation_begin(struct exfat_mount *mount, struct mutation_scope *scope,
     const char *path,uint64_t files,uint64_t dirs) {
-    scope->irq = fs_irq_save();
-    scope->services = scheduler_io_begin();
-    if ((!scope->services && scheduler_io_active()) || !mount) goto denied;
+    if(!fs_enter(&scope->access))return false;
+    if(!mount || !mount->used)goto denied;
     struct exfat_volume *volume = &mount->volume;
     struct block_device *parent = block_parent(volume->device);
-    if (volume->image || !volume->device || !volume->device->write ||
+    if (volume->image || !block_device_online(volume->device) || !volume->device->write ||
         !parent || !parent->flush || volume->write_blocked) goto denied;
     if(!reserve_mutation(mount,path,files,dirs)) goto denied;
     scope->volume = volume;
@@ -1237,8 +1260,7 @@ static bool mutation_begin(struct exfat_mount *mount, struct mutation_scope *sco
     volume->mutation_depth++;
     return true;
 denied:
-    if (scope->services) scheduler_io_end();
-    fs_irq_restore(scope->irq);
+    fs_leave(&scope->access);
     return false;
 }
 static bool mutation_end(struct mutation_scope *scope, bool ok) {
@@ -1253,8 +1275,7 @@ static bool mutation_end(struct mutation_scope *scope, bool ok) {
         }
     }
     if (volume->write_blocked) ok = false;
-    if (scope->services) scheduler_io_end();
-    fs_irq_restore(scope->irq);
+    fs_leave(&scope->access);
     return ok;
 }
 
@@ -2880,14 +2901,16 @@ static bool exclusive_range(const char *path,uint64_t bytes,bool single,
     *device=v->device;*offset=start;return true;
 }
 bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t *offset) {
-    return exclusive_range(path,4096,true,device,offset);
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    bool ok=exclusive_range(path,4096,true,device,offset);fs_leave(&scope);return ok;
 }
 bool exfat_exclusive_range(const char *path,uint64_t bytes,
     struct block_device **device,uint64_t *offset) {
-    return exclusive_range(path,bytes,false,device,offset);
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    bool ok=exclusive_range(path,bytes,false,device,offset);fs_leave(&scope);return ok;
 }
 
-bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {
+static bool check_impl(const char *mountpoint, struct exfat_check_result *result) {
     struct exfat_check_result local = {0};
     struct exfat_check_result *out = result != NULL ? result : &local;
     uint8_t *bytes = (uint8_t *)out;
@@ -2915,6 +2938,14 @@ bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {
     return out->errors == 0;
 }
 
+bool exfat_check(const char *mountpoint,struct exfat_check_result *result) {
+    struct fs_scope scope;if(!fs_enter(&scope)) {
+        if(result)*result=(struct exfat_check_result){.errors=1};
+        return false;
+    }
+    bool ok=check_impl(mountpoint,result);fs_leave(&scope);return ok;
+}
+
 void exfat_check_print(const char *mountpoint) {
     struct exfat_check_result result;
     bool ok = exfat_check(mountpoint, &result);
@@ -2934,14 +2965,14 @@ bool exfat_is_writable(const char *mountpoint) {
         struct exfat_mount *mount = &mounts[i];
         if (mount->used && streq(mount->mountpoint, mountpoint)) {
             struct block_device *parent = block_parent(mount->volume.device);
-            return !mount->volume.write_blocked && mount->volume.device &&
+            return !mount->volume.write_blocked && block_device_online(mount->volume.device) &&
                 mount->volume.device->write && parent && parent->flush;
         }
     }
     return false;
 }
 
-bool exfat_unmount(const char *mountpoint) {
+static bool unmount_impl(const char *mountpoint) {
     if (!valid_mountpoint(mountpoint)) {
         return false;
     }
@@ -2959,6 +2990,13 @@ bool exfat_unmount(const char *mountpoint) {
     }
 
     return false;
+}
+
+bool exfat_unmount(const char *mountpoint) {
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    bool ok=fs_operations==1 && valid_mountpoint(mountpoint) &&
+        !process_has_open_vfs_prefix(mountpoint) && unmount_impl(mountpoint);
+    fs_leave(&scope);return ok;
 }
 
 static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
@@ -3428,7 +3466,7 @@ static bool volume_from_boot(const struct exfat_boot_sector *boot, uint64_t back
     return true;
 }
 
-bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size) {
+static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint64_t image_size) {
     if (!valid_mountpoint(mountpoint) || image == NULL || image_size < sizeof(struct exfat_boot_sector)) {
         return false;
     }
@@ -3540,12 +3578,16 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
     return true;
 }
 
+bool exfat_mount_image(const char *mountpoint,const uint8_t *image,uint64_t size) {
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    bool ok=mount_image_impl(mountpoint,image,size);fs_leave(&scope);return ok;
+}
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
     uint64_t claim=block_claim_mount(device);
-    if(!claim)return false;
-    if(mount_block_device(mountpoint,device,claim))return true;
-    (void)block_claim_release(claim); /* Scan rollback may already have released it. */
-    return false;
+    bool ok=claim && mount_block_device(mountpoint,device,claim);
+    if(claim && !ok)(void)block_claim_release(claim);
+    fs_leave(&scope);return ok;
 }
 
 /* Public mutation boundaries. Failed or interrupted metadata updates are never

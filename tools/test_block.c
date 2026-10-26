@@ -259,7 +259,32 @@ static void test_claims(void) {
     assert(block_claim_release(one));for(unsigned i=1;i<40;i++)assert(block_claim_release(tokens[i]));
     puts("block-claims: PASS physical overlap, disjoint/touching, nested views, delegation, stale release, bounds and exhaustion");
 }
+static void test_invalidation(void) {
+    memset(medium,0,sizeof(medium));medium[510]=0x55;medium[511]=0xaa;
+    mbr_entry(0,7,1,4);struct block_device *d=mbr_disk();
+    d->write=fake_write;d->flush=fake_flush;
+    assert(block_register_mbr_partitions(d)==1);
+    struct block_device *p=block_find("usb0p1");assert(p);
+    struct block_device view=*p;view.backing=p;view.backing_offset=0;
+    view.read=fake_read;view.write=fake_write;view.private_data=NULL;
+    uint8_t byte=0;assert(block_read(d,512,&byte,1));assert(block_read(p,0,&byte,1));
+    assert(block_read(&view,0,&byte,1));
+    uint64_t claim=block_claim_mount(p);assert(claim);
+    unsigned rd=reads,wr=writes,fl=flushes;
+    block_invalidate(p);assert(p->offline && d->offline && d->used && p->used);
+    assert(!block_device_online(&view));byte=0x8a;
+    assert(!block_read(d,512,&byte,1) && byte==0x8a);
+    assert(!block_read(p,0,&byte,1) && !block_read(&view,0,&byte,1));
+    assert(!block_write(d,512,&byte,1) && !block_write(p,0,&byte,1));
+    assert(!block_read(d,0,&byte,0) && !block_write(d,0,&byte,0));
+    assert(!block_flush_all() && rd==reads && wr==writes && fl==flushes);
+    assert(!block_claim_mount(d) && !block_claim_raw(d,NULL) && !block_enable_partition_writes(p));
+    assert(block_claim_release(claim));block_invalidate(d);block_invalidate(NULL);
+    for(unsigned i=0;i<BLOCK_CACHE_ENTRIES;i++)assert(!cache[i].valid);
+    puts("block-invalidation: PASS cached/uncached aliases, writes/flush, zero I/O, claims and retained descriptors");
+}
 int main(void) {
+    test_invalidation();
     test_claims();
     test_batches(); service_yields=0;
     test_gpt();

@@ -336,12 +336,85 @@ registered-device use-after-free was confirmed. General hot-unplug, generation
 changes, asynchronous teardown and crash-recovery acceptance remain open; adding
 an unregister API requires explicit mount/claim retirement and cache invalidation.
 
+## Identity invalidation and serialized teardown
+
+This checkpoint starts from `a35e2c33` and incorporates main `19a6fe05`'s
+Air6,1 documentation update. Five original directed probes reproduced teardown
+while a foreign storage owner, read callback, first mutation write, checker or
+mount scan was active. The old API could unregister nodes and free backend
+storage still used by the suspended operation. These are deterministic callback
+and ownership fixtures, not claims of a reproduced native-machine crash.
+
+Mount, read, mutation, allocation-check and exclusive-range operations now hold
+the CPU0 storage owner across their full backend operation. An active-operation
+count also refuses teardown reentered by the same owner. Unmount checks linked
+process files/directories and current directories under that owner, closing the
+window between an earlier caller busy check and teardown. Boot-time operation
+without scheduler I/O services remains supported. Nested metadata operations
+remain allowed; teardown is refused until a later caller retry rather than blocking
+inside a callback. The monitor reports refusal as busy or not mounted.
+
+Runtime USB command failure exposed a separate identity gap. A valid CSW with
+failed-command status returned an error without quarantining the published
+device, and a later write could succeed using the old geometry and mount state.
+The test reproduces that sequence for read, write and flush. No runtime sense or
+media-generation recovery exists to establish that the medium is unchanged, so
+published command failures now invalidate the device conservatively. Startup's
+bounded Unit Attention handling remains available before publication. Repeating
+`usb_storage_attach` on a published storage object is refused before any probe or
+context change; the old implementation accepted that unsupported republication.
+
+A terminal `offline` state propagates through declared backing views. USB
+transport/runtime-status failure and AHCI uncertain completion invalidate the
+physical lineage and cached aliases. The block layer checks health before cache
+hits, writes, flushes and claims, including zero-length I/O; it cannot turn old
+cached bytes into a successful request after invalidation. Descriptors, claims
+and DMA storage are retained. Clean owner teardown can still release its claim,
+but invalidation has no runtime clear/rebind API. This is fail-closed handling of
+an unknown generation, not hot-plug or generation-counter recovery. Already
+copied process snapshots are not retroactively erased.
+
+The import/lifecycle suite now has 61 passing modes, normally and with ASan/UBSan.
+New cases cover foreign and same-owner teardown, mount scans, reads, first writes,
+checks, raw-range validation, busy-reference rechecks, denied admission and boot
+fallback. Every mode checks that operation ownership is balanced. Block tests
+cover cached/uncached aliases, no transport calls after invalidation, claim
+refusal/release and retained descriptors. USB read/write/flush command failures,
+republication refusal and AHCI invalidation are covered by their actual-driver
+host tests. Workspace scratch invalidation retains quarantine. The seven
+existing synthetic image-adapter cases still pass; block/workspace/image fixtures
+also pass sanitizers. Eight compiled negative controls detect removal of nested
+and foreign teardown guards, the busy recheck, read pin, USB status quarantine,
+republication refusal, cached-read health check and AHCI invalidation.
+
+Evidence is retained in `build/review/storage-lifetime/`: original failures,
+host/sanitizer logs, negative controls, matched build receipt and source/output
+hashes. Native media removal/replacement was not performed. The registered block
+registry remains boot-lifetime, with no general unregister API; device topology
+must remain stable while referenced. Raw kernel callbacks and VFS pointers held
+outside their owning operation are not a general reference-counted hot-plug API.
+
+The matched build, four generator groups and recursive 372-entry image check
+pass. Six sequential disposable VMs pass: aliases 16.55 s, bitmap quarantine
+16.40 s, imports 16.55 s, corrupt-entry fallback 16.40 s, complete threads
+40.08 s and libuv 10.06 s. `vms/result.json` records the exact commands and results.
+The guest runs validate the integrated boot/storage consumers; the teardown and
+runtime-failure schedules are forced by the directed host fixtures.
+
+### Follow-on audit disposition
+
+The next boundary is mutation failure/recovery. Source tracing confirms dirty
+marking, durable-clean publication and quarantine on uncertain writes, but these
+are not a journal. Namespace-operation interruption, sidecar recovery and
+crash-consistent rename/replacement require a separate fault-injection pass.
+The current change adds no automatic repair or online reattachment.
+
 ## Remaining audit queue
 
-1. Device removal/generation changes and caller serialization during unmount.
-   Overlapping declared views and mutating raw leases now have regression-tested
-   admission. Reproduce any further lifetime gap before broadening process or
-   low-level hot-unplug mechanisms.
+1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
+   Terminal identity invalidation and CPU0 backend-operation/teardown admission
+   now have directed coverage. They do not certify live device recovery or
+   arbitrary retained kernel pointers.
 2. Mutation failure/recovery boundaries and durable metadata. Existing serialized
    replacement and dirty-volume quarantine are not a journal; interrupted rename
    and power-loss atomicity remain unproven. Multi-cluster bitmap mutation,

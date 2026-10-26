@@ -232,3 +232,10 @@ mutating diagnostics reserve their raw transport, delegate only the inner image
 view and retain failure quarantine until reboot. The import suite has 51 modes,
 with additional block/workspace/USB and seven portable image-adapter cases.
 General hot removal and crash recovery remain outside this checkpoint.
+
+The storage lifetime follow-up raises import/lifecycle coverage to 61 modes.
+Backend operations and teardown now share storage ownership, with a final process
+busy check before unmount. USB runtime command failure and AHCI offline state
+invalidate block/cache/claim admission; published USB objects cannot be reattached
+in place. This keeps uncertain media identity unavailable until reboot and adds
+no live hot-plug recovery. Mutation/crash recovery is the next audit boundary.

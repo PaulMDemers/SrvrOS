@@ -47,10 +47,21 @@ bool block_raw_range(struct block_device *device,uint64_t offset,uint64_t length
     }
     return false;
 }
+bool block_device_online(struct block_device *device) {
+    struct block_device *root;uint64_t offset;
+    if(!block_raw_range(device,0,block_device_size(device),&root,&offset))return false;
+    for(unsigned depth=0;depth<BLOCK_MAX_DEVICES;depth++) {
+        if(device->offline)return false;
+        if(device==root)return true;
+        device=device->backing;
+    }
+    return false;
+}
 static bool overlaps(const struct block_claim *a,const struct block_claim *b) {
     return a->root==b->root && a->offset<b->offset+b->length && b->offset<a->offset+a->length;
 }
 static bool describe(struct block_device *d,struct block_claim *c) {
+    if(!block_device_online(d))return false;
     c->device=d;c->length=block_device_size(d);
     return block_raw_range(d,0,c->length,&c->root,&c->offset);
 }

@@ -105,6 +105,9 @@ int main(void) {
     disk=setup(0); model.tfd=0x80; assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(disk.failed && model.ci==0 && polls<30);
     assert(!strcmp(failure_phase,"ready") && !strcmp(failure_reason,"deadline"));
+    struct block_device published={.used=true};
+    disk=setup(4);disk.block=&published;
+    assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false) && published.offline && published.used);
     disk=setup(4); assert(!issue_command(&disk,ATA_CMD_READ_DMA_EXT,0,1,false));
     assert(disk.failed && polls<=1002 && !strcmp(failure_reason,"poll-limit"));
     disk=setup(5); services_enabled=true; active_disk=&disk;
@@ -153,3 +156,5 @@ int main(void) {
     identify[167]=0x10; assert(identify_flush_command(identify)==0);
     puts("ahci-host: PASS (DMA/flush descriptors, stuck busy/CI, errors, quarantine, address-space restore, ownership, service windows)");
 }
+
+void block_invalidate(struct block_device *d) { d->offline=true; }

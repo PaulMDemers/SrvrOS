@@ -1100,3 +1100,45 @@ retained on failure, with no general runtime unregister/reuse path. No additiona
 device use-after-free was confirmed. Hot removal/generation changes, caller
 serialization and mutation recovery/crash consistency remain next. No native
 hardware, battery/EC trial or Actions dispatch occurred.
+
+### Identity invalidation/teardown audit — active scope (2026-10-26)
+
+Continue PR182 from `a35e2c33`; integrate main `19a6fe05` (PR186's Air6,1
+documentation) before implementation. Inspect runtime media identity failures,
+cache admission after quarantine, and exFAT operation/teardown serialization.
+Registered-device reuse/hot-plug remains unsupported; add no recovery/rebind API
+without a confirmed need. Own block/USB/AHCI health propagation, filesystem
+lifecycle guards and focused host/VM evidence. PR187 desktop timing and PR19
+Wi-Fi/workspace logging are separate. No hardware or Actions dispatch.
+
+### Identity invalidation/teardown checkpoint results
+
+Five original probes confirmed teardown during foreign ownership, read/write
+callbacks, mount scans and checks. The filesystem now holds CPU0 storage
+ownership for each complete backend operation, rejects same-owner callback
+teardown and rechecks process files/directories/cwds under the teardown owner.
+Boot-time fallback and normal nested metadata operations remain supported.
+
+A published USB failed-command status previously allowed later writes using the
+old geometry. Read/write/flush probes reproduce it. Runtime status/transport
+failures now invalidate the block lineage, as do AHCI uncertain completions.
+Cached aliases, writes/flushes, claims and parked-workspace admission cannot bypass
+terminal invalidation. Published USB storage objects also refuse repeated attach
+before any probe; the old entry point accepted unsupported republication. No
+runtime rebind/generation recovery is added; descriptors/DMA stay pinned.
+
+All 61 import/lifecycle modes pass normally and under ASan/UBSan. Actual block,
+USB, AHCI and workspace tests cover invalidation and balanced admission; seven
+synthetic real image-adapter cases still pass. Block/workspace/image fixtures
+also pass sanitizers. Eight compiled negative controls are detected. The matched
+build, four generator groups and 372-entry image check pass. Six sequential VMs
+pass: aliases 16.55 s, bitmap quarantine 16.40 s, imports 16.55 s, corrupt-entry
+fallback 16.40 s, complete threads 40.08 s and libuv 10.06 s. Evidence, tested
+hashes and build/VM receipts are in `build/review/storage-lifetime/`.
+
+The checkout includes main `19a6fe05`; PR187 desktop timing and PR19 Wi-Fi/logging
+remain separate. Further tracing confirms dirty marking and uncertain-write
+quarantine are not a journal. Next: namespace/sidecar interruption and durable
+rename/replacement recovery. Live media replacement, arbitrary retained kernel
+pointers and hardware hot-unplug remain unaccepted. No physical trial or Actions
+dispatch occurred.

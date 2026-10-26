@@ -36,6 +36,8 @@ struct exfat_fsinfo {
 
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size);
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device);
+/* Refuses active backend operations and linked process files/directories/cwds.
+ * Mount lifecycle is serialized through the CPU0 storage owner. */
 bool exfat_unmount(const char *mountpoint);
 bool exfat_is_writable(const char *mountpoint);
 /* Diagnostic preparation only: verified, exclusive single-cluster 4096-byte

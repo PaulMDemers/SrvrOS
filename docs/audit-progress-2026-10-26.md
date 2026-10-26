@@ -69,8 +69,10 @@ ownership were traced without confirming an additional open-reference defect.
 A fourth checkpoint expands import coverage to 51 modes and adds physical-range
 mount claims, exclusive raw-transport leases, delegated inner-image admission
 and persistent failure quarantine. Block/workspace/USB and seven synthetic
-image-adapter runs cover handoff and retirement. Removal/generation changes,
-caller serialization and crash recovery remain open.
+image-adapter runs cover handoff and retirement. The next checkpoint expands to 61 modes, serializes backend operations against
+teardown, rechecks process busy state under storage ownership, and propagates
+terminal USB/AHCI identity loss through block/cache/claim admission. Live
+unregister/rebind and crash recovery remain open.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

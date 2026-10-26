@@ -142,7 +142,7 @@ bool workspace_mount_held(void) {
  * keep the workspace unmounted and must not enable writes during the lease. */
 struct block_device *workspace_parked_device(void) {
     struct block_device *parent=block_parent(parked);
-    return !active && !failed && parked && parent &&
+    return !active && !failed && parked && parent && block_device_online(parked) &&
         usb_storage_is_device(parked) && !parked->write && !parent->write &&
         !parent->flush ? parked : NULL;
 }

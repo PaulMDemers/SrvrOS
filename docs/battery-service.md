@@ -416,6 +416,13 @@ to save logs and returns to Ubuntu. Contained native faults reset without trying
 to repair the inner filesystem. Missing completion is failure; a failed transport
 poisons the lease and may prevent saving the final log.
 
+Storage health is terminal after published USB command failure or uncertain
+AHCI completion: block/cache/claim requests refuse the invalidated lineage until
+reboot. Parked workspace admission checks that health, and an invalidated scratch
+lease retains its exclusion. Filesystem teardown now also refuses active backend
+operations and rechecks process references under storage ownership. These guards
+do not add live media replacement or broaden native acceptance.
+
 Physical storage admission now reserves the whole raw device for scratch/image
 write diagnostics after the workspace is parked. A sibling partition mount
 prevents handoff; USB callback enable/disable also checks claims. Only the

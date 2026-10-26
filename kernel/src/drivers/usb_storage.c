@@ -140,6 +140,10 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     if (csw[12]==1) {
         s->errors++; record_error(s,cdb[0],phase,"scsi-command",tag,actual,csw);
         s->error_status=1;
+        /* Startup may clear Unit Attention before publication. A failed command
+         * after publication cannot establish whether the medium changed. Never
+         * resume old geometry/mount/cache state against a replacement medium. */
+        if(s->block) {s->failed=true;block_invalidate(s->block);}
         return 1;
     }
     /* All implemented successful commands require their full requested data. */
@@ -150,6 +154,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     return 0;
 bad:
     s->failed=true; s->errors++;
+    if(s->block)block_invalidate(s->block);
     record_error(s,cdb[0],phase,reason,tag,(phase==2 || phase==4)?transferred:actual,csw);
     s->error_status=255; /* No trustworthy command status. */
     console_printf("usb-storage: transport failed; device quarantined commands=%u\n",s->commands);
@@ -247,7 +252,7 @@ bool usb_storage_enable_volume_writes(struct block_device *device) {
     if (!usb_storage_is_device(device)) return false;
     struct block_device *parent = block_parent(device);
     struct usb_storage *storage = parent->private_data;
-    if (storage->failed || storage->busy || !block_claim_available(parent,device)) return false;
+    if (storage->failed || storage->busy || !block_device_online(device) || !block_claim_available(parent,device)) return false;
     parent->write = write_blocks;
     parent->flush = flush;
     return block_enable_partition_writes(device);
@@ -271,6 +276,8 @@ bool usb_storage_disable_volume_writes(struct block_device *device) {
 }
 
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
+    /* Published callbacks, geometry and aliases belong to this boot lifetime. */
+    if(!s || !bulk || s->block || s->failed || s->busy)return false;
     s->context=context; s->bulk=bulk;
     uint8_t inquiry[6]={0x12,0,0,0,36,0};
     if(command(s,inquiry,6,true,s->data,36)!=0 || (s->data[0]&0x1f)!=0 || (s->data[0]>>5)!=0) return false;

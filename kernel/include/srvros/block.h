@@ -22,6 +22,7 @@ typedef bool (*block_flush_fn)(struct block_device *device);
 
 struct block_device {
     bool used;
+    bool offline; /* Terminal identity loss: no rebind/reuse before reboot. */
     const char *name;
     uint64_t block_size;
     uint64_t block_count;
@@ -57,6 +58,10 @@ struct block_device *block_parent(struct block_device *device);
 /* Resolve a bounded partition-relative range to its raw device. No I/O. */
 bool block_raw_range(struct block_device *device, uint64_t offset, uint64_t length,
     struct block_device **parent, uint64_t *raw_offset);
+/* Terminal failure invalidation; descriptors/claims stay pinned until reboot or
+ * ordinary owner teardown. Online checks include every declared backing view. */
+void block_invalidate(struct block_device *device);
+bool block_device_online(struct block_device *device);
 /* Exclusive physical-range admission. A raw transport lease may delegate one
  * contained view to a filesystem mount. Release the child before the lease.
  * Tokens never repeat; zero means refusal. No I/O or scheduler yield here. */

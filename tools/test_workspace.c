@@ -177,6 +177,12 @@ int main(void) {
         assert(!workspace_mount("37d8c5d0")&&!depth&&!disks[0].write);
         assert(!block_claim_mount(disks) && !block_claim_available(disks,NULL));
     }
+    reset();assert(workspace_mount("37d8c5d0") && workspace_scratch_prepare());
+    disks[0].offline=true;assert(!workspace_scratch_ready() && !workspace_parked_device());
+    assert(!workspace_scratch_cycle(data) && !raw_writes && !workspace_scratch_end());
+    assert(scratch.poisoned && scratch.claim);
+    /* No runtime revival API: flipping this bit here only checks the retained claim. */
+    disks[0].offline=false;assert(!block_claim_mount(disks));
     puts("workspace-host: PASS (mount identity/hold/release/stale tokens, UUID/marker/duplicate/dirty guards, I/O owner, busy files, flush failure, unmount/revoke)");
 }
 

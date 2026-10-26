@@ -12,23 +12,30 @@
 static uint8_t disk[BYTES];
 static unsigned allocations,reads,writes,flushes,io_depth,fail_allocation;
 static uint64_t fail_write_offset=UINT64_MAX,fail_read_offset=UINT64_MAX;
-static bool fail_bitmap_read,fail_seen;
+static bool fail_bitmap_read,fail_seen,foreign_io,boot_io,live_reference,admit_reference;
+static unsigned teardown_probe,teardown_attempts;
+static void probe_teardown(unsigned phase) {
+    if(teardown_probe!=phase || !mounts[0].used)return;
+    teardown_probe=0;teardown_attempts++;
+    assert(!exfat_unmount("/vol"));
+}
 void *kmalloc(size_t n) { allocations++;if(allocations==fail_allocation)return NULL;assert(n<=64u*1024u*1024u);return malloc((size_t)n); }
 void *kcalloc(size_t n,size_t size) { if(fail_seen && n==(CLUSTERS+7)/8 && size==1) {fail_seen=false;return NULL;}assert(!size || n<=UINT64_MAX/size);void *p=kmalloc(n*size);if(p)memset(p,0,n*size);return p; }
 void kfree(void *p) { free(p); }
-bool scheduler_io_begin(void) { io_depth++;return true; }
+bool scheduler_io_begin(void) { if(foreign_io || boot_io)return false;if(admit_reference){live_reference=true;admit_reference=false;}io_depth++;return true; }
 void scheduler_io_end(void) { assert(io_depth);io_depth--; }
-bool scheduler_io_active(void) { return io_depth!=0; }
+bool scheduler_io_active(void) { return foreign_io || io_depth!=0; }
+bool process_has_open_vfs_prefix(const char *p) { (void)p;return live_reference; }
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *s,...) { (void)s; }
 int64_t timer_realtime_us(void) { return 1792326896000000LL; }
 uint64_t block_device_size(const struct block_device *d) { return d?d->block_size*d->block_count:0; }
 struct block_device *block_parent(struct block_device *d) { return d; }
 bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n) {
-    (void)d;assert(off<=BYTES && n<=BYTES-off);reads++;if(off==fail_read_offset) {fail_read_offset=UINT64_MAX;return false;}if(fail_bitmap_read && off==(HEAP+1)*SECTOR) {fail_bitmap_read=false;return false;}memcpy(p,disk+off,(size_t)n);return true;
+    (void)d;assert(off<=BYTES && n<=BYTES-off);reads++;probe_teardown(1);if(off==fail_read_offset) {fail_read_offset=UINT64_MAX;return false;}if(fail_bitmap_read && off==(HEAP+1)*SECTOR) {fail_bitmap_read=false;return false;}memcpy(p,disk+off,(size_t)n);return true;
 }
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n) {
-    (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;if(off==fail_write_offset) {fail_write_offset=UINT64_MAX;return false;}memcpy(disk+off,p,(size_t)n);return true;
+    (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;probe_teardown(2);if(off==fail_write_offset) {fail_write_offset=UINT64_MAX;return false;}memcpy(disk+off,p,(size_t)n);return true;
 }
 static bool flush(struct block_device *d) { (void)d;flushes++;return true; }
 static struct block_device device={.used=true,.name="import-test",.block_size=SECTOR,.block_count=BYTES/SECTOR,.read=block_read,.write=block_write,.flush=flush};
@@ -280,7 +287,50 @@ static void ownership_case(const char *mode) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strcmp(mode,"device-alias")) {
+    if(!strncmp(mode,"teardown-",9)) {
+        fixture(1100,true);
+        if(!strcmp(mode,"teardown-boot")) {
+            boot_io=true;teardown_probe=1;
+            assert(exfat_mount_block_device("/vol",&device));
+            check_data("/vol/source",1100);
+        } else if(!strcmp(mode,"teardown-mount")) {
+            /* First boot read precedes publication; probe the root scan instead. */
+            teardown_probe=1;
+            assert(exfat_mount_block_device("/vol",&device));
+            assert(teardown_attempts==1);
+        } else {
+            assert(exfat_mount_block_device("/vol",&device));
+            if(!strcmp(mode,"teardown-busy") || !strcmp(mode,"teardown-admit-race")) {
+                if(!strcmp(mode,"teardown-busy"))live_reference=true;
+                else {assert(!process_has_open_vfs_prefix("/vol"));admit_reference=true;}
+                assert(!exfat_unmount("/vol") && live_reference);live_reference=false;
+            } else if(!strcmp(mode,"teardown-foreign")) {
+                foreign_io=true;assert(!exfat_unmount("/vol"));foreign_io=false;
+            } else if(!strcmp(mode,"teardown-read")) {
+                teardown_probe=1;check_data("/vol/source",1100);
+            } else if(!strcmp(mode,"teardown-write")) {
+                teardown_probe=2;assert(exfat_write_file("/vol/source",(const uint8_t *)"OK",2));
+            } else if(!strcmp(mode,"teardown-check")) {
+                teardown_probe=1;struct exfat_check_result check;assert(exfat_check("/vol",&check));
+            } else if(!strcmp(mode,"teardown-range")) {
+                uint8_t data[512]={0};assert(exfat_write_file("/vol/exclusive",data,sizeof(data)));
+                teardown_probe=1;struct block_device *d;uint64_t off;
+                assert(exfat_exclusive_range("/vol/exclusive",512,&d,&off) && d==&device);
+            } else if(!strcmp(mode,"teardown-admission")) {
+                unsigned rd=reads,wr=writes,alloc=allocations;foreign_io=true;
+                const struct vfs_node *node=vfs_lookup("/vol/source");const uint8_t *data;uint64_t bytes;
+                struct exfat_check_result check;
+                assert(!exfat_mount_image("/new",disk,sizeof(disk)));
+                assert(!exfat_mount_block_device("/new",&device));
+                assert(!vfs_read_all(node,&data,&bytes));
+                assert(!exfat_check("/vol",&check) && check.errors);
+                assert(!exfat_write_file("/vol/source",NULL,0));
+                assert(reads==rd && writes==wr && allocations==alloc);foreign_io=false;
+            } else assert(false);
+        }
+        if(strcmp(mode,"teardown-foreign") && strcmp(mode,"teardown-admission") && strcmp(mode,"teardown-busy") && strcmp(mode,"teardown-admit-race"))assert(teardown_attempts==1);
+        assert(vfs_lookup("/vol/source"));assert(exfat_unmount("/vol") && !vfs_count() && !io_depth);
+    } else if(!strcmp(mode,"device-alias")) {
         fixture(1100,true);struct block_device alias=device;
         alias.backing=&device;
         assert(exfat_mount_block_device("/vol",&device));
@@ -403,6 +453,7 @@ int main(int argc,char **argv) {
         }
         assert(exfat_unmount("/vol") && !vfs_count() && !io_depth);
     }
+    assert(!fs_operations);
     printf("exfat-import: %s PASS\n",mode);return 0;
 }
 

@@ -267,15 +267,30 @@ struct block_device *block_parent(struct block_device *device) {
 void block_forget(struct block_device *device) {
     if(!device)return;
     uint64_t flags=irq_save();
-    struct block_device *parent=block_parent(device);
-    for(unsigned i=0;i<BLOCK_CACHE_ENTRIES;i++)
-        if(cache[i].valid&&block_parent(cache[i].device)==parent)cache[i].valid=false;
+    struct block_device *parent=device;uint64_t offset;
+    (void)block_raw_range(device,0,block_device_size(device),&parent,&offset);
+    for(unsigned i=0;i<BLOCK_CACHE_ENTRIES;i++) {
+        struct block_device *root=cache[i].device;
+        if(cache[i].valid && (cache[i].device==device ||
+           (block_raw_range(root,0,block_device_size(root),&root,&offset) && root==parent)))
+            cache[i].valid=false;
+    }
+    irq_restore(flags);
+}
+
+void block_invalidate(struct block_device *device) {
+    uint64_t flags=irq_save();
+    /* Mark the whole physical lineage, even if it was already invalidated.
+     * Never free descriptors or DMA state on uncertain completion. */
+    for(unsigned depth=0;device && depth<BLOCK_MAX_DEVICES;depth++) {
+        device->offline=true;block_forget(device);device=device->backing;
+    }
     irq_restore(flags);
 }
 
 bool block_enable_partition_writes(struct block_device *device) {
     struct block_device *parent = block_parent(device);
-    if (!parent || !parent->write) return false;
+    if (!block_device_online(device) || !parent || !parent->write) return false;
     if (device != parent) device->write = partition_write;
     return true;
 }
@@ -531,7 +546,7 @@ static void cache_invalidate_range(struct block_device *device, uint64_t first, 
 }
 
 static bool read_locked(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
-    if (device == 0 || !device->used || device->read == 0 || buffer == 0) {
+    if (!block_device_online(device) || device->read == 0 || buffer == 0) {
         return false;
     }
     if (length == 0) {
@@ -547,6 +562,7 @@ static bool read_locked(struct block_device *device, uint64_t offset, void *buff
     uint8_t *out = buffer;
     uint64_t copied = 0;
     while (copied < length) {
+        if(!block_device_online(device))return false;
         uint64_t absolute = offset + copied;
         uint64_t block_index = absolute / device->block_size;
         uint64_t block_offset = absolute % device->block_size;
@@ -576,11 +592,11 @@ static bool read_locked(struct block_device *device, uint64_t offset, void *buff
         service_checkpoint();
     }
 
-    return true;
+    return block_device_online(device);
 }
 
 static bool write_locked(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length) {
-    if (device == 0 || !device->used || device->write == 0 || buffer == 0) {
+    if (!block_device_online(device) || device->write == 0 || buffer == 0) {
         return false;
     }
     if (length == 0) {
@@ -596,6 +612,7 @@ static bool write_locked(struct block_device *device, uint64_t offset, const voi
     const uint8_t *in = buffer;
     uint64_t copied = 0;
     while (copied < length) {
+        if(!block_device_online(device))return false;
         uint64_t absolute = offset + copied;
         uint64_t block_index = absolute / device->block_size;
         uint64_t block_offset = absolute % device->block_size;
@@ -632,7 +649,7 @@ static bool write_locked(struct block_device *device, uint64_t offset, const voi
         service_checkpoint();
     }
 
-    return true;
+    return block_device_online(device);
 }
 
 /* A cache victim remains private until its data, tag and caller copy are all
@@ -664,7 +681,7 @@ bool block_flush_all(void) {
     for (uint64_t i = 0; i < device_count; i++) {
         struct block_device *device = &devices[i];
         if (!device->used || device->write == NULL || device->read == partition_read) continue;
-        if (device->flush == NULL || !device->flush(device)) success = false;
+        if (!block_device_online(device) || device->flush == NULL || !device->flush(device)) success = false;
     }
     return success;
 }

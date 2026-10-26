@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 51 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 61 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1067,3 +1067,11 @@ do not certify format conformance or power-cut recovery. They verify physical
 overlap refusal, disjoint ranges, delegation, clean release/retry, stale tokens,
 claim exhaustion and persistent raw failure quarantine. Use the
 [Mac host-test recipe](macos-development.md#focused-storage-host-tests) for Darwin.
+
+Lifecycle modes now inject teardown at mount/read/write/check/range callbacks,
+foreign-owner admission, process-busy rechecks and boot-time fallback. All modes
+require balanced operation ownership. `test-storage` and `test-storage-leases`
+include terminal device invalidation: cached aliases must refuse I/O without
+transport calls, USB failed runtime command status cannot resume old media state,
+and AHCI offline state reaches the block layer. These are deterministic host
+contracts; hardware replacement and full hot-unplug remain unaccepted.

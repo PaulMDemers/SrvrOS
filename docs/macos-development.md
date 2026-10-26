@@ -131,7 +131,7 @@ be canonical, unoccupied and outside other exFAT mount subtrees.
 
 ## Focused storage host tests
 
-`sh tools/macos/build.sh test-exfat-import` runs the 51 portable import/claim
+`sh tools/macos/build.sh test-exfat-import` runs the 61 portable import/claim/lifecycle
 modes; `python3 tools/test_exfat_import.py --sanitize` adds ASan/UBSan. The
 storage adapter aggregate also includes an existing x86 USB fixture. On this
 Mac it was run with Rosetta and the following local compiler wrapper, which
