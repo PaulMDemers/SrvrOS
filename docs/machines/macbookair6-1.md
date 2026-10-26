@@ -2910,3 +2910,20 @@ metadata. Offline fsck/allocation pass: 364 files, 1,032 clusters, zero leaks,
 bitmap mismatches or errors. Ubuntu recovered, next_entry is empty and the
 collector is disabled. Evidence/diagnosis are retained outside build; no new
 boot is armed. Integration baseline for this return record is `eda8bfbc`.
+
+### Process admission and worker retirement — active scope (2026-10-25)
+
+Base `aa7b7392`, with all three preceding attempts reconciled and backed up.
+Investigate READY process startup/kernel retirement threads excluded by the I/O
+gate without entering its explicit wait queue, and nonblocking child reaping
+that repeatedly defers while I/O is owned. Extend quiescent handoff accounting
+to those contenders without changing eligibility, nonblocking behavior, deadlines,
+filesystem/ownership checks or workload. Scope: scheduler, syscall wait admission,
+host regressions, automatic stress/boot validation and this unit record.
+Retain the targeted app timings and the separate unresolved SSDT-fingerprint
+refusal; no firmware gate changes. User authorizes tests, self-merge and reboot.
+
+PR172 (`27a97f0f`) owns shared application dispatch/waiting/actions; the proposed
+kernel admission changes avoid its userspace implementation scope. PR19
+(`4030debb`) retains USB Wi-Fi work. Inspect their actual updated diffs before
+integration; no cross-task messages or parallel local harnesses are authorized.
