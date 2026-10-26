@@ -695,3 +695,23 @@ pass. The native source and installed payload above remain distinct from that
 VM-tested userspace update. Pro PR19 at `636ecf9` retains independent MAC/Wi-Fi
 state, harness and tests; preserve both shared-file edits on integration. No new
 native trial is armed and no sibling acceptance is implied.
+
+
+## October 25 shared application runtime handoff
+
+Merged PR172 (`aa93109`, consuming PR174) adds the optional allocation-free
+[application runtime](desktop-application-runtime.md) used by Text, Preview and
+the GUI/file-worker load diagnostic. Reuse its bounded connection/timer dispatch,
+combined worker readiness/deadlines and standard-command snapshots before copying
+another application event loop. Widgets stay pure. Documents, images, accepted
+jobs and their cancellation/drain/reap ownership remain with the application;
+the runtime starts no receiver and performs no hidden teardown.
+
+Air7,2 release `986d6c68fa19ba18` accepts reported concurrent app use, observed
+Text save/Preview loading and clean retirement with preserved prior files and
+clean offline allocation. Full core/desktop, sanitizer, lifecycle/failure/growth,
+I/O-wait and captured-playback VM gates pass locally; Actions remain disabled.
+No native PCM stream ran in this return, and explicit command parity and other
+unreported checklist steps remain physical follow-ups. Do not infer native
+latency, energy savings, sibling acceptance or full audio endurance. PR19 retains
+Wi-Fi ownership; no new shared implementation is claimed by this closeout.

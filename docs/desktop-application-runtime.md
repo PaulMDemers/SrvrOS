@@ -121,5 +121,8 @@ exact saved contents, preserved edits, bounded workers and complete retirement.
 
 Air7,2's PR172 local validation and consumed PR174 scheduler baseline are recorded
 in its [machine record](machines/macbookair7-2.md). The persistent application
-lifecycle checklist includes command parity for the new runtime. Physical input,
-listening and native responsiveness remain separate acceptance work.
+lifecycle checklist includes command parity for the new runtime. Its returned
+release `986d6c68fa19ba18` accepts reported concurrent app use, observed Text save
+and Preview loading/close, with clean lifetime retirement and preserved prior
+files. Native playback, explicit command parity and quantitative responsiveness
+remain separate acceptance work; full playback/save overlap is VM evidence.
