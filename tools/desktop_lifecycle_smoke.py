@@ -228,11 +228,13 @@ def main():
                     shortcut('ctrl-alt-esc');wait(b'deskd: exited');wait(b'srv> ')
                 serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
                 after=set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
-                if args.crash:
-                    deadline=time.monotonic()+4
-                    while after!=baseline and time.monotonic()<deadline:
-                        time.sleep(.5);serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
-                        after=set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
+                # Emergency exit kills an app before it can reap its workers.
+                # Init owns these orphans and polls once a second. Observe the
+                # exact baseline within a bound; never ignore exited children.
+                deadline=time.monotonic()+4
+                while after!=baseline and time.monotonic()<deadline:
+                    time.sleep(.5);serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
+                    after=set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
                 assert after==baseline,(baseline,after)
                 if args.refuse_dialogs:assert output.count(b'dialog admission refused parent=')>=5
                 assert b'desktop-application: FAIL' not in output and b'failure=1' not in output and b'exception:' not in output

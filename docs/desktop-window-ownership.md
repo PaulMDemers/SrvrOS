@@ -74,4 +74,11 @@ transport: forty stable models, allocation/admission refusal, dialog routing,
 serialized Quit, explicit drain confirmation, failed-unmap retry and fatal
 transport retention. Actual Text/Files consumer VMs separately verify native
 protocol behavior, saved contents, worker retirement and process baselines.
+`tools/desktop_files_windows_smoke.py` grows twenty Files windows in one process,
+checks independent history and owned prompts, then closes a window during an
+accepted 8 MiB copy while another Text process saves. It checks exact file bytes,
+bounded workers, process-baseline restoration and a standard exFAT volume before
+and after the run. The general Files mutation fixture separately checks pointer
+Delete confirmation. Terminal has command-guard host coverage and real-shell VM
+checks for clipboard, interruption, output, independent sessions and cleanup.
 Physical acceptance remains release-specific in the machine record.

@@ -132,7 +132,7 @@ The crash case kills Preview with its owned picker live, then uses healthy apps
 to save exact contents. The refusal case deliberately rejects modal admission
 without exhausting general memory, then verifies embedded save/cancel/quit
 recovery. Each fixture compares saved bytes and returns to the process baseline;
-crash-only orphans are given a bounded init-reaper interval. Raw serial output is
+emergency/crash orphans are given a bounded init-reaper interval. Raw serial output is
 preserved even when compositor/client writes interleave.
 
 ## Attended hardware trial
@@ -141,7 +141,9 @@ The explicit Air7,2 `--desktop-lifecycle-trial` stage profile (v75) uses the
 ordinary combined battery/services session and opens Help's **Application
 lifecycle trial** topic automatically. It has no deadline or automatic reboot.
 The full checklist covers parent/dialog focus, independent sibling input,
-Close versus Quit, cancellation, saving, Files routing, Preview retention,
+Close versus Quit, cancellation, saving, independent Files windows/history and
+owned mutation prompts, Terminal shell/control/close cancellation, Files routing,
+Preview retention,
 screenshots, app/file I/O and input during the separate two-minute
 `playwav /fat/share/examples/workload.wav` sample, and unsaved-work cancellation
 during normal exit/reopen before returning to Ubuntu. Settings Test sound is
