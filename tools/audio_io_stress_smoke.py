@@ -9,7 +9,7 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
-from app_timing import validate_app_timing
+from app_timing import validate_app_timing,saved_app_timing
 
 
 def main():
@@ -110,8 +110,6 @@ def main():
                     assert len(ready)==len(closed)==int(lifecycle[1])
                     assert [(a,b) for a,b,_ in ready]==[(a,b) for a,b,_ in closed]
                     assert len(set(pid for _,pid,_ in ready))==len(ready)
-                    timing=validate_app_timing(output,[(int(cycle),int(pid)) for cycle,pid,_ in closed])
-                    (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     assert b'async=yes' in output
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
@@ -124,6 +122,16 @@ def main():
                     directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
                     receipt=final.read(directory+'/result.txt');assert b'result=PASS' in receipt
                     (out/'receipt.txt').write_bytes(receipt)
+                    # UART writers may interleave; saved bootlog records are atomic.
+                    session=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
+                    assert len(session)==1
+                    logdir=session[0].decode();snapshots=[]
+                    for name,_ in final.entries(final.read(logdir)):
+                        if name.endswith('.log'):
+                            raw=final.read(logdir+'/'+name);snapshots.append(raw)
+                            (out/('saved-'+name)).write_bytes(raw)
+                    timing=validate_app_timing(saved_app_timing(snapshots),[(int(cycle),int(pid)) for cycle,pid,_ in closed])
+                    (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                 volume.write_bytes(final.data);check_clean_image(volume)
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation

@@ -2935,3 +2935,11 @@ cleanup without running either under another owner's I/O. Host regression fails
 on the previous scheduler and passes with the fix, including repeated requests,
 service eligibility, sleeping threads and retirement continuations. Build/core
 passes; automatic workload and native acceptance remain pending.
+
+The first positive VM completed 14 app cycles with zero app errors/PCM underruns,
+but strict timing validation failed on an interleaved live UART line. Preserve
+that failed harness evidence. The console already saves whole diagnostic records
+before preemptible UART output; validate those saved overlapping snapshots instead.
+The validator retains phase, ordering, duration and missing-record checks, rejects
+duplicates within one snapshot, and deduplicates only exact overlapping records.
+No production console path, workload or limit changes are needed.
