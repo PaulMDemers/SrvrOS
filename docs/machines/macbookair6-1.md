@@ -3145,3 +3145,13 @@ and automatic return. This follow-up changes documentation only. Native run
 374 baseline files / 1,044 clusters, continuous audio/verified disk work and
 automatic Text/Files/System cycles. Ubuntu remains default; console and accepted
 reopen recovery payloads remain verified and independent of build storage.
+
+Before installation, main advanced to `0858e8e6` with PR181's shared Text/Files
+window lifecycle and PR185's bounded UART progress matcher. Merged that actual
+baseline at `85fdf6c8`; the earlier candidate remains separately preserved and
+was not installed. Extend integration scope only to the stress timing validator:
+explicitly select the new Files mapped-model/disposal lifecycle, require its
+close acknowledgement and complete phases, and retain the old validator mode
+for historical captures. Do not infer a layout from absent phases or relax the
+timing limits. Rebuild and repeat the combined stress and affected window/close
+VMs before staging the integrated native payload.
