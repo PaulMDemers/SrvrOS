@@ -87,10 +87,10 @@ def main():
                 launch('Preview new app',b'deskview: starting');wait(b'deskd: opened pid=');wait(b'\n');preview=int(re.findall(rb'deskd: opened pid=(\d+)',output)[-1]);preview_frame=geometry(preview,1);wait(b'deskd: commit');extras.append(7)
                 launch('Help new app',b'deskhelp: starting');wait(b'deskd: opened pid=');wait(b'\n');help_pid=int(re.findall(rb'deskd: opened pid=(\d+)',output)[-1]);wait(b'deskd: commit');extras.append(8);shot('running-apps-and-count')
                 dock(7);wait(b'deskd: dock activate application=7');x,y,w,h=preview_frame;click(x+w-88,y+21);dock(7);wait(b'deskd: dock activate application=7');shot('preview-restored')
-                dock(7,4);wait(b'deskd: dock windows application=7 items=2');shot('preview-window-list');qmp.key('esc');wait(b'deskd: launcher closed')
-                dock(2,4);wait(b'deskd: dock windows application=2 items=4');text('dock-one');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode())
-                shortcut('ctrl-end');text(' edit');shortcut('ctrl-w');wait_all([f'parent={first}'.encode(),b'deskd: commit']);shot('unsaved-owner-dialog')
-                dock(2,4);wait(b'deskd: dock windows application=2 items=4');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode());qmp.key('esc');wait(retired)
+                dock(7,2);wait(b'deskd: dock windows application=7 items=2');shot('preview-window-list');qmp.key('esc');wait(b'deskd: launcher closed')
+                dock(2,2);wait(b'deskd: dock windows application=2 items=4');text('dock-one');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode())
+                click(302,278);text('X');shortcut('ctrl-end');text(' edit');shortcut('ctrl-w');wait_all([f'parent={first}'.encode(),b'deskd: commit']);shot('unsaved-owner-dialog')
+                dock(2,2);wait(b'deskd: dock windows application=2 items=4');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode());qmp.key('esc');wait(retired)
                 shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
                 dock(7);wait(b'deskd: dock activate application=7');shortcut('ctrl-q');wait(b'deskview: exited failure=0');extras.remove(7)
                 dock(8);wait(b'deskd: dock activate application=8');shortcut('ctrl-w');wait(b'deskhelp: exited failure=0');extras.remove(8);shot('unpinned-apps-retired')
@@ -108,7 +108,7 @@ def main():
                     except Exception:pass
                 raise
             finally:stop_process(process);(out/'serial.log').write_bytes(output);shutil.copyfile(disk,out/'last-workspace.img')
-        result=ExfatFixture(disk.read_bytes());expected={'home/dock-one.txt':b'Offscreen content kept. edit','home/dock-two.txt':b'Two.','home/dock-three.txt':b'Three.'}
+        result=ExfatFixture(disk.read_bytes());expected={'home/dock-one.txt':b'XOffscreen content kept. edit','home/dock-two.txt':b'Two.','home/dock-three.txt':b'Three.'}
         for name,value in expected.items():assert result.read(name)==value,name
         (out/'fsck.txt').write_text(check_clean_image(disk));(out/'allocation.txt').write_text(subprocess.check_output([str(root/'build/tests/exfat-driver'),str(disk),'allocation-check'],text=True))
         receipt=dict(status='PASS',physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})

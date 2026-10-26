@@ -2062,6 +2062,9 @@ int main(int argc,char **argv) {
                     .x=x,.y=y,.down=s.overlay_down,.pressed=s.overlay_down && !(buttons&MOUSE_LEFT)};
                 if(e.wheel_y && !e.buttons) launcher_result(&s,desk_palette_scroll(&s.scene.launcher,x,y,e.wheel_y));
                 launcher_result(&s,desk_palette_pointer(&s.scene.launcher,event,srv_monotonic_us()));
+                /* The overlay owns this release. Do not leave the opener's
+                 * right-click block latched onto the next application click. */
+                if(!e.buttons) {s.pointer_blocked=0;s.context_down=0;}
                 buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
             }
             if (e.flags&MOUSE_CANCEL) {
