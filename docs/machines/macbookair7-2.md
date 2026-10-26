@@ -2,29 +2,48 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
-### Shared application/window layer — active scope
+### Shared application/window layer — implementation and local consumer validation
 
-Rebased the clean existing device branch onto actual main `dfd63fe` (PR175
-synchronization/time, PR178 AHCI bounds, PR179 event-adapter fixes consumed).
-Air7,2 now owns the bounded D3 application-layer follow-up: reusable stable
-window/model registration, owned-dialog routing, sequential cancellable Close/
-Quit and accepted-job retirement, migrated through normal Text and Files. Give
-Files multiple windows in one process with independent navigation and bounded
-shared file workers. Move Terminal to shared dispatch/PTY waits and align its
-commands without intercepting shell control keys. Keep widget models pure.
+Rebased the existing device branch onto actual main `9f18d7d`, consuming PR175,
+PR178, PR179 and PR180. Kept main's stronger futex-before-frame-free fixture and
+its Linux header fixes; no duplicate poll include or competing fixture remains.
+PR181 owns this bounded D3e application-layer block. PR182 owns exFAT import
+validation and PR19 owns Wi-Fi; neither is included or overwritten here.
 
-Planned files: optional `userspace/desktop_runtime` layer/headers, Text/Files
-runtime and commands, Terminal, targeted host/consumer VM fixtures, Makefile and
-current API/help guides. Preserve timing receipts, Text edits/save decisions,
-file mutation ownership, PTY child/session cleanup and all existing GUI/resource
-budgets. No driver, firmware, protocol or kernel change is planned. PR19 remains
-independent Wi-Fi work; no other open implementation scope overlaps on inspection.
-Run baseline build/core/desktop checks first, then incremental actual-consumer
-fault/growth/save/cancel/playback tests, exact-stage rehearsal and a persistent
-on-screen checklist before any physical trial. Installed accepted current remains
+Normal Text and Files share stable allocated window/models, owned-dialog routing,
+sequential cancellable Quit and explicit accepted-work retirement. Files New
+window creates siblings in one process with independent navigation/history and
+one lazy two-channel file-worker pool. Rename/duplicate/delete use owned dialogs
+with embedded refusal fallback. Terminal uses shared dispatch, PTY read/write
+readiness and command guards while preserving raw shell Ctrl-C/D/L and its
+existing separate session processes. Pure widgets remain allocation/transport
+free. No protocol, resource-budget, kernel-driver or firmware behavior is changed.
+
+Forty-model host and ASan/UBSan ownership tests pass, including refusal, explicit
+work drain, failed-unmap retry and fatal-transport retention. Actual consumer VMs
+pass twenty same-process Files windows, independent history, owned rename/cancel/
+collision, accepted 8 MiB copy retained during close, concurrent Text saving,
+exact file bytes, bounded workers and process-baseline restoration on standard
+exFAT metadata. The general Files mutation test passes pointer Delete confirmation.
+Terminal's real-shell test passes clipboard, output/backspace, interruption,
+independent sessions, close cancellation and cleanup. Lifecycle pointer/shutdown/
+crash/refusal tests pass exact saves and offline integrity; emergency-exit orphans
+must return to the exact baseline within init's bounded reaper interval. The
+load gate passes forty verified 64 KiB writes/readbacks and all forty-eight key
+acknowledgements with two reaped workers. Thirty-two Text documents/thirty-three
+exact files retire cleanly. Four mixed app cycles overlap a complete twenty-second
+PCM stream with exact samples and retained editable Text; this is VM evidence.
+Initial fixture failures and their corrections are retained locally.
+
+Final full-host/matched-build and exact-stage checks precede the next attended
+native trial. Its complete untimed Help checklist includes Files siblings,
+Terminal controls/close, Text decisions, Preview cancellation, two-minute playback
+with app/save work, and ordinary exit/reopen. Installed accepted current remains
 `986d6c68fa19ba18`, independent recovery `9aa8dbf6fbda8252`; the last return is
 collected and no next boot is armed. New source does not inherit that acceptance.
-Local checkpoint/evidence: `build/app-window-layer-20261026/`.
+Air6,1's separate continuous-I/O Files-close failure remains unresolved by this
+workload. Local evidence: `build/app-window-layer-20261026/`; next native run
+record: `build/app-window-native-20261026/`.
 
 ### Shared application runtime — concurrent-app hardware trial accepted
 

@@ -92,10 +92,11 @@ save decisions and readonly-image cancellation stay with their owners.
 
 ## Validation and acceptance
 
-`make test-desktop` includes the focused runtime and Text-command fixtures:
+`make test-desktop` includes runtime, window ownership and consumer-command fixtures:
 
 ```sh
-tools/host-env.sh make test-desktop-runtime test-tool-commands test-preview-app
+tools/host-env.sh make test-desktop-runtime test-window-set \
+  test-tool-commands test-preview-app test-terminal-commands
 ```
 
 The existing `desktop_wait_load_smoke.py` fixture also uses this runtime: its
