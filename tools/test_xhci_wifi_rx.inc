@@ -9,11 +9,11 @@ static void rx_lifecycle_fixture(struct xhci_device *d) {
 }
 static void test_wifi_rx_lifecycle(void) {
     /* Exercise the actual capture mode selector, not a hand-built fixture. */
-    for(unsigned mode=64;mode<=68;mode++) {
+    for(unsigned mode=64;mode<=69;mode++) {
         struct xhci_wifi_mcu m={0};wifi_mcu_select_mode(&m,mode);
         assert(m.channel_bbp_mode && m.post_vco_mode==(mode>=65));
         assert(m.agc_state_mode==(mode>=66) && m.rx_lifecycle_mode==(mode>=67));
-        assert(m.mac_cycle_mode==(mode==68));
+        assert(m.mac_cycle_mode==(mode>=68) && m.cal_probe_mode==(mode==69));
         assert(!m.rf_central_mode && !m.rf_six_mode && !m.rf_csr_mode && !m.rf_write_mode);
     }
 

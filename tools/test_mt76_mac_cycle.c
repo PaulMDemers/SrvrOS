@@ -54,7 +54,7 @@ static bool delay(void *p,unsigned us,bool cleanup) {
 }
 static uint64_t now(void *p){return ((struct fixture *)p)->now;}
 static struct fixture fresh(void){return (struct fixture){.filter=0x17f97,.txop=0x10583f};}
-static bool run(struct fixture *f){const struct mt76_mac_cycle_io io={f,owned,read_word,write_word,delay,now};return mt76_mac_cycle_run(&f->state,&io);}
+static bool run(struct fixture *f){const struct mt76_mac_cycle_io io={f,owned,read_word,write_word,delay,now,NULL};return mt76_mac_cycle_run(&f->state,&io);}
 static void no_replay(struct fixture *f){unsigned n=f->calls;struct mt76_mac_cycle s=f->state;assert(!run(f) && f->calls==n && !memcmp(&s,&f->state,sizeof(s)));}
 int main(void){
     struct fixture base=fresh();assert(run(&base));
@@ -94,7 +94,7 @@ int main(void){
     }
     f=fresh();f.cleanup_lost=true;assert(!run(&f) && !f.state.mac_disabled && f.mac==12);
     assert(!f.state.filter_restored && !f.state.txop_restored);no_replay(&f);
-    struct mt76_mac_cycle_io io={&f,owned,read_word,write_word,delay,now};
+    struct mt76_mac_cycle_io io={&f,owned,read_word,write_word,delay,now,NULL};
     assert(!mt76_mac_cycle_run(NULL,&io) && !mt76_mac_cycle_run(&f.state,NULL));
     printf("mt76 MAC cycle: PASS %u operations,%u reads,%u writes; every callback failure/cancellation,busy queues,clock/wait failure,all-ones,no replay; synthetic only\n",base.state.operations,base.state.reads,base.state.writes);
 }

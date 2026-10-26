@@ -1,3 +1,6 @@
+static bool cal_probe_model,cal_probe_readonly;
+static unsigned cal_probe_quarantine;
+static uint32_t cal_model_alc,cal_model_ibi;
 static uint32_t mac_model_mac,mac_model_filter,mac_model_txop;
 static unsigned mac_model_calls,mac_model_cancel;
 static void xhci_test_mac_publish(struct xhci_device *d,uint64_t phys) {
@@ -9,12 +12,14 @@ static void xhci_test_mac_publish(struct xhci_device *d,uint64_t phys) {
     if(in){
         switch(a){case 0x1004:v=mac_model_mac;break;case 0x1400:v=mac_model_filter;break;
         case 0x1340:v=mac_model_txop;break;case 0x2000:v=0xf000f200;break;
-        case 0x208:v=0x40000050;break;case 0x13b0:v=0x2f2f;break;
-        case 0x2124:v=UINT32_MAX;break;default:v=0;break;}
+        case 0x208:v=0x40000050;break;case 0x13b0:v=cal_probe_model?cal_model_alc:0x2f2f;break;
+        case 0x2124:v=cal_probe_model?cal_model_ibi:UINT32_MAX;break;default:v=0;break;}
         for(unsigned n=0;n<4;n++)d->descriptor_buffer[n]=(uint8_t)(v>>(8*n));
     }else{
         for(unsigned n=0;n<4;n++)v|=(uint32_t)d->descriptor_buffer[n]<<(8*n);
-        if(a==0x1004){assert(v==0 || v==4 || v==12);mac_model_mac=v;}
+        if(cal_probe_model && a==0x13b0){assert(v==0 || v==0x2f2f1b1b);cal_model_alc=v;}
+        else if(cal_probe_model && a==0x2124){assert(v==0xffffff7e || v==UINT32_MAX);if(!cal_probe_readonly)cal_model_ibi=v;}
+        else if(a==0x1004){assert(v==0 || v==4 || v==12);mac_model_mac=v;}
         else if(a==0x1400){assert(v==0x17f97);mac_model_filter=v;}
         else {assert(a==0x1340 && (v==0x10583f || v==0x583f));mac_model_txop=v;}
     }
@@ -22,6 +27,7 @@ static void xhci_test_mac_publish(struct xhci_device *d,uint64_t phys) {
     xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)(d->ep0_ring_phys+16*status),
         .status=1u<<24,.control=(32u<<10)|(1u<<16)|((uint32_t)d->slot_id<<24)|(xhci.event_cycle?1u:0u)};
     if(++mac_model_calls==mac_model_cancel)d->firmware.mcu.agc_state.complete=false;
+    if(cal_probe_model && mac_model_calls==cal_probe_quarantine)d->ep0_quarantined=true;
 }
 static bool xhci_test_mac_delay(uint64_t us){test_time+=us;return true;}
 static void test_wifi_mac_cycle(void) {

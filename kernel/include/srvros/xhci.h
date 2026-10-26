@@ -126,6 +126,7 @@ bool xhci_wifi_capture_post_vco(void);
 bool xhci_wifi_capture_agc_state(void);
 bool xhci_wifi_capture_rx_lifecycle(void);
 bool xhci_wifi_capture_mac_cycle(void);
+bool xhci_wifi_capture_cal_probe(void);
 /* Diagnostic-only: IRQ-masked I/O owner, no outstanding/failed bulk DMA.
  * Select 0 (poll), 4000 or 20000 us; restore previous after the capture. */
 bool xhci_storage_wait_policy(uint64_t poll_us,uint64_t *previous);

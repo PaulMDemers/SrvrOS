@@ -4205,3 +4205,48 @@ retirement. Next audit IBI9/register semantics and fresh board/power/TSSI
 calibration prerequisites before calibration commands and passive reception.
 No immediate repeat boot is needed;scanning,association/security,IP and UI
 remain pending. Earlier failed or superseded candidates remain separate.
+
+
+### 2026-10-26 — reversible calibration-register probe (v91 candidate)
+
+Actual main `d24dbc11` (PR191 Air6,1 evidence only) is consumed. Linux v7.0
+register definitions resolve IBI9 to2124;Linux and vendor MT7610 calibration
+both save raw IBI9,writeffffff7e,and restore the saved word. Neither routine
+special-cases an all-ones saved value. The vendor comment identifies the word
+as controlling MAC ownership of2704/2708. This source audit does not establish
+register semantics or calibration success on this adapter.
+
+Separate `mt76_calibration_probe_run` preserves the original strict calibration
+implementation byte-for-byte. The new explicit v91/profile69 uses the whole
+v90 MAC/RX owner and an optional inspection hook after its raw snapshot,before
+its hold/teardown. Captured parent TX_ALC0=2f2f1b1b/IBI9=ffffffff is required.
+Fresh MAC12/COREf000f200/WPDMA40000050 guards precede TX_ALC0 capture,zero and
+independent readback. After500us,fresh raw IBI9 is saved at the reference point,
+thenffffff7e is written and read independently. Reverse IBI9/TX_ALC0 saved-word
+writes and raw readbacks are mandatory even after forward cancellation/failure.
+MAC-active guards must match afterward. The parent always attempts MAC drain/
+disable/filter/TXOP restoration and exact host endpoint stop;DMA is retained.
+Quarantined EP0 refuses additional writes and cannot claim cleanup success.
+
+Probe transport success is17 operations:12 reads,4 writes,1 wait. Its
+`ibi_write_matched` and `ibi_changed` flags are derived from actual raw words;
+unchanged/read-only behavior can complete the observation but cannot authorize
+calibration or claim functional restoration of an unreadable register. A failed
+raw saved-word restoration remains incomplete. No MCU calibration command,
+packet inspection,rearm,network data OUT or power selection is introduced.
+Original strict full-calibration admission still refuses IBI9 all-ones and has
+no native caller. Historical v1-v90 recipe bytes remain identical.
+
+Final image/core and focused pure/native ASan/UBSan pass. Host fixtures cover
+all callback failures/cancellations,fresh post-delay IBI saving,read-only versus
+matching write effects,reverse restoration,actual selector69/parent hook,
+69 native cancellation boundaries,mid-write EP0 quarantine and no replay.
+176 staging tests include the actual smoke classification. Strict whole prior/
+MAC/probe/RX validation refuses158 malformed proofs and accepts four raw/write-
+effect variants;180 historical recipe byte comparisons pass. The first host
+compile rejected misleading indentation in the new test;it was fixed without
+relaxing warnings. A malformed-progress-line test tightened the collector's
+exact line check;the original failing receipt is retained. All12 new/current
+native printf formats have matching argument counts. Exact-stage VM/install
+and native results remain pending until recorded below. Guest shows progress,
+saves results and returns automatically;no photos or commands required.

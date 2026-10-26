@@ -37,4 +37,20 @@ struct mt76_calibration {
  * IBI9 all-ones is refused, including this unit's earlier observation. */
 enum mt76_calibration_status mt76_calibration_run(struct mt76_calibration *,
     const struct mt76_calibration_io *, unsigned channel, unsigned bandwidth);
+
+struct mt76_calibration_probe {
+    bool attempted, complete, ibi_write_matched, ibi_changed;
+    uint8_t saved_mask, modified_mask, restore_attempted, raw_restore_mask;
+    unsigned reads, writes, waits;
+    uint32_t saved[2], observed_ibi, restored[2];
+    enum mt76_calibration_status failure;
+};
+/* Separate captured-profile observation. Fresh TX_ALC0 must be 2f2f1b1b.
+ * IBI9 is saved AFTER TX_ALC0 suppression and the reference 500us delay.
+ * Its raw uint32 value may be all-ones. Independent readback records write
+ * effect; no matching readback is required to finish this observation. Exact
+ * raw saved-word restoration IS required. No command callback is called.
+ * This never relaxes mt76_calibration_run or authorizes calibration. */
+enum mt76_calibration_status mt76_calibration_probe_run(
+    struct mt76_calibration_probe *, const struct mt76_calibration_io *);
 #endif

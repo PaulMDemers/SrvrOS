@@ -6601,8 +6601,10 @@ static void test_wifi_mcu_transport(void) {
 
 #include "test_xhci_wifi_rx.inc"
 #include "test_xhci_wifi_mac_cycle.inc"
+#include "test_xhci_wifi_cal_probe.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-cal-probe")){test_wifi_cal_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-mac-cycle")){test_wifi_mac_cycle();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-rx-lifecycle")){test_wifi_rx_lifecycle();return 0;}
     assert(argc == 4);
@@ -6676,6 +6678,7 @@ int main(int argc, char **argv) {
     test_wifi_post_vco();
     test_wifi_post_vco_delays();
     test_wifi_agc_state();
+    test_wifi_cal_probe();
     test_wifi_mac_cycle();
     test_wifi_rx_lifecycle();
     test_wifi_vco_ready_inventory_ownership();

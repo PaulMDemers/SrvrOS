@@ -9,6 +9,7 @@ struct mt76_mac_cycle_io {
     bool (*write)(void *, uint32_t, uint32_t, bool cleanup);
     bool (*delay)(void *, unsigned, bool cleanup);
     uint64_t (*now)(void *);
+    bool (*inspect)(void *, uint32_t tx_alc, uint32_t ibi9);
 };
 struct mt76_mac_cycle {
     bool attempted, complete, failed, mac_touched, filter_touched, txop_touched;

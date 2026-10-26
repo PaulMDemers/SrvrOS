@@ -98,6 +98,7 @@ bool mt76_mac_cycle_run(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io 
         ok=exact(s,io,0x2000,0xf000f200,false) &&
            read_word(s,io,0x13b0,&s->tx_alc,false,false) && read_word(s,io,0x2124,&s->ibi9,false,true);
         s->snapshot_complete=ok;
+        if(ok && io->inspect)ok=io->inspect(io->context,s->tx_alc,s->ibi9);
         if(ok){uint64_t start=io->now(io->context);ok=delay(s,io,10000,false);uint64_t end=io->now(io->context);
             s->hold_us=end>=start?end-start:0;ok=ok && s->hold_us>=10000;}
     }
