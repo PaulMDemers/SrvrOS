@@ -4040,3 +4040,55 @@ Original failed dbb5191dddbe1790 evidence remains separate and unchanged.
 This accepts bounded receive-request ownership and retirement only. Next is
 controlled MAC/RX and fresh board/power/calibration prerequisite work before
 passive packet reception; scanning,association,security and IP/UI remain pending.
+
+
+### 2026-10-26 — transactional calibration preparation (offline)
+
+Main `ee5468f6` (PR186–189 desktop timing/evidence) merged at `ec355bbb`.
+PR190 continues desktop timing attribution and PR182 filesystem imports;
+no overlapping MT76 scope was found. New `mt76_calibration_run` provides the
+fixed channel1/20MHz non-power-on FULL/LC/RXDCOC transaction through semantic
+callbacks. It has no native caller and does not frame firmware commands.
+
+Pinned Linux v7.0 `mt76x0_phy_calibrate` ordering requires TX_ALC0 zero,
+500us minimum wait,IBI9 temporaryffffff7e,FULL600/LC0,15000us minimum wait,
+IBI9/TX_ALC0 restoration,then RXDCOC1. SrvrOS captures both saved words before
+the first temporary write,checks independent temporary readbacks,and restores
+in reverse order on every subsequent failure or forward cancellation. A failed
+write is treated as potentially applied. Cleanup tries both saved-word restores
+even if one fails,requires independent exact readback,and prevents RXDCOC or
+success after failed restoration. A caller must retain/quarantine uncertain
+resources; the helper never frees DMA,retries or repeats a completed attempt.
+
+Every forward callback requires live exclusive ownership authorization. The
+fixed guard profile is MAC TX/RX enabled12,COREf000f200,WPDMA40000050 before
+snapshot,after restoration and after RXDCOC. This profile is a future native
+admission requirement,not evidence that MAC startup has passed. Unknown/all-ones
+saved words are refused,including this unit's earlier IBI9 observation; no
+observation exception is carried into calibration. Power-on R/VCO/TSSI and
+board/transmit-power setup are separate prerequisites,not implemented here.
+
+Host coverage checks exact command/wait/restore order,all22 callback failures,
+all21 authorization cancellations,each invalid guard/readback,all-ones reads,
+restoration mismatch,missing callbacks,channel/width refusal and reentrant/
+repeated entry. This is synthetic transaction/restoration evidence only.
+Installed corrected v89 and known-good recovery remain unchanged; no reboot
+is armed. Native controlled MAC/RX and fresh board/power/IBI9 evidence must
+precede firmware calibration,then passive packet reception and network work.
+
+The next native startup/teardown design must also own device-side queue drains
+and bounded MAC_STATUS TX/RX waits from pinned `mt76x0_mac_stop`; host Stop
+Endpoint/context proof alone does not establish that the radio MAC is idle.
+TXOP ED-CCA changes need their own saved-state/restore policy. These transitions
+remain unimplemented/unaccepted in this offline block.
+
+Source `fbd2573f` passes the full matched image/core suite and focused
+ASan/UBSan checks. Normal-image VM regression passes syscall ABI,all482 CLI
+commands,shell editing,UEFI USB input and displayd. The merged desktop timing
+regressions also pass. Native startup/MCU/RX/staging/smoke source bytes remain
+identical to accepted corrected v89 source35041be; the new unreferenced helper
+is removed from the linked kernel by section garbage collection. No native
+callsite or firmware command wiring exists. Installed v89,e47 recovery and
+retained v88 payload hashes,Ubuntu default,consumed one-shot and unmounted
+workspace verified. Source,reference audits,logs and artifact hashes are archived
+outside build; no physical calibration acceptance or new reboot is claimed.
