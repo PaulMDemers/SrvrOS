@@ -54,7 +54,7 @@ facility is supported.
 ## Deliberate exclusions
 
 The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)
-found five defects now corrected on the PR175 branch. Caller-supplied pthread
+found six defects now corrected on the PR175 branch. Caller-supplied pthread
 stacks retain their declared region, require a 16-byte-aligned base and at least
 `PTHREAD_STACK_MIN` bytes, and are checked for address overflow before any write.
 Only library-owned allocations are rounded upward, with checked size arithmetic.
@@ -72,10 +72,20 @@ retain ownership for retry. Detached cleanup remains lazy, triggered by later
 create/join/detach calls; there is no background collector. Mixing raw kernel
 thread joins/detaches with libc-owned pthreads is outside this lifecycle contract.
 
-The nonportable name APIs remain stubs: `pthread_setname_np` returns success
-without retaining the name, while `pthread_getname_np` reports `srvros-thread`
-(and silently truncates short buffers). Do not treat these as working diagnostic
-labels; the separate host audit records the failed set/get round trip.
+The nonportable name APIs retain process-local libc names for the initial thread
+and libc-created workers, with independent default `srvros-thread` values. Names
+may be empty or contain at most 15 bytes plus NUL. Oversized input and a getter
+buffer smaller than the stored name plus NUL return `ERANGE`, leaving the name
+or output unchanged; null pointers return `EINVAL`. Unknown/reaped workers
+return `ESRCH`; exited but unreaped records remain nameable. Error codes are
+returned directly without changing `errno`. Protected copies prevent torn reads
+under concurrent renaming. These calls do not rename kernel scheduler tasks or
+add names to desktop/process diagnostics; raw syscall workers are unsupported.
+
+Continued guest audit confirms that `pthread_exit` from the initial thread
+terminates the process and its live workers. Initial-thread exit while workers
+continue is outside the current supported profile; join workers before exiting
+the initial thread. Worker-side `pthread_exit` remains covered by lifecycle tests.
 
 Condition variables retain `CLOCK_REALTIME` (including static/default init) or
 `CLOCK_MONOTONIC`. Timed waits recheck their absolute deadline after early tick

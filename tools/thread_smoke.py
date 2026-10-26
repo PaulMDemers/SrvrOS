@@ -168,6 +168,7 @@ def main():
             "threadstress: sync-contracts ok",
             "threadstress: stack-inspection ok",
             "threadstress: self-detach ok",
+            "threadstress: thread-names ok",
             "threadstress: targeted-signal ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",

@@ -13,6 +13,7 @@
 #define SRVROS_DYNAMIC_STACK_TOP 0x0ffff000ull
 #define PTHREAD_MAX_RECORDS 16
 #define PTHREAD_TICKS_PER_SECOND 100
+#define PTHREAD_NAME_CAPACITY 16
 
 /* Supplied storage must never be rounded up or replaced by the default size.
  * The x86_64 entry stack is aligned down inside this checked region. */
@@ -46,6 +47,7 @@ struct pthread_record {
     int claimed;
     pthread_t tid;
     struct pthread_start_record *start;
+    char name[PTHREAD_NAME_CAPACITY];
 };
 
 struct pthread_key_value { void *value;uint64_t generation; };
@@ -55,6 +57,7 @@ static _Thread_local struct pthread_key_value key_values[PTHREAD_KEYS_MAX];
 /* Owned by this live worker until kernel exit/join permits record cleanup. */
 static _Thread_local struct pthread_start_record *self_start;
 /* Protects table publication and cleanup claims, never held across OS calls. */
+static char main_thread_name[PTHREAD_NAME_CAPACITY] = "srvros-thread";
 static unsigned record_lock;
 static void lock_records(void) {
     while (__atomic_exchange_n(&record_lock, 1, __ATOMIC_ACQUIRE)) srv_yield();
@@ -124,7 +127,7 @@ static struct pthread_record *pthread_record_alloc(struct pthread_start_record *
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
         if (!pthread_records[i].used) {
             struct pthread_record *record = &pthread_records[i];
-            *record = (struct pthread_record){ .used = 1, .creating = 1, .start = start };
+            *record = (struct pthread_record){ .used = 1, .creating = 1, .start = start, .name = "srvros-thread" };
             unlock_records();
             return record;
         }
@@ -383,30 +386,50 @@ int pthread_kill(pthread_t thread, int sig) {
     return result<0?(int)-result:0;
 }
 
+/* Caller holds record_lock. Tid 1 is the kernel's initial process thread;
+ * raw syscall-created workers have no libc record and are not supported here. */
+static char *pthread_name_find(pthread_t thread) {
+    if (thread == (pthread_t)(uintptr_t)1) return main_thread_name;
+    struct pthread_record *record = pthread_record_find(thread);
+    return record != NULL ? record->name : NULL;
+}
+
 int pthread_setname_np(pthread_t thread, const char *name) {
-    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
+    if (name == NULL) return EINVAL;
+    char copy[PTHREAD_NAME_CAPACITY];
+    size_t size = 0;
+    do {
+        if (size == sizeof(copy)) return ERANGE;
+        copy[size] = name[size];
+    } while (copy[size++] != '\0');
+
+    lock_records();
+    char *stored = pthread_name_find(thread);
+    if (stored == NULL) {
+        unlock_records();
         return ESRCH;
     }
-    if (name == 0) {
-        return EINVAL;
-    }
+    for (size_t i = 0; i < size; i++) stored[i] = copy[i];
+    unlock_records();
     return 0;
 }
 
 int pthread_getname_np(pthread_t thread, char *name, size_t length) {
-    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
+    if (name == NULL) return EINVAL;
+    lock_records();
+    const char *stored = pthread_name_find(thread);
+    if (stored == NULL) {
+        unlock_records();
         return ESRCH;
     }
-    if (name == 0 || length == 0) {
-        return EINVAL;
+    size_t needed = 1;
+    while (stored[needed - 1] != '\0') needed++;
+    if (length < needed) {
+        unlock_records();
+        return ERANGE;
     }
-    const char *text = "srvros-thread";
-    size_t i = 0;
-    while (text[i] != '\0' && i + 1 < length) {
-        name[i] = text[i];
-        i++;
-    }
-    name[i] = '\0';
+    for (size_t i = 0; i < needed; i++) name[i] = stored[i];
+    unlock_records();
     return 0;
 }
 

@@ -18,8 +18,10 @@ For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
 The [October 25 synchronization follow-up](synchronization-audit-2026-10-25.md)
 records supplied-stack corruption, ignored condition clocks and semaphore count
-overflow, followed by PR175's fixes and focused host/guest regressions. Its
-historical failure receipts remain separate from the corrected runtime contract.
+overflow, followed by PR175's fixes and focused host/guest regressions. Later
+passes correct self-stack inspection, early detach and thread-name storage;
+initial-thread exit killing live workers remains open. Historical failure
+receipts remain separate from the corrected runtime contract.
 
 ## Implementation progress after the audit
 

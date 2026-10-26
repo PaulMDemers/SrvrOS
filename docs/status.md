@@ -73,7 +73,11 @@ Quit and existing-process Text/Preview document routing. Air7,2 release
 corrections with saved documents, clean retirement and prior-file preservation.
 Its playback ended canceled with zero recorded underruns; full 120-second
 playback/save overlap is VM evidence. Broader services and measured latency/energy
-improvements remain further work. See the [lifecycle contract](desktop-application-lifecycle.md).
+improvements remain further work. The subsequent Air7,2 shared-runtime release
+`986d6c68fa19ba18` accepts reported multi-window Text/Preview/System use, Text
+save, Preview load, clean retirement and file preservation. It does not accept
+native PCM overlap, latency/energy measurements or every menu/quit edge. See the
+[lifecycle contract](desktop-application-lifecycle.md) and machine record.
 
 Air6,1 release `95f8a9cf59b25ba1` still failed the ten-second app lifecycle bound
 after 34 completed cycles under disk/audio load, despite the merged I/O handoff.
@@ -108,8 +112,9 @@ and worker self-stack inspection/early self-detach.
 Focused host and guest regressions cover those contracts; matched consumers must
 be rebuilt for the changed condition-variable layout. Record publication and
 exclusive cleanup ownership now cover early detach and concurrent reapers.
-Detached cleanup remains lazy; thread-name setters/getters are placeholder
-implementations, and broader semaphore semantics remain incomplete.
+Detached cleanup remains lazy; bounded libc thread names now retain independent
+values with range and lifecycle checks. Initial-thread `pthread_exit` still kills
+live workers, and broader semaphore semantics remain incomplete.
 
 ## Measured checkpoints and current acceptance
 

@@ -180,3 +180,38 @@ corrected the fork limit to include exited-but-unreaped workers. The next
 bounded work can address naming storage/error semantics; abnormal once-initializer
 exit remains an unconfirmed audit area. Detached cleanup is still lazy and raw
 kernel lifecycle operations must not be mixed with libc-owned workers.
+
+## Thread-name correction — active scope
+
+The user authorized name storage/error semantics, regression tests, docs/PR
+updates and continued audit. Base is `b095d9b4`, consuming main `fa5a6cc1`'s
+Air7,2 shared-runtime acceptance documentation; runtime remains `aa931093`.
+PR19 retains Wi-Fi scope. This block owns libc pthread names, focused host/guest
+regressions and current docs. Use protected record storage plus an initial-thread
+name, bounded 15-byte payloads, explicit range errors and lifecycle-aware lookup.
+This does not add kernel scheduler/UI naming. Next checkpoint is deterministic
+pre-parent worker naming, concurrent guest round trips, matched build and the
+thread/libuv suites. No physical boot is armed.
+
+The thread-name fix is complete: independent protected initial-thread/worker
+storage, 15-byte maximum plus NUL, explicit range errors without partial writes,
+errno preservation and cleanup-aware lookup. Default names reset with each record;
+exited-but-unreaped workers retain their names. Kernel task labels are unchanged.
+
+Matched build, default host regressions, ASan/UBSan and targeted name VM tests
+pass. Three isolated negative controls each fail with exit 1. Host tests force
+naming before parent completion and across 40 worker lifetimes; the guest covers
+24 alternating joinable/detached lifetimes and 600 concurrent naming operations.
+The final complete thread and libuv suites pass sequentially. Documentation
+checks 641 local links with zero errors; whitespace checks pass. Exact manifests,
+source/log hashes and receipts are under `build/review/thread-names/`. No full
+Linux/core or physical acceptance is claimed; disposable VMs have stopped.
+
+Continued audit confirms initial-thread `pthread_exit` kills a live worker:
+`main-exit-audit` logs the initial exit, then process status 0 without the worker
+survival/completion markers; harness exit 3. This separate failed audit is
+excluded from `all`. The next correction needs kernel initial-thread/process
+lifetime and last-thread retirement ownership. Once-initializer abnormal exit
+remains unconfirmed. Current guides also consume Air7,2's new shared-runtime
+acceptance without extending its scope to native playback or all UI edge cases.
+No VM or physical boot is left running/armed.

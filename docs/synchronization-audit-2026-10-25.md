@@ -8,8 +8,9 @@ deadlines, and semaphore increments enforce `SEM_VALUE_MAX=INT_MAX` atomically.
 The fourth finding, worker self-stack inspection, is also corrected with
 pre-callback metadata and positive host/guest tests. The fifth finding, early
 self-detach, is now corrected with creator reservations and serialized lifecycle
-claims. Thread-name round trips remain a separately reproduced stub limitation;
-see the continued audit below.
+claims. The sixth finding, thread-name round trips, is corrected with bounded
+record storage and range/lifetime checks. Initial-thread `pthread_exit` killing
+live workers is the next guest-confirmed lifecycle defect; see below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -355,7 +356,9 @@ Logs, negative controls, hashes and build manifest are retained under
 create/join/detach call; mixing raw kernel lifecycle operations with libc-owned
 pthread records is unsupported. There is no new background collector.
 
-## Continued audit — P3: thread-name success discards the requested name
+## Historical sixth finding — P3: thread-name success discards the requested name
+
+The following receipt is from `b095d9b4`, before the correction below.
 
 `pthread_setname_np` validates the target and pointer, then returns zero without
 storing anything. `pthread_getname_np` always copies `srvros-thread` and returns
@@ -379,3 +382,80 @@ previously said only live workers. That wording is corrected. No new fork
 runtime behavior is claimed. Once-initializer abnormal exit and broader raw
 kernel lifecycle interactions remain future audit areas, not confirmed failures
 from this pass.
+
+
+## Thread-name correction
+
+This pass consumes main `fa5a6cc1` (Air7,2 acceptance documentation; runtime is
+unchanged from `aa931093`). Each reserved pthread record has its own name and
+the initial thread (kernel tid 1) has separate process-local storage. The record
+lock protects lookup and complete copies, including against reaping. A worker
+can name itself before the parent returns; parent completion does not replace
+it. New records start as `srvros-thread`, independently of the parent's name.
+Exited records retain names until join/reaping; cleaned-up handles return `ESRCH`.
+Raw syscall-created workers have no libc naming record.
+
+The chosen payload limit is 15 bytes plus NUL, matching the bound described by
+the [Linux man-pages reference](https://www.man7.org/linux/man-pages/man3/pthread_setname_np.3.html).
+Empty names are allowed. Setters scan at most 16 input bytes and reject a missing
+terminator within that bound with `ERANGE`; failed setters preserve the old name.
+Getters require enough space for the actual name and NUL; shorter buffers,
+including zero length, receive `ERANGE` without any output write. Null pointers
+receive `EINVAL`; errors are returned directly and preserve `errno`. This defines
+SrvrOS's libc contract, not all GNU/Linux process-name or procfs behavior. No
+kernel scheduler label, diagnostic UI or public struct layout is changed.
+
+The positive host suite replaces the old expected-failure name option. It covers
+initial/default/empty/maximum names, oversized and 16-byte nonterminated input,
+exact-fit buffers, unchanged short-buffer output, invalid targets/pointers,
+errno preservation and naming across 40 lifecycle/reuse cases. The native shim
+forces self-naming before parent completion, worker access to the initial-thread
+name, naming after child exit, preservation when the parent resumes and refusal
+after cleanup. ASan/UBSan passes without diagnostics. Three isolated negative
+controls (discard accepted names, truncate short output, or share worker/main
+storage) each fail the positive suite with exit 1.
+
+Guest `threadstress thread-names` is now part of `all`. It checks range errors,
+unchanged output, independent defaults across 24 alternating joinable/detached
+lifetimes, parent/worker renaming, exited and stale handles, then two writers and
+one reader performing 200 operations each on one target. Readers accept only
+complete old/new names. The targeted guest test passes. Logs, negative controls,
+source hashes and matched build manifest are retained in
+`build/review/thread-names/`; no physical hardware trial is claimed.
+
+## Continued audit — P2: initial-thread exit kills live workers
+
+`pthread_exit` calls `srv_thread_exit`. In `process_thread_exit`, an initial
+thread has no `process_user_thread` record, so the kernel calls `process_exit`.
+That path kills the process's user workers and releases the process. This loses
+outstanding work when an application exits its initial thread expecting its
+workers to keep running. The [POSIX.1-2024 termination definitions](https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap03.html)
+distinguish thread termination from process termination after the last thread
+exits.
+
+```sh
+python3 tools/thread_smoke.py --test main-exit-audit --boot-wait 60 --run-wait 15
+# Expected harness exit 3: missing worker-survival/completion markers.
+```
+
+The audit starts a worker, waits for its ready flag, then calls `pthread_exit`
+from the initial thread while the worker delays for one second. The worker would
+print survival/completion markers after waking. Observed: `initial thread exiting
+with live worker`, followed by `run: pid=4 exited status=0`; no worker-survival or
+success marker. The harness fails with exit 3. A zero process status does not
+turn this missing completion into a pass. This explicit mode is excluded from
+the positive `all` suite and retained as a failed guest receipt.
+
+A correction needs initial-thread lifetime, process resource ownership and
+last-thread retirement in the kernel; a libc-only successful return would not
+preserve the workers. The current profile excludes initial-thread exit with
+continuing workers. Worker-side exits retain their passing regression coverage.
+Once-initializer abnormal-exit recovery remains a separate unconfirmed audit
+area; this observation does not establish that behavior.
+
+Final validation for the naming correction: matched `all`, positive host suite,
+ASan/UBSan, targeted name guest test, complete thread suite and complete libuv
+suite pass. The name negative controls and separate main-exit audit fail as
+intended. Documentation validates 641 local links with zero errors, and whitespace
+checks pass. The failed audit does not count as a passing conformance test.
+No Linux/core or physical hardware run is claimed.

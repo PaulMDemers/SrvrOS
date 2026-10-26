@@ -24,9 +24,13 @@ three concurrent creators and alternating supplied/owned stacks. The default
 host suite covers early self-detach, parent resume, single-owner reaping, failure
 retry and 40 lifetimes. The old `--audit-self-detach` failure is historical at
 `d9b1e710`; its replacement is a passing default regression.
-A separate `python3 tools/test_sync_contracts.py --audit-thread-names` currently
-exits 1 because setting a name succeeds but the getter returns a fixed placeholder.
-Use `--output` to retain that known-failure audit separately from positive tests.
+The default host suite now covers name round trips, length/error boundaries,
+pre-parent publication, initial-thread access and cleanup/reuse. The former
+`--audit-thread-names` failure is historical at `b095d9b4`. Guest `--test
+thread-names` is included in `all` and covers 24 joinable/detached lifetimes and
+concurrent complete-string reads/writes. A separate `--test main-exit-audit`
+currently fails (harness exit 3): initial-thread `pthread_exit` terminates the
+process before its live worker can complete. It is excluded from `all`.
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

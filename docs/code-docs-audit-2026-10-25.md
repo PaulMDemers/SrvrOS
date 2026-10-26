@@ -132,3 +132,13 @@ so the supported profile now states that limit. A separate host reproduction
 shows thread-name setters silently discard their input; these nonportable APIs
 are now explicitly documented as stubs. Neither documentation change claims
 new kernel fork behavior or working thread-name storage.
+
+The thread-name correction replaces those stubs with protected, bounded libc
+storage for the initial thread and worker records. Default host and guest suites
+now cover round trips, range/refusal behavior, naming across publication/exit,
+record reuse and concurrent readers/writers. Main `fa5a6cc1` supplies Air7,2's
+shared-runtime hardware acceptance documentation; current status preserves its
+reported scope. Continued guest audit confirms that initial-thread `pthread_exit`
+terminates live workers. The explicit failing mode is excluded from `all` and
+that contract is now excluded from the supported profile pending a kernel/process
+lifetime correction. See the synchronization report for exact receipts.

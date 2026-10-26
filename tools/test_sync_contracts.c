@@ -46,7 +46,12 @@ long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t fl
     if (lifecycle) {
         model_tid++; model_exited = model_joined = 0;
         int before = unmappings, joined = joins;
+        CHECK(pthread_setname_np((pthread_t)1, "parent") == 0);
         CHECK(sync_host_run_worker(entry, arg) == 0);
+        char name[16];
+        CHECK(pthread_getname_np((pthread_t)model_tid, name, sizeof(name)) == 0 && !strcmp(name, "early-worker"));
+        CHECK(pthread_getname_np((pthread_t)1, name, sizeof(name)) == 0 && !strcmp(name, "from-worker"));
+        CHECK(pthread_setname_np((pthread_t)model_tid, "after-exit") == 0);
         CHECK(model_exited);
         pthread_attr_t attr;
         CHECK(pthread_getattr_np((pthread_t)model_tid, &attr) == 0);
@@ -227,6 +232,11 @@ static void *inspect_worker(void *arg) {
     CHECK(attr.stackaddr == expected_stack && attr.stacksize == expected_size);
     CHECK(attr.detachstate == expected_detach);
     if (lifecycle) {
+        char name[16];
+        CHECK(pthread_getname_np(pthread_self(), name, sizeof(name)) == 0 && !strcmp(name, "srvros-thread"));
+        CHECK(pthread_setname_np(pthread_self(), "early-worker") == 0);
+        CHECK(pthread_getname_np((pthread_t)1, name, sizeof(name)) == 0 && !strcmp(name, "parent"));
+        CHECK(pthread_setname_np((pthread_t)1, "from-worker") == 0);
         CHECK(pthread_join(pthread_self(), NULL) == EDEADLK);
         if (model_detach) {
             CHECK(pthread_detach(pthread_self()) == 0);
@@ -252,6 +262,8 @@ static void lifecycle_tests(void) {
         expected_detach = PTHREAD_CREATE_JOINABLE;
         int before = unmappings, joined = joins;
         CHECK(pthread_create(&thread, &attr, inspect_worker, NULL) == 0);
+        char name[16];
+        CHECK(pthread_getname_np(thread, name, sizeof(name)) == 0 && !strcmp(name, "after-exit"));
         CHECK(pthread_getattr_np(thread, &attr) == 0 && attr.detachstate == PTHREAD_CREATE_DETACHED);
         /* Neither transient status errors nor interrupted reaps discard ownership. */
         status_error = 1;
@@ -264,6 +276,8 @@ static void lifecycle_tests(void) {
         CHECK(pthread_join(thread, NULL) == EINVAL); /* Reaps; cannot join detached. */
         CHECK(joins == joined + 1 && unmappings == before + !supplied);
         CHECK(pthread_getattr_np(thread, &attr) == ESRCH);
+        CHECK(pthread_getname_np(thread, name, sizeof(name)) == ESRCH);
+        CHECK(pthread_setname_np(thread, "stale") == ESRCH);
         CHECK(pthread_detach((pthread_t)999) == EINVAL);
         CHECK(joins == joined + 1 && unmappings == before + !supplied);
         if (supplied) free(expected_stack);
@@ -284,15 +298,34 @@ static void lifecycle_tests(void) {
     CHECK(pthread_getattr_np(thread, &attr) == ESRCH);
     puts("sync-contracts: early self-detach, parent resume, reap ownership, 40 lifetimes and join retry PASS");
 }
+static void name_tests(void) {
+    char name[32]; pthread_t self = pthread_self();
+    errno = EDOM;
+    CHECK(pthread_getname_np(self, name, sizeof(name)) == 0 && !strcmp(name, "srvros-thread"));
+    CHECK(pthread_setname_np(self, "audit-worker") == 0);
+    CHECK(pthread_getname_np(self, name, sizeof(name)) == 0 && !strcmp(name, "audit-worker"));
+    CHECK(pthread_setname_np(self, "123456789abcdef") == 0);
+    memset(name, 'x', sizeof(name));
+    CHECK(pthread_getname_np(self, name, 16) == 0 && !strcmp(name, "123456789abcdef") && name[16] == 'x');
+    CHECK(pthread_setname_np(self, "123456789abcdefg") == ERANGE);
+    char unterminated[16]; memset(unterminated, 'x', sizeof(unterminated));
+    CHECK(pthread_setname_np(self, unterminated) == ERANGE);
+    CHECK(pthread_getname_np(self, name, sizeof(name)) == 0 && !strcmp(name, "123456789abcdef"));
+    memset(name, 'x', sizeof(name));
+    CHECK(pthread_getname_np(self, name, 15) == ERANGE);
+    CHECK(pthread_getname_np(self, name, 0) == ERANGE);
+    for (unsigned i = 0; i < sizeof(name); i++) CHECK(name[i] == 'x');
+    CHECK(pthread_setname_np(self, "") == 0);
+    CHECK(pthread_getname_np(self, name, 1) == 0 && name[0] == 0 && name[1] == 'x');
+    CHECK(pthread_setname_np(self, NULL) == EINVAL);
+    CHECK(pthread_getname_np(self, NULL, sizeof(name)) == EINVAL);
+    CHECK(pthread_setname_np((pthread_t)0, "missing") == ESRCH);
+    CHECK(pthread_getname_np((pthread_t)999, name, sizeof(name)) == ESRCH);
+    CHECK(errno == EDOM);
+    puts("sync-contracts: thread names, exact limits, unchanged errors and errno PASS");
+}
 int main(int argc, char **argv) {
-    if (argc > 1 && !strcmp(argv[1], "thread-names")) {
-        char name[32];
-        int set = pthread_setname_np(pthread_self(), "audit-worker");
-        int get = pthread_getname_np(pthread_self(), name, sizeof(name));
-        printf("thread-name-audit: set=%d get=%d requested=audit-worker reported=%s\n", set, get, get ? "<error>" : name);
-        CHECK(set == 0 && get == 0 && !strcmp(name, "audit-worker"));
-        return 0;
-    }
+    if (argc > 1 && !strcmp(argv[1], "thread-names")) { name_tests(); return 0; }
     if (argc == 1) {
         stack_tests(); condition_tests(); semaphore_tests();
         pthread_attr_t attr;

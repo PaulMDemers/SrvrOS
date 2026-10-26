@@ -20,8 +20,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/review/sync-regression')
-    parser.add_argument('--audit-thread-names', action='store_true',
-                        help='run the separate known-failing thread-name round-trip audit')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -53,7 +51,7 @@ def main():
     command += [str(path) for path in sources] + [str(shim_object), '-pthread', '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
     results = []
-    modes = ('thread-names',) if args.audit_thread_names else (None, 'supplied', 'owned', 'detached', 'lifecycle')
+    modes = (None, 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names')
     for mode in modes:
         result = subprocess.run([str(executable)] + ([mode] if mode else []),
                                 capture_output=True, text=True, timeout=15)
