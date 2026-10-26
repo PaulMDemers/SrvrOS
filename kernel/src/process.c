@@ -292,6 +292,7 @@ struct process_futex {
     uint64_t address;
     struct scheduler_wait_queue wait_queue;
     uint64_t active_waits; /* Includes runnable and not-yet-enqueued wait calls. */
+    bool invalidated; /* A removed/revoked mapping must not bind a replacement. */
 };
 
 struct process_exit_record {
@@ -350,6 +351,7 @@ static void background_process_thread(void *arg);
 static void process_user_thread_start(void *arg);
 static void process_futex_wake_process(struct process *process);
 static void process_futex_cleanup_process(struct process *process);
+static void process_futex_invalidate_page(struct process *process, uint64_t page);
 static bool mmap_range_free(struct process *process, uint64_t base, uint64_t length);
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
@@ -1270,6 +1272,8 @@ static int64_t process_mapping_index(struct process *process, uint64_t virtual_p
 }
 
 static void process_unmap_mapping_at(struct process *process, uint64_t index) {
+    uint64_t irq = process_irq_save();
+    process_futex_invalidate_page(process, process->mappings[index].virtual_address);
     uint64_t physical = 0;
     if (vmm_unmap_page_in_space(process->address_space,
             process->mappings[index].virtual_address, &physical)) {
@@ -1278,6 +1282,7 @@ static void process_unmap_mapping_at(struct process *process, uint64_t index) {
         pmm_free_frame(process->mappings[index].physical_address);
     }
     process->mappings[index] = process->mappings[--process->mapping_count];
+    process_irq_restore(irq);
 }
 
 static bool process_unmap_tracked_page(struct process *process, uint64_t virtual_page) {
@@ -3315,7 +3320,7 @@ static struct process_futex *process_futex_find(struct process *process, uint64_
     struct process_futex *free_entry = NULL;
     for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
         struct process_futex *entry = &futexes[i];
-        if (entry->used && entry->process == process && entry->address == address) {
+        if (entry->used && !entry->invalidated && entry->process == process && entry->address == address) {
             return entry;
         }
         if ((!entry->used || (entry->active_waits == 0 && entry->wait_queue.waiters == 0)) && free_entry == NULL) {
@@ -3335,16 +3340,39 @@ static struct process_futex *process_futex_find(struct process *process, uint64_
     return free_entry;
 }
 
+/* Called with mapping mutation serialized against futex reads on CPU0. */
+static void process_futex_invalidate_page(struct process *process, uint64_t page) {
+    for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
+        struct process_futex *entry = &futexes[i];
+        if (entry->used && entry->process == process &&
+            (entry->address & ~(uint64_t)(PAGE_SIZE - 1)) == page) {
+            entry->invalidated = true;
+            scheduler_wake_all(&entry->wait_queue);
+        }
+    }
+}
+
 struct process_futex_wait {
     uint32_t *address;
     uint32_t expected;
+    struct process_futex *futex;
 };
+
+static bool process_futex_read(struct process_futex_wait *wait, uint32_t *value) {
+    uint64_t flags = process_irq_save();
+    bool valid = (!wait->futex || !wait->futex->invalidated) &&
+        vmm_user_range_mapped((uint64_t)(uintptr_t)wait->address, sizeof(*wait->address), false);
+    /* Validation and load must be indivisible with respect to mapping changes. */
+    if (valid) *value = __atomic_load_n(wait->address, __ATOMIC_ACQUIRE);
+    process_irq_restore(flags);
+    return valid;
+}
 
 static bool process_futex_wait_ready(void *arg) {
     struct process_futex_wait *wait = arg;
-    return process_should_exit_current() ||
-        process_signal_pending_current() ||
-        __atomic_load_n(wait->address, __ATOMIC_ACQUIRE) != wait->expected;
+    uint32_t value;
+    return process_should_exit_current() || process_signal_pending_current() ||
+        !process_futex_read(wait, &value) || value != wait->expected;
 }
 
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
@@ -3352,36 +3380,37 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
     if (process == NULL || address == NULL || (((uint64_t)(uintptr_t)address) & 3u) != 0) {
         return -1;
     }
-    if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
-        return -11;
-    }
-
+    struct process_futex_wait wait = { .address = address, .expected = expected };
     uint64_t flags = process_irq_save();
-    struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, true);
-    /* Queue waiter count drops at wake, before this syscall resumes. Pin the
-     * address binding until return, including pre-enqueue and re-wait gaps. */
-    if (futex != NULL) futex->active_waits++;
-    process_irq_restore(flags);
-    if (futex == NULL) {
-        return -11;
+    uint32_t value;
+    if (!process_futex_read(&wait, &value)) {
+        process_irq_restore(flags); return SRV_ERR_FAULT;
     }
-
+    if (value != expected) {
+        process_irq_restore(flags); return SRV_ERR_AGAIN;
+    }
     uint64_t start_ticks = timer_ticks();
-    uint64_t deadline_ticks = timeout_ticks == 0 ? 0 : start_ticks + timeout_ticks;
-    if (deadline_ticks == 0 && timeout_ticks != 0) {
-        deadline_ticks = UINT64_MAX;
+    if (timeout_ticks > UINT64_MAX - start_ticks) {
+        process_irq_restore(flags); return SRV_ERR_INVAL;
     }
-    struct process_futex_wait wait = {
-        .address = address,
-        .expected = expected,
-    };
+    uint64_t deadline_ticks = timeout_ticks ? start_ticks + timeout_ticks : 0;
+    struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, true);
+    /* Reserve the validated binding before restoring interrupts. */
+    if (futex != NULL) futex->active_waits++;
+    wait.futex = futex;
+    process_irq_restore(flags);
+    if (futex == NULL) return SRV_ERR_AGAIN;
+
     int64_t result;
     __asm__ volatile ("sti" : : : "memory");
     for (;;) {
         if (process_should_exit_current()) {
             result = -1; break;
         }
-        if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
+        if (!process_futex_read(&wait, &value)) {
+            result = SRV_ERR_FAULT; break;
+        }
+        if (value != expected) {
             result = 0; break;
         }
         if (process_signal_pending_current()) {
@@ -6213,10 +6242,13 @@ static bool mmap_apply_protection(struct process *process,
     if (index < 0) {
         return false;
     }
+    uint64_t irq = process_irq_save();
     if (!vmm_protect_page_in_space(process->address_space, page, page_flags)) {
-        return false;
+        process_irq_restore(irq); return false;
     }
+    if (!(page_flags & VMM_PAGE_USER)) process_futex_invalidate_page(process, page);
     process->mappings[index].flags = page_flags;
+    process_irq_restore(irq);
     return true;
 }
 

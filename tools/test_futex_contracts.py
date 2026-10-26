@@ -31,7 +31,11 @@ def main():
     instruction = '__asm__ volatile ("sti" : : : "memory");'
     assert body.count(instruction) == 1
     body = body.replace(instruction, 'host_enable_interrupts();')
-    (out / 'futex-under-test.h').write_text(declaration + '\nstatic struct process_futex futexes[PROCESS_MAX_FUTEXES];\n' + body)
+    helpers = ''
+    for begin, end in [('static void process_unmap_mapping_at(', 'static bool process_unmap_tracked_page('),
+                       ('static bool mmap_apply_protection(', 'static int64_t process_mmap_impl(')]:
+        helpers += text[text.index(begin):text.index(end)]
+    (out / 'futex-under-test.h').write_text(declaration + '\nstatic struct process_futex futexes[PROCESS_MAX_FUTEXES];\n' + body + helpers)
     fixture = ROOT / 'tools/test_futex_contracts.c'
     executable = out / 'futex-contracts'
     command = shlex.split(os.environ.get('CC', 'cc')) + [

@@ -24,7 +24,9 @@ with pre-handler capture and quotient/remainder conversion. The failed sleep
 audit below is historical at `bd300e28`; current positive coverage is described
 in the correction record. The fourteenth finding, premature futex entry reuse
 while a wait syscall still owns its queue, is corrected with active-wait
-reservations and deferred process-exit cleanup.
+reservations and deferred process-exit cleanup. Findings fifteen and sixteen,
+futex deadline overflow and unsafe mapping lifetime, are corrected by checked
+deadlines and mapping-aware wait cancellation.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -1073,3 +1075,81 @@ a retry is not evidence that it is fixed. Earlier test-development build and
 signal-poll expectation errors are retained locally with the final passing runs.
 No full Linux/core, general SMP or physical-hardware acceptance is claimed.
 All disposable VMs stopped; no physical boot is armed.
+
+
+## Futex timeout and mapped-address lifetime corrections
+
+Base `cca88cc0`, integrated main `fa5a6cc1`. Two focused pre-fix host probes fail:
+a valid word with `timeout_ticks=UINT64_MAX` at tick 100 is accepted instead of
+rejecting overflow; a mapping removed during suspension produces a timeout
+instead of a fault. Their failure logs are retained in `build/review/futex-lifetime/`.
+
+**Deadline overflow, corrected:** `start + timeout` could wrap into the past
+(the old special case handled only a sum of zero). The scheduler compares an
+absolute deadline while the wait loop compares unsigned elapsed time, allowing
+repeated premature wakeups for a huge raw timeout. The kernel now rejects a
+nonzero timeout above `UINT64_MAX - start` with `SRV_ERR_INVAL` before reserving
+an entry. Zero still means infinite wait; the last representable absolute
+deadline is accepted. Expected-value mismatch still returns `SRV_ERR_AGAIN`.
+The near-counter-limit cases are host-modeled; a guest exercises overflow
+refusal with an ordinary uptime and `UINT64_MAX` request.
+
+**Mapping lifetime, corrected:** syscall entry validated the word once, but the
+wait loop and enqueue callback later dereferenced it without revalidation. A
+sibling could unmap it during suspension, leaving a kernel-mode dereference of
+absent storage, or revoke access while the kernel continued reading it.
+Each word read now validates the current user mapping and performs the atomic
+load under the same CPU0 IRQ exclusion. Initial validation and entry reservation
+also share that exclusion. Page removal invalidates matching process/address
+entries and wakes their waiters before releasing the physical frame. Successful
+protection changes that remove user access invalidate/wake before IRQs resume.
+Read-access-preserving changes and failed protection operations retain waits.
+
+An invalidated entry remains reserved by its existing calls until they return
+`SRV_ERR_FAULT`; it cannot bind a newly restored/replaced mapping. A fresh wait
+on the same address uses a different entry while an old call is still active.
+The reservation count and process-exit cleanup from the preceding fix remain.
+No public layout/syscall-number change. Already-invalid syscall inputs retain
+the entry wrapper's existing rejection; faults detected inside a live wait use
+`SRV_ERR_FAULT`. This protects the kernel; it does not make destroying storage
+used by a pthread synchronization object valid application behavior. IRQ
+serialization remains CPU0-scoped, not general SMP acceptance.
+
+The host runner now extracts the actual page-removal/protection helpers as well
+as futex code. It models page-table and frame services, checking IRQ exclusion,
+removal before enqueue and during suspension, immediate replacement, protection
+revocation, preserved readable mappings and protection failure. Deadline tests
+cover zero, exact maximum and first-overflow values at multiple start ticks,
+including near `UINT64_MAX`. Prior queue ownership/interruption cases remain.
+Five source-copy controls independently remove overflow rejection, safe mapping
+validation, stale-generation rejection, unmap wake and revocation wake.
+
+Guest `--test futex-lifetime`, included in `all`, runs 20 mapping lifetimes:
+unmap, unmap/remap at the same address, PROT_NONE, PROT_NONE/restoration and
+read-only/restoration with release, repeated four times. A wake-count receipt
+establishes parking; joins verify fault versus normal completion. Fresh waits
+on restored/replaced storage time out normally. The same guest checks raw
+UINT64_MAX timeout rejection. No guessed sleep orders mapping mutation.
+
+Continued source review traced every process-level page unmap/protection call,
+MAP_FIXED's existing refusal to replace a live region, mapping refresh and
+rollback cleanup. No further confirmed issue was added in this bounded review.
+Libc callers still require live synchronization storage; invalidating it is
+not promoted to a supported pthread operation by safe kernel fault handling.
+Image replacement currently refuses worker callers and any used worker record,
+so this review did not establish a concurrent sibling-futex/exec path. Next
+bounded scope is futex table saturation/fairness and once-initializer exit.
+The earlier AHCI disk-offline event remains unresolved;
+abnormal once-initializer exit and broader profile exclusions remain open.
+
+
+Final validation for the deadline/lifetime correction: matched kernel/userspace
+build; host futex, synchronization and timing contracts; five smoke-reader tests;
+futex ASan/UBSan; targeted futex-lifetime guest; complete thread suite; and full
+libuv consumer suite all pass. The full thread suite passed on its first run,
+without recurrence of the historical AHCI failure. Both pre-fix probes fail and
+all five source-copy controls compile then abort at their intended assertions.
+Docs check 641 local inline links with zero errors; whitespace checks pass.
+Build/test receipts and source/log hashes remain in `build/review/futex-lifetime/`.
+No full Linux/core, general SMP or physical-hardware acceptance is claimed.
+All disposable guests stopped; no physical boot is armed.

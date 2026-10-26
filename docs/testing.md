@@ -104,6 +104,14 @@ a final test result or top-level monitor run receipt ends it. This corrects
 premature VM teardown when subprocess tests lengthen the full suite.
 These checks do not establish general SMP or physical-hardware acceptance.
 
+The futex host target also extracts the real page-removal/protection helpers.
+It models page tables to check safe word access, invalidation/wakeup, immediate
+address reuse, readable/failed protection changes and timeout addition limits.
+Guest `--test futex-lifetime` (included in `all`) runs 20 mapping lifetimes using
+wake receipts: unmap, same-address replacement, PROT_NONE, restored access and
+read-only preservation. It also checks raw UINT64_MAX timeout refusal. Near
+counter rollover remains host-modeled; these are CPU0 IRQ serialization tests.
+
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

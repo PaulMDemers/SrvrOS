@@ -173,6 +173,7 @@ def main():
             "threadstress: times ok",
             "threadstress: sleep-remainder ok",
             "threadstress: futex ok",
+            "threadstress: futex-lifetime ok",
             "threadstress: stack-inspection ok",
             "threadstress: self-detach ok",
             "threadstress: thread-names ok",

@@ -30,7 +30,9 @@ execution, and extreme fallback conversion avoids intermediate overflow. Former
 failing audit modes are replaced by positive regressions; historical receipts
 remain in the synchronization report. Futex queue bindings now survive runnable
 wait continuations and cancellation teardown; deterministic host probes cover
-interruption and reuse, with complementary guest wake/exit checks.
+interruption and reuse, with complementary guest wake/exit checks. Futex timeout
+overflow and mapping lifetime are also corrected: unsafe deadline additions are
+rejected and removal/revocation invalidates old waits even after address reuse.
 
 ## Implementation progress after the audit
 

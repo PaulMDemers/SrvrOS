@@ -128,7 +128,9 @@ preserve a full request when no suspension occurred. Extreme fallback conversion
 uses quotient/remainder arithmetic to avoid overflow. Both sleep findings are
 corrected. Futex entries now retain active-wait ownership across enqueue/wake
 gaps and cancellation teardown; deterministic host and guest coverage checks
-interruption and queue reuse. Broader profile exclusions remain open.
+interruption and queue reuse. Futex timeout overflow is rejected, and removal
+or access revocation of a waited-on mapping safely faults the old wait, including
+immediate address reuse. Broader profile exclusions remain open.
 
 ## Measured checkpoints and current acceptance
 

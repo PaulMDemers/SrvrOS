@@ -496,3 +496,38 @@ removal and process-exit ownership without another confirmed runtime finding.
 Next scope is raw futex timeout overflow and mapped-address lifetime. Abnormal
 once-initializer exit and broader exclusions remain open; the AHCI fault is still
 an unresolved validation event.
+
+## Futex deadline and mapped-address audit — active scope
+
+User authorized overflow/lifetime checks, confirmed fixes, tests and docs/PR
+updates. Base `cca88cc0`; fetched main remains `fa5a6cc1`. PR19 advanced to
+`44f41e72` with separate channel1 Wi-Fi candidate scope. Own futex deadline
+arithmetic and safe word access/invalidation across mapping changes, plus focused
+host/guest tests. Next checkpoint is boundary and removal/reprotection/remap
+reproductions. Keep the current CPU0 IRQ model explicit; no physical boot armed.
+
+
+Completed scope: reject overflowing relative futex deadlines before reservation;
+validate/load words with CPU0 IRQ exclusion; invalidate and wake old bindings on
+page removal or successful user-access revocation. Old calls fault even after
+address replacement/restoration; readable or failed protection changes preserve
+waits. No public layout/syscall-number change. Host regressions cover boundary
+arithmetic and exact mutation interleavings; guest tests cover 20 mapping lifetimes.
+
+
+Final validation for the deadline/lifetime correction: matched kernel/userspace
+build; host futex, synchronization and timing contracts; five smoke-reader tests;
+futex ASan/UBSan; targeted futex-lifetime guest; complete thread suite; and full
+libuv consumer suite all pass. The full thread suite passed on its first run,
+without recurrence of the historical AHCI failure. Both pre-fix probes fail and
+all five source-copy controls compile then abort at their intended assertions.
+Docs check 641 local inline links with zero errors; whitespace checks pass.
+Build/test receipts and source/log hashes remain in `build/review/futex-lifetime/`.
+No full Linux/core, general SMP or physical-hardware acceptance is claimed.
+All disposable guests stopped; no physical boot is armed.
+
+Continued review covered page removal/protection callers, mapping refresh and
+rollback, MAP_FIXED refusal of live-region replacement, libc storage assumptions
+and exec's refusal while worker records exist. No further confirmed defect.
+Next checkpoint: futex table saturation/fairness and once-initializer exit.
+The prior AHCI disk-offline event remains unresolved.

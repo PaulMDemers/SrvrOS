@@ -627,6 +627,7 @@ int posix_clock_resolution_test(void);
 int posix_times_test(void);
 int posix_sleep_remainder_test(void);
 int posix_futex_test(void);
+int posix_futex_lifetime_test(void);
 int posix_futex_exit_child(void);
 int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
@@ -700,6 +701,7 @@ int main(int argc, char **argv) {
     RUN_TEST("times", posix_times_test);
     RUN_TEST("sleep-remainder", posix_sleep_remainder_test);
     RUN_TEST("futex", posix_futex_test);
+    RUN_TEST("futex-lifetime", posix_futex_lifetime_test);
     RUN_TEST("stack-inspection", posix_stack_inspection_test);
     RUN_TEST("self-detach", posix_self_detach_test);
     RUN_TEST("thread-names", posix_thread_name_test);

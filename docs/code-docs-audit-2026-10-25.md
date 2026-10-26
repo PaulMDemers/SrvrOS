@@ -230,3 +230,11 @@ Full-suite validation also exposed and corrected a smoke-harness defect: child
 exit receipts prematurely ended the enclosing run. Five deterministic reader
 tests now protect child-exit handling, top-level completion and bounded EOF.
 Two truncated pre-fix runs remain recorded as failures, not guest timeout evidence.
+
+
+Futex timeout and mapped-address review confirms two further defects: unchecked
+absolute-deadline addition and stale kernel reads after mapping removal/revocation.
+The fixes reject overflow, validate/read words under IRQ exclusion and invalidate/
+wake affected waits on page mutation, preserving old-versus-new address lifetimes.
+Added host boundary/invalidation controls and 20 guest mapping lifetimes. See the
+synchronization report for error contracts, modeled limits and validation receipts.

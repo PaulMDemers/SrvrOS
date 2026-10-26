@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <spawn.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 #include <unistd.h>
 extern char **environ;
 #include <srvros/sys.h>
@@ -82,4 +83,51 @@ int posix_futex_test(void) {
     CHECK(!handled); /* Raw probes consumed their own targeted signals. */
     CHECK(sigaction(SIGUSR2,&old,NULL)==0 && pthread_sigmask(SIG_SETMASK,&previous,NULL)==0);
     puts("threadstress: futex ok");return 0;
+}
+
+static uint32_t *mapped_word;
+static void *mapping_waiter(void *unused) {
+    (void)unused;
+    __atomic_store_n(&ready,1,__ATOMIC_RELEASE);
+    result=srv_futex_wait(mapped_word,0,200);
+    return NULL;
+}
+int posix_futex_lifetime_test(void) {
+    word=0;
+    CHECK(srv_futex_wait(&word,0,UINT64_MAX)==SRV_ERR_INVAL);
+    for(unsigned round=0;round<4;round++) for(unsigned change=0;change<5;change++) {
+        mapped_word=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+        CHECK(mapped_word!=MAP_FAILED);*mapped_word=0;ready=0;result=99;
+        pthread_t thread;CHECK(pthread_create(&thread,NULL,mapping_waiter,NULL)==0);
+        uint64_t start=(uint64_t)srv_ticks();long woke=0;
+        while((uint64_t)srv_ticks()-start<150) {
+            if(__atomic_load_n(&ready,__ATOMIC_ACQUIRE)) {
+                woke=srv_futex_wake(mapped_word,1);if(woke)break;
+            }
+            srv_yield();
+        }
+        CHECK(woke==1);
+        if(change==0 || change==2) {
+            CHECK(munmap(mapped_word,4096)==0);
+            if(change==2) CHECK(mmap(mapped_word,4096,PROT_READ|PROT_WRITE,
+                MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED,-1,0)==mapped_word);
+        } else if(change==1 || change==3) {
+            CHECK(mprotect(mapped_word,4096,PROT_NONE)==0);
+            if(change==3) CHECK(mprotect(mapped_word,4096,PROT_READ|PROT_WRITE)==0);
+        } else {
+            CHECK(mprotect(mapped_word,4096,PROT_READ)==0);
+            CHECK(mprotect(mapped_word,4096,PROT_READ|PROT_WRITE)==0);
+            __atomic_store_n(mapped_word,1,__ATOMIC_RELEASE);
+            CHECK(srv_futex_wake(mapped_word,1)>=0);
+        }
+        CHECK(pthread_join(thread,NULL)==0);
+        CHECK(result==(change==4?0:SRV_ERR_FAULT));
+        if(change==1) CHECK(mprotect(mapped_word,4096,PROT_READ|PROT_WRITE)==0);
+        if(change!=0) {
+            /* A new wait on restored/replaced storage has an independent life. */
+            *mapped_word=0;CHECK(srv_futex_wait(mapped_word,0,1)==-ETIMEDOUT);
+            CHECK(munmap(mapped_word,4096)==0);
+        }
+    }
+    puts("threadstress: futex-lifetime ok");return 0;
 }

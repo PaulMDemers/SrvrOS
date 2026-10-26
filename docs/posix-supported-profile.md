@@ -157,7 +157,12 @@ process exit preserves those bindings until sibling wait continuations retire.
 Wake lookup/count is IRQ-serialized. Deterministic host and guest regressions
 cover interruption, wake ownership and reuse; the global 64-entry bound remains,
 and this is not general SMP acceptance. Public pthread layouts and syscall
-signatures are unchanged by this correction.
+signatures are unchanged by this correction. Raw futex waits reject timeout
+addition overflow with `SRV_ERR_INVAL` and return `SRV_ERR_FAULT` when a live
+wait's mapping is removed or user access revoked. Word validation/load is
+IRQ-serialized; restoring/replacing that address does not revive an old wait.
+Readable protection changes preserve the wait. Applications must still retain
+storage for synchronization objects while other threads use them.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing
