@@ -182,6 +182,14 @@ released owner, but ended canceled; full two-minute completion remains VM
 validation. This is bounded acceptance of that payload, not a general latency or
 endurance guarantee.
 
+The subsequent shared-runtime release `986d6c68fa19ba18` (PR172 integration
+`aa93109`, including PR174 admission) accepts reported concurrent application use,
+observed Text save and Preview image loading/close with clean retirement and
+preserved prior files on Air7,2. No PCM playback ran in that native session;
+explicit command parity and unreported checklist decisions are not promoted from
+VM results. See the [current Air record](machines/macbookair7-2.md) for the exact
+session, filesystem checks and acceptance limits.
+
 ## Launch, memory and redraw service windows
 
 Process image loading, record clearing, fork cloning, mapping changes, mapping

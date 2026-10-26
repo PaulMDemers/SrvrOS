@@ -2,7 +2,40 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Shared application runtime — implemented; physical acceptance pending
+### Shared application runtime — concurrent-app hardware trial accepted
+
+PR172 is merged as `aa93109`, consuming PR174's process-admission baseline.
+Release `986d6c68fa19ba18` returned in matching session
+`session-00065eb407f09862-00`. The user reports applications working properly
+with several open concurrently. Logs confirm a successful Text save, Preview
+loading an existing 1440×900 screenshot, and normal app/worker retirement. The
+session has all four logs, a normal desktop exit and no collector attention.
+The desktop lifetime drains to zero members (peak seven); battery service/runtime
+retirement has zero heap, errors, denied accesses and rejected samples.
+
+All 1,116 prior non-metadata files retain their hashes; only `.srvros/meta`
+changed. One new document and four session logs were added; no new screenshots
+were saved. Offline fsck, allocation and headroom checks pass: 1,122 files,
+2,817 allocated clusters, zero leaks, bitmap mismatches or errors. The exact-stage
+VM rehearsal separately completes all two-minute playback bytes with zero
+underruns, application/save overlap, ordinary reopen and clean retirement.
+
+This closes the bounded shared-runtime implementation and concurrent-app
+regression milestone. It does not claim physical latency/energy measurements,
+native playback overlap (no PCM stream ran here), or separately confirmed
+menu/button/shortcut parity, maximum-image cancellation, sequential multi-document
+Quit decisions or repeated desktop exit/reopen. Those paths retain host/VM
+evidence and remain focused physical follow-ups when relevant.
+
+Installed accepted current is `986d6c68fa19ba18`; independent recovery
+`9aa8dbf6fbda8252` and prior accepted `1d1d5edce03523db` are retained. Ubuntu is
+default, the one-shot was consumed and no next reboot is armed. The run record
+and matching collection live in `build/app-runtime-native-20261025/`, with
+verified durable evidence and an acceptance-scoped payload copy outside build.
+PR19 retains Wi-Fi scope; sibling models do not inherit this acceptance. This
+closeout changes documentation only; no next shared implementation is claimed.
+
+### Shared application runtime — implementation and local validation checkpoint
 
 Base main `eda8bfb`; PR170's app-timing diagnostics are already consumed.
 Air7,2 owns the next bounded desktop-runtime block: shared bounded connection
