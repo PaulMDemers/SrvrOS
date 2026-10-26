@@ -43,10 +43,19 @@ reentrant signal handlers, and competing join/detach claims. Pipe receipts check
 TLS destruction, completion, last-thread cleanup and process status. Host modes
 also inject a failed join then an interrupted retry, verify unchanged output on
 error, and catch accidental freeing/unmapping of initial-thread static storage.
-A separate `python3 tools/test_sync_contracts.py --audit-negative-deadline
---output build/review/negative-deadline-audit` currently fails with exit 1:
-`tv_sec=-1, tv_nsec=0` returns `EINVAL` instead of `ETIMEDOUT`. This explicit
-audit is excluded from the positive default suite.
+The former `--audit-negative-deadline` failure is historical at `cc955159`.
+Positive host cases now cover expired negative seconds (including `INT64_MIN`),
+invalid nanoseconds, negative future values, nanosecond borrowing and signed
+range crossings. A modeled clock hook acquires/releases the real mutex during
+clock evaluation, then verifies ownership on return; this detects a timeout
+shortcut that skips the required mutex transition. Guest `--test
+absolute-deadlines`, included in `all`, covers 15 expired and six invalid cases
+across static-default, explicit realtime and monotonic conditions, with mutex
+ownership and errno checks. The existing future-deadline/wake/signal cases remain.
+A separate `--test clock-resolution-audit` examines null-output clock resolution
+queries: stored outputs pass, but null outputs return `EINVAL` for realtime and
+monotonic clocks. It currently fails with guest status 1/harness exit 3 and is
+excluded from the positive `all` suite.
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

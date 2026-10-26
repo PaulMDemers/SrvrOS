@@ -116,10 +116,19 @@ Condition variables retain `CLOCK_REALTIME` (including static/default init) or
 wakes and signal interruption, and reacquire the mutex before returning. The
 condition structure changed from 4 to 8 bytes: rebuild all consumers and use
 matched library/header/application images. No compatibility with old objects
-embedding `pthread_cond_t` is claimed. A confirmed remaining edge case is a negative absolute `tv_sec` with
-valid nanoseconds: it currently returns `EINVAL` instead of timing out. Avoid
-negative absolute deadlines until corrected; positive/present-day deadlines
-retain the regression coverage described above.
+embedding `pthread_cond_t` is claimed. Absolute seconds are signed: negative
+values with valid nanoseconds are accepted and compared with the selected clock.
+Expired values return `ETIMEDOUT` through the ordinary mutex release/reacquisition
+path. Nanoseconds outside `[0, 1000000000)` still return `EINVAL` before unlocking.
+This validation correction adds no layout or syscall change. Host tests include
+negative future values with modeled clocks; guest tests cover expired negative
+values with the actual realtime/monotonic clocks.
+
+The current `clock_getres` implementation requires a non-null output buffer for
+`CLOCK_REALTIME` and `CLOCK_MONOTONIC`; null-output probes incorrectly return
+`EINVAL`. Process/thread CPU clock probes accept null output. Pass a real
+`struct timespec` for realtime/monotonic resolution queries until this separate
+confirmed defect is corrected.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing

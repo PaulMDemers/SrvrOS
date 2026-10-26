@@ -21,8 +21,10 @@ records supplied-stack corruption, ignored condition clocks and semaphore count
 overflow, followed by PR175's fixes and focused host/guest regressions. Later
 passes correct self-stack inspection, early detach, thread-name storage and
 initial-thread exit with surviving workers, followed by initial-thread join and
-detach ownership. Negative absolute condition deadlines remain a confirmed error
-case. Historical failure receipts remain separate from corrected contracts.
+detach ownership and valid negative absolute condition deadlines. Historical
+failure receipts remain separate from corrected contracts. The latest guest
+audit confirms null-output `clock_getres` probes incorrectly fail for realtime
+and monotonic clocks.
 
 ## Implementation progress after the audit
 

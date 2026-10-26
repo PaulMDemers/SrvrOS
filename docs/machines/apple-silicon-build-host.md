@@ -283,3 +283,35 @@ positive tests. Current guides state this edge case; the next bounded work is
 absolute-deadline validation and timeout-path regressions. Once-initializer
 abnormal exit remains unconfirmed. Disposable VMs stopped; no physical boot is
 armed.
+
+## Negative absolute condition deadline correction — active scope
+
+The user authorized deadline validation, regression tests, docs/PR updates and
+continued audit. Base is `cc955159`; fetched main remains `fa5a6cc1`. PR19 has
+advanced to `b68df8cd` with bounded Wi-Fi diagnostics, without overlapping libc
+scope. This block owns absolute condition-deadline validation and focused
+host/guest tests. Preserve signed seconds, reject invalid nanoseconds, and route
+expired deadlines through mutex release/reacquisition. Next checkpoint is
+boundary/control cases, matched build and sequential thread/libuv VM suites.
+No physical boot is armed.
+
+The negative absolute condition deadline correction is complete. Signed seconds
+reach the selected-clock comparison and normal mutex release/reacquisition path;
+invalid nanoseconds remain rejected before unlocking. No layout/syscall change
+is introduced.
+
+Matched build, host regressions, ASan/UBSan, targeted guest coverage (15 expired
+and six invalid deadlines), final full thread suite and final full libuv suite
+pass. Two isolated host negative controls fail with exit 1: restored negative
+seconds rejection and a timeout shortcut that skips the mutex transition.
+Documentation checks 641 local links with zero errors; whitespace checks pass.
+Evidence is retained in `build/review/absolute-deadlines/`. No full Linux/core,
+general SMP or native acceptance is claimed.
+
+Continued guest audit confirms that `clock_getres(clock, NULL)` incorrectly
+returns `EINVAL` for realtime/monotonic clocks; CPU-clock probes and non-null
+outputs succeed. The explicit `clock-resolution-audit` fails with guest status 1
+and harness exit 3 and is excluded from `all`. Current guides document a real
+output buffer as the workaround. Optional-output validation is the next bounded
+correction. Once-initializer abnormal exit remains unconfirmed. All disposable
+VMs have stopped; no physical boot is armed.

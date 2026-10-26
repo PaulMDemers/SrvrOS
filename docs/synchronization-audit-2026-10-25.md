@@ -13,8 +13,10 @@ record storage and range/lifetime checks. The seventh finding, initial-thread
 `pthread_exit` killing live workers, is corrected with retained kernel teardown
 ownership and a last-thread libc cleanup handoff. The eighth finding,
 initial-thread join, is corrected with retained return values and exclusive
-join/detach ownership. A separate audit now confirms that negative absolute
-condition deadlines return the wrong error; see below.
+join/detach ownership. The ninth finding, negative absolute condition deadlines,
+is corrected by accepting signed seconds and using the existing timeout path.
+The continued timing API audit confirms incorrect rejection of null-output
+clock-resolution queries; see below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -587,9 +589,9 @@ reentrant claims, name invalidation and no mapping teardown. ASan/UBSan also
 checks that static initial metadata is never freed. Host OS services remain
 modeled; actual kernel waiting/retirement is verified in QEMU.
 
-## Continued audit — P2: negative absolute condition deadlines return EINVAL
+## Historical finding — P2: negative absolute condition deadlines return EINVAL
 
-`pthread_cond_timedwait` rejects `abstime->tv_sec < 0` before entering the wait
+At `cc955159`, `pthread_cond_timedwait` rejects `abstime->tv_sec < 0` before entering the wait
 path, even with a valid nanosecond value. This is a valid expired absolute time,
 not a malformed relative interval. The
 [POSIX.1-2024 condition wait contract](https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_cond_clockwait.html)
@@ -624,3 +626,71 @@ with zero errors; whitespace checks pass. Logs, source hashes, sanitizer records
 and build manifests remain in ignored `build/review/initial-join/`. The deadline
 audit failure is separate evidence, not a passing conformance result. All
 disposable guests stopped; no full Linux/core or physical run is claimed.
+
+
+## Negative absolute condition deadline correction
+
+`pthread_cond_timedwait` now accepts signed absolute seconds, leaving the valid
+nanosecond range unchanged. The existing signed comparison determines whether
+the selected clock has passed the deadline. Expired negative values enter the
+ordinary wait path, release the mutex, evaluate the clock, reacquire the mutex
+and return `ETIMEDOUT`. This also avoids treating every negative value as an
+immediate timeout: a negative deadline can be in the future relative to a
+modeled negative clock value. Bounded tick conversion remains unchanged. No
+public layout or syscall changes are introduced.
+
+Positive host coverage replaces the old explicit failing audit at `cc955159`.
+It exercises static/default, explicit realtime and monotonic conditions, each
+with five expired values (`-1`, `INT64_MIN` and zero with boundary nanoseconds),
+two malformed nanosecond values, two negative/current-zero crossings with a
+nanosecond borrow, and a future interval spanning the signed seconds range.
+The latter uses a signal wake and verifies the existing bounded 100-tick slice.
+A clock hook acquires/releases the real error-checking mutex while the condition
+wait has released it; the return check verifies caller ownership. Invalid
+nanoseconds cause neither a clock query nor an unlock. Successful timeout/error
+checks also verify errno preservation. Clocks and futex services are modeled.
+
+The positive guest `--test absolute-deadlines` group covers the 15 expired and
+six malformed cases using actual guest clocks and checks the returned error,
+mutex ownership and errno. It is included in `all`. Existing guest future wait,
+signal, lifecycle and libuv coverage remains relevant. Only the host clock hook
+provides deterministic evidence for the transient mutex release; the guest
+ownership check alone does not prove that transition.
+
+Two isolated host negative controls fail with exit 1: restoring the rejected
+negative-seconds check, and returning `ETIMEDOUT` early without the mutex
+transition. Both use copies of the real sources; the checkout remains fixed.
+Evidence is retained in ignored `build/review/absolute-deadlines/`.
+
+Final validation on ARM64 macOS with x86_64 QEMU TCG passes: matched build,
+host regressions, ASan/UBSan, targeted guest deadline group, complete thread
+suite and full libuv suite. Documentation checks 641 local links with zero
+errors; whitespace checks pass. Logs, manifests and source hashes are retained
+with the evidence above. No full Linux/core, general SMP or native hardware
+acceptance is claimed.
+
+
+## Continued audit — P2: clock_getres rejects an optional output pointer
+
+For `CLOCK_REALTIME` and `CLOCK_MONOTONIC`, `clock_getres(clock, NULL)` returns
+`-1`/`EINVAL`, although the same clocks succeed with a non-null output pointer.
+The generic branch in `posix_time.c` treats a null output as an invalid request;
+its CPU-clock branch already accepts it. A portable caller probing a known
+clock without requesting the resolution therefore receives a false failure.
+The [clock resolution contract](https://pubs.opengroup.org/onlinepubs/000095399/functions/clock_getres.html)
+explicitly makes this output optional (accessible Issue 6 reference; Issue 8
+remains the project's target).
+
+```sh
+python3 tools/thread_smoke.py --test clock-resolution-audit --boot-wait 60 --run-wait 30
+# Current guest status 1, harness exit 3.
+```
+
+The isolated guest audit observes stored-output success for all four supported
+clock IDs. Null-output probes return `-1`, errno 22 for realtime/monotonic and
+succeed for process/thread CPU clocks. Unknown clock 99 with null output still
+fails with `EINVAL`, as expected. This audit is excluded from `all`; the current
+profile documents passing a real output buffer as the workaround. The next
+bounded correction is optional-output validation while retaining unsupported
+clock and unavailable-source errors. No fix to `clock_getres` is included here.
+Abnormal once-initializer exit remains unconfirmed.

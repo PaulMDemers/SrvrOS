@@ -860,8 +860,9 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
 }
 
 int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime) {
+    /* This is an absolute clock value: negative seconds are valid. Expired
+     * values must take the ordinary mutex release/reacquisition timeout path. */
     if (cond == 0 || mutex == 0 || abstime == 0 ||
-        abstime->tv_sec < 0 ||
         abstime->tv_nsec < 0 ||
         abstime->tv_nsec >= 1000000000L) {
         return EINVAL;

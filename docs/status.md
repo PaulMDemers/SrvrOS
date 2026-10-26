@@ -117,8 +117,10 @@ values with range and lifecycle checks. Initial-thread `pthread_exit` now lets
 workers finish before normal process cleanup, with matched kernel/libc builds.
 Initial-thread join/detach now retains return values and exclusive collection
 ownership without releasing process teardown resources. Negative absolute
-condition deadlines still return the wrong error; broader semaphore semantics
-remain outside the supported profile.
+condition deadlines now follow normal timeout and mutex reacquisition semantics;
+broader semaphore semantics remain outside the supported profile. Continued
+audit confirms that realtime/monotonic `clock_getres` probes incorrectly reject
+a null output pointer; passing a real output buffer succeeds.
 
 ## Measured checkpoints and current acceptance
 

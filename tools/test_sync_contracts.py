@@ -20,8 +20,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/review/sync-regression')
-    parser.add_argument('--audit-negative-deadline', action='store_true',
-                        help='Run the separate known-failure negative absolute deadline audit')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -55,8 +53,6 @@ def main():
     results = []
     modes = (None, 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names', 'initial-exit',
              'initial-join', 'initial-join-null', 'initial-detach', 'initial-detach-late')
-    if args.audit_negative_deadline:
-        modes = ('negative-deadline-audit',)
     for mode in modes:
         result = subprocess.run([str(executable)] + ([mode] if mode else []),
                                 capture_output=True, text=True, timeout=15)

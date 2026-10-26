@@ -11,6 +11,8 @@
 
 #define CHECK(x) do { if (!(x)) { printf("sync-contracts: line %d failed: %s\n", __LINE__, #x); exit(1); } } while (0)
 static int error_value, last_clock, futex_calls, dispatches, wait_mode, clock_error;
+static pthread_mutex_t *clock_mutex_probe;
+static int clock_probes, clock_calls, wake_calls;
 static int creates, mappings, unmappings, fail_mapping;
 static uint64_t submitted_stack, largest_ticks;
 static int inspect_early, expected_detach, lifecycle, model_detach = 1;
@@ -106,9 +108,17 @@ long srv_futex_wait(uint32_t *address, uint32_t expected, uint64_t ticks) {
     now[last_clock].tv_nsec %= 1000000000L;
     return -ETIMEDOUT;
 }
-long srv_futex_wake(uint32_t *address, uint64_t count) { (void)address; (void)count; return 0; }
+long srv_futex_wake(uint32_t *address, uint64_t count) { (void)address; (void)count; wake_calls++; return 0; }
 int clock_gettime(int clock_id, struct timespec *out) {
     CHECK(clock_id == CLOCK_REALTIME || clock_id == CLOCK_MONOTONIC);
+    clock_calls++;
+    if (clock_mutex_probe) {
+        /* Exercise the real mutex: clock/deadline evaluation must happen after
+         * releasing it, even for an already-expired absolute deadline. */
+        CHECK(pthread_mutex_trylock(clock_mutex_probe) == 0);
+        CHECK(pthread_mutex_unlock(clock_mutex_probe) == 0);
+        clock_probes++;
+    }
     last_clock = clock_id;
     if (clock_error) { errno = EIO; return -1; }
     *out = now[clock_id]; return 0;
@@ -225,6 +235,65 @@ static void condition_tests(void) {
     CHECK(pthread_cond_timedwait(&cond, &mutex, &deadline) == EINVAL);
     CHECK(pthread_mutex_unlock(&mutex) == 0);
     puts("sync-contracts: selected/default clocks, early wakes, signals, expiry and relocking PASS");
+}
+
+static void absolute_deadline_tests(void) {
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutex_t mutex;
+    CHECK(pthread_mutexattr_init(&mutex_attr) == 0);
+    CHECK(pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_ERRORCHECK) == 0);
+    CHECK(pthread_mutex_init(&mutex, &mutex_attr) == 0);
+    const struct timespec expired[] = {
+        {.tv_sec = -1}, {.tv_sec = -1, .tv_nsec = 999999999},
+        {.tv_sec = INT64_MIN}, {.tv_sec = INT64_MIN, .tv_nsec = 999999999}, {0}
+    };
+    for (int kind = 0; kind < 3; kind++) {
+        int clock_id = kind == 2 ? CLOCK_MONOTONIC : CLOCK_REALTIME;
+        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+        if (kind) {
+            pthread_condattr_t attr;
+            CHECK(pthread_condattr_init(&attr) == 0 && pthread_condattr_setclock(&attr, clock_id) == 0);
+            CHECK(pthread_cond_init(&cond, &attr) == 0 && pthread_condattr_destroy(&attr) == 0);
+        }
+        for (unsigned i = 0; i < sizeof(expired) / sizeof(*expired); i++) {
+            reset_wait(0); clock_probes = clock_calls = 0;
+            CHECK(pthread_mutex_lock(&mutex) == 0);
+            clock_mutex_probe = &mutex; errno = EDOM;
+            CHECK(pthread_cond_timedwait(&cond, &mutex, &expired[i]) == ETIMEDOUT);
+            clock_mutex_probe = NULL;
+            CHECK(clock_probes == 1 && clock_calls == 1 && last_clock == clock_id && futex_calls == 0);
+            CHECK(errno == EDOM && pthread_mutex_lock(&mutex) == EDEADLK);
+            CHECK(pthread_mutex_unlock(&mutex) == 0);
+        }
+        const long invalid[] = {-1, 1000000000L};
+        for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); i++) {
+            struct timespec deadline = {.tv_sec = -1, .tv_nsec = invalid[i]};
+            CHECK(pthread_mutex_lock(&mutex) == 0);
+            clock_calls = wake_calls = 0; errno = EDOM;
+            CHECK(pthread_cond_timedwait(&cond, &mutex, &deadline) == EINVAL);
+            CHECK(clock_calls == 0 && wake_calls == 0 && errno == EDOM);
+            CHECK(pthread_mutex_lock(&mutex) == EDEADLK && pthread_mutex_unlock(&mutex) == 0);
+        }
+        /* A negative absolute value can also be in the future. Include a
+         * nanosecond borrow and a signed-seconds boundary crossing. */
+        for (int crossing = 0; crossing < 2; crossing++) {
+            reset_wait(0); now[clock_id] = (struct timespec){.tv_sec = crossing ? -1 : -3, .tv_nsec = 990000000};
+            struct timespec deadline = {.tv_sec = crossing ? 0 : -2, .tv_nsec = 20000000};
+            CHECK(pthread_mutex_lock(&mutex) == 0);
+            clock_mutex_probe = &mutex; clock_probes = 0;
+            CHECK(pthread_cond_timedwait(&cond, &mutex, &deadline) == ETIMEDOUT);
+            clock_mutex_probe = NULL;
+            CHECK(futex_calls == 1 && largest_ticks == 3 && clock_probes == 2);
+            CHECK(pthread_mutex_lock(&mutex) == EDEADLK && pthread_mutex_unlock(&mutex) == 0);
+        }
+        reset_wait(3); now[clock_id] = (struct timespec){.tv_sec = INT64_MIN};
+        struct timespec distant = {.tv_sec = INT64_MAX};
+        CHECK(pthread_mutex_lock(&mutex) == 0);
+        CHECK(pthread_cond_timedwait(&cond, &mutex, &distant) == 0 && largest_ticks == 100);
+        CHECK(pthread_mutex_unlock(&mutex) == 0 && pthread_cond_destroy(&cond) == 0);
+    }
+    CHECK(pthread_mutex_destroy(&mutex) == 0 && pthread_mutexattr_destroy(&mutex_attr) == 0);
+    puts("sync-contracts: signed absolute deadlines, invalid nanoseconds and mutex transition PASS");
 }
 static void semaphore_tests(void) {
     sem_t sem; int value;
@@ -383,18 +452,6 @@ static void main_lifecycle_tests(const char *mode) {
     puts("sync-contracts: initial join/detach ownership and static storage PASS");
 }
 int main(int argc, char **argv) {
-    if (argc > 1 && !strcmp(argv[1], "negative-deadline-audit")) {
-        pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-        struct timespec past = {.tv_sec = -1, .tv_nsec = 0};
-        now[CLOCK_REALTIME] = (struct timespec){.tv_sec = 100};
-        CHECK(pthread_mutex_lock(&mutex) == 0);
-        int error = pthread_cond_timedwait(&cond, &mutex, &past);
-        printf("sync-contracts: negative deadline returned=%d expected=%d\n", error, ETIMEDOUT);
-        CHECK(pthread_mutex_unlock(&mutex) == 0);
-        CHECK(error == ETIMEDOUT);
-        return 0;
-    }
     if (argc > 1 && (!strcmp(argv[1], "initial-join") || !strcmp(argv[1], "initial-join-null") ||
         !strcmp(argv[1], "initial-detach") || !strcmp(argv[1], "initial-detach-late"))) {
         main_lifecycle_tests(argv[1]); return 0;
@@ -409,7 +466,7 @@ int main(int argc, char **argv) {
     }
     if (argc > 1 && !strcmp(argv[1], "thread-names")) { name_tests(); return 0; }
     if (argc == 1) {
-        stack_tests(); condition_tests(); semaphore_tests();
+        stack_tests(); condition_tests(); absolute_deadline_tests(); semaphore_tests();
         pthread_attr_t attr;
         CHECK(pthread_getattr_np(pthread_self(), &attr) == ESRCH); /* Unregistered host stack. */
         CHECK(pthread_getattr_np((pthread_t)999, &attr) == ESRCH);

@@ -164,3 +164,15 @@ initial-join audit is historical at `b75fc79a`. Continued source/host audit find
 negative absolute condition deadlines return `EINVAL` instead of `ETIMEDOUT`;
 a separate explicit failing host audit and profile limitation record that edge
 case. The synchronization report separates these receipts from passing tests.
+
+
+Negative absolute condition deadlines are now accepted and handled through the
+normal timeout/mutex transition. Positive default host and guest coverage
+replaces the explicit failed audit at `cc955159`; invalid nanoseconds remain
+rejected. Host tests verify the mutex release at clock evaluation and cover
+signed timestamp boundaries and negative future deadlines with modeled clocks.
+Continued timing API review confirms `clock_getres(clock, NULL)` wrongly fails
+for realtime/monotonic clocks, although non-null outputs and CPU-clock probes
+succeed. The separate `clock-resolution-audit` guest mode records this failure;
+current guides state the output-buffer workaround. See the synchronization
+report for evidence and the next bounded correction.

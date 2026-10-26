@@ -117,6 +117,45 @@ int posix_sync_contract_test(void) {
     return 0;
 }
 
+int posix_absolute_deadline_test(void) {
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutex_t mutex;
+    CHECK(pthread_mutexattr_init(&mutex_attr) == 0);
+    CHECK(pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_ERRORCHECK) == 0);
+    CHECK(pthread_mutex_init(&mutex, &mutex_attr) == 0);
+    const struct timespec expired[] = {
+        {.tv_sec = -1}, {.tv_sec = -1, .tv_nsec = 999999999},
+        {.tv_sec = INT64_MIN}, {.tv_sec = INT64_MIN, .tv_nsec = 999999999}, {0}
+    };
+    for (int kind = 0; kind < 3; kind++) {
+        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+        if (kind) {
+            pthread_condattr_t attr;
+            CHECK(pthread_condattr_init(&attr) == 0);
+            CHECK(pthread_condattr_setclock(&attr, kind == 2 ? CLOCK_MONOTONIC : CLOCK_REALTIME) == 0);
+            CHECK(pthread_cond_init(&cond, &attr) == 0 && pthread_condattr_destroy(&attr) == 0);
+        }
+        for (unsigned i = 0; i < sizeof(expired) / sizeof(*expired); i++) {
+            CHECK(pthread_mutex_lock(&mutex) == 0);
+            errno = EDOM;
+            CHECK(pthread_cond_timedwait(&cond, &mutex, &expired[i]) == ETIMEDOUT && errno == EDOM);
+            CHECK(pthread_mutex_lock(&mutex) == EDEADLK && pthread_mutex_unlock(&mutex) == 0);
+        }
+        const long invalid[] = {-1, 1000000000L};
+        for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); i++) {
+            struct timespec deadline = {.tv_sec = -1, .tv_nsec = invalid[i]};
+            CHECK(pthread_mutex_lock(&mutex) == 0);
+            errno = EDOM;
+            CHECK(pthread_cond_timedwait(&cond, &mutex, &deadline) == EINVAL && errno == EDOM);
+            CHECK(pthread_mutex_lock(&mutex) == EDEADLK && pthread_mutex_unlock(&mutex) == 0);
+        }
+        CHECK(pthread_cond_destroy(&cond) == 0);
+    }
+    CHECK(pthread_mutex_destroy(&mutex) == 0 && pthread_mutexattr_destroy(&mutex_attr) == 0);
+    puts("threadstress: absolute-deadlines ok");
+    return 0;
+}
+
 /* Inspect immediately on entry, then again after a parent-side detach. */
 struct inspection_probe {
     unsigned ready, go, done;
