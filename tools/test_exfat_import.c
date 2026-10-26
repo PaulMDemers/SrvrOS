@@ -10,7 +10,7 @@
 #define HEAP 56u
 #define CLUSTERS (BYTES/SECTOR-HEAP)
 static uint8_t disk[BYTES];
-static unsigned allocations,reads,writes,flushes,io_depth,fail_allocation;
+static unsigned allocations,reads,writes,flushes,io_depth,fail_allocation,fail_write_skip,fail_flush_at;
 static uint64_t fail_write_offset=UINT64_MAX,fail_read_offset=UINT64_MAX;
 static bool fail_bitmap_read,fail_seen,foreign_io,boot_io,live_reference,admit_reference;
 static unsigned teardown_probe,teardown_attempts,stale_boot_reads;
@@ -38,9 +38,9 @@ bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n) {
     return true;
 }
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n) {
-    (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;probe_teardown(2);if(off==fail_write_offset) {fail_write_offset=UINT64_MAX;return false;}memcpy(disk+off,p,(size_t)n);return true;
+    (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;probe_teardown(2);if(off==fail_write_offset) {if(fail_write_skip)fail_write_skip--;else {fail_write_offset=UINT64_MAX;return false;}}memcpy(disk+off,p,(size_t)n);return true;
 }
-static bool flush(struct block_device *d) { (void)d;flushes++;return true; }
+static bool flush(struct block_device *d) { (void)d;flushes++;return flushes!=fail_flush_at; }
 static struct block_device device={.used=true,.name="import-test",.block_size=SECTOR,.block_count=BYTES/SECTOR,.read=block_read,.write=block_write,.flush=flush};
 static uint64_t offset(unsigned cluster) { return HEAP*SECTOR+(cluster-2)*SECTOR; }
 static void checksum(uint8_t *entry) {
@@ -401,6 +401,67 @@ static void boot_system_case(const char *mode) {
     else {struct exfat_check_result check;assert(exfat_check("/vol",&check));assert(exfat_write_file("/vol/ok",NULL,0));}
     assert(exfat_unmount("/vol"));
 }
+static void fill_free_clusters(uint64_t leave) {
+    struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info) && info.blocks_free>leave);
+    uint64_t fill=(info.blocks_free-leave)*info.block_size;
+    uint8_t *zeros=calloc(1,fill);assert(zeros);
+    metadata_syncing=true;assert(exfat_write_file("/vol/filler",zeros,fill));
+    metadata_syncing=false;free(zeros);
+    struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    assert(exfat_statfs("/vol",&info) && info.blocks_free==leave);
+}
+#ifdef SRVROS_EXFAT_PROCESS_TEST
+void test_process_writeback(const char *path);
+#endif
+static void writeback_case(const char *mode) {
+    fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));
+    assert(vfs_chmod("/vol/source",0600));
+    bool reserve=!strcmp(mode,"writeback-reserve");
+    bool clean=reserve || !strcmp(mode,"writeback-clean");
+    bool full=!strcmp(mode,"writeback-clean") || !strncmp(mode,"writeback-clean-",16) || !strcmp(mode,"writeback-process");
+    if(full)fill_free_clusters(0);
+#ifdef SRVROS_EXFAT_PROCESS_TEST
+    if(!strcmp(mode,"writeback-process")) {
+        test_process_writeback("/vol/source");
+        remount();const struct vfs_node *node=vfs_lookup("/vol/source");const uint8_t *data;uint64_t size;
+        assert(vfs_read_all(node,&data,&size) && size==3 && !memcmp(data,"new",3));vfs_release_data(node,data);
+        struct exfat_check_result check;assert(exfat_is_writable("/vol") && exfat_check("/vol",&check));
+        assert(exfat_unmount("/vol"));return;
+    }
+#endif
+    if(!strcmp(mode,"writeback-entry"))fail_write_offset=find_file("/vol/source")->file_entry_offset;
+    if(!strcmp(mode,"writeback-begin"))fail_write_offset=106;
+    if(!strcmp(mode,"writeback-clean-write")) {fail_write_offset=106;fail_write_skip=1;}
+    if(!strcmp(mode,"writeback-clean-flush"))fail_flush_at=flushes+3;
+    if(reserve) {
+        /* Force metadata scratch growth to fail before dirty marking. */
+        mounts[0].metadata_capacity=0;fail_allocation=allocations+1;
+    }
+    bool retryable=true;
+    if(!strcmp(mode,"writeback-invalid")) {
+        unsigned wr=writes;
+        assert(!exfat_write_file_retryable("/vol/source",NULL,3,&retryable) && !retryable && writes==wr);
+    } else {
+        uint8_t *before=malloc(BYTES);assert(before);memcpy(before,disk,BYTES);
+        assert(!exfat_write_file_retryable("/vol/source",(const uint8_t *)"new",3,&retryable));
+        assert(retryable==clean && exfat_is_writable("/vol")==clean);
+        if(clean) {
+            assert(!memcmp(before,disk,BYTES));
+            if(reserve) {assert(allocations==fail_allocation);fail_allocation=0;}
+            check_data("/vol/source",1100);
+            if(!reserve)assert(exfat_delete_file("/vol/filler"));
+            retryable=true;assert(exfat_write_file_retryable("/vol/source",(const uint8_t *)"new",3,&retryable) && !retryable);
+            remount();const struct vfs_node *node=vfs_lookup("/vol/source");const uint8_t *data;uint64_t size;
+            assert(vfs_read_all(node,&data,&size) && size==3 && !memcmp(data,"new",3));vfs_release_data(node,data);
+            struct exfat_check_result check;assert(exfat_check("/vol",&check));
+        } else {
+            unsigned wr=writes;retryable=true;
+            assert(!exfat_write_file_retryable("/vol/source",(const uint8_t *)"new",3,&retryable) && !retryable && writes==wr);
+        }
+        free(before);
+    }
+    assert(exfat_unmount("/vol"));
+}
 /* Fill only genuinely free clusters with a published file: checker stays clean.
  * Suppress the fixture's final sidecar update so every cluster can be occupied. */
 static void retirement_case(const char *mode) {
@@ -422,14 +483,8 @@ static void retirement_case(const char *mode) {
     bool directory=!strcmp(mode,"retire-directory");
     if(directory)assert(exfat_create_directory("/vol/empty"));
     assert(vfs_chmod("/vol/source",0600) && vfs_utime("/vol/source",11,12));
-    struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
-    uint64_t fill=(info.blocks_free-(shrink?1:0))*info.block_size;
-    uint8_t *zeros=calloc(1,fill);assert(zeros);
-    metadata_syncing=true;
-    assert(exfat_write_file("/vol/filler",zeros,fill));
-    metadata_syncing=false;free(zeros);
-    struct exfat_check_result check;assert(exfat_check("/vol",&check));
-    assert(exfat_statfs("/vol",&info) && info.blocks_free==(shrink?1:0));
+    fill_free_clusters(shrink?1:0);
+    struct exfat_check_result check;
     if(!strcmp(mode,"retire-chmod-full") || !strcmp(mode,"retire-utime-full") || !strcmp(mode,"retire-overwrite-full")) {
         struct vfs_metadata before=vfs_lookup("/vol/source")->metadata;
         uint8_t *snapshot=malloc(BYTES);assert(snapshot);memcpy(snapshot,disk,BYTES);
@@ -523,7 +578,8 @@ static void growth_case(const char *mode) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"retire-",7)) {retirement_case(mode);
+    if(!strncmp(mode,"writeback-",10)) {writeback_case(mode);
+    } else if(!strncmp(mode,"retire-",7)) {retirement_case(mode);
     } else if(!strncmp(mode,"growth-",7)) {growth_case(mode);
     } else if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);
     } else if(!strcmp(mode,"chmod-failure") || !strcmp(mode,"utime-failure")) {

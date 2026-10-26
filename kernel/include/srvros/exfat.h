@@ -48,6 +48,12 @@ bool exfat_scratch_range(const char *path, struct block_device **device, uint64_
 bool exfat_exclusive_range(const char *path, uint64_t bytes,
     struct block_device **device, uint64_t *offset);
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size);
+/* On failure, optional *retryable is true only for an admitted clean outer
+ * operation: either capacity/heap reservation failed before dirty marking, or
+ * no allocation/data/directory writes occurred and clean state was durably
+ * restored. Captured under storage exclusion. Success, invalid/unsupported or
+ * ownership/device admission refusal, and uncertain mutation leave it false. */
+bool exfat_write_file_retryable(const char *path, const uint8_t *data, uint64_t size, bool *retryable);
 bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size, uint64_t mode);
 bool exfat_create_directory_mode(const char *path, uint64_t mode);
 bool exfat_delete_file(const char *path);

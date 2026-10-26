@@ -1357,3 +1357,41 @@ ASan/UBSan evidence still covers the unchanged exFAT implementation and fixtures
 it is distinct from the new integrated guest evidence. This final record changes
 documentation only. PR182 remains draft; the next audit question is process
 writeback retry after clean space refusal.
+
+## Process writeback retry — active scope
+
+Continue PR182 from `834fbff0` on main `4ee18f69`. Audit clean writeback refusal
+versus irreversible/uncertain failure, including retained content, shared opens,
+retry, close and process-exit reporting. Touched areas: process writeback, an
+exFAT outcome contract, focused host fixtures and storage guides. Refreshed PR19
+at `e04e2dc0` retains Wi-Fi ownership and has no process/exFAT/VFS overlap; keep
+its Makefile additions separate. Next checkpoint is an original-source retry
+reproducer, atomic backend outcome coverage, process regressions and matched
+VM validation. No native install or PR merge is planned.
+
+### Writeback findings and correction
+
+Two confirmed defects are corrected: clean exFAT refusal no longer permanently
+poisons shared process content, and global sync includes dirty reader-only
+survivors after failed writer close, once per content object. Retry eligibility
+is captured under filesystem ownership after proven clean refusal; partial or
+uncertain mutations remain sticky. Original process source `834fbff0` fails the
+real full-volume bridge, and a separate process regression reproduces the sync
+omission. The new backend tests include reservation OOM and failed clean-marker
+write/flush controls. Final-close and exit failure reporting remain intact.
+
+### Writeback checkpoint verification
+
+All 123 import modes, the real process/exFAT bridge and public process-output
+regressions pass normally and under ASan/UBSan. The 323 retirement, 161 growth,
+144 rename/promotion and 29 boot-matrix boundaries/cases pass normally, along
+with storage/lease gates. The matched build, six generator groups and recursive
+372-entry image check pass. Six sequential disposable VMs pass:
+aliases 16.53 s, quarantine 16.47 s, imports 16.50 s, corrupt-entry 16.41 s, threads 40.53 s, libuv 10.18 s.
+
+Evidence, original failures, harness corrections and tested hashes remain under
+`build/review/writeback-retry/`. Main remains `4ee18f69`; PR19 at `e04e2dc0` has
+no process/exFAT/VFS overlap. Documentation/link and whitespace checks pass.
+No native install, Actions dispatch or PR merge occurred. Follow-on syscall/libc
+tracing confirmed no further defect; descriptor inheritance and delayed-error
+ownership across process exit are next.

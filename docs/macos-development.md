@@ -131,7 +131,7 @@ be canonical, unoccupied and outside other exFAT mount subtrees.
 
 ## Focused storage host tests
 
-`sh tools/macos/build.sh test-exfat-import` runs the 116 portable import/claim/lifecycle
+`sh tools/macos/build.sh test-exfat-import` runs the 123 portable import/claim/lifecycle
 modes; `python3 tools/test_exfat_import.py --sanitize` adds ASan/UBSan. The
 storage adapter aggregate also includes an existing x86 USB fixture. On this
 Mac it was run with Rosetta and the following local compiler wrapper, which
@@ -186,3 +186,12 @@ for 323 deletion/truncation/metadata fault boundaries and process open-file
 retirement checks. The import suite additionally checks full-volume reclamation
 and clean low-space refusal. All images are disposable; these results do not
 establish physical power-loss recovery or a general space-reservation guarantee.
+
+
+`sh tools/macos/build.sh test-process-writeback` runs the real process/exFAT
+full-volume retry fixture using the prepared Limine headers and an x86_64 host
+binary under Rosetta. For its sanitizer variant use
+`python3 tools/test_exfat_import.py --process --sanitize --output build/review/writeback-retry/integration-sanitized`.
+The ordinary 123-mode import suite remains native ARM64 on this host. Process
+writeback retries retain data after proven clean refusal; uncertain mutations
+remain sticky and quarantined.

@@ -442,3 +442,23 @@ full-volume chmod/utime refusal before payload writes preserves live metadata
 and disk bytes. If a later failure follows publication or retirement, the
 existing dirty/quarantine contract applies. There is no compound reservation or
 promise that every delete/truncate can finish on a full volume.
+
+
+Process writeback keeps dirty shared content retryable after an exFAT failure
+proven clean under filesystem exclusion: capacity/heap reservation failed before
+dirty marking, or no allocation/data/directory write occurred and the clean
+marker was successfully flushed. The failing flush still reports I/O failure;
+a later explicit flush/sync or close may try again after space is reclaimed.
+Read data, shared identity and descriptor offsets survive the refusal. Partial
+mutation, failed marker cleanup, unsupported requests and ownership/device
+admission failures retain the sticky error behavior. This is not a new errno ABI
+or an automatic retry loop, and it does not guarantee that a later attempt fits.
+
+Global sync visits each live content object once, including dirty content held
+only by readers after a failed writer close. Unlinked content needs no pathname
+writeback. Final close still retires the descriptor and reports a flush error;
+without another reference the in-memory content is released. Check explicit
+`fsync`/`fdatasync` for persistence errors: this libc's `fflush` drains its stream
+buffer and treats its additional fsync call as best effort, while `sync()` has a
+void interface. A successful stream-buffer flush alone is not a durability
+receipt.

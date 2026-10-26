@@ -3643,8 +3643,11 @@ static int64_t content_flush(struct process_file_content *content) {
     if(content->unlinked) { content->dirty=false;return 0; }
     if(content->failed) return SRV_ERR_IO;
     if(!content->dirty) return 0;
-    if(!exfat_write_file(content->path,content->data,content->size)) {
-        content->failed=true;return SRV_ERR_IO;
+    bool retryable=false;
+    if(!exfat_write_file_retryable(content->path,content->data,content->size,&retryable)) {
+        /* A clean refusal retains dirty data for a later explicit flush/close.
+         * Partial writes and failed cleanup keep the sticky error contract. */
+        content->failed=!retryable;return SRV_ERR_IO;
     }
     content->dirty=false;return 0;
 }
@@ -4557,10 +4560,12 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
 
 int64_t process_file_sync_all(void) {
     int64_t result = 0;
-    for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES; i++) {
-        if (write_files[i].used && write_files[i].content->dirty && process_file_flush(NULL, i + 1) < 0) {
-            result = -1;
-        }
+    /* A failed writer close can leave dirty content retained only by readers.
+     * Visit each live content object once, including those survivors, rather
+     * than retrying once per independent write description. */
+    for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES + PROCESS_MAX_READ_FILES; i++) {
+        struct process_file_content *content=&file_contents[i];
+        if (content->refs && content->dirty && content_flush(content) < 0) result = -1;
     }
     return result;
 }

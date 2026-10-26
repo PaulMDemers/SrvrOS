@@ -2164,6 +2164,11 @@ test-exfat-growth: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_crash.py --driver $< --growth --output build/review/allocation-growth/crash
 test-core: test-exfat-growth
 
+.PHONY: test-process-writeback
+test-process-writeback: $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) tools/test_exfat_import.py --process --limine-include $(LIMINE_PROTOCOL_DIR)/include --output build/review/writeback-retry/integration
+test-core: test-process-writeback
+
 .PHONY: test-exfat-retirement
 test-exfat-retirement: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_crash.py --driver $< --retirement --output build/review/retirement-sidecar/crash

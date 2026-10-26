@@ -98,6 +98,13 @@ Directory growth now uses 161 boundaries because its redundant nested sidecar
 sync is removed. Read-side snapshot cleanup and serialized teardown were traced
 without confirming another defect; process writeback retry policy after a clean
 space refusal remains a follow-on question, separate from backend quarantine.
+The writeback checkpoint expands import coverage to 123 modes and adds a real
+process/exFAT retry fixture. Clean refusal no longer permanently poisons shared
+content, and global sync now includes dirty reader-only survivors after failed
+writer close, once per content object. Partial/uncertain writes remain sticky.
+Follow-on syscall/libc tracing preserves explicit fsync error reporting and
+documents fflush's weaker persistence behavior. Descriptor inheritance and
+delayed-error ownership across process exit remain a separate next scope.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

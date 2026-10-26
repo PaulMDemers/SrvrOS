@@ -723,14 +723,83 @@ it is distinct from the new integrated guest evidence. This final record changes
 documentation only. PR182 remains draft; the next audit question is process
 writeback retry after clean space refusal.
 
+## Process writeback retry after clean refusal
+
+Two confirmed process defects are corrected:
+
+- At `834fbff0`, a healthy full-volume flush poisoned the shared content object
+  permanently. Reclaiming space could not help: later flushes returned the
+  sticky error without entering exFAT. The public process regression and a
+  bridge linking the original process source to real exFAT/VFS reproduce this.
+- Once the last writer closed with a flush error, a reader could still retain
+  dirty content. Global sync walked only write descriptions, skipped that
+  survivor and falsely reported success. A separate regression captures this
+  after the first correction, before changing the sync traversal.
+
+The backend now returns conservative retry eligibility captured while it owns
+filesystem exclusion. An admitted, clean outer operation can retry after a
+capacity/heap reservation failure before dirty marking, or after refusal with no
+allocation/data/directory writes and successful clean-marker restoration/flush.
+Partial mutation, failed marker I/O, nested operations and invalid/unsupported or
+ownership/device admission refusals do not qualify. The original boolean write
+APIs retain their behavior; this is an internal process-writeback result, not a
+new syscall or errno mapping. A post-return writable probe is not used.
+
+Process writeback still reports the first failure, retaining dirty data and
+shared identity for a later explicit attempt. Global sync visits each live
+content object once, including reader-only survivors. Uncertain failures remain
+sticky; final-close and process-exit errors are still reported, and the final
+reference's buffer is released even when close fails.
+
+Seven new import modes (123 total) test clean space refusal/retry, reservation
+OOM, entry publication, dirty marking, clean-marker write/flush failure and
+invalid requests. The new `test-process-writeback` bridge links real process
+content code and real exFAT/VFS: fill the volume, refuse twice, free a filler,
+flush the same buffer, remount and verify bytes/allocation ownership. Public
+process regressions cover shared opens, readers and dup aliases, offsets,
+readiness, one-attempt-per-content sync, reader-only survivors, hard failure and
+exit behavior. The original-source failure is retained in
+`build/review/writeback-retry/real-baseline/`; model regressions are in
+`baseline.log` and `sync-survivor-baseline.log`.
+
+Harness corrections are retained separately: the new bridge initially omitted
+the Limine include path, the relocated original source also needed the kernel
+source include path, and the OOM probe initially checked its allocation counter
+after a readback allocation. These are not runtime defect evidence. The corrected
+probe checks the failure boundary before readback.
+
+Follow-on tracing confirms `fsync` and `fdatasync` expose process/transport flush
+errors, and `block_flush_all` does not skip offline writable devices as successes.
+This libc's `fflush` treats its extra fsync as best effort and `sync()` is void;
+callers needing a persistence result must use explicit fsync and check close.
+No additional defect is confirmed by that trace. Descriptor inheritance and
+delayed-error ownership across process exit are the next bounded audit question.
+
+### Writeback checkpoint verification
+
+All 123 import modes, the real process/exFAT bridge and public process-output
+regressions pass normally and under ASan/UBSan. The 323 retirement, 161 growth,
+144 rename/promotion and 29 boot-matrix boundaries/cases pass normally, along
+with storage/lease gates. The matched build, six generator groups and recursive
+372-entry image check pass. Six sequential disposable VMs pass:
+aliases 16.53 s, quarantine 16.47 s, imports 16.50 s, corrupt-entry 16.41 s, threads 40.53 s, libuv 10.18 s.
+
+Evidence, original failures, harness corrections and tested hashes remain under
+`build/review/writeback-retry/`. Main remains `4ee18f69`; PR19 at `e04e2dc0` has
+no process/exFAT/VFS overlap. Documentation/link and whitespace checks pass.
+No native install, Actions dispatch or PR merge occurred. Follow-on syscall/libc
+tracing confirmed no further defect; descriptor inheritance and delayed-error
+ownership across process exit are next.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Process writeback retry after clean space refusal is the next bounded question.
-   Deletion/truncation and low-space sidecars now have directed coverage. Complete boot
+2. Descriptor inheritance and delayed-error ownership across process exit are next.
+   Clean writeback retry, deletion/truncation and low-space sidecars have directed
+   coverage. Complete boot
    regions and bounded system streams now have directed validation coverage;
    automatic repair, multi-cluster bitmap mutation, full Unicode and extended
    file entry sets remain unsupported. Controller reordering, physical power

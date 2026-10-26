@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 116 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 123 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1151,3 +1151,22 @@ space for new data. Remounts check contents, allocation ownership, permissions
 and updated mtime. The directory-growth sweep now has 161 rather than 193
 boundaries because length publication no longer causes an extra nested sidecar
 sync; its root/subdirectory coverage is unchanged.
+
+
+`make test-process-writeback` (included in `test-core`) links real process content
+writeback to the exFAT/VFS import fixture. It fills a healthy volume, verifies two
+failed flushes retain the same dirty buffer, deletes a filler file and retries
+successfully, then checks remounted bytes and allocation ownership. It needs the
+prepared Limine headers and an x86_64 host compiler; macOS uses Rosetta for this
+process fixture. `python3 tools/test_exfat_import.py --process --sanitize` adds
+ASan/UBSan; `--limine-include` overrides the header directory. Results and hashes
+are saved under the chosen `--output` path (the Make target uses
+`build/review/writeback-retry/integration/`).
+
+Seven new ordinary import modes cover clean full-volume refusal/retry, scratch
+reservation OOM, entry-publication failure, dirty-marker failure, clean-marker
+write/flush failure and invalid-request refusal. Only proven clean failures
+report retry eligibility. `test-process-output` also covers reader/independent
+writer/dup aliases, unchanged data and offsets, readiness, repeated refusal,
+once-per-content global sync, dirty content retained only by readers after a
+writer closes, sticky uncertain failures and exit error reporting.

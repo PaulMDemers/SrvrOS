@@ -1304,15 +1304,20 @@ static bool write_volume_flags(struct exfat_volume *volume, uint16_t flags) {
     return volume_flush(volume);
 }
 static bool reserve_mutation(struct exfat_mount *,const char *,uint64_t,uint64_t);
-static bool mutation_begin(struct exfat_mount *mount, struct mutation_scope *scope,
-    const char *path,uint64_t files,uint64_t dirs) {
+static bool mutation_begin_result(struct exfat_mount *mount, struct mutation_scope *scope,
+    const char *path,uint64_t files,uint64_t dirs,bool *retryable) {
     if(!fs_enter(&scope->access))return false;
     if(!mount || !mount->used)goto denied;
     struct exfat_volume *volume = &mount->volume;
     struct block_device *parent = block_parent(volume->device);
     if (volume->image || !block_device_online(volume->device) || !volume->device->write ||
         !parent || !parent->flush || volume->write_blocked) goto denied;
-    if(!reserve_mutation(mount,path,files,dirs)) goto denied;
+    if(!reserve_mutation(mount,path,files,dirs)) {
+        /* Capacity/heap reservation has no media effects. Only an admitted,
+         * clean outer operation can promise this before dirty marking. */
+        if(retryable && !volume->mutation_depth && !(volume->flags & 2u)) *retryable=true;
+        goto denied;
+    }
     scope->volume = volume;
     if (volume->mutation_depth == 0) {
         volume->mutation_written = false;
@@ -1329,7 +1334,11 @@ denied:
     fs_leave(&scope->access);
     return false;
 }
-static bool mutation_end(struct mutation_scope *scope, bool ok) {
+static bool mutation_begin(struct exfat_mount *mount, struct mutation_scope *scope,
+    const char *path,uint64_t files,uint64_t dirs) {
+    return mutation_begin_result(mount,scope,path,files,dirs,NULL);
+}
+static bool mutation_end_result(struct mutation_scope *scope, bool ok, bool *retryable) {
     struct exfat_volume *volume = scope->volume;
     if (!ok && volume->mutation_written) volume->write_blocked = true;
     if (--volume->mutation_depth == 0 && !volume->write_blocked) {
@@ -1341,8 +1350,17 @@ static bool mutation_end(struct mutation_scope *scope, bool ok) {
         }
     }
     if (volume->write_blocked) ok = false;
+    /* Capture the result before releasing storage ownership. A later writable
+     * probe cannot describe this transaction's writes or clean-marker flush. */
+    if (retryable) *retryable = !ok && !volume->mutation_depth &&
+        !volume->mutation_written && !volume->write_blocked && !(volume->flags & 2u) &&
+        block_device_online(volume->device);
     fs_leave(&scope->access);
     return ok;
+}
+
+static bool mutation_end(struct mutation_scope *scope, bool ok) {
+    return mutation_end_result(scope, ok, NULL);
 }
 
 /* Reserve transient sidecar nodes as well as the caller's new node. Check
@@ -3801,17 +3819,25 @@ static bool mutation_shape(const char *path,uint64_t size) {
 
 /* Public mutation boundaries. Failed or interrupted metadata updates are never
  * silently declared clean; recovery is performed offline with a filesystem checker. */
-bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
-    return exfat_write_file_mode(path,data,size,UINT64_MAX);
-}
-bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
+static bool write_file_mode_result(const char *path, const uint8_t *data, uint64_t size,
+    uint64_t mode, bool *retryable) {
+    if (retryable) *retryable = false;
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
     if (!valid_ascii_basename(path) || !mutation_shape(path,size) || (!data && size) ||
         (!find_file(path) && name_conflicts(path, NULL))) return false;
     struct mutation_scope scope;
-    if (!mutation_begin(find_mount_for_path(path), &scope, path, find_file(path)?0:1, 0)) return false;
-    return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path,
-        find_file(path) ? 0 : 1, 0) && exfat_write_file_impl(path, data, size,mode));
+    if (!mutation_begin_result(find_mount_for_path(path), &scope, path, find_file(path)?0:1, 0, retryable)) return false;
+    return mutation_end_result(&scope, mutation_capacity(find_mount_for_path(path), path,
+        find_file(path) ? 0 : 1, 0) && exfat_write_file_impl(path, data, size,mode), retryable);
+}
+bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
+    return write_file_mode_result(path,data,size,UINT64_MAX,NULL);
+}
+bool exfat_write_file_retryable(const char *path, const uint8_t *data, uint64_t size, bool *retryable) {
+    return write_file_mode_result(path,data,size,UINT64_MAX,retryable);
+}
+bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
+    return write_file_mode_result(path,data,size,mode,NULL);
 }
 bool exfat_create_directory(const char *path) {
     return exfat_create_directory_mode(path,UINT64_MAX);
