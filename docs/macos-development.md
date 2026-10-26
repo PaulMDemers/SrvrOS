@@ -128,3 +128,28 @@ maps or failed checks remain readable but cannot be mutated through exFAT; inspe
 the `exfat-check` diagnostics and recover offline. Generated exact allocation
 aliases are retained safely until their last owner is removed. Mount paths must
 be canonical, unoccupied and outside other exFAT mount subtrees.
+
+## Focused storage host tests
+
+`sh tools/macos/build.sh test-exfat-import` runs the 51 portable import/claim
+modes; `python3 tools/test_exfat_import.py --sanitize` adds ASan/UBSan. The
+storage adapter aggregate also includes an existing x86 USB fixture. On this
+Mac it was run with Rosetta and the following local compiler wrapper, which
+translates the GNU dead-section linker option for Darwin. Rosetta is an extra
+requirement for this host-test recipe, not for the OS build or QEMU launcher.
+
+```sh
+mkdir -p build/tooling
+cat > build/tooling/darwin-host-cc.py <<'PYTHON'
+import os, sys
+os.execvp("cc", ["cc", "-arch", "x86_64"] +
+          [arg.replace("-Wl,--gc-sections", "-Wl,-dead_strip") for arg in sys.argv[1:]])
+PYTHON
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-storage-leases
+```
+
+The new image tests use disposable synthetic regular files under
+`build/review/storage-claims/image/`; no existing workspace disk is opened.
+The full Linux-oriented host suite remains unqualified on macOS. In particular,
+these results do not accept the separate `test-workspace-image` exfatprogs
+power-cut sweep or the unrelated sync-command host fixture.

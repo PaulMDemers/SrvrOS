@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         assert(false);
 #endif
     }
-    struct block_device d={.name="fixture",.block_size=512,.block_count=bytes/512,
+    struct block_device d={.used=true,.name="fixture",.block_size=512,.block_count=bytes/512,
         .read=block_read,.write=check_only ? NULL : block_write,.flush=check_only ? NULL : flush};
     if(check_only) {
         if(!exfat_mount_block_device("/vol",&d)) {
@@ -440,3 +440,6 @@ int main(int argc, char **argv) {
     printf("driver: complete writes=%u flushes=%u\n",writes,flushes);
     return 0;
 }
+
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"

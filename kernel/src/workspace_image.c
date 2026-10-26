@@ -21,7 +21,7 @@ static struct {
     struct block_device view;
     block_write_fn write;
     block_flush_fn flush;
-    uint64_t offset;
+    uint64_t offset, claim;
 } image;
 
 struct image_scope { uint64_t flags; bool services; };
@@ -90,6 +90,7 @@ static bool image_flush(struct block_device *d) {
 static void revoke(void) {
     block_forget(&image.view);
     block_forget(image.parent);
+    if(image.claim && !image.poisoned) {block_claim_release(image.claim);image.claim=0;}
     image.view.used = false;
     image.view.read = NULL; image.view.write = NULL; image.view.flush = NULL;
     image.write = NULL; image.flush = NULL;
@@ -123,14 +124,18 @@ bool workspace_image_open(void) {
         WORKSPACE_IMAGE_BYTES % parent->block_size) goto out;
     block_write_fn write = parent->write;
     block_flush_fn flush = parent->flush;
-    if (!workspace_unmount() || workspace_parked_device() != volume) goto out;
+    if (!block_claim_available(parent,volume) ||
+        !workspace_unmount() || workspace_parked_device() != volume) goto out;
     image.volume = volume; image.parent = parent; image.offset = raw;
     image.write = write; image.flush = flush; image.open = true;
     image.cycle = 0; image.step = 0; image.workload_failed = false;
     image.profiling=false;image.profile_valid=false;
     image.view = (struct block_device){.used=true, .name="battery-image",
         .block_size=parent->block_size, .block_count=WORKSPACE_IMAGE_BYTES/parent->block_size,
+        .backing=parent,.backing_offset=raw,
         .max_transfer_bytes=parent->max_transfer_bytes>=BLOCK_MAX_BATCH_BYTES?BLOCK_MAX_BATCH_BYTES:4096, .read=image_read};
+    image.claim=block_claim_raw(parent,&image.view);
+    if(!image.claim)goto refused;
     block_forget(parent);
     uint8_t boot[512];
     /* Prepared fixture only: clean, 512-byte sectors, fixed diagnostic identity.
@@ -167,7 +172,7 @@ bool workspace_image_close(void) {
     bool ok = false;
     if (!image.open || process_has_open_vfs_prefix("/battery-test")) goto out;
     ok = workspace_image_ready() && image_flush(&image.view);
-    if (image.mounted && !exfat_unmount("/battery-test")) ok = false;
+    if (image.mounted && !exfat_unmount("/battery-test")) { image.poisoned=true;ok=false;goto out; }
     image.mounted = false;
     if (!ok) image.poisoned = true;
     revoke();

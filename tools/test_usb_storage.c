@@ -19,7 +19,7 @@ static uint8_t disk[65536], cdb[16];
 static uint32_t tag, length, done;
 static unsigned data_calls, fault_chunk, checkpoints;
 static unsigned phase, calls, writes, syncs, senses, tur_failures, fault;
-static bool empty;
+static bool empty, claim_busy;
 static uint32_t sector_bytes=512;
 static unsigned diagnosed;
 static void diagnose(void *ctx) { assert(ctx==&storage);diagnosed++; }
@@ -211,9 +211,15 @@ int main(void) {
     assert(usb_storage_is_device(&block) && !usb_storage_is_device(NULL));
     assert(usb_storage_enable_volume_writes(&block) && block.write && block.flush);
     alias.write=other.write=block.write;
+    claim_busy=true;
+    assert(!usb_storage_disable_volume_writes(&block) && block.write && alias.write);
+    claim_busy=false;
     storage.busy=true; assert(!usb_storage_disable_volume_writes(&block) && block.write && alias.write);
     storage.busy=false; assert(usb_storage_disable_volume_writes(&block) && !block.write && !block.flush);
     assert(!alias.write && other.write);
+    claim_busy=true;
+    assert(!usb_storage_enable_volume_writes(&block) && !block.write && !block.flush);
+    claim_busy=false;
     assert(usb_storage_enable_volume_writes(&block));
     struct block_device unrelated={0}; assert(!usb_storage_enable_volume_writes(&unrelated));
     reset(); assert(usb_storage_attach(&storage,&storage,bulk,true));
@@ -252,3 +258,5 @@ int main(void) {
 void latency_usb(uint64_t bytes,uint8_t opcode) { (void)bytes; (void)opcode; }
 
 void scheduler_io_checkpoint(void) { assert(!depth || storage.busy);checkpoints++; }
+
+bool block_claim_available(struct block_device *d,struct block_device *except) { (void)d;(void)except;return !claim_busy; }

@@ -25,7 +25,7 @@ static struct {
     struct block_device *volume,*parent;
     block_write_fn write;
     block_flush_fn flush;
-    uint64_t offset;
+    uint64_t offset, claim;
     uint8_t buffer[4096];
 } scratch;
 
@@ -205,7 +205,7 @@ bool workspace_unmount(void) {
     if (!active) { console_write("workspace: not mounted\n"); goto out; }
     if (mount_hold.token) { console_write("workspace: busy; mounted lifetime is held\n"); goto out; }
     if (process_has_open_vfs_prefix("/work")) { console_write("workspace: busy; close files first\n"); goto out; }
-    if (!sync_locked()) goto out;
+    if (!block_claim_available(block_parent(active),active) || !sync_locked()) goto out;
     if (!exfat_unmount("/work") || !usb_storage_disable_volume_writes(active)) {
         failed = true; goto out;
     }
@@ -221,7 +221,8 @@ bool workspace_scratch_prepare(void) {
     struct scope scope;
     if(!begin(&scope)){end(&scope);return false;}
     bool ok=false;
-    if(mount_hold.token||scratch.open||scratch.poisoned||!active||failed||process_has_open_vfs_prefix("/work"))goto out;
+    if(mount_hold.token||scratch.open||scratch.poisoned||!active||failed||
+       !block_claim_available(block_parent(active),active)||process_has_open_vfs_prefix("/work"))goto out;
     char path[]="/work/srvros-work/battery-io-0000000000000000.bin";
     uint64_t nonce=timer_monotonic_us();
     for(unsigned i=0;i<16;i++)path[sizeof("/work/srvros-work/battery-io-")-1+i]="0123456789abcdef"[(nonce>>(60-i*4))&15];
@@ -235,6 +236,8 @@ bool workspace_scratch_prepare(void) {
        raw%parent->block_size||4096%parent->block_size)goto out;
     block_write_fn write=parent->write;block_flush_fn flush=parent->flush;
     if(!workspace_unmount()||workspace_parked_device()!=volume)goto out;
+    scratch.claim=block_claim_raw(parent,NULL);
+    if(!scratch.claim)goto out;
     scratch.volume=volume;scratch.parent=parent;scratch.offset=raw;
     scratch.write=write;scratch.flush=flush;scratch.open=true;
     block_forget(parent);
@@ -266,9 +269,10 @@ bool workspace_scratch_end(void) {
     if(!begin(&scope)){end(&scope);return false;}
     bool ok=scratch.open&&!scratch.poisoned&&workspace_parked_device()==scratch.volume;
     if(scratch.open)block_forget(scratch.parent);
+    if(!ok)scratch.poisoned=true;
+    if(scratch.claim && !scratch.poisoned) {block_claim_release(scratch.claim);scratch.claim=0;}
     scratch.open=false;scratch.write=NULL;scratch.flush=NULL;
     scratch.volume=NULL;scratch.parent=NULL;
-    if(!ok)scratch.poisoned=true;
     console_printf("workspace-scratch: revoked clean=%s\n",ok?"yes":"NO");
     end(&scope);return ok;
 }

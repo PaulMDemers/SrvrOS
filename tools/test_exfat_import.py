@@ -9,7 +9,7 @@ import platform
 import shlex
 import subprocess
 ROOT=Path(__file__).resolve().parents[1]
-MODES=('control','geometry-shifts','geometry-volume','geometry-fat','geometry-heap','geometry-format','geometry-valid','stream-invalid',
+MODES=('device-alias','device-lease','device-delegate','device-rollback','control','geometry-shifts','geometry-volume','geometry-fat','geometry-heap','geometry-format','geometry-valid','stream-invalid',
        'valid-read','valid-zero','valid-boundary','valid-chain','valid-invalid','valid-rename','valid-replace','valid-overwrite',
        'entry-checksum','entry-layout','entry-name-length','entry-name-hash','entry-unsafe-name',
        'entry-flags','entry-extra','entry-cleanup','entry-valid','dir-cycle','dir-invalid-next','dir-short','dir-chain',
@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--sanitize', action='store_true', help='Enable address and undefined-behavior sanitizers')
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     exe=out/'exfat-import'
-    files=['tools/test_exfat_import.c','kernel/src/fs/exfat.c','kernel/src/vfs.c','tools/test_exfat_import.py']
+    files=['tools/test_exfat_import.c','kernel/src/fs/exfat.c','kernel/src/vfs.c','tools/test_exfat_import.py','kernel/src/block_claim.c','kernel/include/srvros/block.h']
     command=shlex.split(os.environ.get('CC','cc'))+['-DSRVROS_EXFAT_HOST_TEST','-std=c11','-O1','-g','-Wall','-Wextra','-Werror',
         '-ffunction-sections','-fdata-sections','-I',str(ROOT/'shared/include'),'-I',str(ROOT/'kernel/include'),
         str(ROOT/files[0]),str(ROOT/files[2]),'-Wl,-dead_strip' if platform.system()=='Darwin' else '-Wl,--gc-sections','-o',str(exe)]

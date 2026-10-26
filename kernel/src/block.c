@@ -264,23 +264,6 @@ struct block_device *block_parent(struct block_device *device) {
     return device;
 }
 
-bool block_raw_range(struct block_device *device,uint64_t offset,uint64_t length,
-    struct block_device **parent,uint64_t *raw_offset) {
-    if(!device||!device->used||!parent||!raw_offset||!length||
-       !device->block_size||device->block_count>UINT64_MAX/device->block_size)return false;
-    uint64_t size=block_device_size(device);
-    if(offset>size||length>size-offset)return false;
-    struct block_device *raw=block_parent(device);
-    if(device!=raw) {
-        struct partition_block_device *partition=device->private_data;
-        if(!partition||offset>partition->size||length>partition->size-offset||
-           partition->offset>UINT64_MAX-offset)return false;
-        offset+=partition->offset;
-    }
-    if(!raw||!raw->used||!raw->block_size||raw->block_count>UINT64_MAX/raw->block_size||
-       offset>block_device_size(raw)||length>block_device_size(raw)-offset)return false;
-    *parent=raw;*raw_offset=offset;return true;
-}
 void block_forget(struct block_device *device) {
     if(!device)return;
     uint64_t flags=irq_save();
@@ -400,6 +383,7 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
         struct block_device *partition = block_register(partition_names[slot], device->block_size,
             blocks, partition_read, device->write ? partition_write : NULL, &partition_devices[slot]);
         if (!partition) { partition_count--; return i; }
+        partition->backing=device;partition->backing_offset=partition_devices[slot].offset;
         console_printf("block: registered GPT partition %s offset=%u size=%u\n", partition->name,
             partition_devices[slot].offset, partition_devices[slot].size);
     }
@@ -435,6 +419,7 @@ uint64_t block_register_mbr_partitions(struct block_device *device) {
         struct block_device *p=block_register(partition_names[slot],device->block_size,count[i],
             partition_read,device->write?partition_write:NULL,&partition_devices[slot]);
         if(!p) break;
+        p->backing=device;p->backing_offset=partition_devices[slot].offset;
         partition_count++; added++;
         console_printf("block: registered MBR partition %s offset=%u size=%u\n",p->name,
             partition_devices[slot].offset,partition_devices[slot].size);

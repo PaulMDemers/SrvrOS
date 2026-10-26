@@ -225,3 +225,10 @@ support and full Linux compatibility remain outside this bounded profile. See th
 
 The bounded event-adapter audit is complete with passing host/sanitizer, matched
 thread and libuv VM gates. PR179 carries the implementation and delivery record.
+
+The [filesystem audit](filesystem-audit-2026-10-26.md) now includes declared
+physical block-view overlap and raw-storage lease admission. Mounts claim ranges;
+mutating diagnostics reserve their raw transport, delegate only the inner image
+view and retain failure quarantine until reboot. The import suite has 51 modes,
+with additional block/workspace/USB and seven portable image-adapter cases.
+General hot removal and crash recovery remain outside this checkpoint.

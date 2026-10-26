@@ -77,6 +77,9 @@ static void test_mbr(void) {
     assert(!block_raw_range(p,UINT64_MAX,512,&raw,&offset));
     assert(!block_raw_range(p,0,0,&raw,&offset));
     assert(block_raw_range(d,0,4096,&raw,&offset)&&raw==d&&offset==0);
+    uint64_t claim=block_claim_mount(p);assert(claim && !block_claim_mount(d));
+    assert(block_claim_release(claim));claim=block_claim_mount(d);
+    assert(claim && !block_claim_mount(p) && block_claim_release(claim));
     medium[512]=0x93;block_forget(p);
     assert(block_read(p,0,&byte,1)&&byte==0x93);
     assert(!block_enable_partition_writes(p));
@@ -218,7 +221,46 @@ static void test_batches(void) {
     assert(service_yields>yields_before && io_depth==0);
     clock_us=0;
 }
+static void test_claims(void) {
+    block_init();struct block_device *d=block_register("disk",512,128,fake_read,fake_write,NULL);
+    struct block_device a=*d,b=*d,alias=*d,nested=*d,other=*d;
+    a.backing=b.backing=alias.backing=d;a.block_count=b.block_count=alias.block_count=8;
+    a.backing_offset=512;b.backing_offset=512+4096;alias.backing_offset=1024;
+    nested.backing=&a;nested.backing_offset=512;nested.block_count=1;
+    struct block_device *root=NULL;uint64_t off=0;
+    assert(block_raw_range(&nested,0,512,&root,&off) && root==d && off==1024);
+    uint64_t one=block_claim_mount(&a),two=block_claim_mount(&b);assert(one && two);
+    assert(!block_claim_mount(d) && !block_claim_mount(&alias) && !block_claim_mount(&nested));
+    assert(!block_claim_raw(d,NULL) && !block_claim_available(d,&a));
+    assert(block_claim_release(two) && block_claim_available(d,&a));
+    assert(!block_claim_release(two) && !block_claim_release(0));
+    assert(block_claim_release(one));
+    uint64_t raw=block_claim_raw(d,&a);assert(raw>two);
+    assert(!block_claim_mount(d) && !block_claim_mount(&alias) && !block_claim_mount(&b));
+    one=block_claim_mount(&a);assert(one && !block_claim_mount(&a));
+    assert(!block_claim_release(raw));
+    assert(block_claim_release(one) && block_claim_release(raw));
+    assert(!block_claim_release(one));
+    /* Independent media and touching ranges do not conflict. */
+    one=block_claim_mount(d);two=block_claim_mount(&other);assert(one && two);
+    assert(block_claim_release(one) && block_claim_release(two));
+    nested.backing=&nested;assert(!block_raw_range(&nested,0,1,&root,&off));
+    nested.backing=&a;nested.backing_offset=UINT64_MAX;
+    assert(!block_claim_mount(&nested));nested.backing_offset=4096;
+    assert(!block_claim_mount(&nested));
+    a.block_count=UINT64_MAX;assert(!block_claim_mount(&a));a.block_count=8;
+    a.used=false;assert(!block_claim_mount(&a));a.used=true;
+    d->used=false;assert(!block_claim_mount(&a));d->used=true;
+    /* Exhaustion refuses cleanly; release makes space without token reuse. */
+    struct block_device many[40];uint64_t tokens[40];
+    for(unsigned i=0;i<40;i++) {many[i]=*d;tokens[i]=block_claim_mount(&many[i]);assert(tokens[i]);}
+    assert(!block_claim_mount(d));assert(block_claim_release(tokens[0]));
+    one=block_claim_mount(d);assert(one>tokens[39] && !block_claim_release(tokens[0]));
+    assert(block_claim_release(one));for(unsigned i=1;i<40;i++)assert(block_claim_release(tokens[i]));
+    puts("block-claims: PASS physical overlap, disjoint/touching, nested views, delegation, stale release, bounds and exhaustion");
+}
 int main(void) {
+    test_claims();
     test_batches(); service_yields=0;
     test_gpt();
     test_mbr();
@@ -269,3 +311,6 @@ int main(void) {
     assert(service_yields==2 && !irq_enabled && io_depth==0);
     puts("block-host: PASS (bounded batching, failed batch invalidation/publication, unaligned I/O, cache publication isolation, cached I/O service windows, service rejection, failed writes, partition coherence, MBR bounds/overlap/protection, flush errors)");
 }
+
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"

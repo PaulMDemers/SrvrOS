@@ -1057,3 +1057,46 @@ import 16.45 s, corrupt-entry fallback 16.33 s, complete threads 39.89 s and lib
 No desktop UI, physical hardware or Actions acceptance is claimed by these runs.
 The remaining queue is unchanged: overlapping device views, raw leases,
 serialization/removal and recovery/crash consistency.
+
+### Device-view/raw-lease audit — active scope (2026-10-26)
+
+Continue PR182 from `0654615b`, integrating actual main `5bcd061c` (PR184
+worker-pipe admission) before implementation. Own block range identity/claims,
+exFAT mount admission and workspace scratch/image lease handoff, with directed
+host regressions and matched disposable VMs. PR19 Wi-Fi work stays separate.
+Reproduce overlapping mounts and raw-lease remounts, preserve disjoint partition
+mounts and the authorized inner-image mount, and test release/failure/retry.
+No hardware, Actions dispatch, general hot-unplug or crash-repair work is requested.
+
+### Device-view/raw-lease checkpoint results
+
+Confirmed overlapping block mounts and a parked outer-volume remount during an
+active image lease against the previous runtime. Declared physical view identity
+and range claims now reject overlap before media reads. Raw scratch/image leases
+reserve the entire transport, delegate only the designated image view, reject
+sibling-mount handoff and retain poisoned exclusion until reboot. Clean
+refusal/close releases claims; stale tokens cannot release later owners.
+
+All 51 import modes pass normally and under ASan/UBSan. The real block/partition,
+workspace and USB callback tests pass; seven synthetic real image-adapter runs
+cover successful mutation, two pause points, partial-write/flush quarantine and
+two clean refusals/retries with outer-byte preservation. Block/workspace/image
+adapters pass sanitizers. Six compiled negative controls are detected. Existing
+AHCI host tests pass under x86_64 host execution. The first alias probe had an
+incorrect assertion placement; only the corrected overlap failure is counted.
+Unrelated aggregate Mac linker/assembly/sync-command failures are retained; the
+focused Darwin/x86 wrapper recipe is in the Mac guide. No full Linux host-suite
+or exfatprogs fault-sweep acceptance is claimed.
+
+Matched build and 372-entry image validation pass. Six sequential VMs pass:
+aliases 16.57 s, bitmap quarantine 16.42 s, imports 16.43 s, corrupt-entry fallback
+16.40 s, complete threads 39.75 s and libuv 10.13 s. Evidence is retained in
+`build/review/storage-claims/`, including tested hashes and build/VM receipts.
+The checkout includes main `5bcd061c`/PR184. PR19's workspace-log changes were
+inspected for overlap and remain separate; no logging files were changed here.
+
+Follow-on source tracing found registered USB/AHCI devices are quarantined and
+retained on failure, with no general runtime unregister/reuse path. No additional
+device use-after-free was confirmed. Hot removal/generation changes, caller
+serialization and mutation recovery/crash consistency remain next. No native
+hardware, battery/EC trial or Actions dispatch occurred.

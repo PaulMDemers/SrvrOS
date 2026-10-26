@@ -12,10 +12,7 @@ static unsigned count, enables, disables, flushes, depth, raw_writes, invalidati
 static bool scratch_file, extent_ok, raw_write_ok, raw_read_ok, mismatch;
 static uint8_t scratch_data[4096];
 uint64_t timer_monotonic_us(void){return 12345;}
-uint64_t block_device_size(const struct block_device *d){(void)d;return 8192;}
-bool block_raw_range(struct block_device *d,uint64_t off,uint64_t len,struct block_device **parent,uint64_t *raw){
-    assert(d==disks&&off==4096&&len==4096);*parent=d;*raw=off;return true;
-}
+uint64_t block_device_size(const struct block_device *d){return d?d->block_size*d->block_count:0;}
 void block_forget(struct block_device *d){assert(d==disks);invalidations++;}
 bool exfat_write_file(const char *path,const uint8_t *data,uint64_t size){
     assert(mounted&&!scratch_file&&strstr(path,"battery-io-")&&size==4096);
@@ -76,11 +73,12 @@ void vfs_release_data(const struct vfs_node *n,const uint8_t *d) { (void)n;(void
 bool process_has_open_vfs_prefix(const char *p) { assert(!strcmp(p,"/work"));return busy_files; }
 int64_t process_file_sync_all(void) { return file_sync_ok?0:-1; }
 static void reset(void) {
+    if(scratch.claim)block_claim_release(scratch.claim);
     active=NULL;parked=NULL;failed=image_busy=false;scratch=(__typeof__(scratch)){0};memset(disks,0,sizeof(disks));
     mount_generation=hold_serial=0;mount_hold=(__typeof__(mount_hold)){0};
     count=1;enables=disables=flushes=depth=raw_writes=invalidations=0;
     scratch_file=mismatch=false;extent_ok=raw_write_ok=raw_read_ok=true;
-    disks[0].block_size=512;disks[0].read=raw_read;
+    disks[0].used=true;disks[0].block_count=16;disks[0].block_size=512;disks[0].read=raw_read;
     mounted=busy_files=dirty=bad_marker=missing=foreign=false;
     flush_ok=file_sync_ok=true;
     dir=(struct vfs_node){.type=VFS_NODE_DIRECTORY};
@@ -147,6 +145,12 @@ int main(void) {
     disks[0].write=write_stub;assert(!workspace_parked_device());disks[0].write=NULL;
     disks[0].flush=flush_stub;assert(!workspace_parked_device());disks[0].flush=NULL;
     assert(workspace_mount("37d8c5d0")&&!workspace_parked_device());
+    struct block_device sibling=disks[0];sibling.backing=disks;sibling.block_count=1;
+    uint64_t sibling_claim=block_claim_mount(&sibling);assert(sibling_claim);
+    unsigned old_flushes=flushes;
+    assert(!workspace_unmount() && mounted && flushes==old_flushes);
+    assert(!workspace_scratch_prepare() && !scratch_file && flushes==old_flushes);
+    assert(block_claim_release(sibling_claim));
     uint8_t data[4096];memset(data,0x72,sizeof(data));
     reset();assert(!workspace_scratch_prepare()&&!workspace_scratch_cycle(data));
     assert(workspace_mount("37d8c5d0"));extent_ok=false;
@@ -156,8 +160,10 @@ int main(void) {
     reset();assert(workspace_mount("37d8c5d0"));
     assert(workspace_scratch_prepare()&&!mounted&&!disks[0].write&&!disks[0].flush);
     assert(!workspace_mount("37d8c5d0")&&!workspace_scratch_prepare());
+    assert(!block_claim_mount(disks) && !block_claim_raw(disks,NULL));
     assert(workspace_scratch_cycle(data)&&raw_writes==1&&!memcmp(data,scratch_data,4096));
     assert(workspace_scratch_end()&&!workspace_scratch_cycle(data));
+    assert(block_claim_available(disks,NULL));
     assert(workspace_mount("37d8c5d0")&&invalidations>=3);
     for(unsigned fault=0;fault<4;fault++){
         reset();assert(workspace_mount("37d8c5d0")&&workspace_scratch_prepare());
@@ -169,6 +175,10 @@ int main(void) {
         assert(!workspace_scratch_cycle(data)&&raw_writes==1);
         assert(!workspace_scratch_end()&&!scratch.open&&!scratch.write&&!scratch.flush);
         assert(!workspace_mount("37d8c5d0")&&!depth&&!disks[0].write);
+        assert(!block_claim_mount(disks) && !block_claim_available(disks,NULL));
     }
     puts("workspace-host: PASS (mount identity/hold/release/stale tokens, UUID/marker/duplicate/dirty guards, I/O owner, busy files, flush failure, unmount/revoke)");
 }
+
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"

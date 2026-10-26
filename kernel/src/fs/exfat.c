@@ -126,6 +126,7 @@ struct exfat_directory {
 struct exfat_file_slot { struct exfat_file file; char path[EXFAT_MAX_PATH]; };
 struct exfat_mount {
     bool used;
+    uint64_t block_claim;
     struct exfat_volume volume;
     struct exfat_file_slot *file_blocks[EXFAT_MAX_FILES/EXFAT_NODE_BLOCK];
     struct exfat_directory *dir_blocks[EXFAT_MAX_DIRS/EXFAT_NODE_BLOCK];
@@ -2474,6 +2475,7 @@ static bool exfat_create_directory_impl(const char *path,uint64_t mode) {
 }
 
 static void clear_mount(struct exfat_mount *mount) {
+    if(mount->block_claim)block_claim_release(mount->block_claim);
     for(uint64_t i=0;i<mount->file_capacity/EXFAT_NODE_BLOCK;i++) kfree(mount->file_blocks[i]);
     for(uint64_t i=0;i<mount->dir_capacity/EXFAT_NODE_BLOCK;i++) kfree(mount->dir_blocks[i]);
     kfree(mount->metadata_buffer);
@@ -3469,7 +3471,7 @@ bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t im
     return true;
 }
 
-bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
+static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim) {
     struct exfat_boot_sector boot;
     uint64_t size = block_device_size(device);
     if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(boot)) {
@@ -3507,6 +3509,7 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
 
     mount->volume = volume;
     mount->volume.device = device;
+    mount->block_claim = claim;
     remember_mountpoint(mount, mountpoint);
 
     if (!scan_root_directory(mount)) {
@@ -3535,6 +3538,14 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
         mount->file_count,
         mount->volume.cluster_size);
     return true;
+}
+
+bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
+    uint64_t claim=block_claim_mount(device);
+    if(!claim)return false;
+    if(mount_block_device(mountpoint,device,claim))return true;
+    (void)block_claim_release(claim); /* Scan rollback may already have released it. */
+    return false;
 }
 
 /* Public mutation boundaries. Failed or interrupted metadata updates are never

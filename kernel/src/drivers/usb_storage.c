@@ -247,7 +247,7 @@ bool usb_storage_enable_volume_writes(struct block_device *device) {
     if (!usb_storage_is_device(device)) return false;
     struct block_device *parent = block_parent(device);
     struct usb_storage *storage = parent->private_data;
-    if (storage->failed || storage->busy) return false;
+    if (storage->failed || storage->busy || !block_claim_available(parent,device)) return false;
     parent->write = write_blocks;
     parent->flush = flush;
     return block_enable_partition_writes(device);
@@ -258,7 +258,7 @@ bool usb_storage_disable_volume_writes(struct block_device *device) {
     struct block_device *parent = block_parent(device);
     struct usb_storage *storage = parent->private_data;
     uint64_t flags = save_irq();
-    if (storage->busy) { restore_irq(flags); return false; }
+    if (storage->busy || !block_claim_available(parent,device)) { restore_irq(flags); return false; }
     /* Revoke every alias, including the raw disk, before returning to the monitor. */
     for (uint64_t i = 0; i < BLOCK_MAX_DEVICES; i++) {
         struct block_device *alias = block_device_at(i);

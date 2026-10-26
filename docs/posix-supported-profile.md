@@ -361,13 +361,16 @@ its exact consecutive ASCII name records, valid allocation flags and empty-file
 fields. Unsupported non-ASCII names and secondary extensions are refused rather
 than renamed or dropped. Directory scans reject traversed FAT cycles, invalid
 successors and premature termination. This remains a bounded import profile;
-boot/upcase recovery, full Unicode, allocation ownership and crash safety are
-separate work. Rebuild older generated images whose entry checksums were unset.
+boot/upcase recovery, full Unicode, complete allocation-format conformance and
+crash safety remain separate work. Rebuild older generated images whose entry checksums were unset.
 
 Imported duplicate/case-colliding paths and overlapping mount subtrees are
 refused. Exact allocation aliases used by generated images retain their storage
 until the last published owner retires; overwrite still uses a new allocation.
 Block mounts quarantine inconsistent allocation maps or failed ownership checks
 as read-only before sidecar recovery/mutation. This is not a hard-link API,
-a media-repair facility or certification of corrupt-file contents. Device-view
-aliasing, hot removal and power-loss recovery require separate validation.
+a media-repair facility or certification of corrupt-file contents. Mounts now
+claim declared physical block-view ranges; overlapping views and active raw
+transport leases refuse competing mounts. Raw diagnostics delegate only their
+explicit inner image view and retain exclusion after I/O failure until reboot.
+Hot removal, descriptor generation changes and power-loss recovery remain open.

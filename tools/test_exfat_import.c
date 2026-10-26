@@ -31,7 +31,7 @@ bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n) {
     (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;if(off==fail_write_offset) {fail_write_offset=UINT64_MAX;return false;}memcpy(disk+off,p,(size_t)n);return true;
 }
 static bool flush(struct block_device *d) { (void)d;flushes++;return true; }
-static struct block_device device={.name="import-test",.block_size=SECTOR,.block_count=BYTES/SECTOR,.read=block_read,.write=block_write,.flush=flush};
+static struct block_device device={.used=true,.name="import-test",.block_size=SECTOR,.block_count=BYTES/SECTOR,.read=block_read,.write=block_write,.flush=flush};
 static uint64_t offset(unsigned cluster) { return HEAP*SECTOR+(cluster-2)*SECTOR; }
 static void checksum(uint8_t *entry) {
     unsigned total=(entry[1]+1)*32, sum=0;
@@ -280,7 +280,40 @@ static void ownership_case(const char *mode) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"identity-",9) || !strncmp(mode,"mount-",6) ||
+    if(!strcmp(mode,"device-alias")) {
+        fixture(1100,true);struct block_device alias=device;
+        alias.backing=&device;
+        assert(exfat_mount_block_device("/vol",&device));
+        assert(!exfat_mount_block_device("/other",&alias));
+        assert(exfat_unmount("/vol"));
+        assert(exfat_mount_block_device("/other",&alias));
+        assert(exfat_unmount("/other"));
+    } else if(!strcmp(mode,"device-lease")) {
+        fixture(1100,true);
+        uint64_t lease=block_claim_raw(&device,NULL);assert(lease);
+        unsigned before=reads;
+        assert(!exfat_mount_block_device("/vol",&device) && reads==before);
+        assert(block_claim_release(lease));
+        assert(exfat_mount_block_device("/vol",&device));
+        assert(!block_claim_raw(&device,NULL));
+        assert(exfat_unmount("/vol"));
+    } else if(!strcmp(mode,"device-delegate")) {
+        fixture(1100,true);struct block_device view=device,alias=device;
+        view.backing=alias.backing=&device;
+        uint64_t lease=block_claim_raw(&device,&view);assert(lease);
+        assert(!exfat_mount_block_device("/raw",&device));
+        assert(!exfat_mount_block_device("/alias",&alias));
+        assert(exfat_mount_block_device("/vol",&view));
+        assert(!block_claim_release(lease));
+        assert(exfat_unmount("/vol") && block_claim_release(lease));
+        assert(exfat_mount_block_device("/raw",&device));assert(exfat_unmount("/raw"));
+    } else if(!strcmp(mode,"device-rollback")) {
+        fixture(1100,true);disk[offset(2)+66]^=1;
+        assert(!exfat_mount_block_device("/vol",&device));
+        uint64_t lease=block_claim_raw(&device,NULL);assert(lease && block_claim_release(lease));
+        fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));
+        assert(exfat_unmount("/vol"));
+    } else if(!strncmp(mode,"identity-",9) || !strncmp(mode,"mount-",6) ||
        !strncmp(mode,"alias-",6) || !strncmp(mode,"ownership-",10) || !strncmp(mode,"allocation-",11)) {
         ownership_case(mode);
     } else if(!strncmp(mode,"entry-",6) || !strncmp(mode,"dir-",4)) {
@@ -372,3 +405,6 @@ int main(int argc,char **argv) {
     }
     printf("exfat-import: %s PASS\n",mode);return 0;
 }
+
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"

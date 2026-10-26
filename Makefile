@@ -1996,7 +1996,7 @@ build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clo
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
-build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
@@ -2142,13 +2142,13 @@ test-core: test-exfat-entries
 
 .PHONY: test-exfat-hardening
 .PHONY: test-workspace-image
-build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_image_host.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-workspace-image: build/tests/workspace-image-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_workspace_image.py
 
-build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
@@ -2162,7 +2162,7 @@ test-exfat-scale: build/tests/exfat-driver$(HOST_EXE)
 test-workspace: build/tests/workspace-host$(HOST_EXE) build/tests/sync-command-host$(HOST_EXE)
 	build/tests/workspace-host$(HOST_EXE)
 	build/tests/sync-command-host$(HOST_EXE)
-build/tests/workspace-host$(HOST_EXE): tools/test_workspace.c kernel/src/workspace.c $(KERNEL_HEADERS)
+build/tests/workspace-host$(HOST_EXE): tools/test_workspace.c kernel/src/workspace.c kernel/src/block_claim.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/sync-command-host$(HOST_EXE): tools/test_sync_command.c userspace/posixutils/posixutils.c $(USER_SYSROOT_HEADERS)
@@ -3734,3 +3734,10 @@ test-terminal-commands: build/tests/terminal-commands-host$(HOST_EXE)
 build/tests/terminal-commands-host$(HOST_EXE): tools/test_terminal_commands.c userspace/deskterm/deskterm.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_terminal_commands.c userspace/desktop_runtime/commands.c -Wl,--gc-sections -o $@
+
+.PHONY: test-storage-leases
+test-storage-leases: build/tests/block-host$(HOST_EXE) build/tests/workspace-host$(HOST_EXE) build/tests/usb-storage-host$(HOST_EXE) build/tests/workspace-image-host$(HOST_EXE)
+	build/tests/block-host$(HOST_EXE)
+	build/tests/workspace-host$(HOST_EXE)
+	build/tests/usb-storage-host$(HOST_EXE)
+	$(PYTHON) tools/test_storage_leases.py

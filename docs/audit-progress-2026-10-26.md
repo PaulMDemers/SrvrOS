@@ -66,7 +66,11 @@ refusal. A third checkpoint expands to 47 modes and protects exact allocation
 aliases, rejects duplicate/overlapping namespaces and quarantines inconsistent
 allocation maps before mutation. Normal teardown busy guards and process snapshot
 ownership were traced without confirming an additional open-reference defect.
-Overlapping device views, raw leases, removal and crash recovery remain next.
+A fourth checkpoint expands import coverage to 51 modes and adds physical-range
+mount claims, exclusive raw-transport leases, delegated inner-image admission
+and persistent failure quarantine. Block/workspace/USB and seven synthetic
+image-adapter runs cover handoff and retirement. Removal/generation changes,
+caller serialization and crash recovery remain open.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

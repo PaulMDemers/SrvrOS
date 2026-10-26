@@ -262,12 +262,86 @@ All six sequential VMs pass again: aliases 16.46 s, quarantine 16.39 s, import
 evidence directory. These are emulated filesystem/integration checks; they do
 not replace the desktop agent's UI or physical-machine acceptance.
 
+## Physical device claims and raw leases
+
+The next checkpoint integrates main `5bcd061c` (PR184 worker-pipe admission)
+and closes two reproducible admission gaps. Distinct block views of overlapping
+physical bytes could mount simultaneously because exFAT compared device pointers.
+The existing workspace-image adapter also allowed the parked outer volume to
+mount at another path while the inner image was active: revoking write callbacks
+did not reserve the storage. Both failures are reproduced against the previous
+runtime in `build/review/storage-claims/baseline-corrected/`.
+
+MBR/GPT partitions and the diagnostic image now declare their backing device and
+byte offset. A bounded resolver checks every view edge, parent bounds, overflow
+and cyclic chains. A CPU0, interrupt-protected claim table admits mounts by
+physical root/range before reading media. Entire block views are reserved
+conservatively, including any tail beyond the declared filesystem size. Disjoint
+and touching ranges remain independent. Mount rollback and unmount release the
+claim; monotonically increasing tokens prevent stale releases from revoking a
+new owner. Table/token exhaustion refuses admission.
+
+Scratch and image diagnostics reserve the entire raw transport after parking the
+workspace. The whole-device scope matches USB write/flush callback revocation.
+Preflight refuses handoff while a sibling partition is mounted, before unmount,
+callback changes or scratch creation. USB write enable/disable uses the same
+check. Only the designated contained image view may mount under an image lease;
+a copied view descriptor is not delegated. The child mount must retire before
+its parent claim can be released. Clean refusal/close permits later admission.
+Failed raw I/O retains the exclusion until reboot, even after callbacks and VFS
+nodes have been revoked, so another mount cannot bypass workspace quarantine.
+
+Claims are kernel admission metadata, not protection against arbitrary kernel
+code invoking a saved driver callback. View descriptors/backing mappings must
+remain stable while claimed. `block_parent` retains its transport/flush meaning;
+`block_raw_range` resolves physical identity for claims and raw extents. This
+checkpoint does not turn every block read into an exclusive lease or change the
+read-only battery diagnostic's parked-identity checks.
+
+Verification adds four actual exFAT/VFS modes (51 total), real block/partition
+range and claim tests, workspace/USB handoff tests, and seven portable synthetic
+image-adapter runs: workload, two pause/close points, partial-write failure,
+flush failure, bad marker and bad inner identity. Image tests compare all outer
+bytes outside the leased file, validate resulting contents and test competing
+mounts, clean retry and poisoned refusal. ASan/UBSan covers the import suite and
+block/workspace/image adapters. Six compiled negative controls detect missing
+physical overlap, partition identity, active-child retention, USB handoff checks
+and scratch/image quarantine. The existing AHCI host test also passes.
+
+The initial alias probe was placed after an existing mount and failed on the
+wrong assertion; that log is retained and is not defect evidence. The corrected
+probe fails on accepting the overlapping mount. Initial macOS aggregate commands
+also encountered existing GNU linker flags, x86 assembly and a `cfmakeraw` host
+fixture incompatibility. Focused targets were built with the documented Darwin
+linker/x86 compiler wrapper; the unrelated sync-command aggregate is not claimed
+as passing. Portable synthetic fixtures do not replace Linux exfatprogs fault
+sweeps or native USB acceptance.
+
+The matched OS build and independent image check (372 entry sets in 16
+directories) pass. Six sequential disposable x86_64 VMs pass: aliases 16.57 s,
+bitmap quarantine 16.42 s, imports 16.43 s, corrupt-entry fallback 16.40 s,
+complete threads 39.75 s and libuv 10.13 s (60-second completion budget).
+`build/review/storage-claims/` retains the build receipt, source/output hashes,
+host/sanitizer logs, negative controls and `vms/result.json`. These guests check
+integration with the boot disk and consumers; the raw USB lease defects are
+exercised by the directed host adapters, not claimed as native hardware trials.
+
+### Follow-on removal trace
+
+USB transport failure latches `failed`; AHCI uncertain completion takes the disk
+offline and keeps DMA storage pinned. The block registry has no general runtime
+unregister/reuse API; these registered descriptors live until reboot. The image
+view is static and its claim/mount now retires before clean reuse. No additional
+registered-device use-after-free was confirmed. General hot-unplug, generation
+changes, asynchronous teardown and crash-recovery acceptance remain open; adding
+an unregister API requires explicit mount/claim retirement and cache invalidation.
+
 ## Remaining audit queue
 
-1. Device/view lifetime and aliasing: overlapping block-device views of one physical
-   extent, raw storage leases, caller serialization during unmount, and device
-   removal. Normal busy guards are present; reproduce any gap before broadening
-   low-level/process changes.
+1. Device removal/generation changes and caller serialization during unmount.
+   Overlapping declared views and mutating raw leases now have regression-tested
+   admission. Reproduce any further lifetime gap before broadening process or
+   low-level hot-unplug mechanisms.
 2. Mutation failure/recovery boundaries and durable metadata. Existing serialized
    replacement and dirty-volume quarantine are not a journal; interrupted rename
    and power-loss atomicity remain unproven. Multi-cluster bitmap mutation,

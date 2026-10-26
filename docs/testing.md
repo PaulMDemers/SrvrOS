@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 47 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 51 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1058,3 +1058,12 @@ cleanup from uncertain-write quarantine. The `--ownership` and
 `--ownership-corrupt` options to `exfat_import_smoke.py` exercise exact aliases and
 bitmap-corruption quarantine in disposable guests; these are explicit fixture
 modes, not part of an ordinary threadstress `all` run.
+
+`make test-storage-leases` runs the real block claim/partition tests, workspace
+handoff and USB callback guards, then seven portable synthetic image-adapter
+cases via `tools/test_storage_leases.py`. Unlike the separate Linux
+`test-workspace-image` fault sweep, these fixtures do not require exfatprogs and
+do not certify format conformance or power-cut recovery. They verify physical
+overlap refusal, disjoint ranges, delegation, clean release/retry, stale tokens,
+claim exhaustion and persistent raw failure quarantine. Use the
+[Mac host-test recipe](macos-development.md#focused-storage-host-tests) for Darwin.
