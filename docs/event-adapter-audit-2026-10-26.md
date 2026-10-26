@@ -12,9 +12,9 @@ The initial checkpoint at `526b6353` added executable reproductions without
 runtime changes: seven directed probes failed. The subsequent correction below
 fixes the descriptor-lifetime group. The next correction fixes immediate waits,
 eventfd readiness rechecks, deadline accounting and empty/infinite waits. Nonblocking
-counter bounds and writable readiness are now corrected too. Continued audit
-confirms **unfixed** semaphore-read and unknown-creation-flag behavior with two
-explicit failing probes. The supported profile limits these experimental APIs;
+counter bounds, writable readiness, semaphore reads and creation-flag validation
+are now corrected too. Continued audit confirms **unfixed** ready-set starvation
+and zero-interest native hangup delivery with two explicit failing probes. The supported profile limits these experimental APIs;
 the new evidence makes their failure modes concrete. It does not establish Node support or general Linux API conformance.
 
 ## P2: epoll state outlives descriptor ownership — corrected
@@ -90,10 +90,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit remaining flag/semaphore failures: two probes currently exit 1.
+# Explicit remaining fairness/hangup failures: two probes currently exit 1.
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select one, for example --audit semaphore-read.
+# Or select one, for example --audit epoll-fairness.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -116,7 +116,7 @@ DEL and descriptor close. These narrow MOD results do not accept concurrent mask
 replacement, edge/one-shot semantics or arbitrary descriptor lifetimes. ASan/UBSan
 controls pass without diagnostics. At the initial checkpoint each directed finding exited 1 at its intended
 contract assertion, with the observed result printed first. The current default
-target includes positive controls and the corrected lifetime/wait/counter cases; remaining
+target includes positive controls and the corrected lifetime/wait/counter/mode cases; remaining
 known failures are neither hidden as passes nor added to the acceptance target.
 
 No kernel/libc runtime changed in the initial `526b6353` host-model audit. Native storage, full Mac test-core, Node recovery, general SMP,
@@ -306,11 +306,11 @@ serializes the check/add with reads and readiness, so concurrent writers cannot
 spend the same remaining capacity. EPOLLOUT is reported only below the maximum;
 read/drain restores it. No kernel or public ABI changes are required.
 
-This accepts bounded nonblocking counter behavior, not general eventfd semantics.
-Descriptors without `EFD_NONBLOCK` still return `EAGAIN`/`EWOULDBLOCK` for empty
+This counter checkpoint accepted bounded nonblocking behavior, not general eventfd
+semantics. At that checkpoint, descriptors without `EFD_NONBLOCK` still return `EAGAIN`/`EWOULDBLOCK` for empty
 reads or capacity-blocked writes instead of parking. Eventfd flags/semaphore mode,
 duplication, raw mutations, cross-process state and native poll/select integration
-remain outside acceptance. The epoll adapter retains its 10 ms polling interval
+remained outside acceptance; the mode/flags correction follows below. The epoll adapter retains its 10 ms polling interval
 plus rounding/scheduling delay; counter fixes do not add kernel notifications.
 
 The default host gate now includes all three former counter failures plus two
@@ -327,7 +327,7 @@ remaining increments: exactly 31 succeed and 97 return `EAGAIN`, then a read
 returns the legal maximum. It also waits for a worker to drain a full counter
 and restore EPOLLOUT. The full thread suite requires its completion marker.
 
-## Continued audit: semaphore reads and unknown creation flags
+## Historical continued audit: semaphore reads and unknown creation flags — corrected
 
 `semaphore-read` creates `eventfd(2, EFD_NONBLOCK | EFD_SEMAPHORE)`. The first read
 returns two and drains the counter; the assertion expects one and fails. The
@@ -352,3 +352,64 @@ Local source/build/log hashes and receipts are under `build/review/eventfd-count
 All disposable guests stopped; no physical trial, ABI or Actions setting changed.
 PR179 remains draft. Next bounded scope is eventfd semaphore mode and creation
 flag validation; blocking I/O and broader Linux adapter semantics remain separate.
+
+
+## Semaphore mode and creation flags correction
+
+The `e37213bf` counter checkpoint retains its two original failed mode/flag
+receipts. Creation now validates the public eventfd flag mask before allocating
+any state, including when all slots are occupied. Unknown bits return `EINVAL`;
+valid requests against a full table still return `EMFILE`. All eight combinations
+of the three declared flags remain accepted. A private semaphore-mode field is
+initialized on allocation and cleared on close, separately from mutable status
+and descriptor flags. `F_SETFL` and `F_SETFD` do not change the read mode.
+
+Under the existing lifecycle mutex, a semaphore read returns one and subtracts
+one; an ordinary read returns and subtracts the entire count. Buffer validation
+happens first, so failed reads cannot consume tokens. A semaphore read from a
+full counter restores room for exactly one write and EPOLLOUT, while EPOLLIN
+persists until the last token is consumed. This adds no syscall or public ABI.
+Blocking I/O, duplication/cross-process state, native poll/select integration and
+kernel notification remain outside the bounded adapter contract.
+
+Twenty-five positive host modes now include the two former failures plus flag
+combination/slot reuse/fcntl/capacity tests and semaphore buffer/readiness tests.
+Unknown-bit coverage includes the sign bit and negative flags. Real adapter and
+fcntl code is compiled with modeled native services; this is not a scheduler test.
+The `eventfd-modes` guest checks public APIs, all valid flag combinations, full
+counter read/refill readiness and eight rounds of four readers making 128 reads
+from 31 tokens. Exactly 31 reads return one and 97 return `EAGAIN` in each round.
+It is part of `threadstress all`, with a required smoke completion marker.
+
+## Continued audit: ready-set starvation and zero-interest hangups
+
+`epoll-fairness` registers two persistently readable eventfds, then makes four
+zero-timeout waits with `maxevents=1`. Every result refers to the first watch;
+the second is never visited. The source scans from slot zero and stops once the
+output limit is filled. The [epoll wait contract](https://man7.org/linux/man-pages/man2/epoll_wait.2.html)
+specifies rotation through a ready set larger than the result buffer. The probe
+expects both tags and fails; this confirms a starvation case, not measured
+scheduling fairness or a frequency estimate.
+
+`epoll-hup-only` registers a native descriptor with an empty interest mask and
+models a native POLLHUP. The adapter skips the watch before calling poll, returning
+zero instead of EPOLLHUP. The [epoll control contract](https://man7.org/linux/man-pages/man2/epoll_ctl.2.html)
+requires hangup/error reporting without an explicit request bit. The directed
+hangup assertion fails; the same source filter also merits error-event coverage.
+These two explicit failures stay outside the positive gate. Next bounded scope
+is ready-set rotation and unconditional native error/hangup polling, preserving
+the existing lifetime/deadline checks. Edge/one-shot and signal-mask semantics
+remain separate; no complete Linux compatibility claim is made.
+
+
+Final mode/flag validation: matched `all` build, twenty-five positive host modes
+and ASan/UBSan, targeted eventfd-modes VM, complete thread suite and full libuv
+consumer VM pass. Four compiled negative controls break flag rejection, mode
+storage, one-token subtraction or fcntl mode independence; each fails its intended
+assertion. Five smoke-reader tests pass. Documentation checks 655 local links with
+zero errors; whitespace checks pass. The baseline's two semaphore/flag failures
+and the two new fairness/hangup failures are retained separately, under
+`build/review/eventfd-modes/`, with source/build/log hashes. All disposable guests
+stopped. PR179 remains draft; next bounded scope is epoll ready-set rotation and
+zero-interest native error/hangup reporting. Blocking I/O, kernel notification,
+physical acceptance and Actions settings remain unchanged.

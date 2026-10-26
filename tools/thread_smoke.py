@@ -139,6 +139,7 @@ def main():
             "threadstress: epoll-lifetime ok",
             "threadstress: epoll-wait ok",
             "threadstress: eventfd-counter ok",
+            "threadstress: eventfd-modes ok",
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",

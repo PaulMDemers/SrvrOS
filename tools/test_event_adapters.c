@@ -361,6 +361,71 @@ int main(int argc, char **argv) {
         CHECK(epoll_wait(ep,got,2,50)==1 && got[0].events==EPOLLOUT && got[0].data.u64==123);
         CHECK(poll_calls==1 && last_timeout==10 && during_poll==NULL);
         CHECK(__posix_eventfd_read(retiring_fd,&value,8)==-1 && errno==EAGAIN);
+    } else if (!strcmp(mode,"eventfd-flags")) {
+        int known=EFD_SEMAPHORE|EFD_NONBLOCK|EFD_CLOEXEC;
+        for (int bit=0;bit<32;bit++) {
+            int bad=(int)((uint32_t)1<<bit);
+            if (bad & known) continue;
+            CHECK(eventfd(3,bad|known)==-1 && errno==EINVAL);
+            CHECK(__posix_node_fork_ready());
+        }
+        CHECK(eventfd(0,-1)==-1 && errno==EINVAL);
+        /* Each allocation reuses the same slot, alternating mode bits. Changes
+         * to status/descriptor flags must not toggle the semaphore mode. */
+        for (int bits=0;bits<8;bits++) {
+            int flags=(bits&1?EFD_SEMAPHORE:0)|(bits&2?EFD_NONBLOCK:0)|(bits&4?EFD_CLOEXEC:0);
+            int fd=eventfd(3,flags); CHECK(fd==3000);
+            CHECK(fcntl(fd,F_GETFD)==(bits&4?FD_CLOEXEC:0));
+            CHECK((fcntl(fd,F_GETFL)&O_NONBLOCK)==(bits&2?O_NONBLOCK:0));
+            CHECK(fcntl(fd,F_SETFL,0)==0 && (fcntl(fd,F_GETFL)&O_NONBLOCK)==0);
+            CHECK(fcntl(fd,F_SETFD,FD_CLOEXEC)==0 && fcntl(fd,F_GETFD)==FD_CLOEXEC);
+            CHECK(fcntl(fd,F_SETFL,O_NONBLOCK)==0);
+            CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==(bits&1?1:3));
+            if (bits&1) {
+                CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==1);
+                CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==1);
+            }
+            CHECK(__posix_eventfd_read(fd,&value,8)==-1 && errno==EAGAIN);
+            CHECK(close(fd)==0 && __posix_node_fork_ready());
+        }
+        int full[16]; for (int i=0;i<16;i++) { full[i]=eventfd(1,EFD_NONBLOCK); CHECK(full[i]>=0); }
+        CHECK(eventfd(0,0)==-1 && errno==EMFILE);
+        CHECK(eventfd(0,0x40000000)==-1 && errno==EINVAL);
+        for (int i=0;i<16;i++) CHECK(close(full[i])==0);
+        CHECK(__posix_node_fork_ready());
+    } else if (!strcmp(mode,"semaphore-readiness")) {
+        int fd=eventfd(2,EFD_NONBLOCK|EFD_SEMAPHORE), ep=epoll_create1(0);
+        watch(ep,fd,EPOLLIN|EPOLLOUT,123);
+        CHECK(__posix_eventfd_read(fd,NULL,8)==-1 && errno==EINVAL);
+        CHECK(__posix_eventfd_read(fd,&value,7)==-1 && errno==EINVAL);
+        unsigned char bytes[17]; memset(bytes,0xa5,sizeof(bytes));
+        CHECK(__posix_eventfd_read(fd,bytes+1,16)==8); memcpy(&value,bytes+1,8);
+        CHECK(value==1 && bytes[0]==0xa5); for (int i=9;i<17;i++) CHECK(bytes[i]==0xa5);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==(EPOLLIN|EPOLLOUT));
+        CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==1);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLOUT);
+        CHECK(__posix_eventfd_read(fd,&value,8)==-1 && errno==EAGAIN);
+        add=UINT64_MAX-1; CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLIN);
+        CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==1);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==(EPOLLIN|EPOLLOUT));
+        add=2; CHECK(__posix_eventfd_write(fd,&add,8)==-1 && errno==EAGAIN);
+        add=1; CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLIN);
+        CHECK(close(fd)==0 && close(ep)==0);
+    } else if (!strcmp(mode,"epoll-fairness")) {
+        int ep=epoll_create1(0), a=eventfd(1,EFD_NONBLOCK), b=eventfd(1,EFD_NONBLOCK);
+        watch(ep,a,EPOLLIN,1); watch(ep,b,EPOLLIN,2);
+        unsigned seen=0;
+        for (int i=0;i<4;i++) { CHECK(epoll_wait(ep,got,1,0)==1); seen|=(unsigned)got[0].data.u64; }
+        printf("ready set across four maxevents=1 waits: seen=%u\n",seen);
+        CHECK(seen==3);
+    } else if (!strcmp(mode,"epoll-hup-only")) {
+        int ep=epoll_create1(0), p[2]; CHECK(pipe(p)==0);
+        watch(ep,p[0],0,123); readiness[p[0]]=POLLHUP;
+        int n=epoll_wait(ep,got,2,0);
+        printf("zero-interest native hangup: ready=%d\n",n);
+        CHECK(n==1 && got[0].events==EPOLLHUP && got[0].data.u64==123);
     } else if (!strcmp(mode,"semaphore-read")) {
         int fd=eventfd(2,EFD_NONBLOCK|EFD_SEMAPHORE); CHECK(fd>=0);
         ssize_t n=__posix_eventfd_read(fd,&value,8);

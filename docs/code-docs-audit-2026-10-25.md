@@ -285,3 +285,11 @@ mutation and ties EPOLLOUT to available capacity, with host boundary tests and
 concurrent public-API guest coverage. Continued audit confirms `EFD_SEMAPHORE`
 reads drain the whole count and unknown creation flags succeed; two explicit
 failing probes track those next. Blocking eventfd I/O remains unimplemented.
+
+
+The eventfd mode follow-up now preserves `EFD_SEMAPHORE`, consumes one token per
+read, and rejects unknown creation flags before slot allocation. Host tests cover
+flag combinations, fcntl independence, slot reuse and readiness; guest tests add
+concurrent one-token consumption. Continued audit confirms starvation when the
+ready set exceeds `maxevents` and missed native hangups for an empty interest
+mask. Both remain explicit failing probes; blocking eventfd I/O remains separate.

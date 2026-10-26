@@ -200,9 +200,14 @@ kernel notification queue or a hard latency guarantee. Idle waits incur periodic
 wakeups. Nonblocking eventfd writes now reject the reserved `UINT64_MAX` value
 with `EINVAL` and additions exceeding `UINT64_MAX-1` with `EAGAIN`, preserving
 the counter. EPOLLOUT requires room for at least one and returns after draining.
-Zero writes remain valid at full capacity. Blocking read/write remains unsupported
-(the adapter returns `EAGAIN` instead of waiting); semaphore mode and unknown-flag
-validation are confirmed unfixed. Ready-set fairness, edge/one-shot delivery,
+Zero writes remain valid at full capacity. `EFD_SEMAPHORE` reads return one and
+subtract one, preserving remaining readiness; ordinary reads drain the counter.
+Creation accepts only `EFD_SEMAPHORE`, `EFD_NONBLOCK` and `EFD_CLOEXEC`, rejects
+unknown bits with `EINVAL` before allocation, and resets mode on slot reuse.
+Changes to descriptor/status flags do not toggle semaphore mode. Blocking
+read/write remains unsupported (the adapter returns `EAGAIN` instead of waiting).
+Ready-set fairness and zero-interest native HUP delivery are confirmed unfixed;
+edge/one-shot delivery,
 signal-mask waits and general concurrent socket semantics are also unaccepted.
 Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
 does not establish Node support.

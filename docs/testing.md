@@ -984,7 +984,7 @@ reproduction limits; the historical spontaneous incidents are not yet attributed
 
 
 `make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
-this Mac) runs twenty-one ordinary-operation, lifetime, wait and counter modes,
+this Mac) runs twenty-five ordinary-operation, lifetime, wait, counter and mode tests,
 including alias duplication, replacement, reuse, immediate/mixed waits, posts,
 finite/infinite deadlines, interruption and deterministic control changes during
 poll. `threadstress epoll-lifetime` and `threadstress epoll-wait` supply public-API
@@ -993,8 +993,12 @@ guest coverage and are included in `threadstress all`.
 of four writers competing for the last 31 counter increments; it also runs in
 `all`. Host counter modes cover zero/full/reserved values, preservation after
 errors, buffer sizes/alignment and writable readiness restored during a wait.
+`threadstress eventfd-modes` checks all valid flag combinations, semaphore
+readiness and eight rounds of four readers consuming 31 tokens; it is included
+in `all`. Host modes also cover each unknown flag bit, full-capacity rejection,
+mode independence from fcntl, slot reuse and invalid-read preservation.
 `python3 tools/test_event_adapters.py --audit all` also runs two remaining
-contract probes (semaphore reads and unknown creation flags) and currently exits 1.
+contract probes (epoll fairness and zero-interest hangups) and currently exits 1.
 Those modes are excluded from `test-core`;
 see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
 boundaries, observed failures and sanitizer commands.

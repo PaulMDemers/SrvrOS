@@ -755,3 +755,28 @@ Local source/build/log hashes and receipts are under `build/review/eventfd-count
 All disposable guests stopped; no physical trial, ABI or Actions setting changed.
 PR179 remains draft. Next bounded scope is eventfd semaphore mode and creation
 flag validation; blocking I/O and broader Linux adapter semantics remain separate.
+
+## Eventfd semaphore/flags correction — active scope (2026-10-26)
+
+User authorized proceeding with semaphore reads and creation-flag validation.
+Base is `e37213bf`; fetched main remains `8bd43adc`, PR179 matches and stays draft,
+and PR19 retains Wi-Fi ownership. Scope: private eventfd mode storage, one-token
+reads under the existing mutex, validation before slot allocation, host tests for
+flag combinations/lifetime/readiness and concurrent guest consumption. Update
+current guides and PR179, then continue the bounded adapter audit. Blocking I/O
+and kernel notification remain separate; no new ABI or physical acceptance.
+Next checkpoint is host regressions and matched sequential thread/libuv VMs.
+Actions remain disabled and historical failed evidence must be retained.
+
+
+Final mode/flag validation: matched `all` build, twenty-five positive host modes
+and ASan/UBSan, targeted eventfd-modes VM, complete thread suite and full libuv
+consumer VM pass. Four compiled negative controls break flag rejection, mode
+storage, one-token subtraction or fcntl mode independence; each fails its intended
+assertion. Five smoke-reader tests pass. Documentation checks 655 local links with
+zero errors; whitespace checks pass. The baseline's two semaphore/flag failures
+and the two new fairness/hangup failures are retained separately, under
+`build/review/eventfd-modes/`, with source/build/log hashes. All disposable guests
+stopped. PR179 remains draft; next bounded scope is epoll ready-set rotation and
+zero-interest native error/hangup reporting. Blocking I/O, kernel notification,
+physical acceptance and Actions settings remain unchanged.

@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -51,6 +52,7 @@ struct dl_phdr_info {
 
 struct posix_eventfd {
     int used;
+    int semaphore;
     uint64_t counter;
     uint64_t fd_flags;
     uint64_t descriptor_flags;
@@ -197,13 +199,18 @@ static struct posix_eventfd *eventfd_slot(int fd) {
 }
 
 static int eventfd_locked(unsigned int initval, int flags) {
+    if (flags & ~(EFD_SEMAPHORE | EFD_NONBLOCK | EFD_CLOEXEC)) {
+        errno = EINVAL;
+        return -1;
+    }
     for (int i = 0; i < POSIX_EVENTFD_MAX; i++) {
         if (eventfds[i].used) {
             continue;
         }
         eventfds[i].counter = initval;
-        eventfds[i].fd_flags = (flags & O_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
-        eventfds[i].descriptor_flags = (flags & O_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+        eventfds[i].semaphore = (flags & EFD_SEMAPHORE) != 0;
+        eventfds[i].fd_flags = (flags & EFD_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+        eventfds[i].descriptor_flags = (flags & EFD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
         __atomic_store_n(&eventfds[i].used, 1, __ATOMIC_RELEASE);
         return POSIX_EVENTFD_BASE + i;
     }
@@ -232,8 +239,8 @@ static ssize_t __posix_eventfd_read_locked(int fd, void *buffer, size_t length) 
         errno = (slot->fd_flags & SRV_FD_NONBLOCK) != 0 ? EAGAIN : EWOULDBLOCK;
         return -1;
     }
-    uint64_t value = slot->counter;
-    slot->counter = 0;
+    uint64_t value = slot->semaphore ? 1 : slot->counter;
+    slot->counter -= value;
     memcpy(buffer, &value, sizeof(value));
     return (ssize_t)sizeof(value);
 }
@@ -278,6 +285,7 @@ static int __posix_eventfd_close_locked(int fd) {
     }
     __posix_event_note_close(fd);
     slot->counter = slot->fd_flags = slot->descriptor_flags = 0;
+    slot->semaphore = 0;
     __atomic_store_n(&slot->used, 0, __ATOMIC_RELEASE);
     return 0;
 }

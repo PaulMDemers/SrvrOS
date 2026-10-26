@@ -160,8 +160,9 @@ coverage.
 - The poll-backed `epoll` adapter has tested libc-managed descriptor lifetime,
   immediate/deadline waits and bounded synthetic-readiness rechecks; see the
   [event-adapter audit](event-adapter-audit-2026-10-26.md). Nonblocking counter
-  bounds and writable readiness are corrected. Blocking eventfd I/O, semaphore
-  mode, flag validation, signal masks, fairness and edge/one-shot modes remain incomplete;
+  bounds, writable readiness, semaphore reads and creation-flag validation are
+  corrected. Blocking eventfd I/O, signal masks, fairness, zero-interest hangups
+  and edge/one-shot modes remain incomplete;
   `kqueue` is absent. General upstream backend acceptance remains separate.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker
