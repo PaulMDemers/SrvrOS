@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-25. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-10-26. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -50,7 +50,11 @@ chooser cancellation and clean retirement. Broader physical input and pressure
 injection are not implied by this automated result.
 Current source uses dynamically allocated window/GUI records with explicit byte
 budgets. Normal Text has multiple documents per process and shares a bounded lazy
-file-worker pool; Files uses the same service. A combined GUI/nonblocking-pipe
+file-worker pool. Files now supports independent sibling windows in one process;
+both share the [allocating window/model layer](desktop-window-ownership.md) for
+owned dialogs, sequential Quit and drained-work release. Terminal uses shared
+dispatch and PTY readiness while preserving shell control keys. These new
+consumer changes still need their own physical trial. A combined GUI/nonblocking-pipe
 wait preserves a single dispatcher and keeps accepted I/O owned until drained.
 Text and Preview also share an asynchronous file chooser controller; canceled
 folder reads drain before its buffers can be reused.

@@ -1,6 +1,51 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
+
+### Shared application/window layer — implementation and local consumer validation
+
+Rebased the existing device branch onto actual main `9f18d7d`, consuming PR175,
+PR178, PR179 and PR180. Kept main's stronger futex-before-frame-free fixture and
+its Linux header fixes; no duplicate poll include or competing fixture remains.
+PR181 owns this bounded D3e application-layer block. PR182 owns exFAT import
+validation and PR19 owns Wi-Fi; neither is included or overwritten here.
+
+Normal Text and Files share stable allocated window/models, owned-dialog routing,
+sequential cancellable Quit and explicit accepted-work retirement. Files New
+window creates siblings in one process with independent navigation/history and
+one lazy two-channel file-worker pool. Rename/duplicate/delete use owned dialogs
+with embedded refusal fallback. Terminal uses shared dispatch, PTY read/write
+readiness and command guards while preserving raw shell Ctrl-C/D/L and its
+existing separate session processes. Pure widgets remain allocation/transport
+free. No protocol, resource-budget, kernel-driver or firmware behavior is changed.
+
+Forty-model host and ASan/UBSan ownership tests pass, including refusal, explicit
+work drain, failed-unmap retry and fatal-transport retention. Actual consumer VMs
+pass twenty same-process Files windows, independent history, owned rename/cancel/
+collision, accepted 8 MiB copy retained during close, concurrent Text saving,
+exact file bytes, bounded workers and process-baseline restoration on standard
+exFAT metadata. The general Files mutation test passes pointer Delete confirmation.
+Terminal's real-shell test passes clipboard, output/backspace, interruption,
+independent sessions, close cancellation and cleanup. Lifecycle pointer/shutdown/
+crash/refusal tests pass exact saves and offline integrity; emergency-exit orphans
+must return to the exact baseline within init's bounded reaper interval. The
+load gate passes forty verified 64 KiB writes/readbacks and all forty-eight key
+acknowledgements with two reaped workers. Thirty-two Text documents/thirty-three
+exact files retire cleanly. Four mixed app cycles overlap a complete twenty-second
+PCM stream with exact samples and retained editable Text; this is VM evidence.
+Initial fixture failures and their corrections are retained locally.
+
+Final `make test-core all acpi-battery-kernel acpi-battery-vm-kernel check-docs`
+passes, with fresh normal/native/VM kernels and initramfs, ASan/UBSan ownership
+and clean whitespace. Exact-stage rehearsal precedes the next attended native
+trial. Its complete untimed Help checklist includes Files siblings,
+Terminal controls/close, Text decisions, Preview cancellation, two-minute playback
+with app/save work, and ordinary exit/reopen. Installed accepted current remains
+`986d6c68fa19ba18`, independent recovery `9aa8dbf6fbda8252`; the last return is
+collected and no next boot is armed. New source does not inherit that acceptance.
+Air6,1's separate continuous-I/O Files-close failure remains unresolved by this
+workload. Local evidence: `build/app-window-layer-20261026/`; next native run
+record: `build/app-window-native-20261026/`.
 
 ### Shared application runtime — concurrent-app hardware trial accepted
 

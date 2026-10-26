@@ -92,10 +92,11 @@ save decisions and readonly-image cancellation stay with their owners.
 
 ## Validation and acceptance
 
-`make test-desktop` includes the focused runtime and Text-command fixtures:
+`make test-desktop` includes runtime, window ownership and consumer-command fixtures:
 
 ```sh
-tools/host-env.sh make test-desktop-runtime test-tool-commands test-preview-app
+tools/host-env.sh make test-desktop-runtime test-window-set \
+  test-tool-commands test-preview-app test-terminal-commands
 ```
 
 The existing `desktop_wait_load_smoke.py` fixture also uses this runtime: its
@@ -126,3 +127,16 @@ release `986d6c68fa19ba18` accepts reported concurrent app use, observed Text sa
 and Preview loading/close, with clean lifetime retirement and preserved prior
 files. Native playback, explicit command parity and quantitative responsiveness
 remain separate acceptance work; full playback/save overlap is VM evidence.
+
+The optional allocating [window/model layer](desktop-window-ownership.md) builds
+on this dispatcher; it keeps model retirement separate from GUI acknowledgements.
+
+Terminal also uses the shared dispatcher and one combined PTY wait. Pending
+output watches read readiness; queued input also watches write readiness. Cursor
+blink supplies a deadline and child-status checks retain the service heartbeat.
+Clipboard and unfinished publication use short retries. Close retains the existing
+PTY hangup/child cleanup policy. Terminal command snapshots guard menus, toolbar
+buttons and app shortcuts, including Meta aliases for Ctrl-Shift bindings.
+Disabled/repeated app shortcuts never become shell bytes; raw Ctrl-C, Ctrl-D and
+Ctrl-L retain their PTY meaning. A new terminal still launches its own process;
+this migration does not claim multiple terminal sessions in one process.
