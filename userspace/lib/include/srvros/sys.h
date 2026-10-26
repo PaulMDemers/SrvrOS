@@ -211,6 +211,8 @@ long srv_sleep_ticks(uint64_t ticks);
 /* Wait for queued pointer input or one tick; 1 ready, 0 timeout, negative error. */
 long srv_pointer_wait(void);
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);
+/* Workers never return. The initial thread waits for all workers, then returns
+ * zero solely for the libc exit(0) cleanup handoff; callers must terminate. */
 long srv_thread_exit(uint64_t value);
 long srv_thread_join(uint64_t tid, uint64_t *value_out);
 long srv_thread_self(void);

@@ -258,7 +258,8 @@ int64_t process_msync(struct process *process,
     uint64_t length,
     uint64_t flags);
 int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);
-void process_thread_exit(uint64_t value) __attribute__((noreturn));
+/* Initial thread returns only after all workers exit, for libc exit(0). */
+void process_thread_exit(uint64_t value);
 int64_t process_thread_join(uint64_t tid, uint64_t *value_out);
 int64_t process_thread_detach(uint64_t tid);
 int64_t process_thread_status(uint64_t tid);

@@ -40,7 +40,9 @@ def read_test_result(sock, seconds):
         data += read_for(sock, 0.5)
         if (b"threadstress: ok" in data or
                 re.search(rb"threadstress: [^\r\n]*failed[\r\n]", data) or
-                b"process: exited status=" in data):
+                # Child exits can occur long before the suite completes.
+                # Only the monitor's top-level run receipt ends this command.
+                re.search(rb"(?:^|[\r\n])run: pid=\d+ exited status=", data)):
             break
     return data
 
@@ -165,10 +167,23 @@ def main():
             "threadstress: spawn-actions ok",
             "threadstress: masked poll ok",
             "threadstress: pthread contracts ok",
+            "threadstress: sync-contracts ok",
+            "threadstress: absolute-deadlines ok",
+            "threadstress: clock-resolution ok",
+            "threadstress: times ok",
+            "threadstress: sleep-remainder ok",
+            "threadstress: futex ok",
+            "threadstress: futex-lifetime ok",
+            "threadstress: stack-inspection ok",
+            "threadstress: self-detach ok",
+            "threadstress: thread-names ok",
+            "threadstress: main-exit ok",
+            "threadstress: main-join ok",
             "threadstress: targeted-signal ok",
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",
+            "threadstress: once-exit ok",
             "threadstress: lifecycle ok",
             "threadstress: compat ok",
             "threadstress: signal wait ok",

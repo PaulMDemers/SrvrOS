@@ -1,6 +1,8 @@
 #ifndef SRVROS_POSIX_SEMAPHORE_H
 #define SRVROS_POSIX_SEMAPHORE_H
 
+#include <limits.h>
+
 typedef struct {
     unsigned int __value;
 } sem_t;

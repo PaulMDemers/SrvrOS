@@ -3224,6 +3224,8 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_EXIT:
         process_thread_exit(frame->rdi);
+        frame->rax = 0;
+        return;
     case SYS_THREAD_JOIN:
         frame->rax = (uint64_t)syscall_thread_join(frame->rdi, (uint64_t *)frame->rsi);
         return;

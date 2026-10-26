@@ -70,18 +70,23 @@ windows, 32 Text documents/33 exact files, explicit pressure refusal, clipboard,
 worker cleanup and typing during throttled writes. See [window capacity](window-capacity.md)
 and [desktop connections](desktop-connections.md).
 
-Air7,2 physical acceptance remains sixteen-window opening, saved-file integrity
-and clean exit at `bf68e4e9b88b8ae7`; that round contains no native cache totals or
-pressure injection. New source does not retroactively extend that evidence.
+Air7,2 release `f01d4049daae0b4a` accepts two automated 24-app rounds with
+acknowledged edits, exact saved files, chooser cancellation and retirement.
+Release `1d1d5edce03523db` separately accepts reported modal and unsaved-exit
+corrections. These supersede the earlier sixteen-window capacity checkpoint for
+their named checks; they do not accept arbitrary workloads or pressure injection.
 
 The renderer now conservatively skips fully covered opaque windows and reuses
 one stack ordering per frame; exact reference pixels and identical-workload host
 benchmarks guard the change.
 
-**Next completion gates:** validate the new runtime with focused native input/save/resize checks, and mature shared actions,
-parented dialogs, document services and activation routing. Text and Preview now
-share the in-window asynchronous [chooser controller](desktop-chooser.md); broader
-chooser/window services remain future work. Follow the
+**Next completion gates:** close the unresolved Air6,1 app startup/retirement
+latency under sustained I/O without relaxing deadlines, and expand measured
+input/resize/pressure coverage. Parented dialogs, cancellable Close/Quit and
+existing-process document routing are implemented in protocol v15. Text and
+Preview share the asynchronous [chooser controller](desktop-chooser.md) hosted
+in native owned dialogs with an embedded fallback. Broader app services remain
+future work; see the [lifecycle contract](desktop-application-lifecycle.md). Follow the
 [desktop API evolution plan](desktop-api-evolution.md). Native-density typography,
 accessibility and broader toolkit portability remain separate from 2× pixel scaling.
 The [portable C/POSIX profile](posix-supported-profile.md) supplies the selected

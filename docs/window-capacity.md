@@ -7,7 +7,7 @@ records are compatibility/bootstrap storage, not a production admission ceiling.
 Compositor caches and client canvases follow current window sizes. Kernel GUI receive queues are now
 demand-allocated under a 2 MiB requested-byte budget, with 64 messages per FIFO;
 surface records are demand-allocated under separate 256 KiB metadata and
-384 MiB pixel budgets. These include prepared and retired storage until freed.
+256 MiB pixel budgets. These include prepared and retired storage until freed.
 The former 64-surface table is gone; 64 process slots remain unchanged. File workers and terminal shells consume additional processes,
 so window capacity is a ceiling, not an unconditional launch guarantee.
 

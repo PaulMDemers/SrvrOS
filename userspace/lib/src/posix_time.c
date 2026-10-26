@@ -36,7 +36,10 @@ clock_t times(struct tms *buffer) {
     if(result<0) { errno=(int)-result;return (clock_t)-1; }
     if(buffer) *buffer=(struct tms){self.user_us/10000,self.system_us/10000,
         children.user_us/10000,children.system_us/10000};
-    return (clock_t)(srv_monotonic_us()/10000); /* _SC_CLK_TCK is 100. */
+    /* _SC_CLK_TCK is 100. Without a reference clock the kernel still counts
+     * ticks; use them directly rather than scaling through microseconds. */
+    long us=srv_monotonic_us();
+    return us>=0 ? (clock_t)(us/10000) : (clock_t)srv_ticks();
 }
 
 int utime(const char *path,const struct utimbuf *times) {
@@ -73,13 +76,16 @@ int clock_getres(int clock_id, struct timespec *tp) {
         if(tp) { tp->tv_sec=0;tp->tv_nsec=(long)usage.resolution_us*1000; }
         return 0;
     }
-    if (tp == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
+    if (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC) {
         errno = EINVAL;
         return -1;
     }
     if (clock_id == CLOCK_REALTIME && srv_realtime_us() < 0) { errno = EIO; return -1; }
-    tp->tv_sec = 0;
-    tp->tv_nsec = srv_monotonic_us() >= 0 ? 1000 : 10000000;
+    /* The output is optional, but clock/source validation still applies. */
+    if (tp) {
+        tp->tv_sec = 0;
+        tp->tv_nsec = srv_monotonic_us() >= 0 ? 1000 : 10000000;
+    }
     return 0;
 }
 
@@ -108,23 +114,37 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     long start=srv_monotonic_us();
     int dispatched_before = __posix_signal_dispatch_pending();
     long slept = dispatched_before ? SRV_ERR_INTR : srv_sleep_ticks(ticks);
+    /* Capture the unslept interval before handlers run. Keep it local until
+     * return, since a handler can itself sleep or touch the caller's buffer.
+     * Pre-wait dispatch did not suspend at all, so retain the full interval. */
+    struct timespec unslept=interval;
+    if (slept<0 && remaining && !dispatched_before) {
+        long end=srv_monotonic_us();
+        time_t seconds;
+        long nanoseconds;
+        if (start>=0 && end>=start) {
+            uint64_t elapsed=(uint64_t)(end-start);
+            seconds=(time_t)(elapsed/1000000);
+            nanoseconds=(long)(elapsed%1000000)*1000;
+        } else {
+            uint64_t elapsed_ticks=(uint64_t)srv_ticks()-now;
+            /* Split first: scaling the full tick count to microseconds can
+             * overflow even for a representable request and tick interval. */
+            seconds=(time_t)(elapsed_ticks/SRVROS_TICKS_PER_SECOND);
+            nanoseconds=(long)(elapsed_ticks%SRVROS_TICKS_PER_SECOND)*10000000L;
+        }
+        if (seconds>interval.tv_sec || (seconds==interval.tv_sec && nanoseconds>=interval.tv_nsec)) {
+            unslept=(struct timespec){0};
+        } else {
+            unslept.tv_sec=interval.tv_sec-seconds;
+            unslept.tv_nsec=interval.tv_nsec-nanoseconds;
+            if (unslept.tv_nsec<0) { unslept.tv_sec--;unslept.tv_nsec+=1000000000L; }
+        }
+    }
     int dispatched_after = __posix_signal_dispatch_pending();
     if (slept<0) {
         int error=(slept==SRV_ERR_INTR || dispatched_before || dispatched_after)?EINTR:EIO;
-        if (error==EINTR && remaining) {
-            long end=srv_monotonic_us();
-            uint64_t elapsed=start>=0 && end>=start?(uint64_t)(end-start):
-                ((uint64_t)srv_ticks()-now)*10000;
-            time_t seconds=(time_t)(elapsed/1000000);
-            long nanoseconds=(long)(elapsed%1000000)*1000;
-            if (seconds>interval.tv_sec || (seconds==interval.tv_sec && nanoseconds>=interval.tv_nsec)) {
-                *remaining=(struct timespec){0};
-            } else {
-                remaining->tv_sec=interval.tv_sec-seconds;
-                remaining->tv_nsec=interval.tv_nsec-nanoseconds;
-                if (remaining->tv_nsec<0) { remaining->tv_sec--;remaining->tv_nsec+=1000000000L; }
-            }
-        }
+        if (error==EINTR && remaining) *remaining=unslept;
         errno=error;return -1;
     }
     return 0;

@@ -5,7 +5,7 @@ that will be brought up on srvros through the POSIX-compat layer.
 
 ## Upstream Source
 
-- `upstream/uacpi`: MIT AML interpreter, pinned to 7.0.0; isolated firmware evaluation only (see `srvros/uacpi/PORT.md`).
+- `upstream/uacpi`: MIT AML interpreter, pinned to 7.0.0; offline/isolated probes, Q35 runtime fixtures and separately gated native runtime (see [port contract](srvros/uacpi/PORT.md)).
 - `upstream/zlib`: zlib compression library, pinned to `v1.3.2`.
 - `upstream/lua`: Lua runtime, pinned to `v5.4.8`.
 - `upstream/cjson`: cJSON parser/printer, pinned to `v1.7.19`.
@@ -50,7 +50,10 @@ Node.js is staged as a pinned upstream source checkout for the long-running
 runtime port. The first probe is documented in `docs/node-port.md` and
 `ports/srvros/node/PORT.md`; it confirms that upstream configure does not yet
 recognize `--dest-os=srvros`, while a stripped Linux stand-in profile can
-generate a build graph.
+generate a build graph. The previous port gitlink was unavailable; the checkout
+was restored to clean upstream. Later runtime milestones in the port notes are
+historical and have not been reproduced from this restored source. See
+[Node recovery](../docs/development.md#node-port-recovery) before resuming it.
 
 ## Porting Rules
 
@@ -62,12 +65,12 @@ generate a build graph.
   compatibility tool.
 - Document unsupported POSIX calls explicitly instead of silently pretending.
 
-## Near-Term Order
+## Current porting priorities
 
-1. Expand `stdio` formatting/scanning behavior for more command-line ports.
-2. Add Unix-like file metadata over exFAT.
-3. Add `mmap`-style mappings for larger ports.
-4. Broaden client-side TCP, UDP, socket options, and readiness edge cases.
-5. Replace the current srvros `uv.h` shim with a real upstream libuv backend.
-6. Register srvros as a Node/GYP OS flavor and build a minimal Node platform
-   probe before attempting the full runtime.
+File metadata, mapped memory and substantial stdio/socket/thread support now
+exist. Presence of an API does not establish full POSIX conformance: use the
+[supported profile](../docs/posix-supported-profile.md) for validated behavior,
+bounds and remaining gaps, and [libuv notes](../docs/libuv-port.md) for the local
+adapter's scope. A full upstream libuv backend and a reproducible Node runtime
+remain separate milestones. Recover Node's missing port history before treating
+its historical runtime results as current acceptance.

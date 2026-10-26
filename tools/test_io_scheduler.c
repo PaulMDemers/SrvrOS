@@ -103,6 +103,33 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
 }
 static bool retired_context(void *arg) { (void)arg;assert(!"retired eligibility callback");return false; }
 static bool ready(void *arg) { return arg != NULL; }
+static void test_wake_policy(void) {
+    memset(threads,0,sizeof(threads));initialized=true;
+    struct scheduler_wait_queue queue={0},other_queue={0};
+    for(unsigned i=1;i<8;i++) {
+        threads[i]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&queue};queue.waiters++;
+    }
+    threads[8]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&other_queue};other_queue.waiters=1;
+    assert(!scheduler_wake_count(&queue,0) && queue.waiters==7);
+    /* A finite cohort drains exactly once, without waking another queue. */
+    for(unsigned i=1;i<8;i++) {
+        assert(scheduler_wake_count(&queue,1)==1 && queue.waiters==7-i);
+        assert(threads[i].state==THREAD_READY && !threads[i].blocked_queue && threads[i].signal_wakes==1);
+    }
+    assert(!scheduler_wake_count(&queue,1) && other_queue.waiters==1);
+    /* Selection is slot-ordered, not FIFO: re-parking a low slot can repeatedly
+     * precede an older high-slot waiter. Document this, do not promise fairness. */
+    threads[7].state=THREAD_BLOCKED;threads[7].blocked_queue=&queue;queue.waiters=1;
+    for(unsigned i=0;i<16;i++) {
+        threads[1].state=THREAD_BLOCKED;threads[1].blocked_queue=&queue;queue.waiters++;
+        assert(scheduler_wake_count(&queue,1)==1 && threads[1].state==THREAD_READY);
+        assert(threads[7].state==THREAD_BLOCKED && queue.waiters==1);
+    }
+    scheduler_wake_all(&queue);assert(!queue.waiters && threads[7].state==THREAD_READY);
+    scheduler_wake_all(&other_queue);assert(!other_queue.waiters);
+    memset(threads,0,sizeof(threads));initialized=false;
+    puts("scheduler-wake-policy: PASS bounded cohort, queue isolation, counts and slot-order limit");
+}
 static void test_ready_gate_admission(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
@@ -461,6 +488,7 @@ int main(void) {
     puts("scheduler-activity: PASS expiry/signal transitions, no double counts, stable snapshots, slot reuse");
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
+    test_wake_policy();
     test_completion_wait();
     test_ready_gate_admission();
     test_gate_handoff();

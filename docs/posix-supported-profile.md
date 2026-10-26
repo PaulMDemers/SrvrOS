@@ -9,9 +9,9 @@ remaining work. The desktop overhaul is a separate milestone.
 
 Status: the selected portable-application milestone is **implemented and
 host/VM validated** at runtime source `7e2cf54` on 2026-10-24 (local date), in
-[PR134](https://github.com/PaulMDemers/SrvrOS/pull/134). It is ready for integration
-review and discussion of the desktop migration. The laptop's installed/recovery
-payloads have not been promoted by these VM results.
+[PR134](https://github.com/PaulMDemers/SrvrOS/pull/134), now merged. The later
+bounded native regression is recorded below with its own source and payload;
+VM evidence alone does not promote installed/recovery payloads.
 
 ## Intended applications
 
@@ -28,12 +28,12 @@ shutdown; it is not the full upstream libuv implementation or test suite.
 
 | Area | Implemented profile | Boundary to account for |
 | --- | --- | --- |
-| Error state and workers | Thread-local errno/TLS, mutexes, condition variables, semaphores, read/write locks, thread keys/destructors | Bounded worker/key slots; no real-time scheduling or pthread cancellation API |
+| Error state and workers | Thread-local errno/TLS, mutexes, realtime/monotonic condition variables, read/write locks, thread keys/destructors | Bounded worker/key slots; checked supplied-stack bounds and semaphore counts; remaining restrictions below; no real-time scheduling or pthread cancellation API |
 | Regular files | Shared contents across opens, separate open-description offsets, dup-shared offsets/status, positioned and vectored I/O, append/exclusive create, truncate, open-unlinked lifetime, record locks | exFAT metadata is root-only; filesystem size/allocation limits still apply |
 | Descriptor lifecycle | Unified standard/native FD table, atomic pipe2/dup3/F_DUPFD_CLOEXEC, ordered spawn open/close/dup actions | 67 native descriptors; socket/eventfd pseudo-descriptors have separate namespaces and restrictions |
 | Streams | Buffered file/pipe I/O, fdopen, global flush and concurrent retirement, descriptor printf, C-locale binary64 formatting | No complete locale/wide-character/extended-precision formatting; NULL-pathname freopen mode changes are rejected with EINVAL and close the stream |
 | Namespace | Kernel process CWD, openat/fchdir, directory streams, file replacement and timestamps | No hard links or symlinks; directory subtree/replacement rename and open-directory lifetime are unfinished |
-| Processes | POSIX spawn/exec with argument/environment budgets, single-thread CLI fork, wait selectors and exit/signal status, popen/system | Fork refuses live-worker/unsupported pseudo-FD cases; no shared mmap, dynamic linker or full shell job control |
+| Processes | POSIX spawn/exec with argument/environment budgets, single-thread CLI fork, wait selectors and exit/signal status, popen/system | Fork refuses live or unreaped worker slots and unsupported pseudo-FD cases; no shared mmap, dynamic linker or full shell job control |
 | Signals and time | Thread/process pending masks, supported dispositions at libc checkpoints, interrupted sleeps, absolute deadlines, CPU accounting | No general asynchronous signal frames, altstack or siginfo; stop/continue and unsupported flags fail explicitly |
 | Readiness | Native poll and select masks, invalid-FD/error handling, interruption and checked timeouts | At most 64 poll interests; select FD_SETSIZE=1024; separate native GUI wait accepts up to eight nonblocking pipe/PTY interests; GUI is not a POSIX descriptor |
 | Sockets | Selected IPv4 TCP/UDP and local stream/socketpair operations | No IPv6 or complete BSD socket semantics; pseudo-socket inheritance and duplicate operations remain restricted |
@@ -53,10 +53,134 @@ facility is supported.
 
 ## Deliberate exclusions
 
-Condition-variable attribute clocks are not complete: the current initializer
-ignores `pthread_condattr_setclock(CLOCK_MONOTONIC)`, so only the default realtime
-condition deadline is in the validated profile. This remains a compatibility gap;
-attribute-setter success must not be treated as proof of that clock's behavior.
+The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)
+found six defects now corrected on the PR175 branch. Caller-supplied pthread
+stacks retain their declared region, require a 16-byte-aligned base and at least
+`PTHREAD_STACK_MIN` bytes, and are checked for address overflow before any write.
+Only library-owned allocations are rounded upward, with checked size arithmetic.
+The caller remains responsible for writable storage and its lifetime through
+thread completion. `pthread_getattr_np(self)` reads worker metadata installed
+before the callback, preserving exact supplied bounds or the actual rounded
+owned allocation and current detach state. Initial-process inspection recognizes
+the kernel's two fixed 2 MiB stack layouts by frame containment; unregistered
+stacks outside those layouts return `ESRCH`. This adds no public layout change.
+Workers publish their tid into a reserved record before entering callbacks, so
+early self-detach succeeds and survives parent completion. A creator reservation
+prevents premature cleanup; exclusive join/reap claims and a short table lock
+serialize record ownership. Self-join returns `EDEADLK`. Failed/interrupted reaps
+retain ownership for retry. Detached cleanup remains lazy, triggered by later
+create/join/detach calls; there is no background collector. Mixing raw kernel
+thread joins/detaches with libc-owned pthreads is outside this lifecycle contract.
+
+The nonportable name APIs retain process-local libc names for the initial thread
+and libc-created workers, with independent default `srvros-thread` values. Names
+may be empty or contain at most 15 bytes plus NUL. Oversized input and a getter
+buffer smaller than the stored name plus NUL return `ERANGE`, leaving the name
+or output unchanged; null pointers return `EINVAL`. Unknown/reaped workers
+return `ESRCH`; exited but unreaped records remain nameable. Error codes are
+returned directly without changing `errno`. Protected copies prevent torn reads
+under concurrent renaming. These calls do not rename kernel scheduler tasks or
+add names to desktop/process diagnostics; raw syscall workers are unsupported.
+
+Initial-thread `pthread_exit` now retires that user thread while joinable and
+detached workers continue, including workers created by survivors. The kernel
+retains the initial teardown continuation and shared process resources until no
+workers remain active; completed, unreaped records do not prolong the process.
+Libc then runs `exit(0)`, including `atexit` handlers, regardless of thread return
+values. Explicit `exit`, `_exit` and fatal process signals still terminate the
+whole process with their original status. TLS destructors run on thread exit;
+shared files and mappings remain usable by surviving workers. Targeted signals
+to the retired initial thread are not delivered, and it does not participate in
+process-signal eligibility. The initial thread is joinable by default. Workers
+can join it before or after retirement and retrieve its pointer return value,
+or pass a null output pointer. Initial-thread detach (including self-detach)
+uses the same lazy libc reaper policy as workers. Exclusive claims prevent a
+second join/detach from collecting a record while a join is in progress;
+interrupted kernel waits are retried without exposing `EINTR` to the caller.
+
+Joining or reaping the initial thread invalidates its public handle but retains
+the kernel continuation, stack and TLS for final process cleanup. Its separate
+static libc record consumes no worker slot and is never freed/unmapped as an
+allocated worker stack. Names return `ESRCH` after collection, as do kernel
+signal lookups. Self-inspection reports initial-thread detach state; inspecting
+the initial stack from a different thread remains unsupported (`ESRCH`).
+
+This changes the `SYS_THREAD_EXIT` contract: workers never return; the initial
+thread waits for worker retirement and returns zero solely to libc's immediate
+`exit(0)` cleanup path. Use a matched kernel and libc rebuild. There is no new
+public pthread layout change, and `pthread_exit` never returns to application
+code. Raw syscall callers must perform the process-cleanup handoff themselves.
+
+Condition variables retain `CLOCK_REALTIME` (including static/default init) or
+`CLOCK_MONOTONIC`. Timed waits recheck their absolute deadline after early tick
+wakes and signal interruption, and reacquire the mutex before returning. The
+condition structure changed from 4 to 8 bytes: rebuild all consumers and use
+matched library/header/application images. No compatibility with old objects
+embedding `pthread_cond_t` is claimed. Absolute seconds are signed: negative
+values with valid nanoseconds are accepted and compared with the selected clock.
+Expired values return `ETIMEDOUT` through the ordinary mutex release/reacquisition
+path. Nanoseconds outside `[0, 1000000000)` still return `EINVAL` before unlocking.
+This validation correction adds no layout or syscall change. Host tests include
+negative future values with modeled clocks; guest tests cover expired negative
+values with the actual realtime/monotonic clocks.
+
+`clock_getres` accepts an optional output pointer for realtime, monotonic and
+process/thread CPU clocks. Null output still validates the clock and required
+source: unknown clocks return `EINVAL`, unavailable realtime returns `EIO`, and
+CPU usage errors propagate. Non-null output retains the existing 1 us reference
+or 10 ms tick-fallback resolution. This correction changes no layout or syscall.
+
+`times()` returns elapsed time in 100 Hz ticks using the reference clock when
+available, otherwise the kernel tick counter directly. Its four CPU accounting
+fields retain the same 100 Hz units. Errors from self/children usage queries
+propagate before output is written; successful calls preserve errno. Null output
+remains an SrvrOS extension. Host regressions cover both sources and large
+counters; the guest group compares elapsed values against monotonic clock
+brackets and checks CPU totals. The default VM exercises the reference path;
+the missing-reference configuration is host-modeled, not VM/native accepted.
+No layout or syscall change is introduced.
+
+Relative `nanosleep`/`clock_nanosleep` capture the unslept interval before
+post-wait handlers execute. A signal dispatched before any suspension preserves
+the entire request. The captured value stays local until return, preserving
+aliased request/output and nested-handler sleeps. Tick fallback splits elapsed
+ticks into seconds and a bounded fraction before scaling, including extreme
+representable intervals. `clock_nanosleep` keeps direct error returns and errno;
+absolute calls leave remainder storage unchanged. Successful and non-interrupted
+error paths retain their output behavior. These corrections add no layout or
+syscall change. Reference/fallback and extreme boundaries are host-tested;
+ordinary VM tests cover fast, long and nested-sleep handlers.
+
+Kernel futex entries now remain bound to their process/address while any wait
+syscall owns them, including before parking and after wake. Worker-initiated
+process exit preserves those bindings until sibling wait continuations retire.
+Wake lookup/count is IRQ-serialized. Deterministic host and guest regressions
+cover interruption, wake ownership and reuse; the global 64-entry bound remains,
+and this is not general SMP acceptance. Public pthread layouts and syscall
+signatures are unchanged by this correction. Raw futex waits reject timeout
+addition overflow with `SRV_ERR_INVAL` and return `SRV_ERR_FAULT` when a live
+wait's mapping is removed or user access revoked. Word validation/load is
+IRQ-serialized; restoring/replacing that address does not revive an old wait.
+Readable protection changes preserve the wait. Applications must still retain
+storage for synchronization objects while other threads use them.
+The global 64-entry futex table returns `SRV_ERR_AGAIN` for new keys at saturation;
+existing keys remain usable and owned entries cannot be stolen. Wake selection
+uses scheduler-slot order, not FIFO; mutex/rwlock admission has no starvation-free
+or priority-inheritance guarantee. Saturated libc callers retry while preemptible.
+
+Once initializers abandoned through `pthread_exit` reset and wake their waiters,
+including nested initializers, before thread-specific destructors run. Completed
+controls stay completed. No cancellation API, public cleanup-handler stack or
+nonlocal-jump recovery is added. Recursive mutex depth is bounded by `UINT_MAX`;
+lock/trylock at that limit return `EAGAIN` without changing state or errno.
+
+`SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
+`sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing
+a full count. This does not complete the POSIX semaphore contract: `pshared` is
+still ignored, blocking waits yield rather than parking on a futex, and no timed-
+wait API is declared. The libuv adapter's separate mutex/condition semaphore does
+not establish libc `sem_*` support. Process sharing and full blocking semantics
+remain outside the validated profile.
 
 The Linux-oriented `epoll`, `eventfd`, inotify and other Node compatibility
 symbols remain experimental adapters. In particular, eventfd blocking/overflow,
@@ -72,7 +196,7 @@ replacement target. Do not treat this profile as a durable transactional store.
 The native desktop API, surfaces and worker-I/O ownership rules remain separate.
 POSIX compatibility does not turn blocking filesystem work into safe UI-loop
 work. See the [desktop API evolution plan](desktop-api-evolution.md) for the
-combined-wait contract and future dynamic window registry.
+implemented combined-wait contract and dynamic window registry.
 
 ## Reproduce the selected gates
 
@@ -111,8 +235,9 @@ consumer; this is not a claim to pass upstream libuv's entire test suite.
 The C0–C4 plan now has a truthful supported profile, worker/file semantics,
 checked readiness and monotonic timeouts, supported process contracts and real
 consumer gates. Its broader Unix work remains separate. In particular, pthread
-cancellation is not implemented, and the combined GUI/FD wait remains a design;
-no native input-latency acceptance is inferred from the VM readiness test.
+cancellation is not implemented. The separate native GUI/nonblocking-pipe wait
+is now implemented; see [desktop connections](desktop-connections.md). It does
+not make GUI objects POSIX descriptors or establish native input-latency bounds.
 
 A 150 ms idle wait used 5,536–7,968 us of process CPU over 153,900–160,017 us
 elapsed in the corrected focused/full runs. The fixture also verifies 128
@@ -124,8 +249,9 @@ not erase the original evidence.
 The Air agent retains exact image hashes, commands, exit statuses and raw logs
 under `build/posix-core-20261024`, with a backup outside the disposable build
 tree. The [machine record](machines/macbookair7-2.md) identifies that checkpoint.
-A new native trial, broader API conformance suite and the desktop overhaul are
-separate next steps, not implied acceptance from this milestone.
+The subsequent bounded native trial is recorded below. Broader API conformance
+and desktop-runtime acceptance retain their own gates; neither follows from the
+original portable-C milestone.
 
 ## Unattended native regression
 
@@ -163,3 +289,9 @@ before/after regression and libuv rerun. The same release passes the bounded nat
 and retired trees, saved logs/screenshot, prior-file preservation and clean offline
 filesystem/allocation checks. See the machine record for the exact session and
 limits; the original eleven-consumer gate above identifies its own source.
+
+
+The completed bounded synchronization audit also corrects `sem_trywait` under
+contention: it retries compare-exchange conflicts while tokens remain and returns
+`EAGAIN` only after observing zero. See the [closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
+for scope, validation and remaining broader work.

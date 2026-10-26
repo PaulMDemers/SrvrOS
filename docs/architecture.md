@@ -100,7 +100,11 @@ the single-window wrapper. Text/Files share lazy bounded file-worker pools and
 wait for GUI plus nonblocking worker pipes without adding a dispatcher per window.
 Accepted file work drains before its owner or transport retires. Dynamic metadata,
 pixel caches, process slots and descriptor budgets remain separate constraints.
-See [desktop connections](desktop-connections.md), [window capacity](window-capacity.md)
+Protocol v15 adds one-level same-process modal dialogs, cancellable application
+Quit and existing-process Text/Preview file routing. Normal desktop exit preserves
+owned Save/Discard/Cancel prompts while accepted work drains; emergency exit is
+separate. See [application lifecycle](desktop-application-lifecycle.md),
+[desktop connections](desktop-connections.md), [window capacity](window-capacity.md)
 and the [API evolution plan](desktop-api-evolution.md) for implemented contracts
 and remaining work. Host/QEMU acceptance includes 128 small windows and 32 normal
 Text documents; physical acceptance remains scoped in the machine record.

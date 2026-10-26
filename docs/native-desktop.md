@@ -9,9 +9,10 @@ run /fat/bin/deskd
 ```
 
 For an explicitly enabled Home session with battery monitoring, use the full
-battery runtime and `desktop battery` after mounting Home. **Ctrl+Alt+Esc**
-returns to the monitor after app, battery and log cleanup; Home stays mounted
-for reopening. Default `deskd` startup does not start firmware work. See
+battery runtime and `desktop battery` after mounting Home. Use **SrvrOS →
+Return to console** for cooperative shutdown with Save/Discard/Cancel decisions.
+**Ctrl+Alt+Esc** is an emergency exit and can discard unsaved edits; it still
+runs the owned cleanup path. Home stays mounted for reopening. Default `deskd` startup does not start firmware work. See
 [ordinary Home startup](battery-home-lifecycle.md#opt-in-ordinary-home-startup)
 for the v54 boot profile and validation limits. Click the battery label to open
 System. Fresh discharging readings at 20% and 5% add low-charge notifications
@@ -25,7 +26,9 @@ Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The October 23 v55 trial accepted combined Home/battery, playback,
 brightness/volume, live sensors and save/exit/reopen. See the machine record for
 the exact payload and remaining listening/gesture checks. Physical two-finger pressing now selects secondary click at press;
-specific gesture cases still need confirmation. Secondary tapping is separate.
+named secondary-click/drag/scroll checks were accepted in the later follow-up.
+Tap settling is tester-accepted in PR88 with an incomplete final diagnostic
+receipt; neither establishes every gesture combination. Secondary tapping is separate.
 The October 19 interactive round reported generally good behavior and recorded
 no recurrence of the earlier System input-timeout closure. That earlier cause
 is not conclusively established. The Terminal backspace correction passed its subsequent hardware

@@ -16,6 +16,23 @@ This reference choice is a development target, not certification.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
+The [October 25 synchronization follow-up](synchronization-audit-2026-10-25.md)
+records supplied-stack corruption, ignored condition clocks and semaphore count
+overflow, followed by PR175's fixes and focused host/guest regressions. Later
+passes correct self-stack inspection, early detach, thread-name storage and
+initial-thread exit with surviving workers, followed by initial-thread join and
+detach ownership and valid negative absolute condition deadlines. Historical
+failure receipts remain separate from corrected contracts. Null-output
+`clock_getres` probes are also corrected with source/error and fallback coverage.
+The `times()` elapsed fallback is also corrected, with host boundary/error and
+guest elapsed-time regressions. Relative sleep remainders now exclude handler
+execution, and extreme fallback conversion avoids intermediate overflow. Former
+failing audit modes are replaced by positive regressions; historical receipts
+remain in the synchronization report. Futex queue bindings now survive runnable
+wait continuations and cancellation teardown; deterministic host probes cover
+interruption and reuse, with complementary guest wake/exit checks. Futex timeout
+overflow and mapping lifetime are also corrected: unsafe deadline additions are
+rejected and removal/revocation invalidates old waits even after address reuse.
 
 ## Implementation progress after the audit
 
@@ -158,7 +175,7 @@ profile, not completed POSIX conformance.
 | Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate opens now share contents; private offsets remain in each open description |
 | Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | Cross-open content coherence is implemented; directory descriptors now work; unsupported open flags fail explicitly |
 | `select` ready-bit counts, masks, EBADF, timeout validation, IPv4 socket FD range | `test_posix_poll.c`, `libcprobe/readiness.c`; guest uses an explicit supported e1000 | `FD_SETSIZE=1024` accommodates current sockets, not all pseudo-FDs; poll remains bounded to 64 entries |
-| Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`; aliased remainder, signal interruption, no early completion | Timing remains subject to timer resolution and scheduling |
+| Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`, `sleep_remainder_test.c`, host timing contracts; aliases, long/nested handlers, fallback boundaries and no early completion | Remainders exclude handler execution; overflow-free fallback conversion has host boundary coverage. Timing remains subject to resolution and scheduling |
 | Thread-directed signals, blocked `raise`, per-thread dispatch guard, one-shot handler reset | `threadstress/targeted_signal_test.c`, host process-output tests, full thread and libuv guest suites | Handlers are still dispatched at libc checkpoints; no general asynchronous signal trampoline, altstack or siginfo frames |
 | Process/thread CPU clocks, `clock`, `times`, reaped-child CPU totals and peak mapped memory | `threadstress/usage_test.c`, scheduler and process host fixtures; busy/sleeping workers, child wait and peak retention | CPU0 accounting uses the monotonic reference; auxiliary rusage counters remain zero, and this is not an energy measurement |
 | Shared-reader/exclusive-writer locks, thread-local key values, key generation reuse and repeated destructors | `threadstress/pthread_contract_test.c`; concurrent readers, blocked writer, destructor reinstallation and deleted/recreated keys | Bounded keys/workers; reader-preference locking, no real-time scheduling policy |
@@ -314,8 +331,11 @@ valid ID but receives no signal, matching the
 [Issue 8 pthread_kill contract](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/pthread_kill.html).
 
 `clock()` now counts process CPU microseconds (`CLOCKS_PER_SEC=1000000`);
-`times()` uses `_SC_CLK_TCK=100`. Consumers needing elapsed time must use
-`CLOCK_MONOTONIC`; the native `time`/`timeout` utilities have been corrected.
+`times()` uses `_SC_CLK_TCK=100` for both its elapsed return and CPU accounting
+fields, with direct kernel ticks when the reference clock is unavailable.
+`clock()` measures CPU time, so elapsed-time consumers use `CLOCK_MONOTONIC`
+or the elapsed return of `times()`; the native `time`/`timeout` utilities use
+monotonic time.
 CPU charging follows userspace/kernel transitions and scheduler switches, so
 sleeping time and another worker's execution are not charged to the caller.
 
@@ -339,7 +359,7 @@ Paths below are relative to `userspace/lib/src/` unless stated otherwise.
 has passed a conformance suite. Limits may be valid implementation choices;
 silent semantic substitutions are a different problem.
 
-| Area | Evidence in current implementation | Boundary / missing contract |
+| Area | Evidence at original baseline | Boundary / missing contract at that baseline |
 | --- | --- | --- |
 | C strings, conversion, formatting, allocation, stdio | Library sources; `libcprobe`, `nodeprobe`, thread stdio/heap tests | Useful tested subset; no complete ISO C or POSIX libc certification |
 | File descriptors and regular files | `posix_file.c`, `posix_dir.c`; kernel VFS/open-file descriptions, dup, pipe, metadata and exFAT | Bounded descriptors/paths; positional I/O race below; broader file/flag/error semantics need explicit tests |
@@ -360,6 +380,11 @@ silent semantic substitutions are a different problem.
 | libuv / Node | `ports/srvros/uv.c` adapter and selected upstream source | Adapter is not full upstream libuv; historical Node execution is not a current reproduced full runtime port |
 
 ## Original semantic findings and remaining priorities
+
+This section preserves the original `bc0edb9` findings, including defects fixed
+by the progress entries above. It is not the current support matrix; consult the
+supported profile and subsequent audit before carrying a historical failure
+forward as an open issue.
 
 ### P0. Thread-local error state
 
@@ -526,3 +551,11 @@ publish a POSIX percentage without a defined denominator and semantic coverage.
 
 See [porting](ports.md), [libuv](libuv-port.md) and [Node recovery](node-port.md)
 for build instructions and their narrower current guarantees.
+
+
+The bounded synchronization audit on PR175 is complete: once-initializer exit now
+resets/wakes abandoned controls before destructors, recursive mutex depth refuses
+overflow, and `sem_trywait` retries contention while tokens remain. Futex capacity
+and scheduler-slot wake selection are verified; FIFO/starvation freedom remains
+unsupported. See the [audit closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
+for the review boundary and separate unresolved hardware/subsystem work.

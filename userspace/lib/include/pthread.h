@@ -8,7 +8,7 @@
 
 #define PTHREAD_ONCE_INIT 0
 #define PTHREAD_MUTEX_INITIALIZER {0}
-#define PTHREAD_COND_INITIALIZER {0}
+#define PTHREAD_COND_INITIALIZER {0, CLOCK_REALTIME}
 #define PTHREAD_RWLOCK_INITIALIZER {0}
 
 #define PTHREAD_CREATE_JOINABLE 0
@@ -34,6 +34,7 @@ typedef struct {
 
 typedef struct {
     unsigned int sequence;
+    int clock;
 } pthread_cond_t;
 
 typedef struct {
@@ -125,6 +126,11 @@ void *pthread_getspecific(pthread_key_t key);
 int pthread_setspecific(pthread_key_t key, const void *value);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_kill(pthread_t thread, int sig);
+/* Libc names: at most 15 bytes plus NUL; empty names allowed. Default is
+ * "srvros-thread". ERANGE leaves the stored name/output unchanged; getter
+ * needs strlen(name)+1 bytes. Live or unreaped pthreads, including the initial
+ * thread; joined/reaped handles return ESRCH.
+ * Returns error numbers without setting errno; does not rename kernel tasks. */
 int pthread_setname_np(pthread_t thread, const char *name);
 int pthread_getname_np(pthread_t thread, char *name, size_t length);
 struct sched_param;

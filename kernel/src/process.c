@@ -206,6 +206,9 @@ struct process {
     uint64_t pending_signals;
     uint64_t main_signal_mask;
     uint64_t main_pending_signals;
+    bool main_thread_exited;
+    bool main_thread_joined, main_thread_detached, main_thread_join_claimed;
+    uint64_t main_thread_return_value;
     uint64_t user_us,system_us,main_user_us,main_system_us;
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     struct srv_rlimit fsize_limit;
@@ -288,6 +291,8 @@ struct process_futex {
     struct process *process;
     uint64_t address;
     struct scheduler_wait_queue wait_queue;
+    uint64_t active_waits; /* Includes runnable and not-yet-enqueued wait calls. */
+    bool invalidated; /* A removed/revoked mapping must not bind a replacement. */
 };
 
 struct process_exit_record {
@@ -346,6 +351,7 @@ static void background_process_thread(void *arg);
 static void process_user_thread_start(void *arg);
 static void process_futex_wake_process(struct process *process);
 static void process_futex_cleanup_process(struct process *process);
+static void process_futex_invalidate_page(struct process *process, uint64_t page);
 static bool mmap_range_free(struct process *process, uint64_t base, uint64_t length);
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
@@ -587,7 +593,7 @@ static void process_discard_signals(struct process *process,uint64_t bits) {
         process->user_threads[i].pending_signals &= ~bits;
 }
 static bool process_all_threads_block_signal(struct process *process,uint64_t bit) {
-    if (!(process->main_signal_mask & bit)) return false;
+    if (!process->main_thread_exited && !(process->main_signal_mask & bit)) return false;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) {
         struct process_user_thread *thread=&process->user_threads[i];
         if(thread->used && thread->active && !(thread->signal_mask & bit)) return false;
@@ -1266,6 +1272,8 @@ static int64_t process_mapping_index(struct process *process, uint64_t virtual_p
 }
 
 static void process_unmap_mapping_at(struct process *process, uint64_t index) {
+    uint64_t irq = process_irq_save();
+    process_futex_invalidate_page(process, process->mappings[index].virtual_address);
     uint64_t physical = 0;
     if (vmm_unmap_page_in_space(process->address_space,
             process->mappings[index].virtual_address, &physical)) {
@@ -1274,6 +1282,7 @@ static void process_unmap_mapping_at(struct process *process, uint64_t index) {
         pmm_free_frame(process->mappings[index].physical_address);
     }
     process->mappings[index] = process->mappings[--process->mapping_count];
+    process_irq_restore(irq);
 }
 
 static bool process_unmap_tracked_page(struct process *process, uint64_t virtual_page) {
@@ -2044,6 +2053,10 @@ int64_t process_exec_replace(const char *path,
     fpu_init_state(&process->fpu);
     process->signal_catch_mask = 0;
     process->fork_resume=false;
+    process->main_thread_exited = false;
+    process->main_thread_joined = process->main_thread_detached = false;
+    process->main_thread_join_claimed = false;
+    process->main_thread_return_value = 0;
     /* Ignored dispositions, pending signals, masks and alarms survive exec. */
     if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
         process_apply_signal_defaults(process, signal_default);
@@ -3115,10 +3128,38 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
     return (int64_t)tid;
 }
 
+static bool process_last_user_thread_done(void *arg) {
+    struct process *process = arg;
+    if (process->killed || process->exiting) return true;
+    for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
+        if (process->user_threads[i].used && process->user_threads[i].active)
+            return false;
+    }
+    return true;
+}
+
 void process_thread_exit(uint64_t value) {
     struct process_user_thread *thread = process_current_user_thread();
     if (thread == NULL || thread->owner == NULL) {
-        process_exit((uint64_t)(value != 0));
+        struct process *process = process_current();
+        if (process == NULL || !process->active) process_exit(0);
+        /* Keep the launch/teardown continuation and shared image alive. Only
+         * the user thread retires here; exited joinable slots do not keep the
+         * process alive. The initial return value is not a process status. */
+        process->main_thread_return_value = value;
+        process->main_thread_exited = true;
+        process->main_pending_signals = 0;
+        process->main_signal_mask = UINT64_MAX;
+        scheduler_wake_all(&process->thread_wait_queue);
+        __asm__ volatile ("sti" : : : "memory");
+        while (!process_last_user_thread_done(process)) {
+            if (!scheduler_wait(&process->thread_wait_queue,
+                    process_last_user_thread_done, process)) scheduler_yield();
+        }
+        if (process_should_exit_current()) process_exit(process_current_kill_status());
+        /* Only this path returns: libc must immediately call exit(0), running
+         * atexit handlers before SYS_EXIT releases files, mappings and TLS. */
+        return;
     }
 
     __asm__ volatile ("cli" : : : "memory");
@@ -3134,8 +3175,45 @@ void process_thread_exit(uint64_t value) {
     scheduler_exit_current();
 }
 
+static bool process_main_thread_done(void *arg) {
+    struct process *process = arg;
+    return process->main_thread_exited || process_should_exit_current() ||
+        process_signal_pending_current();
+}
+
+static int64_t process_main_thread_join(struct process *process, uint64_t *value_out) {
+    uint64_t irq = process_irq_save();
+    if (!process || !process->active || !process_current_user_thread() ||
+        process->main_thread_joined || process->main_thread_detached ||
+        process->main_thread_join_claimed) {
+        process_irq_restore(irq);
+        return -1;
+    }
+    process->main_thread_join_claimed = true;
+    process_irq_restore(irq);
+    __asm__ volatile ("sti" : : : "memory");
+    int64_t result = 0;
+    while (!process->main_thread_exited) {
+        if (process_should_exit_current()) { result = -1; break; }
+        if (process_signal_pending_current()) { result = SRV_ERR_INTR; break; }
+        if (!scheduler_wait(&process->thread_wait_queue, process_main_thread_done, process))
+            scheduler_yield();
+    }
+    irq = process_irq_save();
+    if (!result) {
+        if (value_out) *value_out = process->main_thread_return_value;
+        /* Retire the public handle only. The parked continuation, initial
+         * stack and TLS remain owned by the process until its last exit. */
+        process->main_thread_joined = true;
+    }
+    process->main_thread_join_claimed = false;
+    process_irq_restore(irq);
+    return result;
+}
+
 int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
     struct process *process = process_current();
+    if (tid == 1) return process_main_thread_join(process, value_out);
     struct process_user_thread *current_thread = process_current_user_thread();
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL ||
@@ -3168,6 +3246,17 @@ int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
 
 int64_t process_thread_detach(uint64_t tid) {
     struct process *process = process_current();
+    if (tid == 1) {
+        uint64_t irq = process_irq_save();
+        int64_t result = -1;
+        if (process && process->active && !process->main_thread_joined &&
+            !process->main_thread_detached && !process->main_thread_join_claimed) {
+            process->main_thread_detached = true;
+            result = 0;
+        }
+        process_irq_restore(irq);
+        return result;
+    }
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL || thread->joined || thread->detached) {
         return -1;
@@ -3182,6 +3271,11 @@ int64_t process_thread_detach(uint64_t tid) {
 
 int64_t process_thread_status(uint64_t tid) {
     struct process *process = process_current();
+    if (tid == 1 && process != NULL && process->active) {
+        if (process->main_thread_joined ||
+            (process->main_thread_detached && process->main_thread_exited)) return -1;
+        return process->main_thread_exited ? 0 : 1;
+    }
     struct process_user_thread *thread = process_find_user_thread(process, tid);
     if (thread == NULL) {
         return -1;
@@ -3197,10 +3291,12 @@ int64_t process_thread_signal(uint64_t tid,uint64_t signal) {
     struct process_user_thread *thread=process_find_user_thread(process,tid);
     int64_t result=SRV_ERR_SRCH;
     if(!process || !process->active || (tid!=1 && !thread)) goto done;
+    if(tid==1 && (process->main_thread_joined ||
+        (process->main_thread_detached && process->main_thread_exited))) goto done;
     result=0;
     /* A joinable exited thread still has a valid ID (POSIX.1-2024), but
      * cannot receive delivery. Never apply its signal to another thread. */
-    if(!signal || (thread && !thread->active)) goto done;
+    if(!signal || (thread && !thread->active) || (tid==1 && process->main_thread_exited)) goto done;
     uint64_t bit=1ull<<signal;
     if(process->signal_ignore_mask & bit) goto done;
     uint64_t mask=thread?thread->signal_mask:process->main_signal_mask;
@@ -3224,10 +3320,10 @@ static struct process_futex *process_futex_find(struct process *process, uint64_
     struct process_futex *free_entry = NULL;
     for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
         struct process_futex *entry = &futexes[i];
-        if (entry->used && entry->process == process && entry->address == address) {
+        if (entry->used && !entry->invalidated && entry->process == process && entry->address == address) {
             return entry;
         }
-        if ((!entry->used || entry->wait_queue.waiters == 0) && free_entry == NULL) {
+        if ((!entry->used || (entry->active_waits == 0 && entry->wait_queue.waiters == 0)) && free_entry == NULL) {
             free_entry = entry;
         }
     }
@@ -3244,16 +3340,39 @@ static struct process_futex *process_futex_find(struct process *process, uint64_
     return free_entry;
 }
 
+/* Called with mapping mutation serialized against futex reads on CPU0. */
+static void process_futex_invalidate_page(struct process *process, uint64_t page) {
+    for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
+        struct process_futex *entry = &futexes[i];
+        if (entry->used && entry->process == process &&
+            (entry->address & ~(uint64_t)(PAGE_SIZE - 1)) == page) {
+            entry->invalidated = true;
+            scheduler_wake_all(&entry->wait_queue);
+        }
+    }
+}
+
 struct process_futex_wait {
     uint32_t *address;
     uint32_t expected;
+    struct process_futex *futex;
 };
+
+static bool process_futex_read(struct process_futex_wait *wait, uint32_t *value) {
+    uint64_t flags = process_irq_save();
+    bool valid = (!wait->futex || !wait->futex->invalidated) &&
+        vmm_user_range_mapped((uint64_t)(uintptr_t)wait->address, sizeof(*wait->address), false);
+    /* Validation and load must be indivisible with respect to mapping changes. */
+    if (valid) *value = __atomic_load_n(wait->address, __ATOMIC_ACQUIRE);
+    process_irq_restore(flags);
+    return valid;
+}
 
 static bool process_futex_wait_ready(void *arg) {
     struct process_futex_wait *wait = arg;
-    return process_should_exit_current() ||
-        process_signal_pending_current() ||
-        __atomic_load_n(wait->address, __ATOMIC_ACQUIRE) != wait->expected;
+    uint32_t value;
+    return process_should_exit_current() || process_signal_pending_current() ||
+        !process_futex_read(wait, &value) || value != wait->expected;
 }
 
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
@@ -3261,44 +3380,53 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
     if (process == NULL || address == NULL || (((uint64_t)(uintptr_t)address) & 3u) != 0) {
         return -1;
     }
-    if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
-        return -11;
-    }
-
+    struct process_futex_wait wait = { .address = address, .expected = expected };
     uint64_t flags = process_irq_save();
-    struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, true);
-    process_irq_restore(flags);
-    if (futex == NULL) {
-        return -11;
+    uint32_t value;
+    if (!process_futex_read(&wait, &value)) {
+        process_irq_restore(flags); return SRV_ERR_FAULT;
     }
-
+    if (value != expected) {
+        process_irq_restore(flags); return SRV_ERR_AGAIN;
+    }
     uint64_t start_ticks = timer_ticks();
-    uint64_t deadline_ticks = timeout_ticks == 0 ? 0 : start_ticks + timeout_ticks;
-    if (deadline_ticks == 0 && timeout_ticks != 0) {
-        deadline_ticks = UINT64_MAX;
+    if (timeout_ticks > UINT64_MAX - start_ticks) {
+        process_irq_restore(flags); return SRV_ERR_INVAL;
     }
-    struct process_futex_wait wait = {
-        .address = address,
-        .expected = expected,
-    };
+    uint64_t deadline_ticks = timeout_ticks ? start_ticks + timeout_ticks : 0;
+    struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, true);
+    /* Reserve the validated binding before restoring interrupts. */
+    if (futex != NULL) futex->active_waits++;
+    wait.futex = futex;
+    process_irq_restore(flags);
+    if (futex == NULL) return SRV_ERR_AGAIN;
+
+    int64_t result;
     __asm__ volatile ("sti" : : : "memory");
     for (;;) {
         if (process_should_exit_current()) {
-            return -1;
+            result = -1; break;
         }
-        if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
-            return 0;
+        if (!process_futex_read(&wait, &value)) {
+            result = SRV_ERR_FAULT; break;
+        }
+        if (value != expected) {
+            result = 0; break;
         }
         if (process_signal_pending_current()) {
-            return SRV_ERR_INTR;
+            result = SRV_ERR_INTR; break;
         }
         if (timeout_ticks != 0 && timer_ticks() - start_ticks >= timeout_ticks) {
-            return -110;
+            result = -110; break;
         }
         if (!scheduler_wait_timeout(&futex->wait_queue, process_futex_wait_ready, &wait, deadline_ticks)) {
             scheduler_yield();
         }
     }
+    flags = process_irq_save();
+    futex->active_waits--;
+    process_irq_restore(flags);
+    return result;
 }
 
 int64_t process_futex_wake(uint32_t *address, uint64_t max_count) {
@@ -3309,12 +3437,12 @@ int64_t process_futex_wake(uint32_t *address, uint64_t max_count) {
 
     uint64_t flags = process_irq_save();
     struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, false);
+    /* Keep lookup and wake in one IRQ-disabled operation: an empty entry can
+     * otherwise be reassigned to another address before the wake executes. */
+    int64_t result = futex == NULL ? 0 :
+        (int64_t)scheduler_wake_count(&futex->wait_queue, max_count);
     process_irq_restore(flags);
-    if (futex == NULL) {
-        return 0;
-    }
-
-    return (int64_t)scheduler_wake_count(&futex->wait_queue, max_count);
+    return result;
 }
 
 static void process_futex_wake_process(struct process *process) {
@@ -3338,9 +3466,7 @@ static void process_futex_cleanup_process(struct process *process) {
     for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
         if (futexes[i].used && futexes[i].process == process) {
             scheduler_wake_all(&futexes[i].wait_queue);
-            futexes[i].used = false;
-            futexes[i].process = NULL;
-            futexes[i].address = 0;
+            futexes[i] = (struct process_futex){0};
         }
     }
     process_irq_restore(flags);
@@ -6116,10 +6242,13 @@ static bool mmap_apply_protection(struct process *process,
     if (index < 0) {
         return false;
     }
+    uint64_t irq = process_irq_save();
     if (!vmm_protect_page_in_space(process->address_space, page, page_flags)) {
-        return false;
+        process_irq_restore(irq); return false;
     }
+    if (!(page_flags & VMM_PAGE_USER)) process_futex_invalidate_page(process, page);
     process->mappings[index].flags = page_flags;
+    process_irq_restore(irq);
     return true;
 }
 
@@ -6329,7 +6458,9 @@ void process_exit(uint64_t status) {
         scheduler_wake_all(&pipe_wait_queue);
         scheduler_wake_all(&process->thread_wait_queue);
         process_file_poll_wake();
-        process_futex_cleanup_process(process);
+        /* Sibling wait continuations can still run while exit propagates.
+         * Preserve their bindings; final teardown kills them before cleanup. */
+        process_futex_wake_process(process);
         scheduler_clear_user_context();
         __asm__ volatile ("sti" : : : "memory");
         scheduler_exit_current();

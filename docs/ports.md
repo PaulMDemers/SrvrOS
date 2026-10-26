@@ -72,8 +72,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `tcsetpgrp` provide a small process-group/session surface for shells and
   interactive ports. Richer controlling-terminal permission checks and baud
   settings are still future work.
-- `pread` and `pwrite` for seekable fds. These currently save/restore the file
-  offset in userspace around the underlying `lseek` plus `read`/`write`.
+- `pread` and `pwrite` use native positional-I/O syscalls for seekable fds,
+  preserving the shared open-file offset. See the validated contracts and
+  bounds in the [supported POSIX profile](posix-supported-profile.md).
 - `sendmsg` and `recvmsg` for scatter/gather socket I/O, with bounded
   `SCM_RIGHTS` fd passing over local socketpairs, plus pathname `AF_UNIX`
   stream sockets with bind/listen/connect/accept and `unlink` support.
@@ -126,7 +127,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `poll`/`select`, `sigsuspend`, and sleeps still report `EINTR`.
   `assert`, `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
-  `nanosleep`, and relative `clock_nanosleep`
+  `nanosleep`, and relative/absolute `clock_nanosleep`
 - `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,
   `sysconf(_SC_CLK_TCK)`, and `sysconf(_SC_OPEN_MAX)`
 - First same-address-space pthread surface: `pthread_create`, `pthread_join`,
@@ -139,7 +140,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   stacks are reclaimed opportunistically by libc when later pthread calls
   observe completion. Mutexes, condition variables, and in-progress
   `pthread_once` waiters now sleep through srvros futex-style wait/wake syscalls
-  instead of spinning.
+  instead of spinning. The stack/condition attribute symbols do not imply full
+  semantic support; see the [synchronization audit](synchronization-audit-2026-10-25.md).
 - `getopt`, `uname`, `atexit`, and `system` backed by `sh -c` through
   `posix_spawnp` plus `waitpid`
 - `getpid`
@@ -349,17 +351,21 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
 
 ## Current Limits
 
-- `fork` is still missing, and pthreads are intentionally compact: threads
-  share process resources, detached stack cleanup is opportunistic rather than
-  timer-driven, and robust cancellation/signal interactions are missing.
+- Single-thread CLI `fork` is implemented with native descriptor inheritance;
+  live-worker and unsupported pseudo-descriptor cases are refused. It does not
+  establish general multithreaded fork support. Pthreads share process resources;
+  detached stack cleanup is opportunistic and pthread cancellation is absent.
+  PR175 corrects supplied-stack bounds, selected condition clocks and semaphore
+  count overflow; the [synchronization audit](synchronization-audit-2026-10-25.md)
+  records regressions, the required matched rebuild and remaining gaps.
 - The first `regex.h` implementation is intentionally compact. It covers the
   common literals, wildcard, anchors, bracket classes, ranges, captures,
   alternation, bounded repeats, `*`, ERE `+` and `?`, and match offsets needed
   by current text tools, but not full POSIX locale collation, pattern
   backreferences, or every corner of nested subexpression behavior yet.
-- `posix_spawn` file actions currently model the final state of standard fds
-  `0`, `1`, and `2`; non-stdio file actions are ordered and dynamically stored
-  in userspace, with the native spawn ABI currently capped at 32 actions per
+- `posix_spawn` inherits the native descriptor table and applies open/close/dup
+  actions in recorded order, including standard descriptors; it does not collapse
+  them to a final stdio map. The native spawn ABI is capped at 32 actions per
   spawn. Reset-id and signal-mask/default spawn attributes are accepted and
   applied through the native exec request. Reset-id has no visible effect until
   srvros grows a uid/gid model.
@@ -370,7 +376,7 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   and removes malformed temp files before applying metadata.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
   wait queue. The POSIX wrapper and syscall accept up to 64 poll entries, and
-  `select` can address the current high fd range through `FD_SETSIZE=128`.
+  `select` can address the current high fd range through `FD_SETSIZE=1024`.
   Timer deadlines wake finite timeouts; broader fd-specific wait queues are
   still future work as the descriptor model grows. Caught signals now wake the
   major blocking fd wait paths so libc can map them to `EINTR`.
@@ -416,7 +422,10 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   assignment suppression, and common length modifiers, and stream buffering
   covers the simple full/line/unbuffered cases. `popen`/`pclose` support
   one-way `sh -c` pipes, but not bidirectional process streams.
-- Time is tick-derived and not wall-clock accurate.
+- `CLOCK_REALTIME` is seeded from the hardware UTC clock and advanced by the
+  monotonic reference; availability and accuracy depend on that seed. Realtime,
+  monotonic and process/thread CPU clocks are distinct. This is not network time
+  synchronization. Sleep and wait completion remain subject to scheduling.
 - The default allocator is process-local and `sbrk` backed; `mmap` is eager and
   supports anonymous private mappings plus file-backed private mappings.
   `PROT_NONE` and `mprotect` update page-table permissions, and `msync`

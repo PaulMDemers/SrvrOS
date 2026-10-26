@@ -3672,6 +3672,16 @@ build/tests/graphics-service-host$(HOST_EXE): tools/test_graphics_service.c kern
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
 test-core: test-graphics-service
 
+.PHONY: test-time-contracts
+test-core: test-time-contracts
+test-time-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_time_contracts.py
+
+.PHONY: test-sync-contracts
+test-core: test-sync-contracts
+test-sync-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_sync_contracts.py
+
 .PHONY: test-desktop-runtime
 test-desktop: test-desktop-runtime
 test-desktop-runtime: build/tests/desktop-runtime-host$(HOST_EXE)
@@ -3687,3 +3697,13 @@ test-tool-commands: build/tests/tool-commands-host$(HOST_EXE)
 build/tests/tool-commands-host$(HOST_EXE): tools/test_tool_commands.c userspace/desktools/menus.c userspace/desktools/app.h userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_commands.c userspace/desktop_runtime/commands.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+
+.PHONY: test-futex-contracts
+test-core: test-futex-contracts
+test-futex-contracts:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_futex_contracts.py
+
+.PHONY: test-thread-smoke-harness
+test-core: test-thread-smoke-harness
+test-thread-smoke-harness:
+	$(PYTHON) tools/test_thread_smoke.py
