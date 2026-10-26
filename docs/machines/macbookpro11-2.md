@@ -7,12 +7,10 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical result: v85 RX gain/baseband prerequisite capture completed;
-LNA0, RSSI+1/+1, derived/current AGC8=16344ef0. Whole proof and recovery checks
-passed. Channel-specific filter/BBP setup is next; radio/connectivity untested.
-No reboot armed. Detailed result follows in the dated journal.
-Latest v86 (`8af0efef4d2a53c2`) completed native guarded channel1 BBP/filter
-setup: all21 readbacks and recovery checks passed. No repeat boot needed.
+Latest physical result: v86 (`8af0efef4d2a53c2`) completed native guarded
+channel1 BBP/filter setup. All21 independent readbacks, whole earlier proof and
+recovery checks passed. Same-boot LNA0/RSSI+1,+1 and AGC8=16344ef0 verified.
+No repeat boot needed; no reboot armed. Detailed result is in the dated journal.
 Next audit post-tune VCO/calibration prerequisites; radio/connectivity untested.
 
 The user considers the core Pro bring-up generally working. Named payloads below
