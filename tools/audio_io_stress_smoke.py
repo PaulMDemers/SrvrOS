@@ -10,6 +10,7 @@ from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
 from app_timing import validate_app_timing,saved_app_timing
+from loop_timing import validate_loop_timing
 
 
 def main():
@@ -132,6 +133,8 @@ def main():
                             (out/('saved-'+name)).write_bytes(raw)
                     timing=validate_app_timing(saved_app_timing(snapshots),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
+                    worst=validate_loop_timing(snapshots,int(lifecycle[2]))
+                    (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
                 volume.write_bytes(final.data);check_clean_image(volume)
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
