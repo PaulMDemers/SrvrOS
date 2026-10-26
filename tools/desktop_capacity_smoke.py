@@ -101,7 +101,13 @@ def main():
                         contents=f"Document {index} kept."
                         type_text(contents)
                         shortcut("ctrl-l");shortcut("ctrl-a");type_text(f"/fat/document-{index}.txt")
-                        shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret")
+                        shortcut("ctrl-s")
+                        if args.document_growth or index<document_count:
+                            # The listing can finish before its owned window's
+                            # first configure/commit and keyboard focus delivery.
+                            wait_all([b"picker ready mode=2",b"deskd: commit"])
+                        else:wait(b"picker ready mode=2")
+                        qmp.key("ret")
                         # The save result and owned-picker retirement may arrive
                         # in either order. Both must finish before the next
                         # document shortcut targets the restored parent.
