@@ -7816,3 +7816,31 @@ no new hardware writes in the integration regression. AGC/full-calibration audit
 can proceed locally; full calibration remains gated on native context evidence.
 Open PR19 owns Wi-Fi; current main includes merged PR175/178/179 fixes. No other
 open shared-code PRs found at refresh. Battery/headphones/trackpad deferrals stay.
+
+
+### 2026-10-26 — merged-baseline local verification and AGC audit
+
+Main `dfd63fef` is now an ancestor of this published branch through merge
+`cb346475`; no history rewrite. All six MT76/xHCI source/header files match
+accepted pre-merge v87 byte-for-byte. All174 historical Wi-Fi recipes and97
+main laptop/desktop/POSIX recipes retain identical boot arguments;172 staging
+and31 collection tests pass. Full image build and full `test-core` pass.
+
+Verification exposed incoming host-test integration gaps. Added explicit poll
+clock header/POSIX feature declarations, a process-service wake fixture with
+wake-before-frame-free assertion, and freestanding compiler integer types for
+SrvrOS-header event/time/synchronization fixtures; the host pthread shim keeps
+host headers. No warnings disabled or kernel futex behavior changed. Focused
+contracts and the final whole core run pass. Preserve original failed logs as
+diagnostics. Baseline smoke and exact-stage VM/install follow.
+
+Pinned Linux v7.0 AGC audit: initialization reads AGC8(2320) andAGC9(2324),
+extracts bits14:8, copies initial values into current gain state, sets low_gain=-1
+and marks initialization done. It performs no radio write. Known AGC8 implies
+78; AGC9 remains uncaptured, so do not synthesize second-chain gain. USB
+power-on full calibration follows MAC start in the reference; prior IBI9
+all-ones observations remain unresolved. First physically regress the accepted
+v87 sequence on the merged baseline; next implement bounded fresh two-register
+capture/software gain state with strict failure handling. No new radio writes,
+MAC enable, full calibration or inferred power/regulatory acceptance in this
+integration regression. Desktop-runtime parity needs separate native evidence.

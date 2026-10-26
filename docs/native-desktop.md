@@ -551,7 +551,10 @@ capture; ordinary desktop logging stays64KiB and older firmware profiles keep
 their128/256KiB selection. The larger capture still refuses an already-lost
 prefix and checks byte-preserving save/collection. This opt-in diagnostic does
 not enable Wi-Fi traffic or ordinary desktop startup probing; see
-[USB Wi-Fi bring-up](usb-wifi.md).
+[USB Wi-Fi bring-up](usb-wifi.md). The explicit v86/v87 channel/VCO
+diagnostics select1MiB to preserve the full earlier proof; v81-v85 remain512KiB,
+and ordinary desktop capacity remains unchanged. Captures refuse lost prefixes.
+
 
 ### Compositor lifecycle worker
 
