@@ -10,12 +10,15 @@ there is no supported stable binary release yet.
 | Target | Evidence | Remaining work |
 | --- | --- | --- |
 | QEMU q35 | Repeatable boot, CLI, filesystem, network and desktop regressions | Emulator coverage cannot validate physical controllers or firmware |
-| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | Suspend/resume, measured power improvements, USB hot-unplug and broader filesystem/window scale |
-| MacBookAir6,1 | Console/input, USB workspace and bounded desktop pointer/drag/scroll trials | Preference restoration and additional devices have separate acceptance |
+| MacBookAir7,2 / A1466 | Active reference; combined laptop services, bounded filesystem growth, two automated 24-app rounds with saved-file checks, modal/unsaved-exit retest | Suspend/resume, measured power improvements, USB hot-unplug, broader input/pressure/endurance coverage |
+| MacBookAir6,1 | Desktop/input/preferences, brightness/audio, opt-in battery and combined session/reopen evidence | Sustained disk/audio/app stress still fails its lifecycle deadline; timing investigation continues |
 | MacBookAir7,1 / A1465 | Planned | Capture this model and run its own acceptance cycle |
 | MacBookPro11,2 / A1398 | Native desktop/input, scaled display, brightness, speakers, CPU/two-fan telemetry and captured USB Ethernet accepted | USB Wi-Fi diagnostics in progress; battery and headphone checks deferred |
 | MacBookPro11,3 / A1398 | Planned | Separate GPU/firmware inventory; no assumed graphics switching support |
 | Macmini7,1 / late-2014 A1347 | Planned | Inventory, storage, display and external input bring-up |
+
+An ARM64 macOS host can build and run the x86_64 guest with QEMU TCG; see the
+[macOS guide](macos-development.md). That is emulator coverage, not native ARM64 support.
 
 The [machine records](machines/README.md) own exact physical evidence. Sharing
 an enclosure designation or CPU family does not establish driver compatibility.
@@ -33,16 +36,18 @@ acceleration, tap gestures and suppression while typing; suppression defaults
 to off. Recent changes latch a physical two-finger press as secondary click,
 cancel interrupted trackpad presses, preserve queued typing on pointer
 cancellation, and correct compositor input/control delivery deadlines. Host/VM
-regressions pass. The latest physical round reported generally good behavior,
+regressions pass. The earlier input-focused physical round reported generally good behavior,
 with no recorded timeout or app failure; individual secondary-click/cancellation
 cases were subsequently exercised in the October 23 follow-up; tap refinement is tester-accepted in PR88, although its final full diagnostic receipt is incomplete. The Terminal backspace correction passed its physical retest on
 `5282cfde546ea2b5`; Text copy/paste/select-all shortcuts were explicitly
 validated in the same round.
 Earlier unexpected app closures are not conclusively explained by these fixes.
 
-Air7,2 accepts sixteen-window opening, saved document integrity and clean exit
-at `bf68e4e9b88b8ae7` (2026-10-24); allocation-pressure preservation and cache
-retirement have host/VM evidence, without native cache totals in that round.
+Air7,2 first accepted sixteen-window opening and saved-file integrity at
+`bf68e4e9b88b8ae7`. Later release `f01d4049daae0b4a` passed two automated rounds
+of 24 mixed app processes, edit/clipboard acknowledgements, ten exact USB files,
+chooser cancellation and clean retirement. Broader physical input and pressure
+injection are not implied by this automated result.
 Current source uses dynamically allocated window/GUI records with explicit byte
 budgets. Normal Text has multiple documents per process and shares a bounded lazy
 file-worker pool; Files uses the same service. A combined GUI/nonblocking-pipe
@@ -55,15 +60,26 @@ throttled QEMU writes. These do not extend native acceptance beyond its recorded
 release or establish native latency/energy improvements. Covered-window repainting
 now uses conservative opaque-piece tests with an exact unculled pixel oracle and
 identical-workload host benchmarks. See the [runtime validation guide](desktop-runtime-validation.md)
-for repeatable local gates and the remaining interactive acceptance round.
+for repeatable local gates and the separate automated/native acceptance limits.
 
 Remaining limits include software rendering, 1440×900 logical client surfaces,
 process/descriptor budgets and pixel-memory admission. Explicit 2× scaling passes
-VM checks at 2880×1800, but is pixel enlargement, not a high-density font renderer
-or Retina Mac acceptance. See the [desktop guide](native-desktop.md),
+VM checks at 2880×1800, but is pixel enlargement, not a high-density font renderer. Pro11,2 has
+its own scaled-display acceptance; VM results do not cover other Retina Macs. See the [desktop guide](native-desktop.md),
 [API evolution plan](desktop-api-evolution.md) and [device parity ledger](device-parity.md).
-Parented dialogs, broader shared app services, rendering/latency profiling and
-native acceptance of the new runtime remain further work.
+Protocol v15 implements same-process parented dialogs, sequential cancellable
+Quit and existing-process Text/Preview document routing. Air7,2 release
+`1d1d5edce03523db` accepts the reported modal-button and unsaved desktop-exit
+corrections with saved documents, clean retirement and prior-file preservation.
+Its playback ended canceled with zero recorded underruns; full 120-second
+playback/save overlap is VM evidence. Broader services and measured latency/energy
+improvements remain further work. See the [lifecycle contract](desktop-application-lifecycle.md).
+
+Air6,1 release `95f8a9cf59b25ba1` still failed the ten-second app lifecycle bound
+after 34 completed cycles under disk/audio load, despite the merged I/O handoff.
+PR170 adds phase timing, not a proven fix. Its subsequent native trial is pending
+in the unit record at this documentation baseline. Thirty-minute endurance is
+not accepted; late zero-status exits do not turn failed runs into passes.
 
 ## Files, services and devices
 

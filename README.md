@@ -42,6 +42,9 @@ similar enclosure. See the [status page](docs/status.md) and [roadmap](docs/road
 
 ## Try it in QEMU
 
+On **Apple Silicon macOS**, follow the [macOS setup guide](docs/macos-development.md).
+It builds with native ARM64 Zig and opens the x86_64 desktop through QEMU TCG.
+
 On x86_64 Ubuntu, install the host tools, then build from source:
 
 ```sh

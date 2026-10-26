@@ -21,8 +21,11 @@ one host does not accept another Mac's input, display or firmware.
 
 All pools retain independent finite memory/process/descriptor budgets. “Dynamic”
 does not mean every requested workload fits. Partially covered windows still use
-normal painting. Parented dialogs, broader chooser/activation services,
-native-density fonts, text composition and accessibility remain separate work.
+normal painting. Protocol v15 also implements parented dialogs, cooperative
+Quit and bounded existing-process document routing; see the
+[application lifecycle contract](desktop-application-lifecycle.md). Broader app
+services, native-density fonts, text composition and accessibility remain
+separate work.
 The selected [portable C/POSIX profile](posix-supported-profile.md) has its own
 acceptance; this desktop work is not full POSIX or Linux compatibility.
 
@@ -120,9 +123,9 @@ evidence, not physical acceptance. Exact-stage VM validation and this host's
 recovery/USB preflight remain required before installation.
 
 Report any refusal separately from corruption or a hang: budgets can legitimately
-refuse further windows while retaining existing edits. Native higher-count
-acceptance, gesture behavior, input latency and power measurements remain pending
-until the matching physical evidence is collected. Do not automatically start
+refuse further windows while retaining existing edits. Later native higher-count
+results appear below. Gesture behavior, input latency and power measurements
+require their own matching physical evidence. Do not automatically start
 this trial when the overnight no-reboot window ends.
 
 

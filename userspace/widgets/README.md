@@ -38,6 +38,15 @@ see the [native desktop guide](../../docs/native-desktop.md).
 
 ## Adding a native application
 
+For multiple windows, start with the connection-owned runtime in
+`userspace/desktop_runtime` and the [application lifecycle
+contract](../../docs/desktop-application-lifecycle.md). Current protocol v15
+supports shared connection ownership, parented dialogs and cooperative app Quit;
+`desk_app` remains the per-window interface. The single-window sequence below
+is not a reason to create a new process or transport for each document. Read the
+[desktop API evolution](../../docs/desktop-api-evolution.md) for allocation budgets
+and the distinction between window growth and process/descriptor limits.
+
 Keep one application-owned state object containing its `desk_app` transport,
 control instances, document/model state and any worker jobs. `deskclock` is a
 useful composed-control example; `desknet` demonstrates bounded read-only jobs,

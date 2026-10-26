@@ -72,8 +72,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `tcsetpgrp` provide a small process-group/session surface for shells and
   interactive ports. Richer controlling-terminal permission checks and baud
   settings are still future work.
-- `pread` and `pwrite` for seekable fds. These currently save/restore the file
-  offset in userspace around the underlying `lseek` plus `read`/`write`.
+- `pread` and `pwrite` use native positional-I/O syscalls for seekable fds,
+  preserving the shared open-file offset. See the validated contracts and
+  bounds in the [supported POSIX profile](posix-supported-profile.md).
 - `sendmsg` and `recvmsg` for scatter/gather socket I/O, with bounded
   `SCM_RIGHTS` fd passing over local socketpairs, plus pathname `AF_UNIX`
   stream sockets with bind/listen/connect/accept and `unlink` support.

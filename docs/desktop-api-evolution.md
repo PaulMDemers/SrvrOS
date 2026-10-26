@@ -57,7 +57,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | Clipboard transfer state per admitted client (D0 merged) | No independent peer table; one global 64 KiB committed value and staged writer |
 | Menu/palette caller-owned storage | Inline defaults remain 96/32 and 64; compositor grows storage to enumerate all admitted windows; shared list geometry bound 4096 |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |
-| 64 processes; originally 64 extra file slots plus standard streams, now 67 unified native descriptors in the POSIX branch | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
+| 64 processes and 67 unified native descriptors per process | `kernel/include/srvros/process.h`; more windows should not require one new process each, and dynamic window admission does not remove other resource limits |
 | 8 additional user-thread slots per process; scheduler records grow from 32 bootstrap entries under a 32 MiB storage budget | `kernel/src/process.c`, `kernel/src/scheduler.c`; different resource pools, not a single universal task count |
 
 The audit reproduced a clipboard gap: eight retained peers received replies,
@@ -316,12 +316,13 @@ images. Pro11,2 PR19 is Wi-Fi work; this plan does not take over that scope.
 D0–D2 and D3a are merged through PR140–147. D3b's combined wait is in
 PR148, D4a repaint work in PR149, and D3c's shared chooser in PR150. Current host/QEMU evidence includes 128 small windows, 32 normal Text
 documents/33 exact files, worker fault/reap behavior and actual wait/input-under-I/O
-fixtures. Physical window acceptance remains the Air sixteen-window round on
-`bf68e4e9b88b8ae7`; larger native workloads, energy and latency require new trials.
+fixtures. Air7,2 subsequently accepted bounded native 24-window workloads and
+mixed services; see its [unit record](machines/macbookair7-2.md) for exact releases
+and limits. Larger workloads, energy and latency still require their own trials.
 The selected POSIX profile has its own acceptance record and remaining gaps.
 
-D3 follow-up is implemented on PR157, with local host/VM gates and pending
-physical acceptance in the Air7,2 unit record and
+D3 follow-up merged in PR157; later lifecycle fixes and the Air7,2 modal/unsaved
+retest are recorded in its unit record and the
 [application lifecycle contract](desktop-application-lifecycle.md): same-process
 parented dialogs, sequential cancellable app Quit, and bounded existing-process
 open-document routing. These are matched protocol v15 changes. Host validation

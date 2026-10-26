@@ -18,6 +18,9 @@ def main():
                 '/usr/share/OVMF/OVMF_CODE.fd', '/usr/share/edk2/x64/OVMF_CODE.fd',
                 '/ucrt64/share/qemu/edk2-x86_64-code.fd',
                 r'C:\msys64\ucrt64\share\qemu\edk2-x86_64-code.fd']
+    qemu = shutil.which('qemu-system-x86_64')
+    if qemu:
+        firmware.append(str(Path(qemu).resolve().parent.parent / 'share/qemu/edk2-x86_64-code.fd'))
     ovmf = next((p for p in firmware if p and Path(p).is_file()), None)
     print(f'{"ok" if ovmf else "MISSING"}: UEFI firmware: {ovmf or "install OVMF or set OVMF_CODE"}')
     failed |= ovmf is None

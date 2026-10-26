@@ -16,6 +16,7 @@ record earlier decisions and may describe superseded behavior.
 ## Build and contribute
 
 - [Development setup](development.md) — Linux/MSYS2 tools, build and VM commands.
+- [Apple Silicon macOS](macos-development.md) — ARM64 compiler, x86_64 QEMU and persistent VM disks.
 - [Contributing](../CONTRIBUTING.md) — focused changes, tests and review evidence.
 - [Testing](testing.md) — host, VM, failure-path and physical validation.
 - [Widget library](../userspace/widgets/README.md) — shared controls and app integration.
@@ -33,11 +34,14 @@ record earlier decisions and may describe superseded behavior.
 - [Apple hardware expansion](apple-hardware-expansion-plan.md) — planned siblings.
 - [Automated hardware tests](automated-hardware-tests.md) — reports, failure halts and collection.
 - [Read-only power telemetry](power-telemetry.md) — measurement scope and Linux policy inventory.
-- [uACPI port](../ports/srvros/uacpi/PORT.md) — isolated native probe and separate Q35 runtime fixtures.
+- [uACPI port](../ports/srvros/uacpi/PORT.md) — offline/isolated probes, Q35 fixtures and separately gated native runtime.
 
 ## Engineering history
 
-The [October 19 journal](desktop-progress-2026-10-19.md) covers the latest
+The [October 25 code/documentation audit](code-docs-audit-2026-10-25.md) records
+current-guide corrections and outstanding review items. Current acceptance lives
+in [status](status.md) and the machine records. The
+[October 19 journal](desktop-progress-2026-10-19.md) records that date’s
 reliability, input, idle and ACPI work. The [October 18 journal](desktop-progress-2026-10-18.md)
 records desktop apps and laptop devices. Earlier dated documents remain useful
 for reproductions and rationale, but their staged payloads are not instructions

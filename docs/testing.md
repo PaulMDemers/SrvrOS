@@ -1,5 +1,10 @@
 # Testing srvros
 
+For ARM64 macOS image builds and interactive QEMU, use the
+[macOS guide](macos-development.md). The full suite below is not qualified on
+macOS: host fixtures can require x86/ELF tooling, and VM fixtures can depend on
+Linux filesystem or GRUB utilities.
+
 On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-device-agent-setup.md)
 and update their [machine record](machines/README.md). A VM pass is not physical
 acceptance on any of the additional models. Ordinary desktop profiles exclude
@@ -43,7 +48,7 @@ Build with `tools/host-env.sh make -j2 all` before running VM scripts.
 | --- | --- | --- |
 | Arrangement and input/save across resizes | `tools/host-env.sh python3 tools/desktop_arrange_smoke.py --resolution 1440x900` | `desktop-arrange-1440x900` |
 | Minimum supported display | `tools/host-env.sh python3 tools/desktop_arrange_smoke.py --small` | `desktop-arrange-small` |
-| Eight simultaneous windows and capacity recovery | `tools/host-env.sh python3 tools/desktop_capacity_smoke.py` | `desktop-capacity` |
+| Sixteen-window forced quota refusal and capacity recovery | `tools/host-env.sh python3 tools/desktop_capacity_smoke.py` | `desktop-capacity` |
 | Repeated app/desktop cleanup and memory plateau | `tools/host-env.sh python3 tools/desktop_lifecycle_soak.py --rounds 6` | `desktop-lifecycle` |
 | Emergency exit and usable console/desktop recovery | `tools/host-env.sh python3 tools/desktop_recovery_smoke.py` | `desktop-recovery` |
 
@@ -55,8 +60,12 @@ within 64 KiB of live heap and 128 physical frames; `samples.json` preserves the
 actual counts, not just a PASS label. This checks repeated ownership/lifetime
 behavior, not physical input latency or power-loss durability.
 
-The capacity test checks rejection of a ninth app, reuse of a freed slot,
-keyboard editing and a screenshot save while all eight slots are occupied.
+The default capacity test selects `--registry-pressure-test`, forcing refusal
+after the sixteen inline records, then checks slot reuse, editing, saving and
+screenshots. This is a deliberate quota fixture, not the normal window ceiling.
+`--documents` exercises sixteen same-process documents under refusal;
+`--document-growth` exercises 32 real Text documents without that forced quota.
+See [window capacity](window-capacity.md) for 128-window and mixed-process gates.
 The recovery test uses unsaved disposable text, a live PTY and a pending
 read-only diagnostic; it does not kill an accepted filesystem mutation.
 App-specific `desktop_*_smoke.py` scripts cover deeper workflows and independently

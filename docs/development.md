@@ -5,7 +5,9 @@ For a new Ubuntu machine and its local agent, use the complete
 development branch, exFAT drive and recovery workflow. The dated
 [hardware development](hardware-development.md) page retains original Air evidence.
 
-The base OS builds on x86_64 Linux and MSYS2 UCRT64. Zig 0.15.2 is downloaded
+The base OS builds on x86_64 Linux, MSYS2 UCRT64 and ARM64 macOS. Apple Silicon
+hosts use the [macOS guide](macos-development.md), with GNU Make/tar and TCG;
+the full Linux test suite is not qualified on that host. Zig 0.15.2 is downloaded
 into `build/tooling/zig`, verified against the release SHA-256, and used for
 freestanding compilation. Limine binaries and protocol headers are pinned to
 commits in the Makefile. The Linux build compiles Limine's host utility with
@@ -101,8 +103,10 @@ current kernel calibrates its LAPIC timer against the ACPI PM reference; a
 reference/calibration failure on another machine still needs explicit diagnosis.
 
 `make libc-audit` checks declared libc functions against exported symbols.
-The GitHub Actions workflow runs the base Linux build and smoke suite on
-Ubuntu 24.04 and retains logs. Local passing tests do not imply that the remote
+The checked-in GitHub Actions workflow describes the Linux baseline on Ubuntu
+24.04, but Actions were disabled at the user's request; follow the
+[CI policy](agent-coordination.md#ci-cadence) and do not enable or dispatch it.
+Local passing tests do not imply that the remote
 workflow has run, that all other harnesses pass, or that physical hardware works.
 
 TCP listener semantics and the directed host/VM regressions are documented in

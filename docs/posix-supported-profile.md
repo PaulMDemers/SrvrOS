@@ -9,9 +9,9 @@ remaining work. The desktop overhaul is a separate milestone.
 
 Status: the selected portable-application milestone is **implemented and
 host/VM validated** at runtime source `7e2cf54` on 2026-10-24 (local date), in
-[PR134](https://github.com/PaulMDemers/SrvrOS/pull/134). It is ready for integration
-review and discussion of the desktop migration. The laptop's installed/recovery
-payloads have not been promoted by these VM results.
+[PR134](https://github.com/PaulMDemers/SrvrOS/pull/134), now merged. The later
+bounded native regression is recorded below with its own source and payload;
+VM evidence alone does not promote installed/recovery payloads.
 
 ## Intended applications
 
@@ -72,7 +72,7 @@ replacement target. Do not treat this profile as a durable transactional store.
 The native desktop API, surfaces and worker-I/O ownership rules remain separate.
 POSIX compatibility does not turn blocking filesystem work into safe UI-loop
 work. See the [desktop API evolution plan](desktop-api-evolution.md) for the
-combined-wait contract and future dynamic window registry.
+implemented combined-wait contract and dynamic window registry.
 
 ## Reproduce the selected gates
 
@@ -111,8 +111,9 @@ consumer; this is not a claim to pass upstream libuv's entire test suite.
 The C0–C4 plan now has a truthful supported profile, worker/file semantics,
 checked readiness and monotonic timeouts, supported process contracts and real
 consumer gates. Its broader Unix work remains separate. In particular, pthread
-cancellation is not implemented, and the combined GUI/FD wait remains a design;
-no native input-latency acceptance is inferred from the VM readiness test.
+cancellation is not implemented. The separate native GUI/nonblocking-pipe wait
+is now implemented; see [desktop connections](desktop-connections.md). It does
+not make GUI objects POSIX descriptors or establish native input-latency bounds.
 
 A 150 ms idle wait used 5,536–7,968 us of process CPU over 153,900–160,017 us
 elapsed in the corrected focused/full runs. The fixture also verifies 128
@@ -124,8 +125,9 @@ not erase the original evidence.
 The Air agent retains exact image hashes, commands, exit statuses and raw logs
 under `build/posix-core-20261024`, with a backup outside the disposable build
 tree. The [machine record](machines/macbookair7-2.md) identifies that checkpoint.
-A new native trial, broader API conformance suite and the desktop overhaul are
-separate next steps, not implied acceptance from this milestone.
+The subsequent bounded native trial is recorded below. Broader API conformance
+and desktop-runtime acceptance retain their own gates; neither follows from the
+original portable-C milestone.
 
 ## Unattended native regression
 

@@ -26,8 +26,9 @@ sh hello cat more echo write clear ps kill which env pwd true false sleep date
 touch mktemp basename dirname uname hostname uptime id whoami
 ```
 
-The current `date` command reports monotonic uptime-style time because srvros
-does not yet have RTC or network wall-clock plumbing.
+The current `date [-u] [+FORMAT]` command reports the hardware-seeded UTC
+clock using C-locale calendar formats. It reports an error if the clock is
+unavailable; it is distinct from monotonic uptime.
 
 ## Audio
 

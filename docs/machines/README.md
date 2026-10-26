@@ -9,6 +9,10 @@ matching record before the first physical trial. The
 [expansion plan](../apple-hardware-expansion-plan.md) is shared planning; these
 records own observed configuration and acceptance for each model/unit.
 
+The [Apple Silicon build host](apple-silicon-build-host.md) has a separate
+[macOS setup](../macos-development.md). It builds and emulates x86_64; its VM
+results do not add a native ARM64 machine to the hardware support table.
+
 | Model | Record | Current evidence |
 | --- | --- | --- |
 | MacBookAir7,2 / A1466 | [macbookair7-2](macbookair7-2.md) | Active reference machine; partial device acceptance |

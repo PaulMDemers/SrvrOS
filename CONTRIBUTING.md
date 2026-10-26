@@ -7,7 +7,10 @@ MacBook Air without losing its shell/server foundation.
 
 ## Set up and choose a change
 
-Follow [development setup](docs/development.md) for Linux/QEMU. Physical-device
+Follow [development setup](docs/development.md) for Linux/QEMU or the
+[Apple Silicon guide](docs/macos-development.md) for macOS build and VM checks.
+The broad validation commands below describe the Linux baseline; macOS support
+does not yet qualify the full host/VM suite. Physical-device
 work also needs the [Ubuntu device guide](docs/ubuntu-device-agent-setup.md),
 [AGENTS.md](AGENTS.md) and a record for the actual model. New contributors can
 start with reproducible bugs, missing tests, documentation or shared widgets.
