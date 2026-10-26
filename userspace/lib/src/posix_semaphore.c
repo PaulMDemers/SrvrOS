@@ -4,7 +4,7 @@
 
 int sem_init(sem_t *sem, int pshared, unsigned int value) {
     (void)pshared;
-    if (sem == 0) {
+    if (sem == 0 || value > SEM_VALUE_MAX) {
         errno = EINVAL;
         return -1;
     }
@@ -52,8 +52,17 @@ int sem_post(sem_t *sem) {
         errno = EINVAL;
         return -1;
     }
-    __atomic_add_fetch(&sem->__value, 1, __ATOMIC_RELEASE);
-    return 0;
+    unsigned int value = __atomic_load_n(&sem->__value, __ATOMIC_RELAXED);
+    for (;;) {
+        if (value >= SEM_VALUE_MAX) {
+            errno = EOVERFLOW;
+            return -1;
+        }
+        if (__atomic_compare_exchange_n(&sem->__value, &value, value + 1, 0,
+                                        __ATOMIC_RELEASE, __ATOMIC_RELAXED)) {
+            return 0;
+        }
+    }
 }
 
 int sem_getvalue(sem_t *sem, int *sval) {

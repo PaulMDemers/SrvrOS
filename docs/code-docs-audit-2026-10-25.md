@@ -107,3 +107,11 @@ condition-clock gap and silent semaphore overflow. The supported profile and
 port guides now exclude those contracts accurately. It also reconciles current
 fork/spawn/readiness/time descriptions and PR173's newer Air6,1 failure records.
 These findings are not fixed by documentation or by reproducing the failures.
+
+## Corrections after the continued pass
+
+The user authorized fixes for all three confirmed defects. PR175 now contains
+checked supplied-stack handling, retained condition clocks and checked semaphore
+counts, plus positive host/guest regressions. The original failure receipts above
+are historical. See the synchronization audit's current disposition and matched-
+rebuild requirement rather than treating those three items as still unfixed.

@@ -17,9 +17,9 @@ This reference choice is a development target, not certification.
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
 The [October 25 synchronization follow-up](synchronization-audit-2026-10-25.md)
-adds executable evidence for caller-supplied stack corruption, ignored condition
-clocks and semaphore counter overflow. These remain unresolved even though the
-selected earlier consumer gates passed.
+records supplied-stack corruption, ignored condition clocks and semaphore count
+overflow, followed by PR175's fixes and focused host/guest regressions. Its
+historical failure receipts remain separate from the corrected runtime contract.
 
 ## Implementation progress after the audit
 

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Compile real libc sources with modeled OS services; report known contract defects.
+"""Run focused synchronization regressions against real libc sources and modeled OS services.
 
-Default exit 1 means defects remain; --expect-known-defects checks the audit
-receipt (exit 0 only for all four observations), not successful conformance.
-No guest or host thread is created. No runtime source is patched.
+No host or guest thread is created. Guest threadstress supplies live-worker tests.
 """
 import argparse
 import hashlib
@@ -20,16 +18,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--expect-known-defects', action='store_true')
-    parser.add_argument('--output', type=Path, default=ROOT / 'build/review/sync-audit')
+    parser.add_argument('--output', type=Path, default=ROOT / 'build/review/sync-regression')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     (out / 'result.json').unlink(missing_ok=True)
-    if platform.system() not in ('Darwin', 'Linux'):
-        parser.error('this host probe supports Darwin/Linux toolchains')
+    if not platform.system().startswith(('Darwin', 'Linux', 'Windows', 'MSYS', 'MINGW')):
+        parser.error('this host probe needs a GCC/Clang-style C toolchain')
 
-    headers = [ROOT / 'userspace/lib/include' / name for name in ('pthread.h', 'semaphore.h', 'sched.h')]
+    headers = [ROOT / 'userspace/lib/include' / name for name in ('pthread.h', 'semaphore.h', 'sched.h', 'limits.h')]
     names = set()
     for header in headers:
         names.update(re.findall(r'\b((?:pthread|sem|sched)_[a-zA-Z0-9_]+)\s*\(', header.read_text()))
@@ -37,7 +34,7 @@ def main():
     renamed = out / 'rename.h'
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in sorted(names)))
     sources = [ROOT / path for path in (
-        'tools/audit_sync_contracts.c',
+        'tools/test_sync_contracts.c',
         'userspace/lib/src/posix_pthread.c',
         'userspace/lib/src/posix_semaphore.c')]
     compiler = shlex.split(os.environ.get('CC', 'cc'))
@@ -47,7 +44,7 @@ def main():
                           '-I', str(ROOT / 'shared/include'), '-include', str(renamed)]
     command += [str(path) for path in sources] + ['-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    result = subprocess.run([str(executable)] + (['--expect-known-defects'] if args.expect_known_defects else []),
+    result = subprocess.run([str(executable)],
                             capture_output=True, text=True, timeout=15)
     print(result.stdout, end='')
     if result.stderr:
@@ -55,7 +52,7 @@ def main():
     record = {'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT)),
               'platform': platform.platform(), 'compile_command': command,
-              'expect_known_defects': args.expect_known_defects, 'exit': result.returncode,
+              'exit': result.returncode,
               'stdout': result.stdout, 'stderr': result.stderr,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                          for path in sources + headers}}

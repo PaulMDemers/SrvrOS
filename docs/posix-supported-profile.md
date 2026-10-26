@@ -28,7 +28,7 @@ shutdown; it is not the full upstream libuv implementation or test suite.
 
 | Area | Implemented profile | Boundary to account for |
 | --- | --- | --- |
-| Error state and workers | Thread-local errno/TLS, mutexes, default realtime condition variables, read/write locks, thread keys/destructors | Bounded worker/key slots; caller-supplied stacks and POSIX semaphore edge semantics excluded below; no real-time scheduling or pthread cancellation API |
+| Error state and workers | Thread-local errno/TLS, mutexes, realtime/monotonic condition variables, read/write locks, thread keys/destructors | Bounded worker/key slots; checked supplied-stack bounds and semaphore counts; remaining restrictions below; no real-time scheduling or pthread cancellation API |
 | Regular files | Shared contents across opens, separate open-description offsets, dup-shared offsets/status, positioned and vectored I/O, append/exclusive create, truncate, open-unlinked lifetime, record locks | exFAT metadata is root-only; filesystem size/allocation limits still apply |
 | Descriptor lifecycle | Unified standard/native FD table, atomic pipe2/dup3/F_DUPFD_CLOEXEC, ordered spawn open/close/dup actions | 67 native descriptors; socket/eventfd pseudo-descriptors have separate namespaces and restrictions |
 | Streams | Buffered file/pipe I/O, fdopen, global flush and concurrent retirement, descriptor printf, C-locale binary64 formatting | No complete locale/wide-character/extended-precision formatting; NULL-pathname freopen mode changes are rejected with EINVAL and close the stream |
@@ -54,23 +54,28 @@ facility is supported.
 ## Deliberate exclusions
 
 The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)
-reproduces unsafe caller-supplied stack handling in `pthread_create`: accepted
-sizes below 2 MiB are enlarged, and other sizes are rounded up before the initial
-stack write. That can write outside the caller's region. Custom-stack entry points
-are excluded from this profile; current consumers should retain library-owned
-stacks until the bounds are fixed and tested.
+found three defects now corrected on the PR175 branch. Caller-supplied pthread
+stacks retain their declared region, require a 16-byte-aligned base and at least
+`PTHREAD_STACK_MIN` bytes, and are checked for address overflow before any write.
+Only library-owned allocations are rounded upward, with checked size arithmetic.
+The caller remains responsible for writable storage and its lifetime through
+thread completion. Self-stack reporting by `pthread_getattr_np` remains a
+separate audit item; do not infer corrected inspection from corrected allocation.
 
-The POSIX `sem_*` adapter is not a fully validated semaphore contract: initialization
-accepts an unchecked count and posting can wrap it silently to zero; `pshared`
-is ignored and blocking waits yield rather than parking on a futex. No timed-wait
-API is declared. The libuv adapter has its own mutex/condition semaphore, so its
-consumer tests do not validate `posix_semaphore.c`. Bounded basic decrement/post
-behavior is not acceptance of overflow, interprocess sharing or blocking semantics.
+Condition variables retain `CLOCK_REALTIME` (including static/default init) or
+`CLOCK_MONOTONIC`. Timed waits recheck their absolute deadline after early tick
+wakes and signal interruption, and reacquire the mutex before returning. The
+condition structure changed from 4 to 8 bytes: rebuild all consumers and use
+matched library/header/application images. No compatibility with old objects
+embedding `pthread_cond_t` is claimed.
 
-Condition-variable attribute clocks are not complete: the current initializer
-ignores `pthread_condattr_setclock(CLOCK_MONOTONIC)`, so only the default realtime
-condition deadline is in the validated profile. This remains a compatibility gap;
-attribute-setter success must not be treated as proof of that clock's behavior.
+`SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
+`sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing
+a full count. This does not complete the POSIX semaphore contract: `pshared` is
+still ignored, blocking waits yield rather than parking on a futex, and no timed-
+wait API is declared. The libuv adapter's separate mutex/condition semaphore does
+not establish libc `sem_*` support. Process sharing and full blocking semantics
+remain outside the validated profile.
 
 The Linux-oriented `epoll`, `eventfd`, inotify and other Node compatibility
 symbols remain experimental adapters. In particular, eventfd blocking/overflow,

@@ -355,8 +355,9 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   live-worker and unsupported pseudo-descriptor cases are refused. It does not
   establish general multithreaded fork support. Pthreads share process resources;
   detached stack cleanup is opportunistic and pthread cancellation is absent.
-  Caller-supplied stack bounds, selected condition clocks and POSIX semaphore
-  overflow have [confirmed audit defects](synchronization-audit-2026-10-25.md).
+  PR175 corrects supplied-stack bounds, selected condition clocks and semaphore
+  count overflow; the [synchronization audit](synchronization-audit-2026-10-25.md)
+  records regressions, the required matched rebuild and remaining gaps.
 - The first `regex.h` implementation is intentionally compact. It covers the
   common literals, wildcard, anchors, bracket classes, ranges, captures,
   alternation, bounded repeats, `*`, ERE `+` and `?`, and match offsets needed

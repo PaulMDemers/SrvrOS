@@ -98,10 +98,11 @@ not accepted; late zero-status exits do not turn failed runs into passes.
 | POSIX / ports | [Portable C profile](posix-supported-profile.md): thread-local errno/TLS, shared files/descriptors, positional/vectored I/O, ordered spawn, bounded fork, readiness/time and stream contracts implemented with host/VM regressions; not full POSIX, Linux or Node compatibility |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 
-The [synchronization audit](synchronization-audit-2026-10-25.md) confirms an
-out-of-bounds write for caller-supplied pthread stacks, ignored condition-clock
-attributes and POSIX semaphore overflow. These contracts are excluded from the
-supported profile pending fixes; earlier consumer passes do not cover them.
+The [synchronization audit](synchronization-audit-2026-10-25.md) led to PR175 fixes
+for supplied-stack bounds, selected condition clocks and semaphore count overflow.
+Focused host and guest regressions cover those contracts; matched consumers must
+be rebuilt for the changed condition-variable layout. Self-stack inspection and
+broader semaphore semantics remain separate audit items.
 
 ## Measured checkpoints and current acceptance
 

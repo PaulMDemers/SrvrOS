@@ -1,6 +1,21 @@
 # Synchronization and stack contract audit — 2026-10-25
 
-## Scope and evidence
+## Current disposition
+
+The three original findings below are fixed on PR175: supplied storage is never
+expanded, condition variables retain their selected clock and recheck absolute
+deadlines, and semaphore increments enforce `SEM_VALUE_MAX=INT_MAX` atomically.
+See the correction/validation record below. The original findings and receipts
+are retained as history at source `a90ac149`; they do not describe the corrected
+implementation. The original audit-only runner was replaced by positive
+`tools/test_sync_contracts.py` regressions, integrated into `test-core`.
+
+**Matched rebuild required:** `pthread_cond_t` now includes its clock (8 bytes,
+previously 4). Static initializers retain realtime. Rebuild embedded users such
+as the libuv adapter and all apps; no binary compatibility with old objects is
+claimed.
+
+## Original scope and evidence
 
 Continuation of the [first code/docs audit](code-docs-audit-2026-10-25.md), on
 draft [PR175](https://github.com/PaulMDemers/SrvrOS/pull/175). Baseline is
@@ -18,7 +33,7 @@ sentinels beyond the declared stack region, so the bad write can be observed
 without writing outside the probe's own allocation. The model checks library
 decisions; it does not test kernel scheduling or real concurrent execution.
 
-## Findings
+## Original findings
 
 ### P1 — Caller-supplied stack size is enlarged before an out-of-bounds write
 
@@ -85,9 +100,9 @@ or scheduler failures in this probe. `uv_sem_*` uses its own mutex/condition
 implementation in `ports/srvros/uv.c`; its passing consumer tests cannot be used
 as evidence for libc `sem_*` overflow semantics.
 
-## Reproduce
+## Reproduce the historical failures
 
-From the repo root with the macOS command-line C compiler:
+At commit `a90ac149`, from the repo root with the macOS command-line C compiler:
 
 ```sh
 python3 tools/audit_sync_contracts.py --output build/review/sync-audit/default
@@ -96,7 +111,7 @@ python3 tools/audit_sync_contracts.py --expect-known-defects --output build/revi
 # Expected exit 0: all four known observations reproduced, NOT conformance.
 ```
 
-The current receipt is:
+The original receipt was:
 
 ```text
 stack declared=2097152 submitted_offset=2097144 out_of_contract_write=0
@@ -116,7 +131,7 @@ Only ARM64 macOS execution was validated in this pass; the runner also accepts
 Linux toolchains, without claiming a Linux run here. It is separate from
 `test-core` and does not rebuild or launch SrvrOS.
 
-## Documentation reconciliation
+## Original documentation reconciliation
 
 The supported profile now excludes custom-stack bounds and full POSIX semaphore
 edge semantics, and the libuv guide distinguishes its semaphore implementation.
@@ -132,3 +147,81 @@ baseline, so already-fixed findings are not read as current defects. Current
 Air6,1 status incorporates PR173's failure evidence; ongoing PR174 is a proposed
 correction, not native acceptance. Kernel lifetime/concurrency, filesystem
 failure paths and the experimental Linux adapters remain further audit work.
+
+## Corrections and regression evidence
+
+The user authorized corrections after the initial audit. The PR175 implementation
+now validates supplied bases (16-byte alignment), minimum sizes and pointer
+addition before touching storage. Supplied lengths are preserved, with the entry
+stack aligned downward inside the region. Library-owned stacks retain the 2 MiB
+minimum and checked page rounding; failed creation releases only owned storage.
+The setters and create path both validate, so inconsistent attributes cannot
+bypass checks by reaching creation directly.
+
+Condition initialization validates and retains the chosen clock. Timed waits
+recompute from the absolute deadline after interrupts and early tick wakes,
+using at most one second per relative futex wait to avoid arithmetic overflow
+for distant dates. Failed mutex release returns its error. Timeout and clock
+errors reacquire the mutex before returning. Static/default initialization is
+still realtime; the layout change requires a matched rebuild.
+
+Semaphore initialization rejects counts above `SEM_VALUE_MAX` with `EINVAL` and
+leaves the object untouched on that error. Posting uses a compare/exchange loop:
+a full count returns `EOVERFLOW` unchanged; concurrent posters cannot both take
+the final available count. The signed `sem_getvalue` result can represent the
+published maximum. Process sharing and broader wait semantics are not added.
+
+Validated on the ARM64 Mac with rebuilt x86_64 artifacts:
+
+- `sh tools/macos/build.sh test-sync-contracts`: pass. Real library sources with
+  modeled OS calls cover small/odd/exact supplied regions, sentinels, invalid
+  ranges/alignment, huge-size refusal, failed allocation/creation cleanup,
+  realtime/monotonic/static-init deadlines, early wakes, interruption, mutex
+  reacquisition, invalid clocks/times and semaphore boundaries/recovery.
+- Three isolated negative controls reintroduce stack enlargement, discarded
+  clock selection or unchecked posting. Each makes the positive host suite fail
+  with exit 1. These mutated copies exist only under ignored local evidence.
+- `sh tools/macos/build.sh -j2 all`: pass, rebuilding consumers of `pthread_cond_t`.
+- `python3 tools/thread_smoke.py --test sync-contracts --boot-wait 60 --run-wait 120`:
+  pass. Live workers use 16 KiB, 16 KiB+1 and 2 MiB+1 supplied stacks with guard
+  pages/sentinels; both clocks time out without early completion and wake on
+  signals; twelve rounds of three competing posters admit exactly one final
+  increment and two overflow failures.
+- `python3 tools/thread_smoke.py --boot-wait 60 --run-wait 300`: complete suite pass,
+  including existing lifecycle, mutex/condition, signal, fork, descriptor and
+  storage tests plus the new group.
+- `python3 tools/libuv_smoke.py --boot-wait 60`: complete consumer suite pass,
+  including workers, thread synchronization, async work, IPC and process tests.
+
+Host receipts are under `build/review/sync-regression/`; guest logs, negative
+controls and matched build hashes are under `build/review/sync-fixes/`. Guest
+harnesses terminate their own disposable VMs. The full Linux host/core suite and
+physical hardware acceptance are not claimed. The original failing probe remains
+in Git history; the positive regression runner replaces expected-defect success.
+
+## Continued audit — P2: self-stack inspection reports a guessed region
+
+The corrected stack allocation exposed an independent metadata defect in
+`pthread_getattr_np(pthread_self(), ...)`: its self branch guesses one of two
+fixed address ranges from a local frame address, with a fixed 2 MiB size, instead
+of reporting the actual worker stack. The other-thread path reads a thread
+record. This does not undo the supplied-stack bounds fix, but consumers must not
+use the self result for stack limits or memory ownership.
+
+A separate guest mode waits until the parent's create call has returned before
+the worker inspects itself, removing initial record-publication timing from this
+reproduction:
+
+```sh
+python3 tools/thread_smoke.py --test stack-inspection-audit --boot-wait 60 --run-wait 30
+```
+
+Observed: requested `0x10000000/65536`, reported `0xfdff000/2097152`, error 0,
+mismatch 1; guest exits 1 and the harness exits 3 for missing success markers.
+This is a retained **failed audit case**, explicitly excluded from the passing
+`all` suite. A correction should obtain worker metadata with defined publication/
+lifetime ownership and separately define main-thread inspection; merely replacing
+one guessed constant is insufficient. Actual worker scheduling in this test is
+VM evidence, not physical/native acceptance. This is the next confirmed finding;
+broader record-publication/reaping races remain to be audited rather than inferred
+as proven from this case.

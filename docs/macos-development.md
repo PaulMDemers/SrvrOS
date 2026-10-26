@@ -105,3 +105,10 @@ The full [testing suite](testing.md) is not qualified on macOS. Some host fixtur
 use x86 assembly or ELF linker flags; some VM harnesses invoke Linux filesystem
 or GRUB tools and paths. A successful build/boot does not imply those suites
 passed. Use x86_64 Ubuntu for those gates until individual macOS paths are validated.
+
+For PR175's synchronization corrections, the complete `tools/thread_smoke.py`
+(with `--boot-wait 60 --run-wait 300`) and `tools/libuv_smoke.py` (with
+`--boot-wait 60`) passed on this Mac, sequentially, against rebuilt images.
+Those selected harnesses use disposable disks and stop their own QEMU instances.
+`sh tools/macos/build.sh test-sync-contracts` runs the associated host regressions.
+This does not qualify every `test-core` target or other guest/hardware harness.

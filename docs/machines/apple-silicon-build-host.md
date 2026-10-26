@@ -88,3 +88,29 @@ This is source-level host evidence, not a full thread/concurrency suite. Current
 guides exclude the affected contracts and distinguish libc from libuv semaphore
 coverage. Documentation links and whitespace validation pass. Runtime corrections
 remain follow-up work; no kernel/library implementation was changed.
+
+## Synchronization corrections — active scope
+
+The user authorized fixes for the three confirmed findings and continued audit.
+Base is `a90ac149` with `origin/main` still at `aa7b7392`; inspected PR172/174/19
+retain desktop dispatch, process admission and Wi-Fi ownership respectively.
+This block owns libc supplied-stack bounds, condition clock retention/deadlines,
+semaphore count bounds, focused host and guest regressions, and current-guide/PR
+updates. Rebuild matched userspace after the condition-variable layout change.
+No native hardware trial or expansion of those independent PR scopes is planned.
+
+The three fixes are implemented. The positive host suite passes; all three
+isolated reintroduced-defect controls fail as intended. Matched `all` rebuild,
+targeted live guest synchronization cases, the complete thread suite and complete
+libuv consumer suite pass. Logs and hashes are retained under
+`build/review/sync-fixes/`; no physical boot occurred. `pthread_cond_t` is now
+8 bytes and all consumers were rebuilt. Supplied stacks preserve exact bounds;
+condition clocks/deadlines are honored; semaphore counts use an atomic checked
+maximum. Process-sharing/timed semaphore support is not added.
+
+Continued guest audit confirms a separate `pthread_getattr_np(self)` metadata
+failure: a 64 KiB supplied stack is reported as a guessed 2 MiB region. The
+explicit `stack-inspection-audit` mode returns a failure receipt and is excluded
+from the passing `all` suite. See the synchronization report for exact output,
+next correction scope and remaining publication/lifetime questions. No claim of
+fixing that fourth finding accompanies the three completed corrections.

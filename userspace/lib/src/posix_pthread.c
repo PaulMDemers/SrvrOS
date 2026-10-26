@@ -14,6 +14,14 @@
 #define PTHREAD_MAX_RECORDS 16
 #define PTHREAD_TICKS_PER_SECOND 100
 
+/* Supplied storage must never be rounded up or replaced by the default size.
+ * The x86_64 entry stack is aligned down inside this checked region. */
+static int pthread_stack_valid(void *stack, size_t size) {
+    uintptr_t base = (uintptr_t)stack;
+    return stack != NULL && !(base & 15) && size >= PTHREAD_STACK_MIN &&
+           size <= UINTPTR_MAX - base;
+}
+
 int __posix_signal_dispatch_pending(void);
 
 struct pthread_key_slot {
@@ -61,9 +69,9 @@ static long pthread_futex_wait_absorbing_signals(uint32_t *address, uint32_t exp
     }
 }
 
-static int pthread_ticks_until_realtime(const struct timespec *abstime, uint64_t *ticks_out) {
+static int pthread_ticks_until(int clock_id, const struct timespec *abstime, uint64_t *ticks_out) {
     struct timespec now;
-    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+    if (clock_gettime(clock_id, &now) != 0) {
         return errno != 0 ? errno : EINVAL;
     }
     if (abstime->tv_sec < now.tv_sec ||
@@ -71,7 +79,13 @@ static int pthread_ticks_until_realtime(const struct timespec *abstime, uint64_t
         return ETIMEDOUT;
     }
 
-    uint64_t sec = (uint64_t)(abstime->tv_sec - now.tv_sec);
+    uint64_t sec = (uint64_t)abstime->tv_sec - (uint64_t)now.tv_sec;
+    /* Recheck absolute time at least once a second. This bounds the kernel's
+     * relative tick deadline and avoids overflow for distant absolute dates. */
+    if (sec > 1) {
+        *ticks_out = PTHREAD_TICKS_PER_SECOND;
+        return 0;
+    }
     long nsec = abstime->tv_nsec - now.tv_nsec;
     if (nsec < 0) {
         sec--;
@@ -79,6 +93,7 @@ static int pthread_ticks_until_realtime(const struct timespec *abstime, uint64_t
     }
     uint64_t ticks = sec * PTHREAD_TICKS_PER_SECOND;
     ticks += ((uint64_t)nsec * PTHREAD_TICKS_PER_SECOND + 999999999ull) / 1000000000ull;
+    if (ticks > PTHREAD_TICKS_PER_SECOND) ticks = PTHREAD_TICKS_PER_SECOND;
     *ticks_out = ticks == 0 ? 1 : ticks;
     return 0;
 }
@@ -195,18 +210,20 @@ int pthread_create(pthread_t *thread,
                 attr->detachstate != PTHREAD_CREATE_DETACHED)) {
             return EINVAL;
         }
-        stack_size = attr->stacksize > stack_size ? attr->stacksize : stack_size;
         detachstate = attr->detachstate;
         if (attr->stackaddr != 0) {
             stack = attr->stackaddr;
+            stack_size = attr->stacksize;
+            if (!pthread_stack_valid(stack, stack_size)) return EINVAL;
             owns_stack = 0;
+        } else {
+            stack_size = attr->stacksize > stack_size ? attr->stacksize : stack_size;
         }
     }
 
-    if ((stack_size & 0xfff) != 0) {
-        stack_size = (stack_size + 0xfff) & ~(size_t)0xfff;
-    }
     if (stack == 0) {
+        if (stack_size > SIZE_MAX - 4095) return EINVAL;
+        stack_size = (stack_size + 4095) & ~(size_t)4095;
         stack = mmap(0,
             stack_size,
             PROT_READ | PROT_WRITE,
@@ -215,6 +232,10 @@ int pthread_create(pthread_t *thread,
             0);
         if (stack == MAP_FAILED) {
             return ENOMEM;
+        }
+        if (!pthread_stack_valid(stack, stack_size)) {
+            munmap(stack, stack_size);
+            return EINVAL;
         }
     }
 
@@ -403,7 +424,9 @@ int pthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stacksize) {
 }
 
 int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize) {
-    if (attr == 0 || stacksize < PTHREAD_STACK_MIN) {
+    if (attr == 0 || stacksize < PTHREAD_STACK_MIN ||
+        (attr->stackaddr ? !pthread_stack_valid(attr->stackaddr, stacksize) :
+                          stacksize > SIZE_MAX - 4095)) {
         return EINVAL;
     }
     attr->stacksize = stacksize;
@@ -419,7 +442,7 @@ int pthread_attr_getstackaddr(const pthread_attr_t *attr, void **stackaddr) {
 }
 
 int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr) {
-    if (attr == 0) {
+    if (attr == 0 || !pthread_stack_valid(stackaddr, attr->stacksize)) {
         return EINVAL;
     }
     attr->stackaddr = stackaddr;
@@ -436,7 +459,7 @@ int pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t *
 }
 
 int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize) {
-    if (attr == 0 || stackaddr == 0 || stacksize < PTHREAD_STACK_MIN) {
+    if (attr == 0 || !pthread_stack_valid(stackaddr, stacksize)) {
         return EINVAL;
     }
     attr->stackaddr = stackaddr;
@@ -695,11 +718,12 @@ int pthread_condattr_setclock(pthread_condattr_t *attr, int clock_id) {
 }
 
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
-    (void)attr;
-    if (cond == 0) {
+    int clock_id = attr ? attr->clock : CLOCK_REALTIME;
+    if (cond == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
         return EINVAL;
     }
     cond->sequence = 0;
+    cond->clock = clock_id;
     return 0;
 }
 
@@ -730,11 +754,12 @@ static int pthread_cond_wait_until(pthread_cond_t *cond, pthread_mutex_t *mutex,
         return EINVAL;
     }
     unsigned int observed = __atomic_load_n(&cond->sequence, __ATOMIC_ACQUIRE);
-    pthread_mutex_unlock(mutex);
+    int unlocked = pthread_mutex_unlock(mutex);
+    if (unlocked != 0) return unlocked;
     while (__atomic_load_n(&cond->sequence, __ATOMIC_ACQUIRE) == observed) {
         uint64_t timeout_ticks = 0;
         if (abstime != 0) {
-            int error = pthread_ticks_until_realtime(abstime, &timeout_ticks);
+            int error = pthread_ticks_until(cond->clock, abstime, &timeout_ticks);
             if (error != 0) {
                 (void)pthread_mutex_lock(mutex);
                 return error;
@@ -746,8 +771,9 @@ static int pthread_cond_wait_until(pthread_cond_t *cond, pthread_mutex_t *mutex,
             continue;
         }
         if (result == -ETIMEDOUT) {
-            (void)pthread_mutex_lock(mutex);
-            return ETIMEDOUT;
+            /* Tick-based wakes can precede the absolute deadline. Retain the
+             * caller's clock/deadline across slices, interrupts and early wakes. */
+            continue;
         }
     }
     return pthread_mutex_lock(mutex);

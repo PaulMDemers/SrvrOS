@@ -21,7 +21,7 @@ record earlier decisions and may describe superseded behavior.
 - [Testing](testing.md) — host, VM, failure-path and physical validation.
 - [Widget library](../userspace/widgets/README.md) — shared controls and app integration.
 - [Portable C/POSIX profile](posix-supported-profile.md) — supported contracts, bounds and consumer tests.
-- [Synchronization audit](synchronization-audit-2026-10-25.md) — confirmed stack, clock and semaphore defects with reproducible host probes.
+- [Synchronization audit](synchronization-audit-2026-10-25.md) — stack, clock and semaphore fixes, host/guest regressions and remaining audit findings.
 - [Executable format](executable-format.md), [ports](ports.md), [tool inventory](tool-inventory.md).
 - [Security policy](../SECURITY.md) and [third-party materials](../THIRD_PARTY.md).
 
