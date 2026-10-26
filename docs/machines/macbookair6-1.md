@@ -3155,3 +3155,27 @@ close acknowledgement and complete phases, and retain the old validator mode
 for historical captures. Do not infer a layout from absent phases or relax the
 timing limits. Rebuild and repeat the combined stress and affected window/close
 VMs before staging the integrated native payload.
+
+Integrated clean candidate `c275c098` passes matched build/core and the fresh
+populated-Home 400-write-IOPS stress VM: 19 validated cycles, 116 verified bursts /
+30,408,704 bytes, 223 observed audio/write overlap windows, zero app errors and
+PCM underruns, preserved prior files and clean allocation. Maximum ready/close/
+loop times are 1,100,329 / 2,289,616 / 149,988 us. New timing-layout tests require
+complete mapped-model disposal/acknowledgement and reject missing phases or a
+wrong layout while retaining historical validation.
+
+Fresh actual-consumer VMs also pass twenty same-process Files windows with
+independent history, owned dialog cancel/collision, an accepted 8 MiB copy retained
+through close, concurrent Text save, exact contents and complete cleanup;
+ordinary shutdown cancellation, failed-save retention and save/discard decisions;
+and real Terminal shell/PTY input, paste, backspace, independent sessions, Ctrl-C,
+close cancellation and persisted output. Earlier thread/general/storage checks
+above apply to `49f51e9b`; the kernel admission fix is identical in the integrated
+candidate. No new production change was needed beyond that fix and merged main.
+
+Final release `52eb28003f5be609` freezes `c275c098`, superseding uninstalled
+`09f42ae5a75b3fef`. Its exact EFI rehearsal passes native-profile refusal on Q35,
+saved logs, unmount and automatic return. Run `6d1b066474954f5d` now targets this
+integrated release; baseline files, workload and all acceptance limits remain
+unchanged. Final documentation is separate from the compiled source. Physical
+acceptance requires the complete thirty-minute receipt after Ubuntu returns.
