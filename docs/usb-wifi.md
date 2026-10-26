@@ -3620,3 +3620,26 @@ regression,166 staging tests and172 historical recipes passed. Complete
 synthetic prefix534737bytes fits inherited explicit1MiB;616 malformed proofs
 refuse and all64 consistent delayed-clear patterns pass as observations.
 Exact-stage VM/install follows; physical results and calibration remain pending.
+
+
+### v87 installation checkpoint
+
+Exact source `816a4b30586ec944439f6b29a24e41c3c408da47`, release
+`78e47b6219211cc9`, config `ram-usb-wifi-fw-v87-laptop-probe-0e535900-auto-return`.
+Full build, fixed engine and full xHCI regression (63 positions/229 ownership
+faults plus all six delay boundaries), ASan/UBSan, independent reference/sequence
+audit,166 staging tests/172 historical recipes and616 strict-proof refusals
+passed. Exact GPT-stage VM saved and byte-verified diagnostics, cleanly unmounted
+and reset. Missing-workspace VM refused the probe and returned. These checks
+validate workflow and admission, not physical VCO behavior or calibration.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads match durable
+backups; Ubuntu remains default. ESP v85 `2571de4ea5d87728` removed only after
+full archive byte equality; accepted v86 retained beside recovery. Offline
+workspace clean315files/753clusters/131directories,zero leaks,mismatches or
+errors; unmounted and reboot unarmed. Candidate and run/checkpoint archived
+outside build. Await readiness for cold Wi-Fi cycle. On return collect the new
+matching session FIRST with the v87 strict collector; preserve failures and
+actual immediate/delayed observations without guessing values. Results save
+and return automatically; no photos or commands. No full calibration, MAC enable,
+traffic or calibrated-radio/connectivity acceptance.
