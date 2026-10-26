@@ -100,8 +100,9 @@ including preservation across rename/replacement. Entry-set/name validation and
 bounded directory-chain traversal now reject malformed imports; the image packer
 emits matching checksums/flags. Older generated images need rebuilding.
 Host/sanitizer and disposable VM coverage establish these bounded contracts;
-allocation ownership, full media integrity, mount lifetime and crash recovery
-remain under audit.
+exact-alias retention, exclusive mount namespaces and allocation-map quarantine
+are now covered. Overlapping device views, full media integrity, hardware-removal
+lifetime and crash recovery remain under audit.
 
 | Area | Current boundary |
 | --- | --- |

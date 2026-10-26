@@ -991,3 +991,52 @@ Source review confirms monitor and workspace callers have busy guards; trace
 those against the direct filesystem teardown and other callers before declaring
 a lifetime defect. Boot/upcase recovery, full Unicode and power-loss atomicity
 remain outside this checkpoint. No physical tests or Actions dispatch occurred.
+
+### Allocation/namespace audit — active scope (2026-10-26)
+
+User authorized the next PR182 checkpoint. Base is `0ba50fe9`; refreshed main
+`9f18d7d6` adds the Air6,1 failed stress report only. PR184 owns worker-pipe
+admission, PR181 desktop lifecycle and PR19 Wi-Fi. This pass owns exFAT namespace
+admission, imported allocation checks and exact-alias release, plus focused
+host/VM evidence and docs. Reproduce duplicate-name and overlapping-mount damage,
+shared-allocation release and writable acceptance of inconsistent ownership.
+Preserve generated exact aliases; quarantine unsupported/corrupt allocation
+layouts before mutation. Inspect open-reference teardown callers without assuming
+a defect merely because the low-level unmount API lacks its own process check.
+Acceptance: directed actual-driver tests, sanitizers/negative controls, matched
+build and disposable guest consumers. Cross-device physical aliasing, general
+hot-unplug, power-loss recovery and other agents' process admission code are out
+of scope. No hardware or Actions dispatch is requested.
+
+### Allocation/namespace checkpoint results
+
+All thirteen initial modes reproduced defects at the previous runtime: duplicate
+names were accepted, overlapping/occupied mounts could remove unrelated VFS
+entries, surviving exact aliases lost data/allocation ownership, and inconsistent
+allocation maps remained writable. The driver now admits exclusive canonical
+mount namespaces, rejects duplicate imported names, retains published aliases'
+extents until last-owner retirement, and checks supported allocation maps before
+allowing mutation. Checker failures/inconsistencies latch read-only mode.
+
+All 47 host modes pass normally and under ASan/UBSan; eight new compiled negative
+controls are detected. Fault cases cover mount allocation retry, checker I/O/OOM,
+pre-publication overwrite cleanup and uncertain-write quarantine. The initial
+fault test's clean-map expectation after a metadata-write failure was incorrect:
+existing quarantine deliberately retains the uncertain new allocation. Its failed
+log is preserved; separate read/write failure tests now verify both contracts.
+
+The matched build, independent 372-entry image check and existing entry-layout
+test pass. Six sequential disposable VMs pass: exact aliases 16.52 s, corrupted
+bitmap quarantine 16.43 s, import 16.53 s, corrupt-entry fallback 16.41 s, complete
+threads 40.35 s, and libuv 10.17 s (60-second completion budget). Evidence and
+source/output hashes are in `build/review/exfat-ownership-audit/`. Docs/whitespace
+checks pass. Main's documentation-only PR183 was merged into this branch before
+implementation; no other agent's runtime changes were incorporated.
+
+The normal monitor/workspace/workspace-image busy guards cover retained linked
+file/directory descriptions and current directories. Unlinked/replaced snapshots
+are promoted to process-owned storage and detached from backend nodes. No new
+open-reference defect was confirmed by this trace; no process-admission edits
+were made. Caller serialization, overlapping physical device views, raw leases
+and removal remain next, followed by recovery/crash consistency. This is bounded
+source/host/VM acceptance, not a complete filesystem or hardware audit.

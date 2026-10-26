@@ -12,7 +12,11 @@ ROOT=Path(__file__).resolve().parents[1]
 MODES=('control','geometry-shifts','geometry-volume','geometry-fat','geometry-heap','geometry-format','geometry-valid','stream-invalid',
        'valid-read','valid-zero','valid-boundary','valid-chain','valid-invalid','valid-rename','valid-replace','valid-overwrite',
        'entry-checksum','entry-layout','entry-name-length','entry-name-hash','entry-unsafe-name',
-       'entry-flags','entry-extra','entry-cleanup','entry-valid','dir-cycle','dir-invalid-next','dir-short','dir-chain')
+       'entry-flags','entry-extra','entry-cleanup','entry-valid','dir-cycle','dir-invalid-next','dir-short','dir-chain',
+       'identity-duplicates','mount-overlap','mount-existing','mount-paths',
+       'alias-delete','alias-overwrite','alias-truncate','alias-replace','alias-chain',
+       'ownership-overlap','ownership-bitmap','ownership-leak','ownership-alias-flags',
+       'alias-overwrite-failure','ownership-read-failure','ownership-oom','allocation-faults','alias-write-quarantine')
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'build/review/exfat-import')

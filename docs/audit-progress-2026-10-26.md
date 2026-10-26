@@ -62,7 +62,11 @@ checkpoint expands to 29 modes and corrects entry checksums/layouts, ASCII name
 identity and directory-chain termination/cycles. Generator and parser changes
 land together; seven new negative controls and a recursive generated-image check
 cover this pass. Dedicated disposable VMs exercise valid imports and corruption
-refusal. Allocation ownership, unmount lifetime and crash recovery remain next.
+refusal. A third checkpoint expands to 47 modes and protects exact allocation
+aliases, rejects duplicate/overlapping namespaces and quarantines inconsistent
+allocation maps before mutation. Normal teardown busy guards and process snapshot
+ownership were traced without confirming an additional open-reference defect.
+Overlapping device views, raw leases, removal and crash recovery remain next.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

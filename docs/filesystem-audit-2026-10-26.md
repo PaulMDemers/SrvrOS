@@ -162,16 +162,99 @@ The generator tests also run under `test-exfat-import`. The earlier libuv timeou
 remains historical evidence; the current acceptance command uses `--line-wait 60`.
 No native hardware or Linux exfatprogs power-cut campaign is claimed here.
 
+## Namespace and allocation-ownership checkpoint
+
+This pass starts from `0ba50fe9` and incorporates main `9f18d7d6`, whose only new
+change is the Air6,1 stress report. PR184's worker admission, PR181's desktop
+lifecycle and PR19's Wi-Fi implementation remain separate.
+
+**Import and mount namespaces could overlap.** Duplicate and case-colliding file
+names, file/directory collisions and duplicate directory entries are now refused
+before VFS registration. Mounts require a bounded canonical absolute path with
+no empty, dot or dot-dot components. Stacked/nested exFAT mounts, occupied target
+subtrees and paths underneath an existing file are refused. Sibling names such
+as `/vol` and `/vol2` remain independent. Previously, a failed import could remove
+unrelated entries under its mount prefix during rollback, and parent teardown
+could unregister a nested mount's nodes. Admission now establishes that the
+rollback/unmount subtree belongs exclusively to this mount.
+
+**Releasing one alias could free another file's data.** Generated images share
+some exact allocations between filenames; this is a repository compatibility
+convention, not a new hard-link API or a claim of general exFAT hard-link support.
+Deletion, truncate, overwrite and replacement now retain an extent while another
+published file still owns it. The last owner releases it. Failed overwrite
+restores the old live descriptor before reclaiming an unpublished new extent.
+The diagnostic checker's exact-alias exception now also requires matching
+initialized length and FAT/contiguous layout, so a different chain cannot borrow
+another file's alias exemption.
+
+**Inconsistent imported ownership could remain writable.** Block mounts with a
+supported single-cluster bitmap now run the allocation checker before metadata
+sidecar recovery or user mutation. Partial overlaps, referenced-but-free clusters,
+unreferenced allocated clusters, checker I/O/OOM failures and other checker
+errors latch read-only mode. Existing dirty/unsupported-bitmap refusal remains.
+Readable media stays available for inspection; this does not certify its returned
+contents, repair corruption or authorize mutation through raw device interfaces.
+Memory-image mounts are already immutable. No automatic disk repair is added.
+
+The checked alias tuple is first cluster, logical/initialized size, allocation
+count and FAT-chain mode. With identical chain mode and start, aliases traverse
+the same volume FAT or contiguous extent. Partial overlap and file/directory or
+system-area overlap are not supported aliases. The existing checker remains
+bounded by the supported allocation-bitmap representation; multi-cluster bitmap
+mutation and full system-stream/boot/upcase validation are still separate work.
+
+### Verification and lifetime disposition
+
+Evidence is retained in `build/review/exfat-ownership-audit/`:
+
+- All thirteen initial new modes fail on the previous runtime. Failures include
+  surviving-alias byte corruption, allocation inconsistencies, duplicate imports
+  and removal of an unrelated VFS entry by failed-mount cleanup.
+- The expanded suite has 47 passing host modes, normally and under ASan/UBSan.
+  Additional fault cases cover mount allocation failure/retry, checker OOM/read
+  failure, and overwrite failure before/at metadata publication. Eight compiled
+  negative controls are caught, including the overwrite rollback-order defect.
+- An initial fault assertion expected a clean allocation map after a failed
+  metadata write. Existing quarantine deliberately blocks cleanup writes once
+  publication may be uncertain; one new allocation remains for offline recovery.
+  That failed assertion/debug log is retained. Separate tests now require clean
+  reclamation after a pre-publication read failure and retained/quarantined state
+  after a metadata-write failure, with the original aliases preserved in both.
+- The generator's independent recursive entry check and existing entry-layout
+  host test pass with the matched build. Dedicated guest modes exercise alias
+  deletion/overwrite/replacement and bitmap-corruption read-only behavior through
+  public file APIs. All six sequential VMs pass: aliases (16.52 s), quarantine
+  (16.43 s), import (16.53 s), corrupt-entry/fallback (16.41 s), complete threads
+  (40.35 s), and libuv (10.17 s with the 60-second completion budget). The
+  `vms/result.json` receipt and source/output hash manifest identify these runs.
+
+The normal monitor, workspace and workspace-image teardown callers check busy
+prefixes. The process layer includes current directories and retained linked
+file/directory descriptions; unlink/replacement promotes surviving snapshots to
+process-owned memory and clears their backend node. No new open-reference defect
+was established by this trace, and no competing changes to process admission were
+made. The low-level unmount API still relies on caller lifetime/serialization
+contracts; arbitrary new callers, hardware removal and every interleaving are
+not certified by this pass. The namespace teardown defect above is corrected.
+
+Additional disposable VM commands:
+
+```sh
+python3 tools/exfat_import_smoke.py --ownership
+python3 tools/exfat_import_smoke.py --ownership-corrupt
+```
+
 ## Remaining audit queue
 
-1. Allocation ownership and lifetime: cross-linked extents, duplicate path
-   identities, bitmap/FAT disagreement, failed import cleanup under allocation/I/O
-   faults, unmount/open-file references and device removal. Trace caller busy
-   guards against direct `exfat_unmount` and retained process VFS references.
+1. Device/view lifetime and aliasing: overlapping block-device views of one physical
+   extent, raw storage leases, caller serialization during unmount, and device
+   removal. Normal busy guards are present; reproduce any gap before broadening
+   low-level/process changes.
 2. Mutation failure/recovery boundaries and durable metadata. Existing serialized
    replacement and dirty-volume quarantine are not a journal; interrupted rename
    and power-loss atomicity remain unproven. Multi-cluster bitmap mutation,
-   boot checksum/backup recovery, upcase-table integrity, full Unicode and
+   boot checksum/backup recovery, upcase/system-stream integrity, full Unicode and
    cross-cluster/extended entry sets remain outside this checkpoint.
 3. Networking/socket lifecycle, VM/syscall validation, process/resource isolation
    and remaining documentation reconciliation follow as separately bounded work.

@@ -197,6 +197,7 @@ static bool reserve_metadata(struct exfat_mount *m,uint64_t nodes) {
 
 static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count);
 static bool streq(const char *a, const char *b);
+static bool name_conflicts(const char *path, const char *ignore);
 static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster);
 static bool allocate_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster, bool *no_fat_chain);
 static bool free_file_clusters(struct exfat_file *file);
@@ -508,6 +509,10 @@ static bool register_file(struct exfat_mount *mount,
         return false;
     }
 
+    char child_path[EXFAT_MAX_PATH];
+    if (!build_child_path(child_path, sizeof(child_path), parent, stream, names,
+            name_entry_count) || name_conflicts(child_path, NULL)) return false;
+
     uint64_t index = EXFAT_MAX_FILES;
     for (uint64_t i = 0; i < mount->file_count; i++) {
         if (path_slot(mount, i)[0] == '\0') {
@@ -523,12 +528,7 @@ static bool register_file(struct exfat_mount *mount,
     }
 
     if(!reserve_tables(mount,index+1,mount->dir_count) || !vfs_reserve_nodes(1)) return false;
-    if(!build_child_path(path_slot(mount, index),
-        EXFAT_MAX_PATH,
-        parent,
-        stream,
-        names,
-        name_entry_count)) return false;
+    copy_cstr(path_slot(mount, index), EXFAT_MAX_PATH, child_path);
 
     (*file_slot(mount, index)) = (struct exfat_file) {
         .volume = &mount->volume,
@@ -567,11 +567,7 @@ static bool register_directory(struct exfat_mount *mount,
     if (mount == NULL || path == NULL || path[0] == '\0') {
         return false;
     }
-    for (uint64_t i = 0; i < mount->dir_count; i++) {
-        if (streq(dir_slot(mount, i)->path, path)) {
-            return vfs_register_directory(dir_slot(mount, i)->path);
-        }
-    }
+    if (name_conflicts(path, NULL)) return false;
     uint64_t index=0;
     while(index<mount->dir_count && dir_slot(mount,index)->path[0]) index++;
     if(index>=EXFAT_MAX_DIRS || !reserve_tables(mount,mount->file_count,index+1) ||
@@ -822,14 +818,38 @@ static bool mount_matches(const struct exfat_mount *mount, const char *mountpoin
 }
 
 static bool valid_mountpoint(const char *mountpoint) {
-    return mountpoint != NULL && mountpoint[0] == '/' && mountpoint[1] != '\0';
+    if (!mountpoint || mountpoint[0] != '/' || !mountpoint[1]) return false;
+    uint64_t start = 1;
+    for (uint64_t i = 1; i < EXFAT_MAX_PATH; i++) {
+        if (mountpoint[i] && mountpoint[i] != '/') continue;
+        uint64_t length = i - start;
+        if (!length || (length == 1 && mountpoint[start] == '.') ||
+            (length == 2 && mountpoint[start] == '.' && mountpoint[start + 1] == '.')) return false;
+        if (!mountpoint[i]) return true;
+        start = i + 1;
+    }
+    return false;
+}
+
+static bool path_in_subtree(const char *path, const char *prefix) {
+    uint64_t i = 0;
+    while (prefix[i]) {
+        if (path[i] != prefix[i]) return false;
+        i++;
+    }
+    return !path[i] || path[i] == '/';
 }
 
 static bool mountpoint_in_use(const char *mountpoint) {
+    /* No stacking: rollback/unmount unregisters the complete subtree. */
     for (uint64_t i = 0; i < EXFAT_MAX_VOLUMES; i++) {
-        if (mounts[i].used && streq(mounts[i].mountpoint, mountpoint)) {
-            return true;
-        }
+        if (mounts[i].used && (path_in_subtree(mountpoint, mounts[i].mountpoint) ||
+                path_in_subtree(mounts[i].mountpoint, mountpoint))) return true;
+    }
+    for (uint64_t i = 0; i < vfs_count(); i++) {
+        const struct vfs_node *node = vfs_node_at(i);
+        if (node && (path_in_subtree(node->path, mountpoint) ||
+                (node->type != VFS_NODE_DIRECTORY && path_in_subtree(mountpoint, node->path)))) return true;
     }
     return false;
 }
@@ -1622,10 +1642,10 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
     file->allocated_clusters = cluster_count;
     file->no_fat_chain = no_fat_chain;
     if (!update_file_length(file, path, size)) {
-        (void)free_file_clusters(&scratch);
         file->first_cluster = old_first_cluster;
         file->allocated_clusters = old_allocated_clusters;
         file->no_fat_chain = old_no_fat_chain;
+        (void)free_file_clusters(&scratch);
         return false;
     }
 
@@ -1852,6 +1872,19 @@ static bool free_file_clusters_impl(struct exfat_file *file) {
         file->first_cluster < 2 ||
         file->allocated_clusters == 0) {
         return true;
+    }
+
+    /* Published exact aliases own the allocation until their last name retires.
+     * Callers remove/switch the retiring record before releasing its old extent. */
+    for (uint64_t m = 0; m < EXFAT_MAX_VOLUMES; m++) {
+        const struct exfat_mount *mount = &mounts[m];
+        if (!mount->used || &mount->volume != file->volume) continue;
+        for (uint64_t i = 0; i < mount->file_count; i++) {
+            const struct exfat_file *live = file_slot(mount, i);
+            if (path_slot(mount, i)[0] && live->first_cluster == file->first_cluster &&
+                live->allocated_clusters == file->allocated_clusters &&
+                live->no_fat_chain == file->no_fat_chain) return true;
+        }
     }
 
     struct exfat_volume *volume = file->volume;
@@ -2549,7 +2582,8 @@ static bool file_has_existing_alias(const struct exfat_mount *mount, uint64_t fi
         const struct exfat_file *other = file_slot(mount, i);
         if (path_slot(mount, i)[0] != '\0' &&
             other->first_cluster == file->first_cluster &&
-            other->size == file->size &&
+            other->size == file->size && other->valid_size == file->valid_size &&
+            other->no_fat_chain == file->no_fat_chain &&
             other->allocated_clusters == file->allocated_clusters) {
             return true;
         }
@@ -3484,6 +3518,12 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
     uint64_t bitmap_needed = ((uint64_t)mount->volume.cluster_count + 7) / 8;
     if (mount->volume.allocation_bitmap_size != bitmap_needed ||
         bitmap_needed > mount->volume.cluster_size) mount->volume.write_blocked = true;
+    /* Before sidecar recovery or any user mutation, establish allocation
+     * ownership. Unsupported or inconsistent media remains available read-only. */
+    if (!mount->volume.write_blocked) {
+        struct exfat_check_result check = {0};
+        if (!check_mount(mount, &check)) mount->volume.write_blocked = true;
+    }
     if (mount->volume.write_blocked)
         console_printf("exfat: %s requires filesystem recovery or unsupported bitmap; writes disabled\n", mountpoint);
     load_mount_metadata(mount);

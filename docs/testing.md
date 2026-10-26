@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 29 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 47 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1049,3 +1049,12 @@ include this fixture-dependent mode. See the
 refusal after corrupting one entry checksum. It requires clean initramfs fallback and the `exfat-refused` guest mode, which
 checks that rejected fixture paths are absent and the fallback remains readable.
 Fatal exceptions or missing completion are failures. Rebuild older generated disks: unset entry checksums are now refused.
+
+Allocation/namespace cases additionally cover duplicate file/directory identities,
+canonical and non-overlapping mount paths, surviving exact aliases after
+unlink/truncate/overwrite/replacement, and read-only admission on allocation
+inconsistency or checker failure. Fault injection distinguishes pre-publication
+cleanup from uncertain-write quarantine. The `--ownership` and
+`--ownership-corrupt` options to `exfat_import_smoke.py` exercise exact aliases and
+bitmap-corruption quarantine in disposable guests; these are explicit fixture
+modes, not part of an ordinary threadstress `all` run.

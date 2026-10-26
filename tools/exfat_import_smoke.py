@@ -16,7 +16,10 @@ def main():
     parser.add_argument('--disk', type=Path, default=ROOT/'build/srvros.exfat')
     parser.add_argument('--iso', type=Path, default=ROOT/'build/srvros-x86_64.iso')
     parser.add_argument('--qemu', default='qemu-system-x86_64')
-    parser.add_argument('--corrupt-entry', action='store_true', help='Require mount refusal after corrupting an entry checksum')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--ownership', action='store_true', help='Exercise imported exact allocation aliases')
+    mode.add_argument('--ownership-corrupt', action='store_true', help='Require read-only quarantine for an inconsistent bitmap')
+    mode.add_argument('--corrupt-entry', action='store_true', help='Require mount refusal after corrupting an entry checksum')
     args = parser.parse_args()
     raw = args.disk.read_bytes()
     fixture = ExfatFixture(raw)
@@ -38,8 +41,28 @@ def main():
                 checksum = (((checksum >> 1) | ((checksum & 1) << 15)) + byte) & 65535
         struct.pack_into('<H', fixture.data, cursor+2, checksum)
         cursor += len(entry)
+    if args.ownership:
+        first = fixture.u32(start+52)
+        for name in ('alias', 'peer'):
+            entry = ExfatFixture.checked_entry(name, first, b'', data_length=8192, contiguous=False)
+            struct.pack_into('<Q', entry, 40, 4103)
+            checksum = 0
+            for i, byte in enumerate(entry):
+                if i not in (2, 3):
+                    checksum = (((checksum >> 1) | ((checksum & 1) << 15)) + byte) & 65535
+            struct.pack_into('<H', entry, 2, checksum)
+            assert cursor+len(entry)+32 <= start+fixture.cluster
+            fixture.data[cursor:cursor+len(entry)] = entry
+            cursor += len(entry)
+    if args.ownership_corrupt:
+        bitmap_entry = next(off for off in range(0, len(root), 32) if root[off] == 0x81)
+        bitmap = fixture.offset(struct.unpack_from('<I', root, bitmap_entry+20)[0])
+        bit = fixture.u32(start+52)-2
+        fixture.data[bitmap+bit//8] &= ~(1 << (bit%8))
     if args.corrupt_entry:
         fixture.data[start+2] ^= 1
+    test = ('exfat-refused' if args.corrupt_entry else 'exfat-ownership' if args.ownership else
+            'exfat-quarantine' if args.ownership_corrupt else 'exfat-import')
     with tempfile.TemporaryDirectory(prefix='srvros-import-') as folder:
         disk = Path(folder)/'fixture.exfat'
         disk.write_bytes(fixture.data)
@@ -47,7 +70,7 @@ def main():
         print('fixture disk sha256:', hashlib.sha256(fixture.data).hexdigest(), flush=True)
         result = subprocess.run([sys.executable, str(ROOT/'tools/thread_smoke.py'),
             '--root', str(ROOT), '--disk', str(disk), '--iso', str(args.iso.resolve()),
-            '--qemu', args.qemu, '--test', 'exfat-refused' if args.corrupt_entry else 'exfat-import',
+            '--qemu', args.qemu, '--test', test,
             '--boot-wait', '60', '--run-wait', '120'],
             capture_output=True, text=True)
         print(result.stdout + result.stderr, end='')
@@ -59,7 +82,9 @@ def main():
                       'threadstress: exfat-refused ok' in result.stdout)
             print('exfat-import: corrupt-entry refusal', 'PASS' if passed else 'FAIL')
             return int(not passed)
-        return result.returncode or int('threadstress: exfat-import ok' not in result.stdout)
+        if args.ownership_corrupt and 'writes disabled' not in result.stdout:
+            return 1
+        return result.returncode or int(f'threadstress: {test} ok' not in result.stdout)
 
 if __name__ == '__main__':
     raise SystemExit(main())

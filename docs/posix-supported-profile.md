@@ -363,3 +363,11 @@ than renamed or dropped. Directory scans reject traversed FAT cycles, invalid
 successors and premature termination. This remains a bounded import profile;
 boot/upcase recovery, full Unicode, allocation ownership and crash safety are
 separate work. Rebuild older generated images whose entry checksums were unset.
+
+Imported duplicate/case-colliding paths and overlapping mount subtrees are
+refused. Exact allocation aliases used by generated images retain their storage
+until the last published owner retires; overwrite still uses a new allocation.
+Block mounts quarantine inconsistent allocation maps or failed ownership checks
+as read-only before sidecar recovery/mutation. This is not a hard-link API,
+a media-repair facility or certification of corrupt-file contents. Device-view
+aliasing, hot removal and power-loss recovery require separate validation.

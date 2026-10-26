@@ -37,3 +37,25 @@ int posix_exfat_refused_test(void) {
     int fd=open("/fat/bin/threadstress",O_RDONLY);CHECK(fd>=0 && !close(fd));
     puts("threadstress: exfat-refused ok");return 0;
 }
+
+int posix_exfat_ownership_test(void) {
+    const char *source="/fat/import-test/partial",*alias="/fat/import-test/alias",*peer="/fat/import-test/peer";
+    CHECK(!check(source,4103) && !check(alias,4103) && !check(peer,4103));
+    CHECK(!unlink(source) && !check(alias,4103) && !check(peer,4103));
+    int fd=open(alias,O_WRONLY|O_TRUNC);CHECK(fd>=0);
+    CHECK(write(fd,"new",3)==3 && !fsync(fd) && !close(fd));
+    CHECK(!check(peer,4103));
+    CHECK(!rename(peer,alias) && !check(alias,4103));
+    CHECK(!unlink(alias));
+    puts("threadstress: exfat-ownership ok");return 0;
+}
+
+int posix_exfat_quarantine_test(void) {
+    const char *source="/fat/import-test/partial";
+    CHECK(!check(source,4103));
+    CHECK(unlink(source)==-1);
+    CHECK(rename(source,"/fat/import-test/moved")==-1);
+    CHECK(mkdir("/fat/import-test/no-write",0700)==-1);
+    CHECK(!check(source,4103));
+    puts("threadstress: exfat-quarantine ok");return 0;
+}

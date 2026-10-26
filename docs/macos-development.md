@@ -122,3 +122,9 @@ generated build artifacts; it is not an upgrade/repair procedure for persistent
 workspace or recovery media. Run `sh tools/macos/build.sh test-exfat-import` and
 see the [filesystem audit](filesystem-audit-2026-10-26.md) for the supported ASCII
 entry subset, regression evidence and remaining gaps.
+
+Block mounts now check allocation ownership before allowing writes. Inconsistent
+maps or failed checks remain readable but cannot be mutated through exFAT; inspect
+the `exfat-check` diagnostics and recover offline. Generated exact allocation
+aliases are retained safely until their last owner is removed. Mount paths must
+be canonical, unoccupied and outside other exFAT mount subtrees.
