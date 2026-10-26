@@ -3360,3 +3360,48 @@ and retains it independently of an overall failure. Payload/evidence backups
 remain outside build; Ubuntu, console and accepted reopen recoveries are retained.
 Final main remains `ee5468f6`; PR182 (`91a4f594`) and PR19 (`9a50f4dc`) keep
 separate storage and Wi-Fi scopes. Final documentation changes no compiled code.
+
+### Wake attribution native return — 2026-10-26 (narrow automated pass)
+
+Run `f6e01ca76b5a4da2`, release `0ede0fc436410e26`, compiled `f1587a2f`
+(PR190 merged as `4ee18f69`) returned one matching session,
+`session-00065ec3dd1e846a-00`. The automatic collector passes the full thirty-minute
+workload: 345,600,000 PCM bytes, zero underruns, worker status0, 3,154 verified
+bursts / 826,802,176 bytes, and an exactly matching binary disk receipt.
+First-to-last I/O spans 1,797.058 seconds inside playback. Audible quality for
+this run awaits the user's confirmation.
+
+All 689 app cycles completed with zero child errors. Maximum ready/close times
+were 1,912,039 / 3,460,137 us; application coverage spans 1,785.112 seconds
+inside playback. Retained complete timing tails validate cycles671–688. All
+94,747 loop samples are valid and below the unchanged 500,000 us limit, but the
+498,244 us maximum passes by only 1,756 us. This is acceptance of this bounded
+automated run, not evidence that the prior intermittent failures are fixed.
+
+The final version2 receipt retains sequence65648, cycle481, phase0 to phase1,
+from 1,251,783,148 to 1,252,281,392 us uptime. The selected ten-tick GUI wait
+returned normally, without fallback sleep. It spent 96,987 us blocked and
+401,159 us READY-to-selection. Timeout wake was observed at tick125057, exactly
+its deadline tick; no late ticks were observed in this bracket. Twenty-three
+I/O eligibility exclusions were observed during the same ready interval.
+The complete loop has 498,180 us in WAIT and 64 us across all other stages.
+Companion clocks, stage/state totals and the lifecycle maximum validate exactly.
+
+This isolates the dominant interval after wake-up, rather than late tick expiry
+for this sample. Exclusion counts do not prove that all READY time was spent
+continuously excluded or identify the owner. Source inspection shows GUI waits
+are already admitted as I/O-safe, while same-process siblings remain excluded;
+the compositor's persistent lifecycle pthread performs app launches and mapping
+work. That is a specific candidate for the next ownership/admission audit during
+launch, not a confirmed owner identity or permission to weaken sibling protection.
+Keep all limits and integrity/ownership checks unchanged.
+
+Battery epoch1 retired cleanly with 10,537 queries, 67 notifications, 751 handled/
+zero unclaimed SCI deliveries and zero heap/errors/denied. All 386 prior files
+survive except expected workspace metadata. Read-only fsck and independent
+allocation pass: 392 files / 1,068 clusters, zero leaks/mismatches/errors. Matching
+receipts, logs and detailed diagnosis are retained outside build with verified
+hashes. Ubuntu recovered, next_entry is empty and collection is disabled; no
+new boot is armed. Closeout base is `4ee18f69`; PR182 (`2a091597`) and PR19
+(`db3d8633`) retain separate storage and Wi-Fi scopes. This closeout changes
+only this unit record.
