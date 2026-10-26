@@ -2927,3 +2927,11 @@ PR172 (`27a97f0f`) owns shared application dispatch/waiting/actions; the propose
 kernel admission changes avoid its userspace implementation scope. PR19
 (`4030debb`) retains USB Wi-Fi work. Inspect their actual updated diffs before
 integration; no cross-task messages or parallel local harnesses are authorized.
+
+The scheduler now records actual READY exclusion and deferred nonblocking reaps
+as pending quiescent turns. Ordinary owner-free selection consumes the request;
+owned-I/O service turns preserve it. This covers process entry and post-exit
+cleanup without running either under another owner's I/O. Host regression fails
+on the previous scheduler and passes with the fix, including repeated requests,
+service eligibility, sleeping threads and retirement continuations. Build/core
+passes; automatic workload and native acceptance remain pending.

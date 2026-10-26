@@ -99,6 +99,9 @@ static uint64_t io_owner, io_depth, io_service_at;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
 static void yield_to(uint64_t preferred);
+static void io_gate_request(struct thread *thread) {
+    if(!thread->io_gate_waiting) { thread->io_gate_waiting=true;io_gate_pending++; }
+}
 static void io_gate_leave(struct thread *thread) {
     if(thread->io_gate_waiting) { thread->io_gate_waiting=false;io_gate_pending--; }
 }
@@ -197,11 +200,16 @@ static struct fpu_state *thread_user_fpu(struct thread *thread) {
 
 static bool io_thread_allowed(uint64_t index) {
     struct thread *thread = thread_at(index);
-    return io_depth == 0 || index == io_owner ||
+    bool allowed=io_depth == 0 || index == io_owner ||
         (thread->user_context != NULL && thread->io_user_safe &&
          thread->user_context != thread_at(io_owner)->user_context) ||
         (thread->user_context == NULL && thread->io_eligible != NULL &&
          thread->io_eligible(thread->arg));
+    /* Fresh process threads and post-exit kernel continuations have no syscall
+     * waiter. Remember their actual READY exclusion too; otherwise a continuous
+     * writer can reacquire the gate before their first/last kernel turn. */
+    if(!allowed && thread->state==THREAD_READY)io_gate_request(thread);
+    return allowed;
 }
 
 void scheduler_enable_io_services(void) {
@@ -212,6 +220,14 @@ void scheduler_enable_io_services(void) {
 
 bool scheduler_io_active(void) { return io_depth != 0; }
 bool scheduler_io_busy(void) { return io_depth != 0 && io_owner != current_thread; }
+
+void scheduler_io_request_turn(void) {
+    uint64_t flags=irq_save();
+    if(initialized && io_services_enabled && !switching && scheduler_io_busy() &&
+       thread_at(current_thread)->state==THREAD_RUNNING)
+        io_gate_request(thread_at(current_thread));
+    irq_restore(flags);
+}
 
 bool scheduler_io_begin(void) {
     if (!initialized || !io_services_enabled || switching) return false;
@@ -246,7 +262,7 @@ void scheduler_io_wait(void) {
     uint64_t flags=irq_save();
     while (!io_available(NULL)) {
         struct thread *thread=thread_at(current_thread);
-        if(!thread->io_gate_waiting) {thread->io_gate_waiting=true;io_gate_pending++;}
+        io_gate_request(thread);
         if (!scheduler_wait(&io_waiters,io_available,NULL)) scheduler_yield();
     }
     io_gate_leave(thread_at(current_thread));
@@ -257,9 +273,9 @@ void scheduler_io_handoff(void) {
     uint64_t flags=irq_save();
     if(initialized && io_services_enabled && !switching && !io_depth && io_gate_pending &&
        thread_at(current_thread)->state==THREAD_RUNNING && thread_at(current_thread)->io_user_safe) {
-        /* Wake-all removes wait-queue membership, but a READY waiter has not
-         * entered its operation yet. Retain that fact until io_wait returns.
-         * Prefer it only here, not during ordinary GUI/audio service turns. */
+        /* Includes awakened waiters, READY kernel entries excluded by the gate,
+         * and nonblocking reap retries. Prefer them only at this fully unwound
+         * boundary, never during ordinary GUI/audio service turns. */
         for(uint64_t n=1;n<thread_capacity;n++) {
             uint64_t i=(current_thread+n)%thread_capacity;
             if(thread_at(i)->io_gate_waiting && thread_at(i)->state==THREAD_READY) {
@@ -506,6 +522,11 @@ static void yield_to(uint64_t preferred) {
     uint64_t next_index = preferred<thread_capacity && preferred!=old_index &&
         thread_at(preferred)->state==THREAD_READY && io_thread_allowed(preferred)
         ? preferred : next_ready_thread(old_index);
+
+    /* A request is satisfied by a turn with no owner, including ordinary
+     * scheduling. An allowed service turn during owned I/O does not consume it.
+     * If preempted and excluded again, eligibility records a fresh request. */
+    if(!io_depth)io_gate_leave(thread_at(next_index));
 
     if (next_index == old_index) {
         irq_restore(flags);
