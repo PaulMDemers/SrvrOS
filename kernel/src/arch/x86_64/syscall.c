@@ -2124,12 +2124,19 @@ static int64_t syscall_proc_control(uint64_t operation, uint64_t pid, uint64_t v
     }
 }
 
+static bool io_defer_wait(uint64_t flags) {
+    if((flags & SRV_WAIT_NOHANG) && scheduler_io_busy()) {
+        scheduler_io_request_turn();
+        return true;
+    }
+    return false;
+}
 static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
     if(flags & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX)) return SRV_ERR_INVAL;
     /* Validate before consuming the child: a bad output pointer must not lose
      * a waitable result. */
     if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true)) return SRV_ERR_FAULT;
-    if((flags & SRV_WAIT_NOHANG) && scheduler_io_busy()) return 0;
+    if(io_defer_wait(flags)) return 0;
     /* Reaping may free mappings/descriptors; never run that continuation under
      * another owner's I/O after the function enables interrupts. */
     scheduler_io_set_user_safe(false);

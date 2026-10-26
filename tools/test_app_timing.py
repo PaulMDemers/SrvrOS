@@ -1,5 +1,5 @@
 import unittest
-from app_timing import validate_app_timing
+from app_timing import validate_app_timing, saved_app_timing
 
 
 def fixture():
@@ -31,6 +31,21 @@ class TimingTests(unittest.TestCase):
         result = validate_app_timing(fixture(), [(0, 8), (1, 9), (2, 10)])
         self.assertEqual([r['role'] for r in result], [2, 1, 4])
         self.assertEqual(result[0]['phases_us']['document-unmap'], [10])
+
+    def test_saved_overlap_and_interleaved_uart(self):
+        raw = fixture(); lines = raw.splitlines()
+        snapshots = [b'\n'.join(lines[:40]), b'\n'.join(lines[20:])]
+        recovered = saved_app_timing(snapshots)
+        self.assertEqual(validate_app_timing(recovered, [(0, 8), (1, 9), (2, 10)]),
+                         validate_app_timing(raw, [(0, 8), (1, 9), (2, 10)]))
+        # An interleaved serial line is not silently accepted or reconstructed.
+        serial = raw.replace(b'stage=first-publish', b'stage=peer log\nfirst-publish', 1)
+        with self.assertRaises(AssertionError):
+            validate_app_timing(serial, [(0, 8), (1, 9), (2, 10)])
+        for bad in [raw + lines[0], b'\n'.join(reversed(lines))]:
+            with self.assertRaises(AssertionError): saved_app_timing([bad])
+        with self.assertRaises(AssertionError):
+            validate_app_timing(saved_app_timing([serial]), [(0, 8), (1, 9), (2, 10)])
 
     def test_missing_mismatched_and_incomplete_receipts_refused(self):
         raw = fixture()

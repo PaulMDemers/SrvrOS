@@ -53,3 +53,27 @@ def validate_app_timing(output, completed):
                             entry_to_publish_us=times[1]-times[0],
                             close_to_return_us=times[3]-times[2], phases_us=spans))
     return summary
+
+
+def saved_app_timing(snapshots):
+    """Merge overlapping whole-record bootlog snapshots, never repair UART text.
+
+    Each snapshot must preserve per-process order and contain no duplicate record.
+    Snapshot overlap is deduplicated by exact record bytes; conflicting or missing
+    lifecycle records remain subject to validate_app_timing's full checks.
+    """
+    records = {}
+    for snapshot in sorted(snapshots, key=lambda raw: max(
+            (int(m[6]) for m in RECORD.finditer(raw)), default=0)):
+        seen, previous = set(), {}
+        for match in RECORD.finditer(snapshot):
+            record = match.group(0)
+            pid, *_, at, elapsed = match.groups()
+            assert record not in seen, 'duplicate record within saved snapshot'
+            assert int(at) >= previous.get(pid, 0), 'saved snapshot clock/order'
+            previous[pid] = int(at)
+            seen.add(record)
+        for match in RECORD.finditer(snapshot):
+            records.setdefault(match.group(0), None)
+    return b'\n'.join(sorted(records, key=lambda row: (
+        int(RECORD.fullmatch(row)[1]), int(RECORD.fullmatch(row)[6]))))
