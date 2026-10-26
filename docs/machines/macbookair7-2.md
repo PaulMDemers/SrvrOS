@@ -7,7 +7,7 @@ Updated: 2026-10-26. State: **active reference machine; partial device acceptanc
 Rebased the existing device branch onto actual main `9f18d7d`, consuming PR175,
 PR178, PR179 and PR180. Kept main's stronger futex-before-frame-free fixture and
 its Linux header fixes; no duplicate poll include or competing fixture remains.
-PR181 owns this bounded D3e application-layer block. PR182 owns exFAT import
+PR181 merged this bounded D3e application-layer block as `f8b593fc`. PR182 owns exFAT import
 validation and PR19 owns Wi-Fi; neither is included or overwritten here.
 
 Normal Text and Files share stable allocated window/models, owned-dialog routing,
@@ -38,7 +38,13 @@ Initial fixture failures and their corrections are retained locally.
 Final `make test-core all acpi-battery-kernel acpi-battery-vm-kernel check-docs`
 passes, with fresh normal/native/VM kernels and initramfs, ASan/UBSan ownership
 and clean whitespace. Exact-stage rehearsal precedes the next attended native
-trial. Its complete untimed Help checklist includes Files siblings,
+trial. The initial exact-stage attempt preserved an interleaved Text-startup
+UART marker: the window admitted/published, but the collector missed the split
+message. The shared progress matcher accepts only complete compositor traces
+between exact app bytes; saved-file/record proofs remain separate. Its captured
+replay and malformed/partial/offset controls pass. The Help guide also clarifies
+opening a fresh live Terminal after Ctrl-D before playback. Its complete untimed
+Help checklist includes Files siblings,
 Terminal controls/close, Text decisions, Preview cancellation, two-minute playback
 with app/save work, and ordinary exit/reopen. Installed accepted current remains
 `986d6c68fa19ba18`, independent recovery `9aa8dbf6fbda8252`; the last return is
