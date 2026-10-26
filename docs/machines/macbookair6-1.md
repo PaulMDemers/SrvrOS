@@ -2965,3 +2965,39 @@ remain unchanged. USB baseline is 364 files / 1,032 clusters with zero leaks,
 bitmap mismatches or errors. Ubuntu remains default with console recovery and
 accepted reopen payloads retained. The collector saves/checks multiple attempts
 before refusing aggregate acceptance; missing completion remains failure.
+
+### Process-admission native return — 2026-10-25 (failed)
+
+Run `5732b14012b34571`, release `788873710e559400`, runtime `cca1f818`
+(PR174) returned one matching session, `session-00065eb3b8aaf11c-00`.
+The automatic trial failed after 49 complete app cycles: Files cycle 49 / PID73
+crossed the unchanged ten-second whole-cycle deadline at 10,010,054 us during
+close. Exit log saved at 190.998 seconds uptime. No final workload receipt was
+written; this is not thirty-minute endurance acceptance.
+
+The aggregate maximum ready time was 1,341,489 us, versus 7,313,178 us in the
+preceding run; different run lengths prevent a general performance claim. Maximum
+completed close was 7,869,937 us, and maximum loop gap 341,476 us. The failing
+Files instance received Close at 180,124,884 us but did not leave its main loop
+until 188,505,227 us, an 8,380,343 us gap. Its directory-list request 1 to worker74
+was first logged submitted during post-deadline job drain. It then exited with
+status143 during failed-session teardown, before a pool-retirement completion.
+This failure precedes the pool-retirement phase seen in the previous trial.
+
+Next investigate worker request/reply pipe admission under continuous disk
+ownership. The current nonblocking pipe deferral returns AGAIN without requesting
+the quiescent turn now used by deferred reaps. That is a concrete candidate
+mechanism, not yet a demonstrated cause of this native delay. Preserve accepted
+mutation ownership, CRC/reply validation and all deadlines; do not bypass cleanup.
+PR172 still owns the shared application runtime and must be inspected before
+any overlapping userspace work.
+
+PCM recorded zero underruns. Battery epoch1 retired with 1,065 queries, one
+notification, 71 handled SCI deliveries and zero heap/errors/denied. Overall
+battery-controls reports FAIL because the desktop trial failed; clean provider
+retirement does not promote the workload result. All 364 prior files survived
+except expected workspace metadata. Offline fsck/allocation pass: 369 files,
+1,038 clusters, zero leaks, bitmap mismatches or errors. Matching logs, original
+automatic assessment and diagnosis are hash-verified outside build. Ubuntu
+recovered, next_entry is empty and collection disabled; no new reboot is armed.
+Integration baseline for this evidence record is `a679115f`.
