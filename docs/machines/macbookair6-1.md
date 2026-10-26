@@ -3001,3 +3001,22 @@ except expected workspace metadata. Offline fsck/allocation pass: 369 files,
 automatic assessment and diagnosis are hash-verified outside build. Ubuntu
 recovered, next_entry is empty and collection disabled; no new reboot is armed.
 Integration baseline for this evidence record is `a679115f`.
+
+### Integrated-main retest — active scope (2026-10-26)
+
+User requests rebasing onto the bug fixes merged since the previous native trial
+and retesting. Rebased `device/macbookair6-1/process-admission` onto actual main
+`dfd63fef`; all local changes were already merged, so no commits required replay.
+This consumes shared application runtime PR172, synchronization/build audit
+PR175, AHCI completion/budget corrections PR178, and event-adapter audit PR179.
+The last Air6,1 failure remains recorded and backed up; no native acceptance is
+inferred from other hosts' results.
+
+Scope is validation and this unit record: matched build/core, automatic populated
+Home audio/disk/app stress, general smoke, storage cancellation/quarantine and
+exact-stage rehearsal, followed by the same authorized automatic native trial.
+Do not add the previously proposed pipe-admission fix before testing the new
+baseline. Preserve ten-second whole-cycle, five-second client and 500 ms loop
+limits, continuous verified disk work, PCM checks and firmware/ownership gates.
+PR19 (`eababae2`) retains separate USB Wi-Fi ownership; no shared production edits
+are planned. Prior explicit self-merge/reboot authorization remains applicable.
