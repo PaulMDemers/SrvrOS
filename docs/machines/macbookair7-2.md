@@ -2,6 +2,18 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
+### Window switching and keyboard navigation — active scope
+
+Base main `43aff7d5` (PR194). Recheck the actual movement/dock consumer in QEMU,
+then implement a stable most-recent-window switcher, reverse/same-app navigation,
+predictable focus after minimize/retirement and keyboard access to desktop menus.
+Reuse dynamic launcher/widget storage and owned-dialog routing; no new fixed
+window cap, protocol or driver changes. Air7,2 owns compositor input/focus, focused
+host/VM fixtures, Help and combined native checklist delivery. Audio remains with
+the other device; PR182 filesystem and PR19 Wi-Fi remain separate. Validate
+locally and in QEMU before one combined attended native trial. No reboot is armed.
+Evidence/checkpoint: `build/window-navigation-20261026/`.
+
 ### Desktop movement and dock — implemented; physical acceptance pending
 
 PR194 follows main `ab7a7c93`, after closing PR193 with the tester's non-audio
