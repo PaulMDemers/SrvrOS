@@ -161,8 +161,9 @@ coverage.
   immediate/deadline waits and bounded synthetic-readiness rechecks; see the
   [event-adapter audit](event-adapter-audit-2026-10-26.md). Nonblocking counter
   bounds, writable readiness, semaphore reads and creation-flag validation are
-  corrected. Blocking eventfd I/O, signal masks, fairness, zero-interest hangups
-  and edge/one-shot modes remain incomplete;
+  corrected, as are stable ready-set rotation and zero-interest native HUP/ERR.
+  Blocking eventfd I/O, signal masks, priority-event mapping and edge/one-shot
+  modes remain incomplete;
   `kqueue` is absent. General upstream backend acceptance remains separate.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker

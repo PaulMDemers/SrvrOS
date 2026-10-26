@@ -67,6 +67,7 @@ struct posix_epoll_entry {
 
 struct posix_epoll {
     int used;
+    int next_entry;
     uint64_t identity;
     struct posix_epoll_entry entries[POSIX_EPOLL_ENTRIES];
 };
@@ -557,14 +558,17 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         if (!epoll->used || epoll->identity != identity) {
             __posix_event_unlock(); errno = EBADF; return -1;
         }
-        for (int i = 0; i < POSIX_EPOLL_ENTRIES && ready < maxevents; i++) {
+        for (int i = 0; i < POSIX_EPOLL_ENTRIES; i++) map[i] = -1;
+        /* Snapshot every watch, including native descriptors with no requested
+         * bits: poll must still observe their unconditional HUP/ERR events. */
+        for (int i = 0; i < POSIX_EPOLL_ENTRIES; i++) {
             struct posix_epoll_entry *entry = &epoll->entries[i];
             if (!entry->used) continue;
             int fd = event_alias(entry->identity);
             short requested = epoll_to_poll_events(entry->event.events);
-            if (fd < 0 || !requested) continue;
+            if (fd < 0) continue;
             snapshots[count] = *entry;
-            map[count] = i;
+            map[i] = count;
             if (__posix_eventfd_is_pseudo(fd)) {
                 observed[count] = poll_to_epoll_events(eventfd_poll_events(fd, requested));
                 ready += observed[count] != 0;
@@ -607,17 +611,25 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
                 observed[n] = poll_to_epoll_events(pollfds[i].revents);
         }
         ready = 0;
-        for (int i = 0; i < count && ready < maxevents; i++) {
-            struct posix_epoll_entry *entry = &epoll->entries[map[i]];
-            if (!entry->used || entry->revision != snapshots[i].revision ||
-                entry->identity != snapshots[i].identity) continue;
+        /* Read the current cursor only after reacquiring the lock. Aliases and
+         * overlapping waits share delivery order; a stale/empty result must not
+         * move it. Mutations and slot reuse still require snapshot validation. */
+        int start = epoll->next_entry;
+        for (int offset = 0; offset < POSIX_EPOLL_ENTRIES && ready < maxevents; offset++) {
+            int slot = (start + offset) % POSIX_EPOLL_ENTRIES;
+            int n = map[slot];
+            if (n < 0) continue;
+            struct posix_epoll_entry *entry = &epoll->entries[slot];
+            if (!entry->used || entry->revision != snapshots[n].revision ||
+                entry->identity != snapshots[n].identity) continue;
             int fd = event_alias(entry->identity);
             if (__posix_eventfd_is_pseudo(fd))
-                observed[i] = poll_to_epoll_events(eventfd_poll_events(fd,
+                observed[n] = poll_to_epoll_events(eventfd_poll_events(fd,
                     epoll_to_poll_events(entry->event.events)));
-            if (!observed[i]) continue;
-            events[ready] = snapshots[i].event;
-            events[ready++].events = observed[i];
+            if (!observed[n]) continue;
+            events[ready] = snapshots[n].event;
+            events[ready++].events = observed[n];
+            epoll->next_entry = (slot + 1) % POSIX_EPOLL_ENTRIES;
         }
         __posix_event_unlock();
         if (ready || timeout == 0 || expired) return ready;

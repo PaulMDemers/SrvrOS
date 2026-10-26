@@ -200,7 +200,9 @@ retain a monotonic deadline and handle interruption/empty infinite waits. The
 adapters remain experimental. Nonblocking eventfd writes now enforce capacity
 and reserved values without changing state on failure; writable readiness agrees
 with that capacity. Semaphore reads now consume one token; creation validates
-flags before allocating state. Continued audit confirms ready-set starvation
-with small output buffers and missed native hangups when the interest mask is
-zero. Those two explicit failures are next; blocking eventfd I/O, kernel event
-notification, signal-mask waits and full Linux compatibility remain unaccepted.
+flags before allocating state. Epoll now rotates across stable ready sets and
+reports native HUP/ERR with an empty interest mask. Continued audit confirms
+one-shot events repeat without rearming and priority readiness is lost in the
+adapter mapping. Those two explicit failures are next; blocking eventfd I/O,
+kernel event notification, edge delivery, signal-mask waits and full Linux
+compatibility remain unaccepted.

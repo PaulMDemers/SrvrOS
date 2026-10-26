@@ -293,3 +293,11 @@ flag combinations, fcntl independence, slot reuse and readiness; guest tests add
 concurrent one-token consumption. Continued audit confirms starvation when the
 ready set exceeds `maxevents` and missed native hangups for an empty interest
 mask. Both remain explicit failing probes; blocking eventfd I/O remains separate.
+
+
+Epoll now rotates delivery through a stable ready set using the current shared
+instance cursor after polling, and includes native HUP/ERR observation for empty
+interest masks. Full-capacity host/guest alias rotation and pipe close coverage
+are added. Continued audit confirms ignored one-shot disabling and omitted native
+priority-bit conversion; both remain explicit failing probes. This does not
+accept arbitrary-mutation scheduling fairness or edge/signal-mask behavior.

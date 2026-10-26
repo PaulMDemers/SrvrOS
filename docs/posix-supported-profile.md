@@ -206,9 +206,13 @@ Creation accepts only `EFD_SEMAPHORE`, `EFD_NONBLOCK` and `EFD_CLOEXEC`, rejects
 unknown bits with `EINVAL` before allocation, and resets mode on slot reuse.
 Changes to descriptor/status flags do not toggle semaphore mode. Blocking
 read/write remains unsupported (the adapter returns `EAGAIN` instead of waiting).
-Ready-set fairness and zero-interest native HUP delivery are confirmed unfixed;
-edge/one-shot delivery,
-signal-mask waits and general concurrent socket semantics are also unaccepted.
+Epoll rotates delivery across stable ready sets using a per-instance cursor shared
+by aliases, chosen under the lifecycle mutex after polling. All watches are
+snapshotted; native HUP/ERR can be returned even with an empty interest mask.
+This does not promise thread-scheduling fairness under arbitrary mutation.
+One-shot rearming and native priority-event mapping are confirmed unfixed; edge
+delivery, signal-mask waits and general concurrent socket semantics remain
+unaccepted.
 Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
 does not establish Node support.
 

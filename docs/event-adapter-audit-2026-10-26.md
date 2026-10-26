@@ -13,8 +13,9 @@ runtime changes: seven directed probes failed. The subsequent correction below
 fixes the descriptor-lifetime group. The next correction fixes immediate waits,
 eventfd readiness rechecks, deadline accounting and empty/infinite waits. Nonblocking
 counter bounds, writable readiness, semaphore reads and creation-flag validation
-are now corrected too. Continued audit confirms **unfixed** ready-set starvation
-and zero-interest native hangup delivery with two explicit failing probes. The supported profile limits these experimental APIs;
+are now corrected too, along with stable ready-set rotation and native HUP/ERR
+reporting for empty interest masks. Continued audit confirms **unfixed** one-shot
+rearming and priority-event mapping with two explicit failing probes. The supported profile limits these experimental APIs;
 the new evidence makes their failure modes concrete. It does not establish Node support or general Linux API conformance.
 
 ## P2: epoll state outlives descriptor ownership — corrected
@@ -90,10 +91,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit remaining fairness/hangup failures: two probes currently exit 1.
+# Explicit remaining one-shot/priority failures: two probes currently exit 1.
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select one, for example --audit epoll-fairness.
+# Or select one, for example --audit epoll-oneshot.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -381,7 +382,7 @@ counter read/refill readiness and eight rounds of four readers making 128 reads
 from 31 tokens. Exactly 31 reads return one and 97 return `EAGAIN` in each round.
 It is part of `threadstress all`, with a required smoke completion marker.
 
-## Continued audit: ready-set starvation and zero-interest hangups
+## Historical continued audit: ready-set starvation and zero-interest hangups — corrected
 
 `epoll-fairness` registers two persistently readable eventfds, then makes four
 zero-timeout waits with `maxevents=1`. Every result refers to the first watch;
@@ -413,3 +414,65 @@ and the two new fairness/hangup failures are retained separately, under
 stopped. PR179 remains draft; next bounded scope is epoll ready-set rotation and
 zero-interest native error/hangup reporting. Blocking I/O, kernel notification,
 physical acceptance and Actions settings remain unchanged.
+
+
+## Ready-set rotation and unconditional native HUP/ERR correction
+
+The `87c48440` checkpoint above retains its two failed fairness/hangup receipts.
+Each epoll instance now owns a delivery cursor, shared by duplicate handles.
+Every wait snapshots all registrations and polls all native descriptors, even
+when an eventfd is already ready (the native timeout then stays zero). Native
+poll entries with no requested bits remain eligible for unconditional HUP/ERR.
+Unrequested ordinary input/output readiness is still filtered by poll.
+
+After polling, delivery starts at the instance's current cursor under the
+lifecycle mutex and advances past each returned event, wrapping at 64 slots.
+Reading the cursor after reacquiring the lock preserves progress made by an
+overlapping wait. Stale or empty results do not advance it. Instance identity,
+watch revision and native binding validation still suppress removed/replaced
+snapshots. Slot deletion/reuse does not resurrect old event data. This provides
+rotation for stable ready sets, not thread-scheduling fairness under arbitrary
+mutation or real-time guarantees. Deadline and 10 ms synthetic polling limits
+remain unchanged; no kernel/syscall ABI change is needed.
+
+The positive host gate now has twenty-nine modes. Two former failures become
+regressions, with added 64-slot mixed native/eventfd rotation through aliases,
+20 batches of seven events crossing the wrap boundary, HUP/ERR-only masks,
+unrequested-read filtering and deterministic nested wait/MOD/slot-reuse cases.
+The guest `epoll-rotation` uses real pipe aliases and eventfds at full watch
+capacity, repeats the same rotation batches, then closes pipe peers to test HUP
+and ERR with empty masks and explicit ERR interest. It is included in `all`.
+
+Initial integration retained two obsolete fixture assumptions: skipping native
+poll once a synthetic event is ready, and fixed ordering after adding a watch.
+Assertions now require nonblocking native polling and the intended rotation.
+The first control fixture also incorrectly treated aliases of one object as
+independently ready; it now uses distinct pipes. Those failed host receipts are
+preserved as `host-first` and `host-second`, not counted as passing evidence.
+
+## Continued audit: one-shot rearming and native priority mapping
+
+`epoll-oneshot` registers a ready eventfd with `EPOLLONESHOT`, receives it once,
+then receives it again without MOD/rearming. The assertion expects zero and
+fails. The flag is stored but not enforced. `epoll-priority` registers `EPOLLPRI`
+and models native POLLPRI readiness; the adapter returns zero. Both conversion
+helpers omit priority bits. This proves a mapping defect with modeled readiness,
+not that ordinary pipes or any particular native device produce priority events.
+The [epoll control contract](https://man7.org/linux/man-pages/man2/epoll_ctl.2.html)
+describes one-shot disabling/rearming and priority notification. These two
+explicit failures remain outside the passing gate. Next bounded scope is one-shot
+state/rearming and priority-bit mapping; edge-triggered delivery, signal-mask
+waits, blocking eventfd I/O and a kernel notification mechanism remain separate.
+
+
+Final rotation/hangup validation: matched `all` build, twenty-nine positive host
+modes and ASan/UBSan, targeted epoll-rotation VM, complete thread suite and full
+libuv consumer VM pass. Four compiled negative controls break cursor advancement,
+full snapshot scanning, empty-mask polling or current-cursor selection; each
+fails its intended assertion. Five smoke-reader tests pass. Documentation checks
+655 local links with zero errors; whitespace checks pass. Baseline failures,
+initial fixture corrections and two new one-shot/priority failures are retained
+under `build/review/epoll-rotation/` with source/build/log hashes. All disposable
+VMs stopped. PR179 remains draft. Next bounded scope is one-shot disabling/rearm
+and native priority-bit conversion; broader event modes, signal masks and blocking
+eventfd I/O remain separate. No physical acceptance or Actions setting changed.

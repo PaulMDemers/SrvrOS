@@ -18,7 +18,8 @@ The [October 26 event-adapter follow-up](event-adapter-audit-2026-10-26.md)
 corrects libc-managed epoll lifetime and immediate/deadline wait behavior, with
 bounded polling for synthetic notifications, plus nonblocking eventfd counter
 bounds, writable readiness, semaphore reads and creation-flag validation.
-Blocking eventfd I/O, signal masks, fairness, zero-interest hangups and general
+Stable ready-set rotation and zero-interest native HUP/ERR reporting are corrected.
+Blocking eventfd I/O, signal masks, one-shot rearming, priority mapping and general
 Linux semantics remain unaccepted.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
@@ -487,8 +488,9 @@ a 10 ms poll and returned after a short sleep for an indefinitely waiting
 eventfd-only set. The October 26 follow-up above corrects those waits and adds
 close/dup/reuse coverage. `epoll_pwait` still ignores its signal mask; registration
 stores event flags without implementing edge-triggered/one-shot lifetime rules.
-Audit/reject those modes and test fairness before using this as a general upstream
-runtime backend. These are Linux compatibility issues, not POSIX requirements.
+Stable ready-set rotation and zero-interest native HUP/ERR now have regressions.
+Audit/reject the remaining modes before using this as a general upstream runtime
+backend. These are Linux compatibility issues, not POSIX requirements.
 
 ## Desktop dependencies
 

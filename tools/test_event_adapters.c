@@ -133,6 +133,12 @@ static void retire_watch(void) {
     readiness[fds[0]]=POLLIN;
     watch(retiring_ep,fds[0],EPOLLIN,999);
 }
+static uint64_t nested_tag;
+static void nested_wait(void) {
+    struct epoll_event got;
+    CHECK(epoll_wait(retiring_ep,&got,1,0)==1);
+    nested_tag=got.data.u64;
+}
 static void close_wait_handle(void) { CHECK(close(retiring_ep)==0); }
 static void modify_watch(void) {
     struct epoll_event e={.events=EPOLLIN,.data.u64=999};
@@ -150,7 +156,8 @@ static void aliases_test(void) {
     CHECK(got[0].data.u64==100 && got[1].data.u64==200);
     int q[2]; CHECK(pipe(q)==0 && q[0]==p[0]); readiness[q[0]]=POLLIN;
     watch(ep_alias,q[0],EPOLLIN,250);
-    CHECK(epoll_wait(ep_alias,got,3,0)==3 && got[2].data.u64==250);
+    CHECK(epoll_wait(ep_alias,got,3,0)==3);
+    CHECK(got[0].data.u64==250 && got[1].data.u64==100 && got[2].data.u64==200);
     CHECK(epoll_ctl(ep_alias,EPOLL_CTL_DEL,q[0],NULL)==0);
     CHECK(epoll_wait(ep_alias,got,3,0)==2 && got[0].data.u64==100);
     CHECK(close(q[0])==0 && close(q[1])==0);
@@ -206,7 +213,7 @@ int main(int argc, char **argv) {
         CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,fd,&e)==0);
         CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLOUT && got[0].data.u64==456);
         int p[2]; CHECK(pipe(p)==0); watch(ep,p[0],POLLIN,789);
-        CHECK(epoll_wait(ep,got,1,0)==1 && !poll_calls && got[0].data.u64==456);
+        CHECK(epoll_wait(ep,got,1,0)==1 && poll_calls==1 && last_timeout==0 && got[0].data.u64==456);
         CHECK(close(p[0])==0 && close(p[1])==0);
         CHECK(epoll_ctl(ep,EPOLL_CTL_DEL,fd,NULL)==0);
         CHECK(epoll_wait(ep,got,2,0)==0);
@@ -413,6 +420,48 @@ int main(int argc, char **argv) {
         add=1; CHECK(__posix_eventfd_write(fd,&add,8)==8);
         CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLIN);
         CHECK(close(fd)==0 && close(ep)==0);
+    } else if (!strcmp(mode,"epoll-rotation")) {
+        int ep=epoll_create1(0), alias=dup(ep), p[2], fds[64];
+        CHECK(alias>=0 && pipe(p)==0); readiness[p[0]]=POLLIN;
+        for (int i=0;i<64;i++) {
+            fds[i]=i<3?eventfd(1,EFD_NONBLOCK):(i==3?p[0]:dup(p[0]));
+            CHECK(fds[i]>=0); watch(ep,fds[i],EPOLLIN,(unsigned)i+1);
+        }
+        struct epoll_event batch[7];
+        for (int call=0;call<20;call++) {
+            CHECK(epoll_wait(call&1?alias:ep,batch,7,0)==7);
+            for (int i=0;i<7;i++) CHECK(batch[i].data.u64==(unsigned)(call*7+i)%64+1);
+            CHECK(last_timeout==0);
+        }
+        for (int i=0;i<64;i++) CHECK(close(fds[i])==0);
+        CHECK(close(p[1])==0 && close(ep)==0 && close(alias)==0);
+        CHECK(__posix_node_fork_ready());
+    } else if (!strcmp(mode,"epoll-rotation-control")) {
+        int p[2],q[2],r[2]; CHECK(pipe(p)==0 && pipe(q)==0 && pipe(r)==0);
+        int a=q[0], b=r[0]; readiness[p[0]]=readiness[a]=readiness[b]=POLLIN;
+        retiring_ep=epoll_create1(0); retiring_fd=p[0];
+        watch(retiring_ep,p[0],EPOLLIN,1); watch(retiring_ep,a,EPOLLIN,2); watch(retiring_ep,b,EPOLLIN,3);
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].data.u64==1);
+        during_poll=nested_wait;
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && nested_tag==2 && got[0].data.u64==3);
+        readiness[a]=readiness[b]=0; during_poll=modify_watch;
+        CHECK(epoll_wait(retiring_ep,got,1,0)==0); /* stale sole result does not advance */
+        readiness[a]=readiness[b]=POLLIN;
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].data.u64==999);
+        CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_DEL,a,NULL)==0);
+        int fd=eventfd(1,EFD_NONBLOCK); watch(retiring_ep,fd,EPOLLIN,777);
+        CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].data.u64==777);
+    } else if (!strcmp(mode,"epoll-oneshot")) {
+        int ep=epoll_create1(0), fd=eventfd(1,EFD_NONBLOCK);
+        watch(ep,fd,EPOLLIN|EPOLLONESHOT,123);
+        CHECK(epoll_wait(ep,got,1,0)==1);
+        int n=epoll_wait(ep,got,1,0); printf("unrearmed one-shot: ready=%d\n",n);
+        CHECK(n==0);
+    } else if (!strcmp(mode,"epoll-priority")) {
+        int ep=epoll_create1(0), p[2]; CHECK(pipe(p)==0);
+        watch(ep,p[0],EPOLLPRI,123); readiness[p[0]]=POLLPRI;
+        int n=epoll_wait(ep,got,1,0); printf("native priority readiness: ready=%d\n",n);
+        CHECK(n==1 && got[0].events==EPOLLPRI && got[0].data.u64==123);
     } else if (!strcmp(mode,"epoll-fairness")) {
         int ep=epoll_create1(0), a=eventfd(1,EFD_NONBLOCK), b=eventfd(1,EFD_NONBLOCK);
         watch(ep,a,EPOLLIN,1); watch(ep,b,EPOLLIN,2);
@@ -426,6 +475,13 @@ int main(int argc, char **argv) {
         int n=epoll_wait(ep,got,2,0);
         printf("zero-interest native hangup: ready=%d\n",n);
         CHECK(n==1 && got[0].events==EPOLLHUP && got[0].data.u64==123);
+        readiness[p[0]]=POLLERR;
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==EPOLLERR);
+        readiness[p[0]]=POLLIN; CHECK(epoll_wait(ep,got,2,0)==0);
+        struct epoll_event event={.events=EPOLLHUP,.data.u64=456};
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,p[0],&event)==0);
+        readiness[p[0]]=POLLHUP|POLLERR;
+        CHECK(epoll_wait(ep,got,2,0)==1 && got[0].events==(EPOLLHUP|EPOLLERR) && got[0].data.u64==456);
     } else if (!strcmp(mode,"semaphore-read")) {
         int fd=eventfd(2,EFD_NONBLOCK|EFD_SEMAPHORE); CHECK(fd>=0);
         ssize_t n=__posix_eventfd_read(fd,&value,8);

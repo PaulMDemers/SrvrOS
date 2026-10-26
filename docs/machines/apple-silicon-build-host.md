@@ -780,3 +780,29 @@ and the two new fairness/hangup failures are retained separately, under
 stopped. PR179 remains draft; next bounded scope is epoll ready-set rotation and
 zero-interest native error/hangup reporting. Blocking I/O, kernel notification,
 physical acceptance and Actions settings remain unchanged.
+
+## Epoll rotation/hangup correction — active scope (2026-10-26)
+
+User authorized proceeding with ready-set fairness and zero-interest hangups.
+Base is `87c48440`; fetched main remains `8bd43adc`, draft PR179 matches, and PR19
+retains separate Wi-Fi scope. Own libc epoll delivery rotation and unconditional
+native HUP/ERR observation, host stable-set/alias/control regressions and matched
+guest coverage. Keep lifetime/revision validation and monotonic wait deadlines.
+Use a per-instance cursor shared by aliases, advance only on delivered events,
+and select against its current value under the lifecycle mutex. Snapshot all
+watches so native/synthetic ordering cannot bias delivery. No new ABI, hardware
+trial or Actions run. Next checkpoint: deterministic regressions, then matched
+build and sequential thread/libuv VMs; continue auditing adjacent adapter modes.
+
+
+Final rotation/hangup validation: matched `all` build, twenty-nine positive host
+modes and ASan/UBSan, targeted epoll-rotation VM, complete thread suite and full
+libuv consumer VM pass. Four compiled negative controls break cursor advancement,
+full snapshot scanning, empty-mask polling or current-cursor selection; each
+fails its intended assertion. Five smoke-reader tests pass. Documentation checks
+655 local links with zero errors; whitespace checks pass. Baseline failures,
+initial fixture corrections and two new one-shot/priority failures are retained
+under `build/review/epoll-rotation/` with source/build/log hashes. All disposable
+VMs stopped. PR179 remains draft. Next bounded scope is one-shot disabling/rearm
+and native priority-bit conversion; broader event modes, signal masks and blocking
+eventfd I/O remain separate. No physical acceptance or Actions setting changed.
