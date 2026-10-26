@@ -4145,3 +4145,30 @@ reproduced one extra poll read after a wait crossed the deadline; the engine now
 checks the clock before every subsequent submission. The regression refuses
 that extra read and still proves MAC-disable cleanup. Full final build/core and
 175 staging tests pass; exact final-stage VM/install follow separately.
+
+
+### 2026-10-26 — final v90 MAC-cycle trial installed, unarmed
+
+Source `6af7ec600d1f360de88b52bb28aaff2391da35f6`, release
+`b6c18039f1c36e8d`, recipe `ram-usb-wifi-fw-v90-laptop-probe-0e535900-auto-return`.
+Final full image/core,actual native adapter and pure-helper ASan/UBSan pass.
+175 staging tests include actual harness v90 classification;178 historical
+recipe byte comparisons and408 malformed whole-proof refusals pass. Poll
+regression reproduced the old post-deadline read before the fix and passes
+with pre-submission clock checking. Exact final GPT-stage VM saved,byte-verified,
+unmounted and returned automatically; missing workspace refused without probing
+and returned. Q35 has no native adapter,so these are workflow/refusal checks.
+
+Installed/current and known-good e47 recovery payloads match durable backups;
+accepted corrected v89 remains retained on ESP. Accepted v88 payload was removed
+from ESP only after full durable equality,freeing room for this candidate;
+its accepted evidence/backup remain outside build. Ubuntu default and EFI order
+are unchanged,no one-shot is armed. Offline325files/788clusters/136directories,
+zero leaks,bitmap mismatches or errors;unmounted. Native result remains pending.
+Guest shows progress,saves full logs and returns automatically;no photos or
+commands. After cold-cycle readiness,power off,unplug only Wi-Fi10s,reconnect
+and power on,leaving workspace connected. On return collect the matching v90
+session FIRST with `build/bringup/mac-cycle/collect_return.py`;preserve failed
+completion/cleanup markers. No calibration,reception or connectivity acceptance
+is inferred from this install. Evidence/payload/run records are durably archived
+under `~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
