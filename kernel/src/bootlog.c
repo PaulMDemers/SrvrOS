@@ -4,12 +4,13 @@
 
 #include <stdint.h>
 
-static char ring[BOOTLOG_FULL_CAPTURE_CAPACITY];
-static char linear[BOOTLOG_FULL_CAPTURE_CAPACITY];
+static char ring[BOOTLOG_EXTENDED_CAPTURE_CAPACITY];
+static char linear[BOOTLOG_EXTENDED_CAPTURE_CAPACITY];
 _Static_assert((BOOTLOG_DEFAULT_CAPACITY & (BOOTLOG_DEFAULT_CAPACITY-1))==0 &&
     (BOOTLOG_CAPTURE_CAPACITY & (BOOTLOG_CAPTURE_CAPACITY-1))==0 &&
     (BOOTLOG_LARGE_CAPTURE_CAPACITY & (BOOTLOG_LARGE_CAPTURE_CAPACITY-1))==0 &&
-    (BOOTLOG_FULL_CAPTURE_CAPACITY & (BOOTLOG_FULL_CAPTURE_CAPACITY-1))==0,"log capacities must be powers of two");
+    (BOOTLOG_FULL_CAPTURE_CAPACITY & (BOOTLOG_FULL_CAPTURE_CAPACITY-1))==0 &&
+    (BOOTLOG_EXTENDED_CAPTURE_CAPACITY & (BOOTLOG_EXTENDED_CAPTURE_CAPACITY-1))==0,"log capacities must be powers of two");
 static uint64_t ring_capacity=BOOTLOG_DEFAULT_CAPACITY;
 static uint64_t write_index;
 static uint64_t bytes_recorded;
@@ -17,7 +18,7 @@ static uint64_t total_bytes;
 static bool suppress_recording;
 
 bool bootlog_extend_capture_to(uint64_t capacity) {
-    if(capacity!=BOOTLOG_CAPTURE_CAPACITY && capacity!=BOOTLOG_LARGE_CAPTURE_CAPACITY && capacity!=BOOTLOG_FULL_CAPTURE_CAPACITY)return false;
+    if(capacity!=BOOTLOG_CAPTURE_CAPACITY && capacity!=BOOTLOG_LARGE_CAPTURE_CAPACITY && capacity!=BOOTLOG_FULL_CAPTURE_CAPACITY && capacity!=BOOTLOG_EXTENDED_CAPTURE_CAPACITY)return false;
 #ifndef SRVROS_BOOTLOG_HOST_TEST
     uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
 #endif

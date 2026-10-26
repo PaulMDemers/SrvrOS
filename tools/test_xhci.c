@@ -5128,6 +5128,54 @@ static void test_wifi_gain(void){
  }
  reset_test();assert(!xhci_wifi_capture_gain());puts("xhci gain: PASS13 mapped read-select phases,27 inventory positions,216 ownership/state/profile faults, no USB on refusal/no replay/quarantine");
 }
+
+static void channel_bbp_fixture(struct xhci_device *d){
+ gain_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;m->gain_inventory_active=true;
+ m->gain_fields=(struct mt76_rx_fields){.attempted=true,.complete=true,.valid=true,.reads=12,.writes=1,.polls=1,.blocks=1};mt76_rx_gain_decode(0,0x0101,&m->gain_fields);
+ m->gain_gate=(struct mt76_efuse_map_gate){.phase=15,.block=1,.submitted=13,.polls=1};for(unsigned g=0;g<2;g++)m->gain_gate.core[g]=0xf000f200;m->gain_gate.dma[0]=0x40000050;
+ m->gain_inventory_submitted=27;m->gain_inventory=(struct mt76_gain_inventory){.attempted=true,.complete=true,.reads=27};for(unsigned g=0;g<2;g++){m->gain_inventory.guards[g][1]=0xf000f200;m->gain_inventory.guards[g][2]=0x40000050;}
+ for(unsigned q=0;q<21;q++)m->gain_inventory.values[q]=mt76_channel_bbp_initial(q);
+ m->channel_bbp_mode=m->channel_bbp_active=true;assert(wifi_channel_bbp_owned(d));
+}
+static void test_wifi_channel_bbp(void){
+ for(unsigned op=0;op<189;op++)for(unsigned fault=0;fault<223;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};struct xhci_device *d=&xhci.devices[0];channel_bbp_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->channel_bbp_submitted=op;struct mt76_channel_bbp *v=&m->channel_bbp;*v=(struct mt76_channel_bbp){.attempted=true,.operations=op};
+  for(unsigned q=0;q<21;q++){unsigned done=op>=9*(q+1)?9:op>9*q?op-9*q:0;
+   if(done>3)v->before[q]=mt76_channel_bbp_initial(q);
+   if(done>4)v->writes++;
+   if(done>5){v->after[q]=mt76_channel_bbp_value(q,v->before[q]);v->verified++;}
+   for(unsigned j=0;j<3;j++){if(done>j)v->guards[2*q][j]=j==1?0xf000f200:j==2?0x40000050:0;
+   if(done>6+j)v->guards[2*q+1][j]=j==1?0xf000f200:j==2?0x40000050:0;}
+  }v->reads=op-v->writes;
+  bool write;uint32_t a;assert(mt76_channel_bbp_request(op,&write,&a));uint8_t data[4]={0};
+   if(write){uint32_t word=mt76_channel_bbp_value(op/9,v->before[op/9]);for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(word>>(8*j));}
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==222?6:1,0);
+  if(fault<=202)gain_fault(m,fault);
+  if(fault==203)m->gain_inventory_active=false;
+   if(fault==204)m->gain_fields.valid=false;
+  if(fault==205)m->gain_fields.agc8^=1;
+   if(fault==206)m->gain_gate.failed=true;
+  if(fault==207)m->gain_gate.submitted++;
+   if(fault==208)m->gain_inventory.reads++;
+  if(fault==209)m->gain_inventory_submitted++;
+   if(fault==210)m->gain_inventory.complete=false;
+  if(fault==211)m->gain_inventory.values[20]^=1;
+   if(fault==212)m->gain_gate.pending=true;
+  if(fault==213)m->channel_bbp_mode=false;
+   if(fault==214)m->channel_bbp_active=false;
+  if(fault==215)m->gain_fields.lna_raw=255;
+   if(fault==216)m->gain_fields.rssi[0]=2;
+  if(fault==217)m->channel_bbp_submitted++;
+   if(fault==218)v->reads++;
+  if(fault==219)v->complete=true;
+   if(fault==220)a++;
+   if(fault==221){if(write)data[0]^=1;else a++;}
+  bool ok=wifi_channel_bbp_transfer(d,op,write,a,data,4);assert(ok==!fault);
+  if(!fault)assert(!wifi_channel_bbp_transfer(d,op,write,a,data,4));else if(fault==222)assert(d->ep0_quarantined && m->failed && !freed);else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_channel_bbp());puts("xhci channel BBP: PASS189 positions,221 ownership/state/profile faults,no USB on refusal,no replay,quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6479,6 +6527,7 @@ int main(int argc, char **argv) {
     test_wifi_synth1();
     test_wifi_post();
     test_wifi_gain();
+    test_wifi_channel_bbp();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

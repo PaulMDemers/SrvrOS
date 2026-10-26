@@ -3524,3 +3524,29 @@ Next: bounded channel1 filter/BBP setup using fresh captured gain with independe
 readbacks, then post-tune VCO/calibration prerequisites. Budget the whole next
 prefix:501580 of524288 bytes used; explicitly increase diagnostic capacity if
 needed while preserving historical limits and missing-prefix refusal.
+
+
+### Channel1 baseband/filter setup (v86 candidate)
+
+The explicit diagnostic now clears CORE1 bit5 for channel1 and writes the20
+selected20MHz/G-band BBP values with AGC8=16344ef0, derived from fresh mapped
+LNA0. Same-boot RSSI+1/+1, unclamped fields, exact21-target v85 inventory and
+whole prior ownership proof are mandatory. Unknown profiles refuse. Each of21
+targets uses three strict MAC0/COREf000f200/DMA40000050 preguards, a fresh exact
+input, one fixed masked/full write, independent exact readback and three strict
+postguards:189 operations,168 reads,21 writes/verified,42 guard triplets. CORE1
+preserves all bits exceptbit5; captured input2 remains2. Each BBP fresh input must
+match the captured profile; no arbitrary register/value admission or replay.
+
+No post-tune VCO pulse, calibration, MAC enable, scan or traffic. Host tests cover
+every transfer, cancellation, bad guard/fresh value/readback and authorization
+mutation boundary, payload bits and no replay. Native callbacks cover189
+positions and221 ownership/state/profile faults plus transfer-error quarantine.
+Independent Linux v7.0 table selection/filter/source-order audit and ASan/UBSan
+passed. Whole-prefix fixture526067bytes requires explicit1MiB capture, selected
+only by this mode;64/128/256/512KiB historical limits are unchanged. Logger tests
+cover1MiB persistence/wrap boundaries and lost-prefix refusal; collector checks
+all receipts/order/guards/full-prefix arithmetic and rejects1721 malformed
+proofs.165 staging tests,170 historical recipes and29 desktop-collection tests
+passed; full build and xHCI regression passed. Exact-stage VM/install follows;
+physical acceptance remains pending.

@@ -3,7 +3,7 @@
 #include <string.h>
 #define SRVROS_BOOTLOG_HOST_TEST
 #include "../kernel/src/bootlog.c"
-static char saved[BOOTLOG_FULL_CAPTURE_CAPACITY];
+static char saved[BOOTLOG_EXTENDED_CAPTURE_CAPACITY];
 static uint64_t saved_size;
 void console_putc(char c) { bootlog_putc(c); }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t count) {
@@ -14,7 +14,7 @@ static void reset(void) {
 }
 static void append(unsigned start,unsigned end) { for(unsigned i=start;i<end;i++)bootlog_putc('a'+i%26); }
 static void check(unsigned total,unsigned retained) {
-    static char out[BOOTLOG_FULL_CAPTURE_CAPACITY];uint64_t seq;
+    static char out[BOOTLOG_EXTENDED_CAPTURE_CAPACITY];uint64_t seq;
     assert(bootlog_snapshot(out,sizeof(out),&seq)==retained && seq==total && bootlog_size()==retained);
     for(unsigned i=0;i<retained;i++)assert(out[i]==(char)('a'+(total-retained+i)%26));
     assert(bootlog_persist("/test") && saved_size==retained && !memcmp(saved,out,retained));
@@ -53,5 +53,12 @@ int main(void) {
     }
     reset();assert(bootlog_extend_capture_to(262144));append(0,262145);assert(!bootlog_extend_capture_to(524288));check(262145,262144);
     reset();assert(!bootlog_extend_capture_to(524289));
+    const unsigned extended_points[]={0,65536,131072,262144,524287,524288};
+    for(unsigned i=0;i<sizeof(extended_points)/sizeof(extended_points[0]);i++){
+        reset();assert(bootlog_extend_capture_to(524288));append(0,extended_points[i]);assert(bootlog_extend_capture_to(1048576));
+        append(extended_points[i],1048576);check(1048576,1048576);append(1048576,1100000);check(1100000,1048576);assert(!bootlog_extend_capture_to(1048576));
+    }
+    reset();assert(bootlog_extend_capture_to(524288));append(0,524289);assert(!bootlog_extend_capture_to(1048576));check(524289,524288);
+    reset();assert(!bootlog_extend_capture_to(1048577));
     puts("bootlog: PASS ordinary/extended boundaries, complete persistence, wrap ordering, lost-prefix refusal and suppressed replay");
 }

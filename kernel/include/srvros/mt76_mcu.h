@@ -705,4 +705,16 @@ uint32_t mt76_gain_inventory_target(unsigned index);
 uint32_t mt76_gain_inventory_address(unsigned operation);
 bool mt76_gain_inventory_admit(const struct mt76_gain_inventory *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_gain_inventory_capture(struct mt76_gain_inventory *s,const struct mt76_mcu_timing_io *io);
+/* Captured channel1/20MHz/LNA0 profile only; no radio enable or calibration. */
+#define MT76_CHANNEL_BBP_COUNT 21u
+#define MT76_CHANNEL_BBP_OPERATIONS (MT76_CHANNEL_BBP_COUNT*9u)
+struct mt76_channel_bbp {bool attempted,complete;unsigned operations,reads,writes,verified;uint32_t guards[42][3],before[21],after[21];};
+uint32_t mt76_channel_bbp_address(unsigned index);
+uint32_t mt76_channel_bbp_initial(unsigned index);
+uint32_t mt76_channel_bbp_value(unsigned index,uint32_t before);
+bool mt76_channel_bbp_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_channel_bbp_transfer_valid(const struct mt76_channel_bbp *,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_channel_bbp_apply(struct mt76_channel_bbp *,const struct mt76_post_mac_io *);
+bool mt76_channel_bbp_exact_profile_valid(const struct mt76_channel_bbp *);
+bool mt76_gain_inventory_exact_profile_valid(const struct mt76_gain_inventory *);
 #endif

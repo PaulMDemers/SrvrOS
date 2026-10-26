@@ -3910,3 +3910,13 @@ test-mt76-gain-inventory: build/tests/mt76-gain-inventory-host$(HOST_EXE)
 build/tests/mt76-gain-inventory-host$(HOST_EXE): tools/test_mt76_gain_inventory.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+
+build/tests/mt76-channel-bbp-host$(HOST_EXE): tools/test_mt76_channel_bbp.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include tools/test_mt76_channel_bbp.c kernel/src/drivers/mt76_mcu.c -o $@
+.PHONY: test-mt76-channel-bbp
+test-mt76-channel-bbp: build/tests/mt76-channel-bbp-host$(HOST_EXE)
+	$<
+
+test-core: test-mt76-channel-bbp

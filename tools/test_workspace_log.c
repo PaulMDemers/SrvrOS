@@ -3,13 +3,13 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_FULL_CAPTURE_CAPACITY]; } files[64];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_EXTENDED_CAPTURE_CAPACITY]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true,extend_ok=true;
 static uint64_t snapshot_bytes=8;
 static bool lost_prefix;
 bool bootlog_extend_capture(void) { return extend_ok; }
-bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY);return extend_ok; }
+bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY || capacity==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);return extend_ok; }
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
@@ -121,6 +121,10 @@ int main(void) {
     snapshot_bytes=BOOTLOG_FULL_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
     assert(!workspace_log_start_full_capture() && writes==old_writes);extend_ok=true;
     assert(workspace_log_start_full_capture() && snapshot_limit==BOOTLOG_FULL_CAPTURE_CAPACITY);
+    assert(workspace_log_stop());snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_extended_capture() && writes==old_writes);extend_ok=true;
+    assert(workspace_log_start_extended_capture() && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+
     large=find(path);assert(large && large->node.size==snapshot_bytes);for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
     old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
     assert(workspace_log_stop());snapshot_bytes=8;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
