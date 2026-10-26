@@ -1,5 +1,7 @@
 #include <srvros/desk_paths.h>
 #include <srvros/desk_app.h>
+#include <srvros/desk_runtime.h>
+#include <srvros/desk_commands.h>
 #include <srvros/desk_terminal_view.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_dialog.h>
@@ -14,6 +16,8 @@
 #define INPUT_BYTES (DESK_CLIPBOARD_BYTES+32)
 struct terminal_app {
     struct desk_app window;
+    struct desk_connection connection;
+    struct desk_runtime runtime;
     struct desk_terminal screen;
     struct desk_term_line lines[576],alternate[DESK_TERM_ROWS];
     struct desk_terminal_view view;
@@ -28,7 +32,35 @@ struct terminal_app {
     char status[160];
 };
 static struct terminal_app app;
+enum { TERM_CLOSE=10,TERM_SELECT_ALL,TERM_PAGE_UP,TERM_PAGE_DOWN,TERM_FOLLOW };
 static int network_trial;
+static unsigned terminal_commands(struct desk_command commands[9]) {
+    unsigned modal=app.modal?DESK_MENU_DISABLED:0;
+    unsigned stopped=modal|(app.exited || !app.child?DESK_MENU_DISABLED:0);
+    const struct desk_command values[]={
+        {1,modal,0x11,SRV_KEY_CTRL|SRV_KEY_SHIFT,"New terminal","Ctrl-Shift-N"},
+        {2,modal|(app.clipboard.mode || app.view.anchor==app.view.caret?DESK_MENU_DISABLED:0),6,SRV_KEY_CTRL|SRV_KEY_SHIFT,"Copy","Ctrl-Shift-C"},
+        {3,stopped|(app.clipboard.mode?DESK_MENU_DISABLED:0),25,SRV_KEY_CTRL|SRV_KEY_SHIFT,"Paste","Ctrl-Shift-V"},
+        {4,stopped,0,0,"Clear screen","Ctrl-L"},
+        {TERM_CLOSE,modal,26,SRV_KEY_CTRL|SRV_KEY_SHIFT,"Close window","Ctrl-Shift-W"},
+        {TERM_SELECT_ALL,modal,4,SRV_KEY_CTRL|SRV_KEY_SHIFT,"Select all","Ctrl-Shift-A"},
+        {TERM_PAGE_UP,modal,SRV_KEY_PAGEUP,SRV_KEY_SHIFT,"Page up","Shift-PageUp"},
+        {TERM_PAGE_DOWN,modal,SRV_KEY_PAGEDOWN,SRV_KEY_SHIFT,"Page down","Shift-PageDown"},
+        {TERM_FOLLOW,modal,0,0,"Follow output",""}};
+    memcpy(commands,values,sizeof(values));return 9;
+}
+/* Identify app bindings even when disabled/repeated, so they cannot fall through
+ * into shell control bytes. Ctrl-C/D/L remain ordinary PTY input. Meta aliases
+ * the app's Ctrl-Shift bindings; it never aliases raw shell Ctrl bindings. */
+static unsigned terminal_shortcut(const struct srv_key_event *key) {
+    struct srv_key_event copy=*key;struct desk_command commands[9];
+    unsigned count=terminal_commands(commands);
+    for(unsigned i=0;i<count;i++)commands[i].flags&=~DESK_MENU_DISABLED;
+    if(copy.modifiers&SRV_KEY_META)copy.modifiers|=SRV_KEY_SHIFT;
+    copy.flags&=~SRV_KEY_REPEAT;
+    return desk_commands_key(commands,count,&copy);
+}
+static void run_command(unsigned id);
 static void status(const char *message) { snprintf(app.status,sizeof(app.status),"%s",message);app.window.dirty=1; }
 static int enqueue(const void *data,size_t size) {
     if(size>INPUT_BYTES-app.input_size || app.master<0 || app.exited) return -1;
@@ -40,7 +72,8 @@ static int enqueue(const void *data,size_t size) {
 static void layout(void) {
     int w=app.window.width,h=app.window.height;
     int button_width=(w-48)/4;if(button_width>84) button_width=84;
-    for(int i=0;i<4;i++) desk_button_configure(&app.buttons[i],(struct desk_rect){12+i*(button_width+8),12,button_width,28},1);
+    struct desk_command commands[9];unsigned count=terminal_commands(commands);
+    for(int i=0;i<4;i++) desk_button_configure(&app.buttons[i],(struct desk_rect){12+i*(button_width+8),12,button_width,28},desk_commands_enabled(commands,count,i+1));
     desk_ui_layout_changed(&app.toolbar);desk_ui_focus(&app.toolbar,0);
     desk_terminal_view_configure(&app.view,(struct desk_rect){12,50,w-24,h-86},1);
     if(app.master>=0) {
@@ -133,60 +166,54 @@ static void clipboard_result(int result) {
     if(bracket) enqueue("\033[201~",6);
     desk_terminal_view_follow(&app.view);status(multiline && !bracket ? "Pasted as one line. Press Enter to submit." : "Clipboard text pasted.");desk_log("deskterm: clipboard pasted bytes=%u single_line=%u\n",size,multiline && !bracket);
 }
-static void toolbar_action(struct desk_action a) {
-    if(a.flags&DESK_WIDGET_REDRAW) app.window.dirty=1;
-    if(!(a.flags&DESK_WIDGET_ACTIVATED)) return;
-    if(a.id==1) { if(desk_app_launch(&app.window,DESK_APP_TERMINAL,"")) status("A new terminal could not be opened."); }
-    else if(a.id==2) copy_selection();else if(a.id==3) paste();
-    else if(a.id==4) { if(enqueue("\014",1)) status("This session cannot accept input."); }
-    desk_ui_focus(&app.toolbar,0);desk_terminal_view_event(&app.view,(struct desk_widget_event){.type=DESK_WIDGET_FOCUS_IN});
-}
-static void keyboard(const struct srv_key_event *k) {
-    if(app.modal) { dialog_action(desk_dialog_key(&app.dialog,k));return; }
-    if(!(k->flags&SRV_KEY_DOWN_EVENT)) return;
-    int command=((k->modifiers&SRV_KEY_CTRL) && (k->modifiers&SRV_KEY_SHIFT)) || (k->modifiers&SRV_KEY_META);
-    if(command) {
-        if(k->usage==6) { copy_selection();return; }
-        if(k->usage==25) { paste();return; }
-        if(k->usage==4) { desk_terminal_view_select_all(&app.view);app.window.dirty=1;return; }
-        if(k->usage==26) { close_request();return; }
-        if(k->usage==17) { toolbar_action((struct desk_action){1,DESK_WIDGET_ACTIVATED});return; }
-    }
-    if((k->modifiers&SRV_KEY_SHIFT) && (k->usage==SRV_KEY_PAGEUP || k->usage==SRV_KEY_PAGEDOWN)) {
-        desk_terminal_view_scroll(&app.view,(k->usage==SRV_KEY_PAGEUP?-1:1)*(int)app.view.rows*app.view.cell_height);app.window.dirty=1;return;
-    }
-    char bytes[32];size_t length=desk_terminal_key(&app.screen,k,bytes,sizeof(bytes));
-    if(length) {
-        if(enqueue(bytes,length)) status("The input queue is full or this session has ended.");
-        else { desk_terminal_view_follow(&app.view);app.window.dirty=1; }
-    }
-}
-enum { TERM_CLOSE=10,TERM_SELECT_ALL,TERM_PAGE_UP,TERM_PAGE_DOWN,TERM_FOLLOW };
-static void menus(void) {
-    unsigned disabled=app.modal?DESK_MENU_DISABLED:0;
-    unsigned stopped=disabled|(app.exited || !app.child?DESK_MENU_DISABLED:0);
-    struct desk_menu_item items[]={
-        {0,DESK_MENU_HEADING,"File",""},{1,disabled,"New terminal","Ctrl-Shift-N"},
-        {TERM_CLOSE,disabled,"Close window","Ctrl-Shift-W"},
-        {0,DESK_MENU_HEADING,"Edit",""},
-        {2,disabled|(app.clipboard.mode || app.view.anchor==app.view.caret?DESK_MENU_DISABLED:0),"Copy","Ctrl-Shift-C"},
-        {3,stopped|(app.clipboard.mode?DESK_MENU_DISABLED:0),"Paste","Ctrl-Shift-V"},
-        {TERM_SELECT_ALL,disabled,"Select all","Ctrl-Shift-A"},
-        {0,DESK_MENU_HEADING,"View",""},{4,stopped,"Clear screen","Ctrl-L"},
-        {TERM_PAGE_UP,disabled,"Page up","Shift-PageUp"},{TERM_PAGE_DOWN,disabled,"Page down","Shift-PageDown"},
-        {TERM_FOLLOW,disabled,"Follow output",""}
-    };
-    desk_app_menus(&app.window,items,sizeof(items)/sizeof(items[0]));desk_app_menu_tick(&app.window);
-}
-static void menu_action(unsigned id) {
-    if(app.modal) return;
-    if(id<=4) toolbar_action((struct desk_action){id,DESK_WIDGET_ACTIVATED});
-    else if(id==TERM_CLOSE) close_request();
-    else if(id==TERM_SELECT_ALL) { desk_terminal_view_select_all(&app.view);app.window.dirty=1; }
+static void command(void *context,unsigned id) {
+    (void)context;
+    if(id==1) {if(desk_app_launch(&app.window,DESK_APP_TERMINAL,""))status("A new terminal could not be opened.");}
+    else if(id==2)copy_selection();else if(id==3)paste();
+    else if(id==4) {if(enqueue("\014",1))status("This session cannot accept input.");}
+    else if(id==TERM_CLOSE)close_request();
+    else if(id==TERM_SELECT_ALL) {desk_terminal_view_select_all(&app.view);app.window.dirty=1;}
     else if(id==TERM_PAGE_UP || id==TERM_PAGE_DOWN) {
         desk_terminal_view_scroll(&app.view,(id==TERM_PAGE_UP?-1:1)*(int)app.view.rows*app.view.cell_height);app.window.dirty=1;
-    } else if(id==TERM_FOLLOW) { desk_terminal_view_follow(&app.view);app.window.dirty=1; }
+    } else if(id==TERM_FOLLOW) {desk_terminal_view_follow(&app.view);app.window.dirty=1;}
+    desk_ui_focus(&app.toolbar,0);
+    desk_terminal_view_event(&app.view,(struct desk_widget_event){.type=app.modal?DESK_WIDGET_FOCUS_OUT:DESK_WIDGET_FOCUS_IN});
 }
+static void run_command(unsigned id) {
+    struct desk_command commands[9];unsigned count=terminal_commands(commands);
+    desk_commands_invoke(commands,count,id,command,NULL);
+}
+static void toolbar_action(struct desk_action action) {
+    if(action.flags&DESK_WIDGET_REDRAW)app.window.dirty=1;
+    if(action.flags&DESK_WIDGET_ACTIVATED)run_command(action.id);
+}
+static void keyboard(const struct srv_key_event *key) {
+    if(app.modal) {dialog_action(desk_dialog_key(&app.dialog,key));return;}
+    if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_CANCEL))return;
+    unsigned id=terminal_shortcut(key);
+    if(id) {if(!(key->flags&SRV_KEY_REPEAT))run_command(id);return;}
+    char bytes[32];size_t length=desk_terminal_key(&app.screen,key,bytes,sizeof(bytes));
+    if(length) {
+        if(enqueue(bytes,length))status("The input queue is full or this session has ended.");
+        else {desk_terminal_view_follow(&app.view);app.window.dirty=1;}
+    }
+}
+static void menus(void) {
+    struct desk_command commands[9];unsigned count=terminal_commands(commands);
+    for(unsigned i=0;i<4;i++) {
+        int enabled=desk_commands_enabled(commands,count,i+1);
+        if(app.buttons[i].enabled!=enabled) {desk_button_configure(&app.buttons[i],app.buttons[i].frame,enabled);app.window.dirty=1;}
+    }
+    struct desk_menu_item items[12]={{0,DESK_MENU_HEADING,"File",""}};unsigned used=1;
+    const unsigned order[]={0,4,1,2,5,3,6,7,8};
+    for(unsigned i=0;i<9;i++) {
+        if(i==2)items[used++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Edit",""};
+        if(i==5)items[used++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"View",""};
+        desk_command_menu(&commands[order[i]],&items[used++]);
+    }
+    desk_app_menus(&app.window,items,used);desk_app_menu_tick(&app.window);
+}
+static void menu_action(unsigned id) {run_command(id);}
 static void pump(void) {
     if(app.master<0) return;
     for(unsigned batch=0;batch<4 && app.input_size;batch++) {
@@ -221,6 +248,29 @@ static void draw(struct desk_canvas *c) {
     desk_label_draw(c,(struct desk_rect){12,c->height-28,c->width-24,24},theme->body,app.status,theme->muted);
     if(app.modal) desk_dialog_draw(c,&app.dialog,theme);
 }
+static int terminal_event(void *context,struct desk_app *window,struct desk_packet p) {
+    (void)context;(void)window;
+    if(p.type==DESK_CONFIGURE) { layout();if(!app.started) start(); }
+    else if(p.type==DESK_FOCUS) {
+        desk_terminal_view_event(&app.view,(struct desk_widget_event){.type=p.value && !app.modal?DESK_WIDGET_FOCUS_IN:DESK_WIDGET_FOCUS_OUT});
+        if(app.modal) desk_dialog_focus(&app.dialog,p.value!=0);else desk_ui_window_focus(&app.toolbar,p.value!=0);app.window.dirty=1;
+    } else if(p.type==DESK_MENU_ACTION) menu_action(p.value);
+    else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));keyboard(&k); }
+    else if(p.type==DESK_POINTER) {
+        struct desk_widget_event event={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
+            .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
+        if(app.modal) dialog_action(desk_dialog_pointer(&app.dialog,event,srv_monotonic_us()));
+        else {
+            toolbar_action(desk_ui_pointer(&app.toolbar,event,srv_monotonic_us()));
+            if(desk_terminal_view_event(&app.view,event)) app.window.dirty=1;
+        }
+    } else if(p.type==DESK_SCROLL && !app.modal) {
+        if(desk_terminal_view_scroll(&app.view,p.y)) app.window.dirty=1;
+    } else if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
+        int done=desk_clipboard_receive(&app.clipboard,&p);if(done) clipboard_result(done);
+    } else if(p.type==DESK_CLOSE_REQUEST) close_request();
+    return app.quit?1:0;
+}
 int main(int argc,char **argv) {
     network_trial=argc==3 && !strcmp(argv[1],"terminal") && !strcmp(argv[2],"network-trial");
     app.master=-1;
@@ -229,38 +279,25 @@ int main(int argc,char **argv) {
     static const char *labels[]={"New","Copy","Paste","Clear"};
     for(int i=0;i<4;i++) desk_ui_add(&app.toolbar,i+1,DESK_CONTROL_BUTTON,&app.buttons[i],labels[i]);
     desk_clipboard_init(&app.clipboard,app.clipboard_store);
-    desk_log("deskterm: starting\n");if(desk_app_open(&app.window,"Terminal",820,500)) return 1;
+    desk_connection_init(&app.connection);desk_runtime_init(&app.runtime,&app.connection);
+    desk_log("deskterm: starting\n");if(desk_window_open(&app.connection,&app.window,"Terminal",820,500))return 1;
     while(!app.quit && !app.window.failed && !app.window.closed) {
         if(desk_clipboard_tick(&app.clipboard,srv_ticks())<0) clipboard_result(-1);
-        for(unsigned batch=0;batch<32;batch++) {
-            struct desk_packet p;int result=desk_app_poll(&app.window,&p);if(result<=0) break;if(result==2) continue;
-            if(p.type==DESK_CONFIGURE) { layout();if(!app.started) start(); }
-            else if(p.type==DESK_FOCUS) {
-                desk_terminal_view_event(&app.view,(struct desk_widget_event){.type=p.value && !app.modal?DESK_WIDGET_FOCUS_IN:DESK_WIDGET_FOCUS_OUT});
-                if(app.modal) desk_dialog_focus(&app.dialog,p.value!=0);else desk_ui_window_focus(&app.toolbar,p.value!=0);app.window.dirty=1;
-            } else if(p.type==DESK_MENU_ACTION) menu_action(p.value);
-            else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));keyboard(&k); }
-            else if(p.type==DESK_POINTER) {
-                struct desk_widget_event event={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
-                    .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
-                if(app.modal) dialog_action(desk_dialog_pointer(&app.dialog,event,srv_monotonic_us()));
-                else {
-                    toolbar_action(desk_ui_pointer(&app.toolbar,event,srv_monotonic_us()));
-                    if(desk_terminal_view_event(&app.view,event)) app.window.dirty=1;
-                }
-            } else if(p.type==DESK_SCROLL && !app.modal) {
-                if(desk_terminal_view_scroll(&app.view,p.y)) app.window.dirty=1;
-            } else if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
-                int done=desk_clipboard_receive(&app.clipboard,&p);if(done) clipboard_result(done);
-            } else if(p.type==DESK_CLOSE_REQUEST) close_request();
-        }
+        if(desk_runtime_dispatch(&app.runtime,terminal_event,NULL)<0)app.window.failed=1;
         if(app.quit || app.window.closed || app.window.failed) break;
-        pump();uint64_t blink=(uint64_t)srv_ticks()/50;
+        pump();uint64_t ticks=(uint64_t)srv_ticks(),blink=ticks/50;
         if(blink!=app.blink) { app.blink=blink;if(app.view.focused && !app.modal) app.window.dirty=1; }
         menus();
         struct desk_canvas canvas;if(desk_app_canvas(&app.window,&canvas)==1) { draw(&canvas);desk_app_present(&app.window); }
-        srv_sleep_ticks(1);
+        if(app.master>=0) {
+            unsigned events=(app.pty_eof?0:SRV_POLLIN)|(app.input_size?SRV_POLLOUT:0);
+            if(events)desk_runtime_watch(&app.runtime,app.master,events);
+        }
+        long now=srv_monotonic_us();
+        if(now>=0 && app.view.focused && !app.modal)desk_runtime_deadline(&app.runtime,(uint64_t)now+(50-ticks%50)*10000);
+        desk_runtime_idle(&app.runtime,app.clipboard.mode || app.screen.reply_size || !app.started);
     }
+    desk_runtime_timers_clear(&app.runtime);
     if(app.master>=0) srv_close(app.master);
     if(app.child && !app.exited) for(unsigned i=0;i<100;i++) {
         long result=srv_wait(app.child,&app.exit_status,SRV_WAIT_NOHANG);if(result!=0) break;srv_sleep_ticks(1);

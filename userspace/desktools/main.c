@@ -130,7 +130,7 @@ static void draw(struct tool *t,struct desk_canvas *c) {
     if(t->picker_mode && !t->dialog_separate) desk_picker_draw(c,&t->picker,theme);
     if(t->modal && !t->dialog_separate) desk_dialog_draw(c,&t->dialog,theme);
     desk_popup_draw(c,&t->context,theme);
-    if(t->prompt_mode) desk_prompt_draw(c,&t->prompt,theme);
+    if(t->prompt_mode && !t->dialog_separate) desk_prompt_draw(c,&t->prompt,theme);
 }
 /* Explicit diagnostic only: snapshots of the RAM document, never user files. */
 struct capture_snapshot { uint64_t serial;unsigned length,caret,anchor,busy;char hex[129]; };
@@ -161,6 +161,21 @@ void tool_runtime_init(struct tool *t,int role) {
     desk_edit_init(&t->path,&t->path_text,0);desk_edit_init(&t->body,&t->body_text,t->role==DESK_APP_TEXT);
     desk_edit_init(&t->name,&t->name_text,0);
     tool_timing_end(role,0,"runtime-init",timing);
+}
+void tool_runtime_cancel_modal(struct tool *t) {
+    if(t->info_mode)tool_files_info_close(t);
+    if(t->prompt_mode)tool_files_prompt(t,(struct desk_action){DESK_PROMPT_CANCEL,DESK_WIDGET_ACTIVATED});
+    if(t->modal) {if(t->role==DESK_APP_FILES)tool_files_dialog(t,1003);else tool_text_dialog(t,1003);}
+    if(t->picker_mode)tool_picker_cancel(t);
+}
+void tool_runtime_close_request(struct tool *t) {
+    desk_log("window-lifecycle: close-request role=%d window=%llu busy=%u operation=%u\n",t->role,
+        (unsigned long long)t->window.window,(unsigned)t->job.busy,t->job.busy?t->job.request.operation:0);
+    desk_popup_cancel(&t->context);
+    if(t->role==DESK_APP_TEXT) {
+        if(t->picker_mode)tool_picker_cancel(t);
+        t->close_canceled=0;tool_text_request(t,TOOL_PENDING_CLOSE);
+    } else {tool_runtime_cancel_modal(t);t->closing=1;}
 }
 void tool_runtime_event(struct tool *t,struct desk_packet p) {
     if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
@@ -210,12 +225,7 @@ void tool_runtime_event(struct tool *t,struct desk_packet p) {
     }
     else if(p.type==DESK_CLOSE_REQUEST) {
         tool_timing_event(t->role,t->window.window,"close-received");
-        desk_popup_cancel(&t->context);
-        if(t->info_mode) tool_files_info_close(t);
-        if(t->prompt_mode) tool_files_prompt(t,(struct desk_action){DESK_PROMPT_CANCEL,DESK_WIDGET_ACTIVATED});
-        if(t->role==DESK_APP_FILES && t->modal) tool_files_dialog(t,1003);
-        if(t->picker_mode) tool_picker_cancel(t);
-        if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
+        tool_runtime_close_request(t);
     }
 }
 int tool_runtime_file_poll(struct tool *t,uint64_t *logged_job) {
@@ -243,9 +253,11 @@ int tool_file_pool_retire(struct desk_file_pool *pool,int role) {
     return result==1?0:-1;
 }
 void tool_runtime_draw(struct tool *t) {
-    if(t->role==DESK_APP_TEXT && t->title_dirty && t->window.server) {
-        const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:"Untitled";char title[88];
-        snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
+    if((t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) && t->title_dirty && t->window.server) {
+        const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:t->role==DESK_APP_TEXT?"Untitled":"Opening";char title[88];
+        if(t->role==DESK_APP_TEXT)snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
+        else snprintf(title,sizeof(title),"Files — %s",name[0]?name:"System root");
+        size_t length=strlen(title);while(length && !desk_text_utf8_valid(title,length))title[--length]=0;
         if(!desk_app_title(&t->window,title)) t->title_dirty=0;
     }
     tool_menu_refresh(t);desk_app_menu_tick(&t->window);
@@ -277,8 +289,8 @@ int main(int argc,char **argv) {
     if(file_capture)tool_file_capture_setup(workspace_capture);
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
     int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
-    if(t->role==DESK_APP_TEXT && !coexist) {
-        int result=tool_text_runtime(argc>2?argv[2]:"");
+    if((t->role==DESK_APP_TEXT && !coexist) || t->role==DESK_APP_FILES) {
+        int result=tool_window_runtime(t->role,argc>2?argv[2]:"");
         tool_timing_event(t->role,0,"main-return");return result;
     }
     unsigned captured=0;uint64_t logged_job=0;

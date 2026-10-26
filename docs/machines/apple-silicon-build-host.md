@@ -1040,3 +1040,20 @@ open-reference defect was confirmed by this trace; no process-admission edits
 were made. Caller serialization, overlapping physical device views, raw leases
 and removal remain next, followed by recovery/crash consistency. This is bounded
 source/host/VM acceptance, not a complete filesystem or hardware audit.
+
+### Allocation checkpoint integration verification
+
+After checkpoint `28bdb374` was pushed, main `0858e8e6` incorporated PR181's
+desktop lifecycle and PR185's UART/startup trace updates. The only merge conflict
+was the appended Makefile test targets; both target groups were preserved.
+No filesystem implementation/test source changed during integration. The matched
+build, 47 exFAT host modes, four generator groups, 40-case shared-window host test
+and 372-entry image check pass against that baseline.
+
+Six integrated VMs pass sequentially: aliases 16.46 s, bitmap quarantine 16.39 s,
+import 16.45 s, corrupt-entry fallback 16.33 s, complete threads 39.89 s and libuv
+10.06 s. Integrated logs, VM receipts and source/output hashes are retained in
+`build/review/exfat-ownership-audit/`. PR184/19 runtime work remains separate.
+No desktop UI, physical hardware or Actions acceptance is claimed by these runs.
+The remaining queue is unchanged: overlapping device views, raw leases,
+serialization/removal and recovery/crash consistency.

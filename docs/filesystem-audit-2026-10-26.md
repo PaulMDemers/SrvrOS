@@ -245,6 +245,23 @@ python3 tools/exfat_import_smoke.py --ownership
 python3 tools/exfat_import_smoke.py --ownership-corrupt
 ```
 
+### Integration verification
+
+After publishing allocation checkpoint `28bdb374`, main advanced to `0858e8e6`
+with the desktop lifecycle and UART/startup trace changes from PR181/PR185.
+Integrating that baseline conflicted only in appended Makefile test targets;
+both the exFAT and desktop targets were retained. The nine filesystem
+implementation/test source files are unchanged from the published checkpoint.
+
+The integrated build and all 47 host modes pass, as do four generator groups,
+the 40-case shared-window host test and the independent 372-entry image check.
+All six sequential VMs pass again: aliases 16.46 s, quarantine 16.39 s, import
+16.45 s, corrupt-entry/fallback 16.33 s, complete threads 39.89 s, and libuv
+10.06 s. Evidence is in `integrated-*.log`, `integrated-vms/result.json`,
+`integrated-tested-sha256.json` and `integrated-macos-build.json` under the same
+evidence directory. These are emulated filesystem/integration checks; they do
+not replace the desktop agent's UI or physical-machine acceptance.
+
 ## Remaining audit queue
 
 1. Device/view lifetime and aliasing: overlapping block-device views of one physical
