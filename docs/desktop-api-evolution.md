@@ -273,7 +273,7 @@ contract above. D3c shares an asynchronous [file chooser controller](desktop-cho
 between Text and Preview, preserving canceled-read ownership and correlating
 completion before reuse; source acceptance is recorded per machine.
 
-The next [shared runtime block](desktop-application-runtime.md) centralizes
+D3d implements the [shared runtime block](desktop-application-runtime.md):
 bounded dispatch, caller-owned deadlines/timers, worker-readiness wait preparation
 and standard command snapshots for Text and Preview. It does not allocate app
 models or own their accepted file/image jobs. See its validation and unit record

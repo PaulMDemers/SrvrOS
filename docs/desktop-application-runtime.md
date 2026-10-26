@@ -111,3 +111,15 @@ Actual Text/Preview, pointer, shutdown, crash and refused-dialog VM fixtures in
 the lifecycle guide remain the consumer gates, including exact saved bytes,
 retained edits, canceled reads, retirement and restored process baselines.
 Machine records distinguish source/VM validation from new physical acceptance.
+
+The growth fixture tracks document identities independently of owned save-picker
+IDs. It waits for the picker first frame before selection and both save completion
+and picker retirement before the next document shortcut. Registry capacity is
+allocated storage, not the live window count. The sixteen-document pressure run
+retains its explicit quota and embedded-picker refusal fallback. Both require
+exact saved contents, preserved edits, bounded workers and complete retirement.
+
+Air7,2's PR172 local validation and consumed PR174 scheduler baseline are recorded
+in its [machine record](machines/macbookair7-2.md). The persistent application
+lifecycle checklist includes command parity for the new runtime. Physical input,
+listening and native responsiveness remain separate acceptance work.

@@ -2,7 +2,7 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
-### Shared application runtime — active scope
+### Shared application runtime — implemented; physical acceptance pending
 
 Base main `eda8bfb`; PR170's app-timing diagnostics are already consumed.
 Air7,2 owns the next bounded desktop-runtime block: shared bounded connection
@@ -25,6 +25,38 @@ including its registered phase timer and merged readiness; its workload and
 acceptance predicates remain unchanged.
 Installed accepted current remains `1d1d5edce03523db`, recovery
 `9aa8dbf6fbda8252`; the prior return is collected, and no new boot is armed.
+
+Text, Preview and the GUI/file-worker load diagnostic now use the optional
+allocation-free shared runtime. It bounds dispatch and due-timer callbacks,
+merges existing pipe readiness with deadlines and a service heartbeat, and keeps
+accepted-job/document teardown with its application owner. Standard command
+snapshots guard Text/Preview menus, toolbar buttons and application shortcuts.
+Widgets remain pure; no protocol, driver, resource-budget or native model gate
+is changed by this block.
+
+Local consumer validation through clean `ce413bf` passes actual pointer actions,
+unsaved desktop shutdown, crash/refused-dialog recovery, maximum-image cancel and
+format failures, 32 same-process documents with 33 exact files and complete
+retirement, the separate sixteen-document quota/refusal run with 17 exact files,
+and four app cycles during a captured 20-second stream with zero sample error.
+The growth fixture now uses actual monotonic document identities, separates owned
+pickers from document counts, waits for picker first-frame/retirement receipts,
+and distinguishes allocated registry capacity from live windows. Earlier failed
+fixture assumptions remain in ignored evidence; deadlines and byte/resource
+checks are retained.
+
+Main `a679115` (PR174 process entry/reap admission) is consumed in clean
+`1854676`. The combined tree passes full core/desktop host suites, matched
+normal/native/VM builds, actual 16-idle/32-write-key and forty 64 KiB write/readback
+wait-load checks, and unsaved desktop shutdown with exact files and process
+baseline recovery. Runtime ASan/UBSan and current documentation links pass.
+PR172 publishes this shared block; Actions remain disabled. Local evidence is
+`build/app-runtime-20261025/`; the new attended run record is
+`build/app-runtime-native-20261025/`. Native runtime/input/audio acceptance is
+pending an exact-stage rehearsal and the in-guest persistent checklist. The prior
+accepted current/recovery above remain installed; no new reboot is armed at this
+source checkpoint. PR19 retains Wi-Fi, and Air6,1 owns its physical process-
+admission acceptance; consuming its shared fix does not claim that result here.
 
 ### Desktop modal and unsaved-exit retest accepted
 
