@@ -973,3 +973,11 @@ characterizes the slot-order fairness limit. On this Mac that existing x86 host
 fixture runs under Rosetta, compiled with `cc -arch x86_64` and `-Wl,-dead_strip`
 instead of Linux's `--gc-sections`; it is not a native ARM64 scheduler test or
 qualification of the full Mac `test-core` target.
+
+
+AHCI offline investigation: the existing `test-storage` fixture now covers
+completion/readiness at deadline and service bounds, independent per-phase
+budgets and failure receipts. `storage_service_smoke.py` also validates the
+forced timeout's phase, reason and pending register state. See the
+[investigation and Mac commands](ahci-offline-investigation-2026-10-26.md) for
+reproduction limits; the historical spontaneous incidents are not yet attributed.

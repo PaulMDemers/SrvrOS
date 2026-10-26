@@ -291,6 +291,8 @@ static bool issue_command_locked(struct ahci_disk *disk, uint8_t command, uint64
     uint64_t kernel_address_space = vmm_kernel_address_space();
     bool switched_address_space = previous_address_space != kernel_address_space;
     bool success = false;
+    const char *phase = "ready", *reason = "task-file";
+    uint64_t elapsed_us = 0;
 
     if (switched_address_space) {
         vmm_switch_address_space(kernel_address_space);
@@ -339,40 +341,60 @@ static bool issue_command_locked(struct ahci_disk *disk, uint8_t command, uint64
     uint64_t spins = 0;
     uint64_t windows = 0, window_progress_us = start;
     while ((port->tfd & 0x88) != 0) {
-        if (++spins >= AHCI_POLL_LIMIT || timer_monotonic_us() - start >= AHCI_COMMAND_TIMEOUT_US)
-            goto failed;
+        if (++spins >= AHCI_POLL_LIMIT) { reason = "poll-limit"; goto ready_bound; }
+        if ((elapsed_us = timer_monotonic_us() - start) >= AHCI_COMMAND_TIMEOUT_US) {
+            reason = "deadline"; goto ready_bound;
+        }
         /* Bound consecutive service turns without clock progress, without
          * shortening the normal deadline when a healthy clock advances. */
         if ((spins & 63) == 0 && service_wait(request, previous_address_space)) {
             if (last_service_us != window_progress_us) {
                 window_progress_us = last_service_us;
                 windows = 0;
-            } else if (++windows >= AHCI_SERVICE_LIMIT) goto failed;
+            } else if (++windows >= AHCI_SERVICE_LIMIT) { reason = "service-limit"; goto ready_bound; }
         }
         __asm__ volatile ("pause");
+        continue;
+ready_bound:
+        /* Hardware may become ready during the clock read or service turn.
+         * A stale loop-entry observation must not quarantine a ready port. */
+        if (port->tfd & 0x88) goto failed;
+        break;
     }
 
     /* Publish DMA descriptors before ringing the command doorbell. */
     __asm__ volatile ("mfence" : : : "memory");
+    phase = "completion";
     port->ci = 1;
     commands_issued++;
     start = timer_monotonic_us();
     spins = 0;
+    elapsed_us = windows = 0;
+    window_progress_us = start;
     while ((port->ci & 1) != 0) {
-        if ((port->is & HBA_PORT_IS_TFES) != 0 || ++spins >= AHCI_POLL_LIMIT ||
-            timer_monotonic_us() - start >= AHCI_COMMAND_TIMEOUT_US) goto failed;
+        if (port->is & HBA_PORT_IS_TFES) { reason = "task-file"; goto failed; }
+        if (++spins >= AHCI_POLL_LIMIT) { reason = "poll-limit"; goto completion_bound; }
+        if ((elapsed_us = timer_monotonic_us() - start) >= AHCI_COMMAND_TIMEOUT_US) {
+            reason = "deadline"; goto completion_bound;
+        }
         /* Bound consecutive service turns without clock progress, without
          * shortening the normal deadline when a healthy clock advances. */
         if ((spins & 63) == 0 && service_wait(request, previous_address_space)) {
             if (last_service_us != window_progress_us) {
                 window_progress_us = last_service_us;
                 windows = 0;
-            } else if (++windows >= AHCI_SERVICE_LIMIT) goto failed;
+            } else if (++windows >= AHCI_SERVICE_LIMIT) { reason = "service-limit"; goto completion_bound; }
         }
         __asm__ volatile ("pause");
+        continue;
+completion_bound:
+        /* CI is asynchronous: completion can arrive after the loop check.
+         * Recheck once at every bound; the final TFES check still wins. */
+        if (port->ci & 1) goto failed;
+        break;
     }
     __asm__ volatile ("mfence" : : : "memory");
-    if (port->is & HBA_PORT_IS_TFES) goto failed;
+    if (port->is & HBA_PORT_IS_TFES) { reason = "task-file"; goto failed; }
     /* A chain of fast commands must also admit services. This bound spans
      * requests; the command-count fallback works without a reference clock. */
     if (request->services && (timer_monotonic_us() - last_service_us >= 1000 ||
@@ -384,8 +406,11 @@ failed:
      * Recovery/reset is deliberately a separate operation. */
     disk->failed = true;
     failed_commands++;
-    console_printf("ahci: port=%u command=%x failed; disk offline\n",
-        (uint64_t)disk->port_index, (uint64_t)command);
+    console_printf("ahci: port=%u command=%x failed; disk offline phase=%s reason=%s "
+        "lba=%u elapsed_us=%u spins=%u windows=%u ci=%x is=%x tfd=%x serr=%x\n",
+        (uint64_t)disk->port_index, (uint64_t)command, phase, reason, lba,
+        elapsed_us, spins, windows, (uint64_t)port->ci, (uint64_t)port->is,
+        (uint64_t)port->tfd, (uint64_t)port->serr);
 
 out:
     if (switched_address_space) {

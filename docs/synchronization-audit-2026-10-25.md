@@ -1263,3 +1263,10 @@ existing x86 instructions, and an initial x86 command omitted the Limine include
 path. The explicit x86_64/Rosetta fixture passes. None is recorded as a guest
 runtime regression or full Mac test-core acceptance. All disposable VMs stopped.
 No full Linux/core, general SMP or physical-hardware acceptance is claimed.
+
+
+The subsequent [AHCI investigation](ahci-offline-investigation-2026-10-26.md)
+confirms and corrects stale completion/readiness decisions at wait bounds and a
+shared phase-budget defect. Two diagnostic-only full-thread runs passed; the
+original intermittent failures remain unattributed. Preserve the earlier failed
+receipts rather than treating these directed reproductions as proof of their cause.

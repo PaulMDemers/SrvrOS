@@ -576,3 +576,42 @@ filesystem/network/native issues, Node recovery and Mac test-core portability
 remain separate tracked work, as specified in the audit closeout matrix. PR175
 is ready for the user-authorized merge after publishing this validated commit.
 No physical boot or installation is armed; Actions remain disabled by policy.
+
+
+## Historical AHCI disk-offline investigation — active scope
+
+User authorizes reproductions, confirmed fixes, regression coverage, docs and a
+new draft PR. Branch `device/apple-silicon/ahci-offline` starts at merged main
+`f0cd6409`; PR19 at `44f41e72` retains separate Wi-Fi ownership. Review the two
+retained READ DMA EXT failures during full thread runs, AHCI polling/deadlines,
+service handoff and completion/error ownership. Use disposable x86_64 QEMU guests
+and host driver models; do not change native gates or persistent VM disks.
+Next checkpoint: classify the historical evidence and obtain a directed failing
+reproduction before changing runtime behavior. No physical boot armed.
+
+
+Two diagnostic-only full-thread runs passed without spontaneous offline. The
+host driver model confirmed a stale completion/readiness decision at bounds and
+carryover of the pre-submission service budget. The candidate rechecks phase
+state once at bounds, preserves the final TFES check and resets the completion
+phase's budget. Genuine failures keep the existing quarantine/pinned DMA policy;
+limits and native gates are unchanged. New diagnostics record phase, reason,
+sector, last elapsed sample, counters and port registers.
+
+AHCI and block/cache host tests and AHCI ASan/UBSan pass under x86_64 Rosetta.
+Four source-copy controls compile and fail the intended assertions. The
+storage-service VM passes throttled I/O, USB input, cancellation, copy comparison,
+fsck, three executable relaunch cycles and forced timeout/quarantine. Its genuine
+pending write times out at 2,000,000 us with CI=1, IS=0, TFD=0x50 and SERR=0;
+one failure is counted and later storage is refused. Historical READ DMA EXT
+failures remain unattributed; these reproductions do not establish their cause.
+Evidence is retained in `build/review/ahci-offline/`; no physical trial is armed.
+
+
+Final candidate full-thread suite passes on its first run, with no spontaneous
+AHCI failure. Documentation checks 648 local inline links with zero errors;
+whitespace checks pass. Matched build, AHCI/block host checks, sanitizer and
+storage-service receipts are saved with source/image/log hashes. The initial
+diagnostic build rejected duplicate unused local declarations introduced while
+adding diagnostics; those were removed before VM tests. That failed attempt is
+retained alongside the passing build. All disposable VMs are stopped.
