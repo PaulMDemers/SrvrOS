@@ -2,7 +2,7 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
-### Shared application/window layer — native return collected; tester report pending
+### Shared application/window layer — bounded non-audio hardware acceptance
 
 Release `a90629c8a2060e66`, source `0858e8e6` (PR181 plus PR185), returned in
 `session-00065ec1cc8ad4c2-00`. All four matching logs are verified, the exit
@@ -21,11 +21,16 @@ Read-only fsck, allocation and headroom pass: 1,129 files / 2,864 clusters,
 zero leaks, bitmap mismatches or errors. Ubuntu default, consumed one-shot,
 installed payload/cache hashes and independent recovery remain verified.
 
+The tester confirms completing every checklist section except sound, with all
+completed behavior working properly. This accepts the reported Text and Files
+window/dialog/command behavior, Terminal controls and cancellation for this
+bounded release. Ordinary reopen is tester-reported; only one new session is
+present in the collector, so a second logged lifetime is not separately proved.
 No PCM stream is recorded (`handle=0`, submitted/position zero); native playback
-and app/save overlap are not accepted here. The human report is still pending,
-so Files sibling-window/mutation behavior, Terminal controls, explicit Quit/
-cancellation and ordinary reopen are not promoted from VM evidence or the word
-“back.” Current installed remains `a90629c8a2060e66`, recovery `9aa8dbf6fbda8252`;
+and app/save overlap remain deferred while another device tests audio. That
+device cannot accept Air7,2 sound. New feedback requests offscreen window movement
+and clearer dock running/restore affordances; neither is in this payload.
+Current installed remains `a90629c8a2060e66`, recovery `9aa8dbf6fbda8252`;
 accepted prior payload `986d6c68fa19ba18` remains backed up. Matching evidence and
 new files are under `build/app-window-native-20261026/`, with durable copies
 outside build. No next boot is armed.
