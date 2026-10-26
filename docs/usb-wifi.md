@@ -3374,3 +3374,33 @@ offline workspace clean307files/728clusters/127directories with zero leaks,
 mismatches or errors. Evidence archived, unmounted/unarmed. Bounded band
 setup/readbacks passed on the captured adapter; synthesizer/channel tuning,
 calibrated radio operation, scanning and Wi-Fi connectivity remain untested.
+
+
+### Fixed channel1 synthesizer (v83 candidate)
+
+The next explicit diagnostic applies only the pinned Linux v7.0 channel1
+(2412MHz) frequency row, mapped through the declared `mt76x0_freq_item` fields
+and masks. Preserve all21 reference steps: RF0:37/36/35/34/33 full writes;
+32[e0,1f],31[e0,1f],30[80,7c,02],29 full,30[01],28[c0,30,0c],26/27 full,
+28[03],24[03]. There is no SDM reset pulse for this row. Full masks areff.
+No grouped field shortcut, caller-selected frequency or arbitrary register plan.
+
+Each step reads its fixed target fresh, requires the captured profile at that
+point, performs one full/masked write preserving other bits, then reads back
+independently. Initial RF0:24 is33(hex);26..37 are0 before this phase. Later
+fresh values include earlier accepted steps in the same sequence. Writes use
+fresh read words, with exact masked payload validation before USB. All63 MCU
+commands have strict MAC0/COREf000f200/DMA40000050 triplets before/after:
+441 ordered operations,378 guard reads,63 exact replies,21 ACKs,42 observations
+and126 triplets. Sequences start6 after the v82 band plan ends5, finish8.
+
+Require whole exact v82 band/MAC proof and all prior initialization. Both
+completion markers, all ordered receipts and21 indexed mask/bits/before/after
+observations must fit the complete512KiB prefix. A synthetic whole-chain
+fixture is458428bytes and1993 malformed proofs refuse. Source table/struct/
+mask mapping and fresh-value replay independently compared to pinned reference.
+Directed engine checks cover every I/O/cancellation/guard/reply-bit/length
+boundary,5376 masked byte inputs, completed-proof mutations and no replay.
+Native/VM checks follow before installation; physical result pending.
+No VCO trigger, transmit-power selection, bandwidth/band tail, MAC enable,
+scanning or traffic. Frequency-field readbacks do not establish RF readiness.

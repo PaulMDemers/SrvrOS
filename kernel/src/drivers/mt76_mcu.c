@@ -2462,3 +2462,61 @@ bool mt76_band_mac_exact_profile_valid(const struct mt76_band_mac *s){
     for(unsigned i=0;i<2;i++)if(s->before[i]!=mt76_band_mac_initial(i) || s->after[i]!=mt76_band_mac_value(i,s->before[i]))return false;
     return true;
 }
+
+/* Linux v7.0 mt76x0_frequency_plan channel1, mapped through mt76x0_freq_item.
+ * Adjacent RMW fields retain source order; no SDM pulse, VCO or caller plan. */
+static const uint8_t synth1_regs[21]={37,36,35,34,33,32,32,31,31,30,30,30,29,30,28,28,28,26,27,28,24};
+static const uint8_t synth1_masks[21]={255,255,255,255,255,0xe0,0x1f,0xe0,0x1f,0x80,0x7c,2,255,1,0xc0,0x30,0xc,255,255,3,3};
+static const uint8_t synth1_bits[21]={2,0x3f,0x28,0xdd,0xe2,0x40,2,0x40,2,0,0,2,0x28,0,0,0x30,0,0,0,0,3};
+static const uint8_t synth1_initial[21]={0,0,0,0,0,0,0x40,0,0x40,0,0,0,0,2,0,0,0x30,0,0,0x30,0x33};
+uint32_t mt76_synth1_address(unsigned i){return i<21?0x80000000u|synth1_regs[i]:UINT32_MAX;}
+unsigned mt76_synth1_mask(unsigned i){return i<21?synth1_masks[i]:UINT32_MAX;}
+unsigned mt76_synth1_bits(unsigned i){return i<21?synth1_bits[i]:UINT32_MAX;}
+unsigned mt76_synth1_initial(unsigned i){return i<21?synth1_initial[i]:UINT32_MAX;}
+unsigned mt76_synth1_value(unsigned i,unsigned before){return i<21 && before<=255?(before&~synth1_masks[i])|synth1_bits[i]:UINT32_MAX;}
+unsigned mt76_synth1_sequence(unsigned q){return q<63?(q+5)%15+1:0;}
+uint32_t mt76_synth1_guard_address(unsigned op){unsigned n=op%7;return op<441 && n!=3?mt76_rf_probe_read_address(n<3?n:n-4):UINT32_MAX;}
+static uint32_t synth1_expected(unsigned q){unsigned i=q/3;return q%3?mt76_synth1_value(i,synth1_initial[i]):synth1_initial[i];}
+static bool synth1_state_valid(const struct mt76_synth1 *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>441)return false;
+    unsigned q=op/7,n=op%7,ex=q+(n>3),acks=(ex+1)/3;
+    if(s->reads!=op-ex || s->exchanges!=ex || s->acks!=acks || s->observed!=ex-acks || s->received!=(ex?16:-1))return false;
+    for(unsigned k=0;k<op;k++){
+        unsigned c=k/7,j=k%7;
+        if(j==3){const uint32_t *w=s->words[c];uint32_t h=0x4a000008u|(mt76_synth1_sequence(c)<<16);
+            if(w[0]!=h || w[1]!=mt76_synth1_address(c/3) || w[2]!=synth1_expected(c) || w[3]!=h)return false;
+        }else{unsigned e=2*c+(j>=4),b=j<3?j:j-4;if(!rf_central_guard_valid(b,s->guards[e][b]))return false;}
+    }
+    return true;
+}
+bool mt76_synth1_admit(const struct mt76_synth1 *s,unsigned op){return s && !s->complete && op<441 && synth1_state_valid(s,op);}
+size_t mt76_synth1_packet(const struct mt76_synth1 *s,unsigned op,uint8_t *out,size_t cap){
+    if(!mt76_synth1_admit(s,op) || op%7!=3)return 0;
+    unsigned q=op/7;uint32_t a=mt76_synth1_address(q/3);uint8_t payload[8]={0};
+    for(unsigned j=0;j<4;j++)payload[j]=(uint8_t)(a>>(8*j));
+    if(q%3==1)payload[4]=(uint8_t)mt76_synth1_value(q/3,s->words[q-1][2]);
+    return mt76_mcu_encode(q%3==1?12:10,mt76_synth1_sequence(q),payload,8,out,cap);
+}
+enum mt76_mcu_timing_status mt76_synth1_capture(struct mt76_synth1 *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_synth1){.attempted=true,.received=-1};
+    for(unsigned op=0;op<441;op++){
+        unsigned q=op/7,n=op%7;if(!mt76_synth1_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(n!=3){unsigned e=2*q+(n>=4),j=n<3?n:n-4;uint32_t *v=&s->guards[e][j];
+            if(!io->read(io->context,mt76_synth1_guard_address(op),v))return MT76_TIMING_IO;
+            s->reads++;s->operations++;if(!rf_central_guard_valid(j,*v))return MT76_TIMING_STATE;
+        }else{uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];if(mt76_synth1_packet(s,op,packet,16)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);s->exchanges++;
+            for(unsigned j=0;j<4;j++)if(s->received>=(int)(4*j+4))for(unsigned b=0;b<4;b++)s->words[q][j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|(mt76_synth1_sequence(q)<<16);
+            if(s->received!=16 || s->words[q][0]!=h || s->words[q][1]!=mt76_synth1_address(q/3) || s->words[q][2]!=synth1_expected(q) || s->words[q][3]!=h)return MT76_TIMING_REPLY;
+            if(q%3==1)s->acks++;else s->observed++;s->operations++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!synth1_state_valid(s,441))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
+bool mt76_synth1_exact_profile_valid(const struct mt76_synth1 *s){return s && s->complete && synth1_state_valid(s,441);}

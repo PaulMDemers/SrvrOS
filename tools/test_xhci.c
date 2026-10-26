@@ -4943,6 +4943,66 @@ static void test_wifi_band2g(void){
  }
  reset_test();assert(!xhci_wifi_capture_band2g());puts("xhci band2g: PASS980 RF and18 MAC positions,162 prerequisite/state faults, every command bit, refusal/no replay/quarantine");
 }
+
+static void synth1_fixture(struct xhci_device *d,unsigned op){
+ band2g_fixture(d,980);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ m->band_mac_active=true;m->band_mac_submitted=18;m->band_mac=(struct mt76_band_mac){.attempted=true,.complete=true,.operations=18,.reads=16,.writes=2,.verified=2,.after={0x50007,0x3e0002}};
+ for(unsigned g=0;g<4;g++){m->band_mac.guards[g][1]=0xf000f200;m->band_mac.guards[g][2]=0x40000050;}
+ assert(mt76_band_mac_exact_profile_valid(&m->band_mac));
+ unsigned ex=op/7+(op%7>3),acks=(ex+1)/3;m->synth1_active=m->synth1_mode=true;m->synth1_submitted=op;
+ m->synth1=(struct mt76_synth1){.attempted=true,.operations=op,.reads=op-ex,.exchanges=ex,.acks=acks,.observed=ex-acks,.received=ex?16:-1};
+ for(unsigned g=0;g<126;g++){m->synth1.guards[g][1]=0xf000f200;m->synth1.guards[g][2]=0x40000050;}
+ for(unsigned q=0;q<63;q++){uint32_t *w=m->synth1.words[q];w[0]=w[3]=0x4a000008|(mt76_synth1_sequence(q)<<16);w[1]=mt76_synth1_address(q/3);w[2]=q%3?mt76_synth1_value(q/3,mt76_synth1_initial(q/3)):mt76_synth1_initial(q/3);}
+ assert(mt76_synth1_admit(&m->synth1,op));
+}
+static void synth1_fault(struct xhci_wifi_mcu *m,unsigned f){
+ if(f<=162){if(f==162)m->band2g.complete=false;else band2g_fault(m,f);}
+ if(f==163)m->band_mac_active=false;
+ if(f==164)m->band_mac.complete=false;
+ if(f==165)m->band_mac.operations++;
+ if(f==166)m->band_mac_submitted++;
+ if(f==167)m->band_mac.before[0]=1;
+ if(f==168)m->band_mac.after[1]^=1;
+ if(f==169)m->band_mac.guards[3][2]^=1;
+ if(f==170)m->band2g.values[69]^=1;
+ if(f==171)m->synth1_mode=false;
+ if(f==172)m->synth1_active=false;
+ if(f==173)m->synth1.operations++;
+ if(f==174)m->synth1_submitted++;
+ if(f==175)m->synth1.complete=true;
+ if(f==176)m->synth1.attempted=false;
+ if(f==177)m->synth1.reads++;
+ if(f==178)m->synth1.exchanges++;
+ if(f==179)m->synth1.acks++;
+ if(f==180)m->synth1.observed++;
+ if(f==181)m->band_mac.writes++;
+ if(f==182)m->band_mac.verified++;
+ if(f==183)m->band2g.guards[279][2]^=1;
+}
+static void test_wifi_synth1(void){
+ for(unsigned op=0;op<441;op++)for(unsigned fault=0;fault<((op==0 || op==3 || op==440)?187u:1u);fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};uint8_t tx[4096]={0},rx[1024]={0},packet[16],reply[1024];
+  struct xhci_device *d=&xhci.devices[0];synth1_fixture(d,op);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_firmware *f=&d->firmware;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  if(op%7==3)assert(mt76_synth1_packet(&m->synth1,op,packet,16)==16);
+  if(fault<=183)synth1_fault(m,fault);
+  if(op%7==3){
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   if(fault==184)packet[4]^=1;
+   if(fault==185)events[0].status=6u<<24;
+   if(fault==186)events[1].status=6u<<24;
+   if(!fault)for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_synth1_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}
+   int result=wifi_synth1_exchange(d,packet,16,reply,1024);assert(result==(!fault?16:-1));if(!fault)assert(wifi_synth1_exchange(d,packet,16,reply,1024)==-1);
+   else if(fault>=185)assert(d->ep0_quarantined && f->failed && !freed);else assert(!f->ep.enqueue && !m->response.enqueue);
+  }else{
+   uint32_t a=mt76_synth1_guard_address(op);d->ep0_ring=out;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=tx;d->descriptor_buffer_phys=(uintptr_t)tx;events[0]=control_event(0x9020,fault>=185?6:1,0);uint32_t v=0;
+  if(fault==184)a++;
+   assert(wifi_synth1_read(d,a,&v)==!fault);if(!fault)assert(!wifi_synth1_read(d,a,&v));else if(fault>=185)assert(d->ep0_quarantined && f->failed && !freed);else assert(!d->ep0_enqueue);
+  }
+ }
+ reset_test();assert(!xhci_wifi_capture_synth1());puts("xhci synth1: PASS441 positions,183 ownership/state faults, every packet bit, no USB on refusal/no replay/quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6291,6 +6351,7 @@ int main(int argc, char **argv) {
     test_wifi_bbp20();
     test_wifi_channel_probe();
     test_wifi_band2g();
+    test_wifi_synth1();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

@@ -7363,3 +7363,33 @@ build in `wifi-band2g-83edd6b`. This accepts bounded reference-order band setup
 and readbacks on this adapter, not calibrated RF or connectivity. Next: audit
 and implement fixed channel-frequency/synthesizer fields against captured
 values, preserving disabled MAC/DMA and complete evidence. No new run armed.
+
+
+### 2026-10-25 — fixed channel1 synthesizer candidate scope
+
+Pinned Linux v7.0 channel1/2412MHz frequency row mapped through declared fields
+and source masks; independent audit verifies all21 steps and fresh-value replay.
+Full writes37/36/35/34/33; ordered masks32[e0,1f],31[e0,1f],30[80,7c,02],
+29[ff],30[01],28[c0,30,0c],26[ff],27[ff],28[03],24[03], all in RF bank0.
+Fresh read, fixed masked/full write and independent exact readback per step;
+require original captured24=33hex and26..37=0 with earlier in-phase writes
+accounted for. No VCO/SDM pulse or arbitrary channel selector.
+
+441 operations,378 strict guard reads,63 MCU replies,21 ACKs,42 observations
+and126 disabled-MAC guard triplets; starts sequence6 after band plan ends5.
+Whole prior proof,512KiB prefix and both markers required. Full synthetic
+fixture458428bytes;1993 malformed proofs refused, boot-module namespace
+preserved. Engine tests cover all transfer/cancel/guard/reply-bit/length
+boundaries,5376 masked byte inputs, complete-proof mutation and no replay.
+Native/VM/install evidence follows; physical result pending. No frequency
+readiness, calibrated-radio or connectivity acceptance; no bandwidth/band
+post-tune tail, power selection, MAC enable, scan or traffic.
+
+
+Local v83 checks passed: full build; synth1 engine with all441 transfer and
+442 cancellation boundaries, all reply-bit/length faults and5376 masked inputs;
+complete native xHCI suite including441 positions/183 prerequisite-state faults,
+all packet bits/refusal/no replay/quarantine; ASan/UBSan;162 staging tests and
+164 historical recipes unchanged. Full-chain collector fixture458428bytes,
+1993 malformed proofs rejected with namespace preservation. Exact-stage VM
+and installation follow; no physical synthesizer result yet.

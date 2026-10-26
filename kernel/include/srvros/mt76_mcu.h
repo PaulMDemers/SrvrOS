@@ -661,4 +661,17 @@ bool mt76_band_mac_transfer_valid(const struct mt76_band_mac *s,unsigned operati
 enum mt76_mcu_timing_status mt76_band_mac_apply(struct mt76_band_mac *s,const struct mt76_band_mac_io *io);
 bool mt76_band_mac_exact_profile_valid(const struct mt76_band_mac *s);
 uint32_t mt76_band_mac_initial(unsigned index);
+/* Fixed channel1 synthesizer fields in reference order, never an RF-ready claim. */
+struct mt76_synth1 {bool attempted,complete;unsigned operations,reads,exchanges,acks,observed;int received;uint32_t guards[126][3],words[63][4];};
+uint32_t mt76_synth1_address(unsigned index);
+unsigned mt76_synth1_mask(unsigned index);
+unsigned mt76_synth1_bits(unsigned index);
+unsigned mt76_synth1_initial(unsigned index);
+unsigned mt76_synth1_value(unsigned index,unsigned before);
+unsigned mt76_synth1_sequence(unsigned command);
+uint32_t mt76_synth1_guard_address(unsigned operation);
+bool mt76_synth1_admit(const struct mt76_synth1 *s,unsigned operation);
+size_t mt76_synth1_packet(const struct mt76_synth1 *s,unsigned operation,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_synth1_capture(struct mt76_synth1 *s,const struct mt76_mcu_timing_io *io);
+bool mt76_synth1_exact_profile_valid(const struct mt76_synth1 *s);
 #endif

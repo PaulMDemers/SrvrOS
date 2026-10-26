@@ -82,6 +82,11 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(config.replace(" srvros.wifi-path=1",""),previous)
         with self.assertRaises(ValueError):boot.stage(wifi_path=True)
 
+    def test_wifi_synth1_profile(self):
+        v="ram-usb-wifi-fw-v83-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-synth1=1",""),boot.limine_config("0123456789abcdef",v.replace("v83-","v82-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_synth1=True)
+
     def test_wifi_band2g_profile(self):
         v="ram-usb-wifi-fw-v82-laptop-probe-0e535900-auto-return"
         self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-band2g=1",""),boot.limine_config("0123456789abcdef",v.replace("v82-","v81-")))

@@ -3877,3 +3877,11 @@ test-mt76-band-mac: build/tests/mt76-band-mac-host$(HOST_EXE)
 build/tests/mt76-band-mac-host$(HOST_EXE): tools/test_mt76_band_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-synth1
+test-core: test-mt76-synth1
+test-mt76-synth1: build/tests/mt76-synth1-host$(HOST_EXE)
+	build/tests/mt76-synth1-host$(HOST_EXE)
+build/tests/mt76-synth1-host$(HOST_EXE): tools/test_mt76_synth1.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
