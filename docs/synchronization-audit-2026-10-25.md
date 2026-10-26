@@ -5,6 +5,9 @@
 The three original findings below are fixed on PR175: supplied storage is never
 expanded, condition variables retain their selected clock and recheck absolute
 deadlines, and semaphore increments enforce `SEM_VALUE_MAX=INT_MAX` atomically.
+The fourth finding, worker self-stack inspection, is also corrected with
+pre-callback metadata and positive host/guest tests. Early self-detach remains
+a separate publication-order defect; see the continued audit below.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -199,7 +202,9 @@ harnesses terminate their own disposable VMs. The full Linux host/core suite and
 physical hardware acceptance are not claimed. The original failing probe remains
 in Git history; the positive regression runner replaces expected-defect success.
 
-## Continued audit — P2: self-stack inspection reports a guessed region
+## Historical fourth finding — P2: self-stack inspection reports a guessed region
+
+The following receipt is from `bc0d6418`, before the correction below.
 
 The corrected stack allocation exposed an independent metadata defect in
 `pthread_getattr_np(pthread_self(), ...)`: its self branch guesses one of two
@@ -222,6 +227,74 @@ This is a retained **failed audit case**, explicitly excluded from the passing
 `all` suite. A correction should obtain worker metadata with defined publication/
 lifetime ownership and separately define main-thread inspection; merely replacing
 one guessed constant is insufficient. Actual worker scheduling in this test is
-VM evidence, not physical/native acceptance. This is the next confirmed finding;
-broader record-publication/reaping races remain to be audited rather than inferred
-as proven from this case.
+VM evidence, not physical/native acceptance. This was the next confirmed finding at that checkpoint; broader record-
+publication/reaping races were not established by this case.
+
+
+## Self-stack inspection correction
+
+This pass consumes main `1eb60b8f` (PR174/176 scheduler work). The trampoline
+installs a thread-local pointer to the start record before calling user code,
+so self-inspection does not wait for the parent to publish its tid/record.
+The record remains owned until kernel exit and join/reaping permit cleanup.
+Supplied stack bounds are exact; owned bounds describe the actual allocation.
+Detach state is initialized before creation and atomically updated by successful
+`pthread_detach`, then read by self and other-thread inspection. No public ABI
+layout changes accompany this correction; the earlier condition ABI requirement
+still applies to the combined PR.
+
+Without worker metadata, inspection recognizes only a frame inside either of
+the kernel's two initial-process stack ranges (2 MiB ending at `0x1000000` or
+`0x0ffff000`). Other unregistered stacks return `ESRCH`. This remains coupled to
+`process.c`'s fixed layouts, not a general kernel stack-query API. The guest
+initial-process test exercised the lower layout; the relocated layout is source-
+reviewed, not separately runtime-qualified here.
+
+The positive host runner executes the real trampoline inside its modeled create
+call and terminates that dedicated test process from modeled thread exit, before
+parent publication can run. Supplied odd-size, owned and initially detached cases
+pass. Unknown host-stack and invalid-thread/null-output checks also pass. A
+negative control omitting the TLS installation fails the supplied-stack case
+with exit 1, demonstrating that the test detects the startup dependency.
+
+`threadstress stack-inspection` replaces the historical failing guest mode and
+is included in `all`. It covers 16 KiB, 16 KiB+1, 64 KiB and 2 MiB+1 supplied
+stacks; owned minimum and rounded allocations; immediate self-inspection;
+parent agreement; initially detached and later-detached workers; local-address
+containment; initial-process inspection; and rejection after record cleanup.
+The host ordering test is deterministic; the VM test does not force the early
+scheduling window. Evidence is retained under `build/review/stack-inspection/`.
+
+## Continued audit — P2: early self-detach depends on parent publication
+
+`pthread_detach(pthread_self())` still looks up `pthread_records` by tid. When a
+joinable child calls it before the parent returns from `srv_thread_create` and
+publishes `record->tid/start`, lookup fails and returns `EINVAL`. The new TLS
+metadata fixes inspection only; it does not publish or serialize lifecycle
+records. A worker that expects to detach itself can remain joinable and retain
+its stack/record until explicitly joined.
+
+Reproduce with real libc and the deterministic child-before-parent host model:
+
+```sh
+python3 tools/test_sync_contracts.py --audit-self-detach --output build/review/thread-publication-audit
+# Expected exit 1: known defect; not part of the positive default suite.
+```
+
+Observed: `immediate self-detach returned=22 expected=0`. The modeled syscall
+invokes the actual trampoline and callback before returning; no actual host or
+guest scheduling race is claimed by this receipt. It demonstrates a permitted
+ordering the library does not handle. Parent-side detach after publication is
+covered by the passing VM regression. The next correction should establish
+record publication and lifecycle ownership before callbacks, including cleanup
+and concurrent reaping, rather than special-case a successful return while
+leaving the record joinable. Wider reaper races remain review questions without
+a separate reproduced failure in this pass.
+
+Validation for the final inspection correction: matched `all` build and positive
+host suite pass; targeted guest inspection and the final full thread/libuv suites
+pass sequentially on ARM64 macOS/x86_64 QEMU. The isolated negative control and
+separate self-detach audit fail as intended. The merged app-timing parser's three
+Python tests pass. Documentation checks and `git diff --check` pass. No full
+Linux/core or native-hardware test is claimed. Final source/log hashes and the
+matched build manifest are retained in `build/review/stack-inspection/`.

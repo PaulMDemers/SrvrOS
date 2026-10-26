@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/review/sync-regression')
+    parser.add_argument('--audit-self-detach', action='store_true',
+                        help='run the separate known-failing child-before-parent detach audit')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -44,20 +46,25 @@ def main():
                           '-I', str(ROOT / 'shared/include'), '-include', str(renamed)]
     command += [str(path) for path in sources] + ['-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    result = subprocess.run([str(executable)],
-                            capture_output=True, text=True, timeout=15)
-    print(result.stdout, end='')
-    if result.stderr:
-        print(result.stderr, end='')
+    results = []
+    modes = ('audit-self-detach',) if args.audit_self_detach else (None, 'supplied', 'owned', 'detached')
+    for mode in modes:
+        result = subprocess.run([str(executable)] + ([mode] if mode else []),
+                                capture_output=True, text=True, timeout=15)
+        print(result.stdout, end='')
+        if result.stderr:
+            print(result.stderr, end='')
+        results.append({'mode': mode or 'contracts', 'exit': result.returncode,
+                        'stdout': result.stdout, 'stderr': result.stderr})
+    exit_code = next((r['exit'] for r in results if r['exit']), 0)
     record = {'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT)),
               'platform': platform.platform(), 'compile_command': command,
-              'exit': result.returncode,
-              'stdout': result.stdout, 'stderr': result.stderr,
+              'exit': exit_code, 'cases': results,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                          for path in sources + headers}}
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
-    return result.returncode
+    return exit_code
 
 
 if __name__ == '__main__':

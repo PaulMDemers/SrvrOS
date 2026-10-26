@@ -54,13 +54,19 @@ facility is supported.
 ## Deliberate exclusions
 
 The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)
-found three defects now corrected on the PR175 branch. Caller-supplied pthread
+found four defects now corrected on the PR175 branch. Caller-supplied pthread
 stacks retain their declared region, require a 16-byte-aligned base and at least
 `PTHREAD_STACK_MIN` bytes, and are checked for address overflow before any write.
 Only library-owned allocations are rounded upward, with checked size arithmetic.
 The caller remains responsible for writable storage and its lifetime through
-thread completion. Self-stack reporting by `pthread_getattr_np` remains a
-separate audit item; do not infer corrected inspection from corrected allocation.
+thread completion. `pthread_getattr_np(self)` reads worker metadata installed
+before the callback, preserving exact supplied bounds or the actual rounded
+owned allocation and current detach state. Initial-process inspection recognizes
+the kernel's two fixed 2 MiB stack layouts by frame containment; unregistered
+stacks outside those layouts return `ESRCH`. This adds no public layout change.
+Early self-detach still depends on parent record publication and can fail with
+`EINVAL`; the separate host audit reproduces this ordering. Broader concurrent
+record publication/reaping is not qualified by the inspection tests.
 
 Condition variables retain `CLOCK_REALTIME` (including static/default init) or
 `CLOCK_MONOTONIC`. Timed waits recheck their absolute deadline after early tick

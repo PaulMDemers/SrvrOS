@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <srvros/sys.h>
 #include <time.h>
 
 #define CHECK(x) do { if (!(x)) { printf("threadstress: sync-contracts line=%d errno=%d\n", __LINE__, errno); return -1; } } while (0)
@@ -116,29 +117,77 @@ int posix_sync_contract_test(void) {
     return 0;
 }
 
-/* Explicit audit mode, excluded from the passing all-tests gate. */
-struct inspection_probe { unsigned go; void *reported; size_t size; int error; };
+/* Inspect immediately on entry, then again after a parent-side detach. */
+struct inspection_probe {
+    unsigned ready, go, done;
+    pthread_attr_t first, second;
+    int error;
+    uintptr_t local;
+};
 static void *inspection_worker(void *arg) {
     struct inspection_probe *probe = arg;
+    volatile char local = 1;
+    probe->local = (uintptr_t)&local;
+    probe->error = pthread_getattr_np(pthread_self(), &probe->first);
+    __atomic_store_n(&probe->ready, 1, __ATOMIC_RELEASE);
     while (!__atomic_load_n(&probe->go, __ATOMIC_ACQUIRE)) sched_yield();
-    pthread_attr_t attr;
-    probe->error = pthread_getattr_np(pthread_self(), &attr);
-    if (!probe->error) probe->error = pthread_attr_getstack(&attr, &probe->reported, &probe->size);
+    probe->error |= pthread_getattr_np(pthread_self(), &probe->second);
+    __atomic_store_n(&probe->done, 1, __ATOMIC_RELEASE);
     return NULL;
 }
-int posix_stack_inspection_audit(void) {
-    size_t size = 65536;
-    void *stack = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    CHECK(stack != MAP_FAILED);
-    pthread_attr_t attr; pthread_t worker; struct inspection_probe probe = {0};
-    CHECK(pthread_attr_init(&attr) == 0 && pthread_attr_setstack(&attr, stack, size) == 0);
+static void *inspection_noop(void *arg) { return arg; }
+static int inspect_stack(size_t size, int supplied, int detached, int detach_later) {
+    void *stack = NULL;
+    if (supplied) {
+        stack = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        CHECK(stack != MAP_FAILED);
+    }
+    pthread_attr_t attr, parent; pthread_t worker;
+    struct inspection_probe probe = {0};
+    CHECK(pthread_attr_init(&attr) == 0);
+    CHECK(pthread_attr_setstacksize(&attr, size) == 0);
+    if (supplied) CHECK(pthread_attr_setstack(&attr, stack, size) == 0);
+    CHECK(pthread_attr_setdetachstate(&attr, detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE) == 0);
     CHECK(pthread_create(&worker, &attr, inspection_worker, &probe) == 0);
-    __atomic_store_n(&probe.go, 1, __ATOMIC_RELEASE); /* parent record is published */
-    CHECK(pthread_join(worker, NULL) == 0);
-    int mismatch = probe.error || probe.reported != stack || probe.size != size;
-    printf("threadstress: stack-inspection requested=%p/%lu reported=%p/%lu error=%d mismatch=%d\n",
-           stack, (unsigned long)size, probe.reported, (unsigned long)probe.size, probe.error, mismatch);
-    CHECK(munmap(stack, size) == 0);
-    if (mismatch) { puts("threadstress: stack-inspection-audit failed"); return 1; }
-    puts("threadstress: stack-inspection-audit ok\nthreadstress: ok"); return 0;
+    while (!__atomic_load_n(&probe.ready, __ATOMIC_ACQUIRE)) sched_yield();
+    CHECK(!probe.error && pthread_getattr_np(worker, &parent) == 0);
+    CHECK(parent.stackaddr == probe.first.stackaddr && parent.stacksize == probe.first.stacksize);
+    CHECK(parent.detachstate == attr.detachstate && probe.first.detachstate == attr.detachstate);
+    size_t actual_size = supplied ? size : ((size < 2097152 ? 2097152 : size) + 4095) & ~(size_t)4095;
+    CHECK(parent.stacksize == actual_size);
+    if (supplied) CHECK(parent.stackaddr == stack);
+    CHECK(probe.local >= (uintptr_t)parent.stackaddr && probe.local < (uintptr_t)parent.stackaddr + parent.stacksize);
+    if (detach_later) CHECK(pthread_detach(worker) == 0);
+    __atomic_store_n(&probe.go, 1, __ATOMIC_RELEASE);
+    if (detached || detach_later) {
+        while (!__atomic_load_n(&probe.done, __ATOMIC_ACQUIRE)) sched_yield();
+        while (srv_thread_status((uint64_t)(uintptr_t)worker) > 0) sched_yield();
+        /* Reap the exited detached worker before its caller-owned storage goes away. */
+        pthread_t cleanup;
+        CHECK(pthread_create(&cleanup, NULL, inspection_noop, NULL) == 0);
+        CHECK(pthread_join(cleanup, NULL) == 0);
+    } else CHECK(pthread_join(worker, NULL) == 0);
+    CHECK(!probe.error && probe.second.stackaddr == parent.stackaddr && probe.second.stacksize == parent.stacksize);
+    CHECK(probe.second.detachstate == ((detached || detach_later) ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE));
+    CHECK(pthread_getattr_np(worker, &attr) == ESRCH);
+    if (supplied) CHECK(munmap(stack, size) == 0);
+    return 0;
+}
+int posix_stack_inspection_test(void) {
+    pthread_attr_t initial;
+    volatile char local = 1;
+    CHECK(pthread_getattr_np(pthread_self(), &initial) == 0);
+    CHECK(initial.stacksize == 2097152 && initial.detachstate == PTHREAD_CREATE_JOINABLE);
+    CHECK((uintptr_t)&local >= (uintptr_t)initial.stackaddr &&
+          (uintptr_t)&local < (uintptr_t)initial.stackaddr + initial.stacksize);
+    CHECK(pthread_getattr_np(pthread_self(), NULL) == EINVAL);
+    CHECK(pthread_getattr_np((pthread_t)(uintptr_t)-1, &initial) == ESRCH);
+    CHECK(inspect_stack(PTHREAD_STACK_MIN, 1, 0, 0) == 0);
+    CHECK(inspect_stack(PTHREAD_STACK_MIN + 1, 1, 0, 0) == 0);
+    CHECK(inspect_stack(65536, 1, 0, 1) == 0);
+    CHECK(inspect_stack(2097153, 1, 1, 0) == 0);
+    CHECK(inspect_stack(PTHREAD_STACK_MIN, 0, 0, 0) == 0);
+    CHECK(inspect_stack(2097153, 0, 1, 0) == 0);
+    puts("threadstress: stack-inspection ok");
+    return 0;
 }

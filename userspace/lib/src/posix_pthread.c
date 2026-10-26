@@ -36,6 +36,7 @@ struct pthread_start_record {
     void *stack;
     size_t stack_size;
     int owns_stack;
+    int detachstate;
 };
 
 struct pthread_record {
@@ -49,6 +50,8 @@ struct pthread_key_value { void *value;uint64_t generation; };
 static struct pthread_key_slot pthread_keys[PTHREAD_KEYS_MAX];
 static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
 static _Thread_local struct pthread_key_value key_values[PTHREAD_KEYS_MAX];
+/* Owned by this live worker until kernel exit/join permits record cleanup. */
+static _Thread_local struct pthread_start_record *self_start;
 static unsigned key_lock;
 static void lock_keys(void) {
     while(__atomic_exchange_n(&key_lock,1,__ATOMIC_ACQUIRE)) srv_yield();
@@ -187,6 +190,7 @@ static void pthread_run_destructors(void) {
 
 static void pthread_start_trampoline(uint64_t raw_start) {
     struct pthread_start_record *start = (struct pthread_start_record *)(uintptr_t)raw_start;
+    self_start = start;
     void *result = start->start_routine(start->arg);
     pthread_exit(result);
 }
@@ -252,6 +256,7 @@ int pthread_create(pthread_t *thread,
         .stack = stack,
         .stack_size = stack_size,
         .owns_stack = owns_stack,
+        .detachstate = detachstate,
     };
 
     struct pthread_record *record = pthread_record_alloc();
@@ -319,9 +324,10 @@ int pthread_join(pthread_t thread, void **value_ptr) {
 int pthread_detach(pthread_t thread) {
     pthread_reap_detached();
     struct pthread_record *record = pthread_record_find(thread);
-    if (record == 0 || record->detached) {
+    if (record == 0 || record->start == 0 || record->detached) {
         return EINVAL;
     }
+    __atomic_store_n(&record->start->detachstate, PTHREAD_CREATE_DETACHED, __ATOMIC_RELEASE);
     record->detached = 1;
     if (srv_thread_status(pthread_tid_value(thread)) == 0) {
         uint64_t ignored = 0;
@@ -476,19 +482,33 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
         return error;
     }
     if (thread == pthread_self()) {
+        /* The child can enter before its parent publishes the pthread record.
+         * The trampoline installs this pointer before calling user code. */
+        if (self_start != NULL) {
+            attr->stackaddr = self_start->stack;
+            attr->stacksize = self_start->stack_size;
+            attr->detachstate = __atomic_load_n(&self_start->detachstate, __ATOMIC_ACQUIRE);
+            return 0;
+        }
+        /* Kernel-created initial stacks use these two fixed layouts (see
+         * process.c: choose_process_stack_top/map_user_stack). Raw syscall
+         * threads on other storage have no libc metadata: refuse to guess. */
         uintptr_t frame = (uintptr_t)__builtin_frame_address(0);
-        uintptr_t stack_top = frame > SRVROS_MAIN_STACK_TOP
-                                  ? SRVROS_DYNAMIC_STACK_TOP
-                                  : SRVROS_MAIN_STACK_TOP;
-        attr->stacksize = PTHREAD_DEFAULT_STACK_SIZE;
-        attr->stackaddr = (void *)(stack_top - PTHREAD_DEFAULT_STACK_SIZE);
-        return 0;
+        const uintptr_t tops[] = { SRVROS_MAIN_STACK_TOP, SRVROS_DYNAMIC_STACK_TOP };
+        for (unsigned i = 0; i < sizeof(tops) / sizeof(tops[0]); i++) {
+            if (frame >= tops[i] - PTHREAD_DEFAULT_STACK_SIZE && frame < tops[i]) {
+                attr->stacksize = PTHREAD_DEFAULT_STACK_SIZE;
+                attr->stackaddr = (void *)(tops[i] - PTHREAD_DEFAULT_STACK_SIZE);
+                return 0;
+            }
+        }
+        return ESRCH;
     }
     struct pthread_record *record = pthread_record_find(thread);
     if (record == 0 || record->start == 0) {
         return ESRCH;
     }
-    attr->detachstate = record->detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE;
+    attr->detachstate = __atomic_load_n(&record->start->detachstate, __ATOMIC_ACQUIRE);
     attr->stacksize = record->start->stack_size;
     attr->stackaddr = record->start->stack;
     return 0;

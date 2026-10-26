@@ -115,3 +115,10 @@ checked supplied-stack handling, retained condition clocks and checked semaphore
 counts, plus positive host/guest regressions. The original failure receipts above
 are historical. See the synchronization audit's current disposition and matched-
 rebuild requirement rather than treating those three items as still unfixed.
+
+The subsequent self-stack inspection finding is also corrected: workers install
+metadata before entering user code, and live tests cover supplied/owned storage,
+parent agreement and detach-state updates. Initial-process inspection retains
+explicit kernel layouts. Continued host audit now isolates early self-detach
+failing before parent record publication. See the synchronization report for
+the separate failing reproduction and the limits of this modeled evidence.

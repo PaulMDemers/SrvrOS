@@ -13,17 +13,28 @@
 static int error_value, last_clock, futex_calls, dispatches, wait_mode, clock_error;
 static int creates, mappings, unmappings, fail_mapping;
 static uint64_t submitted_stack, largest_ticks;
+static int inspect_early, expected_detach, audit_self_detach;
+static void *expected_stack;
+static size_t expected_size;
 static struct timespec now[2];
 int *__errno_location(void) { return &error_value; }
 long srv_thread_self(void) { return 1; }
 long srv_thread_status(uint64_t tid) { (void)tid; return -ESRCH; }
 long srv_thread_join(uint64_t tid, uint64_t *value) { (void)tid; (void)value; return -ESRCH; }
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t flags) {
-    (void)entry; (void)arg; (void)flags;
+    (void)flags;
     creates++; submitted_stack = stack;
+    if (inspect_early) {
+        ((void (*)(uint64_t))(uintptr_t)entry)(arg);
+        abort();
+    }
     return -EAGAIN; /* Exercise creation failure and cleanup, without a worker. */
 }
-long srv_thread_exit(uint64_t value) { (void)value; abort(); }
+long srv_thread_exit(uint64_t value) {
+    CHECK(inspect_early && value == 0);
+    puts("sync-contracts: child self-inspection before parent publication PASS");
+    exit(0); /* Dedicated process; never return to parent publication. */
+}
 long srv_thread_signal(uint64_t tid, uint64_t signal) { (void)tid; (void)signal; abort(); }
 long srv_syscall0(long number) { (void)number; abort(); }
 void srv_yield(void) { abort(); }
@@ -52,7 +63,9 @@ void *mmap(void *address, size_t size, int protection, int flags, int fd, off_t 
     mappings++;
     if (fail_mapping) return MAP_FAILED;
     CHECK(size >= PTHREAD_STACK_MIN && !(size & 4095));
-    void *memory = malloc(size); CHECK(memory != NULL); return memory;
+    void *memory = malloc(size); CHECK(memory != NULL);
+    if (inspect_early) { expected_stack = memory; expected_size = size; }
+    return memory;
 }
 int munmap(void *address, size_t size) { (void)size; unmappings++; free(address); return 0; }
 static void *never_started(void *arg) { return arg; }
@@ -175,4 +188,39 @@ static void semaphore_tests(void) {
     CHECK(sem_post(NULL) == -1 && errno == EINVAL);
     puts("sync-contracts: semaphore bounds, unchanged overflow and recovery PASS");
 }
-int main(void) { stack_tests(); condition_tests(); semaphore_tests(); return 0; }
+static void *inspect_worker(void *arg) {
+    (void)arg;
+    pthread_attr_t attr;
+    CHECK(pthread_getattr_np(pthread_self(), &attr) == 0);
+    CHECK(attr.stackaddr == expected_stack && attr.stacksize == expected_size);
+    CHECK(attr.detachstate == expected_detach);
+    if (audit_self_detach) {
+        int result = pthread_detach(pthread_self());
+        printf("thread-publication-audit: immediate self-detach returned=%d expected=0\n", result);
+        CHECK(result == 0);
+    }
+    return NULL;
+}
+int main(int argc, char **argv) {
+    if (argc == 1) {
+        stack_tests(); condition_tests(); semaphore_tests();
+        pthread_attr_t attr;
+        CHECK(pthread_getattr_np(pthread_self(), &attr) == ESRCH); /* Unregistered host stack. */
+        CHECK(pthread_getattr_np((pthread_t)999, &attr) == ESRCH);
+        CHECK(pthread_getattr_np(pthread_self(), NULL) == EINVAL);
+        return 0;
+    }
+    inspect_early = 1;
+    audit_self_detach = !strcmp(argv[1], "audit-self-detach");
+    pthread_attr_t attr; pthread_t thread;
+    CHECK(pthread_attr_init(&attr) == 0);
+    expected_detach = !strcmp(argv[1], "detached") ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE;
+    CHECK(pthread_attr_setdetachstate(&attr, expected_detach) == 0);
+    if (strcmp(argv[1], "owned")) {
+        expected_size = PTHREAD_STACK_MIN + 1;
+        expected_stack = malloc(expected_size); CHECK(expected_stack != NULL);
+        CHECK(pthread_attr_setstack(&attr, expected_stack, expected_size) == 0);
+    }
+    CHECK(pthread_create(&thread, &attr, inspect_worker, NULL) == 0);
+    abort(); /* The modeled child exits this process before create returns. */
+}

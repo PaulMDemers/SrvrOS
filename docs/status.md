@@ -80,9 +80,13 @@ after 34 completed cycles under disk/audio load, despite the merged I/O handoff.
 PR170 adds phase timing, not a proven fix. Its three subsequent native attempts
 at `282c3f6a06afd9eb` are now reconciled in PR173: one interrupted boot, one
 battery fingerprint refusal and one lifecycle timeout after 139 completed cycles.
-The last run exceeded ten seconds during Files worker-pool retirement; PR174
-owns the process-startup/retirement investigation. Thirty-minute endurance is
-not accepted; late zero-status exits do not turn failed runs into passes.
+That run exceeded ten seconds during Files worker-pool retirement. PR174's
+merged process-admission correction passed its VM workload, but the next native
+release `788873710e559400` failed after 49 completed cycles: Files close crossed
+the unchanged ten-second bound before pool retirement. PR176 preserves that
+failure and identifies worker pipe admission as an unproven next candidate.
+Thirty-minute endurance is not accepted; late exits do not turn failed runs into
+passes. See the [Air6,1 record](machines/macbookair6-1.md) for exact evidence.
 
 ## Files, services and devices
 
@@ -99,10 +103,12 @@ not accepted; late zero-status exits do not turn failed runs into passes.
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 
 The [synchronization audit](synchronization-audit-2026-10-25.md) led to PR175 fixes
-for supplied-stack bounds, selected condition clocks and semaphore count overflow.
+for supplied-stack bounds, selected condition clocks, semaphore count overflow
+and worker self-stack inspection.
 Focused host and guest regressions cover those contracts; matched consumers must
-be rebuilt for the changed condition-variable layout. Self-stack inspection and
-broader semaphore semantics remain separate audit items.
+be rebuilt for the changed condition-variable layout. Continued host audit
+reproduces early self-detach failing before parent record publication; thread
+record concurrency and broader semaphore semantics remain open.
 
 ## Measured checkpoints and current acceptance
 

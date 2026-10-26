@@ -622,7 +622,7 @@ int posix_path_child(void);
 int posix_path_limits_test(void);
 int posix_pthread_contract_test(void);
 int posix_sync_contract_test(void);
-int posix_stack_inspection_audit(void);
+int posix_stack_inspection_test(void);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
@@ -641,7 +641,6 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
-    if (!strcmp(only, "stack-inspection-audit")) return posix_stack_inspection_audit();
 
 #define RUN_TEST(name, fn) \
     do { \
@@ -683,6 +682,7 @@ int main(int argc, char **argv) {
     RUN_TEST("masked poll", posix_masked_poll_test);
     RUN_TEST("pthread contracts", posix_pthread_contract_test);
     RUN_TEST("sync-contracts", posix_sync_contract_test);
+    RUN_TEST("stack-inspection", posix_stack_inspection_test);
     RUN_TEST("targeted-signal", posix_targeted_signal_test);
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);

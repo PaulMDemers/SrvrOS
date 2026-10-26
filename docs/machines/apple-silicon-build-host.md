@@ -114,3 +114,34 @@ explicit `stack-inspection-audit` mode returns a failure receipt and is excluded
 from the passing `all` suite. See the synchronization report for exact output,
 next correction scope and remaining publication/lifetime questions. No claim of
 fixing that fourth finding accompanies the three completed corrections.
+
+## Self-stack inspection correction — active scope
+
+The user authorized the fourth confirmed fix, regressions, documentation/PR
+updates and continued audit. This block consumes main `1eb60b8f` (merged
+PR174/176 scheduler retirement work) into this branch. PR172/19 retain shared
+desktop dispatch and Wi-Fi scope. Work is bounded to libc thread metadata,
+focused host/guest inspection tests and current documentation. Worker metadata
+must exist before the user callback, including when the child runs before
+`pthread_create` returns. Initial-process stack reporting retains the kernel's
+two fixed layouts; unknown raw-thread stacks must not receive guessed bounds.
+Next checkpoint is a matched build, sequential guest thread/libuv checks and a
+bounded audit of adjacent thread lifecycle contracts. No physical boot is armed.
+
+The self-stack correction is implemented with private TLS start metadata and
+atomic detach-state reads/updates. Host early-child regressions pass; removing
+metadata installation in an isolated negative control produces exit 1. Matched
+`all` build, targeted inspection, final complete thread suite and full libuv
+consumer suite pass on this ARM64 host's x86_64 QEMU. The merged timing parser's
+three Python tests also pass. Documentation validation checks 634 local links
+with zero errors; whitespace checks pass. The complete Linux/core suite was not
+run, and no native acceptance is added. Evidence, exact build manifest and source/
+log hashes are under `build/review/stack-inspection/`. Disposable guests exited.
+
+Continued audit's deterministic host model finds early self-detach returning
+`EINVAL` before the parent publishes its record. That separate explicit audit
+exits 1 and remains outside the passing regression gate; no live race frequency
+is inferred. Next scope is record publication/lifecycle ownership, including
+reaping. Current status also reconciles PR176's failed Air6,1 native trial; worker
+pipe admission is still only a candidate explanation. This block is complete;
+no VM or physical boot is left running/armed.
