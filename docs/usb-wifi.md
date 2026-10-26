@@ -3993,3 +3993,26 @@ e47 recovery retained. Failed v89 removed from ESP only after complete durable
 payload equality,freeing space for a separately staged retry; its original
 session and refusal remain preserved. No reboot is armed. Retry exact-stage
 VM/install and native acceptance are pending.
+
+
+### 2026-10-26 — corrected v89 RX trial installed separately
+
+Source `35041be09bb274f814d9a551aca529dfdbf7c82f`, release
+`0df0d7e9c8658836`, same explicit v89 recipe. Mode67 now actually selects
+post-VCO before AGC/RX. The new selector regression failed on the old wiring
+and passes after the fix; ownership fixtures use the actual selector as well.
+Full image/core and focused ASan/UBSan pass. Staging174,176 old recipe-byte
+comparisons,whole prior+RX proof and79 malformed-proof refusals pass. Exact
+GPT-stage VM saved/byte-verified,unmounted and returned; missing workspace
+refused and returned. Native retry acceptance remains pending.
+
+Installed/current payload and e47 recovery match durable backups; accepted
+v88 remains retained on ESP. Ubuntu default preserved. Offline workspace
+clean323files/781clusters/135directories,zero leaks,bitmap mismatches or errors;
+unmounted and unarmed. Failed `dbb5191dddbe1790` session remains separately
+archived with381 verified files and its original refusal. Retry uses separate
+run/evidence paths. Await cold Wi-Fi-cycle readiness; keep workspace connected.
+Guest shows progress,saves and returns automatically,no photos or commands.
+On return collect matching release/session FIRST with
+rx-lifecycle-retry/collect_return.py; never rerun the failed-run preparation
+script or replace its result with a passing retry.
