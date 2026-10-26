@@ -8272,3 +8272,45 @@ callsite or firmware command wiring exists. Installed v89,e47 recovery and
 retained v88 payload hashes,Ubuntu default,consumed one-shot and unmounted
 workspace verified. Source,reference audits,logs and artifact hashes are archived
 outside build; no physical calibration acceptance or new reboot is claimed.
+
+
+### 2026-10-26 — bounded MAC startup/shutdown candidate (v90)
+
+Main `4ee18f69` / PR190 scheduler and desktop wake attribution is consumed;
+PR182 filesystem work remains separate. New explicit `--wifi-mac-cycle`
+requires the entire v89 chain. Actual selector68 enables post-VCO,AGC and RX
+before MAC work; historical v1-v89 recipe bytes remain unchanged. One retained
+main-RX request stays owned throughout MAC startup,snapshot and teardown.
+No stopped v89 ring is reused,rearmed or freed.
+
+The captured MT7610 profile starts MAC1004 at4,polls WPDMA busy bits1/3,
+writes/verifies the captured17f97 receive filter,then sets/verifies MAC12 and
+polls again. Fresh CORE/TX_ALC0/IBI9 observations follow,then a10ms hold.
+IBI9 may be all-ones only as raw observation; this does not relax the separate
+calibration helper's refusal. No calibration command,power selection,packet
+inspection,network data OUT,rearm,scan or association is added. MAC enable is
+not a claim that no autonomous radio activity can occur.
+
+Teardown independently clears TXOP ED-CCA,drains device TX queues,polls TX
+idle,disables/verifies MAC0,requires seven consecutive empty RX queue rounds,
+polls RX idle,and restores/verifies the saved filter/TXOP words. All disabled
+MAC/CORE/WPDMA guards must match afterward. Forward failure/cancellation still
+attempts cleanup. Quarantined EP0,uncertain command ownership or failed cleanup
+cannot pass; all DMA remains retained. Exact host Stop Endpoint/context/dequeue
+proof is separately required after the MAC cycle,including on MAC failure.
+Poll/read budgets bound further submissions; USB callback latency is not an
+exact microsecond wall-time guarantee. Complete logs,not timing assumptions,
+determine the native result.
+
+Host fixtures cover every callback failure/cancellation,busy queues,clock/wait
+failure,all-ones boundaries and no replay. Native adapter fixtures execute the
+actual selector,USB request mapping and all53 forward-cancellation boundaries,
+with separate admission/quarantine refusals. Strict whole-prior/MAC/RX proof
+replays all ordered operations,queue rounds,restorations and snapshot fields;
+405 malformed proofs refuse. Final full build/core and actual-adapter/pure-helper
+ASan/UBSan pass,including additional admission/readback/cleanup-loss boundaries.
+All eight native receipt formats have matching argument counts; the final source
+corrects the new RX register-write counter and v90 progress wording. Exact-stage
+VM/install and native acceptance are pending until recorded below. Guest shows
+progress,saves the full1MiB startup prefix and returns automatically. No new
+physical acceptance or reboot is claimed by this implementation.

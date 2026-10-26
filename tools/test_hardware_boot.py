@@ -111,6 +111,11 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(config.replace(" srvros.wifi-path=1",""),previous)
         with self.assertRaises(ValueError):boot.stage(wifi_path=True)
 
+    def test_wifi_mac_cycle_profile(self):
+        v="ram-usb-wifi-fw-v90-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-mac-cycle=1",""),boot.limine_config("0123456789abcdef",v.replace("v90-","v89-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_cycle=True)
+
     def test_wifi_rx_lifecycle_profile(self):
         v="ram-usb-wifi-fw-v89-laptop-probe-0e535900-auto-return"
         self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-rx-lifecycle=1",""),boot.limine_config("0123456789abcdef",v.replace("v89-","v88-")))

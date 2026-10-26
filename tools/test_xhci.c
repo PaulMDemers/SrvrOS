@@ -14,8 +14,12 @@ static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
 static bool rx_guard_model;static uint32_t rx_guard_value;
+static bool mac_cycle_model;
+static void xhci_test_mac_publish(struct xhci_device *,uint64_t);
+static bool xhci_test_mac_delay(uint64_t);
 /* Model a controller inspecting setup before software gives it ownership. */
 static void xhci_test_control_publish(struct xhci_device *d, uint64_t phys, bool cycle) {
+    if(mac_cycle_model)xhci_test_mac_publish(d,phys);
     if(rx_guard_model)for(unsigned n=0;n<4;n++)d->descriptor_buffer[n]=(uint8_t)(rx_guard_value>>(8*n));
     unsigned i=(phys-d->ep0_ring_phys)/16;
     assert((d->ep0_ring[i].control & 1) != cycle);
@@ -88,7 +92,7 @@ static struct xhci_device *recovery_device;
 static unsigned recovery_fault, recovery_calls;
 static bool recovery_integrated, recovery_delay_ok=true;
 static uint64_t rf_wait_expected_delay;
-bool timer_delay_us(uint64_t us) { assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
+bool timer_delay_us(uint64_t us) { if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
     if(trim_reply_device && offset==xhci.db_base+4*trim_reply_device->slot_id && value==1)
@@ -6596,8 +6600,10 @@ static void test_wifi_mcu_transport(void) {
 }
 
 #include "test_xhci_wifi_rx.inc"
+#include "test_xhci_wifi_mac_cycle.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-mac-cycle")){test_wifi_mac_cycle();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-rx-lifecycle")){test_wifi_rx_lifecycle();return 0;}
     assert(argc == 4);
     test_wifi_radio_binding();
@@ -6670,6 +6676,7 @@ int main(int argc, char **argv) {
     test_wifi_post_vco();
     test_wifi_post_vco_delays();
     test_wifi_agc_state();
+    test_wifi_mac_cycle();
     test_wifi_rx_lifecycle();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();

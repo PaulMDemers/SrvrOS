@@ -1,4 +1,5 @@
-/* Opt-in retained main-RX endpoint trial. MAC/DMA stay disabled. All endpoint
+/* Opt-in retained main-RX endpoint trial. v89 keeps MAC disabled; v90 runs
+ * the explicit bounded MAC cycle before endpoint stop. All endpoint
  * resources survive completion, Stop Endpoint and failures until host reset.
  * No receive payload is logged, delivered, rearmed or interpreted here. */
 static bool wifi_rx_fail(struct xhci_device *d) {
@@ -116,13 +117,15 @@ static bool wifi_rx_stop(struct xhci_device *d) {
     console_printf("wifi-rx-lifecycle-stop: attempted=1 ok=%u state=%u dequeue=%x trb=%x retained=1\n",(uint64_t)ok,(uint64_t)r->stop_state,r->stop_dequeue,r->trb);
     return ok?true:wifi_rx_fail(d);
 }
+#include "xhci_wifi_mac_cycle.inc"
 static bool wifi_mcu_rx_lifecycle(struct xhci_device *d) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_rx *r=&m->rx;
     if(r->attempted || r->active)return false;
     r->attempted=true;r->active=true;
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=m->rf_g20_active=m->rf_trim_active=m->rf_cal_active=m->rf_wait_active=m->path_active=m->channel_state_active=m->usb_cycle_active=m->bw_observe_active=m->bbp20_active=m->channel_probe_active=m->band2g_active=m->band_mac_active=m->synth1_active=m->post_active=m->post_mac_active=m->gain_active=m->gain_inventory_active=m->channel_bbp_active=m->post_vco_active=m->agc_state_active=true;
-    console_write("wifi-rx-lifecycle-progress: configuring one IN; MAC stays disabled; stop after 10ms\n");
+    console_write(m->mac_cycle_mode?"wifi-rx-lifecycle-progress: configuring one IN; bounded MAC cycle before stop\n":"wifi-rx-lifecycle-progress: configuring one IN; MAC stays disabled; stop after 10ms\n");
     bool ok=wifi_rx_guard(d,0) && wifi_rx_guard(d,1) && wifi_rx_guard(d,2) && configure_wifi_rx(d) && wifi_rx_post(d);
+    if(ok && m->mac_cycle_mode)ok=wifi_mcu_mac_cycle(d);
     if(r->posts) {
         uint64_t start=timer_monotonic_us(),clock=start;unsigned stalled=0;
         while(!r->done) {
@@ -140,6 +143,6 @@ static bool wifi_mcu_rx_lifecycle(struct xhci_device *d) {
     if(ok)ok=wifi_rx_guard(d,3) && wifi_rx_guard(d,4) && wifi_rx_guard(d,5);
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=m->rf_g20_active=m->rf_trim_active=m->rf_cal_active=m->rf_wait_active=m->path_active=m->channel_state_active=m->usb_cycle_active=m->bw_observe_active=m->bbp20_active=m->channel_probe_active=m->band2g_active=m->band_mac_active=m->synth1_active=m->post_active=m->post_mac_active=m->gain_active=m->gain_inventory_active=m->channel_bbp_active=m->post_vco_active=m->agc_state_active=false;
     r->active=false;
-    console_printf("wifi-rx-lifecycle: ok=%u attempted=%u configured=%u reads=%u posts=%u requested=%u events=%u cc=%u remaining=%u stop_attempted=%u stopped=%u pending=%u failed=%u wait_ok=%u waited_us=%u retained=1 radio_writes=0\n",(uint64_t)ok,(uint64_t)r->attempted,(uint64_t)r->configured,(uint64_t)r->reads,(uint64_t)r->posts,(uint64_t)r->requested,(uint64_t)r->events,(uint64_t)r->completion,(uint64_t)r->remaining,(uint64_t)r->stop_attempted,(uint64_t)r->stopped,(uint64_t)r->pending,(uint64_t)r->failed,(uint64_t)r->wait_ok,r->waited_us);
+    console_printf("wifi-rx-lifecycle: ok=%u attempted=%u configured=%u reads=%u posts=%u requested=%u events=%u cc=%u remaining=%u stop_attempted=%u stopped=%u pending=%u failed=%u wait_ok=%u waited_us=%u retained=1 radio_writes=%u\n",(uint64_t)ok,(uint64_t)r->attempted,(uint64_t)r->configured,(uint64_t)r->reads,(uint64_t)r->posts,(uint64_t)r->requested,(uint64_t)r->events,(uint64_t)r->completion,(uint64_t)r->remaining,(uint64_t)r->stop_attempted,(uint64_t)r->stopped,(uint64_t)r->pending,(uint64_t)r->failed,(uint64_t)r->wait_ok,r->waited_us,(uint64_t)m->mac_cycle.writes);
     return ok?true:wifi_rx_fail(d);
 }
