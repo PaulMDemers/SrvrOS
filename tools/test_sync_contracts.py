@@ -46,7 +46,9 @@ def main():
                                '-pthread', '-c', str(shim), '-o', str(shim_object)]
     subprocess.run(shim_command, check=True, cwd=ROOT)
     executable = out / 'sync-contracts'
-    command = compiler + ['-std=c11', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
+    # Use compiler-provided fundamental types with SrvrOS headers; hosted GCC
+    # stdint otherwise mixes glibc internals with SrvrOS features.h.
+    command = compiler + ['-std=c11', '-ffreestanding', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
                           '-I', str(ROOT / 'userspace/lib/include'),
                           '-I', str(ROOT / 'shared/include'), '-include', str(renamed)]
     command += [str(path) for path in sources] + [str(shim_object), '-pthread', '-o', str(executable)]

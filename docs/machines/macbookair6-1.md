@@ -3032,3 +3032,9 @@ retirement now references scheduler_wake_all for futex invalidation, but the
 fixture did not provide it. Add a checked wake hook and exercise an active futex
 on a retiring page, asserting invalidation/wake occurs before frame release.
 This updates test integration only; the merged process behavior is unchanged.
+
+The new audit drivers also mixed SrvrOS headers with GCC's hosted stdint/glibc
+internals on Ubuntu. Compile their target-header translation units in freestanding
+mode, retaining host linking and the separately compiled native pthread shim.
+Apply this to time, synchronization and event-adapter fixtures; no test assertions
+or production behavior change. Preserve the failed compile as portability evidence.
