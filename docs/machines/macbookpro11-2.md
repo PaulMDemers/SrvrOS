@@ -18,6 +18,21 @@ and initial power-on calibration ordering before bounded native calibration.
 Original strict calibration helper is unchanged; RF0:6 remains unresolved.
 Scanning, association/security, Wi-Fi IP traffic and UI remain pending.
 
+Active block (2026-10-26): consumed actual main `9465c68f` (PR192 private
+child-image ownership, PR193/195 evidence). PR194 owns window/dock behavior;
+PR182 filesystem imports; neither overlaps this scope. Implement a separate,
+allocation-free initial power-on calibration transaction for the captured
+MT7610 NICfd11/1004, US channel1/20MHz profile. Touched: new power-on helper,
+header, host tests/Makefile and unit/Wi-Fi docs. Reference requires R/VCO and
+10us delay before FULL/LC/15ms/restoration/RXDCOC; NIC_CONF1 bit13 is clear,
+so TSSI DC is excluded only for this exact profile. Require current ownership
+and fresh mapped board fields before every forward callback, independently
+verified temporary writes and reverse cleanup after failure. Preserve both old
+helpers. No native caller/profile change, calibration claim or reboot in this
+block. Checkpoint: host fault injection/sanitizers, merged core/image validation,
+reference audit and durable archive before native integration.
+
+
 Completed block (2026-10-26): v91 on actual main `d24dbc11` (PR191 evidence
 only). Calibration-probe helper, optional MAC inspection hook, native selector,
 host/staging/smoke tests and docs validated locally and on this unit. Scope
