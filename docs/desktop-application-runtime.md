@@ -126,3 +126,6 @@ release `986d6c68fa19ba18` accepts reported concurrent app use, observed Text sa
 and Preview loading/close, with clean lifetime retirement and preserved prior
 files. Native playback, explicit command parity and quantitative responsiveness
 remain separate acceptance work; full playback/save overlap is VM evidence.
+
+The optional allocating [window/model layer](desktop-window-ownership.md) builds
+on this dispatcher; it keeps model retirement separate from GUI acknowledgements.

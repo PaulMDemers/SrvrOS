@@ -3712,3 +3712,11 @@ test-thread-smoke-harness:
 test-core: test-event-adapters
 test-event-adapters:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py
+
+.PHONY: test-window-set
+test-desktop: test-window-set
+test-window-set: build/tests/window-set-host$(HOST_EXE)
+	$<
+build/tests/window-set-host$(HOST_EXE): tools/test_window_set.c userspace/desktop_runtime/window_set.c userspace/desktop_runtime/runtime.c userspace/lib/include/srvros/desk_window_set.h userspace/lib/include/srvros/desk_runtime.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_window_set.c userspace/desktop_runtime/runtime.c -o $@
