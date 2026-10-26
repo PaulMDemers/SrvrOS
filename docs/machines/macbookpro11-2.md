@@ -7619,3 +7619,20 @@ Next: bounded channel1 filter/BBP setup using fresh captured gain with independe
 readbacks, then post-tune VCO/calibration prerequisites. Budget the whole next
 prefix:501580 of524288 bytes used; explicitly increase diagnostic capacity if
 needed while preserving historical limits and missing-prefix refusal.
+
+
+### 2026-10-25 — channel1 BBP/filter bounded objective
+
+Next scope: explicit channel1/20MHz CORE1 filter clear and20 channel-BBP
+writes using the fresh mapped RX gain, each guarded with fresh input and an
+independent readback. Depend on full v85 proof and same-boot mapped LNA0/
+RSSI+1/+1; unknown board-field profiles refuse. No VCO pulse, MAC enable,
+calibration or traffic in this candidate. Touched: MT76 fixed register engine,
+xHCI diagnostic ownership, opt-in boot recipe/capture capacity, directed tests
+and machine/current Wi-Fi guides. Budget complete prefix with a new explicit
+1MiB diagnostic capacity; ordinary and historical capacities remain unchanged.
+Fetched main `fa5a6cc1` adds Air shared-runtime acceptance documentation only;
+retain intentional integration baseline `d5bc4b3` through this RF trial.
+Open PR175 owns pthread/Apple Silicon work; Pro PR19 owns MT76 diagnostics.
+No shared MT76 overlap, parallel staging or remote task messaging. Last run
+v85 collected/archived; Ubuntu default/recovery retained; reboot unarmed.
