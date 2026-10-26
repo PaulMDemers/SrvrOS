@@ -3270,9 +3270,9 @@ Run `d66265a8b5ea4b59`, release `080b645e1b3a5533`, compiled `a8cdd087`
 `session-00065ec2b80b0dc6-00`. The complete 1,800-second audio/disk receipt
 passes: 345,600,000 PCM bytes, zero underruns, worker status0, and 3,012 verified
 bursts / 789,577,728 bytes. The binary disk receipt exactly matches the text;
-first-to-last I/O spans 1,797.448 seconds inside playback. Audible quality for
-this run awaits the user's listening confirmation; the prior run's confirmation
-does not substitute for it.
+first-to-last I/O spans 1,797.448 seconds inside playback. The user confirms
+audio remained steady throughout this run. This accepts the bounded audio/disk
+overlap; the separate desktop responsiveness failure below remains unchanged.
 
 All 674 generated app cycles completed with zero child errors. Maximum ready/
 close times were 1,899,733 / 3,820,172 us, and application coverage spans
