@@ -2842,3 +2842,31 @@ PR169 (`edc320d8`) owns compositor unsaved-work shutdown interactions; keep its
 deskd/session changes separate. PR19 (`c4af7dcc`) retains USB Wi-Fi scope. The
 planned edits are desktools runtime/timing, stress-receipt validation and this
 unit record, with no overlapping production file edits in those open PRs.
+
+Implemented sparse `app-timing` records with PID/role/window identity and
+begin/end/event timestamps. Spans include scheduling, I/O waits and diagnostic
+overhead; they are not CPU-time or gate-wait attribution. A begin without an end
+remains incomplete evidence. First-publication and close-delivery events connect
+initialization/cleanup phases to compositor ready/reap receipts. The VM validates
+required phases, paired durations and lifecycle ordering for each completed app.
+Native collection preserves the available timing tail even on early failure.
+
+Source `23cf7ca3` passes build/core, timing-validator positive/negative cases,
+full smoke and populated-Home 400-write-IOPS stress (13 cycles). Its first VM
+attempt halted in a synthetic battery sample with an EC error before any
+instrumented app started; that failure is retained. An identical repeat passed
+without configuration or predicate changes. Files worker-pool retirement reached
+4,337,451 us in the repeat, demonstrating phase separation, not a native cause.
+
+Consumed merged PR169 / main `f658f6b7` as `a54e1717`. Combined build/core and
+the same automatic stress pass: 15 complete timing-validated app cycles, maximum
+ready 1,457,954 us, close/reap 3,168,146 us, loop 136,962 us, zero app errors or
+PCM underruns, 221 observed playback/write overlap windows, all 66 prior fixture
+files preserved and clean offline allocation. The earlier full smoke remains
+at `23cf7ca3`; the combined source has fresh focused runtime validation.
+
+Release `282c3f6a06afd9eb` freezes clean runtime source `a54e1717`. Exact-stage
+Q35 rehearsal passes expected native-profile refusal and automatic save/unmount/
+return, not native battery or endurance acceptance. PR170's final follow-up is
+documentation only. Next is the authorized automatic thirty-minute native trial
+with unchanged workload/limits, listening only and automatic return/collection.
