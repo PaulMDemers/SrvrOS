@@ -3466,7 +3466,8 @@ Run `b907f47823d34af2`, release `204302d98c2906fd`, compiled `daa94dd8`
 (PR192 merged as `33edbafc`), returned automatically to Ubuntu. Exactly one
 matching session, `session-00065ec63701f318-00`, contains the final workload,
 loop, application and battery retirement receipts. This is a **PASS for the
-bounded automated workload**; listening confirmation for this run remains pending.
+bounded automated workload**, including the user’s subsequent confirmation that
+sound remained steady throughout all 30 minutes.
 
 The full 1,800 seconds submitted 345,600,000 PCM bytes with zero underruns and
 worker status zero. Continuous verified filesystem work completed 3,091 bursts
