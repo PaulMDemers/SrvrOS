@@ -60,6 +60,7 @@ modes, sanitizers and six negative controls cover mount validation, initialized
 reads and boundary preservation through rename/replacement/overwrite/remount.
 A dedicated disposable-image VM exercises the public file API. Entry integrity,
 allocation ownership, unmount lifetime and crash recovery remain next in scope.
+Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage

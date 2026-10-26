@@ -944,3 +944,6 @@ including boot). `integrated-vms.json`, the integrated build receipt and runtime
 hash inventory distinguish these runs from the earlier baseline. Documentation
 link/gallery and whitespace checks pass. This checkpoint is ready for draft PR
 review; the listed follow-up defects are not represented as fixed.
+
+Published runtime commit `a8d1617b` in [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
+The broader audit remains active at the next entry-integrity checkpoint.

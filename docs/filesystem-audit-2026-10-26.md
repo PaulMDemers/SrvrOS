@@ -8,6 +8,10 @@ rebuilt, and passed the import, complete thread and libuv VMs again. The Apple
 Silicon host owns this work; desktop, Air6,1 and Wi-Fi work remain
 with their device branches.
 
+Delivery: [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182), runtime
+commit `a8d1617b`. The tested source hashes match that commit; this report and the
+host record distinguish pre-integration and post-PR180 builds.
+
 ## Confirmed defects and corrections
 
 **Imported file reads exposed uninitialized allocation bytes.** The driver used
