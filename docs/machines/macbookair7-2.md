@@ -1,6 +1,30 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
+
+### Shared application/window layer — active scope
+
+Rebased the clean existing device branch onto actual main `dfd63fe` (PR175
+synchronization/time, PR178 AHCI bounds, PR179 event-adapter fixes consumed).
+Air7,2 now owns the bounded D3 application-layer follow-up: reusable stable
+window/model registration, owned-dialog routing, sequential cancellable Close/
+Quit and accepted-job retirement, migrated through normal Text and Files. Give
+Files multiple windows in one process with independent navigation and bounded
+shared file workers. Move Terminal to shared dispatch/PTY waits and align its
+commands without intercepting shell control keys. Keep widget models pure.
+
+Planned files: optional `userspace/desktop_runtime` layer/headers, Text/Files
+runtime and commands, Terminal, targeted host/consumer VM fixtures, Makefile and
+current API/help guides. Preserve timing receipts, Text edits/save decisions,
+file mutation ownership, PTY child/session cleanup and all existing GUI/resource
+budgets. No driver, firmware, protocol or kernel change is planned. PR19 remains
+independent Wi-Fi work; no other open implementation scope overlaps on inspection.
+Run baseline build/core/desktop checks first, then incremental actual-consumer
+fault/growth/save/cancel/playback tests, exact-stage rehearsal and a persistent
+on-screen checklist before any physical trial. Installed accepted current remains
+`986d6c68fa19ba18`, independent recovery `9aa8dbf6fbda8252`; the last return is
+collected and no next boot is armed. New source does not inherit that acceptance.
+Local checkpoint/evidence: `build/app-window-layer-20261026/`.
 
 ### Shared application runtime — concurrent-app hardware trial accepted
 
