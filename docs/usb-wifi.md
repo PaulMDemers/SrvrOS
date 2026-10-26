@@ -4172,3 +4172,36 @@ session FIRST with `build/bringup/mac-cycle/collect_return.py`;preserve failed
 completion/cleanup markers. No calibration,reception or connectivity acceptance
 is inferred from this install. Evidence/payload/run records are durably archived
 under `~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
+
+
+### 2026-10-26 — native bounded MAC cycle passed
+
+Source `6af7ec600d1f360de88b52bb28aaff2391da35f6`, release
+`b6c18039f1c36e8d`, session `session-00065ec5caf54f87-00`.
+The strict collector accepted the whole earlier initialization/post-VCO/AGC
+proof and all54 MAC-cycle operations:46 reads,7 writes,1 wait. MAC1004
+progressed0/4/12/0 with independent readbacks. CORE/WPDMA guards matched.
+Captured filter17f97 and TXOP583f were restored exactly. Raw TX_ALC0=2f2f1b1b
+and IBI9=ffffffff were read with MAC enabled;IBI9 is still observational and
+does not satisfy the separate calibration helper's non-all-ones admission.
+Requested hold10000us,delay receipt10001us,total bracket10035us;these are
+bounded observations,not latency or calibrated-radio acceptance.
+
+TX drained in one round. RX drained in seven consecutive masked-empty rounds:
+RXQ_STA=22 with occupancy mask00ff0000 clear,and a30/a34 zero. Both MAC_STATUS
+idle checks passed,MAC0 and final disabled guards verified. One4096-byte host
+IN remained owned until exact Stop Endpoint:state3,dequeue31d001 for TRB31d000,
+DCS1,DMA retained. One stopped event CC26 reported4096 remaining;no packet
+bytes or receive acceptance follow. Post-cycle RX wait12841us passed. No
+calibration command,packet inspection,rearm or network data OUT was submitted.
+
+Complete543084-byte startup prefix within1MiB and both completion markers saved.
+Ubuntu default,consumed one-shot,current/e47 recovery payload equality verified.
+Offline327files/795clusters/137directories,zero leaks,bitmap mismatches or errors;
+unmounted/unarmed. Evidence is archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
+This accepts only bounded MAC startup/device drain/restoration and endpoint
+retirement. Next audit IBI9/register semantics and fresh board/power/TSSI
+calibration prerequisites before calibration commands and passive reception.
+No immediate repeat boot is needed;scanning,association/security,IP and UI
+remain pending. Earlier failed or superseded candidates remain separate.

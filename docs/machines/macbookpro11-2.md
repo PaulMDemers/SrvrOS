@@ -7,30 +7,22 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: corrected v89 release `0df0d7e9c8658836`, source
-`35041be0`, session `session-00065ec391da3a5c-00`, PASSED the bounded main-RX
-endpoint lifecycle. Whole prior initialization/post-VCO/AGC proof passed.
-Endpoint84/DCI9/512 configured,one4096-byte IN posted,waited10001us,then exact
-Stop Endpoint succeeded with stopped context3 and owned dequeue/DCS1.
-One stopped transfer event CC26 retained all4096 bytes as remaining; no packet
-reception is accepted. All six disabled-MAC/CORE/DMA guards passed,all DMA
-remains retained and no radio writes were added. Full537104-byte prefix and
-both completion markers saved. Recovery,consumed one-shot and offline allocation
-passed; unmounted/unarmed. Original failed v89 remains separately archived.
-Next: controlled MAC/RX lifecycle and calibration prerequisites,then passive
-packet reception. Scanning,association,security,Wi-Fi IP traffic and UI remain
-pending. v88 remains durably archived as an accepted fallback.
+Latest physical run: v90 release `b6c18039f1c36e8d`, source `6af7ec60`,
+session `session-00065ec5caf54f87-00`, PASSED the bounded MAC lifecycle.
+Whole prior initialization/post-VCO/AGC proof passed. MAC4 then12,raw snapshot,
+10ms hold,device TX/RX drains,MAC0 and exact filter/TXOP restoration completed:
+54 operations,46 reads,7 writes,1 wait. TX_ALC0=2f2f1b1b;IBI9 remainsffffffff
+with MAC active. These are observations,not calibration admission. One retained
+RX request stopped with context3/owned dequeue/DCS1;CC26/4096 remaining is
+cancellation metadata,no packet reception. Full543084-byte prefix and both
+completion markers saved. Recovery,consumed one-shot and offline allocation
+passed;unmounted/unarmed. Accepted v89 remains on ESP,e47 is previous recovery,
+and v88 remains durably archived. Next: audit IBI9 behavior and fresh board/
+power/TSSI/calibration admission before calibration commands and packet reception.
+Scanning,association,security,Wi-Fi IP traffic and UI remain pending.
 
 
-Installed pending trial: v90 `b6c18039f1c36e8d`, source `6af7ec60`.
-Final local/core/sanitizer and exact-stage VM save/return plus missing-workspace
-refusal pass. Native MAC cycle and fresh IBI9/TX_ALC0 remain pending. Ubuntu
-is default,e47 previous recovery and accepted v89 retained on ESP. v88 was
-removed from ESP only after durable payload equality to make staging space.
-Workspace offline checks are clean; unmounted/unarmed. Await cold-cycle readiness.
-
-
-Active block (2026-10-26): consume actual main `4ee18f69` (PR190 scheduler/
+Completed physical block (2026-10-26): consumed actual main `4ee18f69` (PR190 scheduler/
 desktop wake attribution),preserving all Wi-Fi profiles; PR182 owns filesystem
 imports,no MT76 overlap. Build v90 bounded MAC startup/shutdown around one
 retained main-RX request,then fresh TX_ALC0/IBI9 observations. Touched: MT76 MAC
@@ -38,8 +30,8 @@ cycle helper/host tests,xHCI callback adapter and actual selector,main/staging/
 smoke recipes and machine/Wi-Fi docs. Require full prior proof,independent
 MAC-disable cleanup,device TX/RX queue draining,exact endpoint stop and retained
 DMA. No calibration command,packet delivery,rearm,scan or association. Unknown
-IBI9 stays observational. Checkpoint: full local/exact-stage VM validation,
-installed/recovery/run/archive verification before a cold hardware trial.
+IBI9 stays observational. Local/exact-stage VM,installed/recovery/run/archive checks and the native
+bounded MAC cycle now pass;acceptance limits and next scope are above.
 
 
 Completed offline block (2026-10-26): consumed actual main `ee5468f6` (PR186–189,
@@ -8360,3 +8352,36 @@ session FIRST with `build/bringup/mac-cycle/collect_return.py`;preserve failed
 completion/cleanup markers. No calibration,reception or connectivity acceptance
 is inferred from this install. Evidence/payload/run records are durably archived
 under `~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
+
+
+### 2026-10-26 — native bounded MAC cycle passed
+
+Source `6af7ec600d1f360de88b52bb28aaff2391da35f6`, release
+`b6c18039f1c36e8d`, session `session-00065ec5caf54f87-00`.
+The strict collector accepted the whole earlier initialization/post-VCO/AGC
+proof and all54 MAC-cycle operations:46 reads,7 writes,1 wait. MAC1004
+progressed0/4/12/0 with independent readbacks. CORE/WPDMA guards matched.
+Captured filter17f97 and TXOP583f were restored exactly. Raw TX_ALC0=2f2f1b1b
+and IBI9=ffffffff were read with MAC enabled;IBI9 is still observational and
+does not satisfy the separate calibration helper's non-all-ones admission.
+Requested hold10000us,delay receipt10001us,total bracket10035us;these are
+bounded observations,not latency or calibrated-radio acceptance.
+
+TX drained in one round. RX drained in seven consecutive masked-empty rounds:
+RXQ_STA=22 with occupancy mask00ff0000 clear,and a30/a34 zero. Both MAC_STATUS
+idle checks passed,MAC0 and final disabled guards verified. One4096-byte host
+IN remained owned until exact Stop Endpoint:state3,dequeue31d001 for TRB31d000,
+DCS1,DMA retained. One stopped event CC26 reported4096 remaining;no packet
+bytes or receive acceptance follow. Post-cycle RX wait12841us passed. No
+calibration command,packet inspection,rearm or network data OUT was submitted.
+
+Complete543084-byte startup prefix within1MiB and both completion markers saved.
+Ubuntu default,consumed one-shot,current/e47 recovery payload equality verified.
+Offline327files/795clusters/137directories,zero leaks,bitmap mismatches or errors;
+unmounted/unarmed. Evidence is archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
+This accepts only bounded MAC startup/device drain/restoration and endpoint
+retirement. Next audit IBI9/register semantics and fresh board/power/TSSI
+calibration prerequisites before calibration commands and passive reception.
+No immediate repeat boot is needed;scanning,association/security,IP and UI
+remain pending. Earlier failed or superseded candidates remain separate.
