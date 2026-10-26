@@ -642,3 +642,31 @@ original failed runs and the new per-run evidence under `build/review/ahci-repea
 Update draft PR178 with this documentation-only checkpoint; no merge requested.
 Next step is other project work unless new diagnostics justify reopening AHCI.
 No physical trial is armed; Actions remain disabled.
+
+
+## Eventfd/epoll audit — active scope (2026-10-26)
+
+PR178 merged as `8bd43adc`; the clean checkout fast-forwarded to that baseline.
+Branch `device/apple-silicon/eventfd-epoll-audit` takes the deferred experimental
+descriptor-adapter review. PR19 retains independent Wi-Fi ownership. Scope is
+`posix_node_compat.c`, libc descriptor close integration, focused host probes and
+current-profile documentation: first establish lifecycle, wait and counter-bound
+behavior with deterministic executable evidence. This is an audit checkpoint,
+not acceptance of the full Linux API or Node port. Preserve native and Node
+recovery work as separate follow-ups. No physical trial or Actions run is armed.
+
+Audit checkpoint: three unfixed finding groups are confirmed by seven directed
+host probes (all exit 1 at the intended assertion): epoll lifetime/reuse, immediate
+wait timeouts and eventfd counter bounds. Real adapter code and public close are
+compiled with modeled native services. Positive controls and ASan/UBSan pass;
+no runtime changed and no new guest acceptance is claimed. Current profile/status
+and the dedicated audit report now state these concrete limitations. Next bounded
+correction is epoll ownership across close, duplication and descriptor reuse.
+Evidence is in `build/review/event-adapters{,-audit,-sanitized}/`. No VM is running
+from this work, no physical boot is armed, and Actions remain disabled.
+
+Validation: `sh tools/macos/build.sh test-event-adapters` passes; sanitized
+controls pass without diagnostics; explicit `--audit all` exits 1 with seven
+intended failed contract assertions. Documentation checks 653 local inline links
+with zero errors, and whitespace checks pass. Publish this audit-only checkpoint
+in a new draft PR; it does not contain runtime corrections.

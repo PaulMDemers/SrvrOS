@@ -981,3 +981,11 @@ budgets and failure receipts. `storage_service_smoke.py` also validates the
 forced timeout's phase, reason and pending register state. See the
 [investigation and Mac commands](ahci-offline-investigation-2026-10-26.md) for
 reproduction limits; the historical spontaneous incidents are not yet attributed.
+
+
+`make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
+this Mac) runs passing ordinary-operation eventfd/epoll host controls. Explicit
+`python3 tools/test_event_adapters.py --audit all` runs seven known-failing
+contract probes and currently exits 1. Those modes are excluded from `test-core`;
+see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
+boundaries, individual modes, observed failures and sanitizer commands.

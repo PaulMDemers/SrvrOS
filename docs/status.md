@@ -190,3 +190,11 @@ offline events remain unattributed. A follow-up campaign passes six full-thread
 VMs, two storage stress VMs and a ten-cycle relaunch VM with no spontaneous
 recurrence; active investigation is shelved pending new evidence. Genuine
 pending-command failures still quarantine the disk and retain DMA memory.
+
+
+The subsequent [eventfd/epoll audit](event-adapter-audit-2026-10-26.md) confirms
+three unfixed experimental-adapter defects: stale epoll ownership after close
+and number reuse, incorrect immediate-wait behavior, and unchecked eventfd
+counter writes. Seven explicit failing host probes reproduce them; positive
+controls and sanitizer checks pass. These APIs remain outside the accepted
+profile. The next correction is descriptor lifetime, including alias semantics.

@@ -185,7 +185,11 @@ remain outside the validated profile.
 The Linux-oriented `epoll`, `eventfd`, inotify and other Node compatibility
 symbols remain experimental adapters. In particular, eventfd blocking/overflow,
 epoll edge/one-shot delivery, mask replacement and descriptor reuse semantics
-are not accepted by this profile. Use the tested native poll/pipe path for new
+are not accepted by this profile. The [event-adapter audit](event-adapter-audit-2026-10-26.md)
+confirms unreclaimed epoll slots and stale watches after close/reuse, blocking
+native poll timeouts despite immediate results, and unchecked eventfd counter
+writes. These remain unfixed; ordinary-operation host controls do not qualify
+the adapters. Use the tested native poll/pipe path for new
 portable consumers. A successful Node link probe does not establish Node support.
 
 exFAT replacement is serialized during normal execution but is **not

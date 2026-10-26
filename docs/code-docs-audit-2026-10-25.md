@@ -250,3 +250,14 @@ contention; capacity and wake-policy checks document limits without claiming FIF
 or starvation freedom. See the [final matrix and receipts](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26).
 The broader follow-ups listed earlier remain separate: this is not an exhaustive
 OS correctness/security audit or native acceptance of this Mac's emulated guest.
+
+
+## Event adapter continuation — 2026-10-26
+
+After merged PR178 (`8bd43adc`) and the clean bounded AHCI repeat campaign, the
+[eventfd/epoll audit](event-adapter-audit-2026-10-26.md) addresses the deferred
+experimental descriptor adapters. Seven directed host probes confirm unreclaimed
+epoll instances/stale watch reuse, incorrect immediate-wait timeouts and eventfd
+counter-bound failures. Runtime behavior remains unchanged; these are separate
+unfixed findings with passing controls and explicit known-failure modes. Native
+Air6,1 work and recovery of missing Node history remain separate dependencies.
