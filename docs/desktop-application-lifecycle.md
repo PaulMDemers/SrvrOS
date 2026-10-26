@@ -174,6 +174,14 @@ refuses Q35; this is not native battery or physical dialog acceptance. Follow
 the device-agent setup guide for install, recovery, run record and one-shot boot.
 Do not install or reboot merely because staging completed.
 
+The [Air7,2 physical record](machines/macbookair7-2.md#desktop-modal-and-unsaved-exit-retest-accepted)
+accepts the reported modal-control and unsaved desktop-exit corrections on release
+`1d1d5edce03523db`, following a successful user retest, clean exit/retirement and
+prior-file preservation. Native playback has zero recorded underruns and a
+released owner, but ended canceled; full two-minute completion remains VM
+validation. This is bounded acceptance of that payload, not a general latency or
+endurance guarantee.
+
 ## Launch, memory and redraw service windows
 
 Process image loading, record clearing, fork cloning, mapping changes, mapping
