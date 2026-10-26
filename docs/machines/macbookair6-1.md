@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-25. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-26. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -3001,3 +3001,99 @@ except expected workspace metadata. Offline fsck/allocation pass: 369 files,
 automatic assessment and diagnosis are hash-verified outside build. Ubuntu
 recovered, next_entry is empty and collection disabled; no new reboot is armed.
 Integration baseline for this evidence record is `a679115f`.
+
+### Integrated-main retest — active scope (2026-10-26)
+
+User requests rebasing onto the bug fixes merged since the previous native trial
+and retesting. Rebased `device/macbookair6-1/process-admission` onto actual main
+`dfd63fef`; all local changes were already merged, so no commits required replay.
+This consumes shared application runtime PR172, synchronization/build audit
+PR175, AHCI completion/budget corrections PR178, and event-adapter audit PR179.
+The last Air6,1 failure remains recorded and backed up; no native acceptance is
+inferred from other hosts' results.
+
+Scope is validation and this unit record: matched build/core, automatic populated
+Home audio/disk/app stress, general smoke, storage cancellation/quarantine and
+exact-stage rehearsal, followed by the same authorized automatic native trial.
+Do not add the previously proposed pipe-admission fix before testing the new
+baseline. Preserve ten-second whole-cycle, five-second client and 500 ms loop
+limits, continuous verified disk work, PCM checks and firmware/ownership gates.
+PR19 (`eababae2`) retains separate USB Wi-Fi ownership; no shared production edits
+are planned. Prior explicit self-merge/reboot authorization remains applicable.
+
+The fresh Ubuntu build reproduced a merged poll compile regression: the new
+synthetic-readiness path uses timespec/clock_gettime without including time.h,
+and its strict-C host fixture lacks the POSIX feature declaration. Extend this
+validation scope only to the explicit time header and fixture feature macro;
+retain the failed build log. No runtime policy, pipe admission or limits change.
+
+The next build gate exposed an outdated process-service host fixture: mapping
+retirement now references scheduler_wake_all for futex invalidation, but the
+fixture did not provide it. Add a checked wake hook and exercise an active futex
+on a retiring page, asserting invalidation/wake occurs before frame release.
+This updates test integration only; the merged process behavior is unchanged.
+
+The new audit drivers also mixed SrvrOS headers with GCC's hosted stdint/glibc
+internals on Ubuntu. Compile their target-header translation units in freestanding
+mode, retaining host linking and the separately compiled native pthread shim.
+Apply this to time, synchronization and event-adapter fixtures; no test assertions
+or production behavior change. Preserve the failed compile as portability evidence.
+
+Candidate `5f0326b4` passes the full matched build/core suite, including the new
+time/synchronization/futex/event-adapter host regressions, and the complete thread
+guest suite. General smoke passes all 482 CLI commands, shell editing, syscall
+ABI, UEFI keyboard and display. Storage-service passes throttled writes/input,
+cancellation, file comparison, repeated launches and timeout/quarantine.
+
+The populated-Home 400-write-IOPS combined VM completed 14 timing-validated app
+cycles, 117 verified disk bursts and 225 observed audio/write overlap windows,
+with zero app errors or PCM underruns. Maximum ready/close/loop were 1,348,680 /
+6,484,660 / 188,430 us. All 66 prior fixture files remained intact and allocation
+checks passed. The long close duration reinforces the need for native testing;
+this is not a claimed fix or acceptance of the previous Files-close failure.
+
+Release `83c919c9b7a24b6b` freezes clean candidate source `5f0326b4`. Exact-stage
+Q35 rehearsal passes the expected native-profile refusal, saved logs, clean
+unmount and automatic return. This final follow-up is documentation only. Main
+was rechecked at `dfd63fef`; PR181's separate Text/Files window-lifecycle scope
+and PR19's Wi-Fi work are not included. Native run `d10d796558a34499` will repeat
+the same authorized thirty-minute automatic workload with unchanged limits.
+USB baseline: 369 files / 1,038 clusters, zero leaks/mismatches/errors. Ubuntu
+remains default; console recovery and accepted reopen backups are retained.
+
+### Integrated-main native return — 2026-10-26 (failed)
+
+Run `d10d796558a34499`, release `83c919c9b7a24b6b`, compiled `5f0326b4`
+(PR180, merged as `afc8bb67`) returned one matching session,
+`session-00065ec131ee0a4e-00`. The automated trial again failed during Files
+close: cycle13 / PID25 crossed the unchanged ten-second whole-cycle limit at
+10,020,194 us after 13 completed app cycles. The final snapshot was saved at
+67.914 seconds uptime; no complete workload receipt exists. This is failed
+native endurance evidence despite the passing preboot host/VM checks.
+
+Maximum ready/completed-close/desktop-loop times were 1,363,239 / 7,260,207 /
+109,543 us. All 13 completed cycles pass the saved-record timing validator.
+The failed Files process received Close at 56,508,490 us, but left its main loop
+at 65,489,095 us: an 8,980,605 us gap. Its directory-list request1 to worker26
+was logged submitted between the 57.210 and 62.551 second battery records,
+before the deadline. Job drain began only after the deadline; teardown exited
+PID25 with status143, without a pool-retirement completion. Unlike the previous
+run, submission occurred before failure, so request admission alone is not a
+proven explanation. Inspect both request and reply progress under continuous
+disk ownership; the existing nonblocking pipe deferral remains a candidate,
+not an established cause. Keep all ownership/integrity checks and limits.
+
+PCM recorded zero underruns. Battery epoch1 retired with 360 queries, one
+notification, 24 handled/zero unclaimed SCI deliveries and zero heap/errors/denied.
+The overall desktop/battery-controls result remains FAIL. All 369 prior files
+were preserved except expected workspace metadata. Read-only fsck and allocation
+checks pass with 374 files / 1,044 clusters and zero leaks/mismatches/errors.
+Raw evidence and diagnosis are retained outside build with verified hashes.
+Ubuntu recovered, the one-shot entry is empty and collection is disabled; no
+new reboot is armed.
+
+Closeout baseline is `afc8bb67`. Open PR181 (`7bd16b5e`) owns shared Text/Files
+window lifecycle and accepted-job retirement; inspect its current implementation
+before overlapping userspace changes. PR182 (`352f9b0d`) owns exFAT import
+validation and PR19 (`3e16ff6a`) USB Wi-Fi. None was included in this physical
+payload. This closeout changes only this unit's evidence record.

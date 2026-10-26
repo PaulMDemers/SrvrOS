@@ -64,8 +64,9 @@ def main():
     renamed = out / 'rename.h'
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in names))
     executable = out / 'event-adapters'
+    # Use compiler-provided fundamental types with SrvrOS headers; hosted GCC
+    # stdint otherwise mixes glibc internals with SrvrOS features.h.
     command = shlex.split(os.environ.get('CC', 'cc')) + [
-        # Use compiler integer definitions, not glibc headers mixed with SrvrOS features.h.
         '-std=c11', '-ffreestanding', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
         '-include', str(renamed), str(extracted), str(poll_source), str(fixture), '-o', str(executable)]

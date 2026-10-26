@@ -12,13 +12,15 @@ static unsigned depth,begins,ends,checkpoints,yields,freed,destroyed;
 static bool available=true,fail_unmap;
 static struct process *observed;
 static bool released[96];
-static unsigned next_frame=1,wakes,watched_frame;
+static unsigned next_frame=1,wakes;
 static unsigned char backing[96*4096];
-void scheduler_wake_all(struct scheduler_wait_queue *q) {
-    assert(q==&futexes[0].wait_queue && futexes[0].invalidated);
-    assert(watched_frame && !released[watched_frame]);wakes++;
-}
 void console_printf(const char *format,...) {(void)format;}
+void scheduler_wake_all(struct scheduler_wait_queue *queue) {
+    assert(queue==&futexes[0].wait_queue && futexes[0].invalidated && depth);
+    int64_t i=process_mapping_index(observed,futexes[0].address);
+    assert(i>=0 && !released[observed->mappings[i].physical_address/4096]);
+    queue->waiters=0;wakes++;
+}
 bool scheduler_io_begin(void) {begins++;if(!available)return false;depth++;return true;}
 void scheduler_io_end(void) {assert(depth);depth--;ends++;}
 void scheduler_io_checkpoint(void) {
@@ -48,8 +50,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64
     assert(space==0x1000 && virt && physical && flags);return true;
 }
 static void reset(void) {
-    assert(!depth);begins=ends=checkpoints=yields=freed=destroyed=0;next_frame=1;wakes=watched_frame=0;memset(futexes,0,sizeof(futexes));
+    assert(!depth);begins=ends=checkpoints=yields=freed=destroyed=0;next_frame=1;
     memset(released,0,sizeof(released));memset(backing,0xcc,sizeof(backing));
+    memset(futexes,0,sizeof(futexes));wakes=0;
 }
 int main(void) {
     struct process *p=malloc(sizeof(*p));assert(p);observed=NULL;reset();
@@ -59,10 +62,10 @@ int main(void) {
     for(unsigned i=0;i<65;i++)assert(map_process_page(p,0x500000+i*4096,VMM_PAGE_USER|VMM_PAGE_WRITABLE));
     assert(checkpoints>=2 && p->mapping_count==65);
     for(unsigned i=4096;i<66*4096;i++)assert(backing[i]==0);
-    /* Revoking a mapped futex must wake its waiter before freeing the frame. */
-    futexes[0]=(struct process_futex){.used=true,.process=p,.address=0x500008,.active_waits=1};
-    watched_frame=p->mappings[0].physical_address/4096;
-    unsigned before=yields;cleanup_process_address_space(p);assert(wakes==1 && futexes[0].invalidated);
+    /* Mapping retirement invalidates/wakes a futex before its frame is freed. */
+    futexes[0]=(struct process_futex){.used=true,.process=p,.address=0x500000,.wait_queue={.waiters=1}};
+    unsigned before=yields;cleanup_process_address_space(p);
+    assert(wakes==1 && futexes[0].invalidated && !futexes[0].wait_queue.waiters);
     assert(depth==1 && p->address_space==0 && !p->mapping_count && freed==65 && destroyed==1 && yields>=before+2);
     process_service_end(outer);assert(!depth && begins==ends);
     /* Unmap refusal preserves the original tracked-frame fallback and yields

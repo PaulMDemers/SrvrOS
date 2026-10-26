@@ -7898,3 +7898,26 @@ baseline accepted; full calibrated radio/connectivity and desktop-runtime parity
 remain untested. No repeat boot required. Next implement bounded fresh AGC8/9
 capture and software gain initialization; retain MAC/power/IBI9 prerequisites
 before full calibration. Never infer the uncaptured second gain or transmit power.
+
+
+### 2026-10-26 — fresh AGC state bounded objective
+
+Fetched main `9f18d7d6`: merged PR180/183 adopts the poll/header/GCC fixture
+fixes and strengthens the process-service futex fixture. Merge the canonical
+main tests while retaining our native records; production code has no further
+difference from the physically accepted merged baseline. PR181 owns app lifecycle
+and PR182 filesystem auditing; no MT76 overlap. Pro PR19 retains this scope.
+
+Next fixed mode: after exact captured whole v87/VCO-clear proof, read AGC8(2320)
+and AGC9(2324) between strict MAC0/COREf000f200/DMA40000050 triplets. Eight
+ordered reads,zero new data writes. Require AGC8=16344ef0 from this captured
+LNA0/channel1 profile; refuse either all-ones target. Decode bits14:8 into two
+initial/current software slots only after both fields,postguards and final
+authorization validate; low_gain=-1 and init_done=true then. The second slot is
+reference software state,not evidence of a second physical RF chain. Unknown
+AGC9 is freshly observed; no guessed default. Failures cannot expose partial
+initialized state. No calibration,MAC enable or traffic; prior IBI9/MAC/power
+prerequisites retained. Touched: MT76 engine/header,native xHCI diagnostic mode,
+boot recipe/directed tests and current unit/Wi-Fi guides. Inherit explicit1MiB
+full-prefix capture and Ubuntu/known-good recovery. Last run collected; no reboot
+armed. Unattended trial prints progress and automatically saves/returns.
