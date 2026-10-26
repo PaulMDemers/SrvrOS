@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-25. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-26. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -3038,3 +3038,25 @@ internals on Ubuntu. Compile their target-header translation units in freestandi
 mode, retaining host linking and the separately compiled native pthread shim.
 Apply this to time, synchronization and event-adapter fixtures; no test assertions
 or production behavior change. Preserve the failed compile as portability evidence.
+
+Candidate `5f0326b4` passes the full matched build/core suite, including the new
+time/synchronization/futex/event-adapter host regressions, and the complete thread
+guest suite. General smoke passes all 482 CLI commands, shell editing, syscall
+ABI, UEFI keyboard and display. Storage-service passes throttled writes/input,
+cancellation, file comparison, repeated launches and timeout/quarantine.
+
+The populated-Home 400-write-IOPS combined VM completed 14 timing-validated app
+cycles, 117 verified disk bursts and 225 observed audio/write overlap windows,
+with zero app errors or PCM underruns. Maximum ready/close/loop were 1,348,680 /
+6,484,660 / 188,430 us. All 66 prior fixture files remained intact and allocation
+checks passed. The long close duration reinforces the need for native testing;
+this is not a claimed fix or acceptance of the previous Files-close failure.
+
+Release `83c919c9b7a24b6b` freezes clean candidate source `5f0326b4`. Exact-stage
+Q35 rehearsal passes the expected native-profile refusal, saved logs, clean
+unmount and automatic return. This final follow-up is documentation only. Main
+was rechecked at `dfd63fef`; PR181's separate Text/Files window-lifecycle scope
+and PR19's Wi-Fi work are not included. Native run `d10d796558a34499` will repeat
+the same authorized thirty-minute automatic workload with unchanged limits.
+USB baseline: 369 files / 1,038 clusters, zero leaks/mismatches/errors. Ubuntu
+remains default; console recovery and accepted reopen backups are retained.
