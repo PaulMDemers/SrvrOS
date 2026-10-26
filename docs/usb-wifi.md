@@ -4016,3 +4016,27 @@ Guest shows progress,saves and returns automatically,no photos or commands.
 On return collect matching release/session FIRST with
 rx-lifecycle-retry/collect_return.py; never rerun the failed-run preparation
 script or replace its result with a passing retry.
+
+
+### 2026-10-26 — corrected v89 receive endpoint lifecycle passed
+
+Source `35041be09bb274f814d9a551aca529dfdbf7c82f`, release
+`0df0d7e9c8658836`, native session `session-00065ec391da3a5c-00`.
+Whole earlier proof passed,including post-VCO63 operations/9 replies/6 delays
+with profile30/B0/B0/six30,AGC8/9=16344ef0/0 and software gains78/0.
+Captured endpoint84/DCI9/512 configured; one4096-byte IN posted and waited
+10001us. Exact Stop Endpoint succeeded,state3,dequeue31d001 for owned
+TRB31d000 (DCS1). One stopped transfer event CC26 reported4096 remaining;
+this is cancellation metadata,no received packet evidence. All six ordered
+MAC0/COREf000f200/DMA40000050 guards passed. DMA retained,no rearm,retry,
+free,Set Dequeue,MAC enable or added radio writes.
+
+Strict whole-prefix collector passed on537104 bytes within1MiB,with both
+completion markers. Ubuntu default,consumed one-shot,current/e47 recovery
+hashes verified. Offline325files/788clusters/136directories,zero leaks,bitmap
+mismatches or errors; unmounted/unarmed. Durable evidence is under
+`~/.local/share/srvros/macbookpro11-2/wifi-rx-lifecycle-retry-35041be/`.
+Original failed dbb5191dddbe1790 evidence remains separate and unchanged.
+This accepts bounded receive-request ownership and retirement only. Next is
+controlled MAC/RX and fresh board/power/calibration prerequisite work before
+passive packet reception; scanning,association,security and IP/UI remain pending.

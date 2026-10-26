@@ -7,17 +7,19 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v89 release `dbb5191dddbe1790`, session
-`session-00065ec2cfa926d2-00`, FAILED before AGC/RX. Mode67 omitted the
-post-VCO prerequisite flag,so AGC admission correctly refused with no reads;
-RX configuration/post were never reached. Whole earlier v86 initialization,
-including all21 channel-BBP readbacks,passed. Saved526801-byte full prefix,
-strict refusal and failed-run audit are archived. Recovery/one-shot and offline
-filesystem checks passed; unmounted and unarmed.
-Latest accepted gain-state baseline remains v88 `413af14583fe167c` (source
-`9e7d2ef0`): actual AGC8/9=16344ef0/0,initial/current gains78/0. Profile selection is corrected and exercised through the actual selector;
-retry `0df0d7e9c8658836` is installed and awaiting cold-cycle readiness.
-Scanning,association,security,Wi-Fi IP traffic and UI remain pending.
+Latest physical run: corrected v89 release `0df0d7e9c8658836`, source
+`35041be0`, session `session-00065ec391da3a5c-00`, PASSED the bounded main-RX
+endpoint lifecycle. Whole prior initialization/post-VCO/AGC proof passed.
+Endpoint84/DCI9/512 configured,one4096-byte IN posted,waited10001us,then exact
+Stop Endpoint succeeded with stopped context3 and owned dequeue/DCS1.
+One stopped transfer event CC26 retained all4096 bytes as remaining; no packet
+reception is accepted. All six disabled-MAC/CORE/DMA guards passed,all DMA
+remains retained and no radio writes were added. Full537104-byte prefix and
+both completion markers saved. Recovery,consumed one-shot and offline allocation
+passed; unmounted/unarmed. Original failed v89 remains separately archived.
+Next: controlled MAC/RX lifecycle and calibration prerequisites,then passive
+packet reception. Scanning,association,security,Wi-Fi IP traffic and UI remain
+pending. v88 remains retained as an accepted fallback.
 
 
 Current development block (2026-10-26; local validation complete): consume actual main `0858e8e6` (PR181/185
@@ -29,8 +31,8 @@ and sanitizer coverage. Touched subsystems: new MT76 receive header/source,
 host tests/Makefile and Wi-Fi guide. No native endpoint scheduling,MAC enable,
 calibration,transmit,scan UI or authentication yet. This is preparation for a
 controlled MAC/RX lifecycle; calibration requires MAC start in pinned reference
-USB ordering,save/restore and validated board/power context. Last accepted
-physical payload remains v88; source main merge is not native acceptance.
+USB ordering,save/restore and validated board/power context. The later corrected v89 native run below accepts bounded endpoint ownership;
+source main merges alone do not establish native acceptance.
 
 
 Active block: first controlled main-RX endpoint lifecycle after the whole v88
@@ -43,9 +45,8 @@ Dequeue,restart,retry,free,MAC enable,calibration or transmit. Unexpected
 payload is metadata-only and not receive acceptance. Touched: xHCI receive
 helper/dispatcher,host tests,main/staging/smoke recipes and unit/Wi-Fi docs.
 Bounded RX shutdown is a prerequisite to later MAC/calibration work; old
-profiles remain byte-identical. Last physical v88 remains accepted; no reboot
-armed. Complete local/VM/install/run records before asking for cold-cycle
-readiness; native results pending.
+profiles remain byte-identical. Corrected v89 now has bounded native endpoint lifecycle acceptance as recorded
+above. MAC enable,calibration and reception remain pending; no reboot is armed.
 
 
 
@@ -8170,3 +8171,27 @@ Guest shows progress,saves and returns automatically,no photos or commands.
 On return collect matching release/session FIRST with
 rx-lifecycle-retry/collect_return.py; never rerun the failed-run preparation
 script or replace its result with a passing retry.
+
+
+### 2026-10-26 — corrected v89 receive endpoint lifecycle passed
+
+Source `35041be09bb274f814d9a551aca529dfdbf7c82f`, release
+`0df0d7e9c8658836`, native session `session-00065ec391da3a5c-00`.
+Whole earlier proof passed,including post-VCO63 operations/9 replies/6 delays
+with profile30/B0/B0/six30,AGC8/9=16344ef0/0 and software gains78/0.
+Captured endpoint84/DCI9/512 configured; one4096-byte IN posted and waited
+10001us. Exact Stop Endpoint succeeded,state3,dequeue31d001 for owned
+TRB31d000 (DCS1). One stopped transfer event CC26 reported4096 remaining;
+this is cancellation metadata,no received packet evidence. All six ordered
+MAC0/COREf000f200/DMA40000050 guards passed. DMA retained,no rearm,retry,
+free,Set Dequeue,MAC enable or added radio writes.
+
+Strict whole-prefix collector passed on537104 bytes within1MiB,with both
+completion markers. Ubuntu default,consumed one-shot,current/e47 recovery
+hashes verified. Offline325files/788clusters/136directories,zero leaks,bitmap
+mismatches or errors; unmounted/unarmed. Durable evidence is under
+`~/.local/share/srvros/macbookpro11-2/wifi-rx-lifecycle-retry-35041be/`.
+Original failed dbb5191dddbe1790 evidence remains separate and unchanged.
+This accepts bounded receive-request ownership and retirement only. Next is
+controlled MAC/RX and fresh board/power/calibration prerequisite work before
+passive packet reception; scanning,association,security and IP/UI remain pending.
