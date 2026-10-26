@@ -2,6 +2,13 @@
 
 ## Disposition and evidence boundary
 
+The follow-up repeat campaign below passed all nine fresh VMs without a
+spontaneous AHCI failure. Per the user's direction, active pursuit of the two
+historical incidents is shelved as non-reproduced in this bounded campaign.
+Their cause remains unknown; retain the original evidence and reopen only if
+a recurrence or new directed reproduction supplies useful diagnostics. The
+confirmed driver corrections and regression coverage remain in draft PR178.
+
 Investigation starts from merged main `f0cd6409` on
 `device/apple-silicon/ahci-offline`, on the ARM64 macOS build host with x86_64
 QEMU TCG. Two historical full-thread runs reported READ DMA EXT (`0x25`) failure
@@ -132,3 +139,60 @@ storage-service receipts are saved with source/image/log hashes. The initial
 diagnostic build rejected duplicate unused local declarations introduced while
 adding diagnostics; those were removed before VM tests. That failed attempt is
 retained alongside the passing build. All disposable VMs are stopped.
+
+
+## Repeat campaign — 2026-10-26
+
+The follow-up uses runtime source `8f7a9434`, QEMU TCG on the same ARM64 Mac
+and sequential fresh 512 MiB Q35 guests. The macOS build wrapper passes and
+records that source; the only dirty file at build time is the host scope note.
+Kernel, initramfs and template disk hashes match the first candidate campaign.
+
+The bounded plan is six complete thread suites, two complete storage-service
+suites and one ten-cycle filesystem/relaunch suite. Use the commands above for
+each full suite; the final read/load stress command is:
+
+```sh
+TMPDIR=/tmp python3 tools/storage_service_smoke.py \
+  --ovmf /opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  --boot-wait 180 --dump-memory --relaunch-only 10
+```
+
+Use a fresh evidence directory for each campaign. Save each harness's output,
+and copy `build/review/storage-service-serial.log`, `storage-service-qemu.log`
+and any new screenshot into that directory before the next storage run: those
+paths are reused. `--dump-memory` additionally captures guest RAM on a storage
+wait failure; the harness retains the failed scratch disk. Stop at any failed
+run and inspect its original evidence before retrying. The complete storage
+suite deliberately quarantines the disk once at its final timeout step; thread
+and relaunch-only runs must have no offline receipts.
+
+All nine guests passed, with exit status zero and their required completion
+markers. Six full-thread runs include successful rename and fork tests. Both
+complete storage runs pass throttled writes, USB input, cancellation, byte
+comparison, fsck and three relaunch cycles apiece. The final guest passes ten
+additional fsck/shell-load/executable-comparison cycles. No spontaneous offline
+receipt or new runtime defect was found; no additional driver change or
+regression case is justified by this campaign. Existing deterministic regression
+tests and their negative controls from the first investigation remain applicable.
+
+| Run group | Passed | Offline receipts |
+| --- | --- | --- |
+| Full thread suite, fresh BIOS guests | 6/6 | 0 |
+| Full storage-service suite, fresh UEFI guests | 2/2 | One deliberate timeout per guest |
+| Ten-cycle relaunch-only UEFI guest | 1/1 | 0 |
+
+The two intentional WRITE DMA EXT failures report completion/deadline at
+2,000,003 us and 2,000,000 us respectively, with CI=1, IS=0, TFD=0x50 and SERR=0.
+Each guest records zero failures before injection, exactly one afterward,
+refuses subsequent sync and remains responsive. These expected faults confirm
+the diagnostics and quarantine still work; they do not identify the historical
+READ DMA EXT failure cause.
+
+Per-run commands, durations, log hashes, image hashes and QEMU version are in
+`build/review/ahci-repeat/results.json`; separate serial/QEMU logs and screenshots
+are retained beside it. The original `ahci-offline` evidence is unchanged.
+All disposable guests stopped, and template hashes verified unchanged afterward.
+This closes the repeat campaign without claiming absence of all timing races,
+native SATA acceptance or a proven historical fix. Continue other work; a new
+spontaneous receipt is the trigger to reopen this investigation.

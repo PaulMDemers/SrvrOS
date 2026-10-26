@@ -615,3 +615,30 @@ storage-service receipts are saved with source/image/log hashes. The initial
 diagnostic build rejected duplicate unused local declarations introduced while
 adding diagnostics; those were removed before VM tests. That failed attempt is
 retained alongside the passing build. All disposable VMs are stopped.
+
+
+## AHCI repeat campaign — active scope (2026-10-26)
+
+User authorizes repeated diagnostic VM tests and confirmed fixes on draft PR178.
+Source is `8f7a9434`, based on `origin/main` `f0cd6409`; fetched remote refs and
+open PRs show PR19 retains separate Wi-Fi work. Run six full-thread guests, two
+complete storage-service guests (including deliberate timeout injection) and one
+ten-cycle fsck/relaunch/comparison guest, sequentially on disposable disks.
+Retain per-run logs and source/image hashes under `build/review/ahci-repeat/`.
+Stop to classify any failure before changing code. If all runs stay clean, shelve
+the historical incident as non-reproduced, preserve confirmed fixes and evidence,
+and update investigation/status docs and draft PR178. No native trial is armed.
+
+Repeat campaign complete: all nine fresh guests pass (six full-thread, two full
+storage-service, one ten-cycle relaunch). No spontaneous offline event occurred.
+Both deliberate write timeouts have completion/deadline receipts, pending CI=1,
+IS=0, TFD=0x50, SERR=0 and exactly one failure each; subsequent sync is refused
+and the shell remains responsive. All guests stopped and template hashes remain
+unchanged. No new runtime finding or additional regression case was confirmed.
+
+Active historical investigation is shelved as non-reproduced at the user's
+direction, with cause still unknown. Preserve the existing corrections/tests,
+original failed runs and the new per-run evidence under `build/review/ahci-repeat/`.
+Update draft PR178 with this documentation-only checkpoint; no merge requested.
+Next step is other project work unless new diagnostics justify reopening AHCI.
+No physical trial is armed; Actions remain disabled.

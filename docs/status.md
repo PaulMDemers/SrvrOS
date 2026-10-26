@@ -186,5 +186,7 @@ for the review boundary and separate unresolved hardware/subsystem work.
 The [AHCI offline investigation](ahci-offline-investigation-2026-10-26.md) corrects
 confirmed false-offline decisions when completion/readiness arrives at a wait
 bound, separates phase budgets and adds failure diagnostics. Historical spontaneous
-offline events remain unattributed; genuine pending-command failures still
-quarantine the disk and retain DMA memory.
+offline events remain unattributed. A follow-up campaign passes six full-thread
+VMs, two storage stress VMs and a ten-cycle relaunch VM with no spontaneous
+recurrence; active investigation is shelved pending new evidence. Genuine
+pending-command failures still quarantine the disk and retain DMA memory.
