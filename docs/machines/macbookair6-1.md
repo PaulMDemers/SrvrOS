@@ -3020,3 +3020,9 @@ baseline. Preserve ten-second whole-cycle, five-second client and 500 ms loop
 limits, continuous verified disk work, PCM checks and firmware/ownership gates.
 PR19 (`eababae2`) retains separate USB Wi-Fi ownership; no shared production edits
 are planned. Prior explicit self-merge/reboot authorization remains applicable.
+
+The fresh Ubuntu build reproduced a merged poll compile regression: the new
+synthetic-readiness path uses timespec/clock_gettime without including time.h,
+and its strict-C host fixture lacks the POSIX feature declaration. Extend this
+validation scope only to the explicit time header and fixture feature macro;
+retain the failed build log. No runtime policy, pipe admission or limits change.

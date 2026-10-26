@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #define poll audit_poll
 #define select audit_select
 #include "../userspace/lib/src/posix_poll.c"
