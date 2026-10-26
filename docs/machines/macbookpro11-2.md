@@ -197,7 +197,9 @@ this diagnostic scope. Retain intentional integration baseline `d5bc4b3`
 during this bounded trial. No remote task messaging or parallel staging.
 
 
-Next bounded scope v83: fixed channel1 (2412MHz) synthesizer fields from pinned
+Installed/unarmed v83 candidate `be37d545e93f1aed`, source `0ee9efb3`,
+passed local/sanitizer and both exact-stage VM checks. It tests fixed channel1
+(2412MHz) synthesizer fields from pinned
 Linux v7.0 frequency row and declared field layout. Preserve all21 reference
 steps (including adjacent same-register masks), each with fresh exact-profile
 read, one masked/full write and separate readback; MAC/DMA remain disabled.
@@ -7393,3 +7395,25 @@ all packet bits/refusal/no replay/quarantine; ASan/UBSan;162 staging tests and
 164 historical recipes unchanged. Full-chain collector fixture458428bytes,
 1993 malformed proofs rejected with namespace preservation. Exact-stage VM
 and installation follow; no physical synthesizer result yet.
+
+
+### 2026-10-25 — v83 installed, native result pending
+
+Exact source `0ee9efb3a582cdddc3293f09664c9b60282fcc0e`, release
+`be37d545e93f1aed`, config `ram-usb-wifi-fw-v83-laptop-probe-0e535900-auto-return`.
+Full build, directed engine and complete xHCI suite, ASan/UBSan,162 staging
+tests,164 historical recipes, independent reference mapping and strict
+collector mutation checks passed. Exact GPT-stage VM saved and byte-verified
+diagnostics, cleanly unmounted and reset. Missing-workspace VM refused the
+probe and returned. Full512KiB capture selection confirmed. VM evidence tests
+the workflow/refusal path; it does not simulate synthesizer behavior.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads matched
+durable backups. Ubuntu remains default; reboot unarmed. ESP v81
+`dde8fcb03f3ea0d5` removed only after full archive byte equality; v82 band
+payload retained alongside recovery. Workspace offline checks clean:
+307files/728clusters/127directories, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint and candidate evidence archived outside build. Await readiness
+for cold Wi-Fi power cycle, then collect the matching session FIRST. Results
+save automatically and return to Ubuntu; no commands/photos needed. Physical
+synthesizer/channel readiness and calibrated radio/connectivity remain untested.
