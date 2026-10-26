@@ -8307,10 +8307,21 @@ failure,all-ones boundaries and no replay. Native adapter fixtures execute the
 actual selector,USB request mapping and all53 forward-cancellation boundaries,
 with separate admission/quarantine refusals. Strict whole-prior/MAC/RX proof
 replays all ordered operations,queue rounds,restorations and snapshot fields;
-405 malformed proofs refuse. Final full build/core and actual-adapter/pure-helper
+408 malformed proofs refuse. Final full build/core and actual-adapter/pure-helper
 ASan/UBSan pass,including additional admission/readback/cleanup-loss boundaries.
 All eight native receipt formats have matching argument counts; the final source
 corrects the new RX register-write counter and v90 progress wording. Exact-stage
 VM/install and native acceptance are pending until recorded below. Guest shows
 progress,saves the full1MiB startup prefix and returns automatically. No new
 physical acceptance or reboot is claimed by this implementation.
+
+
+The first uninstalled v90 stage `5b9e1bb49eed288b` saved and returned in Q35,
+but its harness omitted v90 from the firmware-profile list and correctly failed
+an incompatible generic-probe assertion. That receipt is preserved as a failed
+VM rehearsal,not physical acceptance. The actual harness assignment now has
+v89/v90-positive and unknown-v91-negative coverage. A separate timing regression
+reproduced one extra poll read after a wait crossed the deadline; the engine now
+checks the clock before every subsequent submission. The regression refuses
+that extra read and still proves MAC-disable cleanup. Full final build/core and
+175 staging tests pass; exact final-stage VM/install follow separately.

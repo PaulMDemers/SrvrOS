@@ -115,6 +115,13 @@ class InstallTests(unittest.TestCase):
         v="ram-usb-wifi-fw-v90-laptop-probe-0e535900-auto-return"
         self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-mac-cycle=1",""),boot.limine_config("0123456789abcdef",v.replace("v90-","v89-")))
         with self.assertRaises(ValueError):boot.stage(wifi_mac_cycle=True)
+        import ast
+        tree=ast.parse(Path(__file__).with_name("hardware_boot_smoke.py").read_text())
+        node=next(n for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=="wifi_firmware" for t in n.targets))
+        code=compile(ast.Expression(node.value),"<actual smoke profile>","eval")
+        for version,expected in [(89,True),(90,True),(91,False)]:
+            self.assertEqual(eval(code,{"probe":True,"manifest":{"config_version":f"ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return"}}),expected)
+
 
     def test_wifi_rx_lifecycle_profile(self):
         v="ram-usb-wifi-fw-v89-laptop-probe-0e535900-auto-return"

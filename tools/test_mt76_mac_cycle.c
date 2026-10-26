@@ -4,7 +4,7 @@
 #include <string.h>
 struct fixture {
     struct mt76_mac_cycle state;
-    unsigned calls,auths,fail,cancel,mismatch,ones,busy,cleanup_calls;
+    unsigned calls,auths,fail,cancel,mismatch,ones,busy,cleanup_calls,busy_reads;
     uint32_t mac,filter,txop;
     uint64_t now;
     bool cancelled,broken,delay_fail,cleanup_lost,freeze;
@@ -26,7 +26,7 @@ static bool read_word(void *p,uint32_t a,uint32_t *v,bool cleanup) {
     switch(a){
     case 0x1004:*v=f->mac;break;
     case 0x2000:*v=0xf000f200;break;
-    case 0x208:*v=0x40000050 | (f->busy==1?10:0);break;
+    case 0x208:*v=0x40000050; if((f->busy==1 && f->mac) || (f->busy==5 && f->mac==12)){*v|=10;f->busy_reads++;}break;
     case 0x1400:*v=f->filter;break;
     case 0x1340:*v=f->txop;break;
     case 0x13b0:*v=0x2f2f;break;
@@ -73,10 +73,11 @@ int main(void){
         if(f.cancelled && !ok){assert(f.state.failed);if(f.state.mac_touched)assert(f.mac==0 && f.cleanup_calls);}
         no_replay(&f);
     }
-    for(unsigned b=1;b<=4;b++){
-        struct fixture f=fresh();f.busy=b;assert(!run(&f));assert(f.mac==0 && f.calls<2000);no_replay(&f);
+    for(unsigned b=1;b<=5;b++){
+        struct fixture f=fresh();f.busy=b;assert(!run(&f));assert(f.mac==0 && f.calls<5000);no_replay(&f);
     }
-    struct fixture f=fresh();f.freeze=true;assert(!run(&f) && f.state.mac_disabled);no_replay(&f);
+    struct fixture f=fresh();f.busy=5;assert(!run(&f) && f.busy_reads==1 && f.state.mac_disabled);
+    f=fresh();f.freeze=true;assert(!run(&f) && f.state.mac_disabled);no_replay(&f);
     f=fresh();f.delay_fail=true;assert(!run(&f) && f.state.mac_disabled);no_replay(&f);
     for(unsigned n=1;n<=base.calls;n++){
         f=fresh();f.ones=n;bool ok=run(&f);

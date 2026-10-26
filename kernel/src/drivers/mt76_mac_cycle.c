@@ -51,6 +51,9 @@ static bool poll_clear(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *
                        uint32_t a,uint32_t mask,unsigned budget,bool cleanup) {
     uint64_t start=io->now(io->context),previous=start;
     for(unsigned n=0;n<2048;n++) {
+        if(n){uint64_t now=io->now(io->context);
+            if(now<previous || now-start>=budget)break;
+            previous=now;}
         uint32_t v;
         if(!read_word(s,io,a,&v,cleanup,false))return false;
         if(!(v&mask))return true;
