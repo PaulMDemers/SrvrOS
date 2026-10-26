@@ -3368,8 +3368,8 @@ Run `f6e01ca76b5a4da2`, release `0ede0fc436410e26`, compiled `f1587a2f`
 `session-00065ec3dd1e846a-00`. The automatic collector passes the full thirty-minute
 workload: 345,600,000 PCM bytes, zero underruns, worker status0, 3,154 verified
 bursts / 826,802,176 bytes, and an exactly matching binary disk receipt.
-First-to-last I/O spans 1,797.058 seconds inside playback. Audible quality for
-this run awaits the user's confirmation.
+First-to-last I/O spans 1,797.058 seconds inside playback. The user confirms
+audio remained steady throughout this run.
 
 All 689 app cycles completed with zero child errors. Maximum ready/close times
 were 1,912,039 / 3,460,137 us; application coverage spans 1,785.112 seconds
@@ -3405,3 +3405,22 @@ hashes. Ubuntu recovered, next_entry is empty and collection is disabled; no
 new boot is armed. Closeout base is `4ee18f69`; PR182 (`2a091597`) and PR19
 (`db3d8633`) retain separate storage and Wi-Fi scopes. This closeout changes
 only this unit record.
+
+### Private app-image ownership audit — active scope (2026-10-26)
+
+Base `d24dbc11`, same local device branch. The lifecycle pthread runs exec;
+its image loader operates on a newly reserved child using a kernel snapshot of
+the executable path, but the service gate currently excludes the caller's UI
+siblings throughout that private child work. Parent mapping refresh, descriptor
+inheritance and record mutation require the existing caller exclusion and must
+retain it. Audit and narrowly distinguish private child-image ownership from
+parent mutation, without releasing the global I/O/cancellation gate or admitting
+unsafe syscalls. No acceptance, workload or resource limits change.
+
+Scope: process image construction, scheduler exclusion identity for that explicit
+scope, ownership/refusal regressions and this unit record/current contract.
+PR182 (`2a091597`) owns exFAT/storage changes and PR19 (`db3d8633`) Wi-Fi;
+inspect their current shared-file scope before integration. Prior return is fully
+collected and listening confirmed. Next checkpoint is failing-before/passing-after
+ownership tests, matched build/core and VM stress/lifecycle validation, then the
+merged candidate and authorized automatic native trial with preserved recovery.
