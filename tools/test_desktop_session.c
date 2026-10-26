@@ -794,6 +794,10 @@ int main(void) {
     s.scene.windows[3]=(struct desktop_window){.visible=1,.dialog=1,.application=DESK_APP_TEXT,.frame=original,.z=20,.minimized=1};
     assert(dock_activate(&s,DESK_APP_TEXT)==1 && s.scene.focus==3 && !s.scene.windows[3].minimized);
     s.clients[1].closing=1;assert(dock_activate(&s,DESK_APP_TEXT)==2);
+    char prior_executed[sizeof(executed_path)];strcpy(prior_executed,executed_path);
+    s.clients[0].closing=s.clients[2].closing=1;strcpy(executed_path,"dock-unchanged");
+    assert(dock_activate(&s,DESK_APP_TEXT)==-1 && !strcmp(executed_path,"dock-unchanged"));
+    s.clients[0].closing=s.clients[2].closing=0;strcpy(executed_path,prior_executed);
     desk_palette_init(&s.scene.launcher);s.scene.launcher_open=0;s.launcher_application=DESK_APP_TEXT;
     launcher_catalog(&s);assert(s.scene.launcher.count==3); /* Two main windows plus New app; no dialog/closing entry. */
     s.launcher_application=0;

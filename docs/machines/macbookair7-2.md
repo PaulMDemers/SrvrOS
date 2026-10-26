@@ -2,23 +2,37 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
-### Desktop movement and dock — active scope
+### Desktop movement and dock — implemented; physical acceptance pending
 
-Base main `ab7a7c93`, after closing PR193 with the tester's non-audio report.
-Air7,2 owns a bounded compositor/scene follow-up: allow ordinary windows past
-screen sides/bottom with a reachable titlebar; preserve clipping, hit testing,
-resize rollback, modal ownership and Center/tiling recovery. Make the dock's
-running/active/minimized state visible, include running unpinned applications,
-restore/cycle an app's windows and expose a filtered window chooser on secondary
-click. Reuse stable window identities and existing launcher capacity, not a new
-fixed per-app window table. Keep the quiet visual style and pure scene helpers.
+PR194 follows main `ab7a7c93`, after closing PR193 with the tester's non-audio
+report. Ordinary windows can move past the sides and bottom of the screen while
+retaining a reachable titlebar. Center, tiling and maximize provide recovery;
+owned dialogs still open visibly. Movement preserves surface dimensions.
 
-Planned edits: `userspace/deskd` scene/input/launcher, focused host and actual VM
-fixtures, current help/desktop docs and this record. No kernel, firmware, driver,
-audio or protocol work. PR182's filesystem audit and PR19's Wi-Fi remain separate.
-Validate locally and in QEMU before preparing any physical trial; preserve the
-accepted `a90629c8a2060e66` payload and independent `9aa8dbf6fbda8252` recovery.
-Local checkpoint: `build/window-dock-20261026/`. No next reboot is armed.
+The dock includes running unpinned applications, running/active/minimized marks
+and main-window counts. Clicking restores or cycles main windows; secondary or
+Control-click opens the existing launcher filtered to that app's windows and
+New app. Owned dialogs retain focus routing. No new window table or limit is
+introduced. Changes are confined to compositor/scene/input/launcher, Help and
+focused fixtures; no audio, driver, kernel or protocol work is included.
+
+Full core/desktop builds and documentation checks pass. Scene ASan/UBSan and host
+coverage pass geometry extremes, clipping/stride guards, dock state, cycling,
+modal routing and closing groups. The actual QEMU consumer passes left/right/
+bottom movement, Center recovery, offscreen-parent dialogs, three-window cycling,
+minimized restore, temporary Preview/Help entries, the filtered chooser and first
+subsequent app click, ordinary launcher filter reset, exact saved files and clean
+process retirement. Offline exFAT checks pass. Existing pointer/lifecycle,
+context-menu and legacy compositor VMs also pass. Earlier fixture failures remain
+in local evidence; the final consumer requires graceful QMP exit and returns zero.
+
+Help contains an untimed **Window movement and dock trial**. Its native automatic
+opening is not yet wired into a dedicated boot profile; complete that delivery
+and matched stage/rehearsal before the focused attended test. These local results
+do not establish physical acceptance. Installed accepted `a90629c8a2060e66` and
+independent recovery `9aa8dbf6fbda8252` are unchanged. PR182's filesystem audit
+and PR19's Wi-Fi remain separate. Evidence: `build/window-dock-20261026/`, with
+a verified durable copy outside build. No next reboot is armed.
 
 ### Shared application/window layer — bounded non-audio hardware acceptance
 

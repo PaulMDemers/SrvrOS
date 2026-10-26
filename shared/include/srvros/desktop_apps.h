@@ -2,7 +2,7 @@
 #define SRVROS_DESKTOP_APPS_H
 #include <srvros/desktop_protocol.h>
 /* One launch catalog for the launcher, dock and whitelisted executable path.
- * A zero dock position keeps a tool available through the launcher and Files. */
+ * A zero dock position means unpinned; running tools still appear in the dock. */
 struct desk_application_info { const char *title,*role,*program;unsigned dock; };
 static inline const struct desk_application_info *desk_application_info(unsigned id) {
     static const struct desk_application_info catalog[]={
