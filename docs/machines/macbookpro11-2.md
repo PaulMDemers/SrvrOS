@@ -176,13 +176,18 @@ channel-band/synthesizer setup grounded in these fresh values and pinned source;
 frequency/calibrated radio/connectivity remain untested.
 
 
-Installed v82 candidate `7e269653eebe03c3`, source `83edd6be`, is unarmed
-after host, full build, ASan/UBSan and exact-stage GPT/missing-workspace VM
-checks. Reference-order2GHz band preparation:
-replay the fixed68-entry bank5 table, set RF5:0=45 and6:0=44(hex), then set
-MAC13c8=00050007 and13a0=003e0002 with independent readbacks. Require fresh
-v81 exact observations and all earlier proof; maintain disabled MAC/CORE/DMA
-guards. No synthesizer frequency, power selection, MAC enable or traffic yet.
+Release `7e269653eebe03c3`, source `83edd6be`, completed v82 in
+`session-00065eb38500e72c-00`. All70 RF targets matched:980 operations,
+840 guard reads,140 exact replies,70 ACKs and280 strict guard triplets;
+both mismatch fields zero. The two MAC words changed from0 to13c8=50007 and
+13a0=3e0002(hex), with18 ordered transfers,16 reads/2 writes/2 verified and
+4 more guard triplets. Whole earlier proof and the complete402661-byte prefix
+with both completion markers passed. Ubuntu default, consumed one-shot and
+installed/recovery hashes verified. Offline clean307files/728clusters/
+127directories, zero leaks/mismatches/errors; unmounted/unarmed. Bounded
+2GHz band setup/readbacks passed; synthesizer/channel tuning and calibrated
+radio/connectivity remain untested. Next scope is pinned channel-frequency
+plan/RMW fields and their fresh prerequisites.
 Touched subsystems: fixed MT76 plan/MAC engine, gated xHCI diagnostic mode,
 boot recipe, directed tests and this unit/current Wi-Fi guide. Dependencies:
 v81 native proof, pinned Linux v7.0 set_band reference, explicit512KiB capture.
@@ -7322,3 +7327,26 @@ v81 remains installed alongside recovery. Workspace preboot checks clean:
 Run record and candidate evidence retained outside build. No reboot armed.
 Await readiness for cold Wi-Fi power cycle; collect matching session FIRST
 on return. No commands or photos needed; capture saves and returns automatically.
+
+
+### 2026-10-25 — v82 native band setup/readback result
+
+Source `83edd6beefe281b351f335051282ef8ad1bdf707`, release
+`7e269653eebe03c3`, session `session-00065eb38500e72c-00`, passed strict
+whole-chain collection after the attended cold adapter power cycle. All68
+replayed bank5 entries and RF5:0=45,6:0=44(hex) matched independent reads:
+980 ordered operations,840 guard reads,140 exact MCU replies,70 ACKs,
+70 matching observations and280 MAC0/COREf000f200/DMA40000050 triplets;
+low64/high6 mismatch masks zero. Only then the two MAC words wrote/read back
+13c8=00050007 and13a0=003e0002, both from fresh0:18 ordered transfers,
+16 reads/2 writes/2 verified and4 strict guard triplets.
+
+The entire402661-byte startup prefix and both completion markers were saved
+within512KiB; all earlier exact initialization/BBP20/v81 proof passed. Ubuntu
+default, consumed one-shot and current/known-good recovery payload hashes
+verified. Offline workspace clean307files/728clusters/127directories, zero
+leaks/mismatches/errors; unmounted, reboot unarmed. Evidence retained outside
+build in `wifi-band2g-83edd6b`. This accepts bounded reference-order band setup
+and readbacks on this adapter, not calibrated RF or connectivity. Next: audit
+and implement fixed channel-frequency/synthesizer fields against captured
+values, preserving disabled MAC/DMA and complete evidence. No new run armed.

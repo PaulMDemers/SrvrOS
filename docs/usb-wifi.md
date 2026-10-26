@@ -3356,3 +3356,21 @@ fixture is402659bytes;4247 missing/duplicate/altered/incomplete proofs refuse,
 with whole earlier-chain verification and boot-module namespace preservation.
 Explicit512KiB capture remains mandatory. No synthesizer frequency, transmit
 power selection, MAC enable, scanning or traffic; physical acceptance pending.
+
+
+### v82 native 2GHz band setup/readback result
+
+MacBookPro11,2 release `7e269653eebe03c3` (source `83edd6be`), session
+`session-00065eb38500e72c-00`, passed all70 RF readbacks:68 bank5 replay
+entries, RF5:0=45 and6:0=44(hex).980 ordered operations,840 guard reads,
+140 exact replies,70 ACKs,70 matches and280 strict disabled-MAC guard
+triplets passed; both mismatch masks zero. The subsequent MAC writes from
+fresh0 independently read back13c8=00050007 and13a0=003e0002:18 ordered
+transfers,16 reads,2 writes,2 verified and4 guard triplets. Whole prior proof
+and complete402661-byte prefix/both completion markers passed.
+
+Ubuntu default, consumed one-shot and current/recovery hashes verified;
+offline workspace clean307files/728clusters/127directories with zero leaks,
+mismatches or errors. Evidence archived, unmounted/unarmed. Bounded band
+setup/readbacks passed on the captured adapter; synthesizer/channel tuning,
+calibrated radio operation, scanning and Wi-Fi connectivity remain untested.
