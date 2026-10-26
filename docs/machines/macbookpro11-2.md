@@ -7705,3 +7705,19 @@ build. Bounded channel1 BBP/filter setup/readbacks accepted; calibrated RF,
 frequency lock and Wi-Fi connectivity remain untested. No repeat boot needed.
 Next: audit post-tune VCO and calibration prerequisites before MAC enable;
 preserve disabled MAC/DMA and explicit full-prefix capture.
+
+
+### 2026-10-26 — post-tune VCO bounded objective
+
+Next: after exact v86 channel1 BBP/filter proof, fresh-read RF0:4, setbit7 once
+with preserved low bits, independently read it and observe six fixed delayed
+samples. One bounded channel1 VCO initiation, not MCU full calibration or radio
+acceptance. Keep MAC0/COREf000f200/DMA40000050 guards around every command;
+no MAC enable/traffic or guessed power/regulatory settings. Touched: MT76 fixed
+engine, native diagnostic ownership, boot recipe/tests and this unit/Wi-Fi guide.
+Dependencies: collected v86 full proof, fresh mapped gain, pinned Linux v7.0
+set_channel ordering, explicit1MiB full-prefix capture. Latest fetched main
+`8bd43adc` merges pthread lifecycle and bounded AHCI timeout changes; no MT76
+overlap. Retain intentional `d5bc4b3` integration base during this diagnostic.
+Open PR179 owns epoll/eventfd; Pro PR19 owns MT76. No remote messages or parallel
+staging. Current run collected/archived; Ubuntu recovery retained, reboot unarmed.
