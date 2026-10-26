@@ -7,15 +7,17 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical result: merged-main `dfd63fef` regression release
-`5c9c8372adaf59d6` passed the whole accepted v87 Wi-Fi initialization sequence.
-All21 channel-BBP readbacks and post-tune VCO observations matched; recovery
-and filesystem checks passed. No repeat boot needed; no reboot armed.
-Next: bounded fresh AGC8/9 capture and software gain initialization, preserving
-MAC/power/IBI9 prerequisites. PLL lock, full calibration/connectivity and native
-desktop-runtime parity on this baseline remain untested. Candidate v88
-`413af14583fe167c` is installed for fresh AGC8/9 capture/software initialization;
-local/VM checks passed,native result pending. Reboot unarmed.
+Latest physical result: v88 release `413af14583fe167c` (source `9e7d2ef0`,
+main baseline `9f18d7d6`) passed the whole prior Wi-Fi initialization proof and
+fresh AGC8/9 software-state capture. Actual raw values were16344ef0 and00000000;
+initial/current gains78 and0,low_gain=-1,init_done=true. Eight reads,zero new
+register writes and both guard triplets passed. Session
+`session-00065ec1bf446752-00` saved the complete536023-byte prefix.
+Recovery and offline filesystem checks passed; unmounted and no reboot armed.
+Next: audit MAC/power/IBI9 prerequisites before full calibration and packet RX.
+Scanning,association,security,Wi-Fi IP traffic and UI remain unimplemented or
+unaccepted; no reliable completion percentage or delivery date yet.
+
 
 
 The user considers the core Pro bring-up generally working. Named payloads below
@@ -7979,3 +7981,21 @@ readiness; on return collect matching session FIRST with agc-state/collect_retur
 Results save and return automatically,no photos or commands. Native AGC9 and
 initialized state pending; no new radio writes,calibration,MAC enable,traffic,
 second physical-chain or power acceptance.
+
+
+### 2026-10-26 — v88 native AGC software state accepted
+
+Source `9e7d2ef07d0519e537bf52a127fd91915e0f5783`, release
+`413af14583fe167c`, session `session-00065ec1bf446752-00` passed strict whole
+prior initialization and fresh gain-state proof. AGC8=16344ef0 and AGC9=00000000
+were actual successful reads; decoded initial/current gains78/0,low_gain=-1,
+init_done=true. All8 reads and two0/f000f200/40000050 guard triplets passed;
+zero new register writes. A zero second software slot does not accept a second
+physical chain. Earlier21 channel-BBP readbacks and post-VCO profile remained
+exact:30,b0,b0,then six30;first_clear1. Full536023-byte startup prefix and both
+completion markers saved within1MiB capacity. Ubuntu default,consumed one-shot,
+installed/recovery hashes verified. Offline workspace clean321files/774clusters/
+134directories,zero leaks,bitmap mismatches or errors; unmounted and unarmed.
+Evidence retained outside build. This accepts bounded register capture and
+software state only; calibrated RF,PLL lock,packet RX/TX and connectivity remain
+untested. Next audit MAC/power/IBI9 prerequisites before full calibration.
