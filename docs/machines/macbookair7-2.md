@@ -35,8 +35,10 @@ exact files retire cleanly. Four mixed app cycles overlap a complete twenty-seco
 PCM stream with exact samples and retained editable Text; this is VM evidence.
 Initial fixture failures and their corrections are retained locally.
 
-Final full-host/matched-build and exact-stage checks precede the next attended
-native trial. Its complete untimed Help checklist includes Files siblings,
+Final `make test-core all acpi-battery-kernel acpi-battery-vm-kernel check-docs`
+passes, with fresh normal/native/VM kernels and initramfs, ASan/UBSan ownership
+and clean whitespace. Exact-stage rehearsal precedes the next attended native
+trial. Its complete untimed Help checklist includes Files siblings,
 Terminal controls/close, Text decisions, Preview cancellation, two-minute playback
 with app/save work, and ordinary exit/reopen. Installed accepted current remains
 `986d6c68fa19ba18`, independent recovery `9aa8dbf6fbda8252`; the last return is
