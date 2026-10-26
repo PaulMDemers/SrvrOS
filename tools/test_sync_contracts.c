@@ -10,6 +10,8 @@
 #include <srvros/sys.h>
 
 #define CHECK(x) do { if (!(x)) { printf("sync-contracts: line %d failed: %s\n", __LINE__, #x); exit(1); } } while (0)
+static uint32_t *interrupted_address;
+static uint32_t released_value;
 static int error_value, last_clock, futex_calls, dispatches, wait_mode, clock_error;
 static pthread_mutex_t *clock_mutex_probe;
 static int clock_probes, clock_calls, wake_calls;
@@ -95,9 +97,21 @@ long srv_thread_exit(uint64_t value) {
 long srv_thread_signal(uint64_t tid, uint64_t signal) { (void)tid; (void)signal; abort(); }
 long srv_syscall0(long number) { (void)number; abort(); }
 void srv_yield(void) { abort(); }
-int __posix_signal_dispatch_pending(void) { dispatches++; return 0; }
+int __posix_signal_dispatch_pending(void) {
+    dispatches++;
+    if (wait_mode == 4) { CHECK(interrupted_address);*interrupted_address=released_value;wait_mode=5;return 1; }
+    return 0;
+}
 long srv_futex_wait(uint32_t *address, uint32_t expected, uint64_t ticks) {
     CHECK(++futex_calls < 10);
+    if (wait_mode == 4) {
+        CHECK(ticks==0 && *address==expected && futex_calls==1);
+        interrupted_address=address;return SRV_ERR_INTR;
+    }
+    if (wait_mode == 5) {
+        CHECK(ticks==0 && address==interrupted_address);
+        CHECK(*address==released_value);return -EAGAIN;
+    }
     if (ticks > largest_ticks) largest_ticks = ticks;
     if (wait_mode == 1 && futex_calls == 1) return -ETIMEDOUT; /* early tick wake */
     if (wait_mode == 2 && futex_calls == 1) return SRV_ERR_INTR;
@@ -451,7 +465,25 @@ static void main_lifecycle_tests(const char *mode) {
     CHECK(mappings == 0 && unmappings == 0);
     puts("sync-contracts: initial join/detach ownership and static storage PASS");
 }
+static void unexpected_initializer(void) { CHECK(0); }
+static void futex_interruption_tests(void) {
+    for(int kind=0;kind<4;kind++) {
+        wait_mode=4;dispatches=futex_calls=0;interrupted_address=NULL;
+        released_value=kind==3 ? 2 : 0;
+        pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+        pthread_rwlock_t rw=PTHREAD_RWLOCK_INITIALIZER;
+        pthread_once_t once=1;
+        if(kind==0) { mutex.locked=1;CHECK(pthread_mutex_lock(&mutex)==0);CHECK(pthread_mutex_unlock(&mutex)==0); }
+        if(kind==1) { rw.state=-1;CHECK(pthread_rwlock_rdlock(&rw)==0);CHECK(pthread_rwlock_unlock(&rw)==0); }
+        if(kind==2) { rw.state=1;CHECK(pthread_rwlock_wrlock(&rw)==0);CHECK(pthread_rwlock_unlock(&rw)==0); }
+        if(kind==3) CHECK(pthread_once(&once,unexpected_initializer)==0);
+        CHECK(dispatches==1 && futex_calls==2);
+    }
+    wait_mode=0;
+    puts("sync-contracts: mutex, reader/writer and once interruption/recheck PASS");
+}
 int main(int argc, char **argv) {
+    if (argc>1 && !strcmp(argv[1], "futex")) { futex_interruption_tests();return 0; }
     if (argc > 1 && (!strcmp(argv[1], "initial-join") || !strcmp(argv[1], "initial-join-null") ||
         !strcmp(argv[1], "initial-detach") || !strcmp(argv[1], "initial-detach-late"))) {
         main_lifecycle_tests(argv[1]); return 0;

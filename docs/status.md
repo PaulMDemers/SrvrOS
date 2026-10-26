@@ -126,7 +126,9 @@ Both sources have host regression coverage; default VM checks exercise the
 reference path. Relative sleep remainders now exclude handler execution and
 preserve a full request when no suspension occurred. Extreme fallback conversion
 uses quotient/remainder arithmetic to avoid overflow. Both sleep findings are
-corrected; broader profile exclusions remain open.
+corrected. Futex entries now retain active-wait ownership across enqueue/wake
+gaps and cancellation teardown; deterministic host and guest coverage checks
+interruption and queue reuse. Broader profile exclusions remain open.
 
 ## Measured checkpoints and current acceptance
 

@@ -86,6 +86,24 @@ old multiplication limit and large tick counters. Absolute-output checks also
 use long handlers. Tick fallback and extreme intervals remain host-modeled;
 the default VM exercises the reference source.
 
+`make test-futex-contracts` (or `python3 tools/test_futex_contracts.py`), included
+in `test-core`, runs deterministic kernel futex interleavings on a native host C
+compiler. The runner extracts the real declarations/functions and replaces only
+privileged STI with a modeled interrupt-enable boundary. It models scheduler
+and IRQ services, not a complete kernel. Cases cover interruption, enqueue
+rechecks, spurious wakes, queue binding through runnable gaps, shared wait
+ownership, wake counts/process isolation, teardown and table reuse. `CC` supports
+ASan/UBSan; source hashes and results go to `build/review/futex-regression/`.
+The libc synchronization target also checks mutex/rwlock/once signal absorption
+and subsequent state rechecks. Guest `--test futex`, included in `all`, uses wake
+receipts to establish parking, then exercises 16 interruptions, 16 release/wake
+rounds, four process-exit lifetimes and 96 timeout addresses beyond table capacity.
+`make test-thread-smoke-harness` runs five host reader regressions, also in
+`test-core`. Child process exits must not end the enclosing thread suite; only
+a final test result or top-level monitor run receipt ends it. This corrects
+premature VM teardown when subprocess tests lengthen the full suite.
+These checks do not establish general SMP or physical-hardware acceptance.
+
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.
 

@@ -450,3 +450,49 @@ source/output ownership and initial futex wait/wake paths. No additional defect
 was confirmed. Next scope is deterministic futex interruption/wake race coverage;
 abnormal once-initializer exit remains unconfirmed. The observed AHCI failure
 also remains an unresolved validation event, with both failure and retry receipts.
+
+## Deterministic futex interruption and wake audit — active scope
+
+User authorized deterministic race coverage, confirmed fixes, docs/PR updates and
+continued review. Base `5503804e`; fetched main remains `fa5a6cc1`, and PR19's
+`b68df8cd` retains separate Wi-Fi scope. Own the process futex wait/wake lifetime
+and focused kernel/libc/guest regressions; inspect scheduler membership without
+assuming general SMP acceptance. Next checkpoint is deterministic interruption,
+pre-enqueue/re-wait queue reuse and wake ownership probes. No physical boot armed.
+
+
+The bounded futex correction is complete. The deterministic fixture confirms
+entry reuse could change the process/address binding while a syscall owned its
+queue. Counted reservations now cover pre-enqueue and post-wake gaps, all return
+paths and process-exit propagation. Final cleanup follows forced sibling
+retirement. Wake lookup/count is IRQ-serialized as defensive hardening; the
+current syscall gate already masks IRQs. No public layout/syscall change.
+
+Full validation also confirmed a harness defect: child exit messages prematurely
+ended the enclosing suite. The reader now waits for test completion/failure or
+the monitor's top-level run receipt; five host regressions protect that behavior.
+
+
+Final validation: matched build, host futex/synchronization/timing targets, five
+smoke-reader tests, futex ASan/UBSan, targeted futex and main-join VM groups,
+complete thread suite with the corrected harness and full libuv suite pass.
+Three kernel source-copy controls abort at the intended assertions (old runtime,
+restored wake gap and Boolean reservation); the old smoke reader fails its host
+regressions. Docs check 641 local inline links with zero errors; whitespace
+checks pass. Source/log hashes and build/test receipts are retained in
+`build/review/futex-audit/`.
+
+Retained unsuccessful runs: two full captures were truncated by the old harness;
+a subsequent corrected-harness run encountered an AHCI read failure/disk offline
+during fork, before the futex group. The fresh-VM retry passed. The storage
+failure remains unresolved, consistent with the preceding sleep-fix checkpoint;
+a retry is not evidence that it is fixed. Earlier test-development build and
+signal-poll expectation errors are retained locally with the final passing runs.
+No full Linux/core, general SMP or physical-hardware acceptance is claimed.
+All disposable VMs stopped; no physical boot is armed.
+
+Continued review traced syscall entry, condition recomputation, scheduler queue
+removal and process-exit ownership without another confirmed runtime finding.
+Next scope is raw futex timeout overflow and mapped-address lifetime. Abnormal
+once-initializer exit and broader exclusions remain open; the AHCI fault is still
+an unresolved validation event.

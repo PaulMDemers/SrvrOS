@@ -22,7 +22,9 @@ regressions. The twelfth and thirteenth findings, handler-time subtraction from
 sleep remainders and extreme fallback conversion overflow, are now corrected
 with pre-handler capture and quotient/remainder conversion. The failed sleep
 audit below is historical at `bd300e28`; current positive coverage is described
-in the correction record.
+in the correction record. The fourteenth finding, premature futex entry reuse
+while a wait syscall still owns its queue, is corrected with active-wait
+reservations and deferred process-exit cleanup.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -989,3 +991,85 @@ Docs check 641 local links with zero errors; whitespace checks pass. Source/log
 hashes, build manifest and test receipts are in `build/review/sleep-fixes/`.
 No full Linux/core, general SMP, native or absent-reference VM acceptance is
 claimed. All disposable VMs stopped; no physical boot is armed.
+
+
+## Deterministic futex interruption and wake audit
+
+Base `5503804e`. **P2, confirmed and corrected:** the process futex table reused
+an entry whenever its scheduler queue had no parked waiters. A wait syscall
+still holds the entry after enabling interrupts but before enqueue, and after a
+wake removes it from the queue but before its continuation resumes. Another
+address/process can reuse that empty entry. The original waiter then parks on a
+queue bound to the wrong address; an intended wake finds no entry, potentially
+stranding an infinite pthread wait. A deterministic host interleaving reproduces
+the lost binding in the actual futex code; this is not a probabilistic stress
+failure or an observed native hang.
+
+Each wait now reserves the entry under IRQ exclusion until its return, including
+success, interruption, cancellation and timeout. The reservation is a count, so
+one returning syscall cannot release another's binding. Reuse requires both no
+active wait calls and no parked scheduler waiters. Worker-initiated process exit
+wakes sibling futex calls but preserves their bindings while cancellation
+propagates. Final initial-thread teardown kills sibling continuations before
+clearing entries and reservations. No public layout or syscall changes; the
+existing global 64-entry bound and process/address keys remain.
+
+Wake lookup and count now share one IRQ-disabled operation. An interrupt-enabled
+host case demonstrates a stale lookup waking a newly bound foreign queue in the
+old function. The current user syscall interrupt gate enters with IRQs masked;
+this is defensive hardening, not a separately confirmed reachable syscall bug.
+It does not add cross-CPU locking or establish general SMP correctness.
+
+`test-futex-contracts` extracts the real futex declarations/functions verbatim
+from `process.c`, replacing only privileged STI with a modeled enable boundary.
+The fixture controls IRQ transitions, scheduler enqueue/wake and time. It covers
+input/value checks, pending and newly arriving signals, cancellation, the atomic
+condition recheck before enqueue, fallback yielding, bounded spurious wakes,
+pre-enqueue/post-wake binding retention, two active waits sharing an entry,
+wake-one/all/zero, process isolation, cleanup, capacity refusal and 192
+interrupted reuse cycles. `test-sync-contracts` also checks real libc mutex,
+reader/writer and once waiters dispatch interruptions then recheck changed state.
+Existing condition-clock interruption/deadline checks remain.
+
+Guest `--test futex`, included in `all`, checks pending-signal interruption,
+expected-value refusal, 16 parked signal interruptions and 16 release/wake
+rounds. A wake-count receipt proves each worker parked, avoiding a guessed
+sleep interval. Four subprocesses exercise worker-initiated process exit with
+the initial thread in a futex wait; 96 distinct timeout addresses check table
+recycling. Guest checks integrate the actual scheduler but do not force every
+host interleaving. Evidence is in ignored `build/review/futex-audit/`.
+
+Continued review traced current syscall IRQ entry, process cancellation order,
+condition absolute-deadline recomputation and scheduler queue removal on wake,
+timeout and forced retirement. It added no further confirmed runtime finding.
+Full-suite validation also confirmed a harness defect: `read_test_result`
+stopped at any `process: exited status=` line, including a child, then allowed
+only ten more seconds before terminating QEMU. Two runs ended after `main-exit`
+in about 24 seconds despite a 300-second test limit; they were truncated by the
+harness, not observed guest hangs. `main-join` passed in isolation. The reader
+now distinguishes the monitor's top-level `run: pid=... exited status=` receipt
+from child exits. Five host tests cover child success/failure, fragmented monitor
+receipts, explicit test failure and bounded EOF; the old reader fails them.
+Next bounded scope is raw futex timeout overflow and userspace-address lifetime
+across mappings; neither is accepted merely by these ordinary-interval tests.
+Abnormal once-initializer exit and broader POSIX exclusions remain unconfirmed
+or outside the supported profile. The earlier AHCI failure remains unresolved.
+
+
+Final validation: matched build, host futex/synchronization/timing targets, five
+smoke-reader tests, futex ASan/UBSan, targeted futex and main-join VM groups,
+complete thread suite with the corrected harness and full libuv suite pass.
+Three kernel source-copy controls abort at the intended assertions (old runtime,
+restored wake gap and Boolean reservation); the old smoke reader fails its host
+regressions. Docs check 641 local inline links with zero errors; whitespace
+checks pass. Source/log hashes and build/test receipts are retained in
+`build/review/futex-audit/`.
+
+Retained unsuccessful runs: two full captures were truncated by the old harness;
+a subsequent corrected-harness run encountered an AHCI read failure/disk offline
+during fork, before the futex group. The fresh-VM retry passed. The storage
+failure remains unresolved, consistent with the preceding sleep-fix checkpoint;
+a retry is not evidence that it is fixed. Earlier test-development build and
+signal-poll expectation errors are retained locally with the final passing runs.
+No full Linux/core, general SMP or physical-hardware acceptance is claimed.
+All disposable VMs stopped; no physical boot is armed.

@@ -291,6 +291,7 @@ struct process_futex {
     struct process *process;
     uint64_t address;
     struct scheduler_wait_queue wait_queue;
+    uint64_t active_waits; /* Includes runnable and not-yet-enqueued wait calls. */
 };
 
 struct process_exit_record {
@@ -3317,7 +3318,7 @@ static struct process_futex *process_futex_find(struct process *process, uint64_
         if (entry->used && entry->process == process && entry->address == address) {
             return entry;
         }
-        if ((!entry->used || entry->wait_queue.waiters == 0) && free_entry == NULL) {
+        if ((!entry->used || (entry->active_waits == 0 && entry->wait_queue.waiters == 0)) && free_entry == NULL) {
             free_entry = entry;
         }
     }
@@ -3357,6 +3358,9 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
 
     uint64_t flags = process_irq_save();
     struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, true);
+    /* Queue waiter count drops at wake, before this syscall resumes. Pin the
+     * address binding until return, including pre-enqueue and re-wait gaps. */
+    if (futex != NULL) futex->active_waits++;
     process_irq_restore(flags);
     if (futex == NULL) {
         return -11;
@@ -3371,24 +3375,29 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
         .address = address,
         .expected = expected,
     };
+    int64_t result;
     __asm__ volatile ("sti" : : : "memory");
     for (;;) {
         if (process_should_exit_current()) {
-            return -1;
+            result = -1; break;
         }
         if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
-            return 0;
+            result = 0; break;
         }
         if (process_signal_pending_current()) {
-            return SRV_ERR_INTR;
+            result = SRV_ERR_INTR; break;
         }
         if (timeout_ticks != 0 && timer_ticks() - start_ticks >= timeout_ticks) {
-            return -110;
+            result = -110; break;
         }
         if (!scheduler_wait_timeout(&futex->wait_queue, process_futex_wait_ready, &wait, deadline_ticks)) {
             scheduler_yield();
         }
     }
+    flags = process_irq_save();
+    futex->active_waits--;
+    process_irq_restore(flags);
+    return result;
 }
 
 int64_t process_futex_wake(uint32_t *address, uint64_t max_count) {
@@ -3399,12 +3408,12 @@ int64_t process_futex_wake(uint32_t *address, uint64_t max_count) {
 
     uint64_t flags = process_irq_save();
     struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, false);
+    /* Keep lookup and wake in one IRQ-disabled operation: an empty entry can
+     * otherwise be reassigned to another address before the wake executes. */
+    int64_t result = futex == NULL ? 0 :
+        (int64_t)scheduler_wake_count(&futex->wait_queue, max_count);
     process_irq_restore(flags);
-    if (futex == NULL) {
-        return 0;
-    }
-
-    return (int64_t)scheduler_wake_count(&futex->wait_queue, max_count);
+    return result;
 }
 
 static void process_futex_wake_process(struct process *process) {
@@ -3428,9 +3437,7 @@ static void process_futex_cleanup_process(struct process *process) {
     for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
         if (futexes[i].used && futexes[i].process == process) {
             scheduler_wake_all(&futexes[i].wait_queue);
-            futexes[i].used = false;
-            futexes[i].process = NULL;
-            futexes[i].address = 0;
+            futexes[i] = (struct process_futex){0};
         }
     }
     process_irq_restore(flags);
@@ -6419,7 +6426,9 @@ void process_exit(uint64_t status) {
         scheduler_wake_all(&pipe_wait_queue);
         scheduler_wake_all(&process->thread_wait_queue);
         process_file_poll_wake();
-        process_futex_cleanup_process(process);
+        /* Sibling wait continuations can still run while exit propagates.
+         * Preserve their bindings; final teardown kills them before cleanup. */
+        process_futex_wake_process(process);
         scheduler_clear_user_context();
         __asm__ volatile ("sti" : : : "memory");
         scheduler_exit_current();

@@ -51,7 +51,7 @@ def main():
     command += [str(path) for path in sources] + [str(shim_object), '-pthread', '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
     results = []
-    modes = (None, 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names', 'initial-exit',
+    modes = (None, 'futex', 'supplied', 'owned', 'detached', 'lifecycle', 'thread-names', 'initial-exit',
              'initial-join', 'initial-join-null', 'initial-detach', 'initial-detach-late')
     for mode in modes:
         result = subprocess.run([str(executable)] + ([mode] if mode else []),

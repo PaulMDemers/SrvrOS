@@ -151,6 +151,14 @@ error paths retain their output behavior. These corrections add no layout or
 syscall change. Reference/fallback and extreme boundaries are host-tested;
 ordinary VM tests cover fast, long and nested-sleep handlers.
 
+Kernel futex entries now remain bound to their process/address while any wait
+syscall owns them, including before parking and after wake. Worker-initiated
+process exit preserves those bindings until sibling wait continuations retire.
+Wake lookup/count is IRQ-serialized. Deterministic host and guest regressions
+cover interruption, wake ownership and reuse; the global 64-entry bound remains,
+and this is not general SMP acceptance. Public pthread layouts and syscall
+signatures are unchanged by this correction.
+
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing
 a full count. This does not complete the POSIX semaphore contract: `pshared` is

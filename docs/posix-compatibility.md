@@ -28,7 +28,9 @@ The `times()` elapsed fallback is also corrected, with host boundary/error and
 guest elapsed-time regressions. Relative sleep remainders now exclude handler
 execution, and extreme fallback conversion avoids intermediate overflow. Former
 failing audit modes are replaced by positive regressions; historical receipts
-remain in the synchronization report.
+remain in the synchronization report. Futex queue bindings now survive runnable
+wait continuations and cancellation teardown; deterministic host probes cover
+interruption and reuse, with complementary guest wake/exit checks.
 
 ## Implementation progress after the audit
 

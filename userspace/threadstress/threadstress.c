@@ -626,6 +626,8 @@ int posix_absolute_deadline_test(void);
 int posix_clock_resolution_test(void);
 int posix_times_test(void);
 int posix_sleep_remainder_test(void);
+int posix_futex_test(void);
+int posix_futex_exit_child(void);
 int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
 int posix_thread_name_test(void);
@@ -636,6 +638,7 @@ int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"futex-exit-child")) return posix_futex_exit_child();
     if (argc >= 2 && !strcmp(argv[1], "main-exit-child")) return posix_main_exit_child(argc, argv);
     if(argc>=2 && !strcmp(argv[1],"spawn-actions-child")) return posix_spawn_actions_child(argc,argv);
     if(argc>=2 && !strcmp(argv[1],"endpoint-flags-child")) return posix_endpoint_flags_child(argc,argv);
@@ -696,6 +699,7 @@ int main(int argc, char **argv) {
     RUN_TEST("clock-resolution", posix_clock_resolution_test);
     RUN_TEST("times", posix_times_test);
     RUN_TEST("sleep-remainder", posix_sleep_remainder_test);
+    RUN_TEST("futex", posix_futex_test);
     RUN_TEST("stack-inspection", posix_stack_inspection_test);
     RUN_TEST("self-detach", posix_self_detach_test);
     RUN_TEST("thread-names", posix_thread_name_test);

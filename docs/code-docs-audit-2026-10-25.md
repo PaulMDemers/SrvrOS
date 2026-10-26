@@ -216,3 +216,17 @@ host/guest coverage, including long and nested-sleep handlers and extreme tick
 boundaries. No layout/syscall change. Continued bounded review covers wrapper
 rounding, handler reentrancy, output/error ownership and clock fallback; no
 additional confirmed defect is added in this block.
+
+
+The deterministic futex audit confirms premature queue-entry reuse while a wait
+syscall is runnable but not parked. Active-wait reservations now retain the
+process/address binding until return; worker process-exit propagation wakes
+without invalidating live continuations. Wake lookup/count also shares IRQ
+exclusion (defensive hardening for interrupt-enabled callers). Added host
+interleavings, libc interruption controls and guest wake/exit/reuse cases; no
+public layout/syscall change. See the synchronization report for evidence limits.
+
+Full-suite validation also exposed and corrected a smoke-harness defect: child
+exit receipts prematurely ended the enclosing run. Five deterministic reader
+tests now protect child-exit handling, top-level completion and bounded EOF.
+Two truncated pre-fix runs remain recorded as failures, not guest timeout evidence.
