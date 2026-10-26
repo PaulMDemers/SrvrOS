@@ -1,5 +1,9 @@
 # Code and documentation audit — 2026-10-25
 
+For current completion status and remaining work, see the
+[October 26 audit inventory](audit-progress-2026-10-26.md). Dated findings and
+next-step lists below are historical; later corrections supersede them.
+
 ## Scope and baseline
 
 First pass against fetched `origin/main` at

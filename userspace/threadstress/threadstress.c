@@ -645,6 +645,7 @@ int posix_eventfd_counter_test(void);
 int posix_eventfd_modes_test(void);
 int posix_epoll_rotation_test(void);
 int posix_epoll_oneshot_test(void);
+int posix_epoll_edge_test(void);
 
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"once-exit-child")) return posix_once_exit_child();
@@ -702,6 +703,7 @@ int main(int argc, char **argv) {
     RUN_TEST("eventfd-modes", posix_eventfd_modes_test);
     RUN_TEST("epoll-rotation", posix_epoll_rotation_test);
     RUN_TEST("epoll-oneshot", posix_epoll_oneshot_test);
+    RUN_TEST("epoll-edge", posix_epoll_edge_test);
     RUN_TEST("dprintf", posix_dprintf_test);
     RUN_TEST("fd-publication", posix_fd_publication_test);
     RUN_TEST("umask", posix_umask_test);

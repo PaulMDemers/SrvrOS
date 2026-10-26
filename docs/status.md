@@ -203,6 +203,7 @@ with that capacity. Semaphore reads now consume one token; creation validates
 flags before allocating state. Epoll now rotates across stable ready sets and
 reports native HUP/ERR with an empty interest mask. One-shot delivery now disables
 its registration until MOD rearms it; priority bits survive conversion. Continued
-audit confirms EPOLLET requests still behave as level-triggered. That explicit
-failure is next; blocking eventfd I/O, kernel notification, native priority-source
-support, signal-mask waits and full Linux compatibility remain unaccepted.
+audit corrected silent EPOLLET acceptance: ADD/MOD now returns EOPNOTSUPP and
+preserves existing state. Edge delivery, blocking eventfd I/O, kernel notification,
+native priority-source support, signal-mask waits and full Linux compatibility
+remain unaccepted. See the [current coverage and backlog](audit-progress-2026-10-26.md).

@@ -20,7 +20,8 @@ bounded polling for synthetic notifications, plus nonblocking eventfd counter
 bounds, writable readiness, semaphore reads and creation-flag validation.
 Stable ready-set rotation and zero-interest native HUP/ERR reporting are corrected.
 One-shot disabling/rearming and priority-bit conversion are also corrected;
-priority-source availability remains a separate native-device contract. Blocking
+priority-source availability remains a separate native-device contract. EPOLLET
+ADD/MOD now explicitly returns EOPNOTSUPP without changing a watch. Blocking
 eventfd I/O, edge delivery, signal masks and general Linux semantics remain unaccepted.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,

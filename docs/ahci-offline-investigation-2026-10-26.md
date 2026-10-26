@@ -7,7 +7,8 @@ spontaneous AHCI failure. Per the user's direction, active pursuit of the two
 historical incidents is shelved as non-reproduced in this bounded campaign.
 Their cause remains unknown; retain the original evidence and reopen only if
 a recurrence or new directed reproduction supplies useful diagnostics. The
-confirmed driver corrections and regression coverage remain in draft PR178.
+confirmed driver corrections and regression coverage merged in PR178 at
+`8bd43adc`; this investigation is closed pending new failure evidence.
 
 Investigation starts from merged main `f0cd6409` on
 `device/apple-silicon/ahci-offline`, on the ARM64 macOS build host with x86_64

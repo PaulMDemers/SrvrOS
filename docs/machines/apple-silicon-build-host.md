@@ -831,3 +831,27 @@ with source/build/log hashes. All disposable VMs stopped. PR179 remains draft.
 Next bounded scope is an honest edge-mode contract; blocking eventfd I/O, signal
 masks, kernel notifications and native priority-source support remain separate.
 No public ABI, physical acceptance or Actions setting changed.
+
+## Epoll edge-mode contract — active scope (2026-10-26)
+
+User authorized fixing the confirmed EPOLLET defect, regressions, docs/PR179 and
+continued audit with a coverage inventory. Base `aba0999a`; fetched main remains
+`8bd43adc`, draft PR179 matches and PR19 retains separate Wi-Fi ownership. Reject
+EPOLLET on ADD/MOD with EOPNOTSUPP before mutating identity/watch state; preserve
+level and one-shot behavior, including failed MOD on a disabled watch. Own only
+the adapter, host/guest regressions and current audit documentation. Validate
+sequentially with host/sanitizers, matched build and disposable thread/libuv VMs.
+Actual edge notifications, signal-mask waits and blocking eventfd remain separate.
+No ABI, hardware acceptance or Actions changes.
+
+Final edge-contract validation: all 34 host modes pass normally and with
+ASan/UBSan. Four compiled negative controls fail the intended refusal or
+state-preservation assertions. Matched `all` build, targeted epoll-edge VM,
+complete thread suite and full libuv consumer VM pass sequentially. Five
+smoke-reader tests pass; docs check 664 local links with zero errors and
+whitespace checks pass. Baseline failure, source/build hashes and logs are
+retained under `build/review/epoll-edge/`. All disposable guests stopped.
+The current audit inventory separates completed bounded work from the event
+adapter queue and broader OS reviews. Next scope is epoll_pwait mask semantics;
+edge delivery remains explicitly unsupported. PR179 stays draft; no physical
+acceptance, public ABI or Actions setting changed.

@@ -22,7 +22,8 @@ COUNTERS = ('counter-overflow', 'reserved-value', 'counter-writable',
 MODES = ('semaphore-read', 'invalid-flags', 'eventfd-flags', 'semaphore-readiness')
 ROTATION = ('epoll-fairness', 'epoll-hup-only', 'epoll-rotation', 'epoll-rotation-control')
 ONESHOT = ('epoll-oneshot', 'epoll-priority', 'epoll-rearm', 'epoll-oneshot-races')
-AUDITS = ('epoll-edge',)
+EDGE = ('epoll-edge-refusal',)
+AUDITS = ()
 
 
 def main():
@@ -66,7 +67,7 @@ def main():
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
         '-include', str(renamed), str(extracted), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    modes = ('controls',) + LIFETIME + WAITS + COUNTERS + MODES + ROTATION + ONESHOT + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
+    modes = ('controls',) + LIFETIME + WAITS + COUNTERS + MODES + ROTATION + ONESHOT + EDGE + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
     results = []
     for mode in modes:
         result = subprocess.run([str(executable), mode], capture_output=True, text=True, timeout=10)

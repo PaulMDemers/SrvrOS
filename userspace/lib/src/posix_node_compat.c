@@ -457,6 +457,13 @@ static int epoll_ctl_locked(int epfd, int op, int fd, struct epoll_event *event)
         return -1;
     }
 
+    /* Poll snapshots cannot observe every readiness transition. Refuse edge
+     * mode before allocating identities or modifying/rearming any watch. */
+    if ((op == EPOLL_CTL_ADD || op == EPOLL_CTL_MOD) && (event->events & EPOLLET)) {
+        errno = EOPNOTSUPP;
+        return -1;
+    }
+
     uint64_t identity = event_identity(fd, 1);
     if (!identity) return -1;
     /* Nested epoll cannot be represented by polling its placeholder pipe. */

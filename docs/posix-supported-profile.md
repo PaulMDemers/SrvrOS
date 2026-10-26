@@ -215,8 +215,10 @@ MOD rearms with its current mask/data. Overlapping waits cannot deliver the same
 armed revision twice. Undelivered entries remain armed, and changing to ordinary
 level mode removes the one-shot restriction. EPOLLPRI/POLLPRI conversion is
 covered with modeled native readiness; no driver urgent-data support is implied.
-Edge-triggered requests are still incorrectly treated as level-triggered;
-signal-mask waits and general concurrent socket semantics remain unaccepted.
+EPOLLET is unsupported: ADD/MOD returns EOPNOTSUPP before changing watch state.
+A failed MOD preserves mask/data and does not rearm a disabled one-shot watch;
+DEL ignores its event argument. Signal-mask waits and general concurrent socket
+semantics remain unaccepted; epoll_pwait currently ignores a nonnull mask.
 Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
 does not establish Node support.
 

@@ -15,9 +15,11 @@ eventfd readiness rechecks, deadline accounting and empty/infinite waits. Nonblo
 counter bounds, writable readiness, semaphore reads and creation-flag validation
 are now corrected too, along with stable ready-set rotation and native HUP/ERR
 reporting for empty interest masks, one-shot disabling/rearming and priority-bit
-conversion. Continued audit confirms **unfixed** edge-triggered delivery with an
-explicit failing probe. The supported profile limits these experimental APIs;
-the new evidence makes their failure modes concrete. It does not establish Node support or general Linux API conformance.
+conversion. EPOLLET now fails explicitly with EOPNOTSUPP on ADD/MOD, preserving
+existing watches; actual edge delivery is unsupported. See the current
+[audit coverage and backlog](audit-progress-2026-10-26.md). The supported profile
+limits these experimental APIs; the evidence makes their failure modes concrete.
+It does not establish Node support or general Linux API conformance.
 
 ## P2: epoll state outlives descriptor ownership — corrected
 
@@ -92,10 +94,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit remaining edge-triggered failure: one probe currently exits 1.
+# Run the current complete host set (34 positive modes; no active failure probes).
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select it directly with --audit epoll-edge.
+# Historical failing edge probe is retained in the pre-fix evidence directory.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -509,7 +511,7 @@ rounds of four competing waiters on one persistent pipe source via epoll aliases
 one delivery per rearm, with other waits timing out. It also verifies a disabled
 HUP stays suppressed until MOD. The full suite requires its completion marker.
 
-## Continued audit: EPOLLET is silently treated as level-triggered
+## Historical continued audit: EPOLLET silently treated as level-triggered — corrected by refusal
 
 `epoll-edge` registers a readable eventfd with EPOLLIN|EPOLLET. Two consecutive
 zero-timeout waits return the unchanged readiness. The second assertion expects
@@ -534,3 +536,40 @@ with source/build/log hashes. All disposable VMs stopped. PR179 remains draft.
 Next bounded scope is an honest edge-mode contract; blocking eventfd I/O, signal
 masks, kernel notifications and native priority-source support remain separate.
 No public ABI, physical acceptance or Actions setting changed.
+
+## Edge-mode correction and continued audit
+
+The baseline at `aba0999a` reproduces silent level delivery for EPOLLET. ADD/MOD
+now reject that flag with EOPNOTSUPP before identity allocation or watch mutation.
+The existing poll snapshots cannot observe transitions between samples; tracking
+only the last returned level would still lose edges. DEL continues to ignore its
+event argument. This is explicit unsupported behavior, not edge implementation.
+
+The new host/guest regression checks both a ready native pipe and an eventfd,
+seventy rejected additions, successful subsequent level registration, preservation
+of old mask/data after rejected MOD, unchanged disabled one-shot state, successful
+later rearm and DEL with an edge-bearing event argument. Default coverage is now
+34 host modes and seven event-adapter guest groups. The original failing probe
+is preserved under `build/review/epoll-edge/baseline/` and in the prior checkpoint.
+
+Continued source review finds epoll_pwait explicitly discards sigmask. Nonnull
+masks therefore cannot supply temporary-mask/atomic-wait semantics. This remains
+a known gap. The existing ppoll/pselect mask-entry path bypasses handler dispatch
+and relies on cooperative delivery and kernel pending checks; that provides a
+concrete starting point for the next pass, including immediate-ready epoll paths.
+No new runtime signal-mask evidence is claimed here. See the
+[current audit inventory](audit-progress-2026-10-26.md) for the prioritized queue
+and broader OS coverage limits. The AHCI report's stale draft-PR wording is also
+corrected to match merged PR178.
+
+Final edge-contract validation: all 34 host modes pass normally and with
+ASan/UBSan. Four compiled negative controls fail the intended refusal or
+state-preservation assertions. Matched `all` build, targeted epoll-edge VM,
+complete thread suite and full libuv consumer VM pass sequentially. Five
+smoke-reader tests pass; docs check 664 local links with zero errors and
+whitespace checks pass. Baseline failure, source/build hashes and logs are
+retained under `build/review/epoll-edge/`. All disposable guests stopped.
+The current audit inventory separates completed bounded work from the event
+adapter queue and broader OS reviews. Next scope is epoll_pwait mask semantics;
+edge delivery remains explicitly unsupported. PR179 stays draft; no physical
+acceptance, public ABI or Actions setting changed.
