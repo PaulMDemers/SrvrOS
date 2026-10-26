@@ -258,7 +258,7 @@ void tool_files_finish(struct tool *t,int result) {
     }
     location_commit(t);
     if(strcmp(t->saved_path,t->job.request.path)) desk_table_rows(&t->table,NULL,0);
-    strcpy(t->saved_path,t->job.request.path);desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
+    strcpy(t->saved_path,t->job.request.path);t->title_dirty=1;desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
     t->file_count=count;file_rows(t);
     struct tool_location *location=&t->locations[t->location_index];
     for(int i=0;i<count;i++) if(t->entries[i].inode==location->selected) desk_list_select(&t->table.body,i);

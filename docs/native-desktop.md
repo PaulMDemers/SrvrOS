@@ -179,7 +179,15 @@ selection, file path and unsaved-close dialog. Ctrl-N creates a fresh document
 in the current window after resolving edits. Closing one window preserves the
 others; the last close waits for owned file work and worker retirement.
 
-Files and Text use a persistent worker with bounded nonblocking communication.
+Files also supports File → New window / Ctrl-Shift-N in the same process, starting
+at the current folder. Each window has independent navigation, history and
+selection. Ctrl-W closes that window; Ctrl-Q closes the Files application
+sequentially. Rename, Duplicate and Delete use owned dialogs, with embedded
+fallback if dialog admission is refused. Other Files windows remain usable.
+
+Files and Text share the [window/model ownership layer](desktop-window-ownership.md)
+and each process uses a lazy file-worker pool with at most two transport
+channels and bounded nonblocking communication.
 Save operates on a snapshot, verifies stored bytes, and leaves later edits dirty.
 External file changes and name collisions produce explicit errors rather than
 silently overwriting a conflicting file. Normal window close allows
@@ -481,8 +489,9 @@ a configured, clean window with no sealed frame, pending resize, failed send or
 unfinished menu publication. The application must separately exclude jobs,
 clipboard transactions, timers and diagnostic work that require shorter service.
 The legacy GUI-only helper keeps a ten-tick (100 ms) maintenance bound.
-Normal Text/Files now use the combined worker wait described below; other app
-roles and the compositor retain their own cadence.
+Normal Text/Files use the combined worker wait described below. Terminal uses
+the same shared dispatcher with PTY read/write readiness and cursor deadlines;
+other app roles and the compositor retain their own cadence.
 
 The additive `SYS_GUI_WAIT` (136) takes the expected compositor PID and a maximum
 of 100 ticks. It returns 1 for pending messages, 0 on timeout, -1 for invalid

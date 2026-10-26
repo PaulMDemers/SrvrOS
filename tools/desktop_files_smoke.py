@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the Files mutations and shared prompts in a disposable VM."""
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -53,6 +54,8 @@ def main():
                     for marker in markers:
                         consumed=start;wait(marker,timeout);end=max(end,consumed)
                     consumed=end
+                def modal_ready(marker):
+                    wait_all([marker,b"deskd: commit"])
                 def shortcut(keys):
                     qmp.call("human-monitor-command",{"command-line":f"sendkey {keys}"});time.sleep(.3)
                 def type_text(text):
@@ -74,27 +77,31 @@ def main():
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
                 type_text("Files action sample.")
                 shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/file-actions.txt");shortcut("ctrl-s")
-                wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
-                click(390,750);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
+                wait_all([b"picker ready mode=2",b"deskd: commit"]);qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                click(390,750);wait(b"desktools: starting role=files");wait_all([b"file-result role=files op=3 status=0",b"deskd: commit"])
+                files_pid=int(re.findall(rb"app-timing: pid=(\d+) role=1 window=0 stage=main-entry",output)[-1])
+                retired=f"deskd: retired pid={files_pid}".encode()
                 # Files starts in Home. Select the fixture directory explicitly;
                 # directory defaults must not decide which file this test renames.
                 shortcut("ctrl-l");type_text("/fat");qmp.key("ret")
                 wait(b"files-location path=/fat history=2/2")
-                type_text("file-actions");shortcut("f2");wait(b"files-prompt operation=5");shot("rename-prompt")
-                type_text("renamed-actions.txt");qmp.key("ret");wait(b"file-result role=files op=5 status=0");wait(b"file-result role=files op=3 status=0")
-                click(605,162);wait(b"files-prompt operation=7");shot("duplicate-prompt");qmp.key("ret")
-                wait(b"file-result role=files op=7 status=0");wait(b"file-result role=files op=3 status=0");shot("copy-verified")
-                click(708,162);wait(b"files-delete-confirm");shot("delete-confirm");qmp.key("ret");wait(b"files-delete-canceled")
-                click(708,162);wait(b"files-delete-confirm");click(580,445)
-                wait(b"file-result role=files op=6 status=0");wait(b"file-result role=files op=3 status=0")
-                type_text("renamed-actions");shortcut("f2");wait(b"files-prompt operation=5");type_text("home");qmp.key("ret")
-                wait(b"file-result role=files op=5 status=2");shot("collision-kept")
+                type_text("file-actions");shortcut("f2");modal_ready(b"files-prompt operation=5");shot("rename-prompt")
+                type_text("renamed-actions.txt");qmp.key("ret");wait_all([b"file-result role=files op=5 status=0",b"file-result role=files op=3 status=0",retired])
+                click(605,162);modal_ready(b"files-prompt operation=7");shot("duplicate-prompt");qmp.key("ret")
+                wait_all([b"file-result role=files op=7 status=0",b"file-result role=files op=3 status=0",retired]);shot("copy-verified")
+                click(708,162);modal_ready(b"files-delete-confirm");shot("delete-confirm");qmp.key("ret");wait_all([b"files-delete-canceled",retired])
+                click(708,162);modal_ready(b"files-delete-confirm")
+                # Owned 560x280 dialog: Delete is centered at (585,388).
+                click(585,388)
+                wait_all([b"file-result role=files op=6 status=0",b"file-result role=files op=3 status=0",retired])
+                type_text("renamed-actions");shortcut("f2");modal_ready(b"files-prompt operation=5");type_text("home");qmp.key("ret")
+                wait_all([b"file-result role=files op=5 status=2",retired]);shot("collision-kept")
                 shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
                 # Exercise directory creation and guarded empty-directory rename.
                 click(300,550);shortcut("ctrl-a");type_text("Action folder");click(700,553)
                 wait(b"file-result role=files op=4 status=0");wait(b"file-result role=files op=3 status=0")
-                type_text("Action folder");shortcut("f2");wait(b"files-prompt operation=5");type_text("Renamed folder");qmp.key("ret")
-                wait(b"file-result role=files op=5 status=0");wait(b"file-result role=files op=3 status=0")
+                type_text("Action folder");shortcut("f2");modal_ready(b"files-prompt operation=5");type_text("Renamed folder");qmp.key("ret")
+                wait_all([b"file-result role=files op=5 status=0",b"file-result role=files op=3 status=0",retired])
                 # Sort via the shared heading and inspect details.
                 click(670,247);wait(b"files-sort column=3 descending=0");shot("files-details")
                 # Places and history commit only after the requested folder opens.

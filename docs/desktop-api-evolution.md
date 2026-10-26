@@ -1,7 +1,7 @@
 # Desktop architecture and API evolution
 
 Reviewed 2026-10-24 against integration baseline `bc0edb9` (PR130); D0/D1
-progress and D2/D3 implementation plus D4a rendering updated 2026-10-25. Later blocks remain proposals, not implemented APIs
+progress and D2/D3 implementation plus D4a rendering updated 2026-10-26. Later blocks remain proposals, not implemented APIs
 or new hardware acceptance claims. The [capacity contract](window-capacity.md) describes
 current dynamic storage and the separately scoped physical acceptance. The companion
 [POSIX audit](posix-compatibility.md) covers the userspace foundation.
@@ -282,10 +282,19 @@ and standard command snapshots for Text and Preview. It does not allocate app
 models or own their accepted file/image jobs. See its validation and unit record
 for implementation evidence and physical acceptance.
 
-Build a small allocating application layer above the pure widgets: event loop,
-actions, multiple windows, document lifecycle and job ownership. Migrate remaining
-apps incrementally. Extend the in-window chooser service with transient dialogs and app
-activation/open-document routing. Preserve the quiet, refined native style.
+D3e adds the optional [allocating window/model layer](desktop-window-ownership.md)
+above pure widgets. It shares stable model admission, main/owned-dialog routing,
+sequential cancellable Quit and explicit drained-work release across normal Text
+and Files. Files can create sibling windows in one process, with independent
+navigation and one bounded file-worker pool. Rename/duplicate/delete use owned
+dialogs with refusal fallback. Terminal uses the shared runtime, PTY readiness
+and command snapshots while retaining shell control keys and separate session
+processes. No protocol revision or resource-budget change is introduced.
+
+Host and actual-consumer VM gates cover these contracts. Native acceptance of
+the new layer remains separate in the machine record. Migrate remaining apps
+incrementally; application manifests, broader services and external toolkit
+backends remain future work. Preserve the quiet, refined native style.
 
 **Gate:** two apps use the same contracts without copied lifecycle code; cancel
 and failed saves retain data; background work does not block typing; last-window

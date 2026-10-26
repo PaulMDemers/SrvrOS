@@ -38,8 +38,12 @@ see the [native desktop guide](../../docs/native-desktop.md).
 
 ## Adding a native application
 
-For multiple windows, start with the connection-owned runtime in
-`userspace/desktop_runtime` and the [application lifecycle
+For multiple windows, use the optional [window/model ownership
+layer](../../docs/desktop-window-ownership.md) in `userspace/desktop_runtime`.
+Normal Text and Files share its stable allocations, owned-dialog routing,
+sequential Quit and explicit accepted-work retirement. It adds no fixed window
+count and keeps allocation/transport outside the pure widgets. Read the
+[application lifecycle
 contract](../../docs/desktop-application-lifecycle.md). Current protocol v15
 supports shared connection ownership, parented dialogs and cooperative app Quit;
 `desk_app` remains the per-window interface. The single-window sequence below

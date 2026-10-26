@@ -1,4 +1,4 @@
-#include "app.h"
+#include "runtime.h"
 #include <string.h>
 #include <srvros/desk_log.h>
 #include <srvros/desk_commands.h>
@@ -16,27 +16,41 @@ static unsigned text_commands(const struct tool *t,struct desk_command commands[
         {MENU_QUIT,0,0x14,SRV_KEY_CTRL,"Quit Text","Ctrl-Q"}};
     memcpy(commands,values,sizeof(values));return 7;
 }
+static unsigned files_commands(const struct tool *t,struct desk_command commands[7]) {
+    unsigned blocked=(t->modal || t->picker_mode || t->prompt_mode || t->info_mode)?DESK_MENU_DISABLED:0;
+    const struct desk_command values[]={
+        {MENU_NEW_WINDOW,blocked|(!t->window.connection?DESK_MENU_DISABLED:0),0x11,SRV_KEY_CTRL|SRV_KEY_SHIFT,"New window","Ctrl-Shift-N"},
+        {MENU_CLOSE,blocked,0x1a,SRV_KEY_CTRL,"Close window","Ctrl-W"},
+        {MENU_QUIT,0,0x14,SRV_KEY_CTRL,"Quit Files","Ctrl-Q"}};
+    memcpy(commands,values,sizeof(values));return 3;
+}
+static unsigned standard_commands(const struct tool *t,struct desk_command commands[7]) {
+    return t->role==DESK_APP_TEXT?text_commands(t,commands):files_commands(t,commands);
+}
 static void text_command(void *context,unsigned id) {
     struct tool *t=context;
     if(id==MENU_QUIT) {
-        if(t->picker_mode)tool_picker_cancel(t);else if(t->modal)tool_text_dialog(t,1003);
+        if(t->role==DESK_APP_FILES)tool_runtime_cancel_modal(t);
+        else if(t->picker_mode)tool_picker_cancel(t);else if(t->modal)tool_text_dialog(t,1003);
         t->quit_application=1;
-    } else if(id==MENU_CLOSE)tool_text_request(t,TOOL_PENDING_CLOSE);
+    } else if(id==MENU_CLOSE) {
+        if(t->role==DESK_APP_FILES)tool_runtime_close_request(t);else tool_text_request(t,TOOL_PENDING_CLOSE);
+    }
     else if(id==MENU_NEW_WINDOW)tool_new_window(t);
     else if(id==MENU_SAVE_AS)tool_text_save(t,1);
     else tool_text_action(t,(struct desk_action){id,DESK_WIDGET_ACTIVATED});
 }
 int tool_command_action(struct tool *t,unsigned id) {
-    if(t->role!=DESK_APP_TEXT)return 0;
-    struct desk_command commands[7];unsigned count=text_commands(t,commands);
+    if(t->role!=DESK_APP_TEXT && t->role!=DESK_APP_FILES)return 0;
+    struct desk_command commands[7];unsigned count=standard_commands(t,commands);
     for(unsigned i=0;i<count;i++)if(commands[i].id==id) {
         desk_commands_invoke(commands,count,id,text_command,t);return 1;
     }
     return 0;
 }
 int tool_command_key(struct tool *t,const struct srv_key_event *key) {
-    if(t->role!=DESK_APP_TEXT)return 0;
-    struct desk_command commands[7];unsigned count=text_commands(t,commands);
+    if(t->role!=DESK_APP_TEXT && t->role!=DESK_APP_FILES)return 0;
+    struct desk_command commands[7];unsigned count=standard_commands(t,commands);
     unsigned id=desk_commands_key(commands,count,key);
     return id?desk_commands_invoke(commands,count,id,text_command,t):0;
 }
@@ -64,7 +78,9 @@ void tool_menu_refresh(struct tool *t) {
         struct desk_command commands[7];text_commands(t,commands);
         for(unsigned i=0;i<(t->window.connection?5u:4u);i++)desk_command_menu(&commands[i],&items[count++]);
     } else {
-        append(items,&count,MENU_NEW_WINDOW,"New window",NULL,blocked);
+        if(t->role==DESK_APP_FILES) {
+            struct desk_command commands[7];files_commands(t,commands);desk_command_menu(&commands[0],&items[count++]);
+        } else append(items,&count,MENU_NEW_WINDOW,"New window",NULL,blocked);
         if(t->role==DESK_APP_FILES) {
             append(items,&count,TOOL_OPEN,"Open selected item","Enter",busy|(t->table.body.selected<0?DESK_MENU_DISABLED:0));
             append(items,&count,MENU_NEW_FOLDER,"New folder…",NULL,busy);
@@ -80,6 +96,9 @@ void tool_menu_refresh(struct tool *t) {
     if(t->role==DESK_APP_TEXT) {
         struct desk_command commands[7];text_commands(t,commands);
         desk_command_menu(&commands[5],&items[count++]);desk_command_menu(&commands[6],&items[count++]);
+    } else if(t->role==DESK_APP_FILES) {
+        struct desk_command commands[7];files_commands(t,commands);
+        desk_command_menu(&commands[1],&items[count++]);desk_command_menu(&commands[2],&items[count++]);
     } else append(items,&count,MENU_CLOSE,"Close window","Ctrl-W",blocked);
     if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES || t->role==DESK_APP_CALCULATOR || t->role==DESK_APP_SETTINGS) {
         unsigned id=0;struct desk_edit *e=edit_target(t,&id);struct desk_text_buffer *text=e?e->text:NULL;
