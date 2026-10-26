@@ -26,7 +26,8 @@ def main():
     sources = [ROOT / path for path in ('tools/test_time_contracts.c', 'userspace/lib/src/posix_time.c')]
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     executable = out / 'time-contracts'
-    command = compiler + ['-std=c11', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
+    # SrvrOS headers need compiler integer types, independent of host libc features.
+    command = compiler + ['-std=c11', '-ffreestanding', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
                           '-I', str(ROOT / 'userspace/lib/include'),
                           '-I', str(ROOT / 'shared/include'), '-include', str(renamed)]
     command += [str(path) for path in sources] + ['-o', str(executable)]

@@ -65,7 +65,8 @@ def main():
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in names))
     executable = out / 'event-adapters'
     command = shlex.split(os.environ.get('CC', 'cc')) + [
-        '-std=c11', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
+        # Use compiler integer definitions, not glibc headers mixed with SrvrOS features.h.
+        '-std=c11', '-ffreestanding', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
         '-include', str(renamed), str(extracted), str(poll_source), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
