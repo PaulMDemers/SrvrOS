@@ -7,7 +7,7 @@
 #include <sys/times.h>
 #include <limits.h>
 #include <time.h>
-#include <string.h>
+#include <unistd.h>
 
 #define CHECK(x) do { if (!(x)) { printf("time-contracts: line %d failed: %s\n", __LINE__, #x); exit(1); } } while (0)
 static int error_value, realtime_calls, monotonic_calls, usage_calls;
@@ -23,6 +23,7 @@ static long post_clock;
 static int change_clock;
 static uint64_t submitted_ticks;
 static long sleep_tick_advance;
+static struct timespec *handler_buffer;
 static void advance(long us) {
     if (monotonic_value >= 0) monotonic_value += us;
     tick_value += us/10000;
@@ -50,7 +51,10 @@ long srv_sleep_ticks(uint64_t ticks) {
 int __posix_signal_dispatch_pending(void) {
     CHECK(allow_sleep);
     int signal = dispatch_calls++ == 0 ? before_signal : after_signal;
-    if (signal) advance(handler_advance_us);
+    if (signal) {
+        advance(handler_advance_us);
+        if (handler_buffer) *handler_buffer=(struct timespec){7,9};
+    }
     return signal;
 }
 int utimensat(int fd, const char *path, const struct timespec times[2], int flags) {
@@ -66,7 +70,7 @@ static void reset(void) {
     child_usage = (struct srv_usage){.user_us = 345678, .system_us = 456789};
     allow_sleep = sleep_calls = dispatch_calls = before_signal = after_signal = 0;
     sleep_result = sleep_advance_us = handler_advance_us = 0;
-    change_clock = 0; post_clock = 0; submitted_ticks = 0; sleep_tick_advance = 0;
+    change_clock = 0; post_clock = 0; submitted_ticks = 0; sleep_tick_advance = 0; handler_buffer = NULL;
     errno = EDOM;
 }
 static void resolution_tests(void) {
@@ -226,7 +230,7 @@ static void sleep_tests(void) {
     for (int clock_id=CLOCK_REALTIME; clock_id<=CLOCK_MONOTONIC; clock_id++) {
         for (int alias=0; alias<2; alias++) {
             sleep_reset(0); realtime_value=monotonic_value;
-            sleep_result=SRV_ERR_INTR; sleep_advance_us=250000; after_signal=1;
+            sleep_result=SRV_ERR_INTR; sleep_advance_us=250000; after_signal=1; handler_advance_us=1500000;
             struct timespec request={2,123},remainder={7,9};
             struct timespec *out=alias ? &request : &remainder;
             CHECK(clock_nanosleep(clock_id,TIMER_ABSTIME,&request,out)==EINTR && errno==EDOM);
@@ -235,8 +239,7 @@ static void sleep_tests(void) {
     }
     puts("time-contracts: sleep interruption, aliasing, fallback, boundaries and absolute output PASS");
 }
-static int sleep_handler_audit(void) {
-    unsigned failures=0;
+static void sleep_handler_tests(void) {
     for (int api=0; api<3; api++) for (int fallback=0; fallback<2; fallback++)
         for (int before=0; before<2; before++) for (int alias=0; alias<2; alias++) {
             sleep_reset(fallback); sleep_result=SRV_ERR_INTR;
@@ -246,32 +249,39 @@ static int sleep_handler_audit(void) {
             struct timespec *out=alias ? &request : &remainder;
             interrupted(api,relative_sleep(api,&request,out));
             long seconds=before ? 1 : 0, nanos=before ? 123 : 750000123;
-            printf("time-contracts: handler audit api=%d fallback=%d before=%d alias=%d remaining=%lld.%09ld expected=%ld.%09ld\n",
-                api,fallback,before,alias,(long long)out->tv_sec,out->tv_nsec,seconds,nanos);
-            if(out->tv_sec!=seconds || out->tv_nsec!=nanos) failures++;
+            CHECK(out->tv_sec==seconds && out->tv_nsec==nanos);
+            CHECK(sleep_calls==!before);
         }
-    printf("time-contracts: handler audit failures=%u/24\n",failures);
-    return failures ? 1 : 0;
+    /* Output writes by a handler must not replace the captured remainder. */
+    for(int before=0; before<2; before++) {
+        sleep_reset(0); sleep_result=SRV_ERR_INTR;
+        before_signal=before; after_signal=!before;
+        sleep_advance_us=250000; handler_advance_us=1500000;
+        struct timespec request={1,123}; handler_buffer=&request;
+        CHECK(nanosleep(&request,&request)==-1 && errno==EINTR);
+        CHECK(request.tv_sec==(before ? 1 : 0) && request.tv_nsec==(before ? 123 : 750000123));
+    }
+    sleep_reset(0); sleep_result=SRV_ERR_INTR; after_signal=1;
+    sleep_advance_us=250000; handler_advance_us=1500000;
+    CHECK(sleep(2)==2 && errno==EINTR);
+    sleep_reset(0); sleep_result=SRV_ERR_INTR; after_signal=1; handler_advance_us=1500000;
+    CHECK(usleep(500000)==-1 && errno==EINTR);
+    puts("time-contracts: handler time excluded, pre-wait dispatch, aliased output and sleep wrappers PASS");
 }
-static int sleep_overflow_audit(void) {
-    unsigned failures=0;
-    /* The first elapsed tick count whose conversion to microseconds wraps. */
-    uint64_t delta=UINT64_MAX/10000+1;
-    for(int api=0; api<3; api++) for(int alias=0; alias<2; alias++) {
+static void sleep_overflow_tests(void) {
+    const uint64_t deltas[]={UINT64_MAX/10000-1,UINT64_MAX/10000,UINT64_MAX/10000+1,(uint64_t)LONG_MAX-100};
+    for(unsigned i=0; i<sizeof(deltas)/sizeof(*deltas); i++)
+      for(int api=0; api<3; api++) for(int alias=0; alias<2; alias++) {
+        uint64_t delta=deltas[i];
         sleep_reset(1); sleep_result=SRV_ERR_INTR; sleep_tick_advance=(long)delta;
         struct timespec request={(time_t)(delta/100+1),0},remainder={7,9};
         struct timespec *out=alias ? &request : &remainder;
         interrupted(api,relative_sleep(api,&request,out));
         long expected=(long)(100-delta%100)*10000000;
-        printf("time-contracts: overflow audit api=%d alias=%d remaining=%lld.%09ld expected=0.%09ld\n",
-            api,alias,(long long)out->tv_sec,out->tv_nsec,expected);
-        if(out->tv_sec!=0 || out->tv_nsec!=expected) failures++;
+        CHECK(out->tv_sec==0 && out->tv_nsec==expected);
     }
-    printf("time-contracts: overflow audit failures=%u/6\n",failures);
-    return failures ? 1 : 0;
+    puts("time-contracts: fallback remainder conversion at overflow boundaries and large counters PASS");
 }
-int main(int argc, char **argv) {
-    if(argc==2 && !strcmp(argv[1],"sleep-handler-audit")) return sleep_handler_audit();
-    if(argc==2 && !strcmp(argv[1],"sleep-overflow-audit")) return sleep_overflow_audit();
-    resolution_tests(); times_tests(); sleep_tests(); return 0;
+int main(void) {
+    resolution_tests(); times_tests(); sleep_tests(); sleep_handler_tests(); sleep_overflow_tests(); return 0;
 }

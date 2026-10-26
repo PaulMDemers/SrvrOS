@@ -73,16 +73,18 @@ missing-reference fallback coverage uses modeled host services.
 Sleep host controls now cover interruption before/after waiting, separate/aliased/
 null buffers, nanosecond borrowing and zero clamp, failed/backwards reference
 readings, invalid/oversized intervals, sub-tick rounding, and absolute-output
-preservation. Guest `--test sleep-remainder` is included in `all` and exercises
-six fast-handler cases across the three relative APIs and both buffer forms.
+preservation. Guest `--test sleep-remainder`, included in `all`, now exercises
+18 cases: fast handlers, 600 ms busy handlers and handlers that themselves sleep
+for 600 ms, across three relative APIs and both buffer forms. It checks early
+signal entry, normalized remainder, errors and errno for each case.
 
-Two explicit known-failure modes are excluded from the default timing target:
-`--audit-sleep-handler` fails 24 host cases with exit 1 (handler time consumes
-unslept time); `--audit-sleep-overflow` fails six host cases with exit 1 (extreme
-fallback tick scaling wraps). Use separate `--output` directories to retain each
-receipt. Guest `--test sleep-handler-audit` fails six slow-handler cases with
-status 1/harness exit 3 and is excluded from `all`. These are failure evidence,
-not passing runtime regressions. The overflow configuration is host-modeled only.
+The former `--audit-sleep-handler`, `--audit-sleep-overflow` and guest
+`--test sleep-handler-audit` failures are historical at `bd300e28`. They are
+replaced by default positive cases: 24 host long-handler combinations, captured
+output protection, wrapper behavior and 24 extreme fallback cases around the
+old multiplication limit and large tick counters. Absolute-output checks also
+use long handlers. Tick fallback and extreme intervals remain host-modeled;
+the default VM exercises the reference source.
 
 See the [audit/fix record](synchronization-audit-2026-10-25.md) for reproductions,
 ABI changes and evidence limits.

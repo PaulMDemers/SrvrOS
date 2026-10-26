@@ -15,11 +15,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/review/time-regression')
-    audits = parser.add_mutually_exclusive_group()
-    audits.add_argument('--audit-sleep-handler', action='store_true',
-                        help='Run the isolated known-failure signal-handler remainder audit')
-    audits.add_argument('--audit-sleep-overflow', action='store_true',
-                        help='Run the isolated known-failure fallback remainder overflow audit')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -36,15 +31,13 @@ def main():
                           '-I', str(ROOT / 'shared/include'), '-include', str(renamed)]
     command += [str(path) for path in sources] + ['-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    mode = (['sleep-handler-audit'] if args.audit_sleep_handler else
-            ['sleep-overflow-audit'] if args.audit_sleep_overflow else [])
-    result = subprocess.run([str(executable)] + mode, capture_output=True, text=True, timeout=15)
+    result = subprocess.run([str(executable)], capture_output=True, text=True, timeout=15)
     print(result.stdout, end='')
     print(result.stderr, end='')
     record = {'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT)),
               'platform': platform.platform(), 'compile_command': command,
-              'mode': mode[0] if mode else 'contracts', 'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr,
+              'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                          for path in sources}}
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')

@@ -206,3 +206,13 @@ host cases). Added explicit failing probes plus positive host/guest controls
 for existing interruption, aliasing, error and absolute-output behavior. Current
 guides describe both limits. The libc/kernel runtime is unchanged in this audit;
 see the synchronization report for exact receipts and suggested corrections.
+
+
+Both sleep remainder findings are now corrected. Unslept time is captured before
+post-wait handlers, kept local until return, and remains the full interval if
+pre-wait dispatch prevented suspension. Tick fallback splits seconds/fractions
+before scaling. Former failed modes at `bd300e28` are replaced by positive
+host/guest coverage, including long and nested-sleep handlers and extreme tick
+boundaries. No layout/syscall change. Continued bounded review covers wrapper
+rounding, handler reentrancy, output/error ownership and clock fallback; no
+additional confirmed defect is added in this block.

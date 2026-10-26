@@ -140,15 +140,16 @@ brackets and checks CPU totals. The default VM exercises the reference path;
 the missing-reference configuration is host-modeled, not VM/native accepted.
 No layout or syscall change is introduced.
 
-Relative `nanosleep`/`clock_nanosleep` remainders currently include time spent
-executing signal handlers, so a long handler can incorrectly reduce unslept
-time to zero. Aliasing is supported but does not avoid this confirmed defect.
-Absolute `clock_nanosleep` leaves remainder storage unchanged; callers pursuing
-a wall-clock deadline can retain/retry the same monotonic absolute deadline.
-This is different from preserving relative suspension time. A separate
-host-confirmed extreme-range issue wraps fallback tick-to-microsecond arithmetic
-at roughly 584,000 years of elapsed time. These sleep findings are pending fixes;
-see the synchronization audit for reproductions and evidence limits.
+Relative `nanosleep`/`clock_nanosleep` capture the unslept interval before
+post-wait handlers execute. A signal dispatched before any suspension preserves
+the entire request. The captured value stays local until return, preserving
+aliased request/output and nested-handler sleeps. Tick fallback splits elapsed
+ticks into seconds and a bounded fraction before scaling, including extreme
+representable intervals. `clock_nanosleep` keeps direct error returns and errno;
+absolute calls leave remainder storage unchanged. Successful and non-interrupted
+error paths retain their output behavior. These corrections add no layout or
+syscall change. Reference/fallback and extreme boundaries are host-tested;
+ordinary VM tests cover fast, long and nested-sleep handlers.
 
 `SEM_VALUE_MAX` is `INT_MAX`. `sem_init` rejects larger counts with `EINVAL`;
 `sem_post` uses a checked atomic increment and returns `EOVERFLOW` without changing

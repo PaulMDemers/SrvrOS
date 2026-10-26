@@ -25,10 +25,10 @@ detach ownership and valid negative absolute condition deadlines. Historical
 failure receipts remain separate from corrected contracts. Null-output
 `clock_getres` probes are also corrected with source/error and fallback coverage.
 The `times()` elapsed fallback is also corrected, with host boundary/error and
-guest elapsed-time regressions. The subsequent sleep audit confirms relative
-remainders incorrectly include handler execution, plus an extreme fallback
-conversion overflow. Isolated failing regressions and current profile limits
-record both pending fixes.
+guest elapsed-time regressions. Relative sleep remainders now exclude handler
+execution, and extreme fallback conversion avoids intermediate overflow. Former
+failing audit modes are replaced by positive regressions; historical receipts
+remain in the synchronization report.
 
 ## Implementation progress after the audit
 
@@ -171,7 +171,7 @@ profile, not completed POSIX conformance.
 | Kernel `pread`/`pwrite` without offset mutation, including `dup` and append handles | `threadstress/positional_test.c`, `test_process_output.c`; concurrent regions, sparse writes, EOF, bad access, allocation failure preserving previous data | Separate opens now share contents; private offsets remain in each open description |
 | Regular-file access modes, no implicit append, shared append/nonblocking flags through `dup`, atomic exclusive create, close-on-exec publication and safe truncation | `threadstress/open_test.c`, host process-output fixtures, full core and thread VM suite | Cross-open content coherence is implemented; directory descriptors now work; unsupported open flags fail explicitly |
 | `select` ready-bit counts, masks, EBADF, timeout validation, IPv4 socket FD range | `test_posix_poll.c`, `libcprobe/readiness.c`; guest uses an explicit supported e1000 | `FD_SETSIZE=1024` accommodates current sockets, not all pseudo-FDs; poll remains bounded to 64 entries |
-| Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`; aliased remainder, signal interruption, no early completion | Timing remains subject to timer resolution and scheduling; relative remainders incorrectly deduct handler execution, and extreme fallback intervals can wrap (see synchronization audit) |
+| Interrupted sleep remainder, absolute realtime/monotonic deadlines, direct `clock_nanosleep` errors | `threadstress/sleep_test.c`, `sleep_remainder_test.c`, host timing contracts; aliases, long/nested handlers, fallback boundaries and no early completion | Remainders exclude handler execution; overflow-free fallback conversion has host boundary coverage. Timing remains subject to resolution and scheduling |
 | Thread-directed signals, blocked `raise`, per-thread dispatch guard, one-shot handler reset | `threadstress/targeted_signal_test.c`, host process-output tests, full thread and libuv guest suites | Handlers are still dispatched at libc checkpoints; no general asynchronous signal trampoline, altstack or siginfo frames |
 | Process/thread CPU clocks, `clock`, `times`, reaped-child CPU totals and peak mapped memory | `threadstress/usage_test.c`, scheduler and process host fixtures; busy/sleeping workers, child wait and peak retention | CPU0 accounting uses the monotonic reference; auxiliary rusage counters remain zero, and this is not an energy measurement |
 | Shared-reader/exclusive-writer locks, thread-local key values, key generation reuse and repeated destructors | `threadstress/pthread_contract_test.c`; concurrent readers, blocked writer, destructor reinstallation and deleted/recreated keys | Bounded keys/workers; reader-preference locking, no real-time scheduling policy |

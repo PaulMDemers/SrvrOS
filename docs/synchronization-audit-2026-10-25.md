@@ -18,10 +18,11 @@ is corrected by accepting signed seconds and using the existing timeout path.
 The tenth finding, null-output clock resolution, is corrected while preserving
 clock/source validation. The eleventh finding, frozen `times()` elapsed return
 without a reference clock, is corrected with direct tick fallback and positive
-regressions. The subsequent sleep audit confirms two pending remainder defects:
-signal-handler time is deducted from relative sleeps (P2), and extreme fallback
-intervals wrap during tick-to-microsecond conversion (P3). See the new audit
-receipts below; neither sleep implementation is corrected in this audit block.
+regressions. The twelfth and thirteenth findings, handler-time subtraction from
+sleep remainders and extreme fallback conversion overflow, are now corrected
+with pre-handler capture and quotient/remainder conversion. The failed sleep
+audit below is historical at `bd300e28`; current positive coverage is described
+in the correction record.
 See the correction/validation record below. The original findings and receipts
 are retained as history at source `a90ac149`; they do not describe the corrected
 implementation. The original audit-only runner was replaced by positive
@@ -819,7 +820,10 @@ remains unconfirmed. Broader semaphore and other profile exclusions remain
 open; no newly confirmed finding is being presented for another fix yet.
 
 
-## Sleep interruption/remainder audit at 820c1c3e
+## Historical sleep interruption/remainder audit (published at bd300e28)
+
+The following findings describe the runtime at `820c1c3e` and probes committed
+in `bd300e28`, before the correction below.
 
 This block adds positive controls and isolated failing regressions against the
 existing implementation. The libc/kernel runtime remains unchanged. Evidence
@@ -917,3 +921,71 @@ with zero errors; whitespace checks pass. Receipts, source/log hashes and build
 manifest are retained with the evidence above. Previous libuv validation remains
 historical; this test/docs-only audit claims no new full Linux/core, general SMP,
 physical-hardware or absent-reference VM acceptance.
+
+
+## Sleep remainder corrections
+
+`nanosleep` now captures the remaining interval immediately after an interrupted
+kernel wait, before invoking post-wait handlers. If pre-wait dispatch handled a
+signal, no suspension occurred and the full request is retained. A local
+`timespec` holds the captured value until the interruption return, so nested
+handler sleeps and caller-buffer writes cannot replace that snapshot. Relative
+realtime/monotonic `clock_nanosleep` inherits the fix; direct errors, saved errno
+and absolute-output behavior remain intact. Successful and non-interruption
+error paths preserve their previous output behavior. No layout, syscall or
+kernel change is introduced.
+
+The P3 correction is in the same calculation: divide elapsed ticks by 100 for
+whole seconds and scale only the remainder (0–99) into nanoseconds. This avoids
+the overflowing intermediate multiplication without changing the 100 Hz source
+or nanosecond borrowing/clamp logic. The maximum quotient fits `time_t` for the
+kernel's 64-bit counter.
+
+The old explicit audit modes are replaced by positive default timing tests.
+The 24 long-handler combinations now preserve the expected remainder across
+three relative APIs, both sources, pre/post-wait dispatch and separate/aliased
+buffers. Added controls model a handler changing the caller's output and verify
+`sleep` rounding and `usleep` interruption. Absolute remainder preservation also
+runs with a long handler. The former overflow probe expands to 24 combinations
+at either side of the old scaling limit and near the signed counter maximum.
+Existing invalid/error, source failure/backwards-reading, zero/sub-tick and
+clamp cases remain included.
+
+Guest `sleep-remainder` now includes 18 cases: six fast handlers, six 600 ms busy
+handlers and six handlers that call a nested 600 ms `nanosleep`. Each interrupts
+a 500 ms relative request early and verifies retained unslept time, aliases,
+return errors and errno. It is included in `all`; the old audit entry point is
+removed. The default VM uses the reference source. Fallback and extreme ranges
+are host-modeled, not a claim of absent-reference VM or native acceptance.
+Evidence is retained in ignored `build/review/sleep-fixes/`.
+
+Continued bounded review traced `sleep`/`usleep` wrapper rounding and errors,
+cooperative nested handler dispatch, source failures and output ownership.
+The new wrapper and nested-handler controls substantiate these paths; no further
+confirmed finding was added. Scheduler time between wake and userspace sampling
+and tick resolution still limit precision; the correction excludes handler
+execution without claiming a kernel-provided interruption timestamp. The next
+audit area is deterministic futex wait interruption and synchronization wake
+ownership coverage. Initial source review traced the absorbing-signal wrapper
+(all current callers use an infinite timeout), condition deadline recomputation,
+expected-value checks and scheduler queue membership; it added no confirmed
+defect and is not a race-test acceptance claim.
+Once-initializer abnormal exit remains unconfirmed, and broad profile exclusions
+remain open.
+
+
+Validation of both corrections on ARM64 macOS/x86_64 QEMU TCG: matched build,
+host timing/synchronization checks, timing ASan/UBSan, all 18 targeted sleep
+remainder cases, the complete thread suite on retry and full libuv suite pass.
+The targeted long/nested handlers retained 461818000–472246000 ns from interrupted
+500 ms requests. Three isolated source-copy negative controls each exit 1:
+restored old runtime, overflowing conversion and pre-wait handler subtraction.
+
+The first full thread run failed before the sleep cases: an AHCI read command
+reported the disk offline and the rename test returned EIO. A fresh disposable
+VM using the same build passed the full suite. Both logs are retained; the
+storage failure's cause is unresolved and a retry does not erase that failure.
+Docs check 641 local links with zero errors; whitespace checks pass. Source/log
+hashes, build manifest and test receipts are in `build/review/sleep-fixes/`.
+No full Linux/core, general SMP, native or absent-reference VM acceptance is
+claimed. All disposable VMs stopped; no physical boot is armed.

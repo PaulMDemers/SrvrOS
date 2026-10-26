@@ -626,7 +626,6 @@ int posix_absolute_deadline_test(void);
 int posix_clock_resolution_test(void);
 int posix_times_test(void);
 int posix_sleep_remainder_test(void);
-int posix_sleep_handler_audit(void);
 int posix_stack_inspection_test(void);
 int posix_self_detach_test(void);
 int posix_thread_name_test(void);
@@ -652,7 +651,6 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
-    if (!strcmp(only,"sleep-handler-audit")) return posix_sleep_handler_audit();
 
 #define RUN_TEST(name, fn) \
     do { \

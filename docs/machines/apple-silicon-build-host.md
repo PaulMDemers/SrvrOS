@@ -408,3 +408,45 @@ Continued kernel wait/source and boundary review adds no third confirmed issue.
 Next corrections are capturing suspension end before handlers, then splitting
 fallback ticks before scaling. Once-initializer abnormal exit remains unconfirmed.
 All disposable VMs stopped; no physical boot is armed.
+
+## Sleep remainder corrections — active scope
+
+The user authorized the signal-handler remainder fix and the P3 arithmetic fix
+if bounded, regression tests, docs/PR updates and continued audit. Base is
+`bd300e28`; fetched main remains `fa5a6cc1` and PR19 remains `b68df8cd` with
+separate Wi-Fi scope. This block owns libc suspension-end capture and remainder
+conversion plus focused timing tests. Preserve aliasing, pre-wait interruption,
+error/errno and absolute-output semantics. The P3 fix is a small quotient/
+remainder conversion in the same path. Next checkpoint is positive former
+reproducers, boundary/reentrant controls and matched sequential guest suites.
+No physical boot is armed.
+
+
+Both sleep remainder corrections are complete. `nanosleep` captures unslept time
+before post-wait handlers and retains the full request on pre-wait interruption;
+a local snapshot survives nested sleeps and handler buffer changes. Tick fallback
+splits seconds/fractions before scaling. Alias/error/absolute-output behavior
+is preserved, with no layout/syscall or kernel change.
+
+
+Validation of both corrections on ARM64 macOS/x86_64 QEMU TCG: matched build,
+host timing/synchronization checks, timing ASan/UBSan, all 18 targeted sleep
+remainder cases, the complete thread suite on retry and full libuv suite pass.
+The targeted long/nested handlers retained 461818000–472246000 ns from interrupted
+500 ms requests. Three isolated source-copy negative controls each exit 1:
+restored old runtime, overflowing conversion and pre-wait handler subtraction.
+
+The first full thread run failed before the sleep cases: an AHCI read command
+reported the disk offline and the rename test returned EIO. A fresh disposable
+VM using the same build passed the full suite. Both logs are retained; the
+storage failure's cause is unresolved and a retry does not erase that failure.
+Docs check 641 local links with zero errors; whitespace checks pass. Source/log
+hashes, build manifest and test receipts are in `build/review/sleep-fixes/`.
+No full Linux/core, general SMP, native or absent-reference VM acceptance is
+claimed. All disposable VMs stopped; no physical boot is armed.
+
+Continued bounded review covered wrapper rounding/errors, nested dispatch,
+source/output ownership and initial futex wait/wake paths. No additional defect
+was confirmed. Next scope is deterministic futex interruption/wake race coverage;
+abnormal once-initializer exit remains unconfirmed. The observed AHCI failure
+also remains an unresolved validation event, with both failure and retry receipts.
