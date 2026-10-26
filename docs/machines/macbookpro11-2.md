@@ -22,6 +22,20 @@ power/TSSI/calibration admission before calibration commands and packet receptio
 Scanning,association,security,Wi-Fi IP traffic and UI remain pending.
 
 
+Active block (2026-10-26): consume actual main `d24dbc11` (PR191 Air6,1
+evidence only),PR182 remains filesystem scope. Audit confirmed Linux/vendor
+IBI9 address2124 and raw save/restore policy. Build separate v91 temporary
+TX_ALC0/IBI9 readback observation inside the accepted MAC/RX lifetime. Touched:
+new calibration-probe helper/native callbacks,optional MAC inspection hook,
+actual selector/host tests,staging/smoke and unit/Wi-Fi docs. Fixed captured
+TX_ALC0=2f2f1b1b;zero/verify,500us wait,fresh IBI save,ffffff7e write/read,
+reverse saved-word restores and MAC-active guards. Raw IBI all-ones is allowed
+only in this explicit observation;original strict calibration admission remains
+unchanged. No calibration command,rearm,packet inspection or network data OUT.
+Checkpoint: local/sanitizer/exact-stage VM,install/recovery/archive/run checks
+before cold trial;last native acceptance remains v90.
+
+
 Completed physical block (2026-10-26): consumed actual main `4ee18f69` (PR190 scheduler/
 desktop wake attribution),preserving all Wi-Fi profiles; PR182 owns filesystem
 imports,no MT76 overlap. Build v90 bounded MAC startup/shutdown around one
