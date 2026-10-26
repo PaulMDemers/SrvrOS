@@ -16,10 +16,20 @@ with MAC active. These are observations,not calibration admission. One retained
 RX request stopped with context3/owned dequeue/DCS1;CC26/4096 remaining is
 cancellation metadata,no packet reception. Full543084-byte prefix and both
 completion markers saved. Recovery,consumed one-shot and offline allocation
-passed;unmounted/unarmed. Accepted v89 remains on ESP,e47 is previous recovery,
-and v88 remains durably archived. Next: audit IBI9 behavior and fresh board/
+passed;unmounted/unarmed. Accepted v90 remains retained on ESP,e47 is previous recovery,
+and v89/v88 remain durably archived. Next: audit IBI9 behavior and fresh board/
 power/TSSI/calibration admission before calibration commands and packet reception.
 Scanning,association,security,Wi-Fi IP traffic and UI remain pending.
+
+
+Installed pending trial: v91 `7c1728fccd4ae567`, source `90b8a203`.
+Local/core/sanitizer and exact-stage VM save/return plus missing-workspace
+refusal pass. The17-operation reversible calibration-register observation is
+not yet native acceptance;write-effect flags remain data. Original strict
+calibration admission is unchanged. Ubuntu default,e47 recovery and accepted
+v90 retained;v89 removed from ESP only after durable equality for staging space.
+Offline workspace clean,unmounted/unarmed. Await cold-cycle readiness and collect
+matching v91 results FIRST on return with `cal-probe/collect_return.py`.
 
 
 Active block (2026-10-26): consume actual main `d24dbc11` (PR191 Air6,1
@@ -8427,7 +8437,8 @@ Probe transport success is17 operations:12 reads,4 writes,1 wait. Its
 unchanged/read-only behavior can complete the observation but cannot authorize
 calibration or claim functional restoration of an unreadable register. A failed
 raw saved-word restoration remains incomplete. No MCU calibration command,
-packet inspection,rearm,network data OUT or power selection is introduced.
+packet inspection,rearm,network data OUT or operational transmit-power selection
+is introduced.
 Original strict full-calibration admission still refuses IBI9 all-ones and has
 no native caller. Historical v1-v90 recipe bytes remain identical.
 
@@ -8444,3 +8455,32 @@ exact line check;the original failing receipt is retained. All12 new/current
 native printf formats have matching argument counts. Exact-stage VM/install
 and native results remain pending until recorded below. Guest shows progress,
 saves results and returns automatically;no photos or commands required.
+
+
+### 2026-10-26 — v91 calibration-register trial installed, unarmed
+
+Source `90b8a2036d31c8cd1b1794f05e57cc8a1611934a`, release
+`7c1728fccd4ae567`, recipe `ram-usb-wifi-fw-v91-laptop-probe-0e535900-auto-return`.
+Final image/core and actual native/pure-helper ASan/UBSan pass;176 staging
+tests,158 malformed-proof refusals,four write-effect/raw-restore variants and
+180 historical recipe-byte comparisons pass. Exact GPT-stage VM saved logs,
+verified file bytes,unmounted and returned automatically. Missing workspace
+refused without probing and returned. Q35 lacks the native adapter;these are
+workflow/refusal checks,not calibration-register or reception acceptance.
+
+Installed/current and e47 previous recovery match durable backups;accepted
+v90 remains retained on ESP. Accepted v89 was removed from ESP only after full
+payload equality to its durable backup,freeing candidate space. v89/v88
+accepted evidence remain outside build. Ubuntu default and EFI order unchanged;
+no one-shot armed. Offline327files/795clusters/137directories,zero leaks,bitmap
+mismatches or errors;unmounted. No physical result is claimed yet.
+
+After cold-cycle readiness,power off,unplug only Wi-Fi10s,reconnect and power on;
+leave workspace attached. Guest shows progress,saves full logs and returns to
+Ubuntu automatically;no photos or commands needed. On return collect the new
+matching session FIRST with `build/bringup/cal-probe/collect_return.py`.
+Require whole prior proof,17 ordered child operations,effect flags derived
+from actual words,raw reverse restoration,MAC teardown and exact retained RX
+stop. Distinguish completed observations from calibration admission;preserve
+failed masks/cleanup markers. Candidate payload/run/evidence are retained under
+`~/.local/share/srvros/macbookpro11-2/wifi-cal-probe-90b8a20/`.
