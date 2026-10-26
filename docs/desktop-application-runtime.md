@@ -28,7 +28,8 @@ Text preserves the PR170 document/allocation/cleanup timing checkpoints.
 
 After dispatch and job/render work, prepare this turn's interests with
 `desk_runtime_watch` or the file-pool, file-job and image-job adapters, then call
-`desk_runtime_idle(runtime, busy)`. Preparation is non-consuming: it does not poll
+`desk_runtime_idle(runtime, busy)`. It returns native readiness flags, or negative
+after a short retry; a retry alone is not a fatal app error. Preparation is non-consuming: it does not poll
 a worker, read a reply, issue a file mutation or transfer its ownership. Completion
 is delivered by the application's existing job poll on the next turn. Duplicate
 FDs merge read/write masks. The native wait still accepts only eight explicit
@@ -96,6 +97,12 @@ save decisions and readonly-image cancellation stay with their owners.
 ```sh
 tools/host-env.sh make test-desktop-runtime test-tool-commands test-preview-app
 ```
+
+The existing `desktop_wait_load_smoke.py` fixture also uses this runtime: its
+three-second phase change is a registered timer, while dispatch and pooled-worker
+readiness share the same turn/wait path under throttled writes. It preserves the
+original workload, key/frame acknowledgements, worker retirement and integrity
+checks. This is an actual-ABI consumer, not native timing acceptance.
 
 Host tests cover event/internal-message floods, reentry, timer fairness and
 removal during callbacks, deadline shortening, wait capacity and worker phases,

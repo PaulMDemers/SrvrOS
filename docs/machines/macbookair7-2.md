@@ -20,6 +20,9 @@ the separate heavy-I/O latency investigation. Preserve its timing receipts and
 consume any new dependency explicitly. Validate dispatch fairness, timers,
 worker completion/cancellation, close/quit/save retention and the existing actual
 Text/Preview/pointer/shutdown/failure gates before preparing a hardware retest.
+The existing timed GUI/file-worker load diagnostic also consumes the runtime,
+including its registered phase timer and merged readiness; its workload and
+acceptance predicates remain unchanged.
 Installed accepted current remains `1d1d5edce03523db`, recovery
 `9aa8dbf6fbda8252`; the prior return is collected, and no new boot is armed.
 

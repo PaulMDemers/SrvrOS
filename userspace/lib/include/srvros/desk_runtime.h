@@ -33,7 +33,8 @@ void desk_runtime_deadline(struct desk_runtime *,uint64_t absolute_us);
 int desk_runtime_watch(struct desk_runtime *,int fd,unsigned events);
 /* Busy/unfinished publication uses one-tick retry; otherwise one combined wait
  * honors the earliest app/timer deadline and the bounded service heartbeat. */
-void desk_runtime_idle(struct desk_runtime *,int busy);
+/* Returns readiness flags, or -1 after a short retry (not an app failure). */
+int desk_runtime_idle(struct desk_runtime *,int busy);
 /* One-shot, zero-initialized/canceled timers. No periodic catch-up loop: a
  * callback may explicitly rearm itself, but only 32 callbacks run per turn.
  * Callback runs detached and may cancel/free another registered timer. */

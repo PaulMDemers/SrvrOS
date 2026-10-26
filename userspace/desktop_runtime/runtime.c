@@ -64,12 +64,15 @@ int desk_runtime_dispatch(struct desk_runtime *r,desk_runtime_event event,void *
     }
     r->dispatching=0;return r->failed?-1:0;
 }
-void desk_runtime_idle(struct desk_runtime *r,int busy) {
+int desk_runtime_idle(struct desk_runtime *r,int busy) {
     long clock=srv_monotonic_us();
     if(clock>=0) {
         desk_runtime_deadline(r,heartbeat((uint64_t)clock));
         if(r->timers)desk_runtime_deadline(r,r->timers->deadline_us);
     }
-    if(busy || r->failed || r->retry || clock<0 || r->wait.deadline_us<=(uint64_t)clock ||
-       desk_connection_wait_io(r->connection,&r->wait)<0)srv_sleep_ticks(1);
+    int result=-1;
+    if(!busy && !r->failed && !r->retry && clock>=0 && r->wait.deadline_us>(uint64_t)clock)
+        result=desk_connection_wait_io(r->connection,&r->wait);
+    if(result<0)srv_sleep_ticks(1);
+    return result;
 }
