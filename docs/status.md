@@ -192,9 +192,9 @@ recurrence; active investigation is shelved pending new evidence. Genuine
 pending-command failures still quarantine the disk and retain DMA memory.
 
 
-The subsequent [eventfd/epoll audit](event-adapter-audit-2026-10-26.md) confirms
-three unfixed experimental-adapter defects: stale epoll ownership after close
-and number reuse, incorrect immediate-wait behavior, and unchecked eventfd
-counter writes. Seven explicit failing host probes reproduce them; positive
-controls and sanitizer checks pass. These APIs remain outside the accepted
-profile. The next correction is descriptor lifetime, including alias semantics.
+The subsequent [eventfd/epoll audit](event-adapter-audit-2026-10-26.md) corrects
+libc-managed epoll ownership across close, native duplication and descriptor
+reuse, with positive host/guest tests and stale-result validation. Immediate-wait
+behavior, eventfd posts during a wait and unchecked eventfd counter writes remain
+unfixed; five explicit failing host probes track them. The adapters remain
+experimental; the next correction is wait handling and notification.

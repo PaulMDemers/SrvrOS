@@ -12,6 +12,11 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+void __posix_event_lock(void);
+void __posix_event_unlock(void);
+void __posix_event_note_close(int fd);
+void __posix_event_note_dup(int old_fd, int new_fd);
+int __posix_event_prepare_dup(int fd);
 int __posix_make_path(const char *path, char *out, size_t capacity);
 int __posix_socket_close(int fd);
 int __posix_socket_dup(int fd);
@@ -266,11 +271,17 @@ int close(int fd) {
     if (__posix_eventfd_is_pseudo(fd)) {
         return __posix_eventfd_close(fd);
     }
+    __posix_event_lock();
     if (__posix_socket_is_pseudo(fd)) {
-        return __posix_socket_close(fd);
+        int result = __posix_socket_close(fd);
+        if (result == 0) __posix_event_note_close(fd);
+        __posix_event_unlock();
+        return result;
     }
     long result=srv_close(fd);
+    if (result != SRV_ERR_BADF) __posix_event_note_close(fd);
     __posix_socket_note_close(fd); /* The number is retired even on a flush error. */
+    __posix_event_unlock();
     if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
     return 0;
 }
@@ -289,40 +300,58 @@ void sync(void) {
     (void)srv_sync();
 }
 
-int dup(int fd) {
+static int dup_locked(int fd) {
+    if (!__posix_event_prepare_dup(fd)) return -1;
     if (__posix_socket_is_pseudo(fd)) {
-        return __posix_socket_dup(fd);
+        int result = __posix_socket_dup(fd);
+        if (result >= 0) __posix_event_note_dup(fd, result);
+        return result;
     }
     long result = srv_dup(fd);
     if (result < 0) {
         errno = result==-1?EBADF:(int)-result;
         return -1;
     }
+    __posix_event_note_dup(fd, (int)result);
     __posix_socket_note_dup(fd, (int)result);
     return (int)result;
 }
+int dup(int fd) {
+    __posix_event_lock();
+    int result = dup_locked(fd);
+    __posix_event_unlock();
+    return result;
+}
 
-int dup2(int old_fd, int new_fd) {
-    if (old_fd == new_fd) {
-        if (old_fd < 0) {
-            errno = EBADF;
-            return -1;
-        }
-        if (fcntl(old_fd, F_GETFD) < 0) {
-            return -1;
-        }
-        return new_fd;
+
+static int dup2_locked(int old_fd, int new_fd) {
+    if (__posix_socket_is_pseudo(old_fd) || __posix_eventfd_is_pseudo(old_fd) ||
+        __posix_socket_is_pseudo(new_fd) || __posix_eventfd_is_pseudo(new_fd)) {
+        errno=EOPNOTSUPP; return -1;
     }
+    if (!__posix_event_prepare_dup(old_fd)) return -1;
     long result = srv_dup2(old_fd, new_fd);
     if (result < 0) {
         errno = result==-1?EBADF:(int)-result;
         return -1;
     }
+    __posix_event_note_dup(old_fd, new_fd);
     __posix_socket_note_dup(old_fd, new_fd);
     return (int)result;
 }
+int dup2(int old_fd, int new_fd) {
+    if (old_fd == new_fd) {
+        if (fcntl(old_fd, F_GETFD) < 0) return -1;
+        return new_fd;
+    }
+    __posix_event_lock();
+    int result = dup2_locked(old_fd, new_fd);
+    __posix_event_unlock();
+    return result;
+}
 
-int dup3(int old_fd, int new_fd, int flags) {
+
+static int dup3_locked(int old_fd, int new_fd, int flags) {
     if (old_fd == new_fd || (flags & ~O_CLOEXEC) != 0) {
         errno = EINVAL;
         return -1;
@@ -331,11 +360,20 @@ int dup3(int old_fd, int new_fd, int flags) {
        __posix_socket_is_pseudo(new_fd) || __posix_eventfd_is_pseudo(new_fd)) {
         errno=EOPNOTSUPP;return -1;
     }
+    if (!__posix_event_prepare_dup(old_fd)) return -1;
     long result=srv_syscall3(SYS_DUP3,old_fd,new_fd,(flags&O_CLOEXEC)?SRV_FD_CLOEXEC:0);
     if(result<0) { errno=result==-1?EBADF:(int)-result;return -1; }
+    __posix_event_note_dup(old_fd,(int)result);
     __posix_socket_note_dup(old_fd,(int)result);
     return (int)result;
 }
+int dup3(int old_fd, int new_fd, int flags) {
+    __posix_event_lock();
+    int result = dup3_locked(old_fd, new_fd, flags);
+    __posix_event_unlock();
+    return result;
+}
+
 
 int pipe2(int fds[2],int flags) {
     if(flags&~(O_CLOEXEC|O_NONBLOCK)) { errno=EINVAL;return -1; }
@@ -348,16 +386,25 @@ int pipe2(int fds[2],int flags) {
 }
 int pipe(int fds[2]) { return pipe2(fds,0); }
 
-static int fcntl_dupfd(int fd,int minimum,int cloexec) {
+static int fcntl_dupfd_locked(int fd,int minimum,int cloexec) {
     if(minimum<0 || minimum>=sysconf(_SC_OPEN_MAX)) { errno=EINVAL;return -1; }
     if(__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
         errno=EOPNOTSUPP;return -1;
     }
+    if (!__posix_event_prepare_dup(fd)) return -1;
     long result=srv_fcntl(fd,cloexec?SRV_F_DUPFD_CLOEXEC:SRV_F_DUPFD,(uint64_t)minimum);
     if(result<0) { errno=result==-1?EBADF:(int)-result;return -1; }
+    __posix_event_note_dup(fd,(int)result);
     __posix_socket_note_dup(fd,(int)result);
     return (int)result;
 }
+static int fcntl_dupfd(int fd,int minimum,int cloexec) {
+    __posix_event_lock();
+    int result = fcntl_dupfd_locked(fd, minimum, cloexec);
+    __posix_event_unlock();
+    return result;
+}
+
 
 int fcntl(int fd, int command, ...) {
     if (command == F_DUPFD || command == F_DUPFD_CLOEXEC) {

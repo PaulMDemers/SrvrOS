@@ -136,6 +136,7 @@ def main():
     ]
     if args.test == "all":
         expected.extend([
+            "threadstress: epoll-lifetime ok",
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",

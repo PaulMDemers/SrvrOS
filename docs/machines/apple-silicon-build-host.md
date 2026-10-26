@@ -670,3 +670,37 @@ controls pass without diagnostics; explicit `--audit all` exits 1 with seven
 intended failed contract assertions. Documentation checks 653 local inline links
 with zero errors, and whitespace checks pass. Publish this audit-only checkpoint
 in a new draft PR; it does not contain runtime corrections.
+
+
+## Epoll lifetime correction — active scope (2026-10-26)
+
+User authorizes close/duplication/reuse fixes, regression tests, docs and draft
+PR179 update, then continued audit. Baseline is `526b6353` on merged main
+`8bd43adc`; fetched PR179 matches and PR19 retains separate Wi-Fi ownership.
+Scope: libc event adapter and close/dup/F_DUPFD integration, identity/alias
+tracking and wait snapshots, host and matched-guest regressions. No new public
+syscall ABI is planned. Preserve the separate unfixed wait/counter findings.
+Next checkpoint: positive lifetime tests including duplicate-before-registration,
+replacement, failure rollback and concurrent wait/control interleavings.
+
+Lifetime correction implemented: protected libc identities cover native dup,
+dup2, dup3 and F_DUPFD*, final-alias retirement, close-error cleanup and number
+reuse. Wait snapshots validate instance/watch/descriptor identity after polling.
+The original three lifetime probes and four broader lifetime modes pass with
+ordinary controls and ASan/UBSan. Targeted and full-thread guests pass, including
+concurrent lifetimes and post-cleanup fork. Four source-copy negative controls
+compile and fail the intended assertions. Continued audit adds a fifth remaining
+wait/counter failure: an eventfd post during the modeled sleep is missed.
+No kernel/syscall ABI or native gate change; raw descriptor mutations, rights
+transfer and general Linux epoll semantics are outside this bounded acceptance.
+
+
+Final revision validation: matched build, eight positive host modes and their
+ASan/UBSan runs, complete thread guest (including epoll lifetime), libuv guest
+and five smoke-reader tests all pass. Four negative controls compile and fail
+the intended assertions. The five explicit remaining wait/counter probes fail
+as documented. Documentation checks 653 local inline links with zero errors;
+whitespace checks pass. Source/build/log hashes and all directed receipts are
+retained under `build/review/epoll-lifetime/`. All disposable guests stopped.
+No physical trial is armed and Actions remain disabled. Draft PR179 now carries
+the lifetime correction; the next bounded item is wait/notification handling.

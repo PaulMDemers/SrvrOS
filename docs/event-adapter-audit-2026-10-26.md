@@ -8,13 +8,14 @@ and shelved pending new evidence. This next audit starts at that merged source
 on `device/apple-silicon/eventfd-epoll-audit`, addressing the experimental event
 adapters deferred by the [initial audit](code-docs-audit-2026-10-25.md).
 
-This checkpoint adds executable reproductions and documentation, without runtime
-changes. Seven directed contract probes fail; ordinary-operation controls pass.
-The three finding groups below remain **unfixed**. The supported profile already
+The initial checkpoint at `526b6353` added executable reproductions without
+runtime changes: seven directed probes failed. The subsequent correction below
+fixes the descriptor-lifetime group. The wait and counter groups remain **unfixed**,
+with five explicit failing probes after the continued audit. The supported profile already
 excludes these experimental APIs; the new evidence makes their failure modes
 concrete. It does not establish Node support or general Linux API conformance.
 
-## P2: epoll state outlives descriptor ownership
+## P2: epoll state outlives descriptor ownership — corrected
 
 `epoll_create1` reserves one of eight libc slots and uses a native pipe read end
 as its descriptor. Public `close` releases the native descriptor and notifies
@@ -39,7 +40,7 @@ associates registrations with open file descriptions and their descriptor keys.
 These reproductions use no duplicate aliases, so alias lifetime cannot explain
 why registrations survive their final close.
 
-**First correction to pursue:** define instance/watch ownership across close,
+**Initial correction plan (implemented below):** define instance/watch ownership across close,
 FD-number reuse and duplication/replacement. Review `dup`, `dup2`, `dup3` and
 `F_DUPFD*` together with close-error retirement. Simply clearing one array slot
 on every close is not sufficient to establish alias semantics or safe concurrent
@@ -87,10 +88,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit known failures: exits 1 while all seven findings remain unfixed.
+# Explicit remaining wait/counter failures: five probes currently exit 1.
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select one, for example --audit instance-reuse.
+# Or select one, for example --audit eventfd-wakeup.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -99,11 +100,11 @@ CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
 ```
 
 `tools/test_event_adapters.py` copies the adapter prefix through `epoll_pwait`
-and the public `close` body verbatim from current source, retaining `#line`
+and the public close/duplication/fcntl implementations verbatim from current source, retaining `#line`
 locations. Symbols are prefixed to avoid replacing host libc calls. The fixture
 models native descriptor allocation/retirement, poll and sleep; it uses the
 repository's headers and real eventfd/epoll bookkeeping. Every mode starts in a
-fresh process. Results retain source hashes, compiler command, platform, exit
+fresh process; the host mutex model asserts ownership and release around waits. Results retain source hashes, compiler command, platform, exit
 status and output. Generated sources/binaries/results remain ignored under the
 chosen output directory; use separate directories to retain previous runs.
 
@@ -111,12 +112,111 @@ Positive controls pass for counter accumulation/drain, empty nonblocking reads,
 short-write rejection, eventfd close, level readiness, MOD mask/data replacement,
 DEL and descriptor close. These narrow MOD results do not accept concurrent mask
 replacement, edge/one-shot semantics or arbitrary descriptor lifetimes. ASan/UBSan
-controls pass without diagnostics. Each directed finding exits 1 at its intended
-contract assertion, with the observed result printed first. The default target
-runs only positive controls; known failures are neither hidden as passes nor
-added to the normal acceptance target.
+controls pass without diagnostics. At the initial checkpoint each directed finding exited 1 at its intended
+contract assertion, with the observed result printed first. The current default
+target includes positive controls and the corrected lifetime cases; remaining
+known failures are neither hidden as passes nor added to the acceptance target.
 
-No kernel/libc runtime changed and no new guest build or VM was needed for this
-host-model audit. Native storage, full Mac test-core, Node recovery, general SMP,
-networking and filesystem audit coverage are unchanged. The next bounded work
-item is the epoll lifetime correction, followed by wait and counter contracts.
+No kernel/libc runtime changed in the initial `526b6353` host-model audit. Native storage, full Mac test-core, Node recovery, general SMP,
+networking and filesystem audit coverage are unchanged. The lifetime correction and further wait findings follow below.
+
+
+## Descriptor lifetime correction
+
+The libc adapter now assigns monotonically increasing identities to tracked
+native/pseudo descriptors. All public native `dup`, `dup2`, `dup3`, `F_DUPFD`
+and `F_DUPFD_CLOEXEC` paths preserve the source identity, including duplicates
+made before the first epoll watch. An epoll instance belongs to that identity,
+so closing its original number leaves aliases usable. Its final close or
+replacement retires the instance and makes its capacity reusable. Failed native
+duplication leaves the target binding untouched; `dup2(fd, fd)` is a no-op.
+Close retires ownership even when the kernel reports a flush error after removal.
+A failed close-on-exec setup tears down the newly created instance.
+
+Registrations use the original descriptor number plus identity. A native watch
+may remain after its registered number closes while another alias remains;
+readiness uses a surviving alias and preserves the original event data. A new
+object reusing the old number gets a distinct identity and may be independently
+registered. Its MOD/DEL cannot affect the old object's watch. Final alias close
+removes all watches for that identity. Eventfd close likewise removes its watches
+before recycling its counter slot. This follows the alias/key distinction in the
+[epoll lifetime contract](https://man7.org/linux/man-pages/man7/epoll.7.html).
+
+A shared libc mutex serializes lifecycle syscalls with their bookkeeping and
+epoll create/control. Eventfd slot publication uses acquire/release operations
+for descriptor dispatch, and counter/flag operations share the lock. The lock is
+released before poll, sleep or signal dispatch.
+Waits copy registration data and revision numbers, then validate the instance,
+watch revision and polled descriptor identity before returning events. Closing
+the last instance alias during a wait returns `EBADF`, even if the slot/number
+was reused. Results from removed, modified or replaced registrations are
+suppressed. Closing only the original epoll handle preserves an in-flight wait
+when another alias survives. This protects ownership; it does not fix the
+separate wait-notification/deadline policies.
+
+### Acceptance boundary
+
+This is a libc-managed, single-process adapter, not a kernel epoll facility.
+The tested lifetime contract covers native descriptors managed through public
+libc close/dup APIs and eventfd close/reuse. Direct `srv_*` descriptor mutations,
+SCM_RIGHTS-transferred aliases, cross-process/exec preservation and pseudo-socket
+state-transition semantics are not accepted. Do not mix raw descriptor mutation
+with this tracking. Native and pseudo namespace capacities remain 67, 8 sockets
+and 16 eventfds; instance/watch limits remain 8/64.
+
+Eventfd duplication remains unsupported. Pseudo-descriptor replacement through
+dup2/dup3 is explicitly refused with `EOPNOTSUPP` (same-number dup2 remains a
+validated no-op). Nested epoll is refused rather than polling its placeholder
+pipe (`EINVAL` for self/alias-self, `EOPNOTSUPP` for another instance). Fork with
+live adapter state remains refused; after final cleanup it becomes eligible
+again. Edge/one-shot semantics, general concurrent socket behavior, signal-mask
+waits and full Linux compatibility remain outside the profile.
+
+### Regression evidence
+
+The three original lifetime failures now run as positive default regressions.
+Additional host modes cover duplicate-before-watch, distinct registrations on
+aliases, old-object watches surviving number reuse, MOD/DEL identity isolation,
+all five duplication APIs, per-descriptor CLOEXEC, same-number operations,
+replacement/failure rollback, capacity exhaustion/recovery and close-error
+retirement. Poll callbacks deterministically close/recreate an instance, replace
+a watched descriptor, modify a watch or close one surviving instance alias; no
+lock is held across those callbacks. Positive host modes pass under ASan/UBSan.
+
+Four compiled source-copy negative controls remove close retirement, break alias
+binding, bypass instance validation or bypass watch-revision validation. Each
+fails its intended positive assertion. The first alias negative-control compile
+failed because its mutation left a local unused; a corrected control compiles
+and fails at runtime. Both attempts are retained. Initial fixture integration
+also caught a missing modeled fcntl service and a model that incorrectly left
+standard descriptors free; these were fixture issues corrected before acceptance.
+
+`threadstress epoll-lifetime` exercises public APIs in a matched QEMU guest:
+24 repeated instance/alias lifetimes, instance/eventfd number reuse, native pipe
+alias watches, F_DUPFD/CLOEXEC, dup2/dup3 replacement, failure/no-op paths, four
+workers each performing 16 lifetimes, and a successful fork after cleanup. It is
+also part of `threadstress all`, with a required smoke-harness completion marker.
+No kernel or syscall ABI changes are required; rebuild libc and guest programs.
+
+## Continued audit: eventfd posted during a wait is missed
+
+The new explicit `eventfd-wakeup` host mode starts with an empty watched eventfd
+and posts one during the modeled sleep of `epoll_wait(..., 20)`. The adapter
+returns zero using its original readiness observation. The probe expects the
+new event and fails. This confirms the previously suspected missing recheck; it
+does not measure actual guest wake latency. A wait correction must coordinate
+notifications with native poll, retain deadline/signal behavior and revalidate
+identities on every retry. The two prior immediate-wait probes and two counter
+probes still fail unchanged. These five failures remain excluded from the
+positive acceptance target. Wait handling is the next bounded correction.
+
+
+Final revision validation: matched build, eight positive host modes and their
+ASan/UBSan runs, complete thread guest (including epoll lifetime), libuv guest
+and five smoke-reader tests all pass. Four negative controls compile and fail
+the intended assertions. The five explicit remaining wait/counter probes fail
+as documented. Documentation checks 653 local inline links with zero errors;
+whitespace checks pass. Source/build/log hashes and all directed receipts are
+retained under `build/review/epoll-lifetime/`. All disposable guests stopped.
+No physical trial is armed and Actions remain disabled. Draft PR179 now carries
+the lifetime correction; the next bounded item is wait/notification handling.

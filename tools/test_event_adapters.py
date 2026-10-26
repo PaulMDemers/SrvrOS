@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit real eventfd/epoll adapters; --audit runs explicitly failing contract probes.
 
-The adapter prefix and public close() are copied verbatim, with #line records.
+The adapter prefix and close/dup/fcntl functions are copied verbatim, with #line records.
 Native descriptors/poll/sleep are modeled; this does not test kernel scheduling.
 """
 import argparse
@@ -14,8 +14,9 @@ import shlex
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDITS = ('close-capacity', 'instance-reuse', 'watched-reuse', 'zero-timeout',
-          'ready-wait', 'counter-overflow', 'reserved-value')
+LIFETIME = ('close-capacity', 'instance-reuse', 'watched-reuse', 'aliases', 'replacement', 'wait-retirement', 'failure-retirement')
+AUDITS = ('zero-timeout',
+          'ready-wait', 'counter-overflow', 'reserved-value', 'eventfd-wakeup')
 
 
 def main():
@@ -33,16 +34,24 @@ def main():
     assert text.count('\nint inotify_init1(') == 1
     prefix = text[:text.index('\nint inotify_init1(')]
     text = file_source.read_text()
-    start = text.index('int close(int fd) {')
-    end = text.index('\nint fsync(', start)
+    def section(begin, end):
+        start = text.index(begin)
+        finish = text.index(end, start)
+        line = text[:start].count('\n') + 1
+        return f'#line {line} "{file_source}"\n' + text[start:finish]
     declarations = ('int __posix_socket_is_pseudo(int);\nint __posix_socket_close(int);\n'
-                    'void __posix_socket_note_close(int);\n')
+                    'void __posix_socket_note_close(int);\nvoid __posix_socket_note_dup(int,int);\n'
+                    'int __posix_socket_dup(int);\nint __posix_socket_fcntl(int,int,uint64_t);\n'
+                    'int __posix_signal_dispatch_pending(void);\n'
+                    'int __posix_signal_dispatch_pending_restartable(void);\n')
     extracted = out / 'adapter.c'
-    close_line = text[:start].count('\n') + 1
     extracted.write_text(f'#line 1 "{adapter}"\n' + prefix + '\n' + declarations +
-                         f'#line {close_line} "{file_source}"\n' + text[start:end])
+                         section('int close(int fd) {', '\nint fsync(') +
+                         section('static int dup_locked(', '\nint pipe2(') +
+                         section('static int fcntl_dupfd_locked(', '\nint fcntl64('))
     names = ('__errno_location eventfd epoll_create1 epoll_ctl epoll_wait epoll_pwait '
-             'close pipe poll fcntl usleep getenv fprintf stderr').split()
+             'close dup dup2 dup3 pipe poll fcntl usleep sysconf getenv fprintf stderr '
+             'pthread_mutex_lock pthread_mutex_unlock').split()
     renamed = out / 'rename.h'
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in names))
     executable = out / 'event-adapters'
@@ -51,7 +60,7 @@ def main():
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
         '-include', str(renamed), str(extracted), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    modes = ('controls',) + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
+    modes = ('controls',) + LIFETIME + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
     results = []
     for mode in modes:
         result = subprocess.run([str(executable), mode], capture_output=True, text=True, timeout=10)

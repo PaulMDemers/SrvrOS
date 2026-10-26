@@ -58,23 +58,107 @@ struct posix_eventfd {
 struct posix_epoll_entry {
     int used;
     int fd;
+    uint64_t identity, revision;
     struct epoll_event event;
 };
 
 struct posix_epoll {
     int used;
-    int fd;
+    uint64_t identity;
     struct posix_epoll_entry entries[POSIX_EPOLL_ENTRIES];
 };
 
 static struct posix_eventfd eventfds[POSIX_EVENTFD_MAX];
 static struct posix_epoll epolls[POSIX_EPOLL_MAX];
 
-int __posix_node_fork_ready(void) {
+/* Libc-owned identities cover the native table and existing pseudo namespaces.
+ * All public close/dup variants serialize their syscall plus bookkeeping here.
+ * Direct srv_* descriptor mutations are outside this adapter contract. */
+#define EVENT_NATIVE_FDS 67
+#define EVENT_SOCKET_BASE 1000
+#define EVENT_SOCKET_FDS 8
+#define EVENT_FDS (EVENT_NATIVE_FDS + EVENT_SOCKET_FDS + POSIX_EVENTFD_MAX)
+static uint64_t event_identities[EVENT_FDS];
+static uint64_t event_serial;
+static pthread_mutex_t event_mutex = PTHREAD_MUTEX_INITIALIZER;
+int __posix_socket_is_pseudo(int fd);
+void __posix_event_lock(void) { (void)pthread_mutex_lock(&event_mutex); }
+void __posix_event_unlock(void) { (void)pthread_mutex_unlock(&event_mutex); }
+static int event_index(int fd) {
+    if (fd >= 0 && fd < EVENT_NATIVE_FDS) return fd;
+    if (fd >= EVENT_SOCKET_BASE && fd < EVENT_SOCKET_BASE + EVENT_SOCKET_FDS)
+        return EVENT_NATIVE_FDS + fd - EVENT_SOCKET_BASE;
+    if (fd >= POSIX_EVENTFD_BASE && fd < POSIX_EVENTFD_BASE + POSIX_EVENTFD_MAX)
+        return EVENT_NATIVE_FDS + EVENT_SOCKET_FDS + fd - POSIX_EVENTFD_BASE;
+    return -1;
+}
+static int event_fd(int index) {
+    if (index < EVENT_NATIVE_FDS) return index;
+    if (index < EVENT_NATIVE_FDS + EVENT_SOCKET_FDS)
+        return EVENT_SOCKET_BASE + index - EVENT_NATIVE_FDS;
+    return POSIX_EVENTFD_BASE + index - EVENT_NATIVE_FDS - EVENT_SOCKET_FDS;
+}
+static uint64_t event_next_serial(void) {
+    if (event_serial == UINT64_MAX) { errno = EOVERFLOW; return 0; }
+    return ++event_serial;
+}
+static uint64_t event_identity(int fd, int create) {
+    int index = event_index(fd);
+    if (index < 0) { errno = EBADF; return 0; }
+    if (!event_identities[index] && create) {
+        int valid = fd < EVENT_NATIVE_FDS ? srv_fcntl(fd, SRV_F_GETFD, 0) >= 0 :
+            fd < POSIX_EVENTFD_BASE ? __posix_socket_is_pseudo(fd) :
+            eventfds[fd - POSIX_EVENTFD_BASE].used;
+        if (!valid) { errno = EBADF; return 0; }
+        event_identities[index] = event_next_serial();
+    }
+    return event_identities[index];
+}
+/* Called with the lifecycle lock held; aliases can predate the first watch. */
+int __posix_event_prepare_dup(int fd) {
+    if (fd >= POSIX_EVENTFD_BASE && fd < POSIX_EVENTFD_BASE + POSIX_EVENTFD_MAX &&
+        eventfds[fd - POSIX_EVENTFD_BASE].used) { errno = EOPNOTSUPP; return 0; }
+    return event_identity(fd, 1) != 0;
+}
+static int event_alias(uint64_t identity) {
+    if (identity) for (int i = 0; i < EVENT_FDS; i++)
+        if (event_identities[i] == identity) return event_fd(i);
+    return -1;
+}
+void __posix_event_note_close(int fd) {
+    int index = event_index(fd);
+    if (index < 0) return;
+    uint64_t identity = event_identities[index];
+    event_identities[index] = 0;
+    if (!identity || event_alias(identity) >= 0) return;
+    for (int i = 0; i < POSIX_EPOLL_MAX; i++) {
+        if (epolls[i].used && epolls[i].identity == identity)
+            memset(&epolls[i], 0, sizeof(epolls[i]));
+        else for (int j = 0; j < POSIX_EPOLL_ENTRIES; j++)
+            if (epolls[i].entries[j].used && epolls[i].entries[j].identity == identity)
+                memset(&epolls[i].entries[j], 0, sizeof(epolls[i].entries[j]));
+    }
+}
+void __posix_event_note_dup(int old_fd, int new_fd) {
+    if (old_fd == new_fd) return;
+    uint64_t identity = event_identity(old_fd, 0);
+    __posix_event_note_close(new_fd);
+    int index = event_index(new_fd);
+    if (index >= 0) event_identities[index] = identity;
+}
+
+static int __posix_node_fork_ready_locked(void) {
     for(unsigned i=0;i<POSIX_EVENTFD_MAX;i++) if(eventfds[i].used) return 0;
     for(unsigned i=0;i<POSIX_EPOLL_MAX;i++) if(epolls[i].used) return 0;
     return 1;
 }
+int __posix_node_fork_ready(void) {
+    __posix_event_lock();
+    int result = __posix_node_fork_ready_locked();
+    __posix_event_unlock();
+    return result;
+}
+
 
 static int epoll_trace_enabled(void) {
     const char *trace = getenv("SRVROS_EPOLL_TRACE");
@@ -108,29 +192,36 @@ static struct posix_eventfd *eventfd_slot(int fd) {
         return 0;
     }
     struct posix_eventfd *slot = &eventfds[fd - POSIX_EVENTFD_BASE];
-    return slot->used ? slot : 0;
+    return __atomic_load_n(&slot->used, __ATOMIC_ACQUIRE) ? slot : 0;
 }
 
-int eventfd(unsigned int initval, int flags) {
+static int eventfd_locked(unsigned int initval, int flags) {
     for (int i = 0; i < POSIX_EVENTFD_MAX; i++) {
         if (eventfds[i].used) {
             continue;
         }
-        eventfds[i].used = 1;
         eventfds[i].counter = initval;
         eventfds[i].fd_flags = (flags & O_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
         eventfds[i].descriptor_flags = (flags & O_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+        __atomic_store_n(&eventfds[i].used, 1, __ATOMIC_RELEASE);
         return POSIX_EVENTFD_BASE + i;
     }
     errno = EMFILE;
     return -1;
 }
+int eventfd(unsigned int initval, int flags) {
+    __posix_event_lock();
+    int result = eventfd_locked(initval, flags);
+    __posix_event_unlock();
+    return result;
+}
+
 
 int __posix_eventfd_is_pseudo(int fd) {
     return eventfd_slot(fd) != 0;
 }
 
-ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length) {
+static ssize_t __posix_eventfd_read_locked(int fd, void *buffer, size_t length) {
     struct posix_eventfd *slot = eventfd_slot(fd);
     if (slot == 0 || buffer == 0 || length < sizeof(uint64_t)) {
         errno = slot == 0 ? EBADF : EINVAL;
@@ -145,8 +236,15 @@ ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length) {
     memcpy(buffer, &value, sizeof(value));
     return (ssize_t)sizeof(value);
 }
+ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length) {
+    __posix_event_lock();
+    ssize_t result = __posix_eventfd_read_locked(fd, buffer, length);
+    __posix_event_unlock();
+    return result;
+}
 
-ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length) {
+
+static ssize_t __posix_eventfd_write_locked(int fd, const void *buffer, size_t length) {
     struct posix_eventfd *slot = eventfd_slot(fd);
     if (slot == 0 || buffer == 0 || length < sizeof(uint64_t)) {
         errno = slot == 0 ? EBADF : EINVAL;
@@ -157,18 +255,34 @@ ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length) {
     slot->counter += value;
     return (ssize_t)sizeof(value);
 }
+ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length) {
+    __posix_event_lock();
+    ssize_t result = __posix_eventfd_write_locked(fd, buffer, length);
+    __posix_event_unlock();
+    return result;
+}
 
-int __posix_eventfd_close(int fd) {
+
+static int __posix_eventfd_close_locked(int fd) {
     struct posix_eventfd *slot = eventfd_slot(fd);
     if (slot == 0) {
         errno = EBADF;
         return -1;
     }
-    memset(slot, 0, sizeof(*slot));
+    __posix_event_note_close(fd);
+    slot->counter = slot->fd_flags = slot->descriptor_flags = 0;
+    __atomic_store_n(&slot->used, 0, __ATOMIC_RELEASE);
     return 0;
 }
+int __posix_eventfd_close(int fd) {
+    __posix_event_lock();
+    int result = __posix_eventfd_close_locked(fd);
+    __posix_event_unlock();
+    return result;
+}
 
-int __posix_eventfd_fcntl(int fd, int command, uint64_t flags) {
+
+static int eventfd_fcntl_locked(int fd, int command, uint64_t flags) {
     struct posix_eventfd *slot = eventfd_slot(fd);
     if (slot == 0) {
         errno = EBADF;
@@ -190,6 +304,13 @@ int __posix_eventfd_fcntl(int fd, int command, uint64_t flags) {
     }
     errno = EINVAL;
     return -1;
+}
+
+int __posix_eventfd_fcntl(int fd, int command, uint64_t flags) {
+    __posix_event_lock();
+    int result = eventfd_fcntl_locked(fd, command, flags);
+    __posix_event_unlock();
+    return result;
 }
 
 static short epoll_to_poll_events(uint32_t events) {
@@ -222,7 +343,7 @@ static uint32_t poll_to_epoll_events(short revents) {
 
 static struct posix_epoll *epoll_slot(int fd) {
     for (int i = 0; i < POSIX_EPOLL_MAX; i++) {
-        if (epolls[i].used && epolls[i].fd == fd) {
+        if (epolls[i].used && epolls[i].identity == event_identity(fd, 0)) {
             return &epolls[i];
         }
     }
@@ -234,7 +355,8 @@ static struct posix_epoll_entry *epoll_entry_for_fd(struct posix_epoll *epoll, i
         return 0;
     }
     for (int i = 0; i < POSIX_EPOLL_ENTRIES; i++) {
-        if (epoll->entries[i].used && epoll->entries[i].fd == fd) {
+        if (epoll->entries[i].used && epoll->entries[i].fd == fd &&
+            epoll->entries[i].identity == event_identity(fd, 0)) {
             return &epoll->entries[i];
         }
     }
@@ -268,7 +390,7 @@ static int eventfd_poll_events(int fd, short requested) {
     return revents;
 }
 
-int epoll_create1(int flags) {
+static int epoll_create1_locked(int flags) {
     if ((flags & ~EPOLL_CLOEXEC) != 0) {
         errno = EINVAL;
         return -1;
@@ -277,31 +399,49 @@ int epoll_create1(int flags) {
     if (pipe(fds) < 0) {
         return -1;
     }
-    close(fds[1]);
+    (void)srv_close(fds[1]);
     for (int i = 0; i < POSIX_EPOLL_MAX; i++) {
         if (epolls[i].used) {
             continue;
         }
         memset(&epolls[i], 0, sizeof(epolls[i]));
+        uint64_t identity = event_identity(fds[0], 1);
+        if (!identity) { (void)srv_close(fds[0]); return -1; }
         epolls[i].used = 1;
-        epolls[i].fd = fds[0];
+        epolls[i].identity = identity;
         if ((flags & EPOLL_CLOEXEC) != 0) {
-            (void)fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+            if (srv_fcntl(fds[0], SRV_F_SETFD, SRV_FD_CLOEXEC) < 0) {
+                __posix_event_note_close(fds[0]);
+                (void)srv_close(fds[0]);
+                errno = EIO;
+                return -1;
+            }
         }
         return fds[0];
     }
-    close(fds[0]);
+    (void)srv_close(fds[0]);
     errno = EMFILE;
     return -1;
 }
 
-int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
+int epoll_create1(int flags) {
+    __posix_event_lock();
+    int result = epoll_create1_locked(flags);
+    __posix_event_unlock();
+    return result;
+}
+
+static int epoll_ctl_locked(int epfd, int op, int fd, struct epoll_event *event) {
     struct posix_epoll *epoll = epoll_slot(epfd);
     if (epoll == 0 || fd < 0 || (op != EPOLL_CTL_DEL && event == 0)) {
         errno = EINVAL;
         return -1;
     }
 
+    uint64_t identity = event_identity(fd, 1);
+    if (!identity) return -1;
+    /* Nested epoll cannot be represented by polling its placeholder pipe. */
+    if (epoll_slot(fd)) { errno = identity == epoll->identity ? EINVAL : EOPNOTSUPP; return -1; }
     struct posix_epoll_entry *entry = epoll_entry_for_fd(epoll, fd);
     if (op == EPOLL_CTL_DEL) {
         if (epoll_trace_enabled()) {
@@ -326,7 +466,10 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
             errno = ENOENT;
             return -1;
         }
+        uint64_t revision = event_next_serial();
+        if (!revision) return -1;
         entry->event = *event;
+        entry->revision = revision;
         return 0;
     }
     if (op != EPOLL_CTL_ADD) {
@@ -342,7 +485,11 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
         errno = ENOSPC;
         return -1;
     }
+    uint64_t revision = event_next_serial();
+    if (!revision) return -1;
     memset(entry, 0, sizeof(*entry));
+    entry->identity = identity;
+    entry->revision = revision;
     entry->used = 1;
     entry->fd = fd;
     entry->event = *event;
@@ -356,97 +503,74 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
     return 0;
 }
 
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
+    __posix_event_lock();
+    int result = epoll_ctl_locked(epfd, op, fd, event);
+    __posix_event_unlock();
+    return result;
+}
+
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
-    struct posix_epoll *epoll = epoll_slot(epfd);
     struct pollfd pollfds[POSIX_EPOLL_ENTRIES];
-    int map[POSIX_EPOLL_ENTRIES];
-    int poll_count = 0;
-    int ready = 0;
-
-    if (epoll == 0 || events == 0 || maxevents <= 0) {
-        errno = EINVAL;
-        return -1;
-    }
-
+    struct posix_epoll_entry snapshots[POSIX_EPOLL_ENTRIES];
+    int map[POSIX_EPOLL_ENTRIES], poll_map[POSIX_EPOLL_ENTRIES];
+    uint32_t observed[POSIX_EPOLL_ENTRIES] = {0};
+    int count = 0, poll_count = 0, ready = 0;
+    if (!events || maxevents <= 0) { errno = EINVAL; return -1; }
+    __posix_event_lock();
+    struct posix_epoll *epoll = epoll_slot(epfd);
+    if (!epoll) { __posix_event_unlock(); errno = EBADF; return -1; }
+    uint64_t identity = epoll->identity;
     for (int i = 0; i < POSIX_EPOLL_ENTRIES && ready < maxevents; i++) {
         struct posix_epoll_entry *entry = &epoll->entries[i];
-        if (!entry->used) {
-            continue;
-        }
+        if (!entry->used) continue;
+        int fd = event_alias(entry->identity);
         short requested = epoll_to_poll_events(entry->event.events);
-        if (requested == 0) {
-            continue;
+        if (fd < 0 || !requested) continue;
+        snapshots[count] = *entry;
+        map[count] = i;
+        if (__posix_eventfd_is_pseudo(fd)) {
+            observed[count] = poll_to_epoll_events(eventfd_poll_events(fd, requested));
+            ready += observed[count] != 0;
+        } else {
+            pollfds[poll_count] = (struct pollfd){.fd=fd,.events=requested};
+            poll_map[poll_count++] = count;
         }
-        if (__posix_eventfd_is_pseudo(entry->fd)) {
-            uint32_t revents = poll_to_epoll_events(eventfd_poll_events(entry->fd, requested));
-            if (revents != 0) {
-                events[ready] = entry->event;
-                events[ready].events = revents;
-                ready++;
-            }
-            continue;
-        }
-        pollfds[poll_count].fd = entry->fd;
-        pollfds[poll_count].events = requested;
-        pollfds[poll_count].revents = 0;
-        map[poll_count] = i;
-        poll_count++;
+        count++;
     }
-
+    __posix_event_unlock();
     epoll_trace_wait_entry(epfd, timeout, poll_count, ready, pollfds);
-
-    if (poll_count == 0) {
-        if (ready == 0 && timeout > 0) {
-            usleep((unsigned int)timeout * 1000u);
-        } else if (ready == 0 && timeout < 0) {
-            usleep(10000);
-        }
-        return ready;
+    /* Wait/counter policy is a separate audit item. Do not hold the lifecycle
+     * lock across poll, sleep or signal delivery. */
+    int result = 0;
+    if (!poll_count) {
+        if (!ready && timeout > 0) usleep((unsigned int)timeout * 1000u);
+        else if (!ready && timeout < 0) usleep(10000);
+    } else {
+        result = poll(pollfds, (nfds_t)poll_count, timeout == 0 ? 10 : timeout);
     }
-
-    int effective_timeout = timeout == 0 ? 10 : timeout;
-    int result = poll(pollfds, (nfds_t)poll_count, effective_timeout);
-    if (epoll_trace_enabled()) {
-        fprintf(stderr,
-            "srvros-epoll: poll-result epfd=%d result=%d errno=%d\n",
-            epfd,
-            result,
-            errno);
-        for (int i = 0; i < poll_count; i++) {
-            fprintf(stderr,
-                "srvros-epoll: poll-fd fd=%d revents=0x%x\n",
-                pollfds[i].fd,
-                (unsigned int)pollfds[i].revents);
-        }
+    int saved_errno = errno;
+    __posix_event_lock();
+    if (!epoll->used || epoll->identity != identity) {
+        __posix_event_unlock(); errno = EBADF; return -1;
     }
-    if (result < 0) {
-        return -1;
+    if (result < 0) { __posix_event_unlock(); errno = saved_errno; return -1; }
+    for (int i = 0; i < poll_count; i++) {
+        int n = poll_map[i];
+        /* A poll may have observed a recycled number; never attach that result
+         * to the old watch even if another alias of its object is still alive. */
+        if (event_identity(pollfds[i].fd, 0) == snapshots[n].identity)
+            observed[n] = poll_to_epoll_events(pollfds[i].revents);
     }
-    for (int i = 0; i < poll_count && ready < maxevents; i++) {
+    ready = 0;
+    for (int i = 0; i < count && ready < maxevents; i++) {
         struct posix_epoll_entry *entry = &epoll->entries[map[i]];
-        uint32_t revents = poll_to_epoll_events(pollfds[i].revents);
-        if (revents == 0) {
-            continue;
-        }
-        events[ready] = entry->event;
-        events[ready].events = revents;
-        if (epoll_trace_enabled()) {
-            fprintf(stderr,
-                "srvros-epoll: event fd=%d revents=0x%x data=0x%llx\n",
-                entry->fd,
-                revents,
-                (unsigned long long)entry->event.data.u64);
-        }
-        ready++;
+        if (!observed[i] || !entry->used || entry->revision != snapshots[i].revision ||
+            entry->identity != snapshots[i].identity) continue;
+        events[ready] = snapshots[i].event;
+        events[ready++].events = observed[i];
     }
-    if (ready != 0 && epoll_trace_enabled()) {
-        fprintf(stderr,
-            "srvros-epoll: wait epfd=%d timeout=%d ready=%d watched=%d\n",
-            epfd,
-            timeout,
-            ready,
-            poll_count);
-    }
+    __posix_event_unlock();
     return ready;
 }
 

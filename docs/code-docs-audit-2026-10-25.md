@@ -261,3 +261,11 @@ epoll instances/stale watch reuse, incorrect immediate-wait timeouts and eventfd
 counter-bound failures. Runtime behavior remains unchanged; these are separate
 unfixed findings with passing controls and explicit known-failure modes. Native
 Air6,1 work and recovery of missing Node history remain separate dependencies.
+
+
+The epoll lifetime correction now preserves native duplicate aliases, retires
+instances/watches on final close or replacement, separates reused descriptor
+identities and validates wait snapshots. Positive host/guest regressions replace
+the three original lifecycle failures. Continued audit confirms eventfd posts
+during the wait are missed; five wait/counter probes remain explicit failures.
+See the event-adapter report for the libc-only ownership boundary and evidence.

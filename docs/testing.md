@@ -984,8 +984,11 @@ reproduction limits; the historical spontaneous incidents are not yet attributed
 
 
 `make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
-this Mac) runs passing ordinary-operation eventfd/epoll host controls. Explicit
-`python3 tools/test_event_adapters.py --audit all` runs seven known-failing
+this Mac) runs ordinary-operation and positive lifetime regressions, including
+close, alias duplication, replacement, reuse and deterministic changes during
+poll. `threadstress epoll-lifetime` supplies public-API guest coverage and is
+included in `threadstress all`. Explicit
+`python3 tools/test_event_adapters.py --audit all` runs five remaining wait/counter
 contract probes and currently exits 1. Those modes are excluded from `test-core`;
 see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
-boundaries, individual modes, observed failures and sanitizer commands.
+boundaries, observed failures and sanitizer commands.

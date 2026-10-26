@@ -183,14 +183,19 @@ not establish libc `sem_*` support. Process sharing and full blocking semantics
 remain outside the validated profile.
 
 The Linux-oriented `epoll`, `eventfd`, inotify and other Node compatibility
-symbols remain experimental adapters. In particular, eventfd blocking/overflow,
-epoll edge/one-shot delivery, mask replacement and descriptor reuse semantics
-are not accepted by this profile. The [event-adapter audit](event-adapter-audit-2026-10-26.md)
-confirms unreclaimed epoll slots and stale watches after close/reuse, blocking
-native poll timeouts despite immediate results, and unchecked eventfd counter
-writes. These remain unfixed; ordinary-operation host controls do not qualify
-the adapters. Use the tested native poll/pipe path for new
-portable consumers. A successful Node link probe does not establish Node support.
+symbols remain experimental adapters. The [event-adapter audit](event-adapter-audit-2026-10-26.md)
+corrects libc-managed epoll lifetime through close, native dup/dup2/dup3/F_DUPFD*,
+final-alias retirement and descriptor reuse. Host/guest regressions cover native
+alias watches and eventfd close; snapshot validation rejects stale wait results.
+Eventfd duplication, raw `srv_*` descriptor mutation, SCM_RIGHTS aliases,
+cross-process/exec preservation and pseudo-socket transitions are outside this
+bounded acceptance. Nested epoll is explicitly refused.
+
+Epoll immediate-wait and eventfd-post-during-wait behavior, eventfd counter bounds
+and blocking semantics remain unfixed. Edge/one-shot delivery, signal-mask waits
+and general concurrent socket semantics are also unaccepted. Use the tested
+native poll/pipe path for new portable consumers. A successful Node link probe
+does not establish Node support.
 
 exFAT replacement is serialized during normal execution but is **not
 power-loss atomic**. A failed write can quarantine the filesystem; a flush does
