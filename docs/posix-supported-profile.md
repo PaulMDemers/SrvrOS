@@ -191,10 +191,16 @@ Eventfd duplication, raw `srv_*` descriptor mutation, SCM_RIGHTS aliases,
 cross-process/exec preservation and pseudo-socket transitions are outside this
 bounded acceptance. Nested epoll is explicitly refused.
 
-Epoll immediate-wait and eventfd-post-during-wait behavior, eventfd counter bounds
-and blocking semantics remain unfixed. Edge/one-shot delivery, signal-mask waits
-and general concurrent socket semantics are also unaccepted. Use the tested
-native poll/pipe path for new portable consumers. A successful Node link probe
+Epoll waits now preserve zero timeouts, return already-ready events without
+blocking on idle native descriptors, and recheck eventfd/control changes against
+one monotonic deadline. Empty/infinite waits continue until readiness, interruption
+or instance retirement. Synthetic state is checked through native poll intervals
+of at most 10 ms, plus kernel clock rounding and scheduling delays; this is not a
+kernel notification queue or a hard latency guarantee. Idle waits incur periodic
+wakeups. Eventfd counter bounds, full-counter writable readiness and blocking
+read/write semantics remain unfixed. Ready-set fairness, edge/one-shot delivery,
+signal-mask waits and general concurrent socket semantics are also unaccepted.
+Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
 does not establish Node support.
 
 exFAT replacement is serialized during normal execution but is **not

@@ -510,68 +510,105 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
     return result;
 }
 
+/* Synthetic counters/control changes have no kernel poll notification. Bound
+ * each blocking poll to 10 ms, then rebuild the snapshot. This is a level-
+ * triggered compatibility adapter, not a kernel epoll notification queue. */
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
     struct pollfd pollfds[POSIX_EPOLL_ENTRIES];
     struct posix_epoll_entry snapshots[POSIX_EPOLL_ENTRIES];
     int map[POSIX_EPOLL_ENTRIES], poll_map[POSIX_EPOLL_ENTRIES];
-    uint32_t observed[POSIX_EPOLL_ENTRIES] = {0};
-    int count = 0, poll_count = 0, ready = 0;
+    struct timespec deadline = {0};
     if (!events || maxevents <= 0) { errno = EINVAL; return -1; }
     __posix_event_lock();
     struct posix_epoll *epoll = epoll_slot(epfd);
     if (!epoll) { __posix_event_unlock(); errno = EBADF; return -1; }
     uint64_t identity = epoll->identity;
-    for (int i = 0; i < POSIX_EPOLL_ENTRIES && ready < maxevents; i++) {
-        struct posix_epoll_entry *entry = &epoll->entries[i];
-        if (!entry->used) continue;
-        int fd = event_alias(entry->identity);
-        short requested = epoll_to_poll_events(entry->event.events);
-        if (fd < 0 || !requested) continue;
-        snapshots[count] = *entry;
-        map[count] = i;
-        if (__posix_eventfd_is_pseudo(fd)) {
-            observed[count] = poll_to_epoll_events(eventfd_poll_events(fd, requested));
-            ready += observed[count] != 0;
-        } else {
-            pollfds[poll_count] = (struct pollfd){.fd=fd,.events=requested};
-            poll_map[poll_count++] = count;
+    __posix_event_unlock();
+    if (timeout > 0) {
+        if (clock_gettime(CLOCK_MONOTONIC, &deadline) < 0) return -1;
+        if (deadline.tv_sec > INT64_MAX - timeout / 1000 - 1) {
+            errno = EOVERFLOW; return -1;
         }
-        count++;
+        deadline.tv_sec += timeout / 1000;
+        deadline.tv_nsec += (long)(timeout % 1000) * 1000000;
+        if (deadline.tv_nsec >= 1000000000) {
+            deadline.tv_sec++; deadline.tv_nsec -= 1000000000;
+        }
     }
-    __posix_event_unlock();
-    epoll_trace_wait_entry(epfd, timeout, poll_count, ready, pollfds);
-    /* Wait/counter policy is a separate audit item. Do not hold the lifecycle
-     * lock across poll, sleep or signal delivery. */
-    int result = 0;
-    if (!poll_count) {
-        if (!ready && timeout > 0) usleep((unsigned int)timeout * 1000u);
-        else if (!ready && timeout < 0) usleep(10000);
-    } else {
-        result = poll(pollfds, (nfds_t)poll_count, timeout == 0 ? 10 : timeout);
+    for (;;) {
+        uint32_t observed[POSIX_EPOLL_ENTRIES] = {0};
+        int count = 0, poll_count = 0, ready = 0;
+        __posix_event_lock();
+        if (!epoll->used || epoll->identity != identity) {
+            __posix_event_unlock(); errno = EBADF; return -1;
+        }
+        for (int i = 0; i < POSIX_EPOLL_ENTRIES && ready < maxevents; i++) {
+            struct posix_epoll_entry *entry = &epoll->entries[i];
+            if (!entry->used) continue;
+            int fd = event_alias(entry->identity);
+            short requested = epoll_to_poll_events(entry->event.events);
+            if (fd < 0 || !requested) continue;
+            snapshots[count] = *entry;
+            map[count] = i;
+            if (__posix_eventfd_is_pseudo(fd)) {
+                observed[count] = poll_to_epoll_events(eventfd_poll_events(fd, requested));
+                ready += observed[count] != 0;
+            } else {
+                pollfds[poll_count] = (struct pollfd){.fd=fd,.events=requested};
+                poll_map[poll_count++] = count;
+            }
+            count++;
+        }
+        __posix_event_unlock();
+        int wait_ms = ready || timeout == 0 ? 0 : 10;
+        int expired = 0;
+        if (timeout > 0) {
+            struct timespec now;
+            if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) return -1;
+            if (now.tv_sec > deadline.tv_sec ||
+                (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec)) {
+                expired = 1; wait_ms = 0;
+            } else if (deadline.tv_sec - now.tv_sec <= 1) {
+                int64_t ns = (deadline.tv_sec - now.tv_sec) * 1000000000 +
+                    deadline.tv_nsec - now.tv_nsec;
+                int64_t remaining = (ns + 999999) / 1000000;
+                if (remaining < wait_ms) wait_ms = (int)remaining;
+            }
+        }
+        epoll_trace_wait_entry(epfd, wait_ms, poll_count, ready, pollfds);
+        /* poll with zero descriptors is an interruptible wait too. Never hold
+         * the lifecycle lock across poll or its pending-signal dispatch. */
+        int result = poll_count || wait_ms ? poll(pollfds, (nfds_t)poll_count, wait_ms) : 0;
+        int saved_errno = errno;
+        __posix_event_lock();
+        if (!epoll->used || epoll->identity != identity) {
+            __posix_event_unlock(); errno = EBADF; return -1;
+        }
+        if (result < 0) { __posix_event_unlock(); errno = saved_errno; return -1; }
+        for (int i = 0; i < poll_count; i++) {
+            int n = poll_map[i];
+            /* Never attach recycled-number readiness to the old watch. */
+            if (event_identity(pollfds[i].fd, 0) == snapshots[n].identity)
+                observed[n] = poll_to_epoll_events(pollfds[i].revents);
+        }
+        ready = 0;
+        for (int i = 0; i < count && ready < maxevents; i++) {
+            struct posix_epoll_entry *entry = &epoll->entries[map[i]];
+            if (!entry->used || entry->revision != snapshots[i].revision ||
+                entry->identity != snapshots[i].identity) continue;
+            int fd = event_alias(entry->identity);
+            if (__posix_eventfd_is_pseudo(fd))
+                observed[i] = poll_to_epoll_events(eventfd_poll_events(fd,
+                    epoll_to_poll_events(entry->event.events)));
+            if (!observed[i]) continue;
+            events[ready] = snapshots[i].event;
+            events[ready++].events = observed[i];
+        }
+        __posix_event_unlock();
+        if (ready || timeout == 0 || expired) return ready;
+        /* Spurious wakes and retired snapshots must not end an infinite wait
+         * or restart a finite timeout. Rebuild against the original deadline. */
     }
-    int saved_errno = errno;
-    __posix_event_lock();
-    if (!epoll->used || epoll->identity != identity) {
-        __posix_event_unlock(); errno = EBADF; return -1;
-    }
-    if (result < 0) { __posix_event_unlock(); errno = saved_errno; return -1; }
-    for (int i = 0; i < poll_count; i++) {
-        int n = poll_map[i];
-        /* A poll may have observed a recycled number; never attach that result
-         * to the old watch even if another alias of its object is still alive. */
-        if (event_identity(pollfds[i].fd, 0) == snapshots[n].identity)
-            observed[n] = poll_to_epoll_events(pollfds[i].revents);
-    }
-    ready = 0;
-    for (int i = 0; i < count && ready < maxevents; i++) {
-        struct posix_epoll_entry *entry = &epoll->entries[map[i]];
-        if (!observed[i] || !entry->used || entry->revision != snapshots[i].revision ||
-            entry->identity != snapshots[i].identity) continue;
-        events[ready] = snapshots[i].event;
-        events[ready++].events = observed[i];
-    }
-    __posix_event_unlock();
-    return ready;
 }
 
 int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout, const void *sigmask) {

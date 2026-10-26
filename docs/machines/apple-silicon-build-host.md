@@ -704,3 +704,29 @@ whitespace checks pass. Source/build/log hashes and all directed receipts are
 retained under `build/review/epoll-lifetime/`. All disposable guests stopped.
 No physical trial is armed and Actions remain disabled. Draft PR179 now carries
 the lifetime correction; the next bounded item is wait/notification handling.
+
+## Epoll wait correction — active scope (2026-10-26)
+
+User authorized proceeding with the wait/notification findings. Baseline is
+`b51143cb`; fetched main remains `8bd43adc`, PR179 is draft at this branch head,
+and PR19 retains separate Wi-Fi ownership. This block owns the libc epoll wait
+loop, monotonic timeout accounting, rechecking synthetic readiness and control
+changes, focused host/guest regressions and current docs/PR updates. Preserve
+identity/revision validation and keep signal delivery outside the lifecycle lock.
+Use bounded native poll intervals for synthetic state, since it has no kernel
+notification source; document this latency/efficiency limitation. Counter bounds,
+full Linux epoll semantics and native acceptance remain separate. Next checkpoint
+is deterministic wait/deadline/interruption coverage, then a matched build and
+sequential guest thread/libuv checks. No physical trial or Actions run is armed.
+
+
+Final wait validation: matched `all` build, sixteen positive host modes and
+ASan/UBSan, targeted epoll-wait guest, complete thread guest, full libuv consumer
+guest and five smoke-reader tests pass. Five compiled negative controls restore
+zero-timeout sleeping, ready-event delay, premature infinite-wait return, missing
+deadline clamping or stale counter readiness; each fails its intended assertion.
+Three explicit counter probes fail as documented, including the new full-counter
+writable case. Local manifests, source/log hashes and receipts are retained under
+`build/review/epoll-wait/`. All disposable VMs stopped. No kernel/syscall ABI,
+physical acceptance or Actions setting changed. PR179 remains draft; next bounded
+correction is eventfd counter bounds and matching writable readiness.

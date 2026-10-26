@@ -15,8 +15,9 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 LIFETIME = ('close-capacity', 'instance-reuse', 'watched-reuse', 'aliases', 'replacement', 'wait-retirement', 'failure-retirement')
-AUDITS = ('zero-timeout',
-          'ready-wait', 'counter-overflow', 'reserved-value', 'eventfd-wakeup')
+WAITS = ('zero-timeout', 'ready-wait', 'eventfd-wakeup', 'wait-deadlines',
+         'wait-infinite', 'wait-control', 'wait-interruption', 'wait-drain')
+AUDITS = ('counter-overflow', 'reserved-value', 'counter-writable')
 
 
 def main():
@@ -51,7 +52,7 @@ def main():
                          section('static int fcntl_dupfd_locked(', '\nint fcntl64('))
     names = ('__errno_location eventfd epoll_create1 epoll_ctl epoll_wait epoll_pwait '
              'close dup dup2 dup3 pipe poll fcntl usleep sysconf getenv fprintf stderr '
-             'pthread_mutex_lock pthread_mutex_unlock').split()
+             'pthread_mutex_lock pthread_mutex_unlock clock_gettime').split()
     renamed = out / 'rename.h'
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in names))
     executable = out / 'event-adapters'
@@ -60,7 +61,7 @@ def main():
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
         '-include', str(renamed), str(extracted), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    modes = ('controls',) + LIFETIME + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
+    modes = ('controls',) + LIFETIME + WAITS + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
     results = []
     for mode in modes:
         result = subprocess.run([str(executable), mode], capture_output=True, text=True, timeout=10)

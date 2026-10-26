@@ -11,6 +11,8 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
+#include <time.h>
+#include <limits.h>
 #include <srvros/sys.h>
 #define CHECK(x) do { if (!(x)) { printf("event-adapters: line %d failed: %s\n", __LINE__, #x); exit(1); } } while (0)
 int __posix_eventfd_is_pseudo(int fd);
@@ -22,6 +24,15 @@ static short readiness[67];
 static int lock_depth, dup_error, close_error, setfd_error, fd_flags[67];
 static void (*during_poll)(void);
 static void (*during_sleep)(void);
+static uint64_t now_ns = 2999500000ULL;
+static int poll_error, clock_error, delayed_calls;
+static int64_t advance_ms = -1;
+int clock_gettime(int clock, struct timespec *ts) {
+    CHECK(!lock_depth && clock==CLOCK_MONOTONIC);
+    if (clock_error) { errno=clock_error; return -1; }
+    ts->tv_sec=(time_t)(now_ns/1000000000); ts->tv_nsec=(long)(now_ns%1000000000);
+    return 0;
+}
 int pthread_mutex_lock(pthread_mutex_t *m) { (void)m; CHECK(!lock_depth); lock_depth=1; return 0; }
 int pthread_mutex_unlock(pthread_mutex_t *m) { (void)m; CHECK(lock_depth==1); lock_depth=0; return 0; }
 long sysconf(int name) { CHECK(name==_SC_OPEN_MAX); return 67; }
@@ -84,7 +95,10 @@ int poll(struct pollfd *fds, nfds_t count, int timeout) {
         fds[i].revents=readiness[fds[i].fd] & (fds[i].events|POLLERR|POLLHUP);
         n+=fds[i].revents!=0;
     }
+    if (!n && timeout>0) now_ns+=(uint64_t)(advance_ms>=0?advance_ms:timeout)*1000000;
+    advance_ms=-1;
     if (during_poll) { void (*callback)(void)=during_poll; during_poll=NULL; callback(); }
+    if (poll_error) { errno=poll_error; return -1; }
     return n;
 }
 int usleep(unsigned int us) {
@@ -99,6 +113,14 @@ static void watch(int ep, int fd, uint32_t mask, uint64_t tag) {
 static int retiring_ep, retiring_fd, replacement_ep;
 static void wake_eventfd(void) {
     uint64_t value=1; CHECK(__posix_eventfd_write(retiring_fd,&value,8)==8);
+}
+static void delayed_post(void) {
+    if (++delayed_calls<3) during_poll=delayed_post;
+    else wake_eventfd();
+}
+static void add_watch_during_wait(void) { watch(retiring_ep,retiring_fd,EPOLLIN,777); }
+static void drain_eventfd(void) {
+    uint64_t value; CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8);
 }
 static void retire_instance(void) {
     CHECK(close(retiring_ep)==0);
@@ -245,9 +267,9 @@ int main(int argc, char **argv) {
         CHECK(close(alias)==0);
     } else if (!strcmp(mode,"eventfd-wakeup")) {
         retiring_fd=eventfd(0,EFD_NONBLOCK); int ep=epoll_create1(0);
-        watch(ep,retiring_fd,EPOLLIN,123); during_sleep=wake_eventfd;
+        watch(ep,retiring_fd,EPOLLIN,123); during_poll=wake_eventfd; during_sleep=wake_eventfd;
         int n=epoll_wait(ep,got,2,20);
-        printf("eventfd posted during wait: ready=%d sleep_calls=%d\n",n,sleep_calls);
+        printf("eventfd posted during wait: ready=%d polls=%d sleeps=%d\n",n,poll_calls,sleep_calls);
         CHECK(n==1 && got[0].data.u64==123);
     } else if (!strcmp(mode,"zero-timeout") || !strcmp(mode,"ready-wait")) {
         int ep=epoll_create1(0), fds[2]; CHECK(pipe(fds)==0);
@@ -257,6 +279,61 @@ int main(int argc, char **argv) {
         int n=epoll_wait(ep,got,2,immediate?0:-1);
         printf("wait: ready=%d native_poll_timeout=%d calls=%d\n",n,last_timeout,poll_calls);
         CHECK(n==(immediate?0:1) && poll_calls==1 && last_timeout==0);
+    } else if (!strcmp(mode,"wait-deadlines")) {
+        int ep=epoll_create1(0); uint64_t start=now_ns;
+        CHECK(epoll_wait(ep,got,2,23)==0 && now_ns-start==23000000 && poll_calls==3);
+        int p[2]; CHECK(pipe(p)==0); watch(ep,p[0],EPOLLIN,123);
+        start=now_ns; int before=poll_calls;
+        CHECK(epoll_wait(ep,got,2,23)==0 && now_ns-start==23000000 && poll_calls-before==4);
+        /* Scheduler delay near INT_MAX's deadline: no microsecond wrap and no
+         * deadline restart. The last blocking poll must use only the remainder. */
+        CHECK(epoll_ctl(ep,EPOLL_CTL_DEL,p[0],NULL)==0);
+        start=now_ns; before=poll_calls; advance_ms=(int64_t)INT_MAX-5;
+        CHECK(epoll_wait(ep,got,2,INT_MAX)==0);
+        CHECK(now_ns-start==(uint64_t)INT_MAX*1000000 && poll_calls-before==2 && last_timeout==5);
+        clock_error=EIO; CHECK(epoll_wait(ep,got,2,1)==-1 && errno==EIO);
+    } else if (!strcmp(mode,"wait-infinite")) {
+        int ep=epoll_create1(0); retiring_fd=eventfd(0,EFD_NONBLOCK);
+        watch(ep,retiring_fd,EPOLLIN,123); during_poll=delayed_post;
+        CHECK(epoll_wait(ep,got,2,-1)==1 && got[0].data.u64==123 && delayed_calls==3);
+        CHECK(poll_calls==3 && now_ns==3029500000ULL);
+        uint64_t value; CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8);
+        int p[2]; CHECK(pipe(p)==0); watch(ep,p[0],EPOLLIN,456);
+        delayed_calls=0; during_poll=delayed_post;
+        CHECK(epoll_wait(ep,got,2,-7)==1 && got[0].data.u64==123 && delayed_calls==3);
+    } else if (!strcmp(mode,"wait-control")) {
+        retiring_ep=epoll_create1(0); retiring_fd=eventfd(1,EFD_NONBLOCK);
+        during_poll=add_watch_during_wait;
+        CHECK(epoll_wait(retiring_ep,got,2,-1)==1 && got[0].data.u64==777);
+        /* Closing/reusing an empty waiting instance cannot return its new state. */
+        CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_DEL,retiring_fd,NULL)==0);
+        during_poll=retire_instance;
+        CHECK(epoll_wait(retiring_ep,got,2,-1)==-1 && errno==EBADF);
+        retiring_ep=replacement_ep;
+        int p[2]; CHECK(pipe(p)==0); retiring_fd=p[0]; readiness[p[0]]=POLLIN;
+        CHECK(epoll_ctl(retiring_ep,EPOLL_CTL_DEL,3000,NULL)==0);
+        watch(retiring_ep,p[0],EPOLLIN,123); during_poll=modify_watch;
+        CHECK(epoll_wait(retiring_ep,got,2,100)==1 && got[0].data.u64==999);
+    } else if (!strcmp(mode,"wait-interruption")) {
+        int ep=epoll_create1(0); poll_error=EINTR;
+        CHECK(epoll_wait(ep,got,2,-1)==-1 && errno==EINTR);
+        int fd=eventfd(0,EFD_NONBLOCK); watch(ep,fd,EPOLLIN,123);
+        CHECK(epoll_wait(ep,got,2,100)==-1 && errno==EINTR);
+        int p[2]; CHECK(pipe(p)==0); watch(ep,p[0],EPOLLIN,456);
+        CHECK(epoll_wait(ep,got,2,-1)==-1 && errno==EINTR);
+        poll_error=EIO; CHECK(epoll_wait(ep,got,2,100)==-1 && errno==EIO);
+    } else if (!strcmp(mode,"wait-drain")) {
+        int ep=epoll_create1(0), p[2]; CHECK(pipe(p)==0);
+        watch(ep,p[0],EPOLLIN,1); retiring_fd=eventfd(1,EFD_NONBLOCK);
+        watch(ep,retiring_fd,EPOLLIN,2); during_poll=drain_eventfd;
+        CHECK(epoll_wait(ep,got,2,0)==0 && last_timeout==0);
+    } else if (!strcmp(mode,"counter-writable")) {
+        int fd=eventfd(0,EFD_NONBLOCK), ep=epoll_create1(0);
+        add=UINT64_MAX-1; CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        watch(ep,fd,EPOLLOUT,123);
+        int n=epoll_wait(ep,got,2,0);
+        printf("full eventfd writable: ready=%d\n",n);
+        CHECK(n==0);
     } else if (!strcmp(mode,"counter-overflow") || !strcmp(mode,"reserved-value")) {
         int fd=eventfd(1,EFD_NONBLOCK);
         add=!strcmp(mode,"reserved-value")?UINT64_MAX:UINT64_MAX-1;

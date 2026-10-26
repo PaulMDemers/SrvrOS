@@ -269,3 +269,12 @@ identities and validates wait snapshots. Positive host/guest regressions replace
 the three original lifecycle failures. Continued audit confirms eventfd posts
 during the wait are missed; five wait/counter probes remain explicit failures.
 See the event-adapter report for the libc-only ownership boundary and evidence.
+
+
+The subsequent epoll wait correction preserves zero/already-ready results,
+rechecks synthetic readiness and control changes through at-most-10-ms native
+poll intervals, retains one monotonic deadline and propagates interruption.
+Empty infinite waits now remain waiting. The continued audit confirms full
+counter writable readiness is also wrong; three counter probes remain explicit
+failures. The event-adapter report records interval/clock/scheduling limitations
+and the separate fairness, signal-mask and notification-queue boundaries.

@@ -14,6 +14,11 @@ measure overall conformance. See the official
 and [general interface requirements](https://pubs.opengroup.org/onlinepubs/9799919799/functions/V2_chap02.html).
 This reference choice is a development target, not certification.
 
+The [October 26 event-adapter follow-up](event-adapter-audit-2026-10-26.md)
+corrects libc-managed epoll lifetime and immediate/deadline wait behavior, with
+bounded polling for synthetic notifications. Counter bounds/writable readiness,
+signal masks, fairness and general Linux semantics remain unaccepted.
+
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
 The [October 25 synchronization follow-up](synchronization-audit-2026-10-25.md)
@@ -474,14 +479,14 @@ its required semantics are implemented.
 
 ### P1. Linux adapter behavior, separately tracked
 
-The existing epoll adapter is real code, so “epoll absent” is inaccurate. It is
-also not a drop-in Linux epoll implementation: epoll_wait changes timeout zero to
-a 10 ms poll, returns after a short sleep for an indefinitely waiting eventfd-only
-set, and epoll_pwait ignores its signal mask. Registration stores event flags
-without implementing edge-triggered/one-shot lifetime rules. Audit/reject those
-modes, fix ready-event/timeout behavior and test fairness and close/reuse before
-using this as a general upstream runtime backend. These are Linux compatibility
-issues, not missing POSIX requirements.
+At the original `bc0edb9` audit, the epoll adapter existed but was not a drop-in
+Linux implementation: epoll_wait changed timeout zero to
+a 10 ms poll and returned after a short sleep for an indefinitely waiting
+eventfd-only set. The October 26 follow-up above corrects those waits and adds
+close/dup/reuse coverage. `epoll_pwait` still ignores its signal mask; registration
+stores event flags without implementing edge-triggered/one-shot lifetime rules.
+Audit/reject those modes and test fairness before using this as a general upstream
+runtime backend. These are Linux compatibility issues, not POSIX requirements.
 
 ## Desktop dependencies
 

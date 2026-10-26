@@ -194,7 +194,10 @@ pending-command failures still quarantine the disk and retain DMA memory.
 
 The subsequent [eventfd/epoll audit](event-adapter-audit-2026-10-26.md) corrects
 libc-managed epoll ownership across close, native duplication and descriptor
-reuse, with positive host/guest tests and stale-result validation. Immediate-wait
-behavior, eventfd posts during a wait and unchecked eventfd counter writes remain
-unfixed; five explicit failing host probes track them. The adapters remain
-experimental; the next correction is wait handling and notification.
+reuse, with positive host/guest tests and stale-result validation. Waits now
+preserve immediate results, recheck synthetic state through bounded poll intervals,
+retain a monotonic deadline and handle interruption/empty infinite waits. The
+adapters remain experimental: unchecked eventfd writes and incorrect writable
+readiness at full capacity remain unfixed, with three explicit failing probes.
+Counter bounds/readiness are the next correction; kernel event notification,
+fairness, signal-mask waits and full Linux compatibility remain unaccepted.

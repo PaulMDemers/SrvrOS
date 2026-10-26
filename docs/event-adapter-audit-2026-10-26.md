@@ -10,9 +10,10 @@ adapters deferred by the [initial audit](code-docs-audit-2026-10-25.md).
 
 The initial checkpoint at `526b6353` added executable reproductions without
 runtime changes: seven directed probes failed. The subsequent correction below
-fixes the descriptor-lifetime group. The wait and counter groups remain **unfixed**,
-with five explicit failing probes after the continued audit. The supported profile already
-excludes these experimental APIs; the new evidence makes their failure modes
+fixes the descriptor-lifetime group. The next correction fixes immediate waits,
+eventfd readiness rechecks, deadline accounting and empty/infinite waits. Counter
+writes and writable readiness remain **unfixed**, with three explicit failing
+probes after continued audit. The supported profile limits these experimental APIs; the new evidence makes their failure modes
 concrete. It does not establish Node support or general Linux API conformance.
 
 ## P2: epoll state outlives descriptor ownership — corrected
@@ -47,7 +48,7 @@ on every close is not sufficient to establish alias semantics or safe concurrent
 wait/control operations. Add directed alias and concurrent lifetime tests before
 promoting any expanded contract.
 
-## P2: epoll wait can sleep despite an immediate result
+## P2: epoll wait can sleep despite an immediate result — corrected
 
 For native descriptors, `epoll_wait(..., 0)` substitutes a 10 ms poll timeout.
 `zero-timeout` confirms the actual call to the modeled native poll receives 10,
@@ -88,10 +89,10 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Explicit remaining wait/counter failures: five probes currently exit 1.
+# Explicit remaining counter failures: three probes currently exit 1.
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
-# Or select one, for example --audit eventfd-wakeup.
+# Or select one, for example --audit counter-writable.
 
 # Sanitized positive controls on this Mac.
 CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
@@ -102,7 +103,7 @@ CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
 `tools/test_event_adapters.py` copies the adapter prefix through `epoll_pwait`
 and the public close/duplication/fcntl implementations verbatim from current source, retaining `#line`
 locations. Symbols are prefixed to avoid replacing host libc calls. The fixture
-models native descriptor allocation/retirement, poll and sleep; it uses the
+models native descriptor allocation/retirement, monotonic time, poll and sleep; it uses the
 repository's headers and real eventfd/epoll bookkeeping. Every mode starts in a
 fresh process; the host mutex model asserts ownership and release around waits. Results retain source hashes, compiler command, platform, exit
 status and output. Generated sources/binaries/results remain ignored under the
@@ -114,7 +115,7 @@ DEL and descriptor close. These narrow MOD results do not accept concurrent mask
 replacement, edge/one-shot semantics or arbitrary descriptor lifetimes. ASan/UBSan
 controls pass without diagnostics. At the initial checkpoint each directed finding exited 1 at its intended
 contract assertion, with the observed result printed first. The current default
-target includes positive controls and the corrected lifetime cases; remaining
+target includes positive controls and the corrected lifetime/wait cases; remaining
 known failures are neither hidden as passes nor added to the acceptance target.
 
 No kernel/libc runtime changed in the initial `526b6353` host-model audit. Native storage, full Mac test-core, Node recovery, general SMP,
@@ -198,7 +199,7 @@ workers each performing 16 lifetimes, and a successful fork after cleanup. It is
 also part of `threadstress all`, with a required smoke-harness completion marker.
 No kernel or syscall ABI changes are required; rebuild libc and guest programs.
 
-## Continued audit: eventfd posted during a wait is missed
+## Historical continued audit: eventfd posted during a wait is missed — corrected
 
 The new explicit `eventfd-wakeup` host mode starts with an empty watched eventfd
 and posts one during the modeled sleep of `epoll_wait(..., 20)`. The adapter
@@ -220,3 +221,74 @@ whitespace checks pass. Source/build/log hashes and all directed receipts are
 retained under `build/review/epoll-lifetime/`. All disposable guests stopped.
 No physical trial is armed and Actions remain disabled. Draft PR179 now carries
 the lifetime correction; the next bounded item is wait/notification handling.
+
+
+## Wait/deadline correction
+
+The prior `b51143cb` checkpoint above is preserved as historical evidence. Waits
+now rebuild their snapshot after bounded polls rather than returning a pre-sleep
+observation. Zero timeouts stay zero. A ready eventfd forces a nonblocking native
+readiness check, so an idle pipe cannot hide it. Counter readiness is rechecked
+under the lifecycle lock after polling; a concurrent drain cannot produce stale
+synthetic readiness. Registration revisions, instance identity and native binding
+validation remain enforced on every iteration.
+
+Finite waits use one `CLOCK_MONOTONIC` deadline with rounded-up millisecond
+remainders. They do not multiply an `int` timeout into overflowing microseconds
+or restart the budget on retries. Empty and negative-timeout waits continue until
+readiness, interruption or final instance retirement (`EBADF`); ADD/MOD changes
+are discovered on the next snapshot. Poll errors, including `EINTR`, propagate.
+No mutex is held across native polling or signal dispatch. These are the bounded
+contracts described by [epoll_wait(2)](https://man7.org/linux/man-pages/man2/epoll_wait.2.html),
+not acceptance of every Linux epoll behavior.
+
+Synthetic counters and control operations still lack a kernel notification
+source. Each blocking native poll is capped at 10 ms; eventfd posts/control changes
+are detected on recheck, with kernel clock rounding and scheduler delay in
+addition to that interval. Idle waits therefore wake periodically. This avoids
+lost persistent readiness without introducing a new syscall or hidden descriptor
+allocation, but is not an efficient kernel event queue or a hard latency bound.
+Ready-set round-robin fairness, zero-interest HUP/ERR handling, edge/one-shot flags,
+`epoll_pwait` signal masks and general socket transitions remain outside acceptance.
+
+### Wait regression coverage
+
+The three former wait failures now run in the default positive gate. Five new
+host modes cover finite remainders across a second boundary, `INT_MAX` timeouts
+with a simulated long scheduling delay, clock failure, multiple empty poll
+returns before an infinite wait is posted, synthetic/native mixtures, ADD into an
+empty wait, instance close/reuse, MOD retry, poll errors and concurrent drain.
+The existing eight lifetime/ordinary modes remain, for sixteen positive modes.
+The modeled clock and poll callbacks make these orderings deterministic; they do
+not establish guest latency or SMP behavior.
+
+`threadstress epoll-wait` adds a real empty finite timeout, zero-timeout checks,
+already-ready mixed descriptors and 24 worker-driven waits: synthetic posts,
+mixed posts, native pipe writes, ADD into an empty infinite wait, close of an
+empty waiting instance and targeted signal interruption of `INT_MAX` waits with
+`SA_RESTART`. The full thread harness requires its completion marker. See final
+validation below for actual results.
+
+## Continued audit: full counters incorrectly remain writable
+
+`counter-writable` creates a nonblocking eventfd, writes the legal maximum
+`UINT64_MAX-1`, registers only `EPOLLOUT`, and observes one ready event. Its
+assertion expects zero and fails. `eventfd_poll_events` currently reports writable
+unconditionally. The [eventfd contract](https://man7.org/linux/man-pages/man2/eventfd.2.html)
+requires room for at least one; the future bounds fix must update readiness with
+the same capacity rule, and restore it after a drain. This is a third explicit
+counter failure, alongside overflow and reserved-value writes. All three remain
+outside the passing gate. Blocking read/write, semaphore mode and flag validation
+remain separate audit areas. No counter correction is claimed by this wait fix.
+
+
+Final wait validation: matched `all` build, sixteen positive host modes and
+ASan/UBSan, targeted epoll-wait guest, complete thread guest, full libuv consumer
+guest and five smoke-reader tests pass. Five compiled negative controls restore
+zero-timeout sleeping, ready-event delay, premature infinite-wait return, missing
+deadline clamping or stale counter readiness; each fails its intended assertion.
+Three explicit counter probes fail as documented, including the new full-counter
+writable case. Local manifests, source/log hashes and receipts are retained under
+`build/review/epoll-wait/`. All disposable VMs stopped. No kernel/syscall ABI,
+physical acceptance or Actions setting changed. PR179 remains draft; next bounded
+correction is eventfd counter bounds and matching writable readiness.

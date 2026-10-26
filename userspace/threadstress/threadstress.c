@@ -640,6 +640,7 @@ int posix_main_exit_child(int argc, char **argv);
 int posix_cpu_child(void);
 int posix_targeted_signal_test(void);
 int posix_epoll_lifetime_test(void);
+int posix_epoll_wait_test(void);
 
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"once-exit-child")) return posix_once_exit_child();
@@ -692,6 +693,7 @@ int main(int argc, char **argv) {
     RUN_TEST("endpoint-flags", posix_endpoint_flags_test);
     RUN_TEST("readiness", posix_readiness_wait_test);
     RUN_TEST("epoll-lifetime", posix_epoll_lifetime_test);
+    RUN_TEST("epoll-wait", posix_epoll_wait_test);
     RUN_TEST("dprintf", posix_dprintf_test);
     RUN_TEST("fd-publication", posix_fd_publication_test);
     RUN_TEST("umask", posix_umask_test);
