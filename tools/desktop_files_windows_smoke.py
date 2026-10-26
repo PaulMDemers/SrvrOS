@@ -27,9 +27,17 @@ def main():
     large=bytes(range(256))*32768
     port=choose_port(30001,38000)
     with tempfile.TemporaryDirectory(prefix='srvros-files-windows-') as directory:
-        tmp=Path(directory);disk=tmp/'disk.exfat';fixture=ExfatFixture((root/'build/srvros.exfat').read_bytes())
+        tmp=Path(directory);disk=tmp/'disk.exfat';source=ExfatFixture((root/'build/srvros.exfat').read_bytes())
+        # Independently formatted metadata is required for before/after fsck.
+        with disk.open('xb') as stream:stream.truncate(64*1024*1024)
+        subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(disk)],check=True,stdout=subprocess.DEVNULL)
+        fixture=ExfatFixture(disk.read_bytes())
+        fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in ('deskd','desktools','deskfs','sync','sh','ps')})
+        fixture.add_directory_files('etc',{'init.sh':b'echo files-windows-fixture-ready\n'})
+        fixture.add_directory_files('home',{})
         fixture.add_directory_files('left',{'left.txt':b'Left original.\n','collision.txt':b'Keep collision.\n','large.bin':large})
         fixture.add_directory_files('right',{'right.txt':b'Right original.\n'});disk.write_bytes(fixture.data)
+        (out/'before-fsck.txt').write_text(check_clean_image(disk))
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',str(iso),'-boot','d',
             '-drive',f'if=none,id=disk,file={disk},format=raw','-device','ich9-ahci,id=ahci','-device','ide-hd,drive=disk,bus=ahci.0',
