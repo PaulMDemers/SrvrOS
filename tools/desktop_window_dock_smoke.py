@@ -92,6 +92,7 @@ def main():
                 click(302,278);text('X');shortcut('ctrl-end');text(' edit');shortcut('ctrl-w');wait_all([f'parent={first}'.encode(),b'deskd: commit']);shot('unsaved-owner-dialog')
                 dock(2,2);wait(b'deskd: dock windows application=2 items=4');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode());qmp.key('esc');wait(retired)
                 shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
+                launch('Help window',f'deskd: launcher window={help_pid} id=1'.encode())
                 dock(7);wait(b'deskd: dock activate application=7');shortcut('ctrl-q');wait(b'deskview: exited failure=0');extras.remove(7)
                 dock(8);wait(b'deskd: dock activate application=8');shortcut('ctrl-w');wait(b'deskhelp: exited failure=0');extras.remove(8);shot('unpinned-apps-retired')
                 dock(2);wait(b'deskd: dock activate application=2');shortcut('ctrl-q');wait(b'desktools: exited role=text failure=0')
@@ -101,6 +102,7 @@ def main():
                 while processes()!=baseline:
                     assert time.monotonic()<deadline,'Process baseline not restored';time.sleep(.5)
                 assert b'failure=1' not in output and b'exception:' not in output
+                qmp.call('quit');assert process.wait(timeout=10)==0
                 serial.close();qmp.stream.close();qmp.sock.close()
             except Exception:
                 if qmp:
@@ -111,7 +113,7 @@ def main():
         result=ExfatFixture(disk.read_bytes());expected={'home/dock-one.txt':b'XOffscreen content kept. edit','home/dock-two.txt':b'Two.','home/dock-three.txt':b'Three.'}
         for name,value in expected.items():assert result.read(name)==value,name
         (out/'fsck.txt').write_text(check_clean_image(disk));(out/'allocation.txt').write_text(subprocess.check_output([str(root/'build/tests/exfat-driver'),str(disk),'allocation-check'],text=True))
-        receipt=dict(status='PASS',physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})
+        receipt=dict(status='PASS',qemu_exit=0,physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})
         (out/'result.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print('desktop-window-dock: PASS offscreen drag/recovery, clipped windows, three-owner cycle, minimized restore, unpinned app lifetime, modal-safe filtered chooser, exact files, process baseline and offline integrity')
 
