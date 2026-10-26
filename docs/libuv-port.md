@@ -164,8 +164,10 @@ coverage.
   corrected, as are stable ready-set rotation and zero-interest native HUP/ERR.
   One-shot disabling/rearming and priority-bit conversion are corrected too;
   modeled priority tests do not establish native urgent-data support. Blocking
-  eventfd I/O and signal masks remain incomplete; EPOLLET ADD/MOD now fails with
-  EOPNOTSUPP instead of silently delivering level readiness. Edge delivery is unsupported;
+  eventfd I/O, eventfd poll integration and cooperative epoll_pwait masks are
+  implemented. Unsupported edge/half-close/band modes and adapter-handle export
+  are refused; process inheritance requires all adapter handles close-on-exec.
+  Edge delivery and concurrent pseudo-socket epoll transitions remain unsupported;
   `kqueue` is absent. General upstream backend acceptance remains separate.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker

@@ -204,6 +204,10 @@ flags before allocating state. Epoll now rotates across stable ready sets and
 reports native HUP/ERR with an empty interest mask. One-shot delivery now disables
 its registration until MOD rearms it; priority bits survive conversion. Continued
 audit corrected silent EPOLLET acceptance: ADD/MOD now returns EOPNOTSUPP and
-preserves existing state. Edge delivery, blocking eventfd I/O, kernel notification,
-native priority-source support, signal-mask waits and full Linux compatibility
-remain unaccepted. See the [current coverage and backlog](audit-progress-2026-10-26.md).
+preserves existing state. Closeout adds epoll_pwait masks, interruptible blocking
+eventfd I/O, eventfd poll readiness, normal-data event aliases and explicit mode/
+ownership refusals. Kernel notification, edge delivery, native priority-source
+support and full Linux compatibility remain outside this bounded profile. See the [current coverage and backlog](audit-progress-2026-10-26.md).
+
+The bounded event-adapter audit is complete with passing host/sanitizer, matched
+thread and libuv VM gates. PR179 carries the implementation and delivery record.

@@ -20,9 +20,10 @@ bounded polling for synthetic notifications, plus nonblocking eventfd counter
 bounds, writable readiness, semaphore reads and creation-flag validation.
 Stable ready-set rotation and zero-interest native HUP/ERR reporting are corrected.
 One-shot disabling/rearming and priority-bit conversion are also corrected;
-priority-source availability remains a separate native-device contract. EPOLLET
-ADD/MOD now explicitly returns EOPNOTSUPP without changing a watch. Blocking
-eventfd I/O, edge delivery, signal masks and general Linux semantics remain unaccepted.
+priority-source availability remains a separate native-device contract. Closeout
+adds temporary-mask waits, blocking eventfd I/O, eventfd poll integration and
+explicit mode/ownership refusals; see the supported profile for exact limits.
+Edge delivery and general Linux semantics remain outside acceptance.
 
 For porting guidance and the completed selected-profile VM gate at `7e2cf54`,
 start with the [supported application profile](posix-supported-profile.md).
@@ -488,12 +489,12 @@ At the original `bc0edb9` audit, the epoll adapter existed but was not a drop-in
 Linux implementation: epoll_wait changed timeout zero to
 a 10 ms poll and returned after a short sleep for an indefinitely waiting
 eventfd-only set. The October 26 follow-up above corrects those waits and adds
-close/dup/reuse coverage. `epoll_pwait` still ignores its signal mask; registration
-still accepts edge-triggered flags without implementing their semantics. One-shot
-disabling/MOD rearming and priority-bit conversion now have focused regressions.
-Stable ready-set rotation and zero-interest native HUP/ERR now have regressions.
-Audit/reject the remaining modes before using this as a general upstream runtime
-backend. These are Linux compatibility issues, not POSIX requirements.
+close/dup/reuse coverage. The closeout implements epoll_pwait masks and blocking
+eventfd I/O/polling; unsupported event and ownership modes are explicitly refused.
+One-shot disabling/MOD rearming, priority/normal-data conversion, ready-set rotation
+and zero-interest HUP/ERR have regressions. This bounded adapter profile is still
+not a general upstream runtime backend. These are Linux compatibility issues,
+not POSIX requirements.
 
 ## Desktop dependencies
 

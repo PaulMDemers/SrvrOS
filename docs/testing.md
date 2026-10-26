@@ -984,7 +984,7 @@ reproduction limits; the historical spontaneous incidents are not yet attributed
 
 
 `make test-event-adapters` (or `sh tools/macos/build.sh test-event-adapters` on
-this Mac) runs thirty-four ordinary-operation, lifetime, wait, counter and mode tests,
+this Mac) runs forty-six ordinary-operation, lifetime, wait, counter and mode tests,
 including alias duplication, replacement, reuse, immediate/mixed waits, posts,
 finite/infinite deadlines, interruption and deterministic control changes during
 poll. `threadstress epoll-lifetime` and `threadstress epoll-wait` supply public-API
@@ -1010,7 +1010,16 @@ registrations and priority-bit conversion using a modeled source.
 synthetic descriptors, failed-MOD state preservation and successful later rearming;
 it runs in `all`. The matching host mode repeats rejected ADDs beyond watch
 capacity and checks DEL ignores event flags.
-`python3 tools/test_event_adapters.py --audit all` currently runs the same 34
+`python3 tools/test_event_adapters.py --audit all` currently runs the same 46
 positive modes; the historical edge failure is retained in pre-fix evidence;
 see the [event-adapter audit](event-adapter-audit-2026-10-26.md) for source/model
 boundaries, observed failures and sanitizer commands.
+
+`threadstress event-adapter-final` covers pending/arriving signals and temporary
+mask restoration, blocking reads/writes with restartable and nonrestartable
+signals, mixed poll readiness, close/reuse cancellation, native socketpair data/
+hangup, normal-data aliases, mode refusals and adapter export/inheritance guards.
+It is included in `all`. The host runner now compiles the real public poll source
+alongside the event adapters; native descriptors, clocks and syscalls are modeled.
+`test-posix-poll` retains separate native/select regression coverage. See the
+closeout evidence in the event audit for gate results and negative controls.

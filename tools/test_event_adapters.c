@@ -19,8 +19,11 @@ int __posix_eventfd_is_pseudo(int fd);
 ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length);
 ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length);
 int __posix_node_fork_ready(void);
+int __posix_event_exec_ready(void);
+int __posix_event_export_allowed(int fd);
 static int error_value, live[67]={1,1,1}, last_timeout, poll_calls, sleep_calls;
 static short readiness[67];
+static int max_model_polls=10000;
 static int lock_depth, dup_error, close_error, setfd_error, fd_flags[67];
 static void (*during_poll)(void);
 static void (*during_sleep)(void);
@@ -68,8 +71,24 @@ long srv_fcntl(int fd,int op,uint64_t flags) {
 int __posix_socket_dup(int fd) { (void)fd; CHECK(0); return -1; }
 int __posix_socket_fcntl(int fd,int op,uint64_t flags) { (void)fd;(void)op;(void)flags;CHECK(0);return -1; }
 void __posix_socket_note_dup(int fd,int target) { (void)fd;(void)target; }
-int __posix_signal_dispatch_pending(void) { CHECK(0);return 0; }
-int __posix_signal_dispatch_pending_restartable(void) { CHECK(0);return 0; }
+static uint64_t signal_mask, pending_signal;
+static int mask_calls, mask_error, handled_signal;
+long srv_signal_mask(uint64_t how,uint64_t mask,uint64_t *old) {
+    CHECK(!lock_depth && how==SRV_SIGNAL_SETMASK); mask_calls++;
+    if (mask_error) return -EINVAL;
+    if (old) *old=signal_mask;
+    signal_mask=mask; return 0;
+}
+int __posix_signal_dispatch_pending(void) {
+    CHECK(!lock_depth);
+    if (!(pending_signal & ~signal_mask)) return 0;
+    pending_signal=0; handled_signal++; return 1;
+}
+static int restart_io;
+int __posix_signal_dispatch_pending_restartable(void) { return restart_io; }
+int __posix_signal_dispatch_pending_io(int *restartable) {
+    int handled=__posix_signal_dispatch_pending(); *restartable=handled && restart_io; return handled;
+}
 
 int *__errno_location(void) { return &error_value; }
 FILE *stderr;
@@ -85,12 +104,13 @@ long srv_close(int fd) {
     live[fd]=0; readiness[fd]=0; fd_flags[fd]=0;
     return close_error ? -close_error : 0;
 }
-int __posix_socket_is_pseudo(int fd) { (void)fd; return 0; }
+int __posix_socket_is_pseudo(int fd) { return fd==1000; }
 int __posix_socket_close(int fd) { (void)fd; CHECK(0); return -1; }
 void __posix_socket_note_close(int fd) { (void)fd; }
-int poll(struct pollfd *fds, nfds_t count, int timeout) {
-    CHECK(!lock_depth); poll_calls++; last_timeout=timeout; int n=0;
+static int model_poll(struct pollfd *fds, nfds_t count, int timeout) {
+    CHECK(!lock_depth); poll_calls++; CHECK(poll_calls<=max_model_polls); last_timeout=timeout; int n=0;
     for (nfds_t i=0;i<count;i++) {
+        if (fds[i].fd<0) { fds[i].revents=0; continue; }
         CHECK(fds[i].fd>=3 && fds[i].fd<67 && live[fds[i].fd]);
         fds[i].revents=readiness[fds[i].fd] & (fds[i].events|POLLERR|POLLHUP);
         n+=fds[i].revents!=0;
@@ -98,8 +118,19 @@ int poll(struct pollfd *fds, nfds_t count, int timeout) {
     if (!n && timeout>0) now_ns+=(uint64_t)(advance_ms>=0?advance_ms:timeout)*1000000;
     advance_ms=-1;
     if (during_poll) { void (*callback)(void)=during_poll; during_poll=NULL; callback(); }
+    if (pending_signal & ~signal_mask) return 0; /* actual SYS_POLL signal result */
     if (poll_error) { errno=poll_error; return -1; }
     return n;
+}
+int __posix_socket_poll_fd(int fd) { return fd; }
+short __posix_socket_poll_update(int fd,short wanted,short current) { (void)fd;(void)wanted;return current; }
+long srv_poll(struct srv_pollfd *fds,size_t count,int64_t timeout) {
+    CHECK(timeout>=0 && timeout<=INT_MAX);
+    struct pollfd native[64]; CHECK(count<=64);
+    for (size_t i=0;i<count;i++) native[i]=(struct pollfd){.fd=fds[i].fd,.events=fds[i].events};
+    int result=model_poll(native,count,(int)timeout);
+    for (size_t i=0;i<count;i++) fds[i].revents=native[i].revents;
+    return result<0?-errno:result;
 }
 int usleep(unsigned int us) {
     CHECK(!lock_depth); (void)us; sleep_calls++;
@@ -197,6 +228,13 @@ static void replacement_test(void) {
     CHECK(close(b)==0 && close(p[0])==0 && close(p[1])==0 && close(ev)==0);
     CHECK(__posix_node_fork_ready());
 }
+static void check_wait_mask(void) { CHECK(signal_mask==4); }
+static void recycle_counter(void) {
+    CHECK(close(retiring_fd)==0);
+    CHECK(eventfd(9,0)==retiring_fd);
+}
+static void signal_counter(void) { pending_signal=8; if (restart_io) during_poll=wake_eventfd; }
+static void make_nonblocking(void) { CHECK(fcntl(retiring_fd,F_SETFL,O_NONBLOCK)==0); }
 int main(int argc, char **argv) {
     const char *mode=argc>1?argv[1]:"controls";
     uint64_t value=0, add=4;
@@ -506,6 +544,128 @@ int main(int argc, char **argv) {
         readiness[p[0]]=POLLHUP|POLLERR;
         CHECK(epoll_wait(retiring_ep,got,1,0)==1 && got[0].events==(EPOLLHUP|EPOLLERR));
         CHECK(epoll_wait(retiring_ep,got,1,0)==0);
+    } else if (!strcmp(mode,"adapter-ownership")) {
+        CHECK(__posix_event_exec_ready());
+        int ep=epoll_create1(EPOLL_CLOEXEC),alias=dup(ep),fd=eventfd(0,EFD_CLOEXEC);
+        CHECK(!__posix_event_exec_ready() && !__posix_node_fork_ready());
+        CHECK(fcntl(alias,F_SETFD,FD_CLOEXEC)==0 && __posix_event_exec_ready());
+        CHECK(fcntl(fd,F_SETFD,0)==0 && !__posix_event_exec_ready());
+        CHECK(!__posix_event_export_allowed(ep) && errno==EOPNOTSUPP);
+        CHECK(!__posix_event_export_allowed(alias) && !__posix_event_export_allowed(fd));
+        int p[2]; CHECK(pipe(p)==0 && __posix_event_export_allowed(p[0]));
+        struct epoll_event event={.events=EPOLLIN};
+        CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,1000,&event)==-1 && errno==EOPNOTSUPP);
+        CHECK(close(alias)==0 && close(ep)==0 && close(fd)==0);
+        CHECK(__posix_event_exec_ready() && __posix_node_fork_ready());
+    } else if (!strcmp(mode,"poll-counter")) {
+        int fd=eventfd(1,EFD_NONBLOCK),p[2]; CHECK(pipe(p)==0);
+        struct pollfd fds[3]={{.fd=fd,.events=POLLIN|POLLOUT},{.fd=p[0],.events=POLLIN},{.fd=-1,.events=POLLIN}};
+        CHECK(poll(fds,3,100)==1 && fds[0].revents==(POLLIN|POLLOUT) && last_timeout==0);
+        CHECK(__posix_eventfd_read(fd,&value,8)==8); add=UINT64_MAX-1;
+        CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        CHECK(poll(fds,3,0)==1 && fds[0].revents==POLLIN);
+        readiness[p[0]]=POLLHUP;
+        CHECK(poll(fds,3,0)==2 && fds[1].revents==POLLHUP && !fds[2].revents);
+        CHECK(close(fd)==0);
+        CHECK(poll(fds,3,0)==2 && fds[0].revents==POLLNVAL);
+    } else if (!strcmp(mode,"poll-counter-wait")) {
+        retiring_fd=eventfd(0,EFD_NONBLOCK);
+        struct pollfd fd={.fd=retiring_fd,.events=POLLIN};
+        uint64_t start=now_ns;
+        CHECK(poll(&fd,1,23)==0 && now_ns-start==23000000 && poll_calls==3);
+        during_poll=wake_eventfd;
+        CHECK(poll(&fd,1,-1)==1 && fd.revents==POLLIN && last_timeout==10);
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8);
+        poll_error=EINTR; CHECK(poll(&fd,1,100)==-1 && errno==EINTR);
+        poll_error=0; advance_ms=(int64_t)INT_MAX-5; start=now_ns;
+        CHECK(poll(&fd,1,INT_MAX)==0 && now_ns-start==(uint64_t)INT_MAX*1000000 && last_timeout==5);
+    } else if (!strcmp(mode,"poll-counter-lifetime")) {
+        retiring_fd=eventfd(0,0); struct pollfd fd={.fd=retiring_fd,.events=POLLIN};
+        during_poll=recycle_counter;
+        CHECK(poll(&fd,1,-1)==1 && fd.revents==POLLNVAL);
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8 && value==9);
+    } else if (!strcmp(mode,"event-masks")) {
+        int ep=epoll_create1(0),fd=eventfd(1,EFD_NONBLOCK);
+        uint32_t refused[]={EPOLLET,EPOLLMSG,EPOLLRDHUP,EPOLLRDBAND,EPOLLWRBAND};
+        struct epoll_event event={.data.u64=123};
+        for (unsigned i=0;i<sizeof(refused)/sizeof(refused[0]);i++) {
+            event.events=EPOLLIN|refused[i];
+            CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,fd,&event)==-1 && errno==EOPNOTSUPP);
+        }
+        event.events=0x02000000; CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,fd,&event)==-1 && errno==EINVAL);
+        watch(ep,fd,EPOLLRDNORM|EPOLLWRNORM,123);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].events==(EPOLLRDNORM|EPOLLWRNORM));
+        event.events=EPOLLIN|EPOLLRDNORM|EPOLLOUT|EPOLLWRNORM;
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,fd,&event)==0);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].events==event.events);
+        event.events=EPOLLRDHUP;
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,fd,&event)==-1 && errno==EOPNOTSUPP);
+        CHECK(epoll_wait(ep,got,1,0)==1 && got[0].events==(EPOLLIN|EPOLLRDNORM|EPOLLOUT|EPOLLWRNORM));
+    } else if (!strcmp(mode,"control-errors")) {
+        int ep=epoll_create1(0),fd=eventfd(0,EFD_NONBLOCK),p[2]; CHECK(pipe(p)==0);
+        struct epoll_event event={.events=EPOLLIN};
+        CHECK(epoll_ctl(-1,EPOLL_CTL_ADD,fd,&event)==-1 && errno==EBADF);
+        CHECK(epoll_ctl(p[0],EPOLL_CTL_ADD,fd,&event)==-1 && errno==EINVAL);
+        CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,-1,&event)==-1 && errno==EBADF);
+        CHECK(epoll_ctl(ep,99,fd,NULL)==-1 && errno==EINVAL);
+        CHECK(epoll_ctl(ep,EPOLL_CTL_MOD,fd,&event)==-1 && errno==ENOENT);
+        CHECK(epoll_ctl(ep,EPOLL_CTL_DEL,fd,NULL)==-1 && errno==ENOENT);
+        CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,fd,&event)==0);
+        CHECK(epoll_ctl(ep,EPOLL_CTL_ADD,fd,&event)==-1 && errno==EEXIST);
+    } else if (!strcmp(mode,"pwait-mask")) {
+        int ep=epoll_create1(0); sigset_t temporary=0;
+        signal_mask=8; pending_signal=8;
+        CHECK(epoll_pwait(ep,got,1,30,&temporary)==-1 && errno==EINTR);
+        CHECK(signal_mask==8 && mask_calls==2 && handled_signal==1);
+        temporary=8; pending_signal=8; signal_mask=0;
+        CHECK(epoll_pwait(ep,got,1,23,&temporary)==0);
+        CHECK(signal_mask==0 && pending_signal==8 && handled_signal==1);
+        CHECK(__posix_signal_dispatch_pending()==1);
+        temporary=4; during_poll=check_wait_mask;
+        CHECK(epoll_pwait(ep,got,1,10,&temporary)==0 && signal_mask==0);
+    } else if (!strcmp(mode,"pwait-restore")) {
+        int ep=epoll_create1(0),fd=eventfd(1,EFD_NONBLOCK); watch(ep,fd,EPOLLIN,123);
+        sigset_t temporary=4; signal_mask=8;
+        CHECK(epoll_pwait(ep,got,1,-1,&temporary)==1 && signal_mask==8 && mask_calls==2);
+        CHECK(epoll_pwait(ep,NULL,1,0,&temporary)==-1 && errno==EINVAL && signal_mask==8);
+        CHECK(epoll_pwait(-1,got,1,0,&temporary)==-1 && errno==EBADF && signal_mask==8);
+        clock_error=EIO;
+        CHECK(epoll_pwait(ep,got,1,10,&temporary)==-1 && errno==EIO && signal_mask==8);
+        clock_error=0; mask_error=1;
+        CHECK(epoll_pwait(ep,got,1,0,&temporary)==-1 && errno==EINVAL && signal_mask==8);
+        mask_error=0; int before=mask_calls;
+        CHECK(epoll_pwait(ep,got,1,0,NULL)==1 && mask_calls==before);
+        pending_signal=8; temporary=0;
+        CHECK(epoll_pwait(ep,got,1,0,&temporary)==-1 && errno==EINTR && signal_mask==8);
+    } else if (!strcmp(mode,"blocking-signal-dispatch")) {
+        max_model_polls=8;
+        retiring_fd=eventfd(0,0); during_poll=signal_counter;
+        value=123; CHECK(__posix_eventfd_read(retiring_fd,&value,8)==-1 && errno==EINTR && value==123);
+        CHECK(handled_signal==1 && poll_calls==1);
+        restart_io=1; during_poll=signal_counter;
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8 && value==1);
+        CHECK(handled_signal==2 && poll_calls==3);
+    } else if (!strcmp(mode,"blocking-counter")) {
+        retiring_fd=eventfd(0,0); during_poll=wake_eventfd;
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8 && value==1 && poll_calls==1);
+        add=UINT64_MAX-1; CHECK(__posix_eventfd_write(retiring_fd,&add,8)==8);
+        during_poll=drain_eventfd; add=3;
+        CHECK(__posix_eventfd_write(retiring_fd,&add,8)==8 && poll_calls==2);
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8 && value==3);
+        CHECK((fcntl(retiring_fd,F_GETFL)&O_ACCMODE)==O_RDWR);
+    } else if (!strcmp(mode,"blocking-retirement")) {
+        retiring_fd=eventfd(0,0); during_poll=recycle_counter;
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==-1 && errno==EBADF);
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==8 && value==9);
+        during_poll=make_nonblocking;
+        CHECK(__posix_eventfd_read(retiring_fd,&value,8)==-1 && errno==EAGAIN);
+        CHECK(poll_calls==2);
+    } else if (!strcmp(mode,"blocking-interruption")) {
+        int fd=eventfd(0,0); poll_error=EINTR;
+        value=99; CHECK(__posix_eventfd_read(fd,&value,8)==-1 && errno==EINTR && value==99);
+        add=UINT64_MAX-1; CHECK(__posix_eventfd_write(fd,&add,8)==8);
+        add=1; CHECK(__posix_eventfd_write(fd,&add,8)==-1 && errno==EINTR);
+        poll_error=0; CHECK(__posix_eventfd_read(fd,&value,8)==8 && value==UINT64_MAX-1);
     } else if (!strcmp(mode,"epoll-edge-refusal")) {
         int ep=epoll_create1(0), alias=dup(ep), p[2];
         CHECK(ep>=0 && alias>=0 && pipe(p)==0);

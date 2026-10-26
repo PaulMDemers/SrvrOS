@@ -23,6 +23,7 @@ MODES = ('semaphore-read', 'invalid-flags', 'eventfd-flags', 'semaphore-readines
 ROTATION = ('epoll-fairness', 'epoll-hup-only', 'epoll-rotation', 'epoll-rotation-control')
 ONESHOT = ('epoll-oneshot', 'epoll-priority', 'epoll-rearm', 'epoll-oneshot-races')
 EDGE = ('epoll-edge-refusal',)
+CLOSEOUT = ('pwait-mask', 'pwait-restore', 'blocking-counter', 'blocking-retirement', 'blocking-interruption', 'poll-counter', 'poll-counter-wait', 'poll-counter-lifetime', 'event-masks', 'control-errors', 'adapter-ownership', 'blocking-signal-dispatch')
 AUDITS = ()
 
 
@@ -36,6 +37,7 @@ def main():
     (out / 'result.json').unlink(missing_ok=True)
     adapter = ROOT / 'userspace/lib/src/posix_node_compat.c'
     file_source = ROOT / 'userspace/lib/src/posix_file.c'
+    poll_source = ROOT / 'userspace/lib/src/posix_poll.c'
     fixture = ROOT / 'tools/test_event_adapters.c'
     text = adapter.read_text()
     assert text.count('\nint inotify_init1(') == 1
@@ -65,9 +67,9 @@ def main():
     command = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c11', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
-        '-include', str(renamed), str(extracted), str(fixture), '-o', str(executable)]
+        '-include', str(renamed), str(extracted), str(poll_source), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
-    modes = ('controls',) + LIFETIME + WAITS + COUNTERS + MODES + ROTATION + ONESHOT + EDGE + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
+    modes = ('controls',) + LIFETIME + WAITS + COUNTERS + MODES + ROTATION + ONESHOT + EDGE + CLOSEOUT + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
     results = []
     for mode in modes:
         result = subprocess.run([str(executable), mode], capture_output=True, text=True, timeout=10)
@@ -78,7 +80,7 @@ def main():
     record = dict(source=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   platform=platform.platform(), command=command, cases=results, exit=code,
                   sha256={str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                          for p in (adapter, file_source, fixture, Path(__file__).resolve(),
+                          for p in (adapter, file_source, poll_source, fixture, Path(__file__).resolve(),
                                     ROOT / "userspace/lib/include/sys/eventfd.h",
                                     ROOT / "userspace/lib/include/sys/epoll.h")})
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')

@@ -16,7 +16,9 @@ counter bounds, writable readiness, semaphore reads and creation-flag validation
 are now corrected too, along with stable ready-set rotation and native HUP/ERR
 reporting for empty interest masks, one-shot disabling/rearming and priority-bit
 conversion. EPOLLET now fails explicitly with EOPNOTSUPP on ADD/MOD, preserving
-existing watches; actual edge delivery is unsupported. See the current
+existing watches; actual edge delivery is unsupported. Closeout adds mask waits,
+blocking eventfd I/O, public poll integration, normal-data aliases and ownership
+refusals; see the closeout below for verification. See the current
 [audit coverage and backlog](audit-progress-2026-10-26.md). The supported profile
 limits these experimental APIs; the evidence makes their failure modes concrete.
 It does not establish Node support or general Linux API conformance.
@@ -94,7 +96,7 @@ semantics, not covered by these two single-threaded counter probes.
 sh tools/macos/build.sh test-event-adapters
 # Linux/other supported host workflow: make test-event-adapters
 
-# Run the current complete host set (34 positive modes; no active failure probes).
+# Run the current complete host set (46 positive modes; no active failure probes).
 python3 tools/test_event_adapters.py --audit all \
   --output build/review/event-adapters-audit
 # Historical failing edge probe is retained in the pre-fix evidence directory.
@@ -106,9 +108,10 @@ CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
 ```
 
 `tools/test_event_adapters.py` copies the adapter prefix through `epoll_pwait`
-and the public close/duplication/fcntl implementations verbatim from current source, retaining `#line`
-locations. Symbols are prefixed to avoid replacing host libc calls. The fixture
-models native descriptor allocation/retirement, monotonic time, poll and sleep; it uses the
+and the public close/duplication/fcntl implementations verbatim from current
+source, retaining `#line` locations; it also compiles the real public poll source.
+Symbols are prefixed to avoid replacing host libc calls. The fixture models native
+descriptor allocation/retirement, monotonic time, kernel poll and signal services; it uses the
 repository's headers and real eventfd/epoll bookkeeping. Every mode starts in a
 fresh process; the host mutex model asserts ownership and release around waits. Results retain source hashes, compiler command, platform, exit
 status and output. Generated sources/binaries/results remain ignored under the
@@ -573,3 +576,83 @@ The current audit inventory separates completed bounded work from the event
 adapter queue and broader OS reviews. Next scope is epoll_pwait mask semantics;
 edge delivery remains explicitly unsupported. PR179 stays draft; no physical
 acceptance, public ABI or Actions setting changed.
+
+## Final bounded audit: masks, blocking I/O, polling and ownership
+
+Target: finish the process-local adapter contract and merge PR179 after required
+host/sanitizer, matched-build, thread and libuv gates. General Linux parity,
+actual edge notifications and cross-process adapter sharing are optional future
+capabilities, not this release target. Native hardware and Actions are unchanged.
+
+The pre-fix host receipt at c98dcded fails five directed mask/blocking probes.
+The following source changes close the remaining supported-contract defects:
+
+- epoll_pwait installs/restores a temporary kernel mask without sigprocmask's
+  early handler checkpoint. Pending signals are accounted for even when an
+  eventfd is immediately ready. Restoration preserves errors and applies on every
+  return path. Poll supplies cooperative dispatch plus kernel pending checks
+  before blocking, as in ppoll/pselect. An asynchronous signal-frame ABI would
+  require revisiting this implementation. Reference: [epoll_pwait](https://man7.org/linux/man-pages/man2/epoll_wait.2.html).
+- Blocking counter I/O releases the lifecycle lock while waiting, retains a
+  generation across retries and snapshots the write value. Reads wait for a
+  count/token and writes for full requested capacity. Raw kernel poll lets the
+  I/O path honor SA_RESTART rather than losing handler flags inside public poll.
+  Other interruption returns EINTR; close/reuse returns EBADF; F_SETFL is rechecked.
+  F_GETFL reports O_RDWR. Reference: [eventfd](https://man7.org/linux/man-pages/man2/eventfd.2.html).
+- Public poll/ppoll recognizes eventfd readiness before and after native waits,
+  clips synthetic polling slices to 10 ms and preserves one monotonic timeout.
+  Snapshot generations reject replacement readiness with POLLNVAL. Pure native
+  polling retains its previous path. Eventfd numbers exceed FD_SETSIZE; use poll
+  or epoll rather than select/pselect. No public fd_set ABI was enlarged.
+- Normal-data aliases preserve requested result bits. Unsupported band, half-close,
+  message and edge requests fail with EOPNOTSUPP; unknown bits fail with EINVAL.
+  Invalid epoll/target descriptors report EBADF; valid non-epoll descriptors report
+  EINVAL. Null event buffers retain the profile's EINVAL convention. Existing
+  registration, absence and duplicate errors preserve watch state.
+- Adapter-handle SCM_RIGHTS export is refused. Exec/spawn inheritance requires
+  every adapter handle to be close-on-exec; live adapter fork remains refused.
+  Pseudo-socket registration is refused until its transitions share lifecycle
+  serialization. Native socketpair data and hangup remain supported. These guards
+  do not implement global alias tracking for native descriptors passed via rights.
+
+The final source pass checks 8-instance/64-watch/16-counter capacity, alias cleanup,
+revision/one-shot ownership, zero/finite/infinite waits, flags/error preservation,
+counter arithmetic and selected process/rights boundaries. Forty-six host modes
+compile actual adapter, public close/dup/fcntl and poll code; eight guest groups
+cover public runtime behavior. Broader networking, raw syscalls, arbitrary process
+inheritance races and Linux conformance remain outside the supported profile.
+
+Validation and delivery disposition are recorded below.
+
+Retained diagnostic evidence: the first guest timed out after entering the new
+test. Phase markers narrowed the repeat to blocking signal handling. SYS_POLL
+returns zero for pending signals; the first implementation incorrectly expected
+SRV_ERR_INTR. The corrected path obtains both dispatch count and SA_RESTART
+status after every raw wait. The host model now reproduces the real zero-result
+case, including nonrestartable interruption and a restart followed by a post.
+The two timeout logs, original candidate source/test and manifest remain under
+`build/review/event-adapter-closeout/`; they are not passing results. A subsequent
+compile caught a helper inserted before its static implementation; its placement
+was corrected before rebuilding. Spawn file actions also refuse duplicating a
+CLOEXEC adapter handle into a child, preventing that inheritance escape.
+
+## Closeout validation and delivery
+
+The bounded process-local event-adapter audit is complete. All 46 host modes pass
+normally and under ASan/UBSan. Ten compiled negative controls fail their intended
+mask entry/restoration, blocking retry/generation, signal dispatch/restart, poll
+identity/immediacy, normal-event-bit or export-guard assertions. Native poll/select
+host regressions and five smoke-reader tests pass. The matched x86_64 build,
+corrected targeted event-adapter-final guest, complete thread suite (all eight
+event-adapter groups) and full libuv consumer suite pass sequentially. Docs check
+664 local links with zero errors; whitespace checks pass. No unresolved confirmed
+defect remains within this selected contract. Failed diagnostic runs remain
+separate evidence, not passes.
+
+Source/build/log hashes and the validation receipt are retained under
+`build/review/event-adapter-closeout/`. All disposable guests stopped. Delivery is
+[PR179](https://github.com/PaulMDemers/SrvrOS/pull/179), whose GitHub record is the
+source of the final merge state/SHA. The user authorized merge after these gates;
+PR19 remains separate Wi-Fi work. No kernel/syscall ABI, native-hardware acceptance
+or Actions setting changed. Broader filesystem/network/process/security reviews
+and optional adapter capabilities remain in the current audit inventory.

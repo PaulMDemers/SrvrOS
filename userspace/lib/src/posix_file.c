@@ -460,7 +460,7 @@ int fcntl(int fd, int command, ...) {
             if (flags < 0) {
                 return -1;
             }
-            return (flags & SRV_FD_NONBLOCK) != 0 ? O_NONBLOCK : 0;
+            return O_RDWR | ((flags & SRV_FD_NONBLOCK) != 0 ? O_NONBLOCK : 0);
         }
         if (__posix_socket_is_pseudo(fd)) {
             long socket_flags = __posix_socket_fcntl(fd, SRV_F_GETFL, 0);

@@ -87,6 +87,8 @@ static uint64_t event_identities[EVENT_FDS];
 static uint64_t event_serial;
 static pthread_mutex_t event_mutex = PTHREAD_MUTEX_INITIALIZER;
 int __posix_socket_is_pseudo(int fd);
+int __posix_signal_dispatch_pending(void);
+int __posix_signal_dispatch_pending_io(int *restartable);
 void __posix_event_lock(void) { (void)pthread_mutex_lock(&event_mutex); }
 void __posix_event_unlock(void) { (void)pthread_mutex_unlock(&event_mutex); }
 static int event_index(int fd) {
@@ -246,12 +248,7 @@ static ssize_t __posix_eventfd_read_locked(int fd, void *buffer, size_t length) 
     memcpy(buffer, &value, sizeof(value));
     return (ssize_t)sizeof(value);
 }
-ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length) {
-    __posix_event_lock();
-    ssize_t result = __posix_eventfd_read_locked(fd, buffer, length);
-    __posix_event_unlock();
-    return result;
-}
+
 
 
 static ssize_t __posix_eventfd_write_locked(int fd, const void *buffer, size_t length) {
@@ -263,20 +260,54 @@ static ssize_t __posix_eventfd_write_locked(int fd, const void *buffer, size_t l
     uint64_t value = 0;
     memcpy(&value, buffer, sizeof(value));
     if (value == UINT64_MAX) { errno = EINVAL; return -1; }
-    /* Test capacity before addition, under the same lock as drain/readiness.
-     * Blocking I/O is not implemented by this compatibility adapter yet. */
+    /* Test capacity before addition, under the same lock as drain/readiness. */
     if (value > POSIX_EVENTFD_COUNTER_MAX - slot->counter) {
         errno = EAGAIN; return -1;
     }
     slot->counter += value;
     return (ssize_t)sizeof(value);
 }
-ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length) {
+/* A blocked operation owns a generation, never a reusable descriptor number.
+ * Release the lifecycle lock across interruptible waits and recheck both state
+ * and O_NONBLOCK on each retry. Synthetic state has no kernel wake source yet. */
+static ssize_t eventfd_io(int fd, void *buffer, size_t length, int writing) {
+    uint64_t identity = 0, value = 0;
     __posix_event_lock();
-    ssize_t result = __posix_eventfd_write_locked(fd, buffer, length);
-    __posix_event_unlock();
-    return result;
+    if (!eventfd_slot(fd)) { __posix_event_unlock(); errno = EBADF; return -1; }
+    if (!buffer || length < sizeof(value)) { __posix_event_unlock(); errno = EINVAL; return -1; }
+    if (writing) memcpy(&value, buffer, sizeof(value));
+    identity = event_identity(fd, 1);
+    if (!identity) { __posix_event_unlock(); return -1; }
+    for (;;) {
+        struct posix_eventfd *slot = eventfd_slot(fd);
+        if (!slot || event_identity(fd, 0) != identity) {
+            __posix_event_unlock(); errno = EBADF; return -1;
+        }
+        ssize_t result = writing ? __posix_eventfd_write_locked(fd, &value, sizeof(value)) :
+            __posix_eventfd_read_locked(fd, buffer, length);
+        int error = errno;
+        int retry = result < 0 && error == EAGAIN && !(slot->fd_flags & SRV_FD_NONBLOCK);
+        __posix_event_unlock();
+        if (!retry) { errno = error; return result; }
+        /* The raw wait leaves signal dispatch to this I/O path, preserving
+         * SA_RESTART without consuming a signal inside public poll first. */
+        long waited = srv_poll(NULL, 0, 10);
+        int restartable = 0;
+        int handled = __posix_signal_dispatch_pending_io(&restartable);
+        if (handled && !restartable) { errno = EINTR; return -1; }
+        if (waited < 0 && !(waited == SRV_ERR_INTR && handled && restartable)) {
+            errno = waited < -1 ? (int)-waited : EIO; return -1;
+        }
+        __posix_event_lock();
+    }
 }
+ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length) {
+    return eventfd_io(fd, buffer, length, 0);
+}
+ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length) {
+    return eventfd_io(fd, (void *)buffer, length, 1);
+}
+
 
 
 static int __posix_eventfd_close_locked(int fd) {
@@ -333,23 +364,23 @@ int __posix_eventfd_fcntl(int fd, int command, uint64_t flags) {
 static short epoll_to_poll_events(uint32_t events) {
     short out = 0;
     if (events & EPOLLPRI) out |= POLLPRI;
-    if ((events & (EPOLLIN | EPOLLRDNORM | EPOLLRDBAND)) != 0) {
+    if ((events & (EPOLLIN | EPOLLRDNORM)) != 0) {
         out |= POLLIN;
     }
-    if ((events & (EPOLLOUT | EPOLLWRNORM | EPOLLWRBAND)) != 0) {
+    if ((events & (EPOLLOUT | EPOLLWRNORM)) != 0) {
         out |= POLLOUT;
     }
     return out;
 }
 
-static uint32_t poll_to_epoll_events(short revents) {
+static uint32_t poll_to_epoll_events(short revents, uint32_t requested) {
     uint32_t out = 0;
-    if (revents & POLLPRI) out |= EPOLLPRI;
+    if (revents & POLLPRI) out |= requested & EPOLLPRI;
     if ((revents & POLLIN) != 0) {
-        out |= EPOLLIN;
+        out |= requested & (EPOLLIN | EPOLLRDNORM);
     }
     if ((revents & POLLOUT) != 0) {
-        out |= EPOLLOUT;
+        out |= requested & (EPOLLOUT | EPOLLWRNORM);
     }
     if ((revents & POLLERR) != 0) {
         out |= EPOLLERR;
@@ -367,6 +398,30 @@ static struct posix_epoll *epoll_slot(int fd) {
         }
     }
     return 0;
+}
+
+/* Libc adapter state cannot follow a kernel descriptor into another process.
+ * Permit exec/spawn only when every adapter handle is close-on-exec. */
+int __posix_event_exec_ready(void) {
+    int ready = 1;
+    __posix_event_lock();
+    for (int i = 0; i < POSIX_EVENTFD_MAX; i++)
+        if (eventfds[i].used && !(eventfds[i].descriptor_flags & SRV_FD_CLOEXEC)) ready = 0;
+    for (int i = 0; i < EVENT_NATIVE_FDS; i++) {
+        if (epoll_slot(i)) {
+            long flags = srv_fcntl(i, SRV_F_GETFD, 0);
+            if (flags < 0 || !(flags & SRV_FD_CLOEXEC)) ready = 0;
+        }
+    }
+    __posix_event_unlock();
+    return ready;
+}
+int __posix_event_export_allowed(int fd) {
+    __posix_event_lock();
+    int allowed = !eventfd_slot(fd) && !epoll_slot(fd);
+    __posix_event_unlock();
+    if (!allowed) errno = EOPNOTSUPP;
+    return allowed;
 }
 
 static struct posix_epoll_entry *epoll_entry_for_fd(struct posix_epoll *epoll, int fd) {
@@ -407,6 +462,23 @@ static int eventfd_poll_events(int fd, short requested) {
         revents |= POLLOUT;
     }
     return revents;
+}
+
+/* -1 means a different descriptor namespace. A captured identity makes close
+ * and reuse during a public poll return POLLNVAL, never replacement readiness. */
+int __posix_eventfd_poll(int fd, short requested, uint64_t *identity) {
+    if (fd < POSIX_EVENTFD_BASE || fd >= POSIX_EVENTFD_BASE + POSIX_EVENTFD_MAX) return -1;
+    __posix_event_lock();
+    int result = POLLNVAL;
+    if (eventfd_slot(fd)) {
+        uint64_t current = event_identity(fd, 1);
+        if (current && (!*identity || *identity == current)) {
+            *identity = current;
+            result = eventfd_poll_events(fd, requested);
+        }
+    }
+    __posix_event_unlock();
+    return result;
 }
 
 static int epoll_create1_locked(int flags) {
@@ -452,18 +524,30 @@ int epoll_create1(int flags) {
 
 static int epoll_ctl_locked(int epfd, int op, int fd, struct epoll_event *event) {
     struct posix_epoll *epoll = epoll_slot(epfd);
-    if (epoll == 0 || fd < 0 || (op != EPOLL_CTL_DEL && event == 0)) {
-        errno = EINVAL;
+    if (!epoll) {
+        errno = event_identity(epfd, 1) ? EINVAL : EBADF;
         return -1;
     }
-
-    /* Poll snapshots cannot observe every readiness transition. Refuse edge
-     * mode before allocating identities or modifying/rearming any watch. */
-    if ((op == EPOLL_CTL_ADD || op == EPOLL_CTL_MOD) && (event->events & EPOLLET)) {
-        errno = EOPNOTSUPP;
-        return -1;
+    if (fd < 0) { errno = EBADF; return -1; }
+    if (op != EPOLL_CTL_ADD && op != EPOLL_CTL_MOD && op != EPOLL_CTL_DEL) {
+        errno = EINVAL; return -1;
+    }
+    if (op != EPOLL_CTL_DEL) {
+        if (!event) { errno = EINVAL; return -1; }
+        /* The poll backend has no edge, half-close or band notification.
+         * Refuse unsupported contracts before changing any existing watch. */
+        if (event->events & (EPOLLET | EPOLLMSG | EPOLLRDHUP | EPOLLRDBAND | EPOLLWRBAND)) {
+            errno = EOPNOTSUPP; return -1;
+        }
+        if (event->events & ~(EPOLLIN | EPOLLPRI | EPOLLOUT | EPOLLERR | EPOLLHUP |
+                             EPOLLRDNORM | EPOLLWRNORM | EPOLLONESHOT)) {
+            errno = EINVAL; return -1;
+        }
     }
 
+    /* Pseudo-socket connect/listener transitions lack lifecycle serialization.
+     * Native socketpair endpoints remain supported by the native poll path. */
+    if (__posix_socket_is_pseudo(fd)) { errno = EOPNOTSUPP; return -1; }
     uint64_t identity = event_identity(fd, 1);
     if (!identity) return -1;
     /* Nested epoll cannot be represented by polling its placeholder pipe. */
@@ -581,7 +665,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
             snapshots[count] = *entry;
             map[i] = count;
             if (__posix_eventfd_is_pseudo(fd)) {
-                observed[count] = poll_to_epoll_events(eventfd_poll_events(fd, requested));
+                observed[count] = poll_to_epoll_events(eventfd_poll_events(fd, requested), entry->event.events);
                 ready += observed[count] != 0;
             } else {
                 pollfds[poll_count] = (struct pollfd){.fd=fd,.events=requested};
@@ -619,7 +703,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
             int n = poll_map[i];
             /* Never attach recycled-number readiness to the old watch. */
             if (event_identity(pollfds[i].fd, 0) == snapshots[n].identity)
-                observed[n] = poll_to_epoll_events(pollfds[i].revents);
+                observed[n] = poll_to_epoll_events(pollfds[i].revents, snapshots[n].event.events);
         }
         ready = 0;
         /* Read the current cursor only after reacquiring the lock. Aliases and
@@ -636,7 +720,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
             int fd = event_alias(entry->identity);
             if (__posix_eventfd_is_pseudo(fd))
                 observed[n] = poll_to_epoll_events(eventfd_poll_events(fd,
-                    epoll_to_poll_events(entry->event.events)));
+                    epoll_to_poll_events(entry->event.events)), entry->event.events);
             if (!observed[n]) continue;
             events[ready] = snapshots[n].event;
             events[ready++].events = observed[n];
@@ -654,8 +738,20 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 }
 
 int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout, const void *sigmask) {
-    (void)sigmask;
-    return epoll_wait(epfd, events, maxevents, timeout);
+    if (!sigmask) return epoll_wait(epfd, events, maxevents, timeout);
+    uint64_t previous = 0;
+    /* Match ppoll/pselect's cooperative signal ABI: do not consume pending
+     * signals during mask entry, before the wait can account for interruption. */
+    if (srv_signal_mask(SRV_SIGNAL_SETMASK, *(const sigset_t *)sigmask, &previous) < 0) {
+        errno = EINVAL; return -1;
+    }
+    int result;
+    if (__posix_signal_dispatch_pending()) { errno = EINTR; result = -1; }
+    else result = epoll_wait(epfd, events, maxevents, timeout);
+    int error = errno;
+    if (srv_signal_mask(SRV_SIGNAL_SETMASK, previous, NULL) < 0) { errno = EINVAL; return -1; }
+    errno = error;
+    return result;
 }
 
 int inotify_init1(int flags) {

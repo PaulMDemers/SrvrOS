@@ -187,9 +187,14 @@ symbols remain experimental adapters. The [event-adapter audit](event-adapter-au
 corrects libc-managed epoll lifetime through close, native dup/dup2/dup3/F_DUPFD*,
 final-alias retirement and descriptor reuse. Host/guest regressions cover native
 alias watches and eventfd close; snapshot validation rejects stale wait results.
-Eventfd duplication, raw `srv_*` descriptor mutation, SCM_RIGHTS aliases,
-cross-process/exec preservation and pseudo-socket transitions are outside this
-bounded acceptance. Nested epoll is explicitly refused.
+Eventfd duplication and nested epoll are refused. Adapter handles cannot be
+exported through SCM_RIGHTS. Exec/spawn refuses live non-CLOEXEC adapters; close
+them or mark every handle (including epoll aliases) close-on-exec first. Spawn
+file actions cannot duplicate adapter handles into the child. Fork
+continues to refuse live adapter state. Pseudo-socket epoll registration is
+refused; native socketpairs remain supported. Raw `srv_*` descriptor mutation,
+SCM_RIGHTS transfer of watched native descriptions, concurrent process inheritance
+and cross-process adapter sharing remain outside this process-local contract.
 
 Epoll waits now preserve zero timeouts, return already-ready events without
 blocking on idle native descriptors, and recheck eventfd/control changes against
@@ -204,8 +209,15 @@ Zero writes remain valid at full capacity. `EFD_SEMAPHORE` reads return one and
 subtract one, preserving remaining readiness; ordinary reads drain the counter.
 Creation accepts only `EFD_SEMAPHORE`, `EFD_NONBLOCK` and `EFD_CLOEXEC`, rejects
 unknown bits with `EINVAL` before allocation, and resets mode on slot reuse.
-Changes to descriptor/status flags do not toggle semaphore mode. Blocking
-read/write remains unsupported (the adapter returns `EAGAIN` instead of waiting).
+Changes to descriptor/status flags do not toggle semaphore mode; F_GETFL reports
+O_RDWR. Blocking reads wait for a token/count; writes wait for sufficient capacity,
+using interruptible 10 ms kernel poll slices without holding the lifecycle mutex.
+SA_RESTART handlers retry the I/O; other interruption returns EINTR without
+changing the counter/output. Close/reuse cancels a parked operation with EBADF.
+F_SETFL changes are rechecked. Public poll/ppoll now recognize eventfds, including
+mixed native/synthetic sets, monotonic finite deadlines and POLLNVAL on close/reuse.
+The fixed FD_SETSIZE=1024 cannot represent eventfds numbered 3000..3015: use poll
+or epoll for them; select/pselect are not a supported eventfd interface.
 Epoll rotates delivery across stable ready sets using a per-instance cursor shared
 by aliases, chosen under the lifecycle mutex after polling. All armed watches are
 snapshotted; native HUP/ERR can be returned even with an empty interest mask.
@@ -215,10 +227,14 @@ MOD rearms with its current mask/data. Overlapping waits cannot deliver the same
 armed revision twice. Undelivered entries remain armed, and changing to ordinary
 level mode removes the one-shot restriction. EPOLLPRI/POLLPRI conversion is
 covered with modeled native readiness; no driver urgent-data support is implied.
-EPOLLET is unsupported: ADD/MOD returns EOPNOTSUPP before changing watch state.
-A failed MOD preserves mask/data and does not rearm a disabled one-shot watch;
-DEL ignores its event argument. Signal-mask waits and general concurrent socket
-semantics remain unaccepted; epoll_pwait currently ignores a nonnull mask.
+Normal-data aliases EPOLLRDNORM/EPOLLWRNORM preserve the requested result bits.
+Edge, half-close, message and band modes (EPOLLET, EPOLLRDHUP, EPOLLMSG,
+EPOLLRDBAND, EPOLLWRBAND) return EOPNOTSUPP on ADD/MOD; unknown bits return EINVAL.
+Failed MOD preserves mask/data and disabled one-shot state; DEL ignores its event
+argument. epoll_pwait temporarily installs a supplied mask and restores it on
+success, timeout and error, including pending signals at immediate-ready waits.
+This follows the existing cooperative signal ABI, not asynchronous signal frames.
+General concurrent pseudo-socket transitions remain outside acceptance.
 Use the tested native poll/pipe path for new portable consumers. A successful Node link probe
 does not establish Node support.
 

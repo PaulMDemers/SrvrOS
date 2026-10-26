@@ -1143,6 +1143,8 @@ static int message_rights_capacity(const struct msghdr *message) {
     return fd_capacity > SRV_RIGHTS_MAX ? SRV_RIGHTS_MAX : (int)fd_capacity;
 }
 
+int __posix_event_export_allowed(int fd);
+
 static int message_extract_rights(const struct msghdr *message, int rights[SRV_RIGHTS_MAX], size_t *count_out) {
     *count_out = 0;
     if (message->msg_control == 0 || message->msg_controllen == 0) {
@@ -1169,6 +1171,8 @@ static int message_extract_rights(const struct msghdr *message, int rights[SRV_R
             return -1;
         }
         memcpy(&rights[*count_out], CMSG_DATA(cmsg), bytes);
+        for (size_t i=0; i<count; i++)
+            if (!__posix_event_export_allowed(rights[*count_out+i])) return -1;
         *count_out += count;
     }
     return 0;

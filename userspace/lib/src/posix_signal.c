@@ -145,6 +145,12 @@ static int signal_dispatch_pending(int *restartable_out) {
     return dispatched;
 }
 
+/* Blocking synthetic I/O needs both whether a handler ran and its restart
+ * decision: SYS_POLL may return zero when it observes a pending signal. */
+int __posix_signal_dispatch_pending_io(int *restartable) {
+    return signal_dispatch_pending(restartable);
+}
+
 int __posix_signal_dispatch_pending(void) {
     return signal_dispatch_pending(0);
 }

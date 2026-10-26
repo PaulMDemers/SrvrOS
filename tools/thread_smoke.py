@@ -143,6 +143,7 @@ def main():
             "threadstress: epoll-rotation ok",
             "threadstress: epoll-oneshot ok",
             "threadstress: epoll-edge ok",
+            "threadstress: event-adapter-final ok",
             "threadstress: yield ok",
             "threadstress: errno ok",
             "threadstress: positional ok",

@@ -13,42 +13,44 @@ not accept other hardware or every concurrent execution.
 | Synchronization, stacks and timing | Nineteen runtime defects corrected: stack bounds/inspection, thread lifecycle/names/initial-thread exit and join, condition clocks/deadlines, semaphore bounds/contention, clock resolution/times fallback, sleep remainders/overflow, futex races/deadlines/mapping lifetime, once exit and recursive depth | [Synchronization closeout](synchronization-audit-2026-10-25.md), merged PR175; bounded host and guest contracts, not complete pthread/POSIX conformance |
 | AHCI failure investigation | Deadline-edge false-offline decisions and independent phase budgets corrected; diagnostics and regressions added | [AHCI report](ahci-offline-investigation-2026-10-26.md), merged PR178; nine fresh stress VMs passed. Historical spontaneous incidents remain unattributed and shelved pending recurrence |
 
-## Current draft PR179
+## Event-adapter completion target (PR179)
 
-The [event-adapter audit](event-adapter-audit-2026-10-26.md) now covers seven
-correction areas: descriptor lifetime across close/dup/reuse; wait/deadline and
-interruption handling; eventfd counter bounds/readiness; semaphore and creation
-flags; ready-set rotation and empty-mask HUP/ERR; one-shot rearming and priority
-conversion; explicit refusal of unsupported edge mode. The positive suite has
-34 host modes and seven event-adapter guest groups, plus the complete thread and
-libuv consumer gates. Test counts measure executable cases, not audit completion.
+The bounded process-local event-adapter audit is complete. All 46 host modes and
+sanitizers, ten negative controls, native poll/select regressions, the matched
+build, targeted guest, complete thread suite and libuv suite pass. Delivery is
+[PR179](https://github.com/PaulMDemers/SrvrOS/pull/179); GitHub records its merge
+state and SHA. The user authorized merge after these gates.
 
-EPOLLET now returns EOPNOTSUPP on ADD/MOD. This closes false success; it does not
-implement edge-triggered notifications. Native priority sources are not accepted
-merely because modeled bit conversion passes.
+| Contract area | Current disposition |
+| --- | --- |
+| Close, duplication, replacement and reuse | Identity/revision tracking, final-owner retirement and stale-result rejection covered |
+| Waits, deadlines and interruption | Immediate/finite/infinite waits and bounded synthetic rechecks covered |
+| Counters, flags and semaphore mode | Bounds/readiness, token reads, flag validation and O_RDWR reporting corrected |
+| Delivery order, one-shot and native events | Stable-set rotation, HUP/ERR, rearming, priority and normal-data conversion covered |
+| Temporary signal masks | epoll_pwait mask installation/restoration and pending/arriving signal handling implemented for the cooperative signal ABI |
+| Blocking I/O and poll | Blocking reads/writes, SA_RESTART/EINTR, close/reuse cancellation and public eventfd poll/ppoll integration implemented |
+| Unsupported modes | Edge/half-close/message/band modes refused; unknown bits rejected. Pseudo-socket epoll transitions refused; native socketpair coverage retained |
+| Ownership boundaries | Adapter-handle rights export refused; exec/spawn requires CLOEXEC handles and refuses duplicating them into a child; live-adapter fork remains refused |
 
-## Remaining event-adapter work, in priority order
+The [event-adapter audit](event-adapter-audit-2026-10-26.md) records original
+failures and correction evidence. The current gate has 46 host modes and eight
+event-adapter guest groups, plus complete thread/libuv consumers. Counts describe
+executable cases, not whole-OS audit completion.
 
-1. **Signal-mask waits:** source review confirms epoll_pwait discards its nonnull
-   sigmask and calls epoll_wait. Next bounded task: deterministic pending-signal,
-   mask restoration and interruption regressions, followed by an honest supported
-   contract. Review the existing ppoll/pselect approach: it bypasses handler
-   dispatch during mask entry and relies on cooperative delivery plus kernel
-   pending checks. A plain sigprocmask swap may consume the signal before the
-   wait. This turn adds no signal-mask runtime acceptance.
-2. **Blocking eventfd:** reads/writes currently return EAGAIN when they should
-   block without EFD_NONBLOCK. Define wake/interruption/close behavior and test it;
-   align native poll/select treatment of synthetic descriptors.
-3. **Remaining event/error contracts:** audit alternate event bits, RDHUP, control
-   validation/error precedence, socket shutdown/readiness and concurrent socket
-   lifecycle. Header constants do not establish implemented semantics.
-4. **Ownership beyond the tested libc path:** descriptor transfer (SCM_RIGHTS),
-   raw syscall mutations, cross-process and exec state. Nested epoll is refused;
-   general kernel notification and actual edge support require additional work.
+### Explicit limits and future capabilities
 
-Items 1 and 2 are known implementation gaps. Items 3 and 4 combine known limits
-with paths still requiring directed review; they are not claims that every path
-contains a confirmed defect.
+Actual edge notification, kernel-driven synthetic wakeups, cross-process adapter
+sharing and full Linux conformance remain future capabilities. Eventfd numbers
+3000..3015 exceed FD_SETSIZE=1024, so use poll/epoll, not select/pselect. Native
+watched descriptions transferred via SCM_RIGHTS, raw descriptor syscalls,
+concurrent process-inheritance mutations and general pseudo-socket transitions
+remain outside the process-local contract. Priority conversion does not prove a
+native urgent-data source. The implementation has 8 instances, 64 watches per
+instance and 16 eventfds, with periodic polling and no hard wake-latency bound.
+
+These limits do not reopen the completed target once the specified gates pass.
+They require a separately scoped implementation and acceptance pass if broader
+compatibility is wanted.
 
 ## Broader work still outside exhaustive coverage
 
@@ -67,6 +69,6 @@ contains a confirmed defect.
   with each subsystem. Historical journals remain evidence, while the supported
   profile and this inventory carry current disposition.
 
-The next completion target is a documented, regression-tested **bounded event
-adapter profile**, with every unsupported mode explicitly rejected or clearly
-identified. It is not complete Linux API parity or certification of the entire OS.
+The documented, regression-tested **bounded event adapter profile** is complete.
+Unsupported capabilities are explicitly rejected or identified above. This is
+not complete Linux API parity or certification of the entire OS.

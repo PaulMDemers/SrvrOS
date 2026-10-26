@@ -855,3 +855,46 @@ The current audit inventory separates completed bounded work from the event
 adapter queue and broader OS reviews. Next scope is epoll_pwait mask semantics;
 edge delivery remains explicitly unsupported. PR179 stays draft; no physical
 acceptance, public ABI or Actions setting changed.
+
+## Event-adapter completion and merge — active scope (2026-10-26)
+
+User authorizes completing the bounded event-adapter audit and merging PR179.
+Base `c98dcded`; fetched main remains `8bd43adc`. PR179 is mergeable with no
+required checks reported; Actions remain disabled. PR19 retains separate Wi-Fi
+ownership and is not part of this merge. Use the WNP development completion
+criteria in the existing audit inventory. Required: correct epoll_pwait masks,
+blocking eventfd and native poll integration; check remaining event/control
+contracts and ownership boundaries, rejecting unsupported modes explicitly.
+Own libc event/poll glue, regression fixtures/guests and current docs. Preserve
+public syscall ABI and device gates. Sequential host/sanitizer, matched build,
+thread/libuv VM gates and final PR review precede merge. Actual edge notifications,
+cross-process adapter sharing and full Linux parity are outside this target.
+
+Closeout ownership review also covers process/rights glue: refuse adapter-handle
+SCM_RIGHTS export and exec/spawn inheritance of non-CLOEXEC adapters, rather than
+allowing a kernel placeholder with lost libc state. Pseudo-socket epoll registration
+is explicitly refused until its connect/listener transitions share lifecycle
+serialization; native socketpair readiness remains covered. Raw syscalls and
+native watched descriptors transferred before/after registration remain outside
+the process-local ownership contract. No general transfer-tracking ABI is added.
+
+## Closeout validation and delivery
+
+The bounded process-local event-adapter audit is complete. All 46 host modes pass
+normally and under ASan/UBSan. Ten compiled negative controls fail their intended
+mask entry/restoration, blocking retry/generation, signal dispatch/restart, poll
+identity/immediacy, normal-event-bit or export-guard assertions. Native poll/select
+host regressions and five smoke-reader tests pass. The matched x86_64 build,
+corrected targeted event-adapter-final guest, complete thread suite (all eight
+event-adapter groups) and full libuv consumer suite pass sequentially. Docs check
+664 local links with zero errors; whitespace checks pass. No unresolved confirmed
+defect remains within this selected contract. Failed diagnostic runs remain
+separate evidence, not passes.
+
+Source/build/log hashes and the validation receipt are retained under
+`build/review/event-adapter-closeout/`. All disposable guests stopped. Delivery is
+[PR179](https://github.com/PaulMDemers/SrvrOS/pull/179), whose GitHub record is the
+source of the final merge state/SHA. The user authorized merge after these gates;
+PR19 remains separate Wi-Fi work. No kernel/syscall ABI, native-hardware acceptance
+or Actions setting changed. Broader filesystem/network/process/security reviews
+and optional adapter capabilities remain in the current audit inventory.
