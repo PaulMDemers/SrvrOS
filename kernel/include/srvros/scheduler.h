@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <srvros/scheduler_abi.h>
+struct srv_sched_trace;
 
 struct fpu_state;
 

@@ -4,6 +4,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/scheduler_abi.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
 
