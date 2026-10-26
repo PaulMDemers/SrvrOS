@@ -216,7 +216,9 @@ and175 Apple Silicon documentation do not own this MT76 diagnostic. Pro PR19
 continues this bounded scope; integration base remains `d5bc4b3`.
 
 
-Next bounded scope v84: post-synthesizer19-entry20MHz/G-band table replay,
+Installed/unarmed v84 candidate `e57afcf9eb1fab7e`, source `f67ee1be`,
+passed local/sanitizer and both exact-stage VM checks. It tests the
+post-synthesizer19-entry20MHz/G-band table replay,
 then fixed RF_MISC/gain/attenuation MAC tail with fresh reads and independent
 readbacks. Same-boot mapped NIC0=fd11 sets internal2G PA bit8; require the
 complete captured-field proof, no external-PA branch or inferred TX power.
@@ -7481,3 +7483,25 @@ v84 full build and both RF/MAC ASan/UBSan runs passed. All directed engines,
 complete xHCI suite, independent reference audit, staging/history and strict
 whole-chain collector checks passed. Exact-stage VM/install follows; these
 local checks do not accept RF functionality or native post-tune readbacks.
+
+
+### 2026-10-25 — v84 installed, native result pending
+
+Exact source `f67ee1be1263e5d5d48a903739e34e90436b9450`, release
+`e57afcf9eb1fab7e`, config `ram-usb-wifi-fw-v84-laptop-probe-0e535900-auto-return`.
+Full build, RF/MAC ASan/UBSan, directed engines, complete xHCI suite,163
+staging tests/166 unchanged historical recipes, independent reference audit
+and1380 strict-collector refusals passed. Exact GPT-stage VM saved and
+byte-verified diagnostics, unmounted cleanly and reset. Missing-workspace VM
+refused the probe and returned. Explicit512KiB capture confirmed. These VM
+checks validate workflow/refusal behavior, not MT7610 RF/PA function.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads matched
+durable backups. Ubuntu remains default; reboot unarmed. ESP v82
+`7e269653eebe03c3` removed only after full archive byte equality; v83
+synthesizer payload retained alongside recovery. Offline workspace clean:
+309files/734clusters/128directories, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint and candidate evidence archived outside build. Await readiness
+for cold Wi-Fi power cycle; collect matching session FIRST after return.
+Results save and return automatically; no commands/photos needed. Native
+post-tune readbacks, calibrated radio and Wi-Fi connectivity remain untested.
