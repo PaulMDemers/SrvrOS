@@ -56,8 +56,8 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted | Longer/larger workloads, failure handling and hotplug |
-| Sound/routes | User-confirmed headphone/speaker operation; manual route changes, short WAV and Stop/recovery with zero underruns | Five-minute native endurance incomplete; jack disconnect and detailed channel/isolation observations not separately recorded |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; 30-minute automated audio/app overlap completes 3,263 verified disk bursts with preserved prior files and clean allocation | Combined desktop responsiveness still fails its 500 ms loop bound; failure handling and hotplug remain separate |
+| Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
 | Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
@@ -3179,3 +3179,41 @@ saved logs, unmount and automatic return. Run `6d1b066474954f5d` now targets thi
 integrated release; baseline files, workload and all acceptance limits remain
 unchanged. Final documentation is separate from the compiled source. Physical
 acceptance requires the complete thirty-minute receipt after Ubuntu returns.
+
+### Pipe-admission native return — 2026-10-26 (responsiveness failure)
+
+Run `6d1b066474954f5d`, release `52eb28003f5be609`, compiled `c275c098`
+(PR184 merged as `5bcd061c`) returned one matching session,
+`session-00065ec1ef2cd6aa-00`. Audio/disk work completed all 1,800 seconds:
+345,600,000 PCM bytes, zero underruns, worker status0, and 3,263 verified disk
+bursts / 855,375,872 bytes. The binary disk receipt exactly matches the text
+receipt, with 1,797.212 seconds between first and last I/O. The user confirms
+audio remained steady throughout. This accepts that bounded playback/file-work
+overlap on this unit, not the full desktop responsiveness result.
+
+All 703 generated app cycles completed with zero child errors and no aggregate
+app deadline failure. Maximum ready/close times were 1,773,756 / 3,109,315 us;
+the earlier ten-second Files-close failure did not recur in this run. However,
+the maximum desktop-loop gap was 558,863 us, above the unchanged 500,000 us limit.
+The desktop and overall battery-controls result correctly remain FAIL despite
+the successful audio/disk receipt. App coverage spans 1,782.666 seconds inside
+the PCM interval, and the final exit snapshot was saved at 1,808.899 seconds
+uptime. The retained complete timing tails validate cycles684–702 against the
+new Files lifecycle; the log ring does not retain per-phase proof for all703.
+
+The individual over-limit loop record has rotated out of every retained log.
+Only its aggregate maximum survives, so neither its timestamp, event count nor
+its cause can be established from this evidence. Next retain bounded worst-loop
+timing with stage attribution across log rotation, then diagnose the remaining
+compositor/scheduling gap. Do not raise the 500 ms limit or assume the gap is
+rendering, storage, logging or firmware without attribution.
+
+Battery epoch1 retired with 10,588 queries, 151 notifications, 813 handled/zero
+unclaimed SCI deliveries and zero heap/errors/denied. All 374 prior files survived
+except expected workspace metadata. Offline fsck and allocation pass: 380 files,
+1,052 clusters, zero leaks/mismatches/errors. Original automatic failure, complete
+workload receipts and detailed diagnosis are preserved outside build with verified
+hashes. Ubuntu recovered, next_entry is empty and collection is disabled; no new
+reboot is armed. Closeout baseline is `5bcd061c`; open PR182 (`a35e2c33`) retains
+exFAT/storage-ownership work and PR19 (`44deba4e`) Wi-Fi. This closeout edits only
+the unit record, not their implementation scope.
