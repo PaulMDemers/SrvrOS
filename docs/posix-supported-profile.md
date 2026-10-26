@@ -416,3 +416,17 @@ rather than assuming contiguous storage. Multi-cluster bitmaps remain read-only
 and the allocation checker explicitly refuses their unsupported graph checks;
 statfs counts their complete FAT chain under storage ownership. Rebuild old
 repository-generated images with missing boot checksums or zero upcase tables.
+
+
+Directory extension now selects space and initializes a new cluster before
+retiring preceding end markers. Out-of-space or allocator refusal before that
+point leaves directory bytes unchanged and the volume usable. When an end marker
+is consumed, undefined trailing records are cleared, including unused later
+clusters, so old names cannot reappear after remount. Payloads beyond the volume's
+heap and entry sets too wide for one cluster are refused before dirty marking or
+scratch allocation. On 512-byte clusters, a 211-character basename exceeds that
+entry-set limit even though it is within the format's overall name-length limit.
+Failures after allocation or metadata writes begin can still leave the volume
+quarantined; compound file/sidecar operations do not reserve all future disk space
+up front or offer a journaled rollback. Error reporting remains the existing
+boolean/I/O-failure contract, not a new ENOSPC-specific syscall interface.

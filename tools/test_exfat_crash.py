@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--growth',action='store_true',help='Sweep root and contiguous-subdirectory extension')
     parser.add_argument('--driver', type=Path, default=ROOT/'build/tests/exfat-driver')
     parser.add_argument('--output', type=Path, default=ROOT/'build/review/rename-sidecar/crash')
     args = parser.parse_args()
@@ -37,9 +38,25 @@ def main():
     image.write_bytes(empty_image(4*1024*1024).data)
     run('seed');seed=image.read_bytes()
     run('seed-temp');temporary=image.read_bytes()
+    if args.growth:
+        image.write_bytes(seed);run('growth-seed');seed=image.read_bytes()
+    anchor_fixture=ExfatFixture(seed)
+    anchor_entry=dict(anchor_fixture.entries(anchor_fixture.chain(anchor_fixture.root)))['anchor.txt']
+    anchor_start=anchor_fixture.offset(struct.unpack_from('<I',anchor_entry,52)[0])
     counts={}
-    for operation in ('rename', 'replace', 'recover'):
+    operations=('grow-root','grow-dir') if args.growth else ('rename','replace','recover')
+    for operation in operations:
         baseline = temporary if operation=='recover' else seed
+        if args.growth:
+            fixture=ExfatFixture(baseline)
+            if operation=='grow-root':start=fixture.offset(fixture.root)
+            else:
+                entry=dict(fixture.entries(fixture.chain(fixture.root)))['grow']
+                start=fixture.offset(struct.unpack_from('<I',entry,52)[0])
+            end=next(i for i in range(0,fixture.cluster,32) if fixture.data[start+i]==0)
+            for i in range(end,fixture.cluster-32,32):
+                fixture.data[start+i:start+i+32]=b'\xa0'+bytes(31)
+            baseline=bytes(fixture.data)
         image.write_bytes(baseline)
         text=run(operation)
         writes, flushes=map(int,re.findall(r'complete writes=(\d+) flushes=(\d+)',text)[0])
@@ -62,7 +79,7 @@ def main():
                 data=image.read_bytes();fs=ExfatFixture(data)
                 # An unrelated file is preserved even when a torn entry makes
                 # the strict kernel importer refuse the complete namespace.
-                assert fs.read('anchor.txt')==b'unchanged'
+                assert data[anchor_start:anchor_start+9]==b'unchanged'
                 # Promotion must never delete the committed sidecar first.
                 if fault!='half-write':assert 'meta' in dict(fs.entries(fs.read('.srvros')))
                 if struct.unpack_from('<H',data,106)[0]&6:

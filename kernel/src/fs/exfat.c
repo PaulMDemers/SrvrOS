@@ -520,7 +520,7 @@ static uint64_t clusters_for_size(const struct exfat_volume *volume, uint64_t si
     if (size == 0) {
         return 0;
     }
-    return (size + volume->cluster_size - 1) / volume->cluster_size;
+    return size / volume->cluster_size + (size % volume->cluster_size != 0);
 }
 
 static bool mount_has_file_slot(const struct exfat_mount *mount) {
@@ -658,8 +658,8 @@ static bool valid_import_entry_set(const uint8_t *entry, uint64_t available) {
             if (c < 0x20 || c >= 0x7f || c == '"' || c == '*' || c == '/' ||
                 c == ':' || c == '<' || c == '>' || c == '?' || c == '\\' || c == '|') return false;
             uint16_t upper = c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c;
-            hash = (uint16_t)(((hash >> 1) | (hash << 15)) + upper);
-            hash = (uint16_t)((hash >> 1) | (hash << 15));
+            hash = (uint16_t)(((hash >> 1) | ((hash & 1u) << 15)) + upper);
+            hash = (uint16_t)((hash >> 1) | ((hash & 1u) << 15));
         }
     }
     if (read_u16(entry + 2 * EXFAT_ENTRY_SIZE + 2) == '.' &&
@@ -1961,7 +1961,7 @@ static bool allocate_clusters(struct exfat_volume *volume,
     uint64_t count,
     uint32_t *first_cluster,
     bool *no_fat_chain) {
-    if (first_cluster == NULL || no_fat_chain == NULL) {
+    if (first_cluster == NULL || no_fat_chain == NULL || count > volume->cluster_count) {
         return false;
     }
     if (count == 0) {
@@ -1973,7 +1973,7 @@ static bool allocate_clusters(struct exfat_volume *volume,
         *no_fat_chain = true;
         return true;
     }
-    return allocate_fragmented_clusters(volume, count, first_cluster, no_fat_chain);
+    return !volume->write_blocked && allocate_fragmented_clusters(volume, count, first_cluster, no_fat_chain);
 }
 
 static bool free_file_clusters_impl(struct exfat_file *file) {
@@ -2094,11 +2094,50 @@ static bool scan_directory_cluster_for_free(const uint8_t *cluster_buffer,
     return false;
 }
 
+/* Prepare only the prefix that will actually be published. Allocation
+ * exhaustion must not retire END markers. Bytes following END are undefined,
+ * so clear them when consuming the marker rather than resurrecting stale names. */
+static bool prepare_directory_prefix(struct exfat_volume *volume,
+    const struct exfat_directory *directory,uint32_t target,uint64_t slot,
+    uint64_t entries,uint8_t *buffer) {
+    uint32_t cluster=directory->first_cluster;
+    bool after_end=false;
+    for(uint64_t visited=0;visited<volume->cluster_count;visited++) {
+        uint64_t base;
+        if(!cluster_offset(volume,cluster,&base) ||
+            !volume_read(volume,base,buffer,volume->cluster_size))return false;
+        for(uint64_t end=0;end<volume->cluster_size;end+=EXFAT_ENTRY_SIZE) {
+            if(!after_end && buffer[end]!=EXFAT_ENTRY_END)continue;
+            after_end=true;
+            if(cluster!=target || slot+entries*EXFAT_ENTRY_SIZE>end) {
+                bool changed=false;
+                uint8_t fill=cluster==target?0:0x05;
+                for(uint64_t i=end;i<volume->cluster_size;i++) {
+                    if(buffer[i]!=fill)changed=true;
+                    buffer[i]=fill;
+                }
+                if(changed && (!volume_write(volume,base+end,buffer+end,volume->cluster_size-end) ||
+                    !volume_flush(volume)))return false;
+            }
+            break;
+        }
+        if(cluster==target)return true;
+        if(directory->no_fat_chain) {
+            if(visited+1==directory->allocated_clusters)return target==0;
+            cluster++;
+        } else {
+            if(!next_cluster(volume,cluster,&cluster))return false;
+            if(cluster>=EXFAT_FAT_CHAIN_END)return target==0;
+        }
+    }
+    return false;
+}
+
 static bool directory_free_offset(struct exfat_volume *volume,
     struct exfat_directory *directory,
     uint64_t needed_entries,
     uint64_t *offset_out) {
-    if (volume == NULL || directory == NULL || needed_entries == 0 || offset_out == NULL) {
+    if (volume == NULL || directory == NULL || needed_entries == 0 || needed_entries > volume->cluster_size / EXFAT_ENTRY_SIZE || offset_out == NULL) {
         return false;
     }
 
@@ -2110,6 +2149,7 @@ static bool directory_free_offset(struct exfat_volume *volume,
     uint32_t cluster = directory->first_cluster;
     uint32_t previous = 0;
     uint64_t visited = 0;
+    bool after_end = false;
     while (cluster >= 2 && cluster < EXFAT_FAT_CHAIN_END && visited++ < volume->cluster_count) {
         uint64_t cluster_base;
         if (!cluster_offset(volume, cluster, &cluster_base) ||
@@ -2118,29 +2158,20 @@ static bool directory_free_offset(struct exfat_volume *volume,
             return false;
         }
 
+        if(after_end)for(uint64_t i=0;i<volume->cluster_size;i++)cluster_buffer[i]=0;
         uint64_t free_offset;
         if (scan_directory_cluster_for_free(cluster_buffer,
                 volume->cluster_size,
                 needed_entries,
                 &free_offset)) {
-            *offset_out = cluster_base + free_offset;
+            bool ok=prepare_directory_prefix(volume,directory,cluster,free_offset,needed_entries,cluster_buffer);
+            if(ok)*offset_out = cluster_base + free_offset;
             kfree(cluster_buffer);
-            return true;
+            return ok;
         }
 
-        /* Entry sets stay within one cluster. If its unused tail cannot fit
-         * this set, mark that tail inactive before continuing/growing: an END
-         * entry would otherwise hide every name in subsequent clusters. */
-        for (uint64_t tail = 0; tail < volume->cluster_size; tail += EXFAT_ENTRY_SIZE) {
-            if (cluster_buffer[tail] != EXFAT_ENTRY_END) continue;
-            for (uint64_t at = tail; at < volume->cluster_size; at += EXFAT_ENTRY_SIZE)
-                cluster_buffer[at] = 0x05; /* Inactive File entry. */
-            if (!volume_write(volume, cluster_base + tail, cluster_buffer + tail,
-                    volume->cluster_size - tail) || !volume_flush(volume)) {
-                kfree(cluster_buffer); return false;
-            }
-            break;
-        }
+        for(uint64_t i=0;i<volume->cluster_size;i+=EXFAT_ENTRY_SIZE)
+            if(cluster_buffer[i]==EXFAT_ENTRY_END) {after_end=true;break;}
         previous = cluster;
         if (directory->no_fat_chain) {
             if (visited >= directory->allocated_clusters) {
@@ -2171,6 +2202,9 @@ static bool directory_free_offset(struct exfat_volume *volume,
         release_created_clusters(volume, new_cluster, 1);
         kfree(cluster_buffer);
         return false;
+    }
+    if(!prepare_directory_prefix(volume,directory,0,0,0,cluster_buffer)) {
+        release_created_clusters(volume,new_cluster,1);kfree(cluster_buffer);return false;
     }
     /* A contiguous directory can grow into a fragmented chain. Materialize its
      * old links before publishing the stream's NoFatChain transition. */
@@ -3748,6 +3782,16 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
     fs_leave(&scope);return ok;
 }
 
+/* The supported entry set must fit one cluster. Reject impossible requests
+ * before dirty marking or scratch allocation, including an oversized payload. */
+static bool mutation_shape(const char *path,uint64_t size) {
+    struct exfat_mount *mount=path?find_mount_for_path(path):NULL;
+    if(!mount || size>(uint64_t)mount->volume.cluster_count*mount->volume.cluster_size)return false;
+    const char *name=path;
+    for(const char *p=path;*p;p++)if(*p=='/')name=p+1;
+    return (2+(ascii_length(name)+14)/15)*EXFAT_ENTRY_SIZE<=mount->volume.cluster_size;
+}
+
 /* Public mutation boundaries. Failed or interrupted metadata updates are never
  * silently declared clean; recovery is performed offline with a filesystem checker. */
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
@@ -3755,7 +3799,7 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
 }
 bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
-    if (!valid_ascii_basename(path) || (!data && size) ||
+    if (!valid_ascii_basename(path) || !mutation_shape(path,size) || (!data && size) ||
         (!find_file(path) && name_conflicts(path, NULL))) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, find_file(path)?0:1, 0)) return false;
@@ -3767,7 +3811,7 @@ bool exfat_create_directory(const char *path) {
 }
 bool exfat_create_directory_mode(const char *path,uint64_t mode) {
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
-    if (!valid_ascii_basename(path) || name_conflicts(path, NULL)) return false;
+    if (!valid_ascii_basename(path) || !mutation_shape(path,0) || name_conflicts(path, NULL)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, 0, 1)) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path, 0, 1) &&
@@ -3788,7 +3832,7 @@ bool exfat_delete_directory(const char *path) {
         exfat_delete_directory_impl(path));
 }
 bool exfat_rename(const char *old_path, const char *new_path) {
-    if (!old_path || !valid_ascii_basename(new_path) || name_conflicts(new_path, old_path)) return false;
+    if (!old_path || !valid_ascii_basename(new_path) || !mutation_shape(new_path,0) || name_conflicts(new_path, old_path)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(old_path), &scope, old_path, 0, 0)) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(old_path), old_path, 0, 0) &&

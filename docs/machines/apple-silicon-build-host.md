@@ -1235,3 +1235,42 @@ overlap or integration dependency appeared. No Actions, native media test or
 physical recovery was performed. Follow-on tracing reaches allocation exhaustion
 and directory-growth rollback; full Unicode, automatic repair and physical
 power-loss guarantees remain outside the accepted profile.
+
+### Allocation/growth audit — active scope (2026-10-26)
+
+Continue PR182 from `16b81077`, including main `4d195e25`. Inspect allocation
+exhaustion, size bounds, directory extension and failure ordering. Own exFAT,
+focused host fault fixtures and related documentation. PR19 remains `f70ee542`;
+its Wi-Fi/logging and separate Make targets do not overlap this runtime scope.
+Distinguish clean refusal before mutation from uncertain-write quarantine; add
+no journal, native-media trial, Actions dispatch or automatic repair.
+
+
+### Allocation/growth checkpoint results
+
+Out-of-space and allocator-refusal probes reproduced premature directory tail
+writes and quarantine. Oversized payloads/entry sets also reached mutation work.
+The writer now selects space and initializes an extension before retiring end
+markers; impossible requests are refused before dirty marking or scratch
+allocation. Cluster rounding is overflow-safe and allocator counts are bounded.
+
+Stale `ghost` records following an end marker reappeared after insertion and
+remount, both within the same cluster and in later allocated directory clusters.
+The writer now respects the logical end across the chain and clears undefined
+records before publication. UBSan additionally caught signed overflow in the
+long-name hash rotation; its bit-15 rotation is now bounded.
+
+All 108 directed modes pass normally and under ASan/UBSan. The 193 root/subdirectory
+growth fault boundaries pass normally and under sanitizers, alongside the
+existing 144 rename/sidecar boundaries, 29 boot-sector cases, storage/lease gates,
+six generator groups and 372-entry image check. The matched build and six VMs
+pass: aliases 16.96 s, quarantine 16.98 s, imports 17.02 s, corrupt entry 16.63 s,
+complete threads 40.39 s and libuv 10.72 s. Evidence, original failures, corrected
+harness assumptions and tested hashes remain in `build/review/allocation-growth/`.
+
+The publication refresh found main `ee5468f6` (PR188/189), changing only the Air6,1
+machine record. The runtime was tested above on the `4d195e25` integration base;
+the clean documentation merge and refreshed-build check are recorded next.
+PR19 remains separate. Follow-on tracing reaches deletion/truncation retirement
+and low-space sidecar updates. Partial mutations still quarantine; this adds no
+compound space reservation, journal, new errno contract or native acceptance.

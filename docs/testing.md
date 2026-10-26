@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 100 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 108 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1105,7 +1105,7 @@ backup candidates. It also checks read-only multi-cluster bitmap admission,
 explicit checker refusal and complete contiguous/fragmented bitmap statistics.
 The default output is `build/review/boot-system/sector-matrix/`.
 
-The 100 import modes additionally test every checksum word, boot signatures and
+The import modes additionally test every checksum word, boot signatures and
 mandatory fields, primary/backup read errors, checksum/header snapshot coherence,
 missing/duplicate/misplaced system entries, active bitmap identity, exact FAT
 termination, upcase checksum/ASCII mappings/coverage, fragmented upcase ownership,
@@ -1114,3 +1114,21 @@ now validate both boot regions and the complete generated upcase table as well a
 file entry sets. Rebuild old generated images: zero-filled boot checksums and
 upcase tables no longer pass import. These tests do not establish native media
 recovery or certify full exFAT conformance.
+
+
+`make test-exfat-growth` (included in `test-core`) reuses the portable file-backed
+fault driver with nearly full root and contiguous subdirectories. It runs 193
+write/flush failure, interruption and half-write boundaries through allocation,
+zero initialization, end-marker retirement, FAT linkage, stream-length updates
+and sidecar persistence. Successful extensions remount and pass allocation
+checking. Dirty cuts either mount read-only or refuse import without recovery
+writes; anchor bytes are checked independently of a potentially torn root FAT
+chain. Results are saved in `build/review/allocation-growth/crash/`.
+
+Eight additional import modes cover clean out-of-space and allocator refusal,
+oversized payload/entry-set rejection, overflow-safe cluster rounding, stale
+records after an end marker within and across clusters, and successful root and
+contiguous-directory growth. The long-name case also exercises the corrected
+name-hash rotation under UBSan. These checks distinguish refusal before changes
+from quarantine after partial mutation; they do not promise a durable rollback
+for every failure or physical power-loss atomicity.

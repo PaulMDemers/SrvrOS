@@ -85,6 +85,11 @@ fragmented-system ownership. The image generator now emits both checked boot
 regions and a complete upcase table. Follow-on statfs fixes serialize reads and
 count complete bitmap chains. Automatic repair, multi-cluster bitmap mutation,
 full Unicode and journaled power-loss recovery remain outside the profile.
+The allocation/growth checkpoint adds eight directed modes (108 total) and 193
+extension-fault boundaries. It preserves clean refusal before extension, rejects
+impossible sizes/entry widths, prevents stale-name resurrection past end markers,
+and fixes signed overflow in long-name hash validation. Compound space reservation
+and durable rollback after partial writes remain unimplemented.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

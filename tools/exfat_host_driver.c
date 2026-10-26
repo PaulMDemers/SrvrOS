@@ -175,8 +175,17 @@ int main(int argc, char **argv) {
         printf("bitmap-used=%llu\n",(unsigned long long)(info.blocks-info.blocks_free));
         assert(!writes && !flushes);close(fd);return 0;
     }
+    if(!strcmp(argv[2],"growth-seed")) {
+        assert(exfat_create_directory("/vol/grow"));
+        assert(fsync(fd)==0);close(fd);return 0;
+    }
     if(!strcmp(argv[2],"recover")) {
         /* The mount performs sidecar promotion. Faults can interrupt it. */
+    } else if(!strncmp(argv[2],"verify-grow-",12)) {
+        const char *path=!strcmp(argv[2],"verify-grow-root")?"/vol/new.txt":"/vol/grow/new.txt";
+        equal(path,(const uint8_t *)"new-file-data",13);
+        equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
     } else if(!strncmp(argv[2],"verify-",7)) {
         const char *path=!strcmp(argv[2],"verify-rename")?"/vol/renamed-with-a-longer-name.txt":"/vol/target.txt";
         equal(path,(const uint8_t *)"original",8);
@@ -466,9 +475,11 @@ int main(int argc, char **argv) {
         assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
         assert(exfat_write_file("/vol/target.txt",(const uint8_t *)"old-target",10));
         assert(vfs_chmod("/vol/keep.txt",0600) && vfs_chmod("/vol/target.txt",0640));
-    } else if(!strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename") || !strcmp(argv[2],"replace")) {
+    } else if(!strcmp(argv[2],"grow-root") || !strcmp(argv[2],"grow-dir") || !strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename") || !strcmp(argv[2],"replace")) {
         bool ok;
-        if(!strcmp(argv[2],"create")) ok=exfat_write_file("/vol/new.txt",(const uint8_t *)"new-file-data",13);
+        if(!strcmp(argv[2],"grow-root") || !strcmp(argv[2],"grow-dir"))
+            ok=exfat_write_file(!strcmp(argv[2],"grow-root")?"/vol/new.txt":"/vol/grow/new.txt",(const uint8_t *)"new-file-data",13);
+        else if(!strcmp(argv[2],"create")) ok=exfat_write_file("/vol/new.txt",(const uint8_t *)"new-file-data",13);
         else if(!strcmp(argv[2],"delete")) ok=exfat_delete_file("/vol/keep.txt");
         else if(!strcmp(argv[2],"replace")) { bool published=false;ok=exfat_replace_file("/vol/keep.txt","/vol/target.txt",&published);
             assert(published==(!vfs_lookup("/vol/keep.txt")));

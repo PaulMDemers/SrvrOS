@@ -559,13 +559,67 @@ bitmap mutation and controller/physical power-loss guarantees remain outside the
 accepted profile. No native media trial, Actions dispatch or automatic repair
 occurred.
 
+## Allocation exhaustion and directory-growth checkpoint
+
+This pass starts from `16b81077`, with main `4d195e25` included and PR19's
+`f70ee542` Wi-Fi/logging changes still separate. Directed tests reproduced clean
+refusals being converted into dirty quarantine: directory scanning retired an
+end marker before discovering that no extension cluster or allocation buffer
+was available. Scanning is now read-only until a usable slot is selected or a
+new extension cluster is allocated, initialized and flushed. The tests require
+byte-for-byte preservation and writable admission after those refusals.
+
+Additional probes reproduced mutation work for impossible payload/entry widths.
+Public create/write/rename admission now rejects payloads exceeding the heap and
+entry sets wider than one supported cluster before dirty marking or scratch
+allocation. Cluster rounding avoids addition overflow, allocator counts cannot
+exceed the heap, and a failed write cannot trigger fragmented-allocation retry
+on an already quarantined volume.
+
+Consuming an end marker also exposed stale records after it. A file named
+`ghost`, absent from the live namespace, appeared on remount after a new file
+was inserted. Both same-cluster and later-cluster cases reproduce this. The
+writer now treats the logical end as applying to the rest of the directory
+chain, clears undefined trailing records before publication and retains inactive
+padding only where needed to reach the selected record. Successful root and
+contiguous-to-FAT directory extensions still remount and pass allocation checks.
+
+The long-name growth test exposed a separate signed integer overflow in the
+importer's hash rotation under UBSan. The rotation now shifts only the low bit
+into bit 15 before adding the ASCII character; generated hash values and the
+supported ASCII naming profile are unchanged.
+
+All 108 directed modes pass normally and under ASan/UBSan. The new 193-boundary
+root/subdirectory extension sweep passes normally and under ASan/UBSan. It covers
+write/flush failure, persisted-prefix interruption and half writes. Completed
+extensions pass remount/allocation checks. Dirty cuts either refuse import or
+remain read-only without recovery writes, while independently located anchor
+bytes survive. An early harness incorrectly tried to traverse a torn root FAT
+chain; that failed run is retained and the anchor check now uses its known
+physical extent. This does not count an expected refusal as an implementation
+regression.
+
+The existing 144 rename/sidecar boundaries, 29 boot-sector matrix cases,
+storage/lease gates, matched build, six generator groups and 372-entry image
+check pass. Six sequential VMs pass: aliases 16.96 s, bitmap quarantine 16.98 s,
+imports 17.02 s, corrupt-entry fallback 16.63 s, complete threads 40.39 s and
+libuv 10.72 s. Evidence, original failures and tested source hashes are retained
+under `build/review/allocation-growth/`. No native media, Actions or automatic
+repair was used.
+
+Follow-on tracing reaches deletion/truncation retirement and low-space sidecar
+updates. This checkpoint is not a general disk-space reservation planner:
+failures after allocation/data/metadata changes can still quarantine the volume,
+including a later sidecar allocation failure. It adds no journal, durable
+rollback promise, new errno mapping or physical power-loss acceptance.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Allocation exhaustion and directory-growth rollback are next. Complete boot
+2. Deletion/truncation retirement and low-space sidecar updates are next. Complete boot
    regions and bounded system streams now have directed validation coverage;
    automatic repair, multi-cluster bitmap mutation, full Unicode and extended
    file entry sets remain unsupported. Controller reordering, physical power

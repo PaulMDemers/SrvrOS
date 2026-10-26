@@ -401,9 +401,73 @@ static void boot_system_case(const char *mode) {
     else {struct exfat_check_result check;assert(exfat_check("/vol",&check));assert(exfat_write_file("/vol/ok",NULL,0));}
     assert(exfat_unmount("/vol"));
 }
+static void growth_case(const char *mode) {
+    fixture(1100,true);
+    if(!strcmp(mode,"growth-full")) {
+        uint64_t size=(uint64_t)(CLUSTERS-3)*SECTOR;
+        write_u64(disk+offset(2)+64+40,size);write_u64(disk+offset(2)+64+56,size);checksum(disk+offset(2)+64);
+        for(unsigned i=0;i<CLUSTERS;i++)disk[offset(3)+i/8]|=1u<<(i%8);
+    }
+    if(!strcmp(mode,"growth-stale-chain")) {
+        write_u32(disk+24*SECTOR+2*4,8);write_u32(disk+24*SECTOR+8*4,0xffffffff);disk[offset(3)]|=0x40;
+        uint64_t count,names;
+        assert(build_file_entry_set(disk+offset(8),"ghost",5,1100,0x20,true,&count,&names));
+    }
+    assert(exfat_mount_block_device("/vol",&device));
+    char path[200]="/vol/";memset(path+5,'x',150);path[155]=0;
+    if(!strcmp(mode,"growth-full") || !strcmp(mode,"growth-oom")) {
+        assert(reserve_mutation(&mounts[0],path,1,0));
+        if(!strcmp(mode,"growth-oom"))fail_allocation=allocations+2;
+        uint8_t before[BYTES];memcpy(before,disk,BYTES);
+        assert(!exfat_write_file(path,NULL,0));
+        if(fail_allocation)assert(allocations==fail_allocation);
+        assert(exfat_is_writable("/vol") && !memcmp(before,disk,BYTES));
+        fail_allocation=0;
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else if(!strcmp(mode,"growth-size")) {
+        assert(clusters_for_size(&mounts[0].volume,UINT64_MAX)==(1ull<<55));
+        unsigned before=allocations,wr=writes;
+        uint32_t first=123;bool contiguous=false;
+        assert(!allocate_clusters(&mounts[0].volume,CLUSTERS+1,&first,&contiguous));
+        assert(first==123 && !contiguous && allocations==before && writes==wr);
+        uint8_t byte=0;
+        assert(!exfat_write_file("/vol/new",&byte,UINT64_MAX));
+        assert(!exfat_write_file("/vol/source",&byte,BYTES+1));
+        assert(writes==wr && allocations==before && exfat_is_writable("/vol"));
+    } else if(!strcmp(mode,"growth-width")) {
+        char wide[240]="/vol/";memset(wide+5,'x',211);wide[216]=0;
+        unsigned wr=writes;
+        assert(!exfat_write_file(wide,NULL,0));
+        assert(!exfat_create_directory(wide));
+        assert(!exfat_rename("/vol/source",wide));
+        assert(writes==wr && exfat_is_writable("/vol"));
+    } else if(!strcmp(mode,"growth-stale-chain")) {
+        assert(exfat_write_file(path,NULL,0));remount();
+        assert(vfs_lookup(path) && !vfs_lookup("/vol/ghost"));check_data("/vol/source",1100);
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else if(!strcmp(mode,"growth-stale-tail")) {
+        uint64_t count,names;
+        assert(build_file_entry_set(disk+offset(2)+256,"ghost",5,1100,0x20,true,&count,&names));
+        assert(exfat_write_file("/vol/new",NULL,0));assert(!vfs_lookup("/vol/ghost"));
+        remount();assert(!vfs_lookup("/vol/ghost"));check_data("/vol/source",1100);
+    } else if(!strcmp(mode,"growth-root")) {
+        assert(exfat_write_file(path,NULL,0));remount();assert(vfs_lookup(path));check_data("/vol/source",1100);
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else if(!strcmp(mode,"growth-contiguous")) {
+        assert(exfat_create_directory("/vol/grow"));
+        struct exfat_directory *dir=find_directory_in_mount(&mounts[0],"/vol/grow");assert(dir && dir->no_fat_chain);
+        uint8_t *bytes=disk+offset(dir->first_cluster);memset(bytes,0,SECTOR);
+        for(unsigned i=0;i<SECTOR-32;i+=32)bytes[i]=0xa0;
+        assert(exfat_write_file("/vol/grow/new",NULL,0));assert(!dir->no_fat_chain && dir->data_length==2*SECTOR);
+        remount();assert(vfs_lookup("/vol/grow/new"));
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else assert(false);
+    assert(exfat_unmount("/vol"));
+}
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);
+    if(!strncmp(mode,"growth-",7)) {growth_case(mode);
+    } else if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);
     } else if(!strcmp(mode,"chmod-failure") || !strcmp(mode,"utime-failure")) {
         fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));
         assert(exfat_write_file("/vol/committed",NULL,0));
