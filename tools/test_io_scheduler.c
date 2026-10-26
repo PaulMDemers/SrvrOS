@@ -42,19 +42,29 @@ bool timer_reference_ready(void) { return reference; }
 static struct scheduler_wait_queue completion_queue;
 static bool high_wait_test;
 static bool handoff_test;
+static bool retry_turn_test;
+void fpu_set_current_user_state(struct fpu_state *state) { (void)state; }
 static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(retry_turn_test) {
+        assert(old==&threads[3].context && next==&threads[6].context && current_thread==6);
+        assert(threads[6].io_gate_waiting==(io_depth!=0));
+        assert(io_gate_pending==(io_depth!=0));
+        threads[6].state=THREAD_READY;threads[3].state=THREAD_RUNNING;current_thread=3;
+        return;
+    }
     if(handoff_test) {
         assert(old==&threads[3].context && next==&threads[6].context);
-        assert(current_thread==6 && !io_depth && threads[6].io_gate_waiting);
+        assert(current_thread==6 && !io_depth && !threads[6].io_gate_waiting);
         assert(threads[4].state==THREAD_READY); /* Do not merely yield to the next slot. */
         switching=false; /* The resumed scheduler_yield continuation clears it. */
         scheduler_io_wait();
         assert(!threads[6].io_gate_waiting && !io_gate_pending);
         assert(scheduler_io_begin()); /* App enters before writer's next operation. */
         assert(!io_thread_allowed(4)); /* Unsafe peers still cannot overlap it. */
+        io_gate_leave(&threads[4]); /* This mock peer does not run a continuation. */
         scheduler_io_end();handoff_admissions++;
         threads[6].state=THREAD_READY;threads[3].state=THREAD_RUNNING;current_thread=3;
         return;
@@ -93,6 +103,47 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
 }
 static bool retired_context(void *arg) { (void)arg;assert(!"retired eligibility callback");return false; }
 static bool ready(void *arg) { return arg != NULL; }
+static void test_ready_gate_admission(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[4]=(struct thread){.state=THREAD_READY};
+    threads[6]=(struct thread){.state=THREAD_READY}; /* Fresh process, not in io_waiters. */
+    assert(scheduler_io_begin());
+    assert(!io_thread_allowed(6));
+    assert(threads[6].io_gate_waiting && io_gate_pending==1 && !io_waiters.waiters);
+    assert(!io_thread_allowed(6) && io_gate_pending==1); /* Repeated exclusion is idempotent. */
+    scheduler_io_end();handoff_test=true;
+    scheduler_io_handoff();assert(handoff_admissions==1 && !io_gate_pending);
+    /* The same exclusion can happen after user context is cleared for retirement. */
+    threads[6].user_context=(void*)42;threads[6].io_user_safe=true;
+    current_thread=6;threads[6].state=THREAD_RUNNING;threads[3].state=THREAD_READY;
+    scheduler_clear_user_context();
+    current_thread=3;threads[3].state=THREAD_RUNNING;threads[6].state=THREAD_READY;
+    assert(scheduler_io_begin() && !io_thread_allowed(6));
+    assert(threads[6].io_gate_waiting && !threads[6].user_context);
+    scheduler_io_end();scheduler_io_handoff();assert(handoff_admissions==2 && !io_gate_pending);
+    handoff_test=false;handoff_admissions=0;
+    /* Nonblocking reaping stays runnable during owned I/O, but its request
+     * survives those service turns and is consumed only at quiescence. */
+    threads[6].user_context=(void*)42;threads[6].io_user_safe=true;
+    assert(scheduler_io_begin());
+    scheduler_io_request_turn();assert(!io_gate_pending); /* Owner is not deferred. */
+    current_thread=6;threads[6].state=THREAD_RUNNING;threads[3].state=THREAD_READY;
+    for(unsigned n=0;n<64;n++)scheduler_io_request_turn();
+    assert(io_gate_pending==1 && threads[6].state==THREAD_RUNNING && !threads[6].blocked_queue);
+    assert(io_thread_allowed(6)); /* No service eligibility was narrowed or widened. */
+    current_thread=3;threads[3].state=THREAD_RUNNING;threads[6].state=THREAD_READY;
+    retry_turn_test=true;yield_to(6);assert(io_gate_pending==1);
+    scheduler_io_end();scheduler_io_handoff();assert(!io_gate_pending);
+    scheduler_io_request_turn();assert(!io_gate_pending); /* No owner, no request. */
+    retry_turn_test=false;
+    threads[6].user_context=NULL;threads[6].state=THREAD_BLOCKED;
+    assert(scheduler_io_begin() && !io_thread_allowed(6) && !io_gate_pending);
+    scheduler_io_end(); /* Sleeping threads are neither requested nor woken. */
+    memset(threads,0,sizeof(threads));current_thread=0;idle_thread=UINT64_MAX;initialized=false;
+    puts("io-admission: PASS startup/retirement exclusion, idempotent nonblocking retry, owned service retention, quiescent consumption and no sleeper wake");
+}
 static void test_gate_handoff(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
@@ -411,6 +462,7 @@ int main(void) {
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
     test_completion_wait();
+    test_ready_gate_admission();
     test_gate_handoff();
     test_growth();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");

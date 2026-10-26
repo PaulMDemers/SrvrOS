@@ -2910,3 +2910,58 @@ metadata. Offline fsck/allocation pass: 364 files, 1,032 clusters, zero leaks,
 bitmap mismatches or errors. Ubuntu recovered, next_entry is empty and the
 collector is disabled. Evidence/diagnosis are retained outside build; no new
 boot is armed. Integration baseline for this return record is `eda8bfbc`.
+
+### Process admission and worker retirement — active scope (2026-10-25)
+
+Base `aa7b7392`, with all three preceding attempts reconciled and backed up.
+Investigate READY process startup/kernel retirement threads excluded by the I/O
+gate without entering its explicit wait queue, and nonblocking child reaping
+that repeatedly defers while I/O is owned. Extend quiescent handoff accounting
+to those contenders without changing eligibility, nonblocking behavior, deadlines,
+filesystem/ownership checks or workload. Scope: scheduler, syscall wait admission,
+host regressions, automatic stress/boot validation and this unit record.
+Retain the targeted app timings and the separate unresolved SSDT-fingerprint
+refusal; no firmware gate changes. User authorizes tests, self-merge and reboot.
+
+PR172 (`27a97f0f`) owns shared application dispatch/waiting/actions; the proposed
+kernel admission changes avoid its userspace implementation scope. PR19
+(`4030debb`) retains USB Wi-Fi work. Inspect their actual updated diffs before
+integration; no cross-task messages or parallel local harnesses are authorized.
+
+The scheduler now records actual READY exclusion and deferred nonblocking reaps
+as pending quiescent turns. Ordinary owner-free selection consumes the request;
+owned-I/O service turns preserve it. This covers process entry and post-exit
+cleanup without running either under another owner's I/O. Host regression fails
+on the previous scheduler and passes with the fix, including repeated requests,
+service eligibility, sleeping threads and retirement continuations. Build/core
+passes; automatic workload and native acceptance remain pending.
+
+The first positive VM completed 14 app cycles with zero app errors/PCM underruns,
+but strict timing validation failed on an interleaved live UART line. Preserve
+that failed harness evidence. The console already saves whole diagnostic records
+before preemptible UART output; validate those saved overlapping snapshots instead.
+The validator retains phase, ordering, duration and missing-record checks, rejects
+duplicates within one snapshot, and deduplicates only exact overlapping records.
+No production console path, workload or limit changes are needed.
+
+Source `cca1f818` passes build/core, all 482 CLI commands and the complete smoke
+suite, storage-service slow writes/input/cancellation/copy/relaunch/quarantine,
+and the populated-Home 400-write-IOPS automatic workload. The positive VM
+completed 19 timing-validated app cycles with zero errors and PCM underruns;
+maximum ready/close/loop were 1,161,076 / 2,140,722 / 228,514 us. Files pool
+retirement peaked at 742,552 us. All 66 prior fixture files survived and offline
+allocation was clean. These VM timings do not establish native acceptance.
+
+Release `788873710e559400` freezes that clean source. Exact-stage Q35 rehearsal
+passes the expected native-profile refusal, saved logs, unmount and automatic
+return. This follow-up changes documentation only. PR172 (`122fe555`) retains
+shared app runtime ownership, PR19 (`50e4dce5`) USB Wi-Fi, and PR175 (`a90ac149`)
+macOS build/docs; no overlapping kernel production edits were found.
+
+Next is the authorized thirty-minute native audio/disk/app trial, with automatic
+Text/Files/System launches and closes, continuous verified I/O, battery monitoring
+and listening only. Whole-cycle ten seconds, client five seconds and loop 500 ms
+remain unchanged. USB baseline is 364 files / 1,032 clusters with zero leaks,
+bitmap mismatches or errors. Ubuntu remains default with console recovery and
+accepted reopen payloads retained. The collector saves/checks multiple attempts
+before refusing aggregate acceptance; missing completion remains failure.

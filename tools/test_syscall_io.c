@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe;
+static unsigned turn_requests;
+void scheduler_io_request_turn(void) { assert(busy);turn_requests++; }
 static struct process_file pipe_file;
 struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p; return fd==10?&pipe_file:NULL; }
 bool process_file_nonblocking(struct process *p,uint64_t fd) { struct process_file *f=process_file_at(p,fd);return f && (f->flags&SRV_FD_NONBLOCK); }
@@ -37,6 +39,11 @@ int main(void) {
     for(unsigned i=0;i<sizeof(admitted)/sizeof(*admitted);i++) { frame.rax=admitted[i]; assert(syscall_io_safe(&frame)); }
     frame.rax=SYS_WAIT; frame.rdx=0; assert(!syscall_io_safe(&frame));
     frame.rdx=SRV_WAIT_NOHANG; assert(syscall_io_safe(&frame));
+    busy=true;user_safe=true;
+    assert(io_defer_wait(SRV_WAIT_NOHANG) && turn_requests==1 && user_safe);
+    assert(io_defer_wait(SRV_WAIT_NOHANG|SRV_WAIT_POSIX) && turn_requests==2 && user_safe);
+    assert(!io_defer_wait(0) && turn_requests==2); /* Blocking path retains its gate. */
+    busy=false;assert(!io_defer_wait(SRV_WAIT_NOHANG) && turn_requests==2);
     frame.rax=SYS_READ; frame.rdi=10;
     pipe_file.type=PROCESS_FILE_PIPE_READ; assert(!syscall_io_safe(&frame));
     pipe_file.flags=SRV_FD_NONBLOCK; assert(syscall_io_safe(&frame));

@@ -75,11 +75,18 @@ sixteen-window round contains no cache totals.
 ## Admission during continuous disk work
 
 An I/O wake makes a blocked allocation or cleanup call runnable; it does not
-mean the call has entered the kernel operation. The scheduler retains a pending
-admission flag until that wait returns. After a userspace syscall that required
-the I/O gate finishes, its now user-safe caller hands off to one ready admission
-waiter before submitting another operation. GUI/audio-safe calls keep their
-normal service turns without this extra handoff.
+mean the call has entered the kernel operation. The scheduler records pending
+admission for explicit gate waiters and READY threads actually excluded by the
+gate, including fresh process entries and post-exit kernel cleanup. A nonblocking
+child wait deferred by another I/O owner also requests a turn while returning
+immediately. Requests are coalesced and consumed only when selected with no I/O
+owner; an eligible service turn during owned I/O does not consume them. A later
+exclusion records a fresh request. Sleeping threads are not woken by this policy.
+
+After a userspace syscall that required the I/O gate finishes, its now user-safe
+caller hands off to one ready admission contender before submitting another
+operation. GUI/audio-safe calls keep their normal service turns without this
+extra handoff.
 
 The handoff requires zero I/O ownership depth and a fully unwound syscall. It
 never releases a transaction early or broadens the I/O-safe syscall whitelist.
