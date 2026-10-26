@@ -345,3 +345,13 @@ The completed bounded synchronization audit also corrects `sem_trywait` under
 contention: it retries compare-exchange conflicts while tokens remain and returns
 `EAGAIN` only after observing zero. See the [closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
 for scope, validation and remaining broader work.
+
+## Imported exFAT files
+
+Imported file contents preserve the distinction between logical and initialized
+length: reads return zeros beyond `ValidDataLength`. Rename/replacement preserve
+that boundary, while a successful full overwrite initializes its new contents.
+Both memory and block mounts validate geometry and stream extents; unsupported
+revision/multiple-FAT images are refused. Dirty/media-error single-FAT media stay
+read-only. See the [filesystem audit](filesystem-audit-2026-10-26.md) for host/VM
+coverage and the remaining parser, ownership and crash-recovery work.

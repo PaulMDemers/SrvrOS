@@ -1023,3 +1023,20 @@ It is included in `all`. The host runner now compiles the real public poll sourc
 alongside the event adapters; native descriptors, clocks and syscalls are modeled.
 `test-posix-poll` retains separate native/select regression coverage. See the
 closeout evidence in the event audit for gate results and negative controls.
+
+## Imported exFAT media contracts
+
+`make test-exfat-import` (included in `test-core`) runs 16 directed modes against
+real kernel exFAT/VFS code. On ARM64 macOS use
+`sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
+`--sanitize` and `--output`; each run saves its command, source hashes and results.
+The fixtures cover invalid and supported boot geometry, dirty-volume refusal,
+stream length/range validation, initialized-data zero fill and preservation
+through rename, replacement, overwrite and remount.
+
+After a matched build, `python3 tools/exfat_import_smoke.py` prepares a temporary
+image with deliberately stale backing bytes and runs the explicit
+`threadstress exfat-import` guest mode. It requires the mode's own success marker
+as well as normal thread-harness completion. Ordinary `thread_smoke.py` does not
+include this fixture-dependent mode. See the
+[filesystem audit](filesystem-audit-2026-10-26.md) for evidence and remaining gaps.

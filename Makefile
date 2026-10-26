@@ -3712,3 +3712,8 @@ test-thread-smoke-harness:
 test-core: test-event-adapters
 test-event-adapters:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py
+
+.PHONY: test-exfat-import
+test-core: test-exfat-import
+test-exfat-import:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_import.py

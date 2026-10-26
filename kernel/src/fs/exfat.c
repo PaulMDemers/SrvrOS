@@ -104,6 +104,7 @@ struct exfat_file {
     struct exfat_volume *volume;
     uint32_t first_cluster;
     uint64_t size;
+    uint64_t valid_size;
     uint64_t allocated_clusters;
     uint64_t file_entry_offset;
     uint64_t stream_entry_offset;
@@ -421,6 +422,7 @@ static bool build_child_path(char *path,
 
 static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
     const struct exfat_file *file = node->private_data;
+    if (file->valid_size > file->size) return false;
     uint8_t *buffer = kmalloc(file->size == 0 ? 1 : file->size);
     uint64_t copied = 0;
     uint32_t cluster = file->first_cluster;
@@ -429,7 +431,7 @@ static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, ui
         return false;
     }
 
-    while (copied < file->size) {
+    while (copied < file->valid_size) {
         uint64_t source_offset;
         if (!cluster_offset(file->volume, cluster, &source_offset)) {
             kfree(buffer);
@@ -437,8 +439,8 @@ static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, ui
         }
 
         uint64_t chunk = file->volume->cluster_size;
-        if (chunk > file->size - copied) {
-            chunk = file->size - copied;
+        if (chunk > file->valid_size - copied) {
+            chunk = file->valid_size - copied;
         }
 
         if (!volume_read(file->volume, source_offset, buffer + copied, chunk)) {
@@ -447,7 +449,7 @@ static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, ui
         }
         copied += chunk;
 
-        if (copied < file->size) {
+        if (copied < file->valid_size) {
             if (file->no_fat_chain) {
                 cluster++;
             } else if (!next_cluster(file->volume, cluster, &cluster) || cluster >= EXFAT_FAT_CHAIN_END) {
@@ -457,6 +459,8 @@ static bool exfat_read_all(const struct vfs_node *node, const uint8_t **data, ui
         }
     }
 
+    /* Allocated bytes beyond ValidDataLength may contain previous disk data. */
+    for (uint64_t i = copied; i < file->size; i++) buffer[i] = 0;
     *data = buffer;
     *size = file->size;
     return true;
@@ -529,6 +533,7 @@ static bool register_file(struct exfat_mount *mount,
         .volume = &mount->volume,
         .first_cluster = stream->first_cluster,
         .size = stream->data_length,
+        .valid_size = stream->valid_data_length,
         .allocated_clusters = clusters_for_size(&mount->volume, stream->data_length),
         .file_entry_offset = file_entry_offset,
         .stream_entry_offset = stream_entry_offset,
@@ -676,6 +681,19 @@ static bool scan_directory(const char *path,
             }
 
             if (stream != NULL && names != NULL) {
+                uint64_t heap_bytes = (uint64_t)volume->cluster_count * volume->cluster_size;
+                bool directory = (file_entry->file_attributes & EXFAT_ATTR_DIRECTORY) != 0;
+                if (stream->valid_data_length > stream->data_length ||
+                    stream->data_length > heap_bytes ||
+                    (directory && (!stream->data_length ||
+                        stream->valid_data_length != stream->data_length ||
+                        stream->data_length % volume->cluster_size)) ||
+                    (stream->data_length && (stream->first_cluster < 2 ||
+                        stream->first_cluster >= volume->cluster_count + 2 ||
+                        ((stream->flags & 2) && clusters_for_size(volume, stream->data_length) >
+                            (uint64_t)volume->cluster_count + 2 - stream->first_cluster)))) {
+                    ok = false; goto out;
+                }
                 uint64_t absolute_file_entry_offset = offset + entry_offset;
                 uint64_t absolute_stream_entry_offset = (const uint8_t *)stream - cluster_buffer + offset;
                 if ((file_entry->file_attributes & EXFAT_ATTR_DIRECTORY) != 0) {
@@ -1507,6 +1525,7 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
     }
 
     file->size = size;
+    file->valid_size = size;
     (void)vfs_update_file_size(path, size);
     return true;
 }
@@ -1557,6 +1576,7 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
         .volume = file->volume,
         .first_cluster = first_cluster,
         .size = size,
+        .valid_size = size,
         .allocated_clusters = cluster_count,
         .no_fat_chain = no_fat_chain,
     };
@@ -2239,6 +2259,7 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size,uin
         .volume = &mount->volume,
         .first_cluster = first_cluster,
         .size = size,
+        .valid_size = size,
         .allocated_clusters = cluster_count,
         .no_fat_chain = no_fat_chain,
     };
@@ -2319,6 +2340,7 @@ static bool exfat_create_directory_impl(const char *path,uint64_t mode) {
         .volume = &mount->volume,
         .first_cluster = first_cluster,
         .size = mount->volume.cluster_size,
+        .valid_size = mount->volume.cluster_size,
         .allocated_clusters = 1,
         .no_fat_chain = true,
     };
@@ -2991,6 +3013,10 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         return false;
     }
 
+    /* Renaming does not initialize the allocation's unwritten tail. */
+    write_u64(entries + EXFAT_ENTRY_SIZE + 8, file->valid_size);
+    write_u16(entries + 2, entry_set_checksum(entries, entry_count));
+
     uint64_t old_entry_count = (uint64_t)file->secondary_count + 1;
     uint64_t old_directory_offset = file->file_entry_offset;
     uint64_t directory_offset = file->file_entry_offset;
@@ -3302,6 +3328,38 @@ bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
     return true;
 }
 
+/* Validate untrusted geometry before shifts, allocation, scanning or writes.
+ * Only the single-FAT format is supported; TexFAT needs active-table handling.
+ * Use the declared volume extent, not any trailing bytes on its backing device. */
+static bool volume_from_boot(const struct exfat_boot_sector *boot, uint64_t backing_size,
+    struct exfat_volume *volume) {
+    if (boot->bytes_per_sector_shift < 9 || boot->bytes_per_sector_shift > 12 ||
+        boot->sectors_per_cluster_shift > 25 - boot->bytes_per_sector_shift ||
+        boot->number_of_fats != 1 || (boot->volume_flags & 1) ||
+        boot->filesystem_revision != 0x100) return false;
+    uint64_t sector = 1ull << boot->bytes_per_sector_shift;
+    uint64_t sectors_per_cluster = 1ull << boot->sectors_per_cluster_shift;
+    uint64_t count = boot->cluster_count;
+    uint64_t fat_end = (uint64_t)boot->fat_offset + boot->fat_length;
+    uint64_t heap_end = (uint64_t)boot->cluster_heap_offset + count * sectors_per_cluster;
+    if (boot->volume_length < (1u << 20) / sector ||
+        boot->volume_length > backing_size / sector ||
+        !count || count > 0xfffffff5u || boot->root_directory_cluster < 2 ||
+        boot->root_directory_cluster >= count + 2 || boot->fat_offset < 24 ||
+        (uint64_t)boot->fat_length * sector < (count + 2) * sizeof(uint32_t) ||
+        fat_end > boot->cluster_heap_offset || heap_end > boot->volume_length) return false;
+    *volume = (struct exfat_volume){
+        .image_size = boot->volume_length * sector,
+        .sector_size = sector, .sectors_per_cluster = sectors_per_cluster,
+        .cluster_size = sector * sectors_per_cluster,
+        .fat_offset_bytes = (uint64_t)boot->fat_offset * sector,
+        .cluster_heap_offset_bytes = (uint64_t)boot->cluster_heap_offset * sector,
+        .cluster_count = boot->cluster_count, .root_directory_cluster = boot->root_directory_cluster,
+        .flags = boot->volume_flags, .write_blocked = (boot->volume_flags & 6u) != 0,
+    };
+    return true;
+}
+
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size) {
     if (!valid_mountpoint(mountpoint) || image == NULL || image_size < sizeof(struct exfat_boot_sector)) {
         return false;
@@ -3317,23 +3375,16 @@ bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t im
         return false;
     }
 
+    struct exfat_volume volume;
+    if (!volume_from_boot(boot, image_size, &volume)) return false;
     struct exfat_mount *mount = alloc_mount();
     if (mount == NULL) {
         console_write("exfat: mount table full\n");
         return false;
     }
 
-    mount->volume = (struct exfat_volume) {
-        .image = image,
-        .image_size = image_size,
-        .sector_size = 1ull << boot->bytes_per_sector_shift,
-        .sectors_per_cluster = 1ull << boot->sectors_per_cluster_shift,
-        .cluster_count = boot->cluster_count,
-        .root_directory_cluster = boot->root_directory_cluster,
-    };
-    mount->volume.cluster_size = mount->volume.sector_size * mount->volume.sectors_per_cluster;
-    mount->volume.fat_offset_bytes = (uint64_t)boot->fat_offset * mount->volume.sector_size;
-    mount->volume.cluster_heap_offset_bytes = (uint64_t)boot->cluster_heap_offset * mount->volume.sector_size;
+    mount->volume = volume;
+    mount->volume.image = image;
     remember_mountpoint(mount, mountpoint);
 
     if (!scan_root_directory(mount)) {
@@ -3380,26 +3431,16 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
         return false;
     }
 
+    struct exfat_volume volume;
+    if (!volume_from_boot(&boot, size, &volume)) return false;
     struct exfat_mount *mount = alloc_mount();
     if (mount == NULL) {
         console_write("exfat: mount table full\n");
         return false;
     }
 
-    mount->volume = (struct exfat_volume) {
-        .image = NULL,
-        .device = device,
-        .image_size = size,
-        .sector_size = 1ull << boot.bytes_per_sector_shift,
-        .sectors_per_cluster = 1ull << boot.sectors_per_cluster_shift,
-        .cluster_count = boot.cluster_count,
-        .root_directory_cluster = boot.root_directory_cluster,
-        .flags = boot.volume_flags,
-        .write_blocked = (boot.volume_flags & 7u) != 0 || boot.number_of_fats != 1,
-    };
-    mount->volume.cluster_size = mount->volume.sector_size * mount->volume.sectors_per_cluster;
-    mount->volume.fat_offset_bytes = (uint64_t)boot.fat_offset * mount->volume.sector_size;
-    mount->volume.cluster_heap_offset_bytes = (uint64_t)boot.cluster_heap_offset * mount->volume.sector_size;
+    mount->volume = volume;
+    mount->volume.device = device;
     remember_mountpoint(mount, mountpoint);
 
     if (!scan_root_directory(mount)) {
@@ -3494,6 +3535,8 @@ bool exfat_replace_file(const char *old_path,const char *new_path,bool *publishe
     if(!build_file_entry_set(entries,name,source->first_cluster,source->size,0x20,
         source->no_fat_chain,&count,&names) || count>target_count ||
         source_count>EXFAT_MAX_FILE_ENTRIES || target_count>EXFAT_MAX_FILE_ENTRIES) return false;
+    write_u64(entries + EXFAT_ENTRY_SIZE + 8, source->valid_size);
+    write_u16(entries + 2, entry_set_checksum(entries, count));
     struct mutation_scope scope;
     if(!mutation_begin(mount,&scope,old_path,0,0)) return false;
     bool ok=false;

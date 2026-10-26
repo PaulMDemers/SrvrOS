@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-25. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-10-26. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -93,6 +93,12 @@ Thirty-minute endurance is not accepted; late exits do not turn failed runs into
 passes. See the [Air6,1 record](machines/macbookair6-1.md) for exact evidence.
 
 ## Files, services and devices
+
+The [October 26 exFAT import audit](filesystem-audit-2026-10-26.md) adds checked
+single-FAT boot geometry and zero-filled reads beyond imported `ValidDataLength`,
+including preservation across rename/replacement. Host/sanitizer and disposable
+VM coverage establish this bounded contract; full media integrity, mount lifetime
+and crash recovery remain under audit.
 
 | Area | Current boundary |
 | --- | --- |

@@ -898,3 +898,49 @@ source of the final merge state/SHA. The user authorized merge after these gates
 PR19 remains separate Wi-Fi work. No kernel/syscall ABI, native-hardware acceptance
 or Actions setting changed. Broader filesystem/network/process/security reviews
 and optional adapter capabilities remain in the current audit inventory.
+
+## Broader audit: exFAT import contracts — active scope (2026-10-26)
+
+User requests resuming the broader system audit. Main is `dfd63fef`; PR181 owns
+desktop lifecycle work, PR180 owns Air6,1 retest/poll evidence and PR19 Wi-Fi.
+This branch owns kernel exFAT import validation and initialized-data reads, host
+fixtures, current docs and disposable VM validation. Source review identifies
+unchecked boot shift/geometry fields and ignored ValidDataLength. First checkpoint:
+reproduce both, correct confirmed defects with mount/read/rename/remount coverage,
+then publish a draft PR. Preserve mutation ordering/quarantine and existing
+hardware gates. No changes to the other agents' poll/UI/device implementations.
+Acceptance: bounded source-level host tests/sanitizers, matched build and relevant
+thread/libuv VMs, documentation checks and explicit remaining audit queue. Full
+filesystem/security/crash consistency certification and native trials are excluded.
+
+### Import-contract checkpoint results
+
+The [filesystem audit](../filesystem-audit-2026-10-26.md) now records two fixes:
+checked single-FAT boot geometry and zero-filled reads beyond imported
+`ValidDataLength`, including rename/replacement preservation and overwrite cache
+publication. Baseline: one control passed and thirteen directed modes failed.
+Final: sixteen host modes pass normally and under ASan/UBSan; six independently
+compiled negative controls fail their intended runtime assertions. The existing
+entry-layout test passes with ARM host-test/Darwin linker options.
+
+The matched build, dedicated imported-data VM and complete thread suite pass.
+The libuv run with its default ten-second completion budget ended after
+`fs poll ok` (exit 3); the failed log is retained. A fresh 60-second-budget run
+passed all required markers. Evidence, source/output hashes and receipts live in
+`build/review/filesystem-audit/`. No physical trial or Linux exfatprogs crash
+campaign is claimed. GitHub Actions remain disabled.
+
+During closeout PR180 merged into `main` (`afc8bb67`); its header/test/documentation
+changes do not overlap this scope and were fast-forwarded into this branch.
+PR181 and PR19 remain separate. The next checkpoint is entry integrity and
+parser structure: source inspection plus a read-only fixture check confirms that
+the generated disk's 169 root entries have unset checksums, while mount accepts
+them. Allocation ownership, unmount lifetime and crash recovery follow; the
+broader OS audit remains open.
+
+The post-PR180 matched rebuild and all three VMs pass: dedicated import (16.47 s),
+complete threads (39.69 s), libuv with the 60-second completion budget (10.01 s
+including boot). `integrated-vms.json`, the integrated build receipt and runtime
+hash inventory distinguish these runs from the earlier baseline. Documentation
+link/gallery and whitespace checks pass. This checkpoint is ready for draft PR
+review; the listed follow-up defects are not represented as fixed.

@@ -152,3 +152,11 @@ Preparation does not arm GRUB or reboot. The explicit console installation uses
 prepared automatic profile. Installation evidence is
 `build/review/exfat-hardening-install.log`; preparation evidence is
 `build/review/exfat-hardening-prepare.log`.
+
+## Later import-validation checkpoint — 2026-10-26
+
+The [import audit](filesystem-audit-2026-10-26.md) supersedes the earlier geometry
+validation gap for the documented single-FAT subset and fixes initialized-data
+reads/preservation. Multiple-FAT images are now refused instead of admitted
+read-only. Earlier physical and power-cut results above remain historical; this
+later host/VM checkpoint does not rerun or extend those hardware claims.

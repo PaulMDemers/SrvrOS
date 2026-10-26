@@ -648,6 +648,8 @@ int posix_epoll_oneshot_test(void);
 int posix_epoll_edge_test(void);
 int posix_event_adapter_final_test(void);
 
+int posix_exfat_import_test(void);
+
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"once-exit-child")) return posix_once_exit_child();
     if(argc==2 && !strcmp(argv[1],"futex-exit-child")) return posix_futex_exit_child();
@@ -675,6 +677,11 @@ int main(int argc, char **argv) {
         } \
     } while (0)
 
+    /* Imported-data fixtures exist only in the dedicated disposable-image run. */
+    if (!strcmp(only, "exfat-import") && posix_exfat_import_test() != 0) {
+        say_fail("exfat-import");
+        return 1;
+    }
     RUN_TEST("yield", yield_test);
     RUN_TEST("errno", posix_errno_test);
     RUN_TEST("positional", posix_positional_test);
