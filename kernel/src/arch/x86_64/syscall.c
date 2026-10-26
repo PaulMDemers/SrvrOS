@@ -377,8 +377,9 @@ static bool io_try_pipe_write(uint64_t fd) {
 static bool io_defer_pipe_write(uint64_t fd) {
     if(io_try_pipe_write(fd)) {
         /* Match the try-read contract: never enter descriptor/signal cleanup
-         * while another process owns storage. The UI retries next iteration. */
-        if(scheduler_io_busy()) return true;
+         * while another process owns storage. Request a quiescent retry turn
+         * so a continuous writer cannot starve worker request submission. */
+        if(scheduler_io_busy()) { scheduler_io_request_turn();return true; }
         scheduler_io_set_user_safe(false);
     }
     return false;
@@ -516,7 +517,9 @@ static bool io_try_pipe_read(uint64_t fd) {
 }
 static bool io_defer_pipe_read(uint64_t fd) {
     if(io_try_pipe_read(fd)) {
-        if(scheduler_io_busy()) return true;
+        /* Replies need the same quiescent admission as requests and reaps.
+         * Remain nonblocking and user-safe until the owner has unwound. */
+        if(scheduler_io_busy()) { scheduler_io_request_turn();return true; }
         /* A read can discard transferred file rights and close/flush them.
          * Defer that work during I/O; retain ordinary eligibility otherwise. */
         scheduler_io_set_user_safe(false);

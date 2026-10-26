@@ -2,7 +2,7 @@ import unittest
 from app_timing import validate_app_timing, saved_app_timing
 
 
-def fixture():
+def fixture(files_window_runtime=False):
     lines = []
     for cycle, role in enumerate((2, 1, 4)):
         now = 100
@@ -12,13 +12,16 @@ def fixture():
             lines.append(f'app-timing: pid={cycle+8} role={role} window=1 stage={stage} edge={edge} at_us={now} elapsed_us={elapsed}\n')
         emit('main-entry')
         phases = ['runtime-init', 'pool-init', 'window-open', 'role-init']
-        if role == 2:
+        mapped = role == 2 or (role == 1 and files_window_runtime)
+        if mapped:
             phases.insert(0, 'document-map')
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
         emit('first-publish');emit('close-received')
-        phases = ['history-free'] + (['window-dispose', 'document-unmap', 'pool-retire'] if role == 2 else ['job-drain', 'window-close'])
-        if role == 1:
+        if role == 1 and files_window_runtime:
+            emit('close-ack')
+        phases = ['history-free'] + (['window-dispose', 'document-unmap', 'pool-retire'] if mapped else ['job-drain', 'window-close'])
+        if role == 1 and not mapped:
             phases.append('pool-retire')
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
@@ -27,6 +30,20 @@ def fixture():
 
 
 class TimingTests(unittest.TestCase):
+    def test_shared_files_requires_complete_new_lifecycle(self):
+        raw = fixture(files_window_runtime=True)
+        result = validate_app_timing(raw, [(0, 8), (1, 9), (2, 10)], files_window_runtime=True)
+        self.assertEqual(result[1]['phases_us']['document-unmap'], [10])
+        with self.assertRaises(AssertionError):
+            validate_app_timing(raw, [(0, 8), (1, 9), (2, 10)])
+        for phase in ('document-map', 'window-dispose', 'document-unmap', 'pool-retire', 'close-ack'):
+            bad = b'\n'.join(line.replace(('stage='+phase).encode(), b'stage=missing')
+                             if b'pid=9 ' in line else line for line in raw.splitlines())
+            with self.subTest(phase=phase), self.assertRaises(AssertionError):
+                validate_app_timing(bad, [(0, 8), (1, 9), (2, 10)], files_window_runtime=True)
+        with self.assertRaises(AssertionError):
+            validate_app_timing(fixture(), [(0, 8), (1, 9), (2, 10)], files_window_runtime=True)
+
     def test_complete_roles(self):
         result = validate_app_timing(fixture(), [(0, 8), (1, 9), (2, 10)])
         self.assertEqual([r['role'] for r in result], [2, 1, 4])
