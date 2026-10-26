@@ -305,6 +305,7 @@ struct xhci_wifi_mcu {
     bool channel_probe_mode,channel_probe_active;unsigned channel_probe_submitted;struct mt76_channel_probe channel_probe;
     bool band2g_mode,band2g_active,band_mac_active;unsigned band2g_submitted,band_mac_submitted;struct mt76_rf_table band2g;struct mt76_band_mac band_mac;
     bool synth1_mode,synth1_active;unsigned synth1_submitted;struct mt76_synth1 synth1;
+    bool post_mode,post_active,post_mac_active;unsigned post_submitted,post_mac_submitted;struct mt76_rf_table post;struct mt76_post_mac post_mac;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
     bool path_mode,path_active;

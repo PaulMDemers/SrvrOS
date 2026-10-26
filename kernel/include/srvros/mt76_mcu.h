@@ -674,4 +674,29 @@ bool mt76_synth1_admit(const struct mt76_synth1 *s,unsigned operation);
 size_t mt76_synth1_packet(const struct mt76_synth1 *s,unsigned operation,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_synth1_capture(struct mt76_synth1 *s,const struct mt76_mcu_timing_io *io);
 bool mt76_synth1_exact_profile_valid(const struct mt76_synth1 *s);
+/* Fixed post-channel20MHz/G-band replay; same numeric table, distinct owner/sequence. */
+#define MT76_POST_COUNT 19u
+#define MT76_POST_COMMANDS 38u
+#define MT76_POST_OPS 266u
+uint32_t mt76_post_address(unsigned index);
+unsigned mt76_post_value(unsigned index);
+unsigned mt76_post_sequence(unsigned command);
+uint32_t mt76_post_guard_address(unsigned operation);
+size_t mt76_post_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_post_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_post_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_post_exact_profile_valid(const struct mt76_rf_table *s);
+struct mt76_post_mac {
+    bool attempted,complete;
+    unsigned operations,reads,writes,verified;
+    uint32_t before[3],after[3],guards[6][3];
+};
+struct mt76_post_mac_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,unsigned,bool,uint32_t,uint8_t *,unsigned);};
+uint32_t mt76_post_mac_address(unsigned index);
+uint32_t mt76_post_mac_value(unsigned index,uint32_t before);
+bool mt76_post_mac_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_post_mac_transfer_valid(const struct mt76_post_mac *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_post_mac_apply(struct mt76_post_mac *s,const struct mt76_post_mac_io *io);
+bool mt76_post_mac_exact_profile_valid(const struct mt76_post_mac *s);
+uint32_t mt76_post_mac_initial(unsigned index);
 #endif

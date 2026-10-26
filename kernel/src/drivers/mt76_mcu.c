@@ -1786,6 +1786,8 @@ static const struct rf_table_plan rf_bank5_plan={MT76_RF_BANK5_COUNT,96,0x800500
 static const struct rf_table_plan rf_bank6_plan={MT76_RF_BANK6_COUNT,232,0x80060000u,rf_bank6_regs,rf_bank6_values,NULL};
 static const struct rf_table_plan rf_vga_plan={MT76_RF_VGA_COUNT,308,0x80070000u,rf_vga_regs,rf_vga_values,NULL};
 static const struct rf_table_plan rf_g20_plan={MT76_RF_G20_COUNT,378,0,NULL,rf_g20_values,rf_g20_addresses};
+/* Reference channel tail replays these tables after synth1 finishes sequence8. */
+static const struct rf_table_plan post_plan={19,8,0,NULL,rf_g20_values,rf_g20_addresses};
 static const struct rf_table_plan rf_trim_plan={1,416,0,NULL,rf_trim_values,rf_trim_addresses};
 /* Linux v7.0 set_band: replay 2G table, RF5:0=45, RF6:0=44. */
 static const uint32_t rf_band2g_addresses[70]={0x80050002u,0x80050003u,0x80050004u,0x80050005u,0x80050006u,0x80050007u,0x80050008u,0x80050009u,0x8005000au,0x8005000bu,0x8005000cu,0x8005000du,0x8005000eu,0x8005000fu,0x80050010u,0x80050011u,0x80050012u,0x80050013u,0x80050014u,0x80050015u,0x80050016u,0x80050017u,0x80050018u,0x8005001au,0x8005001bu,0x8005001cu,0x8005001du,0x8005001eu,0x8005001fu,0x80050020u,0x80050021u,0x80050022u,0x80050023u,0x80050024u,0x80050025u,0x80050026u,0x80050027u,0x80050028u,0x80050029u,0x8005002au,0x8005002bu,0x8005002cu,0x8005002du,0x8005002eu,0x8005002fu,0x80050030u,0x80050031u,0x80050032u,0x80050033u,0x80050034u,0x80050035u,0x80050036u,0x80050037u,0x80050038u,0x80050039u,0x8005003au,0x8005003bu,0x8005003cu,0x8005003du,0x8005003eu,0x8005003fu,0x80050040u,0x80050041u,0x80050042u,0x80050043u,0x80050044u,0x80050045u,0x8005007fu,0x80050000u,0x80060000u};
@@ -2520,3 +2522,68 @@ enum mt76_mcu_timing_status mt76_synth1_capture(struct mt76_synth1 *s,const stru
     s->complete=true;return MT76_TIMING_OK;
 }
 bool mt76_synth1_exact_profile_valid(const struct mt76_synth1 *s){return s && s->complete && synth1_state_valid(s,441);}
+
+unsigned mt76_post_sequence(unsigned q){return rf_plan_sequence(&post_plan,q);}
+uint32_t mt76_post_address(unsigned i){return rf_plan_address(&post_plan,i);}
+unsigned mt76_post_value(unsigned i){return i<19?rf_g20_values[i]:UINT32_MAX;}
+uint32_t mt76_post_guard_address(unsigned op){return rf_plan_guard_address(&post_plan,op);}
+size_t mt76_post_packet(unsigned op,uint8_t *out,size_t cap){return rf_plan_packet(&post_plan,op,out,cap);}
+bool mt76_post_admit(const struct mt76_rf_table *s,unsigned op){return rf_plan_admit(&post_plan,s,op);}
+enum mt76_mcu_timing_status mt76_post_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io){return rf_plan_capture(&post_plan,s,io);}
+bool mt76_post_exact_profile_valid(const struct mt76_rf_table *s){return s && s->complete && rf_plan_state_valid(&post_plan,s,266) && s->equal==19 && !s->mismatch_mask && !s->mismatch_hi;}
+
+uint32_t mt76_post_mac_address(unsigned i){static const uint32_t a[3]={0x518,0x13a8,0x13b4};return i<3?a[i]:UINT32_MAX;}
+uint32_t mt76_post_mac_value(unsigned i,uint32_t before){static const uint32_t mask[3]={0xc,UINT32_MAX,0x769bff00},value[3]={0,0x63707400,0};return i<3?(before&~mask[i])|value[i]:UINT32_MAX;}
+bool mt76_post_mac_request(unsigned op,bool *write,uint32_t *address){
+    if(op>=27 || !write || !address)return false;
+    unsigned n=op%9;*write=n==4;*address=n<3?mt76_rf_probe_read_address(n):n>=6?mt76_rf_probe_read_address(n-6):mt76_post_mac_address(op/9);
+    return true;
+}
+static bool post_mac_state_valid(const struct mt76_post_mac *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>27)return false;
+    unsigned writes=0,verified=0;
+    for(unsigned i=0;i<3;i++){
+        unsigned done=op>=9*(i+1)?9:op>9*i?op-9*i:0;
+        for(unsigned j=0;j<3;j++){
+            if(done>j && !rf_central_guard_valid(j,s->guards[i*2][j]))return false;
+            if(done>6+j && !rf_central_guard_valid(j,s->guards[i*2+1][j]))return false;
+        }
+        if(done>3 && s->before[i]!=mt76_post_mac_initial(i))return false;
+        if(done>4)writes++;
+        if(done>5){if(s->after[i]!=mt76_post_mac_value(i,s->before[i]))return false;verified++;}
+    }
+    return s->writes==writes && s->verified==verified && s->reads==op-writes;
+}
+bool mt76_post_mac_transfer_valid(const struct mt76_post_mac *s,unsigned op,bool write,uint32_t a,const uint8_t *data,unsigned length){
+    bool w;uint32_t address;
+    if(!s || s->complete || !data || length!=4 || !mt76_post_mac_request(op,&w,&address) || write!=w || a!=address || !post_mac_state_valid(s,op))return false;
+    if(write){uint32_t v=mt76_post_mac_value(op/9,s->before[op/9]);for(unsigned j=0;j<4;j++)if(data[j]!=(uint8_t)(v>>(8*j)))return false;}
+    return true;
+}
+enum mt76_mcu_timing_status mt76_post_mac_apply(struct mt76_post_mac *s,const struct mt76_post_mac_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_post_mac){.attempted=true};
+    for(unsigned op=0;op<27;op++){
+        bool write;uint32_t a;unsigned i=op/9,n=op%9;uint8_t data[4]={0};
+        if(!mt76_post_mac_request(op,&write,&a))return MT76_TIMING_STATE;
+        if(write){uint32_t v=mt76_post_mac_value(i,s->before[i]);for(unsigned j=0;j<4;j++)data[j]=(uint8_t)(v>>(8*j));}
+        if(!mt76_post_mac_transfer_valid(s,op,write,a,data,4))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(!io->transfer(io->context,op,write,a,data,4))return MT76_TIMING_IO;
+        uint32_t v=0;for(unsigned j=0;j<4;j++)v|=(uint32_t)data[j]<<(8*j);
+        s->operations++;if(write)s->writes++;else s->reads++;
+        if(n<3 || n>=6){unsigned j=n<3?n:n-6;s->guards[i*2+(n>=6)][j]=v;if(!rf_central_guard_valid(j,v))return MT76_TIMING_STATE;}
+        else if(n==3){s->before[i]=v;if(v!=mt76_post_mac_initial(i))return MT76_TIMING_STATE;}
+        else if(n==5){s->after[i]=v;if(v!=mt76_post_mac_value(i,s->before[i]))return MT76_TIMING_STATE;s->verified++;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!post_mac_state_valid(s,27))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
+
+uint32_t mt76_post_mac_initial(unsigned i){static const uint32_t v[3]={1,0x6c6c6c6c,0xc9540000};return i<3?v[i]:UINT32_MAX;}
+bool mt76_post_mac_exact_profile_valid(const struct mt76_post_mac *s){
+    if(!s || !s->complete || !post_mac_state_valid(s,27))return false;
+    for(unsigned i=0;i<3;i++)if(s->before[i]!=mt76_post_mac_initial(i) || s->after[i]!=mt76_post_mac_value(i,s->before[i]))return false;
+    return true;
+}

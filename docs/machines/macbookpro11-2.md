@@ -7455,3 +7455,29 @@ unmounted, reboot unarmed. Full evidence archived outside build under
 `wifi-synth1-0ee9efb`. This accepts bounded synthesizer field writes/readbacks,
 not PLL lock, calibrated RF or connectivity. Next: post-tune bandwidth/band
 setup and fresh PA/gain prerequisites before VCO/MAC enable; no new run armed.
+
+
+### 2026-10-25 — v84 post-tune band/gain candidate and local checks
+
+New private post-synthesizer plan replays the19 reference20MHz/G-band entries,
+sequences9..1:266 ordered operations/228 guard reads/38 replies/19 ACKs/
+19 observations/76 strict guard triplets. All19 matching readbacks admit the
+three-target internal-PA MAC tail: fresh518=1,13a8=6c6c6c6c,13b4=c9540000
+must independently become1,63707400,89440000(hex).27 operations/24 reads/
+3 writes/3 verified/6 strict triplets; fresh-profile or masked-readback mismatch
+refuses. Same-boot complete mapped NICfd11/1004 proof required; internal2G PA
+bit8 asserted, no external branch or transmit-power inference.
+
+Independent pinned-reference table/order and PA/MAC audit passed. Directed
+engines and complete xHCI suite cover266 RF/27 MAC positions,196 prior/state/
+PA faults, packet bits, no USB on refusal/replay and failure quarantine.
+Whole prior+new collector fixture495282bytes fits512KiB;1380 malformed proofs
+refuse and boot-module namespace survives.163 staging tests and166 historical
+recipes unchanged. Build/sanitizer/exact-stage VM/install follow; native result
+pending. No VCO/calibration, MAC enable, scan or traffic.
+
+
+v84 full build and both RF/MAC ASan/UBSan runs passed. All directed engines,
+complete xHCI suite, independent reference audit, staging/history and strict
+whole-chain collector checks passed. Exact-stage VM/install follows; these
+local checks do not accept RF functionality or native post-tune readbacks.

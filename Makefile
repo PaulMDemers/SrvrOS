@@ -3885,3 +3885,20 @@ test-mt76-synth1: build/tests/mt76-synth1-host$(HOST_EXE)
 build/tests/mt76-synth1-host$(HOST_EXE): tools/test_mt76_synth1.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-post
+test-core: test-mt76-post
+test-mt76-post: build/tests/mt76-post-host$(HOST_EXE)
+	build/tests/mt76-post-host$(HOST_EXE)
+build/tests/mt76-post-host$(HOST_EXE): tools/test_mt76_post.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+
+.PHONY: test-mt76-post-mac
+test-core: test-mt76-post-mac
+test-mt76-post-mac: build/tests/mt76-post-mac-host$(HOST_EXE)
+	build/tests/mt76-post-mac-host$(HOST_EXE)
+build/tests/mt76-post-mac-host$(HOST_EXE): tools/test_mt76_post_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

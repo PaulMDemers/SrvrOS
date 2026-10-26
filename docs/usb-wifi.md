@@ -3422,3 +3422,32 @@ Evidence archived, unmounted/unarmed. Bounded field setup/readbacks passed;
 PLL lock, calibrated radio and Wi-Fi connectivity remain untested. Next scope:
 post-tune bandwidth/band tables and fresh PA/gain prerequisites before VCO or
 MAC enable.
+
+
+### Post-tune20MHz/G-band and internal-PA MAC tail (v84 candidate)
+
+After full exact v83 synthesizer proof, replay the reference-selected19 RF
+bandwidth/band entries in source order (nine20MHz then tenG-band). This is a
+separate private plan with sequences9..1 after synth1 ends8; earlier G20
+initialization and its predicate remain unchanged.266 operations,228 guard
+reads,38 exact replies,19 ACKs,19 independent observations and76 strict
+MAC0/COREf000f200/DMA40000050 triplets. Only19 exact matching readbacks with
+zero mismatch masks admit the MAC tail.
+
+Require complete same-boot mapped board-field proof (`fd11`/`1004`). The
+pinned reference interprets NIC0 bit8 as internal2G PA; this profile sets it.
+No external-PA branch or inferred transmit power. A fixed marker records this
+admission without raw fields. MAC tail requires fresh518=1,13a8=6c6c6c6c,
+13b4=c9540000(hex), then clears518 bits0c, writes13a8=63707400 and masks
+13b4 with896400ff. Independent readbacks must be1,63707400,89440000.
+27 ordered transfers,24 reads,3 writes/verified and6 more guard triplets.
+Unmasked bits preserved; foreign fresh values refuse before write.
+
+Independent source-table selection/order, PA interpretation and MAC masks
+checked against pinned Linux v7.0. Directed engine and native admission tests
+cover266 RF and27 MAC positions,196 ownership/state/PA faults, all command
+bits, no USB on refusal, no replay and failure quarantine. Whole-chain fixture
+495282bytes fits explicit512KiB;1380 malformed proofs refuse, with namespace
+preservation.163 staging tests and166 historical recipes checked unchanged.
+Build/sanitizer/VM/install checks follow; physical acceptance pending. No VCO,
+calibration, MAC enable, scanning or traffic; no calibrated-radio acceptance.
