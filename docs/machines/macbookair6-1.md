@@ -56,7 +56,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; 30-minute automated audio/app overlap completes 3,263 verified disk bursts with preserved prior files and clean allocation | Responsiveness remains marginal: latest 30-minute run passes the 500 ms bound by 1.756 ms; earlier failures, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app overlap passes 3,091 verified disk bursts and 692 app cycles with preserved prior files and clean allocation | Private child-image scope reduces the worst loop to 111.984 ms against the unchanged 500 ms limit; broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -3459,3 +3459,43 @@ responsiveness improvement is pending the matching returned receipt, file
 preservation/allocation checks and listening confirmation; collect before another
 trial. Local run `b907f47823d34af2` is under
 `build/battery/air61-launch-audit-20261026`, with a durable copy outside `build`.
+
+### Private app-image ownership — native return (2026-10-26)
+
+Run `b907f47823d34af2`, release `204302d98c2906fd`, compiled `daa94dd8`
+(PR192 merged as `33edbafc`), returned automatically to Ubuntu. Exactly one
+matching session, `session-00065ec63701f318-00`, contains the final workload,
+loop, application and battery retirement receipts. This is a **PASS for the
+bounded automated workload**, including the user’s subsequent confirmation that
+sound remained steady throughout all 30 minutes.
+
+The full 1,800 seconds submitted 345,600,000 PCM bytes with zero underruns and
+worker status zero. Continuous verified filesystem work completed 3,091 bursts
+(810,287,104 bytes), spanning 1,797.237424 seconds within live playback. Automatic
+Text/Files/System cycles completed 692 times with zero errors; worst readiness
+was 1.835340 s and worst close 2.871404 s. All limits and workload pacing remain
+unchanged. Retained complete app phases for cycles 674–691 independently validate;
+they are a tail, not a replacement for the full-run aggregate receipt.
+
+Worst desktop loop is now **111.984 ms**, down from 498.244 ms in the previous
+run, across 93,834 samples with zero over-limit or invalid measurements. Of that
+worst loop, 111.880 ms is wait and 104 microseconds is other measured work. The
+scheduler records 99.833 ms blocked, 12.014 ms READY and zero I/O exclusions;
+the timeout wakes on its deadline tick. The previous worst recorded 401.159 ms
+READY and 23 exclusions. This supports the private-image ownership fix on this
+unit without claiming that every workload or longer endurance is accepted.
+
+Battery epoch 1 retires after 10,530 queries and 54 notifications with one
+attach/detach and zero heap, errors or denials. All 392 pre-existing files are
+preserved except expected `.srvros/meta` bookkeeping; the 398-file result has
+1,076 allocated clusters, zero leaks/mismatches/errors and clean offline fsck.
+GRUB one-shot is consumed and the matching collector disables itself. The
+333-file returned evidence backup was hash-verified outside `build`; diagnostic
+closeout files are subsequently added to that backup. No new reboot is armed.
+
+Closeout base is `ab7a7c93` (PR193 adds only the Air7,2 record). PR194 owns
+window/dock work, PR182 storage hardening and PR19 Wi-Fi; this closeout changes
+only the Air6,1 machine record. The next useful acceptance is attended interactive
+use under the same automated background workload, if desired, rather than a
+higher latency limit. Retain separate limits for this bounded result and broader
+interactive behavior.
