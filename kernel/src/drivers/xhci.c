@@ -306,6 +306,7 @@ struct xhci_wifi_mcu {
     bool band2g_mode,band2g_active,band_mac_active;unsigned band2g_submitted,band_mac_submitted;struct mt76_rf_table band2g;struct mt76_band_mac band_mac;
     bool synth1_mode,synth1_active;unsigned synth1_submitted;struct mt76_synth1 synth1;
     bool post_mode,post_active,post_mac_active;unsigned post_submitted,post_mac_submitted;struct mt76_rf_table post;struct mt76_post_mac post_mac;
+    bool gain_mode,gain_active,gain_inventory_active;struct mt76_rx_fields gain_fields;struct mt76_efuse_map_gate gain_gate;unsigned gain_inventory_submitted;struct mt76_gain_inventory gain_inventory;
     unsigned channel_state_submitted;
     struct mt76_channel_state channel_state;
     bool path_mode,path_active;

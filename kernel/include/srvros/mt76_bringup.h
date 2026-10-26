@@ -165,4 +165,12 @@ bool mt76_trim_fields_command(uint32_t previous,unsigned block,uint32_t *command
 bool mt76_trim_fields_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
 bool mt76_trim_fields_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
 enum mt76_capture_status mt76_capture_trim_fields(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_trim_fields *);
+/* Fixed mapped40 RX gain observations; raw block is scrubbed, never logged. */
+struct mt76_rx_fields {bool attempted,complete,valid;unsigned reads,writes,polls,blocks;uint8_t lna_raw,lna,rssi_clamped;int rssi[2];uint32_t agc8;};
+void mt76_rx_gain_decode(uint8_t lna,uint16_t rssi,struct mt76_rx_fields *s);
+bool mt76_rx_fields_valid(const struct mt76_rx_fields *s);
+bool mt76_rx_fields_command(uint32_t previous,unsigned block,uint32_t *command);
+bool mt76_rx_fields_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
+bool mt76_rx_fields_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
+enum mt76_capture_status mt76_capture_rx_fields(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_rx_fields *);
 #endif

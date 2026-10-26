@@ -7546,3 +7546,24 @@ Evidence archived outside build under `wifi-post-f67ee1b`. Bounded post-tune
 setup/readbacks accepted, not PLL lock, calibrated radio or connectivity.
 Next audit channel-specific BBP/filter/gain and VCO/calibration prerequisites;
 no new run armed.
+
+
+### 2026-10-25 — v85 mapped RX gain and BBP prerequisite implementation
+
+Before channel-BBP gain writes, capture fixed mapped logical40 LNA44/RSSI46/47
+and read CORE1 plus20 channel-BBP targets. No filter/BBP/RF/MAC data writes;
+one mode-zero EFUSE read-select only, never programming. Decode reference
+LNAff->0, signed RSSI[-10,10] clamp/mask and uint8/7-bit AGC8 arithmetic as
+observations. Raw block is scrubbed/not logged; unknown output families refuse.
+Same exact ASIC/MAC and whole v84 post-tune owner chain required.
+
+Host tests cover old/new EFUSE profiles, every I/O/cancel/timeout/unmapped/
+command-bit boundary,65536 decoder inputs and output clearing; inventory27
+reads/all-ones/failure/cancel/late-state/no replay. Complete xHCI suite includes
+13 mapped phases/27 inventory positions/216 ownership/state/profile faults,
+refused USB and quarantine. Full build and both ASan/UBSan suites passed.
+Independent pinned source offsets/arithmetic/21-target audit passed;164 staging
+tests/168 historical recipes unchanged. Full501863-byte synthetic prefix passes
+whole prior proof/namespace preservation,450 malformed refusals, unknown raw
+family refusal and four valid alternate LNA observations. Exact-stage VM/install
+follows; native gain values unknown. No calibrated-radio/connectivity acceptance.

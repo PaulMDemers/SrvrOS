@@ -444,4 +444,25 @@ static void trim_fields_test(void){
  puts("trim fields: PASS fixed30/d0, captured profile, every transfer/cancel/field bit, unmapped/timeout/control refusal, no replay and all65536 decoder cases");
 }
 
-int main(void) { trim_fields_test(); ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+
+struct rx_map {struct map_fake f;struct mt76_efuse_map_gate g;};
+static void rx_init(struct rx_map *f){*f=(struct rx_map){0};map_init(&f->f);memset(f->f.bytes,0,32);f->f.bytes[4]=10;f->f.bytes[6]=0xfd;f->f.bytes[7]=7;}
+static bool rx_read(void *p,uint32_t a,uint32_t *v){struct rx_map *f=p;*v=0;if(!mt76_rx_fields_begin(&f->g,false,a,0))return false;bool ok=map_read(&f->f,a,v);return mt76_rx_fields_finish(&f->g,ok,*v);}
+static bool rx_write(void *p,uint32_t a,uint32_t v){struct rx_map *f=p;if(!mt76_rx_fields_begin(&f->g,true,a,v))return false;bool ok=map_step(&f->f);if(ok){assert(a==0x24 && !f->f.writes && !(v&(3u<<6)) && ((v>>16)&1023)==0x40);f->f.writes++;f->f.block=0;f->f.ctrl=v;}return mt76_rx_fields_finish(&f->g,ok,v);}
+static bool rx_delay(void *p,uint32_t us){struct rx_map *f=p;return mt76_efuse_map_delay(&f->g,us) && map_delay(&f->f,us);}
+static bool rx_auth(void *p){struct rx_map *f=p;return !f->g.failed && map_auth(&f->f);}
+static enum mt76_capture_status rx_run(struct rx_map *f,struct mt76_rx_fields *s){const struct mt76_identity id={0x76100002,0x76502000};const struct mt76_efuse_map_io io={{f,rx_read,rx_write,rx_delay},rx_auth};return mt76_capture_rx_fields(&io,&id,s);}
+static void rx_fields_test(void){
+ struct rx_map f;rx_init(&f);struct mt76_rx_fields s={0};assert(rx_run(&f,&s)==MT76_CAPTURE_OK && mt76_rx_fields_valid(&s) && s.reads==12 && s.writes==1 && s.polls==1 && s.blocks==1 && s.lna==10 && s.rssi[0]==-3 && s.rssi[1]==7 && s.agc8==0x16343af0);
+ unsigned calls=f.f.calls,auth=f.f.auth;assert(f.g.phase==15 && f.g.block==1 && f.g.submitted==13 && rx_run(&f,&s)==MT76_CAPTURE_REFUSED);
+ for(unsigned n=1;n<=calls;n++){rx_init(&f);f.f.fail=n;s=(struct mt76_rx_fields){0};assert(rx_run(&f,&s)!=MT76_CAPTURE_OK && !s.complete && !s.lna && !s.agc8);assert(rx_run(&f,&s)==MT76_CAPTURE_REFUSED);}
+ for(unsigned n=1;n<=auth;n++){rx_init(&f);f.f.deny=n;s=(struct mt76_rx_fields){0};assert(rx_run(&f,&s)==MT76_CAPTURE_CANCELLED && !s.complete && !s.agc8);}
+ rx_init(&f);f.f.stuck=true;s=(struct mt76_rx_fields){0};assert(rx_run(&f,&s)==MT76_CAPTURE_TIMEOUT && s.polls==1024 && !s.complete);
+ rx_init(&f);f.f.unmapped=true;s=(struct mt76_rx_fields){0};assert(rx_run(&f,&s)!=MT76_CAPTURE_OK && !s.agc8);
+ for(unsigned n=0;n<32;n++){uint32_t cmd;assert(mt76_rx_fields_command(0x8000a500,0,&cmd));struct mt76_efuse_map_gate g={.phase=4,.control=0x8000a500};assert(!mt76_rx_fields_begin(&g,true,0x24,cmd^(1u<<n)) && g.failed);}
+ for(unsigned phase=0;phase<15;phase++)if(phase!=6 && phase!=7){struct mt76_efuse_map_gate g={.phase=phase};assert(!mt76_rx_fields_begin(&g,phase!=4,0xdead,0) && g.failed);}
+ uint32_t cmd;assert(!mt76_rx_fields_command(0,1,&cmd));
+ for(unsigned lna=0;lna<256;lna++)for(unsigned raw=0;raw<256;raw++){s=(struct mt76_rx_fields){0};mt76_rx_gain_decode(lna,(uint16_t)(raw|((255-raw)<<8)),&s);unsigned effective=lna==255?0:lna;assert(s.lna==effective && s.agc8==((0x16344ef0u&~0x7f00u)|(((78-effective*2)&127)<<8)));for(unsigned i=0;i<2;i++){int v=i?255-(int)raw:(int)raw;if(v>=128)v-=256;bool clamp=v < -10 || v > 10;assert(s.rssi[i]==(clamp?0:v) && !!(s.rssi_clamped&(1u<<i))==clamp);}}
+ puts("RX gain fields: PASS fixed mapped40, all transfer/cancel/timeout/unmapped boundaries, command bits, scrub/no replay and65536 decoder inputs");
+}
+int main(void) { rx_fields_test();trim_fields_test(); ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

@@ -2587,3 +2587,26 @@ bool mt76_post_mac_exact_profile_valid(const struct mt76_post_mac *s){
     for(unsigned i=0;i<3;i++)if(s->before[i]!=mt76_post_mac_initial(i) || s->after[i]!=mt76_post_mac_value(i,s->before[i]))return false;
     return true;
 }
+
+uint32_t mt76_gain_inventory_target(unsigned i){return i<21?(i?mt76_bbp_switch_address(i-1):0x2004):UINT32_MAX;}
+uint32_t mt76_gain_inventory_address(unsigned op){return op<3?mt76_rf_probe_read_address(op):op<24?mt76_gain_inventory_target(op-3):op<27?mt76_rf_probe_read_address(op-24):UINT32_MAX;}
+static bool gain_inventory_state_valid(const struct mt76_gain_inventory *s,unsigned op){
+    if(!s || !s->attempted || op>27 || s->reads!=op)return false;
+    for(unsigned k=0;k<op;k++)if(k<3 || k>=24){unsigned edge=k>=24,j=edge?k-24:k;if(!rf_central_guard_valid(j,s->guards[edge][j]))return false;}else if(s->values[k-3]==UINT32_MAX)return false;
+    return true;
+}
+bool mt76_gain_inventory_admit(const struct mt76_gain_inventory *s,unsigned op){return s && !s->complete && op<27 && gain_inventory_state_valid(s,op);}
+enum mt76_mcu_timing_status mt76_gain_inventory_capture(struct mt76_gain_inventory *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_gain_inventory){.attempted=true};
+    for(unsigned op=0;op<27;op++){
+        if(!mt76_gain_inventory_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        uint32_t *v=op<3?&s->guards[0][op]:op>=24?&s->guards[1][op-24]:&s->values[op-3];
+        if(!io->read(io->context,mt76_gain_inventory_address(op),v))return MT76_TIMING_IO;
+        s->reads++;if(*v==UINT32_MAX || ((op<3 || op>=24) && !rf_central_guard_valid(op<3?op:op-24,*v)))return MT76_TIMING_STATE;
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(s->complete || !gain_inventory_state_valid(s,27))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}

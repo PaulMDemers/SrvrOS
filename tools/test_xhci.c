@@ -5072,6 +5072,62 @@ static void test_wifi_post(void){
  }
  reset_test();assert(!xhci_wifi_capture_post());puts("xhci post: PASS266 RF and27 MAC positions,196 ownership/state/PA faults, all packet bits, refusal/no replay/quarantine");
 }
+
+static void gain_fixture(struct xhci_device *d){
+ post_fixture(d,266);struct xhci_wifi_mcu *m=&d->firmware.mcu;m->post_mac_active=true;m->post_mac_submitted=27;m->post_mac=(struct mt76_post_mac){.attempted=true,.complete=true,.operations=27,.reads=24,.writes=3,.verified=3};
+ for(unsigned j=0;j<3;j++){m->post_mac.before[j]=mt76_post_mac_initial(j);m->post_mac.after[j]=mt76_post_mac_value(j,m->post_mac.before[j]);}
+ for(unsigned j=0;j<6;j++){m->post_mac.guards[j][1]=0xf000f200;m->post_mac.guards[j][2]=0x40000050;}
+ assert(mt76_post_mac_exact_profile_valid(&m->post_mac));m->gain_mode=m->gain_active=true;
+}
+static void gain_fault(struct xhci_wifi_mcu *m,unsigned f){
+ if(f<=196){if(f==192)m->post.complete=false;else post_fault(m,f);}
+ if(f==197)m->gain_mode=false;
+ if(f==198)m->gain_active=false;
+ if(f==199)m->post_mac.complete=false;
+ if(f==200)m->post_mac.before[0]^=1;
+ if(f==201)m->post_mac.after[2]^=1;
+ if(f==202)m->post_mac_submitted++;
+}
+static void test_wifi_gain(void){
+ const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
+ for(unsigned j=0;j<13;j++)for(unsigned fault=0;fault<208;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};struct xhci_device *d=&xhci.devices[0];gain_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;unsigned phase=phases[j];uint32_t cmd;assert(mt76_rx_fields_command(0x8000a500,0,&cmd));
+  m->gain_fields.attempted=true;m->gain_gate=(struct mt76_efuse_map_gate){.phase=phase,.control=0x8000a500,.command=cmd};
+  uint32_t value=phase==1 || phase==14?0xf000f200:phase==2?0x40000050:phase==3?0x8000a500:phase==5 || phase==8?cmd&~(1u<<30):0;
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==207?6:1,0);
+  uint32_t a=phase==0 || phase==13?0x1004:phase==1 || phase==14?0x2000:phase==2?0x208:phase>=9 && phase<=12?0x28+(phase-9)*4:0x24;
+  if(phase!=4){trim_reply_device=d;trim_reply_value=value;}
+  if(fault<=202)gain_fault(m,fault);
+  if(fault==203)m->gain_inventory_active=true;
+  if(fault==204)a++;
+  if(fault==205)m->gain_gate.pending=true;
+  if(fault==206){if(phase==4)cmd^=0x40;else a++;}
+  bool ok=phase==4?wifi_gain_fields_write(d,a,cmd):wifi_gain_fields_read(d,a,&value);assert(ok==!fault);
+  if(fault==207)assert(d->ep0_quarantined && m->failed && !freed);else if(fault)assert(!d->ep0_enqueue);
+ }
+ for(unsigned op=0;op<27;op++)for(unsigned fault=0;fault<217;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};struct xhci_device *d=&xhci.devices[0];gain_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  m->gain_inventory_active=true;m->gain_fields=(struct mt76_rx_fields){.attempted=true,.complete=true,.valid=true,.reads=12,.writes=1,.polls=1,.blocks=1};mt76_rx_gain_decode(10,0x07fd,&m->gain_fields);
+  m->gain_gate=(struct mt76_efuse_map_gate){.phase=15,.block=1,.submitted=13,.polls=1};m->gain_gate.core[0]=m->gain_gate.core[1]=0xf000f200;m->gain_gate.dma[0]=0x40000050;m->gain_inventory_submitted=op;m->gain_inventory=(struct mt76_gain_inventory){.attempted=true,.reads=op};for(unsigned g=0;g<2;g++){m->gain_inventory.guards[g][1]=0xf000f200;m->gain_inventory.guards[g][2]=0x40000050;}
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;events[0]=control_event(0x9020,fault==213?6:1,0);uint32_t a=mt76_gain_inventory_address(op),v=0;
+  if(fault<=202)gain_fault(m,fault);
+  if(fault==203)m->gain_inventory_active=false;
+  if(fault==204)m->gain_fields.valid=false;
+  if(fault==205)m->gain_fields.agc8^=1;
+  if(fault==206)m->gain_gate.failed=true;
+  if(fault==207)m->gain_gate.submitted++;
+  if(fault==208)m->gain_inventory.reads++;
+  if(fault==209)m->gain_inventory_submitted++;
+  if(fault==210)m->gain_inventory.complete=true;
+  if(fault==211)a++;
+  if(fault==212)m->gain_gate.pending=true;
+  if(fault==214)m->gain_gate.mac[0]=1;
+  if(fault==215)m->gain_gate.core[1]^=1;
+  if(fault==216)m->gain_gate.dma[0]^=1;
+  bool ok=wifi_gain_inventory_read(d,a,&v);assert(ok==!fault);if(!fault)assert(!wifi_gain_inventory_read(d,a,&v));else if(fault==213)assert(d->ep0_quarantined && m->failed && !freed);else assert(!d->ep0_enqueue);
+ }
+ reset_test();assert(!xhci_wifi_capture_gain());puts("xhci gain: PASS13 mapped read-select phases,27 inventory positions,216 ownership/state/profile faults, no USB on refusal/no replay/quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6422,6 +6478,7 @@ int main(int argc, char **argv) {
     test_wifi_band2g();
     test_wifi_synth1();
     test_wifi_post();
+    test_wifi_gain();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

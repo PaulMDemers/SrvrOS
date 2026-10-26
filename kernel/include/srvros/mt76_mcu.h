@@ -699,4 +699,10 @@ bool mt76_post_mac_transfer_valid(const struct mt76_post_mac *s,unsigned operati
 enum mt76_mcu_timing_status mt76_post_mac_apply(struct mt76_post_mac *s,const struct mt76_post_mac_io *io);
 bool mt76_post_mac_exact_profile_valid(const struct mt76_post_mac *s);
 uint32_t mt76_post_mac_initial(unsigned index);
+/* Fixed CORE1 plus20 channel-BBP observations, no data writes. */
+struct mt76_gain_inventory {bool attempted,complete;unsigned reads;uint32_t guards[2][3],values[21];};
+uint32_t mt76_gain_inventory_target(unsigned index);
+uint32_t mt76_gain_inventory_address(unsigned operation);
+bool mt76_gain_inventory_admit(const struct mt76_gain_inventory *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_gain_inventory_capture(struct mt76_gain_inventory *s,const struct mt76_mcu_timing_io *io);
 #endif

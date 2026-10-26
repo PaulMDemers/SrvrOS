@@ -3471,3 +3471,33 @@ frequency lock, calibrated radio and Wi-Fi connectivity remain untested.
 Next: channel-specific baseband/filter/gain prerequisites before VCO/calibration
 or MAC enable.512KiB capture now has only29004 bytes of headroom; any next
 candidate must budget its entire prefix before staging.
+
+
+### Mapped RX gain and channel-BBP prerequisites (v85 candidate)
+
+The reference channel-BBP table adjusts AGC8 using board LNA gain. Before
+writing that adjusted table, a new explicit mode captures logical block40 in
+read mode0, decodes only byte44 LNA and signed46/47 RSSI offsets, and scrubs
+the raw16-byte block on success/failure. One fixed EFUSE read-select write is
+required; programming modes, arbitrary addresses and raw-block logging refuse.
+This software profile4 is separate from unchanged map/header/antenna/trim
+profiles. Fixed ASIC/MAC and whole exact v84 ownership proof remain required.
+
+LNAff maps to0 per pinned reference; RSSI outside[-10,10] clamps to0 with
+explicit mask. AGC8 observation follows reference uint8 subtraction and7-bit
+field placement from16344ef0. Outputs are observations, not permission to
+write a guessed/default board profile. Capture requires one block, one select,
+1..1024 polls,reads11+polls/submitted12+polls,complete phase15, strict MAC/
+CORE guards andDMA40000050. All ordered nonraw receipts and busy/settle delays
+are checked; raw control/data payloads are not logged.
+
+Then CORE1 plus20 fixed channel-BBP targets are read between strict guard
+triplets:27 ordered reads,zero data writes,21 indexed non-all-ones observations.
+No filter/BBP/RF/MAC data write,VCO,MAC enable,scan or traffic. Host tests cover
+all transfer/cancel/timeout/unmapped/command-bit boundaries, raw-output clearing,
+65536 decoder inputs, late-state refusal and no replay; existing EFUSE profiles
+remain strict. Native admission covers13 read-select phases/27 inventory
+positions/216 ownership/state/profile faults and quarantine. Full synthetic
+prefix501863bytes fits512KiB;450 malformed proofs and an unknown raw-output
+family refuse, while four alternative valid LNA observations pass.164 staging
+tests and168 historical recipes unchanged. Native observations pending.
