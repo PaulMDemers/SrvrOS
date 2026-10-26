@@ -90,6 +90,14 @@ extension-fault boundaries. It preserves clean refusal before extension, rejects
 impossible sizes/entry widths, prevents stale-name resurrection past end markers,
 and fixes signed overflow in long-name hash validation. Compound space reservation
 and durable rollback after partial writes remain unimplemented.
+The retirement checkpoint adds eight modes (116 total) and 323 deletion,
+truncation and metadata fault boundaries. It defers sidecar allocation until
+old extents are retired, allowing full-volume truncation and near-full shrinking
+replacement to finish. Deletion and process orphan-identity controls pass.
+Directory growth now uses 161 boundaries because its redundant nested sidecar
+sync is removed. Read-side snapshot cleanup and serialized teardown were traced
+without confirming another defect; process writeback retry policy after a clean
+space refusal remains a follow-on question, separate from backend quarantine.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

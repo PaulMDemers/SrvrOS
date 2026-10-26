@@ -59,7 +59,7 @@ void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
 }
 int64_t net_hold(uint64_t handle) { (void)handle; assert(0);return -1; }
 int64_t net_close(uint64_t handle) { (void)handle; assert(0); return -1; }
-void *kmalloc(uint64_t size) { return fail_alloc ? NULL : malloc(size); }
+void *kmalloc(size_t size) { return fail_alloc ? NULL : malloc(size); }
 void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(!strcmp(path,"/test/output")); saves++;

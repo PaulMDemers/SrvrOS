@@ -430,3 +430,15 @@ Failures after allocation or metadata writes begin can still leave the volume
 quarantined; compound file/sidecar operations do not reserve all future disk space
 up front or offer a journaled rollback. Error reporting remains the existing
 boolean/I/O-failure contract, not a new ENOSPC-specific syscall interface.
+
+
+Truncation and replacement publish and flush the new stream before retiring the
+old allocation, then persist sidecar metadata using the released space. Exact
+allocation aliases still retain their clusters until the last owner retires.
+Directory growth similarly defers sidecar persistence until its enclosing
+operation finishes. Full-volume truncate-to-zero can therefore reclaim space;
+nonzero replacement still needs free space for its new data first. A healthy
+full-volume chmod/utime refusal before payload writes preserves live metadata
+and disk bytes. If a later failure follows publication or retirement, the
+existing dirty/quarantine contract applies. There is no compound reservation or
+promise that every delete/truncate can finish on a full volume.

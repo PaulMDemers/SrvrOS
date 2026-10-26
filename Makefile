@@ -2164,6 +2164,11 @@ test-exfat-growth: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_crash.py --driver $< --growth --output build/review/allocation-growth/crash
 test-core: test-exfat-growth
 
+.PHONY: test-exfat-retirement
+test-exfat-retirement: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_crash.py --driver $< --retirement --output build/review/retirement-sidecar/crash
+test-core: test-exfat-retirement
+
 .PHONY: test-exfat-boot
 test-exfat-boot: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_boot.py --driver $<

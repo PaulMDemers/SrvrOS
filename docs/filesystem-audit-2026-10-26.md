@@ -625,13 +625,88 @@ six-VM results above remain evidence for the identical runtime artifacts.
 `integrated-build.log`, `integrated-macos-build.json` and `integrated-result.json`
 retain this verification under `build/review/allocation-growth/`.
 
+## Deletion/truncation retirement and low-space sidecars
+
+The original `91a4f594` backend fails two healthy-volume reproducers: truncate a
+three-cluster file with no free clusters, or replace it with a one-cluster file
+when exactly one cluster is free. Both have a committed sidecar. Length
+publication eagerly invoked the VFS metadata callback, which attempted sidecar
+allocation before releasing the old extent. That failure quarantined the mount
+and prevented reclamation even though the retired extent would suffice.
+
+Length publication now updates live VFS size/timestamps with its metadata
+callback suppressed. The owning operation flushes the new stream, retires the
+old allocation, and only then persists the sidecar. The existing recursion guard
+and internal-sidecar exclusion are preserved. Directory extension also avoids a
+premature nested sync; its outer create/rename operation persists metadata after
+completion. No data is overwritten in place and alias ownership still prevents
+freeing a surviving name's clusters.
+
+Eight new import modes (116 total) cover full-volume truncation with an existing
+or first-created sidecar, one-free-cluster shrink, deletion, empty-directory
+removal, and clean refusal of chmod, utime and nonzero replacement without space.
+The fixtures allocate every occupied cluster to a real published object and
+pass the allocation checker before mutation. Success checks writable remounts,
+contents, allocation ownership, mode and updated mtime; clean refusals compare
+the entire disk and live metadata. Original failures are retained under
+`build/review/retirement-sidecar/baseline/`.
+
+The new `test-exfat-retirement` target covers 323 write/flush failure, full-prefix
+cut and half-write boundaries across deletion, directory removal, zero truncate,
+shrink, chmod and utime. Clean completed operations verify expected namespace,
+contents/metadata and allocation graph; dirty cuts refuse import or stay
+read-only without recovery writes. Unrelated anchor bytes survive every cut,
+and full-write cuts retain the committed sidecar. The extension sweep now has
+161 boundaries instead of 193 because it no longer performs the extra sidecar
+sync; the dated 193-case evidence above remains historical.
+
+The process unlink, shared-content and orphan tests cover failure before and
+after deletion publication, open descriptions, pathname reuse and last-close.
+Their macOS build initially exposed a stub declaration mismatch (`uint64_t`
+versus the heap API's `size_t`); correcting that test signature restores the
+existing regressions without changing process behavior. The initial compiler
+failure is retained in `host.log` and the passing rerun in `process.log`.
+
+Follow-on source tracing confirms read-all buffers are released on read/FAT
+failure and outputs are published only on success; the backend scope prevents
+teardown during those reads. No additional defect is confirmed by that trace.
+Process writeback retry after clean space refusal remains to be characterized:
+its content object currently latches any backend flush failure, while the backend
+can distinguish a clean refusal from a quarantined partial mutation. Changing
+that policy requires focused process/API evidence, not an assumption that every
+I/O error is safe to retry.
+
+This checkpoint adds no general space reservation, journal, durable rollback or
+ENOSPC-specific syscall mapping. A later sidecar failure may still quarantine a
+partially completed mutation, and allocation retained by another alias is not
+available to fund metadata. Physical power loss, controller reordering and
+Linux exfatprogs repair remain separate gates.
+
+### Retirement checkpoint verification
+
+All 116 import modes pass normally and under ASan/UBSan; all 323 retirement fault
+boundaries pass normally and under ASan/UBSan. The current 161 growth boundaries,
+144 rename/promotion boundaries, 29 boot matrix cases, storage/lease tests and
+process open-content/orphan tests pass. The matched build, six generator groups
+and recursive 372-entry image check pass. Six sequential disposable VMs pass:
+aliases 17.06 s, quarantine 16.60 s, imports 16.99 s, corrupt-entry 16.68 s, threads 40.18 s, libuv 10.61 s.
+
+Evidence and source/artifact hashes are retained under
+`build/review/retirement-sidecar/`; the two original regression failures match
+`91a4f594` byte-for-byte for the backend source. The compiler-stub failure is
+retained separately and is not a test pass. Main remains `ee5468f6`; refreshed
+PR190 (`f1587a2f`) and PR19 (`9a50f4dc`) remain separate with no exFAT overlap.
+Documentation/link and whitespace checks pass. No native hardware test or
+Actions dispatch was performed.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Deletion/truncation retirement and low-space sidecar updates are next. Complete boot
+2. Process writeback retry after clean space refusal is the next bounded question.
+   Deletion/truncation and low-space sidecars now have directed coverage. Complete boot
    regions and bounded system streams now have directed validation coverage;
    automatic repair, multi-cluster bitmap mutation, full Unicode and extended
    file entry sets remain unsupported. Controller reordering, physical power

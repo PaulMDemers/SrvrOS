@@ -1285,3 +1285,40 @@ matched-build receipt. A fresh disposable import VM passes in 17.00 s. The full
 six-VM results above remain evidence for the identical runtime artifacts.
 `integrated-build.log`, `integrated-macos-build.json` and `integrated-result.json`
 retain this verification under `build/review/allocation-growth/`.
+
+## Deletion/truncation retirement — active scope
+
+Continue PR182 from `91a4f594` on integration base `ee5468f6`. Audit exFAT
+retirement ordering and low-space sidecar updates using healthy allocation
+fixtures and write/flush interruption sweeps. Touched areas are exFAT, its host
+fixtures, test targets and current storage guides; process unlink reconciliation
+is inspected with its existing regressions. PR190 (`4c0b3fb7`) owns scheduler
+wait attribution; PR19 (`3cb0a338`) owns USB Wi-Fi. Their actual diffs have no
+exFAT implementation overlap; preserve their separate Makefile targets. Next
+checkpoint is reproduced defects, bounded fixes, sanitized host checks and
+matched disposable VM results. No physical install, native acceptance or merge
+is planned.
+
+### Retirement checkpoint verification
+
+All 116 import modes pass normally and under ASan/UBSan; all 323 retirement fault
+boundaries pass normally and under ASan/UBSan. The current 161 growth boundaries,
+144 rename/promotion boundaries, 29 boot matrix cases, storage/lease tests and
+process open-content/orphan tests pass. The matched build, six generator groups
+and recursive 372-entry image check pass. Six sequential disposable VMs pass:
+aliases 17.06 s, quarantine 16.60 s, imports 16.99 s, corrupt-entry 16.68 s, threads 40.18 s, libuv 10.61 s.
+
+Evidence and source/artifact hashes are retained under
+`build/review/retirement-sidecar/`; the two original regression failures match
+`91a4f594` byte-for-byte for the backend source. The compiler-stub failure is
+retained separately and is not a test pass. Main remains `ee5468f6`; refreshed
+PR190 (`f1587a2f`) and PR19 (`9a50f4dc`) remain separate with no exFAT overlap.
+Documentation/link and whitespace checks pass. No native hardware test or
+Actions dispatch was performed.
+
+The confirmed full-volume truncate/shrink defect is corrected and PR182 remains
+a draft. Follow-on snapshot/teardown tracing confirmed no further defect. Next
+bounded question: process writeback retry after a clean backend space refusal,
+which currently shares the failed-content latch used for uncertain I/O. Native
+unregister/rebind, physical power-loss recovery and broader subsystem coverage
+remain open.

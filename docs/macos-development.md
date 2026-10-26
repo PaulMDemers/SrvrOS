@@ -131,7 +131,7 @@ be canonical, unoccupied and outside other exFAT mount subtrees.
 
 ## Focused storage host tests
 
-`sh tools/macos/build.sh test-exfat-import` runs the 108 portable import/claim/lifecycle
+`sh tools/macos/build.sh test-exfat-import` runs the 116 portable import/claim/lifecycle
 modes; `python3 tools/test_exfat_import.py --sanitize` adds ASan/UBSan. The
 storage adapter aggregate also includes an existing x86 USB fixture. On this
 Mac it was run with Rosetta and the following local compiler wrapper, which
@@ -175,7 +175,14 @@ primary automatically. No native media repair is part of the Mac test recipe.
 
 
 Use `sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-exfat-growth`
-for the 193-case directory-extension fault sweep. It uses disposable synthetic
+for the 161-case directory-extension fault sweep. It uses disposable synthetic
 files and accepts dirty/refused imports after uncertain writes. The directed
 import suite checks that allocation refusals before extension preserve the
 original image and keep the mount writable.
+
+
+Use `sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-exfat-retirement test-process-output`
+for 323 deletion/truncation/metadata fault boundaries and process open-file
+retirement checks. The import suite additionally checks full-volume reclamation
+and clean low-space refusal. All images are disposable; these results do not
+establish physical power-loss recovery or a general space-reservation guarantee.

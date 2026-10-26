@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 108 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 116 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1117,7 +1117,7 @@ recovery or certify full exFAT conformance.
 
 
 `make test-exfat-growth` (included in `test-core`) reuses the portable file-backed
-fault driver with nearly full root and contiguous subdirectories. It runs 193
+fault driver with nearly full root and contiguous subdirectories. It runs 161
 write/flush failure, interruption and half-write boundaries through allocation,
 zero initialization, end-marker retirement, FAT linkage, stream-length updates
 and sidecar persistence. Successful extensions remount and pass allocation
@@ -1132,3 +1132,22 @@ contiguous-directory growth. The long-name case also exercises the corrected
 name-hash rotation under UBSan. These checks distinguish refusal before changes
 from quarantine after partial mutation; they do not promise a durable rollback
 for every failure or physical power-loss atomicity.
+
+
+`make test-exfat-retirement` (included in `test-core`) sweeps 323 write/flush
+failure, persisted-prefix cut and half-write boundaries across file deletion,
+empty-directory removal, truncate-to-zero, shrinking replacement, chmod and
+explicit timestamp updates. Successful operations remount writable with expected
+data, permissions/times and a clean allocation graph. Dirty cuts refuse import
+or remain read-only without recovery writes; unrelated anchor bytes and the
+committed sidecar name survive the modeled full-write cuts. Evidence is saved in
+`build/review/retirement-sidecar/crash/`. Use `tools/test_exfat_crash.py --retirement`
+with `--driver` to repeat against a sanitizer build.
+
+Eight directed import modes exercise healthy full/near-full media: truncation
+with existing or first-created sidecars, shrinking replacement, file/directory
+deletion, and unchanged writable refusal for chmod, utime and replacement without
+space for new data. Remounts check contents, allocation ownership, permissions
+and updated mtime. The directory-growth sweep now has 161 rather than 193
+boundaries because length publication no longer causes an extra nested sidecar
+sync; its root/subdirectory coverage is unchanged.

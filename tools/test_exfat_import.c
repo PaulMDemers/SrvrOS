@@ -401,6 +401,63 @@ static void boot_system_case(const char *mode) {
     else {struct exfat_check_result check;assert(exfat_check("/vol",&check));assert(exfat_write_file("/vol/ok",NULL,0));}
     assert(exfat_unmount("/vol"));
 }
+/* Fill only genuinely free clusters with a published file: checker stays clean.
+ * Suppress the fixture's final sidecar update so every cluster can be occupied. */
+static void retirement_case(const char *mode) {
+    fixture(1100,true);
+    assert(exfat_mount_block_device("/vol",&device));
+    if(!strcmp(mode,"retire-first-sidecar")) {
+        assert(exfat_unmount("/vol"));
+        uint64_t size=(uint64_t)(CLUSTERS-3)*SECTOR;
+        write_u64(disk+offset(2)+64+40,size);write_u64(disk+offset(2)+64+56,size);checksum(disk+offset(2)+64);
+        for(unsigned i=0;i<CLUSTERS;i++)disk[offset(3)+i/8]|=1u<<(i%8);
+        assert(exfat_mount_block_device("/vol",&device));
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+        assert(exfat_write_file("/vol/source",NULL,0));remount();
+        assert(exfat_is_writable("/vol") && exfat_check("/vol",&check));
+        assert(vfs_lookup("/vol/source")->size==0 && vfs_lookup("/vol/.srvros/meta"));
+        assert(exfat_unmount("/vol"));return;
+    }
+    bool shrink=!strcmp(mode,"retire-shrink");
+    bool directory=!strcmp(mode,"retire-directory");
+    if(directory)assert(exfat_create_directory("/vol/empty"));
+    assert(vfs_chmod("/vol/source",0600) && vfs_utime("/vol/source",11,12));
+    struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
+    uint64_t fill=(info.blocks_free-(shrink?1:0))*info.block_size;
+    uint8_t *zeros=calloc(1,fill);assert(zeros);
+    metadata_syncing=true;
+    assert(exfat_write_file("/vol/filler",zeros,fill));
+    metadata_syncing=false;free(zeros);
+    struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    assert(exfat_statfs("/vol",&info) && info.blocks_free==(shrink?1:0));
+    if(!strcmp(mode,"retire-chmod-full") || !strcmp(mode,"retire-utime-full") || !strcmp(mode,"retire-overwrite-full")) {
+        struct vfs_metadata before=vfs_lookup("/vol/source")->metadata;
+        uint8_t *snapshot=malloc(BYTES);assert(snapshot);memcpy(snapshot,disk,BYTES);
+        bool ok=!strcmp(mode,"retire-chmod-full")?vfs_chmod("/vol/source",0644):
+            !strcmp(mode,"retire-utime-full")?vfs_utime("/vol/source",21,22):exfat_write_file("/vol/source",(const uint8_t *)"new",3);
+        assert(!ok && exfat_is_writable("/vol"));
+        assert(!memcmp(snapshot,disk,BYTES));free(snapshot);
+        assert(!memcmp(&before,&vfs_lookup("/vol/source")->metadata,sizeof(before)));
+    } else {
+        bool deleted=!strcmp(mode,"retire-delete");
+        bool ok=deleted?exfat_delete_file("/vol/source"):
+            directory?exfat_delete_directory("/vol/empty"):
+            exfat_write_file("/vol/source",shrink?(const uint8_t *)"new":NULL,shrink?3:0);
+        assert(ok && exfat_is_writable("/vol"));
+        assert(exfat_check("/vol",&check));
+        remount();
+        assert(exfat_is_writable("/vol") && exfat_check("/vol",&check));
+        if(deleted)assert(!vfs_lookup("/vol/source"));
+        else if(directory) {assert(!vfs_lookup("/vol/empty"));check_data("/vol/source",1100);}
+        else {
+            const struct vfs_node *node=vfs_lookup("/vol/source");const uint8_t *data;uint64_t size;
+            assert(node && vfs_read_all(node,&data,&size) && size==(shrink?3:0));
+            assert(!size || !memcmp(data,"new",3));vfs_release_data(node,data);
+            assert((node->metadata.mode&07777)==0600 && node->metadata.mtime==1792326896);
+        }
+    }
+    assert(exfat_unmount("/vol"));
+}
 static void growth_case(const char *mode) {
     fixture(1100,true);
     if(!strcmp(mode,"growth-full")) {
@@ -466,7 +523,8 @@ static void growth_case(const char *mode) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"growth-",7)) {growth_case(mode);
+    if(!strncmp(mode,"retire-",7)) {retirement_case(mode);
+    } else if(!strncmp(mode,"growth-",7)) {growth_case(mode);
     } else if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);
     } else if(!strcmp(mode,"chmod-failure") || !strcmp(mode,"utime-failure")) {
         fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));

@@ -18,7 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--growth',action='store_true',help='Sweep root and contiguous-subdirectory extension')
+    scope=parser.add_mutually_exclusive_group()
+    scope.add_argument('--retirement',action='store_true',help='Sweep deletion, truncation and metadata retirement')
+    scope.add_argument('--growth',action='store_true',help='Sweep root and contiguous-subdirectory extension')
     parser.add_argument('--driver', type=Path, default=ROOT/'build/tests/exfat-driver')
     parser.add_argument('--output', type=Path, default=ROOT/'build/review/rename-sidecar/crash')
     args = parser.parse_args()
@@ -40,11 +42,14 @@ def main():
     run('seed-temp');temporary=image.read_bytes()
     if args.growth:
         image.write_bytes(seed);run('growth-seed');seed=image.read_bytes()
+    if args.retirement:
+        image.write_bytes(seed);run('retirement-seed');seed=image.read_bytes()
     anchor_fixture=ExfatFixture(seed)
     anchor_entry=dict(anchor_fixture.entries(anchor_fixture.chain(anchor_fixture.root)))['anchor.txt']
     anchor_start=anchor_fixture.offset(struct.unpack_from('<I',anchor_entry,52)[0])
     counts={}
     operations=('grow-root','grow-dir') if args.growth else ('rename','replace','recover')
+    if args.retirement:operations=tuple('retire-'+op for op in ('delete','directory','truncate','shrink','chmod','utime'))
     for operation in operations:
         baseline = temporary if operation=='recover' else seed
         if args.growth:
@@ -61,7 +66,9 @@ def main():
         text=run(operation)
         writes, flushes=map(int,re.findall(r'complete writes=(\d+) flushes=(\d+)',text)[0])
         assert writes and flushes
-        if operation!='recover':run('verify-'+operation)
+        if operation!='recover':
+            assert 'operation=PASS' in text
+            run('verify-'+operation)
         else:
             fs=ExfatFixture(image.read_bytes())
             assert fs.read('.srvros/meta')==ExfatFixture(seed).read('.srvros/meta')

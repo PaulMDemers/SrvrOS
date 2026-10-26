@@ -1689,7 +1689,14 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
 
     file->size = size;
     file->valid_size = size;
+    /* The owning operation persists metadata after retiring the old extent (or
+     * finishing directory growth). An eager sidecar allocation can otherwise
+     * exhaust space that this very operation is about to release. The VFS
+     * update and suppressed callback do not yield; retain an outer sync guard. */
+    bool syncing = metadata_syncing;
+    metadata_syncing = true;
     (void)vfs_update_file_size(path, size);
+    metadata_syncing = syncing;
     return true;
 }
 
@@ -1720,7 +1727,7 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
             .no_fat_chain = old_no_fat_chain,
         };
         if (!volume_flush(file->volume)) return false;
-        return free_file_clusters(&old);
+        return free_file_clusters(&old) && exfat_metadata_changed(path, NULL);
     }
 
     /* Always write replacement data into new clusters. In-place overwrite
@@ -1767,7 +1774,7 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
         .no_fat_chain = old_no_fat_chain,
     };
     if (!volume_flush(file->volume)) return false;
-    return free_file_clusters(&old);
+    return free_file_clusters(&old) && exfat_metadata_changed(path, NULL);
 }
 
 static bool bitmap_bit_is_set(const uint8_t *bitmap, uint64_t index) {
