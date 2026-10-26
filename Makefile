@@ -3920,3 +3920,11 @@ test-mt76-channel-bbp: build/tests/mt76-channel-bbp-host$(HOST_EXE)
 	$<
 
 test-core: test-mt76-channel-bbp
+
+.PHONY: test-mt76-post-vco
+test-core: test-mt76-post-vco
+test-mt76-post-vco: build/tests/mt76-post-vco-host$(HOST_EXE)
+	build/tests/mt76-post-vco-host$(HOST_EXE)
+build/tests/mt76-post-vco-host$(HOST_EXE): tools/test_mt76_post_vco.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

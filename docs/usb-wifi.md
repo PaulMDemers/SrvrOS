@@ -3592,3 +3592,31 @@ build. Bounded channel1 BBP/filter setup/readbacks accepted; calibrated RF,
 frequency lock and Wi-Fi connectivity remain untested. No repeat boot needed.
 Next: audit post-tune VCO and calibration prerequisites before MAC enable;
 preserve disabled MAC/DMA and explicit full-prefix capture.
+
+
+### Post-channel1 VCO initiation and delayed observations (v87 candidate)
+
+After the whole exact v86 BBP/filter and same-boot mapped gain proof, an explicit
+mode fresh-reads RF0:4 and requires30(hex), setsbit7 once with lower bits
+preserved, requires exact B0 write echo, then independently reads RF0:4 and
+captures six more reads after10/40/50/100/300/500ms requested waits. Every
+command has strict MAC0/COREf000f200/DMA40000050 guard triplets before/after.
+63 ordered submissions,54 guard reads,9 exact replies,1 write ACK,8 observations,
+18 triplets and6 waits totaling1000000us. Sequences2..10 continue from the
+actual prior native sequence1. No DAC pulse, full MCU calibration, MAC enable,
+scan, traffic or transmit-power inference. Immediate and delayed bytes are
+observations; first_clear counts delayed samples only,0 if none. Self-clear
+does not accept PLL lock or calibrated radio.
+
+The fixed engine validates stored state at every transfer/delay and after
+final authorization. Native ownership includes exact channel-BBP completion,
+submitted counts and independent wait receipts. Wrong duration, profile,
+packet or order refuses before USB; failed/uncertain transfers quarantine
+without replay. Directed tests cover63 positions,229 prerequisite/state faults,
+all packet bits, all reply-length/metadata/guard/cancellation/auth-mutation
+boundaries, all64 delayed clear patterns and six timer-failure/no-replay paths.
+Independent pinned Linux v7.0 source/order audit, ASan/UBSan, full build/xHCI
+regression,166 staging tests and172 historical recipes passed. Complete
+synthetic prefix534737bytes fits inherited explicit1MiB;616 malformed proofs
+refuse and all64 consistent delayed-clear patterns pass as observations.
+Exact-stage VM/install follows; physical results and calibration remain pending.

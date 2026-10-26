@@ -5176,6 +5176,103 @@ static void test_wifi_channel_bbp(void){
  }
  reset_test();assert(!xhci_wifi_capture_channel_bbp());puts("xhci channel BBP: PASS189 positions,221 ownership/state/profile faults,no USB on refusal,no replay,quarantine");
 }
+
+static void post_vco_fixture(struct xhci_device *d,unsigned op){
+ channel_bbp_fixture(d);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_channel_bbp *b=&m->channel_bbp;
+ *b=(struct mt76_channel_bbp){.attempted=true,.complete=true,.operations=189,.reads=168,.writes=21,.verified=21};m->channel_bbp_submitted=189;
+ for(unsigned j=0;j<21;j++){b->before[j]=mt76_channel_bbp_initial(j);b->after[j]=mt76_channel_bbp_value(j,b->before[j]);}
+ for(unsigned j=0;j<42;j++){b->guards[j][1]=0xf000f200;b->guards[j][2]=0x40000050;}
+ m->post_vco_mode=m->post_vco_active=true;m->post_vco_submitted=op;
+ unsigned q=op/7,n=op%7,ex=q+(n>3),waits=q>=3?q-2:0;struct mt76_post_vco *t=&m->post_vco;
+ *t=(struct mt76_post_vco){.attempted=true,.operations=op,.reads=q*6+(n<3?n:3)+(n>4?n-4:0),.exchanges=ex,.received=ex?16:-1,.waits=waits,.acks=ex>=2?1:0,.observed=ex-(ex>=2?1:0)};
+ for(unsigned j=0;j<waits;j++)t->delay_us+=mt76_post_vco_delay(j);
+ m->post_vco_delays=waits;
+ for(unsigned j=0;j<ex;j++){t->words[j][0]=t->words[j][3]=0x4a000008|(mt76_post_vco_sequence(j)<<16);t->words[j][1]=0x80000004;t->words[j][2]=j?176:48;}
+ for(unsigned j=0;j<18;j++){t->guards[j][1]=0xf000f200;t->guards[j][2]=0x40000050;}
+ assert(wifi_post_vco_owned(d) && mt76_post_vco_admit(t,op));
+}
+static void post_vco_fault(struct xhci_wifi_mcu *m,unsigned f){
+ if(f<=202)gain_fault(m,f);
+ if(f==203)m->gain_inventory_active=false;
+ if(f==204)m->gain_fields.valid=false;
+ if(f==205)m->gain_fields.agc8^=1;
+ if(f==206)m->gain_gate.failed=true;
+ if(f==207)m->gain_gate.submitted++;
+ if(f==208)m->gain_inventory.reads++;
+ if(f==209)m->gain_inventory_submitted++;
+ if(f==210)m->gain_inventory.complete=false;
+ if(f==211)m->gain_inventory.values[20]^=1;
+ if(f==212)m->gain_gate.pending=true;
+ if(f==213)m->channel_bbp_mode=false;
+ if(f==214)m->channel_bbp_active=false;
+ if(f==215)m->gain_fields.lna_raw=255;
+ if(f==216)m->gain_fields.rssi[0]=2;
+ if(f==217)m->channel_bbp_submitted++;
+ if(f==218)m->channel_bbp.reads++;
+ if(f==219)m->channel_bbp.complete=false;
+ if(f==220)m->channel_bbp.after[20]^=1;
+ if(f==221)m->channel_bbp.guards[41][2]^=1;
+ if(f==222)m->post_vco_mode=false;
+ if(f==223)m->post_vco_active=false;
+ if(f==224)m->post_vco_submitted++;
+ if(f==225)m->post_vco.reads++;
+ if(f==226)m->post_vco.complete=true;
+ if(f==227)m->post_vco.waits++;
+ if(f==228)m->post_vco.first_clear++;
+ if(f==229)m->post_vco_delays++;
+}
+static void test_wifi_post_vco(void){
+ for(unsigned op=0;op<63;op++)for(unsigned fault=0;fault<233u;fault++){
+  reset_test();test_time=0;test_time_step=1000;struct xhci_trb out[105]={0},in[105]={0},events[105]={0};
+  uint8_t tx[4096]={0},rx[1024]={0},packet[16],reply[1024];struct xhci_device *d=&xhci.devices[0];post_vco_fixture(d,op);
+  struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+  if(op%7==3){
+   f->buffer=tx;f->buffer_phys=0x10000;f->ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16};m->buffer=rx;m->buffer_phys=0x20000;m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11};
+   for(unsigned n=0;n<2;n++){events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1008:0);events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;}
+   assert(mt76_post_vco_packet(&m->post_vco,op,packet,16)==16);
+   post_vco_fault(m,fault);
+   if(fault==230)packet[4]^=1;
+   if(fault==231)events[0].status=6u<<24;
+   if(fault==232)events[1].status=6u<<24;
+   if(!fault){for(unsigned n=0;n<16;n++)for(unsigned b=0;b<8;b++){packet[n]^=1u<<b;assert(wifi_post_vco_exchange(d,packet,16,reply,1024)==-1);packet[n]^=1u<<b;}}
+   assert(wifi_post_vco_exchange(d,packet,16,reply,1024)==(!fault?16:-1));
+   if(!fault){assert(m->post_vco_submitted==op+1);assert(wifi_post_vco_exchange(d,packet,16,reply,1024)==-1);}
+   else if(fault>=231)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!f->ep.enqueue && !m->response.enqueue);
+  }else{
+   d->ep0_ring=out;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;d->descriptor_buffer=tx;d->descriptor_buffer_phys=(uintptr_t)tx;
+   events[0]=control_event(0x9020,fault>=231?6:1,0);
+   uint32_t address=mt76_post_vco_guard_address(op),value=0;post_vco_fault(m,fault);if(fault==230)address++;
+   assert(wifi_post_vco_read(d,address,&value)==!fault);
+   if(!fault){assert(m->post_vco_submitted==op+1);assert(!wifi_post_vco_read(d,address,&value));}
+   else if(fault>=231)assert(d->ep0_quarantined && f->failed && !freed);
+   else assert(!d->ep0_enqueue);
+  }
+ }
+ reset_test();assert(!xhci_wifi_capture_post_vco());
+ puts("xhci RF delayed VCO: PASS all63 operations,229 prerequisite/state faults, every packet bit, no replay and quarantine");
+}
+
+static void test_wifi_post_vco_delays(void){
+ for(unsigned q=0;q<6;q++)for(unsigned fault=0;fault<9;fault++){
+  reset_test();recovery_delay_ok=true;struct xhci_device *d=&xhci.devices[0];post_vco_fixture(d,(q+3)*7);struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_post_vco *t=&m->post_vco;
+  t->waits--;t->delay_us-=mt76_post_vco_delay(q);m->post_vco_delays--;unsigned us=mt76_post_vco_delay(q);rf_wait_expected_delay=us;
+  if(fault==1)us++;
+  if(fault==2)t->waits++;
+  if(fault==3)m->post_vco_delays++;
+  if(fault==4)m->post_vco_submitted++;
+  if(fault==5)m->channel_bbp.after[20]^=1;
+  if(fault==6)m->post_vco_active=false;
+  if(fault==7)t->delay_us++;
+  if(fault==8)recovery_delay_ok=false;
+  unsigned submitted=m->post_vco_delays;assert(wifi_post_vco_delay(d,us)==!fault);
+  if(!fault){assert(m->post_vco_delays==submitted+1);assert(!wifi_post_vco_delay(d,us));}
+  else if(fault==8)assert(m->failed && !freed && m->post_vco_delays==submitted+1);
+  else assert(m->post_vco_delays==submitted && !m->failed);
+ }
+ reset_test();recovery_delay_ok=true;puts("xhci post VCO delays: PASS all six waits,wrong duration/state/order,no replay,timer-failure quarantine");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6528,6 +6625,8 @@ int main(int argc, char **argv) {
     test_wifi_post();
     test_wifi_gain();
     test_wifi_channel_bbp();
+    test_wifi_post_vco();
+    test_wifi_post_vco_delays();
     test_wifi_vco_ready_inventory_ownership();
     test_wifi_trim_fields();
     test_wifi_ant_init();

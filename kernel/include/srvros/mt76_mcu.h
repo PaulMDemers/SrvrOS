@@ -717,4 +717,13 @@ bool mt76_channel_bbp_transfer_valid(const struct mt76_channel_bbp *,unsigned op
 enum mt76_mcu_timing_status mt76_channel_bbp_apply(struct mt76_channel_bbp *,const struct mt76_post_mac_io *);
 bool mt76_channel_bbp_exact_profile_valid(const struct mt76_channel_bbp *);
 bool mt76_gain_inventory_exact_profile_valid(const struct mt76_gain_inventory *);
+/* Post-channel1 VCO trigger plus six delayed observations; MAC stays disabled. */
+struct mt76_post_vco {bool attempted,complete;unsigned operations,reads,exchanges,acks,observed,waits,delay_us,first_clear;int received;uint32_t guards[18][3],words[9][4];};
+unsigned mt76_post_vco_sequence(unsigned command);
+unsigned mt76_post_vco_delay(unsigned sample);
+uint32_t mt76_post_vco_guard_address(unsigned operation);
+bool mt76_post_vco_delay_admit(const struct mt76_post_vco *);
+bool mt76_post_vco_admit(const struct mt76_post_vco *,unsigned operation);
+size_t mt76_post_vco_packet(const struct mt76_post_vco *,unsigned operation,uint8_t *,size_t capacity);
+enum mt76_mcu_timing_status mt76_post_vco_capture(struct mt76_post_vco *,const struct mt76_rf_wait_io *);
 #endif

@@ -2673,3 +2673,75 @@ bool mt76_gain_inventory_exact_profile_valid(const struct mt76_gain_inventory *s
     for(unsigned i=0;i<21;i++)if(s->values[i]!=mt76_channel_bbp_initial(i))return false;
     return true;
 }
+
+unsigned mt76_post_vco_sequence(unsigned q){return q<9?(1+q)%15+1:0;}
+unsigned mt76_post_vco_delay(unsigned q){return mt76_rf_wait_delay(q);}
+uint32_t mt76_post_vco_guard_address(unsigned op){unsigned n=op%7;return op<63 && n!=3?mt76_rf_probe_read_address(n<3?n:n-4):UINT32_MAX;}
+static bool post_vco_state_valid(const struct mt76_post_vco *s,unsigned op){
+    if(!s || !s->attempted || op>63 || s->operations!=op)return false;
+    unsigned q=op/7,n=op%7,ex=q+(n>3),waits=q>=3?q-3+(n>0):0,delay=0,first=0;
+    if(s->waits<waits || s->waits>waits+((q>=3 && q<9 && !n)?1u:0u))return false;
+    if(q>=3 && q<9 && n && s->waits!=q-2)return false;
+    for(unsigned j=0;j<s->waits;j++)delay+=mt76_post_vco_delay(j);
+    if(s->delay_us!=delay || s->reads!=q*6+(n<3?n:3)+(n>4?n-4:0) || s->exchanges!=ex || s->received!=(ex?16:-1))return false;
+    for(unsigned j=0;j<ex;j++){
+        uint32_t h=0x4a000008u|(mt76_post_vco_sequence(j)<<16),v=s->words[j][2];
+        if(s->words[j][0]!=h || s->words[j][1]!=0x80000004 || v>255 || s->words[j][3]!=h)return false;
+        if((j==0 && v!=0x30) || (j==1 && v!=(s->words[0][2]|0x80)))return false;
+        if(j>=3 && !(v&0x80) && !first)first=j-2;
+    }
+    if(s->acks!=(ex>=2?1u:0u) || s->observed!=ex-s->acks || s->first_clear!=first)return false;
+    for(unsigned j=0;j<9 && j<=q;j++){
+        unsigned done=j<q?7:n;
+        for(unsigned k=0;k<3;k++){
+            if(done>k && !rf_central_guard_valid(k,s->guards[2*j][k]))return false;
+            if(done>4+k && !rf_central_guard_valid(k,s->guards[2*j+1][k]))return false;
+        }
+    }
+    return true;
+}
+bool mt76_post_vco_delay_admit(const struct mt76_post_vco *s){return s && !s->complete && s->operations>=21 && s->operations<63 && !(s->operations%7) && s->waits==s->operations/7-3 && post_vco_state_valid(s,s->operations);}
+bool mt76_post_vco_admit(const struct mt76_post_vco *s,unsigned op){return s && !s->complete && op<63 && (op<21?s->waits==0:s->waits==op/7-2) && post_vco_state_valid(s,op);}
+size_t mt76_post_vco_packet(const struct mt76_post_vco *s,unsigned op,uint8_t *out,size_t cap){
+    if(!mt76_post_vco_admit(s,op) || op%7!=3)return 0;
+    unsigned q=op/7;uint8_t payload[8]={4,0,0,128,0,0,0,0};
+    if(q==1)payload[4]=(uint8_t)(s->words[0][2]|0x80);
+    return mt76_mcu_encode(q==1?12:10,mt76_post_vco_sequence(q),payload,8,out,cap);
+}
+enum mt76_mcu_timing_status mt76_post_vco_capture(struct mt76_post_vco *s,const struct mt76_rf_wait_io *io){
+    if(!s || s->attempted || !io || !io->command.authorize || !io->command.read || !io->command.exchange || !io->delay)return MT76_TIMING_REFUSED;
+    const struct mt76_mcu_timing_io *c=&io->command;*s=(struct mt76_post_vco){.attempted=true,.received=-1};
+    for(unsigned op=0;op<63;op++){
+        unsigned q=op/7,n=op%7;
+        if(q>=3 && !n){
+            if(!mt76_post_vco_delay_admit(s))return MT76_TIMING_STATE;
+            if(!c->authorize(c->context))return MT76_TIMING_CANCELLED;
+            if(!mt76_post_vco_delay_admit(s))return MT76_TIMING_STATE;
+            if(!io->delay(c->context,mt76_post_vco_delay(q-3)))return MT76_TIMING_IO;
+            s->waits++;s->delay_us+=mt76_post_vco_delay(q-3);
+        }
+        if(!mt76_post_vco_admit(s,op))return MT76_TIMING_STATE;
+        if(!c->authorize(c->context))return MT76_TIMING_CANCELLED;
+        if(!mt76_post_vco_admit(s,op))return MT76_TIMING_STATE;
+        if(n!=3){
+            unsigned edge=2*q+(n>=4),j=n<3?n:n-4;uint32_t *v=&s->guards[edge][j];
+            if(!c->read(c->context,mt76_post_vco_guard_address(op),v))return MT76_TIMING_IO;
+            s->reads++;s->operations++;
+            if(!rf_central_guard_valid(j,*v))return MT76_TIMING_STATE;
+        }else{
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];
+            if(mt76_post_vco_packet(s,op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            s->received=c->exchange(c->context,packet,sizeof packet,reply,sizeof reply);s->exchanges++;
+            for(unsigned j=0;j<4;j++)if(s->received>=(int)(4*j+4))for(unsigned k=0;k<4;k++)s->words[q][j]|=(uint32_t)reply[4*j+k]<<(8*k);
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|(mt76_post_vco_sequence(q)<<16),v=s->words[q][2];
+            if(s->received!=16 || s->words[q][0]!=h || s->words[q][1]!=0x80000004 || v>255 || s->words[q][3]!=h || (q==0 && v!=0x30) || (q==1 && v!=(s->words[0][2]|0x80)))return MT76_TIMING_REPLY;
+            if(q==1)s->acks++;else s->observed++;
+            if(q>=3 && !(v&0x80) && !s->first_clear)s->first_clear=q-2;
+            s->operations++;
+        }
+    }
+    if(!c->authorize(c->context))return MT76_TIMING_CANCELLED;
+    if(s->complete || !post_vco_state_valid(s,63))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
