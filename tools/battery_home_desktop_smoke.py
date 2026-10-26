@@ -10,6 +10,7 @@ from displayd_resolution_smoke import build_iso, read_for
 from vm_sockets import connect_unix
 from exfat_test_image import ExfatFixture, check_clean_image
 from battery_workspace_smoke import ANCHOR
+from serial_records import desktop_progress_end
 
 
 def service_snapshot(data,audio):
@@ -141,12 +142,13 @@ def main():
                 def wait(marker,timeout=60):
                     nonlocal consumed
                     start=time.monotonic()
-                    while marker not in output[consumed:]:
+                    while True:
+                        at=desktop_progress_end(output,marker,consumed)
+                        if at is not None:consumed=at;return
                         if args.mixed_apps and (b'exec: scheduler thread table full' in output or b'exec: scheduler admission failed' in output or b'deskd: launch-failed' in output):raise RuntimeError('mixed-app resource admission failed; inspect serial evidence')
                         assert process.poll() is None and time.monotonic()-start<timeout,f'missing {marker!r}'
                         output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
                         if not consumed:qmp.boot_if_menu_stalled(output,time.monotonic()-start)
-                    consumed=output.index(marker,consumed)+len(marker)
                 def shortcut(keys):
                     qmp.call('human-monitor-command',{'command-line':'sendkey '+keys});time.sleep(.3)
                 def type_text(text):

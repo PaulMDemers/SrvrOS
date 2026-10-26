@@ -1,6 +1,6 @@
 # Desktop runtime validation and next native round
 
-The October 25 desktop work removes the small fixed window-count ceiling and
+The October 25–26 desktop work removes the small fixed window-count ceiling and
 separates windows, processes and worker ownership. It is a matched kernel/server/
 client baseline, not a stable external binary ABI. Read the [capacity contract](window-capacity.md),
 [connection contract](desktop-connections.md) and [API roadmap](desktop-api-evolution.md).
@@ -17,6 +17,7 @@ one host does not accept another Mac's input, display or firmware.
 | D3a | Shared lazy file-worker pools for Text/Files, immutable jobs and FIFO leasing, drain/reap before release | 32 normal Text documents/33 exact files; 40 queued writes/readbacks using two workers |
 | D3b | Combined GUI/nonblocking pipe/PTY wait, absolute deadline, cancellation and descriptor lifetime watches | Actual threaded ABI; typing during throttled writes; no claim of arbitrary GUI file descriptors |
 | D3c | Shared asynchronous file chooser controller for Text/Preview | Host cancellation/reopen/correlation and actual legacy/pooled listing plus application VM gates |
+| D3d/e | Shared bounded dispatcher/commands plus optional stable window/model ownership; Text/Files siblings, owned mutation dialogs and Terminal PTY waits | Forty-model host refusal/drain/fatal tests; twenty Files windows, accepted 8 MiB copy during close, concurrent Text saving and real-shell consumer VMs; native acceptance separate |
 | D4a | One stack sort per frame; conservative opaque-frame/shadow occlusion | Exact reference pixels and identical-workload host benchmarks; application/scale QEMU regression gates |
 
 All pools retain independent finite memory/process/descriptor budgets. “Dynamic”
@@ -50,6 +51,12 @@ tools/host-env.sh python3 tools/desktop_file_pool_smoke.py
 tools/host-env.sh python3 tools/desktop_wait_load_smoke.py
 tools/host-env.sh python3 tools/desktop_text_windows_smoke.py
 tools/host-env.sh python3 tools/desktop_files_smoke.py
+tools/host-env.sh python3 tools/desktop_files_windows_smoke.py
+tools/host-env.sh python3 tools/desktop_terminal_smoke.py
+tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --pointer
+tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --shutdown
+tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --crash
+tools/host-env.sh python3 tools/desktop_lifecycle_smoke.py --refuse-dialogs
 tools/host-env.sh python3 tools/desktop_preview_smoke.py
 tools/host-env.sh python3 tools/desktop_capacity_smoke.py --clipboard
 tools/host-env.sh python3 tools/desktop_apps_smoke.py

@@ -2465,8 +2465,8 @@ build/tests/terminal-view-host$(HOST_EXE): tools/test_terminal_view.c userspace/
 
 DESKTERM_OBJ := build/userspace/deskterm/deskterm.c.o
 $(DESKTERM_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
-$(USER_DESKTERM): $(ZIG) $(USER_CRT0_OBJ) $(DESKTERM_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTERM_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+$(USER_DESKTERM): $(ZIG) $(USER_CRT0_OBJ) $(DESKTERM_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTERM_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKTERM_OBJ:.o=.d)
 
 .PHONY: test-conio-terminal
@@ -4088,3 +4088,19 @@ test-mt76-agc-state: build/tests/mt76-agc-state-host$(HOST_EXE)
 build/tests/mt76-agc-state-host$(HOST_EXE): tools/test_mt76_agc_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-window-set
+test-desktop: test-window-set
+test-window-set: build/tests/window-set-host$(HOST_EXE)
+	$<
+build/tests/window-set-host$(HOST_EXE): tools/test_window_set.c userspace/desktop_runtime/window_set.c userspace/desktop_runtime/runtime.c userspace/lib/include/srvros/desk_window_set.h userspace/lib/include/srvros/desk_runtime.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_window_set.c userspace/desktop_runtime/runtime.c -o $@
+
+.PHONY: test-terminal-commands
+test-desktop: test-terminal-commands
+test-terminal-commands: build/tests/terminal-commands-host$(HOST_EXE)
+	$<
+build/tests/terminal-commands-host$(HOST_EXE): tools/test_terminal_commands.c userspace/deskterm/deskterm.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_terminal_commands.c userspace/desktop_runtime/commands.c -Wl,--gc-sections -o $@
