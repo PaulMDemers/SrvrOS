@@ -30,7 +30,7 @@ struct vfs_metadata {
 struct vfs_node;
 typedef bool (*vfs_read_all_fn)(const struct vfs_node *node, const uint8_t **data, uint64_t *size);
 typedef void (*vfs_release_data_fn)(const struct vfs_node *node, const uint8_t *data);
-typedef void (*vfs_metadata_changed_fn)(const char *path, const struct vfs_metadata *metadata);
+typedef bool (*vfs_metadata_changed_fn)(const char *path, const struct vfs_metadata *metadata);
 
 struct vfs_node {
     bool used;

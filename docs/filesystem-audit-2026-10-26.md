@@ -422,17 +422,83 @@ are not a journal. Namespace-operation interruption, sidecar recovery and
 crash-consistent rename/replacement require a separate fault-injection pass.
 The current change adds no automatic repair or online reattachment.
 
+## Rename/replacement and sidecar checkpoint
+
+This pass starts from `3c0c84a7`, including main `4d195e25`/PR187. PR19's
+Wi-Fi/logging work was inspected and has no storage-file overlap. The existing
+relocated-rename path already flushes its destination before retiring its source;
+replacement publishes the destination allocation before releasing the old one.
+These paths remain serialized operations with dirty-volume quarantine, not a
+journal or an atomic power-loss rename protocol.
+
+Directed tests confirmed and corrected the following sidecar defects:
+
+- A malformed suffix could return failure after earlier permission/identity/time
+  records had already been applied. Validation and application now use two
+  passes over the same read buffer, with no second disk read between them.
+- A record could modify a node outside the mounted filesystem. Records now must
+  belong to that mount and exclude the internal sidecar directory. Printable
+  path bytes, decimal overflow checks and required record-ending newlines also
+  reject embedded NULs, wrapping fields and mid-record truncation before applying
+  any metadata. This is structural validation, not a document checksum.
+- Dirty volumes still replayed path-keyed metadata even though an interrupted
+  replacement can change which inode owns a path. Quarantined imports now retain
+  default metadata and unknown times without sidecar replay or recovery writes.
+- Failure to read a valid temporary sidecar was interpreted as invalid content
+  and caused deletion. Failed/invalid temporary files are retained on mount for
+  retry or offline inspection; a later explicit sync may replace them.
+- Sync and mount-time promotion deleted the committed sidecar before renaming
+  the temporary file. Both now use replacement when a committed file exists.
+  The old record remains until publication, and uncertain writes quarantine the
+  volume. Prefix interruption tests detect the original missing-sidecar window.
+- VFS `chmod` and explicit time updates hid a failed sidecar sync and returned
+  success. The persistence callback now returns its result; these operations
+  restore live metadata and propagate I/O failure through the existing process
+  error paths. A failed persistence operation may have changed disk bytes, so
+  restoration of live metadata is not a durable rollback guarantee.
+
+The original six parser/replay probes failed, the separate temporary-read probe
+failed, and two persistence-result probes failed before their corresponding fixes.
+The original production source also fails the new file-backed interruption
+sweep's committed-sidecar-presence assertion. Successful ordinary import and
+clean temporary promotion controls passed before and after the fixes.
+
+All 72 import/lifecycle/metadata modes pass normally and under ASan/UBSan.
+The real file-backed driver passes 144 injected boundaries across rename,
+replacement and mount-time promotion: every write and flush is tested for
+failure/interruption, and every write has a half-write cut. Clean states pass
+allocation checking; dirty states either refuse import or mount read-only without
+recovery writes. Unrelated anchor data remains intact, full-write cuts retain the
+committed sidecar name, and completed operations remount with source contents
+and permissions. This uses a minimal synthetic volume and ordered persisted
+prefixes, not exfatprogs, controller reordering or physical sector guarantees.
+The storage/lease adapters, VFS timestamp tests, matched OS build, four generator
+groups and recursive 372-entry image check also pass. Six sequential disposable
+VMs pass: aliases 17.20 s, bitmap quarantine 16.71 s, imports 17.16 s,
+corrupt-entry fallback 16.70 s, complete threads 40.77 s and libuv 10.74 s.
+Main remains `4d195e25`; refreshed PR19 at `35041be0` changes separate Wi-Fi,
+logging and Make targets, with no exFAT/VFS overlap.
+
+Evidence is retained under `build/review/rename-sidecar/`, including original
+failures, fixed runs, source hashes and build/VM receipts. Early sweep harness
+routing mistakes are retained separately and are not counted as production
+regressions. The current v1 sidecar has no document checksum or transaction
+identity: whole-record truncation, external edits and offline repair can still
+require metadata reconstruction. No native media, Actions or automatic repair
+was used. Follow-on tracing moves to boot-region/backup checks and system-stream
+validation; those remain outside the accepted import profile.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Mutation failure/recovery boundaries and durable metadata. Existing serialized
-   replacement and dirty-volume quarantine are not a journal; interrupted rename
-   and power-loss atomicity remain unproven. Multi-cluster bitmap mutation,
-   boot checksum/backup recovery, upcase/system-stream integrity, full Unicode and
-   cross-cluster/extended entry sets remain outside this checkpoint.
+2. Boot checksum/backup recovery and upcase/system-stream integrity are next.
+   Multi-cluster bitmap mutation, full Unicode and cross-cluster/extended entry
+   sets remain outside the supported profile. Directed mutation/sidecar faults
+   now have coverage, but controller reordering, physical power loss, journaled
+   rename and metadata reconstruction after offline repair remain unaccepted.
 3. Networking/socket lifecycle, VM/syscall validation, process/resource isolation
    and remaining documentation reconciliation follow as separately bounded work.
 

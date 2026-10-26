@@ -72,7 +72,12 @@ and persistent failure quarantine. Block/workspace/USB and seven synthetic
 image-adapter runs cover handoff and retirement. The next checkpoint expands to 61 modes, serializes backend operations against
 teardown, rechecks process busy state under storage ownership, and propagates
 terminal USB/AHCI identity loss through block/cache/claim admission. Live
-unregister/rebind and crash recovery remain open.
+unregister/rebind and crash recovery remain open. The rename/sidecar checkpoint
+expands to 72 modes and adds 144 write/flush/half-write fault boundaries. It fixes
+partial or cross-volume sidecar application, malformed fields, stale replay on
+dirty media, destructive temporary cleanup, delete-first promotion and hidden
+metadata persistence failures. Interrupted states remain quarantined; journaled
+rename, controller reordering and physical power-loss recovery are not accepted.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

@@ -285,9 +285,62 @@ static void ownership_case(const char *mode) {
     } else assert(!"unknown ownership case");
     assert(!vfs_count() && !io_depth);
 }
+static void metadata_case(const char *mode) {
+    fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));
+    assert(exfat_create_directory("/vol/.srvros"));
+    assert(vfs_register_directory("/outside"));
+    struct vfs_metadata before=vfs_lookup("/vol/source")->metadata;
+    struct vfs_metadata outside=vfs_lookup("/outside")->metadata;
+    const char *record="/vol/source\t777\t33152\t1\t42\t43\t11\t12\t13\n";
+    char text[1024];snprintf(text,sizeof(text),"SRVROSMETA1\n%s",record);
+    bool valid=!strcmp(mode,"metadata-valid") || !strcmp(mode,"metadata-dirty") || !strcmp(mode,"metadata-temp");
+    if(!strcmp(mode,"metadata-partial"))strcat(text,"/vol/source\tbad\n");
+    if(!strcmp(mode,"metadata-scope"))strcat(text,"/outside\t888\t16832\t1\t99\t99\t1\t2\t3\n");
+    if(!strcmp(mode,"metadata-overflow"))strcat(text,"/vol/source\t18446744073709551616\t33152\t1\t42\t43\t1\t2\t3\n");
+    if(!strcmp(mode,"metadata-truncated"))text[strlen(text)-1]=0;
+    if(!strcmp(mode,"metadata-nul"))strcat(text,"/vol/sourceXjunk\t999\t33152\t1\t42\t43\t1\t2\t3\n");
+    size_t length=strlen(text);
+    if(!strcmp(mode,"metadata-nul"))*strchr(text,'X')=0;
+    bool temporary=!strcmp(mode,"metadata-temp") || !strcmp(mode,"metadata-temp-read");
+    const char *path=temporary?"/vol/.srvros/meta.tmp":"/vol/.srvros/meta";
+    assert(exfat_write_file(path,(const uint8_t *)text,length));
+    if(!strcmp(mode,"metadata-dirty")) {
+        /* A stale sidecar must not supply the identity/permissions of a
+         * different allocation after an interrupted replacement. */
+        assert(exfat_unmount("/vol"));write_u16(disk+106,2);
+        unsigned wr=writes;assert(exfat_mount_block_device("/vol",&device));
+        assert(vfs_lookup("/vol/source")->metadata.uid!=42 && writes==wr);
+    } else if(!strcmp(mode,"metadata-temp-read")) {
+        fail_read_offset=offset(find_file(path)->first_cluster);
+        unsigned wr=writes;remount();
+        assert(writes==wr && vfs_lookup(path));
+        assert(vfs_lookup("/vol/source")->metadata.uid!=42);
+        remount();assert(vfs_lookup("/vol/source")->metadata.uid==42 && !vfs_lookup(path));
+    } else if(temporary) {
+        remount();assert(vfs_lookup("/vol/source")->metadata.uid==42);
+        assert(!vfs_lookup(path) && vfs_lookup("/vol/.srvros/meta"));
+        remount();assert(vfs_lookup("/vol/source")->metadata.uid==42);
+    } else {
+        assert(parse_metadata_file(&mounts[0],path,true)==valid);
+        if(valid)assert(vfs_lookup("/vol/source")->metadata.uid==42);
+        else assert(!memcmp(&before,&vfs_lookup("/vol/source")->metadata,sizeof(before)));
+    }
+    assert(!memcmp(&outside,&vfs_lookup("/outside")->metadata,sizeof(outside)));
+    assert(exfat_unmount("/vol"));assert(vfs_unregister_path("/outside"));
+}
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"teardown-",9)) {
+    if(!strcmp(mode,"chmod-failure") || !strcmp(mode,"utime-failure")) {
+        fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));
+        assert(exfat_write_file("/vol/committed",NULL,0));
+        struct vfs_metadata before=vfs_lookup("/vol/source")->metadata;
+        fail_write_offset=106; /* Refuse the sidecar transaction's dirty marker. */
+        bool ok=!strcmp(mode,"chmod-failure")?vfs_chmod("/vol/source",0600):vfs_utime("/vol/source",11,12);
+        assert(!ok);
+        assert(!memcmp(&before,&vfs_lookup("/vol/source")->metadata,sizeof(before)));
+        assert(exfat_unmount("/vol"));
+    } else if(!strncmp(mode,"metadata-",9)) { metadata_case(mode);
+    } else if(!strncmp(mode,"teardown-",9)) {
         fixture(1100,true);
         if(!strcmp(mode,"teardown-boot")) {
             boot_io=true;teardown_probe=1;

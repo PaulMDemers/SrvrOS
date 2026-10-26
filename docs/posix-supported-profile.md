@@ -378,3 +378,21 @@ and refuses active backend operations. Runtime USB command failure and AHCI
 uncertain completion invalidate the device and declared aliases; cached block
 reads cannot bypass that state. No online rebind or media-generation recovery
 is supported. Hot removal/replacement and power-loss recovery remain open.
+
+
+exFAT sidecars are validated completely from one read buffer before applying
+permissions, identities or times. Records must belong to that mount, contain
+printable paths and bounded decimal fields, and end in newlines. Malformed
+sidecars do not partially apply. Unreadable/invalid temporary files are retained
+on mount; a later explicit sync may replace them. On quarantined media, no
+sidecar is replayed: imported default identities/permissions and unknown times
+are used because path-keyed metadata cannot identify the survivor of an
+interrupted replacement. Inspect/repair such media offline before normal use.
+
+Sidecar promotion replaces the committed record before retiring the temporary
+record; it does not delete the committed file first. `chmod` and explicit time
+updates propagate sidecar persistence failure as I/O failure and restore live
+metadata. A failed write may have changed media, so this is not a durable rollback.
+Sidecar v1 has no transaction generation or document checksum, and rename and
+replacement are not journaled or crash-atomic. Prefix-write/flush fault tests
+establish bounded quarantine behavior, not physical-drive power-loss guarantees.

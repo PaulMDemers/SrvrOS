@@ -1026,7 +1026,7 @@ closeout evidence in the event audit for gate results and negative controls.
 
 ## Imported exFAT media contracts
 
-`make test-exfat-import` (included in `test-core`) runs 61 directed modes against
+`make test-exfat-import` (included in `test-core`) runs 72 directed modes against
 real kernel exFAT/VFS code. On ARM64 macOS use
 `sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
 `--sanitize` and `--output`; each run saves its command, source hashes and results.
@@ -1075,3 +1075,23 @@ include terminal device invalidation: cached aliases must refuse I/O without
 transport calls, USB failed runtime command status cannot resume old media state,
 and AHCI offline state reaches the block layer. These are deterministic host
 contracts; hardware replacement and full hot-unplug remain unaccepted.
+
+
+`make test-exfat-crash` (also in `test-core`) runs 144 deterministic fault/cut
+boundaries across relocated rename, replacement and mount-time sidecar promotion.
+It uses the actual exFAT/VFS file-backed host driver with a disposable synthetic
+4 MiB volume, requiring no exfatprogs. Each write and flush is tested for failure
+and interruption, plus a half-write at every write boundary. The runner requires
+clean allocation checks at clean cuts, refusal or read-only admission at dirty
+cuts, no remount recovery writes, unchanged anchor contents and preservation of
+the committed sidecar name at full-write cuts. Successful rename/replacement
+also remount with the source permissions and contents. Results and the driver
+hash are saved under `build/review/rename-sidecar/crash/`.
+
+The import modes additionally reject whole malformed sidecar documents before
+applying any records: out-of-mount paths, embedded controls/NULs, overflowing
+numbers, truncated records and malformed suffixes. They check clean temporary
+promotion, retry after a temporary read failure, dirty-sidecar suppression, and
+`chmod`/timestamp persistence failure propagation with restored live metadata.
+This models ordered persisted write prefixes, not arbitrary controller reorder,
+sector atomicity, exfatprogs repair or journaled crash-atomic rename.

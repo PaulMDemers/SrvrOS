@@ -9,7 +9,7 @@ import platform
 import shlex
 import subprocess
 ROOT=Path(__file__).resolve().parents[1]
-MODES=('teardown-foreign','teardown-read','teardown-write','teardown-check','teardown-mount','teardown-range','teardown-admission','teardown-busy','teardown-admit-race','teardown-boot','device-alias','device-lease','device-delegate','device-rollback','control','geometry-shifts','geometry-volume','geometry-fat','geometry-heap','geometry-format','geometry-valid','stream-invalid',
+MODES=('chmod-failure','utime-failure','metadata-temp-read','metadata-partial','metadata-scope','metadata-overflow','metadata-truncated','metadata-nul','metadata-dirty','metadata-valid','metadata-temp','teardown-foreign','teardown-read','teardown-write','teardown-check','teardown-mount','teardown-range','teardown-admission','teardown-busy','teardown-admit-race','teardown-boot','device-alias','device-lease','device-delegate','device-rollback','control','geometry-shifts','geometry-volume','geometry-fat','geometry-heap','geometry-format','geometry-valid','stream-invalid',
        'valid-read','valid-zero','valid-boundary','valid-chain','valid-invalid','valid-rename','valid-replace','valid-overwrite',
        'entry-checksum','entry-layout','entry-name-length','entry-name-hash','entry-unsafe-name',
        'entry-flags','entry-extra','entry-cleanup','entry-valid','dir-cycle','dir-invalid-next','dir-short','dir-chain',

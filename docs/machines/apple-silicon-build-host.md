@@ -1153,3 +1153,41 @@ aliases 16.52 s, bitmap quarantine 16.46 s, imports 16.45 s, corrupt-entry fallb
 16.44 s, complete threads 40.03 s and libuv 10.06 s. Integrated logs, tested hashes
 and build/VM receipts remain under `build/review/storage-lifetime/`. PR19 remains
 separate. These runs do not extend native desktop or hardware acceptance.
+
+### Rename/sidecar audit — active scope (2026-10-26)
+
+Continue PR182 from `3c0c84a7`, including main `4d195e25`. Review namespace
+replacement ordering, sidecar validation/promotion and interrupted mutation
+quarantine. Add portable deterministic write/flush interruption probes and
+focused parser regressions; retain the distinction between quarantine and
+journaled recovery. PR19 Wi-Fi/workspace logging has no storage-file overlap.
+Own exFAT, VFS metadata persistence results, host fixtures and related documentation. No physical trial,
+Actions dispatch, live media rebind or automatic offline repair is in scope.
+
+
+### Rename/sidecar checkpoint results
+
+Nine directed before/after probes reproduce partial or out-of-mount sidecar
+application, numeric overflow, truncated/NUL records, dirty-media replay,
+destructive cleanup after temporary-read failure, and hidden chmod/time sync
+failures. Sidecars now validate wholly from one buffer, stay within the mount,
+and are not replayed on quarantined media. Unreadable temporary files survive
+mount for retry. VFS metadata mutations propagate persistence failure and restore
+live metadata. The original file-backed source also fails the committed-sidecar
+presence assertion; sync/promotion now replace the committed file before retiring
+the temporary record.
+
+All 72 modes pass normally and under ASan/UBSan. The portable synthetic-volume
+sweep passes 144 write/flush/failure/half-write boundaries across rename,
+replacement and promotion. Storage/lease/VFS host tests, the matched build and
+372-entry generator check pass. Six VMs pass: aliases 17.20 s, quarantine
+16.71 s, imports 17.16 s, corrupt entry 16.70 s, complete threads 40.77 s and
+libuv 10.74 s. Logs, source hashes, original failures, harness corrections and
+build/VM receipts are retained in `build/review/rename-sidecar/`.
+
+Main remains `4d195e25`; PR19 was refreshed at `35041be0` and its Wi-Fi/logging
+and separate Make targets do not overlap exFAT/VFS. No native media or Actions
+were used. The fault model covers ordered persisted prefixes; it does not accept
+controller reordering, sector atomicity, journaled rename or physical power-loss
+recovery. Follow-on tracing identifies boot-region/backup and system-stream
+validation as the next bounded audit; full-format conformance remains open.
