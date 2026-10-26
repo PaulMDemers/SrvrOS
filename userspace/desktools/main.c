@@ -169,6 +169,8 @@ void tool_runtime_cancel_modal(struct tool *t) {
     if(t->picker_mode)tool_picker_cancel(t);
 }
 void tool_runtime_close_request(struct tool *t) {
+    desk_log("window-lifecycle: close-request role=%d window=%llu busy=%u operation=%u\n",t->role,
+        (unsigned long long)t->window.window,(unsigned)t->job.busy,t->job.busy?t->job.request.operation:0);
     desk_popup_cancel(&t->context);
     if(t->role==DESK_APP_TEXT) {
         if(t->picker_mode)tool_picker_cancel(t);
@@ -251,9 +253,11 @@ int tool_file_pool_retire(struct desk_file_pool *pool,int role) {
     return result==1?0:-1;
 }
 void tool_runtime_draw(struct tool *t) {
-    if(t->role==DESK_APP_TEXT && t->title_dirty && t->window.server) {
-        const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:"Untitled";char title[88];
-        snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
+    if((t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) && t->title_dirty && t->window.server) {
+        const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:t->role==DESK_APP_TEXT?"Untitled":"Opening";char title[88];
+        if(t->role==DESK_APP_TEXT)snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
+        else snprintf(title,sizeof(title),"Files — %s",name[0]?name:"System root");
+        size_t length=strlen(title);while(length && !desk_text_utf8_valid(title,length))title[--length]=0;
         if(!desk_app_title(&t->window,title)) t->title_dirty=0;
     }
     tool_menu_refresh(t);desk_app_menu_tick(&t->window);
