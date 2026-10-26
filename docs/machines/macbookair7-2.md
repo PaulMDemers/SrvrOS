@@ -2,6 +2,27 @@
 
 Updated: 2026-10-25. State: **active reference machine; partial device acceptance**.
 
+### Shared application runtime — active scope
+
+Base main `eda8bfb`; PR170's app-timing diagnostics are already consumed.
+Air7,2 owns the next bounded desktop-runtime block: shared bounded connection
+dispatch, deadline/timer and worker-readiness wait preparation, plus reusable
+standard-action enablement/shortcut/menu plumbing. Migrate normal Text and
+Preview first, retaining their document/image models, accepted-job lifetime,
+modal cancellation and sequential Quit behavior. Keep pure controls in the
+widget library and orchestration in `userspace/desktop_runtime/`; no kernel,
+protocol, driver, process-budget or firmware changes are planned.
+
+Touched consumers are `userspace/desktools/text_runtime.c`, its standard action
+plumbing and `userspace/deskview/deskview.c`, with shared headers/library, focused
+host/consumer VM tests and current guides. PR19 retains Wi-Fi scope; Air6,1 owns
+the separate heavy-I/O latency investigation. Preserve its timing receipts and
+consume any new dependency explicitly. Validate dispatch fairness, timers,
+worker completion/cancellation, close/quit/save retention and the existing actual
+Text/Preview/pointer/shutdown/failure gates before preparing a hardware retest.
+Installed accepted current remains `1d1d5edce03523db`, recovery
+`9aa8dbf6fbda8252`; the prior return is collected, and no new boot is armed.
+
 ### Desktop modal and unsaved-exit retest accepted
 
 Release `1d1d5edce03523db`, clean source `9bca084` (PR169 integration
