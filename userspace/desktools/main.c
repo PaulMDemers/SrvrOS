@@ -1,6 +1,7 @@
 #include "app.h"
 #include "runtime.h"
 #include "calculator.h"
+#include "timing.h"
 #include <srvros/desk_log.h>
 #include <srvros/sys.h>
 #include <string.h>
@@ -156,6 +157,7 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
         kind,(unsigned long long)v.serial,v.length,v.caret,v.anchor,v.busy,v.hex[0]?v.hex:"-");
 }
 void tool_runtime_init(struct tool *t,int role) {
+    uint64_t timing=tool_timing_begin(role,0,"runtime-init");
     t->role=role;t->body_size=16;t->title_dirty=1;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_chooser_init(&t->chooser,&t->picker,&t->job,t->entries,t->items,t->details);
@@ -166,6 +168,7 @@ void tool_runtime_init(struct tool *t,int role) {
     desk_text_buffer_init(&t->name_text,t->name_store[0],t->name_store[1],128);
     desk_edit_init(&t->path,&t->path_text,0);desk_edit_init(&t->body,&t->body_text,t->role==DESK_APP_TEXT);
     desk_edit_init(&t->name,&t->name_text,0);
+    tool_timing_end(role,0,"runtime-init",timing);
 }
 void tool_runtime_event(struct tool *t,struct desk_packet p) {
     if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
@@ -214,6 +217,7 @@ void tool_runtime_event(struct tool *t,struct desk_packet p) {
         else tool_dispatch(t,desk_ui_scroll(&t->ui,p.width,p.height,p.x,p.y));
     }
     else if(p.type==DESK_CLOSE_REQUEST) {
+        tool_timing_event(t->role,t->window.window,"close-received");
         desk_popup_cancel(&t->context);
         if(t->info_mode) tool_files_info_close(t);
         if(t->prompt_mode) tool_files_prompt(t,(struct desk_action){DESK_PROMPT_CANCEL,DESK_WIDGET_ACTIVATED});
@@ -237,11 +241,13 @@ int tool_runtime_file_poll(struct tool *t,uint64_t *logged_job) {
     return result;
 }
 int tool_file_pool_retire(struct desk_file_pool *pool,int role) {
+    uint64_t timing=tool_timing_begin(role,0,"pool-retire");
     int result;
     while(!(result=desk_file_pool_shutdown(pool)))srv_sleep_ticks(1);
     desk_log("file-pool: retired role=%s spawned=%llu reaped=%llu peak=%llu live=%llu bound=%u\n",
         roles[role-1],(unsigned long long)pool->spawned,(unsigned long long)pool->reaped,
         (unsigned long long)pool->peak,(unsigned long long)pool->live,pool->bound);
+    tool_timing_end(role,0,"pool-retire",timing);
     return result==1?0:-1;
 }
 void tool_runtime_draw(struct tool *t) {
@@ -251,7 +257,11 @@ void tool_runtime_draw(struct tool *t) {
         if(!desk_app_title(&t->window,title)) t->title_dirty=0;
     }
     tool_menu_refresh(t);desk_app_menu_tick(&t->window);
-    struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
+    struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) {
+        int first=!t->window.serial;
+        draw(t,&c);int published=desk_app_present(&t->window);
+        if(first && published==1)tool_timing_event(t->role,t->window.window,"first-publish");
+    }
 }
 int tool_file_pool_capture(void);
 int tool_wait_capture(void);
@@ -266,6 +276,7 @@ int main(int argc,char **argv) {
     if(argc==3 && !strcmp(argv[1],"text") && !strcmp(argv[2],"--window-growth-capture"))return tool_growth_capture();
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
+    tool_timing_event(t->role,0,"main-entry");
     int controls_cancel=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files-cancel");
     int controls_files=controls_cancel || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-control-files"));
     int workspace_capture=controls_files || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-workspace"));
@@ -274,16 +285,24 @@ int main(int argc,char **argv) {
     if(file_capture)tool_file_capture_setup(workspace_capture);
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
     int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
-    if(t->role==DESK_APP_TEXT && !coexist)return tool_text_runtime(argc>2?argv[2]:"");
+    if(t->role==DESK_APP_TEXT && !coexist) {
+        int result=tool_text_runtime(argc>2?argv[2]:"");
+        tool_timing_event(t->role,0,"main-return");return result;
+    }
     unsigned captured=0;uint64_t logged_job=0;
     struct desk_file_pool pool;struct desk_file_channel channels[2];
     int pooled=t->role==DESK_APP_FILES;
     tool_runtime_init(t,t->role);
+    uint64_t timing=tool_timing_begin(t->role,0,"pool-init");
     if(pooled)t->worker_ready=desk_file_pool_init(&pool,channels,2)==0 && desk_file_job_bind(&t->job,&pool)==0;
     else if((!coexist || file_capture) && t->role==DESK_APP_TEXT)t->worker_ready=desk_file_job_init(&t->job)==0;
+    tool_timing_end(t->role,0,"pool-init",timing);
     desk_log("desktools: starting role=%s\n",roles[t->role-1]);
-    if(desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role==DESK_APP_CALCULATOR?640:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_CALCULATOR?520:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320)) return 1;
+    timing=tool_timing_begin(t->role,0,"window-open");
+    int opened=desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role==DESK_APP_CALCULATOR?640:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_CALCULATOR?520:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320);
+    tool_timing_end(t->role,0,"window-open",timing);if(opened)return 1;
     desk_log("desktools: window-request role=%s pid=%llu at_us=%llu\n",roles[t->role-1],(unsigned long long)srv_getpid(),(unsigned long long)srv_monotonic_us());
+    timing=tool_timing_begin(t->role,t->window.window,"role-init");
     if(t->role==DESK_APP_TEXT) tool_text_init(t,!coexist && argc>2?argv[2]:"");
     else if(t->role==DESK_APP_FILES) tool_files_init(t,argc>2?argv[2]:"");
     else if(t->role==DESK_APP_CALCULATOR) tool_calculator_init(t);
@@ -292,6 +311,7 @@ int main(int argc,char **argv) {
         tool_system_init(t);
         if(argc==3 && !strcmp(argv[2],"--battery-controls")) {desk_tabs_select(&t->system_tabs,SYSTEM_SENSORS);tool_system_layout(t);desk_ui_layout_changed(&t->ui);}
     }
+    tool_timing_end(t->role,t->window.window,"role-init",timing);
     while(!t->quit && !t->window.failed && !t->window.closed) {
         if(t->role==DESK_APP_SETTINGS) tool_settings_tick(t);
         if(desk_clipboard_tick(&t->clip,srv_ticks())<0) tool_clipboard_result(t,-1);
@@ -337,12 +357,21 @@ int main(int argc,char **argv) {
         desk_log("text-coexist: file_worker=%s checkpoints=%u\n",file_capture?(t->worker_ready?"enabled":"MISSING"):(t->worker_ready?"UNEXPECTED":"disabled"),captured);
         if(file_capture) { if(!tool_file_capture_report() || tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
     }
+    tool_timing_event(t->role,t->window.window,"loop-exit");
+    timing=tool_timing_begin(t->role,t->window.window,"history-free");
     free(t->body_history);
+    tool_timing_end(t->role,t->window.window,"history-free",timing);
+    timing=tool_timing_begin(t->role,t->window.window,"job-drain");
     if(t->worker_ready && pooled) {
         /* Even a failed GUI connection cannot abandon an accepted mutation. */
         while(t->job.busy) { if(tool_runtime_file_poll(t,&logged_job)<0)t->window.failed=1;if(t->job.busy)srv_sleep_ticks(1); }
         if(desk_file_job_detach(&t->job) || tool_file_pool_retire(&pool,t->role))t->window.failed=1;
     } else if(t->worker_ready)desk_file_job_close(&t->job);
-    desk_app_close(&t->window);desk_log("desktools: exited role=%s failure=%d\n",roles[t->role-1],t->window.failed);
+    tool_timing_end(t->role,t->window.window,"job-drain",timing);
+    timing=tool_timing_begin(t->role,t->window.window,"window-close");
+    desk_app_close(&t->window);
+    tool_timing_end(t->role,t->window.window,"window-close",timing);
+    desk_log("desktools: exited role=%s failure=%d\n",roles[t->role-1],t->window.failed);
+    tool_timing_event(t->role,0,"main-return");
     return t->window.failed?1:0;
 }

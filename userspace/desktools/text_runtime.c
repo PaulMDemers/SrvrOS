@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "timing.h"
 #include <srvros/desk_application.h>
 #include <srvros/desk_connection.h>
 #include <srvros/desk_log.h>
@@ -38,11 +39,16 @@ static void notice(struct text_document *list,uint64_t requester,const char *mes
 static int create(struct desk_connection *connection,struct text_document **list,uint64_t requester,const char *path) {
     /* Documents contain sizeable edit/job buffers. Keep them out of the small
      * legacy brk arena, as we already do for independently retired canvases. */
+    uint64_t timing=tool_timing_begin(DESK_APP_TEXT,0,"document-map");
     struct text_document *d=mmap(NULL,sizeof(*d),PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    tool_timing_end(DESK_APP_TEXT,0,"document-map",timing);
     if(d==MAP_FAILED) { notice(*list,requester,"There is not enough memory for another document.");return -1; }
     tool_runtime_init(&d->tool,DESK_APP_TEXT);d->requester=requester;
     if(strlen(path)>=sizeof(d->initial_path))d->bad_path=1;else strcpy(d->initial_path,path);
-    if(desk_window_open(connection,&d->tool.window,"Text — Untitled",720,480)) {
+    timing=tool_timing_begin(DESK_APP_TEXT,0,"window-open");
+    int opened=desk_window_open(connection,&d->tool.window,"Text — Untitled",720,480);
+    tool_timing_end(DESK_APP_TEXT,0,"window-open",timing);
+    if(opened) {
         munmap(d,sizeof(*d));notice(*list,requester,"Another window is still opening. Try again shortly.");return -1;
     }
     d->tool.clip.window=d->tool.window.window;d->next=*list;*list=d;
@@ -127,7 +133,9 @@ int tool_text_runtime(const char *path) {
     struct desk_open_document open_request={0};uint64_t service_window=0;
     struct desk_connection connection;desk_connection_init(&connection);
     struct desk_file_pool pool;struct desk_file_channel channels[2];
-    if(desk_file_pool_init(&pool,channels,2))return 1;
+    uint64_t timing=tool_timing_begin(DESK_APP_TEXT,0,"pool-init");
+    int initialized=desk_file_pool_init(&pool,channels,2);
+    tool_timing_end(DESK_APP_TEXT,0,"pool-init",timing);if(initialized)return 1;
     struct text_document *documents=NULL;int failed=0;
     unsigned admitted_count=0,retired_count=0,refused_count=0;
     srv_puts("desktools: starting role=text\n");
@@ -151,12 +159,15 @@ int tool_text_runtime(const char *path) {
                     d->retired=1;if(desk_window_dispose(window))failed=1;
                 } else {
                     d->ready=1;admitted_count++;t->worker_ready=desk_file_job_bind(&t->job,&pool)==0;
+                    timing=tool_timing_begin(DESK_APP_TEXT,window->window,"role-init");
                     tool_text_init(t,d->initial_path);
+                    tool_timing_end(DESK_APP_TEXT,window->window,"role-init",timing);
                     if(d->bad_path)tool_status(t,"This path is too long. Choose a file to open.");
                     else if(!t->worker_ready)tool_status(t,"The file worker is unavailable. Your document was kept.");
                     desk_log("text-runtime: admitted window=%llu worker=%llu\n",(unsigned long long)window->window,(unsigned long long)t->job.pid);
                 }
             } else if(p.type==DESK_CLOSE_ACK) {
+                tool_timing_event(DESK_APP_TEXT,window->window,"close-ack");
                 d->retired=1;t->pending=t->closing=0;
                 desk_application_closed(&application,window->window);
                 if(service_window==window->window)service_window=0;
@@ -199,13 +210,25 @@ int tool_text_runtime(const char *path) {
             dialog_tick(d);
             if(d->retired) {
                 if(d->dialog.window.connection) {busy=1;link=&d->next;continue;}
-                if(!failed && t->window.connection && desk_window_dispose(&t->window)) {failed=1;link=&d->next;continue;}
+                if(!failed && t->window.connection) {
+                    timing=tool_timing_begin(DESK_APP_TEXT,t->window.window,"window-dispose");
+                    int disposed=desk_window_dispose(&t->window);
+                    tool_timing_end(DESK_APP_TEXT,t->window.window,"window-dispose",timing);
+                    if(disposed) {failed=1;link=&d->next;continue;}
+                }
                 int already_retired=d->worker_closed;
                 if(!retire_job(d)) { busy=1;drained=0;link=&d->next;continue; }
                 if(d->ready && !already_retired)retired_count++;
                 if(t->window.connection && !failed) { failed=1;link=&d->next;continue; }
                 if(failed) { link=&d->next;continue; } /* Process exit owns uncertain GUI resources. */
-                *link=d->next;free(t->body_history);munmap(d,sizeof(*d));continue;
+                *link=d->next;
+                uint64_t window=t->window.window;
+                timing=tool_timing_begin(DESK_APP_TEXT,window,"history-free");
+                free(t->body_history);
+                tool_timing_end(DESK_APP_TEXT,window,"history-free",timing);
+                timing=tool_timing_begin(DESK_APP_TEXT,window,"document-unmap");
+                munmap(d,sizeof(*d));
+                tool_timing_end(DESK_APP_TEXT,window,"document-unmap",timing);continue;
             }
             drained=0;
             if(d->ready && !failed) {

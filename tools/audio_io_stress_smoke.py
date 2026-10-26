@@ -9,6 +9,7 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
+from app_timing import validate_app_timing
 
 
 def main():
@@ -19,7 +20,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json'):
         (out/name).unlink(missing_ok=True)
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
@@ -109,6 +110,8 @@ def main():
                     assert len(ready)==len(closed)==int(lifecycle[1])
                     assert [(a,b) for a,b,_ in ready]==[(a,b) for a,b,_ in closed]
                     assert len(set(pid for _,pid,_ in ready))==len(ready)
+                    timing=validate_app_timing(output,[(int(cycle),int(pid)) for cycle,pid,_ in closed])
+                    (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     assert b'async=yes' in output
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
