@@ -197,13 +197,17 @@ this diagnostic scope. Retain intentional integration baseline `d5bc4b3`
 during this bounded trial. No remote task messaging or parallel staging.
 
 
-Installed/unarmed v83 candidate `be37d545e93f1aed`, source `0ee9efb3`,
-passed local/sanitizer and both exact-stage VM checks. It tests fixed channel1
-(2412MHz) synthesizer fields from pinned
-Linux v7.0 frequency row and declared field layout. Preserve all21 reference
-steps (including adjacent same-register masks), each with fresh exact-profile
-read, one masked/full write and separate readback; MAC/DMA remain disabled.
-No VCO trigger, power selection, bandwidth/band tail, scan or transmit enable.
+Release `be37d545e93f1aed`, source `0ee9efb3`, completed v83 in
+`session-00065eb3c5cb1785-00`. All21 fixed channel1 synthesizer steps passed
+fresh-read/masked-or-full-write/independent-readback checks:441 operations,
+378 guard reads,63 exact MCU replies,21 ACKs,42 observations and126 strict
+MAC0/COREf000f200/DMA40000050 triplets. All earlier proof and the complete
+458424-byte prefix/both completion markers passed. Ubuntu default, consumed
+one-shot and current/recovery hashes verified. Offline clean309files/
+734clusters/128directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Bounded synthesizer field/readback setup passed; frequency lock, calibrated
+radio and connectivity remain untested. Next audit post-tune bandwidth/band
+tables and fresh PA/gain prerequisites before VCO or MAC enable.
 Touched: MT76 fixed engine, native diagnostic ownership, boot recipe/tests,
 this unit and current Wi-Fi guide. Dependencies: exact v82 band/MAC proof,
 v81 RF0:24=33hex and26..37=0 observations,512KiB full-prefix capture.
@@ -7417,3 +7421,25 @@ Run/checkpoint and candidate evidence archived outside build. Await readiness
 for cold Wi-Fi power cycle, then collect the matching session FIRST. Results
 save automatically and return to Ubuntu; no commands/photos needed. Physical
 synthesizer/channel readiness and calibrated radio/connectivity remain untested.
+
+
+### 2026-10-25 — v83 native synthesizer field/readback result
+
+Source `0ee9efb3a582cdddc3293f09664c9b60282fcc0e`, release
+`be37d545e93f1aed`, session `session-00065eb3c5cb1785-00`, passed strict
+whole-chain collection after the attended cold adapter cycle. All21 fixed
+channel1 steps preserved reference order, required fresh exact-profile values,
+performed one masked/full write and matched independent readback.441 ordered
+operations,378 guard reads,63 exact replies,21 ACKs,42 observations and126
+MAC0/COREf000f200/DMA40000050 triplets passed. Final RF bank0 values (hex):
+37=02,36=3f,35=28,34=dd,33=e2,32=42,31=42,30=02,29=28,28=30,26=00,27=00,
+24=33. All unmasked fields retained their fresh values; no VCO/SDM pulse.
+
+Whole earlier band/MAC/initialization proof and the complete458424-byte
+prefix/both completion markers passed within512KiB. Ubuntu default, consumed
+one-shot and installed/known-good recovery hashes verified. Offline workspace
+clean309files/734clusters/128directories, zero leaks/mismatches/errors;
+unmounted, reboot unarmed. Full evidence archived outside build under
+`wifi-synth1-0ee9efb`. This accepts bounded synthesizer field writes/readbacks,
+not PLL lock, calibrated RF or connectivity. Next: post-tune bandwidth/band
+setup and fresh PA/gain prerequisites before VCO/MAC enable; no new run armed.

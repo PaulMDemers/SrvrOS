@@ -3404,3 +3404,21 @@ boundary,5376 masked byte inputs, completed-proof mutations and no replay.
 Native/VM checks follow before installation; physical result pending.
 No VCO trigger, transmit-power selection, bandwidth/band tail, MAC enable,
 scanning or traffic. Frequency-field readbacks do not establish RF readiness.
+
+
+### v83 native channel1 synthesizer field/readback result
+
+MacBookPro11,2 release `be37d545e93f1aed` (source `0ee9efb3`), session
+`session-00065eb3c5cb1785-00`, passed all21 fixed fresh-read/write/readback
+steps:441 ordered operations,378 guard reads,63 exact replies,21 ACKs,
+42 observations and126 strict disabled-MAC guard triplets. Final RF bank0
+values (hex):37=02,36=3f,35=28,34=dd,33=e2,32=42,31=42,30=02,29=28,28=30,
+26=00,27=00,24=33. Unmasked bits preserved; no VCO/SDM pulse. Whole prior
+proof and complete458424-byte prefix/both completion markers passed.
+
+Ubuntu default, consumed one-shot and installed/recovery hashes verified;
+offline clean309files/734clusters/128directories, zero leaks/mismatches/errors.
+Evidence archived, unmounted/unarmed. Bounded field setup/readbacks passed;
+PLL lock, calibrated radio and Wi-Fi connectivity remain untested. Next scope:
+post-tune bandwidth/band tables and fresh PA/gain prerequisites before VCO or
+MAC enable.
