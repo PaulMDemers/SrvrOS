@@ -9,10 +9,22 @@ from hardware_desktop import device_snapshot
 
 def phase_power(text, start, end):
     samples = {}
+    # Deferred records retain their sampling timestamp, not their later print
+    # time. Never accept a truncated/overflowed bounded capture as coverage.
+    captured = [line for line in text.splitlines() if line.startswith('cpu-load-power: power_state=')]
+    receipts = re.findall(r'^cpu-load-power: retained=(\d+) overflow=(\d+)$', text, re.M)
+    if captured or receipts:
+        if len(receipts) != 1 or receipts[0][1] != '0' or not 0 < int(receipts[0][0]) == len(captured) <= 24:
+            return None
     required = ('flags','energy_shift','nominal_mhz','sample_us','interval_us',
                 'samples','rejected','energy','aperf','mperf','monotonic_us')
     for line in text.splitlines():
+        retained = line.startswith('cpu-load-power: power_state=')
+        if retained:
+            line = line.replace('cpu-load-power:', 'workspace-devices:', 1)
         parsed = device_snapshot(line)
+        if retained and (not parsed or parsed[0] != 'power'):
+            return None
         if not parsed or parsed[0] != 'power':
             continue
         s = parsed[1]
