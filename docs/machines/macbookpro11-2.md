@@ -7,6 +7,11 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+Installed candidate: v99 `995dd64ae6135add`, source `87144160`, integrated main
+`fbb6eaa5`; fresh bounded channel6 receive before channel1 restoration. Local,
+sanitizer and exact-stage GPT save/return and missing-workspace checks pass.
+Native trial pending; Ubuntu default, workspace unmounted, reboot unarmed.
+
 Latest physical run: v98 release `83aad161d5fa476e`, source `5e2ed3da`,
 session `session-00065ed585ba7f47-00`. The stopped-RX US channel6/20MHz frequency
 and VCO-trigger transaction completed 21 steps; all 13 original channel1 words
@@ -29,9 +34,9 @@ security and IP/UI. Original strict calibration helper stays unchanged; RF0:6
 semantics remain unresolved. Full evidence is archived outside build; no new
 trial is armed.
 
-Active receive scope (2026-10-27): actual main `e62c1b2a` (Air6,1 acceptance
-docs only); PR212 owns battery desktop work and PR182 filesystem imports, with
-no MT76 overlap. Add a separate opt-in channel6 receive trial after the accepted
+Active receive scope (2026-10-27): actual candidate base `fbb6eaa5` includes merged
+PR212/213 desktop power work; PR182 owns filesystem imports, with no MT76
+overlap. Both shared logger contracts are preserved; no Pro battery trial is added. Add a separate opt-in channel6 receive trial after the accepted
 frequency/VCO transaction and before channel1 restoration. Preserve v98's
 one-shot entry point; a separate observer API must require post-observer MAC/
 VCO/frequency and stopped-DMA proof before independent RF restoration. Retain
@@ -9763,3 +9768,41 @@ logging retains its32-node reservation and alternating snapshots. Both merged
 fixture families remain enabled. No native Air acceptance is claimed here;
 no battery trial is added to this Pro's Wi-Fi profile. Rebuild and exact-stage
 VM checks remain necessary before installation.
+
+
+### 2026-10-27 — v99 fresh channel6 receive candidate installed, unarmed
+
+Source `87144160` consumes actual main `fbb6eaa5` and preserves the independent
+Wi-Fi startup-prefix and Air desktop-checkpoint logger contracts. Release
+`995dd64ae6135add` is installed for the next cold adapter trial; native acceptance
+is pending. V98 remains the accepted frequency/VCO/restoration baseline.
+
+The full merged image/core/desktop build passes, including both logger modes,
+the desktop power fixtures and356 native receive cases. ASan/UBSan passes356
+native cases and6906 pure tune/observer transactions. Staging passes187 tests;
+196 older Wi-Fi recipes and desktop76/77 remain unchanged, and merged-main
+76/77/78 desktop recipes match `fbb6eaa5` byte-for-byte. Forty-five diagnostic
+format strings match argument counts. The strict whole-prefix collector accepts
+15 prior window/AP outcomes,14 fresh receive outcomes and36 VCO polling
+combinations, and rejects1979 malformed proofs. A complete synthetic prefix is
+628330 bytes, below1MiB. These are synthetic validation, not new native results.
+
+The committed-source kernel and independently firmware-packaged initramfs match
+the exact stage. Exact-stage GPT VM saved/byte-verified logs, unmounted and
+returned automatically; missing workspace refused probing and returned. QEMU
+does not emulate this Wi-Fi adapter. Installation verified all seven new/e47/
+v98/v97/v96/v95/v93 payloads against durable copies. Obsolete, unreferenced
+`81e3308ffcdfe637` was removed from ESP only after full file equality to its
+retained backup, keeping all accepted fallback payloads. Ubuntu remains default,
+one-shot is unarmed, workspace unmounted. Offline checks report346 files,
+868 clusters,145 directories and zero leaks, bitmap mismatches or errors.
+
+Full source/reference/local/VM/proof/install records and payload are retained in
+`wifi-channel-receive-8714416` outside build. Next: after cold-cycle readiness,
+power off, unplug only Wi-Fi for10s, reconnect and power on while leaving the
+workspace drive connected. Guest progress/results and automatic Ubuntu return
+require no photos or commands. On return collect the matching v99 session FIRST;
+validate fresh Set Dequeue,one IN,MAC retirement,exact stop/four guards,post-
+observer target words and independent channel1 restoration. Quiet or malformed
+input cannot establish reception. RF lock/quality,multi-channel discovery,
+association/security and IP/UI remain pending. No reboot armed.

@@ -5390,3 +5390,41 @@ fixture mistakes were corrected before staging; the hardware RF guards were
 not relaxed. Saved-log validation, full merged tests, exact-stage VM, install
 and native acceptance remain separate checkpoints. Installed v98 remains the
 last physically accepted payload; no reboot armed.
+
+
+### 2026-10-27 — v99 fresh channel6 receive candidate installed, unarmed
+
+Source `87144160` consumes actual main `fbb6eaa5` and preserves the independent
+Wi-Fi startup-prefix and Air desktop-checkpoint logger contracts. Release
+`995dd64ae6135add` is installed for the next cold adapter trial; native acceptance
+is pending. V98 remains the accepted frequency/VCO/restoration baseline.
+
+The full merged image/core/desktop build passes, including both logger modes,
+the desktop power fixtures and356 native receive cases. ASan/UBSan passes356
+native cases and6906 pure tune/observer transactions. Staging passes187 tests;
+196 older Wi-Fi recipes and desktop76/77 remain unchanged, and merged-main
+76/77/78 desktop recipes match `fbb6eaa5` byte-for-byte. Forty-five diagnostic
+format strings match argument counts. The strict whole-prefix collector accepts
+15 prior window/AP outcomes,14 fresh receive outcomes and36 VCO polling
+combinations, and rejects1979 malformed proofs. A complete synthetic prefix is
+628330 bytes, below1MiB. These are synthetic validation, not new native results.
+
+The committed-source kernel and independently firmware-packaged initramfs match
+the exact stage. Exact-stage GPT VM saved/byte-verified logs, unmounted and
+returned automatically; missing workspace refused probing and returned. QEMU
+does not emulate this Wi-Fi adapter. Installation verified all seven new/e47/
+v98/v97/v96/v95/v93 payloads against durable copies. Obsolete, unreferenced
+`81e3308ffcdfe637` was removed from ESP only after full file equality to its
+retained backup, keeping all accepted fallback payloads. Ubuntu remains default,
+one-shot is unarmed, workspace unmounted. Offline checks report346 files,
+868 clusters,145 directories and zero leaks, bitmap mismatches or errors.
+
+Full source/reference/local/VM/proof/install records and payload are retained in
+`wifi-channel-receive-8714416` outside build. Next: after cold-cycle readiness,
+power off, unplug only Wi-Fi for10s, reconnect and power on while leaving the
+workspace drive connected. Guest progress/results and automatic Ubuntu return
+require no photos or commands. On return collect the matching v99 session FIRST;
+validate fresh Set Dequeue,one IN,MAC retirement,exact stop/four guards,post-
+observer target words and independent channel1 restoration. Quiet or malformed
+input cannot establish reception. RF lock/quality,multi-channel discovery,
+association/security and IP/UI remain pending. No reboot armed.
