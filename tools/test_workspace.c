@@ -4,6 +4,8 @@
 #define SRVROS_WORKSPACE_HOST_TEST
 #include "../kernel/src/workspace.c"
 
+static unsigned hold_notifications;
+void process_wait_notify(void){assert(!mount_hold.token);hold_notifications++;}
 static struct block_device disks[2];
 static bool image_busy;
 bool workspace_image_busy(void){return image_busy;}
@@ -101,7 +103,7 @@ int main(void) {
     assert(workspace_sync()&&flushes==1&&workspace_mount_hold_valid(token));
     /* File-I/O activity does not invalidate a lifetime pin. */
     foreign=true;assert(workspace_mount_hold_valid(token));foreign=false;
-    assert(workspace_mount_hold_release(token)&&!workspace_mount_held());
+    unsigned notices=hold_notifications;assert(workspace_mount_hold_release(token)&&!workspace_mount_held());assert(hold_notifications==notices+1);
     assert(!workspace_mount_hold_release(token)&&!workspace_mount_hold_valid(token));
     uint64_t next=workspace_mount_hold_acquire();assert(next>token);
     assert(!workspace_mount_hold_release(token)&&workspace_mount_hold_valid(next));

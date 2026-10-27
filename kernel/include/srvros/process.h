@@ -114,6 +114,13 @@ bool process_lifetime_release(uint64_t token);
 uint64_t process_lifetime_of(uint64_t pid);
 
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
+/* Kernel session supervisor: wait without reaping until this caller's target
+ * is reapable/absent, a signal, external predicate or absolute tick deadline.
+ * Predicate runs IRQ-masked and must not block or mutate ownership. Producers
+ * publish before notify; compare-and-sleep prevents lost notifications.
+ * Spurious wakes are allowed. False requires the caller's bounded fallback. */
+bool process_wait_event(uint64_t pid,bool (*condition)(void *),void *arg,uint64_t deadline_ticks);
+void process_wait_notify(void);
 int64_t process_wait_posix(int64_t selector,uint64_t *status_out,bool nohang);
 /* Kernel-designated init may reap children whose userspace parent has exited. */
 bool process_set_reaper(uint64_t pid);

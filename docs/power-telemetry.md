@@ -818,3 +818,11 @@ per phase; CPU0 active frequency stays around 1,293 MHz. Core/package readings
 span 60–65 C, warmer than the prior run. This accepts the targeted wait behavior,
 not significant power savings, hardware residency or CPU policy. The
 [unit record](machines/macbookair6-1.md) retains the full bounded comparison.
+
+
+The next Air6,1 candidate (`aa576838270d623a`) also replaces ordinary desktop
+supervisor polling with process/control/ownership events and original absolute
+deadlines. The power VM shows zero bootstrap timer wakes in every phase and no
+bootstrap switches during covered idle/recovery. Native comparison against
+`cb881058052a1012` remains pending. Battery sampling cadence, service watchdogs,
+firmware guards, ownership requirements and the v78 recipe remain unchanged.

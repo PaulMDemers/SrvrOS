@@ -2511,6 +2511,25 @@ static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
     return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);
 }
+struct process_event_request {
+    struct process_wait_request target;
+    bool (*condition)(void *);
+    void *arg;
+    uint64_t deadline;
+};
+static bool process_event_ready(void *arg) {
+    struct process_event_request *request=arg;
+    return process_wait_ready(&request->target) || request->condition(request->arg) ||
+        (request->deadline && timer_ticks()>=request->deadline);
+}
+bool process_wait_event(uint64_t pid,bool (*condition)(void *),void *arg,uint64_t deadline_ticks) {
+    if(!pid || !condition)return false;
+    struct process_event_request request={
+        .target={.pid=pid,.owner=process_pid(process_current())},
+        .condition=condition,.arg=arg,.deadline=deadline_ticks};
+    return scheduler_wait_timeout(&process_wait_queue,process_event_ready,&request,deadline_ticks);
+}
+void process_wait_notify(void) { scheduler_wake_all(&process_wait_queue); }
 static int64_t process_wait_request(struct process_wait_request request,uint64_t *status_out,bool nohang,bool posix_status) {
     for (;;) {
         uint64_t flags=process_irq_save();

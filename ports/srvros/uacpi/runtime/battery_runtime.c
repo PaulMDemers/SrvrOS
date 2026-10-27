@@ -1,3 +1,4 @@
+#include <srvros/battery_supervisor.h>
 #include "battery_bounded_policy.h"
 #include "battery_startup_timing.h"
 /* Bounded battery/AC diagnostic. Full runtime, linked separately from the
@@ -1270,6 +1271,7 @@ int battery_control_request(uint64_t group,unsigned operation,uint64_t epoch,str
     battery_service_status(&status);
     int result=battery_control_enqueue(&controls,group,operation,epoch,&status);
     *out=battery_control_view(&controls,group,status.epoch);
+    if(result==0 && operation && controls.operation)process_wait_notify();
     irq_restore(f);return result;
 }
 /* Called only by the scoped session owner, outside syscalls and storage work. */
@@ -1753,6 +1755,21 @@ done:
     }
     return ok;
 }
+struct supervisor_wait { uint64_t hold,end; };
+static bool supervisor_pending(void *arg) {
+    const struct supervisor_wait *wait=arg;
+    return controls.operation || !workspace_mount_hold_valid(wait->hold) ||
+        (wait->end && timer_monotonic_us()>=wait->end);
+}
+/* Only ordinary lifetime-owned sessions: no sample/guard observation is owed
+ * between events. The held mount is immutable until explicit release, which
+ * notifies the process wait queue; mailbox producers and process retirement
+ * publish on the same queue. Service/firmware watchdogs remain independent. */
+static void supervisor_wait(uint64_t pid,uint64_t end) {
+    struct supervisor_wait wait={smbus_workspace_hold,end};
+    uint64_t due=battery_supervisor_tick_deadline(timer_monotonic_us(),timer_ticks(),end);
+    if(!process_wait_event(pid,supervisor_pending,&wait,due))uacpi_kernel_sleep(10);
+}
 /* Scope lasts for this desktop process group only. Explicit Home controls
  * retain the accepted native mount boundary across every service lifetime.
  * Cached reads never confer this capability, and no userspace owns firmware. */
@@ -1776,6 +1793,10 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
     uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false,guarded=false;
     uint64_t capture_start=timer_monotonic_us(),first_generation=0,last_generation=0;
+    bool event_supervisor=workspace && lifetime && desktop_session && !desktop_capture;
+    uint64_t supervision_limit=battery_supervisor_limit(desktop_reopen_test,desktop_power_test,
+        desktop_audio_io_test,desktop_capacity_test);
+    uint64_t supervision_end=supervision_limit?capture_start+supervision_limit:0;
     if(bound && continuous_home) {
         bool started=battery_service_start(rsdp,map);
         console_printf("battery-monitor: auto_start=%u native=%s\n",(uint64_t)started,desktop_capture?"explicit-capture":desktop_session?"explicit-session":"disabled");
@@ -1816,7 +1837,8 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
             console_write("desktop-capacity: owner deadline exceeded\n");break;
         }
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
-        uacpi_kernel_sleep(10);
+        if(event_supervisor)supervisor_wait(pid,supervision_end);
+        else uacpi_kernel_sleep(10);
     }
     if(desktop_capture) {
         uint64_t elapsed=timer_monotonic_us()-capture_start;

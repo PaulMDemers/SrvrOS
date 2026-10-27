@@ -24,7 +24,8 @@ def main():
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out.mkdir(parents=True,exist_ok=True)
     for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json'):
         (out/name).unlink(missing_ok=True)
-    for old in out.glob('saved-*.log'):old.unlink()
+    for pattern in ('saved-*.log','checkpoint-*.log'):
+        for old in out.glob(pattern):old.unlink()
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
@@ -68,9 +69,31 @@ def main():
             try:
                 serial=connect_unix(tmp/'serial',20);serial.settimeout(.05);qmp=QMP(tmp/'qmp')
                 overlap=[];previous=None;sample_at=0
+                checkpoints=[];collected=set()
+                def retain_checkpoint():
+                    # Read only the disposable backing file, after the guest's
+                    # existing flush. Never stop QEMU, inject input, add guest
+                    # writes or change its two-file rotation/limits. Require
+                    # identical bytes from two reads and the exact generation;
+                    # all records still face the complete-phase validator.
+                    if stage:return
+                    directories=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
+                    marks=list(re.finditer(rb'workspace-log: snapshot=(session-[ab]\.log) monotonic_us=(\d+)[^\r\n]*[\r\n]',output))
+                    if len(directories)!=1 or not marks:return
+                    mark=marks[-1];key=mark[1],mark[2]
+                    if key in collected or b'workspace: flushed' not in output[mark.end():]:return
+                    path=directories[0].decode()+'/'+mark[1].decode()
+                    def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
+                    raw=read_snapshot()
+                    assert raw==read_snapshot(),'live checkpoint changed during host collection'
+                    receipt=b'workspace-log: snapshot='+mark[1]+b' monotonic_us='+mark[2]+b' '
+                    assert receipt in raw,'live checkpoint generation mismatch'
+                    checkpoints.append(raw);collected.add(key)
+                    (out/f'checkpoint-{len(checkpoints):03d}.log').write_bytes(raw)
                 def pump(seconds):
                     nonlocal previous,sample_at
                     output.extend(read_for(serial,seconds));(out/'serial.log').write_bytes(output)
+                    retain_checkpoint()
                     now=time.monotonic()
                     if now-sample_at>=.2 and b'desktop-audio-io: result=' not in output:
                         sample_at=now
@@ -124,7 +147,7 @@ def main():
                     # UART writers may interleave; saved bootlog records are atomic.
                     session=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
                     assert len(session)==1
-                    logdir=session[0].decode();snapshots=[]
+                    logdir=session[0].decode();snapshots=list(checkpoints)
                     for name,_ in final.entries(final.read(logdir)):
                         if name.endswith('.log'):
                             raw=final.read(logdir+'/'+name);snapshots.append(raw)
@@ -166,7 +189,7 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False)
-                result.update(app_timing_evidence='complete_console_records_and_atomic_snapshots',populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
+                result.update(app_timing_evidence='complete_console_records_and_retained_atomic_checkpoints',retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
