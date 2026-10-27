@@ -222,6 +222,34 @@ def idle_prerequisites(text):
                 scope='CPU0 read-only prerequisites; no AP startup/IPI/MWAIT or power-policy changes')
 
 
+def mwait_result(text):
+    lines=[s for s in text.splitlines() if s.startswith('cpu-mwait:')]
+    if len(lines)!=1: return None
+    if lines[0]=='cpu-mwait: v=1 admitted=0 fallback=hlt':
+        return dict(status='refused',fallback='hlt')
+    parts=lines[0].split()[1:]
+    keys=set('v admitted epoch hint ext cap limit_us tries returns max_us fault hlt rechecks tick_begin tick_end'.split())
+    if any(not re.fullmatch(r'[a-z_]+=\d+',s) for s in parts): return None
+    row={k:int(v) for k,v in (s.split('=') for s in parts)}
+    if len(row)!=len(parts) or set(row)!=keys or any(v>=2**64 for v in row.values()): return None
+    if (row['v']!=1 or row['admitted']!=1 or row['hint']!=0 or row['ext']!=1 or
+        row['cap']!=32 or row['limit_us']!=20000 or row['tries']>32 or row['returns']!=row['tries'] or
+        row['hlt']>32 or row['fault'] not in (0,1,2)): return None
+    prereq=idle_prerequisites(text)
+    if not prereq or prereq['epoch']!=row['epoch'] or prereq['configuration_changed']: return None
+    c=prereq['config_start']
+    if (not prereq['monitor_fsm_consistent'] or not prereq['monitor_advertised'] or
+        not prereq['mwait_extensions'] or not prereq['masked_interrupt_break'] or
+        not prereq['cpuid5_substate_nibbles'][1] or
+        c['bsp']!=1 or c['apic_enabled']!=1 or c['x2apic_enabled']!=0): return None
+    # A fallback is a safety outcome, not successful MWAIT acceptance. Require
+    # real tick progress during attempts and the mandatory subsequent HLT path.
+    passed=(row['tries']==32 and row['hlt']==32 and not row['fault'] and
+            0<row['max_us']<=20000 and row['tick_end']>row['tick_begin'])
+    return dict(status='PASS' if passed else 'FAILED_OR_INCOMPLETE',**row,
+                scope='32 shallow CPU0 waits; masked wait duration, not IRQ dispatch latency or deeper residency')
+
+
 def load_result(text):
     failure = re.findall(r'^cpu-load: completed=NO reason=(\S+)$',text,re.M)
     rows = re.findall(r'^cpu-load: phase=(idle|load|recovery) completed=yes elapsed_us=(\d+) start_us=(\d+) end_us=(\d+) chunks=(\d+) checksum=(\d+)$',text,re.M)
@@ -241,7 +269,7 @@ def load_result(text):
         phases.append(dict(name=name,start_us=start,end_us=end,elapsed_us=elapsed,chunks=chunks,
                            power=phase_power(text,start,end),idle_residency=phase_idle(text,start,end),idle_entry=phase_idle_entry(text,start,end)))
     return dict(completed=bool(valid),failure_reasons=failure,phases=phases if valid else [],
-                idle_prerequisites=idle_prerequisites(text) if valid else None,
+                idle_prerequisites=idle_prerequisites(text) if valid else None,mwait=mwait_result(text),
                 scope='single-worker console workload; package power over covered subintervals, not whole-machine power')
 
 if __name__ == '__main__':

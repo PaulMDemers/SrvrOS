@@ -8,4 +8,14 @@ struct scheduler_idle_audit { uint64_t epoch, enters, returns, ready; };
 bool scheduler_idle_audit_start(void);
 void scheduler_idle_audit_snapshot(struct scheduler_idle_audit *);
 void scheduler_idle_audit_stop(struct scheduler_idle_audit *);
+/* Explicit capture-only shallow wakeup experiment, never ordinary idle policy.
+ * Latency is the masked wait interval, not IRQ or scheduler dispatch latency. */
+#define SCHEDULER_MWAIT_ATTEMPTS 32u
+#define SCHEDULER_MWAIT_LIMIT_US 20000u
+struct scheduler_mwait_test {
+    uint64_t epoch, attempts, returns, max_us, fault, hlt, rechecks;
+    uint64_t tick_begin, tick_end;
+};
+bool scheduler_mwait_test_start(void);
+void scheduler_mwait_test_stop(struct scheduler_mwait_test *);
 #endif
