@@ -4,7 +4,8 @@ Captured scope: `7392:a711` revision `0100`, Edimax EW-7711MAC, attached to
 MacBookPro11,2. Linux binds `mt76x0u`. SrvrOS has bounded opt-in native transport,
 initialization and management-frame reception diagnostics; channel1/channel6
 beacons and bounded cleanup are observed. The fixed US1/6/11 passive lifecycle
-is accepted with a channel6 beacon; sustained scanning and channel11 reception
+and one pre-enable completion retry are accepted with a channel6 beacon;
+sustained scanning and channel11 reception
 remain unaccepted. Association/authentication, an active Wi-Fi IP provider and
 configuration UI remain unimplemented. Ordinary startup leaves these diagnostic
 radio operations disabled. See the latest milestone at the end of this guide.
@@ -5721,3 +5722,35 @@ readiness, unplug Wi-Fi10s while off, reconnect and power on; leave workspace
 connected. Guest progress, saved logs and automatic return require no photos or
 commands. Collect v101 FIRST, checking optional second completion and cleanup
 before acceptance. Association/security, sustained RX/FCS and IP/UI stay pending.
+
+## 2026-10-27: v101 native pre-enable retry accepted
+
+Release `f1015eeb7358f9c7`, source `6b12e4f2`, integrated main `e4f8bf84`,
+saved session `session-00065edaa5a051a0-00` passed the original whole-log proof.
+The full785759-byte startup/exit prefix fits1MiB, with both completion markers.
+Two cached device checkpoints match their original raw prefixes byte for byte
+(593137 and749349 bytes). No failure projection or relaxed native guard was needed.
+
+Channel1 stayed quiet for10000004 us. Channel6 decoded a beacon in53262 us
+(2347 polls, CC13,344 actual bytes,340 consumed,304-byte MPDU). On channel11,
+the first IN completed before enable (CC13,120 bytes); it stayed uninspected.
+Exactly one fresh reserved-page IN used TD1, preserving TD0 and all page pins.
+The selected retry remained quiet for10000019 us, then stopped with CC26 and
+zero actual bytes. No deadline reset, duplicate completion, DMA reuse, identifiers
+or network data OUT occurred. All nine fresh pages were distinct. Each visit
+completed54 MAC operations, independent quiescence/Stop and all13 original
+channel1 word restorations. Tuning callbacks488/506/506 and exchanges153/156/156
+passed exact order/value/ownership checks. The private table contains one
+channel6 row. This accepts the bounded early-completion retry lifecycle; it does
+not establish channel11 reception, sustained receive, FCS, physical BSSID
+deduplication, association/security or IP/UI.
+
+Independent final audit reran the raw native proof, matched committed source
+hashes and all seven complete live payloads to durable backups. Ubuntu remains
+default, one-shot consumed, workspace unmounted and no reboot armed. Offline
+checks:359 files,924 clusters,149 directories, zero errors/leaks/bitmap mismatches.
+Evidence, source, payloads and collection scripts survive distclean under
+`/home/paul/.local/share/srvros/macbookpro11-2/wifi-scan-retry-6b12e4f`.
+Next: bounded repeated receive with distinct retained buffers, unchanged deadlines
+and independent Stop/channel1 restoration on every outcome. No repeat of this
+successful trial is required.
