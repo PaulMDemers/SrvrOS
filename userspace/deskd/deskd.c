@@ -224,7 +224,7 @@ static void resource_trace(const struct session *s,const char *reason) {
  * published pixels remain untouched until copy succeeds. Budget includes both. */
 static void cache_drop(struct session *s,int i,int j) {
     struct pixel_cache *c=&session_cache(s,i)[j];
-    if(c->job) { life_publish(&c->job->discard,1);*c=(struct pixel_cache){0};return; }
+    if(c->job) { life_queue(s->worker,&c->job->discard,1);*c=(struct pixel_cache){0};return; }
     if(c->pixels) {
         s->cache_bytes-=(uint64_t)c->width*c->height*4;
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
@@ -272,7 +272,7 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
             cache_drop(s,i,j);m->width=width;m->height=height;m->pixels=NULL;m->discard=0;
             *c=(struct pixel_cache){.width=width,.height=height,.job=m};
             s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
-            life_publish(&m->state,LIFE_QUEUED);s->cache_pending=1;return NULL;
+            life_queue(s->worker,&m->state,LIFE_QUEUED);s->cache_pending=1;return NULL;
         }
         return NULL;
     }
@@ -614,7 +614,7 @@ static void spawn_app(struct session *s,int application,const char *path) {
                 if(strlen(path?path:"")>=sizeof(j->path) || strlen(s->home?s->home:DESK_RAM_HOME)>=sizeof(j->home))break;
                 j->application=application;j->child_slot=i;j->queued_us=(uint64_t)srv_monotonic_us();
                 strcpy(j->path,path?path:"");strcpy(j->home,s->home?s->home:DESK_RAM_HOME);
-                s->last_launch_pid=0;life_publish(&j->state,LIFE_QUEUED);return;
+                s->last_launch_pid=0;life_queue(s->worker,&j->state,LIFE_QUEUED);return;
             }
             launch_failed(s,application,SRV_ERR_AGAIN);return;
         }

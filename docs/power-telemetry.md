@@ -805,3 +805,20 @@ The checkpoint logger enters through `workspace_log_start_checkpoints()`.
 This keeps its 64KiB tail and 64-node reservation separate from the Wi-Fi
 firmware startup-prefix capture entry points; ordinary logging still alternates
 two periodic files and reserves32 nodes.
+
+## Accepted Air6,1 event-driven worker comparison
+
+PR214 release `cb881058052a1012` / runtime `e0008d92` repeats the same native v78
+recipe in session `session-00065ed6efff4c7c-00`. All phases, 13 app cycles,
+battery retirement, file preservation and offline allocation pass under unchanged
+requirements. Lifecycle `uthread` timeout wakes fall from approximately 89/s to
+zero; covered idle/recovery intervals also contain no lifecycle switches. App
+work produces 36 signal wakes in 40.829 s. Supervisor and device polling remain
+unchanged; software wake counters still do not attribute energy consumption.
+
+Mean CPU package power is 4.121 / 4.167 / 4.130 W for idle/apps/recovery versus
+4.131 / 4.150 / 4.137 W previously. Coverage spans 41–52 s with 5–6 checkpoints
+per phase; CPU0 active frequency stays around 1,293 MHz. Core/package readings
+span 60–65 C, warmer than the prior run. This accepts the targeted wait behavior,
+not significant power savings, hardware residency or CPU policy. The
+[unit record](machines/macbookair6-1.md) retains the full bounded comparison.

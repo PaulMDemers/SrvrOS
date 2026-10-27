@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-26. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-27. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -4087,3 +4087,93 @@ the one-shot entry is consumed and the collector is disabled. No reboot is armed
 The accepted payload/evidence is retained outside `build`; native bounded desktop
 power/temperature/worker telemetry is accepted on this unit, with ordinary
 power telemetry still opt-in and broader endurance/power policy still pending.
+
+### Idle worker polling reduction — active scope (2026-10-27)
+
+Base `fbb6eaa5`, accepted desktop-power run `feba3c750d2a4a8d`. Audit identifies
+one-tick unconditional sleeps in the desktop lifecycle and diagnostic-report
+workers. Replace only their empty-queue polling with latched futex notifications;
+cover launch, allocation, discard, capture cleanup, report publication and stop.
+Keep the existing one-tick retry while a screenshot child is still retiring,
+resource ownership/credit rules, joins, queue bounds and every deadline unchanged.
+The native bootstrap loop also checks workspace identity, control requests and
+watchdogs; its polling is deferred until all those wake sources can be covered.
+USB HID polling belongs to separate device work and is unchanged.
+
+Scope: compositor worker notification/admission sites, host race/retirement
+regressions, relevant worker documentation, and a repeat of the identical v78
+power trial with the 470-file / 1,514-cluster USB baseline. Open PR182 filesystem
+and PR19 Wi-Fi work do not own these compositor queues. Run full host tests,
+positive power and screenshot/app/disk VMs, exact staged native refusal, merge,
+then reboot automatically. Native wakeup/energy improvement remains unproven
+until the matching physical return is collected.
+
+### Event-driven desktop workers — validated candidate (2026-10-27)
+
+PR214 candidate runtime `e0008d92`, release `cb881058052a1012`, replaces empty
+lifecycle/report polling with separate latched futex waits. Every UI-side work
+publication and stop notifies its worker. Capture retirement and interrupted-wait
+fallback retain the old one-tick retry; resource credit, child ownership, joins,
+firmware guards, queue bounds and all deadlines remain unchanged. Host threaded
+race/rollback/retirement tests, the full core suite, matched builds and docs pass.
+
+The complete power VM passes 12 app cycles with a 189,071 us worst UI loop.
+Lifecycle worker timeout wakeups are zero in all phases; idle and recovery also
+have zero switches/signals, while app work produces 43 signal wakeups over its
+covered interval. The concurrent audio/disk/app/screenshot VM passes 60 s, 366
+verified disk bursts (95,944,704 bytes), 26 app cycles, one saved screenshot,
+follow-up Files launch and clean exit. It records 222 audio/write overlap windows,
+zero underruns and a 439,121 us worst UI loop under the unchanged 500,000 us
+limit. Both VMs preserve prior files and pass offline allocation. The exact EFI
+payload refuses Q35 at the native PCI/resource gate and returns after unmount.
+
+Repeat run `db449f93b4b14340` uses the identical v78 settle/idle/apps/recovery
+recipe and native limits, against the accepted `1d1cbd1cb03d3032` baseline.
+Its USB baseline remains 470 files / 1,514 clusters, UUID `6ADA-85BB`; Ubuntu and
+console recovery `c35475f62f154f1e` remain unchanged. The older automated-reopen
+EFI copy `4efd82574f07eb30` was retired only after verifying its durable payload;
+later attended-reopen `9851d427b042227b`, accepted stress and both accepted power
+payloads remain installed/backed up. Automatic return collection compares power
+and worker counters without treating this short comparison as proven energy
+savings. Native validation remains pending; no battery-supervisor or USB polling
+change is included in this candidate.
+
+
+### Idle desktop worker waits physically accepted (2026-10-27)
+
+Documentation-only acceptance on integration `8715d684` (PR214); no runtime
+changes or dependencies on open PR182/PR19. Run `db449f93b4b14340`, release
+`cb881058052a1012`, runtime `e0008d92`, saved matching native session
+`session-00065ed6efff4c7c-00`. The unchanged v78 settle/idle/apps/recovery test
+passes with 13 completed Text/Files/System cycles and automatic Ubuntu return.
+Worst UI loop is 115,492 us against 500,000 us; readiness is 565,144 us and close
+83,141 us against the unchanged 10 s lifecycle limits.
+
+Lifecycle worker `uthread` identity 17 has zero timeout wakeups in every phase.
+Idle and recovery also have zero switches or signal wakes across their covered
+52.208329 s and 51.122871 s intervals. During 40.828704 s of app coverage it has
+54 switches and 36 signal wakes (0.882/s), serving work without periodic polling.
+The accepted baseline had 89.436 / 87.604 / 89.026 timeout wakes/s respectively.
+This accepts the targeted lifecycle wait change on this unit, not removal of all
+worker polling. Bootstrap supervision (~48/s), battery ownership (~19/s) and
+USB HID (~90/s) remain unchanged and need their own wake-source audits.
+
+| Phase | Power coverage / points | Mean package power, baseline → repeat | CPU0 active MHz | Core / package C |
+| --- | --- | --- | --- | --- |
+| Idle | 51.998343 s / 6 | 4.131 → 4.121 W | 1,292 | 61–63 / 62–65 |
+| Apps | 40.997963 s / 5 | 4.150 → 4.167 W | 1,294 | 60–61 / 61–62 |
+| Recovery | 40.998693 s / 5 | 4.137 → 4.130 W | 1,293 | 60–61 / 60–62 |
+
+Power is essentially unchanged in this short comparison; different temperatures
+and small differences do not establish energy savings. Battery phase generations
+advance 12→35→58→81; retirement reports 82 attempts, zero rejected samples,
+heap/errors/denied zero, and revoked/retired ownership. All integrity checks,
+queue bounds, screenshot-child retry, firmware gates and deadlines are unchanged.
+
+All 470 prior USB files are preserved except expected `.srvros/meta` bookkeeping.
+The 23 new logs bring the filesystem to 493 files / 1,538 clusters; fsck and the
+allocation walk pass with zero leaks, bitmap mismatches or errors. Independent
+reparsing agrees with the collector and all 381 collected durable evidence hashes
+verify. Payload/evidence survive `make distclean`. The one-shot boot is consumed,
+the collector is disabled, and no reboot is armed. Console recovery
+`c35475f62f154f1e` and the earlier accepted payloads remain retained.

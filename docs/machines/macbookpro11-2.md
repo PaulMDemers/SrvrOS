@@ -9832,3 +9832,25 @@ in `wifi-channel-receive-8714416`. Next: bounded sequential passive multi-channe
 discovery with fresh receive ownership and independent stop/restoration on every
 failure. Selection, association/security and IP/UI follow. No repeat boot is
 needed for v99; no reboot armed.
+
+
+### 2026-10-27 — bounded three-channel passive discovery scope
+
+Consume actual main `a3066f87` (Air event-driven lifecycle wait fixes and native
+acceptance; no MT76 edits). Open PR182 owns exFAT validation/allocation/storage
+ownership; do not duplicate that work. Local v99 is collected and accepted.
+Next add an explicit three-visit US1/6/11,20MHz passive diagnostic. Each visit
+starts from verified original channel1 frequency fields, uses a new retained
+ring/page for one bounded IN, independently disables/drains/stops RX, and
+restores/re-settles channel1 before advancing. Retain prior per-visit states and
+allocations; reject aliases and stale events. Publish copied private beacon
+rows only after all visits and ownership checks pass, flag conflicting name,
+security or channel observations, and scrub identifiers on failure. No scan UI,
+active probes, credentials, association or network data OUT. Touched: bounded
+scan helper/tests, native tune/receive sequencing and retained ownership,
+main/staging/smoke, strict collection and unit/Wi-Fi guides. Dependencies: v99
+exact Set Dequeue/MAC/stop and restoration proof, immutable US frequency plans,
+existing bounded management parser. Validate all visit/cleanup/ownership and
+publication boundaries, native failure injection and sanitizers, merged tests,
+exact-stage VM persistence/refusal and durable recovery before native readiness.
+Installed v99 remains unchanged and no reboot is armed by this publication.
