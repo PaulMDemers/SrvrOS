@@ -4594,3 +4594,22 @@ hint, race-safe readiness recheck, bounded latency checks and HLT fallback,
 before claiming deeper core/package entry. Other-core observation would require
 its own AP ownership/rendezvous design and remains separate work. No performance,
 battery-life or energy-saving claim follows from these short measurements.
+
+### Opt-in MONITOR/MWAIT wakeup — active scope (2026-10-27)
+
+Base `71379774`; previous prerequisite run is collected. Implement an explicit
+CPU-load capture option for a bounded CPU0 MONITOR/MWAIT wakeup experiment on
+the captured 06_45 CPU. Use shallow hint 0 only, require native MONITOR FSM,
+extensions/masked-interrupt break and 64-byte monitor-line capability, recheck
+scheduler readiness after MONITOR, and cap MWAIT attempts at 32 before HLT
+fallback. Measure the IRQ-masked return interval against one existing two-tick
+scheduler quantum (20 ms at the unchanged 100 Hz tick). A timing fault latches
+HLT fallback; it is not a pass. No deeper hint, AP startup, IPI or MSR write.
+
+Touch scheduler diagnostic idle selection, power capture admission/receipt,
+explicit staging/main dispatch, collector and host/VM tests. Default idle remains
+HLT. Existing 30-second phases, ten-second coverage, watchdogs, thermal/fan stops,
+64 KiB logs and integrity limits remain unchanged. PR182 filesystem audit and
+PR19 Wi-Fi do not currently modify this idle path; preserve their independent
+profiles. Next checkpoint is validation, self-merge, exact-stage install and the
+authorized automatic trial. Native MWAIT wakeup acceptance remains pending.
