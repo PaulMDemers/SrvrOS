@@ -3861,3 +3861,21 @@ mismatches or errors. The matching evidence, images and accepted payload are
 hash-verified outside `build`. Ubuntu remains the default, console recovery is
 preserved, the collector is disabled and no reboot is armed. The next step can
 return to broader attended desktop use; this workload needs no relaxed limits.
+
+### Read-only CPU power telemetry — active scope (2026-10-27)
+
+Base `4dbd566f` includes the collected Files/screenshot acceptance above. The
+next bounded objective is explicit CPU package energy and CPU0 active-frequency
+telemetry for this unit, followed by the existing automatic v35 30-second
+idle/load/recovery phases. Linux CPU0 capture confirms signature `0x40651`,
+CPUID.1 ECX/EDX `0x7ffafbbf`/`0xbfebfbff`, CPUID.6 ECX `9`, and readable
+RAPL units/platform/energy/APERF/MPERF. Raw evidence stays in ignored local storage.
+
+Touched scope: power profile gate, its arithmetic/service regressions, power
+trial documentation and local staging/collection. Preserve the five-register
+read-only allowlist, feature/hypervisor refusals, thermal stops and all timing
+and integrity bounds. No CPU policy, fan control or ordinary desktop opt-in
+changes. Reuse the existing v35 diagnostic; no battery/AML ownership is needed.
+PR182 owns filesystem/backend writeback auditing and PR19 USB Wi-Fi; neither
+has overlapping power scope. Native power acceptance remains pending. Keep
+Ubuntu, console recovery and the accepted combined desktop payload available.
