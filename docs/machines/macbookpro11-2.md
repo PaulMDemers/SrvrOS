@@ -15,13 +15,15 @@ strict first-entry parser decoded a channel1 beacon (234-byte MPDU). The event
 was processed during the post-calibration window. This accepts one bounded
 native beacon observation on the captured adapter, not sustained reception or
 FCS/RSSI/RF performance. Full logs, Ubuntu recovery and offline allocation
-passed; workspace unmounted and no reboot armed. Current v93, accepted v92
-fallback and e47 previous recovery are preserved. Next: bounded repeated
-passive reception with safe endpoint rearm and teardown, then scanning,
+passed; workspace unmounted and no reboot armed. Installed pending v94 is `2530466d580891cc`/source `34c2e8b4`;
+accepted v93 remains on ESP and e47 is previous recovery. Accepted v92 is
+durably archived after verified removal from ESP for space. Next: cold-cycle
+readiness and matching v94 collection FIRST with `rx-window-native/collect_return.py`,
+then review bounded repeated passive reception before scanning,
 association/security, Wi-Fi IP traffic and UI. Original strict helper stays
 unchanged; RF0:6 semantics remain unresolved.
 
-Active native integration block (2026-10-26): actual main remains `a9d69554`;
+Validated native integration candidate (2026-10-26): actual main remains `a9d69554`;
 PR182 owns filesystem imports and has no MT76 overlap. Wire the retained-buffer
 receive window into a separate explicit native mode/profile. Split polling
 from final inspection so the accepted parent MAC drain/disable/restoration,
@@ -8968,3 +8970,40 @@ An interleaved USB keyboard event is delivered during the receive window.
 The full saved-log checker binds every item to count, completion/residue, phase,
 parent cleanup, current TRB stop proof and whole earlier initialization chain.
 Installed recovery remains unchanged until all validation and exact-stage checks.
+
+
+### 2026-10-26 — v94 installed; cold native trial pending
+
+Candidate source `34c2e8b4898966e252d7d335b7298a46cc721e0a`, release
+`2530466d580891cc`, profile v94 automatic return.60 native whole-power-on/MAC/
+window/ring/event/stop/allocation/shared-keyboard scenarios and230 engine cases
+pass. Native and pure ASan/UBSan pass, as do the full committed-source image/core
+suite and181 staging tests. The strict whole-prefix checker accepts11 outcomes
+and refuses137 malformed proofs;186 historical Wi-Fi configurations and both
+merged desktop configurations remain byte-identical.25 native printf arities
+match their arguments. Initial compile/stale staging-fixture failures are
+retained separately; only corrected complete runs are counted as passing.
+
+The staged kernel matches the final committed-source build; independently
+adding the verified firmware package reproduces the staged initramfs hash.
+The window split API, unchanged receive parser and power-on runner are linked;
+the original strict calibration runner remains uncalled. Exact GPT-stage VM
+saved and byte-verified logs, cleanly unmounted and returned automatically.
+Missing workspace refused before probing and returned. Q35 has no captured
+adapter; these VM results establish workflow/refusal only.
+
+Installed/current v94, accepted v93 fallback and e47 previous recovery match
+verified durable payloads. To obtain ESP space, older accepted v92 was removed
+only after full durable payload equality; its backup remains outside build.
+Ubuntu default/EFI order remain unchanged, workspace unmounted and no one-shot
+armed. Offline workspace:333files,816clusters,140directories; zero leaks,
+bitmap mismatches or errors. Durable candidate evidence: `wifi-rx-window-34c2e8b`.
+
+After readiness, power off, unplug only Wi-Fi10s while off, reconnect and power
+on; leave workspace attached. Guest shows progress, saves results and returns
+to Ubuntu automatically; no photos or commands needed. On return collect the
+matching v94 session FIRST with `rx-window-native/collect_return.py`, requiring
+whole prior proof, parent cleanup, exact current-TRB stop, six guards and each
+item's completion/actual bytes/parser/phase. Empty/rejected data is not reception
+acceptance. No physical v94 result is claimed; scan/association/security/IP/UI
+and sustained receive/FCS/RSSI/RF-performance acceptance remain pending.
