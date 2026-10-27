@@ -4331,3 +4331,38 @@ after durable hash verification; accepted current desktop `aa576838270d623a`,
 console recovery, accepted CPU power, stress and attended-reopen payloads remain
 protected. Source, exact-stage receipts, payload and run/collection records are
 retained outside `build` before reboot; Ubuntu remains the default OS.
+
+### Read-only idle residency — bounded native acceptance (2026-10-27)
+
+Return closeout from base `f516c8ea` is documentation/evidence only; no runtime
+policy or new trial. PR182 filesystem and PR19 Wi-Fi scopes remain independent.
+Release `ed06103a5275d7ca`, runtime `d7cda917`, merged PR218 `f516c8ea`, completed
+run `a8c3c17ccdba458a`, session `session-00065ed874cb714b-00`, and automatically
+returned to Ubuntu. The three ordered 30-second phases completed, with 250,478
+single-worker load chunks and peak logged temperature 67 C. Fifteen retained
+records have full support/valid masks, zero rejected samples and no overflow.
+The 63,866-byte exit log retains the complete required evidence within the
+unchanged 64 KiB tail. Independent raw-record review agrees with the collector.
+
+| Phase | Residency coverage | Residency checkpoints | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- |
+| Idle | 23.999236 s | 5 | 4.130 W | 1,287 MHz |
+| Load | 23.999235 s | 5 | 5.167 W | 1,299 MHz |
+| Recovery | 23.999234 s | 5 | 4.137 W | 1,290 MHz |
+
+Power coverage is respectively 23.999236/28.999076/26.999139 seconds, combining
+retained and ordinary checkpoints. Every phase exceeds both unchanged ten-second
+requirements. All ten raw residency counters remain exactly zero, not merely
+rounded percentages: no CPU0 core C3/C6/C7 or package C2/C3/C6/C7/C8/C9/C10
+residency was recorded. TSC brackets advance normally. This accepts the bounded
+read-only capture/validation path on this unit, not deep-state entry or CPU
+policy. It does not measure C0/C1, all-core residency, equilibrium power or
+battery life. The next useful investigation is read-only auditing of idle entry,
+other-core state and firmware/package restrictions before changing CPU policy.
+
+All 516 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the volume to 520 files / 1,567 clusters; offline fsck and
+allocation checks report zero leaks, mismatches or errors. Collected evidence
+and current/recovery payloads are hash-verified in durable storage outside
+`build`. The automatic collector is disabled, GRUB's one-shot entry is consumed
+and no further reboot is armed. Ubuntu remains the default recovery OS.

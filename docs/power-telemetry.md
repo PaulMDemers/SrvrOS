@@ -884,5 +884,26 @@ pairing, valid monotonic data and at least ten seconds of coverage in each phase
 it independently calculates phase ratios from raw endpoints. Missing evidence is
 unavailable, never zero or a pass. The native run requires both power and residency
 coverage, workload completion, preserved prior files and clean offline allocation.
-No minimum deep-state residency or energy-saving result is required. Native
-acceptance remains pending the returned Air6,1 trial.
+No minimum deep-state residency or energy-saving result is required. The returned
+Air6,1 result is recorded below.
+
+### Native Air6,1 residency result (2026-10-27)
+
+Release `ed06103a5275d7ca` (PR218 runtime `d7cda917`) completed the unchanged
+30-second idle/load/recovery phases and returned automatically. Fifteen retained
+records have full residency validity, zero rejection/overflow and five records
+covering about 24 seconds per phase. All ten raw residency counters remained
+exactly zero while TSC advanced: no measured core C3/C6/C7 or package C2–C10
+entry during this run. Zero is valid data here, not missing support. C0/C1 and
+other physical cores are not measured, so this is not evidence that the CPU
+never idled. The bounded telemetry path is accepted; deep-state entry and CPU
+policy remain unaccepted.
+
+Covered package averages were 4.130/5.167/4.137 W with active CPU0 frequencies
+1,287/1,299/1,290 MHz for idle/load/recovery. Power and residency intervals differ
+because power also uses ordinary checkpoints. Peak logged temperature was 67 C.
+Files were preserved, offline allocation was clean and the full required log
+fit within the unchanged 64 KiB tail. See the [unit record](machines/macbookair6-1.md)
+for exact intervals and evidence identity. Next audit idle entry and firmware/
+package constraints without changing policy; these results alone do not identify
+the cause of absent deeper residency or establish potential energy savings.
