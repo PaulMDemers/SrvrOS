@@ -118,6 +118,55 @@ def phase_idle(text, start, end):
                 basis_points={name:(b[f'c{i}_raw']-a[f'c{i}_raw'])*10000//dt for i,name in enumerate(IDLE_NAMES)},
                 scope='CPU0 physical core and whole package; lower-bound TSC-bracket ratios; no inferred C0/C1')
 
+
+def phase_idle_entry(text, start, end):
+    """HLT attempts/returns are scheduler observations, not residency durations."""
+    headers=[s for s in text.splitlines() if s.startswith('cpu-idle-audit:')]
+    entries=[s for s in text.splitlines() if s.startswith('cpu-idle-entry:')]
+    idle=[s for s in text.splitlines() if s.startswith('cpu-load-idle:')]
+    if len(headers)!=1 or len(entries)!=len(idle) or phase_idle(text,start,end) is None: return None
+    def fields(line,keys):
+        parts=line.split()[1:]
+        if any(not re.fullmatch(r'[a-z0-9_]+=[a-z0-9-]+',p) for p in parts): return None
+        d=dict(p.split('=') for p in parts)
+        if len(d)!=len(parts) or set(d)!=keys: return None
+        for k in keys-{'entry'}:
+            if not d[k].isdigit() or int(d[k])>=2**64: return None
+            d[k]=int(d[k])
+        return d
+    h=fields(headers[0],set('version entry policy_writes managed_cpus other_cpus_known monitor leaf1_b leaf5_a leaf5_b leaf5_c leaf5_d e2_start e2_end epoch enters returns ready'.split()))
+    if not h or h['version']!=1 or h['entry']!='sti-hlt-cli' or h['policy_writes'] or h['managed_cpus']!=1 or h['other_cpus_known'] or h['monitor'] not in (0,1) or not h['epoch']: return None
+    if any(h[k]>=2**32 for k in ('leaf1_b','leaf5_a','leaf5_b','leaf5_c','leaf5_d')): return None
+    if not h['monitor'] and any(h[k] for k in ('leaf5_a','leaf5_b','leaf5_c','leaf5_d')): return None
+    rows=[]
+    for line,paired in zip(entries,idle):
+        d=fields(line,{'sample_us','epoch','enters','returns','ready'})
+        stamps=re.findall(r' sample_us=(\d+)(?: |$)',paired)
+        if not d or d['epoch']!=h['epoch'] or len(stamps)!=1 or d['sample_us']!=int(stamps[0]): return None
+        if rows and d['sample_us']<=rows[-1]['sample_us']: return None
+        rows.append(d)
+    for d in rows+[h]:
+        if not 0<=d['enters']-d['returns']<=1: return None
+    for a,b in zip(rows,rows[1:]+[h]):
+        if any(b[k]<a[k] for k in ('enters','returns','ready')): return None
+    selected=[d for d in rows if start<=d['sample_us']<=end]
+    if len(selected)<2 or selected[-1]['sample_us']-selected[0]['sample_us']<10000000: return None
+    a,b=selected[0],selected[-1]
+    def config(raw):
+        limit=raw&15
+        names=('C0/C1','C2','C3','C6','C7','C7s','C8','C9','C10')
+        return dict(raw=raw,limit_encoding=limit,limit=names[limit] if limit<len(names) else 'unknown',
+                    cfg_lock=(raw>>15)&1,io_mwait_redirection=(raw>>10)&1,
+                    c3_demotion=(raw>>25)&1,c1_demotion=(raw>>26)&1,
+                    c3_undemotion=(raw>>27)&1,c1_undemotion=(raw>>28)&1)
+    return dict(covered_us=b['sample_us']-a['sample_us'],checkpoints=len(selected),epoch=h['epoch'],
+                enters=b['enters']-a['enters'],returns=b['returns']-a['returns'],ready_bypasses=b['ready']-a['ready'],
+                firmware_start=config(h['e2_start']),firmware_end=config(h['e2_end']),
+                firmware_changed=h['e2_start']!=h['e2_end'],monitor=h['monitor'],
+                cpuid5=[h[k] for k in ('leaf5_a','leaf5_b','leaf5_c','leaf5_d')],
+                cpuid_logical_capacity=(h['leaf1_b']>>16)&255,initial_apic_id=h['leaf1_b']>>24,
+                other_cpus_state='unknown',scope='CPU0 HLT attempts/returns; no time-asleep or C-state inference')
+
 def load_result(text):
     failure = re.findall(r'^cpu-load: completed=NO reason=(\S+)$',text,re.M)
     rows = re.findall(r'^cpu-load: phase=(idle|load|recovery) completed=yes elapsed_us=(\d+) start_us=(\d+) end_us=(\d+) chunks=(\d+) checksum=(\d+)$',text,re.M)
@@ -135,7 +184,7 @@ def load_result(text):
             valid = False
         last = end
         phases.append(dict(name=name,start_us=start,end_us=end,elapsed_us=elapsed,chunks=chunks,
-                           power=phase_power(text,start,end),idle_residency=phase_idle(text,start,end)))
+                           power=phase_power(text,start,end),idle_residency=phase_idle(text,start,end),idle_entry=phase_idle_entry(text,start,end)))
     return dict(completed=bool(valid),failure_reasons=failure,phases=phases if valid else [],
                 scope='single-worker console workload; package power over covered subintervals, not whole-machine power')
 

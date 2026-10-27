@@ -2,6 +2,7 @@
 #define SRVROS_POWER_H
 #include <stdbool.h>
 #include <stdint.h>
+#include <srvros/idle_audit.h>
 
 /* Read-only, opt-in captured 06_3D, 06_45 and 06_46 CPU telemetry. CPU0 active frequency and package
  * energy have different scopes; neither measures battery or wall power. */
@@ -28,6 +29,7 @@ struct power_snapshot {
     uint64_t raw_units, raw_platform;
     struct power_raw raw;
     struct power_idle_snapshot idle;
+    struct scheduler_idle_audit idle_entry;
 };
 struct power_sampler { bool have_previous; struct power_raw previous; };
 bool power_cpu_supported(uint32_t vendor_b,uint32_t vendor_d,uint32_t vendor_c,
@@ -40,7 +42,8 @@ void power_status(struct power_snapshot *);
 void power_print_status(void);
 /* Explicit bounded load diagnostic only. Retain cached samples in RAM at
  * >=5-second intervals; stop emits their original timestamps to the boot log.
- * No provider activation, extra MSR reads, disk I/O or sampling-policy changes. */
+ * No provider activation, disk I/O or sampling-policy changes. Captured 06_45
+ * also audits HLT entry and reads E2 once at each explicit capture boundary. */
 bool power_capture_start(void);
 void power_capture_stop(void);
 #endif

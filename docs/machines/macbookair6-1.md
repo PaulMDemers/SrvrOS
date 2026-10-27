@@ -4285,7 +4285,7 @@ separate work.
 Base `108969f7` includes the collected supervisor-wait acceptance. Add explicitly
 opted-in CPU0 core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 residency reads for
 this captured 06_45 CPU, guarded by the existing native power gate and invariant
-TSC support. Intel SDM Volume 4 tables 2-20 and 2-32 define the counters; capture
+TSC support. Intel SDM Volume 4 tables 2-20 and 2-31 define the counters; capture
 this unit's Linux read-only baseline before admitting them. Other CPU profiles
 retain their existing five-register power telemetry, with residency unavailable.
 

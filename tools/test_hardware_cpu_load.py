@@ -79,6 +79,41 @@ class LoadCaptureTests(unittest.TestCase):
             with self.subTest(old=old,new=new): self.assertIsNone(phase_idle(text.replace(old,new,1),0,30000000))
         self.assertIsNone(phase_idle(text+'cpu-load-idle: truncated\n',0,30000000))
 
+    def audit_fixture(self):
+        text=self.residency_fixture()
+        text+='cpu-idle-audit: version=1 entry=sti-hlt-cli policy_writes=0 managed_cpus=1 other_cpus_known=0 monitor=1 leaf1_b=262144 leaf5_a=64 leaf5_b=64 leaf5_c=3 leaf5_d=286531872 e2_start=1032 e2_end=1032 epoch=1 enters=9001 returns=9000 ready=100\n'
+        for n in (5,15,25,35,45,55,65,75,85):
+            text+=f'cpu-idle-entry: sample_us={n*1000000} epoch=1 enters={n*100+1} returns={n*100} ready={n}\n'
+        return text
+
+    def test_idle_entry_and_firmware(self):
+        from hardware_cpu_load import phase_idle_entry
+        for p in load_result(self.audit_fixture())['phases']:
+            d=p['idle_entry'];self.assertEqual(d['covered_us'],20000000);self.assertEqual(d['enters'],2000)
+            self.assertEqual(d['returns'],2000);self.assertEqual(d['firmware_start']['limit'],'C10')
+            self.assertEqual(d['firmware_start']['io_mwait_redirection'],1)
+            self.assertFalse(d['firmware_changed']);self.assertEqual(d['cpuid_logical_capacity'],4)
+        changed=self.audit_fixture().replace('e2_end=1032','e2_end=32768')
+        d=phase_idle_entry(changed,0,30000000);self.assertTrue(d['firmware_changed'])
+        self.assertEqual(d['firmware_end']['limit'],'C0/C1');self.assertEqual(d['firmware_end']['cfg_lock'],1)
+        d=phase_idle_entry(changed.replace('e2_end=32768','e2_end=15'),0,30000000)
+        self.assertEqual(d['firmware_end']['limit'],'unknown')
+        self.assertIsNone(phase_idle_entry(self.residency_fixture(),0,30000000))
+
+    def test_idle_entry_refusals(self):
+        from hardware_cpu_load import phase_idle_entry
+        text=self.audit_fixture()
+        for old,new in [('epoch=1 enters=501','epoch=2 enters=501'),('enters=501','enters=499'),
+                        ('returns=500','returns=499'),('enters=1501','enters=500'),
+                        ('sample_us=15000000 epoch','sample_us=15000001 epoch'),
+                        ('policy_writes=0','policy_writes=1'),('entry=sti-hlt-cli','entry=mwait'),
+                        ('monitor=1','monitor=0'),('other_cpus_known=0','other_cpus_known=1'),
+                        ('enters=9001','enters=0'),('epoch=1 enters=9001','epoch=0 enters=9001'),
+                        ('ready=100','ready=100 ready=100'),('ready=100','ready=bad')]:
+            with self.subTest(old=old):self.assertIsNone(phase_idle_entry(text.replace(old,new,1),0,30000000))
+        self.assertIsNone(phase_idle_entry(text+'cpu-idle-entry: truncated\n',0,30000000))
+        self.assertIsNone(phase_idle_entry(text+'cpu-idle-audit: truncated\n',0,30000000))
+
     def test_profile_is_distinct(self):
         v='ram-usb-v35-laptop-probe-12345678'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v))

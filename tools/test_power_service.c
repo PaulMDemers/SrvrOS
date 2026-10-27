@@ -9,11 +9,17 @@ static unsigned reads,spawns,capture_rows,capture_receipts;
 static uint64_t platform=22u<<8;
 static bool reference=true,spawn_ok=true;
 static uint32_t max_ext=0x80000007,invariant;
-static unsigned idle_reads,idle_rows;
+static unsigned idle_reads,idle_rows,config_reads,audit_rows,entry_rows;
+static bool audit_ok=true,audit_active;
+static uint64_t audit_epoch;
+bool scheduler_idle_audit_start(void) { if(!audit_ok || audit_active)return false;audit_active=true;audit_epoch++;return true; }
+void scheduler_idle_audit_snapshot(struct scheduler_idle_audit *out) { assert(audit_active);*out=(struct scheduler_idle_audit){.epoch=audit_epoch,.enters=now/10000,.returns=now/10000}; }
+void scheduler_idle_audit_stop(struct scheduler_idle_audit *out) { scheduler_idle_audit_snapshot(out);audit_active=false; }
 static uint32_t signature=0x306d4,feature_c,feature_d=32,thermal_c=1,max_leaf=6;
 void power_test_cpuid(unsigned leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
     if(!leaf) { *a=max_leaf;*b=0x756e6547;*d=0x49656e69;*c=0x6c65746e; }
     else if(leaf==1) { *a=signature;*b=0;*c=feature_c;*d=feature_d; }
+    else if(leaf==5) { assert(feature_c&8);*a=*b=64;*c=3;*d=0x11142120; }
     else if(leaf==0x80000000) { *a=max_ext;*b=*c=*d=0; }
     else if(leaf==0x80000007) { *a=*b=*c=0;*d=invariant; }
     else { assert(leaf==6);*a=*b=*d=0;*c=thermal_c; }
@@ -21,6 +27,7 @@ void power_test_cpuid(unsigned leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t
 uint64_t power_test_read_msr(unsigned n) {
     reads++;
     switch(n) {
+    case 0xe2:assert(signature==0x40651 && invariant==256);config_reads++;return 1032;
     case 0x10: idle_reads++;return now*2000;
     case 0x3fc:case 0x3fd:case 0x3fe:case 0x60d:case 0x3f8:case 0x3f9:case 0x3fa:case 0x630:case 0x631:case 0x632:
         assert(signature==0x40651 && invariant==256);idle_reads++;return 0;
@@ -36,6 +43,8 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condit
     (void)q;(void)fn;(void)arg;(void)deadline;assert(0);return false;
 }
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"cpu-idle-audit:",15)) { assert(!capturing && !audit_active);audit_rows++; }
+    if(!strncmp(fmt,"cpu-idle-entry:",15)) { assert(!capturing && !audit_active);entry_rows++; }
     if(!strncmp(fmt,"%s: supported=",14)) {
         va_list ap;va_start(ap,fmt);const char *prefix=va_arg(ap,const char *);
         if(!strcmp(prefix,"cpu-load-idle")) { assert(!capturing);idle_rows++; }
@@ -115,9 +124,15 @@ int main(void) {
     max_ext=0x80000007;init();assert(reads==17 && idle_reads==12 && snapshot.idle.supported==1023 && !snapshot.idle.valid);
     now+=1000000;sample();power_status(&out);assert(reads==32 && idle_reads==24 && out.idle.valid==1023);
     now+=3000001;power_status(&out);assert(!out.idle.valid && snapshot.idle.valid==1023 && reads==32);
-    assert(power_capture_start());
+    audit_ok=false;before=reads;assert(!power_capture_start() && reads==before);audit_ok=true;
+    feature_c=8;init();assert(idle_monitor && idle_leaf5[3]==0x11142120);
+    assert(!config_reads && !audit_rows && !entry_rows);
+    assert(power_capture_start() && config_reads==1 && audit_active);
+    assert(!power_capture_start() && config_reads==1);
     for(unsigned i=0;i<18;i++) { now+=1000000;sample(); }
-    assert(capture_count==3 && !capture_overflow);before=reads;power_capture_stop();assert(reads==before && idle_rows==3);
+    assert(capture_count==3 && !capture_overflow);before=reads;power_capture_stop();assert(reads==before+1 && idle_rows==3 && audit_rows==1 && entry_rows==3 && config_reads==2 && !audit_active);
+    before=reads;power_capture_stop();assert(reads==before && config_reads==2);
+    assert(power_capture_start());now+=6000000;sample();power_capture_stop();assert(audit_rows==2 && config_reads==4);
     feature_c=1u<<31;idle_reads=0;init();assert(!reads && !idle_reads && !spawns);
     puts("power-service: PASS no reads on refused CPUs, exact read-only MSR allowlist, worker failure/idempotence, cadence and cached stale status");
 }
