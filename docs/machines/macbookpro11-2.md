@@ -21,6 +21,19 @@ observation to resolve the quiet result before scanning, association/security,
 Wi-Fi IP and UI. Original strict helper stays unchanged; RF0:6 semantics remain
 unresolved. No RF/FCS/RSSI-performance or sustained reception claim.
 
+Active block (2026-10-26): merged actual main `eacb4ec4` (PR200 screenshot
+stress/worker receipts and desktop validation). Resolved the append-only
+Makefile conflict by keeping both MT76 and operation-timing test families.
+PR202 currently changes Air evidence only; PR182 owns filesystem imports;
+neither overlaps MT76. Prepare a separate explicit10s receive-window profile
+after v94's empty1s observation, retaining the eight-page/count limit and exact
+normal-completion, parent cleanup, stop and byte/phase proofs. Keep v94 and all
+older recipes/short deadlines unchanged. Touched: window budget validation,
+native selector/window adapter, main/staging/smoke and focused deadline/proof
+fixtures plus unit/Wi-Fi guides. No RF/channel/register changes. Checkpoint:
+long/short timeout and failure tests, sanitizers, merged core/image, exact-stage
+VM and preserved recovery/run/archive before cold-trial readiness.
+
 Validated native integration candidate (2026-10-26): actual main remains `a9d69554`;
 PR182 owns filesystem imports and has no MT76 overlap. Wire the retained-buffer
 receive window into a separate explicit native mode/profile. Split polling
