@@ -4877,3 +4877,35 @@ Complete raw collection, strict proof and recovery evidence are preserved in
 `wifi-rx-window-long-e9acacd` outside build. Next: bounded passive access-point
 discovery, then association/security, IP integration and network UI; the
 six probe requests do not substitute for beacon discovery acceptance.
+
+
+### 2026-10-27 — bounded passive discovery result engine
+
+The separate `mt76_discovery` helper consumes only an already completed and
+exactly stopped receive window. Its caller must prove stable retained pages,
+parent MAC cleanup and all six guards before each input access and again before
+publication. Every normal CC1/13 byte count and saved parser outcome must match;
+cancelled/pending entries cannot supply bytes. A failed lifecycle, changed ledger,
+changed framing or lost cleanup ownership publishes no result rows. Collection
+is one-shot and allocation-free, bounded to eight input transfers and eight rows.
+It has no native caller, boot profile, packet submission, channel change or UI yet.
+
+The unchanged strict first-entry parser admits only valid infrastructure beacons
+or probe responses on fixed US channel1. Malformed/channel-mismatched entries,
+unrelated management frames and zero-byte completions have separate counts;
+a successful empty collection is not physical access-point discovery acceptance.
+Rows deduplicate BSSID while keeping identical names on distinct BSSIDs separate.
+Names are binary, length-bounded copies; empty/all-zero names stay hidden until
+a valid visible advertisement reveals a name. Later hidden advertisements cannot
+erase it. Conflicting visible names retain the first name and set a conflict flag.
+Changed privacy/RSN/WPA advertisements also set a conflict flag without silently
+replacing the original advertisement. Beacon/probe-response observations are
+counted, not claimed to be unique radio frames. Advertised security is neither
+suite validation nor authentication, and an observed BSSID is unauthenticated.
+
+Only BSSID/name and bounded advertisement metadata survive in private memory;
+no DMA pointers, payload, transmitter address or raw RSSI is retained or logged.
+Future UI must escape arbitrary binary names; this helper does not expose names
+through console logs or a syscall. Native ownership binding, saved diagnostic
+proof, user-visible discovery and later association/security/IP remain separate.
+Installed v95 and its native reception evidence are unchanged; no reboot armed.

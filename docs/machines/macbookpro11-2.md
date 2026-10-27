@@ -25,7 +25,7 @@ with channel/identifier handling and UI separated from later association,
 security and Wi-Fi IP. Original strict helper remains unchanged; RF0:6 semantics
 remain unresolved. Complete v95 evidence is archived outside build.
 
-Active block (2026-10-27): merged actual main `a247bef9` (PR202 bounded pipe
+Completed offline implementation (2026-10-27): merged actual main `a247bef9` (PR202 bounded pipe
 copies/screenshot latency); open PR182 owns filesystem imports and does not
 overlap MT76. Prepare an allocation-free passive access-point result table
 consuming only a completed, stopped receive window under fresh cleanup ownership.
@@ -35,9 +35,11 @@ results atomically only after all input/ownership checks. Fixed US channel1,
 eight input entries, no DMA reuse, retuning, transmit, UI or native profile change
 in this block. Touched: new MT76 discovery header/source, focused host fixtures,
 Makefile and unit/Wi-Fi guides. Dependencies: unchanged strict RX/beacon parser
-and accepted v95 normal-event/cleanup proof. Checkpoint: hostile/truncated input,
-deduplication/capacity/ownership/replay tests, sanitizers and merged core/image/VM
-validation plus durable archive. Native binding and discovery acceptance follow
+and accepted v95 normal-event/cleanup proof. Checkpoint:10,168 collection attempts, including10,000 hostile eight-input batches,
+all beacon truncations, deduplication/hidden/binary/conflict cases, atomic ownership
+loss and invalid lifecycle/ledger tests pass with ASan/UBSan.182 staging tests and
+merged core/image/desktop checks pass; GPT/OVMF boot/input and durable evidence
+complete this offline block. Native binding and discovery acceptance follow
 separately; installed v95 and recovery remain unchanged, no reboot armed.
 
 Validated candidate block (2026-10-26): merged actual main `eacb4ec4` (PR200 screenshot

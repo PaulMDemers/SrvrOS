@@ -4176,3 +4176,12 @@ test-desktop: test-operation-timing
 build/tests/capture-transport-host$(HOST_EXE): tools/test_capture_transport.c userspace/shotworker/shotworker.c shared/include/srvros/desktop_capture.h shared/include/srvros/io_limits.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-discovery
+test-core: test-mt76-discovery
+test-mt76-discovery: build/tests/mt76-discovery-host$(HOST_EXE)
+	$(HOST_RUN) $<
+
+build/tests/mt76-discovery-host$(HOST_EXE): tools/test_mt76_discovery.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_discovery.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
