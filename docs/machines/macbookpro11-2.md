@@ -25,6 +25,22 @@ with explicit retuning/cleanup proof before network selection, association/
 security and IP/UI. Original strict helper stays unchanged; RF0:6 semantics
 remain unresolved. Full evidence is archived outside build.
 
+Active channel groundwork (2026-10-27): actual main `e7953352` includes PR204
+screenshot cleanup, PR205 native evidence and PR206 Files metadata batching.
+Open PR182 owns filesystem imports; no MT76 overlap. Build a separate US1–11,
+20MHz frequency-field planner and reversible preview transaction before native
+multi-channel tuning. Pin the reference21 synthesizer operations, preserve masked
+bits, save all13 distinct original registers before writes, require disabled MAC/
+CORE/DMA/idle guards and fresh ownership, independently verify writes, and restore
+all touched registers even after forward failure. No VCO pulse, MAC enable,
+main-RX restart/reuse, scan UI, native caller or boot profile changes in this block.
+Touched: new MT76 channel plan/preview header/source, focused host fault fixtures,
+Makefile and unit/Wi-Fi docs. Dependencies: unchanged v96 fixed-channel discovery,
+pinned Linux frequency table/order and later native stop/retune ownership proof.
+Checkpoint: all11 plans against independent reference data, failure/cancellation/
+ambiguous-write/cleanup cases, sanitizers, merged core/image/VM and durable
+archive. Installed v96/recovery stay unchanged; no reboot armed.
+
 Validated native discovery candidate (2026-10-27): actual main `6b6d2f4d` merges PR203
 Air screenshot evidence only; open PR182 owns filesystem imports, no MT76
 overlap. Bind the validated discovery helper to separate selector74/v96 after
