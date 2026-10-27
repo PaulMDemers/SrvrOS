@@ -4428,3 +4428,54 @@ verifying its durable backup; accepted residency `ed06103a5275d7ca`, desktop,
 stress, attended reopen and console recovery payloads remain protected. Exact
 payload/evidence/run records are backed up outside `build` before reboot. Ubuntu
 stays the default. Native idle-entry/firmware audit acceptance remains pending.
+
+
+### Idle-entry/firmware audit — bounded native acceptance (2026-10-27)
+
+Return closeout from base `e4f8bf84` is documentation/evidence only. PR182 remains
+filesystem work and PR19 at `6b12e4f2` remains Pro Wi-Fi; neither changes this
+acceptance scope. No new runtime policy or trial is being prepared.
+
+Release `6b1f017332e0931b` (runtime `b6ffff14`, exact staged source `c888ab53`,
+merged PR220) completed run `49fe4e29d5ed450a`, session
+`session-00065ed949956fde-00`, and returned automatically to Ubuntu. All three
+ordered 30-second phases completed, with 250,484 single-worker load chunks and
+peak logged temperature 71 C. Fifteen retained records have full residency
+support/valid masks, zero rejections and no capture overflow. Independent raw
+entry-counter and energy arithmetic agrees with the collector. The 65,290-byte
+exit log retains all required evidence inside the unchanged 65,536-byte tail;
+future diagnostics must account for its small remaining margin.
+
+| Phase | Paired residency/entry coverage | HLT entries / returns | Ready bypasses | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- | --- |
+| Idle | 23.999235 s | 2,378 / 2,378 | 1,189 | 4.147 W | 1,287 MHz |
+| Load | 22.999267 s | 0 / 0 | 0 | 5.174 W | 1,300 MHz |
+| Recovery | 23.999234 s | 2,371 / 2,371 | 1,186 | 4.139 W | 1,290 MHz |
+
+Power coverage is 23.999235/27.999108/24.999203 seconds respectively; all three
+power, residency and entry coverage requirements pass unchanged. The complete
+capture records 5,937 HLT entries, 5,936 returns and 2,969 readiness bypasses.
+One outstanding return at stop is allowed by the generation-safe accounting;
+it is not an unbalanced lifecycle failure. Covered idle/recovery intervals have
+about 99 HLT entries per second. Counts are attempts/returns, not measured sleep
+time or interrupt attribution. All ten raw deeper-residency counters remain
+exactly zero. C0/C1 are unmeasured; HLT is reached, but deeper entry is unproven.
+
+Native E2 starts and ends at `0x408`: package limit C10, configuration unlocked,
+I/O-MWAIT redirection enabled and no recorded demotion/undemotion flags. Thus the
+observed package-limit field is not restricting this capture to shallow states;
+this does not rule out other firmware/device/core restrictions. MONITOR is
+advertised, with CPUID.5 `64/64/3/286531872`; no MONITOR/MWAIT instruction is used.
+The scheduler still manages CPU0 only and other cores' live state remains unknown.
+CPUID logical capacity is not evidence of online CPUs. No policy/control writes,
+AP startup, timer cadence, watchdog, thermal or integrity limit changes occurred.
+
+All 520 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 524 files / 1,572 clusters. Offline fsck/allocation
+pass with zero leaks, mismatches or errors. Installed/current and protected
+recovery payload hashes verify; evidence is retained outside `build`. Ubuntu is
+default, the collector is disabled and the one-shot is consumed. No reboot is
+armed. This accepts the bounded read-only audit, not deeper idle or energy savings.
+Next work should examine boot-time secondary-core state and the prerequisites
+for an explicit model-gated deeper-idle experiment; further polling reductions
+alone do not address the missing hardware residency demonstrated here.
