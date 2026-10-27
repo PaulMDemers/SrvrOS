@@ -1,6 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <stdlib.h>
+#include <stdint.h>
+long srv_futex_wake(uint32_t *word,uint64_t count) { (void)word;(void)count;return 0; }
 static void *test_registry_alloc(size_t bytes);
 static void test_registry_free(void *p,size_t bytes);
 #define DESKD_STORAGE_ALLOC test_registry_alloc
