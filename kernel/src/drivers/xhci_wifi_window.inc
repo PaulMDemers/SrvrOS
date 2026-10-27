@@ -125,3 +125,5 @@ static void wifi_discovery_log(struct xhci_device *d) {
 }
 
 #include "xhci_wifi_channel.inc"
+
+#include "xhci_wifi_tune.inc"

@@ -13,6 +13,7 @@
 #include <srvros/mt76_rx_window.h>
 #include <srvros/mt76_discovery.h>
 #include <srvros/mt76_channel_plan.h>
+#include <srvros/mt76_channel_tune.h>
 #include <srvros/mt76_radio.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
@@ -254,6 +255,15 @@ struct xhci_wifi_channel {
     uint16_t published,cleanup_mask;
     uint64_t identity[18];
 };
+struct xhci_wifi_tune_event { uint32_t value; uint16_t address; uint8_t kind,poll; };
+struct xhci_wifi_tune {
+    struct mt76_channel_tune state;
+    bool active,pinned,forward_failed,last_failed_write,cleanup_gate;
+    unsigned callbacks,exchanges,owned_checks,pos,count,after_vco;
+    uint16_t published;
+    uint64_t identity[18];
+    struct xhci_wifi_tune_event event[384];
+};
 struct xhci_wifi_rx {
     struct xhci_bulk_endpoint ep;
     uint64_t buffer_phys,trb,stop_dequeue,waited_us;
@@ -349,6 +359,7 @@ struct xhci_wifi_mcu {
     bool window_mode,window_long_mode,discovery_mode;struct xhci_wifi_window window;
     struct mt76_discovery discovery;unsigned discovery_checks;
     bool channel_mode;struct xhci_wifi_channel channel;
+    bool tune_mode;struct xhci_wifi_tune tune;
     bool poweron_mode,poweron_active;unsigned poweron_ops,poweron_reads,poweron_writes,poweron_waits,poweron_commands,poweron_ack_mask;struct mt76_calibration poweron;
     bool cal_probe_mode,cal_probe_active;unsigned cal_probe_ops,cal_probe_reads,cal_probe_writes,cal_probe_waits;struct mt76_calibration_probe cal_probe;
     bool rx_lifecycle_mode,mac_cycle_mode;struct xhci_wifi_rx rx;struct mt76_mac_cycle mac_cycle;

@@ -4,7 +4,8 @@
 /* One stopped-RX excursion from captured channel1 frequency fields to one
  * US1..11/20MHz plan, then back. No receiver restart, transmit or scan service.
  * Caller must freshly own exact captured board/firmware, same-band 20MHz RF/BBP
- * setup and retained stopped DMA before EVERY callback. No native caller yet.
+ * setup and retained stopped DMA before EVERY callback. Native use is an
+ * explicit diagnostic only.
  * VCO trigger clearing is a register observation, never PLL-lock/RF acceptance.
  * Cleanup is independent of forward cancellation, but never of live ownership.
  */

@@ -181,14 +181,14 @@ static void test_wifi_window(void) {
                 struct mt76_discovery copy=m->discovery;unsigned checks=m->discovery_checks;
                 assert(!wifi_discovery_capture(d) && checks==m->discovery_checks && !memcmp(&copy,&m->discovery,sizeof copy));
                 wifi_discovery_log(d);
-                if(discovery==2 && trial==0)test_wifi_channel(d);
+                if(discovery==2 && trial==0){test_wifi_channel(d);test_wifi_tune(d);}
             } else assert(!wifi_discovery_capture(d) && !m->discovery.attempted);
 
         } else assert(!w->state.complete);
         assert(!wifi_window_finish(d) && !freed);
         mac_cycle_model=cal_probe_model=false;
     }
-    for(unsigned mode=72;mode<=75;mode++)for(unsigned limit=0;limit<=9;limit++) {
+    for(unsigned mode=72;mode<=76;mode++)for(unsigned limit=0;limit<=9;limit++) {
         reset_test();struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
         struct xhci_wifi_mcu *m=&d->firmware.mcu;wifi_mcu_select_mode(m,mode);
         struct xhci_wifi_rx *r=&m->rx;r->reads=3;r->guards[0][1]=0xf000f200;r->guards[0][2]=0x40000050;

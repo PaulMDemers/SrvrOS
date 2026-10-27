@@ -5238,3 +5238,34 @@ does not emulate this radio. Source, tests, pinned references and recovery audit
 are preserved outside build in `wifi-channel-tune-1ff74269`. Native v97 remains
 installed, with all five retained payloads and Ubuntu recovery preserved;
 workspace unmounted and no one-shot armed.
+
+
+### 2026-10-27 — native single-channel tuning implementation
+
+Separate selector76/v98 binds the unchanged bounded tune engine to fixed US
+channel6/20MHz, after stopped channel1 discovery. It inherits v96 prerequisites
+without repeating v97's eleven-plan preview. Main RX stays stopped; transport
+rings/buffers and the exact live output context remain pinned. A separate
+bounded event ledger admits exact guards, frequency snapshots, masked values,
+VCO polling/delays, reverse touched-word restoration and channel1 re-settling.
+Each RF exchange validates sixteen bytes, rotating sequence/header/address/tail,
+byte value/write echo, CC13 and residue1008. Unexpected values or malformed
+replies are redacted; only non-identifying diagnostics are saved.
+
+Cleanup has independent live transport/stop ownership after forward proof loss,
+but cannot bypass quarantine or changed DMA identities. Each delay checks
+measured minimum elapsed time and fresh ownership after return. All callbacks,
+exchanges and polls are bounded. Completion also requires fresh forward proof
+at publication, so loss during otherwise successful cleanup remains failure.
+Guest progress, full ordered callback trace, VCO observations and restoration
+summary are saved. Busy/unknown VCO refuses restoration RF changes; incomplete
+restoration suppresses the cleanup pulse. No endpoint restart, network data OUT,
+DMA reuse, multi-channel receive or scan UI is enabled.
+
+The first native pass covers every one of138 RF reply headers, wire/transport/
+length/address/value faults, board/live-stop gates and delayed/stuck VCO. Added
+direct callback refusal and delay-failure/frozen/backward-clock/ownership tests
+pass with221 native scenarios. Local ordinary staging membership initially
+omitted v98 from its recipe regex and retained an obsolete unknown-version test;
+both were corrected, preserving all previous recipes. Exact native acceptance,
+VM/install/recovery checks and physical trigger/restoration remain separate.
