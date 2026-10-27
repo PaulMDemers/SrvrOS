@@ -11,6 +11,7 @@ from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
 from app_timing import validate_app_timing,saved_app_timing
 from loop_timing import validate_loop_timing
+from operation_timing import operation_snapshots
 
 
 def main():
@@ -136,6 +137,21 @@ def main():
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
+                    operations=operation_snapshots(snapshots,require_final=True)
+                    assert operations['operations']['exiting']==1 and operations['operations']['queued']==0
+                    assert b'desktop-stress-capture: result=PASS requested=1 saved=1 busy=0 normal_exit=1' in output
+                    capture=operations['captures']['current']
+                    assert capture['id']==1 and capture['busy']==0 and capture['frames']>0 and capture['phase']==12
+                    assert operations['phases']['current'][7]['elapsed_us']>0 and operations['phases']['current'][10]['elapsed_us']>0
+                    (out/'operations.json').write_text(json.dumps(operations,indent=2)+'\n')
+                    images=[name for name,_ in final.entries(final.read('srvros-work/Screenshots')) if name.endswith('.bmp')]
+                    assert len(images)==1
+                    from PIL import Image
+                    import io
+                    image_bytes=final.read('srvros-work/Screenshots/'+images[0])
+                    with Image.open(io.BytesIO(image_bytes)) as image:
+                        image.load();assert image.size==(1280,800);image.save(out/'automatic-screenshot.png')
+
                 volume.write_bytes(final.data);check_clean_image(volume)
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation

@@ -648,3 +648,29 @@ limits, filesystem validation, firmware gates and battery retirement are retaine
 The native profile has no whole-desktop time limit; the worker and its playback
 watchdog remain bounded. A separate 60-second VM mode checks completion and early
 exit without altering the native duration.
+
+### Screenshot and operation diagnostics during stress
+
+The explicit v74 audio/disk/app trial now captures three screenshots during
+30-minute playback (one in the 60-second VM fixture), continues app cycles, and
+requests cooperative desktop exit when playback completes. A pass requires all
+requested captures, verified saves, app-cycle coverage and normal exit, in
+addition to the unchanged 500 ms loop, 5 s client and 10 s app-cycle limits.
+The playback, client and owner watchdogs are unchanged.
+
+Matched capture protocol version 2 carries bounded progress frames separately
+from final save acknowledgement. Phases 1–12 are receive, encode, prepare, write,
+file fsync/close, temporary sync, temporary verification, identity-checked rename,
+final sync, final verification, cleanup and memory release. Progress never means
+success and loss of its reader does not cancel an accepted file write. The
+parent retains phase durations, progress age and immutable byte-transfer counts.
+All original temporary ownership, destination checks, flush and readback remain.
+
+Stress-only diagnostic output uses a separate joined worker and fixed snapshot
+slot, so blocked app launch does not itself block status emission. Every ten
+seconds and at exit, `desktop-operations`, `desktop-capture-state` and
+`desktop-capture-phase` records retain pending launch/close/exit ages, capture
+state and the slowest completed capture. `snapshot_us` correlates records; a
+partial record set never counts as completed evidence. `operation_timing.py`
+can recover the latest complete periodic snapshot from failed runs, while
+acceptance requires final records. Ordinary desktop policy remains unchanged.

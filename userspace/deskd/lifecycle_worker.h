@@ -22,12 +22,13 @@ struct life_launch {
     int application,child_slot;
     char path[160],home[160];
     long pid;
-    uint64_t elapsed;
+    uint64_t elapsed,queued_us;
 };
 struct lifecycle_worker {
-    pthread_t thread;
-    unsigned stop,report_state;
+    pthread_t thread,report_thread;
+    unsigned stop,report_state,report_stop,report_started;
     struct loop_trace report;
+    struct operation_trace operations;
     struct life_memory memory[LIFE_MEMORY_SLOTS];
     struct life_launch launch[LIFE_LAUNCH_SLOTS];
 };
@@ -35,18 +36,20 @@ static unsigned life_state(const unsigned *state) { return __atomic_load_n(state
 static void life_publish(unsigned *state,unsigned value) { __atomic_store_n(state,value,__ATOMIC_RELEASE); }
 /* One fixed slot: never overwrite a snapshot while the worker is emitting it.
  * A busy slot causes a retry next loop; only the UI owns the live accumulator. */
-static int life_report_submit(struct lifecycle_worker *w,const struct loop_trace *trace) {
+static int life_report_submit(struct lifecycle_worker *w,const struct loop_trace *trace,const struct operation_trace *operations) {
     if(!trace->samples || life_state(&w->report_state)!=LIFE_IDLE)return 0;
-    w->report=*trace;life_publish(&w->report_state,LIFE_QUEUED);return 1;
+    w->report=*trace;w->operations=*operations;life_publish(&w->report_state,LIFE_QUEUED);return 1;
 }
 static int life_reserved(const struct lifecycle_worker *w,int slot) {
     if(w)for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)if(life_state(&w->launch[n].state) && w->launch[n].child_slot==slot)return 1;
     return 0;
 }
-static void life_work(struct lifecycle_worker *w) {
+static void life_report_work(struct lifecycle_worker *w) {
     if(life_state(&w->report_state)==LIFE_QUEUED) {
-        loop_trace_report(&w->report,0);life_publish(&w->report_state,LIFE_IDLE);
+        loop_trace_report(&w->report,0);operation_trace_report(&w->operations,0);life_publish(&w->report_state,LIFE_IDLE);
     }
+}
+static void life_work(struct lifecycle_worker *w) {
     for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
         struct life_memory *m=&w->memory[n];
         if(life_state(&m->state)==LIFE_QUEUED) {
@@ -82,6 +85,23 @@ static void *life_thread(void *arg) {
     /* Shutdown joins before stack/session storage or mappings are released. */
     life_work(w);return NULL;
 }
-static int life_start(struct lifecycle_worker *w) { return pthread_create(&w->thread,NULL,life_thread,w); }
-static int life_stop(struct lifecycle_worker *w) { life_publish(&w->stop,1);return pthread_join(w->thread,NULL); }
+static void *life_report_thread(void *arg) {
+    struct lifecycle_worker *w=arg;
+    while(!life_state(&w->report_stop)){life_report_work(w);srv_sleep_ticks(1);}
+    life_report_work(w);return NULL;
+}
+static int life_start(struct lifecycle_worker *w,int diagnostics) {
+    if(diagnostics) {
+        if(pthread_create(&w->report_thread,NULL,life_report_thread,w))return -1;
+        w->report_started=1;
+    }
+    int result=pthread_create(&w->thread,NULL,life_thread,w);
+    if(result && w->report_started){life_publish(&w->report_stop,1);pthread_join(w->report_thread,NULL);w->report_started=0;}
+    return result;
+}
+static int life_stop(struct lifecycle_worker *w) {
+    life_publish(&w->stop,1);int result=pthread_join(w->thread,NULL);if(result)return result;
+    if(w->report_started){life_publish(&w->report_stop,1);return pthread_join(w->report_thread,NULL);}
+    return 0;
+}
 #endif

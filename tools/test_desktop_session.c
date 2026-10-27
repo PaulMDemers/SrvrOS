@@ -610,18 +610,33 @@ static void persistent_loop_timing(void) {
     puts("desktop-loop-timing: PASS exact bound, conserved stages, 1000-loop retention, periodic/final records, partial exit, invalid clock and bounded formatting");
 }
 static void asynchronous_loop_report(void) {
-    struct lifecycle_worker w={0};struct loop_trace trace={0};
+    struct lifecycle_worker w={0};struct loop_trace trace={0};struct operation_trace operations={0};
     capture_loop_log=1;captured_loop_log[0]=0;
-    assert(!life_report_submit(&w,&trace));
+    assert(!life_report_submit(&w,&trace,&operations));
     loop_trace_begin(&trace,100,1,42,2);loop_trace_end(&trace,100100,1,42,2);
-    assert(life_report_submit(&w,&trace));assert(!captured_loop_log[0]);
+    assert(life_report_submit(&w,&trace,&operations));assert(!captured_loop_log[0]);
     loop_trace_begin(&trace,200000,2,43,1);loop_trace_end(&trace,800001,2,43,1);
-    assert(!life_report_submit(&w,&trace));
-    life_work(&w);assert(life_state(&w.report_state)==LIFE_IDLE);
+    assert(!life_report_submit(&w,&trace,&operations));
+    life_report_work(&w);assert(life_state(&w.report_state)==LIFE_IDLE);
     assert(strstr(captured_loop_log,"gap_us=100000 cycle=1 pid=42 phase=2"));
-    assert(life_report_submit(&w,&trace));life_work(&w);
+    assert(life_report_submit(&w,&trace,&operations));life_report_work(&w);
     assert(strstr(captured_loop_log,"over_limit=1") && strstr(captured_loop_log,"gap_us=600001 cycle=2 pid=43 phase=1"));
     capture_loop_log=0;puts("desktop-loop-report: PASS asynchronous immutable snapshot, busy refusal, retry and retained limit violation");
+}
+static void retained_operations(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w,.exiting=1,.exit_started_us=100,.launch_requests=3,.launch_started=1};
+    s.capture.request.id=7;s.capture.started_us=100;s.capture.last_progress_us=250;s.capture.busy=1;s.capture.phase=CAPTURE_TEMP_VERIFY;
+    s.capture.phase_us[CAPTURE_WRITE]=80;s.capture.sent=400;s.capture.progress_bytes=300;
+    w.launch[0]=(struct life_launch){.state=LIFE_QUEUED,.application=DESK_APP_FILES,.queued_us=200};
+    s.clients[0]=(struct client){.pid=42,.window=2,.close_requested=1};
+    struct operation_trace t=operation_snapshot(&s,500);
+    assert(t.queued==1 && t.launch_age_us==300 && t.oldest_app==DESK_APP_FILES);
+    assert(t.exiting && t.exit_age_us==400 && t.close_pid==42 && t.close_requested==1);
+    assert(t.capture.id==7 && t.capture.busy && t.capture.age_us==400 && t.capture.progress_age_us==250 && t.capture.phases[CAPTURE_WRITE]==80);
+    struct loop_trace trace={0};loop_trace_begin(&trace,1,0,0,0);loop_trace_end(&trace,2,0,0,0);
+    assert(life_report_submit(&w,&trace,&t));s.capture.sent=900;w.launch[0].state=LIFE_IDLE;
+    assert(w.operations.capture.sent==400 && w.operations.queued==1); /* Frozen until worker consumes. */
+    puts("desktop-operations: PASS pending capture/launch/close ages and immutable retained snapshot");
 }
 static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {
     return (struct srv_key_event){.usage=usage,.modifiers=modifiers,.flags=flags};
@@ -681,7 +696,7 @@ static void window_navigation(void) {
     puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
 }
 int main(void) {
-    window_navigation();
+    retained_operations();window_navigation();
     persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
