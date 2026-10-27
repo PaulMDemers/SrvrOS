@@ -3639,3 +3639,24 @@ The integrated window-command VM also passes cooperative close, modal behavior,
 exact files and process-baseline checks. Exact native payload `7eeee7846ae4eedc`
 passes Q35 refusal, saved logs, unmount and automatic return. Native acceptance
 remains pending run `bfaa7ba0c0774d01`.
+
+### Screenshot stress return and transfer fix — active scope (2026-10-26)
+
+Release `7eeee7846ae4eedc`, session `session-00065ec8ae946d1a-00`, completes
+30 minutes with three verified screenshots, 674 app cycles, 2,897 verified disk
+bursts (759,431,168 bytes), zero recorded underruns, normal exit and battery
+retirement. All prior files survive except allowed bookkeeping/preferences;
+offline allocation is clean. Audible quality remains unconfirmed. The prior
+launch/exit failure does not reproduce, but screenshot latency does: slowest
+capture 202.486889 s, including 117.302066 s receiving pixels. This is not
+acceptance of capture responsiveness.
+
+Base `eacb4ec4` includes PR200 diagnostics. Trace bounded screenshot pipe
+transfers and scheduling under storage load; retain immutable snapshots, rights
+and signal cleanup exclusions, same-process I/O exclusion, exact writes/readback,
+identity/flush checks and all existing limits. Scope: bounded pipe syscall/process
+admission, screenshot worker transport, host regressions, loaded VM and this unit
+record. PR182 touches process filesystem operations, not the pipe transfer path;
+PR19 remains Wi-Fi. Publish the narrow change and validate matched builds,
+core/desktop and exact native-stage VM before self-merge and an automatic native
+rerun under the user's existing explicit authorization. No new reboot is armed.
