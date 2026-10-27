@@ -2,23 +2,37 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
-### Combined navigation trial — installed; attended boot pending
+### Window commands and discovery — active scope
 
-Candidate `1d36da62e183a295` from tested clean `8847894a` is installed for the
-next attended window/dock/navigation round. Full untimed Help checklist opens
-automatically. USB offline fsck/allocation/headroom pass; 1,129 prior file hashes
-are recorded and the latest prior session remains the collected PR193 session.
-Independent recovery `9aa8dbf6fbda8252` and accepted payload `a90629c8a2060e66`
-are retained. Unreferenced older `986d6c68fa19ba18` was copied and every file
-verified outside EFI before removal to make installation space; its known-good
-backup also remains. Ubuntu default is unchanged.
+Consumes actual main `a9d69554` (PR197/199) after collecting the navigation trial;
+local merge `31d519f1`. Air7,2 owns a bounded compositor follow-up: provide a
+standard cooperative Close window command/Command-W in the global Window menu,
+show minimized and owned-modal parent state consistently in Window/launcher
+lists, and keep dialogs from appearing as duplicate tasks. Preserve app-owned
+Save/Cancel and Terminal control keys. Reuse existing close requests and dynamic
+menu/palette storage; no protocol, driver or audio work. Publish focused host and
+actual-consumer VM coverage before another native trial. No reboot is armed.
+Evidence: `build/window-commands-20261026/`. PR182 filesystem/PR19 Wi-Fi separate.
 
-Remote main `a9e39e38` (PR197 audio trial work) was fetched and inspected but is
-not consumed into this exact rehearsed candidate. No new audio acceptance is
-requested. The run record and current one-shot/reboot state are in
-`build/window-navigation-native-20261026/run.json` and its durable copy outside
-build. On return collect the matching candidate session first, compare the
-recorded files and inspect tester observations; no physical pass is claimed yet.
+### Combined navigation trial — bounded general smoke accepted
+
+Release `1d36da62e183a295`, clean source `8847894a`, returned in
+`session-00065ec78173ab2c-00`. All four logs were copied/verified; exit is present
+and collector attention is empty. The desktop lifetime drained/released and
+battery retirement has zero heap, errors, denied accesses and rejected samples.
+The tester reports a general smoke test working normally, including Alt-Tab.
+This accepts that bounded reported window/dock/navigation smoke, not exhaustive
+completion of every guide subsection or a new save/reopen/audio/endurance test.
+
+Only four session logs were added. All 1,128 prior non-metadata files retain their
+hashes; only `.srvros/meta` changed. No new documents or screenshots were found.
+Offline fsck/allocation/headroom pass: 1,133 files / 2,869 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot, installed payload
+and independent recovery are verified. Accepted payload was copied/hash-verified
+outside build with the bounded acceptance note; prior `a90629c8a2060e66` and
+recovery `9aa8dbf6fbda8252` are retained. The unreferenced `986d6c68fa19ba18`
+payload remains archived and known-good. Evidence/run state is in
+`build/window-navigation-native-20261026/` and its durable copy. No boot is armed.
 
 ### Window switching and keyboard navigation — implemented; hardware trial ready
 
