@@ -4551,3 +4551,38 @@ The full log proof accepts14 whole-chain packet/empty/cancellation variants and
 refuses185 malformed proofs.184 historical Wi-Fi recipe comparisons and both
 merged desktop recipes remain byte-identical;180 staging tests pass. Pure and
 native sanitizer, final source/image and VM results are recorded separately.
+
+
+### 2026-10-26 — v93 passive RX trial installed, unarmed
+
+Source `774e9e9d684e4cef21212a03cc8a8a99008f0a2d`, release
+`6fcb4fe992b35b78`, v93 automatic-return laptop probe. Full image/core and
+actual native observation plus strict parser ASan/UBSan passed, including the
+100000 hostile-transfer cases.180 staging tests,14 whole-proof outcome variants,
+185 malformed-proof refusals and184 historical Wi-Fi recipe comparisons pass;
+both merged navigation/attended desktop recipes remain unchanged.20 native
+printf formats match their argument counts. Original parser and calibration/
+MAC transaction implementations remain byte-identical to the v92 source.
+
+The final committed-source rebuild matches the staged kernel, and independently
+adding the verified firmware package reproduces the staged initramfs hash.
+Exact GPT-stage VM saved and byte-verified diagnostics, unmounted and returned;
+missing workspace refused before probing and returned. Q35 lacks this adapter,
+so these are workflow/refusal checks, not received-frame acceptance.
+
+Installed/current and e47 previous recovery match durable payloads; accepted
+v92 remains on ESP. Accepted v91 was removed from ESP only after exact durable
+payload equality, freeing candidate space; its earlier evidence remains
+archived. Ubuntu default/EFI order preserved; no one-shot armed. Workspace
+331files/809clusters/139directories, zero leaks, bitmap mismatches or errors;
+unmounted. Durable candidate/run/evidence: `wifi-passive-rx-774e9e9`.
+
+After readiness, power off, unplug only Wi-Fi10s while off, reconnect and power
+on; leave workspace connected. Guest shows progress, saves logs and returns to
+Ubuntu automatically; no photos or commands needed. Collect the matching v93
+session FIRST with `passive-rx/collect_return.py` on return. Require full prior/
+v92 proof, bounded event window, independent MAC/device drain and exact stop,
+then explicit normal-completion byte count and strict parser outcome. Empty or
+rejected data can finish the observation but cannot accept frame reception.
+Stopped residue never licenses reading bytes. No new IN/rearm, network data OUT,
+scan/association or connectivity claim. No physical result is claimed yet.
