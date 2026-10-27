@@ -37,7 +37,10 @@ int main(void){struct fake f={.second=0x12345678};struct mt76_agc_state s={0};sa
  for(unsigned early=0;early<2;early++){
   pv.words[2][2]=early?48:176;
   for(unsigned q=0;q<18;q++)for(unsigned j=0;j<3;j++)for(unsigned bit=0;bit<32;bit++){
-   pv.guards[q][j]^=1u<<bit;assert(!mt76_post_vco_settled_profile_valid(&pv));pv.guards[q][j]^=1u<<bit;
+   pv.guards[q][j]^=1u<<bit;
+   /* The established DMA guard constrains idle low bits, not status upper bits. */
+   assert(mt76_post_vco_settled_profile_valid(&pv)==(j==2 && bit>=4));
+   pv.guards[q][j]^=1u<<bit;
   }
   for(unsigned q=0;q<9;q++)for(unsigned j=0;j<4;j++)for(unsigned bit=0;bit<32;bit++){
    pv.words[q][j]^=1u<<bit;
