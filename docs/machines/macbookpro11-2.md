@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-26. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-10-27. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -24,6 +24,21 @@ Next: bounded passive access-point discovery using the received-frame path,
 with channel/identifier handling and UI separated from later association,
 security and Wi-Fi IP. Original strict helper remains unchanged; RF0:6 semantics
 remain unresolved. Complete v95 evidence is archived outside build.
+
+Active block (2026-10-27): merged actual main `a247bef9` (PR202 bounded pipe
+copies/screenshot latency); open PR182 owns filesystem imports and does not
+overlap MT76. Prepare an allocation-free passive access-point result table
+consuming only a completed, stopped receive window under fresh cleanup ownership.
+Keep identifiers as bounded private memory copies, deduplicate BSSID, distinguish
+hidden SSIDs and advertised security from validated authentication, and publish
+results atomically only after all input/ownership checks. Fixed US channel1,
+eight input entries, no DMA reuse, retuning, transmit, UI or native profile change
+in this block. Touched: new MT76 discovery header/source, focused host fixtures,
+Makefile and unit/Wi-Fi guides. Dependencies: unchanged strict RX/beacon parser
+and accepted v95 normal-event/cleanup proof. Checkpoint: hostile/truncated input,
+deduplication/capacity/ownership/replay tests, sanitizers and merged core/image/VM
+validation plus durable archive. Native binding and discovery acceptance follow
+separately; installed v95 and recovery remain unchanged, no reboot armed.
 
 Validated candidate block (2026-10-26): merged actual main `eacb4ec4` (PR200 screenshot
 stress/worker receipts and desktop validation). Resolved the append-only
