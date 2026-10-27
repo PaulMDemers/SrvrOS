@@ -164,5 +164,6 @@ bool mt76_channel_tune_observe_run(struct mt76_channel_tune *s,
     const uint8_t country[2],unsigned channel,unsigned bandwidth,
     const struct mt76_channel_tune_io *io,const struct mt76_channel_tune_observer *o) {
     if(!o || !o->observe)return false;
-    return tune_run(s,country,channel,bandwidth,io,o);
+    const struct mt76_channel_tune_observer admitted=*o;
+    return tune_run(s,country,channel,bandwidth,io,&admitted);
 }

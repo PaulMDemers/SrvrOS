@@ -6,7 +6,8 @@ struct event {unsigned kind,reg,value;bool clean;};
 struct fake {
     unsigned calls,owners,fail,bad,deny,cancel,loss,drift;
     unsigned reads[2],pulses[2],clear_after[2];
-    bool ambiguous;
+    bool ambiguous,observer_mutation;
+    struct mt76_channel_tune_observer *observer_source;
     unsigned observe_calls,observe_fault,observe_exit;bool observe_safe;
     uint8_t rf[128];struct event trace[1024];
 };
@@ -23,6 +24,7 @@ static bool owner(void *p,bool clean) {
         (clean || !f->cancel || f->calls<f->cancel);
 }
 static bool record(struct fake *f,unsigned kind,unsigned reg,unsigned v,bool clean) {
+    if(!f->calls && f->observer_source)*f->observer_source=(struct mt76_channel_tune_observer){0};
     assert(f->calls<1024);f->trace[f->calls++]=(struct event){kind,reg,v,clean};
     if(f->drift==f->calls && !clean)f->rf[37]^=1;
     return f->calls!=f->fail;
@@ -80,7 +82,9 @@ static bool observe(void *p,unsigned channel) {
 static bool run_observed(struct fake *f,struct mt76_channel_tune *s) {
     struct mt76_channel_tune_io ops=io(f);const uint8_t us[2]={'U','S'};
     struct mt76_channel_tune_observer o={f,observe};cases++;
-    return mt76_channel_tune_observe_run(s,us,6,20,&ops,&o);
+    if(f->observer_mutation)f->observer_source=&o;
+    bool ok=mt76_channel_tune_observe_run(s,us,6,20,&ops,&o);
+    f->observer_source=NULL;return ok;
 }
 int main(int argc,char **argv) {
     assert(argc==2);FILE *file=fopen(argv[1],"rb");assert(file);
@@ -178,6 +182,8 @@ int main(int argc,char **argv) {
     struct fake observed;init(&observed);struct mt76_channel_tune os={0};
     assert(run_observed(&observed,&os) && os.observe_attempted && os.observe_complete);restored(&observed);
     assert(observed.calls==good.calls+22 && observed.observe_calls==1);
+    struct fake mutated;init(&mutated);mutated.observer_mutation=true;struct mt76_channel_tune ms={0};
+    assert(run_observed(&mutated,&ms) && ms.observe_complete && mutated.observe_calls==1);restored(&mutated);
     for(unsigned fault=1;fault<=5;fault++) {
         struct fake f;init(&f);f.observe_fault=fault;struct mt76_channel_tune s={0};
         assert(!run_observed(&f,&s) && s.failed && !s.complete && !s.observe_complete && f.observe_calls==1);
