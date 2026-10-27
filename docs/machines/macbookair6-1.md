@@ -3903,3 +3903,30 @@ USB preflight matches the prior 439 files / 1,480 clusters without leaks or
 mismatches. Verified payload and evidence backups are outside `build`; Ubuntu,
 console recovery and accepted combined desktop remain available. No input or
 listening is required; leave AC and USB connected. Native acceptance is pending.
+
+### Read-only CPU power telemetry — first native result (2026-10-27)
+
+Release `22632f396dab67a4`, runtime `932f7b50`, merged PR208 `c07dc402`,
+saved session `session-00065ed46d470f31-00` and returned automatically to Ubuntu.
+All three 30-second phases completed; load executed 250,652 integer-work chunks.
+The power provider reports the captured units/reference, both validity flags
+and zero rejected samples throughout the measured checkpoints. Thermal/fan
+checks completed without a stop; peak logged core/package temperatures are
+61/63 C and fan observations span 1,171–1,234 RPM.
+
+Covered load power is 5.134 W over 10.999826 seconds with CPU0 active frequency
+1,300 MHz. Recovery is 4.127 W over 20.999667 seconds and 1,288 MHz. These are
+short console-workload package measurements, not whole-machine power or savings.
+The complete three-phase telemetry trial remains **incomplete**: the two eligible
+idle checkpoints span 9.999841 seconds, 159 microseconds below the unchanged
+ten-second coverage requirement. The next checkpoint was logged after idle
+ended and is correctly excluded. No missing data or hardware error is inferred
+from this coverage refusal; do not round it into a pass or weaken the threshold.
+Next work should make phase checkpoints reliably cover the existing window.
+
+All 439 prior files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the volume to 443 files / 1,485 clusters; offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. Collected evidence
+and the payload are verified outside `build`. The collector is disabled, the
+one-shot boot entry is consumed and no further reboot is armed. Existing accepted
+desktop/recovery payloads remain the recovery reference.
