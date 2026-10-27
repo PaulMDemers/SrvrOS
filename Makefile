@@ -4166,3 +4166,8 @@ test-mt76-rx-window: build/tests/mt76-rx-window-host$(HOST_EXE)
 build/tests/mt76-rx-window-host$(HOST_EXE): tools/test_mt76_rx_window.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_rx_window.h kernel/include/srvros/mt76_rx.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-operation-timing
+test-operation-timing:
+	$(PYTHON) tools/test_operation_timing.py
+test-desktop: test-operation-timing

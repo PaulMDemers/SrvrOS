@@ -1,5 +1,5 @@
 import unittest
-from app_timing import validate_app_timing, saved_app_timing
+from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts
 
 
 def fixture(files_window_runtime=False):
@@ -74,6 +74,16 @@ class TimingTests(unittest.TestCase):
         for bad in variants:
             with self.subTest(bad=bad[:100]), self.assertRaises(AssertionError):
                 validate_app_timing(bad, [(0, 8), (1, 9), (2, 10)])
+
+
+class LifecycleReceipts(unittest.TestCase):
+    ready = b'desktop-life: ready cycle=0 pid=8 elapsed_us=20\n'
+    closed = b'desktop-life: closed cycle=0 pid=8 elapsed_us=30 errors=0\n'
+    def test_whole_snapshot_recovers_interleaved_console(self):
+        self.assertEqual(lifecycle_receipts([b'desktop-life: reaOTHER\ndy cycle=0 pid=8 elapsed_us=20\n'+self.closed,self.ready+self.closed],1), ([(0,8,20)],[(0,8,30)]))
+    def test_missing_conflicting_duplicate_and_identity_refused(self):
+        for logs in ([self.ready], [self.ready+self.closed,self.ready.replace(b'20',b'21')], [self.ready+self.ready+self.closed], [self.ready+self.closed.replace(b'pid=8',b'pid=9')]):
+            with self.subTest(logs=logs),self.assertRaises(AssertionError):lifecycle_receipts(logs,1)
 
 
 if __name__ == '__main__':

@@ -410,3 +410,16 @@ retest are recorded in its unit record and the
 parented dialogs, sequential cancellable app Quit, and bounded existing-process
 open-document routing. These are matched protocol v15 changes. Host validation
 and actual consumer/VM acceptance must be read from the current checkpoint.
+
+## Window policy follow-ups
+
+PR194 adds partial offscreen movement with a reachable titlebar and dynamic
+running-app dock entries, restore/cycling and filtered window selection. PR198
+adds held MRU switching, reverse/cancel, same-app cycling, grouped modal minimize
+and most-recent-visible retirement focus. PR201 follows with a shared cooperative
+Close window / Command-W path and consistent root/minimized/modal task discovery.
+These use existing dynamic registries and v15 close/dialog ownership. They add
+no window-count limit, resource budget or protocol change. The reusable palette
+supports selection-only lists as well as searchable lists. Host/VM validation and
+bounded physical navigation smoke are recorded in the Air7,2 unit record; fresh
+Close-command acceptance and exhaustive native subcases remain separate.

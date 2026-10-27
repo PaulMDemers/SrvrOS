@@ -24,12 +24,18 @@ long srv_file_change(const struct srv_file_change *q) {
     if(!stat(q->destination,&st)) return SRV_FILE_EXISTS;
     return rename(q->path,q->destination);
 }
+static unsigned phases,last_phase;static uint64_t progress_bytes;
+static void progress(void *context,unsigned phase,uint64_t bytes) {
+    assert(context==&phases && phase>=last_phase && phase<CAPTURE_PHASE_COUNT);
+    last_phase=phase;phases|=1u<<phase;progress_bytes=bytes;
+}
 int main(void) {
     char dir[]="/tmp/srvros-capture-test-XXXXXX";assert(mkdtemp(dir));char path[160],folder[80],temp[160];
     snprintf(folder,sizeof(folder),"%s/Screenshots",dir);snprintf(path,sizeof(path),"%s/proof.bmp",folder);
     snprintf(temp,sizeof(temp),"%s/.capture-%llu-12345.tmp",folder,(unsigned long long)getpid());
     unsigned char data[71000];for(size_t i=0;i<sizeof(data);i++) data[i]=(i*73+i/31)&255;
-    assert(capture_save(path,data,sizeof(data))==DESK_CAPTURE_OK);struct stat st;assert(!stat(path,&st) && st.st_size==sizeof(data));
+    assert(capture_save_progress(path,data,sizeof(data),progress,&phases)==DESK_CAPTURE_OK);
+    assert((phases&(1u<<CAPTURE_TEMP_VERIFY)) && (phases&(1u<<CAPTURE_FINAL_VERIFY)) && (phases&(1u<<CAPTURE_RENAME)) && progress_bytes==sizeof(data));struct stat st;assert(!stat(path,&st) && st.st_size==sizeof(data));
     assert(capture_save(path,data,sizeof(data))==DESK_CAPTURE_EXISTS);assert(!unlink(path));
     injected_write=1;assert(capture_save(path,data,sizeof(data))==DESK_CAPTURE_IO && stat(path,&st)<0 && stat(temp,&st)<0);injected_write=0;
     injected_read=1;assert(capture_save(path,data,sizeof(data))==DESK_CAPTURE_IO && stat(path,&st)<0 && stat(temp,&st)<0);injected_read=0;
