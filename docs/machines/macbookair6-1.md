@@ -56,7 +56,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app overlap passes 3,091 verified disk bursts and 692 app cycles with preserved prior files and clean allocation | Private child-image scope reduces the worst loop to 111.984 ms against the unchanged 500 ms limit; broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,266 verified disk bursts, 703 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (311.305 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -3828,3 +3828,78 @@ unpaced verified disk work, explicit 1% volume and automatic collection. USB
 baseline remains 430 files / 1,373 clusters, all prior hashes matched and no
 leaks/mismatches/errors. The quiet input remains valid until 08:30:45 UTC on
 2026-10-27. Ubuntu and verified console recovery remain the fallback.
+
+### Files metadata batches — bounded native acceptance (2026-10-27)
+
+Release `012aaffda0be860b`, runtime source `7c1ef57a`, merged PR206 `e7953352`,
+completed session `session-00065ecc2a71b33f-00` with an automated **PASS**.
+All 1,800 seconds of PCM completed at verified 1% volume: 345,600,000 bytes,
+zero recorded underruns and worker status zero. The user confirms steady sound
+throughout this quiet run.
+Unpaced disk work completed 3,266 verified bursts / 856,162,304 bytes, with
+sustained live-playback overlap and matching binary/text receipts.
+
+The session completed 703 application cycles with zero errors. Maximum readiness
+is 1.722836 s and close 4.799946 s; the original ten-second cycle bound passes.
+All 95,841 measured desktop loops are valid, with zero excursions over the
+unchanged 500 ms limit; maximum is 311.305 ms. This accepts the bounded Files
+listing and screenshot cleanup coexistence trial, not unlimited endurance or
+instantaneous UI response under all loads.
+
+All three automatic screenshots have successful acknowledgements, full worker
+retirement and decodable 1366x768 BMPs (4,196,406 bytes each). Slowest completion
+is 22.715026 s, compared with 39.944696 s in the previous completed-capture
+reference release `39d73c7da8c8ab69`; that reference still failed its loop bound.
+Retained cleanup execution is 73.704 ms for the slowest capture and 71.626 ms
+for the final capture. Follow-up Files completes in 711.504 ms, then normal exit
+leaves no queued launches, live windows or capture owner. Battery retirement
+reports heap/errors/denied zero and enclosing controls PASS.
+
+All 430 preboot files survive except expected `.srvros/meta` bookkeeping.
+Offline fsck/allocation pass with 439 files, 1,480 clusters and zero leaks,
+mismatches or errors. The matching evidence, images and accepted payload are
+hash-verified outside `build`. Ubuntu remains the default, console recovery is
+preserved, the collector is disabled and no reboot is armed. The next step can
+return to broader attended desktop use; this workload needs no relaxed limits.
+
+### Read-only CPU power telemetry — active scope (2026-10-27)
+
+Base `4dbd566f` includes the collected Files/screenshot acceptance above. The
+next bounded objective is explicit CPU package energy and CPU0 active-frequency
+telemetry for this unit, followed by the existing automatic v35 30-second
+idle/load/recovery phases. Linux CPU0 capture confirms signature `0x40651`,
+CPUID.1 ECX/EDX `0x7ffafbbf`/`0xbfebfbff`, CPUID.6 ECX `9`, and readable
+RAPL units/platform/energy/APERF/MPERF. Raw evidence stays in ignored local storage.
+
+Touched scope: power profile gate, its arithmetic/service regressions, power
+trial documentation and local staging/collection. Preserve the five-register
+read-only allowlist, feature/hypervisor refusals, thermal stops and all timing
+and integrity bounds. No CPU policy, fan control or ordinary desktop opt-in
+changes. Reuse the existing v35 diagnostic; no battery/AML ownership is needed.
+PR182 owns filesystem/backend writeback auditing and PR19 USB Wi-Fi; neither
+has overlapping power scope. Native power acceptance remains pending. Keep
+Ubuntu, console recovery and the accepted combined desktop payload available.
+
+### Read-only CPU power telemetry — candidate ready (2026-10-27)
+
+PR208 runtime source `932f7b50` admits only the independently captured 06_45
+profile alongside existing 06_3D/06_46 support. Units are `0xa0e03`; platform
+`0x8083df3011400` supplies the 2,000 MHz reference. The Linux development-load
+fixture decodes to 6,610 mW package power / 834 MHz active frequency; it is not
+native idle evidence. Five read-only MSRs, CPU feature/hypervisor checks and
+sampling/thermal bounds remain unchanged. The new regression fails against the
+original model gate and passes with the profile.
+
+Full host/core, matched standard build, documentation, load safety and collector
+tests pass. Power and load VMs verify default-disabled and unsupported-hardware
+refusal. Exact v35 release `22632f396dab67a4` passes GPT workspace save/unmount
+and automatic return; missing workspace halts without reboot. VMs cannot accept
+native measurements. The prepared physical run has three automatic 30-second
+idle/load/recovery phases, visible progress and automatic Ubuntu collection.
+Acceptance requires valid power coverage in all three phases as well as workload
+completion, original-file preservation and clean offline allocation.
+
+USB preflight matches the prior 439 files / 1,480 clusters without leaks or
+mismatches. Verified payload and evidence backups are outside `build`; Ubuntu,
+console recovery and accepted combined desktop remain available. No input or
+listening is required; leave AC and USB connected. Native acceptance is pending.

@@ -13,7 +13,7 @@ write CPU controls. Workspace checkpoints save the same cached values, and
 `hardware_desktop.py` includes them under `devices.power`. Disabled boots perform
 no power MSR reads. Unsupported CPUs report unavailable without reading any MSR.
 
-The profiles require GenuineIntel family 6/model 0x3d or 0x46, no hypervisor bit,
+The profiles require GenuineIntel family 6/model 0x3d, 0x45 or 0x46, no hypervisor bit,
 MSR support, CPUID.06H:ECX[0] feedback support and a working monotonic clock.
 It reads only RAPL units (0x606), platform info (0xce), package energy (0x611),
 APERF (0xe8) and MPERF (0xe7). The observed energy exponent must be 14; the
@@ -169,7 +169,7 @@ All five power registers and the three thermal registers were readable on CPU0.
 The captured one-second development workload decodes to 33,173 mW package power
 and 3,119 MHz active frequency. This is a decoder fixture, not an idle baseline,
 whole-laptop power reading or native SrvrOS result. Temperature target is 100 C
-with zero TCC offset. Other Haswell model IDs remain refused.
+with zero TCC offset. Other Haswell model IDs remain refused except the independently captured Air6,1 profile below.
 
 The model identity and register family are cross-checked against the Linux
 [Intel family definitions](https://github.com/torvalds/linux/blob/master/arch/x86/include/asm/intel-family.h)
@@ -214,10 +214,9 @@ building `all usb-image`, VM refusal checks with
 explicit-but-unavailable providers both refuse work and return to the monitor.
 Host time/sensor fixtures exercise successful Air/Pro-shaped snapshots and
 thermal, freshness, transport-validity and clock failure exits. They are not
-native load acceptance. The v35 proposal below supplies automatic capture wiring on the device branch;
-shared integration still requires review against PR6.
+native load acceptance. The integrated v35 profile below supplies automatic capture wiring.
 
-The device-branch v35 proposal now stages with `hardware_boot.py stage
+The v35 profile stages with `hardware_boot.py stage
 --laptop-probe-volume <local-UUID> --cpu-load-capture`. It enables only RAM/USB,
 CPU/SMC readout and package telemetry, then runs the standalone diagnostic.
 Handled refusal is saved and returns after clean unmount; missing workspace or
@@ -227,7 +226,7 @@ nonzero load work. `tools/hardware_cpu_load.py <exit.log>` parses the result and
 computes energy only from fresh checkpoints wholly within each phase. At least
 two checkpoints spanning ten seconds are required per phase; unavailable power
 remains null. Console phase measurements are separate from the Text idle baseline.
-Shared integration of the proposal remains pending review against PR6.
+Missing phase power remains incomplete telemetry evidence, even when the workload completes.
 
 The Pro11,2 native v35 run `9b7ff9eb6ebc3535` completed all three phases.
 Its covered load interval measured 27.190 W package power over 22.000 seconds,
@@ -668,3 +667,24 @@ for controlled storage timing follow-up. At that checkpoint the legacy TCP readi
 The subsequent [TCP readiness follow-up](tcp-readiness.md) fixes passive-open
 queueing and e1000 receive ownership, with directed host/VM coverage. That fix
 does not explain USB save variability or establish energy savings.
+
+
+## Air6,1 CPU profile and automated trial
+
+The independently captured 06_45 Haswell-U profile admits signature `0x40651`
+on this MacBookAir6,1. CPU0 reports CPUID.1 ECX/EDX `0x7ffafbbf`/`0xbfebfbff`,
+CPUID.6 ECX `9`, units `0xa0e03` and platform `0x8083df3011400`.
+The platform register supplies the **2,000 MHz** reference ratio; do not replace
+it with the CPU brand string's 1.40 GHz. The captured Linux development-load
+interval decodes to 6,610 mW package power and 834 MHz active frequency. This is
+a decoder regression fixture, not a native idle measurement. Intel SDM Volume 4
+lists 06_45 among the supported package RAPL register families. The existing
+five-register read-only allowlist and every validity/refusal bound remain intact.
+
+Use the v35 command above with this unit's own USB UUID after the normal build,
+exact-stage VM, recovery and filesystem preflight. Leave AC and USB connected;
+no input is required. The console displays phase progress, then saves and
+returns to Ubuntu. Require all three phases, nonzero load work, valid power
+coverage in each phase, preserved files and clean offline allocation checks.
+An emulated refusal verifies save/return only. Native Air6,1 acceptance is pending;
+ordinary desktop power telemetry, CPU policy and fan control remain unchanged.

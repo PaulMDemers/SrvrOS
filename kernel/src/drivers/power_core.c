@@ -2,11 +2,11 @@
 
 bool power_cpu_supported(uint32_t b,uint32_t d,uint32_t c,uint32_t sig,
                          uint32_t fc,uint32_t fd,uint32_t tc) {
-    /* Captured Broadwell-U 06_3D and Pro Haswell 06_46 profiles only. */
+    /* Captured Broadwell-U 06_3D, Air Haswell-U 06_45 and Pro 06_46 only. */
     unsigned model=((sig>>4)&15)|((sig>>12)&0xf0);
     return b==0x756e6547 && d==0x49656e69 && c==0x6c65746e &&
         ((sig>>8)&15)==6 && !((sig>>20)&255) &&
-        (model==0x3d || model==0x46) &&
+        (model==0x3d || model==0x45 || model==0x46) &&
         !(fc&(1u<<31)) && (fd&(1u<<5)) && (tc&1);
 }
 
