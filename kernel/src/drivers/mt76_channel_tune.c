@@ -94,8 +94,9 @@ static bool restore(struct tune *t) {
     }
     return guards(t,true) && owned(t,true);
 }
-bool mt76_channel_tune_run(struct mt76_channel_tune *s,const uint8_t country[2],
-    unsigned channel,unsigned bandwidth,const struct mt76_channel_tune_io *io) {
+static bool tune_run(struct mt76_channel_tune *s,const uint8_t country[2],
+    unsigned channel,unsigned bandwidth,const struct mt76_channel_tune_io *io,
+    const struct mt76_channel_tune_observer *observer) {
     if(!s || s->attempted)return false;
     *s=(struct mt76_channel_tune){.attempted=true,.channel=channel};
     if(!country || country[0]!='U' || country[1]!='S' || bandwidth!=20 ||
@@ -134,8 +135,34 @@ bool mt76_channel_tune_run(struct mt76_channel_tune *s,const uint8_t country[2],
         if(ok && v!=current[i])ok=fail(&t,MT76_CHANNEL_STATE);
     }
     ok=ok && guards(&t,false) && owned(&t,false);s->target_complete=ok;
+    if(ok && observer) {
+        /* Snapshot callback identity before publication; never re-enter it on a
+         * retry. Independent cleanup remains mandatory if it fails or leaves
+         * unproven receiver ownership. */
+        const struct mt76_channel_tune_observer o=*observer;
+        s->observe_attempted=true;
+        bool seen=o.observe(o.context,channel);
+        if(!seen)fail(&t,MT76_CHANNEL_IO);
+        ok=seen && owned(&t,false) && guards(&t,false) && vco_idle(&t,false);
+        for(unsigned i=0;i<MT76_CHANNEL_REGS && ok;i++) {
+            uint8_t v=0;ok=read_rf(&t,mt76_channel_snapshot_reg(i),&v,false);
+            if(ok && v!=current[i])ok=fail(&t,MT76_CHANNEL_STATE);
+        }
+        ok=ok && guards(&t,false) && owned(&t,false);s->observe_complete=ok;
+    }
     if(s->touched_mask || s->vco_attempted)s->cleanup_complete=restore(&t);
     else s->cleanup_complete=guards(&t,true);
     s->complete=ok && s->cleanup_complete && !s->failed && owned(&t,false) && owned(&t,true);
     return s->complete;
+}
+
+bool mt76_channel_tune_run(struct mt76_channel_tune *s,const uint8_t country[2],
+    unsigned channel,unsigned bandwidth,const struct mt76_channel_tune_io *io) {
+    return tune_run(s,country,channel,bandwidth,io,0);
+}
+bool mt76_channel_tune_observe_run(struct mt76_channel_tune *s,
+    const uint8_t country[2],unsigned channel,unsigned bandwidth,
+    const struct mt76_channel_tune_io *io,const struct mt76_channel_tune_observer *o) {
+    if(!o || !o->observe)return false;
+    return tune_run(s,country,channel,bandwidth,io,o);
 }

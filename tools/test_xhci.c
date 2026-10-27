@@ -13,6 +13,11 @@ struct xhci_device;
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
+static struct xhci_device *receive_test_device;
+static void receive_test_command(void);
+static void receive_test_control(void);
+static void receive_test_allocate(void);
+static void receive_test_tick(void);
 static struct xhci_device *tune_test_device;
 static void tune_test_bulk(unsigned);
 static bool tune_test_delay(uint64_t);
@@ -106,6 +111,7 @@ static uint64_t rf_wait_expected_delay;
 bool timer_delay_us(uint64_t us) { if(tune_test_device)return tune_test_delay(us);if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(receive_test_device && offset==xhci.db_base && value==0)receive_test_command();
     if(tune_test_device && offset==xhci.db_base+4*tune_test_device->slot_id && (value==11 || value==16))tune_test_bulk(value);
     if(channel_test_device && offset==xhci.db_base+4*channel_test_device->slot_id && (value==11 || value==16))channel_test_bulk(value);
     else if(poweron_test_device && offset==xhci.db_base+4*poweron_test_device->slot_id && (value==11 || value==16))poweron_test_bulk(value);
@@ -179,6 +185,7 @@ uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
     if (pool_used + count > fail_after) return 0;
     uint64_t address = (uint64_t)(pool + pool_used * PMM_FRAME_SIZE);
     pool_used += count;
+    if(receive_test_device)receive_test_allocate();
     assert(pool_used * PMM_FRAME_SIZE <= sizeof(pool));
     return address;
 }
@@ -493,6 +500,7 @@ static struct xhci_device *complete_device;
 static bool complete_control;
 uint64_t timer_monotonic_us(void) {
     test_time+=test_time_step;
+    if(receive_test_device)receive_test_tick();
     if(passive_test_device)passive_test_tick();
     if(window_test_device)window_test_tick();
     if(complete_control && test_time>=complete_at && strict_control.device) {
@@ -6622,9 +6630,11 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_passive.inc"
 #include "test_xhci_wifi_channel.inc"
 #include "test_xhci_wifi_tune.inc"
+#include "test_xhci_wifi_receive.inc"
 #include "test_xhci_wifi_window.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-channel-receive")){receive_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-poweron")){test_wifi_poweron();return 0;}

@@ -26,6 +26,7 @@ static void xhci_test_mac_publish(struct xhci_device *d,uint64_t phys) {
     unsigned status=i+2;if(status>=63)status-=63;
     xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)(d->ep0_ring_phys+16*status),
         .status=1u<<24,.control=(32u<<10)|(1u<<16)|((uint32_t)d->slot_id<<24)|(xhci.event_cycle?1u:0u)};
+    if(receive_test_device)receive_test_control();
     if(++mac_model_calls==mac_model_cancel)d->firmware.mcu.agc_state.complete=false;
     if(cal_probe_model && mac_model_calls==cal_probe_quarantine)d->ep0_quarantined=true;
 }

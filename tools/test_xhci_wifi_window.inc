@@ -1,4 +1,4 @@
-static bool window_discovery;
+static bool window_discovery,receive_test_only;
 static unsigned window_trial,window_ticks,window_last_post,window_injected;
 static void window_test_tick(void) {
     struct xhci_device *d=window_test_device;struct xhci_wifi_mcu *m=&d->firmware.mcu;
@@ -42,6 +42,7 @@ static bool discovery_fault_owned(void *context,const struct mt76_rx_window *win
 }
 static void test_wifi_window(void) {
     for(unsigned discovery=0;discovery<3;discovery++)for(unsigned trial=0;trial<55;trial++) {
+        if(receive_test_only && (discovery!=2 || trial!=0))continue;
         window_discovery=discovery;
         reset_test();test_time=0;test_time_step=100;
         if(trial>=50 || discovery)test_time_step=10000;
@@ -181,14 +182,17 @@ static void test_wifi_window(void) {
                 struct mt76_discovery copy=m->discovery;unsigned checks=m->discovery_checks;
                 assert(!wifi_discovery_capture(d) && checks==m->discovery_checks && !memcmp(&copy,&m->discovery,sizeof copy));
                 wifi_discovery_log(d);
-                if(discovery==2 && trial==0){test_wifi_channel(d);test_wifi_tune(d);}
+                if(discovery==2 && trial==0){
+                    if(receive_test_only){test_wifi_receive(d);mac_cycle_model=cal_probe_model=false;return;}
+                    test_wifi_channel(d);test_wifi_tune(d);test_wifi_receive(d);
+                }
             } else assert(!wifi_discovery_capture(d) && !m->discovery.attempted);
 
         } else assert(!w->state.complete);
         assert(!wifi_window_finish(d) && !freed);
         mac_cycle_model=cal_probe_model=false;
     }
-    for(unsigned mode=72;mode<=76;mode++)for(unsigned limit=0;limit<=9;limit++) {
+    for(unsigned mode=72;mode<=77;mode++)for(unsigned limit=0;limit<=9;limit++) {
         reset_test();struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
         struct xhci_wifi_mcu *m=&d->firmware.mcu;wifi_mcu_select_mode(m,mode);
         struct xhci_wifi_rx *r=&m->rx;r->reads=3;r->guards[0][1]=0xf000f200;r->guards[0][2]=0x40000050;

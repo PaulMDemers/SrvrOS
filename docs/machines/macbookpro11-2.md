@@ -9700,3 +9700,50 @@ mismatches or errors. Full raw collection, original structured collector result,
 acceptance and recovery proof are retained in `wifi-tune-native-5e2ed3d` outside
 build. Next: safe bounded receiver startup at tuned channel6 before restoring
 channel1, then multi-channel passive discovery. No reboot armed.
+
+
+### 2026-10-27 — separate channel6 receive observer implemented
+
+The original tuning entry retains its stopped-RX transaction. A separate
+one-shot observer entry runs after target frequency/VCO verification, then
+requires fresh MAC/idle/VCO and all target frequency words before restoration.
+Failed observations retain independent cleanup only under proven stopped DMA;
+no successful cleanup erases a forward failure. Host fault tests cover 6905
+transactions, including each original and observer I/O/ownership boundary,
+unsafe callbacks, drift, cancellation and independent restoration.
+
+Opt-in selector77/v99 uses a fresh retained ring and page for one 4096-byte
+channel6 receive. The original main-RX ring/eight pages are retained. Exact
+Set TR Dequeue completion, live stopped context/DCS and fresh layout/ownership
+are checked before ringing the endpoint. The command form, completion-before-
+doorbell order and output-context check were audited against
+[Linux v7.0 xHCI ring handling](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/usb/host/xhci-ring.c);
+this is a reference contract, not native acceptance of the new command.
+A separately owned MAC cycle supplies a ten-second/count-one observation,
+seven quiet RX drain rounds, MAC disable and saved filter/TXOP restoration.
+The reused MAC helper does not admit a radio channel; the new caller requires
+the captured board and fully verified US channel6/20MHz target. No calibration
+or network data OUT is added during receive. Exact Stop Endpoint and four fresh
+idle guards precede any tuner RF restoration. Independently owned command-ring
+stop remains available after EP0 failure; unknown/quarantined RF ownership
+still forbids retuning. Uncertain command/context/DMA states remain failures,
+with all allocations retained.
+
+Only a matching new TRB/slot/DCI normal event has a byte count. Early or late
+observations are excluded from in-window parsing; stopped-length events never
+supply usable bytes. The existing USB-entry/beacon parser receives the original
+bounded USB packet and explicit channel6 argument, only after quiescence.
+Identifiers stay private; logs contain counts and bounded parser/advertisement
+metadata. Quiet, empty, malformed or channel-mismatched input cannot establish
+beacon reception or connectivity.
+
+Native model and sanitizer coverage passes356 scenarios: all152 RF-reply
+headers;57 MAC/guard boundaries under cancellation, EP0 quarantine and changed
+context; command timeout/pointer/slot/context errors; quiet/early/late/foreign/
+malformed/empty and channel-mismatched packets; allocation failures; measured
+clock/wait faults; and no publication after admission loss. No DMA is freed.
+Initial compiler style, fake input context, parser-entry and post-quarantine MAC
+fixture mistakes were corrected before staging; the hardware RF guards were
+not relaxed. Saved-log validation, full merged tests, exact-stage VM, install
+and native acceptance remain separate checkpoints. Installed v98 remains the
+last physically accepted payload; no reboot armed.

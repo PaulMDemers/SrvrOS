@@ -259,7 +259,8 @@ struct xhci_wifi_tune_event { uint32_t value; uint16_t address; uint8_t kind,pol
 struct xhci_wifi_tune {
     struct mt76_channel_tune state;
     bool active,pinned,forward_failed,last_failed_write,cleanup_gate;
-    unsigned callbacks,exchanges,owned_checks,pos,count,after_vco;
+    unsigned callbacks,exchanges,owned_checks,pos,count,after_vco,observe_at;
+    bool observing;
     uint16_t published;
     uint64_t identity[18];
     struct xhci_wifi_tune_event event[384];
@@ -274,6 +275,17 @@ struct xhci_wifi_rx {
     bool active,attempted,configured,pending,done,stopping,stop_attempted,stopped,failed,wait_ok,passive_during_wait;
 };
 
+struct xhci_wifi_receive {
+    struct xhci_bulk_endpoint ep;
+    struct mt76_mac_cycle mac;
+    struct mt76_rx_view view;struct mt76_rx_beacon beacon;
+    uint64_t buffer_phys,trb,dequeue,identity[6],elapsed_us;
+    uint8_t *buffer;
+    unsigned reads,writes,waits,polls,stalled,events,late,completion,remaining,actual,view_status,beacon_status;
+    uint32_t guards[4];
+    bool attempted,active,retarget_attempted,retargeted,posted,pending,done;
+    bool stopping,stop_attempted,stopped,mac_active,mac_quiescent,polling,during_window,failed,complete,inspected;
+};
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
     uint64_t buffer_phys, trb;
@@ -360,6 +372,7 @@ struct xhci_wifi_mcu {
     struct mt76_discovery discovery;unsigned discovery_checks;
     bool channel_mode;struct xhci_wifi_channel channel;
     bool tune_mode;struct xhci_wifi_tune tune;
+    bool receive_mode;struct xhci_wifi_receive receive;
     bool poweron_mode,poweron_active;unsigned poweron_ops,poweron_reads,poweron_writes,poweron_waits,poweron_commands,poweron_ack_mask;struct mt76_calibration poweron;
     bool cal_probe_mode,cal_probe_active;unsigned cal_probe_ops,cal_probe_reads,cal_probe_writes,cal_probe_waits;struct mt76_calibration_probe cal_probe;
     bool rx_lifecycle_mode,mac_cycle_mode;struct xhci_wifi_rx rx;struct mt76_mac_cycle mac_cycle;
@@ -683,6 +696,8 @@ static bool configure_wifi_firmware(struct xhci_device *d);
 static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event);
+static bool wifi_receive_event(struct xhci_device *,const struct xhci_trb *);
+static bool wifi_receive_quiesced(struct xhci_device *);
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -2471,6 +2486,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    if(wifi_receive_event(device,event)) return;
     if(wifi_rx_event(device,event)) return;
     if(wifi_mcu_event(device,event)) return;
     if(wifi_firmware_event(device,event)) return;

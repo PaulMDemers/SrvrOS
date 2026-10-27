@@ -48,19 +48,19 @@ static void wifi_tune_cleanup(struct xhci_wifi_tune *t) {
 }
 static bool wifi_tune_owned(void *context,bool clean) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_tune *t=&m->tune;t->owned_checks++;
-    if(!m->tune_mode || !t->active || !t->pinned || !t->state.attempted || t->state.channel!=6 ||
+    if(!m->tune_mode || t->observing || !t->active || !t->pinned || !t->state.attempted || t->state.channel!=6 ||
        !wifi_mcu_owned(d) || !d->present || d->vendor_id!=0x7392 || d->product_id!=0xa711 || d->device_bcd!=0x100 ||
        !d->slot_id || !d->ep0_ring || !d->descriptor_buffer || !m->configured || m->pending ||
        !d->firmware.ready || !d->firmware.buffer || !m->buffer || !d->firmware.ep.ring || !m->response.ring ||
        d->firmware.ep.dci!=16 || m->response.dci!=11 || d->firmware.ep.packet!=512 || m->response.packet!=512 ||
        t->count>384 || t->pos>t->count || t->callbacks>600 || t->exchanges>160 || t->published>8191 ||
-       firmware_command_failed || strict_control.device || !wifi_channel_stopped(d))return false;
+       firmware_command_failed || strict_control.device || !(m->receive_mode?wifi_receive_quiesced(d):wifi_channel_stopped(d)))return false;
     uint64_t now[18];wifi_channel_identity(d,now);
     for(unsigned i=0;i<18;i++)if(!now[i] || now[i]!=t->identity[i])return false;
     if(d->firmware.buffer==m->buffer || pmm_phys_to_virt(d->descriptor_buffer_phys)!=d->descriptor_buffer ||
        pmm_phys_to_virt(d->firmware.buffer_phys)!=d->firmware.buffer || pmm_phys_to_virt(m->buffer_phys)!=m->buffer ||
        pmm_phys_to_virt(d->firmware.ep.ring_phys)!=d->firmware.ep.ring || pmm_phys_to_virt(m->response.ring_phys)!=m->response.ring)return false;
-    return clean || (!t->forward_failed && !t->state.failed && m->window.state.complete && !m->window.state.failed &&
+    return clean || ((!m->receive_mode || !m->receive.attempted || (m->receive.complete && !m->receive.failed)) && !t->forward_failed && !t->state.failed && m->window.state.complete && !m->window.state.failed &&
         m->window.state.stopped && wifi_window_owned(d,true) && m->discovery.complete && !m->discovery.failed &&
         mt76_ant_fields_valid(&m->ant_fields) && mt76_trim_fields_valid(&m->trim_fields));
 }
@@ -129,6 +129,22 @@ static bool wifi_tune_delay(void *context,unsigned us,bool clean) {
     if(!ok && !clean)t->forward_failed=true;
     return ok;
 }
+#include "xhci_wifi_receive.inc"
+static bool wifi_tune_observe(void *context,unsigned channel) {
+    struct xhci_device *d=context;struct xhci_wifi_tune *t=&d->firmware.mcu.tune;
+    if(!d->firmware.mcu.receive_mode || t->observing || t->pos!=t->observe_at ||
+       !t->state.observe_attempted || !wifi_tune_owned(d,false))return false;
+    t->observing=true;bool ok=wifi_receive_capture(d,channel);t->observing=false;return ok;
+}
+static void wifi_tune_observe_forward(struct xhci_wifi_tune *t) {
+    t->observe_at=t->count;wifi_tune_guards(t);wifi_tune_add(t,1,4,0x30,false);
+    uint8_t v[13];struct mt76_channel_step plan[21];
+    for(unsigned i=0;i<13;i++)v[i]=(uint8_t)mt76_channel_snapshot_initial(i);
+    (void)mt76_channel_plan(6,plan);
+    for(unsigned k=0;k<21;k++){unsigned i=wifi_channel_index(plan[k].reg);v[i]=(uint8_t)((v[i]&~plan[k].mask)|plan[k].bits);}
+    for(unsigned i=0;i<13;i++)wifi_tune_add(t,1,mt76_channel_snapshot_reg(i),v[i],false);
+    wifi_tune_guards(t);
+}
 static bool wifi_tune_capture(struct xhci_device *d) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_tune *t=&m->tune;
     if(!m->tune_mode || t->state.attempted || t->active || !m->window.state.complete ||
@@ -136,15 +152,18 @@ static bool wifi_tune_capture(struct xhci_device *d) {
        !wifi_window_owned(d,true) || !wifi_channel_stopped(d) ||
        !mt76_ant_fields_valid(&m->ant_fields) || !mt76_trim_fields_valid(&m->trim_fields))return false;
     *t=(struct xhci_wifi_tune){.active=true,.pinned=true};wifi_channel_identity(d,t->identity);wifi_tune_forward(t);
-    console_write("wifi-tune-progress: main RX stopped; channel6 US20MHz frequency/VCO excursion then channel1 restoration; no reception or network data OUT\n");
+    if(m->receive_mode)wifi_tune_observe_forward(t);
+    console_write(m->receive_mode?"wifi-tune-progress: channel6 US20MHz frequency/VCO with fresh bounded RX then channel1 restoration; no network data OUT\n":"wifi-tune-progress: main RX stopped; channel6 US20MHz frequency/VCO excursion then channel1 restoration; no reception or network data OUT\n");
     const uint8_t us[2]={'U','S'};
     const struct mt76_channel_tune_io io={d,wifi_tune_owned,wifi_tune_guard,wifi_tune_read,wifi_tune_write,wifi_tune_delay};
-    bool ok=mt76_channel_tune_run(&t->state,us,6,20,&io);
+    const struct mt76_channel_tune_observer observer={d,wifi_tune_observe};
+    bool ok=m->receive_mode?mt76_channel_tune_observe_run(&t->state,us,6,20,&io,&observer):mt76_channel_tune_run(&t->state,us,6,20,&io);
     ok=ok && t->cleanup_gate && t->pos==t->count && !t->forward_failed && wifi_tune_owned(d,false);
     if(!ok){t->state.complete=false;t->state.failed=true;if(t->state.status==MT76_CHANNEL_OK)t->state.status=MT76_CHANNEL_STATE;}
     t->active=false;return ok;
 }
 static void wifi_tune_log(struct xhci_device *d) {
     struct xhci_wifi_tune *t=&d->firmware.mcu.tune;struct mt76_channel_tune *s=&t->state;
-    console_printf("wifi-tune: attempted=%u complete=%u failed=%u status=%u channel=%u steps=%u guard_reads=%u rf_reads=%u rf_writes=%u cleanup_attempted=%u cleanup_complete=%u target_complete=%u target_vco_clear=%u cleanup_vco_clear=%u target_polls=%u cleanup_polls=%u target_delay_us=%u cleanup_delay_us=%u saved_mask=%u touched_mask=%u restored_mask=%u callbacks=%u exchanges=%u owned_checks=%u retained=1 network_data_out=0 receiver_restart=0\n",(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->failed,(uint64_t)s->status,(uint64_t)s->channel,(uint64_t)s->steps,(uint64_t)s->guard_reads,(uint64_t)s->rf_reads,(uint64_t)s->rf_writes,(uint64_t)s->cleanup_attempted,(uint64_t)s->cleanup_complete,(uint64_t)s->target_complete,(uint64_t)s->target_vco_clear,(uint64_t)s->cleanup_vco_clear,(uint64_t)s->target_polls,(uint64_t)s->cleanup_polls,(uint64_t)s->target_delay_us,(uint64_t)s->cleanup_delay_us,(uint64_t)s->saved_mask,(uint64_t)s->touched_mask,(uint64_t)s->restored_mask,(uint64_t)t->callbacks,(uint64_t)t->exchanges,(uint64_t)t->owned_checks);
+    console_printf("wifi-tune: attempted=%u complete=%u failed=%u status=%u channel=%u steps=%u guard_reads=%u rf_reads=%u rf_writes=%u cleanup_attempted=%u cleanup_complete=%u target_complete=%u target_vco_clear=%u cleanup_vco_clear=%u target_polls=%u cleanup_polls=%u target_delay_us=%u cleanup_delay_us=%u saved_mask=%u touched_mask=%u restored_mask=%u callbacks=%u exchanges=%u owned_checks=%u retained=1 network_data_out=0 receiver_restart=%u\n",(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->failed,(uint64_t)s->status,(uint64_t)s->channel,(uint64_t)s->steps,(uint64_t)s->guard_reads,(uint64_t)s->rf_reads,(uint64_t)s->rf_writes,(uint64_t)s->cleanup_attempted,(uint64_t)s->cleanup_complete,(uint64_t)s->target_complete,(uint64_t)s->target_vco_clear,(uint64_t)s->cleanup_vco_clear,(uint64_t)s->target_polls,(uint64_t)s->cleanup_polls,(uint64_t)s->target_delay_us,(uint64_t)s->cleanup_delay_us,(uint64_t)s->saved_mask,(uint64_t)s->touched_mask,(uint64_t)s->restored_mask,(uint64_t)t->callbacks,(uint64_t)t->exchanges,(uint64_t)t->owned_checks,(uint64_t)d->firmware.mcu.receive.posted);
+    if(d->firmware.mcu.receive_mode)wifi_receive_log(d);
 }

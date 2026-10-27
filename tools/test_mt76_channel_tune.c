@@ -7,18 +7,19 @@ struct fake {
     unsigned calls,owners,fail,bad,deny,cancel,loss,drift;
     unsigned reads[2],pulses[2],clear_after[2];
     bool ambiguous;
+    unsigned observe_calls,observe_fault,observe_exit;bool observe_safe;
     uint8_t rf[128];struct event trace[1024];
 };
 static unsigned cases;
 static const unsigned regs[13]={37,36,35,34,33,32,31,30,29,28,26,27,24};
 static const uint8_t initial[13]={2,63,40,221,226,66,66,2,40,48,0,0,51};
 static void init(struct fake *f) {
-    memset(f,0,sizeof *f);f->rf[4]=0x30;f->clear_after[0]=f->clear_after[1]=3;
+    memset(f,0,sizeof *f);f->observe_safe=true;f->rf[4]=0x30;f->clear_after[0]=f->clear_after[1]=3;
     for(unsigned i=0;i<13;i++)f->rf[regs[i]]=initial[i];
 }
 static bool owner(void *p,bool clean) {
     struct fake *f=p;f->owners++;
-    return f->owners!=f->deny && !(f->loss && f->calls>=f->loss) &&
+    return f->observe_safe && f->owners!=f->deny && !(f->loss && f->calls>=f->loss) &&
         (clean || !f->cancel || f->calls<f->cancel);
 }
 static bool record(struct fake *f,unsigned kind,unsigned reg,unsigned v,bool clean) {
@@ -63,6 +64,23 @@ static bool run(struct fake *f,struct mt76_channel_tune *s,unsigned ch) {
 static void restored(struct fake *f) {
     for(unsigned i=0;i<13;i++)assert(f->rf[regs[i]]==initial[i]);
     assert(f->rf[4]==0x30);
+}
+static bool observe(void *p,unsigned channel) {
+    struct fake *f=p;assert(channel==6 && !f->observe_calls++);
+    assert(f->rf[4]==0x30);unsigned writes=0;
+    for(unsigned i=0;i<f->calls;i++)writes+=f->trace[i].kind==2;
+    assert(writes==22);f->observe_exit=f->calls;
+    if(f->observe_fault==1)return false;
+    if(f->observe_fault==2){f->observe_safe=false;return false;}
+    if(f->observe_fault==3){f->rf[37]^=1;return true;}
+    if(f->observe_fault==4){f->cancel=f->calls;return true;}
+    if(f->observe_fault==5){f->rf[4]=0xb0;f->clear_after[0]=f->clear_after[1]=0;return true;}
+    return true;
+}
+static bool run_observed(struct fake *f,struct mt76_channel_tune *s) {
+    struct mt76_channel_tune_io ops=io(f);const uint8_t us[2]={'U','S'};
+    struct mt76_channel_tune_observer o={f,observe};cases++;
+    return mt76_channel_tune_observe_run(s,us,6,20,&ops,&o);
 }
 int main(int argc,char **argv) {
     assert(argc==2);FILE *file=fopen(argv[1],"rb");assert(file);
@@ -157,6 +175,35 @@ int main(int argc,char **argv) {
         struct fake f;init(&f);f.rf[i<13?regs[i]:4]^=(uint8_t)(1u<<bit);struct mt76_channel_tune s={0};
         assert(!run(&f,&s,11) && !s.touched_mask && !s.vco_attempted);
     }
+    struct fake observed;init(&observed);struct mt76_channel_tune os={0};
+    assert(run_observed(&observed,&os) && os.observe_attempted && os.observe_complete);restored(&observed);
+    assert(observed.calls==good.calls+22 && observed.observe_calls==1);
+    for(unsigned fault=1;fault<=5;fault++) {
+        struct fake f;init(&f);f.observe_fault=fault;struct mt76_channel_tune s={0};
+        assert(!run_observed(&f,&s) && s.failed && !s.complete && !s.observe_complete && f.observe_calls==1);
+        if(fault==2 || fault==5)assert(!s.cleanup_complete && !s.restored_mask);
+        else {assert(s.cleanup_complete);restored(&f);}
+    }
+    for(unsigned n=1;n<=observed.calls;n++)for(unsigned mode=0;mode<5;mode++) {
+        struct fake f;init(&f);struct mt76_channel_tune s={0};
+        if(mode<2){f.fail=n;f.ambiguous=mode==1;}
+        if(mode==2){if(observed.trace[n-1].kind>1)continue;f.bad=n;}
+        if(mode==3)f.loss=n;
+        if(mode==4)f.deny=n;
+        assert(!run_observed(&f,&s) && !s.complete && s.failed && f.observe_calls<=1);
+        if(s.cleanup_complete && s.touched_mask)restored(&f);
+        if(f.observe_calls)assert(s.target_complete);
+    }
+    for(unsigned n=1;n<=observed.owners;n++) {
+        struct fake f;init(&f);f.deny=n;struct mt76_channel_tune s={0};
+        assert(!run_observed(&f,&s) && s.failed && !s.complete && f.observe_calls<=1);
+        if(s.cleanup_complete && s.touched_mask)restored(&f);
+    }
+    struct fake refused;init(&refused);struct mt76_channel_tune rs={0};struct mt76_channel_tune_io ops=io(&refused);uint8_t us[2]={'U','S'};
+    struct mt76_channel_tune_observer empty={0};
+    assert(!mt76_channel_tune_observe_run(&rs,us,6,20,&ops,NULL) && !refused.calls && !rs.attempted);
+    assert(!mt76_channel_tune_observe_run(&rs,us,6,20,&ops,&empty) && !refused.calls && !rs.attempted);
+    printf("PASS observer single-shot/boundary failure and independent quiescence/restore; %u calls/%u owners\n",observed.calls,observed.owners);
     printf("PASS %u tune transactions;11 reference frequency plans,all %u I/O and %u ownership boundaries;bounded VCO and independent channel1 cleanup\n",cases,good.calls,good.owners);
     assert(reference.steps==21);return 0;
 }
