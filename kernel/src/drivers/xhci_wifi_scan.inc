@@ -12,7 +12,7 @@ static bool wifi_scan_history_owned(struct xhci_device *d) {
            !r->complete || r->failed || !r->stopped || !r->stop_attempted || r->active || r->mac_active || r->pending ||
            !r->mac_quiescent || !r->mac.complete || !r->mac.mac_disabled || !r->mac.tx_drained || !r->mac.rx_drained ||
            !r->mac.filter_restored || !r->mac.txop_restored || !wifi_receive_layout_for(d,r) ||
-           (r->dequeue&15)!=1 || ((r->dequeue&~15ull)!=r->ep.ring_phys && (r->dequeue&~15ull)!=r->ep.ring_phys+16) ||
+           !wifi_receive_dequeue_valid(r,r->dequeue) ||
            r->guards[0]!=0 || r->guards[1]!=0xf000f200 || r->guards[2]!=0x40000050 || r->guards[3]!=0)return false;
         for(unsigned k=0;k<18;k++)if(!identity[k] || identity[k]!=t->identity[k])return false;
     }
@@ -29,7 +29,7 @@ static bool wifi_scan_collect_owned(void *context,const struct mt76_scan_input *
     if(v!=s->input || n!=3 || s->completed!=3 || !wifi_scan_retained(d))return false;
     for(unsigned i=0;i<3;i++){
         const struct xhci_wifi_receive *r=&s->visit[i].receive;
-        if(v[i].buffer!=r->buffer || v[i].ring!=r->ep.ring_phys || v[i].physical!=r->buffer_phys ||
+        if(v[i].buffer!=wifi_receive_data(r) || v[i].ring!=r->ep.ring_phys || v[i].physical!=wifi_receive_data_phys(r) ||
            v[i].channel!=mt76_scan_channel(i) || v[i].elapsed_us!=r->elapsed_us ||
            v[i].events!=r->events || v[i].completion!=r->completion || v[i].remaining!=r->remaining ||
            v[i].actual!=r->actual || v[i].during_window!=r->during_window)return false;
@@ -48,7 +48,8 @@ static bool wifi_scan_capture(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_scan *s=&m->scan;
     if(!m->scan_mode || !m->receive_mode || !m->tune_mode || s->attempted || m->tune.state.attempted || m->receive.attempted)return false;
     *s=(struct xhci_wifi_scan){.attempted=true,.active=true};bool ok=wifi_scan_retained(d);
-    console_write("wifi-scan-progress: fixed US1/6/11 20MHz; fresh single-IN per visit; stop and restore channel1 between visits; no network data OUT\n");
+    if(m->scan_retry_mode)console_write("wifi-scan-progress: fixed US1/6/11 20MHz; fresh IN with one pre-enable completion retry per visit; stop and restore channel1 between visits; no network data OUT\n");
+    else console_write("wifi-scan-progress: fixed US1/6/11 20MHz; fresh single-IN per visit; stop and restore channel1 between visits; no network data OUT\n");
     for(unsigned i=0;i<3 && ok;i++){
         if(!wifi_scan_retained(d)){ok=false;break;}
         s->index=i;m->tune=(struct xhci_wifi_tune){0};m->receive=(struct xhci_wifi_receive){0};
@@ -61,7 +62,7 @@ static bool wifi_scan_capture(struct xhci_device *d){
             s->completed++;
             struct xhci_wifi_receive *r=&m->receive;
             s->input[i]=(struct mt76_scan_input){.channel=mt76_scan_channel(i),.tune=m->tune.state,
-                .ring=r->ep.ring_phys,.physical=r->buffer_phys,.buffer=r->buffer,.elapsed_us=r->elapsed_us,
+                .ring=r->ep.ring_phys,.physical=wifi_receive_data_phys(r),.buffer=wifi_receive_data(r),.elapsed_us=r->elapsed_us,
                 .events=r->events,.completion=r->completion,.remaining=r->remaining,.actual=r->actual,
                 .complete=r->complete,.stopped=r->stopped,.quiescent=r->mac_quiescent,.retained=true,.during_window=r->during_window};
             ok=wifi_scan_retained(d);

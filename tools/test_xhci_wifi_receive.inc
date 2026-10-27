@@ -1,3 +1,6 @@
+static unsigned receive_retry_fault;
+static bool receive_layout_faulted;
+static uint64_t receive_last_trb;
 static unsigned receive_fault,receive_ticks,receive_commands,receive_cases,receive_mac_at;
 static unsigned receive_controls,receive_control_fault,receive_control_at;
 static void receive_test_allocate(void) {
@@ -9,6 +12,8 @@ static void receive_test_allocate(void) {
         if(scan_test_history==2)s->visit[0].receive.identity[1]=0;
         if(scan_test_history==3)s->visit[0].receive.mac_quiescent=false;
     }
+    if(receive_retry_fault==52 && receive_test_device->firmware.mcu.scan_retry_mode &&
+       receive_test_device->firmware.mcu.scan.index==scan_test_fault_visit && r->ep.ring && !r->buffer_phys)fail_after=pool_used;
     if(receive_fault==26 && r->ep.ring && !r->buffer_phys)receive_test_device->firmware.mcu.agc_state.complete=false;
 }
 static void receive_test_control(void) {
@@ -38,7 +43,7 @@ static void receive_test_command(void) {
     if((receive_fault==1 && type==16) || (receive_fault==2 && type==15))return;
     uint64_t deq=r->ep.ring_phys|1;
     if(type==16)assert((cmd->parameter_low|((uint64_t)cmd->parameter_high<<32))==deq && wifi_receive_base_stopped(d));
-    if(type==15){assert(!cmd->parameter_low && !cmd->parameter_high);deq+=16;}
+    if(type==15){assert(!cmd->parameter_low && !cmd->parameter_high);deq+=r->retry.posted?32:16;}
     if(receive_fault==17 && type==15)deq+=16;
     if(receive_fault==18 && type==16)deq&=~1ull;
     context_write32(d->output_context,9,0,((receive_fault==3 && type==15) || (receive_fault==27 && type==16))?1:3);
@@ -51,25 +56,60 @@ static void receive_test_command(void) {
 }
 static void receive_test_tick(void) {
     struct xhci_device *d=receive_test_device;struct xhci_wifi_receive *r=&d->firmware.mcu.receive;
+    if(receive_layout_faulted)return;
     if(receive_mac_at && mac_model_calls>=receive_mac_at)d->firmware.mcu.agc_state.complete=false;
     if((!r->polling && !(receive_fault==24 && r->posted)) || !r->pending)return;
+    unsigned fault=r->retry.posted?receive_retry_fault:receive_fault;
+    if(receive_last_trb!=r->trb){receive_last_trb=r->trb;receive_ticks=0;}
     receive_ticks++;
-    if(receive_fault==5)return;
-    if(receive_fault==6){test_time=0;return;}
-    if(receive_fault==7){test_time_step=0;return;}
-    if(receive_ticks<5 && receive_fault!=24)return;
-    unsigned actual=passive_wire(r->buffer);r->buffer[82]=receive_fault==8?1:(uint8_t)wifi_tune_channel(d);
-    unsigned cc=receive_fault==9?27:13,residue=receive_fault==10?4097:4096-actual;
-    if(receive_fault==11){actual=0;residue=4096;}
-    if(receive_fault==21){cc=1;actual=4096;residue=0;}
-    if(receive_fault==22)passive_put16(r->buffer,0xfffc);
-    if(receive_fault==23)passive_put16(r->buffer+36,0x88);
+    if(fault==5)return;
+    if(fault==6){test_time=0;return;}
+    if(fault==7){test_time_step=0;return;}
+    if(r->retry.posted && fault==55)test_time+=11000000;
+    if(r->retry.posted && fault==56 && receive_ticks==1)test_time+=9990000;
+    if(receive_ticks<5 && fault!=24)return;
+    unsigned slot=(unsigned)((r->trb-r->ep.ring_phys)/16);assert(slot<2);
+    struct xhci_trb *td=&r->ep.ring[slot];
+    uint64_t phys=td->parameter_low|((uint64_t)td->parameter_high<<32);
+    uint8_t *wire=pmm_phys_to_virt(phys);
+    if(r->retry.posted){assert(slot==1 && phys==r->retry.physical && wire!=r->buffer);passive_put16(r->buffer,0xfffc);}
+    unsigned actual=passive_wire(wire);wire[82]=fault==8?(wifi_tune_channel(d)==1?6:1):(uint8_t)wifi_tune_channel(d);
+    unsigned cc=fault==9?27:13,residue=fault==10?4097:4096-actual;
+    if(fault==11){actual=0;residue=4096;}
+    if(fault==21){cc=1;actual=4096;residue=0;}
+    if(fault==22)passive_put16(wire,0xfffc);
+    if(fault==23)passive_put16(wire+36,0x88);
     struct xhci_trb event={.parameter_low=(uint32_t)r->trb,.parameter_high=r->trb>>32,.status=(cc<<24)|residue,
         .control=(32u<<10)|(9u<<16)|((uint32_t)d->slot_id<<24)};
-    if(receive_fault==12 && receive_ticks==5){event.parameter_low=(uint32_t)d->firmware.mcu.rx.trb;event.parameter_high=d->firmware.mcu.rx.trb>>32;}
-    if(receive_fault==13 && receive_ticks==5)event.control|=4;
-    if(receive_fault==19 && receive_ticks==5)event.control^=3u<<24;
-    if(receive_fault==20 && receive_ticks==5)event.parameter_low+=32;
+    if(fault==12 && receive_ticks==5){event.parameter_low=(uint32_t)d->firmware.mcu.rx.trb;event.parameter_high=d->firmware.mcu.rx.trb>>32;}
+    if(fault==13 && receive_ticks==5)event.control|=4;
+    if(fault==19 && receive_ticks==5)event.control^=3u<<24;
+    if(fault==20 && receive_ticks==5)event.parameter_low+=32;
+    if(fault==29)r->retry.identity[1]^=4096;
+    if(fault==30)r->ep.ring[0].parameter_low^=4096;
+    if(fault==31 && receive_ticks==5){event.parameter_low=(uint32_t)r->ep.ring_phys;event.parameter_high=r->ep.ring_phys>>32;}
+    if(!r->retry.posted && fault==24 && d->firmware.mcu.scan_retry_mode){
+        if(receive_retry_fault==57)event.status=1u<<24;
+        if(receive_retry_fault==58)event.status=13u<<24|4096;
+    }
+    if(fault>=32 && fault<=35){
+        uint64_t alias=fault==32?r->buffer_phys:fault==33?d->firmware.mcu.window.plan.physical[0]:fault==34?d->firmware.mcu.window.plan.physical[1]:xhci.command_ring_phys;
+        r->retry.physical=alias;r->retry.buffer=pmm_phys_to_virt(alias);r->retry.identity[0]=(uintptr_t)r->retry.buffer;r->retry.identity[1]=alias;
+        r->ep.ring[1].parameter_low=(uint32_t)alias;r->ep.ring[1].parameter_high=alias>>32;
+    }
+    if(fault==36)r->retry.identity[0]++;
+    if(fault==37)r->retry.events=0;
+    if(fault==38)r->retry.completion=27;
+    if(fault==39)r->retry.remaining=4097;
+    if(fault==40)r->retry.enabled=false;
+    if(fault==41)d->firmware.mcu.scan_retry_mode=false;
+    if(fault==42)r->ep.enqueue=1;
+    if(fault==43)r->ep.ring[0].status=0;
+    if(fault==44)r->ep.ring[1].status=0;
+    if(fault==45)r->ep.ring[1].control^=1;
+    if(fault==46)r->trb=r->ep.ring_phys;
+    if(fault==47)context_write32(d->output_context,9,2,(uint32_t)(r->ep.ring_phys+48)|1);
+    if(fault>=32 && fault<=47)receive_layout_faulted=true;
     dispatch_transfer_event(&event);
 }
 static void test_wifi_receive(struct xhci_device *d) {

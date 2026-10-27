@@ -6658,6 +6658,9 @@ static void test_wifi_mcu_transport(void) {
 
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--wifi-agc-timing")){test_wifi_agc_scan_timing();return 0;}
+    if(argc==2 && !strcmp(argv[1],"--wifi-scan-retry-cases")){receive_test_only=true;scan_test_only=true;scan_retry_test=scan_retry_case_test=true;test_wifi_window();return 0;}
+    if(argc==2 && !strcmp(argv[1],"--wifi-scan-retry-layout")){receive_test_only=true;scan_test_only=true;scan_retry_test=scan_retry_layout_test=true;test_wifi_window();return 0;}
+    if(argc==2 && !strcmp(argv[1],"--wifi-scan-retry")){receive_test_only=true;scan_test_only=true;scan_retry_test=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-scan-early")){receive_test_only=true;scan_test_only=true;scan_early_timing=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-scan")){receive_test_only=true;scan_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-channel-receive")){receive_test_only=true;test_wifi_window();return 0;}
