@@ -27,6 +27,21 @@ selection, association/security and IP/UI. Original strict helper stays
 unchanged; RF0:6 semantics remain unresolved. Full evidence is archived outside
 build; no new trial is armed.
 
+Active scope (2026-10-27): consume actual main `c07dc402` (Air6,1 CPU-power
+PR207/208; no MT76 overlap), with PR182 filesystem work inspected separately.
+Implement an independent transport-neutral one-channel frequency/VCO excursion
+and channel1 restoration before any native receiver restart. Restrict US1–11,
+20MHz, captured bank0 initial words and VCO byte; require fresh disabled-MAC/
+CORE/DMA/idle and independent cleanup ownership. Bound self-clearing VCO polls,
+preserve ambiguous writes, refuse cleanup RF changes while VCO remains busy,
+and re-settle restored channel1 before declaring cleanup complete. Touched:
+new MT76 tune header/source, host fault fixtures, Makefile and unit/Wi-Fi docs.
+Dependencies: unchanged accepted v97 preview, immutable frequency planner,
+pinned Linux scan-path RF/VCO order and later native band/baseband/stop adapter.
+Checkpoint: exhaustive I/O/ownership/readback/timeout/restore fault checks,
+sanitizers and merged core/image/desktop; no new boot profile or hardware
+acceptance in this block. Installed v97 and all recovery payloads stay retained.
+
 Validated native register-preview candidate (2026-10-27): actual main `e7953352` and
 open PR182 inspected; filesystem work does not overlap MT76. Add separate
 selector75/v97 after full v96 discovery, parent cleanup, exact main-RX stop and
