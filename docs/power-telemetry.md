@@ -884,8 +884,8 @@ pairing, valid monotonic data and at least ten seconds of coverage in each phase
 it independently calculates phase ratios from raw endpoints. Missing evidence is
 unavailable, never zero or a pass. The native run requires both power and residency
 coverage, workload completion, preserved prior files and clean offline allocation.
-No minimum deep-state residency or energy-saving result is required. Native
-acceptance remains pending the returned Air6,1 trial.
+No minimum deep-state residency or energy-saving result is required. The returned
+Air6,1 result is recorded below.
 
 ### Native Air6,1 residency result (2026-10-27)
 
