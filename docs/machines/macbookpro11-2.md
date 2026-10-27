@@ -10223,3 +10223,17 @@ Evidence, source, payloads and collection scripts survive distclean under
 Next: bounded repeated receive with distinct retained buffers, unchanged deadlines
 and independent Stop/channel1 restoration on every outcome. No repeat of this
 successful trial is required.
+
+## 2026-10-27: repeated-receive collection scope
+
+Consume actual main `6d9847e6` (Air read-only CPU topology/idle prerequisite
+capture; no MT76 overlap). Open filesystem PR182 remains separate. Next bounded
+objective: reuse the existing eight-slot retained-DMA receive-window helper with
+explicit US1/6/11 channel binding, then aggregate three independently stopped,
+restored windows into a private advertisement table. Preserve the legacy zeroed
+channel1 plan and old single-IN scan interface. Touch MT76 window/discovery/scan
+helpers, host tests and Makefile; native xHCI/staging wiring is a subsequent
+checkpoint after this contract is tested. No new hardware acceptance follows
+from host fixtures. Dependencies: accepted v101 pre-enable completion rejection,
+independent MAC/endpoint cessation and per-visit channel1 restoration. No new
+boot is armed; installed v101 and all recovery payloads remain retained.
