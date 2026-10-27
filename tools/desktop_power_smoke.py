@@ -74,6 +74,9 @@ def main():
                 assert expected in output,output[-4000:]
                 if stage:
                     assert b'SRVROS_GRUB_CHAINLOAD_TEST' in output
+                    assert b'battery-native: REFUSED check=pci-gpu' in output
+                    assert b'battery: REFUSED platform/resource ownership preflight' in output
+                    assert b'workspace-devices: power_state=1 flags=0' in output
                     assert b'desktop-power-session: result=PASS' not in output
                 else:
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
