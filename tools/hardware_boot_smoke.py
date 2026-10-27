@@ -165,7 +165,7 @@ def main():
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
-    power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
+    power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-","ram-usb-v1-mwait-")))
     if args.probe_network and not (desktop_idle_capture and power_telemetry):
         parser.error("--probe-network requires the v26 desktop idle/power stage")
     auto_return=manifest["config_version"].endswith("-auto-return")
