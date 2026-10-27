@@ -9,8 +9,9 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
-from app_timing import validate_app_timing,saved_app_timing
+from app_timing import RECORD,validate_app_timing,saved_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
+from operation_timing import operation_snapshots
 
 
 def main():
@@ -21,8 +22,9 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json'):
         (out/name).unlink(missing_ok=True)
+    for old in out.glob('saved-*.log'):old.unlink()
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
@@ -106,11 +108,6 @@ def main():
                     assert int(lifecycle[6])-int(lifecycle[5])>=40000000
                     pcm_window=re.search(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+)',output)
                     assert pcm_window and int(pcm_window[1])<=int(lifecycle[5])<int(lifecycle[6])<=int(pcm_window[2])
-                    ready=re.findall(rb'desktop-life: ready cycle=(\d+) pid=(\d+) elapsed_us=(\d+)',output)
-                    closed=re.findall(rb'desktop-life: closed cycle=(\d+) pid=(\d+) elapsed_us=(\d+) errors=0',output)
-                    assert len(ready)==len(closed)==int(lifecycle[1])
-                    assert [(a,b) for a,b,_ in ready]==[(a,b) for a,b,_ in closed]
-                    assert len(set(pid for _,pid,_ in ready))==len(ready)
                     assert b'async=yes' in output
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
@@ -131,17 +128,41 @@ def main():
                         if name.endswith('.log'):
                             raw=final.read(logdir+'/'+name);snapshots.append(raw)
                             (out/('saved-'+name)).write_bytes(raw)
-                    timing=validate_app_timing(saved_app_timing(snapshots),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
+                    ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))
+                    assert max(row[2] for row in ready)==int(lifecycle[3])
+                    assert max(row[2] for row in closed)==int(lifecycle[4])
+                    # This VM retains the complete UART capture as well as rotated disk
+                    # snapshots. Accept only whole console records, never repair
+                    # interleaved text; the existing complete-phase validator
+                    # still rejects every missing/conflicting lifecycle record.
+                    console_records=b'\n'.join(line for line in output.splitlines() if RECORD.fullmatch(line))
+                    timing=validate_app_timing(saved_app_timing([console_records,*snapshots]),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
+                    operations=operation_snapshots(snapshots,require_final=True)
+                    assert b'desktop-stress-exit: followup=PASS ' in output
+                    assert operations['operations']['exiting']==1 and operations['operations']['queued']==0
+                    assert b'desktop-stress-capture: result=PASS requested=1 saved=1 busy=0 normal_exit=1' in output
+                    capture=operations['captures']['current']
+                    assert capture['id']==1 and capture['busy']==0 and capture['frames']>0 and capture['phase']==12
+                    assert operations['phases']['current'][7]['elapsed_us']>0 and operations['phases']['current'][10]['elapsed_us']>0
+                    (out/'operations.json').write_text(json.dumps(operations,indent=2)+'\n')
+                    images=[name for name,_ in final.entries(final.read('srvros-work/Screenshots')) if name.endswith('.bmp')]
+                    assert len(images)==1
+                    from PIL import Image
+                    import io
+                    image_bytes=final.read('srvros-work/Screenshots/'+images[0])
+                    with Image.open(io.BytesIO(image_bytes)) as image:
+                        image.load();assert image.size==(1280,800);image.save(out/'automatic-screenshot.png')
+
                 volume.write_bytes(final.data);check_clean_image(volume)
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False)
-                result.update(populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
+                result.update(app_timing_evidence='complete_console_records_and_atomic_snapshots',populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)

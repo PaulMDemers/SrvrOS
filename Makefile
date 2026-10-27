@@ -3741,3 +3741,8 @@ build/tests/scheduler-trace-host$(HOST_EXE): tools/test_scheduler_trace.c kernel
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-scheduler-trace
+
+.PHONY: test-operation-timing
+test-operation-timing:
+	$(PYTHON) tools/test_operation_timing.py
+test-desktop: test-operation-timing

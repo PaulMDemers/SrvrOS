@@ -86,3 +86,30 @@ def saved_app_timing(snapshots):
             records.setdefault(match.group(0), None)
     return b'\n'.join(sorted(records, key=lambda row: (
         int(RECORD.fullmatch(row)[1]), int(RECORD.fullmatch(row)[6]))))
+
+
+def lifecycle_receipts(snapshots, count):
+    """Recover whole ready/closed records; require every unique cycle and PID."""
+    pattern = re.compile(rb'desktop-life: (ready|closed) cycle=(\d+) pid=(\d+) elapsed_us=(\d+)( errors=0)?')
+    records = {b'ready': {}, b'closed': {}}
+    for raw in snapshots:
+        seen = set()
+        for line in raw.splitlines():
+            match = pattern.fullmatch(line)
+            if not match:
+                continue
+            edge, cycle, pid, elapsed, errors = match.groups()
+            assert bool(errors) == (edge == b'closed'), 'malformed lifecycle receipt'
+            cycle, pid, elapsed = int(cycle), int(pid), int(elapsed)
+            assert 0 <= cycle < count and pid > 0 and elapsed > 0
+            key = edge, cycle
+            assert key not in seen, 'duplicate lifecycle receipt within snapshot'
+            seen.add(key)
+            value = (cycle, pid, elapsed)
+            assert cycle not in records[edge] or records[edge][cycle] == value, 'conflicting lifecycle receipt'
+            records[edge][cycle] = value
+    ready, closed = [sorted(records[edge].values()) for edge in (b'ready', b'closed')]
+    assert len(ready) == len(closed) == count, 'missing lifecycle receipt'
+    assert [(a, b) for a, b, _ in ready] == [(a, b) for a, b, _ in closed], 'lifecycle identity mismatch'
+    assert len({pid for _, pid, _ in ready}) == count, 'reused lifecycle PID'
+    return ready, closed

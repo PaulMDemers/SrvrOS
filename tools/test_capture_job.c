@@ -4,6 +4,8 @@
 #include "../userspace/lib/src/desk_capture_job.c"
 static struct desk_capture_job job;
 static unsigned char outgoing[200000];static struct desk_capture_response reply;
+static struct desk_capture_response frames[4];static unsigned frame_count,frame_index;
+long srv_monotonic_us(void) { return 1000000; }
 static size_t sent,received,total;static int reads,writes,alive=1,wait_ready=1,pipe_count,closes,spawn_fail,write_fail,eof;
 long srv_signal_config(uint64_t signal,uint64_t action) { assert(signal==SIGPIPE && action==SRV_SIGNAL_IGNORE);return 0; }
 long srv_pipe(int pair[2]) { pair[0]=pipe_count?10:12;pair[1]=pipe_count?13:11;pipe_count++;return 0; }
@@ -20,11 +22,13 @@ long srv_write(int fd,const void *data,size_t n) {
 long srv_read(int fd,void *data,size_t n) {
     assert(fd==10);if(eof) return 0;if(++reads%4==0 || sent<total) return SRV_ERR_AGAIN;
     if(n>3) n=3;
-    memcpy(data,(char *)&reply+received,n);received+=n;return n;
+    memcpy(data,(char *)(frame_count?&frames[frame_index]:&reply)+received,n);received+=n;
+    if(frame_count && received==sizeof(reply)){received=0;frame_index++;assert(frame_index<=frame_count);}
+    return n;
 }
 static void reset(void) {
     wait_ready=1;desk_capture_job_close(&job);desk_capture_job_init(&job);
-    sent=received=reads=writes=pipe_count=closes=spawn_fail=write_fail=eof=0;alive=1;
+    frame_count=frame_index=0;sent=received=reads=writes=pipe_count=closes=spawn_fail=write_fail=eof=0;alive=1;
 }
 static int finish(void) { for(unsigned i=0;i<20000;i++) { int r=desk_capture_job_poll(&job);if(r) return r; }return 0; }
 int main(void) {
@@ -45,6 +49,17 @@ int main(void) {
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));write_fail=1;assert(desk_capture_job_poll(&job)==-1 && !job.pixels);
     reset();assert(desk_capture_job_start(&job,pixels,4096,4096,path)<0 && !pipe_count);assert(desk_capture_job_start(&job,pixels,191,127,"relative")<0);
     spawn_fail=1;assert(desk_capture_job_start(&job,pixels,191,127,path)<0 && !job.pixels && closes==4);
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));
+    frame_count=3;frames[0]=(struct desk_capture_response){.magic=DESK_CAPTURE_PROGRESS_MAGIC,.id=job.request.id,.status=CAPTURE_WRITE,.at_us=10,.bytes=100};
+    frames[1]=frames[0];frames[1].status=CAPTURE_TEMP_VERIFY;frames[1].at_us=1010;frames[1].bytes=200;
+    frames[2]=(struct desk_capture_response){.magic=DESK_CAPTURE_MAGIC,.id=job.request.id,.at_us=3010};
+    assert(finish()==1 && job.progress_frames==2 && job.phase==CAPTURE_TEMP_VERIFY);
+    assert(job.phase_us[CAPTURE_WRITE]==1000 && job.phase_us[CAPTURE_TEMP_VERIFY]==2000 && job.progress_bytes==200);
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));frame_count=2;
+    frames[0].id=frames[1].id=job.request.id;frames[1].at_us=9;assert(finish()==-1); /* Clock regression. */
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));frame_count=2;
+    frames[0].id=frames[1].id=job.request.id;frames[1].at_us=1010;frames[1].status=CAPTURE_RECEIVE;assert(finish()==-1);
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));frame_count=1;frames[0].id=job.request.id;frames[0].reserved=1;assert(finish()==-1);
     assert(desk_capture_scale(1440,900)==1 && desk_capture_scale(1920,1080)==1);
     assert(desk_capture_scale(2880,1800)==2 && desk_capture_scale(3840,2160)==2);
     assert(!desk_capture_scale(4096,4096) && !desk_capture_scale(UINT32_MAX,1));

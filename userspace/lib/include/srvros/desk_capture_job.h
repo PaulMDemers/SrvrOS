@@ -10,6 +10,8 @@ struct desk_capture_job {
     struct desk_capture_response response;
     size_t sent,received;
     uint32_t *pixels;
+    uint64_t started_us,finished_us,last_progress_us,progress_bytes,phase_us[CAPTURE_PHASE_COUNT];
+    unsigned phase,progress_frames;
 };
 void desk_capture_job_init(struct desk_capture_job *job);
 /* Takes an owned snapshot, never retains the caller's canvas. */

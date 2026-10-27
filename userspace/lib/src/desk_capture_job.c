@@ -36,6 +36,9 @@ int desk_capture_job_start(struct desk_capture_job *j,const uint32_t *pixels,uin
     reap(j);uint32_t bytes=desk_capture_bytes(width,height);
     if(j->busy || j->retiring_pid || !bytes || !pixels || !path || path[0]!='/' || strlen(path)>=DESK_CAPTURE_PATH) return -1;
     j->request=(struct desk_capture_request){.magic=DESK_CAPTURE_MAGIC,.id=++j->next_id,.width=width,.height=height};
+    long now=srv_monotonic_us();j->started_us=now>0?(uint64_t)now:0;
+    j->finished_us=j->last_progress_us=j->progress_bytes=0;j->phase=j->progress_frames=0;
+    memset(j->phase_us,0,sizeof(j->phase_us));
     strcpy(j->request.path,path);j->response=(struct desk_capture_response){0};j->sent=j->received=0;
     j->pixels=mmap(NULL,bytes,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
     if(j->pixels==MAP_FAILED) { j->pixels=NULL;return -1; }
@@ -64,9 +67,21 @@ int desk_capture_job_poll(struct desk_capture_job *j) {
     if(n<=0 || (size_t)n>sizeof(j->response)-j->received) goto failed;
     j->received+=n;
     if(j->received<sizeof(j->response)) return 0;
-    if(j->response.magic!=DESK_CAPTURE_MAGIC || j->response.id!=j->request.id || j->response.reserved ||
+    if(j->response.magic==DESK_CAPTURE_PROGRESS_MAGIC) {
+        const struct desk_capture_response *r=&j->response;
+        if(r->id!=j->request.id || r->reserved || !r->status || r->status>=CAPTURE_PHASE_COUNT ||
+           r->status<j->phase || r->bytes>DESK_CAPTURE_MAX_BYTES || r->at_us<j->last_progress_us)goto failed;
+        if(j->phase)j->phase_us[j->phase]+=r->at_us-j->last_progress_us;
+        j->phase=r->status;j->last_progress_us=r->at_us;j->progress_bytes=r->bytes;j->progress_frames++;
+        j->received=0;j->response=(struct desk_capture_response){0};return 0;
+    }
+    if(j->response.at_us<j->last_progress_us)goto failed;
+    if(j->phase)j->phase_us[j->phase]+=j->response.at_us-j->last_progress_us;
+    if(j->response.magic!=DESK_CAPTURE_MAGIC || j->response.id!=j->request.id || j->response.reserved || j->response.bytes ||
        j->response.status>DESK_CAPTURE_EXISTS || (!j->response.status && j->sent!=total)) goto failed;
+    {long now=srv_monotonic_us();j->finished_us=now>0?(uint64_t)now:0;}
     desk_capture_job_close(j);return 1;
 failed:
+    {long now=srv_monotonic_us();j->finished_us=now>0?(uint64_t)now:0;}
     desk_capture_job_close(j);return -1;
 }
