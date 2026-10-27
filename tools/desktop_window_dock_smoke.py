@@ -9,8 +9,8 @@ from exfat_test_image import ExfatFixture,check_clean_image
 from serial_records import desktop_progress_end
 
 
-def main(navigation=False):
-    root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-window-navigation' if navigation else 'build/review/desktop-window-dock');out.mkdir(parents=True,exist_ok=True)
+def main(navigation=False,commands=False):
+    root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-window-commands' if commands else 'build/review/desktop-window-navigation' if navigation else 'build/review/desktop-window-dock');out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=b'';consumed=0;pointer=[24,56];documents=[];extras=[]
     with tempfile.TemporaryDirectory(prefix='srvros-window-dock-') as directory:
         tmp=Path(directory);disk=tmp/'disk.exfat'
@@ -89,12 +89,15 @@ def main(navigation=False):
                 dock(7);wait(b'deskd: dock activate application=7');x,y,w,h=preview_frame;click(x+w-88,y+21);dock(7);wait(b'deskd: dock activate application=7');shot('preview-restored')
                 dock(7,2);wait(b'deskd: dock windows application=7 items=2');shot('preview-window-list');qmp.key('esc');wait(b'deskd: launcher closed')
                 dock(2,2);wait(b'deskd: dock windows application=2 items=4');text('dock-one');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode())
-                click(302,278);text('X');shortcut('ctrl-end');text(' edit');shortcut('ctrl-w');wait_all([f'parent={first}'.encode(),b'deskd: commit']);shot('unsaved-owner-dialog')
-                dock(2,2);wait(b'deskd: dock windows application=2 items=4');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode());qmp.key('esc');wait(retired)
+                click(302,278);text('X');shortcut('ctrl-end');text(' edit');shortcut('meta_l-w' if commands else 'ctrl-w');wait_all([f'parent={first}'.encode(),b'deskd: commit']);shot('unsaved-owner-dialog')
+                dock(2,2);wait(b'deskd: dock windows application=2 items=4');qmp.key('ret');wait(f'deskd: launcher window={owner} id={first}'.encode());(shortcut('meta_l-w') if commands else qmp.key('esc'));wait(retired)
                 shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
                 launch('Help window',f'deskd: launcher window={help_pid} id=1'.encode())
-                dock(7);wait(b'deskd: dock activate application=7');shortcut('ctrl-q');wait(b'deskview: exited failure=0');extras.remove(7)
-                dock(8);wait(b'deskd: dock activate application=8');shortcut('ctrl-w');wait(b'deskhelp: exited failure=0');extras.remove(8);shot('unpinned-apps-retired')
+                dock(7);wait(b'deskd: dock activate application=7')
+                if commands:shortcut('f10');shortcut('left');shortcut('home');shortcut('ret')
+                else:shortcut('ctrl-q')
+                wait(b'deskview: exited failure=0');extras.remove(7)
+                dock(8);wait(b'deskd: dock activate application=8');shortcut('meta_l-w' if commands else 'ctrl-w');wait(b'deskhelp: exited failure=0');extras.remove(8);shot('unpinned-apps-retired')
                 if navigation:
                     def held(key,down):qmp.call('input-send-event',{'events':[{'type':'key','data':{'down':down,'key':{'type':'qcode','data':key}}}]});time.sleep(.12)
                     def selected():
@@ -124,7 +127,7 @@ def main(navigation=False):
                     shortcut('ctrl-f2');shortcut('left');shortcut('left');shortcut('end');shortcut('ret');wait(b'deskd: arranged pid=')
                     shortcut('ctrl-f2');qmp.key('esc')
                     # Closing the active root restores recent visible work, not slot order.
-                    shortcut('ctrl-w');wait(retired);wait(f'deskd: focused pid={owner} window={documents[1]}'.encode())
+                    shortcut('meta_l-w' if commands else 'ctrl-w');wait(retired);wait(f'deskd: focused pid={owner} window={documents[1]}'.encode())
                     shortcut('ctrl-end');text(' focus');shortcut('ctrl-s');wait(b'file-result role=text op=2 status=0')
                     shot('after-active-close')
                 dock(2);wait(b'deskd: dock activate application=2');shortcut('ctrl-q');wait(b'desktools: exited role=text failure=0')
@@ -145,7 +148,7 @@ def main(navigation=False):
         result=ExfatFixture(disk.read_bytes());expected={'home/dock-one.txt':b'XOffscreen content kept. edit'+(b' nav' if navigation else b''),'home/dock-two.txt':b'Two.'+(b' focus' if navigation else b''),'home/dock-three.txt':b'Three.'}
         for name,value in expected.items():assert result.read(name)==value,name
         (out/'fsck.txt').write_text(check_clean_image(disk));(out/'allocation.txt').write_text(subprocess.check_output([str(root/'build/tests/exfat-driver'),str(disk),'allocation-check'],text=True))
-        receipt=dict(status='PASS',qemu_exit=0,physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,keyboard_navigation=navigation,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})
+        receipt=dict(status='PASS',qemu_exit=0,physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,keyboard_navigation=navigation,standard_close_commands=commands,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})
         (out/'result.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print('desktop-window-dock: PASS offscreen drag/recovery, clipped windows, three-owner cycle, minimized restore, unpinned app lifetime, modal-safe filtered chooser, exact files, process baseline and offline integrity')
 

@@ -679,6 +679,15 @@ static void window_navigation(void) {
     *session_client(&s,80)=(struct client){.pid=42,.identity=81,.window=81,.parent_window=3};
     *desktop_window_at(&s.scene,80)=(struct desktop_window){.visible=1,.dialog=1,.application=DESK_APP_TEXT,.frame={80,100,400,300}};
     focus(&s,2);assert(s.scene.focus==80);
+    unsigned checked=0;for(unsigned n=0;n<s.scene.menu.count;n++)if(s.scene.menu.items[n].id==GLOBAL_WINDOW+3)checked=(s.scene.menu.items[n].flags&DESK_MENU_CHECKED)!=0;
+    assert(checked);launcher_catalog(&s);assert(s.scene.launcher.count==80+DESK_APP_COUNT); /* No extra modal task. */
+    unsigned input_before=session_client(&s,80)->input_count;
+    key=navigation_event(0x1a,SRV_KEY_META,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key));
+    assert(session_client(&s,80)->close_requested && session_client(&s,80)->input_count==input_before+1);
+    assert(session_client(&s,80)->input[(session_client(&s,80)->input_head+input_before)%DESK_INPUT_QUEUE].type==DESK_CLOSE_REQUEST);
+    navigation_key(&s,&key);assert(session_client(&s,80)->input_count==input_before+1); /* Repeated press deduplicated. */
+    key.modifiers=SRV_KEY_CTRL;assert(!navigation_key(&s,&key));
+    session_client(&s,80)->close_requested=0;
     key=navigation_event(0x10,SRV_KEY_META,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
     assert(desktop_window_at(&s.scene,2)->minimized && desktop_window_at(&s.scene,80)->minimized && s.scene.focus==4);
     focus(&s,2);assert(s.scene.focus==80 && !desktop_window_at(&s.scene,2)->minimized);
@@ -688,6 +697,9 @@ static void window_navigation(void) {
     key=navigation_event(SRV_KEY_F2,SRV_KEY_CTRL,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key) && s.scene.menu.open==0);
     key=navigation_event(SRV_KEY_ESCAPE,0,SRV_KEY_DOWN_EVENT);assert(desk_menu_key(&s.scene.menu,&key).consumed);
     for(int j=0;j<session_capacity(&s);j++)if(session_client(&s,j)->pid)desktop_window_at(&s.scene,j)->minimized=1;
+    char minimized_label[96];window_label(&s,2,minimized_label,sizeof(minimized_label));assert(!strncmp(minimized_label,"[Minimized] ",12));
+    memset(desktop_window_at(&s.scene,2)->title,'a',94);memcpy(desktop_window_at(&s.scene,2)->title+82,"\xc3\xa9",3);
+    window_label(&s,2,minimized_label,sizeof(minimized_label));assert(desk_text_utf8_valid(minimized_label,strlen(minimized_label)) && strlen(minimized_label)==94);
     focus_best(&s);assert(s.scene.focus==-1);
     key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
     assert(s.switching && s.scene.launcher.choose_only && !s.scene.launcher.query.enabled && s.scene.launcher.list.count==79);
@@ -948,7 +960,7 @@ int main(void) {
         else { item->id=i;snprintf(item->label,sizeof(item->label),"Action %u",i); }
     }
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1;s.clients[i].parent_window=0;s.scene.windows[i].visible=1; }
-    global_menu_rebuild(&s);assert(s.scene.menu.count==56+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
+    global_menu_rebuild(&s);assert(s.scene.menu.count==57+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==GLOBAL_WINDOW+s.clients[i].identity;assert(found==1); }
     s.clients[0].menus=saved_menus;for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=0;global_menu_rebuild(&s);
     global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));

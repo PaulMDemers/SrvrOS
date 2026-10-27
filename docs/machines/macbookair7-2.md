@@ -2,6 +2,53 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
+### Window commands and discovery — locally validated; native pending
+
+PR201 consumes actual main `a9d69554` (PR197/199), local merge `31d519f1`.
+Implementation `3467439b` adds standard **Window > Close window / Command-W**
+through the existing cooperative close request. Unsaved decisions remain app-owned;
+repeated requests cannot bypass them, and closing an owned dialog cancels it.
+Control shortcuts remain application-owned. Window/launcher lists now share
+UTF-8-safe minimized labels, omit duplicate dialog tasks and mark the parent
+when its dialog is focused. Existing dynamic storage and protocol v15 are reused.
+No driver, audio, firmware gate or resource budget changes are included.
+
+Full desktop/widget hosts and normal build pass on the consumed shared baseline.
+Focused host and ASan/UBSan session gates pass modal close/cancel requests,
+deduplication, Ctrl-W passthrough, parent checkmark, complete root discovery and
+multibyte label truncation. The actual command consumer passes the prior movement/
+dock/navigation checks plus unsaved Text close/cancel via Command-W, Preview close
+through the Window menu, exact files, process baseline and offline integrity.
+Terminal's real-shell/clipboard/Ctrl-C/close-cancel gate, pointer/lifecycle and
+context-menu VMs also pass. Final Help shortcut prose and stronger UTF-8 fixture
+were rebuilt/rechecked after those VMs; compositor behavior is unchanged.
+
+Evidence: `build/window-commands-20261026/`, with a verified durable copy outside
+build. These new commands remain physically pending; no new stage/install/reboot
+was prepared. Installed bounded-smoke payload `1d36da62e183a295` and independent
+recovery `9aa8dbf6fbda8252` are unchanged. PR182 filesystem/PR19 Wi-Fi remain
+separate. No next boot is armed.
+
+### Combined navigation trial — bounded general smoke accepted
+
+Release `1d36da62e183a295`, clean source `8847894a`, returned in
+`session-00065ec78173ab2c-00`. All four logs were copied/verified; exit is present
+and collector attention is empty. The desktop lifetime drained/released and
+battery retirement has zero heap, errors, denied accesses and rejected samples.
+The tester reports a general smoke test working normally, including Alt-Tab.
+This accepts that bounded reported window/dock/navigation smoke, not exhaustive
+completion of every guide subsection or a new save/reopen/audio/endurance test.
+
+Only four session logs were added. All 1,128 prior non-metadata files retain their
+hashes; only `.srvros/meta` changed. No new documents or screenshots were found.
+Offline fsck/allocation/headroom pass: 1,133 files / 2,869 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot, installed payload
+and independent recovery are verified. Accepted payload was copied/hash-verified
+outside build with the bounded acceptance note; prior `a90629c8a2060e66` and
+recovery `9aa8dbf6fbda8252` are retained. The unreferenced `986d6c68fa19ba18`
+payload remains archived and known-good. Evidence/run state is in
+`build/window-navigation-native-20261026/` and its durable copy. No boot is armed.
+
 ### Window switching and keyboard navigation — implemented; hardware trial ready
 
 PR198 follows main `43aff7d5` (PR194). Source `8847894a` implements a stable
