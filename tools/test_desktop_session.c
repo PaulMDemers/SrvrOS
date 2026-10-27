@@ -9,6 +9,30 @@ static void test_registry_free(void *p,size_t bytes);
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+static unsigned capture_closes,capture_reap_pending;
+void desk_capture_job_close(struct desk_capture_job *j) {
+    capture_closes++;assert(j->pixels && j->reader==10 && j->writer==11);
+    j->pixels=NULL;j->reader=j->writer=-1;j->busy=0;j->retiring_pid=j->pid;j->pid=0;
+    j->cleanup_us=660000;j->close_us=650000;j->unmap_us=10000;
+}
+int desk_capture_job_poll(struct desk_capture_job *j) {assert(!j->busy);if(!capture_reap_pending)j->retiring_pid=0;return 0;}
+static void capture_cleanup_ownership(void) {
+    struct lifecycle_worker w={0};struct desk_capture_job j={.pid=42,.reader=10,.writer=11,.busy=1,.pixels=(void *)1};
+    j.request.id=9;j.response.status=DESK_CAPTURE_OK;j.finished_us=100;
+    capture_closes=0;capture_reap_pending=1;
+    assert(life_capture_submit(&w,&j,1));assert(j.busy && !j.pixels && j.reader==-1 && !capture_closes);
+    assert(!life_capture_submit(&w,&j,-1) && !life_capture_take(&w,&j));
+    life_capture_work(&w);assert(capture_closes==1 && j.busy && !life_capture_take(&w,&j));
+    life_capture_work(&w);assert(capture_closes==1 && life_state(&w.capture.state)==LIFE_QUEUED);
+    capture_reap_pending=0;life_capture_work(&w);assert(life_capture_take(&w,&j)==1);
+    assert(!j.busy && !j.retiring_pid && j.request.id==9 && j.finished_us==100 && j.cleanup_us>=660000);
+    assert(!life_capture_take(&w,&j) && life_state(&w.capture.state)==LIFE_IDLE);
+    j=(struct desk_capture_job){.pid=43,.reader=10,.writer=11,.busy=1,.pixels=(void *)1};
+    capture_reap_pending=1;assert(life_capture_submit(&w,&j,-1));
+    life_capture_work(&w);assert(j.busy && !life_capture_take(&w,&j));
+    capture_reap_pending=0;life_capture_work(&w);assert(life_capture_take(&w,&j)==-1);
+    assert(!j.busy && !j.retiring_pid && capture_closes==2);
+}
 static unsigned registry_calls,registry_fail_at,registry_live;
 static size_t registry_live_bytes;
 static void *test_registry_alloc(size_t bytes) {
@@ -1046,6 +1070,7 @@ int main(void) {
     assert(!failed.children[4] && strstr(failed.scene.notice,"Text could not open"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
+    capture_cleanup_ownership();
     asynchronous_lifecycle();
     clipboard_client_retirement();
     delayed_control_delivery();

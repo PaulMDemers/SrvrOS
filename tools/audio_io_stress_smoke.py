@@ -36,7 +36,7 @@ def main():
         subprocess.run(['/usr/sbin/mkfs.exfat','-c','128K',str(volume)],check=True,stdout=subprocess.DEVNULL)
         subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+volume_id,str(volume)],check=True,stdout=subprocess.DEVNULL)
         f=ExfatFixture(volume.read_bytes());marker=f'SRVROS-WORKSPACE-V1 {volume_id}\n'.encode()
-        prior={'.workspace':marker,'anchor.txt':b'unchanged\n'}
+        prior={'.workspace':marker,'anchor.txt':b'unchanged\n','audio-io-volume.conf':f'1 {int(time.time())+86400}\n'.encode()}
         if args.populated_home:prior.update({f'Existing-{n:03d}.txt':(f'Preserved file {n}\n'*64).encode() for n in range(64)})
         f.add_directory_files('srvros-work',prior)
         last=2048+len(f.data)//512-1;backup=last+33;entries=bytearray(128*128)
@@ -119,6 +119,7 @@ def main():
                 if not stage:
                     directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
                     receipt=final.read(directory+'/result.txt');assert b'result=PASS' in receipt
+                    assert b' volume=1\n' in receipt
                     (out/'receipt.txt').write_bytes(receipt)
                     # UART writers may interleave; saved bootlog records are atomic.
                     session=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
@@ -145,6 +146,9 @@ def main():
                     assert b'desktop-stress-exit: followup=PASS ' in output
                     assert operations['operations']['exiting']==1 and operations['operations']['queued']==0
                     assert b'desktop-stress-capture: result=PASS requested=1 saved=1 busy=0 normal_exit=1' in output
+                    assert re.search(rb'audio-io: volume_override=1 ',output)
+                    for kind in ('current','slowest'):
+                        cleanup=operations['cleanup'][kind];assert cleanup['final']==1 and cleanup['pending']==0 and cleanup['total_us']>0
                     capture=operations['captures']['current']
                     assert capture['id']==1 and capture['busy']==0 and capture['frames']>0 and capture['phase']==12
                     assert operations['phases']['current'][7]['elapsed_us']>0 and operations['phases']['current'][10]['elapsed_us']>0
