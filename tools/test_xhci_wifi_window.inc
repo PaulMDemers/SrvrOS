@@ -41,7 +41,7 @@ static bool discovery_fault_owned(void *context,const struct mt76_rx_window *win
     return wifi_discovery_owned(context,window);
 }
 static void test_wifi_window(void) {
-    for(unsigned discovery=0;discovery<2;discovery++)for(unsigned trial=0;trial<55;trial++) {
+    for(unsigned discovery=0;discovery<3;discovery++)for(unsigned trial=0;trial<55;trial++) {
         window_discovery=discovery;
         reset_test();test_time=0;test_time_step=100;
         if(trial>=50 || discovery)test_time_step=10000;
@@ -49,7 +49,7 @@ static void test_wifi_window(void) {
         struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
         struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_rx *r=&m->rx;
         struct xhci_wifi_window *w=&m->window;
-        wifi_mcu_select_mode(m,discovery?74:trial>=50?73:72);assert(m->discovery_mode==(bool)discovery);assert(m->window_long_mode==(trial>=50 || discovery));assert(m->window_mode && !m->passive_mode && m->poweron_mode && m->post_vco_mode);
+        wifi_mcu_select_mode(m,discovery==2?75:discovery?74:trial>=50?73:72);assert(m->channel_mode==(discovery==2));assert(m->discovery_mode==(bool)discovery);assert(m->window_long_mode==(trial>=50 || discovery));assert(m->window_mode && !m->passive_mode && m->poweron_mode && m->post_vco_mode);
         struct xhci_trb ep0[64]={0},events[256]={0},out[64]={0},in[64]={0},commands[64]={0};
         _Alignas(4096) struct xhci_trb main_ring[256]={0};
         _Alignas(4096) uint8_t pages[8][4096]={{0}};
@@ -64,6 +64,7 @@ static void test_wifi_window(void) {
         d->firmware.ep=(struct xhci_bulk_endpoint){.ring=out,.ring_phys=(uintptr_t)out,.cycle=true,.dci=16};
         m->buffer=rx;m->buffer_phys=(uintptr_t)rx;
         m->response=(struct xhci_bulk_endpoint){.ring=in,.ring_phys=(uintptr_t)in,.cycle=true,.dci=11};
+        if(discovery==2){d->vendor_id=0x7392;d->product_id=0xa711;d->device_bcd=0x100;d->firmware.ep.packet=512;m->response.packet=512;}
         m->configured=true;r->configured=true;r->posts=1;r->pending=true;r->requested=4096;r->reads=3;
         r->guards[0][1]=0xf000f200;r->guards[0][2]=0x40000050;
         r->buffer=pages[0];r->buffer_phys=(uintptr_t)pages[0];r->trb=(uintptr_t)main_ring;
@@ -180,13 +181,14 @@ static void test_wifi_window(void) {
                 struct mt76_discovery copy=m->discovery;unsigned checks=m->discovery_checks;
                 assert(!wifi_discovery_capture(d) && checks==m->discovery_checks && !memcmp(&copy,&m->discovery,sizeof copy));
                 wifi_discovery_log(d);
+                if(discovery==2 && trial==0)test_wifi_channel(d);
             } else assert(!wifi_discovery_capture(d) && !m->discovery.attempted);
 
         } else assert(!w->state.complete);
         assert(!wifi_window_finish(d) && !freed);
         mac_cycle_model=cal_probe_model=false;
     }
-    for(unsigned mode=72;mode<=74;mode++)for(unsigned limit=0;limit<=9;limit++) {
+    for(unsigned mode=72;mode<=75;mode++)for(unsigned limit=0;limit<=9;limit++) {
         reset_test();struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
         struct xhci_wifi_mcu *m=&d->firmware.mcu;wifi_mcu_select_mode(m,mode);
         struct xhci_wifi_rx *r=&m->rx;r->reads=3;r->guards[0][1]=0xf000f200;r->guards[0][2]=0x40000050;
@@ -202,5 +204,5 @@ static void test_wifi_window(void) {
             assert(!configure_wifi_rx(d) && !wifi_rx_post(d));
         } else assert(!r->posts && !xhci.command_enqueue);
     }
-    puts("wifi-window-native: PASS182 short/long/discovery-budget,live-context/atomic-loss/ledger/allocation/shared-HID/whole-poweron/parent-cleanup/unique-TRB/event/clock/exact-stop scenarios; no DMA freed");
+    puts("wifi-window-native: PASS289 short/long/discovery/channel-budget,live-context/atomic-loss/ledger/allocation/shared-HID/whole-poweron/parent-cleanup/unique-TRB/event/clock/exact-stop scenarios; no DMA freed");
 }

@@ -13,6 +13,8 @@ struct xhci_device;
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
+static struct xhci_device *channel_test_device;
+static void channel_test_bulk(unsigned);
 static struct xhci_device *window_test_device;
 static void window_test_tick(void);
 static struct xhci_device *passive_test_device;
@@ -101,7 +103,8 @@ static uint64_t rf_wait_expected_delay;
 bool timer_delay_us(uint64_t us) { if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
-    if(poweron_test_device && offset==xhci.db_base+4*poweron_test_device->slot_id && (value==11 || value==16))poweron_test_bulk(value);
+    if(channel_test_device && offset==xhci.db_base+4*channel_test_device->slot_id && (value==11 || value==16))channel_test_bulk(value);
+    else if(poweron_test_device && offset==xhci.db_base+4*poweron_test_device->slot_id && (value==11 || value==16))poweron_test_bulk(value);
     if(trim_reply_device && offset==xhci.db_base+4*trim_reply_device->slot_id && value==1)
         for(unsigned i=0;i<4;i++)trim_reply_device->descriptor_buffer[i]=(uint8_t)(trim_reply_value>>(8*i));
     if(recovery_device) {
@@ -6613,6 +6616,7 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_cal_probe.inc"
 #include "test_xhci_wifi_poweron.inc"
 #include "test_xhci_wifi_passive.inc"
+#include "test_xhci_wifi_channel.inc"
 #include "test_xhci_wifi_window.inc"
 
 int main(int argc, char **argv) {

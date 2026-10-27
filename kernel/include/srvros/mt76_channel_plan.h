@@ -45,7 +45,8 @@ unsigned mt76_channel_snapshot_initial(unsigned index);
  * Independent readback follows every write when cleanup ownership permits.
  * Restoration is a register observation, not RF lock/performance acceptance.
  * Failed cleanup guards/ownership leave restoration explicitly unproven.
- * No native caller yet. No waits, MAC writes, VCO pulses, DMA reuse or logging. */
+ * Native caller is an explicit diagnostic only. This helper has no waits,
+ * MAC writes, VCO pulses, DMA reuse or logging. */
 bool mt76_channel_preview_run(struct mt76_channel_preview *,
     const struct mt76_channel_preview_plan *,const struct mt76_channel_preview_io *);
 #endif

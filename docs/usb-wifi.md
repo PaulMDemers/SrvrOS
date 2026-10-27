@@ -5071,3 +5071,52 @@ configurations and both desktop configurations are byte-identical, as are all
 existing MT76/native RX/discovery/parent/calibration sources. No physical trial
 is staged or armed. Native preview transport/ownership binding is next; channel
 RF/baseband/VCO and RX lifecycle remain required before multi-channel discovery.
+
+
+### 2026-10-27 — explicit native reversible register preview candidate (v97)
+
+Selector75/v97 runs the unchanged US1–11 frequency-field preview only after
+whole v96 reception/discovery, parent MAC cleanup, exact main-RX stop and six
+guards. A pinned native identity covers slot, control buffers/ring, firmware and
+MCU buffers/rings, current main-RX TRB/dequeue and window ring. Every callback
+rechecks the live stopped context and stable identities; forward access also
+requires the original complete window/discovery and board/firmware proof.
+Independent cleanup uses retained safe transport after forward metadata or reply
+loss. Quarantined/changed transport or lost stopped context forbids further I/O.
+
+An independent callback gate requires the exact2558 forward operations and
+masked values for the canonical eleven-channel plan. Cleanup admits only captured
+touched registers, original saved bytes, reverse ordering and independent
+readbacks. No arbitrary register, retry, main-RX restart/reuse, VCO pulse, network
+frame or MAC enable is added. The register preview is not live tuning or a scan;
+remaining RF/baseband/VCO and receive lifecycle work still applies.
+
+Normal evidence consists of2592 callbacks:1860 fresh guard reads,488 RF reads,
+244 RF writes and732 strictly matched MCU exchanges, with5185 ownership checks.
+All13 originals must be saved/touched/restored, cleanup must finish, and the
+original forward proof must remain valid at final publication. Each16-byte RF
+reply requires exact sequence/header/address/tail, byte value, write echo, CC13
+and1008 residue. Invalid replies log contract flags and transport outcome with
+payload words redacted. Successful records contain only the known non-identifying
+RF bytes. Guest progress, full callback trace and final restoration summary are
+saved; identifiers stay private. The fixture prefix is910690 bytes under the
+existing1MiB capacity. Old v1-v96 recipes retain their command lines and behavior.
+
+Native coverage includes every732 RF-reply header mutation, address/value/tail/
+length failures, OUT/IN timeout quarantine, forward proof loss with independent
+cleanup, live stopped-context loss, board/transport/ledger admission and direct
+callback order/value/refusal tests. Early tests exposed missing completed-window
+and final-forward-proof gates and a stale packet-size fixture; these were fixed
+before staging, and failure logs remain preserved. The pure preview engine is
+unchanged. Native register restoration and live tuning remain unaccepted until
+a matching physical capture is reviewed.
+
+Local v97 validation:786 actual native preview scenarios plus289 prior/native
+window/mode/allocation cases pass, including every732 RF reply mutation and
+independent restoration. Native ASan/UBSan,12918 pure preview transactions,10168
+discovery collections,246 window cases,184 staging tests and full merged core/
+image/desktop pass. Strict saved-proof checks accept15 outcomes and refuse627
+malformed variants;192 older Wi-Fi and both desktop configurations are unchanged.
+All30 printf argument counts match. Existing pure preview, parser, window,
+discovery, parent and calibration/power-on C sources remain byte-identical.
+Exact-stage VM, installed recovery and native acceptance remain separate checks.

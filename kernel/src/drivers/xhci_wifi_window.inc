@@ -123,3 +123,5 @@ static void wifi_discovery_log(struct xhci_device *d) {
         console_printf("wifi-discovery-row: index=%u observations=%u channel=%u interval=%u ssid_size=%u hidden=%u privacy=%u rsn=%u wpa=%u ds_present=%u beacon_seen=%u probe_response_seen=%u ssid_conflict=%u security_conflict=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)r->observations,(uint64_t)r->channel,(uint64_t)r->interval,(uint64_t)r->ssid_size,(uint64_t)r->hidden,(uint64_t)r->privacy,(uint64_t)r->rsn,(uint64_t)r->wpa,(uint64_t)r->ds_present,(uint64_t)r->beacon_seen,(uint64_t)r->probe_response_seen,(uint64_t)r->ssid_conflict,(uint64_t)r->security_conflict);
     }
 }
+
+#include "xhci_wifi_channel.inc"
