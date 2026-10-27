@@ -9,7 +9,7 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
-from app_timing import RECORD,validate_app_timing,saved_app_timing
+from app_timing import RECORD,validate_app_timing,saved_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
 from operation_timing import operation_snapshots
 
@@ -22,8 +22,9 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json'):
         (out/name).unlink(missing_ok=True)
+    for old in out.glob('saved-*.log'):old.unlink()
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
@@ -107,11 +108,6 @@ def main():
                     assert int(lifecycle[6])-int(lifecycle[5])>=40000000
                     pcm_window=re.search(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+)',output)
                     assert pcm_window and int(pcm_window[1])<=int(lifecycle[5])<int(lifecycle[6])<=int(pcm_window[2])
-                    ready=re.findall(rb'desktop-life: ready cycle=(\d+) pid=(\d+) elapsed_us=(\d+)',output)
-                    closed=re.findall(rb'desktop-life: closed cycle=(\d+) pid=(\d+) elapsed_us=(\d+) errors=0',output)
-                    assert len(ready)==len(closed)==int(lifecycle[1])
-                    assert [(a,b) for a,b,_ in ready]==[(a,b) for a,b,_ in closed]
-                    assert len(set(pid for _,pid,_ in ready))==len(ready)
                     assert b'async=yes' in output
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
@@ -132,6 +128,9 @@ def main():
                         if name.endswith('.log'):
                             raw=final.read(logdir+'/'+name);snapshots.append(raw)
                             (out/('saved-'+name)).write_bytes(raw)
+                    ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))
+                    assert max(row[2] for row in ready)==int(lifecycle[3])
+                    assert max(row[2] for row in closed)==int(lifecycle[4])
                     # This VM retains the complete UART capture as well as rotated disk
                     # snapshots. Accept only whole console records, never repair
                     # interleaved text; the existing complete-phase validator
