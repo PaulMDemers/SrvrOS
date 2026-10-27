@@ -3788,3 +3788,16 @@ expected `.srvros/meta` bookkeeping. Offline fsck/allocation pass: 430 files,
 1,373 clusters, zero leaks/mismatches/errors. Returned evidence is hash-verified
 outside `build`. The collector is disabled, one-shot consumed and no new reboot
 armed. The 1% stress input retains its recorded three-hour expiration.
+
+### Files listing under screenshot writes — active scope (2026-10-27)
+
+Base `d4d9c17c`; the failed PR204 return is collected and backed up. Objective:
+remove repeated storage-admission waits from Files enumeration by returning
+bounded directory entries with their metadata in one quiescent syscall batch.
+Keep storage exclusion, shared directory cookies, live open-file sizes, path and
+output validation, file-count limits and all stress deadlines unchanged. Scope:
+directory syscall/ABI, process enumeration, deskfs listing and regression/VM tests.
+PR182 owns exFAT/block/VFS/writeback auditing; this change does not edit those
+backend contracts or its process writeback functions. PR19 retains Wi-Fi scope.
+Validate full host tests and loaded/exact-stage VMs, merge and run the unchanged
+30-minute native stress with explicit 1% audio under the user's authorization.
