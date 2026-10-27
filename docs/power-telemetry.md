@@ -764,15 +764,15 @@ snapshots without repairing partial records and requires ordered phase receipts,
 clean battery retirement, at least three power/worker checkpoints covering 20 s
 inside each phase, and fresh valid temperature readings. Report actual covered
 intervals, package power, CPU0 active frequency, temperature ranges and per-worker
-software timeout/signal wakeups. These are not whole-machine power, hardware wakeup
+software timeout/signal wakeups for stable worker lifetimes, with partial
+lifetimes listed separately. These are not whole-machine power, hardware wakeup
 counts or a power-policy acceptance. No requirement asserts that app workload
 must consume more energy than idle; this experiment measures that difference.
 
 `tools/desktop_power_smoke.py` checks a complete synthetic battery VM lifetime,
 checkpoint coverage, file preservation and offline allocation. With `--stage
 <release>`, it boots the exact native payload and requires Q35 profile refusal
-and clean unmount/return. Use `--accel kvm` on a host with KVM access for bounded desktop timing;
-`tcg` remains available and any TCG timing failure is retained separately. Neither
-mode changes the guest limits. Synthetic execution never supplies native power or
+and clean unmount/return. The harness records its explicit `--accel tcg|kvm` selection. Failed rehearsals
+remain failed evidence; neither mode changes guest limits. Synthetic execution never supplies native power or
 temperature acceptance. Native results remain pending until matching saved
 sessions and recovery evidence have been collected.

@@ -1841,7 +1841,7 @@ int main(int argc,char **argv) {
     if(stress_volume<0){srv_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=power_trial || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
