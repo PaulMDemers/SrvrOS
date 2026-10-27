@@ -4237,3 +4237,45 @@ only after verifying its durable backup; the latest accepted power, console,
 CPU-power, stress and attended-reopen payloads remain protected. Save/install
 verification and automatic collection records before arming. Native supervisor
 wakeup/power comparison is pending; no energy savings are claimed.
+
+
+### Battery supervisor event waits physically accepted (2026-10-27)
+
+Documentation-only acceptance on integration `664c22a3` (PR216); no runtime
+changes or dependencies on open PR182/PR19. Run `03633a2df1e14db2`, release
+`aa576838270d623a`, staged source `153c75fb` (runtime change `d1eaeec8`), saved
+matching session `session-00065ed778e804ca-00`. All unchanged v78 phases pass,
+with 13 Text/Files/System cycles, normal retirement and automatic Ubuntu return.
+Worst UI loop is 110,061 us (500,000 us limit), app readiness 641,296 us and
+close 51,645 us (unchanged 10 s limits).
+
+Bootstrap supervisor identity 1 has zero timer wakeups in every covered phase.
+Idle and recovery also have zero switches/signals; app work produces 25 switches
+and 25 signal wakes. Worker coverage is 51.843215 / 51.577041 / 40.448709 s for
+idle/apps/recovery. The preceding accepted release had approximately 48 timer
+wakes/s. Lifecycle worker identity 17 retains zero timer wakes, with no covered
+idle/recovery switches. Battery-owner sampling (~19 timer wakes/s), USB HID,
+firmware watchdogs, ownership checks and every limit remain unchanged.
+
+| Phase | Power coverage / points | Mean package power, prior → repeat | CPU0 active MHz | Core / package C |
+| --- | --- | --- | --- | --- |
+| Idle | 50.998372 s / 6 | 4.121 → 4.130 W | 1,292 | 59–61 / 59–61 |
+| Apps | 50.998344 s / 6 | 4.167 → 4.140 W | 1,294 | 57–59 / 58–60 |
+| Recovery | 40.998694 s / 5 | 4.130 → 4.132 W | 1,292 | 57–59 / 58–59 |
+
+Package power remains about 4.1 W; small differences and different temperatures
+in these short runs do not establish energy savings. Battery generations advance
+12→35→58→81. Retirement reports 82 attempts, zero rejected samples, heap/errors/
+denied zero, balanced attachment, revoked clients and retired runtime ownership.
+
+All 493 prior files are preserved except expected `.srvros/meta` bookkeeping;
+23 new logs bring the USB to 516 files / 1,562 clusters. Offline fsck/allocation
+pass with zero leaks, bitmap mismatches or errors. Independent saved-log parsing
+agrees with automatic collection and all 466 collected durable hashes verify.
+Evidence and payload remain outside `build`. Ubuntu returned, the one-shot entry
+is consumed, the collector is disabled and no reboot is armed. The superseded
+`1d1cbd1cb03d3032` EFI copy was removed only after verifying its durable backup;
+console `c35475f62f154f1e`, prior accepted `cb881058052a1012`, CPU-power, stress
+and attended-reopen payloads remain retained. This accepts the ordinary session
+supervisor wait change on this unit; broader endurance and power policy remain
+separate work.
