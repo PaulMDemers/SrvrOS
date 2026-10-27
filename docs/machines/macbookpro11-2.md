@@ -7,22 +7,23 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v94 release `2530466d580891cc`, source `34c2e8b4`,
-session `session-00065ec9814b8379-00`. Whole prior initialization/calibration,
-parent MAC cleanup, exact endpoint stop, full saved prefix, recovery and offline
-allocation passed. The1s polling window had no normal receive completion;
-only one request was posted and later cancelled (CC26,4096 remaining).
-No bytes were inspected. This accepts the bounded empty-window lifecycle only;
-successive native submissions and repeated packet reception remain unexercised.
-The earlier v93 channel1 beacon observation remains valid for its named release.
-Pending v95 release `84afc9dee029775f`/source `e9acacd5` is installed;
-accepted v93 fallback and e47 previous recovery are preserved. Quiet v94 is
-durably archived after safe current-role fallback and ESP space recovery.
-Workspace unmounted and no reboot armed. Next: cold-cycle readiness, then
-collect matching v95 FIRST with `rx-window-long/collect_return.py` to review the
-ten-second observation before scanning, association/security,
-Wi-Fi IP and UI. Original strict helper stays unchanged; RF0:6 semantics remain
-unresolved. No RF/FCS/RSSI-performance or sustained reception claim.
+Latest physical run: v95 release `84afc9dee029775f`, source `e9acacd5`,
+session `session-00065eca15a6993a-00`. The ten-second window completed six
+normal transfers and seven distinct retained-buffer submissions. Each completed
+transfer supplied196 bytes and a valid first RX entry with154-byte probe-request
+MPDU (FC0040). All six events were observed during the window; no beacon or
+probe response was present. The final pending request was cancelled with CC26/
+4096 remaining after parent MAC cleanup, exact endpoint stop and six guards.
+Whole prior initialization/calibration proof, full saved prefix, Ubuntu recovery
+and offline filesystem/allocation checks passed. This accepts bounded repeated
+native submissions and reception on this named release, not sustained reception,
+FCS/RSSI/RF performance or access-point discovery. Earlier v93 beacon evidence
+remains separate. V95 is installed; accepted v93 fallback and e47 previous
+recovery are preserved. Workspace unmounted, one-shot consumed, no reboot armed.
+Next: bounded passive access-point discovery using the received-frame path,
+with channel/identifier handling and UI separated from later association,
+security and Wi-Fi IP. Original strict helper remains unchanged; RF0:6 semantics
+remain unresolved. Complete v95 evidence is archived outside build.
 
 Validated candidate block (2026-10-26): merged actual main `eacb4ec4` (PR200 screenshot
 stress/worker receipts and desktop validation). Resolved the append-only
@@ -9117,3 +9118,35 @@ proof, ten-second/count accounting, exact byte/event phase, parent cleanup,
 exact stop and six guards. An empty window or stopped-event residue is not
 packet reception; no repeated native submission, scan/security/IP/UI or RF
 performance claim is made before those outcomes are observed.
+
+
+### 2026-10-26 — v95 bounded repeated native reception observed
+
+Release `84afc9dee029775f`, source `e9acacd5`, session
+`session-00065eca15a6993a-00` completed the explicit ten-second observation:
+172646 polls,10000029us, seven distinct retained4096-byte requests and six
+normal CC13 completions. Each completed item had3900 remaining/196 actual
+bytes; its first valid RX entry consumed192 bytes with154-byte MPDU and FC0040
+(probe request). All six completions were observed during the active window,
+none before it. Beacon-parser status2 means unsupported frame subtype here,
+not malformed RX framing. No beacon/probe response or identifiers were logged;
+no uniqueness claim is possible from this copied metadata alone.
+
+The seventh request stayed pending and was cancelled only after the unchanged
+parent MAC cleanup:54 operations,46 reads,7 writes,1 wait,10036us hold, TX1/RX7
+drain rounds, MAC disable and filter/TXOP restoration. Host wait10001us, exact
+endpoint stop and six guards passed; final CC26/4096 remaining supplies no
+packet bytes. DMA stayed retained, no page/TRB reuse or network data OUT.
+Whole prior initialization, reversible observation and five-command power-on
+proof passed. This accepts bounded successive native submissions and repeated
+RX framing on this release. It does not establish sustained reception, FCS,
+calibrated RSSI, RF performance, access-point discovery or connectivity.
+
+Full startup prefix and both completion markers passed the strict collector.
+Ubuntu default, consumed one-shot and current/e47/accepted-v93 payload equality
+were verified. Offline workspace:338 files,835 clusters,142 directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted, no reboot armed.
+Complete raw collection, strict proof and recovery evidence are preserved in
+`wifi-rx-window-long-e9acacd` outside build. Next: bounded passive access-point
+discovery, then association/security, IP integration and network UI; the
+six probe requests do not substitute for beacon discovery acceptance.

@@ -4845,3 +4845,35 @@ proof, ten-second/count accounting, exact byte/event phase, parent cleanup,
 exact stop and six guards. An empty window or stopped-event residue is not
 packet reception; no repeated native submission, scan/security/IP/UI or RF
 performance claim is made before those outcomes are observed.
+
+
+### 2026-10-26 — v95 bounded repeated native reception observed
+
+Release `84afc9dee029775f`, source `e9acacd5`, session
+`session-00065eca15a6993a-00` completed the explicit ten-second observation:
+172646 polls,10000029us, seven distinct retained4096-byte requests and six
+normal CC13 completions. Each completed item had3900 remaining/196 actual
+bytes; its first valid RX entry consumed192 bytes with154-byte MPDU and FC0040
+(probe request). All six completions were observed during the active window,
+none before it. Beacon-parser status2 means unsupported frame subtype here,
+not malformed RX framing. No beacon/probe response or identifiers were logged;
+no uniqueness claim is possible from this copied metadata alone.
+
+The seventh request stayed pending and was cancelled only after the unchanged
+parent MAC cleanup:54 operations,46 reads,7 writes,1 wait,10036us hold, TX1/RX7
+drain rounds, MAC disable and filter/TXOP restoration. Host wait10001us, exact
+endpoint stop and six guards passed; final CC26/4096 remaining supplies no
+packet bytes. DMA stayed retained, no page/TRB reuse or network data OUT.
+Whole prior initialization, reversible observation and five-command power-on
+proof passed. This accepts bounded successive native submissions and repeated
+RX framing on this release. It does not establish sustained reception, FCS,
+calibrated RSSI, RF performance, access-point discovery or connectivity.
+
+Full startup prefix and both completion markers passed the strict collector.
+Ubuntu default, consumed one-shot and current/e47/accepted-v93 payload equality
+were verified. Offline workspace:338 files,835 clusters,142 directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted, no reboot armed.
+Complete raw collection, strict proof and recovery evidence are preserved in
+`wifi-rx-window-long-e9acacd` outside build. Next: bounded passive access-point
+discovery, then association/security, IP integration and network UI; the
+six probe requests do not substitute for beacon discovery acceptance.
