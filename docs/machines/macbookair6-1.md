@@ -3879,3 +3879,27 @@ changes. Reuse the existing v35 diagnostic; no battery/AML ownership is needed.
 PR182 owns filesystem/backend writeback auditing and PR19 USB Wi-Fi; neither
 has overlapping power scope. Native power acceptance remains pending. Keep
 Ubuntu, console recovery and the accepted combined desktop payload available.
+
+### Read-only CPU power telemetry — candidate ready (2026-10-27)
+
+PR208 runtime source `932f7b50` admits only the independently captured 06_45
+profile alongside existing 06_3D/06_46 support. Units are `0xa0e03`; platform
+`0x8083df3011400` supplies the 2,000 MHz reference. The Linux development-load
+fixture decodes to 6,610 mW package power / 834 MHz active frequency; it is not
+native idle evidence. Five read-only MSRs, CPU feature/hypervisor checks and
+sampling/thermal bounds remain unchanged. The new regression fails against the
+original model gate and passes with the profile.
+
+Full host/core, matched standard build, documentation, load safety and collector
+tests pass. Power and load VMs verify default-disabled and unsupported-hardware
+refusal. Exact v35 release `22632f396dab67a4` passes GPT workspace save/unmount
+and automatic return; missing workspace halts without reboot. VMs cannot accept
+native measurements. The prepared physical run has three automatic 30-second
+idle/load/recovery phases, visible progress and automatic Ubuntu collection.
+Acceptance requires valid power coverage in all three phases as well as workload
+completion, original-file preservation and clean offline allocation.
+
+USB preflight matches the prior 439 files / 1,480 clusters without leaks or
+mismatches. Verified payload and evidence backups are outside `build`; Ubuntu,
+console recovery and accepted combined desktop remain available. No input or
+listening is required; leave AC and USB connected. Native acceptance is pending.
