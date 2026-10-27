@@ -1411,3 +1411,11 @@ checks four dispatched requests and three clean epochs, then retires/reopens the
 desktop. The existing alarm-volume threshold remains unchanged, with fresh samples
 required after each restart. The automatic reopen fixture exercises the unchanged
 20-second deadline; the power fixture retains its 300-second owner watchdog.
+
+
+Air6,1 release `aa576838270d623a` subsequently passes the native v78 repeat with
+13 app cycles and clean battery retirement: zero supervisor timer wakes in all
+covered phases, no supervisor switches during idle/recovery, and 25 event wakes
+during app work. The unchanged 500 ms UI loop bound is met at 110.061 ms worst.
+The [unit record](machines/macbookair6-1.md) owns physical acceptance and its
+power-measurement limits; no firmware watchdog or sampling cadence changed.
