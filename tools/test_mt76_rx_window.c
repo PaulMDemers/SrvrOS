@@ -185,5 +185,26 @@ int main(void) {
         for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected && !f.s.item[i].actual);
         f.p=saved;destroy(&f);scenarios++;
     }
+    for(unsigned variant=0;variant<8;variant++) {
+        struct fixture f;init(&f,variant==1?NO_EVENT:variant==2?POST_FAIL:NONE,0);
+        /* Native use polls inside MAC inspection and calls finish only later. */
+        f.io.stop=0;
+        bool polled=mt76_rx_window_poll(&f.s,&f.p,&f.io);
+        assert(polled==(variant!=2) && !f.s.complete && !f.s.finish_attempted);
+        for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected);
+        unsigned posts=f.posts;
+        assert(!mt76_rx_window_poll(&f.s,&f.p,&f.io) && f.posts==posts);
+        struct mt76_rx_window_stop cessation;
+        assert(stop(&f,&cessation));
+        if(variant==3)cessation.dequeue+=16;
+        if(variant==4)cessation.dci++;
+        if(variant==5)cessation.slot++;
+        if(variant==6)cessation.state=1;
+        bool done=mt76_rx_window_finish(&f.s,&f.io,variant==7?0:&cessation);
+        assert(done==(variant<2));
+        if(!done)for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected);
+        assert(!mt76_rx_window_finish(&f.s,&f.io,&cessation));
+        destroy(&f);scenarios++;
+    }
     printf("mt76-rx-window: PASS %u ownership/event/deadline/stop/parser scenarios; no native adapter\n",scenarios);
 }

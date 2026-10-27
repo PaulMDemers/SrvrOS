@@ -13,6 +13,32 @@ static bool wifi_rx_owned(struct xhci_device *d) {
         m->agc_state_submitted==8 && mt76_agc_state_valid(&m->agc_state) &&
         m->agc_state.raw[1]==0 && !firmware_command_failed;
 }
+/* Stable layout proof; separate from active MAC proof to permit cleanup after
+ * forward cancellation. No widening of the old single-request profile. */
+static bool wifi_window_layout(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_rx *r=&m->rx;
+    struct mt76_rx_window_plan *p=&m->window.plan;
+    if(!m->window_mode || !m->window.prepared || !r->posts || r->posts>8 ||
+       p->slot!=d->slot_id || p->dci!=9 || !p->ring || p->ring>UINT64_MAX-4095 || p->ring!=r->ep.ring_phys ||
+       r->ep.ring!=pmm_phys_to_virt(p->ring) ||
+       !r->ep.ring || (p->ring&4095) || r->ep.dci!=9 || r->ep.packet!=512 ||
+       r->ep.enqueue!=r->posts || !r->ep.cycle || r->trb!=p->ring+16*(r->posts-1) ||
+       r->buffer!=p->buffer[r->posts-1] || r->buffer_phys!=p->physical[r->posts-1] ||
+       r->requested!=4096)return false;
+    for(unsigned i=0;i<8;i++) {
+        if(!p->buffer[i] || ((uintptr_t)p->buffer[i]&4095) || !p->physical[i] ||
+           (p->physical[i]&4095) || p->physical[i]>UINT64_MAX-4095 ||
+           p->buffer[i]!=pmm_phys_to_virt(p->physical[i]) || p->physical[i]==p->ring)return false;
+        for(unsigned j=0;j<i;j++)if(p->physical[i]==p->physical[j] || p->buffer[i]==p->buffer[j])return false;
+        const struct xhci_trb *td=&r->ep.ring[i];
+        if(i<r->posts) {
+            uint64_t address=td->parameter_low|((uint64_t)td->parameter_high<<32);
+            if(address!=p->physical[i] || td->status!=4096 ||
+               td->control!=((XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP|1))return false;
+        } else if(td->control&1)return false;
+    }
+    return true;
+}
 static bool wifi_rx_guards_valid(const struct xhci_wifi_rx *r,unsigned reads) {
     if(r->reads!=reads || reads>6)return false;
     for(unsigned i=0;i<reads;i++)if(r->guards[i/3][i%3]!=(i%3==0?0:i%3==1?0xf000f200u:0x40000050u))return false;
@@ -39,6 +65,17 @@ static bool configure_wifi_rx(struct xhci_device *d) {
     write_link_trb(r->ep.ring,r->ep.ring_phys,true);
     if(!alloc_frame_zero(&r->buffer_phys,&p))return wifi_rx_fail(d);
     r->buffer=p;
+    if(d->firmware.mcu.window_mode) {
+        struct xhci_wifi_window *w=&d->firmware.mcu.window;
+        if(w->prepared || w->plan.ring)return false;
+        w->plan.ring=r->ep.ring_phys;w->plan.slot=d->slot_id;w->plan.dci=9;
+        w->plan.buffer[0]=r->buffer;w->plan.physical[0]=r->buffer_phys;
+        for(unsigned i=1;i<8;i++) {
+            if(!alloc_frame_zero(&w->plan.physical[i],&p))return wifi_rx_fail(d);
+            w->plan.buffer[i]=p;
+        }
+        w->prepared=true;
+    }
     zero_bytes(d->input_context,PMM_FRAME_SIZE);
     context_write32(d->input_context,0,1,1u|(1u<<9));
     context_write32(d->input_context,1,0,(context_read32(d->output_context,0,0)&~(31u<<27))|(16u<<27));
@@ -76,7 +113,7 @@ static bool wifi_rx_post(struct xhci_device *d) {
 static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event) {
     struct xhci_wifi_rx *r=&d->firmware.mcu.rx;
     uint64_t pointer=event->parameter_low|((uint64_t)event->parameter_high<<32);
-    if(!r->configured || r->posts!=1 || ((event->control>>10)&63)!=32 ||
+    if(!r->configured || (d->firmware.mcu.window_mode?!wifi_window_layout(d):r->posts!=1) || ((event->control>>10)&63)!=32 ||
         (event->control>>24)!=d->slot_id || ((event->control>>16)&31)!=9 ||
         pointer!=r->trb)return false;
     if(r->stopped || !r->pending){r->late_events++;return true;}
@@ -95,8 +132,8 @@ static bool wifi_rx_stop(struct xhci_device *d) {
     struct xhci_wifi_rx *r=&d->firmware.mcu.rx;
     /* Teardown deliberately does not require pristine RF/software proof:
      * once posted, an owned endpoint still needs stopping after cancellation. */
-    if(!r->attempted || !r->configured || r->posts!=1 || r->stop_attempted ||
-        !r->ep.ring || r->ep.dci!=9 || r->trb!=r->ep.ring_phys ||
+    if(!r->attempted || !r->configured || (d->firmware.mcu.window_mode?!wifi_window_layout(d):r->posts!=1) || r->stop_attempted ||
+        !r->ep.ring || r->ep.dci!=9 || (!d->firmware.mcu.window_mode && r->trb!=r->ep.ring_phys) ||
         !d->present || !d->slot_id || !d->output_context || !xhci.command_ring ||
         firmware_command_failed || strict_control.device)return false;
     uint64_t flags=event_irq_save(),slot=0;
@@ -144,9 +181,11 @@ static bool wifi_mcu_rx_lifecycle(struct xhci_device *d) {
     }
     if(ok)ok=wifi_rx_guard(d,3) && wifi_rx_guard(d,4) && wifi_rx_guard(d,5);
     if(ok && m->passive_mode)ok=wifi_passive_capture(d);
+    if(ok && m->window_mode)ok=wifi_window_finish(d);
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=m->rf_g20_active=m->rf_trim_active=m->rf_cal_active=m->rf_wait_active=m->path_active=m->channel_state_active=m->usb_cycle_active=m->bw_observe_active=m->bbp20_active=m->channel_probe_active=m->band2g_active=m->band_mac_active=m->synth1_active=m->post_active=m->post_mac_active=m->gain_active=m->gain_inventory_active=m->channel_bbp_active=m->post_vco_active=m->agc_state_active=false;
     r->active=false;
     console_printf("wifi-rx-lifecycle: ok=%u attempted=%u configured=%u reads=%u posts=%u requested=%u events=%u cc=%u remaining=%u stop_attempted=%u stopped=%u pending=%u failed=%u wait_ok=%u waited_us=%u retained=1 radio_writes=%u\n",(uint64_t)ok,(uint64_t)r->attempted,(uint64_t)r->configured,(uint64_t)r->reads,(uint64_t)r->posts,(uint64_t)r->requested,(uint64_t)r->events,(uint64_t)r->completion,(uint64_t)r->remaining,(uint64_t)r->stop_attempted,(uint64_t)r->stopped,(uint64_t)r->pending,(uint64_t)r->failed,(uint64_t)r->wait_ok,r->waited_us,(uint64_t)(m->mac_cycle.writes+m->cal_probe_writes+m->poweron_writes));
     if(m->passive_mode)wifi_passive_log(d);
+    if(m->window_mode)wifi_window_log(d);
     return ok?true:wifi_rx_fail(d);
 }

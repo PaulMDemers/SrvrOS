@@ -4670,3 +4670,45 @@ native adapter must preserve shared-event dispatch and the parent MAC cleanup
 sequence; it must not stop the endpoint prematurely inside the existing
 inspection hook. Installed v93, e47 recovery and accepted v92 fallback remain
 unchanged; no reboot armed.
+
+
+### 2026-10-26 — native repeated passive RX candidate (v94)
+
+New selector72/v94 consumes the whole accepted prior firmware, board, channel,
+AGC, reversible-probe and five-command power-on sequence. The receive-window
+engine now has one-shot poll/finish phases, retaining its standalone wrapper.
+Native polling runs inside the existing MAC inspection hook; the original MAC
+transaction remains byte-identical. Final decoding occurs only after its parent
+hold/drain/disable/filter/TXOP restoration, exact endpoint stop and all six
+boundary guards. No endpoint stop or packet inspection occurs inside the active
+MAC hook. Original receive parser and both older calibration helpers are unchanged.
+
+Configure allocates a ring plus eight distinct retained4KiB pages before MAC
+startup. The first poll submission acknowledges the already posted first IN;
+up to seven later requests publish successive non-wrapping TRBs, one pending
+at a time. Every posted descriptor must still encode its exact saved physical
+page,4096-byte length, normal/IOC/ISP/Cycle bits, while future entries remain
+unpublished. Current virtual mappings, enqueue/cycle, buffer, slot/DCI and all
+saved page identities are rechecked. Publication and shared-event dispatch use
+the existing IRQ-protected controller path. Neither buffers nor TRB identities
+are reused, and no Set Dequeue or network data OUT is issued. All DMA remains
+retained after failure or uncertain stop.
+
+A normal CC1/13 event with bounded residue supplies bytes only when observed
+by the polling phase. An initial completion processed before polling is tagged
+early. A final completion arriving during the later parent hold or Stop does
+not retroactively populate the saved item; cancellation residues are never
+parsed. The1s/eight-request bounds,1.1s accounting cap,1024 frozen-clock bound and
+2M absolute poll limit remain. Packet metadata contains no SSID, addresses or
+raw payload/RSSI; only the first bounded entry of each observed transfer is
+viewed. Empty/rejected windows can complete without accepting reception.
+Scanning, association/security, Wi-Fi IP and UI remain outside this trial.
+
+Native fixtures cover the actual selector, whole power-on/parent MAC callbacks,
+real ring publication/dispatcher and exact stop proof, allocation failure at
+each of nine pages, no replay/free, deadline/early/late/stale/foreign/invalid
+length/stopped events, clock/ownership loss and cleanup/descriptor mutations.
+An interleaved USB keyboard event is delivered during the receive window.
+The full saved-log checker binds every item to count, completion/residue, phase,
+parent cleanup, current TRB stop proof and whole earlier initialization chain.
+Installed recovery remains unchanged until all validation and exact-stage checks.

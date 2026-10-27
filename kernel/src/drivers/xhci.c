@@ -10,6 +10,7 @@
 #include <srvros/mt76_calibration.h>
 #include <srvros/mt76_poweron_calibration.h>
 #include <srvros/mt76_rx.h>
+#include <srvros/mt76_rx_window.h>
 #include <srvros/mt76_radio.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
@@ -239,6 +240,11 @@ struct xhci_wifi_passive {
     uint16_t frame_control,interval;uint8_t ssid_size,channel;
     bool privacy,rsn,wpa,probe_response,ds_present;
 };
+struct xhci_wifi_window {
+    struct mt76_rx_window state;
+    struct mt76_rx_window_plan plan;
+    bool prepared, polling, delivered, initial_early;
+};
 struct xhci_wifi_rx {
     struct xhci_bulk_endpoint ep;
     uint64_t buffer_phys,trb,stop_dequeue,waited_us;
@@ -331,6 +337,7 @@ struct xhci_wifi_mcu {
     bool channel_bbp_mode,channel_bbp_active;unsigned channel_bbp_submitted;struct mt76_channel_bbp channel_bbp;
     bool post_vco_mode,post_vco_active;unsigned post_vco_submitted,post_vco_delays;struct mt76_post_vco post_vco;
     bool passive_mode;struct xhci_wifi_passive passive;
+    bool window_mode;struct xhci_wifi_window window;
     bool poweron_mode,poweron_active;unsigned poweron_ops,poweron_reads,poweron_writes,poweron_waits,poweron_commands,poweron_ack_mask;struct mt76_calibration poweron;
     bool cal_probe_mode,cal_probe_active;unsigned cal_probe_ops,cal_probe_reads,cal_probe_writes,cal_probe_waits;struct mt76_calibration_probe cal_probe;
     bool rx_lifecycle_mode,mac_cycle_mode;struct xhci_wifi_rx rx;struct mt76_mac_cycle mac_cycle;

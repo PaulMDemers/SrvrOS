@@ -46,7 +46,8 @@ struct mt76_rx_window_item {
     bool privacy, rsn, wpa, ds_present, probe_response;
 };
 struct mt76_rx_window {
-    bool attempted, complete, failed, stop_attempted, stopped;
+    bool attempted, polled, poll_ok, finish_attempted, complete, failed, stop_attempted, stopped;
+    struct mt76_rx_window_plan plan;
     unsigned attempts, completions, ignored, polls, beacons;
     uint64_t elapsed_us;
     struct mt76_rx_window_item item[MT76_RX_WINDOW_SLOTS];
@@ -55,6 +56,16 @@ struct mt76_rx_window {
  * Only normal CC1/13 supplies actual bytes. Output never retains identifiers,
  * payload pointers, borrowed views or raw RSSI. Every buffer remains retained,
  * including after callback failure or an unproven stop. State is one-shot. */
+/* Split adapter: poll inside the active MAC hook; finish only after parent
+ * cleanup and exact endpoint stop. NULL cessation proof refuses inspection.
+ * No new submissions may occur between poll and finish; late completions do
+ * not retroactively supply bytes to the saved observation. Both are one-shot. */
+bool mt76_rx_window_poll(struct mt76_rx_window *,
+                        const struct mt76_rx_window_plan *,
+                        const struct mt76_rx_window_io *);
+bool mt76_rx_window_finish(struct mt76_rx_window *,
+                          const struct mt76_rx_window_io *,
+                          const struct mt76_rx_window_stop *);
 bool mt76_rx_window_run(struct mt76_rx_window *,
                         const struct mt76_rx_window_plan *,
                         const struct mt76_rx_window_io *);

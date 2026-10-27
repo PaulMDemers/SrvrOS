@@ -28,7 +28,7 @@ static void inspect(struct mt76_rx_window_item *s,const uint8_t *p) {
     }
     for (unsigned i=0;i<sizeof b;i++) ((volatile uint8_t *)&b)[i]=0;
 }
-bool mt76_rx_window_run(struct mt76_rx_window *s,
+bool mt76_rx_window_poll(struct mt76_rx_window *s,
                         const struct mt76_rx_window_plan *plan,
                         const struct mt76_rx_window_io *io) {
     if (!s || s->attempted) return false;
@@ -36,10 +36,10 @@ bool mt76_rx_window_run(struct mt76_rx_window *s,
     for (unsigned i=0;i<MT76_RX_WINDOW_SLOTS;i++)
         s->item[i].view_status=s->item[i].beacon_status=255;
     if (!plan_valid(plan) || !io || !io->owned || !io->post || !io->poll ||
-        !io->stop || !io->now) {s->failed=true;return false;}
+        !io->now) {s->failed=true;return false;}
     /* Copy callback/plan identities. The adapter must keep pointees and native
      * ring/endpoint ownership stable; owned() checks that before each action. */
-    const struct mt76_rx_window_plan p=*plan;
+    const struct mt76_rx_window_plan p=*plan;s->plan=p;
     const struct mt76_rx_window_io f=*io;
     uint64_t start=f.now(f.context),previous=start;
     unsigned stalled=0;bool pending=false,ok=true,finished=false;
@@ -81,24 +81,47 @@ bool mt76_rx_window_run(struct mt76_rx_window *s,
     uint64_t end=f.now(f.context);
     if (end<previous || end<start || end-start>MT76_RX_WINDOW_US+100000) ok=false;
     s->elapsed_us=end>=start?end-start:0;
-    if (s->attempts) {
-        struct mt76_rx_window_stop stop={0};s->stop_attempted=true;
-        bool stopped=f.stop(f.context,&stop);
-        uint64_t current=p.ring+16*(s->attempts-1),dequeue=stop.dequeue&~15ull;
-        s->stopped=stopped && stop.state==3 && stop.slot==p.slot &&
-            stop.dci==p.dci && (stop.dequeue&15)==1 &&
+    s->polled=true;s->poll_ok=ok;s->failed=!ok;
+    return ok;
+}
+bool mt76_rx_window_finish(struct mt76_rx_window *s,
+                          const struct mt76_rx_window_io *io,
+                          const struct mt76_rx_window_stop *stop) {
+    if (!s || !s->attempted || s->finish_attempted) return false;
+    s->finish_attempted=true;
+    bool ok=s->polled && s->poll_ok && !s->failed && plan_valid(&s->plan) &&
+        io && io->owned && s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS;
+    if (s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS) {
+        s->stop_attempted=stop!=0;
+        uint64_t current=s->plan.ring+16*(s->attempts-1);
+        uint64_t dequeue=stop?stop->dequeue&~15ull:0;
+        s->stopped=stop && stop->state==3 && stop->slot==s->plan.slot &&
+            stop->dci==s->plan.dci && (stop->dequeue&15)==1 &&
             (dequeue==current || dequeue==current+16);
-        if (!s->stopped) ok=false;
     }
-    if (!s->attempts || !s->stopped) ok=false;
-    /* Do not dereference any DMA byte on a failed/uncertain transaction. Each
-     * inspection requires fresh cleanup proof after exact final cessation. */
+    ok=ok && s->stopped;
+    /* A failed poll/cleanup never licenses reading even a completed buffer. */
     if (ok) for (unsigned i=0;i<s->attempts;i++) {
-        if (!f.owned(f.context,true)) {ok=false;break;}
+        if (!io->owned(io->context,true)) {ok=false;break;}
         if (!s->item[i].completed) continue;
         __asm__ volatile("" ::: "memory");
-        inspect(&s->item[i],p.buffer[i]);
+        inspect(&s->item[i],s->plan.buffer[i]);
         if (s->item[i].beacon) s->beacons++;
     }
     s->failed=!ok;s->complete=ok;return ok;
+}
+bool mt76_rx_window_run(struct mt76_rx_window *s,
+                        const struct mt76_rx_window_plan *plan,
+                        const struct mt76_rx_window_io *io) {
+    if (!s || s->attempted) return false;
+    if (!io || !io->stop) {
+        *s=(struct mt76_rx_window){.attempted=true,.failed=true};return false;
+    }
+    (void)mt76_rx_window_poll(s,plan,io);
+    struct mt76_rx_window_stop stop={0};bool stopped=false;
+    if (s->attempts) stopped=io->stop(io->context,&stop);
+    bool ok=mt76_rx_window_finish(s,io,stopped?&stop:0);
+    /* An attempted but failed callback is still an attempted cessation. */
+    if(s->attempts)s->stop_attempted=true;
+    return ok;
 }
