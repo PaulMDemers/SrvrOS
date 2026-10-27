@@ -776,3 +776,27 @@ and clean unmount/return. The harness records its explicit `--accel tcg|kvm` sel
 remain failed evidence; neither mode changes guest limits. Synthetic execution never supplies native power or
 temperature acceptance. Native results remain pending until matching saved
 sessions and recovery evidence have been collected.
+
+## Accepted Air6,1 combined desktop phase baseline
+
+On October 27, release `1d1cbd1cb03d3032` (runtime `7a9cfeaf`, PR212) completed
+native session `session-00065ed629188a57-00`: 30 s settling followed by roughly
+60 s each of idle, 13 Text/Files/System cycles and recovery, with continuous
+battery monitoring and normal retirement/Ubuntu return. The saved records pass
+the unchanged power validity, 20 s covered-interval and UI/app timing checks.
+
+| Phase | Covered power interval | CPU package mean | CPU0 active frequency |
+| --- | --- | --- | --- |
+| Idle | 50.998362 s, 6 points | 4.131 W | 1,292 MHz |
+| Apps | 51.998342 s, 6 points | 4.150 W | 1,294 MHz |
+| Recovery | 40.998694 s, 5 points | 4.137 W | 1,292 MHz |
+
+Core/package temperatures stayed within 57–59 C during these phases. The maximum
+UI loop was 115.440 ms, app readiness 704.385 ms and close 51.434 ms. Worker
+coverage is independently bounded to 40–52 s per phase; short-lived app workers
+remain explicitly partial. Idle timeout wakeups include about 90/s for `xhci-hid`,
+89/s for `uthread` identity 17, 48/s for `bootstrap` and 19/s for `battery-owner`.
+Those counters justify a polling audit, not a claim about which worker consumes
+energy. This single short workload does not establish significant power changes
+or accept CPU/fan controls. See the [unit record](machines/macbookair6-1.md) for
+phase temperatures, retirement, file preservation and durable evidence details.
