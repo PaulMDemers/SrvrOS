@@ -1,4 +1,4 @@
-/* v94 only. Polling fits inside the accepted MAC hook; final inspection is
+/* Explicit v94/v95 profiles only. Polling fits inside the accepted MAC hook; final inspection is
  * deferred until the parent MAC cleanup, endpoint stop and six guards finish. */
 static bool wifi_window_owned(void *context,bool cleanup) {
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
@@ -7,7 +7,7 @@ static bool wifi_window_owned(void *context,bool cleanup) {
        !wifi_rx_owned(d) || !m->poweron.complete || m->poweron_ack_mask!=31 ||
        !m->mac_cycle.started || !m->mac_cycle.snapshot_complete)return false;
     const struct mt76_rx_window_plan *p=&w->state.plan;
-    if(p->ring!=w->plan.ring || p->slot!=w->plan.slot || p->dci!=9)return false;
+    if(p->budget_us!=w->plan.budget_us || p->ring!=w->plan.ring || p->slot!=w->plan.slot || p->dci!=9)return false;
     for(unsigned i=0;i<8;i++)if(p->buffer[i]!=w->plan.buffer[i] || p->physical[i]!=w->plan.physical[i])return false;
     if(cleanup)return m->mac_cycle.complete && m->mac_cycle.mac_disabled &&
         m->mac_cycle.tx_drained && m->mac_cycle.rx_drained &&
@@ -67,7 +67,7 @@ static bool wifi_window_inspect(void *context,uint32_t tx,uint32_t ibi) {
     if(!m->window_mode || w->state.attempted || !w->prepared ||
        !wifi_poweron_inspect(d,tx,ibi) || !wifi_window_layout(d))return false;
     w->initial_early=m->rx.done;w->polling=true;
-    console_write("wifi-window-progress: up to8 distinct retained IN pages for1s; decode after parent MAC cleanup and exact stop\n");
+    console_write(m->window_long_mode?"wifi-window-progress: up to8 distinct retained IN pages for10s; decode after parent MAC cleanup and exact stop\n":"wifi-window-progress: up to8 distinct retained IN pages for1s; decode after parent MAC cleanup and exact stop\n");
     const struct mt76_rx_window_io io={.context=d,.owned=wifi_window_owned,
         .post=wifi_window_post,.poll=wifi_window_poll,.now=wifi_mac_cycle_now};
     bool ok=mt76_rx_window_poll(&w->state,&w->plan,&io);w->polling=false;

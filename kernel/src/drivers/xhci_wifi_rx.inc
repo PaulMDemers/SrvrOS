@@ -19,6 +19,7 @@ static bool wifi_window_layout(struct xhci_device *d) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_rx *r=&m->rx;
     struct mt76_rx_window_plan *p=&m->window.plan;
     if(!m->window_mode || !m->window.prepared || !r->posts || r->posts>8 ||
+       p->budget_us!=(m->window_long_mode?MT76_RX_WINDOW_LONG_US:0) ||
        p->slot!=d->slot_id || p->dci!=9 || !p->ring || p->ring>UINT64_MAX-4095 || p->ring!=r->ep.ring_phys ||
        r->ep.ring!=pmm_phys_to_virt(p->ring) ||
        !r->ep.ring || (p->ring&4095) || r->ep.dci!=9 || r->ep.packet!=512 ||
@@ -69,6 +70,7 @@ static bool configure_wifi_rx(struct xhci_device *d) {
         struct xhci_wifi_window *w=&d->firmware.mcu.window;
         if(w->prepared || w->plan.ring)return false;
         w->plan.ring=r->ep.ring_phys;w->plan.slot=d->slot_id;w->plan.dci=9;
+        w->plan.budget_us=d->firmware.mcu.window_long_mode?MT76_RX_WINDOW_LONG_US:0;
         w->plan.buffer[0]=r->buffer;w->plan.physical[0]=r->buffer_phys;
         for(unsigned i=1;i<8;i++) {
             if(!alloc_frame_zero(&w->plan.physical[i],&p))return wifi_rx_fail(d);

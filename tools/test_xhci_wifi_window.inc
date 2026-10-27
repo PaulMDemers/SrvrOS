@@ -5,10 +5,10 @@ static void window_test_tick(void) {
     if(!w->polling || !w->state.attempted || !r->pending)return;
     if(window_last_post!=r->posts){window_last_post=r->posts;window_ticks=window_injected=0;}
     if(++window_ticks<20)return;
-    if(window_trial==1 || (window_trial==2 && r->posts==4))return;
+    if(window_trial==1 || window_trial==50 || ((window_trial==2 || window_trial==53) && r->posts==4))return;
     if(window_trial==3){test_time=0;return;}
     if(window_trial==4){test_time_step=0;return;}
-    if(window_trial==5){test_time+=2000000;return;}
+    if(window_trial==5 || window_trial==52){test_time+=window_trial==52?20000000:2000000;return;}
     if(window_trial==6 && r->posts==4){m->agc_state.complete=false;return;}
     if(window_injected>=2)return;
     uint64_t pointer=r->trb;unsigned cc=13,actual=passive_wire(r->buffer);
@@ -34,13 +34,14 @@ static void window_test_tick(void) {
     xhci.event_ring[xhci.event_dequeue]=e;window_injected++;
 }
 static void test_wifi_window(void) {
-    for(unsigned trial=0;trial<50;trial++) {
+    for(unsigned trial=0;trial<55;trial++) {
         reset_test();test_time=0;test_time_step=100;
+        if(trial>=50)test_time_step=10000;
         window_trial=trial;window_ticks=window_last_post=window_injected=0;
         struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
         struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_rx *r=&m->rx;
         struct xhci_wifi_window *w=&m->window;
-        wifi_mcu_select_mode(m,72);assert(m->window_mode && !m->passive_mode && m->poweron_mode && m->post_vco_mode);
+        wifi_mcu_select_mode(m,trial>=50?73:72);assert(m->window_long_mode==(trial>=50));assert(m->window_mode && !m->passive_mode && m->poweron_mode && m->post_vco_mode);
         struct xhci_trb ep0[64]={0},events[256]={0},out[64]={0},in[64]={0},commands[64]={0};
         _Alignas(4096) struct xhci_trb main_ring[256]={0};
         _Alignas(4096) uint8_t pages[8][4096]={{0}};
@@ -61,7 +62,7 @@ static void test_wifi_window(void) {
         r->ep=(struct xhci_bulk_endpoint){.ring=main_ring,.ring_phys=(uintptr_t)main_ring,.dci=9,.packet=512,.enqueue=1,.cycle=true};
         main_ring[0]=(struct xhci_trb){.parameter_low=(uint32_t)r->buffer_phys,.parameter_high=r->buffer_phys>>32,
             .status=4096,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP|1};
-        w->prepared=true;w->plan=(struct mt76_rx_window_plan){.ring=(uintptr_t)main_ring,.slot=d->slot_id,.dci=9};
+        w->prepared=true;w->plan=(struct mt76_rx_window_plan){.budget_us=m->window_long_mode?MT76_RX_WINDOW_LONG_US:0,.ring=(uintptr_t)main_ring,.slot=d->slot_id,.dci=9};
         for(unsigned i=0;i<8;i++){w->plan.buffer[i]=pages[i];w->plan.physical[i]=(uintptr_t)pages[i];}
         xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=0x583f;
@@ -70,7 +71,7 @@ static void test_wifi_window(void) {
         if(trial==20){r->done=true;r->pending=false;r->events=1;r->completion=13;r->remaining=4096-passive_wire(pages[0]);}
         poweron_test_device=window_test_device=d;mac_cycle_model=cal_probe_model=true;
         bool ok=wifi_mcu_mac_cycle(d);window_test_device=poweron_test_device=NULL;
-        bool failed=(trial>=3 && trial<=6) || (trial>=12 && trial<=15) || trial==19;
+        bool failed=(trial>=3 && trial<=6) || (trial>=12 && trial<=15) || trial==19 || trial==52;
         assert(ok==!failed && !freed && m->poweron.complete && m->poweron_ack_mask==31);
         if((trial>=12 && trial<=15) || trial==19) {
             assert(r->failed && !w->state.complete);
@@ -81,11 +82,11 @@ static void test_wifi_window(void) {
         if(failed)assert(w->state.failed && !w->state.complete);
         assert(w->state.polled && w->state.poll_ok==!failed);
         for(unsigned i=0;i<8;i++)assert(!w->state.item[i].inspected);
-        if(!failed)assert(r->posts==(trial==1?1:trial==2?4:8));
+        if(!failed)assert(r->posts==((trial==1 || trial==50)?1:(trial==2 || trial==53)?4:8));
         xhci.command_ring=commands;xhci.command_ring_phys=0xa000;xhci.command_cycle=true;
         context_write32(output,9,0,3);context_write32(output,9,2,(uint32_t)(r->trb+16)|1);context_write32(output,9,3,r->trb>>32);
         unsigned e=xhci.event_dequeue;
-        if(trial==1 || trial==2)
+        if(trial==1 || trial==2 || trial==50 || trial==53)
             events[e++]=(struct xhci_trb){.parameter_low=(uint32_t)r->trb,.parameter_high=r->trb>>32,.status=(26u<<24)|4096,.control=(32u<<10)|(9u<<16)|(1u<<24)|(xhci.event_cycle?1u:0u)};
         if(trial==21)context_write32(output,9,0,1);
         if(trial==22)context_write32(output,9,2,(uint32_t)(r->trb+32)|1);
@@ -114,11 +115,13 @@ static void test_wifi_window(void) {
         case 44:main_ring[0].parameter_low^=16;break;case 45:m->mac_cycle.filter_restored=false;break;
         case 46:m->mac_cycle.txop_restored=false;break;case 47:m->mac_cycle.rx_drained=false;break;
         case 48:w->state.plan.physical[7]^=4096;break;
+        case 54:w->state.plan.budget_us=0;break;
         }
-        bool captured=wifi_window_finish(d);assert(captured==(trial<24 || trial==49));
+        bool captured=wifi_window_finish(d);assert(captured==(trial<24 || trial==49 || trial==50 || trial==51 || trial==53));
         if(captured) {
             assert(w->state.complete && w->state.stopped && !w->state.failed);
-            assert(w->state.beacons==(trial==1?0:trial==2?3:(trial==7 || trial==9 || trial==10 || trial==11)?7:8));
+            assert(w->state.beacons==((trial==1 || trial==50)?0:(trial==2 || trial==53)?3:(trial==7 || trial==9 || trial==10 || trial==11)?7:8));
+            if(trial==50 || trial==53)assert(w->state.elapsed_us>=10000000 && w->state.elapsed_us<=10100000);
             if(trial==8)assert(w->state.item[2].actual==4096);
             assert(w->initial_early==(trial==20));
             if(trial==49)assert(injected==1 && xhci.devices[1].hid_reports==1);
@@ -126,9 +129,9 @@ static void test_wifi_window(void) {
         assert(!wifi_window_finish(d) && !freed);
         mac_cycle_model=cal_probe_model=false;
     }
-    for(unsigned limit=0;limit<=9;limit++) {
+    for(unsigned mode=72;mode<=73;mode++)for(unsigned limit=0;limit<=9;limit++) {
         reset_test();struct xhci_device *d=&xhci.devices[0];rx_lifecycle_fixture(d);
-        struct xhci_wifi_mcu *m=&d->firmware.mcu;wifi_mcu_select_mode(m,72);
+        struct xhci_wifi_mcu *m=&d->firmware.mcu;wifi_mcu_select_mode(m,mode);
         struct xhci_wifi_rx *r=&m->rx;r->reads=3;r->guards[0][1]=0xf000f200;r->guards[0][2]=0x40000050;
         uint8_t input[4096]={0},output[4096]={0};struct xhci_trb commands[64]={0},events[64]={0};
         d->input_context=input;d->input_context_phys=(uintptr_t)input;d->output_context=output;
@@ -138,8 +141,9 @@ static void test_wifi_window(void) {
         fail_after=limit;bool ok=configure_wifi_rx(d);assert(ok==(limit==9) && !freed);
         if(ok) {
             assert(pool_used==9 && m->window.prepared && wifi_rx_post(d) && wifi_window_layout(d));
+            assert(m->window.plan.budget_us==(mode==73?MT76_RX_WINDOW_LONG_US:0));
             assert(!configure_wifi_rx(d) && !wifi_rx_post(d));
         } else assert(!r->posts && !xhci.command_enqueue);
     }
-    puts("wifi-window-native: PASS60 allocation/shared-HID/whole-poweron/parent-cleanup/unique-TRB/event/clock/exact-stop scenarios; no DMA freed");
+    puts("wifi-window-native: PASS75 short/long-budget/allocation/shared-HID/whole-poweron/parent-cleanup/unique-TRB/event/clock/exact-stop scenarios; no DMA freed");
 }

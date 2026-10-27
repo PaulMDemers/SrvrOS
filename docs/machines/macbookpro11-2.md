@@ -9052,3 +9052,29 @@ cleanup and stop proof. Do not submit another request while the first is
 pending. Scanning, association/security/IP/UI and sustained reception, FCS,
 calibrated RSSI and RF performance remain untested; no cause is inferred from
 this single empty observation.
+
+
+### 2026-10-26 — explicit ten-second passive receive candidate (v95)
+
+Actual main `eacb4ec4` (PR200 screenshot/worker validation) was merged, preserving
+both MT76 and operation-timing Makefile test families. PR202 is Air evidence;
+PR182 owns filesystem imports. Neither overlaps this window-budget scope.
+
+Selector73/v95 is a separate explicit long-window profile. The engine admits
+only a zero/default1s plan, an explicit1s plan, or10s; arbitrary/overflowing
+budgets refuse before submission. The existing v94 native plan remains zero/
+1s. Long native ownership requires the10s plan in both the stable adapter and
+engine copy. Its absolute poll cap is20M and elapsed accounting cap10.1s;
+backward clocks and1024 frozen-clock checks still refuse. The eight retained
+pages/requests, one pending at a time, exact completion/byte accounting and
+parent hold/drain/disable/restore/stop/six-guard sequence remain unchanged.
+A final pending request cannot trigger another submission. Empty observation
+is not received-packet or repeated-submission acceptance.
+
+The long profile adds only the explicit window-long boot token and progress
+label; all older recipes keep their command lines and short deadlines. There
+are no RF/channel/register or parser/calibration changes. Host coverage includes
+literal/default/long budget behavior, six invalid budgets, long empty/partial/
+completed windows, long clock failure and budget-identity mutation, plus all
+prior descriptor/ownership/stop/cancellation/shared-keyboard cases. Physical
+v95 remains pending; the last native v94 observation was empty, as recorded above.

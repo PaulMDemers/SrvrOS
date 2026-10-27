@@ -4,11 +4,14 @@
 #define MT76_RX_WINDOW_SLOTS 8u
 #define MT76_RX_WINDOW_BYTES 4096u
 #define MT76_RX_WINDOW_US 1000000u
+#define MT76_RX_WINDOW_LONG_US 10000000u
 /* Caller preallocates stable, distinct DMA pages and a ring with eight normal
  * TRBs at ring+16*i, before its link TRB. No wrapping, Set Dequeue, allocation,
  * DMA release or reuse occurs here. Native ownership/guards remain the caller's
  * responsibility; this helper is not a native endpoint adapter. */
 struct mt76_rx_window_plan {
+    /* Zero preserves the original1s plan; only1s or explicit10s is admitted. */
+    uint64_t budget_us;
     uint64_t ring, physical[MT76_RX_WINDOW_SLOTS];
     const uint8_t *buffer[MT76_RX_WINDOW_SLOTS];
     unsigned slot, dci;

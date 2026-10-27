@@ -1,7 +1,8 @@
 #include <srvros/mt76_rx_window.h>
 
 static bool plan_valid(const struct mt76_rx_window_plan *p) {
-    if (!p || !p->ring || (p->ring & 4095) || p->ring > UINT64_MAX-4095 ||
+    if (!p || (p->budget_us && p->budget_us!=MT76_RX_WINDOW_US &&
+        p->budget_us!=MT76_RX_WINDOW_LONG_US) || !p->ring || (p->ring & 4095) || p->ring > UINT64_MAX-4095 ||
         !p->slot || p->slot > 255 || p->dci != 9) return false;
     for (unsigned i=0;i<MT76_RX_WINDOW_SLOTS;i++) {
         uint64_t a=p->physical[i]; uintptr_t v=(uintptr_t)p->buffer[i];
@@ -43,14 +44,16 @@ bool mt76_rx_window_poll(struct mt76_rx_window *s,
     const struct mt76_rx_window_io f=*io;
     uint64_t start=f.now(f.context),previous=start;
     unsigned stalled=0;bool pending=false,ok=true,finished=false;
-    for (unsigned n=0;n<2000000;n++) {
+    uint64_t budget=p.budget_us?p.budget_us:MT76_RX_WINDOW_US;
+    unsigned cap=budget==MT76_RX_WINDOW_LONG_US?20000000:2000000;
+    for (unsigned n=0;n<cap;n++) {
         uint64_t now=f.now(f.context);
         if (now<previous || now<start || (now==previous && ++stalled>=1024) ||
-            now-start>MT76_RX_WINDOW_US+100000) {ok=false;break;}
+            now-start>budget+100000) {ok=false;break;}
         if (now!=previous) stalled=0;
         previous=now;
         if (!f.owned(f.context,false)) {ok=false;break;}
-        if (now-start>=MT76_RX_WINDOW_US ||
+        if (now-start>=budget ||
             (!pending && s->attempts==MT76_RX_WINDOW_SLOTS)) {finished=true;break;}
         if (!pending) {
             unsigned i=s->attempts++;
@@ -79,7 +82,7 @@ bool mt76_rx_window_poll(struct mt76_rx_window *s,
     }
     if (!finished) ok=false;
     uint64_t end=f.now(f.context);
-    if (end<previous || end<start || end-start>MT76_RX_WINDOW_US+100000) ok=false;
+    if (end<previous || end<start || end-start>budget+100000) ok=false;
     s->elapsed_us=end>=start?end-start:0;
     s->polled=true;s->poll_ok=ok;s->failed=!ok;
     return ok;

@@ -92,7 +92,7 @@ static uint64_t now(void *ctx) {
     struct fixture *f=ctx;
     if(f->fault==FROZEN)return 0;
     if(f->fault==BACKWARD && f->posts)return 0;
-    if(f->fault==JUMP && f->posts)return 2000000;
+    if(f->fault==JUMP && f->posts)return f->p.budget_us+2000000;
     f->clock+=f->fault==SHORT_DEADLINE?100000:100;
     return f->clock;
 }
@@ -204,6 +204,24 @@ int main(void) {
         assert(done==(variant<2));
         if(!done)for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected);
         assert(!mt76_rx_window_finish(&f.s,&f.io,&cessation));
+        destroy(&f);scenarios++;
+    }
+    const uint64_t budgets[]={MT76_RX_WINDOW_US,MT76_RX_WINDOW_LONG_US};
+    const enum fault budget_faults[]={NONE,NO_EVENT,BACKWARD,FROZEN,JUMP};
+    for(unsigned b=0;b<2;b++)for(unsigned n=0;n<5;n++) {
+        struct fixture f;init(&f,budget_faults[n],0);f.p.budget_us=budgets[b];
+        bool ok=mt76_rx_window_run(&f.s,&f.p,&f.io);
+        assert(ok==(n<2) && f.s.plan.budget_us==budgets[b]);
+        assert(f.stops==1 && f.s.stopped);
+        if(n==1)assert(f.s.elapsed_us>=budgets[b] && f.s.elapsed_us<=budgets[b]+100000 && f.posts==1 && !f.s.completions);
+        if(n==0)assert(f.posts==8 && f.s.beacons==8);
+        if(!ok)for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected);
+        destroy(&f);scenarios++;
+    }
+    const uint64_t bad_budgets[]={1,999999,1000001,9999999,10000001,UINT64_MAX};
+    for(unsigned b=0;b<6;b++) {
+        struct fixture f;init(&f,NONE,0);f.p.budget_us=bad_budgets[b];
+        assert(!mt76_rx_window_run(&f.s,&f.p,&f.io) && !f.posts && !f.stops);
         destroy(&f);scenarios++;
     }
     printf("mt76-rx-window: PASS %u ownership/event/deadline/stop/parser scenarios; no native adapter\n",scenarios);
