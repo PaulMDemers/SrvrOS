@@ -206,3 +206,13 @@ retirement checks. The power VM exercises the real futex syscalls and normal
 app lifecycles; audio/disk/app/screenshot stress also exercises the report and
 capture paths. Native wakeup or energy improvement requires a separate matching
 physical power trial; passing host/VM checks alone does not establish savings.
+
+
+Air6,1 release `cb881058052a1012` (PR214 runtime `e0008d92`) subsequently passed
+the native v78 power repeat: 13 app cycles, 115.492 ms maximum UI loop, normal
+battery retirement and preserved files. Its lifecycle worker records zero
+periodic timeout wakes in all phases, with no switches during covered idle and
+recovery intervals, compared with about 89 timeout wakes/s in the prior baseline.
+App work produces signal wakes as intended. Package power remains about 4.1 W;
+this short trial establishes the polling reduction, not meaningful energy savings.
+See the [Air6,1 record](machines/macbookair6-1.md) for coverage and scope.
