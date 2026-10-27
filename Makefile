@@ -2385,7 +2385,7 @@ build/tests/calculator-host$(HOST_EXE): tools/test_calculator.c userspace/deskto
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $^ -lm -o $@
 
 test-desktop: build/tests/deskfs-host$(HOST_EXE)
-build/tests/deskfs-host$(HOST_EXE): tools/test_deskfs.c userspace/deskfs/deskfs.c shared/include/srvros/desktop_file.h
+build/tests/deskfs-host$(HOST_EXE): tools/test_deskfs.c userspace/deskfs/deskfs.c shared/include/srvros/desktop_file.h shared/include/srvros/syscall_numbers.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 

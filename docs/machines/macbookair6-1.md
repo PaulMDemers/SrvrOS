@@ -3788,3 +3788,43 @@ expected `.srvros/meta` bookkeeping. Offline fsck/allocation pass: 430 files,
 1,373 clusters, zero leaks/mismatches/errors. Returned evidence is hash-verified
 outside `build`. The collector is disabled, one-shot consumed and no new reboot
 armed. The 1% stress input retains its recorded three-hour expiration.
+
+### Files listing under screenshot writes — active scope (2026-10-27)
+
+Base `d4d9c17c`; the failed PR204 return is collected and backed up. Objective:
+remove repeated storage-admission waits from Files enumeration by returning
+bounded directory entries with their metadata in one quiescent syscall batch.
+Keep storage exclusion, shared directory cookies, live open-file sizes, path and
+output validation, file-count limits and all stress deadlines unchanged. Scope:
+directory syscall/ABI, process enumeration, deskfs listing and regression/VM tests.
+PR182 owns exFAT/block/VFS/writeback auditing; this change does not edit those
+backend contracts or its process writeback functions. PR19 retains Wi-Fi scope.
+Validate full host tests and loaded/exact-stage VMs, merge and run the unchanged
+30-minute native stress with explicit 1% audio under the user's authorization.
+
+### Files metadata batches — candidate validated (2026-10-27)
+
+PR206 runtime source `7c1ef57a` adds sixteen-entry name/metadata batches behind
+the existing storage gate. Files no longer reacquires that gate for every name,
+path resolution and stat. Shared directory cookies, live open-file sizes and
+user-buffer checks remain intact; no exFAT/backend mutation, scheduler admission,
+file-count bound or stress deadline changes. Legacy directory operations retain
+their interface. Original Files source fails the bounded-batch regression.
+
+Full host/core and matched standard/Air6,1 builds pass. Directed host tests cover
+metadata, invalid capacities, failed/malformed replies, shared positions and the
+unchanged 256-entry truncation. The real directory VM passes pointer and handle
+refusals plus metadata/cookie checks. Populated Home at 400 write IOPS passes
+60 seconds of PCM at 1%, 108 verified disk bursts, 18 app cycles, automatic
+screenshot/retirement, follow-up Files and normal exit. Worst loop is 117.417 ms,
+readiness 1.436334 s and close 1.840253 s, all within existing limits; zero audio
+underruns/app errors and all 67 prior fixture files preserved. Ordinary capture
+VM passes immutable pixels, durable readback, folder/Preview, repeat and exit.
+
+Exact v74 stage `012aaffda0be860b` passes chainload, expected Q35 native-profile
+refusal and automatic return. This does not accept the native workload. Next is
+the unchanged 30-minute / three-screenshot stress with automatic app cycles and
+unpaced verified disk work, explicit 1% volume and automatic collection. USB
+baseline remains 430 files / 1,373 clusters, all prior hashes matched and no
+leaks/mismatches/errors. The quiet input remains valid until 08:30:45 UTC on
+2026-10-27. Ubuntu and verified console recovery remain the fallback.

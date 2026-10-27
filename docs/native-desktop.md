@@ -714,3 +714,13 @@ The optional input contains a percentage (1–100) and UTC expiry seconds, at mo
 24 hours ahead. Active input is checked against the audio status and logged;
 expired input leaves normal volume unchanged, malformed input refuses playback.
 It does not alter ordinary audio defaults, PCM samples or workload limits.
+
+Files enumeration uses bounded `SRV_DIRECTORY_READ_INFO` batches of up to sixteen
+names, inode/type, current size and modification time. Each batch stays behind
+the existing storage gate and snapshots metadata in the same IRQ-excluded turn;
+it never reads file contents or calls a storage backend. Open dirty file sizes
+remain visible just as with stat. Directory cookies remain shared with dup/fork,
+seek and ordinary readdir; mutation between batches retains unspecified ordering.
+The desktop worker preserves its 256-entry limit, path bounds, error handling and
+complete-response validation. This removes per-entry readdir/stat admission waits
+without admitting metadata access inside another storage owner's operation.
