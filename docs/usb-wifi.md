@@ -5428,3 +5428,47 @@ validate fresh Set Dequeue,one IN,MAC retirement,exact stop/four guards,post-
 observer target words and independent channel1 restoration. Quiet or malformed
 input cannot establish reception. RF lock/quality,multi-channel discovery,
 association/security and IP/UI remain pending. No reboot armed.
+
+
+### 2026-10-27 — v99 native channel6 beacon and restoration accepted
+
+Release `995dd64ae6135add`, source `87144160`, integrated main `fbb6eaa5`,
+session `session-00065ed6f4d568a5-00` returned automatically. The matching saved
+session passes the complete strict proof, independently replayed from its raw
+627250-byte exit snapshot. Both capture-completion markers and the complete
+startup prefix fit the 1MiB capacity. No photos or manual commands were needed.
+
+After the target US channel6/20MHz frequency/VCO verification, exact Set TR
+Dequeue selected a fresh retained ring/page before one 4096-byte IN. A matching
+CC13 completion arrived during the receive window after 93435 us / 6863 polls,
+with residue3752 and actual344 bytes. The existing parser consumed340 bytes,
+decoded a304-byte management frame and accepted a channel6 beacon: interval100,
+three-byte SSID, privacy and RSN advertised, DS channel present. Raw identifiers
+remain private. This accepts that bounded observation, not FCS validity,
+sustained RF quality, association, authorization or IP connectivity.
+
+The separate MAC cycle completed54 operations (46 reads, seven writes, one
+wait), one TX drain round and seven RX drain rounds, measured10044 us hold,
+MAC disable and saved filter/TXOP restoration. Exact endpoint stop, stopped live
+context, four fresh quiescence guards and retained DMA passed before the tuner
+resumed. Post-observer VCO and all target-word checks passed. All13 original
+channel1 words were independently restored and re-settled. Tuning proof covers
+494 callbacks,154 matched RF exchanges,1000 ownership checks,336 guard reads,
+118 RF reads and36 RF writes. Target and restoration triggers each cleared in
+three polls /100 us requested delay. Trigger clearing is not a PLL-lock test.
+
+The preceding channel1 window was quiet for10000060 us: one post, no normal
+completion or AP rows. Exact CC26 cancellation/stop and retained old ring/eight
+pages passed. No channel1 reception or multi-channel scan acceptance is inferred
+from that quiet interval. Prior initialization, five power-on command acknowledg-
+ments and independent restoration passed. V96 remains the latest AP-table proof.
+
+All seven current/e47/v98/v97/v96/v95/v93 payloads match durable copies in full.
+Ubuntu remains default, one-shot was consumed, and workspace is unmounted.
+Offline checks report349 files,880 clusters,146 directories, zero leaks, bitmap
+mismatches or errors. Full native collection, original structured strict result,
+source/reference/local/VM evidence and recovery proof are retained outside build
+in `wifi-channel-receive-8714416`. Next: bounded sequential passive multi-channel
+discovery with fresh receive ownership and independent stop/restoration on every
+failure. Selection, association/security and IP/UI follow. No repeat boot is
+needed for v99; no reboot armed.

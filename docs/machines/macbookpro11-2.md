@@ -7,49 +7,31 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Installed candidate: v99 `995dd64ae6135add`, source `87144160`, integrated main
-`fbb6eaa5`; fresh bounded channel6 receive before channel1 restoration. Local,
-sanitizer and exact-stage GPT save/return and missing-workspace checks pass.
-Native trial pending; Ubuntu default, workspace unmounted, reboot unarmed.
+Latest physical run: v99 `995dd64ae6135add`, source `87144160`, integrated main
+`fbb6eaa5`, session `session-00065ed6f4d568a5-00`. A fresh single-IN channel6
+receive decoded one beacon after 93435 us, then independently retired MAC/RX
+and restored all13 original channel1 frequency words. Exact proof validates
+494 tuning callbacks,154 RF exchanges,1000 ownership checks and both bounded
+VCO trigger-clear sequences. Fresh Set Dequeue, endpoint stop, four quiescence
+guards, saved filter/TXOP and retained DMA passed. This accepts the bounded
+channel6 beacon observation and cleanup, not sustained RF/FCS/scan/connection.
+The preceding ten-second channel1 window was quiet; V96 remains the latest
+positive AP-table evidence. The full627250-byte prefix and prior initialization/
+five power-on commands passed. All seven payloads match durable backups;
+Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity pass
+(349 files,880 clusters,146 directories, zero errors). Full evidence is archived
+outside build. No repeat run is needed.
 
-Latest physical run: v98 release `83aad161d5fa476e`, source `5e2ed3da`,
-session `session-00065ed585ba7f47-00`. The stopped-RX US channel6/20MHz frequency
-and VCO-trigger transaction completed 21 steps; all 13 original channel1 words
-were restored and re-settled. Exact proof validated 478 callbacks, 141 matched
-RF exchanges, 966 ownership checks, 332 guard reads, 105 RF reads and 36 RF
-writes. Target VCO trigger cleared after four reads/1000 us requested delay;
-restoration trigger cleared after three reads/100 us. Trigger clearing is a
-register observation, not RF lock, calibrated tuning or reception acceptance.
-The preceding ten-second channel1 window was quiet (one post, zero normal
-completions or AP rows); cancellation, exact stop/six guards and retained DMA
-passed. V96 remains the latest positive AP-table observation: two private rows
-from five beacons. Full prior initialization/power-on/cleanup and 616541-byte
-startup prefix passed. Current v98/e47/v97/v96/v95/v93 payloads match durable
-backups; Ubuntu default, consumed one-shot, unmounted/unarmed state and offline
-allocation passed (346 files, 868 clusters, 145 directories, zero errors).
-Next: independently tested bounded channel6 receive lifecycle before original
-channel1 restoration, with separate retained RX ownership, MAC enable/disable/
-drain and exact stop. Then multi-channel discovery, selection, association/
-security and IP/UI. Original strict calibration helper stays unchanged; RF0:6
-semantics remain unresolved. Full evidence is archived outside build; no new
-trial is armed.
+Next: bounded sequential passive multi-channel discovery, followed by selection,
+association/security and IP/UI. Keep separate retained RX ownership, explicit
+channel-aware parsing and independent endpoint stop/RF restoration on every
+failure. Original strict calibration helper remains unchanged; RF0:6 semantics
+remain unresolved. Battery, headphones and further trackpad latency work stay
+deferred. Main's merged desktop power checkpoint contract is preserved through
+a separate logger entry; no Pro battery trial was added.
 
-Active receive scope (2026-10-27): actual candidate base `fbb6eaa5` includes merged
-PR212/213 desktop power work; PR182 owns filesystem imports, with no MT76
-overlap. Both shared logger contracts are preserved; no Pro battery trial is added. Add a separate opt-in channel6 receive trial after the accepted
-frequency/VCO transaction and before channel1 restoration. Preserve v98's
-one-shot entry point; a separate observer API must require post-observer MAC/
-VCO/frequency and stopped-DMA proof before independent RF restoration. Retain
-the old main-RX ring/pages; use a fresh ring/page, exact stopped Set TR Dequeue
-Pointer, one bounded IN and a separately owned MAC lifecycle. Stop the new RX
-endpoint and establish fresh quiescence before returning to the tuner. No DMA
-reuse/free, scan UI, credentials or network data OUT. Touched: tune observer
-helper/tests, native fresh-RX adapter/event dispatch, main/staging/smoke, fault
-fixtures and strict collection/guides. Dependencies: accepted v98 RF/stop proof,
-existing MAC-cycle mechanics and bounded channel-aware parser. Validate faults,
-late/foreign events, ambiguous commands, MAC cleanup, exact stop, sanitizers,
-merged tests and exact-stage saved/refusal VM before install/cold readiness.
-No native reception acceptance or reboot armed by this scope publication.
+Earlier scope publications below are historical; the current acceptance above
+and dated result at the end supersede their pending-trial language.
 
 Active native tuning scope (2026-10-27): actual main `e283eecb` (Air6,1
 cached power checkpoints; no MT76 overlap), open filesystem PR182 inspected.
@@ -9806,3 +9788,47 @@ validate fresh Set Dequeue,one IN,MAC retirement,exact stop/four guards,post-
 observer target words and independent channel1 restoration. Quiet or malformed
 input cannot establish reception. RF lock/quality,multi-channel discovery,
 association/security and IP/UI remain pending. No reboot armed.
+
+
+### 2026-10-27 — v99 native channel6 beacon and restoration accepted
+
+Release `995dd64ae6135add`, source `87144160`, integrated main `fbb6eaa5`,
+session `session-00065ed6f4d568a5-00` returned automatically. The matching saved
+session passes the complete strict proof, independently replayed from its raw
+627250-byte exit snapshot. Both capture-completion markers and the complete
+startup prefix fit the 1MiB capacity. No photos or manual commands were needed.
+
+After the target US channel6/20MHz frequency/VCO verification, exact Set TR
+Dequeue selected a fresh retained ring/page before one 4096-byte IN. A matching
+CC13 completion arrived during the receive window after 93435 us / 6863 polls,
+with residue3752 and actual344 bytes. The existing parser consumed340 bytes,
+decoded a304-byte management frame and accepted a channel6 beacon: interval100,
+three-byte SSID, privacy and RSN advertised, DS channel present. Raw identifiers
+remain private. This accepts that bounded observation, not FCS validity,
+sustained RF quality, association, authorization or IP connectivity.
+
+The separate MAC cycle completed54 operations (46 reads, seven writes, one
+wait), one TX drain round and seven RX drain rounds, measured10044 us hold,
+MAC disable and saved filter/TXOP restoration. Exact endpoint stop, stopped live
+context, four fresh quiescence guards and retained DMA passed before the tuner
+resumed. Post-observer VCO and all target-word checks passed. All13 original
+channel1 words were independently restored and re-settled. Tuning proof covers
+494 callbacks,154 matched RF exchanges,1000 ownership checks,336 guard reads,
+118 RF reads and36 RF writes. Target and restoration triggers each cleared in
+three polls /100 us requested delay. Trigger clearing is not a PLL-lock test.
+
+The preceding channel1 window was quiet for10000060 us: one post, no normal
+completion or AP rows. Exact CC26 cancellation/stop and retained old ring/eight
+pages passed. No channel1 reception or multi-channel scan acceptance is inferred
+from that quiet interval. Prior initialization, five power-on command acknowledg-
+ments and independent restoration passed. V96 remains the latest AP-table proof.
+
+All seven current/e47/v98/v97/v96/v95/v93 payloads match durable copies in full.
+Ubuntu remains default, one-shot was consumed, and workspace is unmounted.
+Offline checks report349 files,880 clusters,146 directories, zero leaks, bitmap
+mismatches or errors. Full native collection, original structured strict result,
+source/reference/local/VM evidence and recovery proof are retained outside build
+in `wifi-channel-receive-8714416`. Next: bounded sequential passive multi-channel
+discovery with fresh receive ownership and independent stop/restoration on every
+failure. Selection, association/security and IP/UI follow. No repeat boot is
+needed for v99; no reboot armed.
