@@ -3074,7 +3074,8 @@ static bool wifi_mcu_post_vco(struct xhci_device *d){
 static bool wifi_agc_state_owned(void *context){
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return m->agc_state_mode && m->agc_state_active && wifi_post_vco_owned(d) && m->post_vco_submitted==63 &&
-        mt76_post_vco_captured_profile_valid(&m->post_vco);
+        (m->scan_mode?mt76_post_vco_settled_profile_valid(&m->post_vco):
+                      mt76_post_vco_captured_profile_valid(&m->post_vco));
 }
 static bool wifi_agc_state_read(void *context,uint32_t a,uint32_t *v){
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;unsigned op=m->agc_state_submitted;

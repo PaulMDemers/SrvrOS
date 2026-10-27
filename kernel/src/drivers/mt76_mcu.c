@@ -2746,10 +2746,17 @@ enum mt76_mcu_timing_status mt76_post_vco_capture(struct mt76_post_vco *s,const 
     s->complete=true;return MT76_TIMING_OK;
 }
 
-bool mt76_post_vco_captured_profile_valid(const struct mt76_post_vco *s){
-    if(!s || !s->complete || !post_vco_state_valid(s,63) || s->first_clear!=1 || s->words[2][2]!=0xb0)return false;
+bool mt76_post_vco_settled_profile_valid(const struct mt76_post_vco *s){
+    /* Same-unit native traces differ only in the immediate trigger read.
+     * Require the exact acknowledged write and all six measured clear samples;
+     * this accepts neither arbitrary RF values nor PLL/calibration quality. */
+    if(!s || !s->complete || !post_vco_state_valid(s,63) || s->first_clear!=1 ||
+       (s->words[2][2]!=0xb0 && s->words[2][2]!=0x30))return false;
     for(unsigned i=3;i<9;i++)if(s->words[i][2]!=0x30)return false;
     return true;
+}
+bool mt76_post_vco_captured_profile_valid(const struct mt76_post_vco *s){
+    return mt76_post_vco_settled_profile_valid(s) && s->words[2][2]==0xb0;
 }
 uint32_t mt76_agc_state_address(unsigned op){return op<3?mt76_rf_probe_read_address(op):op<5?0x2320+4*(op-3):op<8?mt76_rf_probe_read_address(op-5):UINT32_MAX;}
 static bool agc_state_prefix_valid(const struct mt76_agc_state *s,unsigned op){

@@ -5341,6 +5341,27 @@ static void test_wifi_agc_state(void){
  }
  reset_test();assert(!xhci_wifi_capture_agc_state());puts("xhci AGC state: PASS8 read positions,243 prerequisite/state/profile faults,no USB on refusal,no replay,quarantine");
 }
+static void test_wifi_agc_scan_timing(void){
+ /* Native v100: acknowledged b0 write, immediate30, six measured delayed30.
+  * Replay each AGC callback with both timing variants; legacy modes stay exact. */
+ for(unsigned early=0;early<2;early++)for(unsigned op=0;op<8;op++){
+  reset_test();test_time=0;test_time_step=1000;
+  struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+  struct xhci_device *d=&xhci.devices[0];agc_state_fixture(d,op);
+  struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  if(early)m->post_vco.words[2][2]=0x30;
+  assert(wifi_agc_state_owned(d)==!early);
+  m->scan_mode=true;assert(wifi_agc_state_owned(d));
+  d->ep0_ring=ring;d->ep0_ring_phys=0x9000;d->ep0_cycle=true;
+  d->descriptor_buffer=buffer;d->descriptor_buffer_phys=(uintptr_t)buffer;
+  xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;
+  xhci.event_cycle=true;events[0]=control_event(0x9020,1,0);
+  uint32_t v=0;assert(wifi_agc_state_read(d,mt76_agc_state_address(op),&v));
+  assert(m->agc_state_submitted==op+1);
+  assert(!wifi_agc_state_read(d,mt76_agc_state_address(op),&v));
+ }
+ reset_test();puts("xhci scan AGC timing: PASS16 callbacks,two exact same-unit timing variants,legacy refusal and no replay");
+}
 static void test_wifi_trim_fields(void){
  const unsigned phases[]={0,1,2,3,4,5,8,9,10,11,12,13,14};
  for(unsigned block=0;block<2;block++)for(unsigned n=0;n<sizeof phases/sizeof *phases;n++)for(unsigned fault=0;fault<4;fault++){
@@ -6636,6 +6657,7 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_window.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-agc-timing")){test_wifi_agc_scan_timing();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-scan")){receive_test_only=true;scan_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-channel-receive")){receive_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
@@ -6715,6 +6737,7 @@ int main(int argc, char **argv) {
     test_wifi_post_vco();
     test_wifi_post_vco_delays();
     test_wifi_agc_state();
+    test_wifi_agc_scan_timing();
     test_wifi_cal_probe();
     test_wifi_poweron();
     test_wifi_passive();

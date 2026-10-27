@@ -28,6 +28,30 @@ int main(void){struct fake f={.second=0x12345678};struct mt76_agc_state s={0};sa
  for(unsigned q=0;q<18;q++)for(unsigned j=0;j<3;j++){pv.guards[q][j]^=1;assert(!mt76_post_vco_captured_profile_valid(&pv));pv.guards[q][j]^=1;}
  for(unsigned q=0;q<9;q++)for(unsigned j=0;j<4;j++){pv.words[q][j]^=1;assert(!mt76_post_vco_captured_profile_valid(&pv));pv.words[q][j]^=1;}
  pv.words[2][2]=48;assert(!mt76_post_vco_captured_profile_valid(&pv));pv.words[2][2]=176;pv.complete=false;assert(!mt76_post_vco_captured_profile_valid(&pv));
+ pv.complete=true;
+ for(unsigned immediate=0;immediate<256;immediate++){
+  pv.words[2][2]=immediate;
+  assert(mt76_post_vco_settled_profile_valid(&pv)==(immediate==48 || immediate==176));
+  assert(mt76_post_vco_captured_profile_valid(&pv)==(immediate==176));
+ }
+ for(unsigned early=0;early<2;early++){
+  pv.words[2][2]=early?48:176;
+  for(unsigned q=0;q<18;q++)for(unsigned j=0;j<3;j++)for(unsigned bit=0;bit<32;bit++){
+   pv.guards[q][j]^=1u<<bit;assert(!mt76_post_vco_settled_profile_valid(&pv));pv.guards[q][j]^=1u<<bit;
+  }
+  for(unsigned q=0;q<9;q++)for(unsigned j=0;j<4;j++)for(unsigned bit=0;bit<32;bit++){
+   pv.words[q][j]^=1u<<bit;
+   assert(mt76_post_vco_settled_profile_valid(&pv)==(q==2 && j==2 && bit==7));
+   pv.words[q][j]^=1u<<bit;
+  }
+  for(unsigned q=0;q<6;q++){
+   pv.waits--;assert(!mt76_post_vco_settled_profile_valid(&pv));pv.waits++;
+   pv.delay_us-=mt76_post_vco_delay(q);assert(!mt76_post_vco_settled_profile_valid(&pv));pv.delay_us+=mt76_post_vco_delay(q);
+  }
+  pv.complete=false;assert(!mt76_post_vco_settled_profile_valid(&pv));pv.complete=true;
+  pv.first_clear=0;assert(!mt76_post_vco_settled_profile_valid(&pv));pv.first_clear=1;
+ }
+ puts("post VCO scan timing: PASS256 immediate values,two exact variants,5760 word/guard bit mutations,all wait omissions,legacy gate unchanged");
  assert(mt76_agc_state_address(8)==UINT32_MAX);
  puts("AGC state: PASS8 fixed reads,all transfer/auth/guard/target boundaries,65536 second-register decodes,no partial initialization or replay");
 }

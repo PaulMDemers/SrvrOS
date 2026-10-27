@@ -3,8 +3,9 @@ static void test_wifi_scan(struct xhci_device *d){
     uint8_t input[4096]={0};void *old_input=d->input_context;uint64_t old_input_phys=d->input_context_phys;
     d->input_context=input;d->input_context_phys=(uintptr_t)input;
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_mcu before=*m;uint8_t context[4096];memcpy(context,d->output_context,sizeof context);
-    for(unsigned trial=0;trial<1+3*28+24+6;trial++){
+    for(unsigned early=0;early<2;early++)for(unsigned trial=0;trial<1+3*28+24+6;trial++){
         *m=before;wifi_mcu_select_mode(m,78);
+        m->post_vco.words[2][2]=early?0x30:0xb0;
         assert(m->scan_mode && m->tune_mode && m->receive_mode && m->window_long_mode && m->discovery_mode && m->poweron_mode && !m->channel_mode && !m->passive_mode);
         m->tune=(struct xhci_wifi_tune){0};m->receive=(struct xhci_wifi_receive){0};m->scan=(struct xhci_wifi_scan){0};
         memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
@@ -43,5 +44,5 @@ static void test_wifi_scan(struct xhci_device *d){
     scan_test_fault_visit=scan_test_rf_visit=3;scan_test_fault_kind=scan_test_history=0;receive_fault=0;
     *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
     d->input_context=old_input;d->input_context_phys=old_input_phys;
-    printf("wifi-scan-native: PASS %u three-visit US1/6/11,fresh retained rings/pages,per-visit command/receive/clock failures,stop before restoration,private dedup/conflicts,late-event refusal,no replay/no DMA free\n",scan_cases);
+    printf("wifi-scan-native: PASS %u two VCO timing variants,three-visit US1/6/11,fresh retained rings/pages,per-visit command/receive/clock failures,stop before restoration,private dedup/conflicts,late-event refusal,no replay/no DMA free\n",scan_cases);
 }
