@@ -3776,3 +3776,11 @@ test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
 build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $< -o $@
+
+.PHONY: test-process-event
+test-core: test-process-event
+test-process-event: build/tests/process-event-host$(HOST_EXE)
+	$<
+build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
