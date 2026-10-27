@@ -4465,3 +4465,41 @@ halts or missing markers are failures/incomplete, never passes. Evidence and
 payload are retained outside build in `wifi-poweron-native-b22a83e`.
 Command completion does not accept RF performance, packet reception, scanning,
 association/security, Wi-Fi IP traffic or UI. No payload inspection or rearm.
+
+
+### 2026-10-26 — v92 native power-on command transaction verified
+
+Source `b22a83ee`, release `7406fc019cb09f47`, session
+`session-00065ec7483fb865-00` completed and returned to Ubuntu automatically.
+The strict collector accepted the whole prior firmware/MAC/BBP/RF/channel/
+post-VCO/AGC proof, v91 reversible write observation, new power-on transaction,
+parent MAC teardown and exact retained RX stop. All five command31 exchanges
+matched the candidate16-byte CMD_DONE sequence/ID/argument/trailer contract:
+R(0), VCO(1), FULL(600), LC(0), RXDCOC(1), sequences1..5, IDs1/12/ff/3/2.
+Each sent/received16 bytes, CC13/residue1008. Observed command durations were
+446/2417/5139/14156/762us; required waits10/500/15000us took11/501/15002us.
+This establishes the exact reply contract for this adapter/context only.
+
+Power-on completed30 operations:18 USB reads, four writes, three waits and five
+commands; ACK mask31. Fresh TX_ALC0=`2f2f1b1b` was suppressed to zero and
+independently verified; fresh post-delay IBI9=`ffffffff` accepted `ffffff7e`
+with matching readback. Both reverse saved-word restores independently matched;
+saved/modified/attempted/restored masks3 and cleanup complete. Active-MAC guards
+passed before/after. The same-lifetime v91 observation also passed.
+
+Parent MAC completed54 operations (46 reads,seven writes,one wait), TX1/RX7
+drain rounds,10031us hold, MAC0 and exact filter/TXOP restoration. One4096-byte
+main RX request waited10000us, then stopped with exact owned context/dequeue
+and retained DMA. CC26/4096 remaining is cancellation metadata, not packet
+reception. Total new register writes15. Full startup prefix and both completion
+markers saved. Ubuntu default, consumed one-shot and current/e47 payload hashes
+passed; accepted v91 remains retained. Offline331files/809clusters/139directories,
+zero leaks, bitmap mismatches or errors; unmounted/unarmed. Evidence and payload
+remain outside build in `wifi-poweron-native-b22a83e`.
+
+This accepts bounded initial calibration command execution and cleanup; it does
+not measure calibrated RF performance, frequency lock or received frames.
+RF0:6 semantics remain unresolved, and original strict helper admission is
+unchanged. Next is controlled passive main-RX observation with explicit actual
+byte counts, strict frame parsing and bounded teardown. Scanning, association/
+security, Wi-Fi IP traffic and UI remain pending. No new trial/reboot armed.

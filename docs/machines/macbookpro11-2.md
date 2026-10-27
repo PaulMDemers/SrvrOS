@@ -7,31 +7,29 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v91 release `7c1728fccd4ae567`, source `90b8a203`,
-session `session-00065ec686798b50-00`. Whole prior proof, temporary IBI9 write
-and reverse raw restoration, MAC shutdown and retained RX stop passed.
-IBI9 changed from `ffffffff` to `ffffff7e` and restored to `ffffffff`;
-TX_ALC0 restored to `2f2f1b1b`. No calibration commands or packet reception.
-Recovery and offline allocation checks passed. Accepted v91 remains retained;
-e47 is previous recovery, and v90 is durably archived. Installed pending v92
-`7406fc019cb09f47`/source `b22a83ee` has passed local/sanitizer/exact-stage VM
-checks. Workspace unmounted and no one-shot armed. Next: cold-cycle readiness,
-then collect matching v92 session FIRST with `poweron-native/collect_return.py`.
-Original strict calibration helper is unchanged; RF0:6 remains unresolved.
-Scanning, association/security, Wi-Fi IP traffic and UI remain pending.
+Latest physical run: v92 release `7406fc019cb09f47`, source `b22a83ee`,
+session `session-00065ec7483fb865-00`. Whole prior/v91 proof and all five initial
+power-on calibration commands completed with exact native replies, ordered
+waits and independently verified reverse saved-word restoration. Parent MAC
+drain/disable/filter/TXOP restoration and exact retained RX stop passed.
+This accepts the bounded command transaction on this captured adapter/context;
+RF performance, frequency lock and packet reception remain untested. CC26 with
+4096 remaining is cancellation metadata. Recovery and offline allocation
+passed; workspace unmounted and no reboot armed. Installed remains v92;
+accepted v91 is retained, e47 is previous recovery, v90 is durably archived.
+Next: controlled passive main-RX observation with explicit actual byte counts,
+strict frame parsing and bounded MAC/endpoint teardown. Scanning, association/
+security, Wi-Fi IP traffic and UI remain pending. Original strict helper stays
+unchanged; RF0:6 semantics remain unresolved.
 
-Active block (2026-10-26): consume main `43aff7d5` (PR194 window/dock and
-PR196 Air audio evidence). PR182 remains filesystem scope; no MT76 overlap.
-Wire the power-on helper through a fixed five-command packet/reply adapter,
-exclusive active MAC/retained RX ownership, same-boot captured NIC/trim/channel/
-PA/default TX_ALC proof and independent saved-word cleanup. New explicit v92
-profile70 follows the full v91 observation, then R/VCO/FULL/LC/RXDCOC with
-strict bounded sequence/event/body/trailer validation. A mismatched first reply
-stops the sequence and is saved as failed evidence. Touched: MT76 power-on
-helper/header, native xHCI hook/selector and tests, main/staging/smoke, proof
-collector and unit/Wi-Fi docs. No packet delivery/rearm/data OUT, scan or IP.
-Require local/core/sanitizer and exact-stage VM plus durable run/recovery
-checks before cold hardware trial. Original profiles/helpers remain unchanged.
+Completed physical block (2026-10-26): v92 on main `43aff7d5` consumed PR194
+window/dock and PR196 Air evidence; PR182 remains filesystem scope. Native
+fixed-command adapter, selector70, main/staging/smoke recipes and host/proof
+fixtures passed local/core/sanitizer/exact-stage VM and this unit's bounded
+transaction checks. No packet inspection/delivery, rearm or network data OUT.
+The earlier strict16-byte reply hypothesis is now observed for all five
+commands on this adapter; this does not authorize widening other device gates.
+No further physical run is staged or armed.
 
 
 Completed offline block (2026-10-26): consumed actual main `9465c68f` (PR192 private
@@ -8680,3 +8678,41 @@ halts or missing markers are failures/incomplete, never passes. Evidence and
 payload are retained outside build in `wifi-poweron-native-b22a83e`.
 Command completion does not accept RF performance, packet reception, scanning,
 association/security, Wi-Fi IP traffic or UI. No payload inspection or rearm.
+
+
+### 2026-10-26 — v92 native power-on command transaction verified
+
+Source `b22a83ee`, release `7406fc019cb09f47`, session
+`session-00065ec7483fb865-00` completed and returned to Ubuntu automatically.
+The strict collector accepted the whole prior firmware/MAC/BBP/RF/channel/
+post-VCO/AGC proof, v91 reversible write observation, new power-on transaction,
+parent MAC teardown and exact retained RX stop. All five command31 exchanges
+matched the candidate16-byte CMD_DONE sequence/ID/argument/trailer contract:
+R(0), VCO(1), FULL(600), LC(0), RXDCOC(1), sequences1..5, IDs1/12/ff/3/2.
+Each sent/received16 bytes, CC13/residue1008. Observed command durations were
+446/2417/5139/14156/762us; required waits10/500/15000us took11/501/15002us.
+This establishes the exact reply contract for this adapter/context only.
+
+Power-on completed30 operations:18 USB reads, four writes, three waits and five
+commands; ACK mask31. Fresh TX_ALC0=`2f2f1b1b` was suppressed to zero and
+independently verified; fresh post-delay IBI9=`ffffffff` accepted `ffffff7e`
+with matching readback. Both reverse saved-word restores independently matched;
+saved/modified/attempted/restored masks3 and cleanup complete. Active-MAC guards
+passed before/after. The same-lifetime v91 observation also passed.
+
+Parent MAC completed54 operations (46 reads,seven writes,one wait), TX1/RX7
+drain rounds,10031us hold, MAC0 and exact filter/TXOP restoration. One4096-byte
+main RX request waited10000us, then stopped with exact owned context/dequeue
+and retained DMA. CC26/4096 remaining is cancellation metadata, not packet
+reception. Total new register writes15. Full startup prefix and both completion
+markers saved. Ubuntu default, consumed one-shot and current/e47 payload hashes
+passed; accepted v91 remains retained. Offline331files/809clusters/139directories,
+zero leaks, bitmap mismatches or errors; unmounted/unarmed. Evidence and payload
+remain outside build in `wifi-poweron-native-b22a83e`.
+
+This accepts bounded initial calibration command execution and cleanup; it does
+not measure calibrated RF performance, frequency lock or received frames.
+RF0:6 semantics remain unresolved, and original strict helper admission is
+unchanged. Next is controlled passive main-RX observation with explicit actual
+byte counts, strict frame parsing and bounded teardown. Scanning, association/
+security, Wi-Fi IP traffic and UI remain pending. No new trial/reboot armed.
