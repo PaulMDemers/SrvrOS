@@ -3759,3 +3759,12 @@ build/tests/audio-io-volume-host$(HOST_EXE): tools/test_audio_io_volume.c usersp
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 test-core: test-audio-io-volume
+
+.PHONY: test-desktop-power
+test-core: test-desktop-power
+test-desktop-power: build/tests/desktop-power$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_desktop_power_records.py
+build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd/power_trial.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

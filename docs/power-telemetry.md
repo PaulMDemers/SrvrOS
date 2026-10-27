@@ -735,3 +735,42 @@ prior-file preservation and offline allocation checks passed. This accepts the
 bounded read-only telemetry and checkpoint capture on this Air6,1, not CPU/fan
 controls, equilibrium or whole-machine power, or an energy-saving comparison.
 Ordinary staging still leaves power telemetry disabled.
+
+## Automatic Air6,1 desktop phases
+
+The explicit `--desktop-power-test --desktop-battery --battery-air61
+--desktop-services --desktop-volume <local-UUID>` staging recipe selects v78.
+It keeps the ordinary Home filesystem and battery-owned desktop lifetime, enables
+read-only power/temperature telemetry, and runs without input: wait for a rendered
+Text window and fresh battery data, settle for 30 seconds, idle for 60 seconds,
+cycle Text/Files/System applications for 60 seconds, then recover for 60 seconds.
+The last 12 seconds of the app phase drain pending work. At least six complete
+app cycles and a newer fresh battery generation in every phase are required.
+The desktop displays progress once per second; it is part of this measured load.
+Audio is initialized but no sound is played. Keep AC and the workspace connected.
+
+The existing 500 ms desktop loop and 10 s app lifecycle limits stay unchanged.
+A phase may finish up to five seconds late, but this does not relax loop or app
+limits. The diagnostic has a 300 s owner watchdog and uses normal lifetime
+revocation, battery retirement, log save and workspace unmount before reboot.
+Uncertain ownership retains the existing fail-closed behavior.
+
+Only this diagnostic retains up to 32 ten-second log checkpoints, in distinct
+`checkpoint-00.log` through `checkpoint-1f.log` files. It reserves 64 file slots,
+never wraps, and refuses further saves if that bound is reached. Ordinary logs
+continue rotating two snapshots. Write/readback verification, sync and logging
+cadence are unchanged. `tools/desktop_power_records.py` merges overlapping saved
+snapshots without repairing partial records and requires ordered phase receipts,
+clean battery retirement, at least three power/worker checkpoints covering 20 s
+inside each phase, and fresh valid temperature readings. Report actual covered
+intervals, package power, CPU0 active frequency, temperature ranges and per-worker
+software timeout/signal wakeups. These are not whole-machine power, hardware wakeup
+counts or a power-policy acceptance. No requirement asserts that app workload
+must consume more energy than idle; this experiment measures that difference.
+
+`tools/desktop_power_smoke.py` checks a complete synthetic battery VM lifetime,
+checkpoint coverage, file preservation and offline allocation. With `--stage
+<release>`, it boots the exact native payload and requires Q35 profile refusal
+and clean unmount/return. Synthetic execution never supplies native power or
+temperature acceptance. Native results remain pending until matching saved
+sessions and recovery evidence have been collected.
