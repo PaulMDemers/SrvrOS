@@ -609,8 +609,22 @@ static void persistent_loop_timing(void) {
     capture_loop_log=0;
     puts("desktop-loop-timing: PASS exact bound, conserved stages, 1000-loop retention, periodic/final records, partial exit, invalid clock and bounded formatting");
 }
+static void asynchronous_loop_report(void) {
+    struct lifecycle_worker w={0};struct loop_trace trace={0};
+    capture_loop_log=1;captured_loop_log[0]=0;
+    assert(!life_report_submit(&w,&trace));
+    loop_trace_begin(&trace,100,1,42,2);loop_trace_end(&trace,100100,1,42,2);
+    assert(life_report_submit(&w,&trace));assert(!captured_loop_log[0]);
+    loop_trace_begin(&trace,200000,2,43,1);loop_trace_end(&trace,800001,2,43,1);
+    assert(!life_report_submit(&w,&trace));
+    life_work(&w);assert(life_state(&w.report_state)==LIFE_IDLE);
+    assert(strstr(captured_loop_log,"gap_us=100000 cycle=1 pid=42 phase=2"));
+    assert(life_report_submit(&w,&trace));life_work(&w);
+    assert(strstr(captured_loop_log,"over_limit=1") && strstr(captured_loop_log,"gap_us=600001 cycle=2 pid=43 phase=1"));
+    capture_loop_log=0;puts("desktop-loop-report: PASS asynchronous immutable snapshot, busy refusal, retry and retained limit violation");
+}
 int main(void) {
-    persistent_loop_timing();
+    persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
     uint64_t loop_last=0,loop_max=0;

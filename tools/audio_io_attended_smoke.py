@@ -83,6 +83,7 @@ def main():
                     nonlocal consumed
                     start=time.monotonic()
                     while marker not in output[consumed:]:
+                        if marker==b'desktop-session: returned complete=yes':assert b'desktop-session: returned complete=NO' not in output[consumed:], 'Attended session failed; inspect retained diagnostics'
                         assert process.poll() is None and time.monotonic()-start<timeout,f'missing {marker!r}'
                         pump(.1)
                         if not consumed:qmp.boot_if_menu_stalled(output,time.monotonic()-start)

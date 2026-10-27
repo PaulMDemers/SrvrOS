@@ -27,6 +27,7 @@
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
+static void loop_trace_report(const struct loop_trace *,unsigned);
 #include "lifecycle_worker.h"
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
@@ -1737,7 +1738,7 @@ int main(int argc,char **argv) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
             loop_trace_begin(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
-            if(loop_now-loop_report_at>=10000000) {loop_trace_report(&loop_trace,0);loop_report_at=loop_now;}
+            if(loop_now-loop_report_at>=10000000 && life_report_submit(&worker,&loop_trace))loop_report_at=loop_now;
             if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
         }
         if(audio_io && !audio_io_finished) {
@@ -2434,7 +2435,6 @@ int main(int argc,char **argv) {
     if (io_trial_finish(&s.io)!=0) failed=1;
     if(audio_io) {
         if(audio_io_pid){srv_kill(audio_io_pid);uint64_t status;srv_wait(audio_io_pid,&status,0);}
-        loop_trace_report(&loop_trace,1);
         if(loop_trace.invalid || loop_trace.worst.gap!=loop_max)failed=1;
         if(audio_io_attended) {
             if(!audio_io_complete || s.child_errors || !loop_last || loop_max>500000 || !work_keys || !work_motion || !s.exiting)failed=1;
@@ -2446,6 +2446,7 @@ int main(int argc,char **argv) {
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
     }
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
+    if(audio_io)loop_trace_report(&loop_trace,1);
     lifecycle_poll(&s);
     /* Bound shutdown even when a client stopped reading. Only kill children
      * launched by this session; all queues/surfaces also have kernel cleanup. */

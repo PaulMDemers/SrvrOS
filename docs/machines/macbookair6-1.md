@@ -3519,3 +3519,13 @@ implementation scope. Next checkpoint: matched build/core, window/dock and loade
 VM tests, exact-stage native refusal and verified recovery, then attended native
 trial with guest instructions and durable return collection. User’s existing
 self-merge/install/reboot authorization applies; no new reboot is armed yet.
+
+The loaded attended VM exposed a 1.535 s loop at periodic diagnostic emission;
+targeted timing reproduced 1.749 s in report output, not the nonblocking player
+wait. Extend this trial's scope to one immutable diagnostic snapshot on the
+existing lifecycle worker. The UI retries a busy fixed slot without overwriting
+it; shutdown joins/drains before the final synchronous receipt. Keep every loop
+sample, limit violation and saved-record integrity check. This affects diagnostic
+report delivery in both explicit stress modes, not ordinary desktop policy.
+PR19's shared boot/staging files contain separate Wi-Fi branches and a distinct
+profile namespace; no competing desktop implementation or v76 collision found.
