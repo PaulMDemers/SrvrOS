@@ -782,9 +782,12 @@ void kmain(void) {
             console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
         }
         if(automatic_load && started && init_ready && timer_running) {
-            (void)power_capture_start();
+            bool mwait=cmdline_has_token(cmdline,"srvros.idle=mwait-wakeup-test");
+            bool captured=mwait?power_capture_mwait_start():power_capture_start();
+            if(mwait && !captured) console_write("cpu-mwait: v=1 admitted=0 fallback=hlt\n");
             sampled=process_run_elf_args("/fat/bin/threadstress","--cpu-load-capture");
             power_capture_stop();
+            if(mwait) sampled=sampled && captured && power_capture_mwait_passed();
             console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
             thermal_print_status();smc_print_status();
         }

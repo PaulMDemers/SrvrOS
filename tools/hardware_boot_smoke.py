@@ -162,13 +162,13 @@ def main():
     wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-","ram-usb-wifi-fw-v8-","ram-usb-wifi-fw-v9-","ram-usb-wifi-fw-v10-","ram-usb-wifi-fw-v11-","ram-usb-wifi-fw-v12-","ram-usb-wifi-fw-v13-","ram-usb-wifi-fw-v14-","ram-usb-wifi-fw-v15-","ram-usb-wifi-fw-v16-","ram-usb-wifi-fw-v17-","ram-usb-wifi-fw-v18-","ram-usb-wifi-fw-v19-","ram-usb-wifi-fw-v20-","ram-usb-wifi-fw-v21-","ram-usb-wifi-fw-v22-","ram-usb-wifi-fw-v23-","ram-usb-wifi-fw-v24-","ram-usb-wifi-fw-v25-","ram-usb-wifi-fw-v26-","ram-usb-wifi-fw-v27-","ram-usb-wifi-fw-v28-","ram-usb-wifi-fw-v29-","ram-usb-wifi-fw-v30-","ram-usb-wifi-fw-v31-","ram-usb-wifi-fw-v32-","ram-usb-wifi-fw-v33-","ram-usb-wifi-fw-v34-","ram-usb-wifi-fw-v35-","ram-usb-wifi-fw-v36-","ram-usb-wifi-fw-v37-","ram-usb-wifi-fw-v38-","ram-usb-wifi-fw-v39-","ram-usb-wifi-fw-v40-","ram-usb-wifi-fw-v41-","ram-usb-wifi-fw-v42-","ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-","ram-usb-wifi-fw-v46-","ram-usb-wifi-fw-v47-","ram-usb-wifi-fw-v48-","ram-usb-wifi-fw-v49-","ram-usb-wifi-fw-v50-","ram-usb-wifi-fw-v51-","ram-usb-wifi-fw-v52-","ram-usb-wifi-fw-v53-","ram-usb-wifi-fw-v54-","ram-usb-wifi-fw-v55-","ram-usb-wifi-fw-v56-","ram-usb-wifi-fw-v57-","ram-usb-wifi-fw-v58-","ram-usb-wifi-fw-v59-","ram-usb-wifi-fw-v60-","ram-usb-wifi-fw-v61-","ram-usb-wifi-fw-v62-","ram-usb-wifi-fw-v63-","ram-usb-wifi-fw-v64-","ram-usb-wifi-fw-v65-","ram-usb-wifi-fw-v66-","ram-usb-wifi-fw-v67-", "ram-usb-wifi-fw-v68-", "ram-usb-wifi-fw-v69-", "ram-usb-wifi-fw-v70-", "ram-usb-wifi-fw-v71-","ram-usb-wifi-fw-v72-","ram-usb-wifi-fw-v73-","ram-usb-wifi-fw-v74-","ram-usb-wifi-fw-v75-","ram-usb-wifi-fw-v76-","ram-usb-wifi-fw-v77-","ram-usb-wifi-fw-v78-","ram-usb-wifi-fw-v79-","ram-usb-wifi-fw-v80-","ram-usb-wifi-fw-v81-","ram-usb-wifi-fw-v82-","ram-usb-wifi-fw-v83-","ram-usb-wifi-fw-v84-","ram-usb-wifi-fw-v85-","ram-usb-wifi-fw-v86-","ram-usb-wifi-fw-v87-","ram-usb-wifi-fw-v88-","ram-usb-wifi-fw-v89-","ram-usb-wifi-fw-v90-","ram-usb-wifi-fw-v91-","ram-usb-wifi-fw-v92-","ram-usb-wifi-fw-v93-","ram-usb-wifi-fw-v94-","ram-usb-wifi-fw-v95-","ram-usb-wifi-fw-v96-","ram-usb-wifi-fw-v97-","ram-usb-wifi-fw-v98-","ram-usb-wifi-fw-v99-","ram-usb-wifi-fw-v100-","ram-usb-wifi-fw-v101-")))
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
-    cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
+    cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
-    power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
+    power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-","ram-usb-v1-mwait-")))
     if args.probe_network and not (desktop_idle_capture and power_telemetry):
         parser.error("--probe-network requires the v26 desktop idle/power stage")
     auto_return=manifest["config_version"].endswith("-auto-return")
@@ -448,6 +448,10 @@ def main():
                         assert power["power_state"]==1 and power["samples"]==0 and power["flags"]==0
                         from hardware_cpu_load import load_result
                         assert load_result(exit_log)["completed"] is False
+                        if manifest["config_version"].startswith("ram-usb-v1-mwait-"):
+                            from hardware_cpu_load import mwait_result
+                            assert mwait_result(exit_log)=={'status':'refused','fallback':'hlt'}
+                            assert 'srvros.idle=mwait-wakeup-test' in exit_log
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log

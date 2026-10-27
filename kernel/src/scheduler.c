@@ -1008,13 +1008,72 @@ static uint64_t idle_audit_enter(void) {
 static void idle_audit_return(uint64_t epoch) {
     if(idle_audit_active && epoch && epoch==idle_audit.epoch) idle_audit.returns++;
 }
+/* Dedicated WB kernel storage, isolated from counters/other writers. CPU0's
+ * interrupt is the wake source in this experiment; this is not an AP protocol. */
+static _Alignas(64) volatile unsigned char mwait_line[64];
+static struct scheduler_mwait_test mwait_test;
+static bool mwait_active;
+_Static_assert(SCHEDULER_MWAIT_LIMIT_US==SCHEDULER_PREEMPT_QUANTUM_TICKS*10000,
+    "wakeup ceiling must remain one existing scheduler quantum");
+bool scheduler_mwait_test_start(void) {
+    uint64_t flags=irq_save();
+    bool ok=!mwait_active && idle_audit_active && initialized &&
+        idle_thread<thread_capacity && timer_reference_ready();
+    if(ok) { mwait_test=(struct scheduler_mwait_test){.epoch=idle_audit.epoch};mwait_active=true; }
+    irq_restore(flags);return ok;
+}
+void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) {
+    uint64_t flags=irq_save();mwait_active=false;*out=mwait_test;irq_restore(flags);
+}
+static bool mwait_step(void) {
+    (void)mwait_line;
+    if(!mwait_active || !idle_audit_active || mwait_test.epoch!=idle_audit.epoch) return false;
+    if(mwait_test.fault || mwait_test.attempts>=SCHEDULER_MWAIT_ATTEMPTS) {
+        if(mwait_test.hlt<SCHEDULER_MWAIT_ATTEMPTS)mwait_test.hlt++;
+        return false;
+    }
+#if defined(SRVROS_MWAIT_HOST_TEST)
+    extern void scheduler_test_monitor(void *);
+    scheduler_test_monitor((void *)mwait_line);
+#elif !defined(SRVROS_SCHEDULER_HOST_TEST)
+    __asm__ volatile("monitor"::"a"(mwait_line),"c"(0),"d"(0):"memory");
+#endif
+    /* Recheck after MONITOR with IRQs still masked. Pending interrupts break
+     * MWAIT via ECX=1, including the check-to-wait window. No unowned wake word. */
+    if(has_ready_thread_except(current_thread)) {
+        mwait_test.rechecks++;return true;
+    }
+    if(!mwait_test.attempts)mwait_test.tick_begin=timer_ticks();
+    uint64_t before=timer_monotonic_us();mwait_test.attempts++;
+#if defined(SRVROS_MWAIT_HOST_TEST)
+    extern void scheduler_test_mwait(void);
+    scheduler_test_mwait();
+#elif !defined(SRVROS_SCHEDULER_HOST_TEST)
+    __asm__ volatile("mwait"::"a"(0),"c"(1):"memory"); /* C1, substate 0. */
+#endif
+    uint64_t after=timer_monotonic_us();mwait_test.returns++;
+    mwait_test.tick_end=timer_ticks();
+    if(after<before) mwait_test.fault=1;
+    else {
+        uint64_t elapsed=after-before;
+        if(elapsed>mwait_test.max_us)mwait_test.max_us=elapsed;
+        if(elapsed>SCHEDULER_MWAIT_LIMIT_US)mwait_test.fault=2;
+    }
+    /* Measure before pending IRQ dispatch/preemption; then let that IRQ run.
+     * There are no accesses to trial state after this scheduling boundary. */
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile("sti; nop; cli":::"memory");
+#endif
+    return true;
+}
 static void idle_step(void) {
     uint64_t flags=irq_save();
     if(has_ready_thread_except(current_thread)) {
         if(idle_audit_active) idle_audit.ready++;
         irq_restore(flags);scheduler_yield();return;
     }
-    /* The diagnostic does not change the readiness check or STI shadow.
+    if(mwait_step()) { irq_restore(flags);return; }
+    /* The default/fallback diagnostic does not change the readiness check or STI shadow.
      * No clocks, I/O, allocation or printing in this IRQ-masked path. */
     uint64_t epoch=idle_audit_enter();
 #ifndef SRVROS_SCHEDULER_HOST_TEST

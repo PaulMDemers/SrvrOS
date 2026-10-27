@@ -15,7 +15,7 @@ static uint64_t capture_last;
 static struct scheduler_wait_queue wake;
 static uint32_t idle_monitor, idle_leaf1_b, idle_leaf5[4];
 static uint64_t idle_config_start;
-static bool idle_auditing;
+static bool idle_auditing, mwait_capture, mwait_passed;
 /* Capture-only CPU0 prerequisites. CPUID describes addressable topology,
  * never live AP state. Three fixed leaf-B subleaves include the Haswell
  * terminator; unknown layouts remain raw/unavailable to the collector. */
@@ -117,9 +117,10 @@ void power_print_status(void) {
     if(s.idle.supported) print_idle("power-idle",&s.idle);
 }
 
-bool power_capture_start(void) {
+static bool capture_start(bool mwait) {
     uint64_t f=lock();
-    if(capturing || snapshot.state!=POWER_ACTIVE) { unlock(f);return false; }
+    if(capturing || snapshot.state!=POWER_ACTIVE || (mwait && !snapshot.idle.supported)) { unlock(f);return false; }
+    mwait_passed=false;
     if(snapshot.idle.supported) {
         if(!scheduler_idle_audit_start()) { unlock(f);return false; }
         idle_config_start=read_msr(0xe2);
@@ -129,24 +130,45 @@ bool power_capture_start(void) {
             if(idle_max_leaf>=11) cpuid_count(11,i,&idle_topology[i][0],&idle_topology[i][1],&idle_topology[i][2],&idle_topology[i][3]);
         }
         idle_auditing=true;
+        if(mwait && (!idle_monitor || idle_leaf5[0]!=64 || idle_leaf5[1]!=64 ||
+            (idle_leaf5[2]&3)!=3 || ((idle_leaf5[3]>>4)&15)==0 ||
+            !(idle_misc_start&(1ull<<18)) || (idle_apic_start&0xd00)!=0x900 ||
+            !scheduler_mwait_test_start())) {
+            struct scheduler_idle_audit ignored;scheduler_idle_audit_stop(&ignored);
+            idle_auditing=false;unlock(f);return false;
+        }
     }
+    mwait_capture=mwait;
     capture_count=0;capture_overflow=false;capture_last=timer_monotonic_us();
     capturing=true;unlock(f);return true;
 }
+bool power_capture_start(void) { return capture_start(false); }
+bool power_capture_mwait_start(void) { return capture_start(true); }
+bool power_capture_mwait_passed(void) { return mwait_passed; }
 void power_capture_stop(void) {
     uint64_t f=lock();
     if(!capturing) { unlock(f);return; }
     capturing=false;unsigned count=capture_count;bool overflow=capture_overflow;
     bool audited=idle_auditing;struct scheduler_idle_audit final={0};uint64_t config_end=0;
     uint64_t apic_end=0,misc_end=0;
+    bool tested=mwait_capture;struct scheduler_mwait_test mt={0};
+    if(tested) {
+        scheduler_mwait_test_stop(&mt);mwait_capture=false;
+        mwait_passed=mt.attempts==SCHEDULER_MWAIT_ATTEMPTS && mt.returns==mt.attempts &&
+            mt.hlt==SCHEDULER_MWAIT_ATTEMPTS && !mt.fault && mt.max_us &&
+            mt.max_us<=SCHEDULER_MWAIT_LIMIT_US && mt.tick_end>mt.tick_begin;
+    }
     if(audited) {
         scheduler_idle_audit_stop(&final);config_end=read_msr(0xe2);
         apic_end=read_msr(0x1b);misc_end=read_msr(0x1a0);idle_auditing=false;
+        if(tested && (config_end!=idle_config_start || apic_end!=idle_apic_start || misc_end!=idle_misc_start)) mwait_passed=false;
     }
     unlock(f);
     /* The bootstrap caller owns start/stop; sampling cannot modify these
      * records after stop. Printing happens outside the IRQ-masked scope and
      * outside the measured phases, before workspace_log_stop persists them. */
+    if(tested) console_printf("cpu-mwait: v=1 admitted=1 epoch=%u hint=0 ext=1 cap=32 limit_us=20000 tries=%u returns=%u max_us=%u fault=%u hlt=%u rechecks=%u tick_begin=%u tick_end=%u\n",
+        mt.epoch,mt.attempts,mt.returns,mt.max_us,mt.fault,mt.hlt,mt.rechecks,mt.tick_begin,mt.tick_end);
     if(audited) {
         /* One compact record: bounded log tail is unchanged. Raw tuple order
          * is EAX,EBX,ECX,EDX; MSR pair order is start,end. */

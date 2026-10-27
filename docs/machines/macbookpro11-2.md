@@ -10267,3 +10267,20 @@ records/rejects pre-enable data, publishes fresh sequential TDs/pages under one
 per-visit deadline, retains independent cleanup/Stop/restoration and saves exact
 per-transfer/whole-run proof. Run fault/sanitizer/exact-stage VM checks before
 installing a candidate. Association/security and IP/UI remain pending.
+
+## 2026-10-27: native repeated-IN scope
+
+Consume actual main `052ebc18` (Air6,1 opt-in MWAIT trial and prerequisite gates;
+no MT76 overlap). Preserve its distinct main/staging/smoke path. Open PR182
+filesystem work remains separate. Implement a separate selector80/v102 repeated
+US1/6/11 receive trial on the accepted v101 lifecycle and `f3d14695` batch
+contract. Reserve one ring plus nine data pages per visit before enabling MAC;
+retain the initial TD/page and reject an observed early completion, then run up
+to eight sequential distinct INs under one original10s observer deadline. Parse
+only after independent MAC retirement, exact Stop and guards, then restore all13
+original channel1 words. No DMA reuse, RF-policy widening, network data OUT or
+ordinary startup enablement. Touch xHCI receive/scan adapter, window TRB offset
+contract, main/staging/smoke, fixtures, strict collection and current unit/Wi-Fi
+guides. Publish source and host/sanitizer/saved-log/exact-stage VM proofs before
+installing. Native acceptance stays at v101 until matching evidence is collected;
+Ubuntu recovery and durable backups remain retained. No new reboot is armed.
