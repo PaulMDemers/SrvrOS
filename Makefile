@@ -4202,3 +4202,12 @@ test-mt76-channel-plan: build/tests/mt76-channel-plan-host$(HOST_EXE)
 build/tests/mt76-channel-plan-host$(HOST_EXE): tools/test_mt76_channel_plan.c kernel/src/drivers/mt76_channel_plan.c kernel/include/srvros/mt76_channel_plan.h tools/fixtures/mt7610-us-channel-plan.bin
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_plan.c -o $@
+
+.PHONY: test-mt76-channel-tune
+test-core: test-mt76-channel-tune
+test-mt76-channel-tune: build/tests/mt76-channel-tune-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us-channel-plan.bin
+
+build/tests/mt76-channel-tune-host$(HOST_EXE): tools/test_mt76_channel_tune.c kernel/src/drivers/mt76_channel_tune.c kernel/include/srvros/mt76_channel_tune.h kernel/src/drivers/mt76_channel_plan.c tools/fixtures/mt7610-us-channel-plan.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_channel_plan.c -o $@
