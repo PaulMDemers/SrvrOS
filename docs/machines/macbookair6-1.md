@@ -3997,3 +3997,51 @@ Four new logs bring the USB to 447 files / 1,490 clusters. Offline fsck/allocati
 pass with zero leaks, mismatches or errors. Matching evidence and the payload
 are hash-verified outside `build`. The collector is disabled and the one-shot
 entry consumed; no reboot is armed. Ubuntu and console recovery remain intact.
+
+### Desktop power phases — active scope (2026-10-27)
+
+Base `e62c1b2a`; bounded objective is one automatic battery-owned desktop lifetime
+with 30 seconds settling, 60 seconds idle, 60 seconds Text/Files/System app
+cycles, then 60 seconds recovery and clean retirement/Ubuntu return. Measure
+package power, temperatures and CPU0 worker wakeups separately by phase. Keep
+existing app deadlines, telemetry validity, firmware ownership and integrity
+checks. No CPU/fan control writes or ordinary startup changes.
+
+Scope: an explicit Air6,1 desktop staging profile, compositor diagnostic phases,
+battery session selection, bounded preservation of periodic log checkpoints,
+strict phase collection and host/VM regression harnesses. Normal logger cadence
+and rotating snapshots stay unchanged; only this diagnostic reserves extra file
+slots for at most 32 checkpoints. PR182 owns filesystem/backend auditing and
+PR19 Wi-Fi; neither overlaps these diagnostic callers. Validate positive battery
+VM and exact-stage hardware refusal, merge and run automatically under the
+user's existing authorization. Native combined power acceptance is pending.
+
+### Automatic desktop power candidate — prepared (2026-10-27)
+
+PR212 prepares release `1d1cbd1cb03d3032`, runtime source `7a9cfeaf`, for the
+30-second settle / 60-second idle / 60-second app workload / 60-second recovery
+trial above. Full host core, matched standard/Air6,1/fixture builds, USB image,
+profile/collector regressions and documentation checks pass. The complete Q35
+TCG fixture passes 12 Text/Files/System cycles, with maximum desktop loop
+161,585 us, readiness 533,205 us and close 430,994 us. Phase worker coverage is
+5–6 checkpoints over 40.26/50.36/50.79 seconds. Fixture files are preserved and
+offline allocation is clean. The exact staged EFI payload explicitly refuses
+Q35 at the native PCI/ownership gate, then unmounts and returns normally.
+No VM energy or temperature values are treated as native observations.
+
+An initial verbose-UI TCG rehearsal failed at a 513,336 us loop; exploratory KVM
+also faulted on a battery query deadline. Both remain failed evidence. The power
+profile now uses ordinary desktop UI instrumentation, retaining phase receipts
+and periodic telemetry without extra verbose resource tracing. The subsequent
+complete TCG run passes the same 500 ms loop and 10 s app limits; KVM is not
+acceptance evidence. The final harness additionally checks explicit refusal
+messages, without changing the staged runtime.
+
+Run `feba3c750d2a4a8d` retains the 447-file / 1,490-cluster USB baseline, UUID
+`6ADA-85BB`, console recovery `c35475f62f154f1e`, accepted CPU-power payload
+`a5f8fdf5d377c116` and accepted stress payload `012aaffda0be860b`. Only the
+superseded incomplete CPU capture's EFI copy `22632f396dab67a4` was retired after
+verifying its durable backup. The new payload and run evidence are backed up
+outside `build`; automatic Ubuntu collection is prepared. Keep AC/USB attached,
+leave input alone, and collect matching phase measurements before acceptance.
+Native combined desktop power, temperature and worker-wakeup results are pending.

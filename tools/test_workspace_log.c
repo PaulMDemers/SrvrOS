@@ -6,6 +6,7 @@
 static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true;
+static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
@@ -19,7 +20,7 @@ static struct item *find(const char *p) { for(unsigned i=0;i<count;i++) if(!strc
 static struct item *add(const char *p) { assert(count<64 && strlen(p)<160);struct item *f=&files[count++];strcpy(f->path,p);return f; }
 const struct vfs_node *vfs_lookup(const char *p) { assert(depth);struct item *f=find(p);return f?&f->node:NULL; }
 bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
-    assert(depth && !strcmp(p,"/work/srvros-work/Logs") && f==32 && d==8);return capacity_ok;
+    assert(depth && !strcmp(p,"/work/srvros-work/Logs") && f==expected_capacity && d==8);return capacity_ok;
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
@@ -92,5 +93,19 @@ int main(void) {
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);sync_ok=true;
     assert(workspace_log_start());io_ok=false;old_writes=writes;
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);io_ok=true;
+    count=0;enabled=false;busy=false;expected_capacity=64;
+    capacity_ok=false;assert(!workspace_log_start_capture());capacity_ok=true;
+    assert(workspace_log_start_capture() && retain_checkpoints && checkpoint==0);
+    for(unsigned i=0;i<32;i++) {
+        assert(periodic_save());
+        char expected[160];snprintf(expected,sizeof(expected),"%s/checkpoint-%02x.log",directory,i);
+        assert(find(expected));
+    }
+    old_writes=writes;assert(!periodic_save() && writes==old_writes && checkpoint==32);
+    assert(workspace_log_stop());
+    expected_capacity=32;assert(workspace_log_start() && !retain_checkpoints && checkpoint==0);
+    assert(periodic_save() && strstr(path,"session-a.log"));
+    assert(periodic_save() && strstr(path,"session-b.log"));
+    assert(workspace_log_stop());
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }

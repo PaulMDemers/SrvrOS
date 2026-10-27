@@ -620,6 +620,17 @@ class CollectionTests(unittest.TestCase):
             self.assertIn('collection: missing exit snapshot; session incomplete',item['attention'])
             self.assertEqual(report['hardware_acceptance'],'manual-pending')
 
+    def test_bounded_power_checkpoints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'
+            folder.mkdir(parents=True);(work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for i in range(33):(folder/f'checkpoint-{i:02x}.log').write_text(f'checkpoint {i}\n')
+            out,_=desktop.collect(mount,'37d8c5d0',root/'out')
+            for i in range(32):self.assertEqual((out/folder.name/f'checkpoint-{i:02x}.log').read_bytes(),(folder/f'checkpoint-{i:02x}.log').read_bytes())
+            self.assertFalse((out/folder.name/'checkpoint-20.log').exists())
+            (folder/'checkpoint-00.log').unlink();(folder/'checkpoint-00.log').symlink_to(folder/'checkpoint-01.log')
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+
     def test_logs_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'
