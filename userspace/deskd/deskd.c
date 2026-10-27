@@ -1920,7 +1920,8 @@ int main(int argc,char **argv) {
                     audio_io_complete=status==0;audio_io_finished=1;audio_io_pid=0;failed=!audio_io_complete;
 
                     if(audio_io_attended)desk_log("desktop-attended-load: finished complete=%s; awaiting normal user exit\n",audio_io_complete?"yes":"NO");
-                    strcpy(s.scene.notice,audio_io_complete?"Load complete. Save notes/screenshots, then SrvrOS > Return to console.":"Load FAILED. Save notes/screenshots, then Return to console; report the failure.");
+                    if(audio_io_attended)strcpy(s.scene.notice,audio_io_complete?"Load complete. Save notes/screenshots, then SrvrOS > Return to console.":"Load FAILED. Save notes/screenshots, then Return to console; report the failure.");
+                    else strcpy(s.scene.notice,audio_io_complete?"Playback complete. Finishing screenshot and automatic exit checks; no input needed.":"Load failed. Collecting diagnostics and returning automatically.");
                     desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
                 }
                 if(now-audio_io_begin>((uint64_t)audio_io_seconds+90)*1000000){failed=1;break;}
