@@ -9938,3 +9938,27 @@ Collect matching v100 FIRST on return; require all three independently stopped/
 restored visits and complete-prefix proof before acceptance. Quiet visits do
 not establish reception. Association/security, authorized IP and Wi-Fi UI remain
 pending. Workspace unmounted, Ubuntu default, no reboot armed.
+
+
+### 2026-10-27 — v100 return collected; pre-scan timing refusal
+
+Release `a7bc67f2d057e7d8`, source `2847cb05`, saved session
+`session-00065ed80b7c4d71-00` and returned automatically. The complete startup
+prefix is535857 bytes within the1MiB snapshot, with both failure completion
+markers. No scan visit or receive window ran. Post-channel baseband setup
+completed189 operations; post-VCO observation completed63 operations with
+six delayed samples and first_clear1. Its immediate post-trigger read was
+`0x30`, followed by six delayed `0x30` reads; the existing captured-profile
+gate requires immediate `0xb0`. AGC-state ownership consequently refused
+before its first read (`status=1 attempted=0 reads=0`). This is a timing-profile
+refusal, not evidence of a failed three-channel receive or proven RF lock.
+
+The strict checker refused the absent scan progress marker as expected. Raw
+capture, original refusal and failed run are preserved outside build in
+`wifi-scan-native-2847cb0`. Seven installed payloads and Ubuntu recovery were
+verified, the one-shot entry consumed, and the workspace unmounted. Offline
+checks report351 files,887 clusters,147 directories, zero leaks, bitmap
+mismatches or errors. V99 remains the latest native acceptance. Next: reproduce
+the immediate-clear post-VCO variant in a focused prerequisite regression and
+review a bounded timing contract before any candidate retry; preserve guard,
+framing and delayed-sample requirements. No new acceptance or reboot armed.
