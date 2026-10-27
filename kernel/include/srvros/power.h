@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Read-only, opt-in captured 06_3D and 06_46 CPU telemetry. CPU0 active frequency and package
+/* Read-only, opt-in captured 06_3D, 06_45 and 06_46 CPU telemetry. CPU0 active frequency and package
  * energy have different scopes; neither measures battery or wall power. */
 enum power_state { POWER_DISABLED, POWER_UNAVAILABLE, POWER_ACTIVE };
 enum power_flags { POWER_ENERGY_VALID=1, POWER_FREQUENCY_VALID=2, POWER_STALE=4 };
@@ -24,4 +24,9 @@ void power_expire(struct power_snapshot *,uint64_t now);
 void power_init(void);
 void power_status(struct power_snapshot *);
 void power_print_status(void);
+/* Explicit bounded load diagnostic only. Retain cached samples in RAM at
+ * >=5-second intervals; stop emits their original timestamps to the boot log.
+ * No provider activation, extra MSR reads, disk I/O or sampling-policy changes. */
+bool power_capture_start(void);
+void power_capture_stop(void);
 #endif

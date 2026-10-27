@@ -3903,3 +3903,68 @@ USB preflight matches the prior 439 files / 1,480 clusters without leaks or
 mismatches. Verified payload and evidence backups are outside `build`; Ubuntu,
 console recovery and accepted combined desktop remain available. No input or
 listening is required; leave AC and USB connected. Native acceptance is pending.
+
+### Read-only CPU power telemetry — first native result (2026-10-27)
+
+Release `22632f396dab67a4`, runtime `932f7b50`, merged PR208 `c07dc402`,
+saved session `session-00065ed46d470f31-00` and returned automatically to Ubuntu.
+All three 30-second phases completed; load executed 250,652 integer-work chunks.
+The power provider reports the captured units/reference, both validity flags
+and zero rejected samples throughout the measured checkpoints. Thermal/fan
+checks completed without a stop; peak logged core/package temperatures are
+61/63 C and fan observations span 1,171–1,234 RPM.
+
+Covered load power is 5.134 W over 10.999826 seconds with CPU0 active frequency
+1,300 MHz. Recovery is 4.127 W over 20.999667 seconds and 1,288 MHz. These are
+short console-workload package measurements, not whole-machine power or savings.
+The complete three-phase telemetry trial remains **incomplete**: the two eligible
+idle checkpoints span 9.999841 seconds, 159 microseconds below the unchanged
+ten-second coverage requirement. The next checkpoint was logged after idle
+ended and is correctly excluded. No missing data or hardware error is inferred
+from this coverage refusal; do not round it into a pass or weaken the threshold.
+Next work should make phase checkpoints reliably cover the existing window.
+
+All 439 prior files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the volume to 443 files / 1,485 clusters; offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. Collected evidence
+and the payload are verified outside `build`. The collector is disabled, the
+one-shot boot entry is consumed and no further reboot is armed. Existing accepted
+desktop/recovery payloads remain the recovery reference.
+
+### CPU power phase logging — active scope (2026-10-27)
+
+Base `99241a70` contains the collected incomplete v35 run. The bounded objective
+is to retain extra cached power checkpoints inside each unchanged 30-second
+phase so idle has more than the unchanged ten seconds of required coverage.
+Touch the explicit power diagnostic checkpoint path, v35 main wiring, service
+and collector regressions, and this unit's trial documentation. Keep ordinary
+power sampling and USB logging cadence unchanged; retain a bounded in-memory
+capture and emit it before the final persisted report. No new MSR reads/writes,
+CPU policies, sensor gates or acceptance-limit changes. PR182 filesystem/backend
+work and PR19 Wi-Fi have no overlapping power scope. After host/VM validation,
+merge and repeat the automatic native test under the user's reboot authorization.
+
+### CPU power phase logging — repeat candidate ready (2026-10-27)
+
+PR210 runtime `e7a41714` retains up to 24 already-sampled power snapshots in
+static memory at intervals of at least five seconds, only during v35's explicit
+load diagnostic. It prints their original sample timestamps after stopping
+retention and before the final workspace save. No extra MSR reads, allocations,
+disk writes or wakeups; sampling/USB cadence and all duration, thermal and
+collector limits remain unchanged. The collector refuses malformed, truncated
+or overflowed retained captures and keeps the ten-second per-phase requirement.
+
+Full host/core, standard matched build and docs pass. Driver regressions cover
+sampling drift across all phases, no extra reads, capacity/stop/restart and
+refused CPUs. Collector regressions reproduce the exact native shortfall and
+show added checkpoints supply valid coverage; the original parser fails both
+new coverage cases. CPU-load safety fixtures retain all twelve refusal/stop
+paths. Power/load disabled and unsupported-hardware VMs pass.
+
+Exact v35 release `a5f8fdf5d377c116` passes GPT workspace save/unmount/automatic
+return and missing-workspace halt rehearsals. The repeat native trial keeps
+30 seconds each idle/load/recovery with visible progress and automatic Ubuntu
+collection. USB baseline is 443 files / 1,485 clusters with clean allocation.
+The older stress payload's EFI copy was retired only after durable hash
+verification; latest accepted stress `012aaffda0be860b`, console recovery and
+current installed payload remain protected. Native repeat acceptance is pending.

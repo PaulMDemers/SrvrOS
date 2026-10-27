@@ -688,3 +688,33 @@ returns to Ubuntu. Require all three phases, nonzero load work, valid power
 coverage in each phase, preserved files and clean offline allocation checks.
 An emulated refusal verifies save/return only. Native Air6,1 acceptance is pending;
 ordinary desktop power telemetry, CPU policy and fan control remain unchanged.
+
+The first Air6,1 v35 run (`22632f396dab67a4`, October 27) completed all three
+phases with fresh valid power counters and zero rejected samples. Covered load
+measured 5.134 W / 1,300 MHz over 10.999826 seconds; recovery measured
+4.127 W / 1,288 MHz over 20.999667 seconds. Initial idle remains unavailable:
+its two eligible checkpoints span 9.999841 seconds, below the ten-second floor.
+The next checkpoint's logging timestamp falls outside idle. This is incomplete
+three-phase evidence, not a reason to relax coverage or claim an idle baseline.
+The next capture needs more reliable phase checkpoint coverage. Peak logged
+package temperature was 63 C, and automatic return/file preservation passed.
+
+### Bounded phase checkpoint retention
+
+The explicit v35 CPU-load path now starts a bounded in-memory power capture
+around `threadstress --cpu-load-capture`. After an ordinary power sample, the
+provider retains its cached snapshot when at least five seconds have elapsed
+since the previous retained point. Up to 24 snapshots fit in static storage;
+there are no additional MSR reads, allocation, disk writes or sample wakeups.
+Ordinary power/desktop boots do not activate this capture. The bootstrap caller
+stops retention before emitting the records and the final workspace save.
+
+`cpu-load-power` rows carry the original sampling timestamp as `monotonic_us`;
+they are historical checkpoints printed after the phases, not current readings
+at print time. The collector verifies the count/overflow receipt, combines these
+with ordinary workspace checkpoints, and retains the same per-phase boundaries,
+ten-second minimum, freshness, counter continuity and validity checks. Missing,
+truncated or overflowed captures cannot supply phase power. The 24-row bound is
+not extended if a diagnostic stalls. The ordinary ten-second USB logging cadence,
+30/30/30-second phases and all thermal stops remain unchanged. This instrumentation
+changes the capture baseline; do not infer savings by comparing it to an older run.
