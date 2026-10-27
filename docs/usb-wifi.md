@@ -4809,3 +4809,39 @@ literal/default/long budget behavior, six invalid budgets, long empty/partial/
 completed windows, long clock failure and budget-identity mutation, plus all
 prior descriptor/ownership/stop/cancellation/shared-keyboard cases. Physical
 v95 remains pending; the last native v94 observation was empty, as recorded above.
+
+
+### 2026-10-26 — v95 ten-second trial installed, unarmed
+
+Source `e9acacd5041587caf8b31f751270f7a68ab3e97b`, release
+`84afc9dee029775f`, v95 automatic return.75 actual native short/long budget,
+allocation, parent/power-on, shared-keyboard, event, ownership and exact-stop
+scenarios pass.246 engine cases, native/pure ASan/UBSan,182 staging tests and
+full merged committed-source image/core/desktop tests pass. The strict whole
+prefix checker accepts11 outcomes and refuses137 malformed proofs;188 older
+Wi-Fi recipes and both desktop configurations remain byte-identical.25 native
+printf formats match argument counts. Original parser, parent MAC cycle,
+calibration helpers and native power-on adapter remain unchanged.
+
+The staged kernel and independently firmware-packaged initramfs match the final
+committed-source products. Exact GPT-stage VM saved byte-verified diagnostics,
+unmounted cleanly and returned automatically. Missing workspace refused before
+probing and returned; Q35 results establish workflow only, not native reception.
+
+Current v95, accepted v93 fallback and e47 previous recovery match durable
+payloads. EFI space was recovered by first selecting verified v93 as current
+while keeping Ubuntu default/e47 recovery, then removing the now-obsolete quiet
+v94 only after full durable equality; v95 was installed afterward. V94's full
+payload/empty-window evidence remains outside build. EFI order and Ubuntu default
+are preserved; no one-shot armed. Offline workspace:335files,823clusters,
+141directories; zero leaks/bitmap mismatches/errors, unmounted. Durable candidate
+archive: `wifi-rx-window-long-e9acacd`.
+
+After readiness, power off, unplug Wi-Fi10s while off, reconnect and power on;
+leave workspace connected. Guest shows the up-to10s listening window, saves
+results and returns automatically; no photos or commands needed. Collect the
+matching v95 FIRST with `rx-window-long/collect_return.py`. Require whole earlier
+proof, ten-second/count accounting, exact byte/event phase, parent cleanup,
+exact stop and six guards. An empty window or stopped-event residue is not
+packet reception; no repeated native submission, scan/security/IP/UI or RF
+performance claim is made before those outcomes are observed.
