@@ -25,6 +25,19 @@ with channel/identifier handling and UI separated from later association,
 security and Wi-Fi IP. Original strict helper remains unchanged; RF0:6 semantics
 remain unresolved. Complete v95 evidence is archived outside build.
 
+Active native discovery block (2026-10-27): actual main `6b6d2f4d` merges PR203
+Air screenshot evidence only; open PR182 owns filesystem imports, no MT76
+overlap. Bind the validated discovery helper to separate selector74/v96 after
+ten-second window finish, parent cleanup, exact stopped context and six guards.
+Retain copied identifiers privately; save only bounded counts and non-identifying
+row metadata. Keep all v1-v95 recipes/behavior and parser/calibration/RF setup
+unchanged. Touched: xHCI discovery callback/state/logging, main/staging/smoke,
+actual native fault fixtures, strict saved-proof checker and unit/Wi-Fi guides.
+Dependencies: v95 repeated-receive proof and `987fff2e` collector. Checkpoint:
+actual stop/ownership/ledger/no-replay failure tests, sanitizers, merged core/image,
+exact-stage save/refusal VM, durable recovery/run/evidence before cold-trial
+readiness. Native AP results are pending; no reboot armed.
+
 Completed offline implementation (2026-10-27): merged actual main `a247bef9` (PR202 bounded pipe
 copies/screenshot latency); open PR182 owns filesystem imports and does not
 overlap MT76. Prepare an allocation-free passive access-point result table
