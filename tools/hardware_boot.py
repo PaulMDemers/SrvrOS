@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-posix|1-storage-wait|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -112,17 +112,18 @@ def limine_config(release, version=CONFIG_VERSION):
             cmdline += f" srvros.desktop-release={release} srvros.laptop-services=brightness"
         if version.startswith(("ram-usb-v57-","ram-usb-v59-")): cmdline += " srvros.audio=hda"
         if version.startswith("ram-usb-v59-"): cmdline += " srvros.sensors=cpu srvros.smc=read-only"
-        if version.startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-","ram-usb-v72-","ram-usb-v73-","ram-usb-v74-","ram-usb-v75-","ram-usb-v76-")):
+        if version.startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-","ram-usb-v72-","ram-usb-v73-","ram-usb-v74-","ram-usb-v75-","ram-usb-v76-","ram-usb-v77-")):
             cmdline = cmdline.replace("srvros.desktop=trial", "srvros.desktop=session")
             cmdline += f" srvros.desktop-release={release} srvros.battery=on"
         if version.startswith(("ram-usb-v55-","ram-usb-v73-","ram-usb-v75-","ram-usb-v76-")):
             cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only srvros.usb-network=ecm"
-        if version.startswith(("ram-usb-v71-","ram-usb-v72-","ram-usb-v74-")):
+        if version.startswith(("ram-usb-v71-","ram-usb-v72-","ram-usb-v74-","ram-usb-v77-")):
             cmdline += " srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only"
         if version.startswith("ram-usb-v72-"): cmdline += " srvros.desktop-reopen-test=on"
         if version.startswith("ram-usb-v76-"): cmdline += " srvros.desktop-guide=window-navigation"
         if version.startswith("ram-usb-v75-"): cmdline += " srvros.desktop-guide=application-lifecycle"
         if version.startswith("ram-usb-v74-"): cmdline += " srvros.desktop-audio-io=on"
+        if version.startswith("ram-usb-v77-"): cmdline += " srvros.desktop-audio-io=attended"
         if version.startswith("ram-usb-v73-"): cmdline += " srvros.desktop-capacity-test=on"
         if version.startswith("ram-usb-v58-"):
             cmdline += f" srvros.desktop-release={release} srvros.desktop-check=devices"
@@ -189,7 +190,7 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False, desktop_reopen_test=False, posix_capture=False, desktop_capacity_test=False, desktop_lifecycle_trial=False, desktop_audio_io_test=False, desktop_navigation_trial=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False, desktop_reopen_test=False, posix_capture=False, desktop_capacity_test=False, desktop_lifecycle_trial=False, desktop_audio_io_test=False, desktop_audio_io_attended=False, desktop_navigation_trial=False):
     if desktop_navigation_trial:
         allowed={"desktop_volume","desktop_battery","desktop_services","desktop_navigation_trial","repeat","desktop_scale"}
         if not desktop_volume or not desktop_battery or not desktop_services or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
@@ -210,13 +211,15 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         allowed={"laptop_probe_volume", "storage_wait_capture", "repeat", "desktop_scale"}
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Storage wait comparison requires its own automatic laptop probe profile")
+    if desktop_audio_io_attended and (desktop_audio_io_test or desktop_reopen_test or desktop_capacity_test or not (battery_air61 and desktop_battery and desktop_services)):
+        raise ValueError("Attended audio I/O requires its separate Air6,1 combined profile")
     if desktop_audio_io_test and not (battery_air61 and desktop_battery and desktop_services and not desktop_reopen_test and not desktop_capacity_test):
         raise ValueError("Audio I/O diagnostic requires its own Air6,1 combined battery desktop")
     if desktop_reopen_test and not (battery_air61 and desktop_battery and desktop_services):
         raise ValueError("Reopen diagnostic requires Air6,1 combined battery desktop")
     if battery_home_work and not battery_air61:raise ValueError("Attended Home work currently requires Air6,1 profile")
     if battery_air61 and desktop_battery:
-        allowed={"desktop_volume", "desktop_battery", "desktop_services", "desktop_reopen_test", "desktop_audio_io_test", "battery_air61", "repeat", "desktop_scale"}
+        allowed={"desktop_volume", "desktop_battery", "desktop_services", "desktop_reopen_test", "desktop_audio_io_test", "desktop_audio_io_attended", "battery_air61", "repeat", "desktop_scale"}
         if not desktop_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Air6,1 ordinary battery requires its own unscaled desktop profile")
     elif battery_air61:
@@ -279,7 +282,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v{76 if desktop_navigation_trial else 75 if desktop_lifecycle_trial else 74 if desktop_audio_io_test else 73 if desktop_capacity_test else 72 if desktop_reopen_test else 71 if battery_air61 and desktop_services else 70 if battery_air61 and desktop_battery else 58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
+        version = f"ram-usb-v{77 if desktop_audio_io_attended else 76 if desktop_navigation_trial else 75 if desktop_lifecycle_trial else 74 if desktop_audio_io_test else 73 if desktop_capacity_test else 72 if desktop_reopen_test else 71 if battery_air61 and desktop_services else 70 if battery_air61 and desktop_battery else 58 if desktop_device_checks else 55 if desktop_services else 54 if desktop_battery else 59 if desktop_basic and desktop_sensors else 57 if desktop_basic and desktop_audio else 56 if desktop_basic and desktop_brightness else 53 if desktop_basic else 37 if desktop_network else 36 if desktop_sensors else 31 if desktop_audio else 30 if desktop_brightness else 29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
@@ -461,6 +464,8 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
+    elif verify(source).get("config_version", "").startswith("ram-usb-v77-"):
+        print("Attended audio/USB load: Help checklist opens automatically; 30-minute load, then save and exit manually. No automatic reboot.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v76-"):
         print("Attended window/dock/navigation checklist opens automatically in Help; no timer. Save, Return to console, then reboot manually.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v75-"):
@@ -496,6 +501,7 @@ def main():
     parser.add_argument("--desktop-navigation-trial",action="store_true",help="attended window/dock/keyboard checklist; opens Help automatically, no timed exit")
     parser.add_argument("--desktop-lifecycle-trial",action="store_true",help="attended owned-dialog/quit/reopen checklist; opens Help automatically, no timed exit")
     parser.add_argument("--desktop-capacity-test",action="store_true",help="automatic two-round 24-app capacity test; saves and returns without input")
+    parser.add_argument("--desktop-audio-io-attended",action="store_true",help="attended Air6,1 desktop with automatic 30-minute audio/disk load and guest checklist; manual exit")
     parser.add_argument("--desktop-audio-io-test",action="store_true",help="automatic 30-minute Air6,1 PCM and verified USB stress; listening only")
     parser.add_argument("--desktop-reopen-test",action="store_true",help="automated two-session Air6,1 startup diagnostic; fatal mounted faults halt")
     parser.add_argument("--desktop-basic",action="store_true",help="unscaled desktop/input; optional --desktop-brightness, --desktop-audio and --desktop-sensors")
@@ -587,7 +593,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_navigation_trial=args.desktop_navigation_trial)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
