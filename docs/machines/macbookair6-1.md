@@ -3685,3 +3685,33 @@ with three captures over 30 minutes and the unchanged audio/disk/app workload.
 Its record retains the 414-file USB baseline, original recovery and durable
 payload/evidence backup. Native latency improvement remains pending that return;
 the older inability to launch/exit is not claimed fixed by this VM result.
+
+### Screenshot transfer native return (2026-10-27)
+
+Release `39d73c7da8c8ab69`, source `69226122`, session
+`session-00065ec9d904ac27-00` substantially improves capture latency but **fails
+performance acceptance**. All three 1366×768 BMPs decode. Slowest capture falls
+from 202.486889 to 39.944696 s; retained captures 2/3 show pixel receipt of
+8.627094/10.959870 s, versus 117.302066 s in the prior slowest capture. Current
+capture 3 completes in 36.269593 s. Verification remains enabled.
+
+The full 1,800-second workload completes 2,831 verified bursts (742,129,664 bytes),
+345,600,000 PCM bytes and zero recorded underruns; the user confirms steady sound.
+There are 602 app cycles, no child errors and a successful post-capture Files
+cycle (0.721493 s). Cooperative exit is requested, final operation queues/windows
+are empty and battery runtime retires with heap zero and no errors/denials.
+The desktop and outer controls correctly propagate a failed test result.
+
+One of 104,634 measured loops takes 660.272 ms, exceeding the unchanged 500 ms
+limit. It occurs about 33.6 s after boot; 655.438 ms is in post-render handling,
+which includes capture polling/completion. Rendering is 4 us and final wait is
+4.773 ms, so the evidence does not attribute it to drawing or final wake delay.
+Exact capture suboperation is not retained: completion/descriptor cleanup and
+snapshot release require targeted investigation, not a claimed diagnosis.
+Readiness/close maxima are 2.161654/6.160328 s under the original cycle policy.
+
+All 414 prior files survive except expected `.srvros/meta` bookkeeping. Offline
+fsck/allocation are clean: 423 files, 1,331 clusters, zero leaks/mismatches/errors.
+Evidence and decoded-image checks are backed up outside `build`; the collector
+is disabled and the one-shot entry consumed. No new boot is armed. Preserve
+all limits and accepted-writer/file-integrity rules in the next investigation.
