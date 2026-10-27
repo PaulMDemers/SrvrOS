@@ -189,6 +189,9 @@ bool process_tty_set_group(struct process *process,uint64_t fd,uint64_t group);
 void process_tty_hangup(uint64_t handle);
 void process_tty_signal(uint64_t handle,uint64_t signal);
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
+/* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
+ * broken-pipe signal. Scheduler same-process exclusion still applies. */
+bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 int64_t process_unix_bind(struct process *process, const char *path);

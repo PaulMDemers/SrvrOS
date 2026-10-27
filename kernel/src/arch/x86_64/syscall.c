@@ -374,8 +374,9 @@ static bool io_try_pipe_write(uint64_t fd) {
         f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
         process_file_nonblocking(process_current(),fd);
 }
-static bool io_defer_pipe_write(uint64_t fd) {
+static bool io_defer_pipe_write(uint64_t fd,uint64_t length) {
     if(io_try_pipe_write(fd)) {
+        if(process_file_pipe_io_safe(process_current(),fd,length,true))return false;
         /* Match the try-read contract: never enter descriptor/signal cleanup
          * while another process owns storage. Request a quiescent retry turn
          * so a continuous writer cannot starve worker request submission. */
@@ -412,7 +413,7 @@ static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bo
 }
 
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
-    if(io_defer_pipe_write(fd)) return length?SRV_ERR_AGAIN:0;
+    if(io_defer_pipe_write(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,false)) return SRV_ERR_FAULT;
     return write_buffer(fd,buffer,length,false);
 }
@@ -515,8 +516,9 @@ static bool io_try_pipe_read(uint64_t fd) {
         f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
         process_file_nonblocking(process_current(),fd);
 }
-static bool io_defer_pipe_read(uint64_t fd) {
+static bool io_defer_pipe_read(uint64_t fd,uint64_t length) {
     if(io_try_pipe_read(fd)) {
+        if(process_file_pipe_io_safe(process_current(),fd,length,false))return false;
         /* Replies need the same quiescent admission as requests and reaps.
          * Remain nonblocking and user-safe until the owner has unwound. */
         if(scheduler_io_busy()) { scheduler_io_request_turn();return true; }
@@ -549,7 +551,7 @@ static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length) {
 }
 
 static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
-    if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
+    if(io_defer_pipe_read(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,true)) return SRV_ERR_FAULT;
     return read_buffer(fd,buffer,length);
 }

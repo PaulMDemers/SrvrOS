@@ -684,3 +684,19 @@ state and the slowest completed capture. `snapshot_us` correlates records; a
 partial record set never counts as completed evidence. `operation_timing.py`
 can recover the latest complete periodic snapshot from failed runs, while
 acceptance requires final records. Ordinary desktop policy remains unchanged.
+
+### Bounded screenshot pipe transfers under storage load
+
+Screenshot request pixels and progress replies use nonblocking transfers bounded
+by the existing 4096-byte `SRV_PIPE_BUF`. The worker waits on readiness for short
+I/O/EAGAIN and retries interruptions; immutable parent pixels, the four-chunk UI
+poll budget, pipe capacity, capture size, write/flush/readback/identity checks and
+accepted writer lifetime are unchanged.
+
+Only IRQ-disabled pipe byte operations that cannot block, release transferred
+file rights or deliver broken-pipe signals bypass the storage retry gate. Reads
+with queued rights, writes with no readers, PTYs, blocking descriptors, larger
+requests and invalid handles retain existing admission. User-memory validation,
+same-process storage exclusion, cancellation and retirement gates remain in force.
+The stress profile still takes three captures and retains worker/launch/exit
+diagnostics; no performance or owner deadline is raised.

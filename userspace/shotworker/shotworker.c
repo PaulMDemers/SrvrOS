@@ -1,12 +1,27 @@
 #include "save.h"
 #include <srvros/bmp.h>
 #include <srvros/sys.h>
+#include <srvros/io_limits.h>
 #include <sys/mman.h>
 #include <signal.h>
 #include <string.h>
 static int transfer(int fd,void *data,size_t length,int writing) {
     unsigned char *p=data;
-    while(length) { long n=writing?srv_write(fd,p,length):srv_read(fd,p,length);if(n<=0 || (size_t)n>length) return -1;p+=n;length-=n; }
+    while(length) {
+        size_t count=length>SRV_PIPE_BUF?SRV_PIPE_BUF:length;
+        long n=writing?srv_write(fd,p,count):srv_read(fd,p,count);
+        if(n==SRV_ERR_INTR)continue;
+        if(n==SRV_ERR_AGAIN) {
+            struct srv_pollfd wait={.fd=fd,.events=writing?SRV_POLLOUT:SRV_POLLIN};
+            long ready=srv_poll(&wait,1,-1);
+            if(ready==SRV_ERR_INTR)continue;
+            if(ready<=0 || (wait.revents&SRV_POLLNVAL))return -1;
+            /* Retry even on HUP/ERR: drain remaining data or obtain EPIPE. */
+            continue;
+        }
+        if(n<=0 || (size_t)n>count)return -1;
+        p+=n;length-=n;
+    }
     return 0;
 }
 struct progress_writer { uint32_t id;int broken; };
@@ -19,7 +34,8 @@ static void progress(void *context,unsigned phase,uint64_t bytes) {
     if(transfer(1,&frame,sizeof(frame),1))writer->broken=1;
 }
 int main(void) {
-    srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE);
+    if(srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE) ||
+       srv_fcntl(0,SRV_F_SETFL,SRV_FD_NONBLOCK)<0 || srv_fcntl(1,SRV_F_SETFL,SRV_FD_NONBLOCK)<0)return 1;
     struct desk_capture_request q;
     if(transfer(0,&q,sizeof(q),0)) return 1;
     struct desk_capture_response r={.magic=DESK_CAPTURE_MAGIC,.id=q.id,.status=DESK_CAPTURE_INVALID};

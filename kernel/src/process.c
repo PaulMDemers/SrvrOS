@@ -5001,6 +5001,21 @@ int64_t process_unix_unlink(const char *path) {
     return 0;
 }
 
+bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing) {
+    struct process_file *file=process_file_at(process,fd);
+    if(!file || length>SRV_PIPE_BUF || !process_file_nonblocking(process,fd))return false;
+    if(file->type!=PROCESS_FILE_PIPE_DUPLEX &&
+       file->type!=(writing?PROCESS_FILE_PIPE_WRITE:PROCESS_FILE_PIPE_READ))return false;
+    struct process_pipe *pipe=pipe_at(writing && file->type==PROCESS_FILE_PIPE_DUPLEX?file->aux_handle:file->handle);
+    if(!pipe)return false;
+    /* Existing byte operations cannot wait on these descriptors. Keep signal
+     * dispatch and descriptor release outside an owned storage service window.
+     * Called with interrupts disabled; state cannot change before the copy. */
+    if(writing)return pipe->read_refs!=0;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(pipe->rights[i].used)return false;
+    return true;
+}
+
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
