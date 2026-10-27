@@ -9,7 +9,7 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
-from app_timing import validate_app_timing,saved_app_timing
+from app_timing import RECORD,validate_app_timing,saved_app_timing
 from loop_timing import validate_loop_timing
 from operation_timing import operation_snapshots
 
@@ -132,7 +132,12 @@ def main():
                         if name.endswith('.log'):
                             raw=final.read(logdir+'/'+name);snapshots.append(raw)
                             (out/('saved-'+name)).write_bytes(raw)
-                    timing=validate_app_timing(saved_app_timing(snapshots),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
+                    # This VM retains the complete UART capture as well as rotated disk
+                    # snapshots. Accept only whole console records, never repair
+                    # interleaved text; the existing complete-phase validator
+                    # still rejects every missing/conflicting lifecycle record.
+                    console_records=b'\n'.join(line for line in output.splitlines() if RECORD.fullmatch(line))
+                    timing=validate_app_timing(saved_app_timing([console_records,*snapshots]),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
@@ -158,7 +163,7 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False)
-                result.update(populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
+                result.update(app_timing_evidence='complete_console_records_and_atomic_snapshots',populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
