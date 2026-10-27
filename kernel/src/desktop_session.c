@@ -24,6 +24,7 @@ __attribute__((weak)) bool battery_home_desktop_lifecycle_session_run(void *rsdp
 }
 __attribute__((weak)) bool battery_home_desktop_audio_io_session_run(void *r,struct limine_memmap_response *m) {(void)r;(void)m;return false;}
 __attribute__((weak)) bool battery_home_desktop_audio_io_smoke_run(void *r,struct limine_memmap_response *m) {(void)r;(void)m;return false;}
+__attribute__((weak)) bool battery_home_desktop_navigation_session_run(void *r,struct limine_memmap_response *m) {(void)r;(void)m;return false;}
 static bool run(unsigned diagnostic) {
     if(!workspace_active() || !exfat_is_writable("/work")) {
         console_write("desktop-session: REFUSED mount a writable Home workspace first\n");
@@ -36,11 +37,12 @@ static bool run(unsigned diagnostic) {
         return false;
     }
     console_write("desktop-session: requested battery=on; Ctrl+Alt+Esc returns to monitor\n");
-    bool ok=(diagnostic==5?battery_home_desktop_lifecycle_session_run:diagnostic==4?battery_home_desktop_audio_io_smoke_run:diagnostic==3?battery_home_desktop_audio_io_session_run:diagnostic==2?battery_home_desktop_capacity_session_run:diagnostic?battery_home_desktop_reopen_session_run:battery_home_desktop_session_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+    bool ok=(diagnostic==6?battery_home_desktop_navigation_session_run:diagnostic==5?battery_home_desktop_lifecycle_session_run:diagnostic==4?battery_home_desktop_audio_io_smoke_run:diagnostic==3?battery_home_desktop_audio_io_session_run:diagnostic==2?battery_home_desktop_capacity_session_run:diagnostic?battery_home_desktop_reopen_session_run:battery_home_desktop_session_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     console_printf("desktop-session: returned complete=%s; Home remains mounted\n",ok?"yes":"NO");
     return ok;
 }
 
+bool desktop_battery_navigation_session_run(void) {return run(6);}
 bool desktop_battery_lifecycle_session_run(void) {return run(5);}
 bool desktop_battery_capacity_session_run(void) {return run(2);}
 

@@ -61,15 +61,20 @@ int desk_palette_open(struct desk_palette *p,const char *title,const struct desk
     if(!valid(title,sizeof(p->title))) return -1;
     char copy[96];strcpy(copy,title);
     if(desk_palette_items(p,items,count)) return -1;
-    strcpy(p->title,copy);desk_text_buffer_set(&p->text,"",0);desk_palette_filter(p);
+    p->choose_only=0;strcpy(p->title,copy);desk_text_buffer_set(&p->text,"",0);desk_palette_filter(p);
     p->query.enabled=1;p->list.enabled=1;desk_ui_window_focus(&p->ui,1);desk_ui_focus(&p->ui,QUERY);return 0;
+}
+int desk_palette_choose(struct desk_palette *p,const char *title,const struct desk_palette_item *items,unsigned count) {
+    if(desk_palette_open(p,title,items,count))return -1;
+    p->choose_only=1;p->query.enabled=0;desk_ui_focus(&p->ui,RESULTS);return 0;
 }
 void desk_palette_configure(struct desk_palette *p,struct desk_rect bounds) {
     if(bounds.w<0 || bounds.h<0 || bounds.w>16384 || bounds.h>16384 || bounds.x<0 || bounds.y<0 || bounds.x>16384 || bounds.y>16384) return;
     int w=bounds.w>32?bounds.w-32:bounds.w,h=bounds.h>32?bounds.h-32:bounds.h;if(w>560) w=560;if(h>400) h=400;
     struct desk_rect r={bounds.x+(bounds.w-w)/2,bounds.y+(bounds.h-h)/2,w,h};p->frame=r;
-    desk_edit_configure(&p->query,desk_intersect(r,(struct desk_rect){r.x+16,r.y+52,w>32?w-32:0,36}),&desk_font_16,1);
-    desk_list_configure(&p->list,desk_intersect(r,(struct desk_rect){r.x+16,r.y+100,w>32?w-32:0,h>140?h-140:0}),1);
+    desk_edit_configure(&p->query,p->choose_only?(struct desk_rect){0}:desk_intersect(r,(struct desk_rect){r.x+16,r.y+52,w>32?w-32:0,36}),&desk_font_16,!p->choose_only);
+    int top=p->choose_only?52:100,bottom=top+40;
+    desk_list_configure(&p->list,desk_intersect(r,(struct desk_rect){r.x+16,r.y+top,w>32?w-32:0,h>bottom?h-bottom:0}),1);
     desk_ui_layout_changed(&p->ui);
 }
 unsigned desk_palette_focus(struct desk_palette *p,int active) { return desk_ui_window_focus(&p->ui,active); }
@@ -106,6 +111,6 @@ void desk_palette_draw(struct desk_canvas *c,const struct desk_palette *p,const 
     struct desk_rect clip=c->clip;desk_clip(c,desk_intersect(clip,r));
     desk_label_draw(c,(struct desk_rect){r.x+16,r.y+16,r.w>32?r.w-32:0,28},theme->heading,p->title,theme->text);
     desk_ui_draw(c,&p->ui,theme);
-    desk_label_draw(c,(struct desk_rect){r.x+16,r.y+r.h-28,r.w>32?r.w-32:0,24},theme->body,p->notice[0]?p->notice:r.w<420?"Enter: open · Esc: close":"Type to search · Enter to open · Esc to close",theme->muted);
+    desk_label_draw(c,(struct desk_rect){r.x+16,r.y+r.h-28,r.w>32?r.w-32:0,24},theme->body,p->notice[0]?p->notice:p->choose_only?"Enter: choose · Esc: close":r.w<420?"Enter: open · Esc: close":"Type to search · Enter to open · Esc to close",theme->muted);
     desk_clip(c,clip);
 }

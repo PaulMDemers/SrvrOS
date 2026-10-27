@@ -419,7 +419,7 @@ static void dynamic_registry(void) {
     session_client(&s,99)->identity=1000;
     assert(!window_lifetime_valid(&s,99,100));
     s.scene.focus=127;global_menu_action(&s,GLOBAL_WINDOW+100);assert(s.scene.focus==127);
-    s.scene.launcher_open=1;s.overlay_return=99;s.overlay_identity=100;launcher_close(&s);assert(s.scene.focus==-1);
+    s.scene.launcher_open=1;s.overlay_return=99;s.overlay_identity=100;launcher_close(&s);assert(s.scene.focus==127);
     /* Child records grow independently; window records/clipboard remain stable. */
     for(int i=0;i<16;i++)s.children[i]=42+i;
     assert(child_slot(&s)==16 && children_capacity(&s)==32 && session_capacity(&s)==128);
@@ -609,7 +609,65 @@ static void persistent_loop_timing(void) {
     capture_loop_log=0;
     puts("desktop-loop-timing: PASS exact bound, conserved stages, 1000-loop retention, periodic/final records, partial exit, invalid clock and bounded formatting");
 }
+static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {
+    return (struct srv_key_event){.usage=usage,.modifiers=modifiers,.flags=flags};
+}
+static void window_navigation(void) {
+    static struct session s;
+    s=(struct session){.dynamic=1,.registry_budget=DESK_REGISTRY_BYTES,.scene={.apps=1,.focus=-1}};
+    desk_damage_init(&s.damage,1280,800);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
+    while(session_capacity(&s)<128)assert(windows_grow(&s));
+    for(int i=0;i<80;i++) {
+        *session_client(&s,i)=(struct client){.pid=42,.identity=i+1,.window=i+1};
+        *desktop_window_at(&s.scene,i)=(struct desktop_window){.visible=1,.application=i%2?DESK_APP_FILES:DESK_APP_TEXT,.z=i+1,.frame={32,64,602,365}};
+        snprintf(desktop_window_at(&s.scene,i)->title,96,"Document %d",i+1);
+    }
+    s.scene.stack_serial=80;focus(&s,79);
+    struct srv_key_event key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);
+    assert(navigation_key(&s,&key) && s.switching && s.scene.focus==-1 && s.scene.launcher.list.count==80);
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==79+DESK_APP_COUNT);
+    uint64_t first=s.scene.launcher.visible[0].id;global_menu_rebuild(&s);focus(&s,3);
+    assert(s.overlay_return==79 && s.scene.launcher.visible[0].id==first); /* No focus steal or reorder. */
+    for(int n=0;n<78;n++)assert(navigation_key(&s,&key));
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==1+DESK_APP_COUNT);
+    key.flags=0;key.usage=0xe2;key.modifiers=0;
+    assert(navigation_key(&s,&key) && !s.switching && s.scene.focus==0); /* Commit on modifier release. */
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==80+DESK_APP_COUNT); /* MRU previous. */
+    key=navigation_event(SRV_KEY_ESCAPE,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key) && s.scene.focus==0);
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT|SRV_KEY_SHIFT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==2+DESK_APP_COUNT);
+    key=navigation_event(0,0,SRV_KEY_CANCEL);navigation_key(&s,&key);assert(!s.switching && s.scene.focus==0);
+    /* A reused slot cannot activate the old snapshot identity. */
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    session_client(&s,79)->identity=1000;
+    key=navigation_event(0xe2,0,0);navigation_key(&s,&key);assert(s.scene.focus==0);
+    /* Same-app order visits all roots in both directions, skipping other apps. */
+    key=navigation_event(0x35,SRV_KEY_META,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);assert(s.scene.focus==2);
+    navigation_key(&s,&key);assert(s.scene.focus==4);
+    key.modifiers|=SRV_KEY_SHIFT;navigation_key(&s,&key);assert(s.scene.focus==2);
+    /* A modal is one task with its parent; minimization hides the whole group. */
+    *session_client(&s,80)=(struct client){.pid=42,.identity=81,.window=81,.parent_window=3};
+    *desktop_window_at(&s.scene,80)=(struct desktop_window){.visible=1,.dialog=1,.application=DESK_APP_TEXT,.frame={80,100,400,300}};
+    focus(&s,2);assert(s.scene.focus==80);
+    key=navigation_event(0x10,SRV_KEY_META,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(desktop_window_at(&s.scene,2)->minimized && desktop_window_at(&s.scene,80)->minimized && s.scene.focus==4);
+    focus(&s,2);assert(s.scene.focus==80 && !desktop_window_at(&s.scene,2)->minimized);
+    forget(&s,80);assert(s.scene.focus==2); /* Modal closure restores its own parent. */
+    focus(&s,6);focus(&s,8);desktop_window_at(&s.scene,6)->minimized=1;
+    forget(&s,8);assert(s.scene.focus==2 && desktop_window_at(&s.scene,6)->minimized); /* No hidden resurrection. */
+    key=navigation_event(SRV_KEY_F2,SRV_KEY_CTRL,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key) && s.scene.menu.open==0);
+    key=navigation_event(SRV_KEY_ESCAPE,0,SRV_KEY_DOWN_EVENT);assert(desk_menu_key(&s.scene.menu,&key).consumed);
+    for(int j=0;j<session_capacity(&s);j++)if(session_client(&s,j)->pid)desktop_window_at(&s.scene,j)->minimized=1;
+    focus_best(&s);assert(s.scene.focus==-1);
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.switching && s.scene.launcher.choose_only && !s.scene.launcher.query.enabled && s.scene.launcher.list.count==79);
+    key=navigation_event(0xe2,0,0);navigation_key(&s,&key);assert(s.scene.focus>=0 && !desktop_window_at(&s.scene,s.scene.focus)->minimized);
+    registry_destroy(&s);assert(!registry_live);
+    puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
+}
 int main(void) {
+    window_navigation();
     persistent_loop_timing();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
@@ -860,8 +918,8 @@ int main(void) {
         if(!(i%8)) { item->flags=DESK_MENU_HEADING;strcpy(item->label,headings[i/8]); }
         else { item->id=i;snprintf(item->label,sizeof(item->label),"Action %u",i); }
     }
-    for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1; }
-    global_menu_rebuild(&s);assert(s.scene.menu.count==54+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
+    for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1;s.clients[i].parent_window=0;s.scene.windows[i].visible=1; }
+    global_menu_rebuild(&s);assert(s.scene.menu.count==56+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==GLOBAL_WINDOW+s.clients[i].identity;assert(found==1); }
     s.clients[0].menus=saved_menus;for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=0;global_menu_rebuild(&s);
     global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));

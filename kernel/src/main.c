@@ -778,7 +778,8 @@ void kmain(void) {
             console_sync();__asm__ volatile("cli":::"memory");halt_forever();
         }
         else if(cmdline_has_token(cmdline,"srvros.battery=on")) {
-            if(cmdline_has_token(cmdline,"srvros.desktop-guide=application-lifecycle"))desktop_battery_lifecycle_session_run();
+            if(cmdline_has_token(cmdline,"srvros.desktop-guide=window-navigation"))desktop_battery_navigation_session_run();
+            else if(cmdline_has_token(cmdline,"srvros.desktop-guide=application-lifecycle"))desktop_battery_lifecycle_session_run();
             else desktop_battery_session_run();
         }
         else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
