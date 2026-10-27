@@ -138,6 +138,7 @@ def main():
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
                     operations=operation_snapshots(snapshots,require_final=True)
+                    assert b'desktop-stress-exit: followup=PASS ' in output
                     assert operations['operations']['exiting']==1 and operations['operations']['queued']==0
                     assert b'desktop-stress-capture: result=PASS requested=1 saved=1 busy=0 normal_exit=1' in output
                     capture=operations['captures']['current']

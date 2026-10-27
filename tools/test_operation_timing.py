@@ -5,7 +5,7 @@ def fixture(final=0):
     lines=[f'desktop-operations: version=1 at_us=500 queued=1 exiting=1 final={final}']
     for kind in ('current','slowest'):
         lines.append(f'desktop-capture-state: version=1 snapshot_us=500 kind={kind} id=2 sent=100 total=200 received=0 phase=4 final={final}')
-        lines.extend(f'desktop-capture-phase: snapshot_us=500 kind={kind} id=2 phase={p} elapsed_us={p} final={final}' for p in range(1,13))
+        lines.append(f'desktop-capture-phases: snapshot_us=500 kind={kind} id=2 '+ ' '.join(f'p{p}_us={p}' for p in range(1,13))+f' final={final}')
     return ('\n'.join(lines)+'\n').encode()
 class Timing(unittest.TestCase):
     def test_failed_run_periodic_evidence(self):

@@ -653,7 +653,9 @@ exit without altering the native duration.
 
 The explicit v74 audio/disk/app trial now captures three screenshots during
 30-minute playback (one in the 60-second VM fixture), continues app cycles, and
-requests cooperative desktop exit when playback completes. A pass requires all
+opens/closes a fresh Files instance after capture completion, then requests
+cooperative desktop exit after playback. This final Files check retains the
+10-second app-cycle bound and is separate from the cycles during playback. A pass requires all
 requested captures, verified saves, app-cycle coverage and normal exit, in
 addition to the unchanged 500 ms loop, 5 s client and 10 s app-cycle limits.
 The playback, client and owner watchdogs are unchanged.
@@ -669,7 +671,7 @@ All original temporary ownership, destination checks, flush and readback remain.
 Stress-only diagnostic output uses a separate joined worker and fixed snapshot
 slot, so blocked app launch does not itself block status emission. Every ten
 seconds and at exit, `desktop-operations`, `desktop-capture-state` and
-`desktop-capture-phase` records retain pending launch/close/exit ages, capture
+`desktop-capture-phases` records retain pending launch/close/exit ages, capture
 state and the slowest completed capture. `snapshot_us` correlates records; a
 partial record set never counts as completed evidence. `operation_timing.py`
 can recover the latest complete periodic snapshot from failed runs, while

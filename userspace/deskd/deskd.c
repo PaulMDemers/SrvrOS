@@ -1159,6 +1159,7 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .total=sizeof(j->request)+desk_capture_bytes(j->request.width,j->request.height),.received=j->received,
         .age_us=j->started_us?((j->finished_us?j->finished_us:now)-j->started_us):0,
         .progress_age_us=j->last_progress_us && !j->finished_us?now-j->last_progress_us:0,.bytes=j->progress_bytes,
+        .started_us=j->started_us,.finished_us=j->finished_us,
         .id=j->request.id,.busy=j->busy,.pending=s->capture_pending,.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
@@ -1871,7 +1872,7 @@ int main(int argc,char **argv) {
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
     int audio_io_complete=0,audio_io_finished=0;
     unsigned stress_shots=0,stress_saved=0,stress_shot_seen=0;
-    uint64_t stress_shot_due=0;
+    uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0;unsigned followup_phase=0;
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
@@ -1917,10 +1918,7 @@ int main(int argc,char **argv) {
                 uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
                 if(done==(long)audio_io_pid) {
                     audio_io_complete=status==0;audio_io_finished=1;audio_io_pid=0;failed=!audio_io_complete;
-                    if(!audio_io_attended) {
-                        global_menu_action(&s,GLOBAL_EXIT);
-                        desk_log("desktop-stress-exit: requested shots=%u saved=%u busy=%u\n",stress_shots,stress_saved,s.capture.busy);
-                    }
+
                     if(audio_io_attended)desk_log("desktop-attended-load: finished complete=%s; awaiting normal user exit\n",audio_io_complete?"yes":"NO");
                     strcpy(s.scene.notice,audio_io_complete?"Load complete. Save notes/screenshots, then SrvrOS > Return to console.":"Load FAILED. Save notes/screenshots, then Return to console; report the failure.");
                     desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
@@ -1991,6 +1989,26 @@ int main(int argc,char **argv) {
                         (unsigned long long)c->progress,desktop_window_at(&s.scene,i)->pixels!=NULL);
                 }
                 failed=1;break;
+            }
+        }
+        if(audio_io && !audio_io_attended && audio_io_finished && !s.exiting) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            if(!followup_phase && !s.capture.busy && !s.capture_pending) {
+                followup_begin=now;spawn_app(&s,DESK_APP_FILES,"");followup_phase=1;
+            } else if(followup_phase==1) {
+                if(!followup_pid)followup_pid=s.last_launch_pid;
+                for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==followup_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
+                    followup_phase=2;followup_due=now+500000;break;
+                }
+            } else if(followup_phase==2 && now>=followup_due) {
+                for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==followup_pid)request_close(&s,i);
+                followup_phase=3;
+            } else if(followup_phase==3 && child_index(&s,followup_pid)<0) {
+                followup_phase=4;global_menu_action(&s,GLOBAL_EXIT);
+                desk_log("desktop-stress-exit: followup=PASS pid=%llu elapsed_us=%llu shots=%u saved=%u busy=%u\n",(unsigned long long)followup_pid,(unsigned long long)(now-followup_begin),stress_shots,stress_saved,s.capture.busy);
+            }
+            if(followup_phase && followup_phase!=4 && now-followup_begin>10000000) {
+                desk_log("desktop-stress-exit: followup=FAIL phase=%u pid=%llu elapsed_us=%llu\n",followup_phase,(unsigned long long)followup_pid,(unsigned long long)(now-followup_begin));failed=1;break;
             }
         }
         if(control_capture) {
@@ -2609,7 +2627,7 @@ int main(int argc,char **argv) {
             if(!audio_io_complete || s.child_errors || !loop_last || loop_max>500000 || !work_keys || !work_motion || !s.exiting)failed=1;
             desk_log("desktop-attended-load: result=%s complete=%s keys=%llu pointer_events=%llu normal_exit=%u errors=%u max_loop_us=%llu limit_us=500000 automatic_app_cycles=no\n",failed?"FAIL":"PASS",audio_io_complete?"yes":"NO",(unsigned long long)work_keys,(unsigned long long)work_motion,s.exiting?1u:0u,s.child_errors,(unsigned long long)loop_max);
         } else {
-        if(stress_saved!=(audio_io_smoke?1u:3u) || stress_shots!=stress_saved || s.capture.busy || !s.exiting)failed=1;
+        if(followup_phase!=4 || stress_saved!=(audio_io_smoke?1u:3u) || stress_shots!=stress_saved || s.capture.busy || !s.exiting)failed=1;
         desk_log("desktop-stress-capture: result=%s requested=%u saved=%u busy=%u normal_exit=%u\n",failed?"FAIL":"PASS",stress_shots,stress_saved,s.capture.busy,s.exiting);
         if(!audio_io_complete || life_cycles<6 || life_phase || s.child_errors || !loop_last || loop_max>500000 || !life_first || life_last-life_first<((uint64_t)audio_io_seconds-20)*1000000)failed=1;
         desk_log("desktop-life: result=%s cycles=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu errors=%u limit_us=500000 first_us=%llu last_us=%llu\n",failed?"FAIL":"PASS",life_cycles,(unsigned long long)loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max,s.child_errors,(unsigned long long)life_first,(unsigned long long)life_last);

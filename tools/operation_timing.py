@@ -5,7 +5,7 @@ def operation_snapshots(logs, require_final=False):
     records={}
     for raw in logs:
         for line in raw.decode(errors='replace').splitlines():
-            if not line.startswith(('desktop-operations:','desktop-capture-state:','desktop-capture-phase:')):continue
+            if not line.startswith(('desktop-operations:','desktop-capture-state:','desktop-capture-phases:')):continue
             fields=dict(re.findall(r'(\w+)=([^ ]+)',line))
             try:
                 values={k:(v if k=='kind' else int(v)) for k,v in fields.items()}
@@ -14,7 +14,7 @@ def operation_snapshots(logs, require_final=False):
                 group=records.setdefault(at,{'at_us':at,'captures':{},'phases':{}})
                 if line.startswith('desktop-operations:'):group['operations']=values
                 elif line.startswith('desktop-capture-state:'):group['captures'][values['kind']]=values
-                else:group['phases'].setdefault(values['kind'],{})[values['phase']]=values
+                else:group['phases'][values['kind']]={p:dict(id=values['id'],final=values['final'],elapsed_us=values[f'p{p}_us']) for p in range(1,13)}
             except (ValueError,KeyError):continue # Partial serial lines are not evidence.
     complete=[]
     for at,group in sorted(records.items()):
