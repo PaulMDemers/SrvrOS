@@ -4496,3 +4496,45 @@ small log margin before adding output. PR182 filesystem audit and PR19 Wi-Fi
 (`482f2eb5`) do not currently change these power paths. Next checkpoint: local
 and exact-stage validation, self-merge, durable run record and authorized native
 automatic test. Secondary-core live state and deeper idle remain unaccepted.
+
+### Secondary-core/prerequisite audit — candidate ready (2026-10-27)
+
+PR222 runtime `8a0b9166` adds a single compact capture receipt: CPU0 CPUID.0B
+SMT/core/terminator tuples and read-only APIC-base/misc snapshots at start/stop.
+The exact native 06_45/invariant-TSC gate is unchanged. No extra reads occur in
+ordinary sampling/status, and no AP startup, IPI, MWAIT, control writes, polling,
+scheduler or power-policy changes are introduced. All timing, capacity, thermal,
+watchdog and integrity limits remain unchanged.
+
+Pinned Limine binary `5be26a73` identifies v11.4.1; matching source tag commit
+`1276c440` skips `init_smp` without an MP request, which this kernel omits.
+Captured MADT has four enabled APIC IDs (0,2,1,3), plus disabled placeholders.
+Linux CPU0 leaf-B reports two addressable threads/core and four/package. These
+are inventory/capability observations: remote cores' live state cannot be
+established from CPU0-local reads. No claim of halted, running or wait-for-SIPI
+APs is made. The power guide records prerequisites for a separately designed
+race-safe deeper-idle experiment; none is enabled by this trial.
+
+Matched build, USB image, full host/core and docs checks pass on `8a0b9166`.
+Service tests verify exact boundary read counts, gate/nesting refusal, restart,
+unsupported-leaf avoidance and cached status. Twelve collector tests pass with
+strict epoch/field/bounds validation, malformed/missing-record refusal, changed
+configuration and unknown topology handling. The twelve existing load safety
+refusal/stop cases pass. Power/load VMs retain disabled/unsupported refusal.
+Replay of the prior native log with the 121-byte prerequisite record retains
+all required proof in 65,411 bytes, below the unchanged 65,536-byte tail. Actual
+new native capture completeness still requires collection after return.
+
+Exact v35 release `8022333a9240598e` passes GPT save/unmount/automatic return and
+missing-workspace safe-halt rehearsal. Run `7b7df1e1897c495d` will execute the
+unchanged 30-second idle/load/recovery phases, then save and return automatically.
+It requires complete power/residency/entry coverage, the new prerequisite receipt,
+prior-file preservation and clean offline allocation. No human input is needed;
+keep AC/USB connected. Native prerequisite acceptance is pending return.
+
+USB preflight preserves 524 files / 1,572 allocated clusters with zero leaks,
+mismatches or errors. Preserve accepted audit `6b1f017332e0931b`, console recovery,
+desktop power, stress and attended reopen payloads. The older residency-only
+`ed06103a5275d7ca` EFI copy may be retired after durable hash verification to make
+room; its independent durable payload/evidence remains retained. Exact payload,
+run and validation records must be durable before the authorized one-shot boot.
