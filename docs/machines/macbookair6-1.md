@@ -4298,3 +4298,36 @@ from valid zero residency; core and package percentages have separate scopes.
 PR182 filesystem audit and PR19 Wi-Fi remain independent. Next checkpoint is
 host/VM validation, self-merge, exact-stage installation and the authorized
 automatic native run; hardware acceptance is pending collection after return.
+
+### Read-only idle residency — candidate ready (2026-10-27)
+
+PR218 runtime `d7cda917` adds the ten captured residency MSRs plus TSC brackets
+only on native 06_45 with invariant TSC. Linux CPU0 inventory confirms readable
+core/package counters, including valid zeros for package C6–C10. The regression
+fixture preserves the measured raw values; it does not assert native acceptance.
+Core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 ratios remain separate, with no
+inferred C0/C1. Invalid/reset/stale readings are explicitly unavailable.
+
+Full matched standard build, USB image, host/core and documentation checks pass.
+Power arithmetic/service regressions cover exact CPU refusal, cached-only reads,
+unchanged cadence/capacity, valid zero, counter resets/reserved bits, independent
+state totals, overflow and stale status. Eight collector tests pass, including
+strict receipt/timestamp pairing and invalid/missing/short coverage refusal;
+load fixtures retain all twelve safety refusal/stop paths. Power/load VMs pass
+default-disabled and unsupported-hardware refusal.
+
+Exact v35 release `ed06103a5275d7ca` passes GPT save/unmount/automatic return and
+missing-workspace halt rehearsals. Run `a8c3c17ccdba458a` will automatically run
+30 seconds each idle/load/recovery, save the bounded samples and return to Ubuntu
+for collection. Acceptance requires both power and residency coverage of at least
+ten seconds per phase, complete workload/return evidence, unchanged prior files
+and clean offline allocation. All existing policies, cadence, capacities,
+watchdogs, thermal/fan stops and time limits remain unchanged. No input is needed;
+leave AC and USB connected. Native residency acceptance is pending return.
+
+USB preflight preserves all 516 baseline files with 1,562 allocated clusters and
+zero leaks/mismatches/errors. The superseded `cb881058052a1012` EFI copy was retired
+after durable hash verification; accepted current desktop `aa576838270d623a`,
+console recovery, accepted CPU power, stress and attended-reopen payloads remain
+protected. Source, exact-stage receipts, payload and run/collection records are
+retained outside `build` before reboot; Ubuntu remains the default OS.
