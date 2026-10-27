@@ -5313,3 +5313,33 @@ collection on any failure; `collect_failure.py` records failure/incomplete
 evidence without promoting acceptance. Trigger clearing is not RF lock, live
 reception, scanning or connectivity acceptance. No receiver restart or network
 data OUT is added.
+
+
+### 2026-10-27 — v98 channel6 VCO transaction and restoration accepted
+
+Release `83aad161d5fa476e`, source `5e2ed3da`, session
+`session-00065ed585ba7f47-00` saved results and returned automatically. All 21
+US channel6/20MHz frequency steps completed with main RX stopped. Strict proof
+validated the complete ordered 478-callback / 141-exchange trace, 966 fresh
+ownership checks, 332 guards, 105 RF reads and 36 RF writes. All 13 originals
+were saved/touched/restored (each mask 8191). Target VCO trigger cleared after
+four polls with 1000 us requested delay; channel1 restoration/re-settling cleared
+after three polls with 100 us requested delay. Each measured wait and exact RF
+response passed. This accepts the bounded frequency/VCO register transaction
+and original channel1 word restoration/re-settling. Trigger clearing does not
+prove PLL lock, RF quality, calibrated tuning or reception.
+
+The preceding channel1 window was quiet: 173350 polls over 10000027 us, one
+submission and zero normal completions/beacons/AP rows. Pending RX cancelled
+with CC26/residue4096; exact stopped context/six guards and retained DMA passed.
+Parent MAC cleanup completed 54 operations with 11957 us hold; five power-on
+commands and saved-word restoration passed. No main-RX restart or network data
+OUT occurred. Earlier positive v96 AP-table observations remain historical.
+The full 616541-byte startup prefix fits the1MiB capacity and includes both
+completion markers. Ubuntu default/consumed one-shot and all six current/e47/
+v97/v96/v95/v93 payload hashes passed. Workspace unmounted; fsck and independent
+allocation report 346 files, 868 clusters, 145 directories, zero leaks, bitmap
+mismatches or errors. Full raw collection, original structured collector result,
+acceptance and recovery proof are retained in `wifi-tune-native-5e2ed3d` outside
+build. Next: safe bounded receiver startup at tuned channel6 before restoring
+channel1, then multi-channel passive discovery. No reboot armed.

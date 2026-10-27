@@ -7,31 +7,27 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v97 release `4acac674194041a5`, source `f836110a`,
-session `session-00065ed40659e09b-00`. All 11 US/20MHz frequency plans completed
-231 steps and restored all 13 original register words after main RX stopped.
-The exact 2592-callback trace, 732 MCU exchanges, 5185 ownership checks, prior
-initialization/cleanup proof and full 908235-byte startup prefix passed. This
-accepts bounded register preview and restoration only; no preview VCO pulse,
-main-RX restart, live tuning, RF lock or new-channel reception was tested.
-The preceding ten-second channel1 window was quiet (one post, no completion,
-no AP rows); exact cancellation, six guards and retained DMA passed. V96 remains
-the latest positive channel1 AP-table observation: two private rows from five
-beacons. Its identifiers and physical identity/deduplication remain unverified
-by redacted logs. Current v97, accepted v96/v95/v93 and e47 recovery payloads
-match durable backups. Ubuntu default, consumed one-shot, unmounted/unarmed
-state and clean offline allocation passed (343 files, 856 clusters, 144 directories).
-Native v98 candidate `83aad161d5fa476e` / source `5e2ed3da` on actual main
-`e283eecb` is installed, unarmed. It binds the independently tested one-channel
-frequency/VCO excursion to pinned native stopped-RX ownership and strict RF
-responses/delays, returning from US channel6/20MHz to original channel1 words.
-Local/sanitizer/full merged tests and exact-stage saved/refusal VM pass; native
-trigger/restoration remain pending. After cold-cycle readiness collect matching
-v98 FIRST with `tune-native/collect_return.py`; preserve any refusal/failure.
-Receiver restart, RF lock, multi-channel discovery, selection, association/
-security and IP/UI remain later work. Original strict helper stays
-unchanged; RF0:6 semantics remain unresolved. Full evidence is archived outside
-build; no new trial is armed.
+Latest physical run: v98 release `83aad161d5fa476e`, source `5e2ed3da`,
+session `session-00065ed585ba7f47-00`. The stopped-RX US channel6/20MHz frequency
+and VCO-trigger transaction completed 21 steps; all 13 original channel1 words
+were restored and re-settled. Exact proof validated 478 callbacks, 141 matched
+RF exchanges, 966 ownership checks, 332 guard reads, 105 RF reads and 36 RF
+writes. Target VCO trigger cleared after four reads/1000 us requested delay;
+restoration trigger cleared after three reads/100 us. Trigger clearing is a
+register observation, not RF lock, calibrated tuning or reception acceptance.
+The preceding ten-second channel1 window was quiet (one post, zero normal
+completions or AP rows); cancellation, exact stop/six guards and retained DMA
+passed. V96 remains the latest positive AP-table observation: two private rows
+from five beacons. Full prior initialization/power-on/cleanup and 616541-byte
+startup prefix passed. Current v98/e47/v97/v96/v95/v93 payloads match durable
+backups; Ubuntu default, consumed one-shot, unmounted/unarmed state and offline
+allocation passed (346 files, 868 clusters, 145 directories, zero errors).
+Next: independently tested bounded channel6 receive lifecycle before original
+channel1 restoration, with separate retained RX ownership, MAC enable/disable/
+drain and exact stop. Then multi-channel discovery, selection, association/
+security and IP/UI. Original strict calibration helper stays unchanged; RF0:6
+semantics remain unresolved. Full evidence is archived outside build; no new
+trial is armed.
 
 Active native tuning scope (2026-10-27): actual main `e283eecb` (Air6,1
 cached power checkpoints; no MT76 overlap), open filesystem PR182 inspected.
@@ -9657,3 +9653,33 @@ collection on any failure; `collect_failure.py` records failure/incomplete
 evidence without promoting acceptance. Trigger clearing is not RF lock, live
 reception, scanning or connectivity acceptance. No receiver restart or network
 data OUT is added.
+
+
+### 2026-10-27 — v98 channel6 VCO transaction and restoration accepted
+
+Release `83aad161d5fa476e`, source `5e2ed3da`, session
+`session-00065ed585ba7f47-00` saved results and returned automatically. All 21
+US channel6/20MHz frequency steps completed with main RX stopped. Strict proof
+validated the complete ordered 478-callback / 141-exchange trace, 966 fresh
+ownership checks, 332 guards, 105 RF reads and 36 RF writes. All 13 originals
+were saved/touched/restored (each mask 8191). Target VCO trigger cleared after
+four polls with 1000 us requested delay; channel1 restoration/re-settling cleared
+after three polls with 100 us requested delay. Each measured wait and exact RF
+response passed. This accepts the bounded frequency/VCO register transaction
+and original channel1 word restoration/re-settling. Trigger clearing does not
+prove PLL lock, RF quality, calibrated tuning or reception.
+
+The preceding channel1 window was quiet: 173350 polls over 10000027 us, one
+submission and zero normal completions/beacons/AP rows. Pending RX cancelled
+with CC26/residue4096; exact stopped context/six guards and retained DMA passed.
+Parent MAC cleanup completed 54 operations with 11957 us hold; five power-on
+commands and saved-word restoration passed. No main-RX restart or network data
+OUT occurred. Earlier positive v96 AP-table observations remain historical.
+The full 616541-byte startup prefix fits the1MiB capacity and includes both
+completion markers. Ubuntu default/consumed one-shot and all six current/e47/
+v97/v96/v95/v93 payload hashes passed. Workspace unmounted; fsck and independent
+allocation report 346 files, 868 clusters, 145 directories, zero leaks, bitmap
+mismatches or errors. Full raw collection, original structured collector result,
+acceptance and recovery proof are retained in `wifi-tune-native-5e2ed3d` outside
+build. Next: safe bounded receiver startup at tuned channel6 before restoring
+channel1, then multi-channel passive discovery. No reboot armed.
