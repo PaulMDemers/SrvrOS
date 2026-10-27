@@ -70,6 +70,54 @@ def phase_power(text, start, end):
                 active_cpu0_mhz=mhz)
 
 
+
+IDLE_NAMES = ('core_c3','core_c6','core_c7','package_c2','package_c3',
+              'package_c6','package_c7','package_c8','package_c9','package_c10')
+
+def phase_idle(text, start, end):
+    """Read-only 06_45 counters, separate scopes and conservative TSC brackets.
+
+    Exact retained receipt/power pairing is required. Zero is a measurement;
+    missing, stale, reset, truncated or malformed telemetry is unavailable.
+    """
+    lines = [line for line in text.splitlines() if line.startswith('cpu-load-idle:')]
+    receipts = re.findall(r'^cpu-load-power: retained=(\d+) overflow=(\d+)$', text, re.M)
+    power_lines = [line for line in text.splitlines() if line.startswith('cpu-load-power: power_state=')]
+    if len(receipts)!=1 or receipts[0][1]!='0' or not 0<len(lines)==len(power_lines)==int(receipts[0][0])<=24:
+        return None
+    keys = {'supported','valid','rejected','sample_us','interval_us','interval_tsc','tsc_begin','tsc_end'}
+    keys.update(f'c{i}_{suffix}' for i in range(10) for suffix in ('raw','bp'))
+    samples = []
+    for line,power in zip(lines,power_lines):
+        fields=line.split()[1:]
+        if any(not re.fullmatch(r'[a-z0-9_]+=\d+',f) for f in fields): return None
+        row={k:int(v) for k,v in (f.split('=') for f in fields)}
+        if set(row)!=keys or len(fields)!=len(keys) or any(v>=2**64 for v in row.values()): return None
+        stamps=re.findall(r' sample_us=(\d+)(?: |$)',power)
+        if len(stamps)!=1 or row['sample_us']!=int(stamps[0]): return None
+        if (row['supported']!=1023 or row['valid']!=1023 or row['rejected'] or
+            not 100000<=row['interval_us']<=5000000 or not row['interval_tsc'] or
+            not 0<row['tsc_begin']<=row['tsc_end'] or
+            row['tsc_end']-row['tsc_begin']>row['interval_tsc'] or
+            any(row[f'c{i}_bp']>10000 for i in range(10)) or
+            any(row[f'c{i}_raw']>=2**60 for i in range(7,10)) or
+            sum(row[f'c{i}_bp'] for i in range(3))>10000 or
+            sum(row[f'c{i}_bp'] for i in range(3,10))>10000): return None
+        if samples and (row['sample_us']<=samples[-1]['sample_us'] or row['tsc_begin']<=samples[-1]['tsc_end']): return None
+        samples.append(row)
+    selected=[s for s in samples if start<=s['sample_us']<=end]
+    if len(selected)<2 or selected[-1]['sample_us']-selected[0]['sample_us']<10000000: return None
+    for a,b in zip(samples,samples[1:]):
+        if b['sample_us']-a['sample_us']>20000000: return None
+        dt=b['tsc_end']-a['tsc_begin']
+        delta=[b[f'c{i}_raw']-a[f'c{i}_raw'] for i in range(10)]
+        if any(n<0 or n>dt for n in delta) or sum(delta[:3])>dt or sum(delta[3:])>dt: return None
+    a,b=selected[0],selected[-1];dt=b['tsc_end']-a['tsc_begin']
+    return dict(covered_us=b['sample_us']-a['sample_us'],checkpoints=len(selected),
+                start_us=a['sample_us'],end_us=b['sample_us'],tsc_ticks=dt,
+                basis_points={name:(b[f'c{i}_raw']-a[f'c{i}_raw'])*10000//dt for i,name in enumerate(IDLE_NAMES)},
+                scope='CPU0 physical core and whole package; lower-bound TSC-bracket ratios; no inferred C0/C1')
+
 def load_result(text):
     failure = re.findall(r'^cpu-load: completed=NO reason=(\S+)$',text,re.M)
     rows = re.findall(r'^cpu-load: phase=(idle|load|recovery) completed=yes elapsed_us=(\d+) start_us=(\d+) end_us=(\d+) chunks=(\d+) checksum=(\d+)$',text,re.M)
@@ -87,7 +135,7 @@ def load_result(text):
             valid = False
         last = end
         phases.append(dict(name=name,start_us=start,end_us=end,elapsed_us=elapsed,chunks=chunks,
-                           power=phase_power(text,start,end)))
+                           power=phase_power(text,start,end),idle_residency=phase_idle(text,start,end)))
     return dict(completed=bool(valid),failure_reasons=failure,phases=phases if valid else [],
                 scope='single-worker console workload; package power over covered subintervals, not whole-machine power')
 
