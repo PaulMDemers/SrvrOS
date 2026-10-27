@@ -683,8 +683,8 @@ static void window_navigation(void) {
     key=navigation_event(SRV_KEY_ESCAPE,0,SRV_KEY_DOWN_EVENT);assert(desk_menu_key(&s.scene.menu,&key).consumed);
     for(int j=0;j<session_capacity(&s);j++)if(session_client(&s,j)->pid)desktop_window_at(&s.scene,j)->minimized=1;
     char minimized_label[96];window_label(&s,2,minimized_label,sizeof(minimized_label));assert(!strncmp(minimized_label,"[Minimized] ",12));
-    memset(desktop_window_at(&s.scene,2)->title,'a',94);memcpy(desktop_window_at(&s.scene,2)->title+92,"\xc3\xa9",3);
-    window_label(&s,2,minimized_label,sizeof(minimized_label));assert(desk_text_utf8_valid(minimized_label,strlen(minimized_label)));
+    memset(desktop_window_at(&s.scene,2)->title,'a',94);memcpy(desktop_window_at(&s.scene,2)->title+82,"\xc3\xa9",3);
+    window_label(&s,2,minimized_label,sizeof(minimized_label));assert(desk_text_utf8_valid(minimized_label,strlen(minimized_label)) && strlen(minimized_label)==94);
     focus_best(&s);assert(s.scene.focus==-1);
     key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
     assert(s.switching && s.scene.launcher.choose_only && !s.scene.launcher.query.enabled && s.scene.launcher.list.count==79);

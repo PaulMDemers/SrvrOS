@@ -2,17 +2,32 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
-### Window commands and discovery — active scope
+### Window commands and discovery — locally validated; native pending
 
-Consumes actual main `a9d69554` (PR197/199) after collecting the navigation trial;
-local merge `31d519f1`. Air7,2 owns a bounded compositor follow-up: provide a
-standard cooperative Close window command/Command-W in the global Window menu,
-show minimized and owned-modal parent state consistently in Window/launcher
-lists, and keep dialogs from appearing as duplicate tasks. Preserve app-owned
-Save/Cancel and Terminal control keys. Reuse existing close requests and dynamic
-menu/palette storage; no protocol, driver or audio work. Publish focused host and
-actual-consumer VM coverage before another native trial. No reboot is armed.
-Evidence: `build/window-commands-20261026/`. PR182 filesystem/PR19 Wi-Fi separate.
+PR201 consumes actual main `a9d69554` (PR197/199), local merge `31d519f1`.
+Implementation `3467439b` adds standard **Window > Close window / Command-W**
+through the existing cooperative close request. Unsaved decisions remain app-owned;
+repeated requests cannot bypass them, and closing an owned dialog cancels it.
+Control shortcuts remain application-owned. Window/launcher lists now share
+UTF-8-safe minimized labels, omit duplicate dialog tasks and mark the parent
+when its dialog is focused. Existing dynamic storage and protocol v15 are reused.
+No driver, audio, firmware gate or resource budget changes are included.
+
+Full desktop/widget hosts and normal build pass on the consumed shared baseline.
+Focused host and ASan/UBSan session gates pass modal close/cancel requests,
+deduplication, Ctrl-W passthrough, parent checkmark, complete root discovery and
+multibyte label truncation. The actual command consumer passes the prior movement/
+dock/navigation checks plus unsaved Text close/cancel via Command-W, Preview close
+through the Window menu, exact files, process baseline and offline integrity.
+Terminal's real-shell/clipboard/Ctrl-C/close-cancel gate, pointer/lifecycle and
+context-menu VMs also pass. Final Help shortcut prose and stronger UTF-8 fixture
+were rebuilt/rechecked after those VMs; compositor behavior is unchanged.
+
+Evidence: `build/window-commands-20261026/`, with a verified durable copy outside
+build. These new commands remain physically pending; no new stage/install/reboot
+was prepared. Installed bounded-smoke payload `1d36da62e183a295` and independent
+recovery `9aa8dbf6fbda8252` are unchanged. PR182 filesystem/PR19 Wi-Fi remain
+separate. No next boot is armed.
 
 ### Combined navigation trial — bounded general smoke accepted
 
