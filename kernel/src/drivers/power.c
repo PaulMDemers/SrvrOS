@@ -16,23 +16,31 @@ static struct scheduler_wait_queue wake;
 static uint32_t idle_monitor, idle_leaf1_b, idle_leaf5[4];
 static uint64_t idle_config_start;
 static bool idle_auditing;
+/* Capture-only CPU0 prerequisites. CPUID describes addressable topology,
+ * never live AP state. Three fixed leaf-B subleaves include the Haswell
+ * terminator; unknown layouts remain raw/unavailable to the collector. */
+static uint32_t idle_max_leaf, idle_topology[3][4];
+static uint64_t idle_apic_start, idle_misc_start;
 #ifdef SRVROS_POWER_HOST_TEST
 static uint64_t lock(void) { return 0; }
 static void unlock(uint64_t flags) { (void)flags; }
-void power_test_cpuid(unsigned,uint32_t *,uint32_t *,uint32_t *,uint32_t *);
+void power_test_cpuid(unsigned,unsigned,uint32_t *,uint32_t *,uint32_t *,uint32_t *);
 uint64_t power_test_read_msr(unsigned);
-#define cpuid power_test_cpuid
+#define cpuid_count power_test_cpuid
 #define read_msr power_test_read_msr
 #else
 static uint64_t lock(void) { uint64_t f;__asm__ volatile("pushfq;popq %0;cli":"=r"(f)::"memory");return f; }
 static void unlock(uint64_t f) { if(f&(1ull<<9)) __asm__ volatile("sti":::"memory"); }
-static void cpuid(unsigned leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
-    __asm__ volatile("cpuid":"=a"(*a),"=b"(*b),"=c"(*c),"=d"(*d):"a"(leaf),"c"(0));
+static void cpuid_count(unsigned leaf,unsigned subleaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
+    __asm__ volatile("cpuid":"=a"(*a),"=b"(*b),"=c"(*c),"=d"(*d):"a"(leaf),"c"(subleaf));
 }
 static uint64_t read_msr(unsigned n) {
     uint32_t a,d;__asm__ volatile("rdmsr":"=a"(a),"=d"(d):"c"(n));return a|((uint64_t)d<<32);
 }
 #endif
+static void cpuid(unsigned leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
+    cpuid_count(leaf,0,a,b,c,d);
+}
 static void sample(void) {
     /* A handful of CPU-local reads; no sleeping/I/O while IRQs are masked. */
     uint64_t f=lock();
@@ -72,7 +80,7 @@ void power_init(void) {
     if(ext>=0x80000007) {
         cpuid(0x80000007,&a,&b,&c,&ed);
         if(power_idle_supported(sig,ed)) {
-            snapshot.idle.supported=POWER_IDLE_MASK;
+            snapshot.idle.supported=POWER_IDLE_MASK;idle_max_leaf=max;
             idle_monitor=(fc>>3)&1;
             if(idle_monitor) cpuid(5,&idle_leaf5[0],&idle_leaf5[1],&idle_leaf5[2],&idle_leaf5[3]);
         }
@@ -114,7 +122,13 @@ bool power_capture_start(void) {
     if(capturing || snapshot.state!=POWER_ACTIVE) { unlock(f);return false; }
     if(snapshot.idle.supported) {
         if(!scheduler_idle_audit_start()) { unlock(f);return false; }
-        idle_config_start=read_msr(0xe2);idle_auditing=true;
+        idle_config_start=read_msr(0xe2);
+        idle_apic_start=read_msr(0x1b);idle_misc_start=read_msr(0x1a0);
+        for(unsigned i=0;i<3;i++) {
+            for(unsigned j=0;j<4;j++) idle_topology[i][j]=0;
+            if(idle_max_leaf>=11) cpuid_count(11,i,&idle_topology[i][0],&idle_topology[i][1],&idle_topology[i][2],&idle_topology[i][3]);
+        }
+        idle_auditing=true;
     }
     capture_count=0;capture_overflow=false;capture_last=timer_monotonic_us();
     capturing=true;unlock(f);return true;
@@ -124,12 +138,24 @@ void power_capture_stop(void) {
     if(!capturing) { unlock(f);return; }
     capturing=false;unsigned count=capture_count;bool overflow=capture_overflow;
     bool audited=idle_auditing;struct scheduler_idle_audit final={0};uint64_t config_end=0;
-    if(audited) { scheduler_idle_audit_stop(&final);config_end=read_msr(0xe2);idle_auditing=false; }
+    uint64_t apic_end=0,misc_end=0;
+    if(audited) {
+        scheduler_idle_audit_stop(&final);config_end=read_msr(0xe2);
+        apic_end=read_msr(0x1b);misc_end=read_msr(0x1a0);idle_auditing=false;
+    }
     unlock(f);
     /* The bootstrap caller owns start/stop; sampling cannot modify these
      * records after stop. Printing happens outside the IRQ-masked scope and
      * outside the measured phases, before workspace_log_stop persists them. */
     if(audited) {
+        /* One compact record: bounded log tail is unchanged. Raw tuple order
+         * is EAX,EBX,ECX,EDX; MSR pair order is start,end. */
+        console_printf("cpu-idle-prereq: v=1 epoch=%u max=%u b0=%u,%u,%u,%u b1=%u,%u,%u,%u b2=%u,%u,%u,%u apic=%u,%u misc=%u,%u\n",
+            final.epoch,(uint64_t)idle_max_leaf,
+            (uint64_t)idle_topology[0][0],(uint64_t)idle_topology[0][1],(uint64_t)idle_topology[0][2],(uint64_t)idle_topology[0][3],
+            (uint64_t)idle_topology[1][0],(uint64_t)idle_topology[1][1],(uint64_t)idle_topology[1][2],(uint64_t)idle_topology[1][3],
+            (uint64_t)idle_topology[2][0],(uint64_t)idle_topology[2][1],(uint64_t)idle_topology[2][2],(uint64_t)idle_topology[2][3],
+            idle_apic_start,apic_end,idle_misc_start,misc_end);
         console_printf("cpu-idle-audit: version=1 entry=sti-hlt-cli policy_writes=0 managed_cpus=1 other_cpus_known=0 monitor=%u leaf1_b=%u leaf5_a=%u leaf5_b=%u leaf5_c=%u leaf5_d=%u e2_start=%u e2_end=%u epoch=%u enters=%u returns=%u ready=%u\n",
             (uint64_t)idle_monitor,(uint64_t)idle_leaf1_b,(uint64_t)idle_leaf5[0],(uint64_t)idle_leaf5[1],(uint64_t)idle_leaf5[2],(uint64_t)idle_leaf5[3],idle_config_start,config_end,final.epoch,final.enters,final.returns,final.ready);
     }

@@ -4428,3 +4428,113 @@ verifying its durable backup; accepted residency `ed06103a5275d7ca`, desktop,
 stress, attended reopen and console recovery payloads remain protected. Exact
 payload/evidence/run records are backed up outside `build` before reboot. Ubuntu
 stays the default. Native idle-entry/firmware audit acceptance remains pending.
+
+
+### Idle-entry/firmware audit — bounded native acceptance (2026-10-27)
+
+Return closeout from base `e4f8bf84` is documentation/evidence only. PR182 remains
+filesystem work and PR19 at `6b12e4f2` remains Pro Wi-Fi; neither changes this
+acceptance scope. No new runtime policy or trial is being prepared.
+
+Release `6b1f017332e0931b` (runtime `b6ffff14`, exact staged source `c888ab53`,
+merged PR220) completed run `49fe4e29d5ed450a`, session
+`session-00065ed949956fde-00`, and returned automatically to Ubuntu. All three
+ordered 30-second phases completed, with 250,484 single-worker load chunks and
+peak logged temperature 71 C. Fifteen retained records have full residency
+support/valid masks, zero rejections and no capture overflow. Independent raw
+entry-counter and energy arithmetic agrees with the collector. The 65,290-byte
+exit log retains all required evidence inside the unchanged 65,536-byte tail;
+future diagnostics must account for its small remaining margin.
+
+| Phase | Paired residency/entry coverage | HLT entries / returns | Ready bypasses | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- | --- |
+| Idle | 23.999235 s | 2,378 / 2,378 | 1,189 | 4.147 W | 1,287 MHz |
+| Load | 22.999267 s | 0 / 0 | 0 | 5.174 W | 1,300 MHz |
+| Recovery | 23.999234 s | 2,371 / 2,371 | 1,186 | 4.139 W | 1,290 MHz |
+
+Power coverage is 23.999235/27.999108/24.999203 seconds respectively; all three
+power, residency and entry coverage requirements pass unchanged. The complete
+capture records 5,937 HLT entries, 5,936 returns and 2,969 readiness bypasses.
+One outstanding return at stop is allowed by the generation-safe accounting;
+it is not an unbalanced lifecycle failure. Covered idle/recovery intervals have
+about 99 HLT entries per second. Counts are attempts/returns, not measured sleep
+time or interrupt attribution. All ten raw deeper-residency counters remain
+exactly zero. C0/C1 are unmeasured; HLT is reached, but deeper entry is unproven.
+
+Native E2 starts and ends at `0x408`: package limit C10, configuration unlocked,
+I/O-MWAIT redirection enabled and no recorded demotion/undemotion flags. Thus the
+observed package-limit field is not restricting this capture to shallow states;
+this does not rule out other firmware/device/core restrictions. MONITOR is
+advertised, with CPUID.5 `64/64/3/286531872`; no MONITOR/MWAIT instruction is used.
+The scheduler still manages CPU0 only and other cores' live state remains unknown.
+CPUID logical capacity is not evidence of online CPUs. No policy/control writes,
+AP startup, timer cadence, watchdog, thermal or integrity limit changes occurred.
+
+All 520 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 524 files / 1,572 clusters. Offline fsck/allocation
+pass with zero leaks, mismatches or errors. Installed/current and protected
+recovery payload hashes verify; evidence is retained outside `build`. Ubuntu is
+default, the collector is disabled and the one-shot is consumed. No reboot is
+armed. This accepts the bounded read-only audit, not deeper idle or energy savings.
+Next work should examine boot-time secondary-core state and the prerequisites
+for an explicit model-gated deeper-idle experiment; further polling reductions
+alone do not address the missing hardware residency demonstrated here.
+
+### Secondary-core/deeper-idle prerequisites — active scope (2026-10-27)
+
+Base `43c79c73`; prior idle audit is collected and accepted. Investigate the pinned
+bootloader's secondary-CPU handoff, captured MADT inventory and native CPU0
+CPUID topology. Add bounded capture-only topology and read-only BSP/MONITOR
+configuration evidence if the captured CPU documentation permits it. Distinguish
+firmware inventory and CPUID capacity from live AP state; do not start APs, send
+IPIs, change idle instructions, evaluate AML or alter power policy or limits.
+
+Scope is power diagnostic capture, strict host/collector regressions and this
+unit's records. Reuse unchanged v35 idle/load/recovery phases and all coverage,
+thermal, watchdog, filesystem and 64 KiB log limits. Account for the last run's
+small log margin before adding output. PR182 filesystem audit and PR19 Wi-Fi
+(`482f2eb5`) do not currently change these power paths. Next checkpoint: local
+and exact-stage validation, self-merge, durable run record and authorized native
+automatic test. Secondary-core live state and deeper idle remain unaccepted.
+
+### Secondary-core/prerequisite audit — candidate ready (2026-10-27)
+
+PR222 runtime `8a0b9166` adds a single compact capture receipt: CPU0 CPUID.0B
+SMT/core/terminator tuples and read-only APIC-base/misc snapshots at start/stop.
+The exact native 06_45/invariant-TSC gate is unchanged. No extra reads occur in
+ordinary sampling/status, and no AP startup, IPI, MWAIT, control writes, polling,
+scheduler or power-policy changes are introduced. All timing, capacity, thermal,
+watchdog and integrity limits remain unchanged.
+
+Pinned Limine binary `5be26a73` identifies v11.4.1; matching source tag commit
+`1276c440` skips `init_smp` without an MP request, which this kernel omits.
+Captured MADT has four enabled APIC IDs (0,2,1,3), plus disabled placeholders.
+Linux CPU0 leaf-B reports two addressable threads/core and four/package. These
+are inventory/capability observations: remote cores' live state cannot be
+established from CPU0-local reads. No claim of halted, running or wait-for-SIPI
+APs is made. The power guide records prerequisites for a separately designed
+race-safe deeper-idle experiment; none is enabled by this trial.
+
+Matched build, USB image, full host/core and docs checks pass on `8a0b9166`.
+Service tests verify exact boundary read counts, gate/nesting refusal, restart,
+unsupported-leaf avoidance and cached status. Twelve collector tests pass with
+strict epoch/field/bounds validation, malformed/missing-record refusal, changed
+configuration and unknown topology handling. The twelve existing load safety
+refusal/stop cases pass. Power/load VMs retain disabled/unsupported refusal.
+Replay of the prior native log with the 121-byte prerequisite record retains
+all required proof in 65,411 bytes, below the unchanged 65,536-byte tail. Actual
+new native capture completeness still requires collection after return.
+
+Exact v35 release `8022333a9240598e` passes GPT save/unmount/automatic return and
+missing-workspace safe-halt rehearsal. Run `7b7df1e1897c495d` will execute the
+unchanged 30-second idle/load/recovery phases, then save and return automatically.
+It requires complete power/residency/entry coverage, the new prerequisite receipt,
+prior-file preservation and clean offline allocation. No human input is needed;
+keep AC/USB connected. Native prerequisite acceptance is pending return.
+
+USB preflight preserves 524 files / 1,572 allocated clusters with zero leaks,
+mismatches or errors. Preserve accepted audit `6b1f017332e0931b`, console recovery,
+desktop power, stress and attended reopen payloads. The older residency-only
+`ed06103a5275d7ca` EFI copy may be retired after durable hash verification to make
+room; its independent durable payload/evidence remains retained. Exact payload,
+run and validation records must be durable before the authorized one-shot boot.
