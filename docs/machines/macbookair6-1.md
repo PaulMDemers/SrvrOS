@@ -3598,3 +3598,44 @@ hardening; PR19 owns Wi-Fi. No competing screenshot implementation is in the
 current integration baseline/open PR list. Next checkpoint: matched build, host
 fixtures, loaded screenshot/app/exit VM and exact-stage refusal, self-merge and
 automatic native trial under existing explicit reboot authorization.
+
+### Automatic screenshot stress candidate (2026-10-26)
+
+Candidate `a496fd64` integrates PR201 baseline `5db81dd5` (cooperative
+window close and root task discovery). The explicit v74 automatic stress now
+requests three screenshots during native playback, retains current and slowest
+capture phase timings plus pending app-launch/close/exit state, and checks fresh
+Files launch/close and cooperative exit after playback. The short VM takes one
+screenshot. Diagnostic output has a separate joined worker and immutable fixed
+snapshots; ordinary desktop policy, hardware gates, accepted-writer lifetime,
+file verification and all existing performance/deadline limits are unchanged.
+
+Host capture protocol/save and operation snapshot regressions pass, including
+fragmented progress, malformed frames, immutable reporting and incomplete-log
+refusal. The earlier full core suite and ordinary capture/attended VMs pass;
+the integrated matched build and desktop suite pass. VM app evidence combines
+complete console lines and atomic saved snapshots for both cycle and phase
+receipts under strict
+phase/order checks; interleaved fragments are discarded. No log limit was raised.
+
+Native screenshot delay and the failed launch/exit remain unaccepted. These
+changes collect evidence and automate reproduction, not a claimed root-cause
+fix. The 30-minute trial requires no input beyond listening; keep AC and USB
+connected. It must retain three decoded screenshots, complete original workload
+and lifecycle proof, normal exit/battery retirement, preserved prior files and
+clean allocation before acceptance. The local run record retains exact source,
+payload, recovery, collector and one-shot authorization, with durable backups
+outside `build`.
+
+The integrated loaded VM at 400 write IOPS passes 60 seconds with 115 verified
+bursts (30,146,560 bytes), 19 app cycles, zero underruns/errors, worst loop
+295.123 ms, ready 1.415554 s and close 1.356357 s. The screenshot takes
+53.219710 s, including 49.307799 s receiving pixels; subsequent Files launch/close
+takes 1.164776 s and normal exit completes with empty pending queues. All 66
+prior files survive and allocation is clean. An interleaved console cycle record
+caused one harness failure; whole-record snapshot recovery and regressions fix
+collection without hiding missing/conflicting receipts. That attempt is retained.
+The integrated window-command VM also passes cooperative close, modal behavior,
+exact files and process-baseline checks. Exact native payload `7eeee7846ae4eedc`
+passes Q35 refusal, saved logs, unmount and automatic return. Native acceptance
+remains pending run `bfaa7ba0c0774d01`.
