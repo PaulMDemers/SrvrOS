@@ -4177,3 +4177,23 @@ reparsing agrees with the collector and all 381 collected durable evidence hashe
 verify. Payload/evidence survive `make distclean`. The one-shot boot is consumed,
 the collector is disabled, and no reboot is armed. Console recovery
 `c35475f62f154f1e` and the earlier accepted payloads remain retained.
+
+
+### Battery desktop supervisor wait audit — active scope (2026-10-27)
+
+Base `a3066f87`, accepted idle-worker run `db449f93b4b14340`. Replace only the
+ordinary lifetime-owned desktop supervisor's ten-millisecond polling with a
+process-exit/control/ownership event wait and the existing absolute diagnostic
+deadline. Preserve mount identity validation, mailbox epoch/admission checks,
+process reaping and lifetime drain, service ownership/watchdogs and every limit.
+Capture/study loops that inspect sample progress retain their existing polling.
+Battery-owner sampling and USB HID workers are outside this change.
+
+Scope includes a non-reaping process event wait, control-request notification,
+mount-hold release notification, supervisor deadline selection and race/refusal
+regressions. Open PR182 touches process/storage files for filesystem auditing;
+this change is confined to process wait APIs and mount-hold notification, not
+its file I/O, allocation or storage-admission implementation. PR19 owns Wi-Fi.
+Validate host/core, complete power/control VMs and exact-stage refusal, merge,
+then repeat the unchanged automated v78 power trial. Native improvement remains
+pending until matching returned evidence is collected.
