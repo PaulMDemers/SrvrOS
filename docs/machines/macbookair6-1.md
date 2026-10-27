@@ -3584,3 +3584,17 @@ pending launch/close/capture state, with automatic screenshot → app launch/clo
 readback/identity/flush checks, accepted-writer lifetime and all existing limits.
 Do not weaken screenshot verification or add a timeout that kills an active file
 writer. No new payload is staged or reboot armed after this return.
+
+### Automatic screenshot stress — active scope (2026-10-26)
+
+Base `a9d69554`; prior failed attended run is collected and backed up. Add
+automatic screenshots to the explicit audio/disk/app stress profile and retain
+screenshot transport/save phases, pending app launches and cooperative-exit state
+in periodic and final diagnostics. Scope: shotworker/capture protocol and host
+fixtures, compositor diagnostic snapshots/trial sequencing, VM collector and this
+unit record. Keep 500 ms loop, 5 s client, 10 s app-cycle, playback/owner deadlines
+and all file-integrity/writer-lifetime rules unchanged. PR182 owns exFAT/storage
+hardening; PR19 owns Wi-Fi. No competing screenshot implementation is in the
+current integration baseline/open PR list. Next checkpoint: matched build, host
+fixtures, loaded screenshot/app/exit VM and exact-stage refusal, self-merge and
+automatic native trial under existing explicit reboot authorization.
