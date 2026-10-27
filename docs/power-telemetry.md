@@ -1025,4 +1025,26 @@ thread/package/device prerequisites. [Intel's MWAIT reference](https://www.intel
 requires MONITOR and describes the capability-dependent interrupt-break option.
 This audit does not execute either instruction, start APs, send IPIs, evaluate
 AML, enable tickless operation or change CPU/fan/battery policy. Native receipt
-acceptance is pending the matching returned test.
+acceptance is recorded below.
+
+
+### Native CPU0 prerequisite result (2026-10-27)
+
+Air6,1 release `8022333a9240598e`, session `session-00065edabaa7e840-00`, completed
+the unchanged idle/load/recovery test with complete prerequisite and phase proof.
+Native leaf-B reports APIC ID 0, two addressable threads/core and four/package;
+maximum basic leaf is 13. APIC base is `4276095232` at both boundaries (BSP=1,
+APIC enabled, x2APIC disabled), while misc is `8716425` (MONITOR FSM enabled).
+CPUID MONITOR advertisement agrees; CPUID.5 reports extensions and masked-interrupt
+break support. These are native prerequisite observations, not validation of an
+unimplemented MONITOR/MWAIT path or live remote-core state.
+
+E2 remains `0x408`, with an unlocked C10 package limit. HLT entries continue in
+idle/recovery, while all ten deeper-residency counters remain zero. Covered
+package averages are 4.150/5.144/4.141 W. Policies and limits are unchanged; a
+separate opt-in wakeup/latency experiment with HLT fallback is the next proposed
+step, not an accepted policy change. AP rendezvous remains separate. See the
+[unit record](machines/macbookair6-1.md#secondary-coreprerequisite-audit--bounded-native-acceptance-2026-10-27)
+for exact intervals, file integrity and evidence identity. The 65,484-byte saved
+log contains the required proof but leaves almost no margin under the existing
+tail limit; budget or compact any future diagnostics without loosening that limit.
