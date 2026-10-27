@@ -15,6 +15,7 @@ from desktop_power_records import desktop_power_result
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
+    parser.add_argument('--accel',choices=('tcg','kvm'),default='tcg')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-power-exact' if args.stage else 'build/review/desktop-power-auto');out.mkdir(parents=True,exist_ok=True)
     for name in ('result.json','phases.json','allocation.log'):
@@ -56,7 +57,7 @@ def main():
         else:
             iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
             boot_args=['-cdrom',iso,'-boot','d']
-        cmd=['qemu-system-x86_64','-M','q35','-m','2G' if stage else '1G',*boot_args,'-nic','none',*([] if stage else ['-acpitable',f'file={tmp}/battery.aml']),'-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0']
+        cmd=['qemu-system-x86_64','-accel',args.accel,'-M','q35','-m','2G' if stage else '1G',*boot_args,'-nic','none',*([] if stage else ['-acpitable',f'file={tmp}/battery.aml']),'-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0']
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(cmd,stdout=errors,stderr=errors)
             try:
@@ -96,7 +97,7 @@ def main():
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation)
-                result=dict(status='PASS',stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,prior_files_preserved=len(prior))
+                result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)

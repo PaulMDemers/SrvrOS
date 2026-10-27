@@ -771,6 +771,8 @@ must consume more energy than idle; this experiment measures that difference.
 `tools/desktop_power_smoke.py` checks a complete synthetic battery VM lifetime,
 checkpoint coverage, file preservation and offline allocation. With `--stage
 <release>`, it boots the exact native payload and requires Q35 profile refusal
-and clean unmount/return. Synthetic execution never supplies native power or
+and clean unmount/return. Use `--accel kvm` on a host with KVM access for bounded desktop timing;
+`tcg` remains available and any TCG timing failure is retained separately. Neither
+mode changes the guest limits. Synthetic execution never supplies native power or
 temperature acceptance. Native results remain pending until matching saved
 sessions and recovery evidence have been collected.
