@@ -1,12 +1,12 @@
 # USB Wi-Fi bring-up: captured Edimax adapter
 
-Initial scope, October 21: `7392:a711` revision `0100`, Edimax EW-7711MAC,
-attached to MacBookPro11,2. Linux binds `mt76x0u`; SrvrOS currently has no Wi-Fi
-radio driver, association/authentication service or Wi-Fi configuration UI.
-Ethernet support is preserved. Native identity, logical calibration capture and
-firmware upload/readiness are accepted for the captured adapter; radio operation
-and Wi-Fi connectivity remain unimplemented/unaccepted. See the latest milestone
-at the end of this guide.
+Captured scope: `7392:a711` revision `0100`, Edimax EW-7711MAC, attached to
+MacBookPro11,2. Linux binds `mt76x0u`. SrvrOS has bounded opt-in native transport,
+initialization and management-frame reception diagnostics; channel1/channel6
+beacons and bounded cleanup are observed. Three-channel discovery is pending
+native acceptance. Association/authentication, an active Wi-Fi IP provider and
+configuration UI remain unimplemented. Ordinary startup leaves these diagnostic
+radio operations disabled. See the latest milestone at the end of this guide.
 
 ## Captured baseline
 
@@ -5575,3 +5575,44 @@ mismatches or errors. V99 remains the latest native acceptance. Next: reproduce
 the immediate-clear post-VCO variant in a focused prerequisite regression and
 review a bounded timing contract before any candidate retry; preserve guard,
 framing and delayed-sample requirements. No new acceptance or reboot armed.
+
+
+### 2026-10-27 Pro11,2 scan timing retry and acceptance boundary
+
+Source `57fede24`, release `c80f3afe5d496f36`, consumes actual main `108969f7`.
+The same-unit immediate VCO read can be0xb0 or already0x30 after the exact0xb0
+write acknowledgment. New `mt76_post_vco_settled_profile_valid` admits only
+those two readbacks, requiring complete63-operation framing/guard ledgers,
+all six measured waits totaling1s, and all six delayed0x30 samples. Only scan
+mode78 selects it; the older captured-profile predicate still requires0xb0.
+This does not establish RF lock, calibration quality or connectivity.
+
+The regression fails at the actual scan AGC ownership callback against the
+original gate. The fix passes16 callbacks, all256 immediate byte values,
+5760 guard/word bit mutations under the established DMA idle mask, and omitted
+wait/partial-state tests. Full merged image/core/desktop tests pass. ASan/UBSan
+passes115 scan fault cases per timing variant in independent processes (230
+total),356 older receive cases,215 private collector cases and pure AGC checks.
+The initial all-bits DMA expectation was corrected to the existing idle mask;
+combining both scan matrices after earlier retained-allocation tests exhausted
+the fixed5MiB host fixture pool, so each timing matrix now has its own process.
+Production DMA allocation/retention and guard masks were unchanged.
+
+Whole-log proof passes102 valid cases and455 malformed refusals, plus both
+complete timing variants and256 full post-VCO trace immediate-value checks.
+Staging passes188 tests;198 older Wi-Fi recipes and three desktop recipes
+remain unchanged. Exact-source kernel and independently packaged initramfs
+match the stage. Exact-image GPT VM saved/byte-verified logs, cleanly unmounted
+and returned; missing workspace refused probing and returned. VM checks do not
+accept native RF operation.
+
+Seven complete current/e47/v99/v98/v97/v96/failed-v100 payloads match durable
+backups. To maintain installer capacity, v95 `84afc9dee029775f` was retired
+from ESP only after full equality to its retained `wifi-rx-window-long-e9acacd`
+payload; v93's earlier durable backup is also preserved. Offline workspace
+checks report351 files,887 clusters,147 directories and zero leaks, bitmap
+mismatches or errors. Evidence and payload survive distclean outside build in
+`wifi-scan-timing-57fede2`. V99 remains latest native acceptance. The retry is
+installed, unmounted and unarmed; await manual cold-cycle readiness, then save
+and collect all three visit/stop/restoration traces before acceptance. No photos
+or guest commands needed. Association/security and IP/UI remain pending.

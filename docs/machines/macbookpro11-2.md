@@ -7,12 +7,21 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Installed candidate: v100 `a7bc67f2d057e7d8`, source `2847cb05`, main `a3066f87`.
-The fixed three-channel passive pilot passes local/sanitizer and exact-stage VM
-checks; native acceptance is pending. Ubuntu remains default, workspace is
-unmounted and reboot is unarmed. Collect matching v100 FIRST after its trial.
+Installed candidate: v100 timing retry `c80f3afe5d496f36`, source `57fede24`,
+main `108969f7`. Full merged tests, sanitizers, saved-log checks and exact-stage
+VM pass. Native three-channel acceptance remains pending. Ubuntu is default;
+workspace unmounted, no reboot armed. After cold-cycle readiness, run the fixed
+US1/6/11 pilot; collect its matching session FIRST on return.
 
-Latest physical run: v99 `995dd64ae6135add`, source `87144160`, integrated main
+Latest physical run: v100 `a7bc67f2d057e7d8`, session
+`session-00065ed80b7c4d71-00`, saved a complete535857-byte failure prefix.
+Immediate VCO readback was already0x30; the old gate required0xb0. AGC ownership
+refused before any reads and no scan visit ran. The refusal is archived and
+adds no acceptance. The retry admits both observed immediate values only for
+scan mode, retaining the exact acknowledged write, all six delayed clear
+samples and all existing framing/guard/ownership checks.
+
+Latest accepted physical run: v99 `995dd64ae6135add`, source `87144160`, integrated main
 `fbb6eaa5`, session `session-00065ed6f4d568a5-00`. A fresh single-IN channel6
 receive decoded one beacon after 93435 us, then independently retired MAC/RX
 and restored all13 original channel1 frequency words. Exact proof validates
@@ -22,8 +31,8 @@ guards, saved filter/TXOP and retained DMA passed. This accepts the bounded
 channel6 beacon observation and cleanup, not sustained RF/FCS/scan/connection.
 The preceding ten-second channel1 window was quiet; V96 remains the latest
 positive AP-table evidence. The full627250-byte prefix and prior initialization/
-five power-on commands passed. All seven payloads match durable backups;
-Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity pass
+five power-on commands passed. At that acceptance checkpoint all seven payloads matched durable backups;
+Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity passed
 (349 files,880 clusters,146 directories, zero errors). Full evidence is archived
 outside build. No repeat run is needed.
 
@@ -9976,3 +9985,44 @@ regressions; update saved-log proof before any staged trial. Actual main
 merged here before validation. Open PR218 owns Air6,1 CPU idle diagnostics and
 PR182 filesystem audit; this objective does not edit those subsystems. Previous
 v100 failure is collected and archived. No reboot armed or new acceptance.
+
+
+### 2026-10-27 — scan timing retry installed, native acceptance pending
+
+Source `57fede24`, release `c80f3afe5d496f36`, consumes actual main `108969f7`.
+The same-unit immediate VCO read can be0xb0 or already0x30 after the exact0xb0
+write acknowledgment. New `mt76_post_vco_settled_profile_valid` admits only
+those two readbacks, requiring complete63-operation framing/guard ledgers,
+all six measured waits totaling1s, and all six delayed0x30 samples. Only scan
+mode78 selects it; the older captured-profile predicate still requires0xb0.
+This does not establish RF lock, calibration quality or connectivity.
+
+The regression fails at the actual scan AGC ownership callback against the
+original gate. The fix passes16 callbacks, all256 immediate byte values,
+5760 guard/word bit mutations under the established DMA idle mask, and omitted
+wait/partial-state tests. Full merged image/core/desktop tests pass. ASan/UBSan
+passes115 scan fault cases per timing variant in independent processes (230
+total),356 older receive cases,215 private collector cases and pure AGC checks.
+The initial all-bits DMA expectation was corrected to the existing idle mask;
+combining both scan matrices after earlier retained-allocation tests exhausted
+the fixed5MiB host fixture pool, so each timing matrix now has its own process.
+Production DMA allocation/retention and guard masks were unchanged.
+
+Whole-log proof passes102 valid cases and455 malformed refusals, plus both
+complete timing variants and256 full post-VCO trace immediate-value checks.
+Staging passes188 tests;198 older Wi-Fi recipes and three desktop recipes
+remain unchanged. Exact-source kernel and independently packaged initramfs
+match the stage. Exact-image GPT VM saved/byte-verified logs, cleanly unmounted
+and returned; missing workspace refused probing and returned. VM checks do not
+accept native RF operation.
+
+Seven complete current/e47/v99/v98/v97/v96/failed-v100 payloads match durable
+backups. To maintain installer capacity, v95 `84afc9dee029775f` was retired
+from ESP only after full equality to its retained `wifi-rx-window-long-e9acacd`
+payload; v93's earlier durable backup is also preserved. Offline workspace
+checks report351 files,887 clusters,147 directories and zero leaks, bitmap
+mismatches or errors. Evidence and payload survive distclean outside build in
+`wifi-scan-timing-57fede2`. V99 remains latest native acceptance. The retry is
+installed, unmounted and unarmed; await manual cold-cycle readiness, then save
+and collect all three visit/stop/restoration traces before acceptance. No photos
+or guest commands needed. Association/security and IP/UI remain pending.
