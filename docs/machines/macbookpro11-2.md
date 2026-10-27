@@ -22,6 +22,23 @@ strict frame parsing and bounded MAC/endpoint teardown. Scanning, association/
 security, Wi-Fi IP traffic and UI remain pending. Original strict helper stays
 unchanged; RF0:6 semantics remain unresolved.
 
+Active block (2026-10-26): consumed actual main `a9e39e38` (PR197 attended
+load and PR198 keyboard navigation). Resolved hardware_boot.py conflicts by
+preserving all Wi-Fi recipes plus separate desktop v76/v77 flags/validation;
+179 staging tests pass. PR182 still owns filesystem imports; no MT76 overlap.
+Build explicit v93/profile71 passive main-RX observation after whole v92
+calibration proof: keep one4096-byte IN, poll events under active MAC up to1s,
+then drain/disable MAC and prove exact endpoint stop before reading bytes.
+Require normal CC1/13 and bounded residue for actual size; never decode stopped
+CC26/27/28. Parse only the first bounded entry; log copied non-identifying
+metadata, never SSID/address/payload bytes. Record event timing relative to the
+observation window; no rearm, extra IN, network data OUT, scan or association.
+Touched: native RX/inspection hook/selector, parser integration and host tests,
+main/staging/smoke and unit/Wi-Fi docs. Keep v1-v92 bytes/behavior and original
+calibration helpers. Checkpoint: fault/length/teardown tests, sanitizers, merged
+image/core, exact-stage VM, installed recovery/run/archive before cold trial.
+
+
 Completed physical block (2026-10-26): v92 on main `43aff7d5` consumed PR194
 window/dock and PR196 Air evidence; PR182 remains filesystem scope. Native
 fixed-command adapter, selector70, main/staging/smoke recipes and host/proof
