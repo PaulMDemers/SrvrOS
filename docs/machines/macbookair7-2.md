@@ -2,6 +2,45 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
+### Window switching and keyboard navigation — implemented; hardware trial ready
+
+PR198 follows main `43aff7d5` (PR194). Source `8847894a` implements a stable
+most-recent-window snapshot while Alt-Tab is held: Tab advances, Shift reverses,
+Alt release activates and Escape cancels. Minimized roots can restore; owned
+modals route through their document. Reused/retired identities cannot activate a
+replacement window, and new admissions do not steal a held selection.
+Command-grave / Command-Shift-grave visit the active app's roots in creation
+order; Command-M minimizes the parent/modal group. Minimize/retirement choose the
+most recent visible root without reviving other minimized windows. F10/Ctrl-F2
+and the existing menu navigation expose desktop/app commands. The switcher uses
+the reusable palette's selection-only mode and existing dynamic storage.
+
+Matched normal/native/VM builds, full desktop/widget hosts, 82 installer/profile
+checks and ASan/UBSan session coverage pass. An 80-entry host fixture checks MRU,
+reverse/cancel, stale identity refusal, same-app order, modal minimize/restore and
+all-hidden recovery. The actual navigation VM also passes PR194's offscreen/dock
+checks, real held-key selection, exact saved documents, focus after close, process
+baseline and offline exFAT integrity. Pointer/lifecycle, context-menu and legacy
+compositor consumers pass. Screenshots of switcher and guide were inspected.
+
+Candidate `1d36da62e183a295`, v76, was staged from clean `8847894a`. Exact
+GRUB -> staged Limine -> native-kernel Q35 rehearsal passes automatic untimed
+Help checklist delivery, saves, complete retirement, ordinary reopen and monitor
+reboot with clean filesystem checks. Q35 correctly refuses native battery and
+reports unavailable physical sensors; this does not accept native providers.
+The first guide fixture expected log messages in the wrong order; corrected
+coverage requires both complete markers in either order. Initial attempts remain
+retained in `build/window-navigation-20261026/` and verified outside build.
+
+Next: the combined attended **Window navigation trial**, delivered automatically
+by explicit `--desktop-navigation-trial`, covers movement/dock/navigation/save.
+It needs human input and has no timer; save, Return to console, then normal
+monitor `reboot` flushes/unmounts Home. No physical test, install or reboot has
+been armed for this candidate. Installed accepted `a90629c8a2060e66` and recovery
+`9aa8dbf6fbda8252` remain unchanged. Audio remains outside this round; PR182's
+filesystem audit and PR19's Wi-Fi scopes stay separate. No new window cap,
+protocol, resource budget, firmware gate or driver behavior is introduced.
+
 ### Desktop movement and dock — implemented; physical acceptance pending
 
 PR194 follows main `ab7a7c93`, after closing PR193 with the tester's non-audio
@@ -26,10 +65,10 @@ process retirement. Offline exFAT checks pass. Existing pointer/lifecycle,
 context-menu and legacy compositor VMs also pass. Earlier fixture failures remain
 in local evidence; the final consumer requires graceful QMP exit and returns zero.
 
-Help contains an untimed **Window movement and dock trial**. Its native automatic
-opening is not yet wired into a dedicated boot profile; complete that delivery
-and matched stage/rehearsal before the focused attended test. These local results
-do not establish physical acceptance. Installed accepted `a90629c8a2060e66` and
+Help contains an untimed **Window movement and dock trial**. The combined
+**Window navigation trial** above now supplies automatic checklist delivery and
+matched staging/rehearsal for the next attended round. These local results do
+not establish physical acceptance. Installed accepted `a90629c8a2060e66` and
 independent recovery `9aa8dbf6fbda8252` are unchanged. PR182's filesystem audit
 and PR19's Wi-Fi remain separate. Evidence: `build/window-dock-20261026/`, with
 a verified durable copy outside build. No next reboot is armed.

@@ -171,6 +171,35 @@ foreground program: Ctrl-C interrupts it, Ctrl-Shift-C/V copy/paste, and
 Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
 
+## Switching windows and using the keyboard
+
+Hold **Alt** and press **Tab** to open the window switcher. Keep Alt held and
+press Tab again to advance, or Shift-Tab to reverse; release Alt to activate the
+selected window. Escape cancels without switching. Quick Alt-Tab returns to the
+most recently used window. The list remains in the same order while held; new
+windows do not steal the selection, and retired identities cannot activate a
+replacement window. Minimized windows can be restored from the list. Owned
+modal dialogs appear through their parent document rather than as extra tasks.
+
+**Command-grave** cycles the current application's windows in creation order;
+Command-Shift-grave reverses. **Command-M** minimizes a window and its owned
+dialog together. Minimizing or closing the active window selects the most recent
+visible window, leaving other minimized windows hidden. Closing a modal returns
+to its own document. With no visible windows, desktop keyboard commands remain
+available to restore one.
+
+**F10** or **Control-F2** opens the global menu bar (Fn may be needed). Left/Right
+changes menus; Up/Down, Home/End choose commands; Return activates and Escape
+cancels. Tab/Shift-Tab still navigate app controls, and ordinary app shortcuts
+retain their existing behavior outside the switcher.
+
+The untimed **Window navigation trial** in Help combines these checks with
+partial offscreen movement, dock restoration, file saves and normal return. The
+explicit `--desktop-navigation-trial` staging profile opens it automatically in
+the combined Air7,2 battery/Home session. It does not run an automated acceptance
+or reboot timer. Hardware acceptance remains pending until the tester reports
+against that staged release.
+
 ## Moving windows and using the dock
 
 Ordinary windows can extend past the left, right and bottom edges. Movement

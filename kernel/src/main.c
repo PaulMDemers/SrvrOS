@@ -780,6 +780,7 @@ void kmain(void) {
         else if(cmdline_has_token(cmdline,"srvros.battery=on")) {
             if(cmdline_has_token(cmdline,"srvros.desktop-audio-io=attended") || cmdline_has_token(cmdline,"srvros.desktop-audio-io=attended-smoke"))
                 desktop_battery_audio_io_attended_run(cmdline_has_token(cmdline,"srvros.desktop-audio-io=attended-smoke"));
+            else if(cmdline_has_token(cmdline,"srvros.desktop-guide=window-navigation"))desktop_battery_navigation_session_run();
             else if(cmdline_has_token(cmdline,"srvros.desktop-guide=application-lifecycle"))desktop_battery_lifecycle_session_run();
             else desktop_battery_session_run();
         }

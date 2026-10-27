@@ -3528,10 +3528,11 @@ it; shutdown joins/drains before the final synchronous receipt. Keep every loop
 sample, limit violation and saved-record integrity check. This affects diagnostic
 report delivery in both explicit stress modes, not ordinary desktop policy.
 PR19's shared boot/staging files contain separate Wi-Fi branches and a distinct
-profile namespace; no competing desktop implementation or v76 collision found.
+profile namespace; no competing desktop implementation found.
 
 Integration refresh found PR198's keyboard-navigation scope and its new Help
-ID21. Reserve ID22 for this separate attended-load checklist; navigation work is
-not included in this native candidate. The shared source files contain distinct
-behaviors. Exact-stage rehearsal sends the console unmount command and exits the
+ID21 and profile v76. Integrate merged PR198 baseline `0c63e679`; reserve
+ID22 and profile v77 for this separate attended-load checklist. Keep the Air7,2
+navigation profile distinct from this Air6,1 trial. Include held MRU switching,
+cancellation, same-app cycling and keyboard menus in this guest checklist. Exact-stage rehearsal sends the console unmount command and exits the
 VM after refusal; it does not claim automatic native return or native acceptance.
