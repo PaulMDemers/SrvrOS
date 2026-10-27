@@ -21,6 +21,20 @@ passive reception with safe endpoint rearm and teardown, then scanning,
 association/security, Wi-Fi IP traffic and UI. Original strict helper stays
 unchanged; RF0:6 semantics remain unresolved.
 
+Active native integration block (2026-10-26): actual main remains `a9d69554`;
+PR182 owns filesystem imports and has no MT76 overlap. Wire the retained-buffer
+receive window into a separate explicit native mode/profile. Split polling
+from final inspection so the accepted parent MAC drain/disable/restoration,
+exact endpoint stop and six guards all finish before any DMA read. Preallocate
+eight distinct pages, acknowledge the already posted first request after whole
+v92 calibration, then publish up to seven new non-wrapping TRBs one at a time.
+Keep old profiles unchanged. Touched: receive-window engine split API, xHCI
+window adapter/dispatcher/lifecycle/mode, main/staging/smoke, host/native/proof
+fixtures and unit/Wi-Fi guides. Dependencies: current v93 native beacon proof,
+accepted power-on/MAC ordering and retained DMA. Checkpoint: full fault/clock/
+event/stop coverage, sanitizer/core, exact-stage save/refusal VM, durable
+recovery/run/evidence before readiness for a cold trial. No new reboot armed.
+
 Completed offline block (2026-10-26): merged actual main `a9d69554` (PR199 Air
 attended-exit evidence only); PR182 owns filesystem imports and has no MT76
 overlap. Prepare an allocation-free bounded repeated receive engine using eight
