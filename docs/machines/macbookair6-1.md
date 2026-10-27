@@ -56,7 +56,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app overlap passes 3,091 verified disk bursts and 692 app cycles with preserved prior files and clean allocation | Private child-image scope reduces the worst loop to 111.984 ms against the unchanged 500 ms limit; broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,266 verified disk bursts, 703 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (311.305 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -3828,3 +3828,36 @@ unpaced verified disk work, explicit 1% volume and automatic collection. USB
 baseline remains 430 files / 1,373 clusters, all prior hashes matched and no
 leaks/mismatches/errors. The quiet input remains valid until 08:30:45 UTC on
 2026-10-27. Ubuntu and verified console recovery remain the fallback.
+
+### Files metadata batches — bounded native acceptance (2026-10-27)
+
+Release `012aaffda0be860b`, runtime source `7c1ef57a`, merged PR206 `e7953352`,
+completed session `session-00065ecc2a71b33f-00` with an automated **PASS**.
+All 1,800 seconds of PCM completed at verified 1% volume: 345,600,000 bytes,
+zero recorded underruns and worker status zero. The user confirms steady sound
+throughout this quiet run.
+Unpaced disk work completed 3,266 verified bursts / 856,162,304 bytes, with
+sustained live-playback overlap and matching binary/text receipts.
+
+The session completed 703 application cycles with zero errors. Maximum readiness
+is 1.722836 s and close 4.799946 s; the original ten-second cycle bound passes.
+All 95,841 measured desktop loops are valid, with zero excursions over the
+unchanged 500 ms limit; maximum is 311.305 ms. This accepts the bounded Files
+listing and screenshot cleanup coexistence trial, not unlimited endurance or
+instantaneous UI response under all loads.
+
+All three automatic screenshots have successful acknowledgements, full worker
+retirement and decodable 1366x768 BMPs (4,196,406 bytes each). Slowest completion
+is 22.715026 s, compared with 39.944696 s in the previous completed-capture
+reference release `39d73c7da8c8ab69`; that reference still failed its loop bound.
+Retained cleanup execution is 73.704 ms for the slowest capture and 71.626 ms
+for the final capture. Follow-up Files completes in 711.504 ms, then normal exit
+leaves no queued launches, live windows or capture owner. Battery retirement
+reports heap/errors/denied zero and enclosing controls PASS.
+
+All 430 preboot files survive except expected `.srvros/meta` bookkeeping.
+Offline fsck/allocation pass with 439 files, 1,480 clusters and zero leaks,
+mismatches or errors. The matching evidence, images and accepted payload are
+hash-verified outside `build`. Ubuntu remains the default, console recovery is
+preserved, the collector is disabled and no reboot is armed. The next step can
+return to broader attended desktop use; this workload needs no relaxed limits.
