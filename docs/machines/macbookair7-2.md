@@ -2,6 +2,19 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
+### Focused Close/window-list trial — preparation
+
+Prepare a brief attended round from tested main `5db81dd5` (PR201), changing only
+the automatically opened Help checklist. Keep the existing v76 battery/Home
+profile and independent recovery. New remote main `eacb4ec4` (PR200 screenshot
+stress/diagnostic work) is fetched/inspected but not consumed into this isolated
+candidate. Scope: Command-W/Window Close, unsaved Save/Discard/Cancel, modal-parent
+and minimized discovery, live Terminal cancellation and fresh saved evidence.
+No audio test or cable changes. Full checklist opens in Help without a timer.
+Build matched normal/native/VM kernels and userspace, rehearse the exact stage,
+then verify recovery/USB/run record and request the authorized one-shot boot.
+Local checkpoint: `build/window-commands-native-20261026/`; no reboot armed yet.
+
 ### Window commands and discovery — locally validated; native pending
 
 PR201 consumes actual main `a9d69554` (PR197/199), local merge `31d519f1`.
