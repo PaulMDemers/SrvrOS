@@ -5187,3 +5187,54 @@ Raw collection, original structured collector result and complete restoration
 proof are preserved in durable `wifi-channel-native-f836110` outside build.
 Next: bounded live channel tuning and receiver lifecycle before multi-channel
 passive discovery. No reboot armed.
+
+
+### 2026-10-27 — bounded frequency/VCO excursion engine
+
+Source `1ff74269` on actual main `c07dc402` adds a separate
+`mt76_channel_tune_run` transport-neutral transaction, with no native caller or
+boot profile. It requires the captured disabled-MAC/CORE/DMA/idle state and
+exact channel1 frequency/VCO originals, applies one US1–11/20MHz plan, triggers
+bank0R4 bit7, and waits for that trigger to clear. It then restores all touched
+originals in reverse order, re-triggers channel1 and independently verifies the
+saved words. Trigger clearing is a register observation, not RF lock or
+calibrated tuning acceptance. Same-lifetime board/firmware, fixed-band RF/BBP
+setup and stopped retained DMA remain mandatory caller prerequisites.
+
+Each VCO attempt allows six reads with at most 100000 us requested delay
+(0/10/90/900/9000/90000 us increments). These bounds are SrvrOS policy;
+the pinned Linux v7.0 scan path establishes prerequisite/frequency/BBP/VCO order,
+not this timeout. Busy/unknown VCO blocks cleanup RF writes. An incomplete
+frequency restoration blocks its VCO pulse. Forward cancellation may admit
+independent cleanup only while transport ownership remains safe; successful
+cleanup never converts a forward failure into success. No receiver restart,
+transmit, DMA reuse, scan UI or automatic native startup is added.
+
+Host coverage compares all eleven plans against the existing independent
+693-byte fixture and injects every normal-path I/O/ownership failure, ambiguous
+write, bad readback, forward cancellation/drift, lost cleanup transport, stuck
+VCO and each original-byte bit mismatch. A compiler warning and an initial
+fixture that injected arbitrary register changes after the last read were
+corrected before validation. Cleanup corruption/readback and lost ownership
+remain covered independently; no transport or completion gate was relaxed.
+Installed v97 and its native acceptance/recovery remain unchanged. Next is a
+separate native stopped-RX/board/firmware/strict-response/delay binding with
+fault tests and exact-stage save/return rehearsal, before a cold hardware trial.
+Live tuning, receiver restart, multi-channel reception and connectivity remain
+unaccepted. No reboot armed.
+
+
+Offline validation for `1ff74269`: 3969 tuning transactions pass, including all
+472 normal-path I/O and 476 ownership boundaries, all eleven independent plans,
+stuck/delayed VCO and original-byte bit mismatches. ASan/UBSan and the full merged
+image/core/desktop suite pass. All 39 prior MT76/xHCI/native-startup/staging/
+reference files match accepted v97 byte-for-byte; no old recipe changed. The
+uncalled helper is garbage-collected from the ordinary kernel. These tests do
+not accept native retuning or reception; installed/recovery payloads are retained.
+
+The merged ordinary GPT/OVMF USB-keyboard boot regression also passes
+(`channel-tune-boot-ok`). VM evidence validates ordinary boot/input only; QEMU
+does not emulate this radio. Source, tests, pinned references and recovery audit
+are preserved outside build in `wifi-channel-tune-1ff74269`. Native v97 remains
+installed, with all five retained payloads and Ubuntu recovery preserved;
+workspace unmounted and no one-shot armed.
