@@ -3759,3 +3759,32 @@ playback receipt records actual volume. All 423 prior USB files were preserved
 when adding this one input; baseline is 424 files / 1,332 clusters with no leaks,
 allocation mismatches or errors. Ubuntu and console recovery remain unchanged.
 Native results must be collected before another trial; acceptance is pending.
+
+### Screenshot cleanup — native return failed early (2026-10-27)
+
+Release `d7fe87e92eff81b3`, compiled source `306a8ff4`, merged PR204
+`6cb4eaeb`, returned one matching session `session-00065ecbd4ad7e4a-00`.
+The full stress trial is **failed**, not accepted: Files cycle 7 exceeded the
+unchanged ten-second total cycle deadline at 10.009730 s. Its window had become
+ready in 1.677275 s; close was pending on an active directory listing. That
+listing reported success only during failure shutdown. This occurs before normal
+screenshot completion/resource cleanup, so it does not identify the new cleanup
+worker as the cause. Next investigation is directory-list completion/storage
+contention during screenshot writes, coordinating any filesystem changes with
+PR182; no limits or integrity checks should be relaxed.
+
+The 2,426 measured loops have a maximum of 109.796 ms, zero invalid samples and
+zero excursions above 500 ms. This short run cannot accept full endurance. Audio
+was verified at 1% with zero recorded underruns, but playback stopped early and
+neither workload completion receipt exists. One screenshot was requested and
+zero were acknowledged before abort. Its accepted writer drained and retired;
+one complete 1366x768 BMP (4,196,406 bytes) decodes successfully afterward. Abort
+cleanup execution totals 111.687 ms (close 101.488, unmap 1.033, reap 9.154 ms),
+excluding waiting between reap attempts. Normal completion remains unverified.
+
+Battery retirement reports heap/errors/denied all zero, though the enclosing
+controls trial correctly reports FAIL. All 424 preboot files survive except
+expected `.srvros/meta` bookkeeping. Offline fsck/allocation pass: 430 files,
+1,373 clusters, zero leaks/mismatches/errors. Returned evidence is hash-verified
+outside `build`. The collector is disabled, one-shot consumed and no new reboot
+armed. The 1% stress input retains its recorded three-hour expiration.
