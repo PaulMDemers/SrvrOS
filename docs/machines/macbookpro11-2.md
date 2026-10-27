@@ -10026,3 +10026,22 @@ mismatches or errors. Evidence and payload survive distclean outside build in
 installed, unmounted and unarmed; await manual cold-cycle readiness, then save
 and collect all three visit/stop/restoration traces before acceptance. No photos
 or guest commands needed. Association/security and IP/UI remain pending.
+
+
+### 2026-10-27 — v100 return: strict checkpoint projection under review
+
+The timing retry saved session `session-00065ed915340ee5-00`,782503 bytes, with
+successful guest completion markers and all three stopped/restored visits.
+Original collection refused an interleaved cached workspace scheduler/device
+checkpoint during channel1. Preserve that refusal and failed-run record before
+re-evaluation. This is a collection-checker change, not a new kernel candidate.
+
+Bounded objective: validate the exact seven-line disabled-device checkpoint
+from the pinned workspace logger and its original raw prefix byte offset before
+projecting the Wi-Fi phase. Keep the raw capture unchanged and compare the saved
+periodic checkpoint byte-for-byte. New `tools/wifi_scan_log.py` and tests own
+this offline projection; Makefile registers its test target. Unrecognized lines
+remain for phase refusal. No RF, MCU, guard or ownership gate is changed. Six
+unit tests and three complete scan checkpoint proofs pass;96 malformed block/
+phase cases refuse. The full previous proof matrix and native recovery/offline
+audit must finish before acceptance. No new boot is needed or armed.

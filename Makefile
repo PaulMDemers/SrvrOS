@@ -4244,3 +4244,8 @@ test-process-event: build/tests/process-event-host$(HOST_EXE)
 build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-wifi-scan-log
+test-core: test-wifi-scan-log
+test-wifi-scan-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_scan_log.py
