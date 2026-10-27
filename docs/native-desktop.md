@@ -602,7 +602,7 @@ not promise bounded launch latency for disk-backed executables.
 
 ### Attended desktop under automatic audio and USB load
 
-The Air6,1 v76 `--desktop-audio-io-attended` profile requires the explicit
+The Air6,1 v77 `--desktop-audio-io-attended` profile requires the explicit
 battery/services profile. Help opens the complete checklist automatically.
 Continuous PCM and unpaced verified filesystem work run for 30 minutes using
 the existing worker. The user exercises windows, dock, Text and Files; automatic

@@ -282,7 +282,7 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
 
     def test_air61_attended_audio_io_profile(self):
-        version='ram-usb-v76-desktop-6ada85bb'
+        version='ram-usb-v77-desktop-6ada85bb'
         cfg=boot.limine_config('0123456789abcdef',version)
         self.assertIn('srvros.desktop-audio-io=attended',cfg)
         for token in ('desktop=session','battery=on','audio=hda','sensors=cpu','smc=read-only'):

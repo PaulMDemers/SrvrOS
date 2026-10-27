@@ -26,7 +26,7 @@ def main():
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
-    if stage:assert manifest['config_version'].startswith('ram-usb-v76-')
+    if stage:assert manifest['config_version'].startswith('ram-usb-v77-')
     output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
         tmp=Path(directory);volume=tmp/'volume';stick=tmp/'stick'
