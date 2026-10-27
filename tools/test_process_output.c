@@ -118,6 +118,27 @@ static void pipe_regression(void) {
     clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
     assert(!process_file_pipe(&subject,fds) && fds[0]==3 && fds[1]==4);
     assert(!process_file_set_flags(&subject,3,SRV_FD_NONBLOCK));assert(!process_file_set_flags(&subject,4,SRV_FD_NONBLOCK));
+    assert(process_file_pipe_io_safe(&subject,3,SRV_PIPE_BUF,false));
+    assert(process_file_pipe_io_safe(&subject,4,SRV_PIPE_BUF,true));
+    assert(!process_file_pipe_io_safe(&subject,3,SRV_PIPE_BUF+1,false));
+    assert(!process_file_pipe_io_safe(&subject,4,SRV_PIPE_BUF+1,true));
+    assert(!process_file_pipe_io_safe(&subject,3,1,true));
+    assert(!process_file_pipe_io_safe(&subject,4,1,false));
+    assert(!process_file_pipe_io_safe(&subject,99,1,false));
+    pipes[0].read_refs=0;assert(!process_file_pipe_io_safe(&subject,4,1,true));pipes[0].read_refs=1;
+    pipes[0].rights[0].used=true;
+    assert(!process_file_pipe_io_safe(&subject,3,1,false));
+    assert(process_file_pipe_io_safe(&subject,4,1,true));pipes[0].rights[0].used=false;
+    assert(!process_file_set_flags(&subject,3,0));assert(!process_file_pipe_io_safe(&subject,3,1,false));
+    assert(!process_file_set_flags(&subject,3,SRV_FD_NONBLOCK));
+    subject.files[5]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_DUPLEX,.handle=1,.aux_handle=1};
+    assert(process_file_pipe_io_safe(&subject,5,1,false) && process_file_pipe_io_safe(&subject,5,1,true));
+    subject.files[5].aux_handle=PROCESS_MAX_PIPES+1;
+    assert(!process_file_pipe_io_safe(&subject,5,1,true));
+    subject.files[5].type=PROCESS_FILE_PTY_MASTER;
+    assert(!process_file_pipe_io_safe(&subject,5,1,false));
+    subject.files[5]=(struct process_file){0};
+    pipes[0].write_refs=0;assert(process_file_pipe_io_safe(&subject,3,1,false));pipes[0].write_refs=1;
     static uint8_t input[PROCESS_PIPE_CAPACITY+512],output[PROCESS_PIPE_CAPACITY+512],model[PROCESS_PIPE_CAPACITY];
     size_t size=0;unsigned seed=12345,sequence=0;
     for(unsigned iteration=0;iteration<20000;iteration++) {
@@ -126,11 +147,13 @@ static void pipe_regression(void) {
             for(size_t i=0;i<request;i++) input[i]=(uint8_t)(sequence+i);
             size_t expected=PROCESS_PIPE_CAPACITY-size;if(expected>request) expected=request;
             if(request<=SRV_PIPE_BUF && expected<request) expected=0;
+            assert(process_file_pipe_io_safe(&subject,4,request,true)==(request<=SRV_PIPE_BUF));
             long result=process_file_pipe_write(&subject,4,input,request);
             assert(result==(request && !expected?SRV_ERR_AGAIN:(long)expected));
             memcpy(model+size,input,expected);size+=expected;sequence+=expected;
         } else {
             memset(output,0xa7,sizeof(output));size_t expected=request<size?request:size;
+            assert(process_file_pipe_io_safe(&subject,3,request,false)==(request<=SRV_PIPE_BUF));
             long result=process_file_pipe_read(&subject,3,output,request);
             assert(result==(request && !expected?SRV_ERR_AGAIN:(long)expected));
             assert(!memcmp(output,model,expected));for(size_t i=expected;i<sizeof(output);i++) assert(output[i]==0xa7);
