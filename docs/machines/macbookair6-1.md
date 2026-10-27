@@ -3930,3 +3930,16 @@ allocation checks pass with zero leaks, mismatches or errors. Collected evidence
 and the payload are verified outside `build`. The collector is disabled, the
 one-shot boot entry is consumed and no further reboot is armed. Existing accepted
 desktop/recovery payloads remain the recovery reference.
+
+### CPU power phase logging — active scope (2026-10-27)
+
+Base `99241a70` contains the collected incomplete v35 run. The bounded objective
+is to retain extra cached power checkpoints inside each unchanged 30-second
+phase so idle has more than the unchanged ten seconds of required coverage.
+Touch the explicit power diagnostic checkpoint path, v35 main wiring, service
+and collector regressions, and this unit's trial documentation. Keep ordinary
+power sampling and USB logging cadence unchanged; retain a bounded in-memory
+capture and emit it before the final persisted report. No new MSR reads/writes,
+CPU policies, sensor gates or acceptance-limit changes. PR182 filesystem/backend
+work and PR19 Wi-Fi have no overlapping power scope. After host/VM validation,
+merge and repeat the automatic native test under the user's reboot authorization.
