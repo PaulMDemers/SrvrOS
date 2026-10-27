@@ -2,6 +2,24 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
+### Combined navigation trial — installed; attended boot pending
+
+Candidate `1d36da62e183a295` from tested clean `8847894a` is installed for the
+next attended window/dock/navigation round. Full untimed Help checklist opens
+automatically. USB offline fsck/allocation/headroom pass; 1,129 prior file hashes
+are recorded and the latest prior session remains the collected PR193 session.
+Independent recovery `9aa8dbf6fbda8252` and accepted payload `a90629c8a2060e66`
+are retained. Unreferenced older `986d6c68fa19ba18` was copied and every file
+verified outside EFI before removal to make installation space; its known-good
+backup also remains. Ubuntu default is unchanged.
+
+Remote main `a9e39e38` (PR197 audio trial work) was fetched and inspected but is
+not consumed into this exact rehearsed candidate. No new audio acceptance is
+requested. The run record and current one-shot/reboot state are in
+`build/window-navigation-native-20261026/run.json` and its durable copy outside
+build. On return collect the matching candidate session first, compare the
+recorded files and inspect tester observations; no physical pass is claimed yet.
+
 ### Window switching and keyboard navigation — implemented; hardware trial ready
 
 PR198 follows main `43aff7d5` (PR194). Source `8847894a` implements a stable
