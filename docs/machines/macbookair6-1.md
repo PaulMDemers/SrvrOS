@@ -3715,3 +3715,21 @@ fsck/allocation are clean: 423 files, 1,331 clusters, zero leaks/mismatches/erro
 Evidence and decoded-image checks are backed up outside `build`; the collector
 is disabled and the one-shot entry consumed. No new boot is armed. Preserve
 all limits and accepted-writer/file-integrity rules in the next investigation.
+
+### Screenshot cleanup — active scope (2026-10-27)
+
+Base `6b6d2f4d`; prior run is collected, backed up and failed on one 660 ms
+post-render loop. Capture polling currently closes descriptors and unmaps its
+snapshot synchronously on completion. Move completion resource ownership to the
+existing joined lifecycle worker, preserving immutable data, final acknowledgement,
+accepted-writer lifetime, publication order and all limits. Add retained cleanup
+timing and delayed-cleanup regressions; validate ordinary capture and loaded
+stress before the next automatic native trial. Scope: capture job library,
+compositor worker/publication, diagnostics/host and VM collectors. PR182 filesystem
+hardening and PR19 Wi-Fi remain separate.
+
+The user also requests 1% test audio for the next few hours. Add an expiring,
+explicit stress-only volume override in this unit's test input, retaining ordinary
+audio defaults and the full PCM workload. Record its expiration with the local
+run, verify it in the guest and keep AC/USB connected during automatic testing.
+Self-merge and reboot are explicitly authorized; no new boot is armed yet.
