@@ -15,8 +15,9 @@ no power MSR reads. Unsupported CPUs report unavailable without reading any MSR.
 
 The profiles require GenuineIntel family 6/model 0x3d, 0x45 or 0x46, no hypervisor bit,
 MSR support, CPUID.06H:ECX[0] feedback support and a working monotonic clock.
-It reads only RAPL units (0x606), platform info (0xce), package energy (0x611),
-APERF (0xe8) and MPERF (0xe7). The observed energy exponent must be 14; the
+The base telemetry reads RAPL units (0x606), platform info (0xce), package energy (0x611),
+APERF (0xe8) and MPERF (0xe7). The model-specific residency and capture-only
+firmware audit extensions are described below. The observed energy exponent must be 14; the
 platform non-turbo ratio must be nonzero and at most 64. No other CPU model is
 implicitly enabled; CPU telemetry support does not accept a sibling Mac's other devices. There are no MSR writes,
 ACPI mode changes, fan controls or power-limit changes.
@@ -845,3 +846,115 @@ per phase. These short observations establish reduced supervisor polling, not a
 meaningful energy saving. Battery-owner cadence, USB HID, firmware watchdogs,
 ownership validation and test limits are unchanged. See the
 [unit record](machines/macbookair6-1.md) for bounded measurements and recovery.
+
+## Air6,1 read-only hardware idle residency
+
+Explicit `srvros.power=read-only` now also samples hardware idle counters on
+captured native GenuineIntel family 6 model 45, with invariant TSC indicated by
+CPUID.80000007:EDX[8]. All existing power feature/hypervisor gates apply first.
+Other admitted power profiles keep their original reads and report no residency.
+This adds no policy writes, provider activation or sampling wakeups. CPU policy,
+HLT/MWAIT selection, fan control, thermal stops and battery watchdogs are unchanged.
+
+The captured allowlist is CPU0 core C3/C6/C7 (`0x3fc`–`0x3fe`) and package
+C2/C3/C6/C7 (`0x60d`, `0x3f8`–`0x3fa`), C8/C9/C10 (`0x630`–`0x632`). Intel
+[SDM Volume 4](https://cdrdv2-public.intel.com/774500/335592-sdm-vol-4.pdf), tables
+2-20 and 2-31, specifies TSC-rate counters; C8–C10 use 60 bits, the others 64.
+Read-only Linux CPU0 capture on this unit confirms each register is accessible.
+That is inventory evidence, not SrvrOS acceptance or a comparable idle baseline.
+
+Each existing one-second sample adds ten residency reads bracketed by two reads
+of the TSC MSR (`0x10`). Snapshot ratios use the current end minus previous begin
+TSC bracket, conservatively including read skew. Units are basis points (100 =
+1%). Core and package totals are checked independently; neither is a per-thread
+percentage. Do not infer C0/C1 or whole-machine idle from their complement.
+Hardware C-state names are not ACPI/MWAIT request numbers. No control MSRs are written. The explicit firmware audit below separately reads
+E2 at its capture boundaries. There is no cross-core sampling or all-core average.
+
+First samples, missing support, stale data and rejected discontinuities have no
+valid residency mask. Zero counts with full validity are legitimate zero
+residency. Backwards/reset counters, invalid reserved bits, invalid TSC ordering,
+arithmetic overflow, state totals exceeding their TSC interval and the existing
+100 ms–5 s sample interval constraints invalidate/rebaseline the sample. They are
+never clamped or treated as wrapped idle counters. Residency rejection is separate
+from energy/frequency validity and cumulative rejection evidence is retained.
+
+The unchanged v35 test runs 30 seconds each idle/load/recovery, retaining at most
+24 cached records at intervals of at least five seconds. After the phases,
+`cpu-load-idle` rows accompany the retained power rows with identical original
+sample timestamps. Each row contains support/valid masks, rejected count, TSC
+brackets, raw counters and one-sample ratios. Indices 0–9 follow the allowlist order
+above. The collector requires the complete bounded receipt, exact power-row
+pairing, valid monotonic data and at least ten seconds of coverage in each phase;
+it independently calculates phase ratios from raw endpoints. Missing evidence is
+unavailable, never zero or a pass. The native run requires both power and residency
+coverage, workload completion, preserved prior files and clean offline allocation.
+No minimum deep-state residency or energy-saving result is required. The returned
+Air6,1 result is recorded below.
+
+### Native Air6,1 residency result (2026-10-27)
+
+Release `ed06103a5275d7ca` (PR218 runtime `d7cda917`) completed the unchanged
+30-second idle/load/recovery phases and returned automatically. Fifteen retained
+records have full residency validity, zero rejection/overflow and five records
+covering about 24 seconds per phase. All ten raw residency counters remained
+exactly zero while TSC advanced: no measured core C3/C6/C7 or package C2–C10
+entry during this run. Zero is valid data here, not missing support. C0/C1 and
+other physical cores are not measured, so this is not evidence that the CPU
+never idled. The bounded telemetry path is accepted; deep-state entry and CPU
+policy remain unaccepted.
+
+Covered package averages were 4.130/5.167/4.137 W with active CPU0 frequencies
+1,287/1,299/1,290 MHz for idle/load/recovery. Power and residency intervals differ
+because power also uses ordinary checkpoints. Peak logged temperature was 67 C.
+Files were preserved, offline allocation was clean and the full required log
+fit within the unchanged 64 KiB tail. See the [unit record](machines/macbookair6-1.md)
+for exact intervals and evidence identity. Next audit idle entry and firmware/
+package constraints without changing policy; these results alone do not identify
+the cause of absent deeper residency or establish potential energy savings.
+
+
+## Capture-only idle-entry and firmware audit
+
+On captured native 06_45, the explicit bounded power capture now counts CPU0
+scheduler idle attempts immediately before the unchanged `sti; hlt; cli`, returns
+after that sequence, and readiness-check bypasses that yield to existing work.
+Accounting is disabled outside the capture. It adds no clocks, allocations,
+printing, polling or I/O to the idle path. Start refuses nesting or an absent
+idle worker. Stop freezes the counters. A generation token prevents an old
+preempted HLT return from being attributed to a restarted capture. An outstanding
+return at a sample/stop boundary is allowed; counts do not measure time asleep,
+interrupt counts or hardware C-state residency.
+
+A source audit finds no MONITOR/MWAIT instruction or Limine MP request/AP startup
+in the current kernel. The managed scheduler is CPU0-only. CPUID.1 EBX is retained
+as capability/topology evidence, **not** a count of running processors. Other
+cores' live state is unknown. CPUID.1 MONITOR support and raw CPUID.5 registers
+are retained only where advertised; there is no MWAIT activation or hint choice.
+
+The only new MSR is a read of `MSR_PKG_CST_CONFIG_CONTROL` (`0xe2`) at capture
+start and stop, under the existing native 06_45/invariant-TSC gate. Ordinary power
+sampling adds no configuration reads. Linux CPU0 inventory confirms this register
+is readable; observed `1032` (`0x408`) decodes to package limit C10, unlocked,
+I/O-MWAIT redirection enabled and no demotion bits. Linux can configure this
+register, so this is not a claim about its value under SrvrOS. Raw native values
+are required before drawing a firmware-restriction conclusion.
+
+For 06_45, Intel SDM Volume 4 table 2-31 defines bits 3:0 as package-limit
+encodings C0/C1, C2, C3, C6, C7, C7s, C8, C9, C10 (0 through 8), bit 10 as I/O
+MWAIT redirection, bit 15 as the configuration lock and bits 25–28 as C3/C1
+demotion/undemotion flags. Unknown limit encodings remain unknown. A permitted
+package limit does not prove software requests, core/device conditions or actual
+entry. These bits are observed, never changed. No ACPI methods or control I/O
+are added; power policies, worker sampling/logging cadence, thermal stops,
+watchdogs and every existing timing/capacity/integrity bound remain unchanged.
+
+After measured phases, `cpu-idle-audit` records both raw configuration values,
+capabilities and final counters; `cpu-idle-entry` records pair one-for-one with
+retained residency timestamps. Strict collection requires a unique complete
+header, matching generation/count/timestamps, monotonic counters with at most one
+outstanding return, and the existing ten-second phase coverage. A configuration
+change is explicitly reported, not normalized away. Valid zero entry counts are
+diagnostic evidence, not a fabricated failure/pass for deep-state support.
+The native trial also requires all existing power/residency, completion, file
+preservation and offline allocation proofs. No native audit acceptance yet.

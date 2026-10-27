@@ -4279,3 +4279,152 @@ console `c35475f62f154f1e`, prior accepted `cb881058052a1012`, CPU-power, stress
 and attended-reopen payloads remain retained. This accepts the ordinary session
 supervisor wait change on this unit; broader endurance and power policy remain
 separate work.
+
+### Read-only idle residency — active scope (2026-10-27)
+
+Base `108969f7` includes the collected supervisor-wait acceptance. Add explicitly
+opted-in CPU0 core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 residency reads for
+this captured 06_45 CPU, guarded by the existing native power gate and invariant
+TSC support. Intel SDM Volume 4 tables 2-20 and 2-31 define the counters; capture
+this unit's Linux read-only baseline before admitting them. Other CPU profiles
+retain their existing five-register power telemetry, with residency unavailable.
+
+Touch power sampling/arithmetic, bounded capture records, collector regressions
+and documentation. Reuse v35's unchanged 30-second idle/load/recovery phases,
+24-record capacity, one-second sampling, thermal/fan stops, ten-second phase
+coverage and USB integrity checks. No C-state, frequency, fan or battery policy
+writes, scheduler changes or new polling. Distinguish unavailable/reset/stale
+from valid zero residency; core and package percentages have separate scopes.
+PR182 filesystem audit and PR19 Wi-Fi remain independent. Next checkpoint is
+host/VM validation, self-merge, exact-stage installation and the authorized
+automatic native run; hardware acceptance is pending collection after return.
+
+### Read-only idle residency — candidate ready (2026-10-27)
+
+PR218 runtime `d7cda917` adds the ten captured residency MSRs plus TSC brackets
+only on native 06_45 with invariant TSC. Linux CPU0 inventory confirms readable
+core/package counters, including valid zeros for package C6–C10. The regression
+fixture preserves the measured raw values; it does not assert native acceptance.
+Core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 ratios remain separate, with no
+inferred C0/C1. Invalid/reset/stale readings are explicitly unavailable.
+
+Full matched standard build, USB image, host/core and documentation checks pass.
+Power arithmetic/service regressions cover exact CPU refusal, cached-only reads,
+unchanged cadence/capacity, valid zero, counter resets/reserved bits, independent
+state totals, overflow and stale status. Eight collector tests pass, including
+strict receipt/timestamp pairing and invalid/missing/short coverage refusal;
+load fixtures retain all twelve safety refusal/stop paths. Power/load VMs pass
+default-disabled and unsupported-hardware refusal.
+
+Exact v35 release `ed06103a5275d7ca` passes GPT save/unmount/automatic return and
+missing-workspace halt rehearsals. Run `a8c3c17ccdba458a` will automatically run
+30 seconds each idle/load/recovery, save the bounded samples and return to Ubuntu
+for collection. Acceptance requires both power and residency coverage of at least
+ten seconds per phase, complete workload/return evidence, unchanged prior files
+and clean offline allocation. All existing policies, cadence, capacities,
+watchdogs, thermal/fan stops and time limits remain unchanged. No input is needed;
+leave AC and USB connected. Native residency acceptance is pending return.
+
+USB preflight preserves all 516 baseline files with 1,562 allocated clusters and
+zero leaks/mismatches/errors. The superseded `cb881058052a1012` EFI copy was retired
+after durable hash verification; accepted current desktop `aa576838270d623a`,
+console recovery, accepted CPU power, stress and attended-reopen payloads remain
+protected. Source, exact-stage receipts, payload and run/collection records are
+retained outside `build` before reboot; Ubuntu remains the default OS.
+
+### Read-only idle residency — bounded native acceptance (2026-10-27)
+
+Return closeout from base `f516c8ea` is documentation/evidence only; no runtime
+policy or new trial. PR182 filesystem and PR19 Wi-Fi scopes remain independent.
+Release `ed06103a5275d7ca`, runtime `d7cda917`, merged PR218 `f516c8ea`, completed
+run `a8c3c17ccdba458a`, session `session-00065ed874cb714b-00`, and automatically
+returned to Ubuntu. The three ordered 30-second phases completed, with 250,478
+single-worker load chunks and peak logged temperature 67 C. Fifteen retained
+records have full support/valid masks, zero rejected samples and no overflow.
+The 63,866-byte exit log retains the complete required evidence within the
+unchanged 64 KiB tail. Independent raw-record review agrees with the collector.
+
+| Phase | Residency coverage | Residency checkpoints | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- |
+| Idle | 23.999236 s | 5 | 4.130 W | 1,287 MHz |
+| Load | 23.999235 s | 5 | 5.167 W | 1,299 MHz |
+| Recovery | 23.999234 s | 5 | 4.137 W | 1,290 MHz |
+
+Power coverage is respectively 23.999236/28.999076/26.999139 seconds, combining
+retained and ordinary checkpoints. Every phase exceeds both unchanged ten-second
+requirements. All ten raw residency counters remain exactly zero, not merely
+rounded percentages: no CPU0 core C3/C6/C7 or package C2/C3/C6/C7/C8/C9/C10
+residency was recorded. TSC brackets advance normally. This accepts the bounded
+read-only capture/validation path on this unit, not deep-state entry or CPU
+policy. It does not measure C0/C1, all-core residency, equilibrium power or
+battery life. The next useful investigation is read-only auditing of idle entry,
+other-core state and firmware/package restrictions before changing CPU policy.
+
+All 516 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the volume to 520 files / 1,567 clusters; offline fsck and
+allocation checks report zero leaks, mismatches or errors. Collected evidence
+and current/recovery payloads are hash-verified in durable storage outside
+`build`. The automatic collector is disabled, GRUB's one-shot entry is consumed
+and no further reboot is armed. Ubuntu remains the default recovery OS.
+
+### Idle entry and firmware audit — active scope (2026-10-27)
+
+Base `51f8b39b` includes the collected residency run. Audit the unchanged CPU0
+`sti; hlt; cli` readiness/idle path and add capture-only entry/return/readiness
+counters with generation-safe start/stop. Read only the captured 06_45 E2 package
+C-state configuration register at capture boundaries, and retain raw CPUID
+MONITOR/MWAIT capability information. No control writes, MWAIT activation,
+secondary-CPU startup, polling/cadence, watchdog or limit changes. No MP request
+exists in the current Limine boot path; other cores' live state remains unknown.
+
+Touch scheduler diagnostic accounting, power capture/service regressions, strict
+saved-record validation and this unit's guides. Preserve the existing v35
+30-second idle/load/recovery workload, 24-record capacity, 64 KiB log tail,
+ten-second coverage minimum, thermal/fan stops and USB integrity checks. PR182
+filesystem work touches other scheduler-adjacent process paths; PR19 owns Wi-Fi.
+Neither currently changes this idle loop or power collector. Next checkpoint is
+host/VM validation, merge and the authorized automatic native run. Prior run is
+fully collected; this audit has no new hardware acceptance yet.
+
+### Idle-entry/firmware audit — candidate ready (2026-10-27)
+
+PR220 runtime `b6ffff14` retains the original readiness check and contiguous
+`sti; hlt; cli` in the compiled idle worker. Capture-only counters track entry
+attempts, returns and readiness bypasses; generation checks prevent a preempted
+return from an earlier capture polluting a new one. There are no clocks, I/O,
+allocations or printing in that idle path. Read-only E2 snapshots occur only at
+capture start/stop behind the accepted 06_45/invariant-TSC gate. No firmware
+methods, control writes, MWAIT activation or AP startup are added.
+
+Linux CPU0 inventory reads E2 `0x408`: package C10 limit, unlocked, I/O-MWAIT
+redirection enabled and zero demotion/undemotion bits. This is Linux inventory,
+not SrvrOS firmware-policy evidence. Native values and raw MONITOR/MWAIT CPUID
+capabilities are saved by the next run. No other-core live state is inferred.
+
+Full matched build/USB image, host/core and docs pass on `b6ffff14`; source
+`c888ab53` adds only the test header dependency, with final matched rebuild,
+power regression and docs passing. Scheduler regressions cover inactive/nested
+capture, ready bypass, HLT path, delayed return across stop/restart and epoch
+exhaustion. Driver tests cover exact model-gated E2 reads, failed/nested capture,
+restart and cached records. Ten collector tests pass, including generation/
+timestamp pairing, monotonic counts, one outstanding return, missing/malformed
+records, changed configuration and unknown limits. All twelve existing load
+safety refusal/stop cases remain passing. Power/load VMs verify default-disabled
+and unsupported-hypervisor refusal.
+
+Exact v35 release `6b1f017332e0931b` passes GPT save/unmount/automatic return and
+missing-workspace halt. Run `49fe4e29d5ed450a` uses the unchanged three 30-second
+idle/load/recovery phases, with automatic Ubuntu return and strict collection.
+Required evidence includes >=10 seconds of power, residency and paired idle-entry
+coverage per phase, complete firmware audit, workload completion, file preservation
+and clean allocation. Zero HLT counts or changed firmware values remain explicit
+observations; they are not concealed or reinterpreted as deeper-state acceptance.
+All power policies, cadence, time/capacity limits, thermal stops, watchdogs and
+integrity checks remain unchanged. No human input is needed; keep AC/USB connected.
+
+USB preflight preserves 520 files / 1,567 allocated clusters with zero leaks,
+mismatches or errors. The old `a5f8fdf5d377c116` EFI copy was retired only after
+verifying its durable backup; accepted residency `ed06103a5275d7ca`, desktop,
+stress, attended reopen and console recovery payloads remain protected. Exact
+payload/evidence/run records are backed up outside `build` before reboot. Ubuntu
+stays the default. Native idle-entry/firmware audit acceptance remains pending.

@@ -3330,7 +3330,7 @@ test-core: test-power
 test-power: build/tests/power-host$(HOST_EXE) build/tests/power-service-host$(HOST_EXE)
 	build/tests/power-host$(HOST_EXE)
 	build/tests/power-service-host$(HOST_EXE)
-build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h
+build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h kernel/include/srvros/idle_audit.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_power.c kernel/src/drivers/power_core.c -o $@
 build/tests/power-service-host$(HOST_EXE): tools/test_power_service.c kernel/src/drivers/power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h $(KERNEL_HEADERS)
