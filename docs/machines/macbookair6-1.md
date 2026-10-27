@@ -4087,3 +4087,23 @@ the one-shot entry is consumed and the collector is disabled. No reboot is armed
 The accepted payload/evidence is retained outside `build`; native bounded desktop
 power/temperature/worker telemetry is accepted on this unit, with ordinary
 power telemetry still opt-in and broader endurance/power policy still pending.
+
+### Idle worker polling reduction — active scope (2026-10-27)
+
+Base `fbb6eaa5`, accepted desktop-power run `feba3c750d2a4a8d`. Audit identifies
+one-tick unconditional sleeps in the desktop lifecycle and diagnostic-report
+workers. Replace only their empty-queue polling with latched futex notifications;
+cover launch, allocation, discard, capture cleanup, report publication and stop.
+Keep the existing one-tick retry while a screenshot child is still retiring,
+resource ownership/credit rules, joins, queue bounds and every deadline unchanged.
+The native bootstrap loop also checks workspace identity, control requests and
+watchdogs; its polling is deferred until all those wake sources can be covered.
+USB HID polling belongs to separate device work and is unchanged.
+
+Scope: compositor worker notification/admission sites, host race/retirement
+regressions, relevant worker documentation, and a repeat of the identical v78
+power trial with the 470-file / 1,514-cluster USB baseline. Open PR182 filesystem
+and PR19 Wi-Fi work do not own these compositor queues. Run full host tests,
+positive power and screenshot/app/disk VMs, exact staged native refusal, merge,
+then reboot automatically. Native wakeup/energy improvement remains unproven
+until the matching physical return is collected.
