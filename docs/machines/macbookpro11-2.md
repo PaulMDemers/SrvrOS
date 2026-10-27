@@ -21,7 +21,7 @@ passive reception with safe endpoint rearm and teardown, then scanning,
 association/security, Wi-Fi IP traffic and UI. Original strict helper stays
 unchanged; RF0:6 semantics remain unresolved.
 
-Active offline block (2026-10-26): merged actual main `a9d69554` (PR199 Air
+Completed offline block (2026-10-26): merged actual main `a9d69554` (PR199 Air
 attended-exit evidence only); PR182 owns filesystem imports and has no MT76
 overlap. Prepare an allocation-free bounded repeated receive engine using eight
 distinct retained4KiB buffers and non-wrapping TRB identities. Admit only one
@@ -30,9 +30,9 @@ failure, and inspect normal-completion bytes only after exact endpoint cessation
 and fresh cleanup ownership. Touched: new MT76 receive-window helper/header,
 host fixtures/Makefile and unit/Wi-Fi guides. Existing native v93 stays unchanged;
 no physical profile, adapter rearm or reboot in this block. Native callback
-integration and exact-stage/physical acceptance follow separately. Checkpoint:
-fault-injected ownership/event/clock/stop tests, sanitizers, core/image and
-archived evidence before publishing implementation.
+integration and exact-stage/physical acceptance follow separately. Checkpoint complete:
+fault-injected ownership/event/clock/stop tests, sanitizers, core/image and GPT
+boot/input pass; durable archive accompanies the published implementation.
 
 Active block (2026-10-26): consumed actual main `a9e39e38` (PR197 attended
 load and PR198 keyboard navigation). Resolved hardware_boot.py conflicts by
@@ -8857,3 +8857,58 @@ fallback were verified. Offline workspace checks:333files,816clusters,
 Durable evidence: `wifi-passive-rx-774e9e9`. Next is a separately reviewed bounded
 repeated passive receive lifecycle with safe rearm/cancellation and teardown,
 followed by scanning and connection support. No further reboot armed.
+
+
+### 2026-10-26 — bounded repeated receive engine (offline)
+
+Following native v93 beacon reception, main `a9d69554` was merged (PR199 adds
+Air6,1 evidence only). PR182's filesystem scope does not overlap. New
+`mt76_rx_window` is an allocation-free callback-driven engine for a fixed
+channel1 receive window. The caller supplies eight distinct aligned4KiB DMA
+pages and eight monotonically advancing, non-wrapping TRB identities. Only one
+request can be pending. Normal CC1/13 with residue<=4096 records actual bytes;
+foreign slot/DCI/TRB events are ignored, and prior TRBs cannot complete a later
+request. Stopped/error/event-data completions fail the forward transaction.
+Every attempted submission, including a callback failure, requires endpoint
+cessation before any subsequent inspection; buffers are never freed or reused.
+
+The count limit is eight; the window deadline is1s, with a1.1s elapsed accounting
+cap, backward-clock refusal,1024 consecutive no-progress checks and a2M poll
+cap. Eight immediate completions can finish by count without a clock advance;
+a stalled pending request cannot spin indefinitely. Adapter callbacks themselves
+must be bounded and serialized. The future native adapter must prove stable
+DMA/ring/endpoint identities and the accepted MAC/calibration context before
+each forward action, then disable/drain MAC and prove disabled guards in cleanup.
+The helper requires exact slot/DCI9/stopped-state3/current-or-next dequeue with
+DCS1 before decoding. All pages remain retained even if shutdown cannot be proven.
+
+Only after final cessation and fresh cleanup ownership does the existing strict
+parser inspect the first entry of each normally completed buffer. Zero-data
+normal completions never dereference their buffers. Only non-identifying sizes,
+frame-control and beacon advertisement metadata are copied; temporary identifiers
+are scrubbed. No aggregate traversal, SSID/address logging, raw RSSI/FCS inference,
+transmission, scan, association or networking policy is added. A complete empty
+window is not reception acceptance; any failed window remains unaccepted even
+if earlier items have partial metadata.
+
+The helper has no native caller, staging flag or boot recipe in this block.
+Installed v93 and recovery are unchanged; repeated native reception is not yet
+accepted. Next is the native callback adapter, with actual event/ring/stop fault
+fixtures and exact-stage save/refusal/return validation before a cold trial.
+
+
+Validation for this offline engine:222 host scenarios and ASan/UBSan with leak
+checking pass, including each submission/ownership/cleanup failure position,
+foreign/stale events, zero/full transfers, malformed/unsupported/off-channel
+frames, stopped completions with misleading residues, exact-stop mutations,
+invalid plans/callbacks and poison DMA pointers on all no-usable-data paths.
+The first frozen-clock fixture incorrectly supplied immediate completions; it
+was corrected to withhold events and exercise a pending stall. That initial
+failed run is retained, not counted as passing evidence. Full merged image/core,
+final-source image/GPT USB build,180 staging tests, documentation checks and
+OVMF GPT boot with real emulated USB keyboard input pass. These validate the
+helper and boot workflow, not repeated reception on physical hardware. The
+native adapter must preserve shared-event dispatch and the parent MAC cleanup
+sequence; it must not stop the endpoint prematurely inside the existing
+inspection hook. Installed v93, e47 recovery and accepted v92 fallback remain
+unchanged; no reboot armed.
