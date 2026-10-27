@@ -9962,3 +9962,17 @@ mismatches or errors. V99 remains the latest native acceptance. Next: reproduce
 the immediate-clear post-VCO variant in a focused prerequisite regression and
 review a bounded timing contract before any candidate retry; preserve guard,
 framing and delayed-sample requirements. No new acceptance or reboot armed.
+
+
+### 2026-10-27 — bounded scan prerequisite timing follow-up
+
+Objective: reproduce v100's complete immediate-clear VCO trace and admit that
+same-unit timing variant only for explicit scan mode78. Keep older captured
+profile gates unchanged; require identical write acknowledgment, framing,
+ownership/guard ledger, all six measured waits and delayed0x30 samples. Touch
+MT76 post-VCO predicate, scan prerequisite selection and their pure/native
+regressions; update saved-log proof before any staged trial. Actual main
+`108969f7` adds battery supervisor/process waits and workspace regression fixes;
+merged here before validation. Open PR218 owns Air6,1 CPU idle diagnostics and
+PR182 filesystem audit; this objective does not edit those subsystems. Previous
+v100 failure is collected and archived. No reboot armed or new acceptance.

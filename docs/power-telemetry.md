@@ -822,3 +822,26 @@ per phase; CPU0 active frequency stays around 1,293 MHz. Core/package readings
 span 60–65 C, warmer than the prior run. This accepts the targeted wait behavior,
 not significant power savings, hardware residency or CPU policy. The
 [unit record](machines/macbookair6-1.md) retains the full bounded comparison.
+
+
+The Air6,1 supervisor candidate (`aa576838270d623a`) also replaces ordinary desktop
+supervisor polling with process/control/ownership events and original absolute
+deadlines. The power VM shows zero bootstrap timer wakes in every phase and no
+bootstrap switches during covered idle/recovery. Native comparison against
+`cb881058052a1012` is recorded below. Battery sampling cadence, service watchdogs,
+firmware guards, ownership requirements and the v78 recipe remain unchanged.
+
+
+The supervisor candidate is now physically accepted on this Air6,1 in session
+`session-00065ed778e804ca-00` (release `aa576838270d623a`, PR216). All three phases,
+13 app cycles, battery retirement, file preservation and allocation checks pass.
+Bootstrap records zero timer wakes throughout and zero switches/signals during
+covered idle/recovery intervals; app work causes 25 event wakes. The previously
+accepted lifecycle-worker reduction is retained. Worst UI loop is 110.061 ms.
+
+Package means are 4.130 / 4.140 / 4.132 W across idle/apps/recovery, versus
+4.121 / 4.167 / 4.130 W previously, with 41–51 s power coverage and 5–6 points
+per phase. These short observations establish reduced supervisor polling, not a
+meaningful energy saving. Battery-owner cadence, USB HID, firmware watchdogs,
+ownership validation and test limits are unchanged. See the
+[unit record](machines/macbookair6-1.md) for bounded measurements and recovery.

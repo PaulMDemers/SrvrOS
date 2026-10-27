@@ -4236,3 +4236,11 @@ test-mt76-scan: build/tests/mt76-scan-host$(HOST_EXE)
 build/tests/mt76-scan-host$(HOST_EXE): tools/test_mt76_scan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-process-event
+test-core: test-process-event
+test-process-event: build/tests/process-event-host$(HOST_EXE)
+	$<
+build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

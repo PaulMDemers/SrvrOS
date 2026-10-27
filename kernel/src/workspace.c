@@ -132,7 +132,12 @@ bool workspace_mount_hold_valid(uint64_t token) {
 }
 bool workspace_mount_hold_release(uint64_t token) {
     uint64_t flags=hold_lock();bool ok=hold_matches(token);
-    if(ok){mount_hold.token=0;mount_hold.generation=0;mount_hold.volume=NULL;mount_hold.parent=NULL;}
+    if(ok){
+        mount_hold.token=0;mount_hold.generation=0;mount_hold.volume=NULL;mount_hold.parent=NULL;
+        /* Mount/generation/parent cannot change while held. Publish the only
+         * legal invalidation before waking any sleeping session supervisor. */
+        process_wait_notify();
+    }
     hold_unlock(flags);return ok;
 }
 bool workspace_mount_held(void) {

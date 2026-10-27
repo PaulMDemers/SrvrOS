@@ -4177,3 +4177,105 @@ reparsing agrees with the collector and all 381 collected durable evidence hashe
 verify. Payload/evidence survive `make distclean`. The one-shot boot is consumed,
 the collector is disabled, and no reboot is armed. Console recovery
 `c35475f62f154f1e` and the earlier accepted payloads remain retained.
+
+
+### Battery desktop supervisor wait audit — active scope (2026-10-27)
+
+Base `a3066f87`, accepted idle-worker run `db449f93b4b14340`. Replace only the
+ordinary lifetime-owned desktop supervisor's ten-millisecond polling with a
+process-exit/control/ownership event wait and the existing absolute diagnostic
+deadline. Preserve mount identity validation, mailbox epoch/admission checks,
+process reaping and lifetime drain, service ownership/watchdogs and every limit.
+Capture/study loops that inspect sample progress retain their existing polling.
+Battery-owner sampling and USB HID workers are outside this change.
+
+Scope includes a non-reaping process event wait, control-request notification,
+mount-hold release notification, supervisor deadline selection and race/refusal
+regressions. Open PR182 touches process/storage files for filesystem auditing;
+this change is confined to process wait APIs and mount-hold notification, not
+its file I/O, allocation or storage-admission implementation. PR19 owns Wi-Fi.
+Validate host/core, complete power/control VMs and exact-stage refusal, merge,
+then repeat the unchanged automated v78 power trial. Native improvement remains
+pending until matching returned evidence is collected.
+
+
+### Event-driven battery supervisor — validated candidate (2026-10-27)
+
+Runtime `d1eaeec8` replaces only ordinary lifetime-owned session polling with
+process/control/ownership notifications and the original absolute deadline.
+The read-only wait shares process ownership predicates without reaping. Accepted
+control publication and legal mount-hold invalidation notify after their state
+changes. Existing mount immutability, native ownership checks, firmware/IRQ
+watchdogs, diagnostic capture loops and retirement limits remain unchanged.
+
+Full core/build tests and the new host ownership/race/deadline/mount tests pass.
+At source `13725b56`, the ordinary Home VM passes two actual System Stop/Start
+cycles (four dispatched requests, three clean epochs), file persistence and
+reopen. The automatic reopen VM passes both 20-second deadlines. The identical
+power recipe passes 12 app cycles, 445,159 us worst UI loop, 532,512 us readiness
+and 582,337 us close. Bootstrap has zero switches/timeouts/signals during covered
+idle and recovery, with 22 event wakes and zero timeouts during app work.
+
+The 60-second audio/disk/app/screenshot VM passes at 1% volume with 378 verified
+bursts / 99,090,432 bytes, 26 app cycles, one capture, follow-up Files, normal
+exit and zero underruns. Worst loop is 329,981 us, readiness 1,011,293 us and
+close 550,023 us. Prior files and offline allocation pass. Two earlier guest
+completions lacked complete timing evidence after UART interleaving and disk
+rotation; they remain incomplete evidence. Host-only commit `153c75fb` retains
+six already-flushed disk checkpoints by identical double reads and matching
+generation, without pausing or writing to the guest. All validators and limits
+are unchanged, and the passing run supplies complete timing records.
+
+Stage `aa576838270d623a` at `153c75fb` has unchanged guest payload hashes from
+those control/deadline tests. Exact GRUB/staged-Limine Q35 rehearsal passes native
+profile refusal, unmount and automatic return; it cannot accept native telemetry.
+Run `03633a2df1e14db2` repeats v78 against accepted `cb881058052a1012`, with the
+493-file / 1,538-cluster baseline and local UUID `6ADA-85BB`. Keep AC/USB connected;
+no input is needed. Ubuntu and console recovery `c35475f62f154f1e` are retained.
+The superseded original desktop-power EFI copy `1d1cbd1cb03d3032` may be removed
+only after verifying its durable backup; the latest accepted power, console,
+CPU-power, stress and attended-reopen payloads remain protected. Save/install
+verification and automatic collection records before arming. Native supervisor
+wakeup/power comparison is pending; no energy savings are claimed.
+
+
+### Battery supervisor event waits physically accepted (2026-10-27)
+
+Documentation-only acceptance on integration `664c22a3` (PR216); no runtime
+changes or dependencies on open PR182/PR19. Run `03633a2df1e14db2`, release
+`aa576838270d623a`, staged source `153c75fb` (runtime change `d1eaeec8`), saved
+matching session `session-00065ed778e804ca-00`. All unchanged v78 phases pass,
+with 13 Text/Files/System cycles, normal retirement and automatic Ubuntu return.
+Worst UI loop is 110,061 us (500,000 us limit), app readiness 641,296 us and
+close 51,645 us (unchanged 10 s limits).
+
+Bootstrap supervisor identity 1 has zero timer wakeups in every covered phase.
+Idle and recovery also have zero switches/signals; app work produces 25 switches
+and 25 signal wakes. Worker coverage is 51.843215 / 51.577041 / 40.448709 s for
+idle/apps/recovery. The preceding accepted release had approximately 48 timer
+wakes/s. Lifecycle worker identity 17 retains zero timer wakes, with no covered
+idle/recovery switches. Battery-owner sampling (~19 timer wakes/s), USB HID,
+firmware watchdogs, ownership checks and every limit remain unchanged.
+
+| Phase | Power coverage / points | Mean package power, prior → repeat | CPU0 active MHz | Core / package C |
+| --- | --- | --- | --- | --- |
+| Idle | 50.998372 s / 6 | 4.121 → 4.130 W | 1,292 | 59–61 / 59–61 |
+| Apps | 50.998344 s / 6 | 4.167 → 4.140 W | 1,294 | 57–59 / 58–60 |
+| Recovery | 40.998694 s / 5 | 4.130 → 4.132 W | 1,292 | 57–59 / 58–59 |
+
+Package power remains about 4.1 W; small differences and different temperatures
+in these short runs do not establish energy savings. Battery generations advance
+12→35→58→81. Retirement reports 82 attempts, zero rejected samples, heap/errors/
+denied zero, balanced attachment, revoked clients and retired runtime ownership.
+
+All 493 prior files are preserved except expected `.srvros/meta` bookkeeping;
+23 new logs bring the USB to 516 files / 1,562 clusters. Offline fsck/allocation
+pass with zero leaks, bitmap mismatches or errors. Independent saved-log parsing
+agrees with automatic collection and all 466 collected durable hashes verify.
+Evidence and payload remain outside `build`. Ubuntu returned, the one-shot entry
+is consumed, the collector is disabled and no reboot is armed. The superseded
+`1d1cbd1cb03d3032` EFI copy was removed only after verifying its durable backup;
+console `c35475f62f154f1e`, prior accepted `cb881058052a1012`, CPU-power, stress
+and attended-reopen payloads remain retained. This accepts the ordinary session
+supervisor wait change on this unit; broader endurance and power policy remain
+separate work.
