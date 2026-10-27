@@ -22,7 +22,12 @@ int main(void) {
     assert(!power_cpu_supported(vb,vd,vc,0x40661,0,0,1));
     assert(!power_cpu_supported(vb,vd,vc,0x40661,0,32,0));
     assert(!power_cpu_supported(vb,vd,vc,0x140661,0,32,1));
-    assert(!power_cpu_supported(vb,vd,vc,0x40651,0,32,1));
+    assert(power_cpu_supported(vb,vd,vc,0x40651,0x7ffafbbf,0xbfebfbff,9));
+    assert(!power_cpu_supported(vb,vd,vc,0x40651,1u<<31,32,1));
+    assert(!power_cpu_supported(vb,vd,vc,0x40651,0,0,1));
+    assert(!power_cpu_supported(vb,vd,vc,0x40651,0,32,0));
+    assert(!power_cpu_supported(vb,vd,vc,0x140651,0,32,1));
+    assert(!power_cpu_supported(vb,vd,vc,0x40671,0,32,1));
     assert(!power_configure(&s,0xa1003,22u<<8));
     assert(!power_configure(&s,0xa0e03,0));assert(!power_configure(&s,0xa0e03,65u<<8));
     struct power_raw a={.us=1000000,.energy=1000000,.aperf=100,.mperf=100};
@@ -60,5 +65,12 @@ int main(void) {
     power_sample(&p,&s,(struct power_raw){196189642ull,111460355ull,482409017462ull,386016201885ull});
     power_sample(&p,&s,(struct power_raw){197189818ull,112003969ull,484541671259ull,387725480695ull});
     assert(s.nominal_mhz==2500 && s.flags==3 && s.package_mw==33173 && s.active_mhz==3119);
+    /* Air6,1 Linux CPU0, development load: platform ratio is captured, not
+     * inferred from the marketing/base frequency in the CPU brand string. */
+    assert(power_configure(&s,658947ull,2260861976646656ull));
+    p=(struct power_sampler){0};
+    power_sample(&p,&s,(struct power_raw){33005451569ull,1443965408ull,1100739880346ull,1969170174429ull});
+    power_sample(&p,&s,(struct power_raw){33006451722ull,1444073739ull,1100923759152ull,1969610887545ull});
+    assert(s.nominal_mhz==2000 && s.flags==3 && s.package_mw==6610 && s.active_mhz==834);
     puts("power: PASS exact CPU/feature gate, units, energy/frequency scopes, wrap/reset/gap/overflow/stale handling and actual Linux fixture");
 }
