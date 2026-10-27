@@ -4107,3 +4107,33 @@ and PR19 Wi-Fi work do not own these compositor queues. Run full host tests,
 positive power and screenshot/app/disk VMs, exact staged native refusal, merge,
 then reboot automatically. Native wakeup/energy improvement remains unproven
 until the matching physical return is collected.
+
+### Event-driven desktop workers — validated candidate (2026-10-27)
+
+PR214 candidate runtime `e0008d92`, release `cb881058052a1012`, replaces empty
+lifecycle/report polling with separate latched futex waits. Every UI-side work
+publication and stop notifies its worker. Capture retirement and interrupted-wait
+fallback retain the old one-tick retry; resource credit, child ownership, joins,
+firmware guards, queue bounds and all deadlines remain unchanged. Host threaded
+race/rollback/retirement tests, the full core suite, matched builds and docs pass.
+
+The complete power VM passes 12 app cycles with a 189,071 us worst UI loop.
+Lifecycle worker timeout wakeups are zero in all phases; idle and recovery also
+have zero switches/signals, while app work produces 43 signal wakeups over its
+covered interval. The concurrent audio/disk/app/screenshot VM passes 60 s, 366
+verified disk bursts (95,944,704 bytes), 26 app cycles, one saved screenshot,
+follow-up Files launch and clean exit. It records 222 audio/write overlap windows,
+zero underruns and a 439,121 us worst UI loop under the unchanged 500,000 us
+limit. Both VMs preserve prior files and pass offline allocation. The exact EFI
+payload refuses Q35 at the native PCI/resource gate and returns after unmount.
+
+Repeat run `db449f93b4b14340` uses the identical v78 settle/idle/apps/recovery
+recipe and native limits, against the accepted `1d1cbd1cb03d3032` baseline.
+Its USB baseline remains 470 files / 1,514 clusters, UUID `6ADA-85BB`; Ubuntu and
+console recovery `c35475f62f154f1e` remain unchanged. The older automated-reopen
+EFI copy `4efd82574f07eb30` was retired only after verifying its durable payload;
+later attended-reopen `9851d427b042227b`, accepted stress and both accepted power
+payloads remain installed/backed up. Automatic return collection compares power
+and worker counters without treating this short comparison as proven energy
+savings. Native validation remains pending; no battery-supervisor or USB polling
+change is included in this candidate.
