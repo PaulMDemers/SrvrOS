@@ -3499,3 +3499,46 @@ only the Air6,1 machine record. The next useful acceptance is attended interacti
 use under the same automated background workload, if desired, rather than a
 higher latency limit. Retain separate limits for this bounded result and broader
 interactive behavior.
+
+### Attended interaction under automatic load — active scope (2026-10-26)
+
+Base `43aff7d5` includes merged PR194 window movement/running dock work and the
+accepted PR192 private-image scheduling fix. Previous run is fully collected
+and listening confirmed. Prepare a separate attended Air6,1 profile: launch Help
+with the complete window/dock/Text checklist, automatically run the same bounded
+continuous PCM and verified filesystem workload, and leave normal app interaction
+to the user. Keep desktop open at workload completion so unsaved edits can be
+resolved normally. Do not automatically close user-owned windows or claim the
+automatic app-cycle requirement was exercised in this separate attended profile.
+
+Scope: explicit diagnostic profile routing, compositor workload lifecycle and
+Help content, staging/refusal and VM regression coverage, and this unit record.
+The original unattended workload and all existing limits/integrity/firmware gates
+remain unchanged. PR182 owns storage hardening and PR19 Wi-Fi; avoid their
+implementation scope. Next checkpoint: matched build/core, window/dock and loaded
+VM tests, exact-stage native refusal and verified recovery, then attended native
+trial with guest instructions and durable return collection. User’s existing
+self-merge/install/reboot authorization applies; no new reboot is armed yet.
+
+The loaded attended VM exposed a 1.535 s loop at periodic diagnostic emission;
+targeted timing reproduced 1.749 s in report output, not the nonblocking player
+wait. Extend this trial's scope to one immutable diagnostic snapshot on the
+existing lifecycle worker. The UI retries a busy fixed slot without overwriting
+it; shutdown joins/drains before the final synchronous receipt. Keep every loop
+sample, limit violation and saved-record integrity check. This affects diagnostic
+report delivery in both explicit stress modes, not ordinary desktop policy.
+PR19's shared boot/staging files contain separate Wi-Fi branches and a distinct
+profile namespace; no competing desktop implementation found.
+
+Integration refresh found PR198's keyboard-navigation scope and its new Help
+ID21 and profile v76. Integrate merged PR198 baseline `0c63e679`; reserve
+ID22 and profile v77 for this separate attended-load checklist. Keep the Air7,2
+navigation profile distinct from this Air6,1 trial. Include held MRU switching,
+cancellation, same-app cycling and keyboard menus in this guest checklist. Exact-stage rehearsal sends the console unmount command and exits the
+VM after refusal; it does not claim automatic native return or native acceptance.
+
+### Attended-load candidate validated (2026-10-26)
+
+Candidate `7b650985` integrates PR198 (`0c63e679`). Matched regular/native/fixture kernels and userspace, `test-core`, `test-desktop`, and 83 staging/profile host checks pass. The loaded attended Q35 fixture at 400 write IOPS completes 60 seconds of PCM with zero underruns and 112 verified bursts (29,360,128 bytes). Its worst loop is 209.724 ms across 1,010 samples, with no over-limit/invalid measurements. It verifies exact Text bytes, completion without forced exit, unsaved Cancel, normal retirement, all 66 prior files and clean allocation. The early-exit fixture correctly refuses completion. Window/dock and navigation VMs restore their process baseline and pass; these synthetic results do not accept physical keyboard/trackpad behavior.
+
+The unchanged automatic populated-Home stress fixture also passes: 20 app cycles, 116 verified bursts, zero underruns/errors, worst loop 339.537 ms, readiness 1.291386 s and close 1.500975 s. Exact v77 payload `ab8cbaa369d74d28` passes the UEFI native-profile refusal rehearsal with console unmount; native evidence remains pending. The complete guest checklist includes fresh Text files/notes, two screenshots, the full 30-minute load, normal exit and one ordinary `desktop battery` reopen. The local run record retains USB baseline, recovery, collector and one-shot authorization; accepted payload/evidence backups remain outside `build`.

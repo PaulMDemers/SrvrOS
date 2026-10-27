@@ -171,6 +171,35 @@ foreground program: Ctrl-C interrupts it, Ctrl-Shift-C/V copy/paste, and
 Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
 
+## Switching windows and using the keyboard
+
+Hold **Alt** and press **Tab** to open the window switcher. Keep Alt held and
+press Tab again to advance, or Shift-Tab to reverse; release Alt to activate the
+selected window. Escape cancels without switching. Quick Alt-Tab returns to the
+most recently used window. The list remains in the same order while held; new
+windows do not steal the selection, and retired identities cannot activate a
+replacement window. Minimized windows can be restored from the list. Owned
+modal dialogs appear through their parent document rather than as extra tasks.
+
+**Command-grave** cycles the current application's windows in creation order;
+Command-Shift-grave reverses. **Command-M** minimizes a window and its owned
+dialog together. Minimizing or closing the active window selects the most recent
+visible window, leaving other minimized windows hidden. Closing a modal returns
+to its own document. With no visible windows, desktop keyboard commands remain
+available to restore one.
+
+**F10** or **Control-F2** opens the global menu bar (Fn may be needed). Left/Right
+changes menus; Up/Down, Home/End choose commands; Return activates and Escape
+cancels. Tab/Shift-Tab still navigate app controls, and ordinary app shortcuts
+retain their existing behavior outside the switcher.
+
+The untimed **Window navigation trial** in Help combines these checks with
+partial offscreen movement, dock restoration, file saves and normal return. The
+explicit `--desktop-navigation-trial` staging profile opens it automatically in
+the combined Air7,2 battery/Home session. It does not run an automated acceptance
+or reboot timer. Hardware acceptance remains pending until the tester reports
+against that staged release.
+
 ## Moving windows and using the dock
 
 Ordinary windows can extend past the left, right and bottom edges. Movement
@@ -615,3 +644,23 @@ separate synchronous paths; the automatic lifecycle receipt measures the tested
 normal launch/render/close path, not every possible desktop operation. Shared-address-space exclusion still
 applies if the worker itself owns filesystem I/O; the RAM executable test does
 not promise bounded launch latency for disk-backed executables.
+
+### Attended desktop under automatic audio and USB load
+
+The Air6,1 v77 `--desktop-audio-io-attended` profile requires the explicit
+battery/services profile. Help opens the complete checklist automatically.
+Continuous PCM and unpaced verified filesystem work run for 30 minutes using
+the existing worker. The user exercises windows, dock, Text and Files; automatic
+app cycling is deliberately absent so it cannot close user-owned documents.
+The separate v74 unattended app-cycle acceptance requirement remains unchanged.
+
+Completion stops the load, displays a notice and leaves the desktop open.
+Save notes/screenshots and return normally, optionally reopen with `desktop
+battery`, then unmount Home and reboot manually. Early exit is incomplete, never
+a pass. The attended receipt requires completed load, keyboard/pointer activity,
+normal exit, no child errors and the unchanged 500 ms desktop loop bound; visual
+and listening acceptance still require the user's observations. Normal client
+limits, filesystem validation, firmware gates and battery retirement are retained.
+The native profile has no whole-desktop time limit; the worker and its playback
+watchdog remain bounded. A separate 60-second VM mode checks completion and early
+exit without altering the native duration.

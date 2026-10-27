@@ -21,6 +21,7 @@ struct desk_palette {
     struct desk_list_item *visible;
     unsigned capacity;
     unsigned count;
+    int choose_only;
 };
 void desk_palette_init(struct desk_palette *palette);
 /* Borrow both arrays until rebound/destroyed. Preserve query/selected identity,
@@ -29,6 +30,9 @@ int desk_palette_bind_storage(struct desk_palette *palette,struct desk_palette_i
     struct desk_list_item *visible,unsigned capacity);
 int desk_palette_open(struct desk_palette *palette,const char *title,const struct desk_palette_item *items,unsigned count);
 int desk_palette_items(struct desk_palette *palette,const struct desk_palette_item *items,unsigned count);
+/* Selection-only list: reuse storage/activation with no editable search field.
+ * A later ordinary open restores searchable mode. Configure after opening. */
+int desk_palette_choose(struct desk_palette *palette,const char *title,const struct desk_palette_item *items,unsigned count);
 void desk_palette_configure(struct desk_palette *palette,struct desk_rect bounds);
 /* Call after an app-applied query edit, such as a clipboard reply. */
 void desk_palette_filter(struct desk_palette *palette);

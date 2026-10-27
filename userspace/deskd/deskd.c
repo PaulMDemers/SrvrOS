@@ -27,6 +27,7 @@
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
+static void loop_trace_report(const struct loop_trace *,unsigned);
 #include "lifecycle_worker.h"
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
@@ -97,6 +98,7 @@ struct session {
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
     unsigned launcher_application;
+    int switching; /* Launcher storage holds an immutable MRU identity snapshot. */
     uint64_t pointer_pid,pointer_window;
     int notice_visible,context_down;
     unsigned child_reaped,child_errors;
@@ -370,7 +372,14 @@ static int modal_child(const struct session *s,int parent) {
 }
 static void focus(struct session *s,int i) {
     int child=modal_child(s,i);if(child>=0)i=child;
-    if(s->scene.launcher_open || s->scene.calendar_open || s->scene.notifications.opened) { s->overlay_return=i;s->overlay_identity=i>=0?session_client(s,i)->identity:0;if(s->scene.launcher_open) launcher_catalog(s);return; }
+    if(s->scene.launcher_open || s->scene.calendar_open || s->scene.notifications.opened) {
+        /* New admissions still change dock counts while the overlay owns focus. */
+        if(s->scene.apps)desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
+        if(s->switching)return;
+        s->overlay_return=i;s->overlay_identity=i>=0?session_client(s,i)->identity:0;
+        if(s->scene.launcher_open)launcher_catalog(s);
+        return;
+    }
     int previous=s->scene.focus;
     if (previous!=i) {
         pointer_cancel(s);
@@ -393,11 +402,28 @@ static void focus(struct session *s,int i) {
             struct desk_packet p=desk_packet_new(DESK_FOCUS);p.value=1;queue_input(s,i,p);
         }
     }
+    if(s->trace && previous!=i && i>=0)desk_log("deskd: focused pid=%llu window=%llu identity=%llu\n",(unsigned long long)session_client(s,i)->pid,(unsigned long long)session_client(s,i)->window,(unsigned long long)session_client(s,i)->identity);
     if(s->scene.apps) {
         global_menu_rebuild(s);
         desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
         desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
     }
+}
+/* Roots represent task entries; focus() redirects to an owned modal. */
+static int window_root(const struct session *s,int i) {
+    if(i>=0 && session_client(s,i)->parent_window)for(int j=0;j<session_capacity(s);j++)
+        if(session_client(s,j)->pid==session_client(s,i)->pid && session_client(s,j)->window==session_client(s,i)->parent_window)return j;
+    return i;
+}
+static int focus_candidate(const struct session *s,int i,int hidden) {
+    const struct client *c=session_client(s,i);const struct desktop_window *w=desktop_window_at(&s->scene,i);
+    return c->pid && !c->closing && !c->parent_window && w->visible && (hidden || !w->minimized);
+}
+static void focus_best(struct session *s) {
+    int best=-1;
+    for(int j=0;j<session_capacity(s);j++)if(focus_candidate(s,j,0) &&
+        (best<0 || desktop_window_at(&s->scene,j)->z>desktop_window_at(&s->scene,best)->z))best=j;
+    focus(s,best);
 }
 static void forget(struct session *s,int i) {
     uint64_t parent=session_client(s,i)->parent_window,pid=session_client(s,i)->pid;
@@ -423,7 +449,7 @@ static void forget(struct session *s,int i) {
         int restore=-1;
         for(int j=0;j<session_capacity(s);j++)if(session_client(s,j)->pid==pid && session_client(s,j)->window==parent && !session_client(s,j)->closing)restore=j;
         if(restore>=0)focus(s,restore);
-        else for(int j=0;j<session_capacity(s);j++)if(session_client(s,j)->pid && !session_client(s,j)->closing)focus(s,j);
+        else focus_best(s);
     }
     global_menu_rebuild(s);
 }
@@ -460,12 +486,12 @@ static int configure(struct session *s,int i,int width,int height) {
     damage_window(s,i);return 1;
 }
 static void minimize(struct session *s,int i) {
-    damage_window(s,i);desktop_window_at(&s->scene,i)->minimized=1;focus(s,-1);
-    int inline_order[DESKD_WINDOWS];int *order=s->scene.order?s->scene.order:inline_order;desktop_stack(&s->scene,order);
-    for(int n=session_capacity(s)-1;n>=0;n--) {
-        int j=order[n];
-        if(session_client(s,j)->pid && desktop_window_at(&s->scene,j)->visible && !desktop_window_at(&s->scene,j)->minimized) { focus(s,j);break; }
-    }
+    i=window_root(s,i);if(i<0 || !focus_candidate(s,i,1))return;
+    int child=modal_child(s,i);
+    damage_window(s,i);desktop_window_at(&s->scene,i)->minimized=1;
+    if(child>=0) {damage_window(s,child);desktop_window_at(&s->scene,child)->minimized=1;}
+    focus(s,-1);focus_best(s);
+    if(s->trace)desk_log("deskd: minimized identity=%llu next=%llu\n",(unsigned long long)session_client(s,i)->identity,(unsigned long long)(s->scene.focus>=0?session_client(s,s->scene.focus)->identity:0));
 }
 static void maximize(struct session *s,int i) {
     struct desktop_window *w=desktop_window_at(&s->scene,i);damage_window(s,i);
@@ -631,15 +657,23 @@ static void request_close(struct session *s,int i) {
     struct desk_packet p=desk_packet_new(DESK_CLOSE_REQUEST);
     queue_input(s,i,p);session_client(s,i)->close_requested=1;
 }
-static void cycle_focus(struct session *s,int reverse) {
-    int start=s->scene.focus;
-    for(int n=1;n<=session_capacity(s);n++) {
-        int i=(start+(reverse?session_capacity(s)-n:n)+session_capacity(s))%session_capacity(s);
-        if(session_client(s,i)->pid && !session_client(s,i)->closing) { focus(s,i);return; }
+/* Creation identity ordering makes repeated immediate commands visit every
+ * root, even though focus changes stacking order. Alt-Tab uses an MRU snapshot. */
+static void cycle_windows(struct session *s,int reverse,unsigned application) {
+    int origin=window_root(s,s->scene.focus),best=-1,wrap=-1;
+    uint64_t current=origin>=0?session_client(s,origin)->identity:0;
+    for(int i=0;i<session_capacity(s);i++) {
+        if(!focus_candidate(s,i,1) || (application && desktop_window_at(&s->scene,i)->application!=(int)application))continue;
+        uint64_t id=session_client(s,i)->identity;
+        if(wrap<0 || (reverse?id>session_client(s,wrap)->identity:id<session_client(s,wrap)->identity))wrap=i;
+        if((reverse?id<current:id>current) && (best<0 || (reverse?id>session_client(s,best)->identity:id<session_client(s,best)->identity)))best=i;
     }
+    if(best<0)best=wrap;
+    if(best>=0) {focus(s,best);if(s->trace)desk_log("deskd: window-cycle application=%u identity=%llu window=%llu\n",application,(unsigned long long)session_client(s,best)->identity,(unsigned long long)session_client(s,best)->window);}
 }
+static void cycle_focus(struct session *s,int reverse) {cycle_windows(s,reverse,0);}
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_WINDOW=65792 };
 static unsigned arrange_shortcut(const struct srv_key_event *key) {
     if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_REPEAT) ||
        !(key->modifiers&SRV_KEY_META) || !(key->modifiers&SRV_KEY_ALT) || (key->modifiers&(SRV_KEY_CTRL|SRV_KEY_SHIFT))) return 0;
@@ -752,13 +786,15 @@ static void global_menu_rebuild(struct session *s) {
     items[count++]=(struct desk_menu_item){GLOBAL_TILE_RIGHT,tile_disabled,"Tile right","Cmd-Alt-Right"};
     items[count++]=(struct desk_menu_item){GLOBAL_CENTER,disabled,"Center","Cmd-Alt-Up"};
     items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Window",""};
-    items[count++]=(struct desk_menu_item){GLOBAL_MINIMIZE,disabled,"Minimize",""};
+    items[count++]=(struct desk_menu_item){GLOBAL_MINIMIZE,disabled,"Minimize","Cmd-M"};
     items[count]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Maximize","Cmd-Alt-Down"};
     if(s->scene.focus>=0 && desktop_window_at(&s->scene,s->scene.focus)->maximized) strcpy(items[count].label,"Restore size");
     count++;
-    items[count++]=(struct desk_menu_item){GLOBAL_NEXT,disabled,"Next window","Alt-Tab"};
+    items[count++]=(struct desk_menu_item){GLOBAL_NEXT,0,"Next window","Alt-Tab"};
+    items[count++]=(struct desk_menu_item){GLOBAL_PREVIOUS,0,"Previous window","Alt-Shift-Tab"};
+    items[count++]=(struct desk_menu_item){GLOBAL_SAME_APP,disabled,"Next app window","Cmd-`"};
     int have=0;
-    for(int i=0;i<session_capacity(s);i++) if(session_client(s,i)->pid && !session_client(s,i)->closing) {
+    for(int i=0;i<session_capacity(s);i++) if(focus_candidate(s,i,1)) {
         if(!have++) items[count++]=(struct desk_menu_item){0,DESK_MENU_SEPARATOR,"",""};
         struct desk_menu_item *item=&items[count++];item->id=GLOBAL_WINDOW+session_client(s,i)->identity;
         item->flags=s->scene.focus==i?DESK_MENU_CHECKED:0;
@@ -808,6 +844,8 @@ static void global_menu_action(struct session *s,uint32_t id) {
     else if(s->scene.focus>=0 && (id==GLOBAL_TILE_LEFT || id==GLOBAL_TILE_RIGHT || id==GLOBAL_CENTER))
         arrange_window(s,s->scene.focus,id==GLOBAL_TILE_LEFT?DESKTOP_TILE_LEFT:id==GLOBAL_TILE_RIGHT?DESKTOP_TILE_RIGHT:DESKTOP_CENTER);
     else if(id==GLOBAL_NEXT) cycle_focus(s,0);
+    else if(id==GLOBAL_PREVIOUS) cycle_focus(s,1);
+    else if(id==GLOBAL_SAME_APP && s->scene.focus>=0)cycle_windows(s,0,desktop_window_at(&s->scene,s->scene.focus)->application);
     else if(id>=GLOBAL_WINDOW)for(int i=0;i<session_capacity(s);i++)
         if(session_client(s,i)->pid && !session_client(s,i)->closing && session_client(s,i)->identity==id-GLOBAL_WINDOW) { focus(s,i);break; }
 }
@@ -819,6 +857,7 @@ static void launcher_damage(struct session *s) {
     struct desk_rect r=s->scene.launcher.frame;r.w+=5;r.h+=6;desk_damage_add(&s->damage,r);
 }
 static void launcher_catalog(struct session *s) {
+    if(s->switching)return; /* Do not reorder the held-key selection under the user. */
     struct desk_palette_item inline_items[DESKD_WINDOWS+DESK_APP_COUNT]={0};
     struct desk_palette_item *items=s->palette_build?s->palette_build:inline_items;unsigned count=0;
     memset(items,0,(session_capacity(s)+DESK_APP_COUNT)*sizeof(*items));
@@ -864,10 +903,10 @@ static void dock_windows(struct session *s,unsigned app) {
 }
 static void launcher_close(struct session *s) {
     if(!s->scene.launcher_open) return;
-    launcher_damage(s);desk_palette_focus(&s->scene.launcher,0);s->scene.launcher_open=0;
+    launcher_damage(s);desk_palette_focus(&s->scene.launcher,0);s->scene.launcher_open=0;s->switching=0;
     if(s->overlay_down) s->pointer_blocked=1;
     int i=s->overlay_return;if(!window_lifetime_valid(s,i,s->overlay_identity))i=-1;
-    focus(s,i);if(s->trace) srv_puts("deskd: launcher closed\n");
+    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) srv_puts("deskd: launcher closed\n");
 }
 static void launcher_result(struct session *s,struct desk_palette_result result) {
     struct desk_palette *p=&s->scene.launcher;
@@ -901,6 +940,78 @@ static void launcher_result(struct session *s,struct desk_palette_result result)
             focus(s,i);if(s->trace) desk_log("deskd: launcher window=%llu id=%llu\n",(unsigned long long)session_client(s,i)->pid,(unsigned long long)session_client(s,i)->window);break;
         }
     }
+}
+static int switcher_target(const struct session *s,uint64_t identity) {
+    for(int i=0;i<session_capacity(s);i++)if(focus_candidate(s,i,1) && session_client(s,i)->identity+DESK_APP_COUNT==identity)return i;
+    return -1;
+}
+static void switcher_step(struct session *s,int reverse) {
+    struct desk_palette *p=&s->scene.launcher;
+    if(!s->switching) {
+        if(s->scene.launcher_open)launcher_close(s);
+        launcher_open(s);if(!s->scene.launcher_open)return;
+        struct desk_palette_item inline_items[DESKD_WINDOWS+DESK_APP_COUNT]={0};
+        struct desk_palette_item *items=s->palette_build?s->palette_build:inline_items;unsigned count=0;
+        int inline_order[DESKD_WINDOWS];int *order=s->scene.order?s->scene.order:inline_order;desktop_stack(&s->scene,order);
+        int origin=window_root(s,s->overlay_return),selected=-1;
+        for(int n=session_capacity(s)-1;n>=0;n--) {
+            int i=order[n];if(!focus_candidate(s,i,1))continue;
+            if(i==origin)selected=count;
+            struct desk_palette_item *item=&items[count++];item->id=session_client(s,i)->identity+DESK_APP_COUNT;
+            snprintf(item->label,sizeof(item->label),"%s",desktop_window_at(&s->scene,i)->title[0]?desktop_window_at(&s->scene,i)->title:"Window");
+            snprintf(item->detail,sizeof(item->detail),"%s%s",desk_application_info(desktop_window_at(&s->scene,i)->application)?desk_application_info(desktop_window_at(&s->scene,i)->application)->title:"Application",desktop_window_at(&s->scene,i)->minimized?" · Minimized":"");
+        }
+        desk_palette_choose(p,"Switch window",items,count);desk_palette_configure(p,(struct desk_rect){0,44,s->damage.width,s->damage.height-120});
+        desk_palette_message(p,"Alt-Tab: next · Shift: reverse · release Alt: switch · Esc: cancel");
+        desk_list_select(&p->list,selected);desk_ui_focus(&p->ui,2);s->switching=1;
+    }
+    int selected=p->list.selected;
+    for(int n=0;n<p->list.count;n++) {
+        selected=selected<0?(reverse?p->list.count-1:0):(selected+(reverse?p->list.count-1:1))%p->list.count;
+        if(switcher_target(s,p->visible[selected].id)>=0) {desk_list_select(&p->list,selected);break;}
+    }
+    launcher_damage(s);
+    if(s->trace)desk_log("deskd: switcher selected=%llu count=%d\n",(unsigned long long)(p->list.selected>=0?p->visible[p->list.selected].id:0),p->list.count);
+}
+static int switcher_key(struct session *s,const struct srv_key_event *key) {
+    if(!s->switching)return 0;
+    if((key->flags&SRV_KEY_CANCEL) || ((key->flags&SRV_KEY_DOWN_EVENT) && key->usage==SRV_KEY_ESCAPE)) {
+        launcher_close(s);return 1;
+    }
+    if(!(key->modifiers&SRV_KEY_ALT) || ((key->flags&SRV_KEY_DOWN_EVENT) && key->usage==SRV_KEY_ENTER)) {
+        struct desk_palette *p=&s->scene.launcher;
+        uint64_t identity=p->list.selected>=0?p->visible[p->list.selected].id:0;
+        int target=switcher_target(s,identity);launcher_close(s);
+        if(target>=0) {focus(s,target);if(s->trace)desk_log("deskd: switcher activated identity=%llu pid=%llu window=%llu\n",(unsigned long long)session_client(s,target)->identity,(unsigned long long)session_client(s,target)->pid,(unsigned long long)session_client(s,target)->window);}
+        return 1;
+    }
+    if((key->flags&SRV_KEY_DOWN_EVENT) && (key->usage==SRV_KEY_TAB || key->usage==SRV_KEY_DOWN || key->usage==SRV_KEY_UP))
+        switcher_step(s,key->usage==SRV_KEY_UP || (key->modifiers&SRV_KEY_SHIFT));
+    return 1; /* No held-key text/Tab leaks into the outgoing or incoming app. */
+}
+static int navigation_key(struct session *s,const struct srv_key_event *key) {
+    if(switcher_key(s,key))return 1;
+    if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_CANCEL))return 0;
+    unsigned modifiers=key->modifiers;
+    if(key->usage==SRV_KEY_TAB && (modifiers&SRV_KEY_ALT) && !(modifiers&(SRV_KEY_CTRL|SRV_KEY_META))) {
+        pointer_cancel(s);context_close(s);switcher_step(s,(modifiers&SRV_KEY_SHIFT)!=0);return 1;
+    }
+    if(s->scene.launcher_open || s->scene.calendar_open || s->scene.notifications.opened || desk_popup_active(&s->scene.context) || s->scene.menu.open>=0)return 0;
+    if(key->usage==SRV_KEY_F2 && (modifiers&SRV_KEY_CTRL) && !(modifiers&(SRV_KEY_META|SRV_KEY_ALT|SRV_KEY_SHIFT))) { /* Ctrl-F2 */
+        struct srv_key_event menu=*key;menu.usage=SRV_KEY_F10;menu.modifiers=0;
+        pointer_cancel(s);global_menu_result(s,desk_menu_key(&s->scene.menu,&menu));return 1;
+    }
+    if((modifiers&SRV_KEY_META) && !(modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT))) {
+        if(key->usage==0x35) { /* HID grave; Shift reverses same-app cycling. */
+            if(s->scene.focus>=0)cycle_windows(s,(modifiers&SRV_KEY_SHIFT)!=0,desktop_window_at(&s->scene,s->scene.focus)->application);
+            return 1;
+        }
+        if(key->usage==0x10 && !(modifiers&SRV_KEY_SHIFT)) { /* HID M */
+            if(!(key->flags&SRV_KEY_REPEAT) && s->scene.focus>=0)minimize(s,s->scene.focus);
+            return 1;
+        }
+    }
+    return 0;
 }
 enum { CALENDAR_GRID=1,CALENDAR_TODAY,CALENDAR_CLOSE };
 static void calendar_damage(struct session *s) {
@@ -948,7 +1059,7 @@ static void calendar_close(struct session *s) {
     calendar_damage(s);desk_ui_window_focus(&s->scene.calendar_ui,0);s->scene.calendar_open=0;
     if(s->overlay_down) s->pointer_blocked=1;
     int i=s->overlay_return;if(!window_lifetime_valid(s,i,s->overlay_identity))i=-1;
-    focus(s,i);if(s->trace) srv_puts("deskd: calendar closed\n");
+    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) srv_puts("deskd: calendar closed\n");
 }
 static void calendar_action(struct session *s,struct desk_action a) {
     if(a.id==CALENDAR_TODAY && (a.flags&DESK_WIDGET_ACTIVATED)) {
@@ -987,7 +1098,7 @@ static void notifications_close(struct session *s) {
     notifications_damage(s);desktop_notice_view_close(&s->scene.notifications);
     if(s->overlay_down) s->pointer_blocked=1;
     int i=s->overlay_return;if(!window_lifetime_valid(s,i,s->overlay_identity))i=-1;
-    focus(s,i);if(s->trace) srv_puts("deskd: notifications closed\n");
+    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) srv_puts("deskd: notifications closed\n");
 }
 static void notifications_apply(struct session *s,struct desktop_notice_action result) {
     if(result.close) notifications_close(s);
@@ -1614,10 +1725,12 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
+    int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
-    int audio_io_smoke=argc==2 && !strcmp(argv[1],"--audio-io-smoke");
-    int audio_io=audio_io_smoke || (argc==2 && !strcmp(argv[1],"--audio-io-stress"));
-    int home_apps=lifecycle_trial || audio_io || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
+    int audio_io_attended=argc==2 && (!strcmp(argv[1],"--audio-io-attended") || !strcmp(argv[1],"--audio-io-attended-smoke"));
+    int audio_io_smoke=argc==2 && (!strcmp(argv[1],"--audio-io-smoke") || !strcmp(argv[1],"--audio-io-attended-smoke"));
+    int audio_io=audio_io_attended || audio_io_smoke || (argc==2 && !strcmp(argv[1],"--audio-io-stress"));
+    int home_apps=navigation_trial || lifecycle_trial || audio_io || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
@@ -1644,7 +1757,7 @@ int main(int argc,char **argv) {
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1677,7 +1790,9 @@ int main(int argc,char **argv) {
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
+    else if(audio_io_attended) spawn_app(&s,DESK_APP_HELP,"audio-io-attended");
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
+    else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
@@ -1713,7 +1828,7 @@ int main(int argc,char **argv) {
     }
     uint64_t audio_io_pid=0,audio_io_begin=(uint64_t)srv_monotonic_us(),audio_io_notice=0;
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
-    int audio_io_complete=0;
+    int audio_io_complete=0,audio_io_finished=0;
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
@@ -1731,14 +1846,14 @@ int main(int argc,char **argv) {
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
-        if(audio_io && audio_io_pid) {
+        if(audio_io && (audio_io_pid || (audio_io_attended && audio_io_finished))) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
             loop_trace_begin(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
-            if(loop_now-loop_report_at>=10000000) {loop_trace_report(&loop_trace,0);loop_report_at=loop_now;}
+            if(loop_now-loop_report_at>=10000000 && life_report_submit(&worker,&loop_trace))loop_report_at=loop_now;
             if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
         }
-        if(audio_io) {
+        if(audio_io && !audio_io_finished) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!audio_io_pid) {
                 struct srv_battery_status state={0};
@@ -1749,17 +1864,23 @@ int main(int argc,char **argv) {
                     long child=srv_exec(&request);
                     if(child<=0){failed=1;break;}
                     audio_io_pid=(uint64_t)child;audio_io_begin=now;
-                    desk_log("desktop-audio-io: started pid=%llu seconds=%u input=none\n",(unsigned long long)audio_io_pid,audio_io_seconds);
+                    desk_log("desktop-audio-io: started pid=%llu seconds=%u input=%s\n",(unsigned long long)audio_io_pid,audio_io_seconds,audio_io_attended?"attended":"none");
                     /* Lifecycle fixture launches actual apps after playback starts. */
                 } else if(now-audio_io_begin>15000000) {failed=1;break;}
             } else {
                 uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
-                if(done==(long)audio_io_pid) {audio_io_complete=status==0;audio_io_pid=0;failed=!audio_io_complete;quit=1;break;}
+                if(done==(long)audio_io_pid) {
+                    audio_io_complete=status==0;audio_io_finished=1;audio_io_pid=0;failed=!audio_io_complete;
+                    if(!audio_io_attended){quit=1;break;}
+                    desk_log("desktop-attended-load: finished complete=%s; awaiting normal user exit\n",audio_io_complete?"yes":"NO");
+                    strcpy(s.scene.notice,audio_io_complete?"Load complete. Save notes/screenshots, then SrvrOS > Return to console.":"Load FAILED. Save notes/screenshots, then Return to console; report the failure.");
+                    desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+                }
                 if(now-audio_io_begin>((uint64_t)audio_io_seconds+90)*1000000){failed=1;break;}
             }
-            if(now-audio_io_notice>=1000000) {
+            if(!audio_io_finished && now-audio_io_notice>=1000000) {
                 audio_io_notice=now;
-                snprintf(s.scene.notice,sizeof(s.scene.notice),"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
+                snprintf(s.scene.notice,sizeof(s.scene.notice),audio_io_attended?"Audio + USB: %llu / %u sec. Follow Help checklist; save before leaving.":"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
@@ -1777,7 +1898,7 @@ int main(int argc,char **argv) {
         loop_trace_stamp(&loop_trace,LOOP_SERVICE);
         service(&s);
         loop_trace_stamp(&loop_trace,LOOP_TRIAL);
-        if(audio_io && audio_io_pid) {
+        if(audio_io && !audio_io_attended && audio_io_pid) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!life_due)life_due=now+5000000;
             if(!life_phase && now>=life_due && now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000) {
@@ -1913,7 +2034,7 @@ int main(int argc,char **argv) {
         for(int n=0;(apps || coexist_text) && n<32;n++) {
             struct srv_key_event key;int read=gui_keyboard_read(&key);
             if(read<=0) break;
-            if(battery_work && (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT))work_keys++;
+            if((battery_work || (audio_io_attended && audio_io_pid)) && (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT))work_keys++;
             s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
@@ -1924,6 +2045,7 @@ int main(int argc,char **argv) {
                 }
                 continue;
             }
+            if(navigation_key(&s,&key)) {drag=resize=-1;continue;}
             if((key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT) &&
                 (key.modifiers&SRV_KEY_META) && (key.modifiers&SRV_KEY_SHIFT) && !(key.modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT)) && key.usage==9) {
                 drag=resize=-1;pointer_cancel(&s);
@@ -1976,12 +2098,6 @@ int main(int argc,char **argv) {
             if(s.scene.launcher_open && !((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_TAB)) {
                 launcher_result(&s,desk_palette_key(&s.scene.launcher,&key));continue;
             }
-            if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_TAB) {
-                if(s.scene.launcher_open) launcher_close(&s);
-                if(s.scene.calendar_open) calendar_close(&s);
-                if(s.scene.notifications.opened) notifications_close(&s);
-                cycle_focus(&s,(key.modifiers&SRV_KEY_SHIFT)!=0);continue;
-            }
             if(s.scene.menu.open<0 && context_key(&key)) { drag=resize=-1;context_at(&s,0,0,1);continue; }
             struct desk_menu_result menu_result=desk_menu_key(&s.scene.menu,&key);
             if(menu_result.consumed) { drag=resize=-1;pointer_cancel(&s);global_menu_result(&s,menu_result);if(!(key.flags&SRV_KEY_CANCEL)) continue; }
@@ -2010,7 +2126,7 @@ int main(int argc,char **argv) {
                 desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,e.dx||e.dy);
             }
             if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
-                if(battery_work)work_motion++;
+                if(battery_work || (audio_io_attended && audio_io_pid))work_motion++;
                 stop_warning=0; io_trial_input(&s.io,1);
             }
             if (io_trial_active(&s.io)) {
@@ -2426,13 +2542,18 @@ int main(int argc,char **argv) {
     if (io_trial_finish(&s.io)!=0) failed=1;
     if(audio_io) {
         if(audio_io_pid){srv_kill(audio_io_pid);uint64_t status;srv_wait(audio_io_pid,&status,0);}
-        loop_trace_report(&loop_trace,1);
         if(loop_trace.invalid || loop_trace.worst.gap!=loop_max)failed=1;
+        if(audio_io_attended) {
+            if(!audio_io_complete || s.child_errors || !loop_last || loop_max>500000 || !work_keys || !work_motion || !s.exiting)failed=1;
+            desk_log("desktop-attended-load: result=%s complete=%s keys=%llu pointer_events=%llu normal_exit=%u errors=%u max_loop_us=%llu limit_us=500000 automatic_app_cycles=no\n",failed?"FAIL":"PASS",audio_io_complete?"yes":"NO",(unsigned long long)work_keys,(unsigned long long)work_motion,s.exiting?1u:0u,s.child_errors,(unsigned long long)loop_max);
+        } else {
         if(!audio_io_complete || life_cycles<6 || life_phase || s.child_errors || !loop_last || loop_max>500000 || !life_first || life_last-life_first<((uint64_t)audio_io_seconds-20)*1000000)failed=1;
         desk_log("desktop-life: result=%s cycles=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu errors=%u limit_us=500000 first_us=%llu last_us=%llu\n",failed?"FAIL":"PASS",life_cycles,(unsigned long long)loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max,s.child_errors,(unsigned long long)life_first,(unsigned long long)life_last);
+        }
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
     }
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
+    if(audio_io)loop_trace_report(&loop_trace,1);
     lifecycle_poll(&s);
     /* Bound shutdown even when a client stopped reading. Only kill children
      * launched by this session; all queues/surfaces also have kernel cleanup. */
