@@ -716,3 +716,27 @@ requests and invalid handles retain existing admission. User-memory validation,
 same-process storage exclusion, cancellation and retirement gates remain in force.
 The stress profile still takes three captures and retains worker/launch/exit
 diagnostics; no performance or owner deadline is raised.
+
+Screenshot completion in the compositor transfers its pipe descriptors, immutable
+snapshot and worker identity to a fixed lifecycle-worker slot. The desktop keeps
+capture busy until close/unmap and worker retirement are published with
+release/acquire ordering; shutdown joins and drains accepted work. Completion
+polling itself only transfers and validates bounded protocol bytes. Other capture
+library clients retain their existing synchronous wrapper. Periodic/final
+`desktop-capture-cleanup` records retain close, unmap and reap durations.
+
+Explicit audio/disk stress may read `Home/audio-io-volume.conf` before playback.
+The optional input contains a percentage (1–100) and UTC expiry seconds, at most
+24 hours ahead. Active input is checked against the audio status and logged;
+expired input leaves normal volume unchanged, malformed input refuses playback.
+It does not alter ordinary audio defaults, PCM samples or workload limits.
+
+Files enumeration uses bounded `SRV_DIRECTORY_READ_INFO` batches of up to sixteen
+names, inode/type, current size and modification time. Each batch stays behind
+the existing storage gate and snapshots metadata in the same IRQ-excluded turn;
+it never reads file contents or calls a storage backend. Open dirty file sizes
+remain visible just as with stat. Directory cookies remain shared with dup/fork,
+seek and ordinary readdir; mutation between batches retains unspecified ordering.
+The desktop worker preserves its 256-entry limit, path bounds, error handling and
+complete-response validation. This removes per-entry readdir/stat admission waits
+without admitting metadata access inside another storage owner's operation.

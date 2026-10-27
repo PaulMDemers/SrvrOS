@@ -60,6 +60,11 @@ int main(void) {
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));frame_count=2;
     frames[0].id=frames[1].id=job.request.id;frames[1].at_us=1010;frames[1].status=CAPTURE_RECEIVE;assert(finish()==-1);
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));frame_count=1;frames[0].id=job.request.id;frames[0].reserved=1;assert(finish()==-1);
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));
+    reply=(struct desk_capture_response){.magic=DESK_CAPTURE_MAGIC,.id=job.request.id};
+    int completion=0;for(unsigned n=0;n<10000 && !completion;n++)completion=desk_capture_job_poll_transfer(&job);
+    assert(completion==1 && job.busy && job.pixels && job.reader==10 && job.writer==11 && closes==2);
+    desk_capture_job_close(&job);assert(!job.busy && !job.pixels && closes==4);
     assert(desk_capture_scale(1440,900)==1 && desk_capture_scale(1920,1080)==1);
     assert(desk_capture_scale(2880,1800)==2 && desk_capture_scale(3840,2160)==2);
     assert(!desk_capture_scale(4096,4096) && !desk_capture_scale(UINT32_MAX,1));

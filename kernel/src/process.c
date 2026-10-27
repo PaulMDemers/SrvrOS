@@ -3786,21 +3786,10 @@ static int64_t read_file_close(uint64_t handle) {
 /* Directory cookies share the open description, so dup/fork observe the same
  * position. Mutation during enumeration has the standard unspecified ordering;
  * no entry cache or unrelated per-stream pathname scan is retained in libc. */
-int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
-    struct process_file *file=process_file_at(process_current(),fd);
-    if(!file) return SRV_ERR_BADF;
-    struct process_read_file *read=file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
-    if(!read || !read->directory) return SRV_ERR_NOTDIR;
-    const char *path=read->content->path;
-    if(operation==SRV_DIRECTORY_PATH) {
-        uint64_t length=0;while(path[length]) length++;
-        if(!out) return SRV_ERR_FAULT;
-        if(capacity<=length) return SRV_ERR_RANGE;
-        copy_process_path(out,capacity,path);return 0;
-    }
-    if(operation==SRV_DIRECTORY_CHDIR) return process_path_context(SRV_PATH_CHDIR,path,NULL,0);
-    if(operation!=SRV_DIRECTORY_READ || capacity!=sizeof(struct srv_dirent) || !out) return SRV_ERR_INVAL;
+static int64_t directory_next(struct process_read_file *read,struct srv_dirent_info *out,bool metadata) {
     struct srv_dirent entry={0};
+    const struct vfs_node *selected=NULL;
+    const char *path=read->content->path;
     uint64_t length=0;while(path[length]) length++;
     if(read->offset<2) {
         bool parent=read->offset==1;
@@ -3812,7 +3801,7 @@ int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capa
         }
         const struct vfs_node *node=vfs_lookup(parent_path);
         if(!node) return SRV_ERR_NOENT;
-        entry.inode=node->metadata.inode;entry.type=VFS_NODE_DIRECTORY;
+        selected=node;entry.inode=node->metadata.inode;entry.type=VFS_NODE_DIRECTORY;
         entry.name[0]='.';if(parent) entry.name[1]='.';
         read->offset++;
     } else {
@@ -3827,11 +3816,43 @@ int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capa
             uint64_t count=0;while(name[count] && name[count]!='/') count++;
             if(!count || name[count]=='/') continue;
             if(count>=sizeof(entry.name)) return SRV_ERR_NAMETOOLONG;
-            entry.inode=node->metadata.inode;entry.type=node->type;
+            selected=node;entry.inode=node->metadata.inode;entry.type=node->type;
             copy_process_path(entry.name,sizeof(entry.name),name);break;
         }
     }
-    *(struct srv_dirent *)out=entry;return 1;
+    *out=(struct srv_dirent_info){.entry=entry,.size=selected->size,.modified=selected->metadata.mtime};
+    if(metadata)(void)process_open_file_size(selected->path,&out->size);
+    return 1;
+}
+int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    struct process_read_file *read=file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
+    if(!read || !read->directory) return SRV_ERR_NOTDIR;
+    const char *path=read->content->path;
+    if(operation==SRV_DIRECTORY_PATH) {
+        uint64_t length=0;while(path[length]) length++;
+        if(!out) return SRV_ERR_FAULT;
+        if(capacity<=length) return SRV_ERR_RANGE;
+        copy_process_path(out,capacity,path);return 0;
+    }
+    if(operation==SRV_DIRECTORY_CHDIR) return process_path_context(SRV_PATH_CHDIR,path,NULL,0);
+    if(operation==SRV_DIRECTORY_READ_INFO) {
+        if(!out || !capacity || capacity%sizeof(struct srv_dirent_info) ||
+           capacity>SRV_DIRECTORY_BATCH_MAX*sizeof(struct srv_dirent_info))return SRV_ERR_INVAL;
+        struct srv_dirent_info *entries=out;uint64_t start=read->offset,count=0;
+        while(count<capacity/sizeof(*entries)) {
+            int64_t result=directory_next(read,&entries[count],true);
+            if(result<0){read->offset=start;return result;}
+            if(!result)break;
+            count++;
+        }
+        return (int64_t)count;
+    }
+    if(operation!=SRV_DIRECTORY_READ || capacity!=sizeof(struct srv_dirent) || !out)return SRV_ERR_INVAL;
+    struct srv_dirent_info entry;int64_t result=directory_next(read,&entry,false);
+    if(result>0)*(struct srv_dirent *)out=entry.entry;
+    return result;
 }
 
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {

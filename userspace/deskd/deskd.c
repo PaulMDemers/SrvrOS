@@ -21,9 +21,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <errno.h>
+#include "../playwav/io_stress_volume.h"
 #include <sys/mman.h>
 #include <srvros/calendar.h>
 
+/* Stress-only setup, before the measured loop or PCM owner exists. */
+static int stress_volume_request(void) {
+    FILE *f=fopen("/work/srvros-work/audio-io-volume.conf","r");
+    if(!f)return errno==ENOENT?0:-1;
+    char text[96];size_t n=fread(text,1,sizeof(text)-1,f);int error=ferror(f);fclose(f);text[n]=0;
+    unsigned percent=0;long realtime=srv_realtime_us();
+    int selected=error || n==sizeof(text)-1?-1:io_stress_volume(text,realtime>0?(uint64_t)realtime/1000000:0,&percent);
+    if(selected<=0)return selected;
+    struct srv_audio_status status={0};
+    if(gui_audio(SRV_AUDIO_VOLUME,percent,&status)<0)return -1;
+    return (int)percent;
+}
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
@@ -1175,6 +1189,8 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .age_us=j->started_us?((j->finished_us?j->finished_us:now)-j->started_us):0,
         .progress_age_us=j->last_progress_us && !j->finished_us?now-j->last_progress_us:0,.bytes=j->progress_bytes,
         .started_us=j->started_us,.finished_us=j->finished_us,
+        .cleanup_us=j->cleanup_us,.close_us=j->close_us,.unmap_us=j->unmap_us,.reap_us=j->reap_us,
+        .cleanup_pending=s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
         .id=j->request.id,.busy=j->busy,.pending=s->capture_pending,.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
@@ -1202,7 +1218,14 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
     return t;
 }
 static void capture_tick(struct session *s,const uint32_t *pixels) {
-    int result=desk_capture_job_poll(&s->capture);
+    int result=0;
+    if(s->worker) {
+        result=life_capture_take(s->worker,&s->capture);
+        if(!result && life_state(&s->worker->capture.state)==LIFE_IDLE) {
+            int completed=desk_capture_job_poll_transfer(&s->capture);
+            if(completed)(void)life_capture_submit(s->worker,&s->capture,completed);
+        }
+    } else result=desk_capture_job_poll(&s->capture);
     if(result) {
         int success=result>0 && !s->capture.response.status;
         s->capture_success=success;s->capture_finished++;
@@ -1812,6 +1835,8 @@ int main(int argc,char **argv) {
     struct desk_canvas canvas;
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
+    int stress_volume=audio_io?stress_volume_request():0;
+    if(stress_volume<0){srv_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
         .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
@@ -1918,8 +1943,10 @@ int main(int argc,char **argv) {
         if(audio_io && !audio_io_finished) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!audio_io_pid) {
-                struct srv_battery_status state={0};
-                if(srv_battery_status(&state)==0 && state.state==SRV_BATTERY_ACTIVE && (state.flags&SRV_BATTERY_FRESH)) {
+                struct srv_battery_status state={0};struct srv_audio_status audio={0};
+                int volume_ready=!stress_volume || (gui_audio(SRV_AUDIO_QUERY,0,&audio)==0 && !audio.pending && audio.volume==(unsigned)stress_volume);
+                if(volume_ready && srv_battery_status(&state)==0 && state.state==SRV_BATTERY_ACTIVE && (state.flags&SRV_BATTERY_FRESH)) {
+                    if(stress_volume)desk_log("audio-io: volume_override=%u active=yes\n",(unsigned)stress_volume);
                     char duration[24];snprintf(duration,sizeof(duration),"%u",audio_io_seconds);
                     char *args[]={"/fat/bin/playwav","--io-stress",duration,NULL};
                     struct srv_exec_request request={.path=args[0],.argv=args,.flags=SRV_EXEC_BACKGROUND,.stdin_fd=0,.stdout_fd=1,.stderr_fd=2};
@@ -2650,7 +2677,9 @@ int main(int argc,char **argv) {
         }
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
     }
+    if(s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
+    if(life_state(&worker.capture.state)==LIFE_DONE){s.capture_pending=0;capture_tick(&s,NULL);}
     if(audio_io) {loop_trace_report(&loop_trace,1);struct operation_trace operations=operation_snapshot(&s,(uint64_t)srv_monotonic_us());operation_trace_report(&operations,1);}
     lifecycle_poll(&s);
     /* Bound shutdown even when a client stopped reading. Only kill children

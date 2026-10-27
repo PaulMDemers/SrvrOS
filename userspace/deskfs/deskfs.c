@@ -109,24 +109,28 @@ static void perform(const struct desk_file_request *q,struct desk_file_response 
         if(mkdir(q->path,0755)) r->status=DESK_FILE_IO;
         else if(srv_sync()!=0) r->status=DESK_FILE_IO;
     } else if(q->operation==DESK_FILE_LIST) {
-        DIR *dir=opendir(q->path);
-        if(!dir) r->status=DESK_FILE_IO;
+        int fd=open(q->path,O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if(fd<0)r->status=DESK_FILE_IO;
         else {
             struct desk_file_entry *entries=(struct desk_file_entry *)output;
-            struct dirent *entry;
-            for(;;) {
-                errno=0;entry=readdir(dir);
-                if(!entry) { if(errno) r->status=DESK_FILE_IO;break; }
-                if(!strcmp(entry->d_name,".") || !strcmp(entry->d_name,"..")) continue;
-                if(r->count==DESK_FILE_ENTRIES) { r->truncated=1;break; }
-                char path[DESK_FILE_PATH];int n=snprintf(path,sizeof(path),"%s%s%s",q->path,!strcmp(q->path,"/")?"":"/",entry->d_name);
-                if(n<0 || (size_t)n>=sizeof(path)) { r->truncated=1;continue; }
-                struct stat st;if(stat(path,&st)) { r->status=DESK_FILE_IO;break; }
-                struct desk_file_entry *out=&entries[r->count++];*out=(struct desk_file_entry){0};
-                size_t len=strlen(entry->d_name);if(len>=sizeof(out->name)) { r->status=DESK_FILE_INVALID;break; }
-                memcpy(out->name,entry->d_name,len);out->directory=S_ISDIR(st.st_mode);out->size=st.st_size;out->inode=st.st_ino;out->modified=st.st_mtime;
+            struct srv_dirent_info batch[SRV_DIRECTORY_BATCH_MAX];int done=0;
+            while(!done) {
+                long count=srv_directory(SRV_DIRECTORY_READ_INFO,fd,batch,sizeof(batch));
+                if(count<0 || count>SRV_DIRECTORY_BATCH_MAX){r->status=DESK_FILE_IO;break;}
+                if(!count)break;
+                for(long i=0;i<count;i++) {
+                    const struct srv_dirent_info *info=&batch[i];const struct srv_dirent *entry=&info->entry;
+                    if(!memchr(entry->name,0,sizeof(entry->name)) || entry->type>1){r->status=DESK_FILE_IO;done=1;break;}
+                    if(!strcmp(entry->name,".") || !strcmp(entry->name,".."))continue;
+                    if(r->count==DESK_FILE_ENTRIES){r->truncated=1;done=1;break;}
+                    char path[DESK_FILE_PATH];int n=snprintf(path,sizeof(path),"%s%s%s",q->path,!strcmp(q->path,"/")?"":"/",entry->name);
+                    if(n<0 || (size_t)n>=sizeof(path)){r->truncated=1;continue;}
+                    struct desk_file_entry *out=&entries[r->count++];*out=(struct desk_file_entry){0};
+                    size_t len=strlen(entry->name);if(len>=sizeof(out->name)){r->status=DESK_FILE_INVALID;done=1;break;}
+                    memcpy(out->name,entry->name,len);out->directory=entry->type==1;out->size=info->size;out->inode=entry->inode;out->modified=info->modified;
+                }
             }
-            if(closedir(dir)) r->status=DESK_FILE_IO;
+            if(close(fd))r->status=DESK_FILE_IO;
             r->length=r->count*sizeof(*entries);
         }
     } else if(q->operation==DESK_FILE_STAT) {

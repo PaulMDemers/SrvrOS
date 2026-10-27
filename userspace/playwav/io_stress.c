@@ -2,6 +2,7 @@
  * streaming. A separate process continuously uses ordinary writable Home I/O. */
 #include "io_stress.h"
 #include "io_stress_receipt.h"
+#include <srvros/gui.h>
 #include <srvros/audio.h>
 #include <srvros/sys.h>
 #include <stdio.h>
@@ -47,6 +48,10 @@ static int disk_worker(const char *directory,unsigned seconds) {
     return save("disk.receipt",&r,sizeof(r))?1:0;
 }
 static int producer(unsigned seconds) {
+    struct srv_audio_status audio={0};
+    if(gui_audio(SRV_AUDIO_QUERY,0,&audio)<0 || audio.pending)return 1;
+    unsigned initial_volume=audio.volume;
+
     char directory[160],duration[24];
     snprintf(directory,sizeof(directory),"/work/srvros-work/audio-io-%llu",(unsigned long long)now());
     if(mkdir(directory,0700))return 1;
@@ -108,11 +113,11 @@ static int producer(unsigned seconds) {
      * work, and bursts that run outside the measured live PCM interval. */
     if(!started || !audio_io_receipt_valid(&r,seconds,start,end,status.submitted_bytes,status.underruns))failed=1;
     char result[640];
-    int size=snprintf(result,sizeof(result),"audio-io: result=%s seconds=%u start_us=%llu end_us=%llu first_io_us=%llu last_io_us=%llu bursts=%llu bytes=%llu max_burst_us=%llu pcm_bytes=%llu underruns=%llu worker_status=%llu\n",
+    int size=snprintf(result,sizeof(result),"audio-io: result=%s seconds=%u start_us=%llu end_us=%llu first_io_us=%llu last_io_us=%llu bursts=%llu bytes=%llu max_burst_us=%llu pcm_bytes=%llu underruns=%llu worker_status=%llu volume=%u\n",
         failed?"FAIL":"PASS",seconds,(unsigned long long)start,(unsigned long long)end,
         (unsigned long long)r.first,(unsigned long long)r.last,(unsigned long long)r.bursts,
         (unsigned long long)r.bytes,(unsigned long long)r.max_us,(unsigned long long)status.submitted_bytes,
-        (unsigned long long)status.underruns,(unsigned long long)exit_status);
+        (unsigned long long)status.underruns,(unsigned long long)exit_status,initial_volume);
     snprintf(path,sizeof(path),"%s/result.txt",directory);
     if(size<=0 || (size_t)size>=sizeof(result) || save(path,result,(size_t)size) || srv_sync()<0) {
         puts("audio-io: result=FAIL reason=receipt-write");return 1;

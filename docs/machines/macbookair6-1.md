@@ -3715,3 +3715,116 @@ fsck/allocation are clean: 423 files, 1,331 clusters, zero leaks/mismatches/erro
 Evidence and decoded-image checks are backed up outside `build`; the collector
 is disabled and the one-shot entry consumed. No new boot is armed. Preserve
 all limits and accepted-writer/file-integrity rules in the next investigation.
+
+### Screenshot cleanup — active scope (2026-10-27)
+
+Base `6b6d2f4d`; prior run is collected, backed up and failed on one 660 ms
+post-render loop. Capture polling currently closes descriptors and unmaps its
+snapshot synchronously on completion. Move completion resource ownership to the
+existing joined lifecycle worker, preserving immutable data, final acknowledgement,
+accepted-writer lifetime, publication order and all limits. Add retained cleanup
+timing and delayed-cleanup regressions; validate ordinary capture and loaded
+stress before the next automatic native trial. Scope: capture job library,
+compositor worker/publication, diagnostics/host and VM collectors. PR182 filesystem
+hardening and PR19 Wi-Fi remain separate.
+
+The user also requests 1% test audio for the next few hours. Add an expiring,
+explicit stress-only volume override in this unit's test input, retaining ordinary
+audio defaults and the full PCM workload. Record its expiration with the local
+run, verify it in the guest and keep AC/USB connected during automatic testing.
+Self-merge and reboot are explicitly authorized; no new boot is armed yet.
+
+### Screenshot cleanup — candidate validated (2026-10-27)
+
+PR204 source `306a8ff4` moves completion pipe close, snapshot unmap and child
+retirement to the joined lifecycle worker. Capture remains busy until that owner
+publishes full retirement. Final acknowledgement, immutable pixels, accepted
+writes, bounded protocol chunks and all performance/owner limits remain intact.
+Retained cleanup records separate close/unmap/reap execution time. Host regression
+covers delayed retirement, single ownership and failure publication.
+
+Full host/core, matched kernels and documentation checks pass. Populated Home
+at 400 write IOPS passes 60 seconds of full PCM at verified 1% volume, 100 verified
+disk bursts, 15 app cycles, automatic screenshot/follow-up Files/normal exit,
+zero underruns and all 67 prior fixture files. Worst loop is 462.262 ms against
+the unchanged 500 ms bound. Ordinary capture VM passes immutable pixels during
+typing, durable readback, Preview, repeated capture and clean exit. Exact v74
+stage `d7fe87e92eff81b3` passes chainload and expected Q35 native-profile refusal;
+it does not establish native battery or cleanup acceptance.
+
+Next native run is 30 minutes of PCM, unpaced verified disk work, repeated app
+cycles and three automatic screenshots, then normal desktop exit and battery
+retirement. The explicit volume input requests 1% until 2026-10-27 08:30:45 UTC;
+playback receipt records actual volume. All 423 prior USB files were preserved
+when adding this one input; baseline is 424 files / 1,332 clusters with no leaks,
+allocation mismatches or errors. Ubuntu and console recovery remain unchanged.
+Native results must be collected before another trial; acceptance is pending.
+
+### Screenshot cleanup — native return failed early (2026-10-27)
+
+Release `d7fe87e92eff81b3`, compiled source `306a8ff4`, merged PR204
+`6cb4eaeb`, returned one matching session `session-00065ecbd4ad7e4a-00`.
+The full stress trial is **failed**, not accepted: Files cycle 7 exceeded the
+unchanged ten-second total cycle deadline at 10.009730 s. Its window had become
+ready in 1.677275 s; close was pending on an active directory listing. That
+listing reported success only during failure shutdown. This occurs before normal
+screenshot completion/resource cleanup, so it does not identify the new cleanup
+worker as the cause. Next investigation is directory-list completion/storage
+contention during screenshot writes, coordinating any filesystem changes with
+PR182; no limits or integrity checks should be relaxed.
+
+The 2,426 measured loops have a maximum of 109.796 ms, zero invalid samples and
+zero excursions above 500 ms. This short run cannot accept full endurance. Audio
+was verified at 1% with zero recorded underruns, but playback stopped early and
+neither workload completion receipt exists. One screenshot was requested and
+zero were acknowledged before abort. Its accepted writer drained and retired;
+one complete 1366x768 BMP (4,196,406 bytes) decodes successfully afterward. Abort
+cleanup execution totals 111.687 ms (close 101.488, unmap 1.033, reap 9.154 ms),
+excluding waiting between reap attempts. Normal completion remains unverified.
+
+Battery retirement reports heap/errors/denied all zero, though the enclosing
+controls trial correctly reports FAIL. All 424 preboot files survive except
+expected `.srvros/meta` bookkeeping. Offline fsck/allocation pass: 430 files,
+1,373 clusters, zero leaks/mismatches/errors. Returned evidence is hash-verified
+outside `build`. The collector is disabled, one-shot consumed and no new reboot
+armed. The 1% stress input retains its recorded three-hour expiration.
+
+### Files listing under screenshot writes — active scope (2026-10-27)
+
+Base `d4d9c17c`; the failed PR204 return is collected and backed up. Objective:
+remove repeated storage-admission waits from Files enumeration by returning
+bounded directory entries with their metadata in one quiescent syscall batch.
+Keep storage exclusion, shared directory cookies, live open-file sizes, path and
+output validation, file-count limits and all stress deadlines unchanged. Scope:
+directory syscall/ABI, process enumeration, deskfs listing and regression/VM tests.
+PR182 owns exFAT/block/VFS/writeback auditing; this change does not edit those
+backend contracts or its process writeback functions. PR19 retains Wi-Fi scope.
+Validate full host tests and loaded/exact-stage VMs, merge and run the unchanged
+30-minute native stress with explicit 1% audio under the user's authorization.
+
+### Files metadata batches — candidate validated (2026-10-27)
+
+PR206 runtime source `7c1ef57a` adds sixteen-entry name/metadata batches behind
+the existing storage gate. Files no longer reacquires that gate for every name,
+path resolution and stat. Shared directory cookies, live open-file sizes and
+user-buffer checks remain intact; no exFAT/backend mutation, scheduler admission,
+file-count bound or stress deadline changes. Legacy directory operations retain
+their interface. Original Files source fails the bounded-batch regression.
+
+Full host/core and matched standard/Air6,1 builds pass. Directed host tests cover
+metadata, invalid capacities, failed/malformed replies, shared positions and the
+unchanged 256-entry truncation. The real directory VM passes pointer and handle
+refusals plus metadata/cookie checks. Populated Home at 400 write IOPS passes
+60 seconds of PCM at 1%, 108 verified disk bursts, 18 app cycles, automatic
+screenshot/retirement, follow-up Files and normal exit. Worst loop is 117.417 ms,
+readiness 1.436334 s and close 1.840253 s, all within existing limits; zero audio
+underruns/app errors and all 67 prior fixture files preserved. Ordinary capture
+VM passes immutable pixels, durable readback, folder/Preview, repeat and exit.
+
+Exact v74 stage `012aaffda0be860b` passes chainload, expected Q35 native-profile
+refusal and automatic return. This does not accept the native workload. Next is
+the unchanged 30-minute / three-screenshot stress with automatic app cycles and
+unpaced verified disk work, explicit 1% volume and automatic collection. USB
+baseline remains 430 files / 1,373 clusters, all prior hashes matched and no
+leaks/mismatches/errors. The quiet input remains valid until 08:30:45 UTC on
+2026-10-27. Ubuntu and verified console recovery remain the fallback.
