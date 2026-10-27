@@ -5269,3 +5269,47 @@ pass with221 native scenarios. Local ordinary staging membership initially
 omitted v98 from its recipe regex and retained an obsolete unknown-version test;
 both were corrected, preserving all previous recipes. Exact native acceptance,
 VM/install/recovery checks and physical trigger/restoration remain separate.
+
+
+### 2026-10-27 — v98 channel6 VCO trial installed, unarmed
+
+Source `5e2ed3daba04be8cbc583e061328ec5748818f15`, release
+`83aad161d5fa476e`, v98 automatic return on actual main `e283eecb`.221 native
+tune scenarios pass, including all138 RF reply headers, wire/transport faults,
+independent restoration, board/live stopped-context admission, direct callback
+order/value refusal and failed/frozen/backward delay/ownership cases. Normal
+synthetic2/2-poll proof has460 callbacks,138 exchanges,927 ownership checks,
+320 guard reads,102 RF reads and36 RF writes.786 previous native preview cases
+and window/allocation regressions pass; native ASan/UBSan,3969 pure tuning
+transactions, merged full image/core/desktop and185 staging tests pass.
+
+Strict full-prefix checks accept15 earlier window/AP variants and36 target/
+cleanup VCO polling combinations and refuse4081 malformed traces.194 prior
+Wi-Fi recipes and both desktop configurations are unchanged;34 printf arities
+match. The normal fixture prefix is616947 bytes under the1MiB capacity; all
+bounded polling combinations fit. Committed-source kernel and independently
+firmware-packaged initramfs match the exact stage. Tune/plan/discovery/power-on
+linkage is present; the original strict calibration runner remains uncalled.
+Exact GPT-stage VM saved and byte-verified logs, unmounted and returned. The
+missing-workspace VM refused probing and returned. These are workflow checks,
+not native tuning, receiver or RF-quality acceptance.
+
+Current v98 and previous e47, accepted v97/v96/v95/v93 payloads match durable
+backups. Only obsolete Ethernet payload `0875949083ad6ac7` was retired from ESP
+after full durable equality, with its backup retained. Ubuntu default and EFI
+order are preserved. Offline workspace:343 files,856 clusters,144 directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted; no one-shot armed.
+Durable candidate/evidence archive: `wifi-tune-native-5e2ed3d` outside build.
+
+After readiness, power off, unplug Wi-Fi10s while off, reconnect and power on;
+leave workspace connected. Guest shows progress, performs channel1 observation,
+then channel6 frequency writes/VCO trigger polling and original channel1 word
+restoration/re-settling with main RX stopped throughout. It saves results and
+returns automatically; no photos or commands. Collect matching v98 FIRST with
+`tune-native/collect_return.py`, requiring the full prior proof and exact
+variable-length RF/guard/delay/cleanup trace, completion/prefix markers, all six
+payload hashes and offline allocation checks. Preserve strict refusal and raw
+collection on any failure; `collect_failure.py` records failure/incomplete
+evidence without promoting acceptance. Trigger clearing is not RF lock, live
+reception, scanning or connectivity acceptance. No receiver restart or network
+data OUT is added.
