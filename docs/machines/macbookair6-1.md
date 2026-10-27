@@ -3997,3 +3997,21 @@ Four new logs bring the USB to 447 files / 1,490 clusters. Offline fsck/allocati
 pass with zero leaks, mismatches or errors. Matching evidence and the payload
 are hash-verified outside `build`. The collector is disabled and the one-shot
 entry consumed; no reboot is armed. Ubuntu and console recovery remain intact.
+
+### Desktop power phases — active scope (2026-10-27)
+
+Base `e62c1b2a`; bounded objective is one automatic battery-owned desktop lifetime
+with 30 seconds settling, 60 seconds idle, 60 seconds Text/Files/System app
+cycles, then 60 seconds recovery and clean retirement/Ubuntu return. Measure
+package power, temperatures and CPU0 worker wakeups separately by phase. Keep
+existing app deadlines, telemetry validity, firmware ownership and integrity
+checks. No CPU/fan control writes or ordinary startup changes.
+
+Scope: an explicit Air6,1 desktop staging profile, compositor diagnostic phases,
+battery session selection, bounded preservation of periodic log checkpoints,
+strict phase collection and host/VM regression harnesses. Normal logger cadence
+and rotating snapshots stay unchanged; only this diagnostic reserves extra file
+slots for at most 32 checkpoints. PR182 owns filesystem/backend auditing and
+PR19 Wi-Fi; neither overlaps these diagnostic callers. Validate positive battery
+VM and exact-stage hardware refusal, merge and run automatically under the
+user's existing authorization. Native combined power acceptance is pending.
