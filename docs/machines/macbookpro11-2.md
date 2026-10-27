@@ -7,21 +7,19 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v93 release `6fcb4fe992b35b78`, source `774e9e9d`,
-session `session-00065ec7f927dacb-00`. Whole prior/v92 calibration proof,
-bounded passive receive window, independent MAC cleanup and exact retained
-endpoint stop passed. One normal short completion supplied276 bytes; the
-strict first-entry parser decoded a channel1 beacon (234-byte MPDU). The event
-was processed during the post-calibration window. This accepts one bounded
-native beacon observation on the captured adapter, not sustained reception or
-FCS/RSSI/RF performance. Full logs, Ubuntu recovery and offline allocation
-passed; workspace unmounted and no reboot armed. Installed pending v94 is `2530466d580891cc`/source `34c2e8b4`;
-accepted v93 remains on ESP and e47 is previous recovery. Accepted v92 is
-durably archived after verified removal from ESP for space. Next: cold-cycle
-readiness and matching v94 collection FIRST with `rx-window-native/collect_return.py`,
-then review bounded repeated passive reception before scanning,
-association/security, Wi-Fi IP traffic and UI. Original strict helper stays
-unchanged; RF0:6 semantics remain unresolved.
+Latest physical run: v94 release `2530466d580891cc`, source `34c2e8b4`,
+session `session-00065ec9814b8379-00`. Whole prior initialization/calibration,
+parent MAC cleanup, exact endpoint stop, full saved prefix, recovery and offline
+allocation passed. The1s polling window had no normal receive completion;
+only one request was posted and later cancelled (CC26,4096 remaining).
+No bytes were inspected. This accepts the bounded empty-window lifecycle only;
+successive native submissions and repeated packet reception remain unexercised.
+The earlier v93 channel1 beacon observation remains valid for its named release.
+Current v94, accepted v93 fallback and e47 previous recovery are preserved;
+workspace unmounted and no reboot armed. Next is a longer bounded passive
+observation to resolve the quiet result before scanning, association/security,
+Wi-Fi IP and UI. Original strict helper stays unchanged; RF0:6 semantics remain
+unresolved. No RF/FCS/RSSI-performance or sustained reception claim.
 
 Validated native integration candidate (2026-10-26): actual main remains `a9d69554`;
 PR182 owns filesystem imports and has no MT76 overlap. Wire the retained-buffer
@@ -9007,3 +9005,37 @@ whole prior proof, parent cleanup, exact current-TRB stop, six guards and each
 item's completion/actual bytes/parser/phase. Empty/rejected data is not reception
 acceptance. No physical v94 result is claimed; scan/association/security/IP/UI
 and sustained receive/FCS/RSSI/RF-performance acceptance remain pending.
+
+
+### 2026-10-26 — v94 returned with an empty receive window
+
+Release `2530466d580891cc`, source `34c2e8b4`, session
+`session-00065ec9814b8379-00` saved complete logs and returned automatically.
+Whole earlier firmware/MAC/baseband/RF/channel/AGC, reversible-probe and five
+power-on command proofs passed. The window polled18350 times over1000042us,
+with one attempted request, zero normal completions and zero beacons; no early
+completion or usable bytes occurred. The request remained pending, so no
+second TRB was submitted and no DMA bytes were inspected. Parser statuses255
+mean not inspected, not parser failure or frame reception.
+
+The unchanged parent MAC transaction completed54 operations/46 reads/7 writes/
+1 wait, hold10035us, TX1/RX7 drain rounds, MAC disable and filter/TXOP restoration.
+Host wait10001us and exact endpoint stop plus all six guards passed. Stop's
+CC26/4096 remaining is cancellation metadata, with DMA retained. This accepts
+only the bounded empty-window lifecycle; the new successive native submissions
+and repeated reception were not exercised. The earlier v93 beacon observation
+remains separate evidence and does not fill this run's missing receive proof.
+
+The strict checker validated the full1MiB-capacity startup prefix and both
+completion markers. Current/e47/accepted-v93 payloads, Ubuntu default and
+consumed one-shot were verified. Offline workspace:335files,823clusters,
+141directories; zero leaks, bitmap mismatches or errors. Workspace unmounted,
+no reboot armed. Complete raw evidence and observation records are retained
+outside build in `wifi-rx-window-34c2e8b`.
+
+Next: a longer bounded passive window to distinguish a quiet interval from a
+receive-path problem, preserving exact completion/byte accounting, parent
+cleanup and stop proof. Do not submit another request while the first is
+pending. Scanning, association/security/IP/UI and sustained reception, FCS,
+calibrated RSSI and RF performance remain untested; no cause is inferred from
+this single empty observation.

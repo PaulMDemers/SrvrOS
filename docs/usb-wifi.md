@@ -4749,3 +4749,37 @@ whole prior proof, parent cleanup, exact current-TRB stop, six guards and each
 item's completion/actual bytes/parser/phase. Empty/rejected data is not reception
 acceptance. No physical v94 result is claimed; scan/association/security/IP/UI
 and sustained receive/FCS/RSSI/RF-performance acceptance remain pending.
+
+
+### 2026-10-26 — v94 returned with an empty receive window
+
+Release `2530466d580891cc`, source `34c2e8b4`, session
+`session-00065ec9814b8379-00` saved complete logs and returned automatically.
+Whole earlier firmware/MAC/baseband/RF/channel/AGC, reversible-probe and five
+power-on command proofs passed. The window polled18350 times over1000042us,
+with one attempted request, zero normal completions and zero beacons; no early
+completion or usable bytes occurred. The request remained pending, so no
+second TRB was submitted and no DMA bytes were inspected. Parser statuses255
+mean not inspected, not parser failure or frame reception.
+
+The unchanged parent MAC transaction completed54 operations/46 reads/7 writes/
+1 wait, hold10035us, TX1/RX7 drain rounds, MAC disable and filter/TXOP restoration.
+Host wait10001us and exact endpoint stop plus all six guards passed. Stop's
+CC26/4096 remaining is cancellation metadata, with DMA retained. This accepts
+only the bounded empty-window lifecycle; the new successive native submissions
+and repeated reception were not exercised. The earlier v93 beacon observation
+remains separate evidence and does not fill this run's missing receive proof.
+
+The strict checker validated the full1MiB-capacity startup prefix and both
+completion markers. Current/e47/accepted-v93 payloads, Ubuntu default and
+consumed one-shot were verified. Offline workspace:335files,823clusters,
+141directories; zero leaks, bitmap mismatches or errors. Workspace unmounted,
+no reboot armed. Complete raw evidence and observation records are retained
+outside build in `wifi-rx-window-34c2e8b`.
+
+Next: a longer bounded passive window to distinguish a quiet interval from a
+receive-path problem, preserving exact completion/byte accounting, parent
+cleanup and stop proof. Do not submit another request while the first is
+pending. Scanning, association/security/IP/UI and sustained reception, FCS,
+calibrated RSSI and RF performance remain untested; no cause is inferred from
+this single empty observation.
