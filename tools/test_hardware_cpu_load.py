@@ -114,6 +114,41 @@ class LoadCaptureTests(unittest.TestCase):
         self.assertIsNone(phase_idle_entry(text+'cpu-idle-entry: truncated\n',0,30000000))
         self.assertIsNone(phase_idle_entry(text+'cpu-idle-audit: truncated\n',0,30000000))
 
+    def prereq_fixture(self):
+        return self.audit_fixture()+'cpu-idle-prereq: v=1 epoch=1 max=20 b0=1,2,256,0 b1=4,4,513,0 b2=0,0,2,0 apic=4276095232,4276095232 misc=8716425,8716425\n'
+
+    def test_prerequisites(self):
+        from hardware_cpu_load import idle_prerequisites
+        p=idle_prerequisites(self.prereq_fixture())
+        self.assertEqual(p['topology']['logical_per_core'],2)
+        self.assertEqual(p['topology']['logical_per_package'],4)
+        self.assertEqual(p['topology']['cores_per_package'],2)
+        self.assertEqual(p['config_start']['bsp'],1)
+        self.assertEqual(p['config_start']['x2apic_enabled'],0)
+        self.assertTrue(p['monitor_fsm_consistent']);self.assertFalse(p['configuration_changed'])
+        self.assertTrue(p['mwait_extensions'] and p['masked_interrupt_break'])
+        self.assertEqual(p['other_cpus_state'],'unknown');self.assertFalse(p['remote_observation'])
+        self.assertEqual(load_result(self.prereq_fixture())['idle_prerequisites'],p)
+        changed=self.prereq_fixture().replace('misc=8716425,8716425','misc=8716425,0')
+        self.assertTrue(idle_prerequisites(changed)['configuration_changed'])
+        self.assertFalse(idle_prerequisites(changed)['monitor_fsm_consistent'])
+        for old,new in [('b1=4,4,513,0','b1=4,4,769,0'),('b2=0,0,2,0','b2=5,8,1026,0'),('b1=4,4,513,0','b1=4,4,513,1')]:
+            self.assertIsNone(idle_prerequisites(self.prereq_fixture().replace(old,new))['topology'])
+        absent=self.prereq_fixture().replace('max=20','max=6').replace('b0=1,2,256,0','b0=0,0,0,0').replace('b1=4,4,513,0','b1=0,0,0,0').replace('b2=0,0,2,0','b2=0,0,0,0')
+        self.assertIsNone(idle_prerequisites(absent)['topology'])
+
+    def test_prerequisite_refusals(self):
+        from hardware_cpu_load import idle_prerequisites
+        text=self.prereq_fixture()
+        for old,new in [('v=1','v=2'),('v=1 epoch=1','v=1 epoch=2'),('max=20','max=6'),
+                        ('b0=1,2,256,0','b0=1,2,256'),('b0=1,2,256,0','b0=1,2,256,-1'),
+                        ('b0=1,2,256,0',f'b0=1,2,256,{2**32}'),('misc=8716425,8716425',f'misc=8716425,{2**64}'),
+                        ('max=20','max=20 max=20'),('max=20','unknown=20'),('b0=1,2,256,0','b0=bad')]:
+            with self.subTest(old=old):self.assertIsNone(idle_prerequisites(text.replace(old,new,1)))
+        self.assertIsNone(idle_prerequisites(self.audit_fixture()))
+        self.assertIsNone(idle_prerequisites(text+'cpu-idle-prereq: truncated\n'))
+        self.assertIsNone(idle_prerequisites(text.replace('cpu-idle-audit:','missing-audit:')))
+
     def test_profile_is_distinct(self):
         v='ram-usb-v35-laptop-probe-12345678'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v))

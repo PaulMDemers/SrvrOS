@@ -980,3 +980,49 @@ space; account for that before adding diagnostics. See the
 for exact counts, intervals, evidence identity and remaining work. Boot-time
 secondary-core state and prerequisites for a separately authorized deeper-idle
 experiment remain open.
+
+## CPU0 topology and deeper-idle prerequisites
+
+The follow-up audit stays on the captured native 06_45/invariant-TSC path. It
+reads `IA32_APIC_BASE` (`0x1b`) and `IA32_MISC_ENABLE` (`0x1a0`) at explicit
+capture start/stop only, alongside E2. Intel SDM Volume 4 table 2-2 defines the
+BSP/APIC-mode flags and MONITOR FSM enable bit 18. No MSR is written. Three fixed
+CPUID.0B subleaves (0, 1, 2) record the SMT/core/terminator topology when the
+maximum basic leaf permits it; no unsupported-leaf alias is queried. Ordinary
+power sampling/status adds no reads, workers or wakeups.
+
+One compact `cpu-idle-prereq` receipt carries the capture epoch, maximum leaf,
+three EAX/EBX/ECX/EDX tuples and start/end APIC/misc pairs. Strict collection
+requires exact fields, widths, bounds and a matching complete idle audit. It
+preserves configuration changes and unknown topology layouts explicitly. A
+recognized Haswell topology gives addressable logical CPUs/core/package, not
+online CPUs. CPUID.5 extension/break flags and substate nibbles are capabilities,
+not a chosen MWAIT hint or proof of entry. The existing 24-record, ten-second
+coverage and 64 KiB saved-log bounds are unchanged.
+
+This unit's Linux read-only inventory gives leaf-B tuples `1,2,256,0`,
+`4,4,513,0`, `0,0,2,0`: two addressable threads per core and four per package.
+Captured MADT lists enabled APIC IDs 0,2,1,3 and four disabled placeholders.
+These firmware flags do not report live AP execution. Linux reads APIC base
+`4276096256` and misc `8716425`; Linux's configuration is not native acceptance.
+
+The pinned boot binary is Limine v11.4.1. Its corresponding
+[source](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/protos/limine.c)
+checks for an MP request before calling `init_smp`; SrvrOS has no such request.
+This establishes that the kernel does not request that AP startup path, not
+whether Apple's firmware leaves each AP halted, in wait-for-SIPI or another
+state. UEFI's [x64 environment](https://uefi.org/specs/UEFI/2.10/02_Overview.html#x64-platforms)
+specifies a uniprocessor boot-services environment; it is not per-AP telemetry.
+CPU0 CPUID/MSR reads cannot resolve remote cores' live state. Doing so would
+need an independently designed AP rendezvous/ownership experiment; none is
+added or silently accepted here.
+
+Before a future deeper-idle experiment, establish an exact-model MWAIT hint,
+MONITOR support/enabling, monitored-memory ownership and race-safe readiness
+recheck, interrupt wake behavior, scheduler cancellation and fallback. Review
+timer behavior and bounded wake latency without relaxing deadlines, plus sibling
+thread/package/device prerequisites. [Intel's MWAIT reference](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-2b-manual.pdf)
+requires MONITOR and describes the capability-dependent interrupt-break option.
+This audit does not execute either instruction, start APs, send IPIs, evaluate
+AML, enable tickless operation or change CPU/fan/battery policy. Native receipt
+acceptance is pending the matching returned test.
