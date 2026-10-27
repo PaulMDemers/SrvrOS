@@ -419,6 +419,17 @@ static int focus_candidate(const struct session *s,int i,int hidden) {
     const struct client *c=session_client(s,i);const struct desktop_window *w=desktop_window_at(&s->scene,i);
     return c->pid && !c->closing && !c->parent_window && w->visible && (hidden || !w->minimized);
 }
+/* Menu and launcher task labels share UTF-8-safe, bounded state markers. */
+static void window_label(const struct session *s,int i,char *label,size_t capacity) {
+    if(!capacity)return;
+    const struct desktop_window *w=desktop_window_at(&s->scene,i);
+    const char *prefix=w->minimized?"[Minimized] ":"",*title=w->title[0]?w->title:"Window";
+    size_t prefix_length=strlen(prefix);if(prefix_length>=capacity)prefix_length=capacity-1;
+    memcpy(label,prefix,prefix_length);
+    size_t length=strlen(title);if(length>=capacity-prefix_length)length=capacity-prefix_length-1;
+    while(length && !desk_text_utf8_valid(title,length))length--;
+    memcpy(label+prefix_length,title,length);label[prefix_length+length]=0;
+}
 static void focus_best(struct session *s) {
     int best=-1;
     for(int j=0;j<session_capacity(s);j++)if(focus_candidate(s,j,0) &&
@@ -673,7 +684,7 @@ static void cycle_windows(struct session *s,int reverse,unsigned application) {
 }
 static void cycle_focus(struct session *s,int reverse) {cycle_windows(s,reverse,0);}
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_CLOSE,GLOBAL_WINDOW=65792 };
 static unsigned arrange_shortcut(const struct srv_key_event *key) {
     if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_REPEAT) ||
        !(key->modifiers&SRV_KEY_META) || !(key->modifiers&SRV_KEY_ALT) || (key->modifiers&(SRV_KEY_CTRL|SRV_KEY_SHIFT))) return 0;
@@ -786,6 +797,7 @@ static void global_menu_rebuild(struct session *s) {
     items[count++]=(struct desk_menu_item){GLOBAL_TILE_RIGHT,tile_disabled,"Tile right","Cmd-Alt-Right"};
     items[count++]=(struct desk_menu_item){GLOBAL_CENTER,disabled,"Center","Cmd-Alt-Up"};
     items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Window",""};
+    items[count++]=(struct desk_menu_item){GLOBAL_CLOSE,disabled,"Close window","Cmd-W"};
     items[count++]=(struct desk_menu_item){GLOBAL_MINIMIZE,disabled,"Minimize","Cmd-M"};
     items[count]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Maximize","Cmd-Alt-Down"};
     if(s->scene.focus>=0 && desktop_window_at(&s->scene,s->scene.focus)->maximized) strcpy(items[count].label,"Restore size");
@@ -797,10 +809,8 @@ static void global_menu_rebuild(struct session *s) {
     for(int i=0;i<session_capacity(s);i++) if(focus_candidate(s,i,1)) {
         if(!have++) items[count++]=(struct desk_menu_item){0,DESK_MENU_SEPARATOR,"",""};
         struct desk_menu_item *item=&items[count++];item->id=GLOBAL_WINDOW+session_client(s,i)->identity;
-        item->flags=s->scene.focus==i?DESK_MENU_CHECKED:0;
-        size_t n=strlen(desktop_window_at(&s->scene,i)->title);if(n>=sizeof(item->label)) n=sizeof(item->label)-1;
-        while(n && !desk_text_utf8_valid(desktop_window_at(&s->scene,i)->title,n)) n--;
-        if(n) memcpy(item->label,desktop_window_at(&s->scene,i)->title,n);else strcpy(item->label,"Window");
+        item->flags=window_root(s,s->scene.focus)==i?DESK_MENU_CHECKED:0;
+        window_label(s,i,item->label,sizeof(item->label));
     }
     uint64_t owner=s->scene.focus>=0?session_client(s,s->scene.focus)->pid:0;
     uint64_t window=s->scene.focus>=0?session_client(s,s->scene.focus)->window:0;
@@ -839,7 +849,8 @@ static void global_menu_action(struct session *s,uint32_t id) {
         s->exiting=1;s->exit_wait=0;
         for(int i=0;i<session_capacity(s);i++)
             if(session_client(s,i)->pid && !session_client(s,i)->parent_window)request_close(s,i);
-    } else if(id==GLOBAL_MINIMIZE && s->scene.focus>=0) minimize(s,s->scene.focus);
+    } else if(id==GLOBAL_CLOSE && s->scene.focus>=0)request_close(s,s->scene.focus);
+    else if(id==GLOBAL_MINIMIZE && s->scene.focus>=0) minimize(s,s->scene.focus);
     else if(id==GLOBAL_ZOOM && s->scene.focus>=0) maximize(s,s->scene.focus);
     else if(s->scene.focus>=0 && (id==GLOBAL_TILE_LEFT || id==GLOBAL_TILE_RIGHT || id==GLOBAL_CENTER))
         arrange_window(s,s->scene.focus,id==GLOBAL_TILE_LEFT?DESKTOP_TILE_LEFT:id==GLOBAL_TILE_RIGHT?DESKTOP_TILE_RIGHT:DESKTOP_CENTER);
@@ -864,11 +875,11 @@ static void launcher_catalog(struct session *s) {
     int inline_order[DESKD_WINDOWS];int *order=s->scene.order?s->scene.order:inline_order;desktop_stack(&s->scene,order);
     for(int n=session_capacity(s)-1;n>=0;n--) {
         int i=order[n];uint64_t pid=session_client(s,i)->pid;
-        if(!pid || !session_client(s,i)->identity || session_client(s,i)->closing) continue;
+        if(!pid || !session_client(s,i)->identity || !focus_candidate(s,i,1)) continue;
         if(s->launcher_application && (desktop_window_at(&s->scene,i)->application!=(int)s->launcher_application || session_client(s,i)->parent_window))continue;
         struct desk_palette_item *item=&items[count++];item->id=session_client(s,i)->identity+DESK_APP_COUNT;
-        snprintf(item->label,sizeof(item->label),"%s",desktop_window_at(&s->scene,i)->title[0]?desktop_window_at(&s->scene,i)->title:"Window");
-        strcpy(item->detail,desktop_window_at(&s->scene,i)->minimized?"Hidden window":"Open window");
+        window_label(s,i,item->label,sizeof(item->label));
+        strcpy(item->detail,modal_child(s,i)>=0?"Window with dialog":desktop_window_at(&s->scene,i)->minimized?"Minimized window":"Open window");
     }
     for(unsigned app=1;app<=DESK_APP_COUNT;app++) {
         if(s->launcher_application && app!=s->launcher_application)continue;
@@ -1004,6 +1015,10 @@ static int navigation_key(struct session *s,const struct srv_key_event *key) {
     if((modifiers&SRV_KEY_META) && !(modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT))) {
         if(key->usage==0x35) { /* HID grave; Shift reverses same-app cycling. */
             if(s->scene.focus>=0)cycle_windows(s,(modifiers&SRV_KEY_SHIFT)!=0,desktop_window_at(&s->scene,s->scene.focus)->application);
+            return 1;
+        }
+        if(key->usage==0x1a && !(modifiers&SRV_KEY_SHIFT)) { /* HID W; Ctrl-W remains application-owned. */
+            if(!(key->flags&SRV_KEY_REPEAT) && s->scene.focus>=0)request_close(s,s->scene.focus);
             return 1;
         }
         if(key->usage==0x10 && !(modifiers&SRV_KEY_SHIFT)) { /* HID M */

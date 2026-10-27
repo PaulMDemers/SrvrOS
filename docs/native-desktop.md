@@ -181,12 +181,20 @@ windows do not steal the selection, and retired identities cannot activate a
 replacement window. Minimized windows can be restored from the list. Owned
 modal dialogs appear through their parent document rather than as extra tasks.
 
+**Command-W** and **Window > Close window** ask the focused window to close
+through its normal application policy. Unsaved documents still offer Save,
+Discard and Cancel; closing an owned dialog cancels that dialog. Repeated close
+requests do not bypass a pending decision. Existing Control shortcuts, including
+Terminal's shell controls and Ctrl-Shift-W, stay application-owned.
+
 **Command-grave** cycles the current application's windows in creation order;
 Command-Shift-grave reverses. **Command-M** minimizes a window and its owned
 dialog together. Minimizing or closing the active window selects the most recent
 visible window, leaving other minimized windows hidden. Closing a modal returns
 to its own document. With no visible windows, desktop keyboard commands remain
-available to restore one.
+available to restore one. Window and launcher lists show each main window once,
+mark minimized windows, and route a selected parent to its open dialog. The
+Window menu checks the parent entry when its dialog has focus.
 
 **F10** or **Control-F2** opens the global menu bar (Fn may be needed). Left/Right
 changes menus; Up/Down, Home/End choose commands; Return activates and Escape
