@@ -1,4 +1,4 @@
-static bool window_discovery,receive_test_only;
+static bool window_discovery,receive_test_only,scan_test_only;
 static unsigned window_trial,window_ticks,window_last_post,window_injected;
 static void window_test_tick(void) {
     struct xhci_device *d=window_test_device;struct xhci_wifi_mcu *m=&d->firmware.mcu;
@@ -183,8 +183,8 @@ static void test_wifi_window(void) {
                 assert(!wifi_discovery_capture(d) && checks==m->discovery_checks && !memcmp(&copy,&m->discovery,sizeof copy));
                 wifi_discovery_log(d);
                 if(discovery==2 && trial==0){
-                    if(receive_test_only){test_wifi_receive(d);mac_cycle_model=cal_probe_model=false;return;}
-                    test_wifi_channel(d);test_wifi_tune(d);test_wifi_receive(d);
+                    if(receive_test_only){if(scan_test_only)test_wifi_scan(d);else test_wifi_receive(d);mac_cycle_model=cal_probe_model=false;return;}
+                    test_wifi_channel(d);test_wifi_tune(d);test_wifi_receive(d);test_wifi_scan(d);
                 }
             } else assert(!wifi_discovery_capture(d) && !m->discovery.attempted);
 

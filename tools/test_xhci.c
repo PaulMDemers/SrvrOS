@@ -14,6 +14,7 @@ static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
 static struct xhci_device *receive_test_device;
+static unsigned scan_test_fault_visit=3,scan_test_fault_kind,scan_test_rf_visit=3,scan_test_history;
 static void receive_test_command(void);
 static void receive_test_control(void);
 static void receive_test_allocate(void);
@@ -6631,9 +6632,11 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_channel.inc"
 #include "test_xhci_wifi_tune.inc"
 #include "test_xhci_wifi_receive.inc"
+#include "test_xhci_wifi_scan.inc"
 #include "test_xhci_wifi_window.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-scan")){receive_test_only=true;scan_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-channel-receive")){receive_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}

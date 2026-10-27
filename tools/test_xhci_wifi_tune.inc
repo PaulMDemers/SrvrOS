@@ -14,7 +14,8 @@ static bool tune_test_delay(uint64_t us) {
 }
 static void tune_test_bulk(unsigned dci) {
     struct xhci_device *d=tune_test_device;struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_tune *t=&m->tune;tune_bulk_calls++;
-    if(t->exchanges==tune_at && ((tune_fault==5 && dci==16) || (tune_fault==6 && dci==11)))return;
+    unsigned fault=m->scan_mode && m->scan.index!=scan_test_rf_visit?0:tune_fault;
+    if(t->exchanges==tune_at && ((fault==5 && dci==16) || (fault==6 && dci==11)))return;
     if(dci==16) {
         uint32_t w[4]={0};for(unsigned i=0;i<16;i++)w[i/4]|=(uint32_t)d->firmware.buffer[i]<<(8*(i%4));
         unsigned command=(w[0]>>20)&127,seq=(w[0]>>16)&15,reg=w[1]&255;
@@ -30,16 +31,16 @@ static void tune_test_bulk(unsigned dci) {
     } else {
         assert(dci==11);for(unsigned i=0;i<16;i++)m->buffer[i]=(uint8_t)(tune_reply[i/4]>>(8*(i%4)));
         if(t->exchanges==tune_at) {
-            if(tune_fault==1)m->buffer[2]^=1;
-            if(tune_fault==2)m->buffer[4]^=1;
-            if(tune_fault==3)m->buffer[9]=1;
-            if(tune_fault==7)m->agc_state.complete=false;
-            if(tune_fault==8)m->buffer[12]^=1;
-            if(tune_fault==9)m->buffer[8]^=1;
-            if(tune_fault==10)context_write32(d->output_context,9,0,1);
+            if(fault==1)m->buffer[2]^=1;
+            if(fault==2)m->buffer[4]^=1;
+            if(fault==3)m->buffer[9]=1;
+            if(fault==7)m->agc_state.complete=false;
+            if(fault==8)m->buffer[12]^=1;
+            if(fault==9)m->buffer[8]^=1;
+            if(fault==10)context_write32(d->output_context,9,0,1);
         }
     }
-    unsigned actual=tune_fault==4 && t->exchanges==tune_at?12:16;
+    unsigned actual=fault==4 && t->exchanges==tune_at?12:16;
     xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)m->trb,.parameter_high=m->trb>>32,
         .status=dci==16?1u<<24:(13u<<24)|(MT76_MCU_RESPONSE_MAX-actual),
         .control=(32u<<10)|(dci<<16)|((uint32_t)d->slot_id<<24)|(xhci.event_cycle?1u:0u)};
@@ -121,7 +122,7 @@ static void test_wifi_tune(struct xhci_device *d) {
     struct xhci_wifi_tune *t=&m->tune;*t=(struct xhci_wifi_tune){.active=true,.pinned=true};
     t->state.attempted=true;t->state.channel=6;t->state.saved_mask=8191;t->state.touched_mask=1;
     for(unsigned i=0;i<13;i++)t->state.saved[i]=(uint8_t)mt76_channel_snapshot_initial(i);
-    wifi_channel_identity(d,t->identity);wifi_tune_forward(t);t->pos=23;
+    wifi_channel_identity(d,t->identity);wifi_tune_forward(t,6);t->pos=23;
     tune_model_init();tune_fault=0;tune_at=0;tune_test_device=d;
     assert(!wifi_tune_write(d,38,2,false) && !tune_bulk_calls);
     assert(!wifi_tune_write(d,37,3,false) && !tune_bulk_calls);

@@ -2,11 +2,24 @@ static unsigned receive_fault,receive_ticks,receive_commands,receive_cases,recei
 static unsigned receive_controls,receive_control_fault,receive_control_at;
 static void receive_test_allocate(void) {
     struct xhci_wifi_receive *r=&receive_test_device->firmware.mcu.receive;
+    if(receive_test_device->firmware.mcu.scan_mode)receive_fault=receive_test_device->firmware.mcu.scan.index==scan_test_fault_visit?scan_test_fault_kind:0;
+    if(scan_test_history && scan_test_history<=3 && receive_test_device->firmware.mcu.scan_mode && receive_test_device->firmware.mcu.scan.index==1){
+        struct xhci_wifi_scan *s=&receive_test_device->firmware.mcu.scan;
+        if(scan_test_history==1)s->visit[0].tune.identity[0]=0;
+        if(scan_test_history==2)s->visit[0].receive.identity[1]=0;
+        if(scan_test_history==3)s->visit[0].receive.mac_quiescent=false;
+    }
     if(receive_fault==26 && r->ep.ring && !r->buffer_phys)receive_test_device->firmware.mcu.agc_state.complete=false;
 }
 static void receive_test_control(void) {
     struct xhci_device *d=receive_test_device;struct xhci_wifi_receive *r=&d->firmware.mcu.receive;
     if(!r->mac_active || !r->active)return;
+    if(scan_test_history>=4 && d->firmware.mcu.scan_mode && d->firmware.mcu.scan.index==1){
+        struct xhci_wifi_scan *s=&d->firmware.mcu.scan;
+        if(scan_test_history==4)s->visit[0].tune.identity[0]=0;
+        if(scan_test_history==5)s->visit[0].receive.identity[1]=0;
+        if(scan_test_history==6)s->visit[0].receive.mac_quiescent=false;
+    }
     if(++receive_controls!=receive_control_at)return;
     if(receive_control_fault==1)d->firmware.mcu.agc_state.complete=false;
     if(receive_control_fault==2)d->ep0_quarantined=true;
@@ -17,10 +30,14 @@ static void receive_test_command(void) {
     unsigned index=xhci.command_enqueue?xhci.command_enqueue-1:62;
     struct xhci_trb *cmd=&xhci.command_ring[index];unsigned type=(cmd->control>>10)&63;
     assert(type==16 || type==15);receive_commands++;
+    if(d->firmware.mcu.scan_mode && type==16){
+        receive_ticks=0;receive_controls=0;
+        receive_fault=d->firmware.mcu.scan.index==scan_test_fault_visit?scan_test_fault_kind:0;
+    }
     assert((cmd->control>>24)==d->slot_id && ((cmd->control>>16)&31)==9);
     if((receive_fault==1 && type==16) || (receive_fault==2 && type==15))return;
     uint64_t deq=r->ep.ring_phys|1;
-    if(type==16)assert((cmd->parameter_low|((uint64_t)cmd->parameter_high<<32))==deq && wifi_channel_stopped(d));
+    if(type==16)assert((cmd->parameter_low|((uint64_t)cmd->parameter_high<<32))==deq && wifi_receive_base_stopped(d));
     if(type==15){assert(!cmd->parameter_low && !cmd->parameter_high);deq+=16;}
     if(receive_fault==17 && type==15)deq+=16;
     if(receive_fault==18 && type==16)deq&=~1ull;
@@ -41,7 +58,7 @@ static void receive_test_tick(void) {
     if(receive_fault==6){test_time=0;return;}
     if(receive_fault==7){test_time_step=0;return;}
     if(receive_ticks<5 && receive_fault!=24)return;
-    unsigned actual=passive_wire(r->buffer);r->buffer[82]=receive_fault==8?1:6;
+    unsigned actual=passive_wire(r->buffer);r->buffer[82]=receive_fault==8?1:(uint8_t)wifi_tune_channel(d);
     unsigned cc=receive_fault==9?27:13,residue=receive_fault==10?4097:4096-actual;
     if(receive_fault==11){actual=0;residue=4096;}
     if(receive_fault==21){cc=1;actual=4096;residue=0;}

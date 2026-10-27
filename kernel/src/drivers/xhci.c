@@ -12,6 +12,7 @@
 #include <srvros/mt76_rx.h>
 #include <srvros/mt76_rx_window.h>
 #include <srvros/mt76_discovery.h>
+#include <srvros/mt76_scan.h>
 #include <srvros/mt76_channel_plan.h>
 #include <srvros/mt76_channel_tune.h>
 #include <srvros/mt76_radio.h>
@@ -286,6 +287,13 @@ struct xhci_wifi_receive {
     bool attempted,active,retarget_attempted,retargeted,posted,pending,done;
     bool stopping,stop_attempted,stopped,mac_active,mac_quiescent,polling,during_window,failed,complete,inspected;
 };
+struct xhci_wifi_scan {
+    bool attempted,active,failed;
+    unsigned index,completed,late;
+    struct { struct xhci_wifi_tune tune; struct xhci_wifi_receive receive; } visit[3];
+    struct mt76_scan_input input[3];
+    struct mt76_scan result;
+};
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
     uint64_t buffer_phys, trb;
@@ -373,6 +381,7 @@ struct xhci_wifi_mcu {
     bool channel_mode;struct xhci_wifi_channel channel;
     bool tune_mode;struct xhci_wifi_tune tune;
     bool receive_mode;struct xhci_wifi_receive receive;
+    bool scan_mode;struct xhci_wifi_scan scan;
     bool poweron_mode,poweron_active;unsigned poweron_ops,poweron_reads,poweron_writes,poweron_waits,poweron_commands,poweron_ack_mask;struct mt76_calibration poweron;
     bool cal_probe_mode,cal_probe_active;unsigned cal_probe_ops,cal_probe_reads,cal_probe_writes,cal_probe_waits;struct mt76_calibration_probe cal_probe;
     bool rx_lifecycle_mode,mac_cycle_mode;struct xhci_wifi_rx rx;struct mt76_mac_cycle mac_cycle;

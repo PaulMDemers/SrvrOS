@@ -5472,3 +5472,30 @@ in `wifi-channel-receive-8714416`. Next: bounded sequential passive multi-channe
 discovery with fresh receive ownership and independent stop/restoration on every
 failure. Selection, association/security and IP/UI follow. No repeat boot is
 needed for v99; no reboot armed.
+
+
+### 2026-10-27 — separate three-channel pilot implemented, validation pending
+
+The new private collector requires exactly three independent restored visits
+on US1/6/11 at20MHz. It reparses each first bounded USB entry with the explicit
+visited channel after stopped/quiescent ownership checks. Six fresh physical
+pages must be distinct; all tune target/observer/cleanup masks, original words
+and bounded VCO delay ledgers must pass. Private BSSID rows preserve first
+advertised security and revealed SSID, flag name/security/channel conflicts,
+and publish only after all visits and ownership checks complete. Failure leaves
+no result rows. No raw IDs, transmitter address, signal fields or DMA pointers
+are copied into the result table. Hidden SSIDs remain distinct from empty reads.
+
+Explicit selector78/v100 retains each native tune/receive state and its new
+ring/page. The previous visit's exact stopped context admits the next Set
+Dequeue; every RF/receiver ownership gate also rechecks older pinned records.
+An independently owned endpoint Stop remains available after forward/history
+loss; unproven MAC/DMA/retained ownership forbids RF restoration. Old completion
+events cannot complete the current request. Per-visit progress, complete traces
+and restoration summaries precede final private-row metadata. Ordinary startup
+and v1–v99 profiles remain separate. The initial scan fixture's sticky fault26
+was corrected by selecting the intended per-visit allocation fault before
+allocation; production ownership gates were not relaxed. Local/native boundary
+checks, sanitizers, merged tests, whole-log proof, exact-stage VM and physical
+acceptance are separate checkpoints. V99 stays installed/accepted; no new
+release is armed.
