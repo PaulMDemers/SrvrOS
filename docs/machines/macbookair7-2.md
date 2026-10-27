@@ -2,18 +2,26 @@
 
 Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
 
-### Focused Close/window-list trial — preparation
+### Focused Close/window-list trial — installed; attended boot pending
 
-Prepare a brief attended round from tested main `5db81dd5` (PR201), changing only
-the automatically opened Help checklist. Keep the existing v76 battery/Home
-profile and independent recovery. New remote main `eacb4ec4` (PR200 screenshot
-stress/diagnostic work) is fetched/inspected but not consumed into this isolated
-candidate. Scope: Command-W/Window Close, unsaved Save/Discard/Cancel, modal-parent
-and minimized discovery, live Terminal cancellation and fresh saved evidence.
-No audio test or cable changes. Full checklist opens in Help without a timer.
-Build matched normal/native/VM kernels and userspace, rehearse the exact stage,
-then verify recovery/USB/run record and request the authorized one-shot boot.
-Local checkpoint: `build/window-commands-native-20261026/`; no reboot armed yet.
+Candidate `060fffa453e26d5e`, clean source `bd94284a`, follows tested main
+`5db81dd5` (PR201) with only the focused Help checklist changed. Matched normal/
+native/VM builds and freshness pass. Exact-stage GRUB/Limine/native-kernel Q35
+rehearsal passes checklist delivery, save, complete retirement, reopen and normal
+monitor reboot with clean offline integrity. Q35 refusal does not accept native
+battery/providers. The complete untimed current-round checklist is at the top of
+Help; older navigation sections are reference material.
+
+Local MacBookAir7,2/USB identity, Ubuntu default and independent recovery are
+verified. Physical USB offline checks/headroom pass; 1,133 prior files are hashed
+and the latest prior session is already collected. The unreferenced older a906
+payload was copied and every file verified outside EFI before removal to make
+space; its known-good backup remains. Accepted `1d36da62e183a295` and independent
+`9aa8dbf6fbda8252` recovery are retained. Current run/reboot state and after-return
+collection instructions are in `build/window-commands-native-20261026/run.json`
+and its verified durable copy outside build. No physical acceptance is claimed.
+New remote main `eacb4ec4` (PR200 screenshot work) is inspected, not consumed
+into this isolated candidate. No audio test or cable changes are requested.
 
 ### Window commands and discovery — locally validated; native pending
 
