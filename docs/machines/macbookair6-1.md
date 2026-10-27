@@ -4279,3 +4279,22 @@ console `c35475f62f154f1e`, prior accepted `cb881058052a1012`, CPU-power, stress
 and attended-reopen payloads remain retained. This accepts the ordinary session
 supervisor wait change on this unit; broader endurance and power policy remain
 separate work.
+
+### Read-only idle residency — active scope (2026-10-27)
+
+Base `108969f7` includes the collected supervisor-wait acceptance. Add explicitly
+opted-in CPU0 core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 residency reads for
+this captured 06_45 CPU, guarded by the existing native power gate and invariant
+TSC support. Intel SDM Volume 4 tables 2-20 and 2-32 define the counters; capture
+this unit's Linux read-only baseline before admitting them. Other CPU profiles
+retain their existing five-register power telemetry, with residency unavailable.
+
+Touch power sampling/arithmetic, bounded capture records, collector regressions
+and documentation. Reuse v35's unchanged 30-second idle/load/recovery phases,
+24-record capacity, one-second sampling, thermal/fan stops, ten-second phase
+coverage and USB integrity checks. No C-state, frequency, fan or battery policy
+writes, scheduler changes or new polling. Distinguish unavailable/reset/stale
+from valid zero residency; core and package percentages have separate scopes.
+PR182 filesystem audit and PR19 Wi-Fi remain independent. Next checkpoint is
+host/VM validation, self-merge, exact-stage installation and the authorized
+automatic native run; hardware acceptance is pending collection after return.
