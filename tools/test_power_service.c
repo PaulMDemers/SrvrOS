@@ -13,10 +13,11 @@ static unsigned idle_reads,idle_rows,config_reads,audit_rows,entry_rows,prereq_r
 static bool audit_ok=true,audit_active;
 static uint64_t audit_epoch;
 static bool mwait_ok=true,mwait_started;
+static uint64_t mwait_fault;
 static unsigned mwait_starts,mwait_stops,mwait_rows;
 static uint64_t apic_config=4276095232ull,misc_config=8716425;
 bool scheduler_mwait_test_start(void) { assert(audit_active);mwait_starts++;if(!mwait_ok)return false;mwait_started=true;return true; }
-void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) { assert(mwait_started && audit_active);mwait_stops++;mwait_started=false;*out=(struct scheduler_mwait_test){.epoch=audit_epoch,.attempts=32,.returns=32,.hlt=32,.max_us=10000,.tick_end=31}; }
+void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) { assert(mwait_started && audit_active);mwait_stops++;mwait_started=false;*out=(struct scheduler_mwait_test){.epoch=audit_epoch,.attempts=32,.returns=32,.hlt=32,.max_us=10000,.tick_end=31,.fault=mwait_fault}; }
 bool scheduler_idle_audit_start(void) { if(!audit_ok || audit_active)return false;audit_active=true;audit_epoch++;return true; }
 void scheduler_idle_audit_snapshot(struct scheduler_idle_audit *out) { assert(audit_active);*out=(struct scheduler_idle_audit){.epoch=audit_epoch,.enters=now/10000,.returns=now/10000}; }
 void scheduler_idle_audit_stop(struct scheduler_idle_audit *out) { scheduler_idle_audit_snapshot(out);audit_active=false; }
@@ -164,6 +165,8 @@ int main(void) {
     assert(!power_capture_mwait_start() && mwait_starts==1);
     power_capture_stop();assert(mwait_stops==1 && mwait_rows==1 && power_capture_mwait_passed());
     power_capture_stop();assert(mwait_stops==1);
+    assert(power_capture_mwait_start());mwait_fault=2;power_capture_stop();assert(!power_capture_mwait_passed());mwait_fault=0;
+    assert(power_capture_mwait_start());misc_config^=1;power_capture_stop();assert(!power_capture_mwait_passed());misc_config^=1;
     idle_monitor=0;assert(!power_capture_mwait_start() && !audit_active);idle_monitor=1;
     idle_leaf5[0]=128;assert(!power_capture_mwait_start() && !audit_active);idle_leaf5[0]=64;
     idle_leaf5[2]=1;assert(!power_capture_mwait_start() && !audit_active);idle_leaf5[2]=3;

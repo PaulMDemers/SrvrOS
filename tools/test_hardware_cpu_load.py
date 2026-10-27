@@ -157,7 +157,7 @@ class LoadCaptureTests(unittest.TestCase):
         self.assertEqual(load_result(text)['mwait']['status'],'PASS')
         for old,new in [('max_us=10000','max_us=20001'),('fault=0','fault=1'),('hlt=32','hlt=31'),('tick_end=51','tick_end=20'),('max_us=10000','max_us=0')]:
             self.assertEqual(mwait_result(text.replace(old,new))['status'],'FAILED_OR_INCOMPLETE')
-        for old,new in [('hint=0','hint=16'),('ext=1','ext=0'),('cap=32','cap=64'),('limit_us=20000','limit_us=500000'),('tries=32','tries=33'),('returns=32','returns=31'),('admitted=1 epoch=1','admitted=1 epoch=2'),('max_us=10000','max_us=10000 max_us=10000')]:
+        for old,new in [('leaf5_a=64','leaf5_a=128'),('leaf5_b=64','leaf5_b=128'),('hint=0','hint=16'),('ext=1','ext=0'),('cap=32','cap=64'),('limit_us=20000','limit_us=500000'),('tries=32','tries=33'),('returns=32','returns=31'),('admitted=1 epoch=1','admitted=1 epoch=2'),('max_us=10000','max_us=10000 max_us=10000')]:
             self.assertIsNone(mwait_result(text.replace(old,new)))
         self.assertIsNone(mwait_result(text+receipt))
         self.assertIsNone(mwait_result(self.audit_fixture()+receipt))

@@ -161,6 +161,7 @@ void power_capture_stop(void) {
     if(audited) {
         scheduler_idle_audit_stop(&final);config_end=read_msr(0xe2);
         apic_end=read_msr(0x1b);misc_end=read_msr(0x1a0);idle_auditing=false;
+        if(tested && (config_end!=idle_config_start || apic_end!=idle_apic_start || misc_end!=idle_misc_start)) mwait_passed=false;
     }
     unlock(f);
     /* The bootstrap caller owns start/stop; sampling cannot modify these
