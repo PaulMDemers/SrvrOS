@@ -24,8 +24,9 @@ struct mt76_discovery_io {
      * Serialized with callbacks; may not reenter, mutate or free input/state. */
     bool (*owned)(void *, const struct mt76_rx_window *);
 };
-/* One-shot bounded collection after successful window_finish only. Fixed US
- * channel1; first entry of each normal-completed transfer only. All-or-nothing
+/* One-shot bounded collection after successful window_finish only. Explicit
+ * US1/6/11 plan binding (legacy zeroed plan is channel1);
+ * first entry of each normal-completed transfer only. All-or-nothing
  * publication: ownership/ledger failure leaves no identifiers or result rows.
  * Valid no-AP observations complete with count0; not AP discovery acceptance.
  * Does not poll, post, stop, allocate, retune, transmit or log identifiers. */

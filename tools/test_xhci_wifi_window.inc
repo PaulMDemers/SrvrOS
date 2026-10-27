@@ -41,7 +41,7 @@ static bool discovery_fault_owned(void *context,const struct mt76_rx_window *win
     return wifi_discovery_owned(context,window);
 }
 static void test_wifi_window(void) {
-    for(unsigned discovery=0;discovery<3;discovery++)for(unsigned trial=0;trial<55;trial++) {
+    for(unsigned discovery=0;discovery<3;discovery++)for(unsigned trial=0;trial<61;trial++) {
         if(receive_test_only && (discovery!=2 || trial!=0))continue;
         window_discovery=discovery;
         reset_test();test_time=0;test_time_step=100;
@@ -126,6 +126,12 @@ static void test_wifi_window(void) {
         case 46:m->mac_cycle.txop_restored=false;break;case 47:m->mac_cycle.rx_drained=false;break;
         case 48:w->state.plan.physical[7]^=4096;break;
         case 54:w->state.plan.budget_us=0;break;
+        case 55:w->state.plan.country[0]='U';break;
+        case 56:w->state.plan.country[1]='S';break;
+        case 57:w->state.plan.country[0]='U';w->state.plan.country[1]='S';w->state.plan.channel=6;break;
+        case 58:w->plan.country[0]='U';break;
+        case 59:w->plan.country[1]='S';break;
+        case 60:w->plan.country[0]='U';w->plan.country[1]='S';w->plan.channel=11;break;
         }
         bool captured=wifi_window_finish(d);assert(captured==(trial<24 || trial==49 || trial==50 || trial==51 || trial==53));
         if(captured) {
@@ -140,7 +146,7 @@ static void test_wifi_window(void) {
                     struct xhci_wifi_mcu before=*m;
                     uint8_t output_saved[4096];memcpy(output_saved,output,sizeof output);
                     struct xhci_trb td=main_ring[0];
-                    for(unsigned fault=0;fault<24;fault++) {
+                    for(unsigned fault=0;fault<30;fault++) {
                         *m=before;memcpy(output,output_saved,sizeof output);main_ring[0]=td;
                         switch(fault) {
                         case 0:m->discovery_mode=false;break;case 1:m->window_long_mode=false;break;
@@ -158,6 +164,12 @@ static void test_wifi_window(void) {
                         case 19:context_write32(output,9,2,(uint32_t)(r->trb+16)|3);break;
                         case 20:r->ep.cycle=false;break;case 21:r->trb-=16;break;
                         case 22:r->active=false;break;case 23:w->state.stopped=false;break;
+                        case 24:w->state.plan.country[0]='U';break;
+                        case 25:w->state.plan.country[1]='S';break;
+                        case 26:w->state.plan.country[0]='U';w->state.plan.country[1]='S';w->state.plan.channel=6;break;
+                        case 27:w->plan.country[0]='U';break;
+                        case 28:w->plan.country[1]='S';break;
+                        case 29:w->plan.country[0]='U';w->plan.country[1]='S';w->plan.channel=11;break;
                         }
                         assert(!wifi_discovery_capture(d) && !m->discovery.complete && !m->discovery.count && !freed);
                         for(unsigned i=0;i<sizeof m->discovery.row;i++)assert(!((uint8_t *)m->discovery.row)[i]);
@@ -208,5 +220,5 @@ static void test_wifi_window(void) {
             assert(!configure_wifi_rx(d) && !wifi_rx_post(d));
         } else assert(!r->posts && !xhci.command_enqueue);
     }
-    puts("wifi-window-native: PASS289 short/long/discovery/channel-budget,live-context/atomic-loss/ledger/allocation/shared-HID/whole-poweron/parent-cleanup/unique-TRB/event/clock/exact-stop scenarios; no DMA freed");
+    puts("wifi-window-native: PASS short/long/discovery/channel-budget,legacy-channel-binding,live-context/atomic-loss/ledger/allocation/shared-HID/whole-poweron/parent-cleanup/unique-TRB/event/clock/exact-stop scenarios; no DMA freed");
 }

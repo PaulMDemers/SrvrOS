@@ -16,6 +16,7 @@ struct fixture {
     unsigned posts,stops,polls,owned,cleanup,fail_index,checks;
     uint64_t clock;
 };
+static unsigned explicit_channel;
 static void put16(uint8_t *p,unsigned n) {p[0]=n;p[1]=n>>8;}
 static void put32(uint8_t *p,unsigned n) {put16(p,n);put16(p+2,n>>16);}
 static void packet(uint8_t *p,unsigned index) {
@@ -24,7 +25,7 @@ static void packet(uint8_t *p,unsigned index) {
     put16(p,80);put32(p+8,45u<<16);put16(p+36,0x80);
     memset(p+40,255,6);p[46]=p[52]=2;p[51]=p[57]=(uint8_t)(index+1);
     put16(p+68,100);put16(p+70,0x11);
-    const uint8_t ies[]={0,0,1,2,0x82,0x84,3,1,1};memcpy(p+72,ies,sizeof ies);
+    const uint8_t ies[]={0,0,1,2,0x82,0x84,3,1,1};memcpy(p+72,ies,sizeof ies);if(explicit_channel)p[80]=(uint8_t)explicit_channel;
 }
 static bool owned(void *ctx,bool cleanup) {
     struct fixture *f=ctx;f->checks++;
@@ -99,6 +100,7 @@ static uint64_t now(void *ctx) {
 static void init(struct fixture *f,enum fault fault,unsigned index) {
     memset(f,0,sizeof *f);f->fault=fault;f->fail_index=index;
     f->p.ring=0x100000;f->p.slot=1;f->p.dci=9;
+    if(explicit_channel){f->p.country[0]='U';f->p.country[1]='S';f->p.channel=(uint8_t)explicit_channel;}
     for(unsigned i=0;i<8;i++) {
         uint8_t *p=aligned_alloc(4096,4096);assert(p);packet(p,i);
         f->p.buffer[i]=p;f->p.physical[i]=0x200000+4096*i;
@@ -224,5 +226,27 @@ int main(void) {
         assert(!mt76_rx_window_run(&f.s,&f.p,&f.io) && !f.posts && !f.stops);
         destroy(&f);scenarios++;
     }
+    const unsigned channels[]={1,6,11};
+    for(unsigned ch=0;ch<3;ch++){
+        explicit_channel=channels[ch];
+        for(unsigned i=0;i<8;i++){
+            for(enum fault x=POST_FAIL;x<=CC_ERROR;x++)run(x,i,false);
+            for(enum fault x=ZERO;x<=OFF_CHANNEL;x++)run(x,i,true);
+        }
+        for(enum fault x=NONE;x<=STALE;x++)run(x,0,true);
+        run(SHORT_DEADLINE,0,true);run(STOP_CURRENT,0,true);run(ZERO_ALL,0,true);run(INITIAL_LOST,0,false);
+    }
+    /* Exhaustively reject implicit/mixed/non-US channel bindings before any
+     * device callback. Only legacy all-zero and explicit US1/6/11 survive. */
+    for(unsigned region=0;region<5;region++)for(unsigned ch=0;ch<256;ch++){
+        struct fixture f;init(&f,NONE,0);
+        static const uint8_t countries[5][2]={{0,0},{'U','S'},{'C','A'},{'U',0},{0,'S'}};
+        f.p.country[0]=countries[region][0];f.p.country[1]=countries[region][1];f.p.channel=(uint8_t)ch;
+        bool valid=region==0?ch==0:region==1 && (ch==1 || ch==6 || ch==11);
+        assert((mt76_rx_window_channel(&f.p)!=0)==valid);
+        if(!valid){assert(!mt76_rx_window_run(&f.s,&f.p,&f.io) && !f.posts && !f.stops && !f.checks);scenarios++;}
+        destroy(&f);
+    }
+    assert(!mt76_rx_window_channel(NULL));
     printf("mt76-rx-window: PASS %u ownership/event/deadline/stop/parser scenarios; no native adapter\n",scenarios);
 }

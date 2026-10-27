@@ -35,7 +35,7 @@ static void add(struct mt76_discovery *s,const struct mt76_rx_beacon *b) {
     }
 }
 static bool ledger(const struct mt76_rx_window *w) {
-    if(!w || !w->attempted || !w->polled || !w->poll_ok || !w->finish_attempted ||
+    if(!w || !mt76_rx_window_channel(&w->plan) || !w->attempted || !w->polled || !w->poll_ok || !w->finish_attempted ||
        !w->complete || w->failed || !w->stop_attempted || !w->stopped ||
        !w->attempts || w->attempts>MT76_RX_WINDOW_SLOTS || w->completions>w->attempts ||
        w->attempts-w->completions>1 || w->beacons>w->completions)return false;
@@ -73,7 +73,7 @@ bool mt76_discovery_collect(struct mt76_discovery *out,
         if(!v->actual){next.empty++;continue;}
         enum mt76_rx_status vs=mt76_rx_usb_view(w->plan.buffer[i],v->actual,&view);
         enum mt76_rx_status bs=MT76_RX_INVALID;
-        if(vs==MT76_RX_OK)bs=mt76_rx_beacon(w->plan.buffer[i],v->actual,1,&b);
+        if(vs==MT76_RX_OK)bs=mt76_rx_beacon(w->plan.buffer[i],v->actual,mt76_rx_window_channel(&w->plan),&b);
         if(vs!=v->view_status || (vs==MT76_RX_OK &&
            (view.consumed!=v->consumed || view.mpdu_size!=v->mpdu ||
             view.frame_control!=v->frame_control || bs!=v->beacon_status)) ||

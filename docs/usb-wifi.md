@@ -5754,3 +5754,32 @@ Evidence, source, payloads and collection scripts survive distclean under
 Next: bounded repeated receive with distinct retained buffers, unchanged deadlines
 and independent Stop/channel1 restoration on every outcome. No repeat of this
 successful trial is required.
+
+## Repeated receive-window collection contract
+
+`mt76_rx_window_plan` can explicitly bind `country=US` and channel1,6 or11.
+An all-zero binding retains the historical channel1 behavior. Mixed/implicit
+bindings, other countries and other channels are refused before callbacks.
+Channel binding changes parser admission only; it never tunes or enables a radio.
+The existing eight sequential INs, immutable distinct pages, bounded original
+one/ten-second deadline and deferred post-stop inspection are retained.
+
+`mt76_scan_batch_collect` consumes exactly three US1/6/11 ten-second window
+snapshots with their independently completed tune/restore ledgers. It validates
+all three rings and all24 pages, including unsubmitted pages, before reading any
+payload. The caller must prove every native DMA identity, MAC retirement,
+endpoint cessation and original-channel1 restoration on each ownership check.
+Only enabled-window data belongs in these snapshots; rejecting pre-enable data
+remains the native adapter's responsibility. No pre-enable buffer may be relabeled
+as an enabled-window result merely to feed this helper.
+
+Each completed transfer's first USB entry is reparsed with its tuned channel and
+checked against saved metadata. Up to24 copied private advertisements are merged
+by BSSID, retaining hidden-name reveals and name/security/channel conflicts.
+No borrowed pointer, raw payload or signal measurement is published. Quiet,
+empty, unsupported and malformed observations have independent accounting.
+Ownership/ledger failure leaves the public result failed with no partial rows.
+This helper neither polls hardware nor starts an endpoint, retunes, transmits,
+logs identifiers or joins a network. Native repeated-receive integration and its
+exact saved-log/VM/physical evidence remain the next checkpoint; host fixtures
+do not accept sustained RF reception or Wi-Fi connectivity.

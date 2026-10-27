@@ -31,6 +31,9 @@ struct mt76_scan_io {
     bool (*owned)(void *,const struct mt76_scan_input *,unsigned);
 };
 unsigned mt76_scan_channel(unsigned index);
+/* Shared exact completed-tune ledger for single-IN and repeated-window pilots.
+ * A matching ledger still requires the native adapter's live ownership proof. */
+bool mt76_scan_tune_valid(const struct mt76_channel_tune *,unsigned channel);
 /* One-shot publication only after all three visits. Reparse each first USB
  * entry with its explicit tuned channel. Keep only copied advertisements;
  * no borrowed pointers/transmitter/raw signal survives. Ownership/ledger

@@ -4249,3 +4249,11 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 test-core: test-wifi-scan-log
 test-wifi-scan-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_scan_log.py
+
+.PHONY: test-mt76-scan-batch
+test-core: test-mt76-scan-batch
+test-mt76-scan-batch: build/tests/mt76-scan-batch-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-scan-batch-host$(HOST_EXE): tools/test_mt76_scan_batch.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c -o $@

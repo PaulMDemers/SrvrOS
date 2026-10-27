@@ -15,6 +15,10 @@ struct mt76_rx_window_plan {
     uint64_t ring, physical[MT76_RX_WINDOW_SLOTS];
     const uint8_t *buffer[MT76_RX_WINDOW_SLOTS];
     unsigned slot, dci;
+    /* All zero retains the legacy US channel1 observer. Explicit repeated-
+     * receive plans require US and one of the pilot channels1/6/11. This is
+     * parser binding only; native tune/enable/cessation proof is still required. */
+    uint8_t country[2], channel;
 };
 struct mt76_rx_window_event {
     uint64_t trb;
@@ -55,7 +59,10 @@ struct mt76_rx_window {
     uint64_t elapsed_us;
     struct mt76_rx_window_item item[MT76_RX_WINDOW_SLOTS];
 };
-/* Fixed US channel1 observation. A completed window can contain zero beacons.
+/* Return the effective pilot channel, or0 for invalid/mixed region bindings. */
+unsigned mt76_rx_window_channel(const struct mt76_rx_window_plan *);
+bool mt76_rx_window_plan_valid(const struct mt76_rx_window_plan *);
+/* Bounded US1/6/11 observation (zeroed binding retains legacy channel1). A completed window can contain zero beacons.
  * Only normal CC1/13 supplies actual bytes. Output never retains identifiers,
  * payload pointers, borrowed views or raw RSSI. Every buffer remains retained,
  * including after callback failure or an unproven stop. State is one-shot. */

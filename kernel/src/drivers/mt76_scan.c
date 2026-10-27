@@ -2,20 +2,24 @@
 static void scrub(void *p,size_t n){volatile uint8_t *v=p;while(n--)*v++=0;}
 static bool equal(const uint8_t *a,const uint8_t *b,unsigned n){for(unsigned i=0;i<n;i++)if(a[i]!=b[i])return false;return true;}
 unsigned mt76_scan_channel(unsigned i){static const uint8_t channels[3]={1,6,11};return i<3?channels[i]:0;}
-static bool ledger(const struct mt76_scan_input *v,unsigned i){
-    const struct mt76_channel_tune *t=&v->tune;
-    if(v->channel!=mt76_scan_channel(i) || !v->complete || !v->stopped || !v->quiescent || !v->retained ||
-       !v->ring || !v->physical || (v->ring&4095) || (v->physical&4095) || v->ring==v->physical ||
-       v->ring>UINT64_MAX-4095 || v->physical>UINT64_MAX-4095 || !v->buffer ||
-       !t->attempted || !t->complete || t->failed || t->status!=MT76_CHANNEL_OK || t->channel!=v->channel ||
+bool mt76_scan_tune_valid(const struct mt76_channel_tune *t,unsigned channel){
+    if(!t || (channel!=1 && channel!=6 && channel!=11) ||
+       !t->attempted || !t->complete || t->failed || t->status!=MT76_CHANNEL_OK || t->channel!=channel ||
        !t->target_complete || !t->observe_attempted || !t->observe_complete || !t->cleanup_attempted ||
        !t->cleanup_complete || !t->vco_attempted || !t->cleanup_vco_attempted || !t->target_vco_clear ||
        !t->cleanup_vco_clear || t->saved_mask!=8191 || t->touched_mask!=8191 || t->restored_mask!=8191 || t->steps!=21 ||
        !t->target_polls || t->target_polls>6 || !t->cleanup_polls || t->cleanup_polls>6 ||
-       t->target_delay_us>100000 || t->cleanup_delay_us>100000 || v->events>1 || v->elapsed_us>10100000)return false;
+       t->target_delay_us>100000 || t->cleanup_delay_us>100000)return false;
     for(unsigned n=0;n<13;n++)if(t->saved[n]!=mt76_channel_snapshot_initial(n))return false;
     const unsigned delays[6]={0,10,100,1000,10000,100000};
     if(t->target_delay_us!=delays[t->target_polls-1] || t->cleanup_delay_us!=delays[t->cleanup_polls-1])return false;
+    return true;
+}
+static bool ledger(const struct mt76_scan_input *v,unsigned i){
+    if(v->channel!=mt76_scan_channel(i) || !v->complete || !v->stopped || !v->quiescent || !v->retained ||
+       !v->ring || !v->physical || (v->ring&4095) || (v->physical&4095) || v->ring==v->physical ||
+       v->ring>UINT64_MAX-4095 || v->physical>UINT64_MAX-4095 || !v->buffer ||
+       !mt76_scan_tune_valid(&v->tune,v->channel) || v->events>1 || v->elapsed_us>10100000)return false;
     bool normal=v->events && (v->completion==1 || v->completion==13);
     if(normal)return v->remaining<=4096 && v->actual==4096-v->remaining;
     return !v->actual && !v->during_window && v->elapsed_us>=10000000 &&
