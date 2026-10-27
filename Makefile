@@ -3768,3 +3768,11 @@ test-desktop-power: build/tests/desktop-power$(HOST_EXE)
 build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd/power_trial.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-lifecycle-wait
+test-core: test-lifecycle-wait
+test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
+	$<
+build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $< -o $@

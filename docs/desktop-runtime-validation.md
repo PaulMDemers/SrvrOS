@@ -179,3 +179,30 @@ legacy/pooled chooser cancel/reopen checks, screenshots and normal retirement.
 All ten saved files were compared in Ubuntu; prior non-metadata files were
 unchanged and offline fsck/allocation passed. See the current machine record for
 session identities and remaining physical-input/manual-visual limits.
+
+## Idle lifecycle and report worker waits
+
+The compositor lifecycle worker sleeps on a latched process-scoped futex when
+it has no admitted work. Allocation, launch, buffer discard, screenshot cleanup
+and shutdown publish their existing release/acquire records before notifying the
+worker. The reporter has a separate latch for snapshot publication and shutdown.
+Clearing the latch before scanning and comparing it atomically when sleeping
+covers publication before startup, during work and immediately before the wait.
+Multiple publications coalesce; the work scan still visits every existing slot.
+UI completion consumption and resource credit remain unchanged.
+
+Screenshot cleanup still retries once per tick while its child is retiring;
+shutdown still joins only after that ownership drains. A failed/interrupted wait
+without a notification retains the old one-tick retry instead of spinning.
+No queue, memory, timing, watchdog, same-process I/O or integrity limit changes.
+Native battery supervision and USB HID polling are outside this change.
+
+`make test-lifecycle-wait` exercises actual worker threads through a portable
+host compare-and-sleep adapter: idle blocking, publication before creation and
+between scan/sleep, launch/allocation/discard/report delivery, screenshot retry
+and shutdown retention, stop races, interrupted waits and partial thread-start
+rollback. Existing desktop-session tests retain cache budgets/readback and
+retirement checks. The power VM exercises the real futex syscalls and normal
+app lifecycles; audio/disk/app/screenshot stress also exercises the report and
+capture paths. Native wakeup or energy improvement requires a separate matching
+physical power trial; passing host/VM checks alone does not establish savings.
