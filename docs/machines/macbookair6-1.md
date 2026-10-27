@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-26. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-27. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -4137,3 +4137,43 @@ payloads remain installed/backed up. Automatic return collection compares power
 and worker counters without treating this short comparison as proven energy
 savings. Native validation remains pending; no battery-supervisor or USB polling
 change is included in this candidate.
+
+
+### Idle desktop worker waits physically accepted (2026-10-27)
+
+Documentation-only acceptance on integration `8715d684` (PR214); no runtime
+changes or dependencies on open PR182/PR19. Run `db449f93b4b14340`, release
+`cb881058052a1012`, runtime `e0008d92`, saved matching native session
+`session-00065ed6efff4c7c-00`. The unchanged v78 settle/idle/apps/recovery test
+passes with 13 completed Text/Files/System cycles and automatic Ubuntu return.
+Worst UI loop is 115,492 us against 500,000 us; readiness is 565,144 us and close
+83,141 us against the unchanged 10 s lifecycle limits.
+
+Lifecycle worker `uthread` identity 17 has zero timeout wakeups in every phase.
+Idle and recovery also have zero switches or signal wakes across their covered
+52.208329 s and 51.122871 s intervals. During 40.828704 s of app coverage it has
+54 switches and 36 signal wakes (0.882/s), serving work without periodic polling.
+The accepted baseline had 89.436 / 87.604 / 89.026 timeout wakes/s respectively.
+This accepts the targeted lifecycle wait change on this unit, not removal of all
+worker polling. Bootstrap supervision (~48/s), battery ownership (~19/s) and
+USB HID (~90/s) remain unchanged and need their own wake-source audits.
+
+| Phase | Power coverage / points | Mean package power, baseline → repeat | CPU0 active MHz | Core / package C |
+| --- | --- | --- | --- | --- |
+| Idle | 51.998343 s / 6 | 4.131 → 4.121 W | 1,292 | 61–63 / 62–65 |
+| Apps | 40.997963 s / 5 | 4.150 → 4.167 W | 1,294 | 60–61 / 61–62 |
+| Recovery | 40.998693 s / 5 | 4.137 → 4.130 W | 1,293 | 60–61 / 60–62 |
+
+Power is essentially unchanged in this short comparison; different temperatures
+and small differences do not establish energy savings. Battery phase generations
+advance 12→35→58→81; retirement reports 82 attempts, zero rejected samples,
+heap/errors/denied zero, and revoked/retired ownership. All integrity checks,
+queue bounds, screenshot-child retry, firmware gates and deadlines are unchanged.
+
+All 470 prior USB files are preserved except expected `.srvros/meta` bookkeeping.
+The 23 new logs bring the filesystem to 493 files / 1,538 clusters; fsck and the
+allocation walk pass with zero leaks, bitmap mismatches or errors. Independent
+reparsing agrees with the collector and all 381 collected durable evidence hashes
+verify. Payload/evidence survive `make distclean`. The one-shot boot is consumed,
+the collector is disabled, and no reboot is armed. Console recovery
+`c35475f62f154f1e` and the earlier accepted payloads remain retained.
