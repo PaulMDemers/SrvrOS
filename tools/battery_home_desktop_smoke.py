@@ -303,13 +303,14 @@ def main():
                         # The fourth ordinary window is at (104,136), client
                         # origin (105,180), with a 500px System client. These
                         # are actual Start/Stop buttons, not injected syscalls.
-                        type_text('/fat/bin/desktools system --battery-controls\n')
-                        wait(b'desktools: starting role=system');wait(b'deskd: opened pid=');wait(b'battery-ui: state=2 epoch=1')
+                        launch('System',b'desktools: starting role=system')
+                        wait(b'deskd: opened pid=');wait(b'battery-ui: state=2 epoch=1')
                         pointer=[24,56]
                         def control_click(x,y):
                             time.sleep(.5)
                             qmp.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
                             qmp.mouse(0,0,1);qmp.mouse(0,0,0)
+                        control_click(758,252);wait(b'desktools: system-page=sensors')
                         for epoch in (1,2):
                             control_click(379,590)
                             wait(b'battery-ui: request=2 result=0')
@@ -319,7 +320,7 @@ def main():
                             time.sleep(1)
                             control_click(203,590)
                             wait(b'battery-ui: request=1 result=0')
-                            wait(f'battery-ui: state=2 epoch={epoch+1}'.encode())
+                            wait(f'battery-ui: state=2 epoch={epoch+1} generation=2'.encode())
                         shortcut('ctrl-w');wait(b'desktools: exited role=system failure=0')
                         result['supervisor_control_cycles']=2
                     if args.audio:
@@ -419,7 +420,7 @@ def main():
                         result['pcm_owner_retired']=True
                     if args.case not in ('profile-refusal','refusal'):
                         events=re.findall(rb'battery-monitor-events: epoch=1 .* events=(\d+).* final=1',data)
-                        assert len(events)==1 and int(events[0])>=(1 if args.supervisor_controls else 64)
+                        assert len(events)==1 and int(events[0])>=64
                         if args.supervisor_controls:
                             for epoch in (1,2,3):
                                 assert re.search(rb'battery-service: retired epoch='+str(epoch).encode()+rb' .*heap=0 errors=0 denied=0',data)

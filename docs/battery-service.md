@@ -1408,7 +1408,6 @@ and wait refusal. Workspace tests check release notification with existing stale
 hold and mount refusal cases. The ordinary Home VM's `--supervisor-controls`
 option drives two actual System Stop/Start cycles, sleeps between commands,
 checks four dispatched requests and three clean epochs, then retires/reopens the
-desktop. This control fixture checks sampled events in each short lifetime rather
-than the unrelated long single-epoch alarm-volume threshold; default fixtures
-retain that threshold. The automatic reopen fixture exercises the unchanged
+desktop. The existing alarm-volume threshold remains unchanged, with fresh samples
+required after each restart. The automatic reopen fixture exercises the unchanged
 20-second deadline; the power fixture retains its 300-second owner watchdog.
