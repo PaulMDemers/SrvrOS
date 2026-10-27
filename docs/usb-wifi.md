@@ -5159,3 +5159,31 @@ masks and full prefix/completion/recovery/offline checks. Preserve strict refusa
 and raw collection on any failure; `collect_failure.py` records failure/incomplete
 evidence without promoting acceptance. A register preview is not live tuning,
 RF lock, new-channel reception, scanning or connectivity acceptance.
+
+
+### 2026-10-27 — v97 native register preview and restoration accepted
+
+Release `4acac674194041a5`, source `f836110a`, session
+`session-00065ed40659e09b-00` saved results and returned automatically. All 11
+US/20MHz plans completed 231 steps: 1860 fresh guard reads, 488 RF reads and
+244 RF writes, including 13 cleanup writes/readbacks. The complete ordered
+2592-callback / 732-exchange trace and 5185 ownership checks passed. All 13
+originals were saved, touched and restored (each mask 8191); cleanup finished
+with main RX stopped, MAC disabled and retained DMA. This accepts the bounded
+frequency-field transaction and exact restoration; no VCO pulse or main-RX
+restart occurred during preview. It does not accept live tuning, RF lock,
+new-channel reception, scanning or connectivity.
+
+The preceding channel1 window was quiet: 175717 polls over 10000043 us, one
+submission and zero normal completions/beacons/AP rows. Pending RX cancelled
+with CC26/residue4096; exact stop/six guards passed. Parent MAC cleanup completed
+54 operations with 10036 us hold; all five power-on commands and their original
+restoration proof passed. Earlier v96 positive discovery remains historical.
+The full 908235-byte prefix fits the 1MiB capacity and contains both completion
+markers. Ubuntu default/consumed one-shot and current/e47/v96/v95/v93 payload
+hashes passed. Workspace unmounted; fsck and independent allocation checker
+report 343 files, 856 clusters, 144 directories, zero leaks/mismatches/errors.
+Raw collection, original structured collector result and complete restoration
+proof are preserved in durable `wifi-channel-native-f836110` outside build.
+Next: bounded live channel tuning and receiver lifecycle before multi-channel
+passive discovery. No reboot armed.

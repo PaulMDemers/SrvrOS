@@ -7,25 +7,25 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v96 release `6f0426100438a6bc`, source `8f447183`,
-session `session-00065ecbdbf4e83a-00`. All eight distinct receive submissions
-completed normally during1.411525s of the up-to10s/count-eight window. Five
-beacons produced two private channel1 AP rows: one visible name (three
-observations), one hidden (two). Three unrelated/unsupported entries were
-excluded; no malformed/channel-mismatch rejection or empty completion occurred.
-All18 discovery ownership checks, whole prior initialization/power-on proof,
-parent MAC cleanup, exact endpoint stop/six guards, full saved prefix and
-Ubuntu/filesystem recovery checks passed. This accepts bounded fixed-channel1
-AP-table observation on this named release. Identifiers remain unlogged;
-physical BSSID deduplication/identity, authentication, sustained reception,
-FCS/RSSI/RF quality and a user-visible list remain separate. V97 register-preview
-candidate `4acac674194041a5`/source `f836110a` is installed; accepted v96/v95/v93
-and e47 previous recovery are preserved. Workspace unmounted, no one-shot armed.
-Next: cold-cycle readiness, then collect matching v97 FIRST with
-`channel-native/collect_return.py`. Verify exact register trace and restoration;
-this is not live tuning or multi-channel reception. Remaining RF/baseband/VCO
-and receiver lifecycle precede scan UI, selection, association/security and IP. Original strict helper stays unchanged; RF0:6 semantics
-remain unresolved. Full evidence is archived outside build.
+Latest physical run: v97 release `4acac674194041a5`, source `f836110a`,
+session `session-00065ed40659e09b-00`. All 11 US/20MHz frequency plans completed
+231 steps and restored all 13 original register words after main RX stopped.
+The exact 2592-callback trace, 732 MCU exchanges, 5185 ownership checks, prior
+initialization/cleanup proof and full 908235-byte startup prefix passed. This
+accepts bounded register preview and restoration only; no preview VCO pulse,
+main-RX restart, live tuning, RF lock or new-channel reception was tested.
+The preceding ten-second channel1 window was quiet (one post, no completion,
+no AP rows); exact cancellation, six guards and retained DMA passed. V96 remains
+the latest positive channel1 AP-table observation: two private rows from five
+beacons. Its identifiers and physical identity/deduplication remain unverified
+by redacted logs. Current v97, accepted v96/v95/v93 and e47 recovery payloads
+match durable backups. Ubuntu default, consumed one-shot, unmounted/unarmed
+state and clean offline allocation passed (343 files, 856 clusters, 144 directories).
+Next: independently tested bounded live retuning with channel-specific RF/
+baseband/VCO and safe receive lifecycle before multi-channel discovery,
+selection, association/security and IP/UI. Original strict helper stays
+unchanged; RF0:6 semantics remain unresolved. Full evidence is archived outside
+build; no new trial is armed.
 
 Validated native register-preview candidate (2026-10-27): actual main `e7953352` and
 open PR182 inspected; filesystem work does not overlap MT76. Add separate
@@ -9467,3 +9467,31 @@ masks and full prefix/completion/recovery/offline checks. Preserve strict refusa
 and raw collection on any failure; `collect_failure.py` records failure/incomplete
 evidence without promoting acceptance. A register preview is not live tuning,
 RF lock, new-channel reception, scanning or connectivity acceptance.
+
+
+### 2026-10-27 — v97 native register preview and restoration accepted
+
+Release `4acac674194041a5`, source `f836110a`, session
+`session-00065ed40659e09b-00` saved results and returned automatically. All 11
+US/20MHz plans completed 231 steps: 1860 fresh guard reads, 488 RF reads and
+244 RF writes, including 13 cleanup writes/readbacks. The complete ordered
+2592-callback / 732-exchange trace and 5185 ownership checks passed. All 13
+originals were saved, touched and restored (each mask 8191); cleanup finished
+with main RX stopped, MAC disabled and retained DMA. This accepts the bounded
+frequency-field transaction and exact restoration; no VCO pulse or main-RX
+restart occurred during preview. It does not accept live tuning, RF lock,
+new-channel reception, scanning or connectivity.
+
+The preceding channel1 window was quiet: 175717 polls over 10000043 us, one
+submission and zero normal completions/beacons/AP rows. Pending RX cancelled
+with CC26/residue4096; exact stop/six guards passed. Parent MAC cleanup completed
+54 operations with 10036 us hold; all five power-on commands and their original
+restoration proof passed. Earlier v96 positive discovery remains historical.
+The full 908235-byte prefix fits the 1MiB capacity and contains both completion
+markers. Ubuntu default/consumed one-shot and current/e47/v96/v95/v93 payload
+hashes passed. Workspace unmounted; fsck and independent allocation checker
+report 343 files, 856 clusters, 144 directories, zero leaks/mismatches/errors.
+Raw collection, original structured collector result and complete restoration
+proof are preserved in durable `wifi-channel-native-f836110` outside build.
+Next: bounded live channel tuning and receiver lifecycle before multi-channel
+passive discovery. No reboot armed.
