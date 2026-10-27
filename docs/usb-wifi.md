@@ -5018,3 +5018,56 @@ outside build in `wifi-discovery-native-8f44718`. Next: explicit bounded
 multi-channel passive discovery with independently tested retuning and cleanup,
 then network selection, association/security and IP/UI. RF0:6 remains unresolved;
 no sustained reception, FCS, calibrated RSSI or RF-performance claim is added.
+
+
+### 2026-10-27 — US channel frequency planning and reversible preview
+
+Separate `mt76_channel_plan` projects all eleven US1–11/20MHz frequency rows
+into21 ordered masked register operations per channel. The693-byte independent
+host fixture derives from pinned Linux v7.0
+[frequency rows](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h)
+and [PHY operation order](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c).
+None of these channels uses the reference's alternate SDM path. Channel1's
+register/mask/value triples equal the unchanged accepted synthesizer helper.
+This planner does not implement a regulatory database or accept another region,
+channel12–14,5GHz,40/80MHz or an arbitrary RF address.
+
+The separate allocation-free preview accepts a canonical US/20MHz plan with at
+most11 distinct channels. It snapshots all13 distinct synthesizer registers and
+requires their exact saved channel1 values before any write. Each step checks
+disabled MAC, CORE, DMA and idle status; reads the fresh previous RF byte,
+preserves unmasked bits, marks a possibly touched word before publication, writes
+once and independently verifies readback. All touched originals are restored in
+reverse snapshot order after success or forward failure under independent cleanup
+ownership. A false write result is tested both with and without actual mutation.
+Failed cleanup guards or unsafe transport ownership forbid further RF access and
+leave explicit unproven restoration; such a transaction cannot pass. Cleanup
+attempts other independent saved words after an individual write/read failure.
+No retries, waits, MAC writes, VCO pulses, packet I/O or DMA reuse occur here.
+
+The full eleven-channel preview has2592 bounded I/O callbacks:1860 guard reads,
+488 RF reads and244 RF writes, including13 cleanup readbacks/writes. Callback
+transport deadlines and exact native stopped-context/board ownership must be
+provided by a future adapter. Repeating the state is refused. These observations
+validate only reversible frequency fields: actual tuning still requires the
+remaining RF/baseband/VCO sequence and receiver lifecycle. No native caller,
+boot profile, live channel change or multi-channel scan is added in this block;
+installed v96 and its native channel1 discovery acceptance remain unchanged.
+
+Independent-reference/masked-bit, all-callback I/O/ownership/readback and forward
+cancellation/cleanup tests pass:12918 transactions,59136 masked words, including
+all eleven individual plans and the combined preview. ASan/UBSan pass. Initial
+test compilation indentation and an overly broad test expectation of restoration
+after failed cleanup guards were corrected; original failed logs are retained.
+The production guard refusal was preserved. Raw primary-source retrieval was
+rate-limited, so the audit uses the prior hash-pinned Linux references, separately
+checked against the official source view; source hashes/provenance remain local.
+
+Validation closeout: actual main `e7953352` merged PR204/205/206; the append-only
+Makefile conflict retained both discovery and audio-volume test families. Full
+merged image/core/desktop,183 staging tests and GPT/OVMF USB keyboard boot pass.
+This VM checks merged-baseline boot/input, not native tuning.192 prior Wi-Fi
+configurations and both desktop configurations are byte-identical, as are all
+existing MT76/native RX/discovery/parent/calibration sources. No physical trial
+is staged or armed. Native preview transport/ownership binding is next; channel
+RF/baseband/VCO and RX lifecycle remain required before multi-channel discovery.

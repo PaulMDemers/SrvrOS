@@ -64,3 +64,10 @@ from MacBookAir6,1 run `77ab86681e27132d`, release `19eb394b28cbeef5` (October
 22, 2026). No device strings, serials or USB files are included. Native capture
 passed; these isolated frames verify Type 3 decoding, not pointer feel, motion
 direction, scrolling or drag trajectories.
+
+`mt7610-us-channel-plan.bin` contains11 US1–11,20MHz,non-SDM synthesizer
+plans,21 `(register,mask,bits)` byte triples each (693bytes). Independently
+projected from the pinned Linux v7.0 `mt76x0_frequency_plan` and PHY operation
+order; channel1 equals the existing accepted synthesizer helper. It contains
+no firmware or device identifiers. This is a host fixture, not native tuning
+acceptance. See [the channel planner](../../kernel/include/srvros/mt76_channel_plan.h).
