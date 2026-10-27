@@ -11,13 +11,17 @@ static void reap(struct desk_capture_job *j) {
 }
 void desk_capture_job_init(struct desk_capture_job *j) { *j=(struct desk_capture_job){.reader=-1,.writer=-1}; }
 void desk_capture_job_close(struct desk_capture_job *j) {
+    uint64_t start=(uint64_t)srv_monotonic_us(),at=start;
     if(j->reader>=0) srv_close(j->reader);
     if(j->writer>=0) srv_close(j->writer);
     j->reader=j->writer=-1;j->busy=0;
+    j->close_us+=(uint64_t)srv_monotonic_us()-at;at=(uint64_t)srv_monotonic_us();
     if(j->pixels) munmap(j->pixels,desk_capture_bytes(j->request.width,j->request.height));
+    j->unmap_us+=(uint64_t)srv_monotonic_us()-at;at=(uint64_t)srv_monotonic_us();
     j->pixels=NULL;
     if(j->pid) { j->retiring_pid=j->pid;j->pid=0; }
-    reap(j);
+    reap(j);j->reap_us+=(uint64_t)srv_monotonic_us()-at;
+    j->cleanup_us+=(uint64_t)srv_monotonic_us()-start;
 }
 static int spawn(struct desk_capture_job *j) {
     int input[2],output[2];
@@ -39,6 +43,7 @@ int desk_capture_job_start(struct desk_capture_job *j,const uint32_t *pixels,uin
     long now=srv_monotonic_us();j->started_us=now>0?(uint64_t)now:0;
     j->finished_us=j->last_progress_us=j->progress_bytes=0;j->phase=j->progress_frames=0;
     memset(j->phase_us,0,sizeof(j->phase_us));
+    j->cleanup_us=j->close_us=j->unmap_us=j->reap_us=0;
     strcpy(j->request.path,path);j->response=(struct desk_capture_response){0};j->sent=j->received=0;
     j->pixels=mmap(NULL,bytes,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
     if(j->pixels==MAP_FAILED) { j->pixels=NULL;return -1; }
@@ -46,8 +51,8 @@ int desk_capture_job_start(struct desk_capture_job *j,const uint32_t *pixels,uin
     if(spawn(j)) { desk_capture_job_close(j);return -1; }
     j->busy=1;return 0;
 }
-int desk_capture_job_poll(struct desk_capture_job *j) {
-    reap(j);if(!j->busy) return 0;
+int desk_capture_job_poll_transfer(struct desk_capture_job *j) {
+    if(!j->busy) return 0;
     size_t total=sizeof(j->request)+desk_capture_bytes(j->request.width,j->request.height);
     for(unsigned batch=0;batch<4 && j->sent<total;batch++) {
         const void *data;size_t bytes;
@@ -80,8 +85,14 @@ int desk_capture_job_poll(struct desk_capture_job *j) {
     if(j->response.magic!=DESK_CAPTURE_MAGIC || j->response.id!=j->request.id || j->response.reserved || j->response.bytes ||
        j->response.status>DESK_CAPTURE_EXISTS || (!j->response.status && j->sent!=total)) goto failed;
     {long now=srv_monotonic_us();j->finished_us=now>0?(uint64_t)now:0;}
-    desk_capture_job_close(j);return 1;
+    return 1;
 failed:
     {long now=srv_monotonic_us();j->finished_us=now>0?(uint64_t)now:0;}
-    desk_capture_job_close(j);return -1;
+    return -1;
+}
+
+int desk_capture_job_poll(struct desk_capture_job *j) {
+    reap(j);int result=desk_capture_job_poll_transfer(j);
+    if(result)desk_capture_job_close(j);
+    return result;
 }

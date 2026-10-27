@@ -16,4 +16,9 @@ class Timing(unittest.TestCase):
         with self.assertRaises(ValueError):operation_snapshots([raw.rsplit(b'\n',2)[0]],True)
     def test_invalid_counters(self):
         with self.assertRaises(ValueError):operation_snapshots([fixture(1).replace(b'sent=100',b'sent=201')],True)
+    def test_cleanup(self):
+        raw=fixture(1)+b'desktop-capture-cleanup: snapshot_us=500 kind=current id=2 pending=0 total_us=10 close_us=7 unmap_us=2 reap_us=1 final=1\n'
+        self.assertEqual(operation_snapshots([raw],True)['cleanup']['current']['close_us'],7)
+        for bad in (raw.replace(b'close_us=7',b'close_us=-1'),raw.replace(b'pending=0',b'pending=2'),raw.replace(b'kind=current id=2 pending',b'kind=current id=3 pending')):
+            with self.assertRaises(ValueError):operation_snapshots([bad],True)
 if __name__=='__main__':unittest.main()
