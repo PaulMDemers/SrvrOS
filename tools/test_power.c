@@ -8,7 +8,54 @@ static void reset(void) {
     s.state=POWER_ACTIVE;
 }
 static void pair(struct power_raw a,struct power_raw b) { reset();power_sample(&p,&s,a);assert(!s.flags);power_sample(&p,&s,b); }
+static void idle_tests(void) {
+    assert(power_idle_supported(0x40651,256));
+    assert(!power_idle_supported(0x40651,0));
+    assert(!power_idle_supported(0x40661,256));
+    assert(!power_idle_supported(0x306d4,256));
+    struct power_idle_snapshot i={.supported=POWER_IDLE_MASK};
+    struct power_idle_raw a={.us=1000000,.tsc_begin=1000000000,.tsc_end=1000000100};
+    struct power_idle_raw b={.us=2000000,.tsc_begin=3000000000,.tsc_end=3000000100};
+    power_idle_sample(&i,a);assert(!i.valid && !i.rejected);
+    power_idle_sample(&i,b);assert(i.valid==1023 && !i.rejected && !i.basis_points[0]); /* valid zero */
+    b.ticks[0]=200000010;b.ticks[2]=800000040;b.ticks[3]=1000000050;
+    i=(struct power_idle_snapshot){.supported=1023,.raw=a};power_idle_sample(&i,b);
+    assert(i.valid==1023 && i.basis_points[0]==1000 && i.basis_points[2]==4000 && i.basis_points[3]==5000);
+    for(unsigned mode=0;mode<9;mode++) {
+        struct power_idle_raw bad=b;
+        if(mode==0) bad.us=a.us;
+        if(mode==1) bad.us=a.us+99999;
+        if(mode==2) bad.us=a.us+5000001;
+        if(mode==3) bad.tsc_begin=a.tsc_end;
+        if(mode==4) bad.tsc_end=bad.tsc_begin-1;
+        if(mode==5) bad.ticks[0]=UINT64_MAX;
+        if(mode==6) bad.ticks[7]=1ull<<60;
+        if(mode==7) bad.ticks[1]=2000000100; /* separate core total > TSC */
+        if(mode==8) bad.ticks[4]=2000000100; /* package total > TSC */
+        i=(struct power_idle_snapshot){.supported=1023,.raw=a};power_idle_sample(&i,bad);
+        assert(!i.valid && i.rejected==1 && !i.basis_points[0] && i.raw.us==bad.us);
+    }
+    i=(struct power_idle_snapshot){.supported=1023,.raw=b};a.us=3000000;a.tsc_begin=5000000000;a.tsc_end=5000000100;
+    power_idle_sample(&i,a);assert(!i.valid && i.rejected==1); /* counter reset */
+    a.us+=1000000;a.tsc_begin+=2000000000;a.tsc_end+=2000000000;
+    power_idle_sample(&i,a);assert(i.valid==1023 && i.rejected==1); /* rebaseline */
+    i=(struct power_idle_snapshot){0};power_idle_sample(&i,a);assert(!i.valid && !i.rejected);
+    a=(struct power_idle_raw){.us=1000000,.tsc_begin=1,.tsc_end=2};
+    b=(struct power_idle_raw){.us=2000000,.tsc_begin=UINT64_MAX-1,.tsc_end=UINT64_MAX};
+    b.ticks[0]=UINT64_MAX/10000+1;
+    i=(struct power_idle_snapshot){.supported=1023,.raw=a};power_idle_sample(&i,b);
+    assert(!i.valid && i.rejected==1); /* multiplication overflow */
+    /* Read-only Linux CPU0 inventory on this Air6,1; separate core/package scopes. */
+    a=(struct power_idle_raw){.us=3179454799,.tsc_begin=6388009414894,.tsc_end=6388009474351,
+        .ticks={37915185440,22883793800,5526385156180,1125629846480,3986465493520,0,0,0,0,0}};
+    b=(struct power_idle_raw){.us=3180455049,.tsc_begin=6390009849580,.tsc_end=6390010015915,
+        .ticks={37970823600,22918507260,5527463343720,1125724361500,3986731600720,0,0,0,0,0}};
+    i=(struct power_idle_snapshot){.supported=1023,.raw=a};power_idle_sample(&i,b);
+    assert(i.valid==1023 && !i.rejected && i.basis_points[2]==5389 && i.basis_points[4]==1330);
+
+}
 int main(void) {
+    idle_tests();
     uint32_t vb=0x756e6547,vd=0x49656e69,vc=0x6c65746e;
     assert(power_cpu_supported(vb,vd,vc,0x306d4,0,32,1));
     assert(!power_cpu_supported(vb,vd,vc,0x306d4,1u<<31,32,1));

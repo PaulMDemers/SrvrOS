@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #define SRVROS_POWER_HOST_TEST
 #include "../kernel/src/drivers/power.c"
@@ -7,15 +8,23 @@ static uint64_t now=1000000,units=0xa0e03,energy=1000000,aperf=100,mperf=100;
 static unsigned reads,spawns,capture_rows,capture_receipts;
 static uint64_t platform=22u<<8;
 static bool reference=true,spawn_ok=true;
+static uint32_t max_ext=0x80000007,invariant;
+static unsigned idle_reads,idle_rows;
 static uint32_t signature=0x306d4,feature_c,feature_d=32,thermal_c=1,max_leaf=6;
 void power_test_cpuid(unsigned leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
     if(!leaf) { *a=max_leaf;*b=0x756e6547;*d=0x49656e69;*c=0x6c65746e; }
     else if(leaf==1) { *a=signature;*b=0;*c=feature_c;*d=feature_d; }
+    else if(leaf==0x80000000) { *a=max_ext;*b=*c=*d=0; }
+    else if(leaf==0x80000007) { *a=*b=*c=0;*d=invariant; }
     else { assert(leaf==6);*a=*b=*d=0;*c=thermal_c; }
 }
 uint64_t power_test_read_msr(unsigned n) {
     reads++;
-    switch(n) { case 0x606:return units;case 0xce:return platform;case 0x611:return energy;case 0xe8:return aperf;case 0xe7:return mperf;default:assert(0);return 0; }
+    switch(n) {
+    case 0x10: idle_reads++;return now*2000;
+    case 0x3fc:case 0x3fd:case 0x3fe:case 0x60d:case 0x3f8:case 0x3f9:case 0x3fa:case 0x630:case 0x631:case 0x632:
+        assert(signature==0x40651 && invariant==256);idle_reads++;return 0;
+    case 0x606:return units;case 0xce:return platform;case 0x611:return energy;case 0xe8:return aperf;case 0xe7:return mperf;default:assert(0);return 0; }
 }
 bool timer_reference_ready(void) { return reference; }
 uint64_t timer_monotonic_us(void) { return now; }
@@ -27,6 +36,11 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condit
     (void)q;(void)fn;(void)arg;(void)deadline;assert(0);return false;
 }
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"%s: supported=",14)) {
+        va_list ap;va_start(ap,fmt);const char *prefix=va_arg(ap,const char *);
+        if(!strcmp(prefix,"cpu-load-idle")) { assert(!capturing);idle_rows++; }
+        va_end(ap);
+    }
     if(!strncmp(fmt,"cpu-load-power:",15)) assert(!capturing);
     if(!strncmp(fmt,"cpu-load-power: power_state=",27)) capture_rows++;
     if(!strncmp(fmt,"cpu-load-power: retained=",24)) capture_receipts++;
@@ -92,5 +106,18 @@ int main(void) {
     before=reads;power_capture_stop();assert(reads==before && capture_rows==39 && capture_receipts==2);
     assert(power_capture_start() && !capture_count && !capture_overflow);
     power_capture_stop();assert(capture_receipts==3 && capture_rows==39);
+    /* Air residency is extra cached read-only data, not a new worker/cadence.
+     * Sibling power profiles and missing invariant-TSC capability get no reads. */
+    invariant=256;
+    signature=0x306d4;init();assert(reads==5 && !snapshot.idle.supported);
+    signature=0x40661;init();assert(reads==5 && !snapshot.idle.supported);
+    signature=0x40651;max_ext=0x80000006;init();assert(reads==5 && !snapshot.idle.supported);
+    max_ext=0x80000007;init();assert(reads==17 && idle_reads==12 && snapshot.idle.supported==1023 && !snapshot.idle.valid);
+    now+=1000000;sample();power_status(&out);assert(reads==32 && idle_reads==24 && out.idle.valid==1023);
+    now+=3000001;power_status(&out);assert(!out.idle.valid && snapshot.idle.valid==1023 && reads==32);
+    assert(power_capture_start());
+    for(unsigned i=0;i<18;i++) { now+=1000000;sample(); }
+    assert(capture_count==3 && !capture_overflow);before=reads;power_capture_stop();assert(reads==before && idle_rows==3);
+    feature_c=1u<<31;idle_reads=0;init();assert(!reads && !idle_reads && !spawns);
     puts("power-service: PASS no reads on refused CPUs, exact read-only MSR allowlist, worker failure/idempotence, cadence and cached stale status");
 }

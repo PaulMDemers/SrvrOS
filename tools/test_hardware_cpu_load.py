@@ -47,6 +47,38 @@ class LoadCaptureTests(unittest.TestCase):
         for broken in (text.replace('flags=3','flags=bad',1),text.replace('flags=3','flags=4'),text.replace('energy_shift=14','energy_shift=13'),text.replace('rejected=0','rejected=1')):
             self.assertTrue(all(p['power'] is None for p in load_result(broken)['phases']))
 
+    def residency_fixture(self):
+        text=self.fixture().replace('workspace-devices:', 'cpu-load-power:')+'cpu-load-power: retained=9 overflow=0\n'
+        for n in (5,15,25,35,45,55,65,75,85):
+            fields=f'cpu-load-idle: supported=1023 valid=1023 rejected=0 sample_us={n*1000000} interval_us=1000000 interval_tsc=2000000000 tsc_begin={n*2000000000} tsc_end={n*2000000000}'
+            fields+=''.join(f' c{i}_raw={n*200000000 if i==0 else 0} c{i}_bp={1000 if i==0 else 0}' for i in range(10))
+            text+=fields+'\n'
+        return text
+
+    def test_residency_coverage_and_zero(self):
+        from hardware_cpu_load import phase_idle
+        result=load_result(self.residency_fixture())
+        for p in result['phases']:
+            self.assertEqual(p['idle_residency']['covered_us'],20000000)
+            self.assertEqual(p['idle_residency']['basis_points']['core_c3'],1000)
+            self.assertEqual(p['idle_residency']['basis_points']['package_c10'],0)
+        self.assertIsNone(phase_idle(self.residency_fixture(),0,14999999))
+        self.assertIsNone(phase_idle(self.fixture(),0,30000000))
+
+    def test_residency_invalid_is_not_zero(self):
+        from hardware_cpu_load import phase_idle
+        text=self.residency_fixture()
+        for old,new in [('valid=1023','valid=0'),('supported=1023','supported=7'),
+                        ('valid=1023 rejected=0','valid=1023 rejected=1'),('retained=9','retained=8'),('overflow=0','overflow=1'),
+                        ('c0_bp=1000','c0_bp=10001'),('c9_raw=0',f'c9_raw={2**60}'),
+                        ('c0_raw=1000000000','c0_raw=999999999999999'),
+                        ('c0_raw=3000000000','c0_raw=0'),
+                        ('tsc_begin=30000000000','tsc_begin=1'),
+                        ('sample_us=15000000 interval_us=1000000 interval_tsc','sample_us=15000001 interval_us=1000000 interval_tsc'),
+                        ('c0_bp=1000','c0_bp=1000 c0_bp=1000'),('c0_bp=1000','c0_bp=bad')]:
+            with self.subTest(old=old,new=new): self.assertIsNone(phase_idle(text.replace(old,new,1),0,30000000))
+        self.assertIsNone(phase_idle(text+'cpu-load-idle: truncated\n',0,30000000))
+
     def test_profile_is_distinct(self):
         v='ram-usb-v35-laptop-probe-12345678'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v))
