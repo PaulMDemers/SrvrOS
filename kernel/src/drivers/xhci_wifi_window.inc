@@ -91,3 +91,35 @@ static void wifi_window_log(struct xhci_device *d) {
         if(v->beacon)console_printf("wifi-window-beacon: index=%u channel=1 interval=%u ssid_size=%u privacy=%u rsn=%u wpa=%u probe_response=%u ds_present=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)v->interval,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa,(uint64_t)v->probe_response,(uint64_t)v->ds_present);
     }
 }
+
+/* v96 only. No identifier is printed; private copied rows outlive borrowed DMA
+ * views. Check the live stopped endpoint context on every ownership callback. */
+static bool wifi_discovery_owned(void *context,const struct mt76_rx_window *window) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    struct xhci_wifi_rx *r=&m->rx;m->discovery_checks++;
+    if(!m->discovery_mode || !m->window_long_mode || window!=&m->window.state ||
+       !window->complete || window->failed || !window->stopped ||
+       !wifi_window_owned(d,true) || !d->output_context || r->stop_state!=3 ||
+       (r->stop_dequeue&15)!=1 ||
+       ((r->stop_dequeue&~15ull)!=r->trb && (r->stop_dequeue&~15ull)!=r->trb+16))return false;
+    __asm__ volatile("" ::: "memory");
+    uint32_t state=context_read32(d->output_context,9,0)&7;
+    uint64_t dequeue=context_read32(d->output_context,9,2)|
+        ((uint64_t)context_read32(d->output_context,9,3)<<32);
+    return state==3 && dequeue==r->stop_dequeue;
+}
+static bool wifi_discovery_capture(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(!m->discovery_mode || m->discovery.attempted)return false;
+    console_write("wifi-discovery-progress: stopped RX; collecting private channel1 AP rows; identifiers omitted\n");
+    const struct mt76_discovery_io io={.context=d,.owned=wifi_discovery_owned};
+    return mt76_discovery_collect(&m->discovery,&m->window.state,&io);
+}
+static void wifi_discovery_log(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_discovery *s=&m->discovery;
+    console_printf("wifi-discovery: attempted=%u complete=%u failed=%u inputs=%u empty=%u parsed=%u unrelated=%u rejected=%u rows=%u ownership_checks=%u channel=1 identifiers_logged=0 data_out=0 retained=1\n",(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->failed,(uint64_t)s->inputs,(uint64_t)s->empty,(uint64_t)s->parsed,(uint64_t)s->unrelated,(uint64_t)s->rejected,(uint64_t)s->count,(uint64_t)m->discovery_checks);
+    for(unsigned i=0;i<s->count && i<MT76_DISCOVERY_ROWS;i++) {
+        const struct mt76_discovery_row *r=&s->row[i];
+        console_printf("wifi-discovery-row: index=%u observations=%u channel=%u interval=%u ssid_size=%u hidden=%u privacy=%u rsn=%u wpa=%u ds_present=%u beacon_seen=%u probe_response_seen=%u ssid_conflict=%u security_conflict=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)r->observations,(uint64_t)r->channel,(uint64_t)r->interval,(uint64_t)r->ssid_size,(uint64_t)r->hidden,(uint64_t)r->privacy,(uint64_t)r->rsn,(uint64_t)r->wpa,(uint64_t)r->ds_present,(uint64_t)r->beacon_seen,(uint64_t)r->probe_response_seen,(uint64_t)r->ssid_conflict,(uint64_t)r->security_conflict);
+    }
+}

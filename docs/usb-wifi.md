@@ -4909,3 +4909,40 @@ Future UI must escape arbitrary binary names; this helper does not expose names
 through console logs or a syscall. Native ownership binding, saved diagnostic
 proof, user-visible discovery and later association/security/IP remain separate.
 Installed v95 and its native reception evidence are unchanged; no reboot armed.
+
+
+### 2026-10-27 — explicit native private discovery candidate (v96)
+
+Separate selector74/v96 inherits the exact v95 ten-second/eight-page receive
+plan and all earlier initialization, power-on, MAC cleanup, exact stop and six
+guards. It runs `mt76_discovery_collect` only after successful window finish,
+while those native identities remain owned. Every collection ownership check
+also rereads the live output endpoint state/dequeue and requires the same stopped
+context. A failed window/ledger/guard or lost live stopped context cannot publish
+private rows. No new USB/RF writes, retuning, polling, submissions, DMA reuse or
+packet parser policy are added by collection.
+
+The guest displays progress and saves only counts and row metadata: observations,
+channel/interval/name length, hidden status, advertisement flags and conflict
+flags. BSSID/name bytes remain private in memory; no address, name, payload or
+raw RSSI is logged. The new profile requires the explicit long-window chain and
+automatic return. Old v1-v95 profiles and their command lines remain unchanged.
+An empty table is a completed observation, not access-point discovery acceptance.
+Even nonempty metadata does not independently verify physical BSSID deduplication,
+authenticated identity/security, sustained reception or RF quality. Native UI,
+association/security and IP integration remain future work.
+
+The actual native fixture exercises short/long/v96 mode inheritance, shared HID,
+parent/power-on ordering, distinct TRBs, delayed/empty/error completions and stop
+proof, plus damaged discovery ledgers and live context loss at every collection
+check. The helper is one-shot; rejected captures leave no partial identifiers.
+No physical discovery result has been collected for this new profile yet.
+
+Local v96 validation:182 actual native window/discovery scenarios,10168 pure
+discovery collections,246 receive-window cases, native ASan/UBSan,183 staging
+tests and full merged image/core/desktop checks pass. The strict whole saved
+proof admits15 outcomes and refuses167 malformed variants;190 older Wi-Fi
+recipes and both desktop recipes are unchanged.27 native printf formats match
+argument counts. Original discovery/window/parser/parent/calibration/power-on
+source bytes remain unchanged. Exact-stage VM, installation and physical
+discovery evidence are separate checkpoints.
