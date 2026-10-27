@@ -7,21 +7,26 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Installed candidate: v100 timing retry `c80f3afe5d496f36`, source `57fede24`,
-main `108969f7`. Full merged tests, sanitizers, saved-log checks and exact-stage
-VM pass. Native three-channel acceptance remains pending. Ubuntu is default;
-workspace unmounted, no reboot armed. After cold-cycle readiness, run the fixed
-US1/6/11 pilot; collect its matching session FIRST on return.
+Installed and accepted bounded pilot: v100 `c80f3afe5d496f36`, source
+`57fede24`, main `108969f7`, session `session-00065ed915340ee5-00`.
+All three US1/6/11 visits completed with distinct retained RX resources,
+independent MAC retirement/endpoint stop and restoration of all13 original
+channel1 words between visits. Channel6 decoded one beacon after95026 us;
+channel1 was quiet and early channel11 data was deliberately uninspected.
+The complete782503-byte prefix, exact periodic-checkpoint bytes, seven payloads
+and offline storage/recovery checks passed. This accepts the bounded lifecycle
+and channel6 observation, not sustained scanning, channel11 reception or Wi-Fi
+connectivity. Ubuntu remains default; workspace unmounted, no reboot armed.
 
-Latest physical run: v100 `a7bc67f2d057e7d8`, session
-`session-00065ed80b7c4d71-00`, saved a complete535857-byte failure prefix.
-Immediate VCO readback was already0x30; the old gate required0xb0. AGC ownership
-refused before any reads and no scan visit ran. The refusal is archived and
-adds no acceptance. The retry admits both observed immediate values only for
-scan mode, retaining the exact acknowledged write, all six delayed clear
-samples and all existing framing/guard/ownership checks.
+The original collector refused a cached scheduler/device checkpoint interleaved
+with channel1's trace. A reviewed strict projection validates its exact profile
+and original byte offset while preserving the raw capture; all RF/USB/ownership
+proofs remain unchanged. The initial refusal is retained. An earlier v100
+`a7bc67f2d057e7d8` run refused immediate VCO clear before scanning. This successful
+run observed immediate0xb0, so native immediate0x30 admission remains unexercised;
+both cases pass the synthetic scan/timing regressions.
 
-Latest accepted physical run: v99 `995dd64ae6135add`, source `87144160`, integrated main
+Earlier accepted single-channel milestone: v99 `995dd64ae6135add`, source `87144160`, integrated main
 `fbb6eaa5`, session `session-00065ed6f4d568a5-00`. A fresh single-IN channel6
 receive decoded one beacon after 93435 us, then independently retired MAC/RX
 and restored all13 original channel1 frequency words. Exact proof validates
@@ -36,8 +41,9 @@ Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity passe
 (349 files,880 clusters,146 directories, zero errors). Full evidence is archived
 outside build. No repeat run is needed.
 
-Next: bounded sequential passive multi-channel discovery, followed by selection,
-association/security and IP/UI. Keep separate retained RX ownership, explicit
+Next: bounded repeated RX per channel, then sustained discovery, selection,
+association/security and IP/UI. Reject or drain pre-enable data without assigning
+it to the new channel. Keep separate retained RX ownership, explicit
 channel-aware parsing and independent endpoint stop/RF restoration on every
 failure. Original strict calibration helper remains unchanged; RF0:6 semantics
 remain unresolved. Battery, headphones and further trackpad latency work stay
@@ -10045,3 +10051,50 @@ remain for phase refusal. No RF, MCU, guard or ownership gate is changed. Six
 unit tests and three complete scan checkpoint proofs pass;96 malformed block/
 phase cases refuse. The full previous proof matrix and native recovery/offline
 audit must finish before acceptance. No new boot is needed or armed.
+
+
+### 2026-10-27 — v100 bounded three-channel native pilot accepted
+
+Release `c80f3afe5d496f36`, source `57fede24` on main `108969f7`, saved session
+`session-00065ed915340ee5-00` and returned automatically. Complete782503-byte
+startup prefix and both successful completion markers pass. All three fixed
+US1/6/11,20MHz visits used distinct retained ring/page pairs, exact Set Dequeue,
+one bounded IN, MAC retirement, exact Stop/four guards and independent
+restoration/re-settling of all13 original channel1 words before advancing.
+Ordered proofs validate1500 tuning callbacks,465 RF exchanges and3039 ownership
+checks. Target VCO polls were2/5/5 and cleanup polls3/3/3; clearing is not RF lock.
+
+Channel1's receive window was quiet for10000012 us and stopped with CC26.
+Channel6 completed after95026 us/4314 polls, CC13/residue3752/actual344,
+consumed340 bytes with a304-byte beacon MPDU. Interval100, visible SSID length3,
+privacy/RSN true, WPA false and DS present; names and identifiers stay private.
+The copied table contains one channel6 row with one observation and channel
+mask32. Channel11 had a176-byte normal completion before the enabled receive
+window; it was deliberately uninspected and contributes no advertisement.
+All three MAC cycles completed54 operations with46 reads,7 writes and one wait;
+measured holds were10069/10070/10069 us. No network data OUT or DMA reuse.
+This boot's immediate post-VCO read was0xb0; the new scan-only0x30 admission
+path retains synthetic coverage plus the earlier native observation, not a
+positive native execution claim.
+
+The initial strict collection refusal was caused by a complete cached workspace
+checkpoint during channel1. Reviewed `tools/wifi_scan_log.py` validates all seven
+lines against the disabled-device profile, common timestamps, scheduler bounds
+and original raw prefix offset before projecting only the Wi-Fi phase. Unknown
+records remain for phase refusal. The original capture is unchanged; the saved
+`session-b.log` is byte-identical to its592911-byte raw prefix. Original checker,
+refusal and failed-run record remain archived. Six unit tests, three full
+checkpoint scan proofs and96 malformed checkpoint/phase cases pass; the full
+102-valid/455-refusal matrix and198 prior recipes pass again. No kernel or
+hardware gate was changed for collection.
+
+Seven complete current/e47/v99/v98/v97/v96/failed-v100 payloads match durable
+backups. Ubuntu default, consumed one-shot and unmounted/unarmed state pass.
+Offline checks report355 files,905 clusters,148 directories, zero errors, leaks
+or bitmap mismatches. Evidence, both original/rechecked proofs and frozen source
+are retained outside build in `wifi-scan-timing-57fede2`;1078 hashes verified at
+the native audit before final publication. No repeat boot is needed. Next:
+bounded repeated receive/drain handling per channel, preserving independent
+stop/restoration and private channel-aware parsing. Sustained RX/FCS, channel11
+reception, physical BSSID deduplication, association/security and IP/UI remain
+pending. Battery/headphones/further trackpad latency work remain deferred.

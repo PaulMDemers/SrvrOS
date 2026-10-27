@@ -3,8 +3,9 @@
 Captured scope: `7392:a711` revision `0100`, Edimax EW-7711MAC, attached to
 MacBookPro11,2. Linux binds `mt76x0u`. SrvrOS has bounded opt-in native transport,
 initialization and management-frame reception diagnostics; channel1/channel6
-beacons and bounded cleanup are observed. Three-channel discovery is pending
-native acceptance. Association/authentication, an active Wi-Fi IP provider and
+beacons and bounded cleanup are observed. The fixed US1/6/11 passive lifecycle
+is accepted with a channel6 beacon; sustained scanning and channel11 reception
+remain unaccepted. Association/authentication, an active Wi-Fi IP provider and
 configuration UI remain unimplemented. Ordinary startup leaves these diagnostic
 radio operations disabled. See the latest milestone at the end of this guide.
 
@@ -5616,3 +5617,50 @@ mismatches or errors. Evidence and payload survive distclean outside build in
 installed, unmounted and unarmed; await manual cold-cycle readiness, then save
 and collect all three visit/stop/restoration traces before acceptance. No photos
 or guest commands needed. Association/security and IP/UI remain pending.
+
+
+### 2026-10-27 Pro11,2 bounded three-channel native result
+
+Release `c80f3afe5d496f36`, source `57fede24` on main `108969f7`, saved session
+`session-00065ed915340ee5-00` and returned automatically. Complete782503-byte
+startup prefix and both successful completion markers pass. All three fixed
+US1/6/11,20MHz visits used distinct retained ring/page pairs, exact Set Dequeue,
+one bounded IN, MAC retirement, exact Stop/four guards and independent
+restoration/re-settling of all13 original channel1 words before advancing.
+Ordered proofs validate1500 tuning callbacks,465 RF exchanges and3039 ownership
+checks. Target VCO polls were2/5/5 and cleanup polls3/3/3; clearing is not RF lock.
+
+Channel1's receive window was quiet for10000012 us and stopped with CC26.
+Channel6 completed after95026 us/4314 polls, CC13/residue3752/actual344,
+consumed340 bytes with a304-byte beacon MPDU. Interval100, visible SSID length3,
+privacy/RSN true, WPA false and DS present; names and identifiers stay private.
+The copied table contains one channel6 row with one observation and channel
+mask32. Channel11 had a176-byte normal completion before the enabled receive
+window; it was deliberately uninspected and contributes no advertisement.
+All three MAC cycles completed54 operations with46 reads,7 writes and one wait;
+measured holds were10069/10070/10069 us. No network data OUT or DMA reuse.
+This boot's immediate post-VCO read was0xb0; the new scan-only0x30 admission
+path retains synthetic coverage plus the earlier native observation, not a
+positive native execution claim.
+
+The initial strict collection refusal was caused by a complete cached workspace
+checkpoint during channel1. Reviewed `tools/wifi_scan_log.py` validates all seven
+lines against the disabled-device profile, common timestamps, scheduler bounds
+and original raw prefix offset before projecting only the Wi-Fi phase. Unknown
+records remain for phase refusal. The original capture is unchanged; the saved
+`session-b.log` is byte-identical to its592911-byte raw prefix. Original checker,
+refusal and failed-run record remain archived. Six unit tests, three full
+checkpoint scan proofs and96 malformed checkpoint/phase cases pass; the full
+102-valid/455-refusal matrix and198 prior recipes pass again. No kernel or
+hardware gate was changed for collection.
+
+Seven complete current/e47/v99/v98/v97/v96/failed-v100 payloads match durable
+backups. Ubuntu default, consumed one-shot and unmounted/unarmed state pass.
+Offline checks report355 files,905 clusters,148 directories, zero errors, leaks
+or bitmap mismatches. Evidence, both original/rechecked proofs and frozen source
+are retained outside build in `wifi-scan-timing-57fede2`;1078 hashes verified at
+the native audit before final publication. No repeat boot is needed. Next:
+bounded repeated receive/drain handling per channel, preserving independent
+stop/restoration and private channel-aware parsing. Sustained RX/FCS, channel11
+reception, physical BSSID deduplication, association/security and IP/UI remain
+pending. Battery/headphones/further trackpad latency work remain deferred.
