@@ -30,6 +30,21 @@ discovery, selection, association/security and IP/UI remain later work. Original
 unchanged; RF0:6 semantics remain unresolved. Full evidence is archived outside
 build; no new trial is armed.
 
+Active native tuning scope (2026-10-27): actual main `e283eecb` (Air6,1
+cached power checkpoints; no MT76 overlap), open filesystem PR182 inspected.
+Bind the unchanged `1ff74269` one-channel frequency/VCO excursion to a separate
+selector76/v98 automatic-return trial. Fixed US channel6/20MHz only, returning
+to channel1 with main RX stopped throughout; no receiver restart or scan UI.
+Use retained exact board/firmware/transport identities, fresh stopped context,
+an independent ordered callback/value gate, strict MCU response identities,
+bounded measured delays and independent cleanup. Save progress, callback trace
+and restoration outcomes. Touched: native xHCI tune state/adapter, main/staging/
+smoke, native fault fixtures, strict collection and unit/Wi-Fi guides. Preserve
+all v1-v97 behavior, accepted v97 and recovery payloads. Checkpoint: native
+failure/ownership/reply/wait/cleanup tests, sanitizers and full merged build,
+exact-stage saved/refusal VM, durable install/run/recovery before cold readiness.
+No physical acceptance or reboot armed by this scope publication.
+
 Implemented offline scope (2026-10-27): consume actual main `c07dc402` (Air6,1 CPU-power
 PR207/208; no MT76 overlap), with PR182 filesystem work inspected separately.
 Implement an independent transport-neutral one-channel frequency/VCO excursion
