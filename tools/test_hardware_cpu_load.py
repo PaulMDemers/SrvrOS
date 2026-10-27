@@ -24,6 +24,29 @@ class LoadCaptureTests(unittest.TestCase):
     def test_bad_power_does_not_become_measurement(self):
         for broken in (self.fixture().replace('flags=3','flags=0'),self.fixture().replace('rejected=0','rejected=1'),self.fixture().replace('energy_shift=14','energy_shift=13')):
             r=load_result(broken);self.assertTrue(r['completed']);self.assertTrue(all(p['power'] is None for p in r['phases']))
+    def test_native_idle_shortfall_and_retained_coverage(self):
+        # Real failing phase bounds/checkpoint times; the post-idle logger
+        # snapshot cannot be used to round 9.999841s up to the 10s requirement.
+        from hardware_cpu_load import phase_power
+        def row(at, logged, prefix='workspace-devices:'):
+            n=at//1000000
+            return f'{prefix} power_state=2 flags=3 energy_shift=14 nominal_mhz=2000 sample_us={at} interval_us=999984 samples={n} rejected=0 energy={n*16384} aperf={n*1000} mperf={n*1000} monotonic_us={logged}'
+        old='\n'.join((row(11349926,12073449),row(21349767,22179818),row(31349608,32289646)))
+        self.assertIsNone(phase_power(old,2073586,32079598))
+        extra='\n'.join(row(at,at,'cpu-load-power:') for at in (7349990,13349894,19349798,25349702))
+        fixed=old+'\ncpu-load-power: retained=4 overflow=0\n'+extra
+        self.assertGreaterEqual(phase_power(fixed,2073586,32079598)['covered_us'],10000000)
+        for broken in (fixed.replace('retained=4','retained=3'),fixed.replace('overflow=0','overflow=1'),fixed.replace('retained=4 overflow=0','retained=4 overflow=0\ncpu-load-power: retained=4 overflow=0'),old+'\n'+extra):
+            self.assertIsNone(phase_power(broken,2073586,32079598))
+
+    def test_deferred_records_all_phases_and_stale_refusal(self):
+        text=self.fixture().replace('workspace-devices:', 'cpu-load-power:')+'cpu-load-power: retained=9 overflow=0\n'
+        result=load_result(text)
+        self.assertTrue(result['completed'])
+        self.assertTrue(all(p['power'] and p['power']['covered_us']==20000000 for p in result['phases']))
+        for broken in (text.replace('flags=3','flags=bad',1),text.replace('flags=3','flags=4'),text.replace('energy_shift=14','energy_shift=13'),text.replace('rejected=0','rejected=1')):
+            self.assertTrue(all(p['power'] is None for p in load_result(broken)['phases']))
+
     def test_profile_is_distinct(self):
         v='ram-usb-v35-laptop-probe-12345678'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v))

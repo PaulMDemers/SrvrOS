@@ -4,7 +4,7 @@
 #define SRVROS_POWER_HOST_TEST
 #include "../kernel/src/drivers/power.c"
 static uint64_t now=1000000,units=0xa0e03,energy=1000000,aperf=100,mperf=100;
-static unsigned reads,spawns;
+static unsigned reads,spawns,capture_rows,capture_receipts;
 static uint64_t platform=22u<<8;
 static bool reference=true,spawn_ok=true;
 static uint32_t signature=0x306d4,feature_c,feature_d=32,thermal_c=1,max_leaf=6;
@@ -26,7 +26,11 @@ bool scheduler_spawn_io_service(const char *n,scheduler_thread_fn fn,void *arg,s
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t deadline) {
     (void)q;(void)fn;(void)arg;(void)deadline;assert(0);return false;
 }
-void console_printf(const char *fmt,...) { (void)fmt; }
+void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"cpu-load-power:",15)) assert(!capturing);
+    if(!strncmp(fmt,"cpu-load-power: power_state=",27)) capture_rows++;
+    if(!strncmp(fmt,"cpu-load-power: retained=",24)) capture_receipts++;
+}
 static void init(void) { initialized=false;snapshot=(struct power_snapshot){0};sampler=(struct power_sampler){0};reads=spawns=0;power_init(); }
 int main(void) {
     reference=false;init();assert(!reads&&!spawns);reference=true;
@@ -55,5 +59,38 @@ int main(void) {
     feature_d=0;init();assert(!reads && !spawns);feature_d=32;
     thermal_c=0;init();assert(!reads && !spawns);thermal_c=1;
     signature=0x40671;init();assert(!reads && !spawns);
+    assert(!power_capture_start() && !reads && !spawns);
+    power_capture_stop();assert(!capture_rows && !capture_receipts);
+    signature=0x40651;init();unsigned before=reads;
+    assert(power_capture_start() && !power_capture_start() && reads==before);
+    uint64_t start=now;
+    /* Native sample cadence drifts just below one second. USB checkpoints at
+     * ten-second cadence then cover only 9.999841s; retain independent samples. */
+    for(unsigned i=0;i<90;i++) {
+        now+=999984;energy+=16384;aperf+=1000;mperf+=1000;sample();
+    }
+    assert(reads==before+270 && capture_count==15 && !capture_overflow);
+    for(unsigned phase=0;phase<3;phase++) {
+        uint64_t first=0,last=0;
+        for(unsigned i=0;i<capture_count;i++) {
+            struct power_snapshot *c=&capture[i];
+            assert(c->flags==3 && !c->rejected && c->state==POWER_ACTIVE);
+            if(c->sampled_us>=start+phase*30000000ull && c->sampled_us<=start+(phase+1)*30000000ull) {
+                if(!first)first=c->sampled_us;
+                last=c->sampled_us;
+            }
+        }
+        assert(first && last-first>=10000000);
+    }
+    before=reads;power_capture_stop();
+    assert(reads==before && capture_rows==15 && capture_receipts==1 && !capturing);
+    power_capture_stop();assert(capture_receipts==1);
+    now+=6000000;sample();assert(capture_count==15 && capture_rows==15);
+    assert(power_capture_start() && capture_count==0 && !capture_overflow);
+    for(unsigned i=0;i<25;i++) { now+=5000000;sample(); }
+    assert(capture_count==24 && capture_overflow);
+    before=reads;power_capture_stop();assert(reads==before && capture_rows==39 && capture_receipts==2);
+    assert(power_capture_start() && !capture_count && !capture_overflow);
+    power_capture_stop();assert(capture_receipts==3 && capture_rows==39);
     puts("power-service: PASS no reads on refused CPUs, exact read-only MSR allowlist, worker failure/idempotence, cadence and cached stale status");
 }
