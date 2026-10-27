@@ -735,3 +735,73 @@ prior-file preservation and offline allocation checks passed. This accepts the
 bounded read-only telemetry and checkpoint capture on this Air6,1, not CPU/fan
 controls, equilibrium or whole-machine power, or an energy-saving comparison.
 Ordinary staging still leaves power telemetry disabled.
+
+## Automatic Air6,1 desktop phases
+
+The explicit `--desktop-power-test --desktop-battery --battery-air61
+--desktop-services --desktop-volume <local-UUID>` staging recipe selects v78.
+It keeps the ordinary Home filesystem and battery-owned desktop lifetime, enables
+read-only power/temperature telemetry, and runs without input: wait for a rendered
+Text window and fresh battery data, settle for 30 seconds, idle for 60 seconds,
+cycle Text/Files/System applications for 60 seconds, then recover for 60 seconds.
+The last 12 seconds of the app phase drain pending work. At least six complete
+app cycles and a newer fresh battery generation in every phase are required.
+The desktop displays progress once per second; it is part of this measured load.
+Audio is initialized but no sound is played. Keep AC and the workspace connected.
+
+The existing 500 ms desktop loop and 10 s app lifecycle limits stay unchanged.
+A phase may finish up to five seconds late, but this does not relax loop or app
+limits. The diagnostic has a 300 s owner watchdog and uses normal lifetime
+revocation, battery retirement, log save and workspace unmount before reboot.
+Uncertain ownership retains the existing fail-closed behavior.
+
+Only this diagnostic retains up to 32 ten-second log checkpoints, in distinct
+`checkpoint-00.log` through `checkpoint-1f.log` files. It reserves 64 file slots,
+never wraps, and refuses further saves if that bound is reached. Ordinary logs
+continue rotating two snapshots. Write/readback verification, sync and logging
+cadence are unchanged. `tools/desktop_power_records.py` merges overlapping saved
+snapshots without repairing partial records and requires ordered phase receipts,
+clean battery retirement, at least three power/worker checkpoints covering 20 s
+inside each phase, and fresh valid temperature readings. Report actual covered
+intervals, package power, CPU0 active frequency, temperature ranges and per-worker
+software timeout/signal wakeups for stable worker lifetimes, with partial
+lifetimes listed separately. These are not whole-machine power, hardware wakeup
+counts or a power-policy acceptance. No requirement asserts that app workload
+must consume more energy than idle; this experiment measures that difference.
+
+`tools/desktop_power_smoke.py` checks a complete synthetic battery VM lifetime,
+checkpoint coverage, file preservation and offline allocation. With `--stage
+<release>`, it boots the exact native payload and requires Q35 profile refusal
+and clean unmount/return. The harness records its explicit `--accel tcg|kvm` selection. Failed rehearsals
+remain failed evidence; neither mode changes guest limits. Synthetic execution never supplies native power or
+temperature acceptance. Native results remain pending until matching saved
+sessions and recovery evidence have been collected.
+
+## Accepted Air6,1 combined desktop phase baseline
+
+On October 27, release `1d1cbd1cb03d3032` (runtime `7a9cfeaf`, PR212) completed
+native session `session-00065ed629188a57-00`: 30 s settling followed by roughly
+60 s each of idle, 13 Text/Files/System cycles and recovery, with continuous
+battery monitoring and normal retirement/Ubuntu return. The saved records pass
+the unchanged power validity, 20 s covered-interval and UI/app timing checks.
+
+| Phase | Covered power interval | CPU package mean | CPU0 active frequency |
+| --- | --- | --- | --- |
+| Idle | 50.998362 s, 6 points | 4.131 W | 1,292 MHz |
+| Apps | 51.998342 s, 6 points | 4.150 W | 1,294 MHz |
+| Recovery | 40.998694 s, 5 points | 4.137 W | 1,292 MHz |
+
+Core/package temperatures stayed within 57–59 C during these phases. The maximum
+UI loop was 115.440 ms, app readiness 704.385 ms and close 51.434 ms. Worker
+coverage is independently bounded to 40–52 s per phase; short-lived app workers
+remain explicitly partial. Idle timeout wakeups include about 90/s for `xhci-hid`,
+89/s for `uthread` identity 17, 48/s for `bootstrap` and 19/s for `battery-owner`.
+Those counters justify a polling audit, not a claim about which worker consumes
+energy. This single short workload does not establish significant power changes
+or accept CPU/fan controls. See the [unit record](machines/macbookair6-1.md) for
+phase temperatures, retirement, file preservation and durable evidence details.
+
+The checkpoint logger enters through `workspace_log_start_checkpoints()`.
+This keeps its 64KiB tail and 64-node reservation separate from the Wi-Fi
+firmware startup-prefix capture entry points; ordinary logging still alternates
+two periodic files and reserves32 nodes.

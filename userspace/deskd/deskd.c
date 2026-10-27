@@ -1,3 +1,4 @@
+#include "power_trial.h"
 #include <srvros/desk_battery.h>
 #include "battery_trial.h"
 #include <srvros/desk_log.h>
@@ -1798,6 +1799,7 @@ int main(int argc,char **argv) {
     int coexist_files=coexist_workspace || (argc==2 && !strcmp(argv[1],"--coexist-files"));
     int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
+    int power_trial=argc==2 && !strcmp(argv[1],"--power-phases");
     int battery_work=argc==2 && !strcmp(argv[1],"--battery-work-capture");
     int battery_guided=argc==2 && !strcmp(argv[1],"--battery-transition-capture");
     int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
@@ -1810,7 +1812,7 @@ int main(int argc,char **argv) {
     int audio_io_attended=argc==2 && (!strcmp(argv[1],"--audio-io-attended") || !strcmp(argv[1],"--audio-io-attended-smoke"));
     int audio_io_smoke=argc==2 && (!strcmp(argv[1],"--audio-io-smoke") || !strcmp(argv[1],"--audio-io-attended-smoke"));
     int audio_io=audio_io_attended || audio_io_smoke || (argc==2 && !strcmp(argv[1],"--audio-io-stress"));
-    int home_apps=navigation_trial || lifecycle_trial || audio_io || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
+    int home_apps=power_trial || navigation_trial || lifecycle_trial || audio_io || capacity_capture || battery_work || (argc==2 && !strcmp(argv[1],"--home-apps"));
     int pool_wait=argc==2 && !strcmp(argv[1],"--file-pool-wait-smoke");
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
@@ -1908,6 +1910,9 @@ int main(int argc,char **argv) {
         strcpy(s.scene.notice,"Automatic capacity test: opening 24 apps, saving a screenshot, then returning. No input needed.");
         desk_log("desktop-capacity: begin target=24 deadline_us=180000000 input=none documents=5\n");
     }
+    struct desk_power_trial power_phase={.origin=(uint64_t)srv_monotonic_us()};
+    uint64_t power_notice=0,power_loop_last=0,power_loop_max=0;
+    if(power_trial)strcpy(s.scene.notice,"Power test: waiting for desktop and battery. No input needed.");
     uint64_t audio_io_pid=0,audio_io_begin=(uint64_t)srv_monotonic_us(),audio_io_notice=0;
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
     int audio_io_complete=0,audio_io_finished=0;
@@ -2001,10 +2006,32 @@ int main(int argc,char **argv) {
                 desk_log("desktop-stress-capture: requested=%u target=%u at_us=%llu\n",stress_shots,target,(unsigned long long)now);
             }
         }
-        if(audio_io && !audio_io_attended && audio_io_pid) {
+        if(power_trial && !s.exiting) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            struct srv_battery_status battery={0};
+            int fresh=srv_battery_status(&battery)==0 && battery.state==SRV_BATTERY_ACTIVE && (battery.flags&SRV_BATTERY_FRESH);
+            int ready=0;
+            for(int i=0;i<session_capacity(&s);i++)if(desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting)ready=1;
+            if(power_phase.stage>=2 && power_phase.stage<5) {
+                if(loop_sample(&power_loop_last,&power_loop_max,now)>500000){failed=1;break;}
+            }
+            int moved=desk_power_step(&power_phase,now,ready,fresh,battery.generation,!life_phase && !s.pending_opens,life_cycles);
+            if(moved<0) {desk_log("desktop-power: phase failure stage=%u fresh=%u cycles=%u\n",power_phase.stage,fresh,life_cycles);failed=1;break;}
+            if(moved && power_phase.stage==3)life_due=now;
+            if(moved && power_phase.stage==5)global_menu_action(&s,GLOBAL_EXIT);
+            if(now-power_notice>=1000000 || moved) {
+                static const char *names[]={"Waiting for battery","Settling","Idle","App workload","Recovery","Complete; closing"};
+                snprintf(s.scene.notice,sizeof(s.scene.notice),"Power test: %s %llu sec; %u app cycles. No input needed.",names[power_phase.stage],(unsigned long long)((now-power_phase.began)/1000000),life_cycles);
+                desk_damage_add(&s.damage,(struct desk_rect){0,canvas.height-112,canvas.width,36});power_notice=now;
+                struct srv_thermal_status thermal={0};
+                if(srv_thermal_status(&thermal)==0 && thermal.state==SRV_THERMAL_ACTIVE &&
+                    ((thermal.flags&(SRV_THERMAL_THROTTLING|SRV_THERMAL_CRITICAL)) || thermal.core_mc>=90000 || thermal.package_mc>=90000)) {failed=1;break;}
+            }
+        }
+        if((audio_io && !audio_io_attended && audio_io_pid) || (power_trial && power_phase.stage==3)) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!life_due)life_due=now+5000000;
-            if(!life_phase && now>=life_due && now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000) {
+            if(!life_phase && now>=life_due && (power_trial?now-power_phase.began<48000000:now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000)) {
                 static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
                 life_begin=now;if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
             } else if(life_phase==1) {
@@ -2020,7 +2047,7 @@ int main(int argc,char **argv) {
             } else if(life_phase==3 && child_index(&s,life_pid)<0) {
                 desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
                 if(now-life_close>life_close_max)life_close_max=now-life_close;
-                life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+500000;
+                life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+(power_trial?3000000:500000);
             }
             if((life_phase && now-life_begin>10000000) || s.child_errors){
                 desk_log("desktop-life: deadline phase=%u pid=%llu child=%d elapsed_us=%llu pending_opens=%u errors=%u\n",life_phase,
@@ -2711,6 +2738,14 @@ int main(int argc,char **argv) {
         desk_log("desktop-capacity: result=%s launched=%u reaped=%u errors=%u screenshot=%s normal_exit=%u\n",
             failed?"FAIL":"PASS",capacity_launched,s.child_reaped,s.child_errors,
             capacity_phase==3?"yes":"NO",s.exiting?1u:0u);
+    }
+    if(power_trial) {
+        if(power_phase.stage!=5 || !s.exiting || s.child_errors || life_phase || life_cycles<6)failed=1;
+        static const char *names[]={"idle","apps","recovery"};
+        for(unsigned i=0;i<3;i++)desk_log("desktop-power-phase: name=%s start_us=%llu end_us=%llu battery_first=%llu battery_last=%llu\n",names[i],
+            (unsigned long long)power_phase.start[i],(unsigned long long)power_phase.end[i],(unsigned long long)power_phase.first[i],(unsigned long long)power_phase.generation[i]);
+        desk_log("desktop-power-session: result=%s cycles=%u errors=%u normal_exit=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu\n",failed?"FAIL":"PASS",life_cycles,s.child_errors,s.exiting?1u:0u,
+            (unsigned long long)power_loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max);
     }
     if(control_capture)desk_log("desktop-controls: completed=%s reaped=%u errors=%u cached_reads=%llu\n",!failed && s.child_reaped==1 && !s.child_errors?"yes":"NO",s.child_reaped,s.child_errors,(unsigned long long)s.battery_reads);
     if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;

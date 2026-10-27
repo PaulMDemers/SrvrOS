@@ -9747,3 +9747,19 @@ fixture mistakes were corrected before staging; the hardware RF guards were
 not relaxed. Saved-log validation, full merged tests, exact-stage VM, install
 and native acceptance remain separate checkpoints. Installed v98 remains the
 last physically accepted payload; no reboot armed.
+
+
+### 2026-10-27 — receive observer identity and merged-main log contracts
+
+The observer callback/context is copied at admission, before any hardware
+callback. A regression mutates the caller's observer table during the first
+I/O and verifies the admitted callback executes once with exact restoration;
+6906 pure transactions pass. Main advanced to `fbb6eaa5` with Air6,1 desktop
+power phases. Merge preserves both independent logging contracts: Wi-Fi
+extended captures retain the complete startup prefix; the Air's explicit
+desktop power diagnostic uses a separate checkpoint entry with the original
+64KiB tail and up to32 nonwrapping periodic files/64 reserved nodes. Ordinary
+logging retains its32-node reservation and alternating snapshots. Both merged
+fixture families remain enabled. No native Air acceptance is claimed here;
+no battery trial is added to this Pro's Wi-Fi profile. Rebuild and exact-stage
+VM checks remain necessary before installation.

@@ -638,7 +638,7 @@ def collect(mount, volume, output):
         if folder.is_symlink() or not folder.is_dir():
             raise ValueError(f"Unsafe session path: {folder.name}")
         payload = {}
-        for name in FILES:
+        for name in (*FILES, *(f"checkpoint-{i:02x}.log" for i in range(32))):
             source = folder / name
             if source.is_symlink():
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")

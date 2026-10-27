@@ -10,6 +10,7 @@ static uint64_t snapshot_bytes=8;
 static bool lost_prefix;
 bool bootlog_extend_capture(void) { return extend_ok; }
 bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY || capacity==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);return extend_ok; }
+static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
@@ -23,7 +24,7 @@ static struct item *find(const char *p) { for(unsigned i=0;i<count;i++) if(!strc
 static struct item *add(const char *p) { assert(count<64 && strlen(p)<160);struct item *f=&files[count++];strcpy(f->path,p);return f; }
 const struct vfs_node *vfs_lookup(const char *p) { assert(depth);struct item *f=find(p);return f?&f->node:NULL; }
 bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
-    assert(depth && !strcmp(p,"/work/srvros-work/Logs") && f==32 && d==8);return capacity_ok;
+    assert(depth && !strcmp(p,"/work/srvros-work/Logs") && f==expected_capacity && d==8);return capacity_ok;
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
@@ -102,7 +103,7 @@ int main(void) {
     assert(workspace_log_stop());
     extend_ok=false;old_writes=writes;assert(!workspace_log_start_capture() && writes==old_writes);
     extend_ok=true;snapshot_bytes=BOOTLOG_CAPTURE_CAPACITY;
-    assert(workspace_log_start_capture() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY);
+    assert(workspace_log_start_capture() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY && !retain_checkpoints);
     struct item *large=find(path);assert(large && large->node.size==snapshot_bytes);
     for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
     assert(!workspace_log_start() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY);
@@ -128,5 +129,19 @@ int main(void) {
     large=find(path);assert(large && large->node.size==snapshot_bytes);for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
     old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
     assert(workspace_log_stop());snapshot_bytes=8;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
+    count=0;enabled=false;busy=false;expected_capacity=64;
+    capacity_ok=false;assert(!workspace_log_start_checkpoints());capacity_ok=true;
+    assert(workspace_log_start_checkpoints() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && retain_checkpoints && checkpoint==0);
+    for(unsigned i=0;i<32;i++) {
+        assert(periodic_save());
+        char expected[160];snprintf(expected,sizeof(expected),"%s/checkpoint-%02x.log",directory,i);
+        assert(find(expected));
+    }
+    old_writes=writes;assert(!periodic_save() && writes==old_writes && checkpoint==32);
+    assert(workspace_log_stop());
+    expected_capacity=32;assert(workspace_log_start() && !retain_checkpoints && checkpoint==0);
+    assert(periodic_save() && strstr(path,"session-a.log"));
+    assert(periodic_save() && strstr(path,"session-b.log"));
+    assert(workspace_log_stop());
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }

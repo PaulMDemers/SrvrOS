@@ -4211,3 +4211,12 @@ test-mt76-channel-tune: build/tests/mt76-channel-tune-host$(HOST_EXE)
 build/tests/mt76-channel-tune-host$(HOST_EXE): tools/test_mt76_channel_tune.c kernel/src/drivers/mt76_channel_tune.c kernel/include/srvros/mt76_channel_tune.h kernel/src/drivers/mt76_channel_plan.c tools/fixtures/mt7610-us-channel-plan.bin
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_channel_plan.c -o $@
+
+.PHONY: test-desktop-power
+test-core: test-desktop-power
+test-desktop-power: build/tests/desktop-power$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_desktop_power_records.py
+build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd/power_trial.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
