@@ -4946,3 +4946,38 @@ recipes and both desktop recipes are unchanged.27 native printf formats match
 argument counts. Original discovery/window/parser/parent/calibration/power-on
 source bytes remain unchanged. Exact-stage VM, installation and physical
 discovery evidence are separate checkpoints.
+
+
+### 2026-10-27 — v96 private discovery trial installed, unarmed
+
+Source `8f447183b2df543eaa7d20910cd672b25ce21e60`, release
+`6f0426100438a6bc`, v96 automatic return on main `6b6d2f4d`. All182 native
+scenarios,10168 pure discovery collections,246 window cases, native ASan/UBSan,
+183 staging tests, full core/image/desktop and strict15-valid/167-refusal proofs
+pass.190 older Wi-Fi and both desktop recipes are unchanged. Stage kernel and
+independently packaged initramfs match the committed-source products; native
+discovery/window/parser/power-on symbols link, original strict calibration runner
+remains uncalled.27 printf argument counts pass.
+
+Exact GPT-stage VM saved byte-verified diagnostics, cleanly unmounted and returned
+automatically. Missing workspace refused before probing and returned. These
+verify workflow only, not native discovery. Initial missing v96 staging-pattern
+membership, a host-test invocation without its required arguments, and an early
+proof-script insertion-order error were corrected before installation; original
+failure logs are preserved with the successful evidence.
+
+Current v96, accepted v95/v93 and e47 previous payloads match durable copies.
+Only obsolete Ethernet candidate `debb2ddf3e9f4243` was removed from the ESP,
+after full file equality with its retained durable backup; current/previous and
+accepted Wi-Fi fallbacks were kept throughout. Ubuntu default and EFI order
+remain unchanged. Offline workspace:338files,835clusters,142directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted; no one-shot armed.
+Durable candidate evidence: `wifi-discovery-native-8f44718` outside build.
+
+After cold-cycle readiness, power off, unplug Wi-Fi10s while off, reconnect and
+power on, keeping workspace connected. Guest shows listening/collection progress,
+saves results and returns automatically; no photos or commands. Collect matching
+v96 FIRST with `discovery-native/collect_return.py`, including whole prior proof,
+window item outcomes, discovery counts/metadata, fresh stopped-context ownership,
+full prefix/completion, four retained payloads and offline filesystem/allocation.
+No AP or connectivity acceptance is claimed until actual results are reviewed.

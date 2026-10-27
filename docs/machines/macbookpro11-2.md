@@ -18,14 +18,15 @@ Whole prior initialization/calibration proof, full saved prefix, Ubuntu recovery
 and offline filesystem/allocation checks passed. This accepts bounded repeated
 native submissions and reception on this named release, not sustained reception,
 FCS/RSSI/RF performance or access-point discovery. Earlier v93 beacon evidence
-remains separate. V95 is installed; accepted v93 fallback and e47 previous
-recovery are preserved. Workspace unmounted, one-shot consumed, no reboot armed.
-Next: bounded passive access-point discovery using the received-frame path,
-with channel/identifier handling and UI separated from later association,
-security and Wi-Fi IP. Original strict helper remains unchanged; RF0:6 semantics
+remains separate. V96 release `6f0426100438a6bc`/source `8f447183` is now
+installed for private passive discovery collection. Accepted v95, v93 fallback
+and e47 previous recovery are preserved. Workspace unmounted, one-shot absent,
+no reboot armed. Next: cold-cycle readiness, then collect the matching v96
+session FIRST with `discovery-native/collect_return.py`. An empty table is not
+access-point acceptance. UI, association/security and Wi-Fi IP follow separately. Original strict helper remains unchanged; RF0:6 semantics
 remain unresolved. Complete v95 evidence is archived outside build.
 
-Active native discovery block (2026-10-27): actual main `6b6d2f4d` merges PR203
+Validated native discovery candidate (2026-10-27): actual main `6b6d2f4d` merges PR203
 Air screenshot evidence only; open PR182 owns filesystem imports, no MT76
 overlap. Bind the validated discovery helper to separate selector74/v96 after
 ten-second window finish, parent cleanup, exact stopped context and six guards.
@@ -9217,3 +9218,38 @@ recipes and both desktop recipes are unchanged.27 native printf formats match
 argument counts. Original discovery/window/parser/parent/calibration/power-on
 source bytes remain unchanged. Exact-stage VM, installation and physical
 discovery evidence are separate checkpoints.
+
+
+### 2026-10-27 — v96 private discovery trial installed, unarmed
+
+Source `8f447183b2df543eaa7d20910cd672b25ce21e60`, release
+`6f0426100438a6bc`, v96 automatic return on main `6b6d2f4d`. All182 native
+scenarios,10168 pure discovery collections,246 window cases, native ASan/UBSan,
+183 staging tests, full core/image/desktop and strict15-valid/167-refusal proofs
+pass.190 older Wi-Fi and both desktop recipes are unchanged. Stage kernel and
+independently packaged initramfs match the committed-source products; native
+discovery/window/parser/power-on symbols link, original strict calibration runner
+remains uncalled.27 printf argument counts pass.
+
+Exact GPT-stage VM saved byte-verified diagnostics, cleanly unmounted and returned
+automatically. Missing workspace refused before probing and returned. These
+verify workflow only, not native discovery. Initial missing v96 staging-pattern
+membership, a host-test invocation without its required arguments, and an early
+proof-script insertion-order error were corrected before installation; original
+failure logs are preserved with the successful evidence.
+
+Current v96, accepted v95/v93 and e47 previous payloads match durable copies.
+Only obsolete Ethernet candidate `debb2ddf3e9f4243` was removed from the ESP,
+after full file equality with its retained durable backup; current/previous and
+accepted Wi-Fi fallbacks were kept throughout. Ubuntu default and EFI order
+remain unchanged. Offline workspace:338files,835clusters,142directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted; no one-shot armed.
+Durable candidate evidence: `wifi-discovery-native-8f44718` outside build.
+
+After cold-cycle readiness, power off, unplug Wi-Fi10s while off, reconnect and
+power on, keeping workspace connected. Guest shows listening/collection progress,
+saves results and returns automatically; no photos or commands. Collect matching
+v96 FIRST with `discovery-native/collect_return.py`, including whole prior proof,
+window item outcomes, discovery counts/metadata, fresh stopped-context ownership,
+full prefix/completion, four retained payloads and offline filesystem/allocation.
+No AP or connectivity acceptance is claimed until actual results are reviewed.
