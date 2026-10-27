@@ -25,6 +25,22 @@ with explicit retuning/cleanup proof before network selection, association/
 security and IP/UI. Original strict helper stays unchanged; RF0:6 semantics
 remain unresolved. Full evidence is archived outside build.
 
+Active native register-preview block (2026-10-27): actual main `e7953352` and
+open PR182 inspected; filesystem work does not overlap MT76. Add separate
+selector75/v97 after full v96 discovery, parent cleanup, exact main-RX stop and
+six guards. Bind all11 US/20MHz plans to bounded RF MCU reads/writes with exact
+wire identities, an independent callback-order/value gate, retained transport
+identities and fresh live stopped context. Keep cleanup independently admitted
+after forward proof/reply loss when transport remains safe. Save exact callback,
+readback and restoration evidence, omit identifiers, retain all DMA. No VCO pulse,
+MAC enable, main-RX restart/reuse, live multi-channel reception or network data
+OUT. Touched: xHCI preview state/adapter, main/staging/smoke, actual native fault
+fixtures, strict collection proof and unit/Wi-Fi guides. Dependency: unchanged
+`5672e4b5` preview engine and accepted v96 native cleanup/discovery. Checkpoint:
+full transport/order/board/ownership/reply/cleanup failures, sanitizers and core,
+exact-stage automatic save/refusal VM, durable recovery/run/archive before cold
+trial readiness. No reboot armed.
+
 Completed offline channel groundwork (2026-10-27): actual main `e7953352` includes PR204
 screenshot cleanup, PR205 native evidence and PR206 Files metadata batching.
 Open PR182 owns filesystem imports; no MT76 overlap. Build a separate US1–11,
