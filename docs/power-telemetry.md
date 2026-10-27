@@ -688,3 +688,13 @@ returns to Ubuntu. Require all three phases, nonzero load work, valid power
 coverage in each phase, preserved files and clean offline allocation checks.
 An emulated refusal verifies save/return only. Native Air6,1 acceptance is pending;
 ordinary desktop power telemetry, CPU policy and fan control remain unchanged.
+
+The first Air6,1 v35 run (`22632f396dab67a4`, October 27) completed all three
+phases with fresh valid power counters and zero rejected samples. Covered load
+measured 5.134 W / 1,300 MHz over 10.999826 seconds; recovery measured
+4.127 W / 1,288 MHz over 20.999667 seconds. Initial idle remains unavailable:
+its two eligible checkpoints span 9.999841 seconds, below the ten-second floor.
+The next checkpoint's logging timestamp falls outside idle. This is incomplete
+three-phase evidence, not a reason to relax coverage or claim an idle baseline.
+The next capture needs more reliable phase checkpoint coverage. Peak logged
+package temperature was 63 C, and automatic return/file preservation passed.
