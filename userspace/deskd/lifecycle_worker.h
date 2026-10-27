@@ -26,17 +26,27 @@ struct life_launch {
 };
 struct lifecycle_worker {
     pthread_t thread;
-    unsigned stop;
+    unsigned stop,report_state;
+    struct loop_trace report;
     struct life_memory memory[LIFE_MEMORY_SLOTS];
     struct life_launch launch[LIFE_LAUNCH_SLOTS];
 };
 static unsigned life_state(const unsigned *state) { return __atomic_load_n(state,__ATOMIC_ACQUIRE); }
 static void life_publish(unsigned *state,unsigned value) { __atomic_store_n(state,value,__ATOMIC_RELEASE); }
+/* One fixed slot: never overwrite a snapshot while the worker is emitting it.
+ * A busy slot causes a retry next loop; only the UI owns the live accumulator. */
+static int life_report_submit(struct lifecycle_worker *w,const struct loop_trace *trace) {
+    if(!trace->samples || life_state(&w->report_state)!=LIFE_IDLE)return 0;
+    w->report=*trace;life_publish(&w->report_state,LIFE_QUEUED);return 1;
+}
 static int life_reserved(const struct lifecycle_worker *w,int slot) {
     if(w)for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)if(life_state(&w->launch[n].state) && w->launch[n].child_slot==slot)return 1;
     return 0;
 }
 static void life_work(struct lifecycle_worker *w) {
+    if(life_state(&w->report_state)==LIFE_QUEUED) {
+        loop_trace_report(&w->report,0);life_publish(&w->report_state,LIFE_IDLE);
+    }
     for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
         struct life_memory *m=&w->memory[n];
         if(life_state(&m->state)==LIFE_QUEUED) {

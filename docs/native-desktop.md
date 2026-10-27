@@ -628,3 +628,23 @@ separate synchronous paths; the automatic lifecycle receipt measures the tested
 normal launch/render/close path, not every possible desktop operation. Shared-address-space exclusion still
 applies if the worker itself owns filesystem I/O; the RAM executable test does
 not promise bounded launch latency for disk-backed executables.
+
+### Attended desktop under automatic audio and USB load
+
+The Air6,1 v77 `--desktop-audio-io-attended` profile requires the explicit
+battery/services profile. Help opens the complete checklist automatically.
+Continuous PCM and unpaced verified filesystem work run for 30 minutes using
+the existing worker. The user exercises windows, dock, Text and Files; automatic
+app cycling is deliberately absent so it cannot close user-owned documents.
+The separate v74 unattended app-cycle acceptance requirement remains unchanged.
+
+Completion stops the load, displays a notice and leaves the desktop open.
+Save notes/screenshots and return normally, optionally reopen with `desktop
+battery`, then unmount Home and reboot manually. Early exit is incomplete, never
+a pass. The attended receipt requires completed load, keyboard/pointer activity,
+normal exit, no child errors and the unchanged 500 ms desktop loop bound; visual
+and listening acceptance still require the user's observations. Normal client
+limits, filesystem validation, firmware gates and battery retirement are retained.
+The native profile has no whole-desktop time limit; the worker and its playback
+watchdog remain bounded. A separate 60-second VM mode checks completion and early
+exit without altering the native duration.
