@@ -4,7 +4,8 @@ static void test_wifi_scan(struct xhci_device *d){
     d->input_context=input;d->input_context_phys=(uintptr_t)input;
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_mcu before=*m;uint8_t context[4096];memcpy(context,d->output_context,sizeof context);
     for(unsigned trial=0;trial<1+3*28+24+6;trial++){
-        *m=before;m->channel_mode=false;m->tune_mode=m->receive_mode=m->scan_mode=true;
+        *m=before;wifi_mcu_select_mode(m,78);
+        assert(m->scan_mode && m->tune_mode && m->receive_mode && m->window_long_mode && m->discovery_mode && m->poweron_mode && !m->channel_mode && !m->passive_mode);
         m->tune=(struct xhci_wifi_tune){0};m->receive=(struct xhci_wifi_receive){0};m->scan=(struct xhci_wifi_scan){0};
         memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;

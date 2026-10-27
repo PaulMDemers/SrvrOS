@@ -5499,3 +5499,9 @@ allocation; production ownership gates were not relaxed. Local/native boundary
 checks, sanitizers, merged tests, whole-log proof, exact-stage VM and physical
 acceptance are separate checkpoints. V99 stays installed/accepted; no new
 release is armed.
+
+The combined native suite also exposed a fixture admission leak: the earlier
+receive allocation-failure loop left its fake allocation ceiling at zero.
+It now restores its caller's ceiling, and the scan tests use the actual mode78
+selector; window allocation/refusal coverage includes mode78. The production
+allocator and hardware admission gates are unchanged.

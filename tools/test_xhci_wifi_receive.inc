@@ -73,6 +73,7 @@ static void receive_test_tick(void) {
     dispatch_transfer_event(&event);
 }
 static void test_wifi_receive(struct xhci_device *d) {
+    uint64_t old_fail_after=fail_after;
     uint8_t input[4096]={0};void *old_input=d->input_context;uint64_t old_input_phys=d->input_context_phys;
     d->input_context=input;d->input_context_phys=(uintptr_t)input;
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_mcu before=*m;uint8_t context[4096];memcpy(context,d->output_context,sizeof context);
@@ -154,6 +155,6 @@ static void test_wifi_receive(struct xhci_device *d) {
         assert(!m->receive.retarget_attempted && !m->receive.posted && !freed && m->tune.state.cleanup_complete);tune_model_restored();
     }
     *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
-    d->input_context=old_input;d->input_context_phys=old_input_phys;
+    d->input_context=old_input;d->input_context_phys=old_input_phys;fail_after=old_fail_after;
     printf("wifi-channel-receive-native: PASS %u fresh-ring/page,single-IN,channel6/beacon,quiet/mismatch/foreign/malformed,clock/command/stop/allocation/restore scenarios;no DMA freed\n",receive_cases);
 }
