@@ -43,7 +43,8 @@ void power_print_status(void);
 /* Explicit bounded load diagnostic only. Retain cached samples in RAM at
  * >=5-second intervals; stop emits their original timestamps to the boot log.
  * No provider activation, disk I/O or sampling-policy changes. Captured 06_45
- * also audits HLT entry and reads E2 once at each explicit capture boundary. */
+ * also audits HLT entry and reads E2/APIC/misc once at each explicit capture
+ * boundary; bounded CPU0 topology is capability data, not live AP state. */
 bool power_capture_start(void);
 void power_capture_stop(void);
 #endif

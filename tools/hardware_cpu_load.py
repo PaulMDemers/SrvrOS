@@ -167,6 +167,61 @@ def phase_idle_entry(text, start, end):
                 cpuid_logical_capacity=(h['leaf1_b']>>16)&255,initial_apic_id=h['leaf1_b']>>24,
                 other_cpus_state='unknown',scope='CPU0 HLT attempts/returns; no time-asleep or C-state inference')
 
+def idle_prerequisites(text):
+    """CPU0 capability/configuration only; no observation of live remote CPUs.
+
+    Keep unknown topology layouts explicit rather than guessing a CPU count.
+    Historical captures without this new record remain readable, but cannot
+    satisfy the new native prerequisite trial's receipt requirement.
+    """
+    lines=[s for s in text.splitlines() if s.startswith('cpu-idle-prereq:')]
+    if len(lines)!=1: return None
+    parts=lines[0].split()[1:]
+    if any(not re.fullmatch(r'[a-z0-9_]+=\d+(?:,\d+)*',p) for p in parts): return None
+    row=dict(p.split('=') for p in parts)
+    if len(row)!=len(parts) or set(row)!={'v','epoch','max','b0','b1','b2','apic','misc'}: return None
+    widths={'v':1,'epoch':1,'max':1,'b0':4,'b1':4,'b2':4,'apic':2,'misc':2}
+    for key,value in row.items():
+        values=[int(v) for v in value.split(',')]
+        bound=2**64 if key in ('epoch','apic','misc') else 2**32
+        if len(values)!=widths[key] or any(v>=bound for v in values): return None
+        row[key]=values if widths[key]>1 else values[0]
+    if row['v']!=1 or not row['epoch']: return None
+    # Bind it to the complete audit/capture, not a stray boot/status line.
+    phases=re.findall(r'^cpu-load: phase=idle completed=yes elapsed_us=\d+ start_us=(\d+) end_us=(\d+) chunks=0 checksum=\d+$',text,re.M)
+    if len(phases)!=1: return None
+    audit=phase_idle_entry(text,*map(int,phases[0]))
+    if not audit or audit['epoch']!=row['epoch']: return None
+    raw=[row[f'b{i}'] for i in range(3)];topology=None
+    if row['max']<11:
+        if any(v for level in raw for v in level): return None
+    else:
+        a,b,z=raw
+        # Captured Haswell SMT/core/terminator layout only. Counts describe
+        # addressable topology, not enabled CPUs or remote execution state.
+        if (a[2]==256 and b[2]==513 and z[:3]==[0,0,2] and
+            a[3]==b[3]==z[3] and 0<=a[0]<=b[0]<=31 and
+            0<a[1]<=b[1]<=65535 and b[1]%a[1]==0 and
+            a[1]<=2**a[0] and b[1]<=2**b[0]):
+            topology=dict(x2apic_id=a[3],smt_shift=a[0],package_shift=b[0],
+                          logical_per_core=a[1],logical_per_package=b[1],
+                          cores_per_package=b[1]//a[1],scope='CPUID addressable topology, not online CPU count')
+    def config(apic,misc):
+        return dict(apic_raw=apic,misc_raw=misc,bsp=(apic>>8)&1,
+                    apic_enabled=(apic>>11)&1,x2apic_enabled=(apic>>10)&1,
+                    monitor_fsm=(misc>>18)&1)
+    start=config(row['apic'][0],row['misc'][0]);end=config(row['apic'][1],row['misc'][1])
+    return dict(epoch=row['epoch'],max_basic_leaf=row['max'],raw_leaf_b=raw,topology=topology,
+                config_start=start,config_end=end,configuration_changed=start!=end,
+                monitor_advertised=bool(audit['monitor']),
+                monitor_fsm_consistent=bool(start['monitor_fsm']==end['monitor_fsm']==audit['monitor']),
+                mwait_extensions=bool(audit['cpuid5'][2]&1),
+                masked_interrupt_break=bool(audit['cpuid5'][2]&2),
+                cpuid5_substate_nibbles=[(audit['cpuid5'][3]>>(4*i))&15 for i in range(8)],
+                other_cpus_state='unknown',remote_observation=False,
+                scope='CPU0 read-only prerequisites; no AP startup/IPI/MWAIT or power-policy changes')
+
+
 def load_result(text):
     failure = re.findall(r'^cpu-load: completed=NO reason=(\S+)$',text,re.M)
     rows = re.findall(r'^cpu-load: phase=(idle|load|recovery) completed=yes elapsed_us=(\d+) start_us=(\d+) end_us=(\d+) chunks=(\d+) checksum=(\d+)$',text,re.M)
@@ -186,6 +241,7 @@ def load_result(text):
         phases.append(dict(name=name,start_us=start,end_us=end,elapsed_us=elapsed,chunks=chunks,
                            power=phase_power(text,start,end),idle_residency=phase_idle(text,start,end),idle_entry=phase_idle_entry(text,start,end)))
     return dict(completed=bool(valid),failure_reasons=failure,phases=phases if valid else [],
+                idle_prerequisites=idle_prerequisites(text) if valid else None,
                 scope='single-worker console workload; package power over covered subintervals, not whole-machine power')
 
 if __name__ == '__main__':
