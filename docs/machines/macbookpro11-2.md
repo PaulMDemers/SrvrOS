@@ -10098,3 +10098,27 @@ bounded repeated receive/drain handling per channel, preserving independent
 stop/restoration and private channel-aware parsing. Sustained RX/FCS, channel11
 reception, physical BSSID deduplication, association/security and IP/UI remain
 pending. Battery/headphones/further trackpad latency work remain deferred.
+
+
+### 2026-10-27 — bounded pre-enable completion retry scope
+
+Actual main `e4f8bf84` is merged; Air6,1 owns its idle/power diagnostics, and
+open filesystem PR182 remains outside this scope. V100 `c80f3afe5d496f36` is
+collected/accepted and stays installed/unarmed until a replacement passes.
+
+Objective: an explicit selector79/v101 scan-retry trial. If the first exact
+normal IN completes before MAC's enabled observer window, retain it uninspected
+and post at most one additional IN with a separate preallocated page and a fresh
+TRB slot after enable. Never reuse either page, restart the ten-second observer
+deadline, or attribute the early bytes to the visited channel. Keep exact first/
+second completion identities, prior-history pins, independent MAC retirement,
+endpoint Stop and original-channel1 restoration. Preserve every v1–v100 recipe.
+This first retry targets pre-enable consumption; general sustained receive and
+multi-packet discovery stay separate. Touch native receive/scan adapter/state,
+mode/staging/main/smoke and focused native fault/log-proof fixtures. No IP,
+credentials, transmitter data, battery, idle policy or filesystem edits.
+
+Checkpoint: native early/second completion, duplicate/foreign/stale event,
+retained identity/alias, stopped dequeue, clock/deadline and cleanup failures;
+sanitizers, merged suite, exact-stage saved/refusal VM; then durable install/run
+and cold readiness. No new physical acceptance or reboot is armed by this scope.
