@@ -7,7 +7,14 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Installed and accepted bounded pilot: v100 `c80f3afe5d496f36`, source
+Installed candidate: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
+`e4f8bf84`. It adds one fresh IN retry after a pre-enable normal completion,
+keeping the first page uninspected and the original observer deadline. Local,
+sanitizer, log-proof and exact-image VM checks pass; native acceptance is pending.
+Ubuntu remains default, workspace unmounted, reboot unarmed. After cold-cycle
+readiness, run the automatic trial and collect matching v101 FIRST on return.
+
+Latest accepted bounded pilot: v100 `c80f3afe5d496f36`, source
 `57fede24`, main `108969f7`, session `session-00065ed915340ee5-00`.
 All three US1/6/11 visits completed with distinct retained RX resources,
 independent MAC retirement/endpoint stop and restoration of all13 original
@@ -10122,3 +10129,60 @@ Checkpoint: native early/second completion, duplicate/foreign/stale event,
 retained identity/alias, stopped dequeue, clock/deadline and cleanup failures;
 sanitizers, merged suite, exact-stage saved/refusal VM; then durable install/run
 and cold readiness. No new physical acceptance or reboot is armed by this scope.
+
+
+### 2026-10-27 — v101 pre-enable completion retry installed, native pending
+
+Source `6b12e4f2`, release `f1015eeb7358f9c7`, consumes actual main `e4f8bf84`.
+Selector79/`srvros.wifi-scan-retry=1` reserves a ring and two distinct data pages
+per fixed US1/6/11 visit. If slot0 completes normally before the enabled MAC
+observer window, the driver preserves its exact completion ledger uninspected
+and publishes slot1 once, pointing to the second preallocated page. The ten-
+second deadline starts before that publication and is never restarted. Duplicate
+slot0 events cannot complete slot1; both TDs/data pages and all prior visits
+remain pinned. Final parsing and collection use only the selected page after
+MAC retirement, exact endpoint Stop and fresh guards; original channel1
+restoration remains independent. No second post occurs for an already useful
+first in-window completion or a quiet pending first request. This is one bounded
+early-completion retry, not a sustained receiver or new network-data transmitter.
+Old v1–v100 profiles retain their previous code path and recipe bytes.
+
+Full merged image/core/desktop tests pass. ASan/UBSan passes232 retry cases in
+independent115/69/48-case processes,115 legacy scan cases,356 legacy receive
+cases,16 AGC callbacks and215 private collector cases. Cases cover first normal/
+empty/full early completions, selected data versus poisoned first data, no
+retry replay, duplicate first/prior events, quiet/invalid/foreign second events,
+clock/frozen/deadline failure, all three visits, reserve allocation, page aliases,
+identity/TD/context loss, independent stop and refused unsafe RF restoration.
+The initial expanded matrix exceeded the fixed retained-DMA host pool; splitting
+its processes preserved the5MiB budget and production retention policy. The
+layout model was also corrected to stop generating fake DMA after deliberately
+corrupting its own binding. Original refusals are retained as failures.
+
+Saved-log checks pass110 complete retry outcomes and123 retry/visit refusals,
+15 prior-window variants,455 existing malformed visit cases, three complete
+checkpoint projections/96 malformed checkpoint cases and both VCO timing
+variants/256 full post-VCO trace immediate values. The original raw snapshot
+remains unchanged; only fully validated extra retry/checkpoint records are
+projected from individual Wi-Fi proofs. Slot1 must follow all pre-observer MAC
+reads and precede the poll result; selected/first/reserved identities, exact
+stopped pointers, no deadline restart and all nine fresh pages are checked.
+Representative full prefix is780091 bytes within1MiB, including all three
+retries; maximum bounded VCO variants also fit. Staging passes189 tests;200
+older Wi-Fi recipes and three desktop recipes remain unchanged. Fifty-four
+format strings match their argument counts.
+
+The exact committed-source kernel and independently packaged initramfs match
+the stage. Exact-image GPT VM saved/byte-verified logs, unmounted and returned;
+missing workspace refused probing and returned. QEMU does not accept native
+radio operation. Seven complete current/e47/v100/v99/v98/v97/v96 payloads match
+durable backups. Unreferenced failed-v100 `a7bc67f2d057e7d8` was retired from ESP
+only after full equality to its preserved `wifi-scan-native-2847cb0` payload;
+accepted v100 `c80f3afe5d496f36` and Ubuntu recovery remain retained. Offline
+workspace checks report355 files,905 clusters,148 directories, zero errors,
+leaks or bitmap mismatches. Payload, source and evidence survive distclean in
+`wifi-scan-retry-6b12e4f` outside build. Installed, unmounted, unarmed. After cold
+readiness, unplug Wi-Fi10s while off, reconnect and power on; leave workspace
+connected. Guest progress, saved logs and automatic return require no photos or
+commands. Collect v101 FIRST, checking optional second completion and cleanup
+before acceptance. Association/security, sustained RX/FCS and IP/UI stay pending.
