@@ -7,24 +7,23 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Latest physical run: v95 release `84afc9dee029775f`, source `e9acacd5`,
-session `session-00065eca15a6993a-00`. The ten-second window completed six
-normal transfers and seven distinct retained-buffer submissions. Each completed
-transfer supplied196 bytes and a valid first RX entry with154-byte probe-request
-MPDU (FC0040). All six events were observed during the window; no beacon or
-probe response was present. The final pending request was cancelled with CC26/
-4096 remaining after parent MAC cleanup, exact endpoint stop and six guards.
-Whole prior initialization/calibration proof, full saved prefix, Ubuntu recovery
-and offline filesystem/allocation checks passed. This accepts bounded repeated
-native submissions and reception on this named release, not sustained reception,
-FCS/RSSI/RF performance or access-point discovery. Earlier v93 beacon evidence
-remains separate. V96 release `6f0426100438a6bc`/source `8f447183` is now
-installed for private passive discovery collection. Accepted v95, v93 fallback
-and e47 previous recovery are preserved. Workspace unmounted, one-shot absent,
-no reboot armed. Next: cold-cycle readiness, then collect the matching v96
-session FIRST with `discovery-native/collect_return.py`. An empty table is not
-access-point acceptance. UI, association/security and Wi-Fi IP follow separately. Original strict helper remains unchanged; RF0:6 semantics
-remain unresolved. Complete v95 evidence is archived outside build.
+Latest physical run: v96 release `6f0426100438a6bc`, source `8f447183`,
+session `session-00065ecbdbf4e83a-00`. All eight distinct receive submissions
+completed normally during1.411525s of the up-to10s/count-eight window. Five
+beacons produced two private channel1 AP rows: one visible name (three
+observations), one hidden (two). Three unrelated/unsupported entries were
+excluded; no malformed/channel-mismatch rejection or empty completion occurred.
+All18 discovery ownership checks, whole prior initialization/power-on proof,
+parent MAC cleanup, exact endpoint stop/six guards, full saved prefix and
+Ubuntu/filesystem recovery checks passed. This accepts bounded fixed-channel1
+AP-table observation on this named release. Identifiers remain unlogged;
+physical BSSID deduplication/identity, authentication, sustained reception,
+FCS/RSSI/RF quality and a user-visible list remain separate. V96 stays installed;
+accepted v95/v93 and e47 previous recovery are preserved. Workspace unmounted,
+one-shot consumed, no reboot armed. Next: bounded multi-channel passive discovery
+with explicit retuning/cleanup proof before network selection, association/
+security and IP/UI. Original strict helper stays unchanged; RF0:6 semantics
+remain unresolved. Full evidence is archived outside build.
 
 Validated native discovery candidate (2026-10-27): actual main `6b6d2f4d` merges PR203
 Air screenshot evidence only; open PR182 owns filesystem imports, no MT76
@@ -9253,3 +9252,40 @@ v96 FIRST with `discovery-native/collect_return.py`, including whole prior proof
 window item outcomes, discovery counts/metadata, fresh stopped-context ownership,
 full prefix/completion, four retained payloads and offline filesystem/allocation.
 No AP or connectivity acceptance is claimed until actual results are reviewed.
+
+
+### 2026-10-27 — v96 native fixed-channel private AP table observed
+
+Release `6f0426100438a6bc`, source `8f447183`, session
+`session-00065ecbdbf4e83a-00` reached the eight-buffer count bound after26022
+polls/1411525us, before the10s deadline. All eight completions were CC13 and
+observed during the window; no early event, ignored event or pending final
+request. Actual byte counts in order:312,276,312,196,196,196,312,276. Each
+buffer/TRB stayed distinct and retained. Only the first bounded RX entry was
+inspected after parent cleanup, exact endpoint stop and six guards.
+
+Five valid channel1 beacons (interval100, privacy/RSN advertised, WPA absent)
+produced two private rows: a visible three-byte name with three observations,
+and a hidden empty name with two. No probe responses or name/security conflicts
+were observed. One unsupported RX entry and two probe requests account for the
+three unrelated inputs; no rejected or empty input. All18 fresh native discovery
+ownership checks passed. No BSSID, name bytes, payload or raw signal values were
+logged. Redacted row metadata does not independently establish BSSID identity/
+deduplication or unique radio frames. This accepts the bounded channel1 native
+AP-table observation, not a multi-channel scan, security validation or connection.
+
+Whole earlier initialization, reversible observation and five fixed power-on
+commands passed. Parent MAC cleanup completed54operations/46reads/7writes/1wait,
+10031us hold, TX1/RX7 drains, MAC disable and filter/TXOP restoration. Host wait1us;
+final normal completion had3820 remaining/276 actual bytes, then exact stop and
+all six guards. No DMA reuse or network data OUT. Full553572-byte startup prefix within
+the1MiB capacity and both completion markers passed the strict checker.
+
+Ubuntu default, consumed one-shot and current/e47/v95/v93 payload equality were
+verified. Offline workspace:340files,842clusters,143directories; zero leaks,
+bitmap mismatches or errors. Workspace unmounted, no reboot armed. Full raw
+collection, exact counts/metadata, strict proof and recovery evidence are kept
+outside build in `wifi-discovery-native-8f44718`. Next: explicit bounded
+multi-channel passive discovery with independently tested retuning and cleanup,
+then network selection, association/security and IP/UI. RF0:6 remains unresolved;
+no sustained reception, FCS, calibrated RSSI or RF-performance claim is added.

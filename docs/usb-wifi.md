@@ -4981,3 +4981,40 @@ v96 FIRST with `discovery-native/collect_return.py`, including whole prior proof
 window item outcomes, discovery counts/metadata, fresh stopped-context ownership,
 full prefix/completion, four retained payloads and offline filesystem/allocation.
 No AP or connectivity acceptance is claimed until actual results are reviewed.
+
+
+### 2026-10-27 — v96 native fixed-channel private AP table observed
+
+Release `6f0426100438a6bc`, source `8f447183`, session
+`session-00065ecbdbf4e83a-00` reached the eight-buffer count bound after26022
+polls/1411525us, before the10s deadline. All eight completions were CC13 and
+observed during the window; no early event, ignored event or pending final
+request. Actual byte counts in order:312,276,312,196,196,196,312,276. Each
+buffer/TRB stayed distinct and retained. Only the first bounded RX entry was
+inspected after parent cleanup, exact endpoint stop and six guards.
+
+Five valid channel1 beacons (interval100, privacy/RSN advertised, WPA absent)
+produced two private rows: a visible three-byte name with three observations,
+and a hidden empty name with two. No probe responses or name/security conflicts
+were observed. One unsupported RX entry and two probe requests account for the
+three unrelated inputs; no rejected or empty input. All18 fresh native discovery
+ownership checks passed. No BSSID, name bytes, payload or raw signal values were
+logged. Redacted row metadata does not independently establish BSSID identity/
+deduplication or unique radio frames. This accepts the bounded channel1 native
+AP-table observation, not a multi-channel scan, security validation or connection.
+
+Whole earlier initialization, reversible observation and five fixed power-on
+commands passed. Parent MAC cleanup completed54operations/46reads/7writes/1wait,
+10031us hold, TX1/RX7 drains, MAC disable and filter/TXOP restoration. Host wait1us;
+final normal completion had3820 remaining/276 actual bytes, then exact stop and
+all six guards. No DMA reuse or network data OUT. Full553572-byte startup prefix within
+the1MiB capacity and both completion markers passed the strict checker.
+
+Ubuntu default, consumed one-shot and current/e47/v95/v93 payload equality were
+verified. Offline workspace:340files,842clusters,143directories; zero leaks,
+bitmap mismatches or errors. Workspace unmounted, no reboot armed. Full raw
+collection, exact counts/metadata, strict proof and recovery evidence are kept
+outside build in `wifi-discovery-native-8f44718`. Next: explicit bounded
+multi-channel passive discovery with independently tested retuning and cleanup,
+then network selection, association/security and IP/UI. RF0:6 remains unresolved;
+no sustained reception, FCS, calibrated RSSI or RF-performance claim is added.
