@@ -58,6 +58,7 @@ int main(void) {
     assert(!syscall_io_safe(&frame));console_fd=true;assert(syscall_io_safe(&frame));
     frame.rax=SYS_WRITE;frame.rdi=1;assert(syscall_io_safe(&frame));
     console_fd=false;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_DIRECTORY;frame.rdi=SRV_DIRECTORY_READ_INFO;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_POINTER_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_STATUS;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_CONTROL;assert(syscall_io_safe(&frame));

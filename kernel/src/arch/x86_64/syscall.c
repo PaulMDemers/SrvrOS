@@ -2711,6 +2711,14 @@ bool syscall_io_safe(const struct isr_frame *frame) {
 }
 
 static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
+    if(operation==SRV_DIRECTORY_READ_INFO) {
+        struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
+        if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0]))return SRV_ERR_INVAL;
+        if(!out || !user_buffer_ok(out,capacity,true))return SRV_ERR_FAULT;
+        int64_t count=process_directory(operation,fd,entries,capacity);
+        if(count<=0)return count;
+        return copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+    }
     if(operation==SRV_DIRECTORY_CHDIR) return process_directory(operation,fd,NULL,0);
     union { struct srv_dirent entry; char path[MAX_PATH_LENGTH]; } result;
     uint64_t size=operation==SRV_DIRECTORY_READ?sizeof(result.entry):MAX_PATH_LENGTH;
