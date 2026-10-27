@@ -3660,3 +3660,28 @@ record. PR182 touches process filesystem operations, not the pipe transfer path;
 PR19 remains Wi-Fi. Publish the narrow change and validate matched builds,
 core/desktop and exact native-stage VM before self-merge and an automatic native
 rerun under the user's existing explicit authorization. No new reboot is armed.
+
+### Bounded screenshot transfer candidate validated (2026-10-26)
+
+Source `69226122` retains the existing 4096-byte atomic pipe bound and four-chunk
+UI poll budget. The kernel admits only nonblocking byte transfers with no rights
+release or broken-pipe signal; cleanup, PTY, large/blocking request, user-memory,
+same-process and retirement exclusions remain. The screenshot worker uses bounded
+nonblocking requests and readiness waits. No integrity checks or limits changed.
+
+Matched builds, the full core/desktop host suite, targeted admission/transport
+regressions, ordinary screenshot VM (exact immutable pixels, durable readback,
+notification/Preview and clean exit) and pipe VM (100,000-line persisted checksum
+and early-reader exit) pass. The loaded 400-write-IOPS VM passes 112 verified bursts,
+14 app cycles and zero audio underruns/errors. Worst loop is 172.611 ms, ready
+1.443386 s, close 5.907184 s and post-capture Files cycle 0.806321 s; all existing
+limits pass. Capture total improves from 53.219710 to 38.075712 s; pixel receipt
+improves from 49.307799 to 7.681562 s. Both verification passes remain enabled and
+now occur during active disk load. All 66 prior files survive; allocation is clean.
+
+Exact native payload `39d73c7da8c8ab69` passes Q35 hardware refusal, log save,
+unmount and automatic return. The automatic native rerun is `d0a0deb29df04c74`,
+with three captures over 30 minutes and the unchanged audio/disk/app workload.
+Its record retains the 414-file USB baseline, original recovery and durable
+payload/evidence backup. Native latency improvement remains pending that return;
+the older inability to launch/exit is not claimed fixed by this VM result.
