@@ -4285,7 +4285,7 @@ separate work.
 Base `108969f7` includes the collected supervisor-wait acceptance. Add explicitly
 opted-in CPU0 core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 residency reads for
 this captured 06_45 CPU, guarded by the existing native power gate and invariant
-TSC support. Intel SDM Volume 4 tables 2-20 and 2-32 define the counters; capture
+TSC support. Intel SDM Volume 4 tables 2-20 and 2-31 define the counters; capture
 this unit's Linux read-only baseline before admitting them. Other CPU profiles
 retain their existing five-register power telemetry, with residency unavailable.
 
@@ -4366,3 +4366,65 @@ allocation checks report zero leaks, mismatches or errors. Collected evidence
 and current/recovery payloads are hash-verified in durable storage outside
 `build`. The automatic collector is disabled, GRUB's one-shot entry is consumed
 and no further reboot is armed. Ubuntu remains the default recovery OS.
+
+### Idle entry and firmware audit — active scope (2026-10-27)
+
+Base `51f8b39b` includes the collected residency run. Audit the unchanged CPU0
+`sti; hlt; cli` readiness/idle path and add capture-only entry/return/readiness
+counters with generation-safe start/stop. Read only the captured 06_45 E2 package
+C-state configuration register at capture boundaries, and retain raw CPUID
+MONITOR/MWAIT capability information. No control writes, MWAIT activation,
+secondary-CPU startup, polling/cadence, watchdog or limit changes. No MP request
+exists in the current Limine boot path; other cores' live state remains unknown.
+
+Touch scheduler diagnostic accounting, power capture/service regressions, strict
+saved-record validation and this unit's guides. Preserve the existing v35
+30-second idle/load/recovery workload, 24-record capacity, 64 KiB log tail,
+ten-second coverage minimum, thermal/fan stops and USB integrity checks. PR182
+filesystem work touches other scheduler-adjacent process paths; PR19 owns Wi-Fi.
+Neither currently changes this idle loop or power collector. Next checkpoint is
+host/VM validation, merge and the authorized automatic native run. Prior run is
+fully collected; this audit has no new hardware acceptance yet.
+
+### Idle-entry/firmware audit — candidate ready (2026-10-27)
+
+PR220 runtime `b6ffff14` retains the original readiness check and contiguous
+`sti; hlt; cli` in the compiled idle worker. Capture-only counters track entry
+attempts, returns and readiness bypasses; generation checks prevent a preempted
+return from an earlier capture polluting a new one. There are no clocks, I/O,
+allocations or printing in that idle path. Read-only E2 snapshots occur only at
+capture start/stop behind the accepted 06_45/invariant-TSC gate. No firmware
+methods, control writes, MWAIT activation or AP startup are added.
+
+Linux CPU0 inventory reads E2 `0x408`: package C10 limit, unlocked, I/O-MWAIT
+redirection enabled and zero demotion/undemotion bits. This is Linux inventory,
+not SrvrOS firmware-policy evidence. Native values and raw MONITOR/MWAIT CPUID
+capabilities are saved by the next run. No other-core live state is inferred.
+
+Full matched build/USB image, host/core and docs pass on `b6ffff14`; source
+`c888ab53` adds only the test header dependency, with final matched rebuild,
+power regression and docs passing. Scheduler regressions cover inactive/nested
+capture, ready bypass, HLT path, delayed return across stop/restart and epoch
+exhaustion. Driver tests cover exact model-gated E2 reads, failed/nested capture,
+restart and cached records. Ten collector tests pass, including generation/
+timestamp pairing, monotonic counts, one outstanding return, missing/malformed
+records, changed configuration and unknown limits. All twelve existing load
+safety refusal/stop cases remain passing. Power/load VMs verify default-disabled
+and unsupported-hypervisor refusal.
+
+Exact v35 release `6b1f017332e0931b` passes GPT save/unmount/automatic return and
+missing-workspace halt. Run `49fe4e29d5ed450a` uses the unchanged three 30-second
+idle/load/recovery phases, with automatic Ubuntu return and strict collection.
+Required evidence includes >=10 seconds of power, residency and paired idle-entry
+coverage per phase, complete firmware audit, workload completion, file preservation
+and clean allocation. Zero HLT counts or changed firmware values remain explicit
+observations; they are not concealed or reinterpreted as deeper-state acceptance.
+All power policies, cadence, time/capacity limits, thermal stops, watchdogs and
+integrity checks remain unchanged. No human input is needed; keep AC/USB connected.
+
+USB preflight preserves 520 files / 1,567 allocated clusters with zero leaks,
+mismatches or errors. The old `a5f8fdf5d377c116` EFI copy was retired only after
+verifying its durable backup; accepted residency `ed06103a5275d7ca`, desktop,
+stress, attended reopen and console recovery payloads remain protected. Exact
+payload/evidence/run records are backed up outside `build` before reboot. Ubuntu
+stays the default. Native idle-entry/firmware audit acceptance remains pending.

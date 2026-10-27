@@ -413,7 +413,31 @@ static void test_private_image_scope(void) {
     puts("private-image-io: PASS caller sibling service, target/unsafe exclusion, inherited/foreign refusal and exact restoration");
 }
 
+static void test_idle_audit(void) {
+    struct scheduler_idle_audit out;
+    assert(!scheduler_idle_audit_start());
+    initialized=true;idle_thread=1;current_thread=1;
+    threads[1].state=THREAD_RUNNING;
+    idle_step();scheduler_idle_audit_snapshot(&out);assert(!out.epoch && !out.enters);
+    assert(scheduler_idle_audit_start() && !scheduler_idle_audit_start());
+    idle_step();scheduler_idle_audit_snapshot(&out);assert(out.epoch==1 && out.enters==1 && out.returns==1 && !out.ready);
+    threads[0].state=THREAD_READY;switching=true;idle_step();switching=false;
+    scheduler_idle_audit_snapshot(&out);assert(out.ready==1 && out.enters==1 && out.returns==1);
+    threads[0].state=THREAD_UNUSED;
+    uint64_t pending=idle_audit_enter();scheduler_idle_audit_stop(&out);
+    assert(out.enters==2 && out.returns==1);
+    idle_audit_return(pending);idle_step();scheduler_idle_audit_snapshot(&out);assert(out.enters==2 && out.returns==1);
+    assert(scheduler_idle_audit_start());idle_audit_return(pending);
+    scheduler_idle_audit_snapshot(&out);assert(out.epoch==2 && !out.enters && !out.returns);
+    idle_step();scheduler_idle_audit_stop(&out);assert(out.enters==1 && out.returns==1);
+    idle_audit.epoch=UINT64_MAX;assert(!scheduler_idle_audit_start());
+    idle_audit=(struct scheduler_idle_audit){0};idle_thread=UINT64_MAX;current_thread=0;initialized=false;
+    memset(threads,0,sizeof(threads));
+    puts("idle-audit: PASS opt-in, nested refusal, ready bypass, HLT path, pending return across stop/restart, epoch exhaustion; no policy changes");
+}
+
 int main(void) {
+    test_idle_audit();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();

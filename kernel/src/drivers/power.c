@@ -13,6 +13,9 @@ static unsigned capture_count;
 static bool capturing,capture_overflow;
 static uint64_t capture_last;
 static struct scheduler_wait_queue wake;
+static uint32_t idle_monitor, idle_leaf1_b, idle_leaf5[4];
+static uint64_t idle_config_start;
+static bool idle_auditing;
 #ifdef SRVROS_POWER_HOST_TEST
 static uint64_t lock(void) { return 0; }
 static void unlock(uint64_t flags) { (void)flags; }
@@ -42,6 +45,7 @@ static void sample(void) {
         idle.tsc_end=read_msr(0x10);power_idle_sample(&snapshot.idle,idle);
     }
     if(capturing && (raw.us<capture_last || raw.us-capture_last>=5000000)) {
+        if(idle_auditing) scheduler_idle_audit_snapshot(&snapshot.idle_entry);
         if(capture_count<POWER_CAPTURE_CAPACITY) capture[capture_count++]=snapshot;
         else capture_overflow=true;
         capture_last=raw.us;
@@ -59,7 +63,7 @@ void power_init(void) {
     uint32_t max,b,c,d,vb,vc,vd,sig,fc,fd,a;
     cpuid(0,&max,&vb,&vc,&vd);
     if(max<6 || !timer_reference_ready()) goto done;
-    cpuid(1,&sig,&b,&fc,&fd);cpuid(6,&a,&b,&c,&d);
+    cpuid(1,&sig,&b,&fc,&fd);idle_leaf1_b=b;cpuid(6,&a,&b,&c,&d);
     if(!power_cpu_supported(vb,vd,vc,sig,fc,fd,c)) goto done;
     uint64_t units=read_msr(0x606),platform=read_msr(0xce);
     if(!power_configure(&snapshot,units,platform)) goto done;
@@ -67,7 +71,11 @@ void power_init(void) {
     cpuid(0x80000000,&ext,&b,&c,&d);
     if(ext>=0x80000007) {
         cpuid(0x80000007,&a,&b,&c,&ed);
-        if(power_idle_supported(sig,ed)) snapshot.idle.supported=POWER_IDLE_MASK;
+        if(power_idle_supported(sig,ed)) {
+            snapshot.idle.supported=POWER_IDLE_MASK;
+            idle_monitor=(fc>>3)&1;
+            if(idle_monitor) cpuid(5,&idle_leaf5[0],&idle_leaf5[1],&idle_leaf5[2],&idle_leaf5[3]);
+        }
     }
     sample();
     if(scheduler_spawn_io_service("power",worker,0,due)) snapshot.state=POWER_ACTIVE;
@@ -104,6 +112,10 @@ void power_print_status(void) {
 bool power_capture_start(void) {
     uint64_t f=lock();
     if(capturing || snapshot.state!=POWER_ACTIVE) { unlock(f);return false; }
+    if(snapshot.idle.supported) {
+        if(!scheduler_idle_audit_start()) { unlock(f);return false; }
+        idle_config_start=read_msr(0xe2);idle_auditing=true;
+    }
     capture_count=0;capture_overflow=false;capture_last=timer_monotonic_us();
     capturing=true;unlock(f);return true;
 }
@@ -111,10 +123,16 @@ void power_capture_stop(void) {
     uint64_t f=lock();
     if(!capturing) { unlock(f);return; }
     capturing=false;unsigned count=capture_count;bool overflow=capture_overflow;
+    bool audited=idle_auditing;struct scheduler_idle_audit final={0};uint64_t config_end=0;
+    if(audited) { scheduler_idle_audit_stop(&final);config_end=read_msr(0xe2);idle_auditing=false; }
     unlock(f);
     /* The bootstrap caller owns start/stop; sampling cannot modify these
      * records after stop. Printing happens outside the IRQ-masked scope and
      * outside the measured phases, before workspace_log_stop persists them. */
+    if(audited) {
+        console_printf("cpu-idle-audit: version=1 entry=sti-hlt-cli policy_writes=0 managed_cpus=1 other_cpus_known=0 monitor=%u leaf1_b=%u leaf5_a=%u leaf5_b=%u leaf5_c=%u leaf5_d=%u e2_start=%u e2_end=%u epoch=%u enters=%u returns=%u ready=%u\n",
+            (uint64_t)idle_monitor,(uint64_t)idle_leaf1_b,(uint64_t)idle_leaf5[0],(uint64_t)idle_leaf5[1],(uint64_t)idle_leaf5[2],(uint64_t)idle_leaf5[3],idle_config_start,config_end,final.epoch,final.enters,final.returns,final.ready);
+    }
     console_printf("cpu-load-power: retained=%u overflow=%u\n",(uint64_t)count,(uint64_t)overflow);
     for(unsigned i=0;i<count;i++) {
         const struct power_snapshot *s=&capture[i];
@@ -122,5 +140,6 @@ void power_capture_stop(void) {
             (uint64_t)s->state,(uint64_t)s->flags,(uint64_t)s->energy_shift,s->package_mw,s->active_mhz,(uint64_t)s->nominal_mhz,
             s->package_uj,s->sampled_us,s->interval_us,s->samples,s->rejected,s->raw.energy,s->raw.aperf,s->raw.mperf,s->sampled_us);
         if(s->idle.supported) print_idle("cpu-load-idle",&s->idle);
+        if(audited) console_printf("cpu-idle-entry: sample_us=%u epoch=%u enters=%u returns=%u ready=%u\n",s->sampled_us,s->idle_entry.epoch,s->idle_entry.enters,s->idle_entry.returns,s->idle_entry.ready);
     }
 }

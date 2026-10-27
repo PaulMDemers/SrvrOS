@@ -4,6 +4,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/idle_audit.h>
 #include <srvros/scheduler_abi.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
@@ -984,21 +985,47 @@ void scheduler_snapshot(struct scheduler_stats *out) {
 
 static bool idle_eligible(void *arg) { (void)arg;return true; }
 
+static struct scheduler_idle_audit idle_audit;
+static bool idle_audit_active;
+bool scheduler_idle_audit_start(void) {
+    uint64_t flags=irq_save();
+    if(idle_audit_active || !initialized || idle_thread>=thread_capacity || idle_audit.epoch==UINT64_MAX) {
+        irq_restore(flags);return false;
+    }
+    idle_audit=(struct scheduler_idle_audit){.epoch=idle_audit.epoch+1};
+    idle_audit_active=true;irq_restore(flags);return true;
+}
+void scheduler_idle_audit_snapshot(struct scheduler_idle_audit *out) {
+    uint64_t flags=irq_save();*out=idle_audit;irq_restore(flags);
+}
+void scheduler_idle_audit_stop(struct scheduler_idle_audit *out) {
+    uint64_t flags=irq_save();idle_audit_active=false;*out=idle_audit;irq_restore(flags);
+}
+static uint64_t idle_audit_enter(void) {
+    if(!idle_audit_active) return 0;
+    idle_audit.enters++;return idle_audit.epoch;
+}
+static void idle_audit_return(uint64_t epoch) {
+    if(idle_audit_active && epoch && epoch==idle_audit.epoch) idle_audit.returns++;
+}
+static void idle_step(void) {
+    uint64_t flags=irq_save();
+    if(has_ready_thread_except(current_thread)) {
+        if(idle_audit_active) idle_audit.ready++;
+        irq_restore(flags);scheduler_yield();return;
+    }
+    /* The diagnostic does not change the readiness check or STI shadow.
+     * No clocks, I/O, allocation or printing in this IRQ-masked path. */
+    uint64_t epoch=idle_audit_enter();
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile("sti; hlt; cli":::"memory");
+#endif
+    idle_audit_return(epoch);
+    irq_restore(flags);
+}
 static void idle_worker(void *arg) {
     (void)arg;
-    for (;;) {
-        uint64_t flags=irq_save();
-        if(has_ready_thread_except(current_thread)) {
-            irq_restore(flags);scheduler_yield();continue;
-        }
-        /* STI's interrupt shadow makes the readiness check + HLT atomic with
-         * respect to interrupt wakeups. The idle thread touches no I/O state
-         * and can also run while a storage owner is waiting for service. */
-#ifndef SRVROS_SCHEDULER_HOST_TEST
-        __asm__ volatile("sti; hlt; cli":::"memory");
-#endif
-        irq_restore(flags);
-    }
+    for(;;) idle_step();
 }
 
 bool scheduler_start_idle_worker(void) {
