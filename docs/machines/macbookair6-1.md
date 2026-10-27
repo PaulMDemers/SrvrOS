@@ -4197,3 +4197,43 @@ its file I/O, allocation or storage-admission implementation. PR19 owns Wi-Fi.
 Validate host/core, complete power/control VMs and exact-stage refusal, merge,
 then repeat the unchanged automated v78 power trial. Native improvement remains
 pending until matching returned evidence is collected.
+
+
+### Event-driven battery supervisor — validated candidate (2026-10-27)
+
+Runtime `d1eaeec8` replaces only ordinary lifetime-owned session polling with
+process/control/ownership notifications and the original absolute deadline.
+The read-only wait shares process ownership predicates without reaping. Accepted
+control publication and legal mount-hold invalidation notify after their state
+changes. Existing mount immutability, native ownership checks, firmware/IRQ
+watchdogs, diagnostic capture loops and retirement limits remain unchanged.
+
+Full core/build tests and the new host ownership/race/deadline/mount tests pass.
+At source `13725b56`, the ordinary Home VM passes two actual System Stop/Start
+cycles (four dispatched requests, three clean epochs), file persistence and
+reopen. The automatic reopen VM passes both 20-second deadlines. The identical
+power recipe passes 12 app cycles, 445,159 us worst UI loop, 532,512 us readiness
+and 582,337 us close. Bootstrap has zero switches/timeouts/signals during covered
+idle and recovery, with 22 event wakes and zero timeouts during app work.
+
+The 60-second audio/disk/app/screenshot VM passes at 1% volume with 378 verified
+bursts / 99,090,432 bytes, 26 app cycles, one capture, follow-up Files, normal
+exit and zero underruns. Worst loop is 329,981 us, readiness 1,011,293 us and
+close 550,023 us. Prior files and offline allocation pass. Two earlier guest
+completions lacked complete timing evidence after UART interleaving and disk
+rotation; they remain incomplete evidence. Host-only commit `153c75fb` retains
+six already-flushed disk checkpoints by identical double reads and matching
+generation, without pausing or writing to the guest. All validators and limits
+are unchanged, and the passing run supplies complete timing records.
+
+Stage `aa576838270d623a` at `153c75fb` has unchanged guest payload hashes from
+those control/deadline tests. Exact GRUB/staged-Limine Q35 rehearsal passes native
+profile refusal, unmount and automatic return; it cannot accept native telemetry.
+Run `03633a2df1e14db2` repeats v78 against accepted `cb881058052a1012`, with the
+493-file / 1,538-cluster baseline and local UUID `6ADA-85BB`. Keep AC/USB connected;
+no input is needed. Ubuntu and console recovery `c35475f62f154f1e` are retained.
+The superseded original desktop-power EFI copy `1d1cbd1cb03d3032` may be removed
+only after verifying its durable backup; the latest accepted power, console,
+CPU-power, stress and attended-reopen payloads remain protected. Save/install
+verification and automatic collection records before arming. Native supervisor
+wakeup/power comparison is pending; no energy savings are claimed.
