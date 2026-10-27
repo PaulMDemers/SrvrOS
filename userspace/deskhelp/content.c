@@ -226,7 +226,7 @@ const struct help_topic help_topics[]={
  TOPIC(14,"sketch","Sketch","Drawing · brushes · color · BMP copies",DESK_APP_SKETCH,sketch_guide),
  TOPIC(15,"network","Network Utility","Ping · DNS lookup · reports · connectivity",DESK_APP_NETWORK,network_guide),
  TOPIC(17,"laptop-trial","Laptop trial","MacBook Air · physical acceptance · checklist",0,laptop_trial),
- TOPIC(21,"audio-io-attended","Desktop under automatic load","Audio · verified USB work · windows · dock · manual exit",0,audio_io_attended),
+ TOPIC(22,"audio-io-attended","Desktop under automatic load","Audio · verified USB work · windows · dock · manual exit",0,audio_io_attended),
  TOPIC(20,"window-dock-trial","Window movement and dock trial","Offscreen movement · running apps · restore · cycle",0,window_dock_trial),
  TOPIC(19,"lifecycle-trial","Application lifecycle trial","Owned dialogs · save · close · quit · reopen",0,lifecycle_trial),
  TOPIC(18,"runtime-trial","Runtime trial","Window growth · independent documents · cancellation · acceptance",0,runtime_trial),
