@@ -7,6 +7,11 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+Installed candidate: v100 `a7bc67f2d057e7d8`, source `2847cb05`, main `a3066f87`.
+The fixed three-channel passive pilot passes local/sanitizer and exact-stage VM
+checks; native acceptance is pending. Ubuntu remains default, workspace is
+unmounted and reboot is unarmed. Collect matching v100 FIRST after its trial.
+
 Latest physical run: v99 `995dd64ae6135add`, source `87144160`, integrated main
 `fbb6eaa5`, session `session-00065ed6f4d568a5-00`. A fresh single-IN channel6
 receive decoded one beacon after 93435 us, then independently retired MAC/RX
@@ -9887,3 +9892,49 @@ receive allocation-failure loop left its fake allocation ceiling at zero.
 It now restores its caller's ceiling, and the scan tests use the actual mode78
 selector; window allocation/refusal coverage includes mode78. The production
 allocator and hardware admission gates are unchanged.
+
+
+### 2026-10-27 — v100 three-channel passive candidate installed, unarmed
+
+Release `a7bc67f2d057e7d8`, source `2847cb05`, consumes actual main `a3066f87`.
+The fixed US1/6/11,20MHz pilot uses one new retained ring/page per visit and
+independent MAC retirement, endpoint stop and channel1 restoration between
+visits. The complete merged image/core/desktop suite passes, including actual
+mode78, shared window allocation/refusal and the combined receive-to-scan
+fixture handoff. Final ASan/UBSan passes115 native scan cases,356 older native
+receive cases and215 private collector cases. Staging passes188 tests;198
+v1–v99 Wi-Fi recipes and desktop76/77/78 recipes remain unchanged. Fifty-two
+diagnostic format strings match argument counts.
+
+The complete log checker accepts102 whole valid prior/RX/VCO/private-row
+outcomes; its representative full prefix is778379 bytes within1MiB. It checks
+the shared initialization once and independently projects all three frequency/
+VCO/RX/stop/restore traces. Negative tests isolate each exact visit, plus whole
+parent marker failures, and reject455 malformed proofs. Private row channel
+masks partition the observed beacon visits; counts, name visibility, advertised
+security and conflict metadata are constrained by those observations. Redacted
+records cannot independently prove physical BSSID identity/deduplication. Initial
+adjacent-marker and parent-proof extraction mistakes were corrected; the test's
+invalid hold sentinel was changed to9999 us, below the10000-us requirement.
+A longer measured hold is not automatically a malformed record. Original
+refusals and both corrected validation receipts are retained.
+
+The committed-source kernel and independently firmware-packaged initramfs
+match the stage. Exact-stage GPT VM saved/byte-verified logs, unmounted and
+returned; missing workspace refused probing and returned. QEMU validates this
+workflow, not the Wi-Fi radio. Installation verified all seven current/e47/
+v99/v98/v97/v96/v95 payloads against durable copies. To preserve the installer
+margin, unreferenced v93 `6fcb4fe992b35b78` was removed from ESP only after full
+payload equality to its retained `wifi-passive-rx-774e9e9` backup. Ubuntu and
+the newer accepted recovery payloads remain retained. Offline checks report349
+files,880 clusters,146 directories, zero leaks, bitmap mismatches or errors.
+
+Full source/reference/local/VM/proof/install evidence and payload are retained
+outside build in `wifi-scan-native-2847cb0`. V99 remains the latest native
+acceptance. Next: after cold-cycle readiness, power off, unplug only Wi-Fi for
+10 seconds, reconnect and power on; leave the workspace drive connected. Guest
+progress, saved results and automatic Ubuntu return need no photos or commands.
+Collect matching v100 FIRST on return; require all three independently stopped/
+restored visits and complete-prefix proof before acceptance. Quiet visits do
+not establish reception. Association/security, authorized IP and Wi-Fi UI remain
+pending. Workspace unmounted, Ubuntu default, no reboot armed.
