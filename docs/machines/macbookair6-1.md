@@ -3968,3 +3968,32 @@ collection. USB baseline is 443 files / 1,485 clusters with clean allocation.
 The older stress payload's EFI copy was retired only after durable hash
 verification; latest accepted stress `012aaffda0be860b`, console recovery and
 current installed payload remain protected. Native repeat acceptance is pending.
+
+### CPU power phase logging — bounded native acceptance (2026-10-27)
+
+Release `a5f8fdf5d377c116`, runtime `e7a41714`, merged PR210 `e283eecb`,
+completed session `session-00065ed4d4558b8e-00` and returned automatically to
+Ubuntu. All three 30-second phases completed, including 250,682 load chunks.
+Seventeen retained checkpoints have both validity flags, zero rejected samples
+and no overflow. The full final log fits within the unchanged 64 KiB tail.
+
+| Phase | Covered interval | Checkpoints | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- |
+| Idle | 20.000003 s | 7 | 4.128 W | 1,288 MHz |
+| Single-worker load | 25.000003 s | 7 | 5.161 W | 1,299 MHz |
+| Recovery | 25.000004 s | 9 | 4.107 W | 1,290 MHz |
+
+Coverage combines retained and ordinary workspace checkpoints inside each phase.
+Every phase satisfies the unchanged ten-second minimum. Peak logged core/package
+temperatures are 64/66 C; the fan spans 1,938–2,589 RPM. No diagnostic thermal
+stop occurred. This accepts bounded read-only package energy and CPU0 active
+frequency, plus the phase logging fix, on this unit. It does not accept CPU/fan
+policy changes, equilibrium power, battery-life predictions, multi-core stress
+or savings against earlier differently instrumented trials. Ordinary desktop
+power telemetry remains opt-in and is not enabled by ordinary staging.
+
+All 443 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 447 files / 1,490 clusters. Offline fsck/allocation
+pass with zero leaks, mismatches or errors. Matching evidence and the payload
+are hash-verified outside `build`. The collector is disabled and the one-shot
+entry consumed; no reboot is armed. Ubuntu and console recovery remain intact.

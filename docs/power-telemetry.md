@@ -718,3 +718,20 @@ truncated or overflowed captures cannot supply phase power. The 24-row bound is
 not extended if a diagnostic stalls. The ordinary ten-second USB logging cadence,
 30/30/30-second phases and all thermal stops remain unchanged. This instrumentation
 changes the capture baseline; do not infer savings by comparing it to an older run.
+
+### Accepted Air6,1 idle/load/recovery capture
+
+Release `a5f8fdf5d377c116` (`e7a41714`, PR210), session
+`session-00065ed4d4558b8e-00`, completed the automatic 30/30/30-second trial on
+October 27. Seventeen retained checkpoints had valid energy/frequency flags,
+zero rejected samples and no overflow. Combining them with ordinary workspace
+checkpoints gives 20.000003 seconds of idle coverage (4.128 W / 1,288 MHz),
+25.000003 seconds of load (5.161 W / 1,299 MHz), and 25.000004 seconds of recovery
+(4.107 W / 1,290 MHz). All satisfy the unchanged ten-second minimum.
+
+The single-worker load completed 250,682 chunks; peak logged package temperature
+was 66 C without a diagnostic stop. The final report, automatic Ubuntu return,
+prior-file preservation and offline allocation checks passed. This accepts the
+bounded read-only telemetry and checkpoint capture on this Air6,1, not CPU/fan
+controls, equilibrium or whole-machine power, or an energy-saving comparison.
+Ordinary staging still leaves power telemetry disabled.
