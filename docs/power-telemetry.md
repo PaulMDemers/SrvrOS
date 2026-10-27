@@ -953,4 +953,30 @@ outstanding return, and the existing ten-second phase coverage. A configuration
 change is explicitly reported, not normalized away. Valid zero entry counts are
 diagnostic evidence, not a fabricated failure/pass for deep-state support.
 The native trial also requires all existing power/residency, completion, file
-preservation and offline allocation proofs. No native audit acceptance yet.
+preservation and offline allocation proofs. Native acceptance is recorded below.
+
+
+### Native idle-entry/firmware audit result (2026-10-27)
+
+Air6,1 release `6b1f017332e0931b`, session `session-00065ed949956fde-00`, completed
+all three unchanged 30-second phases and returned automatically. Paired retained
+coverage gives 2,378 HLT entries/returns over 23.999235 seconds idle, zero over
+22.999267 seconds load, and 2,371 over 23.999234 seconds recovery. All ten raw
+core/package deeper-state counters remain zero. This establishes that the existing
+HLT path is reached; it does not measure C0/C1 or time asleep.
+
+E2 is unchanged at `0x408` at capture start/stop: the package-limit field permits
+C10 and is unlocked, with I/O-MWAIT redirection enabled. That field alone does
+not explain the absence of deeper residency. MONITOR capability is advertised,
+but the current kernel uses HLT and other cores' live state remains unknown.
+No firmware, scheduler power policy, cadence or limits changed. Package power
+averages 4.147/5.174/4.139 W across covered idle/load/recovery intervals; these
+short measurements do not establish savings or battery-life behavior.
+
+All coverage/completion, prior-file preservation and offline filesystem checks
+pass. The 65,290-byte exit log fits the unchanged 64 KiB tail with little spare
+space; account for that before adding diagnostics. See the
+[unit record](machines/macbookair6-1.md#idle-entryfirmware-audit--bounded-native-acceptance-2026-10-27)
+for exact counts, intervals, evidence identity and remaining work. Boot-time
+secondary-core state and prerequisites for a separately authorized deeper-idle
+experiment remain open.
