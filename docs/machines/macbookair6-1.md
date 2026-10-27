@@ -3542,3 +3542,45 @@ VM after refusal; it does not claim automatic native return or native acceptance
 Candidate `7b650985` integrates PR198 (`0c63e679`). Matched regular/native/fixture kernels and userspace, `test-core`, `test-desktop`, and 83 staging/profile host checks pass. The loaded attended Q35 fixture at 400 write IOPS completes 60 seconds of PCM with zero underruns and 112 verified bursts (29,360,128 bytes). Its worst loop is 209.724 ms across 1,010 samples, with no over-limit/invalid measurements. It verifies exact Text bytes, completion without forced exit, unsaved Cancel, normal retirement, all 66 prior files and clean allocation. The early-exit fixture correctly refuses completion. Window/dock and navigation VMs restore their process baseline and pass; these synthetic results do not accept physical keyboard/trackpad behavior.
 
 The unchanged automatic populated-Home stress fixture also passes: 20 app cycles, 116 verified bursts, zero underruns/errors, worst loop 339.537 ms, readiness 1.291386 s and close 1.500975 s. Exact v77 payload `ab8cbaa369d74d28` passes the UEFI native-profile refusal rehearsal with console unmount; native evidence remains pending. The complete guest checklist includes fresh Text files/notes, two screenshots, the full 30-minute load, normal exit and one ordinary `desktop battery` reopen. The local run record retains USB baseline, recovery, collector and one-shot authorization; accepted payload/evidence backups remain outside `build`.
+
+### Attended-load return: screenshot/interaction failure (2026-10-26)
+
+Release `ab8cbaa369d74d28`, compiled source `7b650985`, session
+`session-00065ec77837abe9-00` is **failed/incomplete**, not accepted. The user
+reports generally good interaction until a screenshot took about 2–3 minutes to
+appear/save, followed by inability to launch applications or exit the desktop.
+Pointer motion and menus remained responsive. There is no exit snapshot or
+confirmed battery retirement/reopen. Do not infer a whole-desktop scheduler stall
+from these symptoms or promote the trial from its audio result.
+
+The independent workload receipt completes 1,800 seconds of PCM, 345,600,000
+bytes, zero recorded underruns and worker status zero. Its 2,947 verified disk
+bursts total 772,538,368 bytes; the binary receipt matches. A 1366×768 screenshot
+(4,196,406 bytes) decodes successfully, and `load-notes.txt` survives. All 398
+prior files match except expected `.srvros/meta` bookkeeping. Offline fsck and
+allocation checks are clean: 405 files, 1,117 clusters, zero leaks/mismatches/errors.
+The collector preserves the failed run, disables itself and confirms the one-shot
+entry was consumed. Payload/evidence backups remain outside `build`.
+
+The retained periodic loop records report a 111.218 ms maximum and no over-limit
+samples, but no final loop receipt exists. The rolling logs no longer contain
+the screenshot and failed launch/exit events, so they cannot establish which
+request or worker remained pending. This is a gap in functional diagnostics,
+not evidence that the reported failure did not happen.
+
+A local disposable Q35 extension takes a screenshot during the existing
+60-second populated-Home workload at 400 write IOPS, then opens Files and requests
+normal exit with unsaved Text/Cancel/save. Screenshot completion takes 45.974 s;
+Files launch and cooperative exit work. The run nevertheless fails the unchanged
+500 ms limit with one 539.680 ms loop, including 533.053 ms rendering; clients
+exit with status zero and battery ownership retires. It does not reproduce the
+native launch/exit failure or establish its cause. An initial exploratory helper
+was interrupted after it waited for an already-consumed completion marker; that
+harness error is retained separately, not counted as an OS failure or pass.
+
+Next bounded scope: screenshot transport/save/verification timing and persistent
+pending launch/close/capture state, with automatic screenshot → app launch/close
+→ normal exit/reopen under audio/disk load. Preserve immutable capture data,
+readback/identity/flush checks, accepted-writer lifetime and all existing limits.
+Do not weaken screenshot verification or add a timeout that kills an active file
+writer. No new payload is staged or reboot armed after this return.
