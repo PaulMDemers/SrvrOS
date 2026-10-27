@@ -18,14 +18,16 @@ parent MAC cleanup, exact endpoint stop/six guards, full saved prefix and
 Ubuntu/filesystem recovery checks passed. This accepts bounded fixed-channel1
 AP-table observation on this named release. Identifiers remain unlogged;
 physical BSSID deduplication/identity, authentication, sustained reception,
-FCS/RSSI/RF quality and a user-visible list remain separate. V96 stays installed;
-accepted v95/v93 and e47 previous recovery are preserved. Workspace unmounted,
-one-shot consumed, no reboot armed. Next: bounded multi-channel passive discovery
-with explicit retuning/cleanup proof before network selection, association/
-security and IP/UI. Original strict helper stays unchanged; RF0:6 semantics
+FCS/RSSI/RF quality and a user-visible list remain separate. V97 register-preview
+candidate `4acac674194041a5`/source `f836110a` is installed; accepted v96/v95/v93
+and e47 previous recovery are preserved. Workspace unmounted, no one-shot armed.
+Next: cold-cycle readiness, then collect matching v97 FIRST with
+`channel-native/collect_return.py`. Verify exact register trace and restoration;
+this is not live tuning or multi-channel reception. Remaining RF/baseband/VCO
+and receiver lifecycle precede scan UI, selection, association/security and IP. Original strict helper stays unchanged; RF0:6 semantics
 remain unresolved. Full evidence is archived outside build.
 
-Active native register-preview block (2026-10-27): actual main `e7953352` and
+Validated native register-preview candidate (2026-10-27): actual main `e7953352` and
 open PR182 inspected; filesystem work does not overlap MT76. Add separate
 selector75/v97 after full v96 discovery, parent cleanup, exact main-RX stop and
 six guards. Bind all11 US/20MHz plans to bounded RF MCU reads/writes with exact
@@ -9426,3 +9428,42 @@ malformed variants;192 older Wi-Fi and both desktop configurations are unchanged
 All30 printf argument counts match. Existing pure preview, parser, window,
 discovery, parent and calibration/power-on C sources remain byte-identical.
 Exact-stage VM, installed recovery and native acceptance remain separate checks.
+
+
+### 2026-10-27 — v97 reversible register trial installed, unarmed
+
+Source `f836110a80cd7360f896bf70593fc7e32b513d7e`, release
+`4acac674194041a5`, v97 automatic return on actual main `e7953352`.786 actual
+native preview scenarios,289 native window/mode/allocation cases, native
+ASan/UBSan,12918 pure preview transactions,10168 discovery collections,246 window
+cases,184 staging tests and full merged core/image/desktop pass. Strict checks
+accept15 whole outcomes and refuse627 malformed proofs.192 older Wi-Fi and
+both desktop recipes are unchanged;30 printf argument counts pass.
+
+Stage kernel and independently firmware-packaged initramfs match committed-source
+products; native preview/discovery/window/parser/power-on symbols link and the
+original strict calibration runner remains uncalled. Exact GPT-stage VM saved
+byte-verified diagnostics, unmounted and returned automatically. Missing workspace
+refused before probing and returned. VM results accept workflow only, not native
+register restoration or tuning. Raw earlier admission/final-gate and fixture
+failures remain archived with the successful local checks.
+
+Current v97, accepted v96/v95/v93 and e47 previous recovery match durable payloads.
+Only obsolete Ethernet candidate `1212d33f6ccf6bd4` was retired from the ESP after
+full durable file equality; its backup remains, and all accepted Wi-Fi fallbacks
+were retained. Ubuntu default and EFI order are preserved. Offline workspace:
+340files,842clusters,143directories; zero leaks, bitmap mismatches or errors.
+Workspace unmounted; no one-shot armed. Durable candidate/evidence archive:
+`wifi-channel-native-f836110`, including independently pinned frequency references.
+
+After readiness, power off, unplug Wi-Fi10s while off, reconnect and power on;
+leave workspace connected. Guest shows progress, runs the existing channel1
+observation, then previews all11 frequency plans with MAC disabled/main RX
+stopped and restores the saved13 register words. It saves results and returns
+automatically; no photos or commands. Collect matching v97 FIRST with
+`channel-native/collect_return.py`. Require the full earlier proof,2592 callback/
+732 exact RF-exchange trace,5185 ownership checks, verified saved/touched/restored
+masks and full prefix/completion/recovery/offline checks. Preserve strict refusal
+and raw collection on any failure; `collect_failure.py` records failure/incomplete
+evidence without promoting acceptance. A register preview is not live tuning,
+RF lock, new-channel reception, scanning or connectivity acceptance.
