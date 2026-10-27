@@ -303,8 +303,11 @@ def main():
                         # The fourth ordinary window is at (104,136), client
                         # origin (105,180), with a 500px System client. These
                         # are actual Start/Stop buttons, not injected syscalls.
+                        control_begin=consumed
                         launch('System',b'desktools: starting role=system')
-                        wait(b'deskd: opened pid=');wait(b'battery-ui: state=2 epoch=1')
+                        wait(b'deskd: opened pid=');control_end=consumed
+                        consumed=control_begin;wait(b'battery-ui: state=2 epoch=1')
+                        consumed=max(consumed,control_end)
                         pointer=[24,56]
                         def control_click(x,y):
                             time.sleep(.5)
