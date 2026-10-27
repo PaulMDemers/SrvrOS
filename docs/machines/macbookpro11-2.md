@@ -21,6 +21,19 @@ passive reception with safe endpoint rearm and teardown, then scanning,
 association/security, Wi-Fi IP traffic and UI. Original strict helper stays
 unchanged; RF0:6 semantics remain unresolved.
 
+Active offline block (2026-10-26): merged actual main `a9d69554` (PR199 Air
+attended-exit evidence only); PR182 owns filesystem imports and has no MT76
+overlap. Prepare an allocation-free bounded repeated receive engine using eight
+distinct retained4KiB buffers and non-wrapping TRB identities. Admit only one
+pending request, ignore foreign/stale events, stop on bounded count/deadline or
+failure, and inspect normal-completion bytes only after exact endpoint cessation
+and fresh cleanup ownership. Touched: new MT76 receive-window helper/header,
+host fixtures/Makefile and unit/Wi-Fi guides. Existing native v93 stays unchanged;
+no physical profile, adapter rearm or reboot in this block. Native callback
+integration and exact-stage/physical acceptance follow separately. Checkpoint:
+fault-injected ownership/event/clock/stop tests, sanitizers, core/image and
+archived evidence before publishing implementation.
+
 Active block (2026-10-26): consumed actual main `a9e39e38` (PR197 attended
 load and PR198 keyboard navigation). Resolved hardware_boot.py conflicts by
 preserving all Wi-Fi recipes plus separate desktop v76/v77 flags/validation;
