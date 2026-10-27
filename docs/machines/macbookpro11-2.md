@@ -53,7 +53,7 @@ Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity passe
 (349 files,880 clusters,146 directories, zero errors). Full evidence is archived
 outside build. No repeat run is needed.
 
-Next: bounded repeated RX per channel, then sustained discovery, selection,
+Next: native integration of the host-tested repeated-window collection, then sustained discovery, selection,
 association/security and IP/UI. Reject or drain pre-enable data without assigning
 it to the new channel. Keep separate retained RX ownership, explicit
 channel-aware parsing and independent endpoint stop/RF restoration on every
@@ -10237,3 +10237,33 @@ checkpoint after this contract is tested. No new hardware acceptance follows
 from host fixtures. Dependencies: accepted v101 pre-enable completion rejection,
 independent MAC/endpoint cessation and per-visit channel1 restoration. No new
 boot is armed; installed v101 and all recovery payloads remain retained.
+
+Repeated-window collection implemented at `f3d14695` on actual main `6d9847e6`.
+The existing eight-slot engine now has explicit US1/6/11 parser binding while
+its zeroed plan preserves channel1. Existing native window recipes explicitly
+refuse all new country/channel fields in both configured and saved plans; no
+new native adapter, boot recipe or hardware behavior is enabled. A separate
+three-window collector validates all27 DMA identities (three rings,24 pages),
+completed tune/stop/restore ledgers and original10s budgets, then reparses all
+completed first entries into up to24 private deduplicated rows. Pending/quiet,
+empty, malformed and unrelated inputs stay separate; hidden/name/security/
+cross-channel conflicts survive. All-or-nothing ownership failure erases rows.
+
+Validation:355 batch collections,2122 receive-window scenarios,10168 discovery
+collections and215 legacy single-IN scan collections pass independently under
+ASan/UBSan. Batch tests include all ownership callback failures, every reserved
+page cross-visit alias, quiet poison pointers, each transfer's malformed/empty/
+unrelated/off-channel outcome and hidden-name reveal on every visit. The full
+merged image/core/desktop suite passed before the final native binding guard;
+final image/host rebuild, complete native window/discovery/channel/tune/receive/
+scan regressions and all232 retry cases pass with that guard. Documentation
+checks pass. Initial fixture refusals are retained separately, not counted as
+passes. Actions remain disabled.
+
+This is host validation of the reusable contract, not physical repeated-receive
+acceptance. Installed/accepted v101 `f1015eeb7358f9c7` and all recoveries remain
+unchanged; no reboot is armed. Next implement an opt-in native adapter that
+records/rejects pre-enable data, publishes fresh sequential TDs/pages under one
+per-visit deadline, retains independent cleanup/Stop/restoration and saves exact
+per-transfer/whole-run proof. Run fault/sanitizer/exact-stage VM checks before
+installing a candidate. Association/security and IP/UI remain pending.
