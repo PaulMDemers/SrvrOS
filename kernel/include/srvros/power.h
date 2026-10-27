@@ -46,5 +46,8 @@ void power_print_status(void);
  * also audits HLT entry and reads E2/APIC/misc once at each explicit capture
  * boundary; bounded CPU0 topology is capability data, not live AP state. */
 bool power_capture_start(void);
+/* Explicit shallow wakeup trial only; refuses unsupported native prerequisites. */
+bool power_capture_mwait_start(void);
+bool power_capture_mwait_passed(void);
 void power_capture_stop(void);
 #endif

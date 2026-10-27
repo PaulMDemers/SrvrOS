@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #define SRVROS_SCHEDULER_HOST_TEST
+#define SRVROS_MWAIT_HOST_TEST
 #include "../kernel/src/scheduler.c"
 static uint64_t actual_space=1,clock_us;
 static _Alignas(16) uint8_t fake_stack[SCHEDULER_STACK_SIZE];
@@ -413,6 +414,49 @@ static void test_private_image_scope(void) {
     puts("private-image-io: PASS caller sibling service, target/unsafe exclusion, inherited/foreign refusal and exact restoration");
 }
 
+static unsigned monitors,mwaits;
+static bool ready_after_monitor,regress_mwait;
+static uint64_t mwait_delay=10000;
+void scheduler_test_monitor(void *address) {
+    assert(!((uintptr_t)address&63));monitors++;
+    if(ready_after_monitor)threads[0].state=THREAD_READY;
+}
+void scheduler_test_mwait(void) {
+    mwaits++;if(regress_mwait)clock_us--;else clock_us+=mwait_delay;
+}
+static void test_mwait(void) {
+    struct scheduler_mwait_test mt;struct scheduler_idle_audit ia;
+    assert(!scheduler_mwait_test_start());
+    initialized=true;idle_thread=current_thread=1;threads[1].state=THREAD_RUNNING;
+    assert(scheduler_idle_audit_start());reference=false;assert(!scheduler_mwait_test_start());reference=true;
+    assert(scheduler_mwait_test_start() && !scheduler_mwait_test_start());
+    ready_after_monitor=true;idle_step();assert(monitors==1 && !mwaits && mwait_test.rechecks==1);
+    ready_after_monitor=false;threads[0].state=THREAD_UNUSED;
+    for(unsigned i=0;i<32;i++)idle_step();
+    assert(mwaits==32 && mwait_test.attempts==32 && !mwait_test.fault && mwait_test.max_us==10000);
+    for(unsigned i=0;i<40;i++)idle_step();
+    assert(mwaits==32 && mwait_test.hlt==32 && idle_audit.enters==40);
+    scheduler_mwait_test_stop(&mt);assert(mt.returns==32 && mt.tick_end>mt.tick_begin);
+    scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start());
+    mwait_delay=20000;idle_step();assert(!mwait_test.fault);
+    mwait_delay=20001;idle_step();assert(mwait_test.fault==2);
+    unsigned prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start());
+    regress_mwait=true;idle_step();assert(mwait_test.fault==1);regress_mwait=false;
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start());
+    /* Retirement prevents subsequent MWAIT even if the idle audit restarts. */
+    scheduler_idle_audit_stop(&ia);assert(scheduler_idle_audit_start());
+    prior=mwaits;idle_step();assert(mwaits==prior);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    mwait_test=(struct scheduler_mwait_test){0};idle_audit=(struct scheduler_idle_audit){0};
+    idle_thread=UINT64_MAX;current_thread=0;initialized=false;clock_us=0;
+    memset(threads,0,sizeof(threads));
+    puts("mwait: PASS readiness recheck, 32 attempt cap, mandatory HLT, latency boundary/fault fallback, clock regression and retired epoch");
+}
+
 static void test_idle_audit(void) {
     struct scheduler_idle_audit out;
     assert(!scheduler_idle_audit_start());
@@ -438,6 +482,7 @@ static void test_idle_audit(void) {
 
 int main(void) {
     test_idle_audit();
+    test_mwait();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();

@@ -4594,3 +4594,61 @@ hint, race-safe readiness recheck, bounded latency checks and HLT fallback,
 before claiming deeper core/package entry. Other-core observation would require
 its own AP ownership/rendezvous design and remains separate work. No performance,
 battery-life or energy-saving claim follows from these short measurements.
+
+### Opt-in MONITOR/MWAIT wakeup — active scope (2026-10-27)
+
+Base `71379774`; previous prerequisite run is collected. Implement an explicit
+CPU-load capture option for a bounded CPU0 MONITOR/MWAIT wakeup experiment on
+the captured 06_45 CPU. Use shallow hint 0 only, require native MONITOR FSM,
+extensions/masked-interrupt break and 64-byte monitor-line capability, recheck
+scheduler readiness after MONITOR, and cap MWAIT attempts at 32 before HLT
+fallback. Measure the IRQ-masked return interval against one existing two-tick
+scheduler quantum (20 ms at the unchanged 100 Hz tick). A timing fault latches
+HLT fallback; it is not a pass. No deeper hint, AP startup, IPI or MSR write.
+
+Touch scheduler diagnostic idle selection, power capture admission/receipt,
+explicit staging/main dispatch, collector and host/VM tests. Default idle remains
+HLT. Existing 30-second phases, ten-second coverage, watchdogs, thermal/fan stops,
+64 KiB logs and integrity limits remain unchanged. PR182 filesystem audit and
+PR19 Wi-Fi do not currently modify this idle path; preserve their independent
+profiles. Next checkpoint is validation, self-merge, exact-stage install and the
+authorized automatic trial. Native MWAIT wakeup acceptance remains pending.
+
+### Opt-in MONITOR/MWAIT wakeup — candidate ready (2026-10-27)
+
+PR224 runtime `94c2b9e7` adds the explicit `--cpu-load-capture
+--mwait-wakeup-test` profile. The normal HLT policy remains unchanged. The gated
+idle worker arms a private aligned monitor line, rechecks readiness with IRQs
+masked, and uses hint 0/extension 1 for at most 32 shallow C1 waits. The PM-clock
+bracket is measured before IRQ dispatch; this is wait duration, not ISR latency.
+Clock regression or a wait over the existing 20 ms scheduler quantum latches
+HLT fallback. Successful trials also return to HLT after 32 attempts, and must
+record 32 subsequent HLT entries and timer progress. Stable prerequisite
+snapshots and complete phase/retirement proofs are required. No deeper hint,
+AP startup, IPI, MSR write, tick change or relaxed limit is introduced.
+
+Final matched build/USB image, full host/core and docs pass on `94c2b9e7`.
+Scheduler tests cover readiness recheck, exact attempt cap, mandatory HLT,
+20 ms boundary/excess duration, regressing clock and retired epochs. Service
+tests cover opt-in and capability refusal, failed admission, nested capture,
+failed trial completion and configuration drift. All 97 collector/staging tests
+and twelve existing load safety refusal/stop cases pass. Disassembly retains
+MONITOR, shallow MWAIT and the unchanged contiguous `sti; hlt; cli` fallback.
+Prior-log replay with the 156-byte trial receipt retains all required evidence
+within the unchanged 64 KiB tail, although early startup text is trimmed.
+
+Exact release `8030ae20c2611a09` passes unsupported-MWAIT refusal, GPT save/unmount/
+automatic return and missing-workspace safe halt. A VM receipt-label error for
+the new profile was caught before install; harness-only `ba20b181` correctly
+labels its power refusal and the exact positive save/return rehearsal was rerun.
+The immutable staged runtime/manifest remains `94c2b9e7`; no payload changed.
+Native wakeup/latency acceptance is pending run `7dc08174f8034042`, which uses
+the unchanged three 30-second phases and automatic Ubuntu return/collection.
+No human input is required; keep AC/USB connected.
+
+Preflight preserves all 528 files / 1,577 allocated clusters with zero leaks,
+mismatches or errors. Protect accepted prerequisite payload `8022333a9240598e`,
+console recovery, desktop power, stress and attended reopen. The older audit-only
+EFI payload `6b1f017332e0931b` may be retired after durable hash verification;
+its independent backup remains retained. Payload, exact-stage checks and run
+records must be backed up outside `build` before arming the authorized reboot.
