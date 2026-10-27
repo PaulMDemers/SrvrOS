@@ -4586,3 +4586,32 @@ then explicit normal-completion byte count and strict parser outcome. Empty or
 rejected data can finish the observation but cannot accept frame reception.
 Stopped residue never licenses reading bytes. No new IN/rearm, network data OUT,
 scan/association or connectivity claim. No physical result is claimed yet.
+
+
+### 2026-10-26 — v93 native passive beacon reception verified
+
+Release `6fcb4fe992b35b78`, source `774e9e9d`, session
+`session-00065ec7f927dacb-00` completed and returned automatically. Entire prior
+firmware/MAC/baseband/RF/channel/AGC proof, reversible probe and all five v92
+power-on exchanges passed. Passive polling processed a normal CC13 event after
+10086us/534 polls during its post-calibration window. One4096-byte request had
+3820 remaining, providing276 actual bytes. After independent MAC/device drain,
+filter/TXOP restoration, all six guards and exact endpoint stop, the unchanged
+parser accepted the first272-byte entry and234-byte management MPDU as a
+channel1 beacon (frame control0080, interval100, empty SSID, privacy/RSN present,
+WPA absent, DS channel present). No network identifiers or payload were logged.
+
+This establishes one bounded native beacon observation only. It does not
+measure sustained reception, FCS validity, calibrated RSSI, frequency lock or
+RF quality. No endpoint rearm, network data OUT, scan, association/security,
+Wi-Fi IP or UI was exercised. Parent MAC completed54 operations/46 reads/7
+writes/1 wait,10ms hold10033us and full restoration. The single receive buffer
+remains retained; stopped ownership was proven before inspection.
+
+Full startup prefix and both completion markers passed the whole-chain checker.
+Ubuntu default, consumed one-shot, current/e47 payload hashes and accepted v92
+fallback were verified. Offline workspace checks:333files,816clusters,
+140directories, zero leaks/bitmap mismatches/errors; unmounted and unarmed.
+Durable evidence: `wifi-passive-rx-774e9e9`. Next is a separately reviewed bounded
+repeated passive receive lifecycle with safe rearm/cancellation and teardown,
+followed by scanning and connection support. No further reboot armed.
