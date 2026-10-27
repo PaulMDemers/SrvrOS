@@ -29,6 +29,23 @@ security and IP/UI. Original strict calibration helper stays unchanged; RF0:6
 semantics remain unresolved. Full evidence is archived outside build; no new
 trial is armed.
 
+Active receive scope (2026-10-27): actual main `e62c1b2a` (Air6,1 acceptance
+docs only); PR212 owns battery desktop work and PR182 filesystem imports, with
+no MT76 overlap. Add a separate opt-in channel6 receive trial after the accepted
+frequency/VCO transaction and before channel1 restoration. Preserve v98's
+one-shot entry point; a separate observer API must require post-observer MAC/
+VCO/frequency and stopped-DMA proof before independent RF restoration. Retain
+the old main-RX ring/pages; use a fresh ring/page, exact stopped Set TR Dequeue
+Pointer, one bounded IN and a separately owned MAC lifecycle. Stop the new RX
+endpoint and establish fresh quiescence before returning to the tuner. No DMA
+reuse/free, scan UI, credentials or network data OUT. Touched: tune observer
+helper/tests, native fresh-RX adapter/event dispatch, main/staging/smoke, fault
+fixtures and strict collection/guides. Dependencies: accepted v98 RF/stop proof,
+existing MAC-cycle mechanics and bounded channel-aware parser. Validate faults,
+late/foreign events, ambiguous commands, MAC cleanup, exact stop, sanitizers,
+merged tests and exact-stage saved/refusal VM before install/cold readiness.
+No native reception acceptance or reboot armed by this scope publication.
+
 Active native tuning scope (2026-10-27): actual main `e283eecb` (Air6,1
 cached power checkpoints; no MT76 overlap), open filesystem PR182 inspected.
 Bind the unchanged `1ff74269` one-channel frequency/VCO excursion to a separate
