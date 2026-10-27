@@ -13,6 +13,8 @@ struct xhci_device;
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
+static struct xhci_device *passive_test_device;
+static void passive_test_tick(void);
 static struct xhci_device *poweron_test_device;
 static void poweron_test_bulk(unsigned);
 static bool rx_guard_model;static uint32_t rx_guard_value;
@@ -482,6 +484,7 @@ static struct xhci_device *complete_device;
 static bool complete_control;
 uint64_t timer_monotonic_us(void) {
     test_time+=test_time_step;
+    if(passive_test_device)passive_test_tick();
     if(complete_control && test_time>=complete_at && strict_control.device) {
         uint64_t ptr=strict_control.status;
         xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
@@ -6606,8 +6609,10 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_mac_cycle.inc"
 #include "test_xhci_wifi_cal_probe.inc"
 #include "test_xhci_wifi_poweron.inc"
+#include "test_xhci_wifi_passive.inc"
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-poweron")){test_wifi_poweron();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-cal-probe")){test_wifi_cal_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-mac-cycle")){test_wifi_mac_cycle();return 0;}
@@ -6685,6 +6690,7 @@ int main(int argc, char **argv) {
     test_wifi_agc_state();
     test_wifi_cal_probe();
     test_wifi_poweron();
+    test_wifi_passive();
     test_wifi_mac_cycle();
     test_wifi_rx_lifecycle();
     test_wifi_vco_ready_inventory_ownership();

@@ -8733,3 +8733,51 @@ RF0:6 semantics remain unresolved, and original strict helper admission is
 unchanged. Next is controlled passive main-RX observation with explicit actual
 byte counts, strict frame parsing and bounded teardown. Scanning, association/
 security, Wi-Fi IP traffic and UI remain pending. No new trial/reboot armed.
+
+
+### 2026-10-26 — controlled passive RX candidate (v93)
+
+Main `a9e39e38` (PR197 attended load and PR198 navigation) was merged. Staging
+conflicts were reconciled by behavior, preserving all Wi-Fi recipes and separate
+v76 navigation/v77 attended profiles; merged staging tests passed before new
+work. PR182 remains filesystem scope, with no MT76 overlap.
+
+New explicit profile71/v93 chains the entire accepted v92 transaction. It
+retains the same single4096-byte main IN and the active MAC context, then polls
+transfer events until completion or a1s deadline. No extra transfer/rearm,
+network data OUT, probe request or channel change is submitted. Every poll
+revalidates current ownership. Backward clocks,1024 consecutive no-progress
+checks, the20M absolute poll cap or elapsed accounting beyond1.1s refuse.
+The ordinary parent10ms hold remains separate; device drain/MAC disable/filter/
+TXOP restoration and exact Stop Endpoint/dequeue proof still precede inspection.
+
+Only a normal CC1/13 with one matching event and residue <=4096 supplies actual
+bytes. Zero-sized normal completion, missing event and stopped CC26/27/28 give
+zero usable bytes; even CC26 residue0 never licenses inspecting4096 bytes.
+After all six disabled guards and proven stop, the unchanged strict RX parser
+views only the first DMA/RXWI entry. It may decode a beacon/probe response;
+malformed/unsupported/channel-mismatched data is recorded as rejected, not a
+received-beacon pass. Raw payload, SSID and network addresses are never logged.
+Only copied sizes/frame-control and non-identifying advertisement metadata are
+retained; temporary beacon identifiers are scrubbed. The first-entry-only limit
+and no FCE/FCS/calibrated-RSSI inference remain explicit.
+
+Event processing is tagged as during the post-calibration window or outside it;
+this is software timing, not an RF timestamp. An early completed transfer can
+be decoded after teardown but cannot be relabeled as a post-calibration event.
+The observation can complete with no data or rejected data without accepting
+packet reception. It does not add scanning, association/security, Wi-Fi IP
+traffic, reconnect policy or UI.
+
+Host fixtures execute the actual mode71/whole-v92 hook, event polling, EP0/MCU
+traffic, stop command/context and parsers.53 scenarios cover short/full/empty,
+malformed/unsupported/off-channel data, early and late/foreign events, ownership
+loss and backward/frozen/forward-jump clocks, pre-stop refusal,28 stop/length/
+ownership guard mutations, poison pointers for cancellation/no data and no
+replay/rearm/free. The first frozen-clock run repeated the full historical
+ownership proof too long; it was terminated unaccepted. The1024 no-progress
+bound fixed that behavior without caching or removing ownership checks.
+The full log proof accepts14 whole-chain packet/empty/cancellation variants and
+refuses185 malformed proofs.184 historical Wi-Fi recipe comparisons and both
+merged desktop recipes remain byte-identical;180 staging tests pass. Pure and
+native sanitizer, final source/image and VM results are recorded separately.

@@ -36,11 +36,12 @@ static bool wifi_mac_cycle_delay(void *context,unsigned us,bool cleanup) {
 static uint64_t wifi_mac_cycle_now(void *context){(void)context;return timer_monotonic_us();}
 #include "xhci_wifi_cal_probe.inc"
 #include "xhci_wifi_poweron.inc"
+#include "xhci_wifi_passive.inc"
 static bool wifi_mcu_mac_cycle(struct xhci_device *d) {
     struct mt76_mac_cycle *s=&d->firmware.mcu.mac_cycle;
     if(s->attempted)return false;
     console_write(d->firmware.mcu.poweron_mode?"wifi-mac-cycle-progress: bounded MAC with power-on calibration; retained RX and independent teardown\n":"wifi-mac-cycle-progress: bounded MAC start,snapshot,device drain,disable,restore; retained RX; no calibration\n");
-    const struct mt76_mac_cycle_io io={d,wifi_mac_cycle_owned,wifi_mac_cycle_read,wifi_mac_cycle_write,wifi_mac_cycle_delay,wifi_mac_cycle_now,d->firmware.mcu.poweron_mode?wifi_poweron_inspect:d->firmware.mcu.cal_probe_mode?wifi_cal_probe_inspect:NULL};
+    const struct mt76_mac_cycle_io io={d,wifi_mac_cycle_owned,wifi_mac_cycle_read,wifi_mac_cycle_write,wifi_mac_cycle_delay,wifi_mac_cycle_now,d->firmware.mcu.passive_mode?wifi_passive_inspect:d->firmware.mcu.poweron_mode?wifi_poweron_inspect:d->firmware.mcu.cal_probe_mode?wifi_cal_probe_inspect:NULL};
     bool ok=mt76_mac_cycle_run(s,&io);
     console_printf("wifi-mac-cycle: ok=%u attempted=%u complete=%u failed=%u started=%u snapshot=%u operations=%u reads=%u writes=%u waits=%u tx_rounds=%u rx_rounds=%u mac_disabled=%u tx_drained=%u rx_drained=%u filter_restored=%u txop_restored=%u hold_us=%u calibration_commands=%u retained=1\n",(uint64_t)ok,(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->failed,(uint64_t)s->started,(uint64_t)s->snapshot_complete,(uint64_t)s->operations,(uint64_t)s->reads,(uint64_t)s->writes,(uint64_t)s->waits,(uint64_t)s->tx_rounds,(uint64_t)s->rx_rounds,(uint64_t)s->mac_disabled,(uint64_t)s->tx_drained,(uint64_t)s->rx_drained,(uint64_t)s->filter_restored,(uint64_t)s->txop_restored,s->hold_us,(uint64_t)d->firmware.mcu.poweron_commands);
     if(s->snapshot_complete)console_printf("wifi-mac-cycle-snapshot: filter=%x txop=%x tx_alc=%x ibi9=%x observation_only=1\n",(uint64_t)s->filter,(uint64_t)s->txop,(uint64_t)s->tx_alc,(uint64_t)s->ibi9);

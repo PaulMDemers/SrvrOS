@@ -1,7 +1,8 @@
 /* Opt-in retained main-RX endpoint trial. v89 keeps MAC disabled; v90 runs
  * the explicit bounded MAC cycle before endpoint stop. All endpoint
  * resources survive completion, Stop Endpoint and failures until host reset.
- * No receive payload is logged, delivered, rearmed or interpreted here. */
+ * v93 inspects one bounded entry only after exact stop. No raw receive payload
+ * is logged, delivered or rearmed. Older profiles do not inspect bytes. */
 static bool wifi_rx_fail(struct xhci_device *d) {
     d->firmware.mcu.rx.failed=true;
     return wifi_mcu_fail(d);
@@ -86,6 +87,7 @@ static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event) {
      * command completion plus output-context proof can quiesce this buffer. */
     bool stopped=r->stopping && r->completion>=26 && r->completion<=28 &&
         (r->completion==27 || r->remaining<=r->requested);
+    if(d->firmware.mcu.passive_mode && normal)r->passive_during_wait=d->firmware.mcu.passive.waiting && d->firmware.mcu.poweron.complete && !r->stopping;
     if(!normal && !stopped)wifi_rx_fail(d);
     return true;
 }
@@ -141,8 +143,10 @@ static bool wifi_mcu_rx_lifecycle(struct xhci_device *d) {
         bool stopped=wifi_rx_stop(d);ok=ok && stopped && !r->failed && r->wait_ok;
     }
     if(ok)ok=wifi_rx_guard(d,3) && wifi_rx_guard(d,4) && wifi_rx_guard(d,5);
+    if(ok && m->passive_mode)ok=wifi_passive_capture(d);
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=m->rf_g20_active=m->rf_trim_active=m->rf_cal_active=m->rf_wait_active=m->path_active=m->channel_state_active=m->usb_cycle_active=m->bw_observe_active=m->bbp20_active=m->channel_probe_active=m->band2g_active=m->band_mac_active=m->synth1_active=m->post_active=m->post_mac_active=m->gain_active=m->gain_inventory_active=m->channel_bbp_active=m->post_vco_active=m->agc_state_active=false;
     r->active=false;
     console_printf("wifi-rx-lifecycle: ok=%u attempted=%u configured=%u reads=%u posts=%u requested=%u events=%u cc=%u remaining=%u stop_attempted=%u stopped=%u pending=%u failed=%u wait_ok=%u waited_us=%u retained=1 radio_writes=%u\n",(uint64_t)ok,(uint64_t)r->attempted,(uint64_t)r->configured,(uint64_t)r->reads,(uint64_t)r->posts,(uint64_t)r->requested,(uint64_t)r->events,(uint64_t)r->completion,(uint64_t)r->remaining,(uint64_t)r->stop_attempted,(uint64_t)r->stopped,(uint64_t)r->pending,(uint64_t)r->failed,(uint64_t)r->wait_ok,r->waited_us,(uint64_t)(m->mac_cycle.writes+m->cal_probe_writes+m->poweron_writes));
+    if(m->passive_mode)wifi_passive_log(d);
     return ok?true:wifi_rx_fail(d);
 }
