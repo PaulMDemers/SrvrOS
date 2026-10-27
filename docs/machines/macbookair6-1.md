@@ -3733,3 +3733,29 @@ explicit stress-only volume override in this unit's test input, retaining ordina
 audio defaults and the full PCM workload. Record its expiration with the local
 run, verify it in the guest and keep AC/USB connected during automatic testing.
 Self-merge and reboot are explicitly authorized; no new boot is armed yet.
+
+### Screenshot cleanup — candidate validated (2026-10-27)
+
+PR204 source `306a8ff4` moves completion pipe close, snapshot unmap and child
+retirement to the joined lifecycle worker. Capture remains busy until that owner
+publishes full retirement. Final acknowledgement, immutable pixels, accepted
+writes, bounded protocol chunks and all performance/owner limits remain intact.
+Retained cleanup records separate close/unmap/reap execution time. Host regression
+covers delayed retirement, single ownership and failure publication.
+
+Full host/core, matched kernels and documentation checks pass. Populated Home
+at 400 write IOPS passes 60 seconds of full PCM at verified 1% volume, 100 verified
+disk bursts, 15 app cycles, automatic screenshot/follow-up Files/normal exit,
+zero underruns and all 67 prior fixture files. Worst loop is 462.262 ms against
+the unchanged 500 ms bound. Ordinary capture VM passes immutable pixels during
+typing, durable readback, Preview, repeated capture and clean exit. Exact v74
+stage `d7fe87e92eff81b3` passes chainload and expected Q35 native-profile refusal;
+it does not establish native battery or cleanup acceptance.
+
+Next native run is 30 minutes of PCM, unpaced verified disk work, repeated app
+cycles and three automatic screenshots, then normal desktop exit and battery
+retirement. The explicit volume input requests 1% until 2026-10-27 08:30:45 UTC;
+playback receipt records actual volume. All 423 prior USB files were preserved
+when adding this one input; baseline is 424 files / 1,332 clusters with no leaks,
+allocation mismatches or errors. Ubuntu and console recovery remain unchanged.
+Native results must be collected before another trial; acceptance is pending.
