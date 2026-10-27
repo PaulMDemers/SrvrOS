@@ -4479,3 +4479,20 @@ armed. This accepts the bounded read-only audit, not deeper idle or energy savin
 Next work should examine boot-time secondary-core state and the prerequisites
 for an explicit model-gated deeper-idle experiment; further polling reductions
 alone do not address the missing hardware residency demonstrated here.
+
+### Secondary-core/deeper-idle prerequisites — active scope (2026-10-27)
+
+Base `43c79c73`; prior idle audit is collected and accepted. Investigate the pinned
+bootloader's secondary-CPU handoff, captured MADT inventory and native CPU0
+CPUID topology. Add bounded capture-only topology and read-only BSP/MONITOR
+configuration evidence if the captured CPU documentation permits it. Distinguish
+firmware inventory and CPUID capacity from live AP state; do not start APs, send
+IPIs, change idle instructions, evaluate AML or alter power policy or limits.
+
+Scope is power diagnostic capture, strict host/collector regressions and this
+unit's records. Reuse unchanged v35 idle/load/recovery phases and all coverage,
+thermal, watchdog, filesystem and 64 KiB log limits. Account for the last run's
+small log margin before adding output. PR182 filesystem audit and PR19 Wi-Fi
+(`482f2eb5`) do not currently change these power paths. Next checkpoint: local
+and exact-stage validation, self-merge, durable run record and authorized native
+automatic test. Secondary-core live state and deeper idle remain unaccepted.
