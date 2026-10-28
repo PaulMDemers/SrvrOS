@@ -1177,3 +1177,11 @@ HLT fallback and do not establish MWAIT power savings. Firmware configuration
 is unchanged and remote logical-processor state remains unknown. Investigate
 missing residency before claiming a deeper idle policy. See the
 [unit result](machines/macbookair6-1.md#bounded-c3-hint--native-result-residency-unobserved-2026-10-27).
+
+
+The same unit's read-only Ubuntu reference confirms working deeper residency
+counters with the same package-limit value. The next prerequisite is the separate
+[AP ownership diagnostic](ap-ownership-diagnostic.md): bounded private AP
+rendezvous and retirement before any coordinated C3 experiment. Its VM checks
+pass; native ownership is pending. It changes no ordinary boot request or power
+policy and provides no C3 or energy-saving acceptance.

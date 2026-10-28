@@ -51,3 +51,11 @@ static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_
 
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
+
+#ifdef SRVROS_AP_PROBE
+/* Separate diagnostic ELF only: Limine acts on this before parsing cmdline. */
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_mp_request ap_probe_request = {
+    .id = LIMINE_MP_REQUEST_ID, .revision = 0, .flags = 0
+};
+#endif
