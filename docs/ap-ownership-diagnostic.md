@@ -1,8 +1,9 @@
 # Bounded secondary-CPU ownership diagnostic
 
 This experimental payload establishes AP ownership before any coordinated deeper
-idle experiment. It is not SMP scheduling or a permanent idle policy. Native
-acceptance is pending on MacBookAir6,1; no sibling machine is accepted.
+idle experiment. It is not SMP scheduling or a permanent idle policy. Bounded native
+ownership is accepted on MacBookAir6,1 in release `53b2c4c90f65e647`; no sibling
+machine is accepted. See the [unit result](machines/macbookair6-1.md#ap-ownership--native-acceptance-2026-10-28) for measurements and limits.
 
 ## Isolation and lifetime
 
@@ -73,5 +74,5 @@ The harness defaults to four CPUs for this profile; `--ap-cpus 1|2|4|6` and
 requires a complete successful native receipt separately from a VM result.
 
 No C3 hint, power measurement or energy-saving claim is part of this test.
-After native ownership passes, a separately reviewed coordinated C3 experiment
+With bounded native ownership accepted, a separately reviewed coordinated C3 experiment
 may reuse the existing 32-attempt, 20 ms and BSP HLT-fallback protections.

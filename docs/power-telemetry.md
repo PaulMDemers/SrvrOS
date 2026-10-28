@@ -1184,6 +1184,9 @@ missing residency before claiming a deeper idle policy. See the
 The same unit's read-only Ubuntu reference confirms working deeper residency
 counters with the same package-limit value. The next prerequisite is the separate
 [AP ownership diagnostic](ap-ownership-diagnostic.md): bounded private AP
-rendezvous and retirement before any coordinated C3 experiment. Its VM checks
-pass; native ownership is pending. It changes no ordinary boot request or power
-policy and provides no C3 or energy-saving acceptance.
+rendezvous and retirement before any coordinated C3 experiment. Air6,1 release
+`53b2c4c90f65e647` now accepts 96 native mailbox exchanges across three APs,
+maximum measured acknowledgement 2 us, zero faults and terminal retirement under
+the unchanged 20 ms bound. Ordinary boot requests and power policy remain unchanged.
+This provides no C3, physical C1 residency or energy-saving acceptance; see the
+[unit result](machines/macbookair6-1.md#ap-ownership--native-acceptance-2026-10-28).
