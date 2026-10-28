@@ -48,6 +48,7 @@ void power_print_status(void);
 bool power_capture_start(void);
 /* Explicit shallow wakeup trial only; refuses unsupported native prerequisites. */
 bool power_capture_mwait_start(void);
+bool power_capture_deep_start(void);
 bool power_capture_mwait_passed(void);
 void power_capture_stop(void);
 #endif

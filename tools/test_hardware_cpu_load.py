@@ -164,7 +164,29 @@ class LoadCaptureTests(unittest.TestCase):
         self.assertEqual(mwait_result('cpu-mwait: v=1 admitted=0 fallback=hlt\n'),{'status':'refused','fallback':'hlt'})
         self.assertIsNone(mwait_result(self.prereq_fixture()))
 
+    def test_deeper_mwait_receipt(self):
+        from hardware_cpu_load import mwait_result
+        receipt='cpu-mwait: v=2 admitted=1 epoch=1 hint=16 ext=1 cap=32 limit_us=20000 tries=32 returns=32 max_us=10000 fault=0 hlt=32 rechecks=0 tick_begin=20 tick_end=51\n'
+        deep='cpu-mwait-deep: v=1 epoch=1 arat=1 timer=1 tsc=640000000 core_c3=320000000 package_c3=0\n'
+        text=self.prereq_fixture()+receipt+deep
+        r=mwait_result(text);self.assertEqual(r['status'],'PASS')
+        self.assertTrue(r['residency']['core_c3_observed']);self.assertFalse(r['residency']['package_c3_observed'])
+        self.assertFalse(mwait_result(text.replace('core_c3=320000000','core_c3=0'))['residency']['core_c3_observed'])
+        for old,new in [('max_us=10000','max_us=20001'),('fault=0','fault=3'),('timer=1','timer=0')]:
+            r=mwait_result(text.replace(old,new));self.assertEqual(r['status'],'FAILED_OR_INCOMPLETE');self.assertFalse(r['residency']['valid'])
+        for old,new in [('arat=1','arat=0'),('hint=16','hint=32'),('core_c3=320000000','core_c3=640000001'),('e2_end=1032','e2_end=1033'),('timer=1','timer=1 timer=1'),('leaf5_d=286531872','leaf5_d=286531616')]:
+            self.assertIsNone(mwait_result(text.replace(old,new)),(old,new))
+        self.assertIsNone(mwait_result(text+deep));self.assertIsNone(mwait_result(text.replace(deep,'')))
+        self.assertEqual(mwait_result('cpu-mwait: v=2 admitted=0 fallback=hlt\n'),{'status':'refused','fallback':'hlt'})
+
     def test_profile_is_distinct(self):
+        dp='ram-usb-v1-mwait-c3-laptop-probe-12345678'
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(dp))
+        c=boot.limine_config('a'*16,dp)
+        self.assertIn('srvros.idle=mwait-c3-test',c);self.assertNotIn('srvros.idle=mwait-wakeup-test',c)
+        self.assertIn('srvros.capture=cpu-load',c)
+        with self.assertRaises(ValueError):boot.stage(mwait_deep_test=True)
+        with self.assertRaises(ValueError):boot.stage(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True)
         mw='ram-usb-v1-mwait-laptop-probe-12345678'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(mw))
         self.assertIn('srvros.idle=mwait-wakeup-test',boot.limine_config('a'*16,mw))

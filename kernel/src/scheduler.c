@@ -1015,15 +1015,27 @@ static struct scheduler_mwait_test mwait_test;
 static bool mwait_active;
 _Static_assert(SCHEDULER_MWAIT_LIMIT_US==SCHEDULER_PREEMPT_QUANTUM_TICKS*10000,
     "wakeup ceiling must remain one existing scheduler quantum");
-bool scheduler_mwait_test_start(void) {
+bool scheduler_mwait_test_start(uint32_t hint) {
     uint64_t flags=irq_save();
-    bool ok=!mwait_active && idle_audit_active && initialized &&
+    bool ok=(hint==0 || hint==0x10) && !mwait_active && idle_audit_active && initialized &&
         idle_thread<thread_capacity && timer_reference_ready();
-    if(ok) { mwait_test=(struct scheduler_mwait_test){.epoch=idle_audit.epoch};mwait_active=true; }
+    if(ok) { mwait_test=(struct scheduler_mwait_test){.epoch=idle_audit.epoch,.hint=hint};mwait_active=true; }
     irq_restore(flags);return ok;
 }
 void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) {
     uint64_t flags=irq_save();mwait_active=false;*out=mwait_test;irq_restore(flags);
+}
+/* These fixed read-only registers are reachable only after the power service's
+ * exact 06_45/invariant-TSC gate. No inferred wrap or residency on invalid data. */
+static uint64_t mwait_read(unsigned reg) {
+#if defined(SRVROS_MWAIT_HOST_TEST)
+    extern uint64_t scheduler_test_mwait_read(unsigned);
+    return scheduler_test_mwait_read(reg);
+#elif defined(SRVROS_SCHEDULER_HOST_TEST)
+    (void)reg;return 0;
+#else
+    uint32_t a,d;__asm__ volatile("rdmsr":"=a"(a),"=d"(d):"c"(reg));return a|((uint64_t)d<<32);
+#endif
 }
 static bool mwait_step(void) {
     (void)mwait_line;
@@ -1044,15 +1056,26 @@ static bool mwait_step(void) {
         mwait_test.rechecks++;return true;
     }
     if(!mwait_test.attempts)mwait_test.tick_begin=timer_ticks();
+    bool deep=mwait_test.hint==0x10;
+    uint64_t t0=0,c0=0,p0=0;
+    if(deep) { t0=mwait_read(0x10);c0=mwait_read(0x3fc);p0=mwait_read(0x3f8); }
     uint64_t before=timer_monotonic_us();mwait_test.attempts++;
 #if defined(SRVROS_MWAIT_HOST_TEST)
-    extern void scheduler_test_mwait(void);
-    scheduler_test_mwait();
+    extern void scheduler_test_mwait(uint32_t);
+    scheduler_test_mwait((uint32_t)mwait_test.hint);
 #elif !defined(SRVROS_SCHEDULER_HOST_TEST)
-    __asm__ volatile("mwait"::"a"(0),"c"(1):"memory"); /* C1, substate 0. */
+    __asm__ volatile("mwait"::"a"((uint32_t)mwait_test.hint),"c"(1):"memory"); /* Exact gated C1 or Haswell C3. */
 #endif
     uint64_t after=timer_monotonic_us();mwait_test.returns++;
     mwait_test.tick_end=timer_ticks();
+    if(deep) {
+        uint64_t p1=mwait_read(0x3f8),c1=mwait_read(0x3fc),t1=mwait_read(0x10);
+        if(t1<=t0 || c1<c0 || p1<p0 || c1-c0>t1-t0 || p1-p0>t1-t0 ||
+           UINT64_MAX-mwait_test.tsc_ticks<t1-t0 ||
+           UINT64_MAX-mwait_test.core_c3_ticks<c1-c0 || UINT64_MAX-mwait_test.package_c3_ticks<p1-p0)
+            mwait_test.fault=3;
+        else { mwait_test.tsc_ticks+=t1-t0;mwait_test.core_c3_ticks+=c1-c0;mwait_test.package_c3_ticks+=p1-p0; }
+    }
     if(after<before) mwait_test.fault=1;
     else {
         uint64_t elapsed=after-before;

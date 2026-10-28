@@ -14,10 +14,14 @@ static bool audit_ok=true,audit_active;
 static uint64_t audit_epoch;
 static bool mwait_ok=true,mwait_started;
 static uint64_t mwait_fault;
+static uint32_t tested_hint,thermal_a=4;
+static bool timer_ready=true;
+static uint64_t config_value=1032;
+bool timer_idle_wakeup_ready(void) { return timer_ready; }
 static unsigned mwait_starts,mwait_stops,mwait_rows;
 static uint64_t apic_config=4276095232ull,misc_config=8716425;
-bool scheduler_mwait_test_start(void) { assert(audit_active);mwait_starts++;if(!mwait_ok)return false;mwait_started=true;return true; }
-void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) { assert(mwait_started && audit_active);mwait_stops++;mwait_started=false;*out=(struct scheduler_mwait_test){.epoch=audit_epoch,.attempts=32,.returns=32,.hlt=32,.max_us=10000,.tick_end=31,.fault=mwait_fault}; }
+bool scheduler_mwait_test_start(uint32_t hint) { tested_hint=hint; assert(audit_active);mwait_starts++;if(!mwait_ok)return false;mwait_started=true;return true; }
+void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) { assert(mwait_started && audit_active);mwait_stops++;mwait_started=false;*out=(struct scheduler_mwait_test){.epoch=audit_epoch,.attempts=32,.returns=32,.hlt=32,.max_us=10000,.tick_end=31,.fault=mwait_fault,.hint=tested_hint,.tsc_ticks=100000}; }
 bool scheduler_idle_audit_start(void) { if(!audit_ok || audit_active)return false;audit_active=true;audit_epoch++;return true; }
 void scheduler_idle_audit_snapshot(struct scheduler_idle_audit *out) { assert(audit_active);*out=(struct scheduler_idle_audit){.epoch=audit_epoch,.enters=now/10000,.returns=now/10000}; }
 void scheduler_idle_audit_stop(struct scheduler_idle_audit *out) { scheduler_idle_audit_snapshot(out);audit_active=false; }
@@ -34,14 +38,14 @@ void power_test_cpuid(unsigned leaf,unsigned subleaf,uint32_t *a,uint32_t *b,uin
     else if(leaf==5) { assert(feature_c&8);*a=*b=64;*c=3;*d=0x11142120; }
     else if(leaf==0x80000000) { *a=max_ext;*b=*c=*d=0; }
     else if(leaf==0x80000007) { *a=*b=*c=0;*d=invariant; }
-    else { assert(leaf==6);*a=*b=*d=0;*c=thermal_c; }
+    else { assert(leaf==6);*a=thermal_a;*b=*d=0;*c=thermal_c; }
 }
 uint64_t power_test_read_msr(unsigned n) {
     reads++;
     switch(n) {
     case 0x1b:case 0x1a0:
         assert(signature==0x40651 && invariant==256);prereq_reads++;return n==0x1b?apic_config:misc_config;
-    case 0xe2:assert(signature==0x40651 && invariant==256);config_reads++;return 1032;
+    case 0xe2:assert(signature==0x40651 && invariant==256);config_reads++;return config_value;
     case 0x10: idle_reads++;return now*2000;
     case 0x3fc:case 0x3fd:case 0x3fe:case 0x60d:case 0x3f8:case 0x3f9:case 0x3fa:case 0x630:case 0x631:case 0x632:
         assert(signature==0x40651 && invariant==256);idle_reads++;return 0;
@@ -174,6 +178,16 @@ int main(void) {
     misc_config=0;assert(!power_capture_mwait_start() && !audit_active);misc_config=8716425;
     apic_config|=1024;assert(!power_capture_mwait_start() && !audit_active);apic_config&=~1024ull;
     mwait_ok=false;assert(!power_capture_mwait_start() && !audit_active);mwait_ok=true;
+    assert(power_capture_deep_start() && tested_hint==16);power_capture_stop();assert(power_capture_mwait_passed());
+    idle_arat=false;assert(!power_capture_deep_start() && !audit_active);idle_arat=true;
+    timer_ready=false;assert(!power_capture_deep_start() && !audit_active);timer_ready=true;
+    idle_leaf5[3]&=~0xf00u;assert(!power_capture_deep_start() && !audit_active);idle_leaf5[3]=0x11142120;
+    config_value=0x400;assert(!power_capture_deep_start() && !audit_active);config_value=0x40f;
+    assert(!power_capture_deep_start() && !audit_active);config_value=1032;
+    assert(power_capture_deep_start());timer_ready=false;power_capture_stop();assert(!power_capture_mwait_passed());timer_ready=true;
+    assert(power_capture_deep_start());mwait_fault=3;power_capture_stop();assert(!power_capture_mwait_passed());mwait_fault=0;
+    assert(power_capture_mwait_start() && tested_hint==0);power_capture_stop();assert(power_capture_mwait_passed());
     signature=0x40661;init();before=reads;assert(!power_capture_mwait_start() && reads==before);
+    assert(!power_capture_deep_start() && reads==before);
     puts("power-service: PASS no reads on refused CPUs, exact read-only MSR allowlist, worker failure/idempotence, cadence and cached stale status");
 }
