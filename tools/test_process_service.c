@@ -10,6 +10,12 @@
 #include "../kernel/src/process.c"
 static unsigned depth,begins,ends,checkpoints,yields,freed,destroyed;
 static bool available=true,fail_unmap;
+static unsigned private_begins;
+static void *private_target;
+bool scheduler_io_begin_process_image(void *image) {
+    private_begins++;if(!available || depth)return false;
+    private_target=image;depth++;begins++;return true;
+}
 static struct process *observed;
 static bool released[96];
 static unsigned next_frame=1,wakes;
@@ -54,7 +60,41 @@ static void reset(void) {
     memset(released,0,sizeof(released));memset(backing,0xcc,sizeof(backing));
     memset(futexes,0,sizeof(futexes));wakes=0;
 }
+void console_write(const char *text) {(void)text;}
+bool vmm_create_address_space(uint64_t *space) {*space=0x1000;return true;}
+const struct vfs_node *vfs_lookup(const char *path) {assert(!strcmp(path,"/fat/bin/desktools"));return NULL;}
+bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {(void)node;(void)data;(void)size;assert(0);return false;}
+void vfs_release_data(const struct vfs_node *node,const uint8_t *data) {(void)node;(void)data;assert(0);}
+bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t address,uint64_t *physical) {(void)space;(void)address;(void)physical;assert(0);return false;}
+static void private_scope_contract(void) {
+    struct process *parent=calloc(1,sizeof(*parent)),*child=calloc(1,sizeof(*child));assert(parent && child);
+    parent->pid=42;child->parent_pid=42;child->allocated=child->active=true;
+    char path[]="/fat/bin/desktools",copy[64]={0};
+    struct process_service_scope scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));
+    assert(scope.held && depth==1 && private_begins==1 && private_target==child && !strcmp(copy,path));
+    path[1]='X';assert(!strcmp(copy,"/fat/bin/desktools"));process_service_end(scope);
+    unsigned before=private_begins;
+    child->address_space=1;scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));
+    assert(scope.held && private_begins==before);process_service_end(scope);child->address_space=0;
+    child->user_threads[0].used=true;scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));
+    assert(scope.held && private_begins==before);process_service_end(scope);child->user_threads[0].used=false;
+    child->startup_ready=true;scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));
+    assert(scope.held && private_begins==before);process_service_end(scope);child->startup_ready=false;
+    child->parent_pid=43;scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));
+    assert(scope.held && private_begins==before);process_service_end(scope);child->parent_pid=42;
+    scope=process_spawn_image_scope(parent,parent,path,copy,sizeof(copy));assert(private_begins==before);process_service_end(scope);
+    scope=process_spawn_image_scope(parent,child,path,copy,3);assert(!copy[0] && private_begins==before);process_service_end(scope);
+    struct process_service_scope outer=process_service_begin();assert(depth==1);
+    scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));assert(depth==2 && scope.held);
+    process_service_end(scope);assert(depth==1);process_service_end(outer);assert(!depth);
+    available=false;scope=process_spawn_image_scope(parent,child,path,copy,sizeof(copy));assert(!scope.held && !depth);process_service_end(scope);available=true;
+    observed=child;unsigned old_destroyed=destroyed;
+    assert(load_spawn_image_checked(parent,child,"/fat/bin/desktools")==SRV_ERR_NOENT);
+    assert(!depth && !child->address_space && destroyed==old_destroyed+1);observed=NULL;
+    free(child);free(parent);puts("spawn-image-scope: PASS frozen path, fresh child only, ordinary fallback, nested ownership and unavailable gate");
+}
 int main(void) {
+    private_scope_contract();
     struct process *p=malloc(sizeof(*p));assert(p);observed=NULL;reset();
     clear_process(p);assert(begins==1 && ends==1 && yields && !depth && !p->mapping_count);
     observed=p;p->address_space=0x1000;

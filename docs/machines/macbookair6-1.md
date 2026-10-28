@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-26. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-27. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -56,7 +56,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; 30-minute automated audio/app overlap completes 3,263 verified disk bursts with preserved prior files and clean allocation | Combined desktop responsiveness still fails its 500 ms loop bound; failure handling and hotplug remain separate |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,266 verified disk bursts, 703 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (311.305 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -3360,3 +3360,1518 @@ and retains it independently of an overall failure. Payload/evidence backups
 remain outside build; Ubuntu, console and accepted reopen recoveries are retained.
 Final main remains `ee5468f6`; PR182 (`91a4f594`) and PR19 (`9a50f4dc`) keep
 separate storage and Wi-Fi scopes. Final documentation changes no compiled code.
+
+### Wake attribution native return — 2026-10-26 (narrow automated pass)
+
+Run `f6e01ca76b5a4da2`, release `0ede0fc436410e26`, compiled `f1587a2f`
+(PR190 merged as `4ee18f69`) returned one matching session,
+`session-00065ec3dd1e846a-00`. The automatic collector passes the full thirty-minute
+workload: 345,600,000 PCM bytes, zero underruns, worker status0, 3,154 verified
+bursts / 826,802,176 bytes, and an exactly matching binary disk receipt.
+First-to-last I/O spans 1,797.058 seconds inside playback. The user confirms
+audio remained steady throughout this run.
+
+All 689 app cycles completed with zero child errors. Maximum ready/close times
+were 1,912,039 / 3,460,137 us; application coverage spans 1,785.112 seconds
+inside playback. Retained complete timing tails validate cycles671–688. All
+94,747 loop samples are valid and below the unchanged 500,000 us limit, but the
+498,244 us maximum passes by only 1,756 us. This is acceptance of this bounded
+automated run, not evidence that the prior intermittent failures are fixed.
+
+The final version2 receipt retains sequence65648, cycle481, phase0 to phase1,
+from 1,251,783,148 to 1,252,281,392 us uptime. The selected ten-tick GUI wait
+returned normally, without fallback sleep. It spent 96,987 us blocked and
+401,159 us READY-to-selection. Timeout wake was observed at tick125057, exactly
+its deadline tick; no late ticks were observed in this bracket. Twenty-three
+I/O eligibility exclusions were observed during the same ready interval.
+The complete loop has 498,180 us in WAIT and 64 us across all other stages.
+Companion clocks, stage/state totals and the lifecycle maximum validate exactly.
+
+This isolates the dominant interval after wake-up, rather than late tick expiry
+for this sample. Exclusion counts do not prove that all READY time was spent
+continuously excluded or identify the owner. Source inspection shows GUI waits
+are already admitted as I/O-safe, while same-process siblings remain excluded;
+the compositor's persistent lifecycle pthread performs app launches and mapping
+work. That is a specific candidate for the next ownership/admission audit during
+launch, not a confirmed owner identity or permission to weaken sibling protection.
+Keep all limits and integrity/ownership checks unchanged.
+
+Battery epoch1 retired cleanly with 10,537 queries, 67 notifications, 751 handled/
+zero unclaimed SCI deliveries and zero heap/errors/denied. All 386 prior files
+survive except expected workspace metadata. Read-only fsck and independent
+allocation pass: 392 files / 1,068 clusters, zero leaks/mismatches/errors. Matching
+receipts, logs and detailed diagnosis are retained outside build with verified
+hashes. Ubuntu recovered, next_entry is empty and collection is disabled; no
+new boot is armed. Closeout base is `4ee18f69`; PR182 (`2a091597`) and PR19
+(`db3d8633`) retain separate storage and Wi-Fi scopes. This closeout changes
+only this unit record.
+
+### Private app-image ownership audit — active scope (2026-10-26)
+
+Base `d24dbc11`, same local device branch. The lifecycle pthread runs exec;
+its image loader operates on a newly reserved child using a kernel snapshot of
+the executable path, but the service gate currently excludes the caller's UI
+siblings throughout that private child work. Parent mapping refresh, descriptor
+inheritance and record mutation require the existing caller exclusion and must
+retain it. Audit and narrowly distinguish private child-image ownership from
+parent mutation, without releasing the global I/O/cancellation gate or admitting
+unsafe syscalls. No acceptance, workload or resource limits change.
+
+Scope: process image construction, scheduler exclusion identity for that explicit
+scope, ownership/refusal regressions and this unit record/current contract.
+PR182 (`2a091597`) owns exFAT/storage changes and PR19 (`db3d8633`) Wi-Fi;
+inspect their current shared-file scope before integration. Prior return is fully
+collected and listening confirmed. Next checkpoint is failing-before/passing-after
+ownership tests, matched build/core and VM stress/lifecycle validation, then the
+merged candidate and authorized automatic native trial with preserved recovery.
+
+### Private app-image ownership — candidate validated (2026-10-26)
+
+PR192 builds at `daa94dd8` from `d24dbc11`. Only fresh child-image construction
+uses the child as the scheduler exclusion identity, after a kernel path snapshot
+and refusal of live targets or inherited/foreign ownership. Audited parent UI
+siblings may run; the global storage/cancellation gate and unsafe-call exclusion
+remain. Ordinary parent exclusion resumes before descriptor inheritance, parent
+refresh or child publication. Existing loader, mapping and rollback integrity
+checks, resource limits, 500 ms loop, five-second client and ten-second cycle
+limits remain unchanged. PR182's current `process.c` edits are confined to
+separate file-flush paths; PR19 (`97fb3750`) has no overlapping implementation.
+
+Directed scheduler/process-service/loader regressions and the matched build/full
+core suite pass. The old exclusion-predicate control fails the new sibling-service
+assertion; refusal, nesting, path snapshot and failed-load restoration tests pass.
+Terminal real-shell/PTY/clipboard/exit/persistence, threading, throttled storage
+service and desktop shutdown VM gates pass. The populated-Home automatic VM
+(400 write IOPS) completed 60 seconds, 115 verified bursts, 20 app cycles,
+zero underruns/errors, 399.027 ms worst loop, 1.251122 s worst readiness and
+1.410113 s worst close, preserving all 66 fixture files.
+
+Release `204302d98c2906fd` is staged clean from the tested code. Exact-stage VM
+verifies native-profile refusal, saved evidence and automatic return on Q35;
+it does not accept native EC ownership. Payload hashes and durable backup pass.
+The authorized next native run is the unchanged 30-minute continuous PCM,
+unpaced verified USB work and automatic Text/Files/System launch/close trial,
+retaining worst-loop wait/scheduler diagnostics. No guest input is needed beyond
+listening; keep AC and USB attached. Ubuntu remains the recovery OS with console
+`c35475f62f154f1e` and the accepted automated/attended reopen payloads retained.
+The previous bounded stress payload `0ede0fc436410e26` remains available. Native
+responsiveness improvement is pending the matching returned receipt, file
+preservation/allocation checks and listening confirmation; collect before another
+trial. Local run `b907f47823d34af2` is under
+`build/battery/air61-launch-audit-20261026`, with a durable copy outside `build`.
+
+### Private app-image ownership — native return (2026-10-26)
+
+Run `b907f47823d34af2`, release `204302d98c2906fd`, compiled `daa94dd8`
+(PR192 merged as `33edbafc`), returned automatically to Ubuntu. Exactly one
+matching session, `session-00065ec63701f318-00`, contains the final workload,
+loop, application and battery retirement receipts. This is a **PASS for the
+bounded automated workload**, including the user’s subsequent confirmation that
+sound remained steady throughout all 30 minutes.
+
+The full 1,800 seconds submitted 345,600,000 PCM bytes with zero underruns and
+worker status zero. Continuous verified filesystem work completed 3,091 bursts
+(810,287,104 bytes), spanning 1,797.237424 seconds within live playback. Automatic
+Text/Files/System cycles completed 692 times with zero errors; worst readiness
+was 1.835340 s and worst close 2.871404 s. All limits and workload pacing remain
+unchanged. Retained complete app phases for cycles 674–691 independently validate;
+they are a tail, not a replacement for the full-run aggregate receipt.
+
+Worst desktop loop is now **111.984 ms**, down from 498.244 ms in the previous
+run, across 93,834 samples with zero over-limit or invalid measurements. Of that
+worst loop, 111.880 ms is wait and 104 microseconds is other measured work. The
+scheduler records 99.833 ms blocked, 12.014 ms READY and zero I/O exclusions;
+the timeout wakes on its deadline tick. The previous worst recorded 401.159 ms
+READY and 23 exclusions. This supports the private-image ownership fix on this
+unit without claiming that every workload or longer endurance is accepted.
+
+Battery epoch 1 retires after 10,530 queries and 54 notifications with one
+attach/detach and zero heap, errors or denials. All 392 pre-existing files are
+preserved except expected `.srvros/meta` bookkeeping; the 398-file result has
+1,076 allocated clusters, zero leaks/mismatches/errors and clean offline fsck.
+GRUB one-shot is consumed and the matching collector disables itself. The
+333-file returned evidence backup was hash-verified outside `build`; diagnostic
+closeout files are subsequently added to that backup. No new reboot is armed.
+
+Closeout base is `ab7a7c93` (PR193 adds only the Air7,2 record). PR194 owns
+window/dock work, PR182 storage hardening and PR19 Wi-Fi; this closeout changes
+only the Air6,1 machine record. The next useful acceptance is attended interactive
+use under the same automated background workload, if desired, rather than a
+higher latency limit. Retain separate limits for this bounded result and broader
+interactive behavior.
+
+### Attended interaction under automatic load — active scope (2026-10-26)
+
+Base `43aff7d5` includes merged PR194 window movement/running dock work and the
+accepted PR192 private-image scheduling fix. Previous run is fully collected
+and listening confirmed. Prepare a separate attended Air6,1 profile: launch Help
+with the complete window/dock/Text checklist, automatically run the same bounded
+continuous PCM and verified filesystem workload, and leave normal app interaction
+to the user. Keep desktop open at workload completion so unsaved edits can be
+resolved normally. Do not automatically close user-owned windows or claim the
+automatic app-cycle requirement was exercised in this separate attended profile.
+
+Scope: explicit diagnostic profile routing, compositor workload lifecycle and
+Help content, staging/refusal and VM regression coverage, and this unit record.
+The original unattended workload and all existing limits/integrity/firmware gates
+remain unchanged. PR182 owns storage hardening and PR19 Wi-Fi; avoid their
+implementation scope. Next checkpoint: matched build/core, window/dock and loaded
+VM tests, exact-stage native refusal and verified recovery, then attended native
+trial with guest instructions and durable return collection. User’s existing
+self-merge/install/reboot authorization applies; no new reboot is armed yet.
+
+The loaded attended VM exposed a 1.535 s loop at periodic diagnostic emission;
+targeted timing reproduced 1.749 s in report output, not the nonblocking player
+wait. Extend this trial's scope to one immutable diagnostic snapshot on the
+existing lifecycle worker. The UI retries a busy fixed slot without overwriting
+it; shutdown joins/drains before the final synchronous receipt. Keep every loop
+sample, limit violation and saved-record integrity check. This affects diagnostic
+report delivery in both explicit stress modes, not ordinary desktop policy.
+PR19's shared boot/staging files contain separate Wi-Fi branches and a distinct
+profile namespace; no competing desktop implementation found.
+
+Integration refresh found PR198's keyboard-navigation scope and its new Help
+ID21 and profile v76. Integrate merged PR198 baseline `0c63e679`; reserve
+ID22 and profile v77 for this separate attended-load checklist. Keep the Air7,2
+navigation profile distinct from this Air6,1 trial. Include held MRU switching,
+cancellation, same-app cycling and keyboard menus in this guest checklist. Exact-stage rehearsal sends the console unmount command and exits the
+VM after refusal; it does not claim automatic native return or native acceptance.
+
+### Attended-load candidate validated (2026-10-26)
+
+Candidate `7b650985` integrates PR198 (`0c63e679`). Matched regular/native/fixture kernels and userspace, `test-core`, `test-desktop`, and 83 staging/profile host checks pass. The loaded attended Q35 fixture at 400 write IOPS completes 60 seconds of PCM with zero underruns and 112 verified bursts (29,360,128 bytes). Its worst loop is 209.724 ms across 1,010 samples, with no over-limit/invalid measurements. It verifies exact Text bytes, completion without forced exit, unsaved Cancel, normal retirement, all 66 prior files and clean allocation. The early-exit fixture correctly refuses completion. Window/dock and navigation VMs restore their process baseline and pass; these synthetic results do not accept physical keyboard/trackpad behavior.
+
+The unchanged automatic populated-Home stress fixture also passes: 20 app cycles, 116 verified bursts, zero underruns/errors, worst loop 339.537 ms, readiness 1.291386 s and close 1.500975 s. Exact v77 payload `ab8cbaa369d74d28` passes the UEFI native-profile refusal rehearsal with console unmount; native evidence remains pending. The complete guest checklist includes fresh Text files/notes, two screenshots, the full 30-minute load, normal exit and one ordinary `desktop battery` reopen. The local run record retains USB baseline, recovery, collector and one-shot authorization; accepted payload/evidence backups remain outside `build`.
+
+### Attended-load return: screenshot/interaction failure (2026-10-26)
+
+Release `ab8cbaa369d74d28`, compiled source `7b650985`, session
+`session-00065ec77837abe9-00` is **failed/incomplete**, not accepted. The user
+reports generally good interaction until a screenshot took about 2–3 minutes to
+appear/save, followed by inability to launch applications or exit the desktop.
+Pointer motion and menus remained responsive. There is no exit snapshot or
+confirmed battery retirement/reopen. Do not infer a whole-desktop scheduler stall
+from these symptoms or promote the trial from its audio result.
+
+The independent workload receipt completes 1,800 seconds of PCM, 345,600,000
+bytes, zero recorded underruns and worker status zero. Its 2,947 verified disk
+bursts total 772,538,368 bytes; the binary receipt matches. A 1366×768 screenshot
+(4,196,406 bytes) decodes successfully, and `load-notes.txt` survives. All 398
+prior files match except expected `.srvros/meta` bookkeeping. Offline fsck and
+allocation checks are clean: 405 files, 1,117 clusters, zero leaks/mismatches/errors.
+The collector preserves the failed run, disables itself and confirms the one-shot
+entry was consumed. Payload/evidence backups remain outside `build`.
+
+The retained periodic loop records report a 111.218 ms maximum and no over-limit
+samples, but no final loop receipt exists. The rolling logs no longer contain
+the screenshot and failed launch/exit events, so they cannot establish which
+request or worker remained pending. This is a gap in functional diagnostics,
+not evidence that the reported failure did not happen.
+
+A local disposable Q35 extension takes a screenshot during the existing
+60-second populated-Home workload at 400 write IOPS, then opens Files and requests
+normal exit with unsaved Text/Cancel/save. Screenshot completion takes 45.974 s;
+Files launch and cooperative exit work. The run nevertheless fails the unchanged
+500 ms limit with one 539.680 ms loop, including 533.053 ms rendering; clients
+exit with status zero and battery ownership retires. It does not reproduce the
+native launch/exit failure or establish its cause. An initial exploratory helper
+was interrupted after it waited for an already-consumed completion marker; that
+harness error is retained separately, not counted as an OS failure or pass.
+
+Next bounded scope: screenshot transport/save/verification timing and persistent
+pending launch/close/capture state, with automatic screenshot → app launch/close
+→ normal exit/reopen under audio/disk load. Preserve immutable capture data,
+readback/identity/flush checks, accepted-writer lifetime and all existing limits.
+Do not weaken screenshot verification or add a timeout that kills an active file
+writer. No new payload is staged or reboot armed after this return.
+
+### Automatic screenshot stress — active scope (2026-10-26)
+
+Base `a9d69554`; prior failed attended run is collected and backed up. Add
+automatic screenshots to the explicit audio/disk/app stress profile and retain
+screenshot transport/save phases, pending app launches and cooperative-exit state
+in periodic and final diagnostics. Scope: shotworker/capture protocol and host
+fixtures, compositor diagnostic snapshots/trial sequencing, VM collector and this
+unit record. Keep 500 ms loop, 5 s client, 10 s app-cycle, playback/owner deadlines
+and all file-integrity/writer-lifetime rules unchanged. PR182 owns exFAT/storage
+hardening; PR19 owns Wi-Fi. No competing screenshot implementation is in the
+current integration baseline/open PR list. Next checkpoint: matched build, host
+fixtures, loaded screenshot/app/exit VM and exact-stage refusal, self-merge and
+automatic native trial under existing explicit reboot authorization.
+
+### Automatic screenshot stress candidate (2026-10-26)
+
+Candidate `a496fd64` integrates PR201 baseline `5db81dd5` (cooperative
+window close and root task discovery). The explicit v74 automatic stress now
+requests three screenshots during native playback, retains current and slowest
+capture phase timings plus pending app-launch/close/exit state, and checks fresh
+Files launch/close and cooperative exit after playback. The short VM takes one
+screenshot. Diagnostic output has a separate joined worker and immutable fixed
+snapshots; ordinary desktop policy, hardware gates, accepted-writer lifetime,
+file verification and all existing performance/deadline limits are unchanged.
+
+Host capture protocol/save and operation snapshot regressions pass, including
+fragmented progress, malformed frames, immutable reporting and incomplete-log
+refusal. The earlier full core suite and ordinary capture/attended VMs pass;
+the integrated matched build and desktop suite pass. VM app evidence combines
+complete console lines and atomic saved snapshots for both cycle and phase
+receipts under strict
+phase/order checks; interleaved fragments are discarded. No log limit was raised.
+
+Native screenshot delay and the failed launch/exit remain unaccepted. These
+changes collect evidence and automate reproduction, not a claimed root-cause
+fix. The 30-minute trial requires no input beyond listening; keep AC and USB
+connected. It must retain three decoded screenshots, complete original workload
+and lifecycle proof, normal exit/battery retirement, preserved prior files and
+clean allocation before acceptance. The local run record retains exact source,
+payload, recovery, collector and one-shot authorization, with durable backups
+outside `build`.
+
+The integrated loaded VM at 400 write IOPS passes 60 seconds with 115 verified
+bursts (30,146,560 bytes), 19 app cycles, zero underruns/errors, worst loop
+295.123 ms, ready 1.415554 s and close 1.356357 s. The screenshot takes
+53.219710 s, including 49.307799 s receiving pixels; subsequent Files launch/close
+takes 1.164776 s and normal exit completes with empty pending queues. All 66
+prior files survive and allocation is clean. An interleaved console cycle record
+caused one harness failure; whole-record snapshot recovery and regressions fix
+collection without hiding missing/conflicting receipts. That attempt is retained.
+The integrated window-command VM also passes cooperative close, modal behavior,
+exact files and process-baseline checks. Exact native payload `7eeee7846ae4eedc`
+passes Q35 refusal, saved logs, unmount and automatic return. Native acceptance
+remains pending run `bfaa7ba0c0774d01`.
+
+### Screenshot stress return and transfer fix — active scope (2026-10-26)
+
+Release `7eeee7846ae4eedc`, session `session-00065ec8ae946d1a-00`, completes
+30 minutes with three verified screenshots, 674 app cycles, 2,897 verified disk
+bursts (759,431,168 bytes), zero recorded underruns, normal exit and battery
+retirement. All prior files survive except allowed bookkeeping/preferences;
+offline allocation is clean. Audible quality remains unconfirmed. The prior
+launch/exit failure does not reproduce, but screenshot latency does: slowest
+capture 202.486889 s, including 117.302066 s receiving pixels. This is not
+acceptance of capture responsiveness.
+
+Base `eacb4ec4` includes PR200 diagnostics. Trace bounded screenshot pipe
+transfers and scheduling under storage load; retain immutable snapshots, rights
+and signal cleanup exclusions, same-process I/O exclusion, exact writes/readback,
+identity/flush checks and all existing limits. Scope: bounded pipe syscall/process
+admission, screenshot worker transport, host regressions, loaded VM and this unit
+record. PR182 touches process filesystem operations, not the pipe transfer path;
+PR19 remains Wi-Fi. Publish the narrow change and validate matched builds,
+core/desktop and exact native-stage VM before self-merge and an automatic native
+rerun under the user's existing explicit authorization. No new reboot is armed.
+
+### Bounded screenshot transfer candidate validated (2026-10-26)
+
+Source `69226122` retains the existing 4096-byte atomic pipe bound and four-chunk
+UI poll budget. The kernel admits only nonblocking byte transfers with no rights
+release or broken-pipe signal; cleanup, PTY, large/blocking request, user-memory,
+same-process and retirement exclusions remain. The screenshot worker uses bounded
+nonblocking requests and readiness waits. No integrity checks or limits changed.
+
+Matched builds, the full core/desktop host suite, targeted admission/transport
+regressions, ordinary screenshot VM (exact immutable pixels, durable readback,
+notification/Preview and clean exit) and pipe VM (100,000-line persisted checksum
+and early-reader exit) pass. The loaded 400-write-IOPS VM passes 112 verified bursts,
+14 app cycles and zero audio underruns/errors. Worst loop is 172.611 ms, ready
+1.443386 s, close 5.907184 s and post-capture Files cycle 0.806321 s; all existing
+limits pass. Capture total improves from 53.219710 to 38.075712 s; pixel receipt
+improves from 49.307799 to 7.681562 s. Both verification passes remain enabled and
+now occur during active disk load. All 66 prior files survive; allocation is clean.
+
+Exact native payload `39d73c7da8c8ab69` passes Q35 hardware refusal, log save,
+unmount and automatic return. The automatic native rerun is `d0a0deb29df04c74`,
+with three captures over 30 minutes and the unchanged audio/disk/app workload.
+Its record retains the 414-file USB baseline, original recovery and durable
+payload/evidence backup. Native latency improvement remains pending that return;
+the older inability to launch/exit is not claimed fixed by this VM result.
+
+### Screenshot transfer native return (2026-10-27)
+
+Release `39d73c7da8c8ab69`, source `69226122`, session
+`session-00065ec9d904ac27-00` substantially improves capture latency but **fails
+performance acceptance**. All three 1366×768 BMPs decode. Slowest capture falls
+from 202.486889 to 39.944696 s; retained captures 2/3 show pixel receipt of
+8.627094/10.959870 s, versus 117.302066 s in the prior slowest capture. Current
+capture 3 completes in 36.269593 s. Verification remains enabled.
+
+The full 1,800-second workload completes 2,831 verified bursts (742,129,664 bytes),
+345,600,000 PCM bytes and zero recorded underruns; the user confirms steady sound.
+There are 602 app cycles, no child errors and a successful post-capture Files
+cycle (0.721493 s). Cooperative exit is requested, final operation queues/windows
+are empty and battery runtime retires with heap zero and no errors/denials.
+The desktop and outer controls correctly propagate a failed test result.
+
+One of 104,634 measured loops takes 660.272 ms, exceeding the unchanged 500 ms
+limit. It occurs about 33.6 s after boot; 655.438 ms is in post-render handling,
+which includes capture polling/completion. Rendering is 4 us and final wait is
+4.773 ms, so the evidence does not attribute it to drawing or final wake delay.
+Exact capture suboperation is not retained: completion/descriptor cleanup and
+snapshot release require targeted investigation, not a claimed diagnosis.
+Readiness/close maxima are 2.161654/6.160328 s under the original cycle policy.
+
+All 414 prior files survive except expected `.srvros/meta` bookkeeping. Offline
+fsck/allocation are clean: 423 files, 1,331 clusters, zero leaks/mismatches/errors.
+Evidence and decoded-image checks are backed up outside `build`; the collector
+is disabled and the one-shot entry consumed. No new boot is armed. Preserve
+all limits and accepted-writer/file-integrity rules in the next investigation.
+
+### Screenshot cleanup — active scope (2026-10-27)
+
+Base `6b6d2f4d`; prior run is collected, backed up and failed on one 660 ms
+post-render loop. Capture polling currently closes descriptors and unmaps its
+snapshot synchronously on completion. Move completion resource ownership to the
+existing joined lifecycle worker, preserving immutable data, final acknowledgement,
+accepted-writer lifetime, publication order and all limits. Add retained cleanup
+timing and delayed-cleanup regressions; validate ordinary capture and loaded
+stress before the next automatic native trial. Scope: capture job library,
+compositor worker/publication, diagnostics/host and VM collectors. PR182 filesystem
+hardening and PR19 Wi-Fi remain separate.
+
+The user also requests 1% test audio for the next few hours. Add an expiring,
+explicit stress-only volume override in this unit's test input, retaining ordinary
+audio defaults and the full PCM workload. Record its expiration with the local
+run, verify it in the guest and keep AC/USB connected during automatic testing.
+Self-merge and reboot are explicitly authorized; no new boot is armed yet.
+
+### Screenshot cleanup — candidate validated (2026-10-27)
+
+PR204 source `306a8ff4` moves completion pipe close, snapshot unmap and child
+retirement to the joined lifecycle worker. Capture remains busy until that owner
+publishes full retirement. Final acknowledgement, immutable pixels, accepted
+writes, bounded protocol chunks and all performance/owner limits remain intact.
+Retained cleanup records separate close/unmap/reap execution time. Host regression
+covers delayed retirement, single ownership and failure publication.
+
+Full host/core, matched kernels and documentation checks pass. Populated Home
+at 400 write IOPS passes 60 seconds of full PCM at verified 1% volume, 100 verified
+disk bursts, 15 app cycles, automatic screenshot/follow-up Files/normal exit,
+zero underruns and all 67 prior fixture files. Worst loop is 462.262 ms against
+the unchanged 500 ms bound. Ordinary capture VM passes immutable pixels during
+typing, durable readback, Preview, repeated capture and clean exit. Exact v74
+stage `d7fe87e92eff81b3` passes chainload and expected Q35 native-profile refusal;
+it does not establish native battery or cleanup acceptance.
+
+Next native run is 30 minutes of PCM, unpaced verified disk work, repeated app
+cycles and three automatic screenshots, then normal desktop exit and battery
+retirement. The explicit volume input requests 1% until 2026-10-27 08:30:45 UTC;
+playback receipt records actual volume. All 423 prior USB files were preserved
+when adding this one input; baseline is 424 files / 1,332 clusters with no leaks,
+allocation mismatches or errors. Ubuntu and console recovery remain unchanged.
+Native results must be collected before another trial; acceptance is pending.
+
+### Screenshot cleanup — native return failed early (2026-10-27)
+
+Release `d7fe87e92eff81b3`, compiled source `306a8ff4`, merged PR204
+`6cb4eaeb`, returned one matching session `session-00065ecbd4ad7e4a-00`.
+The full stress trial is **failed**, not accepted: Files cycle 7 exceeded the
+unchanged ten-second total cycle deadline at 10.009730 s. Its window had become
+ready in 1.677275 s; close was pending on an active directory listing. That
+listing reported success only during failure shutdown. This occurs before normal
+screenshot completion/resource cleanup, so it does not identify the new cleanup
+worker as the cause. Next investigation is directory-list completion/storage
+contention during screenshot writes, coordinating any filesystem changes with
+PR182; no limits or integrity checks should be relaxed.
+
+The 2,426 measured loops have a maximum of 109.796 ms, zero invalid samples and
+zero excursions above 500 ms. This short run cannot accept full endurance. Audio
+was verified at 1% with zero recorded underruns, but playback stopped early and
+neither workload completion receipt exists. One screenshot was requested and
+zero were acknowledged before abort. Its accepted writer drained and retired;
+one complete 1366x768 BMP (4,196,406 bytes) decodes successfully afterward. Abort
+cleanup execution totals 111.687 ms (close 101.488, unmap 1.033, reap 9.154 ms),
+excluding waiting between reap attempts. Normal completion remains unverified.
+
+Battery retirement reports heap/errors/denied all zero, though the enclosing
+controls trial correctly reports FAIL. All 424 preboot files survive except
+expected `.srvros/meta` bookkeeping. Offline fsck/allocation pass: 430 files,
+1,373 clusters, zero leaks/mismatches/errors. Returned evidence is hash-verified
+outside `build`. The collector is disabled, one-shot consumed and no new reboot
+armed. The 1% stress input retains its recorded three-hour expiration.
+
+### Files listing under screenshot writes — active scope (2026-10-27)
+
+Base `d4d9c17c`; the failed PR204 return is collected and backed up. Objective:
+remove repeated storage-admission waits from Files enumeration by returning
+bounded directory entries with their metadata in one quiescent syscall batch.
+Keep storage exclusion, shared directory cookies, live open-file sizes, path and
+output validation, file-count limits and all stress deadlines unchanged. Scope:
+directory syscall/ABI, process enumeration, deskfs listing and regression/VM tests.
+PR182 owns exFAT/block/VFS/writeback auditing; this change does not edit those
+backend contracts or its process writeback functions. PR19 retains Wi-Fi scope.
+Validate full host tests and loaded/exact-stage VMs, merge and run the unchanged
+30-minute native stress with explicit 1% audio under the user's authorization.
+
+### Files metadata batches — candidate validated (2026-10-27)
+
+PR206 runtime source `7c1ef57a` adds sixteen-entry name/metadata batches behind
+the existing storage gate. Files no longer reacquires that gate for every name,
+path resolution and stat. Shared directory cookies, live open-file sizes and
+user-buffer checks remain intact; no exFAT/backend mutation, scheduler admission,
+file-count bound or stress deadline changes. Legacy directory operations retain
+their interface. Original Files source fails the bounded-batch regression.
+
+Full host/core and matched standard/Air6,1 builds pass. Directed host tests cover
+metadata, invalid capacities, failed/malformed replies, shared positions and the
+unchanged 256-entry truncation. The real directory VM passes pointer and handle
+refusals plus metadata/cookie checks. Populated Home at 400 write IOPS passes
+60 seconds of PCM at 1%, 108 verified disk bursts, 18 app cycles, automatic
+screenshot/retirement, follow-up Files and normal exit. Worst loop is 117.417 ms,
+readiness 1.436334 s and close 1.840253 s, all within existing limits; zero audio
+underruns/app errors and all 67 prior fixture files preserved. Ordinary capture
+VM passes immutable pixels, durable readback, folder/Preview, repeat and exit.
+
+Exact v74 stage `012aaffda0be860b` passes chainload, expected Q35 native-profile
+refusal and automatic return. This does not accept the native workload. Next is
+the unchanged 30-minute / three-screenshot stress with automatic app cycles and
+unpaced verified disk work, explicit 1% volume and automatic collection. USB
+baseline remains 430 files / 1,373 clusters, all prior hashes matched and no
+leaks/mismatches/errors. The quiet input remains valid until 08:30:45 UTC on
+2026-10-27. Ubuntu and verified console recovery remain the fallback.
+
+### Files metadata batches — bounded native acceptance (2026-10-27)
+
+Release `012aaffda0be860b`, runtime source `7c1ef57a`, merged PR206 `e7953352`,
+completed session `session-00065ecc2a71b33f-00` with an automated **PASS**.
+All 1,800 seconds of PCM completed at verified 1% volume: 345,600,000 bytes,
+zero recorded underruns and worker status zero. The user confirms steady sound
+throughout this quiet run.
+Unpaced disk work completed 3,266 verified bursts / 856,162,304 bytes, with
+sustained live-playback overlap and matching binary/text receipts.
+
+The session completed 703 application cycles with zero errors. Maximum readiness
+is 1.722836 s and close 4.799946 s; the original ten-second cycle bound passes.
+All 95,841 measured desktop loops are valid, with zero excursions over the
+unchanged 500 ms limit; maximum is 311.305 ms. This accepts the bounded Files
+listing and screenshot cleanup coexistence trial, not unlimited endurance or
+instantaneous UI response under all loads.
+
+All three automatic screenshots have successful acknowledgements, full worker
+retirement and decodable 1366x768 BMPs (4,196,406 bytes each). Slowest completion
+is 22.715026 s, compared with 39.944696 s in the previous completed-capture
+reference release `39d73c7da8c8ab69`; that reference still failed its loop bound.
+Retained cleanup execution is 73.704 ms for the slowest capture and 71.626 ms
+for the final capture. Follow-up Files completes in 711.504 ms, then normal exit
+leaves no queued launches, live windows or capture owner. Battery retirement
+reports heap/errors/denied zero and enclosing controls PASS.
+
+All 430 preboot files survive except expected `.srvros/meta` bookkeeping.
+Offline fsck/allocation pass with 439 files, 1,480 clusters and zero leaks,
+mismatches or errors. The matching evidence, images and accepted payload are
+hash-verified outside `build`. Ubuntu remains the default, console recovery is
+preserved, the collector is disabled and no reboot is armed. The next step can
+return to broader attended desktop use; this workload needs no relaxed limits.
+
+### Read-only CPU power telemetry — active scope (2026-10-27)
+
+Base `4dbd566f` includes the collected Files/screenshot acceptance above. The
+next bounded objective is explicit CPU package energy and CPU0 active-frequency
+telemetry for this unit, followed by the existing automatic v35 30-second
+idle/load/recovery phases. Linux CPU0 capture confirms signature `0x40651`,
+CPUID.1 ECX/EDX `0x7ffafbbf`/`0xbfebfbff`, CPUID.6 ECX `9`, and readable
+RAPL units/platform/energy/APERF/MPERF. Raw evidence stays in ignored local storage.
+
+Touched scope: power profile gate, its arithmetic/service regressions, power
+trial documentation and local staging/collection. Preserve the five-register
+read-only allowlist, feature/hypervisor refusals, thermal stops and all timing
+and integrity bounds. No CPU policy, fan control or ordinary desktop opt-in
+changes. Reuse the existing v35 diagnostic; no battery/AML ownership is needed.
+PR182 owns filesystem/backend writeback auditing and PR19 USB Wi-Fi; neither
+has overlapping power scope. Native power acceptance remains pending. Keep
+Ubuntu, console recovery and the accepted combined desktop payload available.
+
+### Read-only CPU power telemetry — candidate ready (2026-10-27)
+
+PR208 runtime source `932f7b50` admits only the independently captured 06_45
+profile alongside existing 06_3D/06_46 support. Units are `0xa0e03`; platform
+`0x8083df3011400` supplies the 2,000 MHz reference. The Linux development-load
+fixture decodes to 6,610 mW package power / 834 MHz active frequency; it is not
+native idle evidence. Five read-only MSRs, CPU feature/hypervisor checks and
+sampling/thermal bounds remain unchanged. The new regression fails against the
+original model gate and passes with the profile.
+
+Full host/core, matched standard build, documentation, load safety and collector
+tests pass. Power and load VMs verify default-disabled and unsupported-hardware
+refusal. Exact v35 release `22632f396dab67a4` passes GPT workspace save/unmount
+and automatic return; missing workspace halts without reboot. VMs cannot accept
+native measurements. The prepared physical run has three automatic 30-second
+idle/load/recovery phases, visible progress and automatic Ubuntu collection.
+Acceptance requires valid power coverage in all three phases as well as workload
+completion, original-file preservation and clean offline allocation.
+
+USB preflight matches the prior 439 files / 1,480 clusters without leaks or
+mismatches. Verified payload and evidence backups are outside `build`; Ubuntu,
+console recovery and accepted combined desktop remain available. No input or
+listening is required; leave AC and USB connected. Native acceptance is pending.
+
+### Read-only CPU power telemetry — first native result (2026-10-27)
+
+Release `22632f396dab67a4`, runtime `932f7b50`, merged PR208 `c07dc402`,
+saved session `session-00065ed46d470f31-00` and returned automatically to Ubuntu.
+All three 30-second phases completed; load executed 250,652 integer-work chunks.
+The power provider reports the captured units/reference, both validity flags
+and zero rejected samples throughout the measured checkpoints. Thermal/fan
+checks completed without a stop; peak logged core/package temperatures are
+61/63 C and fan observations span 1,171–1,234 RPM.
+
+Covered load power is 5.134 W over 10.999826 seconds with CPU0 active frequency
+1,300 MHz. Recovery is 4.127 W over 20.999667 seconds and 1,288 MHz. These are
+short console-workload package measurements, not whole-machine power or savings.
+The complete three-phase telemetry trial remains **incomplete**: the two eligible
+idle checkpoints span 9.999841 seconds, 159 microseconds below the unchanged
+ten-second coverage requirement. The next checkpoint was logged after idle
+ended and is correctly excluded. No missing data or hardware error is inferred
+from this coverage refusal; do not round it into a pass or weaken the threshold.
+Next work should make phase checkpoints reliably cover the existing window.
+
+All 439 prior files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the volume to 443 files / 1,485 clusters; offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. Collected evidence
+and the payload are verified outside `build`. The collector is disabled, the
+one-shot boot entry is consumed and no further reboot is armed. Existing accepted
+desktop/recovery payloads remain the recovery reference.
+
+### CPU power phase logging — active scope (2026-10-27)
+
+Base `99241a70` contains the collected incomplete v35 run. The bounded objective
+is to retain extra cached power checkpoints inside each unchanged 30-second
+phase so idle has more than the unchanged ten seconds of required coverage.
+Touch the explicit power diagnostic checkpoint path, v35 main wiring, service
+and collector regressions, and this unit's trial documentation. Keep ordinary
+power sampling and USB logging cadence unchanged; retain a bounded in-memory
+capture and emit it before the final persisted report. No new MSR reads/writes,
+CPU policies, sensor gates or acceptance-limit changes. PR182 filesystem/backend
+work and PR19 Wi-Fi have no overlapping power scope. After host/VM validation,
+merge and repeat the automatic native test under the user's reboot authorization.
+
+### CPU power phase logging — repeat candidate ready (2026-10-27)
+
+PR210 runtime `e7a41714` retains up to 24 already-sampled power snapshots in
+static memory at intervals of at least five seconds, only during v35's explicit
+load diagnostic. It prints their original sample timestamps after stopping
+retention and before the final workspace save. No extra MSR reads, allocations,
+disk writes or wakeups; sampling/USB cadence and all duration, thermal and
+collector limits remain unchanged. The collector refuses malformed, truncated
+or overflowed retained captures and keeps the ten-second per-phase requirement.
+
+Full host/core, standard matched build and docs pass. Driver regressions cover
+sampling drift across all phases, no extra reads, capacity/stop/restart and
+refused CPUs. Collector regressions reproduce the exact native shortfall and
+show added checkpoints supply valid coverage; the original parser fails both
+new coverage cases. CPU-load safety fixtures retain all twelve refusal/stop
+paths. Power/load disabled and unsupported-hardware VMs pass.
+
+Exact v35 release `a5f8fdf5d377c116` passes GPT workspace save/unmount/automatic
+return and missing-workspace halt rehearsals. The repeat native trial keeps
+30 seconds each idle/load/recovery with visible progress and automatic Ubuntu
+collection. USB baseline is 443 files / 1,485 clusters with clean allocation.
+The older stress payload's EFI copy was retired only after durable hash
+verification; latest accepted stress `012aaffda0be860b`, console recovery and
+current installed payload remain protected. Native repeat acceptance is pending.
+
+### CPU power phase logging — bounded native acceptance (2026-10-27)
+
+Release `a5f8fdf5d377c116`, runtime `e7a41714`, merged PR210 `e283eecb`,
+completed session `session-00065ed4d4558b8e-00` and returned automatically to
+Ubuntu. All three 30-second phases completed, including 250,682 load chunks.
+Seventeen retained checkpoints have both validity flags, zero rejected samples
+and no overflow. The full final log fits within the unchanged 64 KiB tail.
+
+| Phase | Covered interval | Checkpoints | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- |
+| Idle | 20.000003 s | 7 | 4.128 W | 1,288 MHz |
+| Single-worker load | 25.000003 s | 7 | 5.161 W | 1,299 MHz |
+| Recovery | 25.000004 s | 9 | 4.107 W | 1,290 MHz |
+
+Coverage combines retained and ordinary workspace checkpoints inside each phase.
+Every phase satisfies the unchanged ten-second minimum. Peak logged core/package
+temperatures are 64/66 C; the fan spans 1,938–2,589 RPM. No diagnostic thermal
+stop occurred. This accepts bounded read-only package energy and CPU0 active
+frequency, plus the phase logging fix, on this unit. It does not accept CPU/fan
+policy changes, equilibrium power, battery-life predictions, multi-core stress
+or savings against earlier differently instrumented trials. Ordinary desktop
+power telemetry remains opt-in and is not enabled by ordinary staging.
+
+All 443 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 447 files / 1,490 clusters. Offline fsck/allocation
+pass with zero leaks, mismatches or errors. Matching evidence and the payload
+are hash-verified outside `build`. The collector is disabled and the one-shot
+entry consumed; no reboot is armed. Ubuntu and console recovery remain intact.
+
+### Desktop power phases — active scope (2026-10-27)
+
+Base `e62c1b2a`; bounded objective is one automatic battery-owned desktop lifetime
+with 30 seconds settling, 60 seconds idle, 60 seconds Text/Files/System app
+cycles, then 60 seconds recovery and clean retirement/Ubuntu return. Measure
+package power, temperatures and CPU0 worker wakeups separately by phase. Keep
+existing app deadlines, telemetry validity, firmware ownership and integrity
+checks. No CPU/fan control writes or ordinary startup changes.
+
+Scope: an explicit Air6,1 desktop staging profile, compositor diagnostic phases,
+battery session selection, bounded preservation of periodic log checkpoints,
+strict phase collection and host/VM regression harnesses. Normal logger cadence
+and rotating snapshots stay unchanged; only this diagnostic reserves extra file
+slots for at most 32 checkpoints. PR182 owns filesystem/backend auditing and
+PR19 Wi-Fi; neither overlaps these diagnostic callers. Validate positive battery
+VM and exact-stage hardware refusal, merge and run automatically under the
+user's existing authorization. Native combined power acceptance is pending.
+
+### Automatic desktop power candidate — prepared (2026-10-27)
+
+PR212 prepares release `1d1cbd1cb03d3032`, runtime source `7a9cfeaf`, for the
+30-second settle / 60-second idle / 60-second app workload / 60-second recovery
+trial above. Full host core, matched standard/Air6,1/fixture builds, USB image,
+profile/collector regressions and documentation checks pass. The complete Q35
+TCG fixture passes 12 Text/Files/System cycles, with maximum desktop loop
+161,585 us, readiness 533,205 us and close 430,994 us. Phase worker coverage is
+5–6 checkpoints over 40.26/50.36/50.79 seconds. Fixture files are preserved and
+offline allocation is clean. The exact staged EFI payload explicitly refuses
+Q35 at the native PCI/ownership gate, then unmounts and returns normally.
+No VM energy or temperature values are treated as native observations.
+
+An initial verbose-UI TCG rehearsal failed at a 513,336 us loop; exploratory KVM
+also faulted on a battery query deadline. Both remain failed evidence. The power
+profile now uses ordinary desktop UI instrumentation, retaining phase receipts
+and periodic telemetry without extra verbose resource tracing. The subsequent
+complete TCG run passes the same 500 ms loop and 10 s app limits; KVM is not
+acceptance evidence. The final harness additionally checks explicit refusal
+messages, without changing the staged runtime.
+
+Run `feba3c750d2a4a8d` retains the 447-file / 1,490-cluster USB baseline, UUID
+`6ADA-85BB`, console recovery `c35475f62f154f1e`, accepted CPU-power payload
+`a5f8fdf5d377c116` and accepted stress payload `012aaffda0be860b`. Only the
+superseded incomplete CPU capture's EFI copy `22632f396dab67a4` was retired after
+verifying its durable backup. The new payload and run evidence are backed up
+outside `build`; automatic Ubuntu collection is prepared. Keep AC/USB attached,
+leave input alone, and collect matching phase measurements before acceptance.
+Native combined desktop power, temperature and worker-wakeup results are pending.
+
+### Automatic desktop power phases accepted (2026-10-27)
+
+Documentation-only follow-up on integration `1434c7dc`: collect and record the
+completed PR212 trial in this unit record, the machine index and power guide.
+No shared runtime changes or dependencies on open PR182/PR19 are introduced.
+
+Run `feba3c750d2a4a8d`, release `1d1cbd1cb03d3032`, runtime `7a9cfeaf`, saved
+session `session-00065ed629188a57-00` passes all three native phases. The desktop
+completed 13 automated Text/Files/System open/close cycles and exited normally.
+Maximum UI loop was 115,440 us (500,000 us limit); maximum app readiness was
+704,385 us and close was 51,434 us (unchanged 10 s lifecycle limit). Battery
+monitoring remained fresh, advancing generations 12→35→59→82. Retirement reports
+82 attempts, zero rejected samples, heap zero, errors zero and denied zero;
+client ownership was revoked and the runtime retired cleanly.
+
+| Phase | Power coverage | Points | Mean CPU package power | CPU0 active frequency | Core / package temperatures |
+| --- | --- | --- | --- | --- | --- |
+| Idle | 50.998362 s | 6 | 4.131 W | 1,292 MHz | 59 / 59 C |
+| App workload | 51.998342 s | 6 | 4.150 W | 1,294 MHz | 57–59 / 58–59 C |
+| Recovery | 40.998694 s | 5 | 4.137 W | 1,292 MHz | 57–59 / 58–59 C |
+
+Each phase lasted approximately 60.06 s. Worker snapshots separately cover
+51.624 / 51.528 / 40.449 s. Idle timeout-wakeup rates include `xhci-hid` 90.133/s,
+`uthread` identity 17 at 89.436/s, `bootstrap` 48.350/s and `battery-owner`
+18.964/s. Recovery rates remain similar. App-phase partial worker lifetimes are
+reported separately, not attributed as complete counters. These are software
+wakeups, not hardware residency or energy attribution. The 19 mW app/idle
+package difference does not establish a meaningful power change from one short
+light-workload trial. A useful next step is auditing periodic desktop/lifetime
+worker waits and repeating this baseline under unchanged correctness limits;
+no CPU/fan policy or sleep/resume acceptance follows from these measurements.
+
+All 447 prior files are preserved except expected `.srvros/meta` bookkeeping;
+23 new log files bring the USB to 470 files / 1,514 clusters. Offline fsck and
+allocation pass with zero leaks, bitmap mismatches or errors. The independent
+saved-record parser agrees with automatic collection. All 353 collected durable
+evidence hashes and the installed/backup payloads were verified. Ubuntu returned,
+the one-shot entry is consumed and the collector is disabled. No reboot is armed.
+The accepted payload/evidence is retained outside `build`; native bounded desktop
+power/temperature/worker telemetry is accepted on this unit, with ordinary
+power telemetry still opt-in and broader endurance/power policy still pending.
+
+### Idle worker polling reduction — active scope (2026-10-27)
+
+Base `fbb6eaa5`, accepted desktop-power run `feba3c750d2a4a8d`. Audit identifies
+one-tick unconditional sleeps in the desktop lifecycle and diagnostic-report
+workers. Replace only their empty-queue polling with latched futex notifications;
+cover launch, allocation, discard, capture cleanup, report publication and stop.
+Keep the existing one-tick retry while a screenshot child is still retiring,
+resource ownership/credit rules, joins, queue bounds and every deadline unchanged.
+The native bootstrap loop also checks workspace identity, control requests and
+watchdogs; its polling is deferred until all those wake sources can be covered.
+USB HID polling belongs to separate device work and is unchanged.
+
+Scope: compositor worker notification/admission sites, host race/retirement
+regressions, relevant worker documentation, and a repeat of the identical v78
+power trial with the 470-file / 1,514-cluster USB baseline. Open PR182 filesystem
+and PR19 Wi-Fi work do not own these compositor queues. Run full host tests,
+positive power and screenshot/app/disk VMs, exact staged native refusal, merge,
+then reboot automatically. Native wakeup/energy improvement remains unproven
+until the matching physical return is collected.
+
+### Event-driven desktop workers — validated candidate (2026-10-27)
+
+PR214 candidate runtime `e0008d92`, release `cb881058052a1012`, replaces empty
+lifecycle/report polling with separate latched futex waits. Every UI-side work
+publication and stop notifies its worker. Capture retirement and interrupted-wait
+fallback retain the old one-tick retry; resource credit, child ownership, joins,
+firmware guards, queue bounds and all deadlines remain unchanged. Host threaded
+race/rollback/retirement tests, the full core suite, matched builds and docs pass.
+
+The complete power VM passes 12 app cycles with a 189,071 us worst UI loop.
+Lifecycle worker timeout wakeups are zero in all phases; idle and recovery also
+have zero switches/signals, while app work produces 43 signal wakeups over its
+covered interval. The concurrent audio/disk/app/screenshot VM passes 60 s, 366
+verified disk bursts (95,944,704 bytes), 26 app cycles, one saved screenshot,
+follow-up Files launch and clean exit. It records 222 audio/write overlap windows,
+zero underruns and a 439,121 us worst UI loop under the unchanged 500,000 us
+limit. Both VMs preserve prior files and pass offline allocation. The exact EFI
+payload refuses Q35 at the native PCI/resource gate and returns after unmount.
+
+Repeat run `db449f93b4b14340` uses the identical v78 settle/idle/apps/recovery
+recipe and native limits, against the accepted `1d1cbd1cb03d3032` baseline.
+Its USB baseline remains 470 files / 1,514 clusters, UUID `6ADA-85BB`; Ubuntu and
+console recovery `c35475f62f154f1e` remain unchanged. The older automated-reopen
+EFI copy `4efd82574f07eb30` was retired only after verifying its durable payload;
+later attended-reopen `9851d427b042227b`, accepted stress and both accepted power
+payloads remain installed/backed up. Automatic return collection compares power
+and worker counters without treating this short comparison as proven energy
+savings. Native validation remains pending; no battery-supervisor or USB polling
+change is included in this candidate.
+
+
+### Idle desktop worker waits physically accepted (2026-10-27)
+
+Documentation-only acceptance on integration `8715d684` (PR214); no runtime
+changes or dependencies on open PR182/PR19. Run `db449f93b4b14340`, release
+`cb881058052a1012`, runtime `e0008d92`, saved matching native session
+`session-00065ed6efff4c7c-00`. The unchanged v78 settle/idle/apps/recovery test
+passes with 13 completed Text/Files/System cycles and automatic Ubuntu return.
+Worst UI loop is 115,492 us against 500,000 us; readiness is 565,144 us and close
+83,141 us against the unchanged 10 s lifecycle limits.
+
+Lifecycle worker `uthread` identity 17 has zero timeout wakeups in every phase.
+Idle and recovery also have zero switches or signal wakes across their covered
+52.208329 s and 51.122871 s intervals. During 40.828704 s of app coverage it has
+54 switches and 36 signal wakes (0.882/s), serving work without periodic polling.
+The accepted baseline had 89.436 / 87.604 / 89.026 timeout wakes/s respectively.
+This accepts the targeted lifecycle wait change on this unit, not removal of all
+worker polling. Bootstrap supervision (~48/s), battery ownership (~19/s) and
+USB HID (~90/s) remain unchanged and need their own wake-source audits.
+
+| Phase | Power coverage / points | Mean package power, baseline → repeat | CPU0 active MHz | Core / package C |
+| --- | --- | --- | --- | --- |
+| Idle | 51.998343 s / 6 | 4.131 → 4.121 W | 1,292 | 61–63 / 62–65 |
+| Apps | 40.997963 s / 5 | 4.150 → 4.167 W | 1,294 | 60–61 / 61–62 |
+| Recovery | 40.998693 s / 5 | 4.137 → 4.130 W | 1,293 | 60–61 / 60–62 |
+
+Power is essentially unchanged in this short comparison; different temperatures
+and small differences do not establish energy savings. Battery phase generations
+advance 12→35→58→81; retirement reports 82 attempts, zero rejected samples,
+heap/errors/denied zero, and revoked/retired ownership. All integrity checks,
+queue bounds, screenshot-child retry, firmware gates and deadlines are unchanged.
+
+All 470 prior USB files are preserved except expected `.srvros/meta` bookkeeping.
+The 23 new logs bring the filesystem to 493 files / 1,538 clusters; fsck and the
+allocation walk pass with zero leaks, bitmap mismatches or errors. Independent
+reparsing agrees with the collector and all 381 collected durable evidence hashes
+verify. Payload/evidence survive `make distclean`. The one-shot boot is consumed,
+the collector is disabled, and no reboot is armed. Console recovery
+`c35475f62f154f1e` and the earlier accepted payloads remain retained.
+
+
+### Battery desktop supervisor wait audit — active scope (2026-10-27)
+
+Base `a3066f87`, accepted idle-worker run `db449f93b4b14340`. Replace only the
+ordinary lifetime-owned desktop supervisor's ten-millisecond polling with a
+process-exit/control/ownership event wait and the existing absolute diagnostic
+deadline. Preserve mount identity validation, mailbox epoch/admission checks,
+process reaping and lifetime drain, service ownership/watchdogs and every limit.
+Capture/study loops that inspect sample progress retain their existing polling.
+Battery-owner sampling and USB HID workers are outside this change.
+
+Scope includes a non-reaping process event wait, control-request notification,
+mount-hold release notification, supervisor deadline selection and race/refusal
+regressions. Open PR182 touches process/storage files for filesystem auditing;
+this change is confined to process wait APIs and mount-hold notification, not
+its file I/O, allocation or storage-admission implementation. PR19 owns Wi-Fi.
+Validate host/core, complete power/control VMs and exact-stage refusal, merge,
+then repeat the unchanged automated v78 power trial. Native improvement remains
+pending until matching returned evidence is collected.
+
+
+### Event-driven battery supervisor — validated candidate (2026-10-27)
+
+Runtime `d1eaeec8` replaces only ordinary lifetime-owned session polling with
+process/control/ownership notifications and the original absolute deadline.
+The read-only wait shares process ownership predicates without reaping. Accepted
+control publication and legal mount-hold invalidation notify after their state
+changes. Existing mount immutability, native ownership checks, firmware/IRQ
+watchdogs, diagnostic capture loops and retirement limits remain unchanged.
+
+Full core/build tests and the new host ownership/race/deadline/mount tests pass.
+At source `13725b56`, the ordinary Home VM passes two actual System Stop/Start
+cycles (four dispatched requests, three clean epochs), file persistence and
+reopen. The automatic reopen VM passes both 20-second deadlines. The identical
+power recipe passes 12 app cycles, 445,159 us worst UI loop, 532,512 us readiness
+and 582,337 us close. Bootstrap has zero switches/timeouts/signals during covered
+idle and recovery, with 22 event wakes and zero timeouts during app work.
+
+The 60-second audio/disk/app/screenshot VM passes at 1% volume with 378 verified
+bursts / 99,090,432 bytes, 26 app cycles, one capture, follow-up Files, normal
+exit and zero underruns. Worst loop is 329,981 us, readiness 1,011,293 us and
+close 550,023 us. Prior files and offline allocation pass. Two earlier guest
+completions lacked complete timing evidence after UART interleaving and disk
+rotation; they remain incomplete evidence. Host-only commit `153c75fb` retains
+six already-flushed disk checkpoints by identical double reads and matching
+generation, without pausing or writing to the guest. All validators and limits
+are unchanged, and the passing run supplies complete timing records.
+
+Stage `aa576838270d623a` at `153c75fb` has unchanged guest payload hashes from
+those control/deadline tests. Exact GRUB/staged-Limine Q35 rehearsal passes native
+profile refusal, unmount and automatic return; it cannot accept native telemetry.
+Run `03633a2df1e14db2` repeats v78 against accepted `cb881058052a1012`, with the
+493-file / 1,538-cluster baseline and local UUID `6ADA-85BB`. Keep AC/USB connected;
+no input is needed. Ubuntu and console recovery `c35475f62f154f1e` are retained.
+The superseded original desktop-power EFI copy `1d1cbd1cb03d3032` may be removed
+only after verifying its durable backup; the latest accepted power, console,
+CPU-power, stress and attended-reopen payloads remain protected. Save/install
+verification and automatic collection records before arming. Native supervisor
+wakeup/power comparison is pending; no energy savings are claimed.
+
+
+### Battery supervisor event waits physically accepted (2026-10-27)
+
+Documentation-only acceptance on integration `664c22a3` (PR216); no runtime
+changes or dependencies on open PR182/PR19. Run `03633a2df1e14db2`, release
+`aa576838270d623a`, staged source `153c75fb` (runtime change `d1eaeec8`), saved
+matching session `session-00065ed778e804ca-00`. All unchanged v78 phases pass,
+with 13 Text/Files/System cycles, normal retirement and automatic Ubuntu return.
+Worst UI loop is 110,061 us (500,000 us limit), app readiness 641,296 us and
+close 51,645 us (unchanged 10 s limits).
+
+Bootstrap supervisor identity 1 has zero timer wakeups in every covered phase.
+Idle and recovery also have zero switches/signals; app work produces 25 switches
+and 25 signal wakes. Worker coverage is 51.843215 / 51.577041 / 40.448709 s for
+idle/apps/recovery. The preceding accepted release had approximately 48 timer
+wakes/s. Lifecycle worker identity 17 retains zero timer wakes, with no covered
+idle/recovery switches. Battery-owner sampling (~19 timer wakes/s), USB HID,
+firmware watchdogs, ownership checks and every limit remain unchanged.
+
+| Phase | Power coverage / points | Mean package power, prior → repeat | CPU0 active MHz | Core / package C |
+| --- | --- | --- | --- | --- |
+| Idle | 50.998372 s / 6 | 4.121 → 4.130 W | 1,292 | 59–61 / 59–61 |
+| Apps | 50.998344 s / 6 | 4.167 → 4.140 W | 1,294 | 57–59 / 58–60 |
+| Recovery | 40.998694 s / 5 | 4.130 → 4.132 W | 1,292 | 57–59 / 58–59 |
+
+Package power remains about 4.1 W; small differences and different temperatures
+in these short runs do not establish energy savings. Battery generations advance
+12→35→58→81. Retirement reports 82 attempts, zero rejected samples, heap/errors/
+denied zero, balanced attachment, revoked clients and retired runtime ownership.
+
+All 493 prior files are preserved except expected `.srvros/meta` bookkeeping;
+23 new logs bring the USB to 516 files / 1,562 clusters. Offline fsck/allocation
+pass with zero leaks, bitmap mismatches or errors. Independent saved-log parsing
+agrees with automatic collection and all 466 collected durable hashes verify.
+Evidence and payload remain outside `build`. Ubuntu returned, the one-shot entry
+is consumed, the collector is disabled and no reboot is armed. The superseded
+`1d1cbd1cb03d3032` EFI copy was removed only after verifying its durable backup;
+console `c35475f62f154f1e`, prior accepted `cb881058052a1012`, CPU-power, stress
+and attended-reopen payloads remain retained. This accepts the ordinary session
+supervisor wait change on this unit; broader endurance and power policy remain
+separate work.
+
+### Read-only idle residency — active scope (2026-10-27)
+
+Base `108969f7` includes the collected supervisor-wait acceptance. Add explicitly
+opted-in CPU0 core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 residency reads for
+this captured 06_45 CPU, guarded by the existing native power gate and invariant
+TSC support. Intel SDM Volume 4 tables 2-20 and 2-31 define the counters; capture
+this unit's Linux read-only baseline before admitting them. Other CPU profiles
+retain their existing five-register power telemetry, with residency unavailable.
+
+Touch power sampling/arithmetic, bounded capture records, collector regressions
+and documentation. Reuse v35's unchanged 30-second idle/load/recovery phases,
+24-record capacity, one-second sampling, thermal/fan stops, ten-second phase
+coverage and USB integrity checks. No C-state, frequency, fan or battery policy
+writes, scheduler changes or new polling. Distinguish unavailable/reset/stale
+from valid zero residency; core and package percentages have separate scopes.
+PR182 filesystem audit and PR19 Wi-Fi remain independent. Next checkpoint is
+host/VM validation, self-merge, exact-stage installation and the authorized
+automatic native run; hardware acceptance is pending collection after return.
+
+### Read-only idle residency — candidate ready (2026-10-27)
+
+PR218 runtime `d7cda917` adds the ten captured residency MSRs plus TSC brackets
+only on native 06_45 with invariant TSC. Linux CPU0 inventory confirms readable
+core/package counters, including valid zeros for package C6–C10. The regression
+fixture preserves the measured raw values; it does not assert native acceptance.
+Core C3/C6/C7 and package C2/C3/C6/C7/C8/C9/C10 ratios remain separate, with no
+inferred C0/C1. Invalid/reset/stale readings are explicitly unavailable.
+
+Full matched standard build, USB image, host/core and documentation checks pass.
+Power arithmetic/service regressions cover exact CPU refusal, cached-only reads,
+unchanged cadence/capacity, valid zero, counter resets/reserved bits, independent
+state totals, overflow and stale status. Eight collector tests pass, including
+strict receipt/timestamp pairing and invalid/missing/short coverage refusal;
+load fixtures retain all twelve safety refusal/stop paths. Power/load VMs pass
+default-disabled and unsupported-hardware refusal.
+
+Exact v35 release `ed06103a5275d7ca` passes GPT save/unmount/automatic return and
+missing-workspace halt rehearsals. Run `a8c3c17ccdba458a` will automatically run
+30 seconds each idle/load/recovery, save the bounded samples and return to Ubuntu
+for collection. Acceptance requires both power and residency coverage of at least
+ten seconds per phase, complete workload/return evidence, unchanged prior files
+and clean offline allocation. All existing policies, cadence, capacities,
+watchdogs, thermal/fan stops and time limits remain unchanged. No input is needed;
+leave AC and USB connected. Native residency acceptance is pending return.
+
+USB preflight preserves all 516 baseline files with 1,562 allocated clusters and
+zero leaks/mismatches/errors. The superseded `cb881058052a1012` EFI copy was retired
+after durable hash verification; accepted current desktop `aa576838270d623a`,
+console recovery, accepted CPU power, stress and attended-reopen payloads remain
+protected. Source, exact-stage receipts, payload and run/collection records are
+retained outside `build` before reboot; Ubuntu remains the default OS.
+
+### Read-only idle residency — bounded native acceptance (2026-10-27)
+
+Return closeout from base `f516c8ea` is documentation/evidence only; no runtime
+policy or new trial. PR182 filesystem and PR19 Wi-Fi scopes remain independent.
+Release `ed06103a5275d7ca`, runtime `d7cda917`, merged PR218 `f516c8ea`, completed
+run `a8c3c17ccdba458a`, session `session-00065ed874cb714b-00`, and automatically
+returned to Ubuntu. The three ordered 30-second phases completed, with 250,478
+single-worker load chunks and peak logged temperature 67 C. Fifteen retained
+records have full support/valid masks, zero rejected samples and no overflow.
+The 63,866-byte exit log retains the complete required evidence within the
+unchanged 64 KiB tail. Independent raw-record review agrees with the collector.
+
+| Phase | Residency coverage | Residency checkpoints | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- |
+| Idle | 23.999236 s | 5 | 4.130 W | 1,287 MHz |
+| Load | 23.999235 s | 5 | 5.167 W | 1,299 MHz |
+| Recovery | 23.999234 s | 5 | 4.137 W | 1,290 MHz |
+
+Power coverage is respectively 23.999236/28.999076/26.999139 seconds, combining
+retained and ordinary checkpoints. Every phase exceeds both unchanged ten-second
+requirements. All ten raw residency counters remain exactly zero, not merely
+rounded percentages: no CPU0 core C3/C6/C7 or package C2/C3/C6/C7/C8/C9/C10
+residency was recorded. TSC brackets advance normally. This accepts the bounded
+read-only capture/validation path on this unit, not deep-state entry or CPU
+policy. It does not measure C0/C1, all-core residency, equilibrium power or
+battery life. The next useful investigation is read-only auditing of idle entry,
+other-core state and firmware/package restrictions before changing CPU policy.
+
+All 516 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the volume to 520 files / 1,567 clusters; offline fsck and
+allocation checks report zero leaks, mismatches or errors. Collected evidence
+and current/recovery payloads are hash-verified in durable storage outside
+`build`. The automatic collector is disabled, GRUB's one-shot entry is consumed
+and no further reboot is armed. Ubuntu remains the default recovery OS.
+
+### Idle entry and firmware audit — active scope (2026-10-27)
+
+Base `51f8b39b` includes the collected residency run. Audit the unchanged CPU0
+`sti; hlt; cli` readiness/idle path and add capture-only entry/return/readiness
+counters with generation-safe start/stop. Read only the captured 06_45 E2 package
+C-state configuration register at capture boundaries, and retain raw CPUID
+MONITOR/MWAIT capability information. No control writes, MWAIT activation,
+secondary-CPU startup, polling/cadence, watchdog or limit changes. No MP request
+exists in the current Limine boot path; other cores' live state remains unknown.
+
+Touch scheduler diagnostic accounting, power capture/service regressions, strict
+saved-record validation and this unit's guides. Preserve the existing v35
+30-second idle/load/recovery workload, 24-record capacity, 64 KiB log tail,
+ten-second coverage minimum, thermal/fan stops and USB integrity checks. PR182
+filesystem work touches other scheduler-adjacent process paths; PR19 owns Wi-Fi.
+Neither currently changes this idle loop or power collector. Next checkpoint is
+host/VM validation, merge and the authorized automatic native run. Prior run is
+fully collected; this audit has no new hardware acceptance yet.
+
+### Idle-entry/firmware audit — candidate ready (2026-10-27)
+
+PR220 runtime `b6ffff14` retains the original readiness check and contiguous
+`sti; hlt; cli` in the compiled idle worker. Capture-only counters track entry
+attempts, returns and readiness bypasses; generation checks prevent a preempted
+return from an earlier capture polluting a new one. There are no clocks, I/O,
+allocations or printing in that idle path. Read-only E2 snapshots occur only at
+capture start/stop behind the accepted 06_45/invariant-TSC gate. No firmware
+methods, control writes, MWAIT activation or AP startup are added.
+
+Linux CPU0 inventory reads E2 `0x408`: package C10 limit, unlocked, I/O-MWAIT
+redirection enabled and zero demotion/undemotion bits. This is Linux inventory,
+not SrvrOS firmware-policy evidence. Native values and raw MONITOR/MWAIT CPUID
+capabilities are saved by the next run. No other-core live state is inferred.
+
+Full matched build/USB image, host/core and docs pass on `b6ffff14`; source
+`c888ab53` adds only the test header dependency, with final matched rebuild,
+power regression and docs passing. Scheduler regressions cover inactive/nested
+capture, ready bypass, HLT path, delayed return across stop/restart and epoch
+exhaustion. Driver tests cover exact model-gated E2 reads, failed/nested capture,
+restart and cached records. Ten collector tests pass, including generation/
+timestamp pairing, monotonic counts, one outstanding return, missing/malformed
+records, changed configuration and unknown limits. All twelve existing load
+safety refusal/stop cases remain passing. Power/load VMs verify default-disabled
+and unsupported-hypervisor refusal.
+
+Exact v35 release `6b1f017332e0931b` passes GPT save/unmount/automatic return and
+missing-workspace halt. Run `49fe4e29d5ed450a` uses the unchanged three 30-second
+idle/load/recovery phases, with automatic Ubuntu return and strict collection.
+Required evidence includes >=10 seconds of power, residency and paired idle-entry
+coverage per phase, complete firmware audit, workload completion, file preservation
+and clean allocation. Zero HLT counts or changed firmware values remain explicit
+observations; they are not concealed or reinterpreted as deeper-state acceptance.
+All power policies, cadence, time/capacity limits, thermal stops, watchdogs and
+integrity checks remain unchanged. No human input is needed; keep AC/USB connected.
+
+USB preflight preserves 520 files / 1,567 allocated clusters with zero leaks,
+mismatches or errors. The old `a5f8fdf5d377c116` EFI copy was retired only after
+verifying its durable backup; accepted residency `ed06103a5275d7ca`, desktop,
+stress, attended reopen and console recovery payloads remain protected. Exact
+payload/evidence/run records are backed up outside `build` before reboot. Ubuntu
+stays the default. Native idle-entry/firmware audit acceptance remains pending.
+
+
+### Idle-entry/firmware audit — bounded native acceptance (2026-10-27)
+
+Return closeout from base `e4f8bf84` is documentation/evidence only. PR182 remains
+filesystem work and PR19 at `6b12e4f2` remains Pro Wi-Fi; neither changes this
+acceptance scope. No new runtime policy or trial is being prepared.
+
+Release `6b1f017332e0931b` (runtime `b6ffff14`, exact staged source `c888ab53`,
+merged PR220) completed run `49fe4e29d5ed450a`, session
+`session-00065ed949956fde-00`, and returned automatically to Ubuntu. All three
+ordered 30-second phases completed, with 250,484 single-worker load chunks and
+peak logged temperature 71 C. Fifteen retained records have full residency
+support/valid masks, zero rejections and no capture overflow. Independent raw
+entry-counter and energy arithmetic agrees with the collector. The 65,290-byte
+exit log retains all required evidence inside the unchanged 65,536-byte tail;
+future diagnostics must account for its small remaining margin.
+
+| Phase | Paired residency/entry coverage | HLT entries / returns | Ready bypasses | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- | --- |
+| Idle | 23.999235 s | 2,378 / 2,378 | 1,189 | 4.147 W | 1,287 MHz |
+| Load | 22.999267 s | 0 / 0 | 0 | 5.174 W | 1,300 MHz |
+| Recovery | 23.999234 s | 2,371 / 2,371 | 1,186 | 4.139 W | 1,290 MHz |
+
+Power coverage is 23.999235/27.999108/24.999203 seconds respectively; all three
+power, residency and entry coverage requirements pass unchanged. The complete
+capture records 5,937 HLT entries, 5,936 returns and 2,969 readiness bypasses.
+One outstanding return at stop is allowed by the generation-safe accounting;
+it is not an unbalanced lifecycle failure. Covered idle/recovery intervals have
+about 99 HLT entries per second. Counts are attempts/returns, not measured sleep
+time or interrupt attribution. All ten raw deeper-residency counters remain
+exactly zero. C0/C1 are unmeasured; HLT is reached, but deeper entry is unproven.
+
+Native E2 starts and ends at `0x408`: package limit C10, configuration unlocked,
+I/O-MWAIT redirection enabled and no recorded demotion/undemotion flags. Thus the
+observed package-limit field is not restricting this capture to shallow states;
+this does not rule out other firmware/device/core restrictions. MONITOR is
+advertised, with CPUID.5 `64/64/3/286531872`; no MONITOR/MWAIT instruction is used.
+The scheduler still manages CPU0 only and other cores' live state remains unknown.
+CPUID logical capacity is not evidence of online CPUs. No policy/control writes,
+AP startup, timer cadence, watchdog, thermal or integrity limit changes occurred.
+
+All 520 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 524 files / 1,572 clusters. Offline fsck/allocation
+pass with zero leaks, mismatches or errors. Installed/current and protected
+recovery payload hashes verify; evidence is retained outside `build`. Ubuntu is
+default, the collector is disabled and the one-shot is consumed. No reboot is
+armed. This accepts the bounded read-only audit, not deeper idle or energy savings.
+Next work should examine boot-time secondary-core state and the prerequisites
+for an explicit model-gated deeper-idle experiment; further polling reductions
+alone do not address the missing hardware residency demonstrated here.
+
+### Secondary-core/deeper-idle prerequisites — active scope (2026-10-27)
+
+Base `43c79c73`; prior idle audit is collected and accepted. Investigate the pinned
+bootloader's secondary-CPU handoff, captured MADT inventory and native CPU0
+CPUID topology. Add bounded capture-only topology and read-only BSP/MONITOR
+configuration evidence if the captured CPU documentation permits it. Distinguish
+firmware inventory and CPUID capacity from live AP state; do not start APs, send
+IPIs, change idle instructions, evaluate AML or alter power policy or limits.
+
+Scope is power diagnostic capture, strict host/collector regressions and this
+unit's records. Reuse unchanged v35 idle/load/recovery phases and all coverage,
+thermal, watchdog, filesystem and 64 KiB log limits. Account for the last run's
+small log margin before adding output. PR182 filesystem audit and PR19 Wi-Fi
+(`482f2eb5`) do not currently change these power paths. Next checkpoint: local
+and exact-stage validation, self-merge, durable run record and authorized native
+automatic test. Secondary-core live state and deeper idle remain unaccepted.
+
+### Secondary-core/prerequisite audit — candidate ready (2026-10-27)
+
+PR222 runtime `8a0b9166` adds a single compact capture receipt: CPU0 CPUID.0B
+SMT/core/terminator tuples and read-only APIC-base/misc snapshots at start/stop.
+The exact native 06_45/invariant-TSC gate is unchanged. No extra reads occur in
+ordinary sampling/status, and no AP startup, IPI, MWAIT, control writes, polling,
+scheduler or power-policy changes are introduced. All timing, capacity, thermal,
+watchdog and integrity limits remain unchanged.
+
+Pinned Limine binary `5be26a73` identifies v11.4.1; matching source tag commit
+`1276c440` skips `init_smp` without an MP request, which this kernel omits.
+Captured MADT has four enabled APIC IDs (0,2,1,3), plus disabled placeholders.
+Linux CPU0 leaf-B reports two addressable threads/core and four/package. These
+are inventory/capability observations: remote cores' live state cannot be
+established from CPU0-local reads. No claim of halted, running or wait-for-SIPI
+APs is made. The power guide records prerequisites for a separately designed
+race-safe deeper-idle experiment; none is enabled by this trial.
+
+Matched build, USB image, full host/core and docs checks pass on `8a0b9166`.
+Service tests verify exact boundary read counts, gate/nesting refusal, restart,
+unsupported-leaf avoidance and cached status. Twelve collector tests pass with
+strict epoch/field/bounds validation, malformed/missing-record refusal, changed
+configuration and unknown topology handling. The twelve existing load safety
+refusal/stop cases pass. Power/load VMs retain disabled/unsupported refusal.
+Replay of the prior native log with the 121-byte prerequisite record retains
+all required proof in 65,411 bytes, below the unchanged 65,536-byte tail. Actual
+new native capture completeness still requires collection after return.
+
+Exact v35 release `8022333a9240598e` passes GPT save/unmount/automatic return and
+missing-workspace safe-halt rehearsal. Run `7b7df1e1897c495d` will execute the
+unchanged 30-second idle/load/recovery phases, then save and return automatically.
+It requires complete power/residency/entry coverage, the new prerequisite receipt,
+prior-file preservation and clean offline allocation. No human input is needed;
+keep AC/USB connected. Native prerequisite acceptance is pending return.
+
+USB preflight preserves 524 files / 1,572 allocated clusters with zero leaks,
+mismatches or errors. Preserve accepted audit `6b1f017332e0931b`, console recovery,
+desktop power, stress and attended reopen payloads. The older residency-only
+`ed06103a5275d7ca` EFI copy may be retired after durable hash verification to make
+room; its independent durable payload/evidence remains retained. Exact payload,
+run and validation records must be durable before the authorized one-shot boot.
+
+
+### Secondary-core/prerequisite audit — bounded native acceptance (2026-10-27)
+
+Return closeout from base `6d9847e6` is documentation/evidence only. PR182
+filesystem audit and PR19 Wi-Fi (`c5e457cd`) remain independent; no new runtime
+policy, AP experiment or boot is being prepared.
+
+Release `8022333a9240598e`, source `8a0b9166`, merged PR222, completed run
+`7b7df1e1897c495d`, session `session-00065edabaa7e840-00`, and automatically
+returned to Ubuntu. All three ordered 30-second phases completed, including
+250,562 load chunks, peak logged temperature 70 C, fifteen retained records,
+full residency support/valid masks and zero rejections/overflow. Independent
+raw-entry, topology/configuration and energy arithmetic agrees with collection.
+The 65,484-byte exit log preserves all required proof inside the unchanged
+65,536-byte tail; there is almost no spare margin for additional output.
+
+| Phase | Paired residency/entry coverage | HLT entries / returns | Ready bypasses | Package average | CPU0 active frequency |
+| --- | --- | --- | --- | --- | --- |
+| Idle | 22.999635 s | 2,267 / 2,267 | 1,133 | 4.150 W | 1,289 MHz |
+| Load | 22.999461 s | 0 / 0 | 0 | 5.144 W | 1,299 MHz |
+| Recovery | 23.999619 s | 2,359 / 2,359 | 1,181 | 4.141 W | 1,290 MHz |
+
+Power coverage is 22.999635/24.999602/23.999619 seconds. All unchanged ten-second
+coverage requirements pass. The whole capture records 5,928 entries, 5,927
+returns and 2,965 readiness bypasses; one outstanding return at stop is allowed.
+All ten raw deeper-residency counters remain exactly zero. C0/C1 and time asleep
+are unmeasured; this does not imply that HLT failed or that CPU0 never idled.
+
+Native maximum basic CPUID leaf is 13. Leaf-B tuples are `1,2,256,0`,
+`4,4,513,0`, `0,0,2,0`, reporting CPU0 APIC ID 0, two addressable threads/core
+and four/package. These describe topology, not live CPU count. APIC-base starts
+and ends at `4276095232`: BSP=1, APIC enabled, x2APIC disabled. Misc starts and
+ends at `8716425`, with MONITOR FSM enabled and consistent with CPUID MONITOR
+advertisement. CPUID.5 advertises extensions and masked-interrupt break, with
+substate nibbles `0,2,1,2,4,1,1,1`; this does not select a hint or prove wakeup
+correctness. E2 remains `0x408` (unlocked C10 limit). None of these configuration
+snapshots changed. Remote CPU state remains unknown; there was no AP startup,
+IPI, MONITOR/MWAIT execution, control write or policy/limit change.
+
+All 524 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 528 files / 1,577 clusters. Offline fsck/allocation
+pass with zero leaks, mismatches or errors. Installed/current and protected
+recovery payload hashes verify, and collected evidence is hash-verified outside
+`build`. The older residency-only EFI copy `ed06103a5275d7ca` was retired after
+verifying its durable payload; accepted prior audit `6b1f017332e0931b`, console,
+desktop power, stress and attended reopen payloads remain protected. Ubuntu is
+default, the one-shot is consumed, the collector is disabled and no reboot is
+armed.
+
+This accepts the bounded read-only prerequisite capture only. The next useful
+step is a separately opted-in MONITOR/MWAIT wakeup experiment with an exact-model
+hint, race-safe readiness recheck, bounded latency checks and HLT fallback,
+before claiming deeper core/package entry. Other-core observation would require
+its own AP ownership/rendezvous design and remains separate work. No performance,
+battery-life or energy-saving claim follows from these short measurements.
+
+### Opt-in MONITOR/MWAIT wakeup — active scope (2026-10-27)
+
+Base `71379774`; previous prerequisite run is collected. Implement an explicit
+CPU-load capture option for a bounded CPU0 MONITOR/MWAIT wakeup experiment on
+the captured 06_45 CPU. Use shallow hint 0 only, require native MONITOR FSM,
+extensions/masked-interrupt break and 64-byte monitor-line capability, recheck
+scheduler readiness after MONITOR, and cap MWAIT attempts at 32 before HLT
+fallback. Measure the IRQ-masked return interval against one existing two-tick
+scheduler quantum (20 ms at the unchanged 100 Hz tick). A timing fault latches
+HLT fallback; it is not a pass. No deeper hint, AP startup, IPI or MSR write.
+
+Touch scheduler diagnostic idle selection, power capture admission/receipt,
+explicit staging/main dispatch, collector and host/VM tests. Default idle remains
+HLT. Existing 30-second phases, ten-second coverage, watchdogs, thermal/fan stops,
+64 KiB logs and integrity limits remain unchanged. PR182 filesystem audit and
+PR19 Wi-Fi do not currently modify this idle path; preserve their independent
+profiles. Next checkpoint is validation, self-merge, exact-stage install and the
+authorized automatic trial. Native MWAIT wakeup acceptance remains pending.
+
+### Opt-in MONITOR/MWAIT wakeup — candidate ready (2026-10-27)
+
+PR224 runtime `94c2b9e7` adds the explicit `--cpu-load-capture
+--mwait-wakeup-test` profile. The normal HLT policy remains unchanged. The gated
+idle worker arms a private aligned monitor line, rechecks readiness with IRQs
+masked, and uses hint 0/extension 1 for at most 32 shallow C1 waits. The PM-clock
+bracket is measured before IRQ dispatch; this is wait duration, not ISR latency.
+Clock regression or a wait over the existing 20 ms scheduler quantum latches
+HLT fallback. Successful trials also return to HLT after 32 attempts, and must
+record 32 subsequent HLT entries and timer progress. Stable prerequisite
+snapshots and complete phase/retirement proofs are required. No deeper hint,
+AP startup, IPI, MSR write, tick change or relaxed limit is introduced.
+
+Final matched build/USB image, full host/core and docs pass on `94c2b9e7`.
+Scheduler tests cover readiness recheck, exact attempt cap, mandatory HLT,
+20 ms boundary/excess duration, regressing clock and retired epochs. Service
+tests cover opt-in and capability refusal, failed admission, nested capture,
+failed trial completion and configuration drift. All 97 collector/staging tests
+and twelve existing load safety refusal/stop cases pass. Disassembly retains
+MONITOR, shallow MWAIT and the unchanged contiguous `sti; hlt; cli` fallback.
+Prior-log replay with the 156-byte trial receipt retains all required evidence
+within the unchanged 64 KiB tail, although early startup text is trimmed.
+
+Exact release `8030ae20c2611a09` passes unsupported-MWAIT refusal, GPT save/unmount/
+automatic return and missing-workspace safe halt. A VM receipt-label error for
+the new profile was caught before install; harness-only `ba20b181` correctly
+labels its power refusal and the exact positive save/return rehearsal was rerun.
+The immutable staged runtime/manifest remains `94c2b9e7`; no payload changed.
+Native wakeup/latency acceptance is pending run `7dc08174f8034042`, which uses
+the unchanged three 30-second phases and automatic Ubuntu return/collection.
+No human input is required; keep AC/USB connected.
+
+Preflight preserves all 528 files / 1,577 allocated clusters with zero leaks,
+mismatches or errors. Protect accepted prerequisite payload `8022333a9240598e`,
+console recovery, desktop power, stress and attended reopen. The older audit-only
+EFI payload `6b1f017332e0931b` may be retired after durable hash verification;
+its independent backup remains retained. Payload, exact-stage checks and run
+records must be backed up outside `build` before arming the authorized reboot.
+
+
+### Shallow MONITOR/MWAIT wakeup — bounded native acceptance (2026-10-27)
+
+Return closeout from merged PR224/base `052ebc18` is documentation/evidence only.
+PR182 filesystem audit (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent.
+No new runtime policy, deeper hint, AP experiment or reboot is being prepared.
+
+Release `8030ae20c2611a09`, compiled source `94c2b9e7`, completed run
+`7dc08174f8034042`, session `session-00065edb20755615-00`, and automatically
+returned to Ubuntu. The explicit shallow hint 0/extension 1 trial records all
+32 attempts and returns, a maximum masked wait of **9,971 us** against the
+unchanged 20,000 us limit, zero faults, timer ticks 62 to 93, and 32 subsequent
+HLT entries. No post-MONITOR readiness bypass occurred in this native run; that
+race remains covered by the host regression. Independent raw-receipt review
+agrees with the collector. The saved 65,536-byte exit tail retains every required
+receipt; early startup text is trimmed, with identity preserved in boot.log.
+This accepts bounded interrupt wakeup and mandatory HLT fallback, not IRQ dispatch/runnable latency or a store-signalling protocol.
+
+All three ordered 30-second phases complete, with 250,554 load chunks and a
+63 C peak logged temperature. Fifteen retained records have full support/valid
+masks, zero rejections and no overflow. Paired residency/entry coverage is about
+24 seconds in every phase; power coverage is 23.999618/23.999620/26.999572 seconds.
+The unchanged ten-second coverage requirement passes. Package averages are
+4.122/5.167/4.127 W for idle/load/recovery. Covered HLT entries/returns are
+2,378/0/2,373; whole-capture HLT totals are 5,908 entries and 5,907 returns.
+All ten deeper-residency raw counters remain zero. The short MWAIT trial ends
+before the retained phase intervals, which mostly measure the HLT fallback;
+these phase averages do not establish MWAIT energy savings. C0/C1 and time
+asleep remain unmeasured.
+
+Native APIC/misc and E2 snapshots remain unchanged, including the permissive
+C10 package limit. Other logical processors' live state remains unknown.
+Ordinary boot/desktop idle policy, tick frequency, thermal/fan stops, watchdogs,
+integrity checks and all limits remain unchanged. No AP startup, IPI, MSR write
+or deeper hint was introduced.
+
+All 528 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 532 files / 1,582 clusters; offline fsck and
+allocation pass with zero leaks, mismatches or errors. Installed/current and
+protected recovery payload hashes verify. Evidence is retained and hash-verified
+outside `build`. Ubuntu remains default, the one-shot is consumed, the collector
+is disabled and no reboot is armed. The older audit-only EFI payload
+`6b1f017332e0931b` was retired after verifying its durable backup; the accepted
+prerequisite, console, desktop power, stress and attended reopen payloads remain.
+
+The next proposed step is a separately gated deeper-hint experiment with the
+same readiness, latency, fallback and integrity protections, plus an explicit
+review of timer behavior and sibling-thread/package prerequisites. This result
+does not accept deeper entry, longer endurance or a permanent power policy.
+
+### Bounded deeper-idle trial — active scope (2026-10-27)
+
+Base `3bbf80b7`; shallow run collected and accepted. Add a separate explicit
+Haswell 06_45 C3 hint `0x10` trial, at most 32 waits with the unchanged 20 ms
+masked interval limit, readiness recheck, epoch retirement and 32-entry HLT
+fallback. Require CPUID ARAT and the live calibrated 100 Hz LAPIC timer; capture
+TSC-bracketed core/package C3 deltas around each attempt, including valid zero
+observations. Other-core state is unknown and may prevent deeper residency.
+No AP startup, IPI, control-register write, general idle-policy change or relaxed
+limit. Scope: scheduler diagnostic, power admission/receipt, read-only LAPIC
+readiness helper, explicit staging, collector and host/VM regressions. PR182
+filesystem (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent. Next:
+validate, self-merge, exact-stage install and authorized automated native run.
+
+
+### Bounded C3 trial — validated candidate (2026-10-27)
+
+PR226 runtime `5ad0cb6f`, exact staged release `1bac141e5965a9b0`, adds only the
+explicit C3 hint recipe. Full matched build/USB/core/docs pass. Directed host
+checks cover shallow compatibility, timer/capability/unsupported-hint refusal,
+32-attempt cap, readiness race, retired epochs, latency boundary and failure,
+C3 counter regression/overflow and valid zero residency, and mandatory HLT.
+All 98 collector/staging tests and twelve existing load refusal/stop cases pass.
+Disassembly preserves MONITOR, selected-hint MWAIT, pre-dispatch measurement and
+the original contiguous `sti; hlt; cli` fallback.
+
+The exact GPT workspace VM passes explicit C3 refusal, saved logs, unmount and
+automatic return; missing workspace halts safely. Disabled/unsupported power and
+load regressions also pass. These VMs do not accept native C3 entry or latency.
+Prior native log replay with both deeper-test receipts retains all phase proof
+under the unchanged 64 KiB limit. No counter/thermal/watchdog/integrity threshold
+has been widened. Valid zero C3 remains an unobserved result, distinct from a
+successful bounded wakeup test.
+
+Native run `cee8062fef7e4084` will execute the same three 30-second phases with
+visible progress and automatic Ubuntu return/collection; no human input is
+needed. Local model, connected AC, USB identity and all 532 baseline file hashes
+verify. Allocation/headroom are clean at 1,582 clusters. Preserve shallow accepted
+payload `8030ae20c2611a09`, console recovery, desktop power, stress and attended
+reopen. The superseded prerequisite-only EFI copy `8022333a9240598e` may be
+retired after verifying its durable backup. Save/hash the candidate and run
+records outside `build` before arming. Native acceptance remains pending.
+
+
+Before final integration, main `671a89ed` / PR227 landed an Air7,2 Help/checklist
+update. Consumed it at `2a8fabd0`, rebuilt matched artifacts and reran the full
+core/docs suite plus exact-stage GPT save/return, missing-workspace and disabled/
+unsupported power/load VMs; all pass. Final candidate is **`980f4936c6282637`**,
+compiled source `2a8fabd0`, with the same run `cee8062fef7e4084`. Earlier candidate
+`1bac141e5965a9b0` was rehearsed but never installed or physically booted. The
+integration changes no idle/runtime path. The prerequisite-only EFI payload
+`8022333a9240598e` was retired after durable verification; accepted shallow
+`8030ae20c2611a09` and the protected recovery/endurance payloads remain installed.
+Physical C3 wakeup/residency acceptance is still pending the automatic run.
+
+
+### Bounded C3 hint — native result, residency unobserved (2026-10-27)
+
+Closeout from merged PR226/base `f5917467` is documentation/evidence only.
+PR182 filesystem audit (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) retain independent
+scope. No new boot, deeper selector or power-policy change is being prepared.
+
+Final release `980f4936c6282637`, compiled source `2a8fabd0`, completed run
+`cee8062fef7e4084`, session `session-00065edb80a92930-00`, and automatically
+returned to Ubuntu. All 32 hint-16/extension-1 attempts returned; maximum masked
+wait was **9,968 us** under the unchanged 20,000 us limit, with zero faults,
+timer ticks 65 to 96 and 32 subsequent HLT entries. ARAT and live calibrated
+timer readiness passed. No post-MONITOR readiness bypass occurred; that race
+remains host-tested. Independent raw-receipt review agrees with collection.
+
+The per-attempt residency brackets total **620,687,304 TSC ticks**, with exactly
+**zero core C3 and zero package C3 ticks**. These are valid zero observations,
+not a counter fault or proof that the requested state was entered. This accepts
+bounded execution of the C3 hint, interrupt wakeup and mandatory HLT fallback;
+**physical C3 residency is not accepted**. C0/C1, remote logical processors' live
+state, exact sleep time and IRQ/runnable latency remain unmeasured.
+
+All three ordered 30-second phases complete, with 250,530 load chunks, peak
+logged temperature 62 C, fifteen fully valid retained records and zero
+rejections/overflow. Paired residency/entry coverage is 23.999619 seconds in
+each phase. Power coverage is 23.999619/23.999619/26.999571 seconds, above the
+unchanged ten-second minimum. Package averages are 4.100/5.120/4.101 W for
+idle/load/recovery. Covered HLT entries/returns are 2,378/0/2,373; whole-capture
+counts are 5,907 entries and 5,906 returns. All ten deeper raw counters remain
+zero. The 32-attempt trial precedes retained phase intervals; the phase power
+averages mostly describe HLT fallback and establish no MWAIT energy savings.
+Native APIC/misc and E2 snapshots are unchanged, including E2 `0x408`.
+
+All 532 previous files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 536 files / 1,587 clusters. Offline fsck and
+allocation pass with zero leaks, mismatches or errors. The 65,536-byte exit tail
+retains all required proof; boot.log retains release/command-line identity.
+Installed/current and protected recovery payload hashes verify. Collected
+artifacts are hash-verified outside `build`. Ubuntu is default, the one-shot is
+consumed, the collector is disabled and no reboot is armed.
+
+Next investigate the missing residency, especially the still-unknown state of
+the sibling logical processor and firmware constraints. Any AP observation or
+rendezvous requires separate ownership and recovery design. Do not infer that
+the firmware limit, sibling state, or any particular constraint is the cause
+from these CPU0 receipts alone. Ordinary idle policy and all limits remain intact.
+
+
+### Missing C3 residency investigation — active scope (2026-10-28)
+
+Base `b9526c88`, after collecting and closing the bounded C3 trial. Investigate
+sibling-thread prerequisites and firmware constraints using the pinned Limine
+source, Intel's Haswell U/Y documentation and read-only Ubuntu residency/topology
+observations. Scope is this unit record and local evidence; no AP startup,
+CPU offlining, MSR/control-register writes, new idle selector or policy/limit
+change. PR182 filesystem and PR19 Wi-Fi retain their independent scope. Next
+checkpoint: distinguish observed hardware capability from unproven native AP
+state and specify the smallest justified follow-up. No new reboot is armed.
+
+
+### Missing C3 residency — investigation result (2026-10-28)
+
+A read-only Ubuntu reference on this same unit confirms that the residency
+registers advance and that deeper core/package idle is physically possible.
+Three ambient ten-second windows under `intel_idle` report CPU0 core C3
+0.799/0.222/0.401%, core C7 70.341/95.710/94.004%, and package C3
+44.933/72.618/69.147% of elapsed TSC. All four logical CPUs show positive
+core C3/C6/C7 and package C2/C3 deltas in every window. Package C6–C10 stay
+zero in this reference. These are ambient Ubuntu observations, not a controlled
+power comparison or SrvrOS acceptance; sequential MSR reads perturb execution
+and do not form simultaneous per-core snapshots.
+
+Linux topology pairs CPUs 0/2 (APIC IDs 0/1) and 1/3 (APIC IDs 2/3). All four
+CPUs remain online. Per-CPU E2 stays `0x408`, matching SrvrOS, and misc stays
+`0x850089`. Linux uses x2APIC while the native trial uses xAPIC; the environments
+are not equivalent. No CPU hotplug, idle-state configuration, power-policy or
+MSR write was performed. Raw delta arithmetic, monotonicity, bounds and unchanged
+control/configuration snapshots were independently checked. Evidence lives in
+`build/power/air61-c3-investigation-20261028`, with a hash-verified durable copy
+outside `build`.
+
+Intel's [Haswell U/Y datasheet, sections 4.2.4–4.2.5](https://cdrdv2-public.intel.com/329001/4th-gen-core-family-mobile-u-y-processor-lines-vol-1-datasheet.pdf)
+explains that the shallower thread request determines the core's idle state;
+package entry additionally depends on the other cores and platform components.
+This makes the unmanaged sibling a concrete prerequisite to investigate.
+The Ubuntu measurements rule out a blanket hardware inability to enter C3 or
+a permanently inactive residency counter. They do not prove the sibling is
+the native blocker, nor rule out other handoff/configuration differences.
+
+Pinned Limine v11.4.1 source (`1276c440`) only invokes `init_smp` when a
+`LIMINE_MP_REQUEST` is present. SrvrOS's `kernel/src/limine_requests.c` contains
+no such request. Therefore the bootloader's AP parking loop is not evidence
+of the AP state in our current native boot. When invoked, that loop uses
+MWAIT hint zero (C1), or PAUSE without MONITOR support. Merely adding the MP
+request would not establish the C3 sibling prerequisite. See the pinned
+[MP-request path](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/protos/limine.c)
+and [AP trampoline](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/sys/smp_trampoline.asm_x86).
+
+**Next milestone: diagnostic secondary-CPU ownership and rendezvous.** Start
+with an explicitly separate diagnostic payload, because a static Limine MP
+request takes effect before SrvrOS can parse an opt-in command line. Keep the
+ordinary kernel's boot requests intact. First prove per-CPU identity, private
+stack/descriptor/fault handling, coherent mailbox wake/acknowledgement and bounded
+return to a known park state. APs must not enter the current single-CPU scheduler,
+allocator, console or shared BSP TSS/interrupt handlers. Define storage lifetime
+and failed-AP containment before release; a timeout cannot reclaim memory that
+a remote CPU may still access. Any bootloader-reclaimable memory still used by
+parked APs must remain reserved. Rehearse missing/duplicate/late acknowledgements,
+unsupported topology and fault containment in multi-CPU VMs before physical use.
+This rendezvous changes AP state and cannot retrospectively observe the original
+firmware park state. Only after ownership is accepted should a separate coordinated
+C3 experiment reuse the existing 32-attempt, 20 ms and HLT-fallback protections.
+No general SMP scheduling or permanent idle-policy change is implied.
+
+This investigation changes documentation only. Installed C3 diagnostic
+`980f4936c6282637` and console recovery `c35475f62f154f1e` still hash-verify;
+Ubuntu remains default, the one-shot is empty and no new reboot is armed.

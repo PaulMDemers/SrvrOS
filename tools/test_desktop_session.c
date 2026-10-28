@@ -1,6 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <stdlib.h>
+#include <stdint.h>
+long srv_futex_wake(uint32_t *word,uint64_t count) { (void)word;(void)count;return 0; }
 static void *test_registry_alloc(size_t bytes);
 static void test_registry_free(void *p,size_t bytes);
 #define DESKD_STORAGE_ALLOC test_registry_alloc
@@ -9,6 +11,30 @@ static void test_registry_free(void *p,size_t bytes);
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+static unsigned capture_closes,capture_reap_pending;
+void desk_capture_job_close(struct desk_capture_job *j) {
+    capture_closes++;assert(j->pixels && j->reader==10 && j->writer==11);
+    j->pixels=NULL;j->reader=j->writer=-1;j->busy=0;j->retiring_pid=j->pid;j->pid=0;
+    j->cleanup_us=660000;j->close_us=650000;j->unmap_us=10000;
+}
+int desk_capture_job_poll(struct desk_capture_job *j) {assert(!j->busy);if(!capture_reap_pending)j->retiring_pid=0;return 0;}
+static void capture_cleanup_ownership(void) {
+    struct lifecycle_worker w={0};struct desk_capture_job j={.pid=42,.reader=10,.writer=11,.busy=1,.pixels=(void *)1};
+    j.request.id=9;j.response.status=DESK_CAPTURE_OK;j.finished_us=100;
+    capture_closes=0;capture_reap_pending=1;
+    assert(life_capture_submit(&w,&j,1));assert(j.busy && !j.pixels && j.reader==-1 && !capture_closes);
+    assert(!life_capture_submit(&w,&j,-1) && !life_capture_take(&w,&j));
+    life_capture_work(&w);assert(capture_closes==1 && j.busy && !life_capture_take(&w,&j));
+    life_capture_work(&w);assert(capture_closes==1 && life_state(&w.capture.state)==LIFE_QUEUED);
+    capture_reap_pending=0;life_capture_work(&w);assert(life_capture_take(&w,&j)==1);
+    assert(!j.busy && !j.retiring_pid && j.request.id==9 && j.finished_us==100 && j.cleanup_us>=660000);
+    assert(!life_capture_take(&w,&j) && life_state(&w.capture.state)==LIFE_IDLE);
+    j=(struct desk_capture_job){.pid=43,.reader=10,.writer=11,.busy=1,.pixels=(void *)1};
+    capture_reap_pending=1;assert(life_capture_submit(&w,&j,-1));
+    life_capture_work(&w);assert(j.busy && !life_capture_take(&w,&j));
+    capture_reap_pending=0;life_capture_work(&w);assert(life_capture_take(&w,&j)==-1);
+    assert(!j.busy && !j.retiring_pid && capture_closes==2);
+}
 static unsigned registry_calls,registry_fail_at,registry_live;
 static size_t registry_live_bytes;
 static void *test_registry_alloc(size_t bytes) {
@@ -419,7 +445,7 @@ static void dynamic_registry(void) {
     session_client(&s,99)->identity=1000;
     assert(!window_lifetime_valid(&s,99,100));
     s.scene.focus=127;global_menu_action(&s,GLOBAL_WINDOW+100);assert(s.scene.focus==127);
-    s.scene.launcher_open=1;s.overlay_return=99;s.overlay_identity=100;launcher_close(&s);assert(s.scene.focus==-1);
+    s.scene.launcher_open=1;s.overlay_return=99;s.overlay_identity=100;launcher_close(&s);assert(s.scene.focus==127);
     /* Child records grow independently; window records/clipboard remain stable. */
     for(int i=0;i<16;i++)s.children[i]=42+i;
     assert(child_slot(&s)==16 && children_capacity(&s)==32 && session_capacity(&s)==128);
@@ -609,8 +635,107 @@ static void persistent_loop_timing(void) {
     capture_loop_log=0;
     puts("desktop-loop-timing: PASS exact bound, conserved stages, 1000-loop retention, periodic/final records, partial exit, invalid clock and bounded formatting");
 }
+static void asynchronous_loop_report(void) {
+    struct lifecycle_worker w={0};struct loop_trace trace={0};struct operation_trace operations={0};
+    capture_loop_log=1;captured_loop_log[0]=0;
+    assert(!life_report_submit(&w,&trace,&operations));
+    loop_trace_begin(&trace,100,1,42,2);loop_trace_end(&trace,100100,1,42,2);
+    assert(life_report_submit(&w,&trace,&operations));assert(!captured_loop_log[0]);
+    loop_trace_begin(&trace,200000,2,43,1);loop_trace_end(&trace,800001,2,43,1);
+    assert(!life_report_submit(&w,&trace,&operations));
+    life_report_work(&w);assert(life_state(&w.report_state)==LIFE_IDLE);
+    assert(strstr(captured_loop_log,"gap_us=100000 cycle=1 pid=42 phase=2"));
+    assert(life_report_submit(&w,&trace,&operations));life_report_work(&w);
+    assert(strstr(captured_loop_log,"over_limit=1") && strstr(captured_loop_log,"gap_us=600001 cycle=2 pid=43 phase=1"));
+    capture_loop_log=0;puts("desktop-loop-report: PASS asynchronous immutable snapshot, busy refusal, retry and retained limit violation");
+}
+static void retained_operations(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w,.exiting=1,.exit_started_us=100,.launch_requests=3,.launch_started=1};
+    s.capture.request.id=7;s.capture.started_us=100;s.capture.last_progress_us=250;s.capture.busy=1;s.capture.phase=CAPTURE_TEMP_VERIFY;
+    s.capture.phase_us[CAPTURE_WRITE]=80;s.capture.sent=400;s.capture.progress_bytes=300;
+    w.launch[0]=(struct life_launch){.state=LIFE_QUEUED,.application=DESK_APP_FILES,.queued_us=200};
+    s.clients[0]=(struct client){.pid=42,.window=2,.close_requested=1};
+    struct operation_trace t=operation_snapshot(&s,500);
+    assert(t.queued==1 && t.launch_age_us==300 && t.oldest_app==DESK_APP_FILES);
+    assert(t.exiting && t.exit_age_us==400 && t.close_pid==42 && t.close_requested==1);
+    assert(t.capture.id==7 && t.capture.busy && t.capture.age_us==400 && t.capture.progress_age_us==250 && t.capture.phases[CAPTURE_WRITE]==80);
+    struct loop_trace trace={0};loop_trace_begin(&trace,1,0,0,0);loop_trace_end(&trace,2,0,0,0);
+    assert(life_report_submit(&w,&trace,&t));s.capture.sent=900;w.launch[0].state=LIFE_IDLE;
+    assert(w.operations.capture.sent==400 && w.operations.queued==1); /* Frozen until worker consumes. */
+    puts("desktop-operations: PASS pending capture/launch/close ages and immutable retained snapshot");
+}
+static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {
+    return (struct srv_key_event){.usage=usage,.modifiers=modifiers,.flags=flags};
+}
+static void window_navigation(void) {
+    static struct session s;
+    s=(struct session){.dynamic=1,.registry_budget=DESK_REGISTRY_BYTES,.scene={.apps=1,.focus=-1}};
+    desk_damage_init(&s.damage,1280,800);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
+    while(session_capacity(&s)<128)assert(windows_grow(&s));
+    for(int i=0;i<80;i++) {
+        *session_client(&s,i)=(struct client){.pid=42,.identity=i+1,.window=i+1};
+        *desktop_window_at(&s.scene,i)=(struct desktop_window){.visible=1,.application=i%2?DESK_APP_FILES:DESK_APP_TEXT,.z=i+1,.frame={32,64,602,365}};
+        snprintf(desktop_window_at(&s.scene,i)->title,96,"Document %d",i+1);
+    }
+    s.scene.stack_serial=80;focus(&s,79);
+    struct srv_key_event key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);
+    assert(navigation_key(&s,&key) && s.switching && s.scene.focus==-1 && s.scene.launcher.list.count==80);
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==79+DESK_APP_COUNT);
+    uint64_t first=s.scene.launcher.visible[0].id;global_menu_rebuild(&s);focus(&s,3);
+    assert(s.overlay_return==79 && s.scene.launcher.visible[0].id==first); /* No focus steal or reorder. */
+    for(int n=0;n<78;n++)assert(navigation_key(&s,&key));
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==1+DESK_APP_COUNT);
+    key.flags=0;key.usage=0xe2;key.modifiers=0;
+    assert(navigation_key(&s,&key) && !s.switching && s.scene.focus==0); /* Commit on modifier release. */
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==80+DESK_APP_COUNT); /* MRU previous. */
+    key=navigation_event(SRV_KEY_ESCAPE,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key) && s.scene.focus==0);
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT|SRV_KEY_SHIFT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.scene.launcher.visible[s.scene.launcher.list.selected].id==2+DESK_APP_COUNT);
+    key=navigation_event(0,0,SRV_KEY_CANCEL);navigation_key(&s,&key);assert(!s.switching && s.scene.focus==0);
+    /* A reused slot cannot activate the old snapshot identity. */
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    session_client(&s,79)->identity=1000;
+    key=navigation_event(0xe2,0,0);navigation_key(&s,&key);assert(s.scene.focus==0);
+    /* Same-app order visits all roots in both directions, skipping other apps. */
+    key=navigation_event(0x35,SRV_KEY_META,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);assert(s.scene.focus==2);
+    navigation_key(&s,&key);assert(s.scene.focus==4);
+    key.modifiers|=SRV_KEY_SHIFT;navigation_key(&s,&key);assert(s.scene.focus==2);
+    /* A modal is one task with its parent; minimization hides the whole group. */
+    *session_client(&s,80)=(struct client){.pid=42,.identity=81,.window=81,.parent_window=3};
+    *desktop_window_at(&s.scene,80)=(struct desktop_window){.visible=1,.dialog=1,.application=DESK_APP_TEXT,.frame={80,100,400,300}};
+    focus(&s,2);assert(s.scene.focus==80);
+    unsigned checked=0;for(unsigned n=0;n<s.scene.menu.count;n++)if(s.scene.menu.items[n].id==GLOBAL_WINDOW+3)checked=(s.scene.menu.items[n].flags&DESK_MENU_CHECKED)!=0;
+    assert(checked);launcher_catalog(&s);assert(s.scene.launcher.count==80+DESK_APP_COUNT); /* No extra modal task. */
+    unsigned input_before=session_client(&s,80)->input_count;
+    key=navigation_event(0x1a,SRV_KEY_META,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key));
+    assert(session_client(&s,80)->close_requested && session_client(&s,80)->input_count==input_before+1);
+    assert(session_client(&s,80)->input[(session_client(&s,80)->input_head+input_before)%DESK_INPUT_QUEUE].type==DESK_CLOSE_REQUEST);
+    navigation_key(&s,&key);assert(session_client(&s,80)->input_count==input_before+1); /* Repeated press deduplicated. */
+    key.modifiers=SRV_KEY_CTRL;assert(!navigation_key(&s,&key));
+    session_client(&s,80)->close_requested=0;
+    key=navigation_event(0x10,SRV_KEY_META,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(desktop_window_at(&s.scene,2)->minimized && desktop_window_at(&s.scene,80)->minimized && s.scene.focus==4);
+    focus(&s,2);assert(s.scene.focus==80 && !desktop_window_at(&s.scene,2)->minimized);
+    forget(&s,80);assert(s.scene.focus==2); /* Modal closure restores its own parent. */
+    focus(&s,6);focus(&s,8);desktop_window_at(&s.scene,6)->minimized=1;
+    forget(&s,8);assert(s.scene.focus==2 && desktop_window_at(&s.scene,6)->minimized); /* No hidden resurrection. */
+    key=navigation_event(SRV_KEY_F2,SRV_KEY_CTRL,SRV_KEY_DOWN_EVENT);assert(navigation_key(&s,&key) && s.scene.menu.open==0);
+    key=navigation_event(SRV_KEY_ESCAPE,0,SRV_KEY_DOWN_EVENT);assert(desk_menu_key(&s.scene.menu,&key).consumed);
+    for(int j=0;j<session_capacity(&s);j++)if(session_client(&s,j)->pid)desktop_window_at(&s.scene,j)->minimized=1;
+    char minimized_label[96];window_label(&s,2,minimized_label,sizeof(minimized_label));assert(!strncmp(minimized_label,"[Minimized] ",12));
+    memset(desktop_window_at(&s.scene,2)->title,'a',94);memcpy(desktop_window_at(&s.scene,2)->title+82,"\xc3\xa9",3);
+    window_label(&s,2,minimized_label,sizeof(minimized_label));assert(desk_text_utf8_valid(minimized_label,strlen(minimized_label)) && strlen(minimized_label)==94);
+    focus_best(&s);assert(s.scene.focus==-1);
+    key=navigation_event(SRV_KEY_TAB,SRV_KEY_ALT,SRV_KEY_DOWN_EVENT);navigation_key(&s,&key);
+    assert(s.switching && s.scene.launcher.choose_only && !s.scene.launcher.query.enabled && s.scene.launcher.list.count==79);
+    key=navigation_event(0xe2,0,0);navigation_key(&s,&key);assert(s.scene.focus>=0 && !desktop_window_at(&s.scene,s.scene.focus)->minimized);
+    registry_destroy(&s);assert(!registry_live);
+    puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
+}
 int main(void) {
-    persistent_loop_timing();
+    retained_operations();window_navigation();
+    persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
     uint64_t loop_last=0,loop_max=0;
@@ -780,6 +905,29 @@ int main(void) {
     placement_key.flags=SRV_KEY_DOWN_EVENT;placement_key.modifiers|=SRV_KEY_CTRL;assert(!arrange_shortcut(&placement_key));
     minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
     focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
+    /* Dock clicks select actual main windows, cycle all siblings and preserve
+     * modal focus. A closing app must not become a duplicate launch. */
+    s.scene.stack_serial=10;s.scene.windows[0].z=10;s.clients[0].identity=101;
+    s.clients[1].pid=42;s.clients[1].window=2;s.clients[1].identity=102;
+    s.scene.windows[1]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.frame=original,.z=8,.minimized=1};
+    s.clients[2].pid=42;s.clients[2].window=3;s.clients[2].identity=103;
+    s.scene.windows[2]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.frame=original,.z=9};
+    assert(dock_activate(&s,DESK_APP_TEXT)==1 && s.scene.focus==1 && !s.scene.windows[1].minimized);
+    assert(dock_activate(&s,DESK_APP_TEXT)==2 && s.scene.focus==2);
+    assert(dock_activate(&s,DESK_APP_TEXT)==0 && s.scene.focus==0);
+    s.clients[3].pid=42;s.clients[3].window=4;s.clients[3].identity=104;s.clients[3].parent_window=2;
+    s.scene.windows[3]=(struct desktop_window){.visible=1,.dialog=1,.application=DESK_APP_TEXT,.frame=original,.z=20,.minimized=1};
+    assert(dock_activate(&s,DESK_APP_TEXT)==1 && s.scene.focus==3 && !s.scene.windows[3].minimized);
+    s.clients[1].closing=1;assert(dock_activate(&s,DESK_APP_TEXT)==2);
+    char prior_executed[sizeof(executed_path)];strcpy(prior_executed,executed_path);
+    s.clients[0].closing=s.clients[2].closing=1;strcpy(executed_path,"dock-unchanged");
+    assert(dock_activate(&s,DESK_APP_TEXT)==-1 && !strcmp(executed_path,"dock-unchanged"));
+    s.clients[0].closing=s.clients[2].closing=0;strcpy(executed_path,prior_executed);
+    desk_palette_init(&s.scene.launcher);s.scene.launcher_open=0;s.launcher_application=DESK_APP_TEXT;
+    launcher_catalog(&s);assert(s.scene.launcher.count==3); /* Two main windows plus New app; no dialog/closing entry. */
+    s.launcher_application=0;
+    for(unsigned i=1;i<4;i++){memset(&s.clients[i],0,sizeof(s.clients[i]));memset(&s.scene.windows[i],0,sizeof(s.scene.windows[i]));}
+    focus(&s,0);
     s.preferences.value=desk_preferences_default();
     p=desk_packet_new(DESK_BRIGHTNESS);p.serial=1;p.value=50;
     unsigned bc=brightness_calls;
@@ -837,8 +985,8 @@ int main(void) {
         if(!(i%8)) { item->flags=DESK_MENU_HEADING;strcpy(item->label,headings[i/8]); }
         else { item->id=i;snprintf(item->label,sizeof(item->label),"Action %u",i); }
     }
-    for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1; }
-    global_menu_rebuild(&s);assert(s.scene.menu.count==54+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
+    for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1;s.clients[i].parent_window=0;s.scene.windows[i].visible=1; }
+    global_menu_rebuild(&s);assert(s.scene.menu.count==57+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==GLOBAL_WINDOW+s.clients[i].identity;assert(found==1); }
     s.clients[0].menus=saved_menus;for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=0;global_menu_rebuild(&s);
     global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));
@@ -924,6 +1072,7 @@ int main(void) {
     assert(!failed.children[4] && strstr(failed.scene.notice,"Text could not open"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
+    capture_cleanup_ownership();
     asynchronous_lifecycle();
     clipboard_client_retirement();
     delayed_control_delivery();

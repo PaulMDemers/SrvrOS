@@ -5,6 +5,33 @@
 #include "../userspace/deskfs/deskfs.c"
 #undef main
 static int write_failure,sync_failure,writes,corrupt_copy;
+static unsigned batch_calls,synthetic_entries,synthetic_at,synthetic_failure,synthetic_malformed;
+static DIR *listing_dir;
+long srv_directory(uint64_t operation,int fd,void *buffer,size_t capacity) {
+    assert(operation==SRV_DIRECTORY_READ_INFO && capacity==SRV_DIRECTORY_BATCH_MAX*sizeof(struct srv_dirent_info));
+    batch_calls++;struct srv_dirent_info *out=buffer;unsigned count=0;
+    if(synthetic_entries) {
+        if(synthetic_malformed==1)return SRV_DIRECTORY_BATCH_MAX+1;
+        if(synthetic_failure && batch_calls==synthetic_failure)return SRV_ERR_IO;
+        while(count<SRV_DIRECTORY_BATCH_MAX && synthetic_at<synthetic_entries) {
+            out[count]=(struct srv_dirent_info){.entry={.inode=synthetic_at+100,.type=synthetic_at%2},.size=synthetic_at*5,.modified=1234};
+            snprintf(out[count].entry.name,sizeof(out[count].entry.name),"entry-%03u",synthetic_at++);count++;
+        }
+        if(count && synthetic_malformed==2)memset(out[0].entry.name,'x',sizeof(out[0].entry.name));
+        if(count && synthetic_malformed==3)out[0].entry.type=2;
+        return count;
+    }
+    if(!listing_dir){listing_dir=fdopendir(dup(fd));assert(listing_dir);}
+    while(count<SRV_DIRECTORY_BATCH_MAX) {
+        errno=0;struct dirent *entry=readdir(listing_dir);
+        if(!entry){assert(!errno);assert(!closedir(listing_dir));listing_dir=NULL;break;}
+        struct stat st;assert(!fstatat(fd,entry->d_name,&st,0));
+        out[count]=(struct srv_dirent_info){.entry={.inode=st.st_ino,.type=S_ISDIR(st.st_mode)},.size=st.st_size,.modified=st.st_mtime};
+        strcpy(out[count++].entry.name,entry->d_name);
+    }
+    return count;
+}
+
 long srv_fs_replace(const char *path,const void *data,size_t length) {
     writes++;if(write_failure) return -1;
     int fd=open(path,O_WRONLY|O_CREAT|O_TRUNC,0600);if(fd<0) return -1;
@@ -52,6 +79,20 @@ int main(void) {
         if(!strcmp(entries[i].name,"folder")) { assert(entries[i].directory);folder++; }
     }
     assert(file==1 && folder==1);
+    /* A populated listing takes bounded metadata batches, not one gate wait
+     * for each readdir and another for stat. Preserve all fields and limits. */
+    synthetic_entries=130;synthetic_at=batch_calls=0;perform(&q,&r);
+    assert(!r.status && r.count==130 && batch_calls==10 && !r.truncated);
+    for(unsigned i=0;i<r.count;i++)assert(entries[i].inode==i+100 && entries[i].directory==i%2 && entries[i].size==i*5 && entries[i].modified==1234);
+    synthetic_entries=DESK_FILE_ENTRIES+1;synthetic_at=batch_calls=0;perform(&q,&r);
+    assert(!r.status && r.count==DESK_FILE_ENTRIES && r.truncated && batch_calls==17);
+    synthetic_entries=130;synthetic_at=batch_calls=0;synthetic_failure=2;perform(&q,&r);
+    assert(r.status==DESK_FILE_IO && !r.count && !r.length && batch_calls==2);
+    synthetic_failure=0;
+    for(synthetic_malformed=1;synthetic_malformed<=3;synthetic_malformed++) {
+        synthetic_at=batch_calls=0;perform(&q,&r);assert(r.status==DESK_FILE_IO && !r.count && !r.length);
+    }
+    synthetic_entries=synthetic_malformed=0;
     q.operation=DESK_FILE_READ;perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);
     snprintf(q.path,sizeof(q.path),"%s/document",dir);int fd=open(q.path,O_WRONLY);
     assert(fd>=0 && !ftruncate(fd,DESK_FILE_BYTES+1) && !close(fd));perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);

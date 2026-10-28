@@ -30,6 +30,7 @@ def service_snapshot(data,audio):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--supervisor-controls',action='store_true',help='exercise Stop/Start/Stop/Start notifications in an ordinary lifetime-owned boot session')
     parser.add_argument('--case',choices=('normal','cancel','profile-refusal','runtime-fault','refusal','missing-workspace','runtime-missing','opt-out','clock-missing','reopen-completed','reopen-busy'),default='normal')
     parser.add_argument('--capacity-auto',action='store_true',help='boot-only two-round 24-app capture; no injected keyboard input')
     parser.add_argument('--capacity-low-memory',action='store_true',help='384 MiB refusal/automatic-return fixture (capacity-auto only)')
@@ -43,14 +44,17 @@ def main():
     parser.add_argument("--services",action="store_true",help="exercise combined optional laptop services with ordinary battery ownership")
     parser.add_argument("--audio",action="store_true",help="attach HDA and play bundled PCM during the combined session")
     parser.add_argument('--workload-audio',action='store_true',help='play the full two-minute bundled sample while saving another document and cycling an app')
+    parser.add_argument('--navigation-guide',action='store_true',help='verify combined window/dock/navigation checklist delivery')
     parser.add_argument('--lifecycle-guide',action='store_true',help='verify attended guide startup, normal return and ordinary reopen')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     if args.linger_seconds<0 or args.linger_seconds>900 or (args.linger_seconds and (not args.boot_session or args.case!='normal')):parser.error('linger requires normal boot session, 0..900 seconds')
-    if args.lifecycle_guide and (not args.boot_session or not args.services or args.automatic or args.capacity_auto or args.mixed_apps or args.air61 or args.case not in ('normal','profile-refusal')):parser.error('lifecycle guide requires combined Air7,2 boot normal/profile-refusal')
+    if args.navigation_guide and args.lifecycle_guide:parser.error("select one guide")
+    if (args.lifecycle_guide or args.navigation_guide) and (not args.boot_session or not args.services or args.automatic or args.capacity_auto or args.mixed_apps or args.air61 or args.case not in ('normal','profile-refusal')):parser.error('lifecycle guide requires combined Air7,2 boot normal/profile-refusal')
     if args.workload_audio and (not args.audio or not args.lifecycle_guide):parser.error('workload audio requires --audio --lifecycle-guide')
     if args.air61 and not args.boot_session:parser.error('Air6,1 requires boot session')
     if args.case.startswith('reopen-') and (not args.boot_session or args.stage):parser.error('reopen deadline cases require unstaged boot session')
     if args.automatic and (not args.boot_session or not args.air61 or not args.services or args.case not in ('normal','cancel','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air6,1 boot and startup case')
+    if args.supervisor_controls and (not args.boot_session or args.case!='normal' or args.automatic or args.capacity_auto or args.mixed_apps or args.stage):parser.error('supervisor controls requires normal unstaged boot session')
     entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if args.audio and not args.services:parser.error('audio requires services')
     if args.capacity_low_memory and (not args.capacity_auto or args.stage):parser.error('low memory requires unstaged automatic capacity')
@@ -59,7 +63,7 @@ def main():
     if args.services and not args.boot_session:parser.error('services requires boot-session')
     if entry_refusal and not args.boot_session:parser.error('entry refusal cases require --boot-session')
     if args.stage and (not args.boot_session or args.case!='profile-refusal'):parser.error('stage requires --boot-session --case profile-refusal')
-    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-guide' if args.lifecycle_guide else '')+('-workload' if args.workload_audio else '')+('-automatic' if args.automatic else '')+('-mixed' if args.mixed_apps else '')+('-capacity-documents-low' if args.capacity_low_memory else '-capacity-documents' if args.capacity_auto else ''));out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-home-desktop-'+('air61-' if args.air61 else '')+('audio-' if args.audio else '')+('services-' if args.services else '')+('boot-' if args.boot_session else '')+(args.stage+'-' if args.stage else '')+args.case+('-navigation-guide' if args.navigation_guide else '-guide' if args.lifecycle_guide else '')+('-workload' if args.workload_audio else '')+('-automatic' if args.automatic else '')+('-supervisor-controls' if args.supervisor_controls else '')+('-mixed' if args.mixed_apps else '')+('-capacity-documents-low' if args.capacity_low_memory else '-capacity-documents' if args.capacity_auto else ''));out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True);output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-home-apps-') as directory:
         tmp=Path(directory);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -73,10 +77,11 @@ def main():
             import hardware_boot as boot
             assert boot.RELEASE_RE.fullmatch(args.stage),'invalid staged release'
             stage=boot.STAGE/args.stage;manifest=boot.verify(stage)
-            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-','ram-usb-v71-desktop-','ram-usb-v72-desktop-','ram-usb-v73-desktop-','ram-usb-v75-desktop-'))
-            assert args.services==manifest['config_version'].startswith(('ram-usb-v55-','ram-usb-v71-','ram-usb-v72-','ram-usb-v73-','ram-usb-v75-')),'services flag must match staged profile'
+            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-','ram-usb-v71-desktop-','ram-usb-v72-desktop-','ram-usb-v73-desktop-','ram-usb-v75-desktop-','ram-usb-v76-desktop-'))
+            assert args.services==manifest['config_version'].startswith(('ram-usb-v55-','ram-usb-v71-','ram-usb-v72-','ram-usb-v73-','ram-usb-v75-','ram-usb-v76-')),'services flag must match staged profile'
             assert args.air61==manifest['config_version'].startswith(('ram-usb-v70-','ram-usb-v71-','ram-usb-v72-')),'Air6,1 flag must match staged profile'
             assert args.automatic==manifest['config_version'].startswith('ram-usb-v72-'),'automatic flag must match stage'
+            assert args.navigation_guide==manifest['config_version'].startswith('ram-usb-v76-'),'navigation flag must match stage'
             assert args.lifecycle_guide==manifest['config_version'].startswith('ram-usb-v75-'),'guide flag must match stage'
             assert args.capacity_auto==manifest['config_version'].startswith('ram-usb-v73-'),'capacity flag must match stage'
             uuid=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1]
@@ -97,6 +102,7 @@ def main():
         if args.case=='runtime-missing':kernel=root/'build/kernel/srvros.elf'
         initramfs=root/'build/initramfs.tar'
         cmdline=f'srvros.storage=ram srvros.workspace-volume={uuid} srvros.desktop=session srvros.battery=on' if args.boot_session else None
+        if args.navigation_guide:cmdline += ' srvros.desktop-guide=window-navigation'
         if args.lifecycle_guide:cmdline += ' srvros.desktop-guide=application-lifecycle'
         if args.capacity_auto:cmdline += ' srvros.desktop-capacity-test=on'
         if args.automatic:cmdline += ' srvros.desktop-reopen-test=on'
@@ -277,13 +283,15 @@ def main():
                     assert b'battery-workspace-hold: released' not in output and b'logger_retired=yes' not in output
                     result['retained_ownership']=True
                 else:
-                    if args.lifecycle_guide:
-                        wait(b'deskhelp: page=lifecycle-trial');wait(b'deskd: opened pid=');time.sleep(1)
+                    if args.lifecycle_guide or args.navigation_guide:
+                        guide_start=consumed
+                        wait(b'deskhelp: page=window-navigation-trial' if args.navigation_guide else b'deskhelp: page=lifecycle-trial')
+                        guide_end=consumed;consumed=guide_start;wait(b'deskd: opened pid=');consumed=max(consumed,guide_end);time.sleep(1)
                         qmp.call('screendump',{'filename':str(out/'guide-start.ppm')})
                         qmp.key('end');time.sleep(1)
                         qmp.call('screendump',{'filename':str(out/'guide-return.ppm')})
                         launch('Text new app',b'desktools: starting role=text')
-                        result['lifecycle_guide']=True
+                        result['navigation_guide' if args.navigation_guide else 'lifecycle_guide']=True
                     else:wait(b'desktools: starting role=text')
                     wait(b'deskd: opened pid=')
                     time.sleep(1);type_text('Ordinary Home desktop.');shortcut('ctrl-l');shortcut('ctrl-a')
@@ -291,6 +299,33 @@ def main():
                     qmp.key('ret');wait(b'file-result role=text op=2 status=0')
                     launch('Files',b'desktools: starting role=files');wait(b'file-result role=files op=3 status=0')
                     launch('Terminal',b'deskterm: ready');time.sleep(1)
+                    if args.supervisor_controls:
+                        # The fourth ordinary window is at (104,136), client
+                        # origin (105,180), with a 500px System client. These
+                        # are actual Start/Stop buttons, not injected syscalls.
+                        control_begin=consumed
+                        launch('System',b'desktools: starting role=system')
+                        wait(b'deskd: opened pid=');control_end=consumed
+                        consumed=control_begin;wait(b'battery-ui: state=2 epoch=1')
+                        consumed=max(consumed,control_end)
+                        pointer=[24,56]
+                        def control_click(x,y):
+                            time.sleep(.5)
+                            qmp.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
+                            qmp.mouse(0,0,1);qmp.mouse(0,0,0)
+                        control_click(758,252);wait(b'desktools: system-page=sensors')
+                        for epoch in (1,2):
+                            control_click(379,590)
+                            wait(b'battery-ui: request=2 result=0')
+                            wait(f'battery-ui: state=4 epoch={epoch}'.encode())
+                            # Leave the owner asleep with the service stopped,
+                            # then require publication to wake Start promptly.
+                            time.sleep(1)
+                            control_click(203,590)
+                            wait(b'battery-ui: request=1 result=0')
+                            wait(f'battery-ui: state=2 epoch={epoch+1} generation=2'.encode())
+                        shortcut('ctrl-w');wait(b'desktools: exited role=system failure=0')
+                        result['supervisor_control_cycles']=2
                     if args.audio:
                         sample='workload.wav' if args.workload_audio else 'stereo.wav'
                         audio_begin=len(output);began=time.monotonic()
@@ -389,6 +424,10 @@ def main():
                     if args.case not in ('profile-refusal','refusal'):
                         events=re.findall(rb'battery-monitor-events: epoch=1 .* events=(\d+).* final=1',data)
                         assert len(events)==1 and int(events[0])>=64
+                        if args.supervisor_controls:
+                            for epoch in (1,2,3):
+                                assert re.search(rb'battery-service: retired epoch='+str(epoch).encode()+rb' .*heap=0 errors=0 denied=0',data)
+                            assert b'battery-controls: PASS requests=4' in data
                         result['battery_events']=int(events[0])
                 if args.boot_session and not entry_refusal and args.case!='runtime-fault':
                     # Restart using the real monitor entry with the same mount.

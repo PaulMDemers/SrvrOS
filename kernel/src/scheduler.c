@@ -4,6 +4,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/idle_audit.h>
 #include <srvros/scheduler_abi.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
@@ -102,6 +103,7 @@ static bool initialized;
 static bool switching;
 static bool io_services_enabled;
 static uint64_t io_owner, io_depth, io_service_at;
+static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
 static void yield_to(uint64_t preferred);
@@ -261,7 +263,7 @@ static bool io_thread_allowed(uint64_t index) {
     struct thread *thread = thread_at(index);
     bool allowed=io_depth == 0 || index == io_owner ||
         (thread->user_context != NULL && thread->io_user_safe &&
-         thread->user_context != thread_at(io_owner)->user_context) ||
+         thread->user_context != (io_private_image?io_private_image:thread_at(io_owner)->user_context)) ||
         (thread->user_context == NULL && thread->io_eligible != NULL &&
          thread->io_eligible(thread->arg));
     /* Fresh process threads and post-exit kernel continuations have no syscall
@@ -294,13 +296,29 @@ void scheduler_io_request_turn(void) {
 bool scheduler_io_begin(void) {
     if (!initialized || !io_services_enabled || switching) return false;
     if (io_depth != 0 && io_owner != current_thread) return false;
-    if (io_depth++ == 0) { io_owner = current_thread; io_service_at=timer_monotonic_us(); latency_owner_begin(); }
+    if (io_depth++ == 0) {
+        io_owner = current_thread;io_private_image=NULL;
+        io_service_at=timer_monotonic_us();latency_owner_begin();
+    }
     return true;
+}
+
+bool scheduler_io_begin_process_image(void *image) {
+    if(!initialized || !io_services_enabled || switching || io_depth || !image ||
+       !thread_at(current_thread)->user_context || image==thread_at(current_thread)->user_context ||
+       thread_at(current_thread)->state!=THREAD_RUNNING ||
+       vmm_current_address_space()!=thread_address_space(thread_at(current_thread)))return false;
+    for(uint64_t i=0;i<thread_capacity;i++) {
+        struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==image)return false;
+    }
+    if(!scheduler_io_begin())return false;
+    io_private_image=image;return true;
 }
 
 void scheduler_io_end(void) {
     if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
-        latency_owner_end(); scheduler_wake_all(&io_waiters);
+        io_private_image=NULL;latency_owner_end(); scheduler_wake_all(&io_waiters);
     }
 }
 
@@ -427,7 +445,7 @@ void scheduler_init(void) {
         thread_at(i)->state = THREAD_UNUSED;
         thread_at(i)->io_gate_waiting=false;
     }
-    io_gate_pending=0;
+    io_gate_pending=0;io_private_image=NULL;
 
     current_thread = 0;
     thread_at(0)->state = THREAD_RUNNING;
@@ -967,21 +985,129 @@ void scheduler_snapshot(struct scheduler_stats *out) {
 
 static bool idle_eligible(void *arg) { (void)arg;return true; }
 
+static struct scheduler_idle_audit idle_audit;
+static bool idle_audit_active;
+bool scheduler_idle_audit_start(void) {
+    uint64_t flags=irq_save();
+    if(idle_audit_active || !initialized || idle_thread>=thread_capacity || idle_audit.epoch==UINT64_MAX) {
+        irq_restore(flags);return false;
+    }
+    idle_audit=(struct scheduler_idle_audit){.epoch=idle_audit.epoch+1};
+    idle_audit_active=true;irq_restore(flags);return true;
+}
+void scheduler_idle_audit_snapshot(struct scheduler_idle_audit *out) {
+    uint64_t flags=irq_save();*out=idle_audit;irq_restore(flags);
+}
+void scheduler_idle_audit_stop(struct scheduler_idle_audit *out) {
+    uint64_t flags=irq_save();idle_audit_active=false;*out=idle_audit;irq_restore(flags);
+}
+static uint64_t idle_audit_enter(void) {
+    if(!idle_audit_active) return 0;
+    idle_audit.enters++;return idle_audit.epoch;
+}
+static void idle_audit_return(uint64_t epoch) {
+    if(idle_audit_active && epoch && epoch==idle_audit.epoch) idle_audit.returns++;
+}
+/* Dedicated WB kernel storage, isolated from counters/other writers. CPU0's
+ * interrupt is the wake source in this experiment; this is not an AP protocol. */
+static _Alignas(64) volatile unsigned char mwait_line[64];
+static struct scheduler_mwait_test mwait_test;
+static bool mwait_active;
+_Static_assert(SCHEDULER_MWAIT_LIMIT_US==SCHEDULER_PREEMPT_QUANTUM_TICKS*10000,
+    "wakeup ceiling must remain one existing scheduler quantum");
+bool scheduler_mwait_test_start(uint32_t hint) {
+    uint64_t flags=irq_save();
+    bool ok=(hint==0 || hint==0x10) && !mwait_active && idle_audit_active && initialized &&
+        idle_thread<thread_capacity && timer_reference_ready();
+    if(ok) { mwait_test=(struct scheduler_mwait_test){.epoch=idle_audit.epoch,.hint=hint};mwait_active=true; }
+    irq_restore(flags);return ok;
+}
+void scheduler_mwait_test_stop(struct scheduler_mwait_test *out) {
+    uint64_t flags=irq_save();mwait_active=false;*out=mwait_test;irq_restore(flags);
+}
+/* These fixed read-only registers are reachable only after the power service's
+ * exact 06_45/invariant-TSC gate. No inferred wrap or residency on invalid data. */
+static uint64_t mwait_read(unsigned reg) {
+#if defined(SRVROS_MWAIT_HOST_TEST)
+    extern uint64_t scheduler_test_mwait_read(unsigned);
+    return scheduler_test_mwait_read(reg);
+#elif defined(SRVROS_SCHEDULER_HOST_TEST)
+    (void)reg;return 0;
+#else
+    uint32_t a,d;__asm__ volatile("rdmsr":"=a"(a),"=d"(d):"c"(reg));return a|((uint64_t)d<<32);
+#endif
+}
+static bool mwait_step(void) {
+    (void)mwait_line;
+    if(!mwait_active || !idle_audit_active || mwait_test.epoch!=idle_audit.epoch) return false;
+    if(mwait_test.fault || mwait_test.attempts>=SCHEDULER_MWAIT_ATTEMPTS) {
+        if(mwait_test.hlt<SCHEDULER_MWAIT_ATTEMPTS)mwait_test.hlt++;
+        return false;
+    }
+#if defined(SRVROS_MWAIT_HOST_TEST)
+    extern void scheduler_test_monitor(void *);
+    scheduler_test_monitor((void *)mwait_line);
+#elif !defined(SRVROS_SCHEDULER_HOST_TEST)
+    __asm__ volatile("monitor"::"a"(mwait_line),"c"(0),"d"(0):"memory");
+#endif
+    /* Recheck after MONITOR with IRQs still masked. Pending interrupts break
+     * MWAIT via ECX=1, including the check-to-wait window. No unowned wake word. */
+    if(has_ready_thread_except(current_thread)) {
+        mwait_test.rechecks++;return true;
+    }
+    if(!mwait_test.attempts)mwait_test.tick_begin=timer_ticks();
+    bool deep=mwait_test.hint==0x10;
+    uint64_t t0=0,c0=0,p0=0;
+    if(deep) { t0=mwait_read(0x10);c0=mwait_read(0x3fc);p0=mwait_read(0x3f8); }
+    uint64_t before=timer_monotonic_us();mwait_test.attempts++;
+#if defined(SRVROS_MWAIT_HOST_TEST)
+    extern void scheduler_test_mwait(uint32_t);
+    scheduler_test_mwait((uint32_t)mwait_test.hint);
+#elif !defined(SRVROS_SCHEDULER_HOST_TEST)
+    __asm__ volatile("mwait"::"a"((uint32_t)mwait_test.hint),"c"(1):"memory"); /* Exact gated C1 or Haswell C3. */
+#endif
+    uint64_t after=timer_monotonic_us();mwait_test.returns++;
+    mwait_test.tick_end=timer_ticks();
+    if(deep) {
+        uint64_t p1=mwait_read(0x3f8),c1=mwait_read(0x3fc),t1=mwait_read(0x10);
+        if(t1<=t0 || c1<c0 || p1<p0 || c1-c0>t1-t0 || p1-p0>t1-t0 ||
+           UINT64_MAX-mwait_test.tsc_ticks<t1-t0 ||
+           UINT64_MAX-mwait_test.core_c3_ticks<c1-c0 || UINT64_MAX-mwait_test.package_c3_ticks<p1-p0)
+            mwait_test.fault=3;
+        else { mwait_test.tsc_ticks+=t1-t0;mwait_test.core_c3_ticks+=c1-c0;mwait_test.package_c3_ticks+=p1-p0; }
+    }
+    if(after<before) mwait_test.fault=1;
+    else {
+        uint64_t elapsed=after-before;
+        if(elapsed>mwait_test.max_us)mwait_test.max_us=elapsed;
+        if(elapsed>SCHEDULER_MWAIT_LIMIT_US)mwait_test.fault=2;
+    }
+    /* Measure before pending IRQ dispatch/preemption; then let that IRQ run.
+     * There are no accesses to trial state after this scheduling boundary. */
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile("sti; nop; cli":::"memory");
+#endif
+    return true;
+}
+static void idle_step(void) {
+    uint64_t flags=irq_save();
+    if(has_ready_thread_except(current_thread)) {
+        if(idle_audit_active) idle_audit.ready++;
+        irq_restore(flags);scheduler_yield();return;
+    }
+    if(mwait_step()) { irq_restore(flags);return; }
+    /* The default/fallback diagnostic does not change the readiness check or STI shadow.
+     * No clocks, I/O, allocation or printing in this IRQ-masked path. */
+    uint64_t epoch=idle_audit_enter();
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile("sti; hlt; cli":::"memory");
+#endif
+    idle_audit_return(epoch);
+    irq_restore(flags);
+}
 static void idle_worker(void *arg) {
     (void)arg;
-    for (;;) {
-        uint64_t flags=irq_save();
-        if(has_ready_thread_except(current_thread)) {
-            irq_restore(flags);scheduler_yield();continue;
-        }
-        /* STI's interrupt shadow makes the readiness check + HLT atomic with
-         * respect to interrupt wakeups. The idle thread touches no I/O state
-         * and can also run while a storage owner is waiting for service. */
-#ifndef SRVROS_SCHEDULER_HOST_TEST
-        __asm__ volatile("sti; hlt; cli":::"memory");
-#endif
-        irq_restore(flags);
-    }
+    for(;;) idle_step();
 }
 
 bool scheduler_start_idle_worker(void) {

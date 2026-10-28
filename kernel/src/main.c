@@ -695,7 +695,13 @@ void kmain(void) {
             console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
         }
         if(automatic_load && started && init_ready && timer_running) {
+            bool deep=cmdline_has_token(cmdline,"srvros.idle=mwait-c3-test");
+            bool mwait=deep || cmdline_has_token(cmdline,"srvros.idle=mwait-wakeup-test");
+            bool captured=deep?power_capture_deep_start():mwait?power_capture_mwait_start():power_capture_start();
+            if(mwait && !captured) console_printf("cpu-mwait: v=%u admitted=0 fallback=hlt\n",(uint64_t)(deep?2:1));
             sampled=process_run_elf_args("/fat/bin/threadstress","--cpu-load-capture");
+            power_capture_stop();
+            if(mwait) sampled=sampled && captured && power_capture_mwait_passed();
             console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
             thermal_print_status();smc_print_status();
         }
@@ -753,6 +759,14 @@ void kmain(void) {
             (uint64_t)cmdline_has_token(cmdline,"srvros.sensors=cpu"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.smc=read-only"),
             (uint64_t)cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
+        if(cmdline_has_token(cmdline,"srvros.battery=on") && cmdline_has_token(cmdline,"srvros.desktop-power=on")) {
+            bool ok=desktop_battery_power_session_run();
+            bool unmounted=workspace_active() && workspace_unmount();
+            console_printf("desktop-power: result=%s unmounted=%s; returning to Ubuntu\n",ok?"PASS":"FAIL",unmounted?"yes":"NO");
+            if(unmounted){console_sync();arch_reboot_unattended();}
+            console_write("desktop-power: HALTED unmount failed; restart manually\n");
+            console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+        }
         if(cmdline_has_token(cmdline,"srvros.battery=on") &&
            (cmdline_has_token(cmdline,"srvros.desktop-audio-io=on") || cmdline_has_token(cmdline,"srvros.desktop-audio-io=smoke"))) {
             bool ok=desktop_battery_audio_io_session_run(cmdline_has_token(cmdline,"srvros.desktop-audio-io=smoke"));
@@ -778,7 +792,10 @@ void kmain(void) {
             console_sync();__asm__ volatile("cli":::"memory");halt_forever();
         }
         else if(cmdline_has_token(cmdline,"srvros.battery=on")) {
-            if(cmdline_has_token(cmdline,"srvros.desktop-guide=application-lifecycle"))desktop_battery_lifecycle_session_run();
+            if(cmdline_has_token(cmdline,"srvros.desktop-audio-io=attended") || cmdline_has_token(cmdline,"srvros.desktop-audio-io=attended-smoke"))
+                desktop_battery_audio_io_attended_run(cmdline_has_token(cmdline,"srvros.desktop-audio-io=attended-smoke"));
+            else if(cmdline_has_token(cmdline,"srvros.desktop-guide=window-navigation"))desktop_battery_navigation_session_run();
+            else if(cmdline_has_token(cmdline,"srvros.desktop-guide=application-lifecycle"))desktop_battery_lifecycle_session_run();
             else desktop_battery_session_run();
         }
         else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");

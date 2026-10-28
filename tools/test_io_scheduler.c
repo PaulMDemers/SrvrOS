@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #define SRVROS_SCHEDULER_HOST_TEST
+#define SRVROS_MWAIT_HOST_TEST
 #include "../kernel/src/scheduler.c"
 static uint64_t actual_space=1,clock_us;
 static _Alignas(16) uint8_t fake_stack[SCHEDULER_STACK_SIZE];
@@ -374,7 +375,147 @@ static void test_wait_trace(void) {
     puts("scheduler-wait-trace: PASS blocked versus ready, unchanged exclusion, timeout/signal, reset/refusal and invalid clock");
 }
 
+static void test_private_image_scope(void) {
+    struct srv_sched_trace trace;
+    void *parent=(void *)0x10,*child=(void *)0x20;
+    initialized=true;io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=parent};
+    threads[4]=(struct thread){.state=THREAD_READY,.user_context=parent,.io_user_safe=true};
+    threads[5]=(struct thread){.state=THREAD_READY,.user_context=parent};
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)0x30,.io_user_safe=true};
+    assert(!scheduler_io_begin_process_image(NULL));
+    assert(!scheduler_io_begin_process_image(parent));
+    assert(!scheduler_io_begin_process_image((void *)0x30));
+    actual_space=2;assert(!scheduler_io_begin_process_image(child));actual_space=1;
+    assert(!io_depth && !io_private_image);
+    assert(scheduler_io_begin());
+    assert(!io_thread_allowed(4) && !io_thread_allowed(5) && io_thread_allowed(6));
+    assert(!scheduler_io_begin_process_image(child) && io_depth==1 && !io_private_image);
+    scheduler_io_end();
+    /* Reproduce the stalled sibling's READY interval while a private image is
+     * built. Existing ordinary ownership must still refuse this admission. */
+    current_thread=4;threads[4].state=THREAD_RUNNING;clock_us=1000;
+    assert(scheduler_trace(SRV_SCHED_TRACE_BEGIN,&trace));trace_ready(&threads[4],2);
+    threads[4].state=THREAD_READY;current_thread=3;
+    assert(scheduler_io_begin_process_image(child) && io_depth==1 && io_private_image==child);
+    for(unsigned n=0;n<64;n++) {
+        clock_us+=4000;
+        assert(io_thread_allowed(4)); /* Fails with the old caller-identity exclusion. */
+        assert(!io_thread_allowed(5) && io_thread_allowed(6));
+    }
+    threads[7]=(struct thread){.state=THREAD_READY,.user_context=child,.io_user_safe=true};
+    assert(!io_thread_allowed(7)); /* Target identity is still excluded. */
+    assert(scheduler_io_begin() && io_depth==2 && io_private_image==child);
+    scheduler_io_end();assert(io_depth==1 && io_private_image==child);
+    current_thread=6;scheduler_io_end();assert(io_depth==1 && io_private_image==child);
+    current_thread=3;scheduler_io_end();assert(!io_depth && !io_private_image);
+    assert(scheduler_io_begin() && !io_thread_allowed(4));scheduler_io_end();
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;clock_us=0;io_gate_pending=0;
+    puts("private-image-io: PASS caller sibling service, target/unsafe exclusion, inherited/foreign refusal and exact restoration");
+}
+
+static unsigned monitors,mwaits;
+static bool ready_after_monitor,regress_mwait;
+static uint64_t mwait_delay=10000;
+void scheduler_test_monitor(void *address) {
+    assert(!((uintptr_t)address&63));monitors++;
+    if(ready_after_monitor)threads[0].state=THREAD_READY;
+}
+static uint32_t expected_hint;
+static bool bad_residency,zero_residency;
+static uint64_t residency_reads;
+uint64_t scheduler_test_mwait_read(unsigned reg) {
+    assert(expected_hint==0x10);residency_reads++;
+    if(reg==0x10)return clock_us*2000;
+    assert(reg==0x3fc || reg==0x3f8);
+    return zero_residency?0:bad_residency?UINT64_MAX-clock_us:clock_us*(reg==0x3fc?1000:500);
+}
+void scheduler_test_mwait(uint32_t hint) {
+    assert(hint==expected_hint);
+    mwaits++;if(regress_mwait)clock_us--;else clock_us+=mwait_delay;
+}
+static void test_mwait(void) {
+    struct scheduler_mwait_test mt;struct scheduler_idle_audit ia;
+    assert(!scheduler_mwait_test_start(0));
+    initialized=true;idle_thread=current_thread=1;threads[1].state=THREAD_RUNNING;
+    assert(scheduler_idle_audit_start());reference=false;assert(!scheduler_mwait_test_start(0));reference=true;
+    assert(scheduler_mwait_test_start(0) && !scheduler_mwait_test_start(0));
+    ready_after_monitor=true;idle_step();assert(monitors==1 && !mwaits && mwait_test.rechecks==1);
+    ready_after_monitor=false;threads[0].state=THREAD_UNUSED;
+    for(unsigned i=0;i<32;i++)idle_step();
+    assert(mwaits==32 && mwait_test.attempts==32 && !mwait_test.fault && mwait_test.max_us==10000);
+    for(unsigned i=0;i<40;i++)idle_step();
+    assert(mwaits==32 && mwait_test.hlt==32 && idle_audit.enters==40);
+    scheduler_mwait_test_stop(&mt);assert(mt.returns==32 && mt.tick_end>mt.tick_begin);
+    scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0));
+    mwait_delay=20000;idle_step();assert(!mwait_test.fault);
+    mwait_delay=20001;idle_step();assert(mwait_test.fault==2);
+    unsigned prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0));
+    regress_mwait=true;idle_step();assert(mwait_test.fault==1);regress_mwait=false;
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0));
+    /* Retirement prevents subsequent MWAIT even if the idle audit restarts. */
+    scheduler_idle_audit_stop(&ia);assert(scheduler_idle_audit_start());
+    prior=mwaits;idle_step();assert(mwaits==prior);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(!residency_reads); /* Ordinary/shallow trial never reads these MSRs. */
+    assert(scheduler_idle_audit_start());assert(!scheduler_mwait_test_start(0x20));
+    expected_hint=0x10;mwait_delay=10000;
+    assert(scheduler_mwait_test_start(0x10));
+    for(unsigned i=0;i<32;i++)idle_step();
+    assert(mwait_test.hint==16 && mwait_test.tsc_ticks==640000000 &&
+        mwait_test.core_c3_ticks==320000000 && mwait_test.package_c3_ticks==160000000 && !mwait_test.fault);
+    prior=mwaits;for(unsigned i=0;i<32;i++)idle_step();assert(mwaits==prior && mwait_test.hlt==32);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0x10));
+    bad_residency=true;idle_step();assert(mwait_test.fault==3);bad_residency=false;
+    prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0x10));
+    mwait_delay=10000;zero_residency=true;idle_step();zero_residency=false;
+    assert(!mwait_test.fault && mwait_test.tsc_ticks && !mwait_test.core_c3_ticks && !mwait_test.package_c3_ticks);
+    mwait_test.tsc_ticks=UINT64_MAX;idle_step();assert(mwait_test.fault==3);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0x10));
+    mwait_delay=20001;idle_step();assert(mwait_test.fault==2);
+    prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);expected_hint=0;
+    mwait_test=(struct scheduler_mwait_test){0};idle_audit=(struct scheduler_idle_audit){0};
+    idle_thread=UINT64_MAX;current_thread=0;initialized=false;clock_us=0;
+    memset(threads,0,sizeof(threads));
+    puts("mwait: PASS readiness recheck, 32 attempt cap, mandatory HLT, latency boundary/fault fallback, clock regression and retired epoch");
+}
+
+static void test_idle_audit(void) {
+    struct scheduler_idle_audit out;
+    assert(!scheduler_idle_audit_start());
+    initialized=true;idle_thread=1;current_thread=1;
+    threads[1].state=THREAD_RUNNING;
+    idle_step();scheduler_idle_audit_snapshot(&out);assert(!out.epoch && !out.enters);
+    assert(scheduler_idle_audit_start() && !scheduler_idle_audit_start());
+    idle_step();scheduler_idle_audit_snapshot(&out);assert(out.epoch==1 && out.enters==1 && out.returns==1 && !out.ready);
+    threads[0].state=THREAD_READY;switching=true;idle_step();switching=false;
+    scheduler_idle_audit_snapshot(&out);assert(out.ready==1 && out.enters==1 && out.returns==1);
+    threads[0].state=THREAD_UNUSED;
+    uint64_t pending=idle_audit_enter();scheduler_idle_audit_stop(&out);
+    assert(out.enters==2 && out.returns==1);
+    idle_audit_return(pending);idle_step();scheduler_idle_audit_snapshot(&out);assert(out.enters==2 && out.returns==1);
+    assert(scheduler_idle_audit_start());idle_audit_return(pending);
+    scheduler_idle_audit_snapshot(&out);assert(out.epoch==2 && !out.enters && !out.returns);
+    idle_step();scheduler_idle_audit_stop(&out);assert(out.enters==1 && out.returns==1);
+    idle_audit.epoch=UINT64_MAX;assert(!scheduler_idle_audit_start());
+    idle_audit=(struct scheduler_idle_audit){0};idle_thread=UINT64_MAX;current_thread=0;initialized=false;
+    memset(threads,0,sizeof(threads));
+    puts("idle-audit: PASS opt-in, nested refusal, ready bypass, HLT path, pending return across stop/restart, epoch exhaustion; no policy changes");
+}
+
 int main(void) {
+    test_idle_audit();
+    test_mwait();
+    test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();
     test_resume_address_space();

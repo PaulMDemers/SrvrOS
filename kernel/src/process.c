@@ -1668,6 +1668,35 @@ static int64_t load_elf_image_checked(const char *path,struct process *process,u
     process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
 }
 
+/* Only process_spawn_exec calls this path: its fresh child has no runnable
+ * thread, and no parent files/vectors/mappings are changed until this scope ends.
+ * Snapshot even the path again here so the service contract is self-contained. */
+static struct process_service_scope process_spawn_image_scope(struct process *parent,
+    struct process *child,const char *path,char *snapshot,uint64_t capacity) {
+    struct process_service_scope scope={0};
+    bool private=parent && child && child!=parent && child->allocated && child->active &&
+        child->parent_pid==parent->pid && !child->startup_ready && !child->entry &&
+        !child->address_space && !child->mapping_count && !child->killed && !child->exiting;
+    if(private)for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+        if(child->user_threads[i].used)private=false;
+    if(!copy_process_path(snapshot,capacity,path)) {if(snapshot && capacity)snapshot[0]=0;private=false;}
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    scope.flags=process_irq_save();
+    if(private)scope.held=scheduler_io_begin_process_image(child);
+    if(!scope.held)scope.held=scheduler_io_begin();
+#else
+    (void)private;
+#endif
+    return scope;
+}
+static int64_t load_spawn_image_checked(struct process *parent,struct process *child,const char *path) {
+    char snapshot[PROCESS_PATH_MAX]={0};
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_spawn_image_scope(parent,child,path,snapshot,sizeof(snapshot));
+    int64_t result=snapshot[0]?load_elf_image_checked_impl(snapshot,child,USER_STACK_TOP,&child->entry):SRV_ERR_NAMETOOLONG;
+    process_service_end(scope);process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
+}
+
 static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
     return load_elf_image_checked(path,process,stack_top,entry_out)==0;
 }
@@ -1898,7 +1927,7 @@ int64_t process_spawn_exec(const char *path,
         return SRV_ERR_NOMEM;
     }
 
-    int64_t error=load_elf_image_checked(path,child,USER_STACK_TOP,&child->entry);
+    int64_t error=load_spawn_image_checked(parent,child,path);
     if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
     if(!error && (signal_flags&SRV_EXEC_INHERIT_FILES)) {
         error=process_inherit_files(child,parent);
@@ -2482,6 +2511,25 @@ static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
     return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);
 }
+struct process_event_request {
+    struct process_wait_request target;
+    bool (*condition)(void *);
+    void *arg;
+    uint64_t deadline;
+};
+static bool process_event_ready(void *arg) {
+    struct process_event_request *request=arg;
+    return process_wait_ready(&request->target) || request->condition(request->arg) ||
+        (request->deadline && timer_ticks()>=request->deadline);
+}
+bool process_wait_event(uint64_t pid,bool (*condition)(void *),void *arg,uint64_t deadline_ticks) {
+    if(!pid || !condition)return false;
+    struct process_event_request request={
+        .target={.pid=pid,.owner=process_pid(process_current())},
+        .condition=condition,.arg=arg,.deadline=deadline_ticks};
+    return scheduler_wait_timeout(&process_wait_queue,process_event_ready,&request,deadline_ticks);
+}
+void process_wait_notify(void) { scheduler_wake_all(&process_wait_queue); }
 static int64_t process_wait_request(struct process_wait_request request,uint64_t *status_out,bool nohang,bool posix_status) {
     for (;;) {
         uint64_t flags=process_irq_save();
@@ -3760,21 +3808,10 @@ static int64_t read_file_close(uint64_t handle) {
 /* Directory cookies share the open description, so dup/fork observe the same
  * position. Mutation during enumeration has the standard unspecified ordering;
  * no entry cache or unrelated per-stream pathname scan is retained in libc. */
-int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
-    struct process_file *file=process_file_at(process_current(),fd);
-    if(!file) return SRV_ERR_BADF;
-    struct process_read_file *read=file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
-    if(!read || !read->directory) return SRV_ERR_NOTDIR;
-    const char *path=read->content->path;
-    if(operation==SRV_DIRECTORY_PATH) {
-        uint64_t length=0;while(path[length]) length++;
-        if(!out) return SRV_ERR_FAULT;
-        if(capacity<=length) return SRV_ERR_RANGE;
-        copy_process_path(out,capacity,path);return 0;
-    }
-    if(operation==SRV_DIRECTORY_CHDIR) return process_path_context(SRV_PATH_CHDIR,path,NULL,0);
-    if(operation!=SRV_DIRECTORY_READ || capacity!=sizeof(struct srv_dirent) || !out) return SRV_ERR_INVAL;
+static int64_t directory_next(struct process_read_file *read,struct srv_dirent_info *out,bool metadata) {
     struct srv_dirent entry={0};
+    const struct vfs_node *selected=NULL;
+    const char *path=read->content->path;
     uint64_t length=0;while(path[length]) length++;
     if(read->offset<2) {
         bool parent=read->offset==1;
@@ -3786,7 +3823,7 @@ int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capa
         }
         const struct vfs_node *node=vfs_lookup(parent_path);
         if(!node) return SRV_ERR_NOENT;
-        entry.inode=node->metadata.inode;entry.type=VFS_NODE_DIRECTORY;
+        selected=node;entry.inode=node->metadata.inode;entry.type=VFS_NODE_DIRECTORY;
         entry.name[0]='.';if(parent) entry.name[1]='.';
         read->offset++;
     } else {
@@ -3801,11 +3838,43 @@ int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capa
             uint64_t count=0;while(name[count] && name[count]!='/') count++;
             if(!count || name[count]=='/') continue;
             if(count>=sizeof(entry.name)) return SRV_ERR_NAMETOOLONG;
-            entry.inode=node->metadata.inode;entry.type=node->type;
+            selected=node;entry.inode=node->metadata.inode;entry.type=node->type;
             copy_process_path(entry.name,sizeof(entry.name),name);break;
         }
     }
-    *(struct srv_dirent *)out=entry;return 1;
+    *out=(struct srv_dirent_info){.entry=entry,.size=selected->size,.modified=selected->metadata.mtime};
+    if(metadata)(void)process_open_file_size(selected->path,&out->size);
+    return 1;
+}
+int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
+    struct process_file *file=process_file_at(process_current(),fd);
+    if(!file) return SRV_ERR_BADF;
+    struct process_read_file *read=file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
+    if(!read || !read->directory) return SRV_ERR_NOTDIR;
+    const char *path=read->content->path;
+    if(operation==SRV_DIRECTORY_PATH) {
+        uint64_t length=0;while(path[length]) length++;
+        if(!out) return SRV_ERR_FAULT;
+        if(capacity<=length) return SRV_ERR_RANGE;
+        copy_process_path(out,capacity,path);return 0;
+    }
+    if(operation==SRV_DIRECTORY_CHDIR) return process_path_context(SRV_PATH_CHDIR,path,NULL,0);
+    if(operation==SRV_DIRECTORY_READ_INFO) {
+        if(!out || !capacity || capacity%sizeof(struct srv_dirent_info) ||
+           capacity>SRV_DIRECTORY_BATCH_MAX*sizeof(struct srv_dirent_info))return SRV_ERR_INVAL;
+        struct srv_dirent_info *entries=out;uint64_t start=read->offset,count=0;
+        while(count<capacity/sizeof(*entries)) {
+            int64_t result=directory_next(read,&entries[count],true);
+            if(result<0){read->offset=start;return result;}
+            if(!result)break;
+            count++;
+        }
+        return (int64_t)count;
+    }
+    if(operation!=SRV_DIRECTORY_READ || capacity!=sizeof(struct srv_dirent) || !out)return SRV_ERR_INVAL;
+    struct srv_dirent_info entry;int64_t result=directory_next(read,&entry,false);
+    if(result>0)*(struct srv_dirent *)out=entry.entry;
+    return result;
 }
 
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
@@ -4975,6 +5044,21 @@ int64_t process_unix_unlink(const char *path) {
     listener->path[0] = '\0';
     process_file_poll_wake();
     return 0;
+}
+
+bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing) {
+    struct process_file *file=process_file_at(process,fd);
+    if(!file || length>SRV_PIPE_BUF || !process_file_nonblocking(process,fd))return false;
+    if(file->type!=PROCESS_FILE_PIPE_DUPLEX &&
+       file->type!=(writing?PROCESS_FILE_PIPE_WRITE:PROCESS_FILE_PIPE_READ))return false;
+    struct process_pipe *pipe=pipe_at(writing && file->type==PROCESS_FILE_PIPE_DUPLEX?file->aux_handle:file->handle);
+    if(!pipe)return false;
+    /* Existing byte operations cannot wait on these descriptors. Keep signal
+     * dispatch and descriptor release outside an owned storage service window.
+     * Called with interrupts disabled; state cannot change before the copy. */
+    if(writing)return pipe->read_refs!=0;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(pipe->rights[i].used)return false;
+    return true;
 }
 
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {

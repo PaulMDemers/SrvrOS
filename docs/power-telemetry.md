@@ -13,10 +13,11 @@ write CPU controls. Workspace checkpoints save the same cached values, and
 `hardware_desktop.py` includes them under `devices.power`. Disabled boots perform
 no power MSR reads. Unsupported CPUs report unavailable without reading any MSR.
 
-The profiles require GenuineIntel family 6/model 0x3d or 0x46, no hypervisor bit,
+The profiles require GenuineIntel family 6/model 0x3d, 0x45 or 0x46, no hypervisor bit,
 MSR support, CPUID.06H:ECX[0] feedback support and a working monotonic clock.
-It reads only RAPL units (0x606), platform info (0xce), package energy (0x611),
-APERF (0xe8) and MPERF (0xe7). The observed energy exponent must be 14; the
+The base telemetry reads RAPL units (0x606), platform info (0xce), package energy (0x611),
+APERF (0xe8) and MPERF (0xe7). The model-specific residency and capture-only
+firmware audit extensions are described below. The observed energy exponent must be 14; the
 platform non-turbo ratio must be nonzero and at most 64. No other CPU model is
 implicitly enabled; CPU telemetry support does not accept a sibling Mac's other devices. There are no MSR writes,
 ACPI mode changes, fan controls or power-limit changes.
@@ -169,7 +170,7 @@ All five power registers and the three thermal registers were readable on CPU0.
 The captured one-second development workload decodes to 33,173 mW package power
 and 3,119 MHz active frequency. This is a decoder fixture, not an idle baseline,
 whole-laptop power reading or native SrvrOS result. Temperature target is 100 C
-with zero TCC offset. Other Haswell model IDs remain refused.
+with zero TCC offset. Other Haswell model IDs remain refused except the independently captured Air6,1 profile below.
 
 The model identity and register family are cross-checked against the Linux
 [Intel family definitions](https://github.com/torvalds/linux/blob/master/arch/x86/include/asm/intel-family.h)
@@ -214,10 +215,9 @@ building `all usb-image`, VM refusal checks with
 explicit-but-unavailable providers both refuse work and return to the monitor.
 Host time/sensor fixtures exercise successful Air/Pro-shaped snapshots and
 thermal, freshness, transport-validity and clock failure exits. They are not
-native load acceptance. The v35 proposal below supplies automatic capture wiring on the device branch;
-shared integration still requires review against PR6.
+native load acceptance. The integrated v35 profile below supplies automatic capture wiring.
 
-The device-branch v35 proposal now stages with `hardware_boot.py stage
+The v35 profile stages with `hardware_boot.py stage
 --laptop-probe-volume <local-UUID> --cpu-load-capture`. It enables only RAM/USB,
 CPU/SMC readout and package telemetry, then runs the standalone diagnostic.
 Handled refusal is saved and returns after clean unmount; missing workspace or
@@ -227,7 +227,7 @@ nonzero load work. `tools/hardware_cpu_load.py <exit.log>` parses the result and
 computes energy only from fresh checkpoints wholly within each phase. At least
 two checkpoints spanning ten seconds are required per phase; unavailable power
 remains null. Console phase measurements are separate from the Text idle baseline.
-Shared integration of the proposal remains pending review against PR6.
+Missing phase power remains incomplete telemetry evidence, even when the workload completes.
 
 The Pro11,2 native v35 run `9b7ff9eb6ebc3535` completed all three phases.
 Its covered load interval measured 27.190 W package power over 22.000 seconds,
@@ -668,3 +668,512 @@ for controlled storage timing follow-up. At that checkpoint the legacy TCP readi
 The subsequent [TCP readiness follow-up](tcp-readiness.md) fixes passive-open
 queueing and e1000 receive ownership, with directed host/VM coverage. That fix
 does not explain USB save variability or establish energy savings.
+
+
+## Air6,1 CPU profile and automated trial
+
+The independently captured 06_45 Haswell-U profile admits signature `0x40651`
+on this MacBookAir6,1. CPU0 reports CPUID.1 ECX/EDX `0x7ffafbbf`/`0xbfebfbff`,
+CPUID.6 ECX `9`, units `0xa0e03` and platform `0x8083df3011400`.
+The platform register supplies the **2,000 MHz** reference ratio; do not replace
+it with the CPU brand string's 1.40 GHz. The captured Linux development-load
+interval decodes to 6,610 mW package power and 834 MHz active frequency. This is
+a decoder regression fixture, not a native idle measurement. Intel SDM Volume 4
+lists 06_45 among the supported package RAPL register families. The existing
+five-register read-only allowlist and every validity/refusal bound remain intact.
+
+Use the v35 command above with this unit's own USB UUID after the normal build,
+exact-stage VM, recovery and filesystem preflight. Leave AC and USB connected;
+no input is required. The console displays phase progress, then saves and
+returns to Ubuntu. Require all three phases, nonzero load work, valid power
+coverage in each phase, preserved files and clean offline allocation checks.
+An emulated refusal verifies save/return only. Native Air6,1 acceptance is pending;
+ordinary desktop power telemetry, CPU policy and fan control remain unchanged.
+
+The first Air6,1 v35 run (`22632f396dab67a4`, October 27) completed all three
+phases with fresh valid power counters and zero rejected samples. Covered load
+measured 5.134 W / 1,300 MHz over 10.999826 seconds; recovery measured
+4.127 W / 1,288 MHz over 20.999667 seconds. Initial idle remains unavailable:
+its two eligible checkpoints span 9.999841 seconds, below the ten-second floor.
+The next checkpoint's logging timestamp falls outside idle. This is incomplete
+three-phase evidence, not a reason to relax coverage or claim an idle baseline.
+The next capture needs more reliable phase checkpoint coverage. Peak logged
+package temperature was 63 C, and automatic return/file preservation passed.
+
+### Bounded phase checkpoint retention
+
+The explicit v35 CPU-load path now starts a bounded in-memory power capture
+around `threadstress --cpu-load-capture`. After an ordinary power sample, the
+provider retains its cached snapshot when at least five seconds have elapsed
+since the previous retained point. Up to 24 snapshots fit in static storage;
+there are no additional MSR reads, allocation, disk writes or sample wakeups.
+Ordinary power/desktop boots do not activate this capture. The bootstrap caller
+stops retention before emitting the records and the final workspace save.
+
+`cpu-load-power` rows carry the original sampling timestamp as `monotonic_us`;
+they are historical checkpoints printed after the phases, not current readings
+at print time. The collector verifies the count/overflow receipt, combines these
+with ordinary workspace checkpoints, and retains the same per-phase boundaries,
+ten-second minimum, freshness, counter continuity and validity checks. Missing,
+truncated or overflowed captures cannot supply phase power. The 24-row bound is
+not extended if a diagnostic stalls. The ordinary ten-second USB logging cadence,
+30/30/30-second phases and all thermal stops remain unchanged. This instrumentation
+changes the capture baseline; do not infer savings by comparing it to an older run.
+
+### Accepted Air6,1 idle/load/recovery capture
+
+Release `a5f8fdf5d377c116` (`e7a41714`, PR210), session
+`session-00065ed4d4558b8e-00`, completed the automatic 30/30/30-second trial on
+October 27. Seventeen retained checkpoints had valid energy/frequency flags,
+zero rejected samples and no overflow. Combining them with ordinary workspace
+checkpoints gives 20.000003 seconds of idle coverage (4.128 W / 1,288 MHz),
+25.000003 seconds of load (5.161 W / 1,299 MHz), and 25.000004 seconds of recovery
+(4.107 W / 1,290 MHz). All satisfy the unchanged ten-second minimum.
+
+The single-worker load completed 250,682 chunks; peak logged package temperature
+was 66 C without a diagnostic stop. The final report, automatic Ubuntu return,
+prior-file preservation and offline allocation checks passed. This accepts the
+bounded read-only telemetry and checkpoint capture on this Air6,1, not CPU/fan
+controls, equilibrium or whole-machine power, or an energy-saving comparison.
+Ordinary staging still leaves power telemetry disabled.
+
+## Automatic Air6,1 desktop phases
+
+The explicit `--desktop-power-test --desktop-battery --battery-air61
+--desktop-services --desktop-volume <local-UUID>` staging recipe selects v78.
+It keeps the ordinary Home filesystem and battery-owned desktop lifetime, enables
+read-only power/temperature telemetry, and runs without input: wait for a rendered
+Text window and fresh battery data, settle for 30 seconds, idle for 60 seconds,
+cycle Text/Files/System applications for 60 seconds, then recover for 60 seconds.
+The last 12 seconds of the app phase drain pending work. At least six complete
+app cycles and a newer fresh battery generation in every phase are required.
+The desktop displays progress once per second; it is part of this measured load.
+Audio is initialized but no sound is played. Keep AC and the workspace connected.
+
+The existing 500 ms desktop loop and 10 s app lifecycle limits stay unchanged.
+A phase may finish up to five seconds late, but this does not relax loop or app
+limits. The diagnostic has a 300 s owner watchdog and uses normal lifetime
+revocation, battery retirement, log save and workspace unmount before reboot.
+Uncertain ownership retains the existing fail-closed behavior.
+
+Only this diagnostic retains up to 32 ten-second log checkpoints, in distinct
+`checkpoint-00.log` through `checkpoint-1f.log` files. It reserves 64 file slots,
+never wraps, and refuses further saves if that bound is reached. Ordinary logs
+continue rotating two snapshots. Write/readback verification, sync and logging
+cadence are unchanged. `tools/desktop_power_records.py` merges overlapping saved
+snapshots without repairing partial records and requires ordered phase receipts,
+clean battery retirement, at least three power/worker checkpoints covering 20 s
+inside each phase, and fresh valid temperature readings. Report actual covered
+intervals, package power, CPU0 active frequency, temperature ranges and per-worker
+software timeout/signal wakeups for stable worker lifetimes, with partial
+lifetimes listed separately. These are not whole-machine power, hardware wakeup
+counts or a power-policy acceptance. No requirement asserts that app workload
+must consume more energy than idle; this experiment measures that difference.
+
+`tools/desktop_power_smoke.py` checks a complete synthetic battery VM lifetime,
+checkpoint coverage, file preservation and offline allocation. With `--stage
+<release>`, it boots the exact native payload and requires Q35 profile refusal
+and clean unmount/return. The harness records its explicit `--accel tcg|kvm` selection. Failed rehearsals
+remain failed evidence; neither mode changes guest limits. Synthetic execution never supplies native power or
+temperature acceptance. Native results remain pending until matching saved
+sessions and recovery evidence have been collected.
+
+## Accepted Air6,1 combined desktop phase baseline
+
+On October 27, release `1d1cbd1cb03d3032` (runtime `7a9cfeaf`, PR212) completed
+native session `session-00065ed629188a57-00`: 30 s settling followed by roughly
+60 s each of idle, 13 Text/Files/System cycles and recovery, with continuous
+battery monitoring and normal retirement/Ubuntu return. The saved records pass
+the unchanged power validity, 20 s covered-interval and UI/app timing checks.
+
+| Phase | Covered power interval | CPU package mean | CPU0 active frequency |
+| --- | --- | --- | --- |
+| Idle | 50.998362 s, 6 points | 4.131 W | 1,292 MHz |
+| Apps | 51.998342 s, 6 points | 4.150 W | 1,294 MHz |
+| Recovery | 40.998694 s, 5 points | 4.137 W | 1,292 MHz |
+
+Core/package temperatures stayed within 57–59 C during these phases. The maximum
+UI loop was 115.440 ms, app readiness 704.385 ms and close 51.434 ms. Worker
+coverage is independently bounded to 40–52 s per phase; short-lived app workers
+remain explicitly partial. Idle timeout wakeups include about 90/s for `xhci-hid`,
+89/s for `uthread` identity 17, 48/s for `bootstrap` and 19/s for `battery-owner`.
+Those counters justify a polling audit, not a claim about which worker consumes
+energy. This single short workload does not establish significant power changes
+or accept CPU/fan controls. See the [unit record](machines/macbookair6-1.md) for
+phase temperatures, retirement, file preservation and durable evidence details.
+
+
+## Accepted Air6,1 event-driven worker comparison
+
+PR214 release `cb881058052a1012` / runtime `e0008d92` repeats the same native v78
+recipe in session `session-00065ed6efff4c7c-00`. All phases, 13 app cycles,
+battery retirement, file preservation and offline allocation pass under unchanged
+requirements. Lifecycle `uthread` timeout wakes fall from approximately 89/s to
+zero; covered idle/recovery intervals also contain no lifecycle switches. App
+work produces 36 signal wakes in 40.829 s. Supervisor and device polling remain
+unchanged; software wake counters still do not attribute energy consumption.
+
+Mean CPU package power is 4.121 / 4.167 / 4.130 W for idle/apps/recovery versus
+4.131 / 4.150 / 4.137 W previously. Coverage spans 41–52 s with 5–6 checkpoints
+per phase; CPU0 active frequency stays around 1,293 MHz. Core/package readings
+span 60–65 C, warmer than the prior run. This accepts the targeted wait behavior,
+not significant power savings, hardware residency or CPU policy. The
+[unit record](machines/macbookair6-1.md) retains the full bounded comparison.
+
+
+The Air6,1 supervisor candidate (`aa576838270d623a`) also replaces ordinary desktop
+supervisor polling with process/control/ownership events and original absolute
+deadlines. The power VM shows zero bootstrap timer wakes in every phase and no
+bootstrap switches during covered idle/recovery. Native comparison against
+`cb881058052a1012` is recorded below. Battery sampling cadence, service watchdogs,
+firmware guards, ownership requirements and the v78 recipe remain unchanged.
+
+
+The supervisor candidate is now physically accepted on this Air6,1 in session
+`session-00065ed778e804ca-00` (release `aa576838270d623a`, PR216). All three phases,
+13 app cycles, battery retirement, file preservation and allocation checks pass.
+Bootstrap records zero timer wakes throughout and zero switches/signals during
+covered idle/recovery intervals; app work causes 25 event wakes. The previously
+accepted lifecycle-worker reduction is retained. Worst UI loop is 110.061 ms.
+
+Package means are 4.130 / 4.140 / 4.132 W across idle/apps/recovery, versus
+4.121 / 4.167 / 4.130 W previously, with 41–51 s power coverage and 5–6 points
+per phase. These short observations establish reduced supervisor polling, not a
+meaningful energy saving. Battery-owner cadence, USB HID, firmware watchdogs,
+ownership validation and test limits are unchanged. See the
+[unit record](machines/macbookair6-1.md) for bounded measurements and recovery.
+
+## Air6,1 read-only hardware idle residency
+
+Explicit `srvros.power=read-only` now also samples hardware idle counters on
+captured native GenuineIntel family 6 model 45, with invariant TSC indicated by
+CPUID.80000007:EDX[8]. All existing power feature/hypervisor gates apply first.
+Other admitted power profiles keep their original reads and report no residency.
+This adds no policy writes, provider activation or sampling wakeups. CPU policy,
+HLT/MWAIT selection, fan control, thermal stops and battery watchdogs are unchanged.
+
+The captured allowlist is CPU0 core C3/C6/C7 (`0x3fc`–`0x3fe`) and package
+C2/C3/C6/C7 (`0x60d`, `0x3f8`–`0x3fa`), C8/C9/C10 (`0x630`–`0x632`). Intel
+[SDM Volume 4](https://cdrdv2-public.intel.com/774500/335592-sdm-vol-4.pdf), tables
+2-20 and 2-31, specifies TSC-rate counters; C8–C10 use 60 bits, the others 64.
+Read-only Linux CPU0 capture on this unit confirms each register is accessible.
+That is inventory evidence, not SrvrOS acceptance or a comparable idle baseline.
+
+Each existing one-second sample adds ten residency reads bracketed by two reads
+of the TSC MSR (`0x10`). Snapshot ratios use the current end minus previous begin
+TSC bracket, conservatively including read skew. Units are basis points (100 =
+1%). Core and package totals are checked independently; neither is a per-thread
+percentage. Do not infer C0/C1 or whole-machine idle from their complement.
+Hardware C-state names are not ACPI/MWAIT request numbers. No control MSRs are written. The explicit firmware audit below separately reads
+E2 at its capture boundaries. There is no cross-core sampling or all-core average.
+
+First samples, missing support, stale data and rejected discontinuities have no
+valid residency mask. Zero counts with full validity are legitimate zero
+residency. Backwards/reset counters, invalid reserved bits, invalid TSC ordering,
+arithmetic overflow, state totals exceeding their TSC interval and the existing
+100 ms–5 s sample interval constraints invalidate/rebaseline the sample. They are
+never clamped or treated as wrapped idle counters. Residency rejection is separate
+from energy/frequency validity and cumulative rejection evidence is retained.
+
+The unchanged v35 test runs 30 seconds each idle/load/recovery, retaining at most
+24 cached records at intervals of at least five seconds. After the phases,
+`cpu-load-idle` rows accompany the retained power rows with identical original
+sample timestamps. Each row contains support/valid masks, rejected count, TSC
+brackets, raw counters and one-sample ratios. Indices 0–9 follow the allowlist order
+above. The collector requires the complete bounded receipt, exact power-row
+pairing, valid monotonic data and at least ten seconds of coverage in each phase;
+it independently calculates phase ratios from raw endpoints. Missing evidence is
+unavailable, never zero or a pass. The native run requires both power and residency
+coverage, workload completion, preserved prior files and clean offline allocation.
+No minimum deep-state residency or energy-saving result is required. The returned
+Air6,1 result is recorded below.
+
+### Native Air6,1 residency result (2026-10-27)
+
+Release `ed06103a5275d7ca` (PR218 runtime `d7cda917`) completed the unchanged
+30-second idle/load/recovery phases and returned automatically. Fifteen retained
+records have full residency validity, zero rejection/overflow and five records
+covering about 24 seconds per phase. All ten raw residency counters remained
+exactly zero while TSC advanced: no measured core C3/C6/C7 or package C2–C10
+entry during this run. Zero is valid data here, not missing support. C0/C1 and
+other physical cores are not measured, so this is not evidence that the CPU
+never idled. The bounded telemetry path is accepted; deep-state entry and CPU
+policy remain unaccepted.
+
+Covered package averages were 4.130/5.167/4.137 W with active CPU0 frequencies
+1,287/1,299/1,290 MHz for idle/load/recovery. Power and residency intervals differ
+because power also uses ordinary checkpoints. Peak logged temperature was 67 C.
+Files were preserved, offline allocation was clean and the full required log
+fit within the unchanged 64 KiB tail. See the [unit record](machines/macbookair6-1.md)
+for exact intervals and evidence identity. Next audit idle entry and firmware/
+package constraints without changing policy; these results alone do not identify
+the cause of absent deeper residency or establish potential energy savings.
+
+
+## Capture-only idle-entry and firmware audit
+
+On captured native 06_45, the explicit bounded power capture now counts CPU0
+scheduler idle attempts immediately before the unchanged `sti; hlt; cli`, returns
+after that sequence, and readiness-check bypasses that yield to existing work.
+Accounting is disabled outside the capture. It adds no clocks, allocations,
+printing, polling or I/O to the idle path. Start refuses nesting or an absent
+idle worker. Stop freezes the counters. A generation token prevents an old
+preempted HLT return from being attributed to a restarted capture. An outstanding
+return at a sample/stop boundary is allowed; counts do not measure time asleep,
+interrupt counts or hardware C-state residency.
+
+A source audit finds no MONITOR/MWAIT instruction or Limine MP request/AP startup
+in the current kernel. The managed scheduler is CPU0-only. CPUID.1 EBX is retained
+as capability/topology evidence, **not** a count of running processors. Other
+cores' live state is unknown. CPUID.1 MONITOR support and raw CPUID.5 registers
+are retained only where advertised; there is no MWAIT activation or hint choice.
+
+The only new MSR is a read of `MSR_PKG_CST_CONFIG_CONTROL` (`0xe2`) at capture
+start and stop, under the existing native 06_45/invariant-TSC gate. Ordinary power
+sampling adds no configuration reads. Linux CPU0 inventory confirms this register
+is readable; observed `1032` (`0x408`) decodes to package limit C10, unlocked,
+I/O-MWAIT redirection enabled and no demotion bits. Linux can configure this
+register, so this is not a claim about its value under SrvrOS. Raw native values
+are required before drawing a firmware-restriction conclusion.
+
+For 06_45, Intel SDM Volume 4 table 2-31 defines bits 3:0 as package-limit
+encodings C0/C1, C2, C3, C6, C7, C7s, C8, C9, C10 (0 through 8), bit 10 as I/O
+MWAIT redirection, bit 15 as the configuration lock and bits 25–28 as C3/C1
+demotion/undemotion flags. Unknown limit encodings remain unknown. A permitted
+package limit does not prove software requests, core/device conditions or actual
+entry. These bits are observed, never changed. No ACPI methods or control I/O
+are added; power policies, worker sampling/logging cadence, thermal stops,
+watchdogs and every existing timing/capacity/integrity bound remain unchanged.
+
+After measured phases, `cpu-idle-audit` records both raw configuration values,
+capabilities and final counters; `cpu-idle-entry` records pair one-for-one with
+retained residency timestamps. Strict collection requires a unique complete
+header, matching generation/count/timestamps, monotonic counters with at most one
+outstanding return, and the existing ten-second phase coverage. A configuration
+change is explicitly reported, not normalized away. Valid zero entry counts are
+diagnostic evidence, not a fabricated failure/pass for deep-state support.
+The native trial also requires all existing power/residency, completion, file
+preservation and offline allocation proofs. Native acceptance is recorded below.
+
+
+### Native idle-entry/firmware audit result (2026-10-27)
+
+Air6,1 release `6b1f017332e0931b`, session `session-00065ed949956fde-00`, completed
+all three unchanged 30-second phases and returned automatically. Paired retained
+coverage gives 2,378 HLT entries/returns over 23.999235 seconds idle, zero over
+22.999267 seconds load, and 2,371 over 23.999234 seconds recovery. All ten raw
+core/package deeper-state counters remain zero. This establishes that the existing
+HLT path is reached; it does not measure C0/C1 or time asleep.
+
+E2 is unchanged at `0x408` at capture start/stop: the package-limit field permits
+C10 and is unlocked, with I/O-MWAIT redirection enabled. That field alone does
+not explain the absence of deeper residency. MONITOR capability is advertised,
+but the current kernel uses HLT and other cores' live state remains unknown.
+No firmware, scheduler power policy, cadence or limits changed. Package power
+averages 4.147/5.174/4.139 W across covered idle/load/recovery intervals; these
+short measurements do not establish savings or battery-life behavior.
+
+All coverage/completion, prior-file preservation and offline filesystem checks
+pass. The 65,290-byte exit log fits the unchanged 64 KiB tail with little spare
+space; account for that before adding diagnostics. See the
+[unit record](machines/macbookair6-1.md#idle-entryfirmware-audit--bounded-native-acceptance-2026-10-27)
+for exact counts, intervals, evidence identity and remaining work. Boot-time
+secondary-core state and prerequisites for a separately authorized deeper-idle
+experiment remain open.
+
+## CPU0 topology and deeper-idle prerequisites
+
+The follow-up audit stays on the captured native 06_45/invariant-TSC path. It
+reads `IA32_APIC_BASE` (`0x1b`) and `IA32_MISC_ENABLE` (`0x1a0`) at explicit
+capture start/stop only, alongside E2. Intel SDM Volume 4 table 2-2 defines the
+BSP/APIC-mode flags and MONITOR FSM enable bit 18. No MSR is written. Three fixed
+CPUID.0B subleaves (0, 1, 2) record the SMT/core/terminator topology when the
+maximum basic leaf permits it; no unsupported-leaf alias is queried. Ordinary
+power sampling/status adds no reads, workers or wakeups.
+
+One compact `cpu-idle-prereq` receipt carries the capture epoch, maximum leaf,
+three EAX/EBX/ECX/EDX tuples and start/end APIC/misc pairs. Strict collection
+requires exact fields, widths, bounds and a matching complete idle audit. It
+preserves configuration changes and unknown topology layouts explicitly. A
+recognized Haswell topology gives addressable logical CPUs/core/package, not
+online CPUs. CPUID.5 extension/break flags and substate nibbles are capabilities,
+not a chosen MWAIT hint or proof of entry. The existing 24-record, ten-second
+coverage and 64 KiB saved-log bounds are unchanged.
+
+This unit's Linux read-only inventory gives leaf-B tuples `1,2,256,0`,
+`4,4,513,0`, `0,0,2,0`: two addressable threads per core and four per package.
+Captured MADT lists enabled APIC IDs 0,2,1,3 and four disabled placeholders.
+These firmware flags do not report live AP execution. Linux reads APIC base
+`4276096256` and misc `8716425`; Linux's configuration is not native acceptance.
+
+The pinned boot binary is Limine v11.4.1. Its corresponding
+[source](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/protos/limine.c)
+checks for an MP request before calling `init_smp`; SrvrOS has no such request.
+This establishes that the kernel does not request that AP startup path, not
+whether Apple's firmware leaves each AP halted, in wait-for-SIPI or another
+state. UEFI's [x64 environment](https://uefi.org/specs/UEFI/2.10/02_Overview.html#x64-platforms)
+specifies a uniprocessor boot-services environment; it is not per-AP telemetry.
+CPU0 CPUID/MSR reads cannot resolve remote cores' live state. Doing so would
+need an independently designed AP rendezvous/ownership experiment; none is
+added or silently accepted here.
+
+Before a future deeper-idle experiment, establish an exact-model MWAIT hint,
+MONITOR support/enabling, monitored-memory ownership and race-safe readiness
+recheck, interrupt wake behavior, scheduler cancellation and fallback. Review
+timer behavior and bounded wake latency without relaxing deadlines, plus sibling
+thread/package/device prerequisites. [Intel's MWAIT reference](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-2b-manual.pdf)
+requires MONITOR and describes the capability-dependent interrupt-break option.
+This audit does not execute either instruction, start APs, send IPIs, evaluate
+AML, enable tickless operation or change CPU/fan/battery policy. Native receipt
+acceptance is recorded below.
+
+
+### Native CPU0 prerequisite result (2026-10-27)
+
+Air6,1 release `8022333a9240598e`, session `session-00065edabaa7e840-00`, completed
+the unchanged idle/load/recovery test with complete prerequisite and phase proof.
+Native leaf-B reports APIC ID 0, two addressable threads/core and four/package;
+maximum basic leaf is 13. APIC base is `4276095232` at both boundaries (BSP=1,
+APIC enabled, x2APIC disabled), while misc is `8716425` (MONITOR FSM enabled).
+CPUID MONITOR advertisement agrees; CPUID.5 reports extensions and masked-interrupt
+break support. These are native prerequisite observations, not validation of an
+unimplemented MONITOR/MWAIT path or live remote-core state.
+
+E2 remains `0x408`, with an unlocked C10 package limit. HLT entries continue in
+idle/recovery, while all ten deeper-residency counters remain zero. Covered
+package averages are 4.150/5.144/4.141 W. Policies and limits are unchanged; a
+separate opt-in wakeup/latency experiment with HLT fallback is the next proposed
+step, not an accepted policy change. AP rendezvous remains separate. See the
+[unit record](machines/macbookair6-1.md#secondary-coreprerequisite-audit--bounded-native-acceptance-2026-10-27)
+for exact intervals, file integrity and evidence identity. The 65,484-byte saved
+log contains the required proof but leaves almost no margin under the existing
+tail limit; budget or compact any future diagnostics without loosening that limit.
+
+## Explicit shallow MONITOR/MWAIT wakeup trial
+
+`stage --laptop-probe-volume <local-UUID> --cpu-load-capture --mwait-wakeup-test`
+selects the separate `ram-usb-v1-mwait-laptop-probe-*` profile. It adds
+`srvros.idle=mwait-wakeup-test` only to the explicit CPU-load capture. Ordinary
+boot, desktop and v35 captures retain HLT. Admission requires the existing native
+06_45/invariant-TSC power gate, a live idle audit/reference clock, 64-byte minimum
+and maximum monitor lines, CPUID MONITOR plus extension/masked-interrupt-break
+support, a supported C1 substate, enabled MONITOR FSM and BSP xAPIC mode matching
+the captured unit. Refusal emits `admitted=0 fallback=hlt` without either new
+instruction; it is not native wakeup acceptance.
+
+Only the idle worker tries MONITOR/MWAIT. A private, static, 64-byte-aligned WB
+kernel line is separate from writable diagnostic counters. Interrupts are masked,
+MONITOR arms that line, then the existing ready predicate is checked again. Ready
+work bypasses MWAIT. Otherwise EAX=0 requests C1 substate 0 and ECX=1 permits a
+pending maskable interrupt to break the wait even with IF clear. The unchanged
+100 Hz interrupt supplies wakeups; there is no AP startup, IPI, firmware method
+or MSR write. This is an interrupt-wakeup experiment, not validation of a remote
+store-signalling protocol. [Intel's instruction reference](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-2b-manual.pdf)
+defines the hint and interrupt-break capability. A timer interrupt is still a
+hardware prerequisite: software cannot enforce a timeout while the CPU itself
+is stuck in an instruction.
+
+The PM reference clock brackets each wait before pending IRQ dispatch, so the
+reported maximum is masked wait duration, not IRQ dispatch, runnable latency or
+time in a hardware C-state. A return exceeding the existing two-tick scheduler
+quantum (20 ms), or a regressing clock, latches fallback to the original
+`sti; hlt; cli`. After 32 attempts, HLT is mandatory even on success. No trial
+state is accessed after enabling IRQ dispatch; epoch checks prevent a retired
+capture from issuing more waits. The default path adds no clocks or new polling.
+No deeper-state hint or permanent idle policy is introduced.
+
+One bounded `cpu-mwait` receipt reports attempts/returns, maximum interval,
+fault, post-trial HLT entries, readiness rechecks and timer progress. Acceptance
+requires all 32 waits/returns, nonzero maximum at most 20 ms, advancing ticks
+within attempts, 32 subsequent HLT entries and no fault, plus unchanged native
+prerequisite configuration and the complete existing power/residency/idle-entry
+phase proof. Missing, refused, faulted and incomplete trials are not passes.
+The outer completion result also fails an unsuccessful wakeup trial. Existing
+30-second phases, ten-second coverage, thermal/fan limits, watchdogs, 24-record
+capacity, 64 KiB tail and filesystem checks are unchanged. Exact-stage VM tests
+exercise unsupported refusal/save/return and missing-workspace safe halt; they
+do not accept native instructions or wakeup latency. Native results follow below.
+
+
+### Native shallow wakeup result (2026-10-27)
+
+Air6,1 release `8030ae20c2611a09`, source `94c2b9e7` (PR224), session
+`session-00065edb20755615-00`, passes the bounded shallow trial: 32 attempts and
+returns, 9,971 us maximum masked wait, zero faults, advancing timer ticks and
+32 subsequent HLT entries. All three 30-second phases and existing coverage,
+thermal/fan, file-preservation and offline-allocation requirements pass, with
+automatic Ubuntu return. Native configuration snapshots are unchanged.
+
+The maximum is wait duration before IRQ dispatch, not scheduling latency. No
+readiness bypass occurred in this native run; host tests cover that race. The
+trial finishes before retained phase intervals, so package averages of
+4.122/5.167/4.127 W predominantly describe HLT fallback. All ten deeper counters
+remain zero. This accepts shallow interrupt wakeup and fallback only; deeper
+entry, other-core live state, energy savings and permanent idle policy remain
+open. See the [unit result](machines/macbookair6-1.md#shallow-monitormwait-wakeup--bounded-native-acceptance-2026-10-27).
+
+## Explicit bounded C3 hint trial
+
+`stage --laptop-probe-volume <local-UUID> --cpu-load-capture --mwait-deep-test`
+selects `ram-usb-v1-mwait-c3-laptop-probe-*` and `srvros.idle=mwait-c3-test`.
+It is mutually exclusive with the shallow trial. Normal boot, desktop and prior
+capture profiles are unchanged. The exact native 06_45/invariant-TSC gate is
+retained, with the same MONITOR line/extension/BSP checks. Additional admission
+requires the CPUID.5 slot for hint `0x10`, an E2 package limit permitting C3,
+CPUID.6 EAX.ARAT, and a live calibrated periodic LAPIC timer at the existing
+100 Hz target, vector 32 and divide-by-16 setting. Missing prerequisites refuse
+before MONITOR/MWAIT. No timer mode, register policy or limit is changed.
+
+The [Linux v6.12 Haswell table](https://github.com/torvalds/linux/blob/v6.12/drivers/idle/intel_idle.c)
+identifies hint `0x10` as C3; its CPU-online path requires timer broadcast when
+ARAT is absent. SrvrOS instead refuses this experiment without ARAT and its
+existing calibrated timer. This is an exact-model selector, not a generic ACPI
+C-state encoding. CPUID substate availability alone does not identify a state's
+physical name or prove entry. Firmware and sibling-thread constraints may
+prevent a requested hint from reaching core or package C3.
+
+The existing race-safe private MONITOR line, IRQ-masked readiness recheck,
+32-attempt cap, 20 ms PM-clock interval check, epoch retirement and mandatory
+32-entry HLT fallback are reused. Hint `0x20` and all other new selectors are
+refused. No AP startup, IPI, new AML, MSR write or automatic deeper policy exists.
+Software still cannot enforce a timeout while a CPU is stuck inside MWAIT;
+ARAT/live timer admission and physical results are prerequisites, not a promise
+of an independent hardware watchdog.
+
+Only deep attempts additionally read TSC around core C3 (`0x3fc`) and package
+C3 (`0x3f8`) counter endpoints. Reads bracket each wait before IRQ dispatch;
+the sums exclude later HLT and phase work. Counter regression, impossible
+counter delta above its TSC bracket, or accumulator overflow latches fault 3
+and HLT fallback. No wrap is inferred. The unchanged wait-clock faults remain
+1 (regression) and 2 (over-limit). Ordinary and shallow paths make no new MSR
+reads. Broader brackets imply lower-bound residency ratios, not exact sleep
+time or IRQ/runnable latency. Shared-core/package counters do not identify
+another logical processor's live state.
+
+Version-2 `cpu-mwait` identifies hint 16. One compact `cpu-mwait-deep` receipt
+records ARAT, final timer readiness, aggregate TSC/core-C3/package-C3 ticks.
+Collector acceptance still requires every existing wakeup/phase/integrity check.
+Valid zero residency remains an explicit unobserved state, not proof of deeper
+entry; wakeup PASS and `core_c3_observed`/`package_c3_observed` are separate.
+A failed trial invalidates its residency inference. The same three 30-second
+phases, ten-second coverage, thermal/fan stops, watchdogs, ownership checks,
+24-record capacity and 64 KiB tail remain in force. Exact-stage VM refusal tests
+cannot accept native deeper wakeup or residency. Native results follow below.
+
+
+### Native C3-hint result: bounded wakeup passes, residency unobserved
+
+Air6,1 release `980f4936c6282637`, source `2a8fabd0` (PR226), session
+`session-00065edb80a92930-00`, records 32 hint-16 waits/returns, maximum masked
+wait 9,968 us, zero faults, timer progress and 32 HLT fallback entries. ARAT and
+live timer readiness pass. All three phases, coverage, thermal/fan, file and
+allocation requirements pass with automatic Ubuntu recovery.
+
+The separate per-attempt bracket totals 620,687,304 TSC ticks but **zero core
+C3 and package C3 ticks**. Thus the bounded hint/wakeup/fallback path is accepted;
+actual C3 residency is not. All deeper counters also remain zero in retained
+phase samples. Package averages of 4.100/5.120/4.101 W mostly measure the later
+HLT fallback and do not establish MWAIT power savings. Firmware configuration
+is unchanged and remote logical-processor state remains unknown. Investigate
+missing residency before claiming a deeper idle policy. See the
+[unit result](machines/macbookair6-1.md#bounded-c3-hint--native-result-residency-unobserved-2026-10-27).

@@ -21,6 +21,7 @@
 static char directory[128],path[160],snapshot[65536];
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
+static bool retain_checkpoints;
 static uint64_t due;
 static struct scheduler_wait_queue wake;
 static uint64_t lock(void) {
@@ -78,7 +79,7 @@ static void device_checkpoint(void) {
  * periodic saves, not a fabricated measurement of its own flush. */
 static struct {
     bool pending,ok,valid;
-    const char *name;
+    char name[24];
     uint64_t start,end,bytes,prepare,write,verify,sync;
     struct usb_storage_timing usb;
 } previous_save;
@@ -134,7 +135,7 @@ static bool save(const char *name) {
     if(ok) ok=workspace_sync();
     uint64_t finished=measured?timer_monotonic_us():0;
     if(measured) {
-        previous_save.pending=true;previous_save.name=name;previous_save.ok=ok;
+        previous_save.pending=true;copy(previous_save.name,name);previous_save.ok=ok;
         previous_save.start=start;previous_save.end=finished;previous_save.bytes=count;
         previous_save.usb=(struct usb_storage_timing){0};
         if(tracing) usb_storage_timing_end(&previous_save.usb);
@@ -149,24 +150,32 @@ static bool save(const char *name) {
 static bool ready(void *arg) { (void)arg;return enabled && timer_ticks()>=due; }
 static bool activated(void *arg) { (void)arg;return enabled; }
 static bool idle(void *arg) { (void)arg;return !busy; }
+static bool periodic_save(void) {
+    char name[24];
+    if(retain_checkpoints) {
+        if(checkpoint>=32) { console_write("workspace-log: capture checkpoint limit reached\n");return false; }
+        copy(name,"checkpoint-00.log");hex(name+11,checkpoint,2);copy(name+13,".log");
+    } else copy(name,checkpoint&1?"session-b.log":"session-a.log");
+    checkpoint++;return save(name);
+}
 static void worker(void *arg) {
     (void)arg;
     for(;;) {
         if(!enabled) { scheduler_wait(&wake,activated,NULL);continue; }
         if(!ready(NULL)) { scheduler_wait_timeout(&wake,ready,NULL,due);continue; }
         busy=true;
-        healthy=save(checkpoint++&1?"session-b.log":"session-a.log");
+        healthy=periodic_save();
         if(!healthy) enabled=false;
         due=timer_ticks()+1000;busy=false;scheduler_wake_all(&wake);
     }
 }
-bool workspace_log_start(void) {
+static bool start_log(bool retain) {
     if(enabled || busy || !workspace_active()) return false;
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
     /* Four log files plus room for reports/screenshots. Check before creating
      * a directory so a full node table cannot masquerade as a started session. */
-    if(!exfat_creation_capacity(parent,32,8)) {
+    if(!exfat_creation_capacity(parent,retain?64:32,8)) {
         directory[0]=0;healthy=false;
         end(flags);
         console_write("workspace-log: REFUSED insufficient file/directory slots; archive old logs in Ubuntu before testing\n");
@@ -184,13 +193,15 @@ bool workspace_log_start(void) {
     end(flags);
     if(!ok || !created) { console_write("workspace-log: cannot create session directory\n");return false; }
     console_printf("workspace-log: directory=%s periodic_seconds=10\n",directory);
-    checkpoint=0;healthy=save("boot.log");
+    retain_checkpoints=retain;checkpoint=0;healthy=save("boot.log");
     if(!healthy) return false;
     if(!started) started=scheduler_spawn("workspace-log",worker,NULL);
     enabled=started;due=timer_ticks()+1000;scheduler_wake_all(&wake);
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }
+bool workspace_log_start(void) { return start_log(false); }
+bool workspace_log_start_capture(void) { return start_log(true); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);

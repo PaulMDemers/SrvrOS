@@ -1,6 +1,6 @@
 # Ubuntu setup for an on-device SrvrOS agent
 
-Current workflow, 2026-10-19. Each Mac runs Ubuntu as its development/recovery
+Current workflow, 2026-10-27. Each Mac runs Ubuntu as its development/recovery
 OS, has its own repository checkout and agent, and uses a plugged-in exFAT USB
 drive for SrvrOS documents and diagnostics. Build and run disposable VMs on
 that Mac; reboot it into SrvrOS for physical acceptance. Ubuntu is the normal
@@ -217,6 +217,33 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --console-check
 This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
+
+### Attended movement, dock and keyboard trial (Air7,2)
+
+The explicit navigation profile opens the complete **Window navigation trial**
+in Help automatically, with no timer. It combines partial offscreen movement,
+dock counts/restore, Alt-Tab and same-app cycling, keyboard menus, owned dialogs
+and fresh Home saves. Audio and cable changes are not required. Use the local
+workspace volume serial and the release actually printed by staging:
+
+```sh
+tools/host-env.sh make -j2 all acpi-battery-kernel acpi-battery-vm-kernel
+tools/host-env.sh python3 tools/hardware_boot.py stage \
+  --desktop-volume VOLUME_SERIAL --desktop-battery --desktop-services \
+  --desktop-navigation-trial
+tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
+  --boot-session --services --navigation-guide --case profile-refusal \
+  --stage RELEASE
+```
+
+`VOLUME_SERIAL` is the local eight-hex-digit exFAT serial, without a dash; do not
+copy another machine's value. The exact-stage Q35 rehearsal validates guide
+startup, persistence and retirement while refusing native firmware ownership.
+It is not physical input, battery, sensor or audio acceptance. Follow the
+installation/recovery/run-record sequence below before an attended native boot.
+The user saves and chooses Return to console, then types `reboot` at the monitor;
+normal reboot flushes and unmounts the retained Home workspace. This profile
+requires tester input; never schedule it as an unattended timed acceptance run.
 
 ### Automated mixed-app capacity capture (Air7,2)
 

@@ -114,6 +114,13 @@ bool process_lifetime_release(uint64_t token);
 uint64_t process_lifetime_of(uint64_t pid);
 
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
+/* Kernel session supervisor: wait without reaping until this caller's target
+ * is reapable/absent, a signal, external predicate or absolute tick deadline.
+ * Predicate runs IRQ-masked and must not block or mutate ownership. Producers
+ * publish before notify; compare-and-sleep prevents lost notifications.
+ * Spurious wakes are allowed. False requires the caller's bounded fallback. */
+bool process_wait_event(uint64_t pid,bool (*condition)(void *),void *arg,uint64_t deadline_ticks);
+void process_wait_notify(void);
 int64_t process_wait_posix(int64_t selector,uint64_t *status_out,bool nohang);
 /* Kernel-designated init may reap children whose userspace parent has exited. */
 bool process_set_reaper(uint64_t pid);
@@ -189,6 +196,9 @@ bool process_tty_set_group(struct process *process,uint64_t fd,uint64_t group);
 void process_tty_hangup(uint64_t handle);
 void process_tty_signal(uint64_t handle,uint64_t signal);
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
+/* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
+ * broken-pipe signal. Scheduler same-process exclusion still applies. */
+bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 int64_t process_unix_bind(struct process *process, const char *path);

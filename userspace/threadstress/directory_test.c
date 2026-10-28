@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <srvros/sys.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -44,6 +45,19 @@ int posix_directory_test(void) {
         if(!strcmp(entry->d_name,"child")) { dir_seen=1;CHECK(entry->d_type==DT_DIR); }
     }
     CHECK(!errno && count==2 && value_seen && dir_seen);
+    rewinddir(dir);struct srv_dirent_info batch[SRV_DIRECTORY_BATCH_MAX];
+    CHECK(srv_directory(SRV_DIRECTORY_READ_INFO,dfd,batch,sizeof(batch)-1)==SRV_ERR_INVAL);
+    CHECK(srv_directory(SRV_DIRECTORY_READ_INFO,dfd,(void *)1,sizeof(batch))==SRV_ERR_FAULT);
+    CHECK(srv_directory(SRV_DIRECTORY_READ_INFO,fd,batch,sizeof(batch))==SRV_ERR_NOTDIR);
+    CHECK(srv_directory(SRV_DIRECTORY_READ_INFO,dfd,batch,2*sizeof(batch[0]))==2);
+    CHECK(!strcmp(batch[0].entry.name,".") && !strcmp(batch[1].entry.name,".."));
+    CHECK(srv_directory(SRV_DIRECTORY_READ_INFO,dfd,batch,sizeof(batch))==2);
+    value_seen=dir_seen=0;
+    for(unsigned i=0;i<2;i++) {
+        if(!strcmp(batch[i].entry.name,"value")){value_seen=1;CHECK(batch[i].entry.inode==st.st_ino && batch[i].size==2 && batch[i].modified==(uint64_t)st.st_mtime && batch[i].entry.type==0);}
+        if(!strcmp(batch[i].entry.name,"child")){dir_seen=1;CHECK(batch[i].entry.type==1);}
+    }
+    CHECK(value_seen && dir_seen && !srv_directory(SRV_DIRECTORY_READ_INFO,dfd,batch,sizeof(batch)));
     struct timespec times[2]={{.tv_sec=1000,.tv_nsec=123},{.tv_sec=2000,.tv_nsec=999999999}};
     CHECK(!futimens(fd,times) && !fstat(fd,&st) && st.st_atime==1000 && st.st_mtime==2000);
     times[0]=(struct timespec){.tv_sec=-1,.tv_nsec=UTIME_OMIT};times[1]=(struct timespec){.tv_sec=3000};

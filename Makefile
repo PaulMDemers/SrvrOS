@@ -2300,7 +2300,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/loop_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/loop_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
@@ -2410,7 +2410,7 @@ build/tests/calculator-host$(HOST_EXE): tools/test_calculator.c userspace/deskto
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $^ -lm -o $@
 
 test-desktop: build/tests/deskfs-host$(HOST_EXE)
-build/tests/deskfs-host$(HOST_EXE): tools/test_deskfs.c userspace/deskfs/deskfs.c shared/include/srvros/desktop_file.h
+build/tests/deskfs-host$(HOST_EXE): tools/test_deskfs.c userspace/deskfs/deskfs.c shared/include/srvros/desktop_file.h shared/include/srvros/syscall_numbers.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 
@@ -2873,9 +2873,10 @@ test-bmp: build/tests/bmp-host$(HOST_EXE)
 build/tests/bmp-host$(HOST_EXE): tools/test_bmp.c userspace/lib/src/bmp.c userspace/lib/include/srvros/bmp.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< userspace/lib/src/bmp.c -o $@
-test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-host$(HOST_EXE) test-bmp
+test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-host$(HOST_EXE) build/tests/capture-transport-host$(HOST_EXE) test-bmp
 	build/tests/capture-job-host$(HOST_EXE)
 	build/tests/capture-save-host$(HOST_EXE)
+	build/tests/capture-transport-host$(HOST_EXE)
 build/tests/capture-job-host$(HOST_EXE): tools/test_capture_job.c userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
@@ -3354,7 +3355,7 @@ test-core: test-power
 test-power: build/tests/power-host$(HOST_EXE) build/tests/power-service-host$(HOST_EXE)
 	build/tests/power-host$(HOST_EXE)
 	build/tests/power-service-host$(HOST_EXE)
-build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h
+build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h kernel/include/srvros/idle_audit.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_power.c kernel/src/drivers/power_core.c -o $@
 build/tests/power-service-host$(HOST_EXE): tools/test_power_service.c kernel/src/drivers/power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h $(KERNEL_HEADERS)
@@ -3779,3 +3780,45 @@ build/tests/scheduler-trace-host$(HOST_EXE): tools/test_scheduler_trace.c kernel
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-scheduler-trace
+
+.PHONY: test-operation-timing
+test-operation-timing:
+	$(PYTHON) tools/test_operation_timing.py
+test-desktop: test-operation-timing
+
+build/tests/capture-transport-host$(HOST_EXE): tools/test_capture_transport.c userspace/shotworker/shotworker.c shared/include/srvros/desktop_capture.h shared/include/srvros/io_limits.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-audio-io-volume
+test-audio-io-volume: build/tests/audio-io-volume-host$(HOST_EXE)
+	$<
+build/tests/audio-io-volume-host$(HOST_EXE): tools/test_audio_io_volume.c userspace/playwav/io_stress_volume.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+test-core: test-audio-io-volume
+
+.PHONY: test-desktop-power
+test-core: test-desktop-power
+test-desktop-power: build/tests/desktop-power$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_desktop_power_records.py
+build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd/power_trial.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-lifecycle-wait
+test-core: test-lifecycle-wait
+test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
+	$<
+build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $< -o $@
+
+.PHONY: test-process-event
+test-core: test-process-event
+test-process-event: build/tests/process-event-host$(HOST_EXE)
+	$<
+build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

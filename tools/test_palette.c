@@ -46,6 +46,14 @@ int main(void) {
     assert(desk_palette_bind_storage(&p,storage,visible,DESK_LIST_MAX_ITEMS+1)==-1);
     large[199].id=large[198].id;
     assert(desk_palette_items(&p,large,200)==-1 && p.items[199].id==1199);
+    assert(!desk_palette_choose(&p,"Choose a window",p.items,p.count));
+    desk_palette_configure(&p,(struct desk_rect){0,44,640,356});
+    assert(p.choose_only && !p.query.enabled && !p.query.frame.w && p.list.focused && p.list.count==200);
+    int count=p.list.count;desk_palette_key(&p,&letter);assert(p.list.count==count && !p.text.length);
+    int selected=p.list.selected;desk_palette_key(&p,&down);assert(p.list.selected==selected+1);
+    assert(desk_palette_key(&p,&enter).id && desk_palette_key(&p,&escape).cancel);
+    assert(!desk_palette_open(&p,"Search again",p.items,p.count));desk_palette_configure(&p,(struct desk_rect){0,44,640,356});
+    assert(!p.choose_only && p.query.enabled && p.query.frame.w && p.query.focused);
     puts("palette-storage: PASS 200 searchable identities, borrowed storage growth, query/selection preservation and invalid replacement");
     puts("palette: PASS owned items, token search, keyboard selection/activation, empty results, stable replacement, validation, cancel, double click and clipping");
 }

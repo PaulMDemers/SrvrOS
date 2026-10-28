@@ -3,6 +3,10 @@
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe;
 static unsigned turn_requests;
+static bool byte_safe;
+bool process_file_pipe_io_safe(struct process *p,uint64_t fd,uint64_t length,bool writing) {
+    (void)p;(void)writing;return fd==10 && length<=4096 && byte_safe;
+}
 void scheduler_io_request_turn(void) { assert(busy);turn_requests++; }
 static struct process_file pipe_file;
 struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p; return fd==10?&pipe_file:NULL; }
@@ -34,17 +38,17 @@ static void test_pipe_retry_admission(void) {
                 /* Each retry must request quiescence without blocking or
                  * entering descriptor cleanup under the other I/O owner. */
                 for(unsigned retry=0;retry<64;retry++) {
-                    assert((write?io_defer_pipe_write(10):io_defer_pipe_read(10))==eligible);
+                    assert((write?io_defer_pipe_write(10,4096):io_defer_pipe_read(10,4096))==eligible);
                     assert(user_safe && turn_requests==before+(eligible?retry+1:0));
                 }
                 before=turn_requests;busy=false;user_safe=true;
-                assert(!(write?io_defer_pipe_write(10):io_defer_pipe_read(10)));
+                assert(!(write?io_defer_pipe_write(10,4096):io_defer_pipe_read(10,4096)));
                 assert(turn_requests==before && user_safe==!eligible);
             }
         }
     }
     busy=true;user_safe=true;unsigned before=turn_requests;
-    assert(!io_defer_pipe_read(99) && !io_defer_pipe_write(99));
+    assert(!io_defer_pipe_read(99,4096) && !io_defer_pipe_write(99,4096));
     assert(user_safe && turn_requests==before); /* Invalid descriptors are not contenders. */
     busy=false;
     puts("pipe-retry-admission: PASS read/write/duplex/PTY, repeated requests, blocking/invalid/nonpipe exclusion and cleanup safety");
@@ -54,6 +58,7 @@ int main(void) {
     assert(!syscall_io_safe(&frame));console_fd=true;assert(syscall_io_safe(&frame));
     frame.rax=SYS_WRITE;frame.rdi=1;assert(syscall_io_safe(&frame));
     console_fd=false;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_DIRECTORY;frame.rdi=SRV_DIRECTORY_READ_INFO;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_POINTER_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_STATUS;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_CONTROL;assert(syscall_io_safe(&frame));
@@ -81,8 +86,8 @@ int main(void) {
     frame.rax=SYS_READ; frame.rdi=10;
     pipe_file.type=PROCESS_FILE_PIPE_READ; assert(!syscall_io_safe(&frame));
     pipe_file.flags=SRV_FD_NONBLOCK; assert(syscall_io_safe(&frame));
-    busy=true; user_safe=true; assert(io_defer_pipe_read(10) && user_safe);
-    busy=false; assert(!io_defer_pipe_read(10) && !user_safe);
+    busy=true; user_safe=true; assert(io_defer_pipe_read(10,4096) && user_safe);
+    busy=false; assert(!io_defer_pipe_read(10,4096) && !user_safe);
     pipe_file.type=PROCESS_FILE_VFS;frame.rdx=16384;assert(syscall_io_safe(&frame));
     frame.rdx=16385;assert(!syscall_io_safe(&frame));frame.rdx=UINT64_MAX;assert(!syscall_io_safe(&frame));
     frame.rdx=0;assert(syscall_io_safe(&frame));
@@ -91,8 +96,8 @@ int main(void) {
     pipe_file.type=PROCESS_FILE_NET_CONNECTION; assert(!syscall_io_safe(&frame));
     frame.rax=SYS_WRITE;pipe_file.type=PROCESS_FILE_PIPE_WRITE;pipe_file.flags=0;
     assert(!syscall_io_safe(&frame));pipe_file.flags=SRV_FD_NONBLOCK;assert(syscall_io_safe(&frame));
-    busy=true;user_safe=true;assert(io_defer_pipe_write(10) && user_safe);
-    busy=false;assert(!io_defer_pipe_write(10) && !user_safe);
+    busy=true;user_safe=true;assert(io_defer_pipe_write(10,4096) && user_safe);
+    busy=false;assert(!io_defer_pipe_write(10,4096) && !user_safe);
     pipe_file.type=PROCESS_FILE_PIPE_READ;assert(!syscall_io_safe(&frame));
     pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;assert(syscall_io_safe(&frame));
     pipe_file.type=PROCESS_FILE_VFS_WRITE;assert(!syscall_io_safe(&frame));
@@ -107,5 +112,15 @@ int main(void) {
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));
     frame.rax=SYS_TTY_GETATTR;assert(syscall_io_safe(&frame));
     test_pipe_retry_admission();
+    pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;pipe_file.flags=SRV_FD_NONBLOCK;
+    busy=true;user_safe=true;byte_safe=true;unsigned before=turn_requests;
+    for(unsigned i=0;i<1024;i++) {
+        assert(!io_defer_pipe_write(10,4096) && !io_defer_pipe_read(10,32));
+        assert(user_safe && turn_requests==before);
+    }
+    assert(io_defer_pipe_write(10,4097) && io_defer_pipe_read(10,4097));
+    byte_safe=false;assert(io_defer_pipe_write(10,4096) && io_defer_pipe_read(10,32));
+    assert(user_safe && turn_requests==before+4);
+
     puts("syscall-io-host: PASS (bounded desktop admission, bounded retained-snapshot reads, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
 }

@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 bool workspace_log_start(void);
+/* Explicit diagnostic: retain at most 32 periodic snapshots, never wrap. */
+bool workspace_log_start_capture(void);
 /* Explicit diagnostic only; pauses logging and uses a fresh session file. */
 bool workspace_storage_wait_capture(void);
 bool workspace_log_stop(void);

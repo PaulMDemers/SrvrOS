@@ -171,6 +171,71 @@ foreground program: Ctrl-C interrupts it, Ctrl-Shift-C/V copy/paste, and
 Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
 
+## Switching windows and using the keyboard
+
+Hold **Alt** and press **Tab** to open the window switcher. Keep Alt held and
+press Tab again to advance, or Shift-Tab to reverse; release Alt to activate the
+selected window. Escape cancels without switching. Quick Alt-Tab returns to the
+most recently used window. The list remains in the same order while held; new
+windows do not steal the selection, and retired identities cannot activate a
+replacement window. Minimized windows can be restored from the list. Owned
+modal dialogs appear through their parent document rather than as extra tasks.
+
+**Command-W** and **Window > Close window** ask the focused window to close
+through its normal application policy. Unsaved documents still offer Save,
+Discard and Cancel; closing an owned dialog cancels that dialog. Repeated close
+requests do not bypass a pending decision. Existing Control shortcuts, including
+Terminal's shell controls and Ctrl-Shift-W, stay application-owned.
+
+**Command-grave** cycles the current application's windows in creation order;
+Command-Shift-grave reverses. **Command-M** minimizes a window and its owned
+dialog together. Minimizing or closing the active window selects the most recent
+visible window, leaving other minimized windows hidden. Closing a modal returns
+to its own document. With no visible windows, desktop keyboard commands remain
+available to restore one. Window and launcher lists show each main window once,
+mark minimized windows, and route a selected parent to its open dialog. The
+Window menu checks the parent entry when its dialog has focus.
+
+**F10** or **Control-F2** opens the global menu bar (Fn may be needed). Left/Right
+changes menus; Up/Down, Home/End choose commands; Return activates and Escape
+cancels. Tab/Shift-Tab still navigate app controls, and ordinary app shortcuts
+retain their existing behavior outside the switcher.
+
+The untimed **Window navigation trial** in Help combines these checks with
+partial offscreen movement, dock restoration, file saves and normal return. The
+explicit `--desktop-navigation-trial` staging profile opens it automatically in
+the combined Air7,2 battery/Home session. It does not run an automated acceptance
+or reboot timer. Hardware acceptance remains pending until the tester reports
+against that staged release.
+
+## Moving windows and using the dock
+
+Ordinary windows can extend past the left, right and bottom edges. Movement
+keeps at least 160 horizontal pixels of title bar reachable below the menu and
+32 pixels above the dock's reserved area. Content is clipped to the display;
+moving does not resize the client surface. Arrange → Center / Command-Alt-Up
+brings a window fully into the work area. Maximize, restore and tiling retain
+their existing size/admission contracts. New windows and owned dialogs still
+start within the work area.
+
+The dock keeps six pinned apps, followed by other applications with admitted
+main windows. Their entries remain while minimized and disappear after the last
+main window retires. A green running bar, active background and multiple-window
+count show state; an outline bar means every main window is minimized. Dialogs
+activate their owner's entry without inflating its document count. The dock
+fits entries to the screen and clips long labels; the count displays `99+` for
+larger groups, without imposing a window limit.
+
+Click an inactive app to restore/activate its most recently used main window.
+Further clicks on an active app cycle its windows, including minimized ones.
+Right-click or Control-click an entry for its searchable window list and New app
+command. The list uses the existing dynamically sized launcher and stable
+window identities. Choosing a parent with an owned dialog returns focus to that
+dialog. A closing window is not activated, and a fully closing group does not
+launch a duplicate process. The dock owns clicks/scrolling over its panel, so
+windows beneath it do not receive those events. Pin customization and persisted
+dock ordering are outside this block.
+
 ## Documents and background work
 
 Text supports multiple documents in one application process. Choose File → New
@@ -571,3 +636,91 @@ separate synchronous paths; the automatic lifecycle receipt measures the tested
 normal launch/render/close path, not every possible desktop operation. Shared-address-space exclusion still
 applies if the worker itself owns filesystem I/O; the RAM executable test does
 not promise bounded launch latency for disk-backed executables.
+
+### Attended desktop under automatic audio and USB load
+
+The Air6,1 v77 `--desktop-audio-io-attended` profile requires the explicit
+battery/services profile. Help opens the complete checklist automatically.
+Continuous PCM and unpaced verified filesystem work run for 30 minutes using
+the existing worker. The user exercises windows, dock, Text and Files; automatic
+app cycling is deliberately absent so it cannot close user-owned documents.
+The separate v74 unattended app-cycle acceptance requirement remains unchanged.
+
+Completion stops the load, displays a notice and leaves the desktop open.
+Save notes/screenshots and return normally, optionally reopen with `desktop
+battery`, then unmount Home and reboot manually. Early exit is incomplete, never
+a pass. The attended receipt requires completed load, keyboard/pointer activity,
+normal exit, no child errors and the unchanged 500 ms desktop loop bound; visual
+and listening acceptance still require the user's observations. Normal client
+limits, filesystem validation, firmware gates and battery retirement are retained.
+The native profile has no whole-desktop time limit; the worker and its playback
+watchdog remain bounded. A separate 60-second VM mode checks completion and early
+exit without altering the native duration.
+
+### Screenshot and operation diagnostics during stress
+
+The explicit v74 audio/disk/app trial now captures three screenshots during
+30-minute playback (one in the 60-second VM fixture), continues app cycles, and
+opens/closes a fresh Files instance after capture completion, then requests
+cooperative desktop exit after playback. This final Files check retains the
+10-second app-cycle bound and is separate from the cycles during playback. A pass requires all
+requested captures, verified saves, app-cycle coverage and normal exit, in
+addition to the unchanged 500 ms loop, 5 s client and 10 s app-cycle limits.
+The playback, client and owner watchdogs are unchanged.
+
+Matched capture protocol version 2 carries bounded progress frames separately
+from final save acknowledgement. Phases 1–12 are receive, encode, prepare, write,
+file fsync/close, temporary sync, temporary verification, identity-checked rename,
+final sync, final verification, cleanup and memory release. Progress never means
+success and loss of its reader does not cancel an accepted file write. The
+parent retains phase durations, progress age and immutable byte-transfer counts.
+All original temporary ownership, destination checks, flush and readback remain.
+
+Stress-only diagnostic output uses a separate joined worker and fixed snapshot
+slot, so blocked app launch does not itself block status emission. Every ten
+seconds and at exit, `desktop-operations`, `desktop-capture-state` and
+`desktop-capture-phases` records retain pending launch/close/exit ages, capture
+state and the slowest completed capture. `snapshot_us` correlates records; a
+partial record set never counts as completed evidence. `operation_timing.py`
+can recover the latest complete periodic snapshot from failed runs, while
+acceptance requires final records. Ordinary desktop policy remains unchanged.
+
+### Bounded screenshot pipe transfers under storage load
+
+Screenshot request pixels and progress replies use nonblocking transfers bounded
+by the existing 4096-byte `SRV_PIPE_BUF`. The worker waits on readiness for short
+I/O/EAGAIN and retries interruptions; immutable parent pixels, the four-chunk UI
+poll budget, pipe capacity, capture size, write/flush/readback/identity checks and
+accepted writer lifetime are unchanged.
+
+Only IRQ-disabled pipe byte operations that cannot block, release transferred
+file rights or deliver broken-pipe signals bypass the storage retry gate. Reads
+with queued rights, writes with no readers, PTYs, blocking descriptors, larger
+requests and invalid handles retain existing admission. User-memory validation,
+same-process storage exclusion, cancellation and retirement gates remain in force.
+The stress profile still takes three captures and retains worker/launch/exit
+diagnostics; no performance or owner deadline is raised.
+
+Screenshot completion in the compositor transfers its pipe descriptors, immutable
+snapshot and worker identity to a fixed lifecycle-worker slot. The desktop keeps
+capture busy until close/unmap and worker retirement are published with
+release/acquire ordering; shutdown joins and drains accepted work. Completion
+polling itself only transfers and validates bounded protocol bytes. Other capture
+library clients retain their existing synchronous wrapper. Periodic/final
+`desktop-capture-cleanup` records retain close, unmap and reap durations.
+
+Explicit audio/disk stress may read `Home/audio-io-volume.conf` before playback.
+The optional input contains a percentage (1–100) and UTC expiry seconds, at most
+24 hours ahead. Active input is checked against the audio status and logged;
+expired input leaves normal volume unchanged, malformed input refuses playback.
+It does not alter ordinary audio defaults, PCM samples or workload limits.
+
+Files enumeration uses bounded `SRV_DIRECTORY_READ_INFO` batches of up to sixteen
+names, inode/type, current size and modification time. Each batch stays behind
+the existing storage gate and snapshots metadata in the same IRQ-excluded turn;
+it never reads file contents or calls a storage backend. Open dirty file sizes
+remain visible just as with stat. Directory cookies remain shared with dup/fork,
+seek and ordinary readdir; mutation between batches retains unspecified ordering.
+The desktop worker preserves its 256-entry limit, path bounds, error handling and
+complete-response validation. This removes per-entry readdir/stat admission waits
+without admitting metadata access inside another storage owner's operation.

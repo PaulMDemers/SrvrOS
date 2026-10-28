@@ -22,21 +22,81 @@ struct life_launch {
     int application,child_slot;
     char path[160],home[160];
     long pid;
-    uint64_t elapsed;
+    uint64_t elapsed,queued_us;
 };
+struct life_capture { unsigned state;int result;struct desk_capture_job job; };
 struct lifecycle_worker {
-    pthread_t thread;
-    unsigned stop;
+    pthread_t thread,report_thread;
+    unsigned stop,report_state,report_stop,report_started;
+    unsigned work_event,report_event;
+    struct loop_trace report;
+    struct operation_trace operations;
+    struct life_capture capture;
     struct life_memory memory[LIFE_MEMORY_SLOTS];
     struct life_launch launch[LIFE_LAUNCH_SLOTS];
 };
 static unsigned life_state(const unsigned *state) { return __atomic_load_n(state,__ATOMIC_ACQUIRE); }
 static void life_publish(unsigned *state,unsigned value) { __atomic_store_n(state,value,__ATOMIC_RELEASE); }
+/* A latched event coalesces producers without losing publication before sleep.
+ * Clear before scanning, then wait only while still zero. The kernel's futex
+ * compare-and-sleep closes the final producer/wait race. Work records retain
+ * their own release/acquire ownership; this word is only a wake hint. */
+static void life_notify(unsigned *event) {
+    if(!__atomic_exchange_n(event,1,__ATOMIC_RELEASE))
+        (void)srv_futex_wake((uint32_t *)event,1);
+}
+static void life_clear(unsigned *event) { (void)__atomic_exchange_n(event,0,__ATOMIC_ACQUIRE); }
+static void life_wait(unsigned *event) {
+    long result=srv_futex_wait((uint32_t *)event,0,0);
+    /* Interrupted/refused waits must not become an empty-queue busy loop.
+     * Retry with the old cadence only on failure without a latched producer. */
+    if(result<0 && !life_state(event))srv_sleep_ticks(1);
+}
+static void life_queue(struct lifecycle_worker *w,unsigned *state,unsigned value) {
+    life_publish(state,value);life_notify(&w->work_event);
+}
+/* One fixed slot: never overwrite a snapshot while the worker is emitting it.
+ * A busy slot causes a retry next loop; only the UI owns the live accumulator. */
+static int life_report_submit(struct lifecycle_worker *w,const struct loop_trace *trace,const struct operation_trace *operations) {
+    if(!trace->samples || life_state(&w->report_state)!=LIFE_IDLE)return 0;
+    w->report=*trace;w->operations=*operations;life_publish(&w->report_state,LIFE_QUEUED);life_notify(&w->report_event);return 1;
+}
+static int life_capture_submit(struct lifecycle_worker *w,struct desk_capture_job *j,int result) {
+    if(!result || life_state(&w->capture.state)!=LIFE_IDLE)return 0;
+    w->capture.job=*j;w->capture.result=result;
+    /* Transfer every resource exactly once; UI retains diagnostic scalars only.
+     * Busy stays set until the worker publishes full resource retirement. */
+    j->reader=j->writer=-1;j->pixels=NULL;j->retiring_pid=j->pid?j->pid:j->retiring_pid;j->pid=0;
+    life_queue(w,&w->capture.state,LIFE_QUEUED);return 1;
+}
+static int life_capture_take(struct lifecycle_worker *w,struct desk_capture_job *j) {
+    if(life_state(&w->capture.state)!=LIFE_DONE)return 0;
+    *j=w->capture.job;int result=w->capture.result;
+    life_publish(&w->capture.state,LIFE_IDLE);return result;
+}
+static void life_capture_work(struct lifecycle_worker *w) {
+    struct life_capture *c=&w->capture;
+    if(life_state(&c->state)!=LIFE_QUEUED)return;
+    if(c->job.busy)desk_capture_job_close(&c->job);
+    if(c->job.retiring_pid) {
+        uint64_t at=(uint64_t)srv_monotonic_us();
+        (void)desk_capture_job_poll(&c->job);
+        uint64_t elapsed=(uint64_t)srv_monotonic_us()-at;
+        c->job.reap_us+=elapsed;c->job.cleanup_us+=elapsed;
+    }
+    if(!c->job.retiring_pid)life_publish(&c->state,LIFE_DONE);
+}
 static int life_reserved(const struct lifecycle_worker *w,int slot) {
     if(w)for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)if(life_state(&w->launch[n].state) && w->launch[n].child_slot==slot)return 1;
     return 0;
 }
+static void life_report_work(struct lifecycle_worker *w) {
+    if(life_state(&w->report_state)==LIFE_QUEUED) {
+        loop_trace_report(&w->report,0);operation_trace_report(&w->operations,0);life_publish(&w->report_state,LIFE_IDLE);
+    }
+}
 static void life_work(struct lifecycle_worker *w) {
+    life_capture_work(w);
     for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
         struct life_memory *m=&w->memory[n];
         if(life_state(&m->state)==LIFE_QUEUED) {
@@ -68,10 +128,41 @@ static void life_work(struct lifecycle_worker *w) {
 }
 static void *life_thread(void *arg) {
     struct lifecycle_worker *w=arg;
-    while(!life_state(&w->stop)) {life_work(w);srv_sleep_ticks(1);}
+    for(;;) {
+        life_clear(&w->work_event);
+        if(life_state(&w->stop))break;
+        life_work(w);
+        /* An admitted screenshot still owns its child/resources. Preserve the
+         * existing retry cadence until retirement; empty queues need no timer. */
+        if(life_state(&w->capture.state)==LIFE_QUEUED)srv_sleep_ticks(1);
+        else life_wait(&w->work_event);
+    }
     /* Shutdown joins before stack/session storage or mappings are released. */
-    life_work(w);return NULL;
+    do {life_work(w);if(life_state(&w->capture.state)==LIFE_QUEUED)srv_sleep_ticks(1);}
+    while(life_state(&w->capture.state)==LIFE_QUEUED);
+    return NULL;
 }
-static int life_start(struct lifecycle_worker *w) { return pthread_create(&w->thread,NULL,life_thread,w); }
-static int life_stop(struct lifecycle_worker *w) { life_publish(&w->stop,1);return pthread_join(w->thread,NULL); }
+static void *life_report_thread(void *arg) {
+    struct lifecycle_worker *w=arg;
+    for(;;) {
+        life_clear(&w->report_event);
+        if(life_state(&w->report_stop))break;
+        life_report_work(w);life_wait(&w->report_event);
+    }
+    life_report_work(w);return NULL;
+}
+static int life_start(struct lifecycle_worker *w,int diagnostics) {
+    if(diagnostics) {
+        if(pthread_create(&w->report_thread,NULL,life_report_thread,w))return -1;
+        w->report_started=1;
+    }
+    int result=pthread_create(&w->thread,NULL,life_thread,w);
+    if(result && w->report_started){life_publish(&w->report_stop,1);life_notify(&w->report_event);pthread_join(w->report_thread,NULL);w->report_started=0;}
+    return result;
+}
+static int life_stop(struct lifecycle_worker *w) {
+    life_queue(w,&w->stop,1);int result=pthread_join(w->thread,NULL);if(result)return result;
+    if(w->report_started){life_publish(&w->report_stop,1);life_notify(&w->report_event);return pthread_join(w->report_thread,NULL);}
+    return 0;
+}
 #endif

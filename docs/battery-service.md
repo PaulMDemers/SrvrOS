@@ -1396,3 +1396,42 @@ and Ubuntu displayed 85%. Ubuntu's installed `acpi-sbs` reader table was verifie
 to request `0x0e`, consistent with [Linux's SBS driver](https://raw.githubusercontent.com/torvalds/linux/master/drivers/acpi/sbs.c).
 The post-return remaining/full capacity values matched across OSes. This explains
 the comparison; it does not establish calibrated accuracy or battery health.
+
+
+## Ordinary desktop supervisor event waits
+
+The lifetime-owned ordinary Home session supervisor waits on the kernel process
+wait queue instead of sleeping every ten milliseconds. The wait does not reap:
+it uses the same caller/target ownership predicates as `process_wait`, checks
+for queued controls and invalid mount ownership atomically before sleeping, and
+returns for the original absolute diagnostic deadline. Start/Stop publications
+notify after mailbox admission; query/refused operations do not notify. Process
+retirement already notifies this queue. Spurious process events merely cause a
+fresh pass through the unchanged checks and cannot restart a deadline.
+
+While the mount hold is live, mount/unmount/parking refuse identity changes and
+registered block parent identities are stable. Successful hold release publishes
+invalidation before notifying the same queue. Stale or mismatched release cannot
+unpin it. Mount identity is still validated before every dispatch and before
+sleep. Native service ownership checks and firmware/IRQ watchdogs are unchanged;
+no wake can confer an ownership capability. Failed waits use the existing bounded
+sleep fallback. Capture/study loops that inspect battery progress, legacy tree
+scans and client/service retirement retain their previous behavior and limits.
+
+Host process-event tests cover owner/foreign/stale targets without reaping,
+publication at the sleep boundary, notifications after blocking, absolute timeouts
+and wait refusal. Workspace tests check release notification with existing stale
+hold and mount refusal cases. The ordinary Home VM's `--supervisor-controls`
+option drives two actual System Stop/Start cycles, sleeps between commands,
+checks four dispatched requests and three clean epochs, then retires/reopens the
+desktop. The existing alarm-volume threshold remains unchanged, with fresh samples
+required after each restart. The automatic reopen fixture exercises the unchanged
+20-second deadline; the power fixture retains its 300-second owner watchdog.
+
+
+Air6,1 release `aa576838270d623a` subsequently passes the native v78 repeat with
+13 app cycles and clean battery retirement: zero supervisor timer wakes in all
+covered phases, no supervisor switches during idle/recovery, and 25 event wakes
+during app work. The unchanged 500 ms UI loop bound is met at 110.061 ms worst.
+The [unit record](machines/macbookair6-1.md) owns physical acceptance and its
+power-measurement limits; no firmware watchdog or sampling cadence changed.

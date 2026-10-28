@@ -18,7 +18,9 @@ no mockup or browser UI. [More screenshots and provenance](docs/screenshots.md).
 ## What works today
 
 - **Native desktop:** global menus, dock, launcher, movable/resizable windows,
-  maximize/restore, tiling, clipboard, context menus, notifications and screenshots.
+  maximize/restore, tiling, running-window dock indicators and restore/cycling,
+  Alt-Tab and same-app switching, keyboard menus, owned Close dialogs, clipboard,
+  context menus, notifications and screenshots.
 - **Twelve apps:** Files, Text, Terminal, Preview, Sketch, Find Files, Calculator,
   System, Network Utility, Settings, Clock and Help. Controls live in a
   [shared widget library](userspace/widgets/README.md).

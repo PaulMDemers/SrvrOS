@@ -1,6 +1,216 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
+
+### Shared baseline refresh — local validation complete
+
+Consumed actual main `f5917467` (PR226), then documentation-only `a2a2c56f`
+(PR228), on the existing device branch. All prior
+Air7,2 implementation and acceptance commits are merged; the checkout was clean
+with no local commits outside main. PR182 filesystem audit and PR19 Pro Wi-Fi
+remain separate ongoing work, not accepted dependencies. This housekeeping block
+owns current documentation and local validation only: rebuild matched normal/
+native/VM artifacts, run core/desktop hosts and affected serial VM consumers,
+remove stale future-trial wording and publish a coherent documentation checkpoint.
+Installed accepted `060fffa453e26d5e` and independent `9aa8dbf6fbda8252` recovery
+are untouched. New shared power/idle/screenshot behavior does not inherit the
+older payload's physical acceptance. No stage, install or reboot is planned.
+Local gates pass: `make -j2 test-core test-desktop all acpi-battery-kernel
+acpi-battery-vm-kernel check-docs`, the Air6,1 synthetic VM kernel build,
+window-command/navigation/dock VM (exact three files, process baseline and clean
+offline allocation), ten-second console/desktop idle with post-idle titlebar drag,
+and synthetic desktop power/battery app/recovery phases with clean retirement,
+prior-file preservation, allocation and automatic guest return. Normal/native/VM
+artifacts are matched to the unchanged runtime base `f5917467`. The first two VM
+receipts include concurrent Markdown-only edits; no runtime source changed.
+The power VM ran clean source `b21c6c58`. These checks establish local integration,
+not Air7,2 power savings or fresh physical acceptance. PR229 carries this refresh.
+Evidence: `build/baseline-sync-20261027/`, with a hash-verified durable copy outside
+build under `~/.local/share/srvros/reviewed-evidence/baseline-sync-20261027/`.
+
+### Focused Close/window-list trial — bounded hardware smoke accepted
+
+Release `060fffa453e26d5e`, clean source `bd94284a` on PR201 main `5db81dd5`,
+returned in tested `session-00065ed4b3827d6c-00`. The tester reports opening apps,
+using modals/hotkeys and dismissing them normally, with no defects noticed. This
+accepts the bounded attended Close/window-list smoke; it is not an independent
+attestation of every Save/Discard/Cancel subcase, audio or active endurance.
+The automatically opened Help checklist has no timer and remains available.
+
+All four matching logs are copied/verified, exit is present and collector
+attention is empty. Desktop lifetime drained to zero members (peak thirteen)
+and released; battery retirement reports zero heap, errors, denied accesses and
+rejected samples. One ten-byte test document was recovered, plus four logs;
+there are no new screenshots. All 1,135 prior non-metadata files retain their
+hashes, only `.srvros/meta` changed, and no files were deleted. Offline fsck,
+allocation and headroom pass: 1,141 files / 2,879 clusters, zero leaks, bitmap
+mismatches or errors. File persistence is observed; a fresh reopen is not
+independently established by the retained logs.
+
+The initial `session-00065ec9dc6970fb-00` was explicitly not tested and lacks
+an exit log. It remains incomplete historical evidence, separate from this
+successful retry. Installed payload, consumed one-shot, Ubuntu default and
+independent `9aa8dbf6fbda8252` recovery are verified. The accepted payload and
+bounded acceptance note are backed up outside build, with prior `1d36da62e183a295`
+and archived/known-good a906 retained. Evidence and run state live under
+`build/window-commands-native-20261026/` with a verified durable copy.
+No next boot is armed. Actual main `3bbf80b7` was fetched/inspected after return;
+its newer idle/power/screenshot work was not in this tested release and does not
+inherit its acceptance. Build/test that integration before another native stage.
+
+### Window commands and discovery — implementation and local validation
+
+PR201 consumes actual main `a9d69554` (PR197/199), local merge `31d519f1`.
+Implementation `3467439b` adds standard **Window > Close window / Command-W**
+through the existing cooperative close request. Unsaved decisions remain app-owned;
+repeated requests cannot bypass them, and closing an owned dialog cancels it.
+Control shortcuts remain application-owned. Window/launcher lists now share
+UTF-8-safe minimized labels, omit duplicate dialog tasks and mark the parent
+when its dialog is focused. Existing dynamic storage and protocol v15 are reused.
+No driver, audio, firmware gate or resource budget changes are included.
+
+Full desktop/widget hosts and normal build pass on the consumed shared baseline.
+Focused host and ASan/UBSan session gates pass modal close/cancel requests,
+deduplication, Ctrl-W passthrough, parent checkmark, complete root discovery and
+multibyte label truncation. The actual command consumer passes the prior movement/
+dock/navigation checks plus unsaved Text close/cancel via Command-W, Preview close
+through the Window menu, exact files, process baseline and offline integrity.
+Terminal's real-shell/clipboard/Ctrl-C/close-cancel gate, pointer/lifecycle and
+context-menu VMs also pass. Final Help shortcut prose and stronger UTF-8 fixture
+were rebuilt/rechecked after those VMs; compositor behavior is unchanged.
+
+Evidence: `build/window-commands-20261026/`, with a verified durable copy outside
+build. The focused bounded native smoke is recorded above; broader subcases remain
+scoped to their evidence. Installed accepted payload is `060fffa453e26d5e`;
+independent recovery remains `9aa8dbf6fbda8252`. PR182 filesystem/PR19 Wi-Fi remain
+separate. No next boot is armed.
+
+### Combined navigation trial — bounded general smoke accepted
+
+Release `1d36da62e183a295`, clean source `8847894a`, returned in
+`session-00065ec78173ab2c-00`. All four logs were copied/verified; exit is present
+and collector attention is empty. The desktop lifetime drained/released and
+battery retirement has zero heap, errors, denied accesses and rejected samples.
+The tester reports a general smoke test working normally, including Alt-Tab.
+This accepts that bounded reported window/dock/navigation smoke, not exhaustive
+completion of every guide subsection or a new save/reopen/audio/endurance test.
+
+Only four session logs were added. All 1,128 prior non-metadata files retain their
+hashes; only `.srvros/meta` changed. No new documents or screenshots were found.
+Offline fsck/allocation/headroom pass: 1,133 files / 2,869 clusters, zero leaks,
+bitmap mismatches or errors. Ubuntu default, consumed one-shot, installed payload
+and independent recovery are verified. Accepted payload was copied/hash-verified
+outside build with the bounded acceptance note; prior `a90629c8a2060e66` and
+recovery `9aa8dbf6fbda8252` are retained. The unreferenced `986d6c68fa19ba18`
+payload remains archived and known-good. Evidence/run state is in
+`build/window-navigation-native-20261026/` and its durable copy. No boot is armed.
+
+### Window switching and keyboard navigation — implementation and local gates
+
+PR198 follows main `43aff7d5` (PR194). Source `8847894a` implements a stable
+most-recent-window snapshot while Alt-Tab is held: Tab advances, Shift reverses,
+Alt release activates and Escape cancels. Minimized roots can restore; owned
+modals route through their document. Reused/retired identities cannot activate a
+replacement window, and new admissions do not steal a held selection.
+Command-grave / Command-Shift-grave visit the active app's roots in creation
+order; Command-M minimizes the parent/modal group. Minimize/retirement choose the
+most recent visible root without reviving other minimized windows. F10/Ctrl-F2
+and the existing menu navigation expose desktop/app commands. The switcher uses
+the reusable palette's selection-only mode and existing dynamic storage.
+
+Matched normal/native/VM builds, full desktop/widget hosts, 82 installer/profile
+checks and ASan/UBSan session coverage pass. An 80-entry host fixture checks MRU,
+reverse/cancel, stale identity refusal, same-app order, modal minimize/restore and
+all-hidden recovery. The actual navigation VM also passes PR194's offscreen/dock
+checks, real held-key selection, exact saved documents, focus after close, process
+baseline and offline exFAT integrity. Pointer/lifecycle, context-menu and legacy
+compositor consumers pass. Screenshots of switcher and guide were inspected.
+
+Candidate `1d36da62e183a295`, v76, was staged from clean `8847894a`. Exact
+GRUB -> staged Limine -> native-kernel Q35 rehearsal passes automatic untimed
+Help checklist delivery, saves, complete retirement, ordinary reopen and monitor
+reboot with clean filesystem checks. Q35 correctly refuses native battery and
+reports unavailable physical sensors; this does not accept native providers.
+The first guide fixture expected log messages in the wrong order; corrected
+coverage requires both complete markers in either order. Initial attempts remain
+retained in `build/window-navigation-20261026/` and verified outside build.
+
+The subsequent combined attended **Window navigation trial** at `1d36da62e183a295`
+is recorded above as a bounded general smoke, followed by the focused Close trial
+at `060fffa453e26d5e`. The staging and VM results here describe the earlier local
+gate, not an outstanding reboot. Installed accepted is now `060fffa453e26d5e`;
+independent recovery remains `9aa8dbf6fbda8252`. No boot is armed. Audio and
+exhaustive edge/pressure coverage remain outside these window trials.
+
+### Desktop movement and dock — implementation and local gates
+
+PR194 follows main `ab7a7c93`, after closing PR193 with the tester's non-audio
+report. Ordinary windows can move past the sides and bottom of the screen while
+retaining a reachable titlebar. Center, tiling and maximize provide recovery;
+owned dialogs still open visibly. Movement preserves surface dimensions.
+
+The dock includes running unpinned applications, running/active/minimized marks
+and main-window counts. Clicking restores or cycles main windows; secondary or
+Control-click opens the existing launcher filtered to that app's windows and
+New app. Owned dialogs retain focus routing. No new window table or limit is
+introduced. Changes are confined to compositor/scene/input/launcher, Help and
+focused fixtures; no audio, driver, kernel or protocol work is included.
+
+Full core/desktop builds and documentation checks pass. Scene ASan/UBSan and host
+coverage pass geometry extremes, clipping/stride guards, dock state, cycling,
+modal routing and closing groups. The actual QEMU consumer passes left/right/
+bottom movement, Center recovery, offscreen-parent dialogs, three-window cycling,
+minimized restore, temporary Preview/Help entries, the filtered chooser and first
+subsequent app click, ordinary launcher filter reset, exact saved files and clean
+process retirement. Offline exFAT checks pass. Existing pointer/lifecycle,
+context-menu and legacy compositor VMs also pass. Earlier fixture failures remain
+in local evidence; the final consumer requires graceful QMP exit and returns zero.
+
+Help contains an untimed **Window movement and dock trial**; the combined
+**Window navigation trial** supplies automatic checklist delivery. The subsequent
+bounded native general smoke is recorded above, separately from these local
+fixtures. Installed accepted is `060fffa453e26d5e`, with independent recovery
+`9aa8dbf6fbda8252`. PR182's filesystem audit and PR19's Wi-Fi remain separate.
+Evidence: `build/window-dock-20261026/`, with a verified durable copy outside build.
+No reboot is armed.
+
+### Shared application/window layer — bounded non-audio hardware acceptance
+
+Release `a90629c8a2060e66`, source `0858e8e6` (PR181 plus PR185), returned in
+`session-00065ec1cc8ad4c2-00`. All four matching logs are verified, the exit
+snapshot is present and collector attention is empty. The retained exit records
+show five Text models and one Files model admitted/retired, both file pools
+reaped, and the desktop lifetime drained to zero members (peak eleven).
+Battery retirement reports zero heap, errors, denied accesses and rejected
+samples. The session reached about five hours uptime; this does not establish a
+five-hour active workload or endurance result.
+
+Two saved documents and one screenshot were recovered. The screenshot shows
+both documents reopened alongside Files and the persistent guide. All 1,121
+prior non-metadata files retain their hashes; only `.srvros/meta` changed.
+Seven files were added: the documents, screenshot and four session logs.
+Read-only fsck, allocation and headroom pass: 1,129 files / 2,864 clusters,
+zero leaks, bitmap mismatches or errors. Ubuntu default, consumed one-shot,
+installed payload/cache hashes and independent recovery remain verified.
+
+The tester confirms completing every checklist section except sound, with all
+completed behavior working properly. This accepts the reported Text and Files
+window/dialog/command behavior, Terminal controls and cancellation for this
+bounded release. Ordinary reopen is tester-reported; only one new session is
+present in the collector, so a second logged lifetime is not separately proved.
+No PCM stream is recorded (`handle=0`, submitted/position zero); native playback
+and app/save overlap remain deferred while another device tests audio. That
+device cannot accept Air7,2 sound. New feedback requests offscreen window movement
+and clearer dock running/restore affordances; neither is in this payload.
+Current installed remains `a90629c8a2060e66`, recovery `9aa8dbf6fbda8252`;
+accepted prior payload `986d6c68fa19ba18` remains backed up. Matching evidence and
+new files are under `build/app-window-native-20261026/`, with durable copies
+outside build. No next boot is armed.
+
+For the next work block, the device branch consumes actual main `33edbafc`
+(PR184–192 pipe-admission and retained wait/scheduler diagnostics, plus private
+child-image ownership). Those later changes were not in this native payload.
+PR182's filesystem audit and PR19's Wi-Fi remain separate active scopes.
 
 ### Shared application/window layer — implementation and local consumer validation
 
@@ -4948,7 +5158,11 @@ The subsequent guided round above completes bounded discharge and AC-change
 acceptance. Next is a cached desktop provider with clearly labeled gauge/health
 data. Keep EC work on the serialized worker and preserve the accepted diagnostics.
 
-## Accepted scope and open items
+## Historical October 19–20 scope and open items
+
+This table records the early checkpoint. Later acceptance above supersedes its
+pending input, PCM/headphone, battery-provider and Ethernet entries; it is not
+the current capability ledger. Consult the current status and latest run first.
 
 | Capability | State | Evidence / limit |
 | --- | --- | --- |
@@ -4968,7 +5182,7 @@ data. Keep EC work on the serialized worker and preserve the accepted diagnostic
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
-## Latest interactive physical record
+## Historical October 19 interactive physical record
 
 Release `5282cfde546ea2b5`, v22, source `dad7aa8`, contains the Terminal cursor
 correction `c6e5538`. The user reports that the character artifact appears
@@ -5023,7 +5237,7 @@ and the independent held-drag backup is under
 before any action; these are historical identifiers, not values for other Macs.
 The local trial record marks this run returned/reviewed, not armed for reboot.
 
-## Next actions
+## Historical October 19 next actions
 
 Current shared-code work is on `device/macbookair7-2/reliability-input-power`
 from `main` at `3b0b43a`: physical click latching, compositor delivery deadlines,
@@ -5083,7 +5297,7 @@ POLL through C10 as enabled. These are Linux policy observations, not SrvrOS
 energy or deeper-idle acceptance. The [power guide](../power-telemetry.md)
 documents units, non-atomic capture and missing-field semantics.
 
-## Latest automated power record
+## Historical automated power record
 
 Release `ed93e03b2585dcaf`, source `0f2038a`, session
 `session-00065e38449c2146-00` completed its 60-second Text idle capture and returned

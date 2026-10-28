@@ -1,3 +1,4 @@
+#include <srvros/battery_supervisor.h>
 #include "battery_bounded_policy.h"
 #include "battery_startup_timing.h"
 /* Bounded battery/AC diagnostic. Full runtime, linked separately from the
@@ -86,8 +87,9 @@ static bool mounted_home;
 static bool smbus_transitions;
 static bool continuous_home, desktop_home, desktop_capture, desktop_transitions, desktop_session, desktop_work;
 static uint64_t home_session_events;
-static bool desktop_reopen_test, desktop_capacity_test, desktop_lifecycle_trial;
+static bool desktop_reopen_test, desktop_capacity_test, desktop_lifecycle_trial, desktop_navigation_trial;
 static unsigned desktop_audio_io_test;
+static bool desktop_power_test;
 static bool compact_smbus_records(void) { return smbus_files || (mounted_home && smbus_controls); }
 static struct battery_service_status smbus_files_snapshot;
 static struct block_device *query_capture_volume;
@@ -1269,6 +1271,7 @@ int battery_control_request(uint64_t group,unsigned operation,uint64_t epoch,str
     battery_service_status(&status);
     int result=battery_control_enqueue(&controls,group,operation,epoch,&status);
     *out=battery_control_view(&controls,group,status.epoch);
+    if(result==0 && operation && controls.operation)process_wait_notify();
     irq_restore(f);return result;
 }
 /* Called only by the scoped session owner, outside syscalls and storage work. */
@@ -1752,6 +1755,21 @@ done:
     }
     return ok;
 }
+struct supervisor_wait { uint64_t hold,end; };
+static bool supervisor_pending(void *arg) {
+    const struct supervisor_wait *wait=arg;
+    return controls.operation || !workspace_mount_hold_valid(wait->hold) ||
+        (wait->end && timer_monotonic_us()>=wait->end);
+}
+/* Only ordinary lifetime-owned sessions: no sample/guard observation is owed
+ * between events. The held mount is immutable until explicit release, which
+ * notifies the process wait queue; mailbox producers and process retirement
+ * publish on the same queue. Service/firmware watchdogs remain independent. */
+static void supervisor_wait(uint64_t pid,uint64_t end) {
+    struct supervisor_wait wait={smbus_workspace_hold,end};
+    uint64_t due=battery_supervisor_tick_deadline(timer_monotonic_us(),timer_ticks(),end);
+    if(!process_wait_event(pid,supervisor_pending,&wait,due))uacpi_kernel_sleep(10);
+}
 /* Scope lasts for this desktop process group only. Explicit Home controls
  * retain the accepted native mount boundary across every service lifetime.
  * Cached reads never confer this capability, and no userspace owns firmware. */
@@ -1761,7 +1779,7 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     if(!free)return false;
     uint64_t lifetime=continuous_home?process_lifetime_create():0;
     if(continuous_home && !lifetime)return false;
-    const char *arguments=desktop_lifecycle_trial?"--lifecycle-trial":desktop_audio_io_test?(desktop_audio_io_test==1?"--audio-io-stress":"--audio-io-smoke"):desktop_capacity_test?"--capacity-capture":desktop_work?"--battery-work-capture":desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
+    const char *arguments=desktop_power_test?"--power-phases":desktop_navigation_trial?"--navigation-trial":desktop_lifecycle_trial?"--lifecycle-trial":desktop_audio_io_test?(desktop_audio_io_test==4?"--audio-io-attended-smoke":desktop_audio_io_test==3?"--audio-io-attended":desktop_audio_io_test==1?"--audio-io-stress":"--audio-io-smoke"):desktop_capacity_test?"--capacity-capture":desktop_work?"--battery-work-capture":desktop_transitions?"--battery-transition-capture":desktop_capture?"--battery-idle-capture":desktop_home?"--home-apps":continuous_home?"--battery-monitor":files==2?"--battery-control-files-cancel":files?"--battery-control-files":automatic?"--battery-controls":"--battery-controls-manual";
     int64_t child=lifetime?process_lifetime_spawn(lifetime,"/fat/bin/deskd",arguments):
         process_spawn_background_elf_args("/fat/bin/deskd",arguments);
     if(child<=0) {
@@ -1775,6 +1793,10 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
     uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false,guarded=false;
     uint64_t capture_start=timer_monotonic_us(),first_generation=0,last_generation=0;
+    bool event_supervisor=workspace && lifetime && desktop_session && !desktop_capture;
+    uint64_t supervision_limit=battery_supervisor_limit(desktop_reopen_test,desktop_power_test,
+        desktop_audio_io_test,desktop_capacity_test);
+    uint64_t supervision_end=supervision_limit?capture_start+supervision_limit:0;
     if(bound && continuous_home) {
         bool started=battery_service_start(rsdp,map);
         console_printf("battery-monitor: auto_start=%u native=%s\n",(uint64_t)started,desktop_capture?"explicit-capture":desktop_session?"explicit-session":"disabled");
@@ -1807,14 +1829,16 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
             break; /* Normal lifetime revocation/drain below; no app edits. */
         }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0 && !desktop_reopen_test;break;}
-        if(desktop_audio_io_test && timer_monotonic_us()-capture_start>=(desktop_audio_io_test==1?1950000000ull:210000000ull)) {
+        if(desktop_power_test && timer_monotonic_us()-capture_start>=300000000ull) { console_write("desktop-power: owner deadline exceeded\n");break; }
+        if(desktop_audio_io_test && desktop_audio_io_test<3 && timer_monotonic_us()-capture_start>=(desktop_audio_io_test==1?1950000000ull:210000000ull)) {
             console_write("desktop-audio-io: owner deadline exceeded\n");break;
         }
         if(desktop_capacity_test && timer_monotonic_us()-capture_start>=240000000) {
             console_write("desktop-capacity: owner deadline exceeded\n");break;
         }
         if(!continuous_home && timer_monotonic_us()>=deadline)break;
-        uacpi_kernel_sleep(10);
+        if(event_supervisor)supervisor_wait(pid,supervision_end);
+        else uacpi_kernel_sleep(10);
     }
     if(desktop_capture) {
         uint64_t elapsed=timer_monotonic_us()-capture_start;
@@ -2306,7 +2330,7 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     else if(desktop_session)console_write("battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=explicit-session\n");
     else if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
     if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
-    bool logging=!desktop_home || (desktop_capture?workspace_log_active():workspace_log_start());
+    bool logging=!desktop_home || (desktop_capture?workspace_log_active():desktop_power_test?workspace_log_start_capture():workspace_log_start());
     if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=%s\n",logging?"started":"FAILED",desktop_capture?"explicit-capture":desktop_session?"explicit-session":"disabled");
     bool complete=logging && controls_test(rsdp,map,automatic,true,files);
     if(desktop_home) {
@@ -2358,6 +2382,13 @@ bool battery_home_desktop_reopen_session_run(void *rsdp,struct limine_memmap_res
     desktop_reopen_test=true;
     bool ok=battery_home_desktop_session_run(rsdp,map);
     desktop_reopen_test=false;
+    return ok;
+}
+bool battery_home_desktop_navigation_session_run(void *rsdp,struct limine_memmap_response *map) {
+    if(desktop_navigation_trial || desktop_lifecycle_trial || desktop_capacity_test || desktop_reopen_test)return false;
+    desktop_navigation_trial=true;
+    bool ok=battery_home_desktop_session_run(rsdp,map);
+    desktop_navigation_trial=false;
     return ok;
 }
 bool battery_home_desktop_lifecycle_session_run(void *rsdp,struct limine_memmap_response *map) {
@@ -2518,3 +2549,11 @@ static bool audio_io_session(void *r,struct limine_memmap_response *m,unsigned m
 }
 bool battery_home_desktop_audio_io_session_run(void *r,struct limine_memmap_response *m) {return audio_io_session(r,m,1);}
 bool battery_home_desktop_audio_io_smoke_run(void *r,struct limine_memmap_response *m) {return audio_io_session(r,m,2);}
+bool battery_home_desktop_audio_io_attended_run(void *r,struct limine_memmap_response *m) {return audio_io_session(r,m,3);}
+bool battery_home_desktop_audio_io_attended_smoke_run(void *r,struct limine_memmap_response *m) {return audio_io_session(r,m,4);}
+
+bool battery_home_desktop_power_session_run(void *r,struct limine_memmap_response *m) {
+    if(desktop_power_test || desktop_audio_io_test || desktop_capacity_test || desktop_reopen_test)return false;
+    desktop_power_test=true;bool ok=battery_home_desktop_session_run(r,m);
+    desktop_power_test=false;return ok;
+}
