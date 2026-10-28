@@ -108,8 +108,9 @@ static void report_save(void) {
     previous_save.pending=false;
 }
 static bool save(const char *name) {
-    struct power_snapshot power;power_status(&power);
-    bool measured=power.state!=POWER_DISABLED && timer_reference_ready();
+    /* Save latency is a clock measurement, independent of optional MSR power
+     * telemetry. Ordinary desktop stress needs these intervals too. */
+    bool measured=timer_reference_ready();
     uint64_t start=measured?timer_monotonic_us():0;
     report_save();
     device_checkpoint();
