@@ -4875,3 +4875,17 @@ No general SMP scheduling or permanent idle-policy change is implied.
 This investigation changes documentation only. Installed C3 diagnostic
 `980f4936c6282637` and console recovery `c35475f62f154f1e` still hash-verify;
 Ubuntu remains default, the one-shot is empty and no new reboot is armed.
+
+
+### Secondary-CPU ownership diagnostic — active scope (2026-10-28)
+
+Base `5a94d755`; PR182 filesystem (`29df1192`) and PR19 Wi-Fi (`b8d63682`)
+remain independent. Implement a separate MP-request kernel/staging profile,
+private AP stacks/GDT/TSS/fault IDTs and static coherent mailboxes. No AP joins
+scheduler/allocator/console or changes power MSRs. Prove 32 ordered wake/ack
+exchanges per AP under the unchanged 20 ms bound, then terminal retirement;
+retain all AP and bootloader storage until reset, including failure paths.
+Ordinary kernel has no MP request. Scope: diagnostic kernel objects, bounded
+BSP capture hook, staging/parser and directed host/multi-CPU VM tests. Next:
+validate normal/fault/refusal paths, self-merge and exact-stage automated native
+capture with USB saved receipts and Ubuntu recovery. C3 is not requested. See the [ownership diagnostic contract](../ap-ownership-diagnostic.md).
