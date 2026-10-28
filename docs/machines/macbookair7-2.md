@@ -2,6 +2,40 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Eighth endurance return — long owner identified (2026-10-28)
+
+Release `b70f04d3166380e2`, clean `a8da6076` (PR #250), returned automatically
+from `session-00065eeda3a00e66-00`. The first Text app (PID8) misses its startup
+deadline: zero completed cycles, maximum UI loop 100908 us, zero observed PCM
+underruns, incomplete screenshot and clean native battery retirement. Three
+complete saved owner snapshots validate 13 distinct long scopes. PID7, the
+separate disk-stress child, owns serialization from 18942270 to 26078440 us
+(7136170 us, 6784 READY selection refusals). A subsequent logger save runs
+26078942–29531547 us, including 3402316 us writing and 720 us syncing. Text first
+enters main at 29531575 us, after its deadline. This identifies contributing
+owners and intervals, not a particular syscall, command or CPU cost.
+
+All 1206 prior files are preserved except metadata; offline fsck/allocation pass
+(1210 files, 3246 clusters, zero errors). Ubuntu default, independent recovery
+and consumed one-shot are verified. Installed remains this diagnostic candidate;
+no new reboot is armed and endurance remains unaccepted.
+
+Next work is a bounded storage/admission proposal, not another identical reboot.
+A large file mutation currently retains the scheduler gate across device waits;
+audited UI services may run, while new/retiring kernel continuations must wait.
+Source review confirms the disk child uses ordinary 256 KiB write/fsync/rename/
+readback/delete/sync cycles, and exFAT serializes complete mutations, including
+dirty/clean flags and physical durability barriers. Do not shorten the workload,
+weaken those barriers, expose partial metadata, widen unsafe kernel admission or
+raise the existing deadlines. Establish which operation holds the long scope,
+then separate long device work from short shared-state transitions with explicit
+file/mount ownership, error retention and concurrent app regression coverage.
+That implementation overlaps PR #182 (`c5e9d2ac`) in process/syscall/exFAT/block;
+its owner remains independent of the user-assigned logger-only fix. Prepare the
+reproduction/proposal and resolve shared ownership before conflicting integration.
+PR #19 Wi-Fi remains independent. The remaining admission/performance fix is not
+claimed by these diagnostic results.
+
 ### Seventh endurance return — scoped logger barrier (2026-10-28)
 
 Release `3b5821fefe34b721`, clean `bb8561f7` (PR #247), returned automatically
