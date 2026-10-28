@@ -41,6 +41,14 @@ Main `6cbfedab` / PR237 adds Air6,1 coordinated core-C3 acceptance documentation
 only; it is consumed without changing Broadwell admission or this workload.
 Window-command and exact-stage checks precede the automatic native retry.
 
+Window-command VM checks pass after the worker changes: offscreen recovery,
+window switching, minimized/dock lifetime, modal filtering, exact files, process
+baseline and offline allocation. Exact v80 release `5f4ed45c3634e22a` (clean
+`99e4412d`) passes GRUB/native Q35 ownership refusal/save/unmount/reset. The
+native retry must collect matching completion, file/capture/lifecycle receipts
+and integrity before acceptance. All 1177 existing files are hashed; independent
+recovery remains `9aa8dbf6fbda8252`. No human input is required for this replay.
+
 ### Parity endurance — early native failure under investigation (2026-10-28)
 
 Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from
